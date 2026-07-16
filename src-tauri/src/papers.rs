@@ -1,5 +1,5 @@
 use crate::commands;
-use crate::models::ImportResult;
+use crate::models::{ImportResult, PaperSummary};
 use crate::project;
 use regex::Regex;
 use serde_json::Value;
@@ -38,6 +38,7 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
         .map_err(|error| format!("Could not start arxiv2md: {error}"))?;
     ensure_success("arxiv2md", &markdown_output)?;
     let markdown = fs::read_to_string(&markdown_path).map_err(err)?;
+    let title = parse_title(&markdown).unwrap_or_else(|| format!("arXiv {arxiv_id}"));
 
     let citation_output = run_bibcite(&bibliography_path, &arxiv_id)?;
     let bibliography = fs::read_to_string(&bibliography_path).map_err(err)?;
@@ -55,13 +56,14 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
 
     Ok(ImportResult {
         arxiv_id,
+        title,
         paper_path: paper_relative,
         citation_key,
         citation_output,
     })
 }
 
-pub fn list_papers(root: &Path) -> Result<Vec<String>, String> {
+pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
     let directory = root.join(".research/papers");
     if !directory.exists() {
         return Ok(Vec::new());
@@ -69,11 +71,17 @@ pub fn list_papers(root: &Path) -> Result<Vec<String>, String> {
     let mut papers = Vec::new();
     for entry in fs::read_dir(directory).map_err(err)? {
         let entry = entry.map_err(err)?;
-        if entry.path().join("paper.md").exists() {
-            papers.push(entry.file_name().to_string_lossy().to_string());
+        let markdown_path = entry.path().join("paper.md");
+        if markdown_path.exists() {
+            let arxiv_id = entry.file_name().to_string_lossy().to_string();
+            let markdown = fs::read_to_string(markdown_path).map_err(err)?;
+            papers.push(PaperSummary {
+                title: parse_title(&markdown).unwrap_or_else(|| format!("arXiv {arxiv_id}")),
+                arxiv_id,
+            });
         }
     }
-    papers.sort();
+    papers.sort_by_key(|paper| paper.title.to_lowercase());
     Ok(papers)
 }
 
@@ -134,6 +142,15 @@ fn parse_citation_key(output: &str) -> Option<String> {
     None
 }
 
+fn parse_title(markdown: &str) -> Option<String> {
+    markdown.lines().find_map(|line| {
+        line.strip_prefix("Title:")
+            .map(str::trim)
+            .filter(|title| !title.is_empty())
+            .map(ToString::to_string)
+    })
+}
+
 fn ensure_success(name: &str, output: &Output) -> Result<(), String> {
     if output.status.success() {
         Ok(())
@@ -165,6 +182,14 @@ mod tests {
     }
 
     #[test]
+    fn extracts_the_paper_title_from_arxiv_markdown() {
+        assert_eq!(
+            parse_title("Title: Attention Is All You Need\nArXiv: 1706.03762\n"),
+            Some("Attention Is All You Need".to_string())
+        );
+    }
+
+    #[test]
     #[ignore = "requires network access"]
     fn imports_markdown_and_a_real_citation() {
         let parent = std::env::temp_dir().join(format!("lattice-paper-e2e-{}", Uuid::new_v4()));
@@ -172,6 +197,7 @@ mod tests {
         let root = project::create(&parent, "paper").unwrap();
         let result = import_arxiv(&root, "1706.03762").unwrap();
         assert_eq!(result.arxiv_id, "1706.03762");
+        assert_eq!(result.title, "Attention Is All You Need");
         assert!(root.join(&result.paper_path).exists());
         assert!(!fs::read_to_string(root.join("references.bib"))
             .unwrap()

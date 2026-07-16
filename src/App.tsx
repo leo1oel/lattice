@@ -94,11 +94,33 @@ type AgentResult = {
   transactionId?: string;
 };
 
+type PaperSummary = {
+  arxivId: string;
+  title: string;
+};
+
 type ChatMessage = {
   id: string;
   role: "user" | "agent" | "system";
   text: string;
   files?: string[];
+};
+
+type AgentSession = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  provider: AgentProvider;
+  messages: ChatMessage[];
+};
+
+type AgentSessionSummary = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  provider: AgentProvider;
+  messageCount: number;
 };
 
 type CanvasMode = "source" | "pdf" | "split" | "paper";
@@ -129,10 +151,13 @@ function App() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [build, setBuild] = useState<BuildResult | null>(null);
   const [building, setBuilding] = useState(false);
-  const [papers, setPapers] = useState<string[]>([]);
-  const [activePaper, setActivePaper] = useState<string | null>(null);
+  const [papers, setPapers] = useState<PaperSummary[]>([]);
+  const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(defaultWelcomeMessages);
+  const [agentSessions, setAgentSessions] = useState<AgentSessionSummary[]>([]);
+  const [activeSession, setActiveSession] = useState<AgentSession | null>(null);
+  const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const [agentInput, setAgentInput] = useState("");
   const [provider, setProvider] = useState<AgentProvider>("codex");
   const [agentRunning, setAgentRunning] = useState(false);
@@ -178,7 +203,7 @@ function App() {
   const refreshProject = useCallback(async () => {
     const snapshot = await invoke<ProjectSnapshot>("refresh_project");
     setProject(snapshot);
-    setPapers(await invoke<string[]>("list_papers"));
+    setPapers(await invoke<PaperSummary[]>("list_papers"));
     return snapshot;
   }, []);
 
@@ -235,7 +260,6 @@ function App() {
       setProject(snapshot);
       rememberProject(snapshot);
       setProjectMenuOpen(false);
-      setMessages(defaultWelcomeMessages);
       setBuild(null);
       setSelection("");
       setActivePaper(null);
@@ -249,8 +273,18 @@ function App() {
         snapshot.manifest.rootDocuments.find((document) => document.isDefault) ??
         snapshot.manifest.rootDocuments[0];
       if (rootDocument) await loadFile(rootDocument.path);
-      setPapers(await invoke<string[]>("list_papers"));
+      setPapers(await invoke<PaperSummary[]>("list_papers"));
       setHistory(await invoke<HistoryItem[]>("list_history"));
+      let sessionList = await invoke<AgentSessionSummary[]>("list_agent_sessions");
+      const session = sessionList.length
+        ? await invoke<AgentSession>("read_agent_session", { sessionId: sessionList[0].id })
+        : await invoke<AgentSession>("create_agent_session", { provider: "codex" });
+      if (!sessionList.length) sessionList = await invoke<AgentSessionSummary[]>("list_agent_sessions");
+      setAgentSessions(sessionList);
+      setActiveSession(session);
+      setMessages(session.messages);
+      setProvider(session.provider);
+      setSessionMenuOpen(false);
       requestAnimationFrame(() => {
         if (shellRef.current) {
           gsap.fromTo(shellRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" });
@@ -360,7 +394,7 @@ function App() {
     if (!importInput.trim()) return;
     setImporting(true);
     try {
-      const result = await invoke<{ arxivId: string; citationKey?: string }>("import_arxiv", {
+      const result = await invoke<{ arxivId: string; title: string; citationKey?: string }>("import_arxiv", {
         input: importInput,
       });
       setImportInput("");
@@ -371,7 +405,7 @@ function App() {
         {
           id: crypto.randomUUID(),
           role: "system",
-          text: `Imported arXiv ${result.arxivId}${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`,
+          text: `Imported “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`,
         },
       ]);
     } catch (reason) {
@@ -381,52 +415,132 @@ function App() {
     }
   }, [importInput, refreshHistory, refreshProject]);
 
-  const openPaper = useCallback(async (arxivId: string) => {
+  const openPaper = useCallback(async (paper: PaperSummary) => {
     try {
-      setPaperMarkdown(await invoke<string>("read_paper", { arxivId }));
-      setActivePaper(arxivId);
+      setPaperMarkdown(await invoke<string>("read_paper", { arxivId: paper.arxivId }));
+      setActivePaper(paper);
       setCanvasMode("paper");
     } catch (reason) {
       setError(toMessage(reason));
     }
   }, []);
 
+  const refreshAgentSessions = useCallback(async () => {
+    setAgentSessions(await invoke<AgentSessionSummary[]>("list_agent_sessions"));
+  }, []);
+
+  const newAgentSession = useCallback(async () => {
+    if (agentRunning) return;
+    try {
+      const session = await invoke<AgentSession>("create_agent_session", { provider });
+      setActiveSession(session);
+      setMessages(session.messages);
+      setSessionMenuOpen(false);
+      await refreshAgentSessions();
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [agentRunning, provider, refreshAgentSessions]);
+
+  const openAgentSession = useCallback(async (id: string) => {
+    if (agentRunning || id === activeSession?.id) {
+      setSessionMenuOpen(false);
+      return;
+    }
+    try {
+      const session = await invoke<AgentSession>("read_agent_session", { sessionId: id });
+      setActiveSession(session);
+      setMessages(session.messages);
+      setProvider(session.provider);
+      setSessionMenuOpen(false);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [activeSession?.id, agentRunning]);
+
+  const deleteAgentSession = useCallback(async (id: string) => {
+    if (agentRunning) return;
+    try {
+      await invoke("delete_agent_session", { sessionId: id });
+      let remaining = await invoke<AgentSessionSummary[]>("list_agent_sessions");
+      if (id === activeSession?.id) {
+        const next = remaining.length
+          ? await invoke<AgentSession>("read_agent_session", { sessionId: remaining[0].id })
+          : await invoke<AgentSession>("create_agent_session", { provider });
+        if (!remaining.length) remaining = await invoke<AgentSessionSummary[]>("list_agent_sessions");
+        setActiveSession(next);
+        setMessages(next.messages);
+        setProvider(next.provider);
+      }
+      setAgentSessions(remaining);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [activeSession, agentRunning, provider]);
+
   const sendToAgent = useCallback(async () => {
     const message = agentInput.trim();
     if (!message || agentRunning) return;
+    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", text: message };
+    const pendingMessages = [...messages, userMessage];
     setAgentInput("");
-    setMessages((items) => [...items, { id: crypto.randomUUID(), role: "user", text: message }]);
+    setMessages(pendingMessages);
     setAgentRunning(true);
+    let session = activeSession;
+    let currentMessages = pendingMessages;
     try {
+      if (!session) session = await invoke<AgentSession>("create_agent_session", { provider });
+      session = await invoke<AgentSession>("save_agent_session", {
+        session: { ...session, provider, messages: pendingMessages },
+      });
+      setActiveSession(session);
+      await refreshAgentSessions();
       if (!(await save())) throw new Error("Save the current file before running the agent.");
       const result = await invoke<AgentResult>("run_agent", {
         provider,
         message,
         activeFile: activeFile || null,
         selection: selection || null,
+        conversation: messages,
       });
-      setMessages((items) => [
-        ...items,
-        {
-          id: crypto.randomUUID(),
-          role: "agent",
-          text: result.summary,
-          files: result.changedFiles,
-        },
-      ]);
+      const completedMessages: ChatMessage[] = [...pendingMessages, {
+        id: crypto.randomUUID(),
+        role: "agent",
+        text: result.summary,
+        files: result.changedFiles,
+      }];
+      currentMessages = completedMessages;
+      setMessages(completedMessages);
+      session = await invoke<AgentSession>("save_agent_session", {
+        session: { ...session, provider, messages: completedMessages },
+      });
+      setActiveSession(session);
+      await refreshAgentSessions();
       if (activeFile && result.changedFiles.includes(activeFile)) await loadFile(activeFile);
       await refreshProject();
       await refreshHistory();
       if (result.changedFiles.length) await compile();
     } catch (reason) {
-      setMessages((items) => [
-        ...items,
+      const failedMessages: ChatMessage[] = [
+        ...currentMessages,
         { id: crypto.randomUUID(), role: "system", text: toMessage(reason) },
-      ]);
+      ];
+      setMessages(failedMessages);
+      if (session) {
+        try {
+          const saved = await invoke<AgentSession>("save_agent_session", {
+            session: { ...session, provider, messages: failedMessages },
+          });
+          setActiveSession(saved);
+          await refreshAgentSessions();
+        } catch {
+          // Keep the visible error when persistence also fails.
+        }
+      }
     } finally {
       setAgentRunning(false);
     }
-  }, [activeFile, agentInput, agentRunning, compile, loadFile, provider, refreshHistory, refreshProject, save, selection]);
+  }, [activeFile, activeSession, agentInput, agentRunning, compile, loadFile, messages, provider, refreshAgentSessions, refreshHistory, refreshProject, save, selection]);
 
   const revert = useCallback(
     async (id: string) => {
@@ -622,6 +736,13 @@ function App() {
 
         <AgentPanel
           messages={messages}
+          sessions={agentSessions}
+          activeSession={activeSession}
+          sessionMenuOpen={sessionMenuOpen}
+          setSessionMenuOpen={setSessionMenuOpen}
+          onNewSession={newAgentSession}
+          onOpenSession={openAgentSession}
+          onDeleteSession={deleteAgentSession}
           input={agentInput}
           setInput={setAgentInput}
           provider={provider}
@@ -744,7 +865,7 @@ function CreateProjectDialog(props: {
       <div className="modal" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-icon"><FileText size={20} /></div>
         <h2>Create a research project</h2>
-        <p>Lattice will create a clean LaTeX paper, bibliography, project brief, and private history.</p>
+        <p>Lattice will create a polished two-column arXivTeX paper, bibliography, project brief, and private conversation history.</p>
         <label>
           Project name
           <input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
@@ -823,10 +944,10 @@ function PanelResizer(props: {
 function Navigator(props: {
   files: FileNode[];
   activeFile: string;
-  papers: string[];
-  activePaper: string | null;
+  papers: PaperSummary[];
+  activePaper: PaperSummary | null;
   onFile: (path: string) => void;
-  onPaper: (id: string) => void;
+  onPaper: (paper: PaperSummary) => void;
   importInput: string;
   setImportInput: (value: string) => void;
   onImport: () => void;
@@ -847,8 +968,9 @@ function Navigator(props: {
         </div>
         <div className="paper-list">
           {props.papers.map((paper) => (
-            <button key={paper} className={props.activePaper === paper ? "active" : ""} onClick={() => props.onPaper(paper)}>
-              <BookOpen size={14} /><span>{paper}</span>
+            <button key={paper.arxivId} title={paper.title} className={props.activePaper?.arxivId === paper.arxivId ? "active" : ""} onClick={() => props.onPaper(paper)}>
+              <BookOpen size={14} />
+              <span><strong>{paper.title}</strong><small>arXiv {paper.arxivId}</small></span>
             </button>
           ))}
           {!props.papers.length && <p className="empty-note">Add an arXiv paper to ground the agent in project evidence.</p>}
@@ -899,6 +1021,13 @@ function TreeNode({ node, activeFile, onFile }: { node: FileNode; activeFile: st
 
 function AgentPanel({
   messages,
+  sessions,
+  activeSession,
+  sessionMenuOpen,
+  setSessionMenuOpen,
+  onNewSession,
+  onOpenSession,
+  onDeleteSession,
   input,
   setInput,
   provider,
@@ -910,6 +1039,13 @@ function AgentPanel({
   chatEnd,
 }: {
   messages: ChatMessage[];
+  sessions: AgentSessionSummary[];
+  activeSession: AgentSession | null;
+  sessionMenuOpen: boolean;
+  setSessionMenuOpen: (value: boolean) => void;
+  onNewSession: () => void;
+  onOpenSession: (id: string) => void;
+  onDeleteSession: (id: string) => void;
   input: string;
   setInput: (value: string) => void;
   provider: AgentProvider;
@@ -923,7 +1059,12 @@ function AgentPanel({
   return (
     <section className="agent-panel">
       <div className="agent-header">
-        <div className="agent-title"><Bot size={16} /><span>Writing agent</span></div>
+        <div className="agent-conversation-controls">
+          <button className="agent-title" title="Conversation history" aria-expanded={sessionMenuOpen} onClick={() => setSessionMenuOpen(!sessionMenuOpen)}>
+            <Bot size={16} /><span>{activeSession?.title ?? "Writing agent"}</span><ChevronDown size={12} />
+          </button>
+          <button className="new-conversation-button" title="New conversation" disabled={running} onClick={onNewSession}><Plus size={14} /></button>
+        </div>
         <div className="provider-controls">
           <select value={provider} disabled={running} onChange={(event) => setProvider(event.target.value as AgentProvider)}>
             <option value="codex">Codex subscription</option>
@@ -934,6 +1075,22 @@ function AgentPanel({
           <button onClick={onApiSettings} title="API key settings"><KeyRound size={14} /></button>
         </div>
       </div>
+      {sessionMenuOpen && (
+        <div className="session-menu">
+          <div className="session-menu-heading"><span>Conversations</span><button onClick={onNewSession}><Plus size={13} /> New</button></div>
+          <div className="session-list">
+            {sessions.map((session) => (
+              <div key={session.id} className={session.id === activeSession?.id ? "active" : ""}>
+                <button className="session-open" onClick={() => onOpenSession(session.id)}>
+                  <strong>{session.title}</strong>
+                  <small>{providerLabel(session.provider)} · {session.messageCount} messages · {relativeTime(session.updatedAt)}</small>
+                </button>
+                <button className="session-delete" title="Delete conversation" disabled={running} onClick={() => onDeleteSession(session.id)}><Trash2 size={12} /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="chat-list">
         {messages.map((message) => (
           <div key={message.id} className={`chat-message ${message.role}`}>
@@ -1006,7 +1163,7 @@ function DocumentCanvas(props: {
   setSelection: (value: string) => void;
   pdfUrl: string | null;
   paperMarkdown: string;
-  activePaper: string | null;
+  activePaper: PaperSummary | null;
 }) {
   const paperHtml = useMemo(
     () => DOMPurify.sanitize(marked.parse(props.paperMarkdown, { async: false }) as string),
@@ -1015,7 +1172,7 @@ function DocumentCanvas(props: {
   if (props.mode === "paper") {
     return (
       <article className="paper-reader">
-        <div className="paper-reader-title"><BookOpen size={15} /> arXiv {props.activePaper}</div>
+        <div className="paper-reader-title"><BookOpen size={15} /><span>{props.activePaper?.title ?? "Imported paper"}</span>{props.activePaper && <small>arXiv {props.activePaper.arxivId}</small>}</div>
         <div className="paper-content" dangerouslySetInnerHTML={{ __html: paperHtml }} />
       </article>
     );
@@ -1146,6 +1303,14 @@ function providerLabel(provider: AgentProvider): string {
     case "openai-api": return "OpenAI API · GPT-5.6";
     case "anthropic-api": return "Anthropic API · Sonnet 5";
   }
+}
+
+function relativeTime(timestamp: string): string {
+  const elapsed = Date.now() - new Date(timestamp).getTime();
+  if (!Number.isFinite(elapsed) || elapsed < 60_000) return "just now";
+  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
+  if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)}h ago`;
+  return new Date(timestamp).toLocaleDateString();
 }
 
 function loadRecentProjects(): RecentProject[] {

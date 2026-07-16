@@ -9,15 +9,17 @@ It is intended to validate the complete writing loop before collaboration and ho
 ## What works today
 
 - Create a new research project or open an existing LaTeX folder.
+- Start new projects with a bundled, MIT-licensed arXivTeX two-column template.
 - Browse and directly edit project source files with CodeMirror.
 - Compile the default root document with the local `latexmk` installation.
 - Review the generated PDF beside the source.
 - Import an arXiv paper as Markdown with `arxiv2md`.
 - Add every imported paper to the project bibliography through `bibcite`.
-- Read imported papers inside the application.
+- Browse imported papers by title and read their Markdown snapshots inside the application.
 - Ask a local Codex or Claude Code session to make evidence-aware project edits.
 - Use an OpenAI or Anthropic API key instead of a local subscription.
 - Switch between Codex and Claude between messages.
+- Create, restore, and delete project-local agent conversations with prior messages included as context.
 - Save direct edits, imports, and agent changes as atomic project transactions.
 - Inspect project history and revert a transaction.
 - Use light and dark themes with reduced-motion support.
@@ -52,7 +54,7 @@ pnpm install
 pnpm tauri dev
 ```
 
-Choose **New project** to create a minimal paper, bibliography, project brief, and private transaction history.
+Choose **New project** to create an arXivTeX paper, bibliography, project brief, and private transaction and conversation history.
 Choose **Open folder** to import an existing LaTeX directory.
 
 Press `Cmd+S` to save and build, or use the build button in the title bar.
@@ -67,18 +69,20 @@ Lattice preserves normal LaTeX files and adds a small human-readable sidecar:
 ```text
 paper-project/
 ├── main.tex
+├── main.cls
 ├── references.bib
 ├── figures/
 └── .research/
     ├── project.json
     ├── brief.md
     ├── papers/<arxiv-id>/paper.md
-    └── history/<transaction-id>.json
+    ├── history/<transaction-id>.json
+    └── sessions/<conversation-id>.json
 ```
 
 The manuscript remains buildable if `.research` is removed.
-The sidecar contains application metadata, the durable research brief, imported evidence, and local undo history.
-History is ignored by the generated `.gitignore` because full edit records may contain private manuscript context.
+The sidecar contains application metadata, the durable research brief, imported evidence, local undo history, and agent conversations.
+History and conversations are ignored by the generated `.gitignore` because they may contain private manuscript context.
 
 ## Safety model
 
@@ -128,8 +132,8 @@ pnpm tauri build
 2. Replace the embedded browser PDF viewer with PDF.js selection, annotation, and bidirectional SyncTeX navigation.
 3. Add TexLab diagnostics and completion to the source editor.
 4. Add SQLite FTS5 indexing and evaluate a PaperQA2 sidecar for semantic evidence retrieval.
-5. Add project templates based on arXivTeX and controlled project-local skills.
-6. Harden import upgrades, on-demand figure downloads, provenance sidecars, and failure recovery.
+5. Add current official venue-template conversion for NeurIPS, ICML, ICLR, and other target conferences.
+6. Add controlled project-local skills and harden import upgrades, on-demand figure downloads, provenance sidecars, and failure recovery.
 7. Introduce a CRDT-backed `DocumentStore` behind the existing transaction interface before adding collaboration UI.
 
 ## License

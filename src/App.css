@@ -105,20 +105,46 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .tree-spacer { width: 13px; }
 .tree-children { padding-left: 12px; }
 .paper-list { min-height: 0; flex: 1; overflow: auto; padding-top: 3px; }
-.paper-list button { width: 100%; padding: 7px; border-radius: 6px; background: transparent; display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; text-align: left; }
+.paper-list button { width: 100%; padding: 7px; border-radius: 6px; background: transparent; display: flex; align-items: flex-start; gap: 7px; color: var(--muted); font-size: 11px; text-align: left; }
 .paper-list button:hover, .paper-list button.active { color: var(--text); background: var(--line); }
+.paper-list button > svg { margin-top: 2px; flex: none; }
+.paper-list button > span { min-width: 0; }
+.paper-list strong, .paper-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paper-list strong { color: inherit; font-size: 10.5px; font-weight: 500; }
+.paper-list small { margin-top: 2px; color: var(--faint); font-size: 8.5px; }
 .empty-note { margin: 7px; color: var(--faint); font-size: 10px; line-height: 1.5; }
 .import-box { height: 32px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--panel-strong); display: flex; align-items: center; overflow: hidden; }
 .import-box input { width: 0; flex: 1; height: 100%; border: 0; outline: 0; background: transparent; padding: 0 8px; font-size: 10px; }
 .import-box button { width: 30px; height: 100%; display: grid; place-items: center; background: transparent; color: var(--accent); }
 
-.agent-panel { display: flex; flex-direction: column; overflow: hidden; }
+.agent-panel { position: relative; display: flex; flex-direction: column; overflow: hidden; }
 .agent-header { height: 44px; flex: none; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
-.agent-title { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; }
-.agent-header select { max-width: 132px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-strong); padding: 4px 7px; font-size: 10px; outline: none; }
+.agent-conversation-controls { min-width: 0; display: flex; align-items: center; gap: 2px; }
+.agent-title { min-width: 0; max-width: 112px; height: 28px; padding: 0 6px; border-radius: 6px; background: transparent; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; }
+.agent-title:hover, .agent-title[aria-expanded="true"] { background: var(--line); }
+.agent-title span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-title svg { flex: none; }
+.agent-title svg:last-child { color: var(--faint); }
+.new-conversation-button { width: 25px; height: 25px; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; }
+.new-conversation-button:hover { background: var(--line); color: var(--text); }
+.agent-header select { max-width: 112px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-strong); padding: 4px 7px; font-size: 10px; outline: none; }
 .provider-controls { display: flex; align-items: center; gap: 4px; }
 .provider-controls button { width: 25px; height: 25px; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; }
 .provider-controls button:hover { background: var(--line); color: var(--text); }
+.session-menu { position: absolute; z-index: 6; top: 39px; left: 8px; right: 8px; max-height: min(420px, calc(100% - 56px)); border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel-strong); box-shadow: var(--shadow); padding: 6px; overflow: hidden; }
+.session-menu-heading { height: 30px; padding: 0 5px 4px 7px; display: flex; align-items: center; justify-content: space-between; color: var(--faint); font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.session-menu-heading button { height: 24px; padding: 0 7px; border-radius: 5px; background: transparent; color: var(--muted); display: flex; align-items: center; gap: 4px; font-size: 9px; text-transform: none; letter-spacing: 0; }
+.session-menu-heading button:hover { background: var(--line); color: var(--text); }
+.session-list { max-height: 340px; overflow: auto; }
+.session-list > div { display: flex; align-items: center; border-radius: 7px; }
+.session-list > div:hover, .session-list > div.active { background: var(--line); }
+.session-open { width: 0; flex: 1; min-width: 0; padding: 8px; background: transparent; text-align: left; }
+.session-open strong, .session-open small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-open strong { font-size: 10.5px; font-weight: 600; }
+.session-open small { margin-top: 3px; color: var(--faint); font-size: 8px; }
+.session-delete { width: 25px; height: 25px; margin-right: 4px; flex: none; border-radius: 5px; background: transparent; color: var(--faint); display: grid; place-items: center; opacity: 0; }
+.session-list > div:hover .session-delete, .session-list > div.active .session-delete { opacity: 1; }
+.session-delete:hover { background: color-mix(in srgb, var(--danger) 9%, transparent); color: var(--danger); }
 .chat-list { flex: 1; overflow: auto; padding: 18px 13px; }
 .chat-message { display: flex; gap: 8px; margin-bottom: 17px; }
 .chat-message.user { justify-content: flex-end; }
@@ -168,6 +194,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .pdf-placeholder { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--faint); font-size: 11px; }
 .paper-reader { height: 100%; overflow: auto; background: var(--panel-strong); }
 .paper-reader-title { position: sticky; top: 0; z-index: 2; height: 38px; padding: 0 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel-strong) 94%, transparent); backdrop-filter: blur(12px); display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
+.paper-reader-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paper-reader-title small { margin-left: auto; flex: none; color: var(--faint); font-size: 9px; }
 .paper-content { max-width: 780px; margin: 0 auto; padding: 42px 50px 100px; color: var(--text); font-family: Georgia, serif; font-size: 14px; line-height: 1.75; }
 .paper-content h1 { font-family: "Instrument Serif", Georgia, serif; font-size: 36px; line-height: 1.08; font-weight: 400; }
 .paper-content h2 { margin-top: 2em; font-size: 21px; }

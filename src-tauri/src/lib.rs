@@ -4,8 +4,12 @@ mod latex;
 mod models;
 mod papers;
 mod project;
+mod sessions;
 
-use models::{AgentResult, BuildResult, HistoryItem, ImportResult, ProjectSnapshot};
+use models::{
+    AgentMessage, AgentResult, AgentSession, AgentSessionSummary, BuildResult, HistoryItem,
+    ImportResult, PaperSummary, ProjectSnapshot,
+};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -118,7 +122,7 @@ async fn import_arxiv(
 }
 
 #[tauri::command]
-fn list_papers(state: tauri::State<'_, AppState>) -> Result<Vec<String>, String> {
+fn list_papers(state: tauri::State<'_, AppState>) -> Result<Vec<PaperSummary>, String> {
     papers::list_papers(&current_root(&state)?)
 }
 
@@ -134,6 +138,7 @@ async fn run_agent(
     message: String,
     active_file: Option<String>,
     selection: Option<String>,
+    conversation: Vec<AgentMessage>,
 ) -> Result<AgentResult, String> {
     let root = current_root(&state)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -143,6 +148,7 @@ async fn run_agent(
             &message,
             active_file.as_deref(),
             selection.as_deref(),
+            &conversation,
         )
     })
     .await
@@ -191,6 +197,45 @@ fn delete_history_entry(
     project::delete_history(&current_root(&state)?, &transaction_id)
 }
 
+#[tauri::command]
+fn create_agent_session(
+    state: tauri::State<'_, AppState>,
+    provider: String,
+) -> Result<AgentSession, String> {
+    sessions::create(&current_root(&state)?, &provider)
+}
+
+#[tauri::command]
+fn list_agent_sessions(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<AgentSessionSummary>, String> {
+    sessions::list(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn read_agent_session(
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+) -> Result<AgentSession, String> {
+    sessions::read(&current_root(&state)?, &session_id)
+}
+
+#[tauri::command]
+fn save_agent_session(
+    state: tauri::State<'_, AppState>,
+    session: AgentSession,
+) -> Result<AgentSession, String> {
+    sessions::save(&current_root(&state)?, session)
+}
+
+#[tauri::command]
+fn delete_agent_session(
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+) -> Result<(), String> {
+    sessions::delete(&current_root(&state)?, &session_id)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -216,6 +261,11 @@ pub fn run() {
             list_history,
             revert_transaction,
             delete_history_entry,
+            create_agent_session,
+            list_agent_sessions,
+            read_agent_session,
+            save_agent_session,
+            delete_agent_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

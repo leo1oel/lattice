@@ -1,5 +1,5 @@
 use crate::commands;
-use crate::models::{AgentPayload, AgentResult};
+use crate::models::{AgentMessage, AgentPayload, AgentResult};
 use crate::{papers, project};
 use serde_json::Value;
 use std::path::Path;
@@ -13,11 +13,12 @@ pub fn run(
     message: &str,
     active_file: Option<&str>,
     selection: Option<&str>,
+    conversation: &[AgentMessage],
 ) -> Result<AgentResult, String> {
     if message.trim().is_empty() {
         return Err("Write a message first.".to_string());
     }
-    let prompt = build_prompt(root, message, active_file, selection)?;
+    let prompt = build_prompt(root, message, active_file, selection, conversation)?;
     let raw = match provider {
         "codex" => run_codex(root, &prompt)?,
         "claude" => run_claude(root, &prompt)?,
@@ -52,6 +53,7 @@ fn build_prompt(
     message: &str,
     active_file: Option<&str>,
     selection: Option<&str>,
+    conversation: &[AgentMessage],
 ) -> Result<String, String> {
     let manifest = project::read_manifest(root)?;
     let brief = project::read_file(root, ".research/brief.md").unwrap_or_default();
@@ -68,6 +70,7 @@ fn build_prompt(
     let bibliography = project::read_file(root, &manifest.primary_bibliography).unwrap_or_default();
     let evidence = relevant_evidence(root, message)?;
     let selection = selection.unwrap_or("");
+    let conversation = conversation_context(conversation);
     Ok(format!(
         r#"You are the writing agent inside a local-first scientific LaTeX editor.
 Return exactly one JSON object and no markdown fences or commentary.
@@ -85,6 +88,9 @@ Rules:
 
 USER REQUEST:
 {message}
+
+CONVERSATION SO FAR:
+{conversation}
 
 PROJECT BRIEF:
 {brief}
@@ -116,22 +122,25 @@ fn relevant_evidence(root: &Path, query: &str) -> Result<String, String> {
         .map(|term| term.to_lowercase())
         .collect::<Vec<_>>();
     let mut ranked = Vec::new();
-    for id in papers::list_papers(root)? {
-        let content = papers::read_paper(root, &id)?;
+    for paper in papers::list_papers(root)? {
+        let content = papers::read_paper(root, &paper.arxiv_id)?;
         let lower = content.to_lowercase();
         let score = terms
             .iter()
             .map(|term| lower.matches(term).count())
             .sum::<usize>();
-        ranked.push((score, id, content));
+        ranked.push((score, paper, content));
     }
     ranked.sort_by_key(|item| std::cmp::Reverse(item.0));
     let excerpts = ranked
         .into_iter()
         .take(3)
-        .map(|(_, id, content)| {
+        .map(|(_, paper, content)| {
             let excerpt = content.chars().take(18_000).collect::<String>();
-            format!("\n--- arXiv {id} ---\n{excerpt}")
+            format!(
+                "\n--- {} (arXiv {}) ---\n{excerpt}",
+                paper.title, paper.arxiv_id
+            )
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -140,6 +149,35 @@ fn relevant_evidence(root: &Path, query: &str) -> Result<String, String> {
     } else {
         excerpts
     })
+}
+
+fn conversation_context(messages: &[AgentMessage]) -> String {
+    let mut recent = messages
+        .iter()
+        .rev()
+        .filter(|message| message.role == "user" || message.role == "agent")
+        .take(16)
+        .collect::<Vec<_>>();
+    recent.reverse();
+    let mut context = String::new();
+    for message in recent {
+        let role = if message.role == "user" {
+            "User"
+        } else {
+            "Agent"
+        };
+        let remaining = 12_000usize.saturating_sub(context.chars().count());
+        if remaining == 0 {
+            break;
+        }
+        let text = message.text.chars().take(remaining).collect::<String>();
+        context.push_str(&format!("{role}: {text}\n"));
+    }
+    if context.is_empty() {
+        "No earlier messages in this conversation.".to_string()
+    } else {
+        context
+    }
 }
 
 fn run_codex(root: &Path, prompt: &str) -> Result<String, String> {
@@ -428,6 +466,7 @@ mod tests {
             "Do not edit any file. Briefly confirm that the active file is valid LaTeX.",
             Some("main.tex"),
             None,
+            &[],
         )
         .unwrap();
         assert!(!result.summary.is_empty());
@@ -448,6 +487,7 @@ mod tests {
             "Do not edit any file. Briefly confirm that the active file is valid LaTeX.",
             Some("main.tex"),
             None,
+            &[],
         )
         .unwrap();
         assert!(!result.summary.is_empty());

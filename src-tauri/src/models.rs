@@ -85,9 +85,48 @@ pub struct HistoryItem {
 #[serde(rename_all = "camelCase")]
 pub struct ImportResult {
     pub arxiv_id: String,
+    pub title: String,
     pub paper_path: String,
     pub citation_key: Option<String>,
     pub citation_output: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperSummary {
+    pub arxiv_id: String,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentMessage {
+    pub id: String,
+    pub role: String,
+    pub text: String,
+    #[serde(default)]
+    pub files: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSession {
+    pub id: String,
+    pub title: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub provider: String,
+    pub messages: Vec<AgentMessage>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSessionSummary {
+    pub id: String,
+    pub title: String,
+    pub updated_at: String,
+    pub provider: String,
+    pub message_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
