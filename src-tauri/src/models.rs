@@ -117,6 +117,15 @@ pub struct AgentSettings {
     pub reasoning_effort: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionStatus {
+    pub provider: String,
+    pub installed: bool,
+    pub logged_in: bool,
+    pub detail: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentSession {

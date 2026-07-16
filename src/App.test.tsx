@@ -63,6 +63,17 @@ describe("welcome screen", () => {
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
     expect(screen.getByLabelText("Project name")).toHaveValue("Untitled research");
   });
+
+  it("opens appearance settings and persists font choices", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByTitle("Settings"));
+    expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/interface font/i), { target: { value: "Inter, -apple-system, sans-serif" } });
+    await waitFor(() => {
+      expect(document.documentElement.style.getPropertyValue("--ui-font")).toBe("Inter, -apple-system, sans-serif");
+    });
+    expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveAttribute("max", "18");
+  });
 });
 
 describe("project workspace", () => {
@@ -126,6 +137,52 @@ describe("project workspace", () => {
     fireEvent.pointerMove(window, { clientX: 300 });
     fireEvent.pointerUp(window);
     expect(divider).toHaveAttribute("aria-valuenow", "300");
+
+    const splitDivider = screen.getByRole("separator", { name: "Resize source and PDF preview" });
+    expect(splitDivider).toHaveAttribute("aria-valuenow", "46");
+    fireEvent.keyDown(splitDivider, { key: "ArrowRight" });
+    expect(splitDivider).toHaveAttribute("aria-valuenow", "49");
+  });
+
+  it("shows subscription status in settings without asking for an API key", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "subscription_status") return [
+        { provider: "codex", installed: true, loggedIn: true, detail: "Logged in using ChatGPT" },
+        { provider: "claude", installed: true, loggedIn: true, detail: "Max subscription" },
+      ];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    expect(await screen.findByLabelText("Agent provider")).toHaveValue("codex");
+    expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument();
+    expect(screen.queryByTitle("API key settings")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Settings"));
+    fireEvent.click(screen.getByRole("button", { name: "Subscriptions" }));
+    expect(await screen.findAllByText("Connected")).toHaveLength(2);
+
+    fireEvent.click(screen.getByTitle("Close settings"));
+    fireEvent.change(screen.getByLabelText("Agent provider"), { target: { value: "claude" } });
+    expect(screen.getByRole("option", { name: "Claude Opus 4.8" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Claude Sonnet 5" })).toBeInTheDocument();
+    expect(screen.queryByTitle("API key settings")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Agent provider"), { target: { value: "openai-api" } });
+    expect(screen.getByTitle("API key settings")).toBeInTheDocument();
   });
 
   it("shows imported papers by title while keeping the arXiv id", async () => {
@@ -261,15 +318,26 @@ describe("project workspace", () => {
       if (command === "read_project_file") return "\\section{Notes}";
       if (command === "list_papers") return [paper];
       if (command === "list_history" || command === "list_citation_keys") return [];
-      if (command === "create_project_entry" || command === "delete_project_entry" || command === "delete_paper") return undefined;
+      if (command === "create_project_entry") return "sections/method.tex";
+      if (command === "delete_project_entry" || command === "delete_paper") return undefined;
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
 
     render(<App />);
     fireEvent.click(await screen.findByTitle("Add file or folder"));
-    fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "sections/method.tex" } });
+    fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "sections/method" } });
     fireEvent.click(screen.getByTitle("Create"));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "sections/method.tex", kind: "file" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "sections/method", kind: "file" }));
+
+    fireEvent.click(screen.getByTitle("Add file or folder"));
+    fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "draft" } });
+    fireEvent.keyDown(screen.getByLabelText("Project-relative path"), { key: "Escape" });
+    expect(screen.queryByLabelText("Project-relative path")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Add file or folder"));
+    fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "draft" } });
+    fireEvent.pointerDown(screen.getByText("Project").closest(".navigator-section")!);
+    expect(screen.queryByLabelText("Project-relative path")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle("Delete notes.tex"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_project_entry", { path: "notes.tex" }));
@@ -300,7 +368,7 @@ describe("project workspace", () => {
 
     render(<App />);
     fireEvent.change(await screen.findByLabelText("Agent provider"), { target: { value: "claude" } });
-    fireEvent.change(screen.getByLabelText("Agent model"), { target: { value: "opus" } });
+    fireEvent.change(screen.getByLabelText("Agent model"), { target: { value: "claude-opus-4-8" } });
     fireEvent.change(screen.getByLabelText("Reasoning effort"), { target: { value: "xhigh" } });
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "Review the abstract." } });
@@ -309,7 +377,7 @@ describe("project workspace", () => {
     expect(await screen.findByText("Review the abstract.")).toBeInTheDocument();
     expect(screen.getByText("Claude is writing…")).toBeInTheDocument();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("run_agent", expect.objectContaining({
-      settings: { provider: "claude", model: "opus", reasoningEffort: "xhigh" },
+      settings: { provider: "claude", model: "claude-opus-4-8", reasoningEffort: "xhigh" },
       message: "Review the abstract.",
       conversation: testSession.messages,
     })));

@@ -195,28 +195,43 @@ pub fn citation_keys(root: &Path) -> Result<Vec<String>, String> {
     Ok(keys)
 }
 
-pub fn create_entry(root: &Path, relative: &str, kind: &str) -> Result<(), String> {
+pub fn create_entry(root: &Path, relative: &str, kind: &str) -> Result<String, String> {
     validate_user_entry(relative)?;
-    let path = safe_path(root, relative)?;
+    let normalized = match kind {
+        "file" => normalize_latex_path(relative)?,
+        "folder" => relative.trim().to_string(),
+        _ => return Err("Choose a LaTeX file or folder.".to_string()),
+    };
+    let path = safe_path(root, &normalized)?;
     if path.exists() {
         return Err("A file or folder already exists at that path.".to_string());
     }
     match kind {
         "file" => {
-            let content = if path.extension().is_some_and(|extension| extension == "tex") {
-                "% New LaTeX file\n".to_string()
-            } else {
-                String::new()
-            };
+            let content = "% New LaTeX file\n".to_string();
             apply_transaction(
                 root,
-                &format!("Create {relative}"),
-                vec![(relative.to_string(), content)],
+                &format!("Create {normalized}"),
+                vec![(normalized.clone(), content)],
             )?;
-            Ok(())
+            Ok(normalized)
         }
-        "folder" => fs::create_dir_all(path).map_err(err),
-        _ => Err("Choose file or folder.".to_string()),
+        "folder" => {
+            fs::create_dir_all(path).map_err(err)?;
+            Ok(normalized)
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn normalize_latex_path(relative: &str) -> Result<String, String> {
+    let path = Path::new(relative.trim());
+    match path.extension().and_then(|extension| extension.to_str()) {
+        None => Ok(path.with_extension("tex").to_string_lossy().to_string()),
+        Some(extension) if extension.eq_ignore_ascii_case("tex") => {
+            Ok(path.to_string_lossy().to_string())
+        }
+        _ => Err("New source files must use the .tex extension.".to_string()),
     }
 }
 
@@ -597,7 +612,10 @@ mod tests {
     fn project_entries_can_be_created_and_deleted_but_roots_are_protected() {
         let parent = temp_root("project-entries");
         let root = create(&parent, "paper").unwrap();
-        create_entry(&root, "sections/method.tex", "file").unwrap();
+        assert_eq!(
+            create_entry(&root, "sections/method", "file").unwrap(),
+            "sections/method.tex"
+        );
         create_entry(&root, "figures/generated", "folder").unwrap();
         assert!(root.join("sections/method.tex").exists());
         assert!(root.join("figures/generated").is_dir());
@@ -606,6 +624,7 @@ mod tests {
         assert!(delete_entry(&root, "main.tex").is_err());
         assert!(delete_entry(&root, "references.bib").is_err());
         assert!(create_entry(&root, ".research/private.txt", "file").is_err());
+        assert!(create_entry(&root, "notes.md", "file").is_err());
         fs::remove_dir_all(parent).unwrap();
     }
 

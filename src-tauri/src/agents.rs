@@ -1,8 +1,9 @@
 use crate::commands;
-use crate::models::{AgentMessage, AgentPayload, AgentResult, AgentSettings};
+use crate::models::{AgentMessage, AgentPayload, AgentResult, AgentSettings, SubscriptionStatus};
 use crate::{papers, project};
 use serde_json::Value;
 use std::path::Path;
+use std::process::Stdio;
 use std::time::Duration;
 
 const AGENT_TIMEOUT: Duration = Duration::from_secs(5 * 60);
@@ -461,6 +462,135 @@ pub fn provider_status() -> Vec<(String, bool)> {
         .into_iter()
         .map(|name| (name.to_string(), commands::available(name)))
         .collect()
+}
+
+pub fn subscription_status() -> Vec<SubscriptionStatus> {
+    vec![codex_subscription_status(), claude_subscription_status()]
+}
+
+pub fn begin_subscription_login(provider: &str) -> Result<(), String> {
+    let mut command = match provider {
+        "codex" => commands::command("codex"),
+        "claude" => {
+            let mut command = commands::command("claude");
+            command.arg("auth").arg("login");
+            command
+        }
+        _ => return Err("Unknown subscription provider.".to_string()),
+    };
+    if provider == "codex" {
+        command.arg("login");
+    }
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("Could not start {provider} sign-in: {error}"))
+}
+
+fn codex_subscription_status() -> SubscriptionStatus {
+    if !commands::available("codex") {
+        return SubscriptionStatus {
+            provider: "codex".to_string(),
+            installed: false,
+            logged_in: false,
+            detail: "Codex CLI is not installed.".to_string(),
+        };
+    }
+    let mut command = commands::command("codex");
+    command.arg("login").arg("status");
+    match commands::output_with_timeout(command, Duration::from_secs(10), "Codex login status") {
+        Ok(output) => {
+            let detail = format!(
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .trim()
+            .to_string();
+            SubscriptionStatus {
+                provider: "codex".to_string(),
+                installed: true,
+                logged_in: output.status.success() && detail.to_lowercase().contains("logged in"),
+                detail: if detail.is_empty() {
+                    "Codex login status is unavailable.".to_string()
+                } else {
+                    detail
+                },
+            }
+        }
+        Err(error) => SubscriptionStatus {
+            provider: "codex".to_string(),
+            installed: true,
+            logged_in: false,
+            detail: error,
+        },
+    }
+}
+
+fn claude_subscription_status() -> SubscriptionStatus {
+    if !commands::available("claude") {
+        return SubscriptionStatus {
+            provider: "claude".to_string(),
+            installed: false,
+            logged_in: false,
+            detail: "Claude Code CLI is not installed.".to_string(),
+        };
+    }
+    let mut command = commands::command("claude");
+    command.arg("auth").arg("status");
+    match commands::output_with_timeout(command, Duration::from_secs(10), "Claude login status") {
+        Ok(output) => {
+            let value = serde_json::from_slice::<Value>(&output.stdout).unwrap_or(Value::Null);
+            let logged_in = value
+                .get("loggedIn")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            let subscription = value
+                .get("subscriptionType")
+                .and_then(Value::as_str)
+                .map(|name| format!("{} subscription", title_case(name)));
+            let email = value
+                .get("email")
+                .and_then(Value::as_str)
+                .map(ToString::to_string);
+            let detail = [subscription, email]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join(" · ");
+            SubscriptionStatus {
+                provider: "claude".to_string(),
+                installed: true,
+                logged_in,
+                detail: if detail.is_empty() {
+                    if logged_in {
+                        "Signed in to Claude.".to_string()
+                    } else {
+                        "Claude is not signed in.".to_string()
+                    }
+                } else {
+                    detail
+                },
+            }
+        }
+        Err(error) => SubscriptionStatus {
+            provider: "claude".to_string(),
+            installed: true,
+            logged_in: false,
+            detail: error,
+        },
+    }
+}
+
+fn title_case(value: &str) -> String {
+    let mut characters = value.chars();
+    match characters.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + characters.as_str(),
+        None => String::new(),
+    }
 }
 
 #[cfg(test)]

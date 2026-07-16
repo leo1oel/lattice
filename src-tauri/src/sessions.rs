@@ -129,7 +129,7 @@ fn normalize_settings(session: &mut AgentSession) -> Result<(), String> {
 fn default_model(provider: &str) -> &'static str {
     match provider {
         "codex" | "openai-api" => "gpt-5.6-sol",
-        "claude" => "sonnet",
+        "claude" => "claude-opus-4-8",
         "anthropic-api" => "claude-sonnet-5",
         _ => "",
     }
@@ -140,7 +140,7 @@ fn validate_settings(model: &str, reasoning_effort: &str) -> Result<(), String> 
         return Err("Choose an agent model.".to_string());
     }
     match reasoning_effort {
-        "low" | "medium" | "high" | "xhigh" | "max" => Ok(()),
+        "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra" => Ok(()),
         _ => Err("Choose a supported reasoning effort.".to_string()),
     }
 }

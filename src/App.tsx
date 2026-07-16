@@ -29,7 +29,9 @@ import {
   Play,
   Plus,
   RotateCcw,
+  RefreshCw,
   Send,
+  Settings2,
   Sparkles,
   Sun,
   Trash2,
@@ -132,13 +134,19 @@ type AgentSessionSummary = {
 type CanvasMode = "source" | "pdf" | "split" | "paper";
 type Theme = "light" | "dark";
 type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
-type ReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
+type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 type RecentProject = { name: string; path: string };
 type PanelKind = "navigator" | "agent";
 type PanelWidths = { navigator: number; agent: number };
+type SettingsTab = "appearance" | "accounts" | "api";
+type AppearanceSettings = { uiFont: string; editorFont: string; editorFontSize: number };
+type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
+type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 
 const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 const PANEL_WIDTHS_KEY = "lattice.panel-widths.v1";
+const APPEARANCE_KEY = "lattice.appearance.v1";
+const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 
 const defaultWelcomeMessages: ChatMessage[] = [
   {
@@ -186,7 +194,12 @@ function App() {
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
   const [projectName, setProjectName] = useState("Untitled research");
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
-  const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
+  const [appearance, setAppearance] = useState<AppearanceSettings>(loadAppearance);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionStatus[]>([]);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  const [subscriptionNotice, setSubscriptionNotice] = useState("");
   const [apiProvider, setApiProvider] = useState<"openai" | "anthropic">("openai");
   const [apiKey, setApiKey] = useState("");
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
@@ -311,7 +324,7 @@ function App() {
       setActiveSession(session);
       setMessages(session.messages);
       setProvider(session.provider);
-      setAgentModel(session.model || defaultModel(session.provider));
+      setAgentModel(normalizeModel(session.provider, session.model));
       setReasoningEffort(normalizeEffort(session.reasoningEffort));
       setSessionMenuOpen(false);
       requestAnimationFrame(() => {
@@ -391,6 +404,17 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
+    document.documentElement.style.setProperty("--ui-font", appearance.uiFont);
+    document.documentElement.style.setProperty("--editor-font", appearance.editorFont);
+    document.documentElement.style.setProperty("--editor-font-size", `${appearance.editorFontSize}px`);
+    try {
+      localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance));
+    } catch {
+      // Appearance changes still apply for the current session without storage.
+    }
+  }, [appearance]);
+
+  useEffect(() => {
     chatEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, agentRunning]);
 
@@ -456,10 +480,10 @@ function App() {
 
   const createProjectEntry = useCallback(async (path: string, kind: "file" | "folder") => {
     try {
-      await invoke("create_project_entry", { path, kind });
+      const createdPath = await invoke<string>("create_project_entry", { path, kind });
       await refreshProject();
       await refreshHistory();
-      if (kind === "file") await loadFile(path);
+      if (kind === "file") await loadFile(createdPath);
     } catch (reason) {
       setError(toMessage(reason));
       throw reason;
@@ -535,7 +559,7 @@ function App() {
       setActiveSession(session);
       setMessages(session.messages);
       setProvider(session.provider);
-      setAgentModel(session.model || defaultModel(session.provider));
+      setAgentModel(normalizeModel(session.provider, session.model));
       setReasoningEffort(normalizeEffort(session.reasoningEffort));
       setSessionMenuOpen(false);
     } catch (reason) {
@@ -556,7 +580,7 @@ function App() {
         setActiveSession(next);
         setMessages(next.messages);
         setProvider(next.provider);
-        setAgentModel(next.model || defaultModel(next.provider));
+        setAgentModel(normalizeModel(next.provider, next.model));
         setReasoningEffort(normalizeEffort(next.reasoningEffort));
       }
       setAgentSessions(remaining);
@@ -653,14 +677,33 @@ function App() {
     setApiKeyStatus(Object.fromEntries(statuses));
   }, []);
 
-  const openApiSettings = useCallback(async () => {
+  const refreshSubscriptions = useCallback(async () => {
+    setSubscriptionsLoading(true);
     try {
-      await refreshApiKeys();
-      setApiSettingsOpen(true);
+      setSubscriptions(await invoke<SubscriptionStatus[]>("subscription_status"));
+    } catch (reason) {
+      setError(toMessage(reason));
+    } finally {
+      setSubscriptionsLoading(false);
+    }
+  }, []);
+
+  const openSettings = useCallback((tab: SettingsTab = "appearance") => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+    setSubscriptionNotice("");
+    if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
+    if (tab === "accounts") void refreshSubscriptions();
+  }, [refreshApiKeys, refreshSubscriptions]);
+
+  const beginSubscriptionLogin = useCallback(async (providerName: "codex" | "claude") => {
+    try {
+      await invoke("begin_subscription_login", { provider: providerName });
+      setSubscriptionNotice(`Complete ${providerName === "codex" ? "Codex" : "Claude"} sign-in in the browser, then refresh status.`);
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [refreshApiKeys]);
+  }, []);
 
   const saveApiKey = useCallback(async () => {
     try {
@@ -668,7 +711,7 @@ function App() {
       setApiKey("");
       await refreshApiKeys();
       changeProvider(apiProvider === "openai" ? "openai-api" : "anthropic-api");
-      setApiSettingsOpen(false);
+      setSettingsOpen(false);
     } catch (reason) {
       setError(toMessage(reason));
     }
@@ -721,20 +764,53 @@ function App() {
     });
   }, [navigatorOpen]);
 
+  const settingsDialog = settingsOpen ? (
+    <SettingsDialog
+      tab={settingsTab}
+      setTab={(tab) => {
+        setSettingsTab(tab);
+        if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
+        if (tab === "accounts") void refreshSubscriptions();
+      }}
+      appearance={appearance}
+      setAppearance={setAppearance}
+      subscriptions={subscriptions}
+      subscriptionsLoading={subscriptionsLoading}
+      subscriptionNotice={subscriptionNotice}
+      onRefreshSubscriptions={refreshSubscriptions}
+      onSubscriptionLogin={beginSubscriptionLogin}
+      apiProvider={apiProvider}
+      setApiProvider={setApiProvider}
+      apiKey={apiKey}
+      setApiKey={setApiKey}
+      apiConfigured={Boolean(apiKeyStatus[apiProvider])}
+      onSaveApiKey={saveApiKey}
+      onDeleteApiKey={deleteApiKey}
+      onClose={() => {
+        setSettingsOpen(false);
+        setApiKey("");
+      }}
+    />
+  ) : null;
+
   if (!project) {
     return (
-      <Welcome
-        busyLabel={busyLabel}
-        createOpen={createOpen}
-        error={error}
-        projectName={projectName}
-        setCreateOpen={setCreateOpen}
-        setProjectName={setProjectName}
-        onCreate={createProject}
-        onOpen={chooseExisting}
-        theme={theme}
-        toggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
-      />
+      <>
+        <Welcome
+          busyLabel={busyLabel}
+          createOpen={createOpen}
+          error={error}
+          projectName={projectName}
+          setCreateOpen={setCreateOpen}
+          setProjectName={setProjectName}
+          onCreate={createProject}
+          onOpen={chooseExisting}
+          onSettings={() => openSettings("appearance")}
+          theme={theme}
+          toggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+        />
+        {settingsDialog}
+      </>
     );
   }
 
@@ -776,6 +852,9 @@ function App() {
           )}
         </div>
         <div className="title-actions">
+          <button className="icon-button" onClick={() => openSettings("appearance")} title="Settings">
+            <Settings2 size={16} />
+          </button>
           <button className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Toggle theme">
             {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -851,7 +930,7 @@ function App() {
           setReasoningEffort={setReasoningEffort}
           running={agentRunning}
           onSend={sendToAgent}
-          onApiSettings={openApiSettings}
+          onApiSettings={() => openSettings("api")}
           selection={selection}
           chatEnd={chatEnd}
         />
@@ -887,21 +966,7 @@ function App() {
       {historyOpen && (
         <HistoryDrawer history={history} onClose={() => setHistoryOpen(false)} onRevert={revert} onDelete={deleteHistory} />
       )}
-      {apiSettingsOpen && (
-        <ApiSettings
-          provider={apiProvider}
-          setProvider={setApiProvider}
-          apiKey={apiKey}
-          setApiKey={setApiKey}
-          configured={Boolean(apiKeyStatus[apiProvider])}
-          onSave={saveApiKey}
-          onDelete={deleteApiKey}
-          onClose={() => {
-            setApiSettingsOpen(false);
-            setApiKey("");
-          }}
-        />
-      )}
+      {settingsDialog}
       {createOpen && (
         <CreateProjectDialog
           projectName={projectName}
@@ -923,12 +988,14 @@ function Welcome(props: {
   setProjectName: (value: string) => void;
   onCreate: () => void;
   onOpen: () => void;
+  onSettings: () => void;
   theme: Theme;
   toggleTheme: () => void;
 }) {
   return (
     <div className="welcome-screen">
       <div className="welcome-titlebar" data-tauri-drag-region>
+        <button className="icon-button" onClick={props.onSettings} title="Settings"><Settings2 size={16} /></button>
         <button className="icon-button" onClick={props.toggleTheme}>
           {props.theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </button>
@@ -1064,6 +1131,11 @@ function Navigator(props: {
   const [entryPath, setEntryPath] = useState("");
   const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
   const [entryBusy, setEntryBusy] = useState(false);
+  const closeEntryForm = () => {
+    if (entryBusy) return;
+    setEntryFormOpen(false);
+    setEntryPath("");
+  };
   const submitEntry = async () => {
     if (!entryPath.trim() || entryBusy) return;
     setEntryBusy(true);
@@ -1079,28 +1151,37 @@ function Navigator(props: {
   };
   return (
     <aside className="navigator">
-      <div className="navigator-section">
+      <div className="navigator-section" onPointerDown={(event) => {
+        const target = event.target as Element;
+        if (!target.closest(".project-entry-form") && !target.closest(".section-action")) closeEntryForm();
+      }}>
         <div className="section-heading">
           <span>Project</span>
           <button className="section-action" title="Add file or folder" onClick={() => setEntryFormOpen((value) => !value)}><Plus size={13} /></button>
         </div>
         {entryFormOpen && (
-          <div className="project-entry-form">
+          <div className="project-entry-form" onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) closeEntryForm();
+          }}>
             <select aria-label="Entry type" value={entryKind} onChange={(event) => setEntryKind(event.target.value as "file" | "folder")}>
-              <option value="file">File</option>
+              <option value="file">LaTeX</option>
               <option value="folder">Folder</option>
             </select>
             <input
               autoFocus
               aria-label="Project-relative path"
-              placeholder={entryKind === "file" ? "sections/method.tex" : "figures/results"}
+              placeholder={entryKind === "file" ? "sections/method" : "figures/results"}
               value={entryPath}
               onChange={(event) => setEntryPath(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && void submitEntry()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void submitEntry();
+                if (event.key === "Escape") closeEntryForm();
+              }}
             />
             <button title="Create" disabled={entryBusy || !entryPath.trim()} onClick={() => void submitEntry()}>
               {entryBusy ? <LoaderCircle className="spin" size={13} /> : <Check size={13} />}
             </button>
+            <button title="Cancel file creation" disabled={entryBusy} onClick={closeEntryForm}><X size={13} /></button>
           </div>
         )}
         <div className="file-tree">
@@ -1219,6 +1300,8 @@ function AgentPanel({
   selection: string;
   chatEnd: React.RefObject<HTMLDivElement | null>;
 }) {
+  const options = modelOptions(provider);
+  const efforts = options.find((option) => option.value === model)?.efforts ?? ["high"];
   return (
     <section className="agent-panel">
       <div className="agent-header">
@@ -1235,24 +1318,25 @@ function AgentPanel({
             <option value="openai-api">OpenAI API</option>
             <option value="anthropic-api">Anthropic API</option>
           </select>
-          <button onClick={onApiSettings} title="API key settings"><KeyRound size={14} /></button>
+          {(provider === "openai-api" || provider === "anthropic-api") && <button onClick={onApiSettings} title="API key settings"><KeyRound size={14} /></button>}
         </div>
       </div>
       <div className="agent-config-bar">
         <label>
           <span>Model</span>
-          <select aria-label="Agent model" value={model} disabled={running} onChange={(event) => setModel(event.target.value)}>
-            {modelOptions(provider).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <select aria-label="Agent model" value={model} disabled={running} onChange={(event) => {
+            const nextModel = event.target.value;
+            const nextEfforts = options.find((option) => option.value === nextModel)?.efforts ?? ["high"];
+            setModel(nextModel);
+            if (!nextEfforts.includes(reasoningEffort)) setReasoningEffort(nextEfforts.includes("high") ? "high" : nextEfforts[0]);
+          }}>
+            {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
         <label>
           <span>Effort</span>
           <select aria-label="Reasoning effort" value={reasoningEffort} disabled={running} onChange={(event) => setReasoningEffort(event.target.value as ReasoningEffort)}>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="xhigh">Extra high</option>
-            <option value="max">Max</option>
+            {efforts.map((effort) => <option key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</option>)}
           </select>
         </label>
       </div>
@@ -1347,6 +1431,8 @@ function DocumentCanvas(props: {
   activePaper: PaperSummary | null;
   citationKeys: string[];
 }) {
+  const splitRef = useRef<HTMLDivElement | null>(null);
+  const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
   const paperHtml = useMemo(
     () => DOMPurify.sanitize(marked.parse(props.paperMarkdown, { async: false }) as string),
     [props.paperMarkdown],
@@ -1391,7 +1477,64 @@ function DocumentCanvas(props: {
   );
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
-  return <div className="split-canvas">{editor}{preview}</div>;
+  const resizeSplit = (clientX: number) => {
+    const bounds = splitRef.current?.getBoundingClientRect();
+    if (!bounds?.width) return splitRatio;
+    const next = clamp((clientX - bounds.left) / bounds.width, 0.2, 0.8);
+    setSplitRatio(next);
+    return next;
+  };
+  const beginSplitResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    let latest = splitRatio;
+    document.body.classList.add("resizing-split");
+    const handleMove = (moveEvent: PointerEvent) => {
+      latest = resizeSplit(moveEvent.clientX);
+    };
+    const handleUp = () => {
+      document.body.classList.remove("resizing-split");
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      persistSplitRatio(latest);
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+  };
+  const nudgeSplit = (delta: number) => {
+    const next = clamp(splitRatio + delta, 0.2, 0.8);
+    setSplitRatio(next);
+    persistSplitRatio(next);
+  };
+  return (
+    <div
+      ref={splitRef}
+      className="split-canvas"
+      style={{ gridTemplateColumns: `minmax(220px, ${splitRatio}fr) 5px minmax(260px, ${1 - splitRatio}fr)` }}
+    >
+      {editor}
+      <div
+        className="split-resizer"
+        role="separator"
+        aria-label="Resize source and PDF preview"
+        aria-orientation="vertical"
+        aria-valuemin={20}
+        aria-valuemax={80}
+        aria-valuenow={Math.round(splitRatio * 100)}
+        tabIndex={0}
+        onPointerDown={beginSplitResize}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            nudgeSplit(-0.03);
+          } else if (event.key === "ArrowRight") {
+            event.preventDefault();
+            nudgeSplit(0.03);
+          }
+        }}
+      />
+      {preview}
+    </div>
+  );
 }
 
 function HistoryDrawer(props: {
@@ -1427,45 +1570,104 @@ function HistoryDrawer(props: {
   );
 }
 
-function ApiSettings(props: {
-  provider: "openai" | "anthropic";
-  setProvider: (provider: "openai" | "anthropic") => void;
+function SettingsDialog(props: {
+  tab: SettingsTab;
+  setTab: (tab: SettingsTab) => void;
+  appearance: AppearanceSettings;
+  setAppearance: (appearance: AppearanceSettings) => void;
+  subscriptions: SubscriptionStatus[];
+  subscriptionsLoading: boolean;
+  subscriptionNotice: string;
+  onRefreshSubscriptions: () => void;
+  onSubscriptionLogin: (provider: "codex" | "claude") => void;
+  apiProvider: "openai" | "anthropic";
+  setApiProvider: (provider: "openai" | "anthropic") => void;
   apiKey: string;
   setApiKey: (key: string) => void;
-  configured: boolean;
-  onSave: () => void;
-  onDelete: () => void;
+  apiConfigured: boolean;
+  onSaveApiKey: () => void;
+  onDeleteApiKey: () => void;
   onClose: () => void;
 }) {
   return (
     <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <div className="modal api-modal" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="modal-icon"><KeyRound size={20} /></div>
-        <h2>API key settings</h2>
-        <p>Keys are stored in macOS Keychain and are never written to the project or browser storage.</p>
-        <label>
-          Provider
-          <select value={props.provider} onChange={(event) => props.setProvider(event.target.value as "openai" | "anthropic")}>
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-          </select>
-        </label>
-        <label>
-          <span className="key-label">API key {props.configured && <span className="configured-label"><Check size={11} /> Configured</span>}</span>
-          <input
-            type="password"
-            autoComplete="off"
-            placeholder={props.configured ? "Enter a replacement key" : "Paste API key"}
-            value={props.apiKey}
-            onChange={(event) => props.setApiKey(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && props.apiKey.trim() && props.onSave()}
-          />
-        </label>
-        <div className="modal-actions api-actions">
-          {props.configured && <button className="delete-key-button" onClick={props.onDelete}><Trash2 size={13} /> Remove</button>}
-          <span />
-          <button className="text-button" onClick={props.onClose}>Cancel</button>
-          <button className="primary-button" onClick={props.onSave} disabled={!props.apiKey.trim()}>Save key</button>
+      <div className="settings-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="settings-header">
+          <div><Settings2 size={17} /><span>Settings</span></div>
+          <button title="Close settings" onClick={props.onClose}><X size={16} /></button>
+        </div>
+        <div className="settings-body">
+          <nav className="settings-nav">
+            <button className={props.tab === "appearance" ? "active" : ""} onClick={() => props.setTab("appearance")}>Appearance</button>
+            <button className={props.tab === "accounts" ? "active" : ""} onClick={() => props.setTab("accounts")}>Subscriptions</button>
+            <button className={props.tab === "api" ? "active" : ""} onClick={() => props.setTab("api")}>API keys</button>
+          </nav>
+          <div className="settings-content">
+            {props.tab === "appearance" && (
+              <div className="settings-section">
+                <h2>Appearance</h2>
+                <p>These preferences apply across every project on this Mac.</p>
+                <label>Interface font
+                  <select value={props.appearance.uiFont} onChange={(event) => props.setAppearance({ ...props.appearance, uiFont: event.target.value })}>
+                    <option value='"DM Sans", -apple-system, sans-serif'>DM Sans</option>
+                    <option value='Inter, -apple-system, sans-serif'>Inter</option>
+                    <option value='-apple-system, BlinkMacSystemFont, sans-serif'>System</option>
+                    <option value='"Avenir Next", sans-serif'>Avenir Next</option>
+                  </select>
+                </label>
+                <label>LaTeX editor font
+                  <select value={props.appearance.editorFont} onChange={(event) => props.setAppearance({ ...props.appearance, editorFont: event.target.value })}>
+                    <option value='"JetBrains Mono", monospace'>JetBrains Mono</option>
+                    <option value='"SFMono-Regular", Consolas, monospace'>SF Mono</option>
+                    <option value='"Fira Code", monospace'>Fira Code</option>
+                    <option value='Menlo, monospace'>Menlo</option>
+                  </select>
+                </label>
+                <div className="settings-range">
+                  <div><label htmlFor="editor-font-size">Editor font size</label><output>{props.appearance.editorFontSize}px</output></div>
+                  <input id="editor-font-size" type="range" min="10" max="18" step="1" value={props.appearance.editorFontSize} onChange={(event) => props.setAppearance({ ...props.appearance, editorFontSize: Number(event.target.value) })} />
+                </div>
+              </div>
+            )}
+            {props.tab === "accounts" && (
+              <div className="settings-section">
+                <div className="settings-section-title"><div><h2>Subscriptions</h2><p>Lattice uses the login already owned by each local CLI.</p></div><button title="Refresh subscription status" onClick={props.onRefreshSubscriptions} disabled={props.subscriptionsLoading}><RefreshCw className={props.subscriptionsLoading ? "spin" : ""} size={14} /></button></div>
+                <div className="account-list">
+                  {props.subscriptions.map((account) => (
+                    <div className="account-card" key={account.provider}>
+                      <div className={`account-mark ${account.loggedIn ? "connected" : ""}`}>{account.provider === "codex" ? "O" : "C"}</div>
+                      <div><strong>{account.provider === "codex" ? "Codex subscription" : "Claude subscription"}</strong><small>{account.detail}</small></div>
+                      {!account.loggedIn && <button disabled={!account.installed} onClick={() => props.onSubscriptionLogin(account.provider)}>Sign in</button>}
+                      {account.loggedIn && <span className="connected-label"><Check size={12} /> Connected</span>}
+                    </div>
+                  ))}
+                  {!props.subscriptions.length && <p className="settings-empty">{props.subscriptionsLoading ? "Checking local subscriptions…" : "Refresh to check local subscriptions."}</p>}
+                </div>
+                {props.subscriptionNotice && <p className="settings-notice">{props.subscriptionNotice}</p>}
+              </div>
+            )}
+            {props.tab === "api" && (
+              <div className="settings-section">
+                <h2>API keys</h2>
+                <p>API keys are optional and only used by the API providers. Subscription providers use their own CLI login.</p>
+                <label>Provider
+                  <select value={props.apiProvider} onChange={(event) => props.setApiProvider(event.target.value as "openai" | "anthropic")}>
+                    <option value="openai">OpenAI API</option>
+                    <option value="anthropic">Anthropic API</option>
+                  </select>
+                </label>
+                <label>
+                  <span className="key-label">API key {props.apiConfigured && <span className="configured-label"><Check size={11} /> Configured</span>}</span>
+                  <input type="password" autoComplete="off" placeholder={props.apiConfigured ? "Enter a replacement key" : "Paste API key"} value={props.apiKey} onChange={(event) => props.setApiKey(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.apiKey.trim() && props.onSaveApiKey()} />
+                </label>
+                <div className="settings-api-actions">
+                  {props.apiConfigured && <button className="delete-key-button" onClick={props.onDeleteApiKey}><Trash2 size={13} /> Remove</button>}
+                  <span />
+                  <button className="primary-button" onClick={props.onSaveApiKey} disabled={!props.apiKey.trim()}>Save key</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1483,26 +1685,39 @@ function toMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-function modelOptions(provider: AgentProvider): { value: string; label: string }[] {
+function modelOptions(provider: AgentProvider): ModelOption[] {
+  const standard = ["low", "medium", "high", "xhigh"] as ReasoningEffort[];
+  const frontier = [...standard, "max"] as ReasoningEffort[];
   switch (provider) {
     case "codex":
+      return [
+        { value: "gpt-5.6-sol", label: "GPT-5.6 Sol", efforts: [...frontier, "ultra"] },
+        { value: "gpt-5.6-terra", label: "GPT-5.6 Terra", efforts: [...frontier, "ultra"] },
+        { value: "gpt-5.6-luna", label: "GPT-5.6 Luna", efforts: frontier },
+        { value: "gpt-5.5", label: "GPT-5.5", efforts: standard },
+        { value: "gpt-5.4", label: "GPT-5.4", efforts: standard },
+        { value: "gpt-5.4-mini", label: "GPT-5.4 Mini", efforts: standard },
+      ];
     case "openai-api":
       return [
-        { value: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
-        { value: "gpt-5.6-terra", label: "GPT-5.6 Terra" },
-        { value: "gpt-5.6-luna", label: "GPT-5.6 Luna" },
+        { value: "gpt-5.6-sol", label: "GPT-5.6 Sol", efforts: ["none", ...frontier] },
+        { value: "gpt-5.6-terra", label: "GPT-5.6 Terra", efforts: ["none", ...frontier] },
+        { value: "gpt-5.6-luna", label: "GPT-5.6 Luna", efforts: ["none", ...frontier] },
+        { value: "gpt-5.5", label: "GPT-5.5", efforts: standard },
+        { value: "gpt-5.4", label: "GPT-5.4", efforts: standard },
+        { value: "gpt-5.4-mini", label: "GPT-5.4 Mini", efforts: standard },
       ];
     case "claude":
       return [
-        { value: "sonnet", label: "Claude Sonnet" },
-        { value: "opus", label: "Claude Opus" },
-        { value: "fable", label: "Claude Fable" },
+        { value: "claude-opus-4-8", label: "Claude Opus 4.8", efforts: frontier },
+        { value: "claude-sonnet-5", label: "Claude Sonnet 5", efforts: frontier },
+        { value: "claude-fable-5", label: "Claude Fable 5", efforts: frontier },
       ];
     case "anthropic-api":
       return [
-        { value: "claude-sonnet-5", label: "Claude Sonnet 5" },
-        { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
-        { value: "claude-fable-5", label: "Claude Fable 5" },
+        { value: "claude-opus-4-8", label: "Claude Opus 4.8", efforts: frontier },
+        { value: "claude-sonnet-5", label: "Claude Sonnet 5", efforts: frontier },
+        { value: "claude-fable-5", label: "Claude Fable 5", efforts: frontier },
       ];
   }
 }
@@ -1511,12 +1726,21 @@ function defaultModel(provider: AgentProvider): string {
   return modelOptions(provider)[0].value;
 }
 
+function normalizeModel(provider: AgentProvider, model: string | undefined): string {
+  if (provider === "claude") {
+    if (model === "sonnet") return "claude-sonnet-5";
+    if (model === "opus") return "claude-opus-4-8";
+    if (model === "fable") return "claude-fable-5";
+  }
+  return modelOptions(provider).some((option) => option.value === model) ? model as string : defaultModel(provider);
+}
+
 function modelLabel(provider: AgentProvider, model: string): string {
   return modelOptions(provider).find((option) => option.value === model)?.label ?? model;
 }
 
 function normalizeEffort(value: string | undefined): ReasoningEffort {
-  return value === "low" || value === "medium" || value === "high" || value === "xhigh" || value === "max"
+  return value === "none" || value === "low" || value === "medium" || value === "high" || value === "xhigh" || value === "max" || value === "ultra"
     ? value
     : "high";
 }
@@ -1565,6 +1789,40 @@ function loadPanelWidths(): PanelWidths {
     };
   } catch {
     return { navigator: 220, agent: 340 };
+  }
+}
+
+function loadAppearance(): AppearanceSettings {
+  const defaults: AppearanceSettings = {
+    uiFont: '"DM Sans", -apple-system, sans-serif',
+    editorFont: '"JetBrains Mono", monospace',
+    editorFontSize: 11,
+  };
+  try {
+    const value = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "null") as Partial<AppearanceSettings> | null;
+    return {
+      uiFont: typeof value?.uiFont === "string" ? value.uiFont : defaults.uiFont,
+      editorFont: typeof value?.editorFont === "string" ? value.editorFont : defaults.editorFont,
+      editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 18),
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function loadSplitRatio(): number {
+  try {
+    return clamp(Number(localStorage.getItem(SPLIT_RATIO_KEY)) || 0.46, 0.2, 0.8);
+  } catch {
+    return 0.46;
+  }
+}
+
+function persistSplitRatio(ratio: number) {
+  try {
+    localStorage.setItem(SPLIT_RATIO_KEY, String(ratio));
+  } catch {
+    // Split resizing remains available for the current session without storage.
   }
 }
 

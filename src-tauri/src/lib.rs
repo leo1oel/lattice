@@ -8,7 +8,7 @@ mod sessions;
 
 use models::{
     AgentMessage, AgentResult, AgentSession, AgentSessionSummary, AgentSettings, BuildResult,
-    HistoryItem, ImportResult, PaperSummary, ProjectSnapshot,
+    HistoryItem, ImportResult, PaperSummary, ProjectSnapshot, SubscriptionStatus,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -112,7 +112,7 @@ fn create_project_entry(
     state: tauri::State<'_, AppState>,
     path: String,
     kind: String,
-) -> Result<(), String> {
+) -> Result<String, String> {
     project::create_entry(&current_root(&state)?, &path, &kind)
 }
 
@@ -182,6 +182,18 @@ async fn run_agent(
 #[tauri::command]
 fn provider_status() -> Vec<(String, bool)> {
     agents::provider_status()
+}
+
+#[tauri::command]
+async fn subscription_status() -> Result<Vec<SubscriptionStatus>, String> {
+    tauri::async_runtime::spawn_blocking(agents::subscription_status)
+        .await
+        .map_err(|error| format!("Could not check subscription status: {error}"))
+}
+
+#[tauri::command]
+fn begin_subscription_login(provider: String) -> Result<(), String> {
+    agents::begin_subscription_login(&provider)
 }
 
 #[tauri::command]
@@ -285,6 +297,8 @@ pub fn run() {
             delete_paper,
             run_agent,
             provider_status,
+            subscription_status,
+            begin_subscription_login,
             save_api_key,
             delete_api_key,
             api_key_status,
