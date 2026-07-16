@@ -1,9 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { getDocument } from "pdfjs-dist";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+vi.mock("pdfjs-dist", () => ({ GlobalWorkerOptions: {}, getDocument: vi.fn() }));
 
 const testSession = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -37,6 +41,7 @@ function mockSessionCommand(command: string, args?: Record<string, unknown>) {
 beforeEach(() => {
   localStorage.clear();
   vi.stubGlobal("confirm", vi.fn(() => true));
+  vi.mocked(open).mockResolvedValue(null);
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "initial_project") return null;
     throw new Error(`Unexpected command: ${command}`);
@@ -72,7 +77,7 @@ describe("welcome screen", () => {
     await waitFor(() => {
       expect(document.documentElement.style.getPropertyValue("--ui-font")).toBe("Inter, -apple-system, sans-serif");
     });
-    expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveAttribute("max", "18");
+    expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("13");
   });
 });
 
@@ -105,6 +110,7 @@ describe("project workspace", () => {
     expect(screen.getByRole("button", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize project navigator" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize writing agent" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize Project and Papers" })).toBeInTheDocument();
   });
 
   it("resizes panels with the accessible divider controls", async () => {
@@ -137,6 +143,11 @@ describe("project workspace", () => {
     fireEvent.pointerMove(window, { clientX: 300 });
     fireEvent.pointerUp(window);
     expect(divider).toHaveAttribute("aria-valuenow", "300");
+
+    const navigatorDivider = screen.getByRole("separator", { name: "Resize Project and Papers" });
+    expect(navigatorDivider).toHaveAttribute("aria-valuenow", "58");
+    fireEvent.keyDown(navigatorDivider, { key: "ArrowDown" });
+    expect(navigatorDivider).toHaveAttribute("aria-valuenow", "61");
 
     const splitDivider = screen.getByRole("separator", { name: "Resize source and PDF preview" });
     expect(splitDivider).toHaveAttribute("aria-valuenow", "46");
@@ -212,6 +223,88 @@ describe("project workspace", () => {
     fireEvent.click(paper);
     expect(await screen.findByText("Attention Is All You Need", { selector: ".paper-reader-title span" })).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
+  });
+
+  it("imports image files into the figures directory", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "figures", path: "figures", kind: "directory", children: [] }],
+    };
+    vi.mocked(open).mockResolvedValue(["/tmp/result.png"]);
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "import_project_assets") return ["figures/result.png"];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    fireEvent.click(await screen.findByTitle("Import images into figures"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_assets", {
+      paths: ["/tmp/result.png"],
+      targetDirectory: "figures",
+    }));
+  });
+
+  it("uses the themed PDF toolbar after a successful build", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
+    const pdf = {
+      numPages: 2,
+      getPage: vi.fn(async () => ({
+        getViewport: () => ({ width: 600, height: 800 }),
+        render: () => renderTask,
+      })),
+    };
+    vi.mocked(getDocument).mockReturnValue({
+      promise: Promise.resolve(pdf),
+      destroy: vi.fn(),
+    } as never);
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:lattice-pdf"),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") return {
+        success: true,
+        pdfBase64: "JVBERi0xLjQ=",
+        log: "",
+        durationMs: 100,
+        diagnostics: [],
+      };
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Build" }));
+    expect(await screen.findByTitle("Download PDF")).toBeInTheDocument();
+    expect(screen.getByTitle("Previous page")).toBeDisabled();
+    await waitFor(() => expect(screen.getByTitle("Next page")).toBeEnabled());
+    expect(screen.getByTitle("Zoom out")).toBeInTheDocument();
+    expect(screen.getByTitle("Zoom in")).toBeInTheDocument();
   });
 
   it("creates and restores project conversations", async () => {

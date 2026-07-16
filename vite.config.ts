@@ -19,6 +19,7 @@ export default defineConfig(async () => ({
           if (id.includes("node_modules/@lezer")) return "parser";
           if (id.includes("@codemirror") || id.includes("@uiw/react-codemirror") || id.includes("codemirror-lang-latex")) return "editor";
           if (id.includes("marked") || id.includes("dompurify")) return "paper-reader";
+          if (id.includes("pdfjs-dist")) return "pdf-reader";
           if (id.includes("gsap")) return "motion";
           if (id.includes("node_modules/react") || id.includes("node_modules/lucide-react")) return "ui";
           return undefined;

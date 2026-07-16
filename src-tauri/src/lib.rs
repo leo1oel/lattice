@@ -122,6 +122,15 @@ fn delete_project_entry(state: tauri::State<'_, AppState>, path: String) -> Resu
 }
 
 #[tauri::command]
+fn import_project_assets(
+    state: tauri::State<'_, AppState>,
+    paths: Vec<String>,
+    target_directory: String,
+) -> Result<Vec<String>, String> {
+    project::import_assets(&current_root(&state)?, &paths, &target_directory)
+}
+
+#[tauri::command]
 async fn build_project(state: tauri::State<'_, AppState>) -> Result<BuildResult, String> {
     let root = current_root(&state)?;
     tauri::async_runtime::spawn_blocking(move || latex::build(&root))
@@ -290,6 +299,7 @@ pub fn run() {
             list_citation_keys,
             create_project_entry,
             delete_project_entry,
+            import_project_assets,
             build_project,
             import_arxiv,
             list_papers,

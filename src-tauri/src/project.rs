@@ -224,6 +224,90 @@ pub fn create_entry(root: &Path, relative: &str, kind: &str) -> Result<String, S
     }
 }
 
+pub fn import_assets(
+    root: &Path,
+    sources: &[String],
+    target_directory: &str,
+) -> Result<Vec<String>, String> {
+    validate_user_entry(target_directory)?;
+    if sources.is_empty() {
+        return Err("Drop one or more image files first.".to_string());
+    }
+    let target = safe_path(root, target_directory)?;
+    if !target.is_dir() {
+        return Err("Drop images onto a project folder.".to_string());
+    }
+
+    for source in sources {
+        let source = Path::new(source);
+        if !source.is_file() || !is_supported_asset(source) {
+            return Err(format!(
+                "{} is not a supported image or PDF file.",
+                source
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("That item")
+            ));
+        }
+        source
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| "An imported image has an invalid file name.".to_string())?;
+    }
+
+    let mut imported = Vec::new();
+    for source in sources {
+        let source = Path::new(source);
+        let file_name = source
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("asset names were validated before copying");
+        let destination = available_asset_path(&target, file_name);
+        fs::copy(source, &destination).map_err(err)?;
+        imported.push(
+            destination
+                .strip_prefix(root)
+                .map_err(err)?
+                .to_string_lossy()
+                .to_string(),
+        );
+    }
+    Ok(imported)
+}
+
+fn available_asset_path(directory: &Path, file_name: &str) -> PathBuf {
+    let requested = directory.join(file_name);
+    if !requested.exists() {
+        return requested;
+    }
+    let path = Path::new(file_name);
+    let stem = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("figure");
+    let extension = path.extension().and_then(|value| value.to_str());
+    for suffix in 2.. {
+        let candidate = match extension {
+            Some(extension) => directory.join(format!("{stem}-{suffix}.{extension}")),
+            None => directory.join(format!("{stem}-{suffix}")),
+        };
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+    unreachable!()
+}
+
+fn is_supported_asset(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .map(str::to_ascii_lowercase)
+            .as_deref(),
+        Some("png" | "jpg" | "jpeg" | "pdf" | "svg" | "eps" | "webp")
+    )
+}
+
 fn normalize_latex_path(relative: &str) -> Result<String, String> {
     let path = Path::new(relative.trim());
     match path.extension().and_then(|extension| extension.to_str()) {
@@ -460,19 +544,41 @@ fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
 }
 
 fn file_kind(path: &Path) -> &'static str {
-    match path.extension().and_then(|ext| ext.to_str()) {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
         Some("tex") => "tex",
         Some("bib") => "bib",
         Some("md") => "markdown",
-        Some("png" | "jpg" | "jpeg" | "pdf" | "svg") => "figure",
+        Some("png" | "jpg" | "jpeg" | "pdf" | "svg" | "eps" | "webp") => "figure",
         _ => "text",
     }
 }
 
 fn is_visible_source(path: &Path) -> bool {
     matches!(
-        path.extension().and_then(|ext| ext.to_str()),
-        Some("tex" | "bib" | "md" | "txt" | "sty" | "cls" | "png" | "jpg" | "jpeg" | "pdf" | "svg")
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .map(str::to_ascii_lowercase)
+            .as_deref(),
+        Some(
+            "tex"
+                | "bib"
+                | "md"
+                | "txt"
+                | "sty"
+                | "cls"
+                | "png"
+                | "jpg"
+                | "jpeg"
+                | "pdf"
+                | "svg"
+                | "eps"
+                | "webp"
+        )
     )
 }
 
@@ -625,6 +731,32 @@ mod tests {
         assert!(delete_entry(&root, "references.bib").is_err());
         assert!(create_entry(&root, ".research/private.txt", "file").is_err());
         assert!(create_entry(&root, "notes.md", "file").is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn imported_assets_are_copied_and_renamed_on_collision() {
+        let parent = temp_root("import-assets");
+        let root = create(&parent, "paper").unwrap();
+        let source = parent.join("result.png");
+        fs::write(&source, b"png-bytes").unwrap();
+        let paths = vec![source.to_string_lossy().to_string()];
+        assert_eq!(
+            import_assets(&root, &paths, "figures").unwrap(),
+            vec!["figures/result.png"]
+        );
+        assert_eq!(
+            import_assets(&root, &paths, "figures").unwrap(),
+            vec!["figures/result-2.png"]
+        );
+        let unsupported = parent.join("notes.txt");
+        fs::write(&unsupported, b"text").unwrap();
+        assert!(import_assets(
+            &root,
+            &[unsupported.to_string_lossy().to_string()],
+            "figures"
+        )
+        .is_err());
         fs::remove_dir_all(parent).unwrap();
     }
 

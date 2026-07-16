@@ -5,21 +5,26 @@ import CodeMirror from "@uiw/react-codemirror";
 import { latex } from "codemirror-lang-latex";
 import DOMPurify from "dompurify";
 import { gsap } from "gsap";
+import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
   BookOpen,
   Bot,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleAlert,
   Clock3,
   Code2,
+  Download,
   File,
   FileCode2,
   FileText,
   Folder,
   FolderOpen,
   History,
+  ImagePlus,
   KeyRound,
   Library,
   LoaderCircle,
@@ -36,10 +41,14 @@ import {
   Sun,
   Trash2,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { marked } from "marked";
 import { latexEditorExtensions } from "./latex-editor";
 import "./App.css";
+
+GlobalWorkerOptions.workerSrc = pdfWorker;
 
 type RootDocument = {
   path: string;
@@ -145,8 +154,9 @@ type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 
 const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 const PANEL_WIDTHS_KEY = "lattice.panel-widths.v1";
-const APPEARANCE_KEY = "lattice.appearance.v1";
+const APPEARANCE_KEY = "lattice.appearance.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
+const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
 
 const defaultWelcomeMessages: ChatMessage[] = [
   {
@@ -181,6 +191,8 @@ function App() {
   const [agentRunning, setAgentRunning] = useState(false);
   const [importInput, setImportInput] = useState("");
   const [importing, setImporting] = useState(false);
+  const [assetImporting, setAssetImporting] = useState(false);
+  const [assetDropTarget, setAssetDropTarget] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [navigatorOpen, setNavigatorOpen] = useState(true);
@@ -489,6 +501,72 @@ function App() {
       throw reason;
     }
   }, [loadFile, refreshHistory, refreshProject]);
+
+  const importProjectAssets = useCallback(async (paths: string[], targetDirectory = "figures") => {
+    if (!paths.length || assetImporting) return;
+    setAssetImporting(true);
+    try {
+      const imported = await invoke<string[]>("import_project_assets", { paths, targetDirectory });
+      await refreshProject();
+      setMessages((items) => [
+        ...items,
+        {
+          id: crypto.randomUUID(),
+          role: "system",
+          text: `Imported ${imported.length} figure${imported.length === 1 ? "" : "s"} into ${targetDirectory}.`,
+          files: imported,
+        },
+      ]);
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    } finally {
+      setAssetImporting(false);
+      setAssetDropTarget(null);
+    }
+  }, [assetImporting, refreshProject]);
+
+  const chooseProjectAssets = useCallback(async (targetDirectory = "figures") => {
+    const selected = await open({
+      multiple: true,
+      title: `Import figures into ${targetDirectory}`,
+      filters: [{ name: "Figures", extensions: ["png", "jpg", "jpeg", "pdf", "svg", "eps", "webp"] }],
+    });
+    if (!selected) return;
+    await importProjectAssets(Array.isArray(selected) ? selected : [selected], targetDirectory);
+  }, [importProjectAssets]);
+
+  useEffect(() => {
+    if (!project) return;
+    let dispose: (() => void) | undefined;
+    let active = true;
+    void import("@tauri-apps/api/webview")
+      .then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent((event) => {
+        if (!active) return;
+        if (event.payload.type === "leave") {
+          setAssetDropTarget(null);
+          return;
+        }
+        const targetDirectory = dropDirectoryAt(event.payload.position);
+        setAssetDropTarget(targetDirectory);
+        if (event.payload.type === "drop") {
+          setAssetDropTarget(null);
+          if (targetDirectory) void importProjectAssets(event.payload.paths, targetDirectory);
+          else setError("Drop image files onto a project folder or anywhere in the Project pane to add them to figures.");
+        }
+      }))
+      .then((unlisten) => {
+        if (active) dispose = unlisten;
+        else unlisten();
+      })
+      .catch(() => {
+        // Browser-based tests and previews do not expose native file paths.
+      });
+    return () => {
+      active = false;
+      dispose?.();
+    };
+  }, [importProjectAssets, project]);
 
   const deleteProjectEntry = useCallback(async (path: string) => {
     if (!window.confirm(`Delete “${path}” from this project?`)) return;
@@ -895,6 +973,9 @@ function App() {
               onFile={loadFile}
               onCreateEntry={createProjectEntry}
               onDeleteEntry={deleteProjectEntry}
+              onImportAssets={chooseProjectAssets}
+              assetDropTarget={assetDropTarget}
+              assetImporting={assetImporting}
               onPaper={openPaper}
               onDeletePaper={deletePaper}
               importInput={importInput}
@@ -1120,6 +1201,9 @@ function Navigator(props: {
   onFile: (path: string) => void;
   onCreateEntry: (path: string, kind: "file" | "folder") => Promise<void>;
   onDeleteEntry: (path: string) => void;
+  onImportAssets: (targetDirectory?: string) => void;
+  assetDropTarget: string | null;
+  assetImporting: boolean;
   onPaper: (paper: PaperSummary) => void;
   onDeletePaper: (paper: PaperSummary) => void;
   importInput: string;
@@ -1127,6 +1211,8 @@ function Navigator(props: {
   onImport: () => void;
   importing: boolean;
 }) {
+  const navigatorRef = useRef<HTMLElement | null>(null);
+  const [navigatorSplit, setNavigatorSplit] = useState(loadNavigatorSplit);
   const [entryFormOpen, setEntryFormOpen] = useState(false);
   const [entryPath, setEntryPath] = useState("");
   const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
@@ -1149,9 +1235,41 @@ function Navigator(props: {
       setEntryBusy(false);
     }
   };
+  const setSplitFromPointer = (clientY: number) => {
+    const bounds = navigatorRef.current?.getBoundingClientRect();
+    if (!bounds?.height) return navigatorSplit;
+    const next = clamp((clientY - bounds.top) / bounds.height, 0.2, 0.78);
+    setNavigatorSplit(next);
+    return next;
+  };
+  const beginNavigatorSplitResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    let latest = navigatorSplit;
+    document.body.classList.add("resizing-navigator-split");
+    const handleMove = (moveEvent: PointerEvent) => {
+      latest = setSplitFromPointer(moveEvent.clientY);
+    };
+    const handleUp = () => {
+      document.body.classList.remove("resizing-navigator-split");
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      persistNavigatorSplit(latest);
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+  };
+  const nudgeNavigatorSplit = (delta: number) => {
+    const next = clamp(navigatorSplit + delta, 0.2, 0.78);
+    setNavigatorSplit(next);
+    persistNavigatorSplit(next);
+  };
   return (
-    <aside className="navigator">
-      <div className="navigator-section" onPointerDown={(event) => {
+    <aside
+      ref={navigatorRef}
+      className={`navigator ${props.assetDropTarget ? "asset-drag-active" : ""}`}
+      style={{ gridTemplateRows: `minmax(100px, ${navigatorSplit}fr) 5px minmax(140px, ${1 - navigatorSplit}fr)` }}
+    >
+      <div className="navigator-section project-section" onPointerDown={(event) => {
         const target = event.target as Element;
         if (!target.closest(".project-entry-form") && !target.closest(".section-action")) closeEntryForm();
       }}>
@@ -1185,9 +1303,29 @@ function Navigator(props: {
           </div>
         )}
         <div className="file-tree">
-          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} protectedPaths={props.protectedPaths} onFile={props.onFile} onDelete={props.onDeleteEntry} />)}
+          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} protectedPaths={props.protectedPaths} onFile={props.onFile} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} />)}
         </div>
       </div>
+      <div
+        className="navigator-split-resizer"
+        role="separator"
+        aria-label="Resize Project and Papers"
+        aria-orientation="horizontal"
+        aria-valuemin={20}
+        aria-valuemax={78}
+        aria-valuenow={Math.round(navigatorSplit * 100)}
+        tabIndex={0}
+        onPointerDown={beginNavigatorSplitResize}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            nudgeNavigatorSplit(-0.03);
+          } else if (event.key === "ArrowDown") {
+            event.preventDefault();
+            nudgeNavigatorSplit(0.03);
+          }
+        }}
+      />
       <div className="navigator-section papers-section">
         <div className="section-heading">
           <span>Papers</span>
@@ -1221,20 +1359,22 @@ function Navigator(props: {
   );
 }
 
-function TreeNode({ node, activeFile, protectedPaths, onFile, onDelete }: { node: FileNode; activeFile: string; protectedPaths: string[]; onFile: (path: string) => void; onDelete: (path: string) => void }) {
+function TreeNode({ node, activeFile, protectedPaths, onFile, onDelete, onImportAssets, assetDropTarget, assetImporting }: { node: FileNode; activeFile: string; protectedPaths: string[]; onFile: (path: string) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean }) {
   const [open, setOpen] = useState(true);
   const protectedEntry = protectedPaths.some((path) => path === node.path || path.startsWith(`${node.path}/`));
   if (node.kind === "directory") {
     return (
-      <div className="tree-directory">
+      <div className={`tree-directory ${assetDropTarget === node.path ? "drop-target" : ""}`} data-drop-directory={node.path}>
         <div className="tree-row">
           <button className="tree-main" onClick={() => setOpen((value) => !value)}>
             {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             <Folder size={14} /> <span>{node.name}</span>
           </button>
+          {node.path === "figures" && <button className="row-import" title="Import images into figures" disabled={assetImporting} onClick={() => onImportAssets(node.path)}>{assetImporting ? <LoaderCircle className="spin" size={12} /> : <ImagePlus size={12} />}</button>}
           {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
         </div>
-        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} protectedPaths={protectedPaths} onFile={onFile} onDelete={onDelete} />)}</div>}
+        {assetDropTarget === node.path && <div className="asset-drop-hint">Drop images into {node.path}</div>}
+        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} protectedPaths={protectedPaths} onFile={onFile} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} />)}</div>}
       </div>
     );
   }
@@ -1471,9 +1611,7 @@ function DocumentCanvas(props: {
     </div>
   );
   const preview = (
-    <div className="pdf-preview">
-      {props.pdfUrl ? <iframe src={`${props.pdfUrl}#toolbar=0&navpanes=0`} title="Compiled paper" /> : <div className="pdf-placeholder"><FileText size={28} /><p>Build the project to preview the paper.</p></div>}
-    </div>
+    <PdfPreview key={props.pdfUrl ?? "empty-pdf"} url={props.pdfUrl} />
   );
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
@@ -1533,6 +1671,91 @@ function DocumentCanvas(props: {
         }}
       />
       {preview}
+    </div>
+  );
+}
+
+function PdfPreview({ url }: { url: string | null }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [scale, setScale] = useState(1.1);
+  const [loading, setLoading] = useState(Boolean(url));
+  const [pdfError, setPdfError] = useState("");
+
+  useEffect(() => {
+    if (!url) return;
+    let active = true;
+    const loadingTask = getDocument({ url });
+    void loadingTask.promise
+      .then((pdf) => {
+        if (active) setDocumentProxy(pdf);
+      })
+      .catch((reason) => active && setPdfError(toMessage(reason)))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+      void loadingTask.destroy();
+    };
+  }, [url]);
+
+  useEffect(() => {
+    if (!documentProxy || !canvasRef.current) return;
+    let active = true;
+    let cancelRender: (() => void) | undefined;
+    void documentProxy.getPage(pageNumber)
+      .then((page) => {
+        if (!active || !canvasRef.current) return;
+        const pixelRatio = window.devicePixelRatio || 1;
+        const viewport = page.getViewport({ scale: scale * pixelRatio });
+        const canvas = canvasRef.current;
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        canvas.style.width = `${Math.floor(viewport.width / pixelRatio)}px`;
+        canvas.style.height = `${Math.floor(viewport.height / pixelRatio)}px`;
+        const renderTask = page.render({ canvas, viewport });
+        cancelRender = () => renderTask.cancel();
+        return renderTask.promise;
+      })
+      .catch((reason) => {
+        if (active && reason?.name !== "RenderingCancelledException") setPdfError(toMessage(reason));
+      })
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+      cancelRender?.();
+    };
+  }, [documentProxy, pageNumber, scale]);
+
+  if (!url) {
+    return <div className="pdf-preview"><div className="pdf-placeholder"><FileText size={28} /><p>Build the project to preview the paper.</p></div></div>;
+  }
+
+  const download = () => {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "paper.pdf";
+    anchor.click();
+  };
+  return (
+    <div className="pdf-preview">
+      <div className="pdf-toolbar">
+        <div className="pdf-page-controls">
+          <button title="Previous page" disabled={pageNumber <= 1} onClick={() => { setLoading(true); setPageNumber((page) => Math.max(1, page - 1)); }}><ChevronLeft size={14} /></button>
+          <span>{pageNumber} / {documentProxy?.numPages ?? "–"}</span>
+          <button title="Next page" disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => { setLoading(true); setPageNumber((page) => Math.min(documentProxy?.numPages ?? page, page + 1)); }}><ChevronRight size={14} /></button>
+        </div>
+        <div className="pdf-zoom-controls">
+          <button title="Zoom out" disabled={scale <= 0.6} onClick={() => { setLoading(true); setScale((value) => clamp(Number((value - 0.1).toFixed(1)), 0.6, 2.2)); }}><ZoomOut size={14} /></button>
+          <span>{Math.round(scale * 100)}%</span>
+          <button title="Zoom in" disabled={scale >= 2.2} onClick={() => { setLoading(true); setScale((value) => clamp(Number((value + 0.1).toFixed(1)), 0.6, 2.2)); }}><ZoomIn size={14} /></button>
+        </div>
+        <button className="pdf-download" title="Download PDF" onClick={download}><Download size={14} /></button>
+      </div>
+      <div className="pdf-scroll-area">
+        {pdfError ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div> : <canvas ref={canvasRef} aria-label={`PDF page ${pageNumber}`} />}
+        {loading && <div className="pdf-loading"><LoaderCircle className="spin" size={17} /> Rendering PDF…</div>}
+      </div>
     </div>
   );
 }
@@ -1796,7 +2019,7 @@ function loadAppearance(): AppearanceSettings {
   const defaults: AppearanceSettings = {
     uiFont: '"DM Sans", -apple-system, sans-serif',
     editorFont: '"JetBrains Mono", monospace',
-    editorFontSize: 11,
+    editorFontSize: 13,
   };
   try {
     const value = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "null") as Partial<AppearanceSettings> | null;
@@ -1824,6 +2047,30 @@ function persistSplitRatio(ratio: number) {
   } catch {
     // Split resizing remains available for the current session without storage.
   }
+}
+
+function loadNavigatorSplit(): number {
+  try {
+    return clamp(Number(localStorage.getItem(NAVIGATOR_SPLIT_KEY)) || 0.58, 0.2, 0.78);
+  } catch {
+    return 0.58;
+  }
+}
+
+function persistNavigatorSplit(ratio: number) {
+  try {
+    localStorage.setItem(NAVIGATOR_SPLIT_KEY, String(ratio));
+  } catch {
+    // Navigator resizing remains available for the current session without storage.
+  }
+}
+
+function dropDirectoryAt(position: { x: number; y: number }): string | null {
+  const scale = window.devicePixelRatio || 1;
+  const element = document.elementFromPoint(position.x / scale, position.y / scale);
+  const directory = element?.closest<HTMLElement>("[data-drop-directory]")?.dataset.dropDirectory;
+  if (directory) return directory;
+  return element?.closest(".navigator") ? "figures" : null;
 }
 
 function persistPanelWidths(widths: PanelWidths) {

@@ -10,10 +10,11 @@ It is intended to validate the complete writing loop before collaboration and ho
 
 - Create a new research project or open an existing LaTeX folder.
 - Start new projects with a bundled, MIT-licensed arXivTeX two-column template.
-- Browse, create, delete, and directly edit project source files with CodeMirror; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
+- Browse, create, delete, scroll, and directly edit project source files with a full-height CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
 - Get automatic braces after citation commands and bibliography-key completion inside `\\cite{...}`.
 - Compile the default root document with the local `latexmk` installation.
-- Review the generated PDF beside the source with a draggable split divider.
+- Review the generated PDF beside the source with a draggable split divider and a themed PDF.js toolbar for paging, zoom, and download.
+- Drag PNG, JPEG, PDF, SVG, EPS, or WebP figures onto a project folder, or import them through the figures-folder action.
 - Import an arXiv paper as Markdown with `arxiv2md`.
 - Add every imported paper to the project bibliography through `bibcite`.
 - Browse imported papers by title, read their Markdown snapshots, and remove a paper together with its `bibcite`-managed bibliography entry.
@@ -24,7 +25,8 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Create, restore, and delete project-local agent conversations with prior messages included as context.
 - Save direct edits, imports, and agent changes as atomic project transactions.
 - Inspect project history and revert a transaction.
-- Choose interface and editor fonts and editor font size from Settings, alongside light and dark themes with reduced-motion support.
+- Resize the Project and Papers regions vertically and preserve that layout across launches.
+- Choose interface and editor fonts and editor font size from Settings, with a more readable default scale, light and dark themes, and reduced-motion support.
 
 ## Current boundaries
 
@@ -64,6 +66,7 @@ Paste an arXiv URL into the paper importer to add a Markdown snapshot and biblio
 Select LaTeX text before sending a message when the agent should focus on a specific passage.
 Use the project heading's plus button to add a LaTeX file or folder, and the row actions to remove project entries or imported papers.
 The `.tex` suffix is optional while naming a new source file and is added automatically.
+Drag figure files anywhere over the Project pane to add them to `figures`, or drop them directly on another project directory to target that folder.
 Choose the agent model and effort directly above the conversation; the selection is saved with each project-local conversation.
 Open Settings to adjust fonts, inspect or start subscription login, or manage API keys.
 The key icon only appears for OpenAI API and Anthropic API providers and stores those keys in macOS Keychain.
