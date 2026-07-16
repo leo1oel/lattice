@@ -5,7 +5,7 @@ use regex::Regex;
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::Output;
 use uuid::Uuid;
 
 pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
@@ -22,7 +22,7 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
         fs::write(&bibliography_path, "").map_err(err)?;
     }
 
-    let markdown_output = Command::new(commands::resolve("uvx"))
+    let markdown_output = commands::command("uvx")
         .env("UV_CACHE_DIR", "/tmp/research-writer-uv-cache")
         .arg("--from")
         .arg("arxiv2markdown")
@@ -93,14 +93,14 @@ fn parse_arxiv_id(input: &str) -> Result<String, String> {
 }
 
 fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
-    let direct = Command::new(commands::resolve("bibcite"))
+    let direct = commands::command("bibcite")
         .arg("add")
         .arg(path)
         .arg(query)
         .output();
     let output = match direct {
         Ok(output) => output,
-        Err(_) => Command::new(commands::resolve("uvx"))
+        Err(_) => commands::command("uvx")
             .env("UV_CACHE_DIR", "/tmp/research-writer-uv-cache")
             .arg("--from")
             .arg("bibcite-cli")

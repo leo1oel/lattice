@@ -46,12 +46,34 @@ button { border: 0; cursor: pointer; }
 button:disabled { cursor: default; opacity: 0.45; }
 
 .app-shell { height: 100%; background: var(--bg); display: flex; flex-direction: column; }
-.titlebar { height: 46px; flex: none; display: flex; align-items: center; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 92%, transparent); user-select: none; }
+.titlebar { position: relative; z-index: 5; height: 46px; flex: none; display: flex; align-items: center; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 92%, transparent); user-select: none; }
 .traffic-space { width: 76px; height: 100%; flex: none; }
 .icon-button { width: 30px; height: 30px; border-radius: 7px; background: transparent; display: grid; place-items: center; color: var(--muted); }
 .icon-button:hover { background: var(--line); color: var(--text); }
-.project-title { min-width: 0; flex: 1; display: flex; align-items: baseline; gap: 10px; padding-left: 8px; font-size: 13px; font-weight: 600; }
+.project-switcher { min-width: 0; flex: 1; position: relative; }
+.project-title { max-width: min(620px, 100%); height: 30px; min-width: 0; border-radius: 7px; padding: 0 8px; background: transparent; display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; text-align: left; }
+.project-title:hover, .project-title[aria-expanded="true"] { background: var(--line); }
+.project-title:disabled { opacity: 1; cursor: default; }
+.project-title > span:first-child { flex: none; white-space: nowrap; }
+.project-title > svg { flex: none; color: var(--faint); }
 .project-path { font-size: 11px; font-weight: 400; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-menu-dismiss { position: fixed; z-index: 6; inset: 0; background: transparent; cursor: default; }
+.project-menu { position: absolute; z-index: 7; top: 36px; left: 0; width: 330px; padding: 7px; border: 1px solid var(--line-strong); border-radius: 11px; background: var(--panel-strong); box-shadow: var(--shadow); }
+.project-menu-heading { padding: 7px 8px 5px; color: var(--faint); font-size: 9px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.recent-projects { max-height: 230px; overflow: auto; }
+.recent-projects > button { width: 100%; min-width: 0; padding: 7px; border-radius: 7px; background: transparent; display: flex; align-items: center; gap: 8px; text-align: left; }
+.recent-projects > button:hover { background: var(--line); }
+.recent-project-icon { width: 27px; height: 27px; flex: none; border-radius: 7px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.recent-projects > button > span:last-child { min-width: 0; display: block; }
+.recent-projects strong, .recent-projects small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-projects strong { font-size: 11px; font-weight: 600; }
+.recent-projects small { margin-top: 2px; color: var(--faint); font-size: 9px; }
+.recent-projects > p { margin: 8px; color: var(--faint); font-size: 10px; }
+.project-menu-actions { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.project-menu-actions button { width: 100%; height: 30px; padding: 0 8px; border-radius: 6px; background: transparent; color: var(--muted); display: flex; align-items: center; gap: 7px; font-size: 10px; text-align: left; }
+.project-menu-actions button:hover { background: var(--line); color: var(--text); }
+.project-menu-actions kbd { margin-left: auto; border: 0; color: var(--faint); font: inherit; }
+.project-menu-busy { margin: 5px 7px 4px; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; }
 .title-actions { display: flex; align-items: center; gap: 6px; padding-right: 12px; }
 .build-button { height: 28px; border-radius: 7px; padding: 0 10px; display: flex; align-items: center; gap: 6px; background: var(--text); color: var(--bg); font-size: 11px; font-weight: 600; }
 .build-button.success { background: var(--accent-soft); color: var(--success); }
@@ -107,6 +129,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .thinking span { width: 4px; height: 4px; border-radius: 50%; background: var(--faint); animation: think 1.2s infinite ease-in-out; }
 .thinking span:nth-child(2) { animation-delay: 0.15s; }
 .thinking span:nth-child(3) { animation-delay: 0.3s; }
+.thinking em { margin-left: 4px; color: var(--faint); font-size: 9px; font-style: normal; }
 @keyframes think { 0%, 60%, 100% { opacity: .35; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
 .composer-wrap { flex: none; padding: 8px 10px 11px; }
 .context-chip { width: fit-content; max-width: 100%; height: 22px; margin: 0 0 5px 4px; padding: 0 7px; border-radius: 6px 6px 0 0; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; gap: 5px; font-size: 9px; }

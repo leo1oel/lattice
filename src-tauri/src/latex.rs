@@ -5,7 +5,6 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use regex::Regex;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 use std::time::Instant;
 
 pub fn build(root: &Path) -> Result<BuildResult, String> {
@@ -22,7 +21,7 @@ pub fn build(root: &Path) -> Result<BuildResult, String> {
     }
 
     let started = Instant::now();
-    let mut command = Command::new(commands::resolve("latexmk"));
+    let mut command = commands::command("latexmk");
     command
         .current_dir(root)
         .arg("-pdf")
@@ -62,6 +61,8 @@ pub fn build(root: &Path) -> Result<BuildResult, String> {
 fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     let file_line = Regex::new(r"(?m)^([^\n:]+\.(?:tex|sty|cls)):(\d+):\s*(.+)$").unwrap();
     let warning = Regex::new(r"(?m)^(?:LaTeX|Package .+?) Warning:\s*(.+)$").unwrap();
+    let missing_command =
+        Regex::new(r"(?m)^(?:sh:\s*)?([A-Za-z0-9_+.-]+): command not found$").unwrap();
     let mut diagnostics: Vec<Diagnostic> = file_line
         .captures_iter(log)
         .take(20)
@@ -72,6 +73,17 @@ fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
             message: capture[3].trim().to_string(),
         })
         .collect();
+    if let Some(capture) = missing_command.captures(log) {
+        diagnostics.push(Diagnostic {
+            file: None,
+            line: None,
+            level: "error".to_string(),
+            message: format!(
+                "The LaTeX tool '{}' was not found. Install MacTeX or TeX Live, then restart Lattice.",
+                &capture[1]
+            ),
+        });
+    }
     diagnostics.extend(
         warning
             .captures_iter(log)
@@ -110,10 +122,17 @@ mod tests {
     fn creates_and_builds_a_real_project() {
         let parent = temp_root();
         fs::create_dir_all(&parent).unwrap();
-        let root = project::create(&parent, "paper").unwrap();
+        let root = project::create(&parent, "R&D_100%").unwrap();
         let result = build(&root).unwrap();
         assert!(result.success, "{}", result.log);
         assert!(result.pdf_base64.is_some());
         fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn explains_a_missing_latex_child_command() {
+        let diagnostics = parse_diagnostics("sh: pdflatex: command not found\n");
+        assert_eq!(diagnostics.len(), 1);
+        assert!(diagnostics[0].message.contains("pdflatex"));
     }
 }

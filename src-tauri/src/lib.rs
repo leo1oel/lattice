@@ -99,13 +99,22 @@ fn write_project_file(
 }
 
 #[tauri::command]
-fn build_project(state: tauri::State<'_, AppState>) -> Result<BuildResult, String> {
-    latex::build(&current_root(&state)?)
+async fn build_project(state: tauri::State<'_, AppState>) -> Result<BuildResult, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || latex::build(&root))
+        .await
+        .map_err(|error| format!("The LaTeX build task stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn import_arxiv(state: tauri::State<'_, AppState>, input: String) -> Result<ImportResult, String> {
-    papers::import_arxiv(&current_root(&state)?, &input)
+async fn import_arxiv(
+    state: tauri::State<'_, AppState>,
+    input: String,
+) -> Result<ImportResult, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || papers::import_arxiv(&root, &input))
+        .await
+        .map_err(|error| format!("The paper import task stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
@@ -119,20 +128,25 @@ fn read_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<Str
 }
 
 #[tauri::command]
-fn run_agent(
+async fn run_agent(
     state: tauri::State<'_, AppState>,
     provider: String,
     message: String,
     active_file: Option<String>,
     selection: Option<String>,
 ) -> Result<AgentResult, String> {
-    agents::run(
-        &current_root(&state)?,
-        &provider,
-        &message,
-        active_file.as_deref(),
-        selection.as_deref(),
-    )
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        agents::run(
+            &root,
+            &provider,
+            &message,
+            active_file.as_deref(),
+            selection.as_deref(),
+        )
+    })
+    .await
+    .map_err(|error| format!("The writing agent task stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]

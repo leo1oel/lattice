@@ -3,7 +3,9 @@ use crate::models::{AgentPayload, AgentResult};
 use crate::{papers, project};
 use serde_json::Value;
 use std::path::Path;
-use std::process::Command;
+use std::time::Duration;
+
+const AGENT_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
 pub fn run(
     root: &Path,
@@ -141,16 +143,16 @@ fn relevant_evidence(root: &Path, query: &str) -> Result<String, String> {
 }
 
 fn run_codex(root: &Path, prompt: &str) -> Result<String, String> {
-    let output = Command::new(commands::resolve("codex"))
+    let mut command = commands::command("codex");
+    command
         .current_dir(root)
         .arg("exec")
         .arg("--json")
         .arg("--sandbox")
         .arg("read-only")
         .arg("--skip-git-repo-check")
-        .arg(prompt)
-        .output()
-        .map_err(|error| format!("Could not start Codex CLI: {error}"))?;
+        .arg(prompt);
+    let output = commands::output_with_timeout(command, AGENT_TIMEOUT, "Codex CLI")?;
     if !output.status.success() {
         return Err(format!(
             "Codex failed.\n{}{}",
@@ -180,16 +182,24 @@ fn run_codex(root: &Path, prompt: &str) -> Result<String, String> {
 }
 
 fn run_claude(root: &Path, prompt: &str) -> Result<String, String> {
-    let output = Command::new(commands::resolve("claude"))
+    let schema = serde_json::to_string(&agent_schema()).map_err(|error| error.to_string())?;
+    let mut command = commands::command("claude");
+    command
         .current_dir(root)
         .arg("--print")
         .arg("--output-format")
         .arg("json")
+        .arg("--json-schema")
+        .arg(schema)
+        .arg("--model")
+        .arg("sonnet")
+        .arg("--safe-mode")
+        .arg("--no-session-persistence")
         .arg("--permission-mode")
         .arg("plan")
-        .arg(prompt)
-        .output()
-        .map_err(|error| format!("Could not start Claude Code: {error}"))?;
+        .arg("--tools=")
+        .arg(prompt);
+    let output = commands::output_with_timeout(command, AGENT_TIMEOUT, "Claude Code")?;
     if !output.status.success() {
         return Err(format!(
             "Claude failed.\n{}{}",
@@ -415,6 +425,26 @@ mod tests {
         let result = run(
             &root,
             "codex",
+            "Do not edit any file. Briefly confirm that the active file is valid LaTeX.",
+            Some("main.tex"),
+            None,
+        )
+        .unwrap();
+        assert!(!result.summary.is_empty());
+        assert!(result.changed_files.is_empty());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    #[ignore = "uses a local Claude subscription"]
+    fn gets_a_structured_response_from_claude() {
+        let parent =
+            std::env::temp_dir().join(format!("lattice-claude-e2e-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&parent).unwrap();
+        let root = project::create(&parent, "paper").unwrap();
+        let result = run(
+            &root,
+            "claude",
             "Do not edit any file. Briefly confirm that the active file is valid LaTeX.",
             Some("main.tex"),
             None,

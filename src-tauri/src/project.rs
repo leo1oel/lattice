@@ -350,9 +350,34 @@ fn is_build_artifact(path: &Path) -> bool {
 }
 
 fn default_tex(name: &str) -> String {
+    let title = latex_title(name);
     format!(
-        "\\documentclass[11pt]{{article}}\n\\usepackage[margin=1in]{{geometry}}\n\\usepackage{{microtype}}\n\\usepackage{{hyperref}}\n\\usepackage{{graphicx}}\n\\usepackage[numbers]{{natbib}}\n\n\\title{{{name}}}\n\\author{{}}\n\\date{{}}\n\n\\begin{{document}}\n\\maketitle\n\n\\begin{{abstract}}\nDescribe the question, method, and primary result.\n\\end{{abstract}}\n\n\\section{{Introduction}}\nStart writing here.\n\n\\bibliographystyle{{plainnat}}\n\\bibliography{{references}}\n\\end{{document}}\n"
+        "\\documentclass[11pt]{{article}}\n\\usepackage[margin=1in]{{geometry}}\n\\usepackage{{microtype}}\n\\usepackage{{hyperref}}\n\\usepackage{{graphicx}}\n\\usepackage[numbers]{{natbib}}\n\n\\title{{{title}}}\n\\author{{}}\n\\date{{}}\n\n\\begin{{document}}\n\\maketitle\n\n\\begin{{abstract}}\nDescribe the question, method, and primary result.\n\\end{{abstract}}\n\n\\section{{Introduction}}\nStart writing here.\n\n\\bibliographystyle{{plainnat}}\n\\bibliography{{references}}\n\\end{{document}}\n"
     )
+}
+
+fn latex_title(name: &str) -> String {
+    let ascii = name.chars().filter(char::is_ascii).collect::<String>();
+    let title = match ascii.trim() {
+        "" => "Untitled research",
+        value => value,
+    };
+    title
+        .chars()
+        .map(|character| match character {
+            '\\' => "\\textbackslash{}".to_string(),
+            '{' => "\\{".to_string(),
+            '}' => "\\}".to_string(),
+            '$' => "\\$".to_string(),
+            '&' => "\\&".to_string(),
+            '#' => "\\#".to_string(),
+            '_' => "\\_".to_string(),
+            '%' => "\\%".to_string(),
+            '~' => "\\~{}".to_string(),
+            '^' => "\\^{}".to_string(),
+            _ => character.to_string(),
+        })
+        .collect()
 }
 
 fn default_brief(name: &str) -> String {
@@ -397,5 +422,11 @@ mod tests {
         revert(&root, &transaction.id).unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "before");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn new_project_titles_are_safe_latex() {
+        assert_eq!(latex_title("R&D_100%"), "R\\&D\\_100\\%");
+        assert_eq!(latex_title("科研"), "Untitled research");
     }
 }

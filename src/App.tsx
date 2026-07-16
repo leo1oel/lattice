@@ -104,6 +104,9 @@ type ChatMessage = {
 type CanvasMode = "source" | "pdf" | "split" | "paper";
 type Theme = "light" | "dark";
 type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
+type RecentProject = { name: string; path: string };
+
+const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 
 const defaultWelcomeMessages: ChatMessage[] = [
   {
@@ -140,6 +143,8 @@ function App() {
   );
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
   const [projectName, setProjectName] = useState("Untitled research");
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
@@ -149,6 +154,17 @@ function App() {
   const saveTimer = useRef<number | null>(null);
   const chatEnd = useRef<HTMLDivElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
+
+  const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
+    setRecentProjects((items) => {
+      const next = [
+        { name: snapshot.manifest.name, path: snapshot.root },
+        ...items.filter((item) => item.path !== snapshot.root),
+      ].slice(0, 8);
+      persistRecentProjects(next);
+      return next;
+    });
+  }, []);
 
   const refreshHistory = useCallback(async () => {
     if (!project) return;
@@ -175,6 +191,19 @@ function App() {
     }
   }, []);
 
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!project || !activeFile || source === savedSource) return true;
+    try {
+      await invoke("write_project_file", { path: activeFile, content: source });
+      setSavedSource(source);
+      await refreshHistory();
+      return true;
+    } catch (reason) {
+      setError(toMessage(reason));
+      return false;
+    }
+  }, [activeFile, project, refreshHistory, savedSource, source]);
+
   const compile = useCallback(async () => {
     if (!project || building) return;
     setBuilding(true);
@@ -200,7 +229,18 @@ function App() {
   const enterProject = useCallback(
     async (snapshot: ProjectSnapshot) => {
       setProject(snapshot);
+      rememberProject(snapshot);
+      setProjectMenuOpen(false);
       setMessages(defaultWelcomeMessages);
+      setBuild(null);
+      setSelection("");
+      setActivePaper(null);
+      setPaperMarkdown("");
+      setCanvasMode("split");
+      setPdfUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return null;
+      });
       const rootDocument =
         snapshot.manifest.rootDocuments.find((document) => document.isDefault) ??
         snapshot.manifest.rootDocuments[0];
@@ -213,7 +253,7 @@ function App() {
         }
       });
     },
-    [loadFile],
+    [loadFile, rememberProject],
   );
 
   const chooseExisting = useCallback(async () => {
@@ -221,19 +261,21 @@ function App() {
     if (!selected) return;
     setBusyLabel("Opening project…");
     try {
+      if (!(await save())) return;
       await enterProject(await invoke<ProjectSnapshot>("open_project", { path: selected }));
     } catch (reason) {
       setError(toMessage(reason));
     } finally {
       setBusyLabel(null);
     }
-  }, [enterProject]);
+  }, [enterProject, save]);
 
   const createProject = useCallback(async () => {
     const parent = await open({ directory: true, multiple: false, title: "Choose where to create the project" });
     if (!parent) return;
     setBusyLabel("Creating project…");
     try {
+      if (!(await save())) return;
       const snapshot = await invoke<ProjectSnapshot>("create_project", { parent, name: projectName });
       setCreateOpen(false);
       await enterProject(snapshot);
@@ -242,7 +284,28 @@ function App() {
     } finally {
       setBusyLabel(null);
     }
-  }, [enterProject, projectName]);
+  }, [enterProject, projectName, save]);
+
+  const chooseRecentProject = useCallback(async (path: string) => {
+    if (path === project?.root) {
+      setProjectMenuOpen(false);
+      return;
+    }
+    if (!(await save())) return;
+    setBusyLabel("Switching project…");
+    try {
+      await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
+    } catch (reason) {
+      setRecentProjects((items) => {
+        const next = items.filter((item) => item.path !== path);
+        persistRecentProjects(next);
+        return next;
+      });
+      setError(toMessage(reason));
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [enterProject, project?.root, save]);
 
   useEffect(() => {
     let active = true;
@@ -255,17 +318,6 @@ function App() {
       active = false;
     };
   }, [enterProject]);
-
-  const save = useCallback(async () => {
-    if (!project || !activeFile || source === savedSource) return;
-    try {
-      await invoke("write_project_file", { path: activeFile, content: source });
-      setSavedSource(source);
-      await refreshHistory();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [activeFile, project, refreshHistory, savedSource, source]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -288,12 +340,17 @@ function App() {
     const handleKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        void save().then(compile);
+        void save().then((saved) => {
+          if (saved) void compile();
+        });
+      } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
+        event.preventDefault();
+        void chooseExisting();
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [compile, save]);
+  }, [chooseExisting, compile, save]);
 
   const importPaper = useCallback(async () => {
     if (!importInput.trim()) return;
@@ -337,7 +394,7 @@ function App() {
     setMessages((items) => [...items, { id: crypto.randomUUID(), role: "user", text: message }]);
     setAgentRunning(true);
     try {
-      await save();
+      if (!(await save())) throw new Error("Save the current file before running the agent.");
       const result = await invoke<AgentResult>("run_agent", {
         provider,
         message,
@@ -442,9 +499,35 @@ function App() {
         <button className="icon-button" onClick={() => setNavigatorOpen((value) => !value)} title="Toggle navigator">
           {navigatorOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
         </button>
-        <div className="project-title" data-tauri-drag-region>
-          <span>{project.manifest.name}</span>
-          <span className="project-path">{project.root}</span>
+        <div className="project-switcher">
+          <button
+            className="project-title"
+            aria-label="Switch project"
+            aria-expanded={projectMenuOpen}
+            disabled={agentRunning || building || importing}
+            onClick={() => setProjectMenuOpen((value) => !value)}
+          >
+            <span>{project.manifest.name}</span>
+            <span className="project-path">{project.root}</span>
+            <ChevronDown size={13} />
+          </button>
+          {projectMenuOpen && (
+            <ProjectMenu
+              currentPath={project.root}
+              recentProjects={recentProjects}
+              busyLabel={busyLabel}
+              onRecent={chooseRecentProject}
+              onOpen={() => {
+                setProjectMenuOpen(false);
+                void chooseExisting();
+              }}
+              onNew={() => {
+                setProjectMenuOpen(false);
+                setCreateOpen(true);
+              }}
+              onClose={() => setProjectMenuOpen(false)}
+            />
+          )}
         </div>
         <div className="title-actions">
           <button className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Toggle theme">
@@ -533,6 +616,14 @@ function App() {
           }}
         />
       )}
+      {createOpen && (
+        <CreateProjectDialog
+          projectName={projectName}
+          setProjectName={setProjectName}
+          onCreate={createProject}
+          onClose={() => setCreateOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -575,24 +666,67 @@ function Welcome(props: {
         {props.busyLabel && <p className="busy-label"><LoaderCircle className="spin" size={15} /> {props.busyLabel}</p>}
         {props.error && <p className="welcome-error">{props.error}</p>}
       </div>
-      {props.createOpen && (
-        <div className="modal-backdrop" onMouseDown={() => props.setCreateOpen(false)}>
-          <div className="modal" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-icon"><FileText size={20} /></div>
-            <h2>Create a research project</h2>
-            <p>Lattice will create a clean LaTeX paper, bibliography, project brief, and private history.</p>
-            <label>
-              Project name
-              <input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
-            </label>
-            <div className="modal-actions">
-              <button className="text-button" onClick={() => props.setCreateOpen(false)}>Cancel</button>
-              <button className="primary-button" onClick={props.onCreate}>Choose location</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {props.createOpen && <CreateProjectDialog projectName={props.projectName} setProjectName={props.setProjectName} onCreate={props.onCreate} onClose={() => props.setCreateOpen(false)} />}
     </div>
+  );
+}
+
+function CreateProjectDialog(props: {
+  projectName: string;
+  setProjectName: (value: string) => void;
+  onCreate: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" onMouseDown={props.onClose}>
+      <div className="modal" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modal-icon"><FileText size={20} /></div>
+        <h2>Create a research project</h2>
+        <p>Lattice will create a clean LaTeX paper, bibliography, project brief, and private history.</p>
+        <label>
+          Project name
+          <input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
+        </label>
+        <div className="modal-actions">
+          <button className="text-button" onClick={props.onClose}>Cancel</button>
+          <button className="primary-button" onClick={props.onCreate}>Choose location</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProjectMenu(props: {
+  currentPath: string;
+  recentProjects: RecentProject[];
+  busyLabel: string | null;
+  onRecent: (path: string) => void;
+  onOpen: () => void;
+  onNew: () => void;
+  onClose: () => void;
+}) {
+  const alternatives = props.recentProjects.filter((item) => item.path !== props.currentPath);
+  return (
+    <>
+      <button className="project-menu-dismiss" aria-label="Close project menu" onClick={props.onClose} />
+      <div className="project-menu">
+        <div className="project-menu-heading">Recent projects</div>
+        <div className="recent-projects">
+          {alternatives.map((item) => (
+            <button key={item.path} onClick={() => props.onRecent(item.path)} disabled={Boolean(props.busyLabel)}>
+              <span className="recent-project-icon"><Folder size={14} /></span>
+              <span><strong>{item.name}</strong><small>{item.path}</small></span>
+            </button>
+          ))}
+          {!alternatives.length && <p>No other recent projects yet.</p>}
+        </div>
+        <div className="project-menu-actions">
+          <button onClick={props.onOpen}><FolderOpen size={14} /> Open another folder <kbd>⌘O</kbd></button>
+          <button onClick={props.onNew}><Plus size={14} /> New project</button>
+        </div>
+        {props.busyLabel && <div className="project-menu-busy"><LoaderCircle className="spin" size={13} /> {props.busyLabel}</div>}
+      </div>
+    </>
   );
 }
 
@@ -694,7 +828,7 @@ function AgentPanel({
       <div className="agent-header">
         <div className="agent-title"><Bot size={16} /><span>Writing agent</span></div>
         <div className="provider-controls">
-          <select value={provider} onChange={(event) => setProvider(event.target.value as AgentProvider)}>
+          <select value={provider} disabled={running} onChange={(event) => setProvider(event.target.value as AgentProvider)}>
             <option value="codex">Codex subscription</option>
             <option value="claude">Claude subscription</option>
             <option value="openai-api">OpenAI API</option>
@@ -716,7 +850,7 @@ function AgentPanel({
         {running && (
           <div className="chat-message agent">
             <div className="message-avatar"><Sparkles size={13} /></div>
-            <div className="thinking"><span /><span /><span /></div>
+            <div className="thinking"><span /><span /><span /><em>{provider === "claude" ? "Claude is writing…" : "Agent is writing…"}</em></div>
           </div>
         )}
         <div ref={chatEnd} />
@@ -908,6 +1042,29 @@ function providerLabel(provider: AgentProvider): string {
     case "claude": return "Local Claude subscription";
     case "openai-api": return "OpenAI API · GPT-5.6";
     case "anthropic-api": return "Anthropic API · Sonnet 5";
+  }
+}
+
+function loadRecentProjects(): RecentProject[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(RECENT_PROJECTS_KEY) ?? "[]") as unknown;
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter((item): item is RecentProject => Boolean(
+        item && typeof item === "object" && "name" in item && typeof item.name === "string" &&
+        "path" in item && typeof item.path === "string",
+      ))
+      .slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
+function persistRecentProjects(projects: RecentProject[]) {
+  try {
+    localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(projects));
+  } catch {
+    // Recent projects are a convenience; project access still works if storage is unavailable.
   }
 }
 
