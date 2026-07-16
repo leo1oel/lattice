@@ -139,6 +139,11 @@ async fn build_project(state: tauri::State<'_, AppState>) -> Result<BuildResult,
 }
 
 #[tauri::command]
+fn save_compiled_pdf(path: String, pdf_base64: String) -> Result<String, String> {
+    latex::save_pdf(Path::new(&path), &pdf_base64)
+}
+
+#[tauri::command]
 async fn import_arxiv(
     state: tauri::State<'_, AppState>,
     input: String,
@@ -301,6 +306,7 @@ pub fn run() {
             delete_project_entry,
             import_project_assets,
             build_project,
+            save_compiled_pdf,
             import_arxiv,
             list_papers,
             read_paper,

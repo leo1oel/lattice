@@ -58,6 +58,25 @@ pub fn build(root: &Path) -> Result<BuildResult, String> {
     })
 }
 
+pub fn save_pdf(path: &Path, pdf_base64: &str) -> Result<String, String> {
+    if path.as_os_str().is_empty() {
+        return Err("Choose where to save the PDF.".to_string());
+    }
+    let destination = match path.extension().and_then(|extension| extension.to_str()) {
+        None => path.with_extension("pdf"),
+        Some(extension) if extension.eq_ignore_ascii_case("pdf") => path.to_path_buf(),
+        Some(_) => return Err("The exported paper must use the .pdf extension.".to_string()),
+    };
+    let bytes = STANDARD
+        .decode(pdf_base64)
+        .map_err(|error| format!("The compiled PDF could not be decoded: {error}"))?;
+    if !bytes.starts_with(b"%PDF-") {
+        return Err("The compiled output is not a valid PDF.".to_string());
+    }
+    fs::write(&destination, bytes).map_err(|error| error.to_string())?;
+    Ok(destination.to_string_lossy().to_string())
+}
+
 fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     let file_line = Regex::new(r"(?m)^([^\n:]+\.(?:tex|sty|cls)):(\d+):\s*(.+)$").unwrap();
     let warning = Regex::new(r"(?m)^(?:LaTeX|Package .+?) Warning:\s*(.+)$").unwrap();
@@ -134,5 +153,17 @@ mod tests {
         let diagnostics = parse_diagnostics("sh: pdflatex: command not found\n");
         assert_eq!(diagnostics.len(), 1);
         assert!(diagnostics[0].message.contains("pdflatex"));
+    }
+
+    #[test]
+    fn saves_a_compiled_pdf_to_the_chosen_path() {
+        let directory = temp_root();
+        fs::create_dir_all(&directory).unwrap();
+        let encoded = STANDARD.encode(b"%PDF-1.7\ntest");
+        let destination = save_pdf(&directory.join("paper"), &encoded).unwrap();
+        assert_eq!(Path::new(&destination).extension().unwrap(), "pdf");
+        assert_eq!(fs::read(destination).unwrap(), b"%PDF-1.7\ntest");
+        assert!(save_pdf(&directory.join("paper.txt"), &encoded).is_err());
+        fs::remove_dir_all(directory).unwrap();
     }
 }

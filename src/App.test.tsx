@@ -1,12 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { getDocument } from "pdfjs-dist";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn() }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn() }));
 vi.mock("pdfjs-dist", () => ({ GlobalWorkerOptions: {}, getDocument: vi.fn() }));
 
 const testSession = {
@@ -42,6 +44,8 @@ beforeEach(() => {
   localStorage.clear();
   vi.stubGlobal("confirm", vi.fn(() => true));
   vi.mocked(open).mockResolvedValue(null);
+  vi.mocked(save).mockResolvedValue(null);
+  vi.mocked(revealItemInDir).mockResolvedValue(undefined);
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "initial_project") return null;
     throw new Error(`Unexpected command: ${command}`);
@@ -77,7 +81,8 @@ describe("welcome screen", () => {
     await waitFor(() => {
       expect(document.documentElement.style.getPropertyValue("--ui-font")).toBe("Inter, -apple-system, sans-serif");
     });
-    expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("13");
+    expect(screen.getByRole("slider", { name: /interface size/i })).toHaveValue("110");
+    expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("14");
   });
 });
 
@@ -226,6 +231,37 @@ describe("project workspace", () => {
     expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
   });
 
+  it("reveals project files and imported papers in Finder from the context menu", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers") return [{ arxivId: "1706.03762", title: "Attention Is All You Need" }];
+      if (command === "list_history") return [];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    fireEvent.contextMenu(await screen.findByRole("button", { name: "main.tex" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show in Finder" }));
+    await waitFor(() => expect(revealItemInDir).toHaveBeenCalledWith("/tmp/lattice-paper/main.tex"));
+
+    fireEvent.contextMenu(screen.getByTitle("Attention Is All You Need"));
+    fireEvent.click(screen.getByRole("button", { name: "Show in Finder" }));
+    await waitFor(() => expect(revealItemInDir).toHaveBeenCalledWith("/tmp/lattice-paper/.research/papers/1706.03762/paper.md"));
+  });
+
   it("imports image files into the figures directory", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -285,6 +321,7 @@ describe("project workspace", () => {
       createObjectURL: vi.fn(() => "blob:lattice-pdf"),
       revokeObjectURL: vi.fn(),
     });
+    vi.mocked(save).mockResolvedValue("/tmp/exported-paper.pdf");
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
@@ -296,16 +333,24 @@ describe("project workspace", () => {
         durationMs: 100,
         diagnostics: [],
       };
+      if (command === "save_compiled_pdf") return "/tmp/exported-paper.pdf";
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
 
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Build" }));
-    expect(await screen.findByTitle("Download PDF")).toBeInTheDocument();
+    const savePdf = await screen.findByTitle("Save PDF as…");
     expect(screen.getByTitle("Previous page")).toBeDisabled();
     await waitFor(() => expect(screen.getByTitle("Next page")).toBeEnabled());
     expect(screen.getByTitle("Zoom out")).toBeInTheDocument();
     expect(screen.getByTitle("Zoom in")).toBeInTheDocument();
+    fireEvent.click(savePdf);
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: "paper.pdf" })));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("save_compiled_pdf", {
+      path: "/tmp/exported-paper.pdf",
+      pdfBase64: "JVBERi0xLjQ=",
+    }));
+    expect(await screen.findByText("Saved to /tmp/exported-paper.pdf")).toBeInTheDocument();
   });
 
   it("creates and restores project conversations", async () => {

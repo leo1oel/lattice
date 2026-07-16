@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import CodeMirror from "@uiw/react-codemirror";
 import { latex } from "codemirror-lang-latex";
 import DOMPurify from "dompurify";
@@ -148,7 +149,7 @@ type RecentProject = { name: string; path: string };
 type PanelKind = "navigator" | "agent";
 type PanelWidths = { navigator: number; agent: number };
 type SettingsTab = "appearance" | "accounts" | "api";
-type AppearanceSettings = { uiFont: string; editorFont: string; editorFontSize: number };
+type AppearanceSettings = { uiFont: string; interfaceScale: number; editorFont: string; editorFontSize: number };
 type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
 type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 
@@ -427,6 +428,14 @@ function App() {
   }, [appearance]);
 
   useEffect(() => {
+    void import("@tauri-apps/api/webview")
+      .then(({ getCurrentWebview }) => getCurrentWebview().setZoom(appearance.interfaceScale))
+      .catch(() => {
+        // Browser-based tests and previews do not expose native webview zoom.
+      });
+  }, [appearance.interfaceScale]);
+
+  useEffect(() => {
     chatEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, agentRunning]);
 
@@ -583,6 +592,16 @@ function App() {
       setError(toMessage(reason));
     }
   }, [activeFile, loadFile, refreshHistory, refreshProject]);
+
+  const revealProjectItem = useCallback(async (relativePath: string) => {
+    if (!project) return;
+    try {
+      await revealItemInDir(projectItemPath(project.root, relativePath));
+      setError(null);
+    } catch (reason) {
+      setError(`Could not show that item in Finder. ${toMessage(reason)}`);
+    }
+  }, [project]);
 
   const deletePaper = useCallback(async (paper: PaperSummary) => {
     if (!window.confirm(`Remove “${paper.title}” and its bibliography entry?`)) return;
@@ -973,6 +992,7 @@ function App() {
               onFile={loadFile}
               onCreateEntry={createProjectEntry}
               onDeleteEntry={deleteProjectEntry}
+              onReveal={revealProjectItem}
               onImportAssets={chooseProjectAssets}
               assetDropTarget={assetDropTarget}
               assetImporting={assetImporting}
@@ -1037,6 +1057,7 @@ function App() {
             setSource={setSource}
             setSelection={setSelection}
             pdfUrl={pdfUrl}
+            pdfBase64={build?.pdfBase64 ?? null}
             paperMarkdown={paperMarkdown}
             activePaper={activePaper}
             citationKeys={citationKeys}
@@ -1116,7 +1137,7 @@ function CreateProjectDialog(props: {
       <div className="modal" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-icon"><FileText size={20} /></div>
         <h2>Create a research project</h2>
-        <p>Lattice will create a polished two-column arXivTeX paper, bibliography, project brief, and private conversation history.</p>
+        <p>Lattice will create a polished single-column arXiv preprint, bibliography, project brief, and private conversation history.</p>
         <label>
           Project name
           <input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
@@ -1201,6 +1222,7 @@ function Navigator(props: {
   onFile: (path: string) => void;
   onCreateEntry: (path: string, kind: "file" | "folder") => Promise<void>;
   onDeleteEntry: (path: string) => void;
+  onReveal: (path: string) => void;
   onImportAssets: (targetDirectory?: string) => void;
   assetDropTarget: string | null;
   assetImporting: boolean;
@@ -1217,6 +1239,32 @@ function Navigator(props: {
   const [entryPath, setEntryPath] = useState("");
   const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
   const [entryBusy, setEntryBusy] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string; label: string } | null>(null);
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("blur", close);
+    window.addEventListener("keydown", closeWithEscape);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("blur", close);
+      window.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [contextMenu]);
+  const showContextMenu = (event: React.MouseEvent, path: string, label: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu({
+      x: Math.min(event.clientX, window.innerWidth - 202),
+      y: Math.min(event.clientY, window.innerHeight - 82),
+      path,
+      label,
+    });
+  };
   const closeEntryForm = () => {
     if (entryBusy) return;
     setEntryFormOpen(false);
@@ -1273,7 +1321,7 @@ function Navigator(props: {
         const target = event.target as Element;
         if (!target.closest(".project-entry-form") && !target.closest(".section-action")) closeEntryForm();
       }}>
-        <div className="section-heading">
+        <div className="section-heading" onContextMenu={(event) => showContextMenu(event, "", "Project folder")}>
           <span>Project</span>
           <button className="section-action" title="Add file or folder" onClick={() => setEntryFormOpen((value) => !value)}><Plus size={13} /></button>
         </div>
@@ -1303,7 +1351,7 @@ function Navigator(props: {
           </div>
         )}
         <div className="file-tree">
-          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} protectedPaths={props.protectedPaths} onFile={props.onFile} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} />)}
+          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} protectedPaths={props.protectedPaths} onFile={props.onFile} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} onContextMenu={showContextMenu} />)}
         </div>
       </div>
       <div
@@ -1333,7 +1381,7 @@ function Navigator(props: {
         </div>
         <div className="paper-list">
           {props.papers.map((paper) => (
-            <div key={paper.arxivId} className={`paper-row ${props.activePaper?.arxivId === paper.arxivId ? "active" : ""}`}>
+            <div key={paper.arxivId} className={`paper-row ${props.activePaper?.arxivId === paper.arxivId ? "active" : ""}`} onContextMenu={(event) => showContextMenu(event, `.research/papers/${paper.arxivId}/paper.md`, paper.title)}>
               <button title={paper.title} className="paper-open" onClick={() => props.onPaper(paper)}>
                 <BookOpen size={14} />
                 <span><strong>{paper.title}</strong><small>{paper.citationKey ? `\\cite{${paper.citationKey}}` : `arXiv ${paper.arxivId}`}</small></span>
@@ -1355,17 +1403,23 @@ function Navigator(props: {
           </button>
         </div>
       </div>
+      {contextMenu && (
+        <div className="file-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
+          <button onClick={() => { props.onReveal(contextMenu.path); setContextMenu(null); }}><FolderOpen size={14} /><span>Show in Finder</span></button>
+          <small title={contextMenu.label}>{contextMenu.label}</small>
+        </div>
+      )}
     </aside>
   );
 }
 
-function TreeNode({ node, activeFile, protectedPaths, onFile, onDelete, onImportAssets, assetDropTarget, assetImporting }: { node: FileNode; activeFile: string; protectedPaths: string[]; onFile: (path: string) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean }) {
+function TreeNode({ node, activeFile, protectedPaths, onFile, onDelete, onImportAssets, assetDropTarget, assetImporting, onContextMenu }: { node: FileNode; activeFile: string; protectedPaths: string[]; onFile: (path: string) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; onContextMenu: (event: React.MouseEvent, path: string, label: string) => void }) {
   const [open, setOpen] = useState(true);
   const protectedEntry = protectedPaths.some((path) => path === node.path || path.startsWith(`${node.path}/`));
   if (node.kind === "directory") {
     return (
       <div className={`tree-directory ${assetDropTarget === node.path ? "drop-target" : ""}`} data-drop-directory={node.path}>
-        <div className="tree-row">
+        <div className="tree-row" onContextMenu={(event) => onContextMenu(event, node.path, node.name)}>
           <button className="tree-main" onClick={() => setOpen((value) => !value)}>
             {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             <Folder size={14} /> <span>{node.name}</span>
@@ -1374,21 +1428,21 @@ function TreeNode({ node, activeFile, protectedPaths, onFile, onDelete, onImport
           {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
         </div>
         {assetDropTarget === node.path && <div className="asset-drop-hint">Drop images into {node.path}</div>}
-        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} protectedPaths={protectedPaths} onFile={onFile} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} />)}</div>}
+        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} protectedPaths={protectedPaths} onFile={onFile} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} onContextMenu={onContextMenu} />)}</div>}
       </div>
     );
   }
   const Icon = node.kind === "tex" ? FileCode2 : node.kind === "bib" ? Library : File;
   if (node.kind === "figure") {
     return (
-      <div className="tree-row asset-row" title="Binary assets are listed here but are not opened in the source editor.">
+      <div className="tree-row asset-row" title="Binary assets are listed here but are not opened in the source editor." onContextMenu={(event) => onContextMenu(event, node.path, node.name)}>
         <div className="tree-main"><span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span></div>
         {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
       </div>
     );
   }
   return (
-    <div className={`tree-row ${activeFile === node.path ? "active" : ""}`}>
+    <div className={`tree-row ${activeFile === node.path ? "active" : ""}`} onContextMenu={(event) => onContextMenu(event, node.path, node.name)}>
       <button className="tree-main" onClick={() => onFile(node.path)}><span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span></button>
       {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
     </div>
@@ -1567,6 +1621,7 @@ function DocumentCanvas(props: {
   setSource: (value: string) => void;
   setSelection: (value: string) => void;
   pdfUrl: string | null;
+  pdfBase64: string | null;
   paperMarkdown: string;
   activePaper: PaperSummary | null;
   citationKeys: string[];
@@ -1612,7 +1667,7 @@ function DocumentCanvas(props: {
     </div>
   );
   const preview = (
-    <PdfPreview key={props.pdfUrl ?? "empty-pdf"} url={props.pdfUrl} />
+    <PdfPreview key={props.pdfUrl ?? "empty-pdf"} url={props.pdfUrl} pdfBase64={props.pdfBase64} />
   );
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
@@ -1676,13 +1731,15 @@ function DocumentCanvas(props: {
   );
 }
 
-function PdfPreview({ url }: { url: string | null }) {
+function PdfPreview({ url, pdfBase64 }: { url: string | null; pdfBase64: string | null }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1.1);
   const [loading, setLoading] = useState(Boolean(url));
   const [pdfError, setPdfError] = useState("");
+  const [savingPdf, setSavingPdf] = useState(false);
+  const [saveNotice, setSaveNotice] = useState("");
 
   useEffect(() => {
     if (!url) return;
@@ -1732,11 +1789,24 @@ function PdfPreview({ url }: { url: string | null }) {
     return <div className="pdf-preview"><div className="pdf-placeholder"><FileText size={28} /><p>Build the project to preview the paper.</p></div></div>;
   }
 
-  const download = () => {
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "paper.pdf";
-    anchor.click();
+  const download = async () => {
+    if (!pdfBase64 || savingPdf) return;
+    setSavingPdf(true);
+    setSaveNotice("");
+    try {
+      const destination = await saveDialog({
+        title: "Save compiled PDF",
+        defaultPath: "paper.pdf",
+        filters: [{ name: "PDF document", extensions: ["pdf"] }],
+      });
+      if (!destination) return;
+      const savedPath = await invoke<string>("save_compiled_pdf", { path: destination, pdfBase64 });
+      setSaveNotice(`Saved to ${savedPath}`);
+    } catch (reason) {
+      setSaveNotice(`Could not save PDF. ${toMessage(reason)}`);
+    } finally {
+      setSavingPdf(false);
+    }
   };
   return (
     <div className="pdf-preview">
@@ -1751,8 +1821,9 @@ function PdfPreview({ url }: { url: string | null }) {
           <span>{Math.round(scale * 100)}%</span>
           <button title="Zoom in" disabled={scale >= 2.2} onClick={() => { setLoading(true); setScale((value) => clamp(Number((value + 0.1).toFixed(1)), 0.6, 2.2)); }}><ZoomIn size={14} /></button>
         </div>
-        <button className="pdf-download" title="Download PDF" onClick={download}><Download size={14} /></button>
+        <button className="pdf-download" title="Save PDF as…" disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}</button>
       </div>
+      {saveNotice && <div className={`pdf-save-notice ${saveNotice.startsWith("Could not") ? "error" : ""}`}>{saveNotice}<button title="Dismiss PDF save notice" onClick={() => setSaveNotice("")}><X size={12} /></button></div>}
       <div className="pdf-scroll-area">
         {pdfError ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div> : <canvas ref={canvasRef} aria-label={`PDF page ${pageNumber}`} />}
         {loading && <div className="pdf-loading"><LoaderCircle className="spin" size={17} /> Rendering PDF…</div>}
@@ -1839,6 +1910,10 @@ function SettingsDialog(props: {
                     <option value='"Avenir Next", sans-serif'>Avenir Next</option>
                   </select>
                 </label>
+                <div className="settings-range">
+                  <div><label htmlFor="interface-size">Interface size</label><output>{Math.round(props.appearance.interfaceScale * 100)}%</output></div>
+                  <input id="interface-size" type="range" min="90" max="135" step="5" value={Math.round(props.appearance.interfaceScale * 100)} onChange={(event) => props.setAppearance({ ...props.appearance, interfaceScale: Number(event.target.value) / 100 })} />
+                </div>
                 <label>LaTeX editor font
                   <select value={props.appearance.editorFont} onChange={(event) => props.setAppearance({ ...props.appearance, editorFont: event.target.value })}>
                     <option value='"JetBrains Mono", monospace'>JetBrains Mono</option>
@@ -1849,7 +1924,7 @@ function SettingsDialog(props: {
                 </label>
                 <div className="settings-range">
                   <div><label htmlFor="editor-font-size">Editor font size</label><output>{props.appearance.editorFontSize}px</output></div>
-                  <input id="editor-font-size" type="range" min="10" max="18" step="1" value={props.appearance.editorFontSize} onChange={(event) => props.setAppearance({ ...props.appearance, editorFontSize: Number(event.target.value) })} />
+                  <input id="editor-font-size" type="range" min="10" max="24" step="1" value={props.appearance.editorFontSize} onChange={(event) => props.setAppearance({ ...props.appearance, editorFontSize: Number(event.target.value) })} />
                 </div>
               </div>
             )}
@@ -2019,19 +2094,27 @@ function loadPanelWidths(): PanelWidths {
 function loadAppearance(): AppearanceSettings {
   const defaults: AppearanceSettings = {
     uiFont: '"DM Sans", -apple-system, sans-serif',
+    interfaceScale: 1.1,
     editorFont: '"JetBrains Mono", monospace',
-    editorFontSize: 13,
+    editorFontSize: 14,
   };
   try {
     const value = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "null") as Partial<AppearanceSettings> | null;
     return {
       uiFont: typeof value?.uiFont === "string" ? value.uiFont : defaults.uiFont,
+      interfaceScale: clamp(Number(value?.interfaceScale) || defaults.interfaceScale, 0.9, 1.35),
       editorFont: typeof value?.editorFont === "string" ? value.editorFont : defaults.editorFont,
-      editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 18),
+      editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 24),
     };
   } catch {
     return defaults;
   }
+}
+
+function projectItemPath(root: string, relativePath: string): string {
+  if (!relativePath) return root;
+  const separator = root.includes("\\") ? "\\" : "/";
+  return `${root.replace(/[\\/]+$/, "")}${separator}${relativePath.replace(/[\\/]/g, separator)}`;
 }
 
 function loadSplitRatio(): number {

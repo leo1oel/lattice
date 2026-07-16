@@ -9,11 +9,11 @@ It is intended to validate the complete writing loop before collaboration and ho
 ## What works today
 
 - Create a new research project or open an existing LaTeX folder.
-- Start new projects with a bundled, MIT-licensed arXivTeX two-column template.
+- Start new projects with the bundled, MIT-licensed `kourgeorge/arxiv-style` single-column preprint template.
 - Browse, create, delete, scroll, and directly edit project source files with a full-height CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
 - Get automatic braces after citation commands and bibliography-key completion inside `\\cite{...}`.
 - Compile the default root document with the local `latexmk` installation.
-- Review the generated PDF beside the source with a draggable split divider and a themed PDF.js toolbar for paging, zoom, and download.
+- Review the generated PDF beside the source with a draggable split divider and a themed PDF.js toolbar for paging, zoom, and native Save As export.
 - Drag PNG, JPEG, PDF, SVG, EPS, or WebP figures onto a project folder, or import them through the figures-folder action.
 - Import an arXiv paper as Markdown with `arxiv2md`.
 - Add every imported paper to the project bibliography through `bibcite`.
@@ -26,7 +26,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Save direct edits, imports, and agent changes as atomic project transactions.
 - Inspect project history and revert a transaction.
 - Resize the Project and Papers regions vertically and preserve that layout across launches.
-- Choose interface and editor fonts and editor font size from Settings, with a more readable default scale, light and dark themes, and reduced-motion support.
+- Choose interface and editor fonts, scale the entire interface from 90% to 135%, and set editor text from 10 to 24 pixels in Settings, with a more readable 110% default scale, light and dark themes, and reduced-motion support.
 
 ## Current boundaries
 
@@ -58,17 +58,18 @@ pnpm install
 pnpm tauri dev
 ```
 
-Choose **New project** to create an arXivTeX paper, bibliography, project brief, and private transaction and conversation history.
+Choose **New project** to create an arXiv-style preprint, bibliography, project brief, and private transaction and conversation history.
 Choose **Open folder** to import an existing LaTeX directory.
 
 Press `Cmd+S` to save and build, or use the build button in the title bar.
 Paste an arXiv URL into the paper importer to add a Markdown snapshot and bibliography entry.
 Select LaTeX text before sending a message when the agent should focus on a specific passage.
 Use the project heading's plus button to add a LaTeX file or folder, and the row actions to remove project entries or imported papers.
+Right-click the project heading, any project entry, or an imported paper and choose **Show in Finder** to reveal its local file.
 The `.tex` suffix is optional while naming a new source file and is added automatically.
 Drag figure files anywhere over the Project pane to add them to `figures`, or drop them directly on another project directory to target that folder.
 Choose the agent model and effort directly above the conversation; the selection is saved with each project-local conversation.
-Open Settings to adjust fonts, inspect or start subscription login, or manage API keys.
+Open Settings to enlarge the entire interface or editor text, adjust fonts, inspect or start subscription login, or manage API keys.
 The key icon only appears for OpenAI API and Anthropic API providers and stores those keys in macOS Keychain.
 
 ## Project format
@@ -78,7 +79,7 @@ Lattice preserves normal LaTeX files and adds a small human-readable sidecar:
 ```text
 paper-project/
 ├── main.tex
-├── main.cls
+├── arxiv.sty
 ├── references.bib
 ├── figures/
 └── .research/
@@ -92,6 +93,7 @@ paper-project/
 The manuscript remains buildable if `.research` is removed.
 The sidecar contains application metadata, the durable research brief, imported evidence, local undo history, and agent conversations.
 History and conversations are ignored by the generated `.gitignore` because they may contain private manuscript context.
+The bundled `arxiv.sty` is taken from [`kourgeorge/arxiv-style`](https://github.com/kourgeorge/arxiv-style) at commit `920514696f6e7270cab0558fd97c44515c63b4c4` under its MIT license.
 
 ## Safety model
 
