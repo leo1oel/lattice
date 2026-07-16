@@ -1,0 +1,28 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="background" x1="146" y1="92" x2="860" y2="924" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A99BFF"/>
+      <stop offset="0.48" stop-color="#7865E8"/>
+      <stop offset="1" stop-color="#5140B8"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="327" y1="242" x2="727" y2="788" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white"/>
+      <stop offset="1" stop-color="#EEEAFE"/>
+    </linearGradient>
+    <filter id="shadow" x="184" y="145" width="656" height="744" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="32" flood-color="#2D226F" flood-opacity="0.34"/>
+    </filter>
+  </defs>
+  <rect x="42" y="42" width="940" height="940" rx="224" fill="url(#background)"/>
+  <circle cx="775" cy="227" r="106" fill="white" fill-opacity="0.09"/>
+  <circle cx="205" cy="805" r="144" fill="#DCD5FF" fill-opacity="0.09"/>
+  <g filter="url(#shadow)">
+    <path d="M291 232C291 204.386 313.386 182 341 182H649L749 282V792C749 819.614 726.614 842 699 842H341C313.386 842 291 819.614 291 792V232Z" fill="url(#paper)"/>
+    <path d="M649 182L749 282H684C664.67 282 649 266.33 649 247V182Z" fill="#D8D0FB"/>
+  </g>
+  <path d="M405 384H631" stroke="#7865E8" stroke-width="34" stroke-linecap="round"/>
+  <path d="M405 479H652" stroke="#A99BFF" stroke-width="26" stroke-linecap="round"/>
+  <path d="M405 557H595" stroke="#A99BFF" stroke-width="26" stroke-linecap="round"/>
+  <path d="M405 635H560" stroke="#A99BFF" stroke-width="26" stroke-linecap="round"/>
+  <path d="M717 504C725.579 504 733.064 509.838 735.147 518.161L749.321 574.859C752.027 585.684 760.481 594.138 771.306 596.844L828.004 611.018C836.327 613.101 842.165 620.586 842.165 629.165C842.165 637.744 836.327 645.229 828.004 647.312L771.306 661.486C760.481 664.192 752.027 672.646 749.321 683.471L735.147 740.169C733.064 748.492 725.579 754.33 717 754.33C708.421 754.33 700.936 748.492 698.853 740.169L684.679 683.471C681.973 672.646 673.519 664.192 662.694 661.486L605.996 647.312C597.673 645.229 591.835 637.744 591.835 629.165C591.835 620.586 597.673 613.101 605.996 611.018L662.694 596.844C673.519 594.138 681.973 585.684 684.679 574.859L698.853 518.161C700.936 509.838 708.421 504 717 504Z" fill="#372690" stroke="white" stroke-width="17"/>
+</svg>
