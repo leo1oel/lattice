@@ -183,6 +183,14 @@ fn revert_transaction(
     Ok(record.id)
 }
 
+#[tauri::command]
+fn delete_history_entry(
+    state: tauri::State<'_, AppState>,
+    transaction_id: String,
+) -> Result<(), String> {
+    project::delete_history(&current_root(&state)?, &transaction_id)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -207,6 +215,7 @@ pub fn run() {
             api_key_status,
             list_history,
             revert_transaction,
+            delete_history_entry,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

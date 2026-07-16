@@ -105,8 +105,11 @@ type CanvasMode = "source" | "pdf" | "split" | "paper";
 type Theme = "light" | "dark";
 type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
 type RecentProject = { name: string; path: string };
+type PanelKind = "navigator" | "agent";
+type PanelWidths = { navigator: number; agent: number };
 
 const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
+const PANEL_WIDTHS_KEY = "lattice.panel-widths.v1";
 
 const defaultWelcomeMessages: ChatMessage[] = [
   {
@@ -138,6 +141,7 @@ function App() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [navigatorOpen, setNavigatorOpen] = useState(true);
+  const [panelWidths, setPanelWidths] = useState<PanelWidths>(loadPanelWidths);
   const [theme, setTheme] = useState<Theme>(() =>
     window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
   );
@@ -475,6 +479,43 @@ function App() {
     }
   }, [apiProvider, refreshApiKeys]);
 
+  const deleteHistory = useCallback(async (id: string) => {
+    try {
+      await invoke("delete_history_entry", { transactionId: id });
+      await refreshHistory();
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [refreshHistory]);
+
+  const beginPanelResize = useCallback((panel: PanelKind, event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidths = panelWidths;
+    let latest = panelWidths;
+    document.body.classList.add("resizing-panels");
+    const handleMove = (moveEvent: PointerEvent) => {
+      latest = resizePanelWidths(panel, startWidths, moveEvent.clientX - startX, navigatorOpen);
+      setPanelWidths(latest);
+    };
+    const handleUp = () => {
+      document.body.classList.remove("resizing-panels");
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      persistPanelWidths(latest);
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+  }, [navigatorOpen, panelWidths]);
+
+  const nudgePanel = useCallback((panel: PanelKind, delta: number) => {
+    setPanelWidths((current) => {
+      const next = resizePanelWidths(panel, current, delta, navigatorOpen);
+      persistPanelWidths(next);
+      return next;
+    });
+  }, [navigatorOpen]);
+
   if (!project) {
     return (
       <Welcome
@@ -548,20 +589,35 @@ function App() {
         </div>
       )}
 
-      <main className={`workspace ${navigatorOpen ? "" : "navigator-hidden"}`}>
+      <main
+        className={`workspace ${navigatorOpen ? "" : "navigator-hidden"}`}
+        style={{
+          gridTemplateColumns: navigatorOpen
+            ? `${panelWidths.navigator}px 5px ${panelWidths.agent}px 5px minmax(360px, 1fr)`
+            : `${panelWidths.agent}px 5px minmax(360px, 1fr)`,
+        }}
+      >
         {navigatorOpen && (
-          <Navigator
-            files={project.files}
-            activeFile={activeFile}
-            papers={papers}
-            activePaper={activePaper}
-            onFile={loadFile}
-            onPaper={openPaper}
-            importInput={importInput}
-            setImportInput={setImportInput}
-            onImport={importPaper}
-            importing={importing}
-          />
+          <>
+            <Navigator
+              files={project.files}
+              activeFile={activeFile}
+              papers={papers}
+              activePaper={activePaper}
+              onFile={loadFile}
+              onPaper={openPaper}
+              importInput={importInput}
+              setImportInput={setImportInput}
+              onImport={importPaper}
+              importing={importing}
+            />
+            <PanelResizer
+              label="Resize project navigator"
+              value={panelWidths.navigator}
+              onPointerDown={(event) => beginPanelResize("navigator", event)}
+              onNudge={(delta) => nudgePanel("navigator", delta)}
+            />
+          </>
         )}
 
         <AgentPanel
@@ -577,13 +633,19 @@ function App() {
           chatEnd={chatEnd}
         />
 
+        <PanelResizer
+          label="Resize writing agent"
+          value={panelWidths.agent}
+          onPointerDown={(event) => beginPanelResize("agent", event)}
+          onNudge={(delta) => nudgePanel("agent", delta)}
+        />
+
         <section className="canvas-panel">
           <CanvasToolbar
             mode={canvasMode}
             setMode={setCanvasMode}
             activeFile={activeFile}
             dirty={source !== savedSource}
-            diagnostics={build?.diagnostics.length ?? 0}
             onHistory={() => setHistoryOpen(true)}
           />
           <DocumentCanvas
@@ -599,7 +661,7 @@ function App() {
       </main>
 
       {historyOpen && (
-        <HistoryDrawer history={history} onClose={() => setHistoryOpen(false)} onRevert={revert} />
+        <HistoryDrawer history={history} onClose={() => setHistoryOpen(false)} onRevert={revert} onDelete={deleteHistory} />
       )}
       {apiSettingsOpen && (
         <ApiSettings
@@ -730,6 +792,34 @@ function ProjectMenu(props: {
   );
 }
 
+function PanelResizer(props: {
+  label: string;
+  value: number;
+  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onNudge: (delta: number) => void;
+}) {
+  return (
+    <div
+      className="panel-resizer"
+      role="separator"
+      aria-label={props.label}
+      aria-orientation="vertical"
+      aria-valuenow={Math.round(props.value)}
+      tabIndex={0}
+      onPointerDown={props.onPointerDown}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          props.onNudge(-16);
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          props.onNudge(16);
+        }
+      }}
+    />
+  );
+}
+
 function Navigator(props: {
   files: FileNode[];
   activeFile: string;
@@ -793,6 +883,13 @@ function TreeNode({ node, activeFile, onFile }: { node: FileNode; activeFile: st
     );
   }
   const Icon = node.kind === "tex" ? FileCode2 : node.kind === "bib" ? Library : File;
+  if (node.kind === "figure") {
+    return (
+      <div className="tree-row asset-row" title="Binary assets are listed here but are not opened in the source editor.">
+        <span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span>
+      </div>
+    );
+  }
   return (
     <button className={`tree-row ${activeFile === node.path ? "active" : ""}`} onClick={() => onFile(node.path)}>
       <span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span>
@@ -885,7 +982,6 @@ function CanvasToolbar(props: {
   setMode: (mode: CanvasMode) => void;
   activeFile: string;
   dirty: boolean;
-  diagnostics: number;
   onHistory: () => void;
 }) {
   return (
@@ -896,9 +992,8 @@ function CanvasToolbar(props: {
           <button key={mode} className={props.mode === mode ? "active" : ""} onClick={() => props.setMode(mode)}>{mode}</button>
         ))}
       </div>
-      <button className="history-button" onClick={props.onHistory}>
+      <button className="history-button" title="Project history" onClick={props.onHistory}>
         <History size={14} />
-        {props.diagnostics > 0 && <span>{props.diagnostics}</span>}
       </button>
     </div>
   );
@@ -955,7 +1050,12 @@ function DocumentCanvas(props: {
   return <div className="split-canvas">{editor}{preview}</div>;
 }
 
-function HistoryDrawer(props: { history: HistoryItem[]; onClose: () => void; onRevert: (id: string) => void }) {
+function HistoryDrawer(props: {
+  history: HistoryItem[];
+  onClose: () => void;
+  onRevert: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
   return (
     <div className="drawer-backdrop" onMouseDown={props.onClose}>
       <aside className="history-drawer" onMouseDown={(event) => event.stopPropagation()}>
@@ -970,7 +1070,10 @@ function HistoryDrawer(props: { history: HistoryItem[]; onClose: () => void; onR
                 <span><Clock3 size={11} /> {new Date(item.timestamp).toLocaleString()}</span>
                 <p>{item.files.join(", ")}</p>
               </div>
-              <button title="Revert this transaction" onClick={() => props.onRevert(item.id)}><RotateCcw size={14} /></button>
+              <div className="history-actions">
+                <button title="Restore the state before this change" onClick={() => props.onRevert(item.id)}><RotateCcw size={14} /></button>
+                <button className="history-delete" title="Delete this history entry" onClick={() => props.onDelete(item.id)}><Trash2 size={13} /></button>
+              </div>
             </div>
           ))}
           {!props.history.length && <p className="empty-history">No changes recorded yet.</p>}
@@ -1066,6 +1169,47 @@ function persistRecentProjects(projects: RecentProject[]) {
   } catch {
     // Recent projects are a convenience; project access still works if storage is unavailable.
   }
+}
+
+function loadPanelWidths(): PanelWidths {
+  try {
+    const value = JSON.parse(localStorage.getItem(PANEL_WIDTHS_KEY) ?? "null") as Partial<PanelWidths> | null;
+    return {
+      navigator: clamp(Number(value?.navigator) || 220, 160, 420),
+      agent: clamp(Number(value?.agent) || 340, 260, 600),
+    };
+  } catch {
+    return { navigator: 220, agent: 340 };
+  }
+}
+
+function persistPanelWidths(widths: PanelWidths) {
+  try {
+    localStorage.setItem(PANEL_WIDTHS_KEY, JSON.stringify(widths));
+  } catch {
+    // Panel resizing remains available for the current session without storage.
+  }
+}
+
+function resizePanelWidths(
+  panel: PanelKind,
+  start: PanelWidths,
+  delta: number,
+  navigatorOpen: boolean,
+): PanelWidths {
+  const canvasMinimum = 360;
+  const handles = navigatorOpen ? 10 : 5;
+  if (panel === "navigator") {
+    const maximum = Math.max(160, Math.min(420, window.innerWidth - start.agent - canvasMinimum - handles));
+    return { ...start, navigator: clamp(start.navigator + delta, 160, maximum) };
+  }
+  const navigatorWidth = navigatorOpen ? start.navigator : 0;
+  const maximum = Math.max(260, Math.min(600, window.innerWidth - navigatorWidth - canvasMinimum - handles));
+  return { ...start, agent: clamp(start.agent + delta, 260, maximum) };
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
 }
 
 export default App;

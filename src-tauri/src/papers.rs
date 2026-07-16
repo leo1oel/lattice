@@ -14,7 +14,9 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
     let temp = std::env::temp_dir().join(format!("research-writer-import-{}", Uuid::new_v4()));
     fs::create_dir_all(&temp).map_err(err)?;
     let markdown_path = temp.join("paper.md");
+    let arxiv_cache = temp.join(".arxiv2md_cache");
     let bibliography_path = temp.join("references.bib");
+    fs::create_dir_all(&arxiv_cache).map_err(err)?;
     let project_bibliography = project::safe_path(root, &manifest.primary_bibliography)?;
     if project_bibliography.exists() {
         fs::copy(&project_bibliography, &bibliography_path).map_err(err)?;
@@ -23,7 +25,9 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
     }
 
     let markdown_output = commands::command("uvx")
+        .current_dir(&temp)
         .env("UV_CACHE_DIR", "/tmp/research-writer-uv-cache")
+        .env("ARXIV2MD_CACHE_PATH", &arxiv_cache)
         .arg("--from")
         .arg("arxiv2markdown")
         .arg("arxiv2md")

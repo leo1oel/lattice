@@ -156,7 +156,13 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
 }
 
 pub fn read_file(root: &Path, relative: &str) -> Result<String, String> {
-    fs::read_to_string(safe_path(root, relative)?).map_err(err)
+    fs::read_to_string(safe_path(root, relative)?).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::InvalidData {
+            "This is a binary file and cannot be opened in the source editor.".to_string()
+        } else {
+            error.to_string()
+        }
+    })
 }
 
 pub fn apply_transaction(
@@ -236,20 +242,13 @@ pub fn history(root: &Path) -> Result<Vec<HistoryItem>, String> {
 }
 
 pub fn revert(root: &Path, transaction_id: &str) -> Result<TransactionRecord, String> {
-    if transaction_id.contains('/') || transaction_id.contains('\\') {
-        return Err("Invalid transaction id.".to_string());
-    }
-    let raw = fs::read_to_string(
-        root.join(".research/history")
-            .join(format!("{transaction_id}.json")),
-    )
-    .map_err(err)?;
+    let history_path = transaction_path(root, transaction_id)?;
+    let raw = fs::read_to_string(&history_path).map_err(err)?;
     let source: TransactionRecord = serde_json::from_str(&raw).map_err(err)?;
-    let mut reverse = Vec::new();
-    for change in source.changes {
+    for change in &source.changes {
         let path = safe_path(root, &change.path)?;
-        match change.before {
-            Some(content) => reverse.push((change.path, content)),
+        match &change.before {
+            Some(content) => fs::write(path, content).map_err(err)?,
             None => {
                 if path.exists() {
                     fs::remove_file(path).map_err(err)?;
@@ -257,15 +256,26 @@ pub fn revert(root: &Path, transaction_id: &str) -> Result<TransactionRecord, St
             }
         }
     }
-    if reverse.is_empty() {
-        return Ok(TransactionRecord {
-            id: Uuid::new_v4().to_string(),
-            label: format!("Revert {}", source.label),
-            timestamp: Utc::now().to_rfc3339(),
-            changes: Vec::new(),
-        });
+    fs::remove_file(history_path).map_err(err)?;
+    Ok(source)
+}
+
+pub fn delete_history(root: &Path, transaction_id: &str) -> Result<(), String> {
+    fs::remove_file(transaction_path(root, transaction_id)?).map_err(err)
+}
+
+fn transaction_path(root: &Path, transaction_id: &str) -> Result<PathBuf, String> {
+    if transaction_id.is_empty()
+        || transaction_id.contains('/')
+        || transaction_id.contains('\\')
+        || transaction_id == "."
+        || transaction_id == ".."
+    {
+        return Err("Invalid transaction id.".to_string());
     }
-    apply_transaction(root, &format!("Revert {}", source.label), reverse)
+    Ok(root
+        .join(".research/history")
+        .join(format!("{transaction_id}.json")))
 }
 
 fn persist_transaction(root: &Path, record: &TransactionRecord) -> Result<(), String> {
@@ -343,6 +353,9 @@ fn is_visible_source(path: &Path) -> bool {
 }
 
 fn is_build_artifact(path: &Path) -> bool {
+    if path.extension().is_some_and(|ext| ext == "pdf") && path.with_extension("tex").exists() {
+        return true;
+    }
     matches!(
         path.extension().and_then(|ext| ext.to_str()),
         Some("aux" | "bbl" | "blg" | "fls" | "fdb_latexmk" | "log" | "out" | "gz")
@@ -421,6 +434,37 @@ mod tests {
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "after");
         revert(&root, &transaction.id).unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "before");
+        assert!(history(&root).unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn history_entries_can_be_deleted_without_changing_files() {
+        let root = temp_root("delete-history");
+        fs::create_dir_all(root.join(".research/history")).unwrap();
+        fs::write(root.join("main.tex"), "before").unwrap();
+        let transaction = apply_transaction(
+            &root,
+            "edit",
+            vec![("main.tex".to_string(), "after".to_string())],
+        )
+        .unwrap();
+        delete_history(&root, &transaction.id).unwrap();
+        assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "after");
+        assert!(history(&root).unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn compiled_pdfs_are_hidden_from_the_source_tree() {
+        let root = temp_root("compiled-pdf");
+        fs::write(root.join("main.tex"), "source").unwrap();
+        fs::write(root.join("main.pdf"), b"%PDF-binary").unwrap();
+        fs::write(root.join("reading.pdf"), b"%PDF-binary").unwrap();
+        let files = scan_files(&root).unwrap();
+        assert!(files.iter().any(|file| file.path == "main.tex"));
+        assert!(!files.iter().any(|file| file.path == "main.pdf"));
+        assert!(files.iter().any(|file| file.path == "reading.pdf"));
         fs::remove_dir_all(root).unwrap();
     }
 

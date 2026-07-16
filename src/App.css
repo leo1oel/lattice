@@ -84,9 +84,12 @@ button:disabled { cursor: default; opacity: 0.45; }
 .error-banner span { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .error-banner button { background: transparent; color: inherit; padding: 3px; display: grid; place-items: center; }
 
-.workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(280px, 340px) minmax(480px, 1fr); }
-.workspace.navigator-hidden { grid-template-columns: minmax(280px, 340px) minmax(480px, 1fr); }
-.navigator, .agent-panel { min-width: 0; border-right: 1px solid var(--line); background: var(--panel); }
+.workspace { flex: 1; min-height: 0; display: grid; overflow: hidden; }
+.navigator, .agent-panel { min-width: 0; background: var(--panel); }
+.panel-resizer { position: relative; z-index: 2; width: 5px; min-width: 5px; height: 100%; cursor: col-resize; outline: none; background: transparent; touch-action: none; }
+.panel-resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 1px; background: var(--line); transition: background .15s, width .15s, left .15s; }
+.panel-resizer:hover::after, .panel-resizer:focus-visible::after, body.resizing-panels .panel-resizer::after { left: 1px; width: 3px; background: color-mix(in srgb, var(--accent) 55%, transparent); }
+body.resizing-panels { cursor: col-resize; user-select: none; }
 .navigator { display: flex; flex-direction: column; overflow: hidden; }
 .navigator-section { min-height: 0; padding: 14px 10px 10px; }
 .navigator-section:first-child { flex: 1; overflow: auto; }
@@ -97,6 +100,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .tree-row { width: 100%; height: 27px; border-radius: 6px; padding: 0 6px; background: transparent; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; text-align: left; }
 .tree-row:hover { color: var(--text); background: var(--line); }
 .tree-row.active { color: var(--text); background: var(--accent-soft); }
+.tree-row.asset-row { cursor: default; }
 .tree-row span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tree-spacer { width: 13px; }
 .tree-children { padding-left: 12px; }
@@ -150,9 +154,9 @@ button:disabled { cursor: default; opacity: 0.45; }
 .view-switcher button.active { background: var(--panel-strong); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); }
 .history-button { justify-self: end; width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; background: transparent; color: var(--muted); position: relative; }
 .history-button:hover { background: var(--line); color: var(--text); }
-.history-button span { position: absolute; top: -2px; right: -2px; min-width: 13px; height: 13px; border-radius: 7px; display: grid; place-items: center; background: var(--danger); color: white; font-size: 8px; }
-.split-canvas { height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(300px, 0.92fr) minmax(360px, 1.08fr); }
+.split-canvas { min-height: 0; display: grid; grid-template-columns: minmax(300px, 0.92fr) minmax(360px, 1.08fr); }
 .source-editor, .pdf-preview { min-width: 0; min-height: 0; overflow: hidden; }
+.canvas-panel > .source-editor, .canvas-panel > .pdf-preview, .canvas-panel > .split-canvas, .canvas-panel > .paper-reader { flex: 1 1 0; width: 100%; height: 0; }
 .source-editor { border-right: 1px solid var(--line); background: var(--panel-strong); }
 .source-editor .cm-theme, .source-editor .cm-editor, .source-editor .cm-scroller { height: 100%; }
 .source-editor .cm-editor { background: var(--panel-strong); color: var(--text); font-family: "JetBrains Mono", monospace; font-size: 11px; }
@@ -180,14 +184,16 @@ button:disabled { cursor: default; opacity: 0.45; }
 .drawer-header > div { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
 .drawer-header button { width: 28px; height: 28px; border-radius: 6px; background: transparent; display: grid; place-items: center; color: var(--muted); }
 .drawer-copy { margin: 9px 0 22px; color: var(--muted); font-size: 10px; line-height: 1.5; }
-.history-item { display: grid; grid-template-columns: 12px 1fr 28px; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
+.history-item { display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
 .history-dot { width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; border: 2px solid var(--accent); }
 .history-body { min-width: 0; }
 .history-body strong { display: block; font-size: 11px; font-weight: 600; }
 .history-body span { display: flex; align-items: center; gap: 4px; margin-top: 4px; color: var(--faint); font-size: 9px; }
 .history-body p { margin: 5px 0 0; color: var(--muted); font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.history-item > button { width: 27px; height: 27px; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; }
-.history-item > button:hover { background: var(--accent-soft); color: var(--accent); }
+.history-actions { display: flex; gap: 2px; }
+.history-actions button { width: 27px; height: 27px; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; }
+.history-actions button:hover { background: var(--accent-soft); color: var(--accent); }
+.history-actions .history-delete:hover { background: color-mix(in srgb, var(--danger) 9%, transparent); color: var(--danger); }
 .empty-history { color: var(--faint); font-size: 11px; }
 
 .welcome-screen { width: 100%; height: 100%; background: var(--bg); position: relative; overflow: hidden; }
@@ -224,8 +230,6 @@ button:disabled { cursor: default; opacity: 0.45; }
 .delete-key-button:hover { background: color-mix(in srgb, var(--danger) 9%, transparent); }
 
 @media (max-width: 1180px) {
-  .workspace { grid-template-columns: 190px 290px minmax(440px, 1fr); }
-  .workspace.navigator-hidden { grid-template-columns: 290px minmax(440px, 1fr); }
   .split-canvas { grid-template-columns: 1fr; }
   .split-canvas .pdf-preview { display: none; }
 }
