@@ -4,7 +4,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-const NEW_CONVERSATION: &str = "New conversation";
+const NEW_CONVERSATION: &str = "New";
+const LEGACY_NEW_CONVERSATION: &str = "New conversation";
 
 pub fn create(
     root: &Path,
@@ -26,7 +27,7 @@ pub fn create(
         messages: vec![AgentMessage {
             id: Uuid::new_v4().to_string(),
             role: "agent".to_string(),
-            text: "Tell me what you want to write or revise. I can work across the project, use imported papers as evidence, and keep this conversation with the project.".to_string(),
+            text: "What would you like to write or revise?".to_string(),
             files: Vec::new(),
         }],
     };
@@ -37,7 +38,10 @@ pub fn create(
 pub fn save(root: &Path, mut session: AgentSession) -> Result<AgentSession, String> {
     session_path(root, &session.id)?;
     normalize_settings(&mut session)?;
-    if session.title.trim().is_empty() || session.title == NEW_CONVERSATION {
+    if session.title.trim().is_empty()
+        || session.title == NEW_CONVERSATION
+        || session.title == LEGACY_NEW_CONVERSATION
+    {
         session.title = session
             .messages
             .iter()
@@ -169,6 +173,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("lattice-session-{}", Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
         let mut session = create(&root, "codex", "gpt-5.6-sol", "high").unwrap();
+        assert_eq!(session.title, "New");
         session.messages.push(AgentMessage {
             id: Uuid::new_v4().to_string(),
             role: "user".to_string(),

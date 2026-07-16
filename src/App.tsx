@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import CodeMirror from "@uiw/react-codemirror";
@@ -148,14 +149,17 @@ type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "u
 type RecentProject = { name: string; path: string };
 type PanelKind = "navigator" | "agent";
 type PanelWidths = { navigator: number; agent: number };
-type SettingsTab = "appearance" | "accounts" | "api";
+type SettingsTab = "appearance" | "editor" | "accounts" | "api";
 type AppearanceSettings = { uiFont: string; interfaceScale: number; editorFont: string; editorFontSize: number };
+type AutoBuildMode = "manual" | "on-leave" | "after-pause";
+type BuildPreferences = { autoBuildMode: AutoBuildMode };
 type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
 type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 
 const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 const PANEL_WIDTHS_KEY = "lattice.panel-widths.v1";
 const APPEARANCE_KEY = "lattice.appearance.v2";
+const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v1";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
 
@@ -163,7 +167,7 @@ const defaultWelcomeMessages: ChatMessage[] = [
   {
     id: "welcome",
     role: "agent",
-    text: "Tell me what you want to write or revise. I can work across the project, use imported papers as evidence, and leave every change undoable.",
+    text: "What would you like to write or revise?",
   },
 ];
 
@@ -210,6 +214,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
   const [appearance, setAppearance] = useState<AppearanceSettings>(loadAppearance);
+  const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
   const [subscriptions, setSubscriptions] = useState<SubscriptionStatus[]>([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [subscriptionNotice, setSubscriptionNotice] = useState("");
@@ -217,6 +222,8 @@ function App() {
   const [apiKey, setApiKey] = useState("");
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
   const saveTimer = useRef<number | null>(null);
+  const buildingRef = useRef(false);
+  const buildQueued = useRef(false);
   const chatEnd = useRef<HTMLDivElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
 
@@ -278,26 +285,35 @@ function App() {
   }, [activeFile, project, refreshHistory, savedSource, source]);
 
   const compile = useCallback(async () => {
-    if (!project || building) return;
+    if (!project) return;
+    if (buildingRef.current) {
+      buildQueued.current = true;
+      return;
+    }
+    buildingRef.current = true;
     setBuilding(true);
     try {
-      const result = await invoke<BuildResult>("build_project");
-      setBuild(result);
-      if (result.pdfBase64) {
-        const nextUrl = base64PdfUrl(result.pdfBase64);
-        setPdfUrl((previous) => {
-          if (previous) URL.revokeObjectURL(previous);
-          return nextUrl;
-        });
-      }
-      if (!result.success) setError(result.diagnostics[0]?.message ?? "LaTeX compilation failed.");
-      else setError(null);
+      do {
+        buildQueued.current = false;
+        const result = await invoke<BuildResult>("build_project");
+        setBuild(result);
+        if (result.pdfBase64) {
+          const nextUrl = base64PdfUrl(result.pdfBase64);
+          setPdfUrl((previous) => {
+            if (previous) URL.revokeObjectURL(previous);
+            return nextUrl;
+          });
+        }
+        if (!result.success) setError(result.diagnostics[0]?.message ?? "LaTeX compilation failed.");
+        else setError(null);
+      } while (buildQueued.current);
     } catch (reason) {
       setError(toMessage(reason));
     } finally {
+      buildingRef.current = false;
       setBuilding(false);
     }
-  }, [building, project]);
+  }, [project]);
 
   const enterProject = useCallback(
     async (snapshot: ProjectSnapshot) => {
@@ -436,17 +452,37 @@ function App() {
   }, [appearance.interfaceScale]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem(BUILD_PREFERENCES_KEY, JSON.stringify(buildPreferences));
+    } catch {
+      // Build preferences still apply for the current session without storage.
+    }
+  }, [buildPreferences]);
+
+  useEffect(() => {
     chatEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, agentRunning]);
 
   useEffect(() => {
     if (!project || !activeFile || source === savedSource) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => void save(), 900);
+    const delay = buildPreferences.autoBuildMode === "after-pause" ? 1_200 : 900;
+    saveTimer.current = window.setTimeout(() => {
+      void save().then((saved) => {
+        if (saved && buildPreferences.autoBuildMode === "after-pause") void compile();
+      });
+    }, delay);
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
-  }, [activeFile, project, save, savedSource, source]);
+  }, [activeFile, buildPreferences.autoBuildMode, compile, project, save, savedSource, source]);
+
+  const buildWhenLeavingEditor = useCallback(() => {
+    if (buildPreferences.autoBuildMode !== "on-leave" || source === savedSource) return;
+    void save().then((saved) => {
+      if (saved) void compile();
+    });
+  }, [buildPreferences.autoBuildMode, compile, save, savedSource, source]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -871,6 +907,8 @@ function App() {
       }}
       appearance={appearance}
       setAppearance={setAppearance}
+      buildPreferences={buildPreferences}
+      setBuildPreferences={setBuildPreferences}
       subscriptions={subscriptions}
       subscriptionsLoading={subscriptionsLoading}
       subscriptionNotice={subscriptionNotice}
@@ -913,11 +951,14 @@ function App() {
 
   return (
     <div className="app-shell" ref={shellRef}>
-      <header className="titlebar" data-tauri-drag-region>
-        <div className="traffic-space" data-tauri-drag-region />
-        <button className="icon-button" onClick={() => setNavigatorOpen((value) => !value)} title="Toggle navigator">
-          {navigatorOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-        </button>
+      <header className="titlebar" onMouseDown={beginWindowDrag}>
+        <div className="titlebar-navigator" style={{ width: navigatorOpen ? panelWidths.navigator : 116 }}>
+          <div className="traffic-space" />
+          <div className="titlebar-drag-fill" />
+          <button className="icon-button" onClick={() => setNavigatorOpen((value) => !value)} title={navigatorOpen ? "Hide navigator" : "Show navigator"}>
+            {navigatorOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+          </button>
+        </div>
         <div className="project-switcher">
           <button
             className="project-title"
@@ -927,9 +968,9 @@ function App() {
             onClick={() => setProjectMenuOpen((value) => !value)}
           >
             <span>{project.manifest.name}</span>
-            <span className="project-path">{project.root}</span>
             <ChevronDown size={13} />
           </button>
+          <span className="project-path">{project.root}</span>
           {projectMenuOpen && (
             <ProjectMenu
               currentPath={project.root}
@@ -955,7 +996,7 @@ function App() {
           <button className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Toggle theme">
             {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-          <button className={`build-button ${build?.success ? "success" : ""}`} onClick={compile} disabled={building}>
+          <button className={`build-button ${build?.success ? "success" : ""}`} title={autoBuildDescription(buildPreferences.autoBuildMode)} onClick={compile} disabled={building} aria-live="polite">
             {building ? <LoaderCircle className="spin" size={15} /> : build?.success ? <Check size={15} /> : <Play size={15} />}
             {building ? "Building" : build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : "Build"}
           </button>
@@ -1061,6 +1102,7 @@ function App() {
             paperMarkdown={paperMarkdown}
             activePaper={activePaper}
             citationKeys={citationKeys}
+            onEditorLeave={buildWhenLeavingEditor}
           />
         </section>
       </main>
@@ -1096,7 +1138,7 @@ function Welcome(props: {
 }) {
   return (
     <div className="welcome-screen">
-      <div className="welcome-titlebar" data-tauri-drag-region>
+      <div className="welcome-titlebar" onMouseDown={beginWindowDrag}>
         <button className="icon-button" onClick={props.onSettings} title="Settings"><Settings2 size={16} /></button>
         <button className="icon-button" onClick={props.toggleTheme}>
           {props.theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
@@ -1496,12 +1538,21 @@ function AgentPanel({
 }) {
   const options = modelOptions(provider);
   const efforts = options.find((option) => option.value === model)?.efforts ?? ["high"];
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  useLayoutEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+    composer.style.height = "0px";
+    const height = clamp(composer.scrollHeight, 44, 160);
+    composer.style.height = `${height}px`;
+    composer.style.overflowY = composer.scrollHeight > 160 ? "auto" : "hidden";
+  }, [input]);
   return (
     <section className="agent-panel">
       <div className="agent-header">
         <div className="agent-conversation-controls">
           <button className="agent-title" title="Conversation history" aria-expanded={sessionMenuOpen} onClick={() => setSessionMenuOpen(!sessionMenuOpen)}>
-            <Bot size={16} /><span>{activeSession?.title ?? "Writing agent"}</span><ChevronDown size={12} />
+            <Bot size={16} /><span>{compactConversationTitle(activeSession?.title ?? "Writing agent")}</span><ChevronDown size={12} />
           </button>
           <button className="new-conversation-button" title="New conversation" disabled={running} onClick={onNewSession}><Plus size={14} /></button>
         </div>
@@ -1541,7 +1592,7 @@ function AgentPanel({
             {sessions.map((session) => (
               <div key={session.id} className={session.id === activeSession?.id ? "active" : ""}>
                 <button className="session-open" onClick={() => onOpenSession(session.id)}>
-                  <strong>{session.title}</strong>
+                  <strong>{compactConversationTitle(session.title)}</strong>
                   <small>{modelLabel(session.provider, session.model || defaultModel(session.provider))} · {session.messageCount} messages · {relativeTime(session.updatedAt)}</small>
                 </button>
                 <button className="session-delete" title="Delete conversation" disabled={running} onClick={() => onDeleteSession(session.id)}><Trash2 size={12} /></button>
@@ -1572,7 +1623,8 @@ function AgentPanel({
         {selection && <div className="context-chip"><Code2 size={12} /> Selection · {selection.length} chars <button title="Selection follows the editor"><Check size={11} /></button></div>}
         <div className="composer">
           <textarea
-            rows={3}
+            ref={composerRef}
+            rows={1}
             placeholder="Ask the agent to write, revise, or reason…"
             value={input}
             onChange={(event) => setInput(event.target.value)}
@@ -1584,8 +1636,8 @@ function AgentPanel({
             }}
           />
           <div className="composer-footer">
-            <span>{modelLabel(provider, model)} · {effortLabel(reasoningEffort)}</span>
-            <button onClick={onSend} disabled={running || !input.trim()}><Send size={14} /></button>
+            <span>Enter sends · Shift+Enter adds a line</span>
+            <button title="Send message" onClick={onSend} disabled={running || !input.trim()}><Send size={14} /></button>
           </div>
         </div>
       </div>
@@ -1625,6 +1677,7 @@ function DocumentCanvas(props: {
   paperMarkdown: string;
   activePaper: PaperSummary | null;
   citationKeys: string[];
+  onEditorLeave: () => void;
 }) {
   const splitRef = useRef<HTMLDivElement | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
@@ -1645,7 +1698,7 @@ function DocumentCanvas(props: {
     );
   }
   const editor = (
-    <div className="source-editor">
+    <div className="source-editor" onPointerLeave={props.onEditorLeave}>
       <CodeMirror
         className="code-editor-root"
         value={props.source}
@@ -1870,6 +1923,8 @@ function SettingsDialog(props: {
   setTab: (tab: SettingsTab) => void;
   appearance: AppearanceSettings;
   setAppearance: (appearance: AppearanceSettings) => void;
+  buildPreferences: BuildPreferences;
+  setBuildPreferences: (preferences: BuildPreferences) => void;
   subscriptions: SubscriptionStatus[];
   subscriptionsLoading: boolean;
   subscriptionNotice: string;
@@ -1894,6 +1949,7 @@ function SettingsDialog(props: {
         <div className="settings-body">
           <nav className="settings-nav">
             <button className={props.tab === "appearance" ? "active" : ""} onClick={() => props.setTab("appearance")}>Appearance</button>
+            <button className={props.tab === "editor" ? "active" : ""} onClick={() => props.setTab("editor")}>Editor & builds</button>
             <button className={props.tab === "accounts" ? "active" : ""} onClick={() => props.setTab("accounts")}>Subscriptions</button>
             <button className={props.tab === "api" ? "active" : ""} onClick={() => props.setTab("api")}>API keys</button>
           </nav>
@@ -1925,6 +1981,23 @@ function SettingsDialog(props: {
                 <div className="settings-range">
                   <div><label htmlFor="editor-font-size">Editor font size</label><output>{props.appearance.editorFontSize}px</output></div>
                   <input id="editor-font-size" type="range" min="10" max="24" step="1" value={props.appearance.editorFontSize} onChange={(event) => props.setAppearance({ ...props.appearance, editorFontSize: Number(event.target.value) })} />
+                </div>
+              </div>
+            )}
+            {props.tab === "editor" && (
+              <div className="settings-section">
+                <h2>Editor & builds</h2>
+                <p>Choose when Lattice recompiles the current project after a source change.</p>
+                <label>Automatic build
+                  <select aria-label="Automatic build" value={props.buildPreferences.autoBuildMode} onChange={(event) => props.setBuildPreferences({ autoBuildMode: event.target.value as AutoBuildMode })}>
+                    <option value="manual">Manual only</option>
+                    <option value="on-leave">When the pointer leaves the editor</option>
+                    <option value="after-pause">After 1.2 seconds without typing</option>
+                  </select>
+                </label>
+                <div className="settings-detail">
+                  <Play size={14} />
+                  <div><strong>{autoBuildTitle(props.buildPreferences.autoBuildMode)}</strong><span>{autoBuildDetail(props.buildPreferences.autoBuildMode)}</span></div>
                 </div>
               </div>
             )}
@@ -1978,6 +2051,12 @@ function base64PdfUrl(base64: string): string {
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
   return URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+}
+
+function beginWindowDrag(event: React.MouseEvent<HTMLElement>) {
+  if (event.buttons !== 1 || (event.target as Element).closest("button, input, select, textarea, a")) return;
+  event.preventDefault();
+  void getCurrentWindow().startDragging();
 }
 
 function toMessage(reason: unknown): string {
@@ -2044,8 +2123,24 @@ function normalizeEffort(value: string | undefined): ReasoningEffort {
     : "high";
 }
 
-function effortLabel(value: ReasoningEffort): string {
-  return value === "xhigh" ? "extra high" : value;
+function compactConversationTitle(title: string): string {
+  return title === "New conversation" ? "New" : title;
+}
+
+function autoBuildTitle(mode: AutoBuildMode): string {
+  if (mode === "on-leave") return "Build when you move away";
+  if (mode === "after-pause") return "Build after a short pause";
+  return "Build only when requested";
+}
+
+function autoBuildDetail(mode: AutoBuildMode): string {
+  if (mode === "on-leave") return "Lattice saves the current file and builds when the pointer leaves the source editor.";
+  if (mode === "after-pause") return "Lattice waits until typing stops, then saves and builds the latest version once.";
+  return "Use the Build button or Command-S. Source changes are still saved automatically.";
+}
+
+function autoBuildDescription(mode: AutoBuildMode): string {
+  return `${autoBuildTitle(mode)} · Command-S builds now`;
 }
 
 function relativeTime(timestamp: string): string {
@@ -2108,6 +2203,18 @@ function loadAppearance(): AppearanceSettings {
     };
   } catch {
     return defaults;
+  }
+}
+
+function loadBuildPreferences(): BuildPreferences {
+  try {
+    const value = JSON.parse(localStorage.getItem(BUILD_PREFERENCES_KEY) ?? "null") as Partial<BuildPreferences> | null;
+    const autoBuildMode = value?.autoBuildMode;
+    return {
+      autoBuildMode: autoBuildMode === "on-leave" || autoBuildMode === "after-pause" ? autoBuildMode : "manual",
+    };
+  } catch {
+    return { autoBuildMode: "manual" };
   }
 }
 

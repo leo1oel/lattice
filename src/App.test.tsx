@@ -1,12 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { EditorView } from "@codemirror/view";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { getDocument } from "pdfjs-dist";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
+const windowApi = vi.hoisted(() => ({ startDragging: vi.fn() }));
+
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ startDragging: windowApi.startDragging }) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn() }));
 vi.mock("pdfjs-dist", () => ({ GlobalWorkerOptions: {}, getDocument: vi.fn() }));
@@ -83,6 +87,12 @@ describe("welcome screen", () => {
     });
     expect(screen.getByRole("slider", { name: /interface size/i })).toHaveValue("110");
     expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("14");
+    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+    const autoBuild = screen.getByLabelText("Automatic build");
+    expect(autoBuild).toHaveValue("manual");
+    fireEvent.change(autoBuild, { target: { value: "on-leave" } });
+    expect(screen.getByText("Build when you move away")).toBeInTheDocument();
+    await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v1")).toContain("on-leave"));
   });
 });
 
@@ -108,6 +118,9 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    const projectPath = await screen.findByText("/tmp/lattice-paper");
+    fireEvent.mouseDown(projectPath, { button: 0, buttons: 1 });
+    expect(windowApi.startDragging).toHaveBeenCalledOnce();
     fireEvent.click(await screen.findByRole("button", { name: "Switch project" }));
 
     expect(screen.getByText("Recent projects")).toBeInTheDocument();
@@ -117,6 +130,10 @@ describe("project workspace", () => {
     expect(screen.getByRole("separator", { name: "Resize writing agent" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize Project and Papers" })).toBeInTheDocument();
     expect(document.querySelector(".source-editor > .code-editor-root")).toBeInTheDocument();
+    const composer = screen.getByPlaceholderText(/ask the agent/i);
+    expect(composer).toHaveAttribute("rows", "1");
+    expect(composer).toHaveStyle({ height: "44px", overflowY: "hidden" });
+    expect(screen.getByTitle("Conversation history")).toHaveTextContent("New");
   });
 
   it("resizes panels with the accessible divider controls", async () => {
@@ -159,6 +176,48 @@ describe("project workspace", () => {
     expect(splitDivider).toHaveAttribute("aria-valuenow", "46");
     fireEvent.keyDown(splitDivider, { key: "ArrowRight" });
     expect(splitDivider).toHaveAttribute("aria-valuenow", "49");
+  });
+
+  it("saves and builds changed source when the pointer leaves the editor", async () => {
+    localStorage.setItem("lattice.build-preferences.v1", JSON.stringify({ autoBuildMode: "on-leave" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "write_project_file") return undefined;
+      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const editorElement = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const view = EditorView.findFromDOM(editorElement);
+    if (!view) throw new Error("CodeMirror view was not available");
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nNew result." } });
+    await waitFor(() => expect(document.querySelector(".active-document i")).not.toBeNull());
+    fireEvent.pointerLeave(document.querySelector(".source-editor")!);
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
+      path: "main.tex",
+      content: "\\documentclass{article}\nNew result.",
+    }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project"));
   });
 
   it("shows subscription status in settings without asking for an API key", async () => {

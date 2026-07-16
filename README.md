@@ -13,6 +13,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Browse, create, delete, scroll, and directly edit project source files with a full-height CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
 - Get automatic braces after citation commands and bibliography-key completion inside `\\cite{...}`.
 - Compile the default root document with the local `latexmk` installation.
+- Choose manual builds, build when the pointer leaves the editor, or build after a 1.2-second typing pause.
 - Review the generated PDF beside the source with a draggable split divider and a themed PDF.js toolbar for paging, zoom, and native Save As export.
 - Drag PNG, JPEG, PDF, SVG, EPS, or WebP figures onto a project folder, or import them through the figures-folder action.
 - Import an arXiv paper as Markdown with `arxiv2md`.
@@ -26,6 +27,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Save direct edits, imports, and agent changes as atomic project transactions.
 - Inspect project history and revert a transaction.
 - Resize the Project and Papers regions vertically and preserve that layout across launches.
+- Drag the macOS window from the project path or other non-interactive title-bar space.
 - Choose interface and editor fonts, scale the entire interface from 90% to 135%, and set editor text from 10 to 24 pixels in Settings, with a more readable 110% default scale, light and dark themes, and reduced-motion support.
 
 ## Current boundaries
@@ -69,7 +71,7 @@ Right-click the project heading, any project entry, or an imported paper and cho
 The `.tex` suffix is optional while naming a new source file and is added automatically.
 Drag figure files anywhere over the Project pane to add them to `figures`, or drop them directly on another project directory to target that folder.
 Choose the agent model and effort directly above the conversation; the selection is saved with each project-local conversation.
-Open Settings to enlarge the entire interface or editor text, adjust fonts, inspect or start subscription login, or manage API keys.
+Open Settings to enlarge the interface, adjust fonts, choose automatic build behavior, inspect subscription login, or manage API keys.
 The key icon only appears for OpenAI API and Anthropic API providers and stores those keys in macOS Keychain.
 
 ## Project format
