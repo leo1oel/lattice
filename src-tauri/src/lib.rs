@@ -7,8 +7,8 @@ mod project;
 mod sessions;
 
 use models::{
-    AgentMessage, AgentResult, AgentSession, AgentSessionSummary, BuildResult, HistoryItem,
-    ImportResult, PaperSummary, ProjectSnapshot,
+    AgentMessage, AgentResult, AgentSession, AgentSessionSummary, AgentSettings, BuildResult,
+    HistoryItem, ImportResult, PaperSummary, ProjectSnapshot,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -103,6 +103,25 @@ fn write_project_file(
 }
 
 #[tauri::command]
+fn list_citation_keys(state: tauri::State<'_, AppState>) -> Result<Vec<String>, String> {
+    project::citation_keys(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn create_project_entry(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    kind: String,
+) -> Result<(), String> {
+    project::create_entry(&current_root(&state)?, &path, &kind)
+}
+
+#[tauri::command]
+fn delete_project_entry(state: tauri::State<'_, AppState>, path: String) -> Result<(), String> {
+    project::delete_entry(&current_root(&state)?, &path)
+}
+
+#[tauri::command]
 async fn build_project(state: tauri::State<'_, AppState>) -> Result<BuildResult, String> {
     let root = current_root(&state)?;
     tauri::async_runtime::spawn_blocking(move || latex::build(&root))
@@ -132,9 +151,14 @@ fn read_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<Str
 }
 
 #[tauri::command]
+fn delete_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<(), String> {
+    papers::delete_paper(&current_root(&state)?, &arxiv_id)
+}
+
+#[tauri::command]
 async fn run_agent(
     state: tauri::State<'_, AppState>,
-    provider: String,
+    settings: AgentSettings,
     message: String,
     active_file: Option<String>,
     selection: Option<String>,
@@ -144,7 +168,7 @@ async fn run_agent(
     tauri::async_runtime::spawn_blocking(move || {
         agents::run(
             &root,
-            &provider,
+            &settings,
             &message,
             active_file.as_deref(),
             selection.as_deref(),
@@ -201,8 +225,10 @@ fn delete_history_entry(
 fn create_agent_session(
     state: tauri::State<'_, AppState>,
     provider: String,
+    model: String,
+    reasoning_effort: String,
 ) -> Result<AgentSession, String> {
-    sessions::create(&current_root(&state)?, &provider)
+    sessions::create(&current_root(&state)?, &provider, &model, &reasoning_effort)
 }
 
 #[tauri::command]
@@ -249,10 +275,14 @@ pub fn run() {
             refresh_project,
             read_project_file,
             write_project_file,
+            list_citation_keys,
+            create_project_entry,
+            delete_project_entry,
             build_project,
             import_arxiv,
             list_papers,
             read_paper,
+            delete_paper,
             run_agent,
             provider_status,
             save_api_key,

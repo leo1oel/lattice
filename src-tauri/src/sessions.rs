@@ -6,8 +6,14 @@ use uuid::Uuid;
 
 const NEW_CONVERSATION: &str = "New conversation";
 
-pub fn create(root: &Path, provider: &str) -> Result<AgentSession, String> {
+pub fn create(
+    root: &Path,
+    provider: &str,
+    model: &str,
+    reasoning_effort: &str,
+) -> Result<AgentSession, String> {
     validate_provider(provider)?;
+    validate_settings(model, reasoning_effort)?;
     let timestamp = Utc::now().to_rfc3339();
     let session = AgentSession {
         id: Uuid::new_v4().to_string(),
@@ -15,6 +21,8 @@ pub fn create(root: &Path, provider: &str) -> Result<AgentSession, String> {
         created_at: timestamp.clone(),
         updated_at: timestamp,
         provider: provider.to_string(),
+        model: model.to_string(),
+        reasoning_effort: reasoning_effort.to_string(),
         messages: vec![AgentMessage {
             id: Uuid::new_v4().to_string(),
             role: "agent".to_string(),
@@ -28,7 +36,7 @@ pub fn create(root: &Path, provider: &str) -> Result<AgentSession, String> {
 
 pub fn save(root: &Path, mut session: AgentSession) -> Result<AgentSession, String> {
     session_path(root, &session.id)?;
-    validate_provider(&session.provider)?;
+    normalize_settings(&mut session)?;
     if session.title.trim().is_empty() || session.title == NEW_CONVERSATION {
         session.title = session
             .messages
@@ -45,7 +53,9 @@ pub fn save(root: &Path, mut session: AgentSession) -> Result<AgentSession, Stri
 
 pub fn read(root: &Path, session_id: &str) -> Result<AgentSession, String> {
     let raw = fs::read_to_string(session_path(root, session_id)?).map_err(err)?;
-    serde_json::from_str(&raw).map_err(err)
+    let mut session: AgentSession = serde_json::from_str(&raw).map_err(err)?;
+    normalize_settings(&mut session)?;
+    Ok(session)
 }
 
 pub fn list(root: &Path) -> Result<Vec<AgentSessionSummary>, String> {
@@ -60,12 +70,15 @@ pub fn list(root: &Path) -> Result<Vec<AgentSessionSummary>, String> {
             continue;
         }
         let raw = fs::read_to_string(entry.path()).map_err(err)?;
-        let session: AgentSession = serde_json::from_str(&raw).map_err(err)?;
+        let mut session: AgentSession = serde_json::from_str(&raw).map_err(err)?;
+        normalize_settings(&mut session)?;
         sessions.push(AgentSessionSummary {
             id: session.id,
             title: session.title,
             updated_at: session.updated_at,
             provider: session.provider,
+            model: session.model,
+            reasoning_effort: session.reasoning_effort,
             message_count: session.messages.len(),
         });
     }
@@ -102,6 +115,36 @@ fn validate_provider(provider: &str) -> Result<(), String> {
     }
 }
 
+fn normalize_settings(session: &mut AgentSession) -> Result<(), String> {
+    validate_provider(&session.provider)?;
+    if session.model.trim().is_empty() {
+        session.model = default_model(&session.provider).to_string();
+    }
+    if session.reasoning_effort.trim().is_empty() {
+        session.reasoning_effort = "high".to_string();
+    }
+    validate_settings(&session.model, &session.reasoning_effort)
+}
+
+fn default_model(provider: &str) -> &'static str {
+    match provider {
+        "codex" | "openai-api" => "gpt-5.6-sol",
+        "claude" => "sonnet",
+        "anthropic-api" => "claude-sonnet-5",
+        _ => "",
+    }
+}
+
+fn validate_settings(model: &str, reasoning_effort: &str) -> Result<(), String> {
+    if model.trim().is_empty() {
+        return Err("Choose an agent model.".to_string());
+    }
+    match reasoning_effort {
+        "low" | "medium" | "high" | "xhigh" | "max" => Ok(()),
+        _ => Err("Choose a supported reasoning effort.".to_string()),
+    }
+}
+
 fn conversation_title(message: &str) -> String {
     let normalized = message.split_whitespace().collect::<Vec<_>>().join(" ");
     let mut characters = normalized.chars();
@@ -125,7 +168,7 @@ mod tests {
     fn conversations_can_be_created_saved_restored_and_deleted() {
         let root = std::env::temp_dir().join(format!("lattice-session-{}", Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
-        let mut session = create(&root, "codex").unwrap();
+        let mut session = create(&root, "codex", "gpt-5.6-sol", "high").unwrap();
         session.messages.push(AgentMessage {
             id: Uuid::new_v4().to_string(),
             role: "user".to_string(),
@@ -139,6 +182,7 @@ mod tests {
         );
         assert_eq!(list(&root).unwrap()[0].id, session.id);
         assert_eq!(read(&root, &session.id).unwrap().messages.len(), 2);
+        assert_eq!(read(&root, &session.id).unwrap().model, "gpt-5.6-sol");
         delete(&root, &session.id).unwrap();
         assert!(list(&root).unwrap().is_empty());
         fs::remove_dir_all(root).unwrap();

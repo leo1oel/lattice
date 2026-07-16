@@ -36,6 +36,7 @@ import {
   X,
 } from "lucide-react";
 import { marked } from "marked";
+import { latexEditorExtensions } from "./latex-editor";
 import "./App.css";
 
 type RootDocument = {
@@ -97,6 +98,7 @@ type AgentResult = {
 type PaperSummary = {
   arxivId: string;
   title: string;
+  citationKey?: string;
 };
 
 type ChatMessage = {
@@ -112,6 +114,8 @@ type AgentSession = {
   createdAt: string;
   updatedAt: string;
   provider: AgentProvider;
+  model: string;
+  reasoningEffort: ReasoningEffort;
   messages: ChatMessage[];
 };
 
@@ -120,12 +124,15 @@ type AgentSessionSummary = {
   title: string;
   updatedAt: string;
   provider: AgentProvider;
+  model: string;
+  reasoningEffort: ReasoningEffort;
   messageCount: number;
 };
 
 type CanvasMode = "source" | "pdf" | "split" | "paper";
 type Theme = "light" | "dark";
 type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
+type ReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
 type RecentProject = { name: string; path: string };
 type PanelKind = "navigator" | "agent";
 type PanelWidths = { navigator: number; agent: number };
@@ -152,6 +159,7 @@ function App() {
   const [build, setBuild] = useState<BuildResult | null>(null);
   const [building, setBuilding] = useState(false);
   const [papers, setPapers] = useState<PaperSummary[]>([]);
+  const [citationKeys, setCitationKeys] = useState<string[]>([]);
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(defaultWelcomeMessages);
@@ -160,6 +168,8 @@ function App() {
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const [agentInput, setAgentInput] = useState("");
   const [provider, setProvider] = useState<AgentProvider>("codex");
+  const [agentModel, setAgentModel] = useState(defaultModel("codex"));
+  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("high");
   const [agentRunning, setAgentRunning] = useState(false);
   const [importInput, setImportInput] = useState("");
   const [importing, setImporting] = useState(false);
@@ -203,7 +213,12 @@ function App() {
   const refreshProject = useCallback(async () => {
     const snapshot = await invoke<ProjectSnapshot>("refresh_project");
     setProject(snapshot);
-    setPapers(await invoke<PaperSummary[]>("list_papers"));
+    const [nextPapers, nextCitationKeys] = await Promise.all([
+      invoke<PaperSummary[]>("list_papers"),
+      invoke<string[]>("list_citation_keys"),
+    ]);
+    setPapers(nextPapers);
+    setCitationKeys(nextCitationKeys);
     return snapshot;
   }, []);
 
@@ -225,6 +240,9 @@ function App() {
     try {
       await invoke("write_project_file", { path: activeFile, content: source });
       setSavedSource(source);
+      if (activeFile === project.manifest.primaryBibliography) {
+        setCitationKeys(await invoke<string[]>("list_citation_keys"));
+      }
       await refreshHistory();
       return true;
     } catch (reason) {
@@ -273,17 +291,28 @@ function App() {
         snapshot.manifest.rootDocuments.find((document) => document.isDefault) ??
         snapshot.manifest.rootDocuments[0];
       if (rootDocument) await loadFile(rootDocument.path);
-      setPapers(await invoke<PaperSummary[]>("list_papers"));
+      const [nextPapers, nextCitationKeys] = await Promise.all([
+        invoke<PaperSummary[]>("list_papers"),
+        invoke<string[]>("list_citation_keys"),
+      ]);
+      setPapers(nextPapers);
+      setCitationKeys(nextCitationKeys);
       setHistory(await invoke<HistoryItem[]>("list_history"));
       let sessionList = await invoke<AgentSessionSummary[]>("list_agent_sessions");
       const session = sessionList.length
         ? await invoke<AgentSession>("read_agent_session", { sessionId: sessionList[0].id })
-        : await invoke<AgentSession>("create_agent_session", { provider: "codex" });
+        : await invoke<AgentSession>("create_agent_session", {
+          provider: "codex",
+          model: defaultModel("codex"),
+          reasoningEffort: "high",
+        });
       if (!sessionList.length) sessionList = await invoke<AgentSessionSummary[]>("list_agent_sessions");
       setAgentSessions(sessionList);
       setActiveSession(session);
       setMessages(session.messages);
       setProvider(session.provider);
+      setAgentModel(session.model || defaultModel(session.provider));
+      setReasoningEffort(normalizeEffort(session.reasoningEffort));
       setSessionMenuOpen(false);
       requestAnimationFrame(() => {
         if (shellRef.current) {
@@ -425,6 +454,56 @@ function App() {
     }
   }, []);
 
+  const createProjectEntry = useCallback(async (path: string, kind: "file" | "folder") => {
+    try {
+      await invoke("create_project_entry", { path, kind });
+      await refreshProject();
+      await refreshHistory();
+      if (kind === "file") await loadFile(path);
+    } catch (reason) {
+      setError(toMessage(reason));
+      throw reason;
+    }
+  }, [loadFile, refreshHistory, refreshProject]);
+
+  const deleteProjectEntry = useCallback(async (path: string) => {
+    if (!window.confirm(`Delete “${path}” from this project?`)) return;
+    try {
+      await invoke("delete_project_entry", { path });
+      const snapshot = await refreshProject();
+      await refreshHistory();
+      if (activeFile === path || activeFile.startsWith(`${path}/`)) {
+        const rootDocument = snapshot.manifest.rootDocuments.find((document) => document.isDefault)
+          ?? snapshot.manifest.rootDocuments[0];
+        if (rootDocument) await loadFile(rootDocument.path);
+      }
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [activeFile, loadFile, refreshHistory, refreshProject]);
+
+  const deletePaper = useCallback(async (paper: PaperSummary) => {
+    if (!window.confirm(`Remove “${paper.title}” and its bibliography entry?`)) return;
+    try {
+      await invoke("delete_paper", { arxivId: paper.arxivId });
+      if (activePaper?.arxivId === paper.arxivId) {
+        setActivePaper(null);
+        setPaperMarkdown("");
+        setCanvasMode("split");
+      }
+      await refreshProject();
+      await refreshHistory();
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [activePaper, refreshHistory, refreshProject]);
+
+  const changeProvider = useCallback((nextProvider: AgentProvider) => {
+    setProvider(nextProvider);
+    setAgentModel(defaultModel(nextProvider));
+    setReasoningEffort("high");
+  }, []);
+
   const refreshAgentSessions = useCallback(async () => {
     setAgentSessions(await invoke<AgentSessionSummary[]>("list_agent_sessions"));
   }, []);
@@ -432,7 +511,11 @@ function App() {
   const newAgentSession = useCallback(async () => {
     if (agentRunning) return;
     try {
-      const session = await invoke<AgentSession>("create_agent_session", { provider });
+      const session = await invoke<AgentSession>("create_agent_session", {
+        provider,
+        model: agentModel,
+        reasoningEffort,
+      });
       setActiveSession(session);
       setMessages(session.messages);
       setSessionMenuOpen(false);
@@ -440,7 +523,7 @@ function App() {
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [agentRunning, provider, refreshAgentSessions]);
+  }, [agentModel, agentRunning, provider, reasoningEffort, refreshAgentSessions]);
 
   const openAgentSession = useCallback(async (id: string) => {
     if (agentRunning || id === activeSession?.id) {
@@ -452,6 +535,8 @@ function App() {
       setActiveSession(session);
       setMessages(session.messages);
       setProvider(session.provider);
+      setAgentModel(session.model || defaultModel(session.provider));
+      setReasoningEffort(normalizeEffort(session.reasoningEffort));
       setSessionMenuOpen(false);
     } catch (reason) {
       setError(toMessage(reason));
@@ -466,17 +551,19 @@ function App() {
       if (id === activeSession?.id) {
         const next = remaining.length
           ? await invoke<AgentSession>("read_agent_session", { sessionId: remaining[0].id })
-          : await invoke<AgentSession>("create_agent_session", { provider });
+          : await invoke<AgentSession>("create_agent_session", { provider, model: agentModel, reasoningEffort });
         if (!remaining.length) remaining = await invoke<AgentSessionSummary[]>("list_agent_sessions");
         setActiveSession(next);
         setMessages(next.messages);
         setProvider(next.provider);
+        setAgentModel(next.model || defaultModel(next.provider));
+        setReasoningEffort(normalizeEffort(next.reasoningEffort));
       }
       setAgentSessions(remaining);
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [activeSession, agentRunning, provider]);
+  }, [activeSession, agentModel, agentRunning, provider, reasoningEffort]);
 
   const sendToAgent = useCallback(async () => {
     const message = agentInput.trim();
@@ -489,15 +576,19 @@ function App() {
     let session = activeSession;
     let currentMessages = pendingMessages;
     try {
-      if (!session) session = await invoke<AgentSession>("create_agent_session", { provider });
+      if (!session) session = await invoke<AgentSession>("create_agent_session", {
+        provider,
+        model: agentModel,
+        reasoningEffort,
+      });
       session = await invoke<AgentSession>("save_agent_session", {
-        session: { ...session, provider, messages: pendingMessages },
+        session: { ...session, provider, model: agentModel, reasoningEffort, messages: pendingMessages },
       });
       setActiveSession(session);
       await refreshAgentSessions();
       if (!(await save())) throw new Error("Save the current file before running the agent.");
       const result = await invoke<AgentResult>("run_agent", {
-        provider,
+        settings: { provider, model: agentModel, reasoningEffort },
         message,
         activeFile: activeFile || null,
         selection: selection || null,
@@ -512,7 +603,7 @@ function App() {
       currentMessages = completedMessages;
       setMessages(completedMessages);
       session = await invoke<AgentSession>("save_agent_session", {
-        session: { ...session, provider, messages: completedMessages },
+        session: { ...session, provider, model: agentModel, reasoningEffort, messages: completedMessages },
       });
       setActiveSession(session);
       await refreshAgentSessions();
@@ -529,7 +620,7 @@ function App() {
       if (session) {
         try {
           const saved = await invoke<AgentSession>("save_agent_session", {
-            session: { ...session, provider, messages: failedMessages },
+            session: { ...session, provider, model: agentModel, reasoningEffort, messages: failedMessages },
           });
           setActiveSession(saved);
           await refreshAgentSessions();
@@ -540,7 +631,7 @@ function App() {
     } finally {
       setAgentRunning(false);
     }
-  }, [activeFile, activeSession, agentInput, agentRunning, compile, loadFile, messages, provider, refreshAgentSessions, refreshHistory, refreshProject, save, selection]);
+  }, [activeFile, activeSession, agentInput, agentModel, agentRunning, compile, loadFile, messages, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection]);
 
   const revert = useCallback(
     async (id: string) => {
@@ -576,12 +667,12 @@ function App() {
       await invoke("save_api_key", { provider: apiProvider, key: apiKey });
       setApiKey("");
       await refreshApiKeys();
-      setProvider(apiProvider === "openai" ? "openai-api" : "anthropic-api");
+      changeProvider(apiProvider === "openai" ? "openai-api" : "anthropic-api");
       setApiSettingsOpen(false);
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [apiKey, apiProvider, refreshApiKeys]);
+  }, [apiKey, apiProvider, changeProvider, refreshApiKeys]);
 
   const deleteApiKey = useCallback(async () => {
     try {
@@ -716,10 +807,17 @@ function App() {
             <Navigator
               files={project.files}
               activeFile={activeFile}
+              protectedPaths={[
+                ...project.manifest.rootDocuments.map((document) => document.path),
+                project.manifest.primaryBibliography,
+              ]}
               papers={papers}
               activePaper={activePaper}
               onFile={loadFile}
+              onCreateEntry={createProjectEntry}
+              onDeleteEntry={deleteProjectEntry}
               onPaper={openPaper}
+              onDeletePaper={deletePaper}
               importInput={importInput}
               setImportInput={setImportInput}
               onImport={importPaper}
@@ -746,7 +844,11 @@ function App() {
           input={agentInput}
           setInput={setAgentInput}
           provider={provider}
-          setProvider={setProvider}
+          setProvider={changeProvider}
+          model={agentModel}
+          setModel={setAgentModel}
+          reasoningEffort={reasoningEffort}
+          setReasoningEffort={setReasoningEffort}
           running={agentRunning}
           onSend={sendToAgent}
           onApiSettings={openApiSettings}
@@ -777,6 +879,7 @@ function App() {
             pdfUrl={pdfUrl}
             paperMarkdown={paperMarkdown}
             activePaper={activePaper}
+            citationKeys={citationKeys}
           />
         </section>
       </main>
@@ -944,21 +1047,64 @@ function PanelResizer(props: {
 function Navigator(props: {
   files: FileNode[];
   activeFile: string;
+  protectedPaths: string[];
   papers: PaperSummary[];
   activePaper: PaperSummary | null;
   onFile: (path: string) => void;
+  onCreateEntry: (path: string, kind: "file" | "folder") => Promise<void>;
+  onDeleteEntry: (path: string) => void;
   onPaper: (paper: PaperSummary) => void;
+  onDeletePaper: (paper: PaperSummary) => void;
   importInput: string;
   setImportInput: (value: string) => void;
   onImport: () => void;
   importing: boolean;
 }) {
+  const [entryFormOpen, setEntryFormOpen] = useState(false);
+  const [entryPath, setEntryPath] = useState("");
+  const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
+  const [entryBusy, setEntryBusy] = useState(false);
+  const submitEntry = async () => {
+    if (!entryPath.trim() || entryBusy) return;
+    setEntryBusy(true);
+    try {
+      await props.onCreateEntry(entryPath.trim(), entryKind);
+      setEntryPath("");
+      setEntryFormOpen(false);
+    } catch {
+      // The workspace error banner explains why creation failed.
+    } finally {
+      setEntryBusy(false);
+    }
+  };
   return (
     <aside className="navigator">
       <div className="navigator-section">
-        <div className="section-heading"><span>Project</span></div>
+        <div className="section-heading">
+          <span>Project</span>
+          <button className="section-action" title="Add file or folder" onClick={() => setEntryFormOpen((value) => !value)}><Plus size={13} /></button>
+        </div>
+        {entryFormOpen && (
+          <div className="project-entry-form">
+            <select aria-label="Entry type" value={entryKind} onChange={(event) => setEntryKind(event.target.value as "file" | "folder")}>
+              <option value="file">File</option>
+              <option value="folder">Folder</option>
+            </select>
+            <input
+              autoFocus
+              aria-label="Project-relative path"
+              placeholder={entryKind === "file" ? "sections/method.tex" : "figures/results"}
+              value={entryPath}
+              onChange={(event) => setEntryPath(event.target.value)}
+              onKeyDown={(event) => event.key === "Enter" && void submitEntry()}
+            />
+            <button title="Create" disabled={entryBusy || !entryPath.trim()} onClick={() => void submitEntry()}>
+              {entryBusy ? <LoaderCircle className="spin" size={13} /> : <Check size={13} />}
+            </button>
+          </div>
+        )}
         <div className="file-tree">
-          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} onFile={props.onFile} />)}
+          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} protectedPaths={props.protectedPaths} onFile={props.onFile} onDelete={props.onDeleteEntry} />)}
         </div>
       </div>
       <div className="navigator-section papers-section">
@@ -968,10 +1114,13 @@ function Navigator(props: {
         </div>
         <div className="paper-list">
           {props.papers.map((paper) => (
-            <button key={paper.arxivId} title={paper.title} className={props.activePaper?.arxivId === paper.arxivId ? "active" : ""} onClick={() => props.onPaper(paper)}>
-              <BookOpen size={14} />
-              <span><strong>{paper.title}</strong><small>arXiv {paper.arxivId}</small></span>
-            </button>
+            <div key={paper.arxivId} className={`paper-row ${props.activePaper?.arxivId === paper.arxivId ? "active" : ""}`}>
+              <button title={paper.title} className="paper-open" onClick={() => props.onPaper(paper)}>
+                <BookOpen size={14} />
+                <span><strong>{paper.title}</strong><small>{paper.citationKey ? `\\cite{${paper.citationKey}}` : `arXiv ${paper.arxivId}`}</small></span>
+              </button>
+              <button className="row-delete" title={`Remove ${paper.title}`} onClick={() => props.onDeletePaper(paper)}><Trash2 size={12} /></button>
+            </div>
           ))}
           {!props.papers.length && <p className="empty-note">Add an arXiv paper to ground the agent in project evidence.</p>}
         </div>
@@ -991,16 +1140,20 @@ function Navigator(props: {
   );
 }
 
-function TreeNode({ node, activeFile, onFile }: { node: FileNode; activeFile: string; onFile: (path: string) => void }) {
+function TreeNode({ node, activeFile, protectedPaths, onFile, onDelete }: { node: FileNode; activeFile: string; protectedPaths: string[]; onFile: (path: string) => void; onDelete: (path: string) => void }) {
   const [open, setOpen] = useState(true);
+  const protectedEntry = protectedPaths.some((path) => path === node.path || path.startsWith(`${node.path}/`));
   if (node.kind === "directory") {
     return (
       <div className="tree-directory">
-        <button className="tree-row" onClick={() => setOpen((value) => !value)}>
-          {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-          <Folder size={14} /> <span>{node.name}</span>
-        </button>
-        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} onFile={onFile} />)}</div>}
+        <div className="tree-row">
+          <button className="tree-main" onClick={() => setOpen((value) => !value)}>
+            {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            <Folder size={14} /> <span>{node.name}</span>
+          </button>
+          {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
+        </div>
+        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} protectedPaths={protectedPaths} onFile={onFile} onDelete={onDelete} />)}</div>}
       </div>
     );
   }
@@ -1008,14 +1161,16 @@ function TreeNode({ node, activeFile, onFile }: { node: FileNode; activeFile: st
   if (node.kind === "figure") {
     return (
       <div className="tree-row asset-row" title="Binary assets are listed here but are not opened in the source editor.">
-        <span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span>
+        <div className="tree-main"><span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span></div>
+        {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
       </div>
     );
   }
   return (
-    <button className={`tree-row ${activeFile === node.path ? "active" : ""}`} onClick={() => onFile(node.path)}>
-      <span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span>
-    </button>
+    <div className={`tree-row ${activeFile === node.path ? "active" : ""}`}>
+      <button className="tree-main" onClick={() => onFile(node.path)}><span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span></button>
+      {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
+    </div>
   );
 }
 
@@ -1032,6 +1187,10 @@ function AgentPanel({
   setInput,
   provider,
   setProvider,
+  model,
+  setModel,
+  reasoningEffort,
+  setReasoningEffort,
   running,
   onSend,
   onApiSettings,
@@ -1050,6 +1209,10 @@ function AgentPanel({
   setInput: (value: string) => void;
   provider: AgentProvider;
   setProvider: (value: AgentProvider) => void;
+  model: string;
+  setModel: (value: string) => void;
+  reasoningEffort: ReasoningEffort;
+  setReasoningEffort: (value: ReasoningEffort) => void;
   running: boolean;
   onSend: () => void;
   onApiSettings: () => void;
@@ -1066,7 +1229,7 @@ function AgentPanel({
           <button className="new-conversation-button" title="New conversation" disabled={running} onClick={onNewSession}><Plus size={14} /></button>
         </div>
         <div className="provider-controls">
-          <select value={provider} disabled={running} onChange={(event) => setProvider(event.target.value as AgentProvider)}>
+          <select aria-label="Agent provider" value={provider} disabled={running} onChange={(event) => setProvider(event.target.value as AgentProvider)}>
             <option value="codex">Codex subscription</option>
             <option value="claude">Claude subscription</option>
             <option value="openai-api">OpenAI API</option>
@@ -1074,6 +1237,24 @@ function AgentPanel({
           </select>
           <button onClick={onApiSettings} title="API key settings"><KeyRound size={14} /></button>
         </div>
+      </div>
+      <div className="agent-config-bar">
+        <label>
+          <span>Model</span>
+          <select aria-label="Agent model" value={model} disabled={running} onChange={(event) => setModel(event.target.value)}>
+            {modelOptions(provider).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Effort</span>
+          <select aria-label="Reasoning effort" value={reasoningEffort} disabled={running} onChange={(event) => setReasoningEffort(event.target.value as ReasoningEffort)}>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="xhigh">Extra high</option>
+            <option value="max">Max</option>
+          </select>
+        </label>
       </div>
       {sessionMenuOpen && (
         <div className="session-menu">
@@ -1083,7 +1264,7 @@ function AgentPanel({
               <div key={session.id} className={session.id === activeSession?.id ? "active" : ""}>
                 <button className="session-open" onClick={() => onOpenSession(session.id)}>
                   <strong>{session.title}</strong>
-                  <small>{providerLabel(session.provider)} · {session.messageCount} messages · {relativeTime(session.updatedAt)}</small>
+                  <small>{modelLabel(session.provider, session.model || defaultModel(session.provider))} · {session.messageCount} messages · {relativeTime(session.updatedAt)}</small>
                 </button>
                 <button className="session-delete" title="Delete conversation" disabled={running} onClick={() => onDeleteSession(session.id)}><Trash2 size={12} /></button>
               </div>
@@ -1125,7 +1306,7 @@ function AgentPanel({
             }}
           />
           <div className="composer-footer">
-            <span>{providerLabel(provider)}</span>
+            <span>{modelLabel(provider, model)} · {effortLabel(reasoningEffort)}</span>
             <button onClick={onSend} disabled={running || !input.trim()}><Send size={14} /></button>
           </div>
         </div>
@@ -1164,10 +1345,15 @@ function DocumentCanvas(props: {
   pdfUrl: string | null;
   paperMarkdown: string;
   activePaper: PaperSummary | null;
+  citationKeys: string[];
 }) {
   const paperHtml = useMemo(
     () => DOMPurify.sanitize(marked.parse(props.paperMarkdown, { async: false }) as string),
     [props.paperMarkdown],
+  );
+  const editorExtensions = useMemo(
+    () => [latex({ enableAutocomplete: false }), ...latexEditorExtensions(props.citationKeys)],
+    [props.citationKeys],
   );
   if (props.mode === "paper") {
     return (
@@ -1182,13 +1368,14 @@ function DocumentCanvas(props: {
       <CodeMirror
         value={props.source}
         height="100%"
-        extensions={[latex()]}
+        extensions={editorExtensions}
         onChange={props.setSource}
         onUpdate={(view) => {
           const range = view.state.selection.main;
           props.setSelection(range.empty ? "" : view.state.sliceDoc(range.from, range.to));
         }}
         basicSetup={{
+          autocompletion: false,
           lineNumbers: true,
           foldGutter: true,
           highlightActiveLine: true,
@@ -1296,13 +1483,46 @@ function toMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-function providerLabel(provider: AgentProvider): string {
+function modelOptions(provider: AgentProvider): { value: string; label: string }[] {
   switch (provider) {
-    case "codex": return "Local Codex subscription";
-    case "claude": return "Local Claude subscription";
-    case "openai-api": return "OpenAI API · GPT-5.6";
-    case "anthropic-api": return "Anthropic API · Sonnet 5";
+    case "codex":
+    case "openai-api":
+      return [
+        { value: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
+        { value: "gpt-5.6-terra", label: "GPT-5.6 Terra" },
+        { value: "gpt-5.6-luna", label: "GPT-5.6 Luna" },
+      ];
+    case "claude":
+      return [
+        { value: "sonnet", label: "Claude Sonnet" },
+        { value: "opus", label: "Claude Opus" },
+        { value: "fable", label: "Claude Fable" },
+      ];
+    case "anthropic-api":
+      return [
+        { value: "claude-sonnet-5", label: "Claude Sonnet 5" },
+        { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
+        { value: "claude-fable-5", label: "Claude Fable 5" },
+      ];
   }
+}
+
+function defaultModel(provider: AgentProvider): string {
+  return modelOptions(provider)[0].value;
+}
+
+function modelLabel(provider: AgentProvider, model: string): string {
+  return modelOptions(provider).find((option) => option.value === model)?.label ?? model;
+}
+
+function normalizeEffort(value: string | undefined): ReasoningEffort {
+  return value === "low" || value === "medium" || value === "high" || value === "xhigh" || value === "max"
+    ? value
+    : "high";
+}
+
+function effortLabel(value: ReasoningEffort): string {
+  return value === "xhigh" ? "extra high" : value;
 }
 
 function relativeTime(timestamp: string): string {

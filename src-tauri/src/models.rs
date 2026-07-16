@@ -91,11 +91,12 @@ pub struct ImportResult {
     pub citation_output: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaperSummary {
     pub arxiv_id: String,
     pub title: String,
+    pub citation_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,12 +111,24 @@ pub struct AgentMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AgentSettings {
+    pub provider: String,
+    pub model: String,
+    pub reasoning_effort: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentSession {
     pub id: String,
     pub title: String,
     pub created_at: String,
     pub updated_at: String,
     pub provider: String,
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub reasoning_effort: String,
     pub messages: Vec<AgentMessage>,
 }
 
@@ -126,6 +139,8 @@ pub struct AgentSessionSummary {
     pub title: String,
     pub updated_at: String,
     pub provider: String,
+    pub model: String,
+    pub reasoning_effort: String,
     pub message_count: usize,
 }
 

@@ -95,20 +95,31 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .navigator-section:first-child { flex: 1; overflow: auto; }
 .papers-section { flex: 0 0 42%; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
 .section-heading { height: 25px; padding: 0 7px; display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.section-action { width: 22px; height: 22px; border-radius: 5px; background: transparent; color: var(--faint); display: grid; place-items: center; }
+.section-action:hover { background: var(--line); color: var(--text); }
 .count-badge { min-width: 18px; height: 17px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center; background: var(--line); color: var(--faint); font-size: 9px; }
+.project-entry-form { height: 32px; margin: 1px 3px 5px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--panel-strong); display: flex; overflow: hidden; }
+.project-entry-form select { width: 61px; border: 0; border-right: 1px solid var(--line); outline: 0; background: transparent; padding: 0 4px; font-size: 9px; }
+.project-entry-form input { width: 0; flex: 1; border: 0; outline: 0; background: transparent; padding: 0 7px; font-size: 9.5px; }
+.project-entry-form > button { width: 28px; flex: none; background: transparent; color: var(--accent); display: grid; place-items: center; }
 .file-tree { padding-top: 4px; }
 .tree-row { width: 100%; height: 27px; border-radius: 6px; padding: 0 6px; background: transparent; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; text-align: left; }
 .tree-row:hover { color: var(--text); background: var(--line); }
 .tree-row.active { color: var(--text); background: var(--accent-soft); }
 .tree-row.asset-row { cursor: default; }
-.tree-row span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-main { width: 0; min-width: 0; flex: 1; height: 100%; padding: 0; background: transparent; color: inherit; display: flex; align-items: center; gap: 6px; text-align: left; }
+.tree-main span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-delete { width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: 5px !important; background: transparent !important; color: var(--faint) !important; display: grid !important; place-items: center; opacity: 0; }
+.tree-row:hover > .row-delete, .paper-row:hover > .row-delete, .paper-row.active > .row-delete { opacity: 1; }
+.row-delete:hover { background: color-mix(in srgb, var(--danger) 10%, transparent) !important; color: var(--danger) !important; }
 .tree-spacer { width: 13px; }
 .tree-children { padding-left: 12px; }
 .paper-list { min-height: 0; flex: 1; overflow: auto; padding-top: 3px; }
-.paper-list button { width: 100%; padding: 7px; border-radius: 6px; background: transparent; display: flex; align-items: flex-start; gap: 7px; color: var(--muted); font-size: 11px; text-align: left; }
-.paper-list button:hover, .paper-list button.active { color: var(--text); background: var(--line); }
-.paper-list button > svg { margin-top: 2px; flex: none; }
-.paper-list button > span { min-width: 0; }
+.paper-row { width: 100%; border-radius: 6px; display: flex; align-items: center; color: var(--muted); }
+.paper-row:hover, .paper-row.active { color: var(--text); background: var(--line); }
+.paper-open { width: 0; flex: 1; min-width: 0; padding: 7px; border-radius: 6px; background: transparent; display: flex; align-items: flex-start; gap: 7px; color: inherit; font-size: 11px; text-align: left; }
+.paper-open > svg { margin-top: 2px; flex: none; }
+.paper-open > span { min-width: 0; }
 .paper-list strong, .paper-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paper-list strong { color: inherit; font-size: 10.5px; font-weight: 500; }
 .paper-list small { margin-top: 2px; color: var(--faint); font-size: 8.5px; }
@@ -131,7 +142,11 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .provider-controls { display: flex; align-items: center; gap: 4px; }
 .provider-controls button { width: 25px; height: 25px; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; }
 .provider-controls button:hover { background: var(--line); color: var(--text); }
-.session-menu { position: absolute; z-index: 6; top: 39px; left: 8px; right: 8px; max-height: min(420px, calc(100% - 56px)); border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel-strong); box-shadow: var(--shadow); padding: 6px; overflow: hidden; }
+.agent-config-bar { height: 36px; flex: none; padding: 4px 11px 5px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(84px, .65fr); gap: 5px; }
+.agent-config-bar label { min-width: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-strong); padding: 0 5px; display: flex; align-items: center; gap: 4px; }
+.agent-config-bar label > span { color: var(--faint); font-size: 8px; text-transform: uppercase; letter-spacing: .04em; }
+.agent-config-bar select { width: 0; min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; font-size: 9px; }
+.session-menu { position: absolute; z-index: 6; top: 75px; left: 8px; right: 8px; max-height: min(420px, calc(100% - 92px)); border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel-strong); box-shadow: var(--shadow); padding: 6px; overflow: hidden; }
 .session-menu-heading { height: 30px; padding: 0 5px 4px 7px; display: flex; align-items: center; justify-content: space-between; color: var(--faint); font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
 .session-menu-heading button { height: 24px; padding: 0 7px; border-radius: 5px; background: transparent; color: var(--muted); display: flex; align-items: center; gap: 4px; font-size: 9px; text-transform: none; letter-spacing: 0; }
 .session-menu-heading button:hover { background: var(--line); color: var(--text); }

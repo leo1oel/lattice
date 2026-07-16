@@ -2,11 +2,20 @@ use crate::commands;
 use crate::models::{ImportResult, PaperSummary};
 use crate::project;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Output;
 use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PaperMetadata {
+    arxiv_id: String,
+    title: String,
+    citation_key: Option<String>,
+}
 
 pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
     let arxiv_id = parse_arxiv_id(input)?;
@@ -44,11 +53,19 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
     let bibliography = fs::read_to_string(&bibliography_path).map_err(err)?;
     let citation_key = parse_citation_key(&citation_output);
     let paper_relative = format!(".research/papers/{arxiv_id}/paper.md");
+    let metadata_relative = format!(".research/papers/{arxiv_id}/metadata.json");
+    let metadata = serde_json::to_string_pretty(&PaperMetadata {
+        arxiv_id: arxiv_id.clone(),
+        title: title.clone(),
+        citation_key: citation_key.clone(),
+    })
+    .map_err(err)?;
     project::apply_transaction(
         root,
         &format!("Import arXiv {arxiv_id}"),
         vec![
             (paper_relative.clone(), markdown),
+            (metadata_relative, format!("{metadata}\n")),
             (manifest.primary_bibliography, bibliography),
         ],
     )?;
@@ -75,8 +92,16 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
         if markdown_path.exists() {
             let arxiv_id = entry.file_name().to_string_lossy().to_string();
             let markdown = fs::read_to_string(markdown_path).map_err(err)?;
+            let metadata = fs::read_to_string(entry.path().join("metadata.json"))
+                .ok()
+                .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok());
             papers.push(PaperSummary {
-                title: parse_title(&markdown).unwrap_or_else(|| format!("arXiv {arxiv_id}")),
+                title: metadata
+                    .as_ref()
+                    .map(|item| item.title.clone())
+                    .or_else(|| parse_title(&markdown))
+                    .unwrap_or_else(|| format!("arXiv {arxiv_id}")),
+                citation_key: metadata.and_then(|item| item.citation_key),
                 arxiv_id,
             });
         }
@@ -86,13 +111,53 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
 }
 
 pub fn read_paper(root: &Path, arxiv_id: &str) -> Result<String, String> {
-    if !Regex::new(r"^\d{4}\.\d{4,5}(v\d+)?$|^[a-z-]+/\d{7}(v\d+)?$")
+    validate_arxiv_id(arxiv_id)?;
+    project::read_file(root, &format!(".research/papers/{arxiv_id}/paper.md"))
+}
+
+pub fn delete_paper(root: &Path, arxiv_id: &str) -> Result<(), String> {
+    validate_arxiv_id(arxiv_id)?;
+    let paper_directory = root.join(".research/papers").join(arxiv_id);
+    if !paper_directory.exists() {
+        return Err("That imported paper no longer exists.".to_string());
+    }
+    let manifest = project::read_manifest(root)?;
+    let bibliography_path = project::safe_path(root, &manifest.primary_bibliography)?;
+    let bibliography = fs::read_to_string(&bibliography_path).unwrap_or_default();
+    let metadata = fs::read_to_string(paper_directory.join("metadata.json"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok());
+    let citation_key = metadata
+        .and_then(|item| item.citation_key)
+        .or_else(|| find_citation_key_for_arxiv(&bibliography, arxiv_id));
+
+    if let Some(citation_key) = citation_key {
+        let temp = std::env::temp_dir().join(format!("research-writer-delete-{}", Uuid::new_v4()));
+        fs::create_dir_all(&temp).map_err(err)?;
+        let temporary_bibliography = temp.join("references.bib");
+        fs::write(&temporary_bibliography, &bibliography).map_err(err)?;
+        let result = run_bibcite_remove(&temporary_bibliography, &citation_key)
+            .and_then(|_| fs::read_to_string(&temporary_bibliography).map_err(err));
+        let _ = fs::remove_dir_all(&temp);
+        let updated_bibliography = result?;
+        project::apply_transaction(
+            root,
+            &format!("Remove arXiv {arxiv_id}"),
+            vec![(manifest.primary_bibliography, updated_bibliography)],
+        )?;
+    }
+    fs::remove_dir_all(paper_directory).map_err(err)
+}
+
+fn validate_arxiv_id(arxiv_id: &str) -> Result<(), String> {
+    if Regex::new(r"^\d{4}\.\d{4,5}(v\d+)?$|^[a-z-]+/\d{7}(v\d+)?$")
         .unwrap()
         .is_match(arxiv_id)
     {
-        return Err("Invalid arXiv id.".to_string());
+        Ok(())
+    } else {
+        Err("Invalid arXiv id.".to_string())
     }
-    project::read_file(root, &format!(".research/papers/{arxiv_id}/paper.md"))
 }
 
 fn parse_arxiv_id(input: &str) -> Result<String, String> {
@@ -129,6 +194,68 @@ fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     ))
+}
+
+fn run_bibcite_remove(path: &PathBuf, key: &str) -> Result<(), String> {
+    let direct = commands::command("bibcite")
+        .arg("remove")
+        .arg(path)
+        .arg(key)
+        .output();
+    let output = match direct {
+        Ok(output) => output,
+        Err(_) => commands::command("uvx")
+            .env("UV_CACHE_DIR", "/tmp/research-writer-uv-cache")
+            .arg("--from")
+            .arg("bibcite-cli")
+            .arg("bibcite")
+            .arg("remove")
+            .arg(path)
+            .arg(key)
+            .output()
+            .map_err(|error| format!("Could not start bibcite: {error}"))?,
+    };
+    ensure_success("bibcite", &output)
+}
+
+fn find_citation_key_for_arxiv(bibliography: &str, arxiv_id: &str) -> Option<String> {
+    let bytes = bibliography.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        let Some(at_offset) = bibliography[index..].find('@') else {
+            break;
+        };
+        let at = index + at_offset;
+        let Some(open_offset) = bibliography[at..].find('{') else {
+            break;
+        };
+        let open = at + open_offset;
+        let Some(comma_offset) = bibliography[open + 1..].find(',') else {
+            break;
+        };
+        let comma = open + 1 + comma_offset;
+        let key = bibliography[open + 1..comma].trim();
+        let mut depth = 1i32;
+        let mut end = comma + 1;
+        for (offset, character) in bibliography[open + 1..].char_indices() {
+            match character {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = open + 1 + offset + character.len_utf8();
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        if bibliography[at..end].contains(arxiv_id) && !key.is_empty() {
+            return Some(key.to_string());
+        }
+        index = end.max(at + 1);
+    }
+    None
 }
 
 fn parse_citation_key(output: &str) -> Option<String> {
@@ -190,6 +317,15 @@ mod tests {
     }
 
     #[test]
+    fn finds_a_legacy_imports_citation_key_by_arxiv_id() {
+        let bibliography = "@article{vaswani2017attention,\n  eprint = {1706.03762},\n  title = {Attention {Is} All You Need}\n}\n";
+        assert_eq!(
+            find_citation_key_for_arxiv(bibliography, "1706.03762"),
+            Some("vaswani2017attention".to_string())
+        );
+    }
+
+    #[test]
     #[ignore = "requires network access"]
     fn imports_markdown_and_a_real_citation() {
         let parent = std::env::temp_dir().join(format!("lattice-paper-e2e-{}", Uuid::new_v4()));
@@ -201,6 +337,12 @@ mod tests {
         assert!(root.join(&result.paper_path).exists());
         assert!(!fs::read_to_string(root.join("references.bib"))
             .unwrap()
+            .is_empty());
+        delete_paper(&root, "1706.03762").unwrap();
+        assert!(!root.join(&result.paper_path).exists());
+        assert!(fs::read_to_string(root.join("references.bib"))
+            .unwrap()
+            .trim()
             .is_empty());
         fs::remove_dir_all(parent).unwrap();
     }

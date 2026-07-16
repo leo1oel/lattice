@@ -11,6 +11,8 @@ const testSession = {
   createdAt: "2026-07-16T00:00:00Z",
   updatedAt: "2026-07-16T00:00:00Z",
   provider: "codex",
+  model: "gpt-5.6-sol",
+  reasoningEffort: "high",
   messages: [{ id: "welcome", role: "agent", text: "Tell me what you want to write or revise.", files: [] }],
 };
 
@@ -19,10 +21,13 @@ const testSessionSummary = {
   title: testSession.title,
   updatedAt: testSession.updatedAt,
   provider: testSession.provider,
+  model: testSession.model,
+  reasoningEffort: testSession.reasoningEffort,
   messageCount: testSession.messages.length,
 };
 
 function mockSessionCommand(command: string, args?: Record<string, unknown>) {
+  if (command === "list_citation_keys") return [];
   if (command === "list_agent_sessions") return [testSessionSummary];
   if (command === "read_agent_session") return testSession;
   if (command === "save_agent_session") return args?.session;
@@ -31,6 +36,7 @@ function mockSessionCommand(command: string, args?: Record<string, unknown>) {
 
 beforeEach(() => {
   localStorage.clear();
+  vi.stubGlobal("confirm", vi.fn(() => true));
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "initial_project") return null;
     throw new Error(`Unexpected command: ${command}`);
@@ -40,6 +46,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("welcome screen", () => {
@@ -174,12 +181,14 @@ describe("project workspace", () => {
       title: earlier.title,
       updatedAt: earlier.updatedAt,
       provider: earlier.provider,
+      model: earlier.model,
+      reasoningEffort: earlier.reasoningEffort,
       messageCount: earlier.messages.length,
     }];
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys") return [];
       if (command === "list_agent_sessions") return summaries;
       if (command === "read_agent_session") return (args as { sessionId: string }).sessionId === earlier.id ? earlier : testSession;
       if (command === "create_agent_session") return testSession;
@@ -192,7 +201,11 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByText("Revise the related work"));
     expect(await screen.findByText("Compare against the strongest baseline.")).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("New conversation"));
-    expect(invoke).toHaveBeenCalledWith("create_agent_session", { provider: "codex" });
+    expect(invoke).toHaveBeenCalledWith("create_agent_session", {
+      provider: "codex",
+      model: "gpt-5.6-sol",
+      reasoningEffort: "high",
+    });
   });
 
   it("deletes a history entry without creating another one", async () => {
@@ -229,6 +242,41 @@ describe("project workspace", () => {
     expect(invoke).toHaveBeenCalledWith("delete_history_entry", { transactionId: "change-1" });
   });
 
+  it("creates and deletes project entries and imported papers", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "notes.tex", path: "notes.tex", kind: "tex", children: [] }],
+    };
+    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention" };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\section{Notes}";
+      if (command === "list_papers") return [paper];
+      if (command === "list_history" || command === "list_citation_keys") return [];
+      if (command === "create_project_entry" || command === "delete_project_entry" || command === "delete_paper") return undefined;
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    fireEvent.click(await screen.findByTitle("Add file or folder"));
+    fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "sections/method.tex" } });
+    fireEvent.click(screen.getByTitle("Create"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "sections/method.tex", kind: "file" }));
+
+    fireEvent.click(screen.getByTitle("Delete notes.tex"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_project_entry", { path: "notes.tex" }));
+    fireEvent.click(screen.getByTitle("Remove Attention Is All You Need"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_paper", { arxivId: "1706.03762" }));
+  });
+
   it("shows a sent message while Claude is still working", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -251,7 +299,9 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.change(await screen.findByRole("combobox"), { target: { value: "claude" } });
+    fireEvent.change(await screen.findByLabelText("Agent provider"), { target: { value: "claude" } });
+    fireEvent.change(screen.getByLabelText("Agent model"), { target: { value: "opus" } });
+    fireEvent.change(screen.getByLabelText("Reasoning effort"), { target: { value: "xhigh" } });
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "Review the abstract." } });
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
@@ -259,7 +309,7 @@ describe("project workspace", () => {
     expect(await screen.findByText("Review the abstract.")).toBeInTheDocument();
     expect(screen.getByText("Claude is writing…")).toBeInTheDocument();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("run_agent", expect.objectContaining({
-      provider: "claude",
+      settings: { provider: "claude", model: "opus", reasoningEffort: "xhigh" },
       message: "Review the abstract.",
       conversation: testSession.messages,
     })));

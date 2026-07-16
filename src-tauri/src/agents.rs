@@ -1,5 +1,5 @@
 use crate::commands;
-use crate::models::{AgentMessage, AgentPayload, AgentResult};
+use crate::models::{AgentMessage, AgentPayload, AgentResult, AgentSettings};
 use crate::{papers, project};
 use serde_json::Value;
 use std::path::Path;
@@ -9,7 +9,7 @@ const AGENT_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
 pub fn run(
     root: &Path,
-    provider: &str,
+    settings: &AgentSettings,
     message: &str,
     active_file: Option<&str>,
     selection: Option<&str>,
@@ -18,12 +18,15 @@ pub fn run(
     if message.trim().is_empty() {
         return Err("Write a message first.".to_string());
     }
+    if settings.model.trim().is_empty() || settings.reasoning_effort.trim().is_empty() {
+        return Err("Choose a model and reasoning effort.".to_string());
+    }
     let prompt = build_prompt(root, message, active_file, selection, conversation)?;
-    let raw = match provider {
-        "codex" => run_codex(root, &prompt)?,
-        "claude" => run_claude(root, &prompt)?,
-        "openai-api" => run_openai_api(&prompt)?,
-        "anthropic-api" => run_anthropic_api(&prompt)?,
+    let raw = match settings.provider.as_str() {
+        "codex" => run_codex(root, &settings.model, &settings.reasoning_effort, &prompt)?,
+        "claude" => run_claude(root, &settings.model, &settings.reasoning_effort, &prompt)?,
+        "openai-api" => run_openai_api(&settings.model, &settings.reasoning_effort, &prompt)?,
+        "anthropic-api" => run_anthropic_api(&settings.model, &settings.reasoning_effort, &prompt)?,
         _ => return Err("Choose Codex or Claude.".to_string()),
     };
     let payload = parse_payload(&raw)?;
@@ -180,7 +183,12 @@ fn conversation_context(messages: &[AgentMessage]) -> String {
     }
 }
 
-fn run_codex(root: &Path, prompt: &str) -> Result<String, String> {
+fn run_codex(
+    root: &Path,
+    model: &str,
+    reasoning_effort: &str,
+    prompt: &str,
+) -> Result<String, String> {
     let mut command = commands::command("codex");
     command
         .current_dir(root)
@@ -189,6 +197,10 @@ fn run_codex(root: &Path, prompt: &str) -> Result<String, String> {
         .arg("--sandbox")
         .arg("read-only")
         .arg("--skip-git-repo-check")
+        .arg("--model")
+        .arg(model)
+        .arg("-c")
+        .arg(format!("model_reasoning_effort=\"{reasoning_effort}\""))
         .arg(prompt);
     let output = commands::output_with_timeout(command, AGENT_TIMEOUT, "Codex CLI")?;
     if !output.status.success() {
@@ -219,7 +231,12 @@ fn run_codex(root: &Path, prompt: &str) -> Result<String, String> {
         .ok_or_else(|| "Codex returned no agent message.".to_string())
 }
 
-fn run_claude(root: &Path, prompt: &str) -> Result<String, String> {
+fn run_claude(
+    root: &Path,
+    model: &str,
+    reasoning_effort: &str,
+    prompt: &str,
+) -> Result<String, String> {
     let schema = serde_json::to_string(&agent_schema()).map_err(|error| error.to_string())?;
     let mut command = commands::command("claude");
     command
@@ -230,7 +247,9 @@ fn run_claude(root: &Path, prompt: &str) -> Result<String, String> {
         .arg("--json-schema")
         .arg(schema)
         .arg("--model")
-        .arg("sonnet")
+        .arg(model)
+        .arg("--effort")
+        .arg(reasoning_effort)
         .arg("--safe-mode")
         .arg("--no-session-persistence")
         .arg("--permission-mode")
@@ -253,14 +272,15 @@ fn run_claude(root: &Path, prompt: &str) -> Result<String, String> {
         .ok_or_else(|| "Claude returned no result.".to_string())
 }
 
-fn run_openai_api(prompt: &str) -> Result<String, String> {
+fn run_openai_api(model: &str, reasoning_effort: &str, prompt: &str) -> Result<String, String> {
     let key = load_api_key("openai")?;
     let response = reqwest::blocking::Client::new()
         .post("https://api.openai.com/v1/responses")
         .bearer_auth(key)
         .json(&serde_json::json!({
-            "model": "gpt-5.6",
+            "model": model,
             "input": prompt,
+            "reasoning": {"effort": reasoning_effort},
             "text": {
                 "format": {
                     "type": "json_schema",
@@ -302,17 +322,18 @@ fn run_openai_api(prompt: &str) -> Result<String, String> {
         .ok_or_else(|| "OpenAI returned no text output.".to_string())
 }
 
-fn run_anthropic_api(prompt: &str) -> Result<String, String> {
+fn run_anthropic_api(model: &str, reasoning_effort: &str, prompt: &str) -> Result<String, String> {
     let key = load_api_key("anthropic")?;
     let response = reqwest::blocking::Client::new()
         .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", key)
         .header("anthropic-version", "2023-06-01")
         .json(&serde_json::json!({
-            "model": "claude-sonnet-5",
+            "model": model,
             "max_tokens": 16000,
             "messages": [{"role": "user", "content": prompt}],
             "output_config": {
+                "effort": reasoning_effort,
                 "format": {
                     "type": "json_schema",
                     "schema": agent_schema()
@@ -462,7 +483,11 @@ mod tests {
         let root = project::create(&parent, "paper").unwrap();
         let result = run(
             &root,
-            "codex",
+            &AgentSettings {
+                provider: "codex".to_string(),
+                model: "gpt-5.6-sol".to_string(),
+                reasoning_effort: "high".to_string(),
+            },
             "Do not edit any file. Briefly confirm that the active file is valid LaTeX.",
             Some("main.tex"),
             None,
@@ -483,7 +508,11 @@ mod tests {
         let root = project::create(&parent, "paper").unwrap();
         let result = run(
             &root,
-            "claude",
+            &AgentSettings {
+                provider: "claude".to_string(),
+                model: "sonnet".to_string(),
+                reasoning_effort: "high".to_string(),
+            },
             "Do not edit any file. Briefly confirm that the active file is valid LaTeX.",
             Some("main.tex"),
             None,

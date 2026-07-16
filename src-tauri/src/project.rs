@@ -3,6 +3,7 @@ use crate::models::{
     TransactionRecord,
 };
 use chrono::Utc;
+use regex::Regex;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use uuid::Uuid;
@@ -181,6 +182,100 @@ pub fn read_file(root: &Path, relative: &str) -> Result<String, String> {
     })
 }
 
+pub fn citation_keys(root: &Path) -> Result<Vec<String>, String> {
+    let manifest = read_manifest(root)?;
+    let bibliography = read_file(root, &manifest.primary_bibliography)?;
+    let entry = Regex::new(r"(?m)^\s*@[A-Za-z]+\s*\{\s*([^,\s]+)\s*,").unwrap();
+    let mut keys = entry
+        .captures_iter(&bibliography)
+        .filter_map(|capture| capture.get(1).map(|value| value.as_str().to_string()))
+        .collect::<Vec<_>>();
+    keys.sort_by_key(|key| key.to_lowercase());
+    keys.dedup();
+    Ok(keys)
+}
+
+pub fn create_entry(root: &Path, relative: &str, kind: &str) -> Result<(), String> {
+    validate_user_entry(relative)?;
+    let path = safe_path(root, relative)?;
+    if path.exists() {
+        return Err("A file or folder already exists at that path.".to_string());
+    }
+    match kind {
+        "file" => {
+            let content = if path.extension().is_some_and(|extension| extension == "tex") {
+                "% New LaTeX file\n".to_string()
+            } else {
+                String::new()
+            };
+            apply_transaction(
+                root,
+                &format!("Create {relative}"),
+                vec![(relative.to_string(), content)],
+            )?;
+            Ok(())
+        }
+        "folder" => fs::create_dir_all(path).map_err(err),
+        _ => Err("Choose file or folder.".to_string()),
+    }
+}
+
+pub fn delete_entry(root: &Path, relative: &str) -> Result<(), String> {
+    validate_user_entry(relative)?;
+    let manifest = read_manifest(root)?;
+    let requested = Path::new(relative);
+    let mut protected = manifest
+        .root_documents
+        .iter()
+        .map(|document| document.path.as_str())
+        .collect::<Vec<_>>();
+    protected.push(&manifest.primary_bibliography);
+    if protected.iter().any(|path| {
+        let protected = Path::new(path);
+        protected == requested || protected.starts_with(requested)
+    }) {
+        return Err("The primary manuscript and bibliography cannot be deleted.".to_string());
+    }
+    let path = safe_path(root, relative)?;
+    if !path.exists() {
+        return Err("That file or folder no longer exists.".to_string());
+    }
+    if path.is_dir() {
+        fs::remove_dir_all(path).map_err(err)
+    } else {
+        let before = fs::read_to_string(&path).ok();
+        fs::remove_file(path).map_err(err)?;
+        if let Some(before) = before {
+            let record = TransactionRecord {
+                id: format!(
+                    "{}-{}",
+                    Utc::now().format("%Y%m%dT%H%M%S%.3fZ"),
+                    Uuid::new_v4()
+                ),
+                label: format!("Delete {relative}"),
+                timestamp: Utc::now().to_rfc3339(),
+                changes: vec![FileChange {
+                    path: relative.to_string(),
+                    before: Some(before),
+                    after: None,
+                }],
+            };
+            persist_transaction(root, &record)?;
+        }
+        Ok(())
+    }
+}
+
+fn validate_user_entry(relative: &str) -> Result<(), String> {
+    let trimmed = relative.trim();
+    let first = Path::new(trimmed).components().next();
+    if trimmed.is_empty() || matches!(first, Some(Component::Normal(value)) if value == ".research")
+    {
+        return Err("Choose a project-relative path outside .research.".to_string());
+    }
+    Ok(())
+}
+
 pub fn apply_transaction(
     root: &Path,
     label: &str,
@@ -322,14 +417,12 @@ fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
                 .to_string();
             if path.is_dir() {
                 let children = visit(root, &path)?;
-                if !children.is_empty() {
-                    nodes.push(FileNode {
-                        name,
-                        path: relative,
-                        kind: "directory".to_string(),
-                        children,
-                    });
-                }
+                nodes.push(FileNode {
+                    name,
+                    path: relative,
+                    kind: "directory".to_string(),
+                    children,
+                });
             } else if is_visible_source(&path) {
                 nodes.push(FileNode {
                     name,
@@ -482,6 +575,38 @@ mod tests {
         assert!(!files.iter().any(|file| file.path == "main.pdf"));
         assert!(files.iter().any(|file| file.path == "reading.pdf"));
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn bibliography_keys_are_listed_for_editor_completion() {
+        let parent = temp_root("citation-keys");
+        let root = create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{vaswani2017attention,\n  title={Attention}\n}\n@inproceedings{dosovitskiy2021image,\n}\n",
+        )
+        .unwrap();
+        assert_eq!(
+            citation_keys(&root).unwrap(),
+            vec!["dosovitskiy2021image", "vaswani2017attention"]
+        );
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn project_entries_can_be_created_and_deleted_but_roots_are_protected() {
+        let parent = temp_root("project-entries");
+        let root = create(&parent, "paper").unwrap();
+        create_entry(&root, "sections/method.tex", "file").unwrap();
+        create_entry(&root, "figures/generated", "folder").unwrap();
+        assert!(root.join("sections/method.tex").exists());
+        assert!(root.join("figures/generated").is_dir());
+        delete_entry(&root, "sections/method.tex").unwrap();
+        assert!(!root.join("sections/method.tex").exists());
+        assert!(delete_entry(&root, "main.tex").is_err());
+        assert!(delete_entry(&root, "references.bib").is_err());
+        assert!(create_entry(&root, ".research/private.txt", "file").is_err());
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]
