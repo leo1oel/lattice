@@ -1592,6 +1592,7 @@ function DocumentCanvas(props: {
   const editor = (
     <div className="source-editor">
       <CodeMirror
+        className="code-editor-root"
         value={props.source}
         height="100%"
         extensions={editorExtensions}

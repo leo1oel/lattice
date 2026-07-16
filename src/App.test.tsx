@@ -111,6 +111,7 @@ describe("project workspace", () => {
     expect(screen.getByRole("separator", { name: "Resize project navigator" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize writing agent" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize Project and Papers" })).toBeInTheDocument();
+    expect(document.querySelector(".source-editor > .code-editor-root")).toBeInTheDocument();
   });
 
   it("resizes panels with the accessible divider controls", async () => {
