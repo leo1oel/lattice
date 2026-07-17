@@ -1,10 +1,15 @@
 use crate::commands;
-use crate::models::{AgentMessage, AgentPayload, AgentResult, AgentSettings, SubscriptionStatus};
+use crate::models::{
+    AgentMessage, AgentPayload, AgentResult, AgentSettings, AgentStreamEvent, SubscriptionStatus,
+};
 use crate::{papers, project};
 use serde_json::Value;
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
-use std::process::Stdio;
-use std::time::Duration;
+use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
+use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 const AGENT_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
@@ -15,6 +20,7 @@ pub fn run(
     active_file: Option<&str>,
     selection: Option<&str>,
     conversation: &[AgentMessage],
+    on_event: &dyn Fn(AgentStreamEvent),
 ) -> Result<AgentResult, String> {
     if message.trim().is_empty() {
         return Err("Write a message first.".to_string());
@@ -22,15 +28,43 @@ pub fn run(
     if settings.model.trim().is_empty() || settings.reasoning_effort.trim().is_empty() {
         return Err("Choose a model and reasoning effort.".to_string());
     }
+    on_event(AgentStreamEvent::Status {
+        message: "Reading project context…".to_string(),
+    });
     let prompt = build_prompt(root, message, active_file, selection, conversation)?;
     let raw = match settings.provider.as_str() {
-        "codex" => run_codex(root, &settings.model, &settings.reasoning_effort, &prompt)?,
-        "claude" => run_claude(root, &settings.model, &settings.reasoning_effort, &prompt)?,
-        "openai-api" => run_openai_api(&settings.model, &settings.reasoning_effort, &prompt)?,
-        "anthropic-api" => run_anthropic_api(&settings.model, &settings.reasoning_effort, &prompt)?,
+        "codex" => run_codex(
+            root,
+            &settings.model,
+            &settings.reasoning_effort,
+            &prompt,
+            on_event,
+        )?,
+        "claude" => run_claude(
+            root,
+            &settings.model,
+            &settings.reasoning_effort,
+            &prompt,
+            on_event,
+        )?,
+        "openai-api" => run_openai_api(
+            &settings.model,
+            &settings.reasoning_effort,
+            &prompt,
+            on_event,
+        )?,
+        "anthropic-api" => run_anthropic_api(
+            &settings.model,
+            &settings.reasoning_effort,
+            &prompt,
+            on_event,
+        )?,
         _ => return Err("Choose Codex or Claude.".to_string()),
     };
     let payload = parse_payload(&raw)?;
+    on_event(AgentStreamEvent::Text {
+        text: payload.summary.clone(),
+    });
     if payload.edits.is_empty() {
         return Ok(AgentResult {
             summary: payload.summary,
@@ -184,52 +218,263 @@ fn conversation_context(messages: &[AgentMessage]) -> String {
     }
 }
 
+struct JsonLineProcess {
+    child: Child,
+    stdin: Option<ChildStdin>,
+    lines: Receiver<Result<Option<String>, String>>,
+    stderr: Option<JoinHandle<Result<String, String>>>,
+    deadline: Instant,
+    label: &'static str,
+    finished: bool,
+}
+
+impl JsonLineProcess {
+    fn spawn(mut command: Command, label: &'static str) -> Result<Self, String> {
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = command
+            .spawn()
+            .map_err(|error| format!("Could not start {label}: {error}"))?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| format!("Could not open {label} input."))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| format!("Could not capture {label} output."))?;
+        let mut stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| format!("Could not capture {label} errors."))?;
+        let (sender, lines) = mpsc::channel();
+        thread::spawn(move || {
+            for line in BufReader::new(stdout).lines() {
+                if sender
+                    .send(line.map(Some).map_err(|error| error.to_string()))
+                    .is_err()
+                {
+                    return;
+                }
+            }
+            let _ = sender.send(Ok(None));
+        });
+        let stderr = thread::spawn(move || {
+            let mut output = String::new();
+            stderr
+                .read_to_string(&mut output)
+                .map_err(|error| error.to_string())?;
+            Ok(output)
+        });
+        Ok(Self {
+            child,
+            stdin: Some(stdin),
+            lines,
+            stderr: Some(stderr),
+            deadline: Instant::now() + AGENT_TIMEOUT,
+            label,
+            finished: false,
+        })
+    }
+
+    fn send(&mut self, value: &Value) -> Result<(), String> {
+        let stdin = self
+            .stdin
+            .as_mut()
+            .ok_or_else(|| format!("{} input is closed.", self.label))?;
+        serde_json::to_writer(&mut *stdin, value).map_err(|error| error.to_string())?;
+        stdin.write_all(b"\n").map_err(|error| error.to_string())?;
+        stdin.flush().map_err(|error| error.to_string())
+    }
+
+    fn next_value(&self) -> Result<Option<Value>, String> {
+        let remaining = self.deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(format!("{} did not respond within 5 minutes.", self.label));
+        }
+        match self.lines.recv_timeout(remaining) {
+            Ok(Ok(Some(line))) => serde_json::from_str(&line)
+                .map(Some)
+                .map_err(|error| format!("Could not parse {} output: {error}", self.label)),
+            Ok(Ok(None)) => Ok(None),
+            Ok(Err(error)) => Err(format!("Could not read {} output: {error}", self.label)),
+            Err(RecvTimeoutError::Timeout) => {
+                Err(format!("{} did not respond within 5 minutes.", self.label))
+            }
+            Err(RecvTimeoutError::Disconnected) => Ok(None),
+        }
+    }
+
+    fn wait_for_response(&self, id: u64) -> Result<Value, String> {
+        loop {
+            let value = self
+                .next_value()?
+                .ok_or_else(|| format!("{} stopped unexpectedly.", self.label))?;
+            if let Some(error) = value.get("error") {
+                return Err(format!("{} failed: {error}", self.label));
+            }
+            if value.get("id").and_then(Value::as_u64) == Some(id) {
+                return Ok(value);
+            }
+        }
+    }
+
+    fn finish(&mut self, terminate: bool) -> Result<(ExitStatus, String), String> {
+        self.stdin.take();
+        if terminate {
+            let _ = self.child.kill();
+        }
+        let status = self
+            .child
+            .wait()
+            .map_err(|error| format!("Could not stop {}: {error}", self.label))?;
+        self.finished = true;
+        let stderr = self
+            .stderr
+            .take()
+            .ok_or_else(|| format!("Could not read {} errors.", self.label))?
+            .join()
+            .map_err(|_| format!("Could not read {} errors.", self.label))??;
+        Ok((status, stderr))
+    }
+}
+
+impl Drop for JsonLineProcess {
+    fn drop(&mut self) {
+        if !self.finished {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+}
+
+fn emit_visible_summary(raw: &str, visible: &mut String, on_event: &dyn Fn(AgentStreamEvent)) {
+    if let Some(summary) = partial_summary(raw) {
+        if summary != *visible {
+            *visible = summary.clone();
+            on_event(AgentStreamEvent::Text { text: summary });
+        }
+    }
+}
+
+fn partial_summary(raw: &str) -> Option<String> {
+    let key = raw.find("\"summary\"")?;
+    let after_key = &raw[key + "\"summary\"".len()..];
+    let colon = after_key.find(':')?;
+    let after_colon = after_key[colon + 1..].trim_start();
+    let content = after_colon.strip_prefix('"')?;
+    let mut escaped = false;
+    let mut end = None;
+    for (index, character) in content.char_indices() {
+        if escaped {
+            escaped = false;
+        } else if character == '\\' {
+            escaped = true;
+        } else if character == '"' {
+            end = Some(index);
+            break;
+        }
+    }
+    let fragment = &content[..end.unwrap_or(content.len())];
+    serde_json::from_str::<String>(&format!("\"{fragment}\"")).ok()
+}
+
 fn run_codex(
     root: &Path,
     model: &str,
     reasoning_effort: &str,
     prompt: &str,
+    on_event: &dyn Fn(AgentStreamEvent),
 ) -> Result<String, String> {
     let mut command = commands::command("codex");
     command
         .current_dir(root)
-        .arg("exec")
-        .arg("--json")
-        .arg("--sandbox")
-        .arg("read-only")
-        .arg("--skip-git-repo-check")
-        .arg("--model")
-        .arg(model)
-        .arg("-c")
-        .arg(format!("model_reasoning_effort=\"{reasoning_effort}\""))
-        .arg(prompt);
-    let output = commands::output_with_timeout(command, AGENT_TIMEOUT, "Codex CLI")?;
-    if !output.status.success() {
-        return Err(format!(
-            "Codex failed.\n{}{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        ));
-    }
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut messages = Vec::new();
-    for line in stdout.lines() {
-        if let Ok(value) = serde_json::from_str::<Value>(line) {
-            if value.get("type").and_then(Value::as_str) == Some("item.completed") {
-                if let Some(item) = value.get("item") {
-                    if item.get("type").and_then(Value::as_str) == Some("agent_message") {
-                        if let Some(text) = item.get("text").and_then(Value::as_str) {
-                            messages.push(text.to_string());
-                        }
-                    }
+        .arg("app-server")
+        .arg("--listen")
+        .arg("stdio://");
+    let mut process = JsonLineProcess::spawn(command, "Codex app server")?;
+    process.send(&serde_json::json!({
+        "id": 0,
+        "method": "initialize",
+        "params": {
+            "clientInfo": {"name": "lattice", "title": "Lattice", "version": env!("CARGO_PKG_VERSION")}
+        }
+    }))?;
+    process.wait_for_response(0)?;
+    process.send(&serde_json::json!({"method": "initialized", "params": {}}))?;
+    process.send(&serde_json::json!({
+        "id": 1,
+        "method": "thread/start",
+        "params": {
+            "model": model,
+            "cwd": root.to_string_lossy(),
+            "sandbox": "read-only",
+            "approvalPolicy": "never",
+            "ephemeral": true
+        }
+    }))?;
+    let thread = process.wait_for_response(1)?;
+    let thread_id = thread
+        .pointer("/result/thread/id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "Codex did not create a writing thread.".to_string())?;
+    process.send(&serde_json::json!({
+        "id": 2,
+        "method": "turn/start",
+        "params": {
+            "threadId": thread_id,
+            "input": [{"type": "text", "text": prompt}],
+            "effort": reasoning_effort,
+            "outputSchema": agent_schema()
+        }
+    }))?;
+
+    on_event(AgentStreamEvent::Status {
+        message: "Thinking…".to_string(),
+    });
+    let mut raw = String::new();
+    let mut visible = String::new();
+    loop {
+        let value = process
+            .next_value()?
+            .ok_or_else(|| "Codex stopped before finishing the response.".to_string())?;
+        if let Some(error) = value.get("error") {
+            return Err(format!("Codex app server failed: {error}"));
+        }
+        match value.get("method").and_then(Value::as_str) {
+            Some("item/agentMessage/delta") => {
+                if let Some(delta) = value.pointer("/params/delta").and_then(Value::as_str) {
+                    raw.push_str(delta);
+                    emit_visible_summary(&raw, &mut visible, on_event);
                 }
             }
+            Some("item/completed")
+                if value.pointer("/params/item/type").and_then(Value::as_str)
+                    == Some("agentMessage") =>
+            {
+                if let Some(text) = value.pointer("/params/item/text").and_then(Value::as_str) {
+                    raw = text.to_string();
+                    emit_visible_summary(&raw, &mut visible, on_event);
+                }
+            }
+            Some("turn/completed") => break,
+            Some("turn/failed") => {
+                return Err(value
+                    .pointer("/params/error/message")
+                    .and_then(Value::as_str)
+                    .unwrap_or("Codex could not complete the writing request.")
+                    .to_string());
+            }
+            _ => {}
         }
     }
-    messages
-        .last()
-        .cloned()
-        .ok_or_else(|| "Codex returned no agent message.".to_string())
+    let (_, stderr) = process.finish(true)?;
+    if raw.trim().is_empty() {
+        return Err(format!("Codex returned no agent message.\n{stderr}"));
+    }
+    Ok(raw)
 }
 
 fn run_claude(
@@ -237,6 +482,7 @@ fn run_claude(
     model: &str,
     reasoning_effort: &str,
     prompt: &str,
+    on_event: &dyn Fn(AgentStreamEvent),
 ) -> Result<String, String> {
     let schema = serde_json::to_string(&agent_schema()).map_err(|error| error.to_string())?;
     let mut command = commands::command("claude");
@@ -244,7 +490,9 @@ fn run_claude(
         .current_dir(root)
         .arg("--print")
         .arg("--output-format")
-        .arg("json")
+        .arg("stream-json")
+        .arg("--include-partial-messages")
+        .arg("--verbose")
         .arg("--json-schema")
         .arg(schema)
         .arg("--model")
@@ -257,23 +505,45 @@ fn run_claude(
         .arg("plan")
         .arg("--tools=")
         .arg(prompt);
-    let output = commands::output_with_timeout(command, AGENT_TIMEOUT, "Claude Code")?;
-    if !output.status.success() {
-        return Err(format!(
-            "Claude failed.\n{}{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        ));
+    let mut process = JsonLineProcess::spawn(command, "Claude Code")?;
+    on_event(AgentStreamEvent::Status {
+        message: "Thinking…".to_string(),
+    });
+    let mut raw = String::new();
+    let mut final_result = None;
+    let mut visible = String::new();
+    while let Some(value) = process.next_value()? {
+        if let Some(delta) = value.pointer("/event/delta/text").and_then(Value::as_str) {
+            raw.push_str(delta);
+            emit_visible_summary(&raw, &mut visible, on_event);
+        }
+        if value.get("type").and_then(Value::as_str) == Some("result") {
+            final_result = value
+                .get("result")
+                .and_then(Value::as_str)
+                .map(ToString::to_string)
+                .or_else(|| {
+                    value
+                        .get("structured_output")
+                        .and_then(|output| serde_json::to_string(output).ok())
+                });
+        }
     }
-    let value: Value = serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
-    value
-        .get("result")
-        .and_then(Value::as_str)
-        .map(ToString::to_string)
+    let (status, stderr) = process.finish(false)?;
+    if !status.success() {
+        return Err(format!("Claude failed.\n{}{}", raw, stderr));
+    }
+    final_result
+        .or_else(|| (!raw.trim().is_empty()).then_some(raw))
         .ok_or_else(|| "Claude returned no result.".to_string())
 }
 
-fn run_openai_api(model: &str, reasoning_effort: &str, prompt: &str) -> Result<String, String> {
+fn run_openai_api(
+    model: &str,
+    reasoning_effort: &str,
+    prompt: &str,
+    on_event: &dyn Fn(AgentStreamEvent),
+) -> Result<String, String> {
     let key = load_api_key("openai")?;
     let response = reqwest::blocking::Client::new()
         .post("https://api.openai.com/v1/responses")
@@ -281,6 +551,7 @@ fn run_openai_api(model: &str, reasoning_effort: &str, prompt: &str) -> Result<S
         .json(&serde_json::json!({
             "model": model,
             "input": prompt,
+            "stream": true,
             "reasoning": {"effort": reasoning_effort},
             "text": {
                 "format": {
@@ -294,36 +565,24 @@ fn run_openai_api(model: &str, reasoning_effort: &str, prompt: &str) -> Result<S
         .send()
         .map_err(|error| format!("Could not reach the OpenAI API: {error}"))?;
     let status = response.status();
-    let value: Value = response
-        .json()
-        .map_err(|error| format!("Could not parse the OpenAI response: {error}"))?;
     if !status.is_success() {
+        let value: Value = response
+            .json()
+            .map_err(|error| format!("Could not parse the OpenAI response: {error}"))?;
         return Err(api_error("OpenAI", status.as_u16(), &value));
     }
-    if let Some(text) = value.get("output_text").and_then(Value::as_str) {
-        return Ok(text.to_string());
-    }
-    value
-        .get("output")
-        .and_then(Value::as_array)
-        .and_then(|items| {
-            items.iter().find_map(|item| {
-                item.get("content")
-                    .and_then(Value::as_array)
-                    .and_then(|content| {
-                        content.iter().find_map(|block| {
-                            (block.get("type").and_then(Value::as_str) == Some("output_text"))
-                                .then(|| block.get("text").and_then(Value::as_str))
-                                .flatten()
-                        })
-                    })
-            })
-        })
-        .map(ToString::to_string)
-        .ok_or_else(|| "OpenAI returned no text output.".to_string())
+    on_event(AgentStreamEvent::Status {
+        message: "Thinking…".to_string(),
+    });
+    stream_sse(response, "OpenAI", "/delta", on_event)
 }
 
-fn run_anthropic_api(model: &str, reasoning_effort: &str, prompt: &str) -> Result<String, String> {
+fn run_anthropic_api(
+    model: &str,
+    reasoning_effort: &str,
+    prompt: &str,
+    on_event: &dyn Fn(AgentStreamEvent),
+) -> Result<String, String> {
     let key = load_api_key("anthropic")?;
     let response = reqwest::blocking::Client::new()
         .post("https://api.anthropic.com/v1/messages")
@@ -332,6 +591,7 @@ fn run_anthropic_api(model: &str, reasoning_effort: &str, prompt: &str) -> Resul
         .json(&serde_json::json!({
             "model": model,
             "max_tokens": 16000,
+            "stream": true,
             "messages": [{"role": "user", "content": prompt}],
             "output_config": {
                 "effort": reasoning_effort,
@@ -344,24 +604,54 @@ fn run_anthropic_api(model: &str, reasoning_effort: &str, prompt: &str) -> Resul
         .send()
         .map_err(|error| format!("Could not reach the Anthropic API: {error}"))?;
     let status = response.status();
-    let value: Value = response
-        .json()
-        .map_err(|error| format!("Could not parse the Anthropic response: {error}"))?;
     if !status.is_success() {
+        let value: Value = response
+            .json()
+            .map_err(|error| format!("Could not parse the Anthropic response: {error}"))?;
         return Err(api_error("Anthropic", status.as_u16(), &value));
     }
-    value
-        .get("content")
-        .and_then(Value::as_array)
-        .and_then(|blocks| {
-            blocks.iter().find_map(|block| {
-                (block.get("type").and_then(Value::as_str) == Some("text"))
-                    .then(|| block.get("text").and_then(Value::as_str))
-                    .flatten()
-            })
-        })
-        .map(ToString::to_string)
-        .ok_or_else(|| "Anthropic returned no text output.".to_string())
+    on_event(AgentStreamEvent::Status {
+        message: "Thinking…".to_string(),
+    });
+    stream_sse(response, "Anthropic", "/delta/text", on_event)
+}
+
+fn stream_sse(
+    response: reqwest::blocking::Response,
+    provider: &str,
+    delta_pointer: &str,
+    on_event: &dyn Fn(AgentStreamEvent),
+) -> Result<String, String> {
+    let mut raw = String::new();
+    let mut visible = String::new();
+    for line in BufReader::new(response).lines() {
+        let line =
+            line.map_err(|error| format!("Could not read the {provider} stream: {error}"))?;
+        let Some(data) = line.strip_prefix("data:").map(str::trim) else {
+            continue;
+        };
+        if data == "[DONE]" {
+            break;
+        }
+        let value: Value = serde_json::from_str(data)
+            .map_err(|error| format!("Could not parse the {provider} stream: {error}"))?;
+        if value.get("type").and_then(Value::as_str) == Some("error") {
+            return Err(value
+                .pointer("/error/message")
+                .and_then(Value::as_str)
+                .unwrap_or("The provider stopped the response stream.")
+                .to_string());
+        }
+        if let Some(delta) = value.pointer(delta_pointer).and_then(Value::as_str) {
+            raw.push_str(delta);
+            emit_visible_summary(&raw, &mut visible, on_event);
+        }
+    }
+    if raw.trim().is_empty() {
+        Err(format!("{provider} returned no text output."))
+    } else {
+        Ok(raw)
+    }
 }
 
 fn agent_schema() -> Value {
@@ -605,6 +895,18 @@ mod tests {
     }
 
     #[test]
+    fn extracts_a_summary_before_the_structured_response_finishes() {
+        assert_eq!(
+            partial_summary("{\"summary\":\"Revising the abstract"),
+            Some("Revising the abstract".to_string())
+        );
+        assert_eq!(
+            partial_summary("{\"summary\":\"Added \\\"evidence\\\".\",\"edits\":["),
+            Some("Added \"evidence\".".to_string())
+        );
+    }
+
+    #[test]
     #[ignore = "uses a local Codex subscription"]
     fn gets_a_structured_response_from_codex() {
         let parent =
@@ -622,6 +924,7 @@ mod tests {
             Some("main.tex"),
             None,
             &[],
+            &|_| {},
         )
         .unwrap();
         assert!(!result.summary.is_empty());
@@ -647,6 +950,7 @@ mod tests {
             Some("main.tex"),
             None,
             &[],
+            &|_| {},
         )
         .unwrap();
         assert!(!result.summary.is_empty());

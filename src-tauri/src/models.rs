@@ -175,3 +175,10 @@ pub struct AgentResult {
     pub changed_files: Vec<String>,
     pub transaction_id: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum AgentStreamEvent {
+    Status { message: String },
+    Text { text: String },
+}

@@ -19,15 +19,15 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Import an arXiv paper as Markdown with `arxiv2md`.
 - Add every imported paper to the project bibliography through `bibcite`.
 - Browse imported papers by title, read their Markdown snapshots, and remove a paper together with its `bibcite`-managed bibliography entry.
-- Ask a local Codex or Claude Code session to make evidence-aware project edits.
-- Use an OpenAI or Anthropic API key instead of a local subscription.
+- Ask a local Codex or Claude Code session to make evidence-aware project edits while its visible response streams into the conversation.
+- Use an OpenAI or Anthropic API key with the same streamed response experience instead of a local subscription.
 - Switch between Codex and Claude between messages, with current full model names and model-specific reasoning-effort controls for subscriptions and APIs.
 - Inspect and start Codex or Claude subscription login from Settings without configuring an API key.
 - Create, restore, and delete project-local agent conversations with prior messages included as context.
 - Save direct edits, imports, and agent changes as atomic project transactions.
 - Inspect project history and revert a transaction.
 - Resize the Project and Papers regions vertically and preserve that layout across launches.
-- Drag the macOS window from the project path or other non-interactive title-bar space.
+- Drag the macOS window from non-interactive title-bar space, with native traffic lights aligned to the project controls.
 - Choose interface and editor fonts, scale the entire interface from 90% to 135%, and set editor text from 10 to 24 pixels in Settings, with a more readable 110% default scale, light and dark themes, and reduced-motion support.
 
 ## Current boundaries

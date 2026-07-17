@@ -7,8 +7,8 @@ mod project;
 mod sessions;
 
 use models::{
-    AgentMessage, AgentResult, AgentSession, AgentSessionSummary, AgentSettings, BuildResult,
-    HistoryItem, ImportResult, PaperSummary, ProjectSnapshot, SubscriptionStatus,
+    AgentMessage, AgentResult, AgentSession, AgentSessionSummary, AgentSettings, AgentStreamEvent,
+    BuildResult, HistoryItem, ImportResult, PaperSummary, ProjectSnapshot, SubscriptionStatus,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -172,6 +172,7 @@ fn delete_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<(
 #[tauri::command]
 async fn run_agent(
     state: tauri::State<'_, AppState>,
+    on_event: tauri::ipc::Channel<AgentStreamEvent>,
     settings: AgentSettings,
     message: String,
     active_file: Option<String>,
@@ -187,6 +188,9 @@ async fn run_agent(
             active_file.as_deref(),
             selection.as_deref(),
             &conversation,
+            &|event| {
+                let _ = on_event.send(event);
+            },
         )
     })
     .await

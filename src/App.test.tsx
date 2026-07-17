@@ -8,8 +8,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 const windowApi = vi.hoisted(() => ({ startDragging: vi.fn() }));
+const tauriCore = vi.hoisted(() => {
+  class MockChannel {
+    onmessage: (response: unknown) => void;
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+    constructor(onmessage?: (response: unknown) => void) {
+      this.onmessage = onmessage ?? (() => undefined);
+    }
+  }
+  return { MockChannel };
+});
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), Channel: tauriCore.MockChannel }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ startDragging: windowApi.startDragging }) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn() }));
@@ -132,6 +142,8 @@ describe("project workspace", () => {
     expect(screen.getByRole("separator", { name: "Resize project navigator" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize writing agent" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize Project and Papers" })).toBeInTheDocument();
+    expect(screen.getByTitle("Add file or folder").querySelector(".lucide-folder-plus")).not.toBeNull();
+    expect(document.querySelector(".count-badge")).toHaveTextContent("0");
     expect(document.querySelector(".source-editor > .code-editor-root")).toBeInTheDocument();
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     expect(composer).toHaveAttribute("rows", "1");
@@ -607,7 +619,12 @@ describe("project workspace", () => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
       if (command === "list_papers" || command === "list_history") return [];
-      if (command === "run_agent") return new Promise(() => undefined);
+      if (command === "run_agent") {
+        const channel = (args as { onEvent: { onmessage: (event: unknown) => void } }).onEvent;
+        channel.onmessage({ type: "status", message: "Thinking…" });
+        channel.onmessage({ type: "text", text: "Reviewing the abstract as evidence arrives…" });
+        return new Promise(() => undefined);
+      }
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
 
@@ -623,7 +640,8 @@ describe("project workspace", () => {
     const sentMessage = await screen.findByText((_, element) => element?.tagName === "P" && element.textContent === message);
     expect(sentMessage.closest(".chat-message.user")).not.toBeNull();
     expect(sentMessage.textContent).toContain("\n");
-    expect(screen.getByText("Claude is writing…")).toBeInTheDocument();
+    const streamedReply = screen.getByText("Reviewing the abstract as evidence arrives…");
+    expect(streamedReply.closest(".chat-message.streaming")).not.toBeNull();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("run_agent", expect.objectContaining({
       settings: { provider: "claude", model: "claude-opus-4-8", reasoningEffort: "xhigh" },
       message,

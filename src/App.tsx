@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -25,6 +25,7 @@ import {
   FileText,
   Folder,
   FolderOpen,
+  FolderPlus,
   History,
   ImagePlus,
   KeyRound,
@@ -107,6 +108,10 @@ type AgentResult = {
   changedFiles: string[];
   transactionId?: string;
 };
+
+type AgentStreamEvent =
+  | { type: "status"; message: string }
+  | { type: "text"; text: string };
 
 type PaperSummary = {
   arxivId: string;
@@ -194,6 +199,8 @@ function App() {
   const [agentModel, setAgentModel] = useState(defaultModel("codex"));
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("high");
   const [agentRunning, setAgentRunning] = useState(false);
+  const [agentStreaming, setAgentStreaming] = useState(false);
+  const [agentStatus, setAgentStatus] = useState("");
   const [importInput, setImportInput] = useState("");
   const [importing, setImporting] = useState(false);
   const [assetImporting, setAssetImporting] = useState(false);
@@ -739,8 +746,27 @@ function App() {
     setAgentInput("");
     setMessages(pendingMessages);
     setAgentRunning(true);
+    setAgentStreaming(false);
+    setAgentStatus("Reading project context…");
     let session = activeSession;
     let currentMessages = pendingMessages;
+    const streamedMessageId = crypto.randomUUID();
+    const onEvent = new Channel<AgentStreamEvent>((event) => {
+      if (event.type === "status") {
+        setAgentStatus(event.message);
+        return;
+      }
+      if (!event.text) return;
+      const streamedMessages: ChatMessage[] = [...pendingMessages, {
+        id: streamedMessageId,
+        role: "agent",
+        text: event.text,
+      }];
+      currentMessages = streamedMessages;
+      setAgentStreaming(true);
+      setAgentStatus("");
+      setMessages(streamedMessages);
+    });
     try {
       if (!session) session = await invoke<AgentSession>("create_agent_session", {
         provider,
@@ -754,6 +780,7 @@ function App() {
       await refreshAgentSessions();
       if (!(await save())) throw new Error("Save the current file before running the agent.");
       const result = await invoke<AgentResult>("run_agent", {
+        onEvent,
         settings: { provider, model: agentModel, reasoningEffort },
         message,
         activeFile: activeFile || null,
@@ -761,12 +788,14 @@ function App() {
         conversation: messages,
       });
       const completedMessages: ChatMessage[] = [...pendingMessages, {
-        id: crypto.randomUUID(),
+        id: streamedMessageId,
         role: "agent",
         text: result.summary,
         files: result.changedFiles,
       }];
       currentMessages = completedMessages;
+      setAgentStreaming(false);
+      setAgentStatus("");
       setMessages(completedMessages);
       session = await invoke<AgentSession>("save_agent_session", {
         session: { ...session, provider, model: agentModel, reasoningEffort, messages: completedMessages },
@@ -796,6 +825,8 @@ function App() {
       }
     } finally {
       setAgentRunning(false);
+      setAgentStreaming(false);
+      setAgentStatus("");
     }
   }, [activeFile, activeSession, agentInput, agentModel, agentRunning, compile, loadFile, messages, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection]);
 
@@ -1081,6 +1112,8 @@ function App() {
           reasoningEffort={reasoningEffort}
           setReasoningEffort={setReasoningEffort}
           running={agentRunning}
+          streaming={agentStreaming}
+          status={agentStatus}
           onSend={sendToAgent}
           onApiSettings={() => openSettings("api")}
           selection={selection}
@@ -1375,7 +1408,7 @@ function Navigator(props: {
       }}>
         <div className="section-heading" onContextMenu={(event) => showContextMenu(event, "", "Project folder")}>
           <span>Project</span>
-          <button className="section-action" title="Add file or folder" onClick={() => setEntryFormOpen((value) => !value)}><Plus size={13} /></button>
+          <button className="section-action" title="Add file or folder" aria-label="Add file or folder" onClick={() => setEntryFormOpen((value) => !value)}><FolderPlus size={14} strokeWidth={1.8} /></button>
         </div>
         {entryFormOpen && (
           <div className="project-entry-form" onBlur={(event) => {
@@ -1518,6 +1551,8 @@ function AgentPanel({
   reasoningEffort,
   setReasoningEffort,
   running,
+  streaming,
+  status,
   onSend,
   onApiSettings,
   selection,
@@ -1540,6 +1575,8 @@ function AgentPanel({
   reasoningEffort: ReasoningEffort;
   setReasoningEffort: (value: ReasoningEffort) => void;
   running: boolean;
+  streaming: boolean;
+  status: string;
   onSend: () => void;
   onApiSettings: () => void;
   selection: string;
@@ -1626,8 +1663,8 @@ function AgentPanel({
         </div>
       )}
       <div className="chat-list">
-        {messages.map((message) => (
-          <div key={message.id} className={`chat-message ${message.role}`}>
+        {messages.map((message, index) => (
+          <div key={message.id} className={`chat-message ${message.role} ${streaming && index === messages.length - 1 && message.role === "agent" ? "streaming" : ""}`}>
             {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
             <div className="message-body">
               <p>{message.text}</p>
@@ -1635,10 +1672,10 @@ function AgentPanel({
             </div>
           </div>
         ))}
-        {running && (
+        {running && !streaming && (
           <div className="chat-message agent">
             <div className="message-avatar"><Sparkles size={13} /></div>
-            <div className="thinking"><span /><span /><span /><em>{provider === "claude" ? "Claude is writing…" : "Agent is writing…"}</em></div>
+            <div className="thinking"><span /><span /><span /><em>{status || (provider === "claude" ? "Claude is writing…" : "Agent is writing…")}</em></div>
           </div>
         )}
         <div ref={chatEnd} />
