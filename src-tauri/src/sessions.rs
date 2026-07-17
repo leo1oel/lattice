@@ -148,6 +148,10 @@ pub fn create_branch(
 
 pub fn delete(root: &Path, session_id: &str) -> Result<(), String> {
     fs::remove_file(session_path(root, session_id)?).map_err(err)?;
+    let checkpoints = root.join(".research/checkpoints").join(session_id);
+    if checkpoints.is_dir() {
+        fs::remove_dir_all(checkpoints).map_err(err)?;
+    }
     let pi_sessions = root.join(".research/pi-sessions");
     if pi_sessions.is_dir() {
         let suffix = format!("_{session_id}.jsonl");

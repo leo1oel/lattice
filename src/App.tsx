@@ -807,6 +807,7 @@ function App() {
     let currentMessages = messages;
     const streamedMessageId = crypto.randomUUID();
     try {
+      if (!(await save())) throw new Error("Save the current file before running the agent.");
       if (branchSource) {
         session = await invoke<AgentSession>("fork_agent_session", {
           sourceSessionId: branchSource.sessionId,
@@ -817,12 +818,20 @@ function App() {
         setProvider(session.provider);
         setAgentModel(normalizeModel(session.provider, session.model));
         setReasoningEffort(normalizeEffort(session.reasoningEffort));
+        currentMessages = session.messages;
+        setMessages(session.messages);
+        setSelection("");
+        await refreshProject();
+        await refreshHistory();
+        if (activeFile) await loadFile(activeFile);
+        await compile();
       } else if (!session) session = await invoke<AgentSession>("create_agent_session", {
         provider,
         model: agentModel,
         reasoningEffort,
       });
       const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", text: message };
+      await invoke("save_agent_checkpoint", { sessionId: session.id, messageId: userMessage.id });
       const pendingMessages = [...session.messages, userMessage];
       currentMessages = pendingMessages;
       setMessages(pendingMessages);
@@ -847,7 +856,6 @@ function App() {
       });
       setActiveSession(session);
       await refreshAgentSessions();
-      if (!(await save())) throw new Error("Save the current file before running the agent.");
       const result = await invoke<AgentResult>("run_agent", {
         onEvent,
         request: {
@@ -1891,6 +1899,7 @@ function AgentPanel({
             onSelect={(event) => setMention(mentionAtCaret(event.currentTarget.value, event.currentTarget.selectionStart))}
             onBlur={() => setMention(null)}
             onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing || event.keyCode === 229 || event.key === "Process") return;
               if (mention && mentionSuggestions.length) {
                 if (event.key === "ArrowDown") {
                   event.preventDefault();

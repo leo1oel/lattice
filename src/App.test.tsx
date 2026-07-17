@@ -55,6 +55,7 @@ function mockSessionCommand(command: string, args?: Record<string, unknown>) {
   if (command === "list_agent_sessions") return [testSessionSummary];
   if (command === "read_agent_session") return testSession;
   if (command === "save_agent_session") return args?.session;
+  if (command === "save_agent_checkpoint") return undefined;
   throw new Error(`Unexpected command: ${command}`);
 }
 
@@ -636,6 +637,8 @@ describe("project workspace", () => {
       if (command === "read_agent_session") return source;
       if (command === "fork_agent_session") return branch;
       if (command === "save_agent_session") return (args as { session: unknown }).session;
+      if (command === "save_agent_checkpoint") return undefined;
+      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 1, diagnostics: [] };
       if (command === "run_agent") return { summary: "New branched answer", changedFiles: [], skillsUsed: [] };
       throw new Error(`Unexpected command: ${command}`);
     });
@@ -788,6 +791,34 @@ describe("project workspace", () => {
         systemPrompt: "",
       },
     })));
+  });
+
+  it("does not send while an input method is composing text", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const composer = await screen.findByPlaceholderText(/ask the agent/i);
+    fireEvent.change(composer, { target: { value: "中文" } });
+    fireEvent.keyDown(composer, { key: "Enter", keyCode: 229, isComposing: true });
+    expect(composer).toHaveValue("中文");
+    expect(invoke).not.toHaveBeenCalledWith("run_agent", expect.anything());
   });
 
   it("suggests project files after typing an at mention", async () => {

@@ -300,6 +300,19 @@ fn save_agent_session(
 }
 
 #[tauri::command]
+fn save_agent_checkpoint(
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+    message_id: String,
+) -> Result<(), String> {
+    project::save_conversation_checkpoint(
+        &current_root(&state)?,
+        &session_id,
+        &message_id,
+    )
+}
+
+#[tauri::command]
 fn delete_agent_session(
     state: tauri::State<'_, AppState>,
     session_id: String,
@@ -332,7 +345,7 @@ async fn fork_agent_session(
             model: source.model.clone(),
             reasoning_effort: source.reasoning_effort.clone(),
         };
-        let branch_id = agents::fork_session(
+        let branch = agents::fork_session(
             &root,
             &runtime,
             &settings,
@@ -341,7 +354,14 @@ async fn fork_agent_session(
             user_message_index,
             &system_prompt,
         )?;
-        sessions::create_branch(&root, &source, &branch_id, &message_id)
+        let session = sessions::create_branch(&root, &source, &branch.session_id, &message_id)?;
+        project::restore_conversation_checkpoint(
+            &root,
+            &source.id,
+            &message_id,
+            branch.source_timestamp.as_deref(),
+        )?;
+        Ok(session)
     })
     .await
     .map_err(|error| format!("Could not create the conversation branch: {error}"))?
@@ -455,6 +475,7 @@ pub fn run() {
             search_agent_sessions,
             read_agent_session,
             save_agent_session,
+            save_agent_checkpoint,
             delete_agent_session,
             fork_agent_session,
             list_agent_skills,

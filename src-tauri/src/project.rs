@@ -11,7 +11,7 @@ use uuid::Uuid;
 use walkdir::WalkDir;
 
 const MANIFEST_PATH: &str = ".research/project.json";
-const RESEARCH_GITIGNORE: &str = "history/\nsessions/\npi-sessions/\ncache/\n";
+const RESEARCH_GITIGNORE: &str = "history/\nsessions/\npi-sessions/\ncheckpoints/\ncache/\n";
 const ARXIV_STYLE: &str = include_str!("../templates/arxiv-style/arxiv.sty");
 const ARXIV_STYLE_LICENSE: &str = include_str!("../templates/arxiv-style/LICENSE");
 
@@ -65,7 +65,7 @@ pub fn create(parent: &Path, name: &str) -> Result<PathBuf, String> {
     fs::write(root.join("main.tex"), default_tex(safe_name)).map_err(err)?;
     fs::write(root.join("arxiv.sty"), ARXIV_STYLE).map_err(err)?;
     fs::write(root.join("references.bib"), "").map_err(err)?;
-    fs::write(root.join(".gitignore"), ".research/history/\n.research/sessions/\n.research/pi-sessions/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n").map_err(err)?;
+    fs::write(root.join(".gitignore"), ".research/history/\n.research/sessions/\n.research/pi-sessions/\n.research/checkpoints/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n").map_err(err)?;
     Ok(root)
 }
 
@@ -79,9 +79,13 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     fs::create_dir_all(root.join(".research/papers")).map_err(err)?;
     fs::create_dir_all(root.join(".research/sessions")).map_err(err)?;
     fs::create_dir_all(root.join(".research/pi-sessions")).map_err(err)?;
-    if !root.join(".research/.gitignore").exists() {
-        fs::write(root.join(".research/.gitignore"), RESEARCH_GITIGNORE).map_err(err)?;
+    let research_ignore = root.join(".research/.gitignore");
+    if research_ignore.exists() {
+        ensure_ignore_line(&research_ignore, "checkpoints/")?;
+    } else {
+        fs::write(&research_ignore, RESEARCH_GITIGNORE).map_err(err)?;
     }
+    ensure_ignore_line(&root.join(".gitignore"), ".research/checkpoints/")?;
 
     let manifest = if root.join(MANIFEST_PATH).exists() {
         read_manifest(&root)?
@@ -378,6 +382,15 @@ fn validate_user_entry(relative: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn ensure_ignore_line(path: &Path, line: &str) -> Result<(), String> {
+    let current = fs::read_to_string(path).unwrap_or_default();
+    if current.lines().any(|existing| existing.trim() == line) {
+        return Ok(());
+    }
+    let separator = if current.is_empty() || current.ends_with('\n') { "" } else { "\n" };
+    fs::write(path, format!("{current}{separator}{line}\n")).map_err(err)
+}
+
 pub fn apply_transaction(
     root: &Path,
     label: &str,
@@ -447,6 +460,139 @@ pub fn snapshot_text_files(root: &Path) -> Result<TextSnapshot, String> {
         }
     }
     Ok(snapshot)
+}
+
+pub fn save_conversation_checkpoint(
+    root: &Path,
+    session_id: &str,
+    message_id: &str,
+) -> Result<(), String> {
+    validate_checkpoint_id(session_id)?;
+    validate_checkpoint_id(message_id)?;
+    let path = checkpoint_path(root, session_id, message_id);
+    fs::create_dir_all(path.parent().expect("checkpoint path has a parent")).map_err(err)?;
+    let snapshot = snapshot_text_files(root)?;
+    fs::write(
+        path,
+        format!("{}\n", serde_json::to_string_pretty(&snapshot).map_err(err)?),
+    )
+    .map_err(err)
+}
+
+pub fn restore_conversation_checkpoint(
+    root: &Path,
+    session_id: &str,
+    message_id: &str,
+    fallback_timestamp: Option<&str>,
+) -> Result<Option<TransactionRecord>, String> {
+    validate_checkpoint_id(session_id)?;
+    validate_checkpoint_id(message_id)?;
+    let path = checkpoint_path(root, session_id, message_id);
+    let target = if path.is_file() {
+        serde_json::from_str::<TextSnapshot>(&fs::read_to_string(path).map_err(err)?).map_err(err)?
+    } else if let Some(timestamp) = fallback_timestamp {
+        reconstruct_snapshot_at(root, timestamp)?
+    } else {
+        return Err("This message predates project checkpoints and its file state cannot be reconstructed.".to_string());
+    };
+    restore_text_snapshot(root, &target, "Restore files for conversation branch")
+}
+
+fn reconstruct_snapshot_at(root: &Path, timestamp: &str) -> Result<TextSnapshot, String> {
+    let target_time = chrono::DateTime::parse_from_rfc3339(timestamp).map_err(err)?;
+    let mut snapshot = snapshot_text_files(root)?;
+    let directory = root.join(".research/history");
+    if !directory.is_dir() {
+        return Ok(snapshot);
+    }
+    let mut records = Vec::new();
+    for entry in fs::read_dir(directory).map_err(err)? {
+        let path = entry.map_err(err)?.path();
+        if path.extension().is_some_and(|extension| extension == "json") {
+            if let Ok(record) = serde_json::from_str::<TransactionRecord>(&fs::read_to_string(path).map_err(err)?) {
+                if chrono::DateTime::parse_from_rfc3339(&record.timestamp)
+                    .is_ok_and(|record_time| record_time > target_time)
+                {
+                    records.push(record);
+                }
+            }
+        }
+    }
+    records.sort_by(|left, right| right.timestamp.cmp(&left.timestamp));
+    for record in records {
+        for change in record.changes {
+            match change.before {
+                Some(content) => {
+                    snapshot.insert(change.path, content);
+                }
+                None => {
+                    snapshot.remove(&change.path);
+                }
+            }
+        }
+    }
+    Ok(snapshot)
+}
+
+fn restore_text_snapshot(
+    root: &Path,
+    target: &TextSnapshot,
+    label: &str,
+) -> Result<Option<TransactionRecord>, String> {
+    let current = snapshot_text_files(root)?;
+    let paths = current
+        .keys()
+        .chain(target.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let changes = paths
+        .into_iter()
+        .filter_map(|path| {
+            let before = current.get(&path).cloned();
+            let after = target.get(&path).cloned();
+            (before != after).then_some(FileChange { path, before, after })
+        })
+        .collect::<Vec<_>>();
+    if changes.is_empty() {
+        return Ok(None);
+    }
+    for change in &changes {
+        let path = safe_path(root, &change.path)?;
+        match &change.after {
+            Some(content) => {
+                if let Some(parent) = path.parent() {
+                    fs::create_dir_all(parent).map_err(err)?;
+                }
+                fs::write(path, content).map_err(err)?;
+            }
+            None if path.exists() => fs::remove_file(path).map_err(err)?,
+            None => {}
+        }
+    }
+    let record = TransactionRecord {
+        id: format!(
+            "{}-{}",
+            Utc::now().format("%Y%m%dT%H%M%S%.3fZ"),
+            Uuid::new_v4()
+        ),
+        label: label.to_string(),
+        timestamp: Utc::now().to_rfc3339(),
+        changes,
+    };
+    persist_transaction(root, &record)?;
+    Ok(Some(record))
+}
+
+fn checkpoint_path(root: &Path, session_id: &str, message_id: &str) -> PathBuf {
+    root.join(".research/checkpoints")
+        .join(session_id)
+        .join(format!("{message_id}.json"))
+}
+
+fn validate_checkpoint_id(value: &str) -> Result<(), String> {
+    Uuid::parse_str(value)
+        .map(|_| ())
+        .map_err(|_| "Invalid conversation checkpoint id.".to_string())
 }
 
 pub fn record_external_changes(
@@ -756,6 +902,55 @@ mod tests {
             "remove me"
         );
         assert!(!root.join("created.tex").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn conversation_checkpoint_restores_files_and_records_the_restore() {
+        let root = temp_root("conversation-checkpoint");
+        fs::write(root.join("main.tex"), "before").unwrap();
+        let session_id = Uuid::new_v4().to_string();
+        let message_id = Uuid::new_v4().to_string();
+        save_conversation_checkpoint(&root, &session_id, &message_id).unwrap();
+        apply_transaction(
+            &root,
+            "agent edit",
+            vec![("main.tex".to_string(), "after".to_string())],
+        )
+        .unwrap();
+        let restored = restore_conversation_checkpoint(
+            &root,
+            &session_id,
+            &message_id,
+            None,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "before");
+        assert_eq!(restored.label, "Restore files for conversation branch");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_conversation_checkpoint_is_reconstructed_from_history() {
+        let root = temp_root("legacy-conversation-checkpoint");
+        fs::write(root.join("main.tex"), "before").unwrap();
+        let target_timestamp = Utc::now().to_rfc3339();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        apply_transaction(
+            &root,
+            "agent edit",
+            vec![("main.tex".to_string(), "after".to_string())],
+        )
+        .unwrap();
+        restore_conversation_checkpoint(
+            &root,
+            &Uuid::new_v4().to_string(),
+            &Uuid::new_v4().to_string(),
+            Some(&target_timestamp),
+        )
+        .unwrap();
+        assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "before");
         fs::remove_dir_all(root).unwrap();
     }
 

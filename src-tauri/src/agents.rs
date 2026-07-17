@@ -31,6 +31,11 @@ pub struct AgentRequest<'a> {
     pub system_prompt: &'a str,
 }
 
+pub struct ForkedSession {
+    pub session_id: String,
+    pub source_timestamp: Option<String>,
+}
+
 pub fn run(
     root: &Path,
     runtime: &AgentRuntime,
@@ -216,7 +221,7 @@ pub fn fork_session(
     session_title: &str,
     user_message_index: usize,
     system_prompt: &str,
-) -> Result<String, String> {
+) -> Result<ForkedSession, String> {
     let command = pi_command(
         root,
         runtime,
@@ -236,6 +241,18 @@ pub fn fork_session(
         .and_then(|message| message.get("entryId"))
         .and_then(Value::as_str)
         .ok_or_else(|| "This conversation cannot be branched because its Pi history is incomplete.".to_string())?;
+    let entries = process.request("lattice-fork-entries", "get_entries", json!({}))?;
+    let source_timestamp = entries
+        .pointer("/data/entries")
+        .and_then(Value::as_array)
+        .and_then(|entries| {
+            entries.iter().find(|entry| {
+                entry.get("id").and_then(Value::as_str) == Some(entry_id)
+            })
+        })
+        .and_then(|entry| entry.get("timestamp"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
     process.request(
         "lattice-fork",
         "fork",
@@ -249,7 +266,10 @@ pub fn fork_session(
         .ok_or_else(|| "Pi did not create a distinct conversation branch.".to_string())?
         .to_string();
     let _ = process.finish(true)?;
-    Ok(session_id)
+    Ok(ForkedSession {
+        session_id,
+        source_timestamp,
+    })
 }
 
 fn pi_command(
@@ -1041,6 +1061,8 @@ mod tests {
             reasoning_effort: "low".to_string(),
         };
         let session_id = uuid::Uuid::new_v4().to_string();
+        let message_id = uuid::Uuid::new_v4().to_string();
+        project::save_conversation_checkpoint(&root, &session_id, &message_id).unwrap();
         let result = run(
             &root,
             &runtime,
@@ -1061,7 +1083,7 @@ mod tests {
             .unwrap()
             .contains("State the research problem and central hypothesis clearly."));
         assert!(result.transaction_id.is_some());
-        let branch_id = fork_session(
+        let branch = fork_session(
             &root,
             &runtime,
             &settings,
@@ -1071,7 +1093,18 @@ mod tests {
             "",
         )
         .unwrap();
-        assert_ne!(branch_id, session_id);
+        assert_ne!(branch.session_id, session_id);
+        assert!(branch.source_timestamp.is_some());
+        project::restore_conversation_checkpoint(
+            &root,
+            &session_id,
+            &message_id,
+            branch.source_timestamp.as_deref(),
+        )
+        .unwrap();
+        assert!(fs::read_to_string(root.join("main.tex"))
+            .unwrap()
+            .contains("State the problem, why it matters, and the central hypothesis."));
         let source_suffix = format!("_{session_id}.jsonl");
         assert!(fs::read_dir(root.join(".research/pi-sessions"))
             .unwrap()

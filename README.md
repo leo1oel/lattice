@@ -25,7 +25,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Use an OpenAI or Anthropic API key with the same streamed response experience instead of a local subscription.
 - Switch between Codex and Claude between messages, with current full model names and model-specific reasoning-effort controls for subscriptions and APIs.
 - Inspect and start Codex or Claude subscription login from Settings without configuring an API key.
-- Create, search, restore, and delete project-local agent conversations, or edit an earlier user message to continue on a new Pi branch while preserving the original conversation.
+- Create, search, restore, and delete project-local agent conversations, or edit an earlier user message to continue on a new Pi branch while restoring the project files to that turn and preserving the original conversation.
 - Save direct edits, imports, and agent changes as atomic project transactions.
 - Inspect project history and revert a transaction.
 - Resize the Project and Papers regions vertically and preserve that layout across launches.
