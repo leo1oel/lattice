@@ -275,6 +275,7 @@ fn pi_command(
     let (provider, agent_dir) = prepare_auth(runtime, &settings.provider)?;
     let session_dir = root.join(".research/pi-sessions");
     fs::create_dir_all(&session_dir).map_err(err)?;
+    sanitize_legacy_session(&session_dir, session_id)?;
     let executable = runtime
         .executable
         .to_str()
@@ -313,30 +314,73 @@ fn pi_command(
     Ok(command)
 }
 
-fn editor_prompt(message: &str, active_file: Option<&str>, selection: Option<&str>) -> String {
-    let Some(active_file) = active_file.filter(|path| !path.trim().is_empty()) else {
-        return message.to_string();
-    };
-    let selection = selection.filter(|text| !text.is_empty());
-    if let Some(selection) = selection {
-        format!(
-            "{message}\n\n<lattice_editor_context>\n<active_file>{}</active_file>\n<selection><![CDATA[{}]]></selection>\n</lattice_editor_context>",
-            xml_text(active_file),
-            selection.replace("]]>", "]] ]><![CDATA[>")
-        )
-    } else {
-        format!(
-            "{message}\n\n<lattice_editor_context><active_file>{}</active_file></lattice_editor_context>",
-            xml_text(active_file)
-        )
+fn sanitize_legacy_session(session_dir: &Path, session_id: &str) -> Result<(), String> {
+    if !session_dir.is_dir() {
+        return Ok(());
     }
+    let suffix = format!("_{session_id}.jsonl");
+    for entry in fs::read_dir(session_dir).map_err(err)? {
+        let path = entry.map_err(err)?.path();
+        if !path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with(&suffix))
+        {
+            continue;
+        }
+        let raw = fs::read_to_string(&path).map_err(err)?;
+        let mut changed = false;
+        let mut lines = Vec::new();
+        for line in raw.lines() {
+            let mut value: Value = serde_json::from_str(line).map_err(err)?;
+            if value.pointer("/message/role").and_then(Value::as_str) == Some("user") {
+                if let Some(content) = value
+                    .pointer_mut("/message/content")
+                    .and_then(Value::as_array_mut)
+                {
+                    for part in content {
+                        let clean = part
+                            .get("text")
+                            .and_then(Value::as_str)
+                            .and_then(without_legacy_editor_context)
+                            .map(str::to_string);
+                        if let Some(clean) = clean {
+                            part["text"] = Value::String(clean);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            lines.push(serde_json::to_string(&value).map_err(err)?);
+        }
+        if changed {
+            let temporary = path.with_extension("jsonl.tmp");
+            fs::write(&temporary, format!("{}\n", lines.join("\n"))).map_err(err)?;
+            fs::rename(temporary, path).map_err(err)?;
+        }
+    }
+    Ok(())
 }
 
-fn xml_text(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
+fn without_legacy_editor_context(text: &str) -> Option<&str> {
+    const START: &str = "\n\n<lattice_editor_context>";
+    const END: &str = "</lattice_editor_context>";
+    if !text.ends_with(END) {
+        return None;
+    }
+    text.find(START).map(|index| &text[..index])
+}
+
+fn editor_prompt(message: &str, active_file: Option<&str>, selection: Option<&str>) -> String {
+    let Some(selection) = selection.filter(|text| !text.is_empty()) else {
+        return message.to_string();
+    };
+    let active_file = active_file
+        .filter(|path| !path.trim().is_empty())
+        .unwrap_or("the active editor");
+    format!(
+        "{message}\n\n--- Lattice editor selection from {active_file} ---\n{selection}\n--- End Lattice editor selection ---"
+    )
 }
 
 fn assistant_text(message: &Value) -> Option<String> {
@@ -888,7 +932,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn adds_editor_context_without_replacing_the_user_message() {
+    fn adds_only_an_explicit_editor_selection_without_hidden_xml() {
         let prompt = editor_prompt(
             "Revise this.",
             Some("sections/method.tex"),
@@ -897,11 +941,39 @@ mod tests {
         assert!(prompt.starts_with("Revise this."));
         assert!(prompt.contains("sections/method.tex"));
         assert!(prompt.contains("old text"));
+        assert!(!prompt.contains("<lattice_editor_context>"));
     }
 
     #[test]
     fn leaves_messages_untouched_without_editor_context() {
         assert_eq!(editor_prompt("Hello", None, None), "Hello");
+        assert_eq!(
+            editor_prompt("Hello", Some("main.tex"), None),
+            "Hello"
+        );
+    }
+
+    #[test]
+    fn removes_legacy_editor_context_from_pi_history() {
+        let root = std::env::temp_dir().join(format!("lattice-pi-history-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let path = root.join(format!("2026-07-17_{session_id}.jsonl"));
+        fs::write(
+            &path,
+            concat!(
+                "{\"type\":\"session\",\"id\":\"session\"}\n",
+                "{\"type\":\"message\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Hello\\n\\n<lattice_editor_context><active_file>main.tex</active_file></lattice_editor_context>\"}]}}\n",
+                "{\"type\":\"message\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Keep me\"}]}}\n"
+            ),
+        )
+        .unwrap();
+        sanitize_legacy_session(&root, &session_id).unwrap();
+        let migrated = fs::read_to_string(&path).unwrap();
+        assert!(migrated.contains("\"text\":\"Hello\""));
+        assert!(migrated.contains("Keep me"));
+        assert!(!migrated.contains("lattice_editor_context"));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
