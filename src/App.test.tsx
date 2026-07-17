@@ -90,9 +90,10 @@ describe("welcome screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
     const autoBuild = screen.getByLabelText("Automatic build");
     expect(autoBuild).toHaveValue("manual");
-    fireEvent.change(autoBuild, { target: { value: "on-leave" } });
-    expect(screen.getByText("Build when you move away")).toBeInTheDocument();
-    await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v1")).toContain("on-leave"));
+    fireEvent.change(autoBuild, { target: { value: "automatic" } });
+    expect(screen.getByText("Build automatically")).toBeInTheDocument();
+    expect(screen.getByText(/leave the editor or after 1.2 seconds/i)).toBeInTheDocument();
+    await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v1")).toContain("automatic"));
   });
 });
 
@@ -118,8 +119,10 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    const projectPath = await screen.findByText("/tmp/lattice-paper");
-    fireEvent.mouseDown(projectPath, { button: 0, buttons: 1 });
+    await screen.findByRole("button", { name: "Switch project" });
+    expect(screen.queryByText("/tmp/lattice-paper")).not.toBeInTheDocument();
+    expect(document.querySelector(".titlebar-navigator")).not.toHaveAttribute("style");
+    fireEvent.mouseDown(document.querySelector(".titlebar-drag-area")!, { button: 0, buttons: 1 });
     expect(windowApi.startDragging).toHaveBeenCalledOnce();
     fireEvent.click(await screen.findByRole("button", { name: "Switch project" }));
 
@@ -179,7 +182,7 @@ describe("project workspace", () => {
   });
 
   it("saves and builds changed source when the pointer leaves the editor", async () => {
-    localStorage.setItem("lattice.build-preferences.v1", JSON.stringify({ autoBuildMode: "on-leave" }));
+    localStorage.setItem("lattice.build-preferences.v1", JSON.stringify({ autoBuildMode: "automatic" }));
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -218,6 +221,46 @@ describe("project workspace", () => {
       content: "\\documentclass{article}\nNew result.",
     }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project"));
+  });
+
+  it("automatically builds after 1.2 seconds without editing", async () => {
+    localStorage.setItem("lattice.build-preferences.v1", JSON.stringify({ autoBuildMode: "automatic" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "write_project_file") return undefined;
+      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const editorElement = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const view = EditorView.findFromDOM(editorElement);
+    if (!view) throw new Error("CodeMirror view was not available");
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nIdle build." } });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project"), { timeout: 2_500 });
+    expect(invoke).toHaveBeenCalledWith("write_project_file", {
+      path: "main.tex",
+      content: "\\documentclass{article}\nIdle build.",
+    });
   });
 
   it("shows subscription status in settings without asking for an API key", async () => {
@@ -453,6 +496,9 @@ describe("project workspace", () => {
     render(<App />);
     fireEvent.click(await screen.findByTitle("Conversation history"));
     expect(screen.getByText("Revise the related work")).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByText("Conversations")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Conversation history"));
     fireEvent.click(screen.getByText("Revise the related work"));
     expect(await screen.findByText("Compare against the strongest baseline.")).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("New conversation"));
@@ -523,6 +569,7 @@ describe("project workspace", () => {
 
     render(<App />);
     fireEvent.click(await screen.findByTitle("Add file or folder"));
+    expect(screen.queryByTitle("Cancel file creation")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "sections/method" } });
     fireEvent.click(screen.getByTitle("Create"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "sections/method", kind: "file" }));
@@ -569,14 +616,17 @@ describe("project workspace", () => {
     fireEvent.change(screen.getByLabelText("Agent model"), { target: { value: "claude-opus-4-8" } });
     fireEvent.change(screen.getByLabelText("Reasoning effort"), { target: { value: "xhigh" } });
     const composer = screen.getByPlaceholderText(/ask the agent/i);
-    fireEvent.change(composer, { target: { value: "Review the abstract." } });
+    const message = `Review the abstract.\n${"longword".repeat(40)}`;
+    fireEvent.change(composer, { target: { value: message } });
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
 
-    expect(await screen.findByText("Review the abstract.")).toBeInTheDocument();
+    const sentMessage = await screen.findByText((_, element) => element?.tagName === "P" && element.textContent === message);
+    expect(sentMessage.closest(".chat-message.user")).not.toBeNull();
+    expect(sentMessage.textContent).toContain("\n");
     expect(screen.getByText("Claude is writing…")).toBeInTheDocument();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("run_agent", expect.objectContaining({
       settings: { provider: "claude", model: "claude-opus-4-8", reasoningEffort: "xhigh" },
-      message: "Review the abstract.",
+      message,
       conversation: testSession.messages,
     })));
   });

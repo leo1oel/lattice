@@ -13,7 +13,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Browse, create, delete, scroll, and directly edit project source files with a full-height CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
 - Get automatic braces after citation commands and bibliography-key completion inside `\\cite{...}`.
 - Compile the default root document with the local `latexmk` installation.
-- Choose manual builds, build when the pointer leaves the editor, or build after a 1.2-second typing pause.
+- Choose manual builds or automatic builds that run when you leave the editor or pause typing for 1.2 seconds.
 - Review the generated PDF beside the source with a draggable split divider and a themed PDF.js toolbar for paging, zoom, and native Save As export.
 - Drag PNG, JPEG, PDF, SVG, EPS, or WebP figures onto a project folder, or import them through the figures-folder action.
 - Import an arXiv paper as Markdown with `arxiv2md`.

@@ -151,7 +151,7 @@ type PanelKind = "navigator" | "agent";
 type PanelWidths = { navigator: number; agent: number };
 type SettingsTab = "appearance" | "editor" | "accounts" | "api";
 type AppearanceSettings = { uiFont: string; interfaceScale: number; editorFont: string; editorFontSize: number };
-type AutoBuildMode = "manual" | "on-leave" | "after-pause";
+type AutoBuildMode = "manual" | "automatic";
 type BuildPreferences = { autoBuildMode: AutoBuildMode };
 type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
 type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
@@ -222,6 +222,7 @@ function App() {
   const [apiKey, setApiKey] = useState("");
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
   const saveTimer = useRef<number | null>(null);
+  const automaticBuildPending = useRef(false);
   const buildingRef = useRef(false);
   const buildQueued = useRef(false);
   const chatEnd = useRef<HTMLDivElement | null>(null);
@@ -314,6 +315,16 @@ function App() {
       setBuilding(false);
     }
   }, [project]);
+
+  const saveAndCompileAutomatically = useCallback(async () => {
+    if (automaticBuildPending.current) return;
+    automaticBuildPending.current = true;
+    try {
+      if (await save()) await compile();
+    } finally {
+      automaticBuildPending.current = false;
+    }
+  }, [compile, save]);
 
   const enterProject = useCallback(
     async (snapshot: ProjectSnapshot) => {
@@ -466,23 +477,21 @@ function App() {
   useEffect(() => {
     if (!project || !activeFile || source === savedSource) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    const delay = buildPreferences.autoBuildMode === "after-pause" ? 1_200 : 900;
+    const automatic = buildPreferences.autoBuildMode === "automatic";
+    const delay = automatic ? 1_200 : 900;
     saveTimer.current = window.setTimeout(() => {
-      void save().then((saved) => {
-        if (saved && buildPreferences.autoBuildMode === "after-pause") void compile();
-      });
+      if (automatic) void saveAndCompileAutomatically();
+      else void save();
     }, delay);
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
-  }, [activeFile, buildPreferences.autoBuildMode, compile, project, save, savedSource, source]);
+  }, [activeFile, buildPreferences.autoBuildMode, project, save, saveAndCompileAutomatically, savedSource, source]);
 
   const buildWhenLeavingEditor = useCallback(() => {
-    if (buildPreferences.autoBuildMode !== "on-leave" || source === savedSource) return;
-    void save().then((saved) => {
-      if (saved) void compile();
-    });
-  }, [buildPreferences.autoBuildMode, compile, save, savedSource, source]);
+    if (buildPreferences.autoBuildMode !== "automatic" || source === savedSource) return;
+    void saveAndCompileAutomatically();
+  }, [buildPreferences.autoBuildMode, saveAndCompileAutomatically, savedSource, source]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -952,11 +961,12 @@ function App() {
   return (
     <div className="app-shell" ref={shellRef}>
       <header className="titlebar" onMouseDown={beginWindowDrag}>
-        <div className="titlebar-navigator" style={{ width: navigatorOpen ? panelWidths.navigator : 116 }}>
+        <div className="titlebar-navigator">
           <div className="traffic-space" />
-          <div className="titlebar-drag-fill" />
           <button className="icon-button" onClick={() => setNavigatorOpen((value) => !value)} title={navigatorOpen ? "Hide navigator" : "Show navigator"}>
-            {navigatorOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+            <span key={navigatorOpen ? "open" : "closed"} className="toggle-icon">
+              {navigatorOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+            </span>
           </button>
         </div>
         <div className="project-switcher">
@@ -970,7 +980,7 @@ function App() {
             <span>{project.manifest.name}</span>
             <ChevronDown size={13} />
           </button>
-          <span className="project-path">{project.root}</span>
+          <div className="titlebar-drag-area" aria-hidden="true" />
           {projectMenuOpen && (
             <ProjectMenu
               currentPath={project.root}
@@ -1389,7 +1399,6 @@ function Navigator(props: {
             <button title="Create" disabled={entryBusy || !entryPath.trim()} onClick={() => void submitEntry()}>
               {entryBusy ? <LoaderCircle className="spin" size={13} /> : <Check size={13} />}
             </button>
-            <button title="Cancel file creation" disabled={entryBusy} onClick={closeEntryForm}><X size={13} /></button>
           </div>
         )}
         <div className="file-tree">
@@ -1463,7 +1472,7 @@ function TreeNode({ node, activeFile, protectedPaths, onFile, onDelete, onImport
       <div className={`tree-directory ${assetDropTarget === node.path ? "drop-target" : ""}`} data-drop-directory={node.path}>
         <div className="tree-row" onContextMenu={(event) => onContextMenu(event, node.path, node.name)}>
           <button className="tree-main" onClick={() => setOpen((value) => !value)}>
-            {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            <ChevronRight className={`tree-chevron ${open ? "open" : ""}`} size={13} />
             <Folder size={14} /> <span>{node.name}</span>
           </button>
           {node.path === "figures" && <button className="row-import" title="Import images into figures" disabled={assetImporting} onClick={() => onImportAssets(node.path)}>{assetImporting ? <LoaderCircle className="spin" size={12} /> : <ImagePlus size={12} />}</button>}
@@ -1547,6 +1556,21 @@ function AgentPanel({
     composer.style.height = `${height}px`;
     composer.style.overflowY = composer.scrollHeight > 160 ? "auto" : "hidden";
   }, [input]);
+  useEffect(() => {
+    if (!sessionMenuOpen) return;
+    const closeMenu = () => setSessionMenuOpen(false);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    window.addEventListener("pointerdown", closeMenu);
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("blur", closeMenu);
+    return () => {
+      window.removeEventListener("pointerdown", closeMenu);
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("blur", closeMenu);
+    };
+  }, [sessionMenuOpen, setSessionMenuOpen]);
   return (
     <section className="agent-panel">
       <div className="agent-header">
@@ -1586,7 +1610,7 @@ function AgentPanel({
         </label>
       </div>
       {sessionMenuOpen && (
-        <div className="session-menu">
+        <div className="session-menu" onPointerDown={(event) => event.stopPropagation()}>
           <div className="session-menu-heading"><span>Conversations</span><button onClick={onNewSession}><Plus size={13} /> New</button></div>
           <div className="session-list">
             {sessions.map((session) => (
@@ -1698,7 +1722,13 @@ function DocumentCanvas(props: {
     );
   }
   const editor = (
-    <div className="source-editor" onPointerLeave={props.onEditorLeave}>
+    <div
+      className="source-editor"
+      onPointerLeave={props.onEditorLeave}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) props.onEditorLeave();
+      }}
+    >
       <CodeMirror
         className="code-editor-root"
         value={props.source}
@@ -1991,8 +2021,7 @@ function SettingsDialog(props: {
                 <label>Automatic build
                   <select aria-label="Automatic build" value={props.buildPreferences.autoBuildMode} onChange={(event) => props.setBuildPreferences({ autoBuildMode: event.target.value as AutoBuildMode })}>
                     <option value="manual">Manual only</option>
-                    <option value="on-leave">When the pointer leaves the editor</option>
-                    <option value="after-pause">After 1.2 seconds without typing</option>
+                    <option value="automatic">Automatic</option>
                   </select>
                 </label>
                 <div className="settings-detail">
@@ -2128,14 +2157,12 @@ function compactConversationTitle(title: string): string {
 }
 
 function autoBuildTitle(mode: AutoBuildMode): string {
-  if (mode === "on-leave") return "Build when you move away";
-  if (mode === "after-pause") return "Build after a short pause";
+  if (mode === "automatic") return "Build automatically";
   return "Build only when requested";
 }
 
 function autoBuildDetail(mode: AutoBuildMode): string {
-  if (mode === "on-leave") return "Lattice saves the current file and builds when the pointer leaves the source editor.";
-  if (mode === "after-pause") return "Lattice waits until typing stops, then saves and builds the latest version once.";
+  if (mode === "automatic") return "Lattice saves and builds when you leave the editor or after 1.2 seconds without typing.";
   return "Use the Build button or Command-S. Source changes are still saved automatically.";
 }
 
@@ -2208,10 +2235,10 @@ function loadAppearance(): AppearanceSettings {
 
 function loadBuildPreferences(): BuildPreferences {
   try {
-    const value = JSON.parse(localStorage.getItem(BUILD_PREFERENCES_KEY) ?? "null") as Partial<BuildPreferences> | null;
+    const value = JSON.parse(localStorage.getItem(BUILD_PREFERENCES_KEY) ?? "null") as { autoBuildMode?: string } | null;
     const autoBuildMode = value?.autoBuildMode;
     return {
-      autoBuildMode: autoBuildMode === "on-leave" || autoBuildMode === "after-pause" ? autoBuildMode : "manual",
+      autoBuildMode: autoBuildMode === "automatic" || autoBuildMode === "on-leave" || autoBuildMode === "after-pause" ? "automatic" : "manual",
     };
   } catch {
     return { autoBuildMode: "manual" };
