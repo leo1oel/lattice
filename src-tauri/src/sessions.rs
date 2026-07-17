@@ -41,6 +41,7 @@ pub fn create(
 pub fn save(root: &Path, mut session: AgentSession) -> Result<AgentSession, String> {
     session_path(root, &session.id)?;
     normalize_settings(&mut session)?;
+    normalize_legacy_echoes(&mut session);
     if session.title.trim().is_empty()
         || session.title == NEW_CONVERSATION
         || session.title == LEGACY_NEW_CONVERSATION
@@ -62,6 +63,7 @@ pub fn read(root: &Path, session_id: &str) -> Result<AgentSession, String> {
     let raw = fs::read_to_string(session_path(root, session_id)?).map_err(err)?;
     let mut session: AgentSession = serde_json::from_str(&raw).map_err(err)?;
     normalize_settings(&mut session)?;
+    normalize_legacy_echoes(&mut session);
     Ok(session)
 }
 
@@ -79,6 +81,7 @@ pub fn list(root: &Path) -> Result<Vec<AgentSessionSummary>, String> {
         let raw = fs::read_to_string(entry.path()).map_err(err)?;
         let mut session: AgentSession = serde_json::from_str(&raw).map_err(err)?;
         normalize_settings(&mut session)?;
+        normalize_legacy_echoes(&mut session);
         sessions.push(AgentSessionSummary {
             id: session.id,
             title: session.title,
@@ -228,6 +231,25 @@ fn conversation_title(message: &str) -> String {
     }
 }
 
+fn normalize_legacy_echoes(session: &mut AgentSession) {
+    let mut previous_user = None::<String>;
+    for message in &mut session.messages {
+        match message.role.as_str() {
+            "user" => previous_user = Some(message.text.clone()),
+            "agent" => {
+                if let Some(user) = previous_user.take() {
+                    if let Some(answer) = message.text.strip_prefix(&user) {
+                        if !answer.trim().is_empty() {
+                            message.text = answer.trim_start().to_string();
+                        }
+                    }
+                }
+            }
+            _ => previous_user = None,
+        }
+    }
+}
+
 fn search_snippet(text: &str, needle: &str) -> String {
     let compact = text.split_whitespace().collect::<Vec<_>>().join(" ");
     if compact.is_empty() {
@@ -330,5 +352,24 @@ mod tests {
         assert_eq!(branch.messages.len(), 1);
         assert_eq!(read(&root, &original.id).unwrap().messages.len(), 3);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_streamed_answers_do_not_repeat_the_user_question() {
+        let mut session = AgentSession {
+            id: Uuid::new_v4().to_string(),
+            title: "Question".to_string(),
+            created_at: Utc::now().to_rfc3339(),
+            updated_at: Utc::now().to_rfc3339(),
+            provider: "codex".to_string(),
+            model: "gpt-5.6-sol".to_string(),
+            reasoning_effort: "high".to_string(),
+            messages: vec![
+                AgentMessage { id: Uuid::new_v4().to_string(), role: "user".to_string(), text: "What model are you?".to_string(), files: Vec::new(), skills: Vec::new() },
+                AgentMessage { id: Uuid::new_v4().to_string(), role: "agent".to_string(), text: "What model are you?I am an assistant.".to_string(), files: Vec::new(), skills: Vec::new() },
+            ],
+        };
+        normalize_legacy_echoes(&mut session);
+        assert_eq!(session.messages[1].text, "I am an assistant.");
     }
 }

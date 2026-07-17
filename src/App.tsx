@@ -162,6 +162,8 @@ type AgentSkill = {
   content: string;
 };
 type SkillDraft = { originalName?: string; scope: "application" | "project"; content: string };
+type AgentMention = { key: string; label: string; path: string; kind: "file" | "paper" };
+type MentionState = { start: number; end: number; query: string };
 
 type CanvasMode = "source" | "pdf" | "split" | "paper";
 type Theme = "light" | "dark";
@@ -256,6 +258,10 @@ function App() {
   const buildQueued = useRef(false);
   const chatEnd = useRef<HTMLDivElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
+  const agentMentions = useMemo(
+    () => buildAgentMentions(project?.files ?? [], papers),
+    [papers, project?.files],
+  );
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
     setRecentProjects((items) => {
@@ -1240,6 +1246,7 @@ function App() {
           selection={selection}
           branchSource={branchSource}
           onCancelBranch={() => setBranchSource(null)}
+          mentions={agentMentions}
           chatEnd={chatEnd}
         />
 
@@ -1682,6 +1689,7 @@ function AgentPanel({
   selection,
   branchSource,
   onCancelBranch,
+  mentions,
   chatEnd,
 }: {
   messages: ChatMessage[];
@@ -1709,6 +1717,7 @@ function AgentPanel({
   selection: string;
   branchSource: { sessionId: string; messageId: string } | null;
   onCancelBranch: () => void;
+  mentions: AgentMention[];
   chatEnd: React.RefObject<HTMLDivElement | null>;
 }) {
   const options = modelOptions(provider);
@@ -1716,6 +1725,8 @@ function AgentPanel({
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [sessionSearch, setSessionSearch] = useState("");
   const [searchResults, setSearchResults] = useState<AgentSessionSearchResult[] | null>(null);
+  const [mention, setMention] = useState<MentionState | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
   useLayoutEffect(() => {
     const composer = composerRef.current;
     if (!composer) return;
@@ -1752,6 +1763,23 @@ function AgentPanel({
   const visibleSessions: AgentSessionSearchResult[] = sessionSearch.trim() && searchResults
     ? searchResults
     : sessions.map((session) => ({ ...session, snippet: "" }));
+  const mentionSuggestions = mention
+    ? mentions
+      .filter((item) => `${item.label} ${item.path}`.toLowerCase().includes(mention.query.toLowerCase()))
+      .slice(0, 8)
+    : [];
+  const insertMention = (item: AgentMention) => {
+    if (!mention) return;
+    const inserted = `@${item.path}`;
+    const next = `${input.slice(0, mention.start)}${inserted} ${input.slice(mention.end)}`;
+    const caret = mention.start + inserted.length + 1;
+    setInput(next);
+    setMention(null);
+    requestAnimationFrame(() => {
+      composerRef.current?.focus();
+      composerRef.current?.setSelectionRange(caret, caret);
+    });
+  };
   return (
     <section className="agent-panel">
       <div className="agent-header">
@@ -1832,28 +1860,102 @@ function AgentPanel({
       <div className="composer-wrap">
         {branchSource && <div className="context-chip branch-chip"><Pencil size={11} /> Editing an earlier message creates a new branch <button title="Cancel conversation branch" onClick={onCancelBranch}><X size={11} /></button></div>}
         {selection && <div className="context-chip"><Code2 size={12} /> Selection · {selection.length} chars <button title="Selection follows the editor"><Check size={11} /></button></div>}
+        {mention && (
+          <div className="mention-menu" role="listbox" aria-label="Project references">
+            <div className="mention-heading"><span>Reference project context</span><small>{mentionSuggestions.length ? "↑↓ to navigate · Enter to insert" : "No matches"}</small></div>
+            {mentionSuggestions.map((item, index) => (
+              <button
+                key={item.key}
+                role="option"
+                aria-selected={index === mentionIndex}
+                className={index === mentionIndex ? "active" : ""}
+                onMouseDown={(event) => { event.preventDefault(); insertMention(item); }}
+              >
+                {item.kind === "paper" ? <BookOpen size={13} /> : <FileCode2 size={13} />}
+                <span><strong>{item.label}</strong><small>{item.path}</small></span>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="composer">
           <textarea
             ref={composerRef}
             rows={1}
             placeholder="Ask the agent to write, revise, or reason…"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={(event) => {
+              setInput(event.target.value);
+              setMention(mentionAtCaret(event.target.value, event.target.selectionStart));
+              setMentionIndex(0);
+            }}
+            onSelect={(event) => setMention(mentionAtCaret(event.currentTarget.value, event.currentTarget.selectionStart))}
+            onBlur={() => setMention(null)}
             onKeyDown={(event) => {
+              if (mention && mentionSuggestions.length) {
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  setMentionIndex((index) => (index + 1) % mentionSuggestions.length);
+                  return;
+                }
+                if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  setMentionIndex((index) => (index - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+                  return;
+                }
+                if (event.key === "Enter" || event.key === "Tab") {
+                  event.preventDefault();
+                  insertMention(mentionSuggestions[Math.min(mentionIndex, mentionSuggestions.length - 1)]);
+                  return;
+                }
+              }
+              if (event.key === "Escape" && mention) {
+                event.preventDefault();
+                setMention(null);
+                return;
+              }
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
+                setMention(null);
                 onSend();
               }
             }}
           />
           <div className="composer-footer">
             <span>Enter sends · Shift+Enter adds a line</span>
-            <button title="Send message" onClick={onSend} disabled={running || !input.trim()}><Send size={14} /></button>
+            <button title="Send message" onClick={() => { setMention(null); onSend(); }} disabled={running || !input.trim()}><Send size={14} /></button>
           </div>
         </div>
       </div>
     </section>
   );
+}
+
+function buildAgentMentions(files: FileNode[], papers: PaperSummary[]): AgentMention[] {
+  const mentions: AgentMention[] = [];
+  const visit = (nodes: FileNode[]) => {
+    for (const node of nodes) {
+      if (node.kind === "directory") visit(node.children);
+      else mentions.push({ key: `file:${node.path}`, label: node.name, path: node.path, kind: "file" });
+    }
+  };
+  visit(files);
+  for (const paper of papers) {
+    mentions.push({
+      key: `paper:${paper.arxivId}`,
+      label: paper.title,
+      path: `.research/papers/${paper.arxivId}/paper.md`,
+      kind: "paper",
+    });
+  }
+  return mentions;
+}
+
+function mentionAtCaret(value: string, caret: number): MentionState | null {
+  const beforeCaret = value.slice(0, caret);
+  const at = beforeCaret.lastIndexOf("@");
+  if (at < 0 || /\s/.test(beforeCaret.slice(at + 1))) return null;
+  if (at > 0 && !/\s|[([{"'`]/.test(beforeCaret[at - 1])) return null;
+  return { start: at, end: caret, query: beforeCaret.slice(at + 1) };
 }
 
 function CanvasToolbar(props: {

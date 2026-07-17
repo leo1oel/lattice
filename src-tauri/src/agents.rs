@@ -384,6 +384,9 @@ fn editor_prompt(message: &str, active_file: Option<&str>, selection: Option<&st
 }
 
 fn assistant_text(message: &Value) -> Option<String> {
+    if message.get("role").and_then(Value::as_str) != Some("assistant") {
+        return None;
+    }
     let text = message
         .get("content")?
         .as_array()?
@@ -974,6 +977,20 @@ mod tests {
         assert!(migrated.contains("Keep me"));
         assert!(!migrated.contains("lattice_editor_context"));
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn never_renders_a_user_message_as_assistant_text() {
+        let user = json!({
+            "role": "user",
+            "content": [{"type": "text", "text": "Why repeat this?"}]
+        });
+        let assistant = json!({
+            "role": "assistant",
+            "content": [{"type": "text", "text": "I will not."}]
+        });
+        assert_eq!(assistant_text(&user), None);
+        assert_eq!(assistant_text(&assistant).as_deref(), Some("I will not."));
     }
 
     #[test]

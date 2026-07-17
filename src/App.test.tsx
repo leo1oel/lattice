@@ -790,6 +790,41 @@ describe("project workspace", () => {
     })));
   });
 
+  it("suggests project files after typing an at mention", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "sections", path: "sections", kind: "directory", children: [
+          { name: "method.tex", path: "sections/method.tex", kind: "tex", children: [] },
+        ] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const composer = await screen.findByPlaceholderText(/ask the agent/i);
+    fireEvent.change(composer, { target: { value: "Update @mai", selectionStart: 11 } });
+    expect(screen.getByRole("listbox", { name: "Project references" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /main\.tex/i })).toBeInTheDocument();
+    fireEvent.keyDown(composer, { key: "Enter" });
+    expect(composer).toHaveValue("Update @main.tex ");
+    expect(screen.queryByRole("listbox", { name: "Project references" })).not.toBeInTheDocument();
+  });
+
   it("shows the application skills selected for a completed agent turn", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
