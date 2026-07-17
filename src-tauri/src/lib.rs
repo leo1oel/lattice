@@ -5,27 +5,29 @@ mod models;
 mod papers;
 mod project;
 mod sessions;
-mod skills;
 
 use models::{
-    AgentMessage, AgentResult, AgentSession, AgentSessionSummary, AgentSettings, AgentStreamEvent,
-    BuildResult, HistoryItem, ImportResult, PaperSummary, ProjectSnapshot, SubscriptionStatus,
+    AgentResult, AgentRunRequest, AgentSession, AgentSessionSummary, AgentStreamEvent, BuildResult,
+    HistoryItem, ImportResult, PaperSummary, ProjectSnapshot, SubscriptionStatus,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use tauri::Manager;
 
 struct AppState {
     root: Mutex<Option<PathBuf>>,
+    agent_runtime: agents::AgentRuntime,
 }
 
 impl AppState {
-    fn from_environment() -> Self {
+    fn from_environment(agent_runtime: agents::AgentRuntime) -> Self {
         let root = std::env::var_os("LATTICE_PROJECT")
             .map(PathBuf::from)
             .filter(|path| path.is_dir())
             .and_then(|path| path.canonicalize().ok());
         Self {
             root: Mutex::new(root),
+            agent_runtime,
         }
     }
 }
@@ -174,21 +176,23 @@ fn delete_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<(
 async fn run_agent(
     state: tauri::State<'_, AppState>,
     on_event: tauri::ipc::Channel<AgentStreamEvent>,
-    settings: AgentSettings,
-    message: String,
-    active_file: Option<String>,
-    selection: Option<String>,
-    conversation: Vec<AgentMessage>,
+    request: AgentRunRequest,
 ) -> Result<AgentResult, String> {
     let root = current_root(&state)?;
+    let runtime = state.agent_runtime.clone();
     tauri::async_runtime::spawn_blocking(move || {
         agents::run(
             &root,
-            &settings,
-            &message,
-            active_file.as_deref(),
-            selection.as_deref(),
-            &conversation,
+            &runtime,
+            agents::AgentRequest {
+                settings: &request.settings,
+                message: &request.message,
+                active_file: request.active_file.as_deref(),
+                selection: request.selection.as_deref(),
+                session_id: &request.session_id,
+                session_title: &request.session_title,
+                system_prompt: &request.system_prompt,
+            },
             &|event| {
                 let _ = on_event.send(event);
             },
@@ -296,9 +300,22 @@ fn delete_agent_session(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(AppState::from_environment())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            let config = app
+                .path()
+                .app_config_dir()
+                .map_err(|error| error.to_string())?
+                .join("pi");
+            let (executable, assets) = agent_runtime_paths(app)?;
+            app.manage(AppState::from_environment(agents::AgentRuntime {
+                executable,
+                assets,
+                config,
+            }));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             create_project,
             initial_project,
@@ -334,4 +351,43 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn agent_runtime_paths(app: &tauri::App) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
+    if cfg!(debug_assertions) {
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let target = if cfg!(all(target_arch = "aarch64", target_os = "macos")) {
+            "aarch64-apple-darwin"
+        } else if cfg!(all(target_arch = "x86_64", target_os = "macos")) {
+            "x86_64-apple-darwin"
+        } else if cfg!(all(target_arch = "x86_64", target_os = "windows")) {
+            "x86_64-pc-windows-msvc"
+        } else if cfg!(all(target_arch = "x86_64", target_os = "linux")) {
+            "x86_64-unknown-linux-gnu"
+        } else {
+            return Err("This development target is not configured for the Pi sidecar.".into());
+        };
+        let suffix = if cfg!(target_os = "windows") {
+            ".exe"
+        } else {
+            ""
+        };
+        return Ok((
+            manifest
+                .join("binaries")
+                .join(format!("lattice-agent-{target}{suffix}")),
+            manifest.join("pi-assets"),
+        ));
+    }
+
+    let executable_name = if cfg!(target_os = "windows") {
+        "lattice-agent.exe"
+    } else {
+        "lattice-agent"
+    };
+    let executable = std::env::current_exe()?
+        .parent()
+        .ok_or("The application executable has no parent folder.")?
+        .join(executable_name);
+    Ok((executable, app.path().resource_dir()?.join("pi-assets")))
 }

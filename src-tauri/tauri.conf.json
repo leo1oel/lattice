@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Lattice",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "identifier": "app.leo1oel.researchwriter",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm prepare:agent && pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm prepare:agent && pnpm build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -30,6 +30,8 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": ["binaries/lattice-agent"],
+    "resources": ["pi-assets/**/*"],
     "macOS": {
       "minimumSystemVersion": "11.0",
       "signingIdentity": "-"

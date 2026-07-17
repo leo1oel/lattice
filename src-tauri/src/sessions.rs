@@ -27,7 +27,7 @@ pub fn create(
         messages: vec![AgentMessage {
             id: Uuid::new_v4().to_string(),
             role: "agent".to_string(),
-            text: "What would you like to write or revise?".to_string(),
+            text: "What would you like to work on?".to_string(),
             files: Vec::new(),
             skills: Vec::new(),
         }],
@@ -92,7 +92,22 @@ pub fn list(root: &Path) -> Result<Vec<AgentSessionSummary>, String> {
 }
 
 pub fn delete(root: &Path, session_id: &str) -> Result<(), String> {
-    fs::remove_file(session_path(root, session_id)?).map_err(err)
+    fs::remove_file(session_path(root, session_id)?).map_err(err)?;
+    let pi_sessions = root.join(".research/pi-sessions");
+    if pi_sessions.is_dir() {
+        let suffix = format!("_{session_id}.jsonl");
+        for entry in fs::read_dir(pi_sessions).map_err(err)? {
+            let path = entry.map_err(err)?.path();
+            if path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(&suffix))
+            {
+                fs::remove_file(path).map_err(err)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn write(root: &Path, session: &AgentSession) -> Result<(), String> {
@@ -199,8 +214,14 @@ mod tests {
         assert_eq!(list(&root).unwrap()[0].id, session.id);
         assert_eq!(read(&root, &session.id).unwrap().messages.len(), 2);
         assert_eq!(read(&root, &session.id).unwrap().model, "gpt-5.6-sol");
+        fs::create_dir_all(root.join(".research/pi-sessions")).unwrap();
+        let pi_session = root
+            .join(".research/pi-sessions")
+            .join(format!("2026-07-17T12-00-00_{}.jsonl", session.id));
+        fs::write(&pi_session, "{}\n").unwrap();
         delete(&root, &session.id).unwrap();
         assert!(list(&root).unwrap().is_empty());
+        assert!(!pi_session.exists());
         fs::remove_dir_all(root).unwrap();
     }
 }

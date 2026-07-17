@@ -4,13 +4,14 @@ use crate::models::{
 };
 use chrono::Utc;
 use regex::Regex;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use uuid::Uuid;
 use walkdir::WalkDir;
 
 const MANIFEST_PATH: &str = ".research/project.json";
-const RESEARCH_GITIGNORE: &str = "history/\nsessions/\ncache/\n";
+const RESEARCH_GITIGNORE: &str = "history/\nsessions/\npi-sessions/\ncache/\n";
 const ARXIV_STYLE: &str = include_str!("../templates/arxiv-style/arxiv.sty");
 const ARXIV_STYLE_LICENSE: &str = include_str!("../templates/arxiv-style/LICENSE");
 
@@ -48,6 +49,7 @@ pub fn create(parent: &Path, name: &str) -> Result<PathBuf, String> {
     fs::create_dir_all(root.join(".research/papers")).map_err(err)?;
     fs::create_dir_all(root.join(".research/history")).map_err(err)?;
     fs::create_dir_all(root.join(".research/sessions")).map_err(err)?;
+    fs::create_dir_all(root.join(".research/pi-sessions")).map_err(err)?;
     fs::create_dir_all(root.join(".research/licenses")).map_err(err)?;
     fs::create_dir_all(root.join("figures")).map_err(err)?;
 
@@ -63,7 +65,7 @@ pub fn create(parent: &Path, name: &str) -> Result<PathBuf, String> {
     fs::write(root.join("main.tex"), default_tex(safe_name)).map_err(err)?;
     fs::write(root.join("arxiv.sty"), ARXIV_STYLE).map_err(err)?;
     fs::write(root.join("references.bib"), "").map_err(err)?;
-    fs::write(root.join(".gitignore"), ".research/history/\n.research/sessions/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n").map_err(err)?;
+    fs::write(root.join(".gitignore"), ".research/history/\n.research/sessions/\n.research/pi-sessions/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n").map_err(err)?;
     Ok(root)
 }
 
@@ -76,6 +78,7 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     fs::create_dir_all(root.join(".research/history")).map_err(err)?;
     fs::create_dir_all(root.join(".research/papers")).map_err(err)?;
     fs::create_dir_all(root.join(".research/sessions")).map_err(err)?;
+    fs::create_dir_all(root.join(".research/pi-sessions")).map_err(err)?;
     if !root.join(".research/.gitignore").exists() {
         fs::write(root.join(".research/.gitignore"), RESEARCH_GITIGNORE).map_err(err)?;
     }
@@ -423,6 +426,69 @@ pub fn apply_transaction(
     Ok(record)
 }
 
+pub type TextSnapshot = BTreeMap<String, String>;
+
+pub fn snapshot_text_files(root: &Path) -> Result<TextSnapshot, String> {
+    let mut snapshot = BTreeMap::new();
+    for entry in WalkDir::new(root).follow_links(false) {
+        let entry = entry.map_err(err)?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let relative = entry.path().strip_prefix(root).map_err(err)?;
+        if relative.components().any(|component| {
+            matches!(component, Component::Normal(name) if name == ".research" || name == ".git" || name == "node_modules")
+        }) || is_build_artifact(entry.path())
+        {
+            continue;
+        }
+        if let Ok(content) = fs::read_to_string(entry.path()) {
+            snapshot.insert(relative.to_string_lossy().to_string(), content);
+        }
+    }
+    Ok(snapshot)
+}
+
+pub fn record_external_changes(
+    root: &Path,
+    before: &TextSnapshot,
+    label: &str,
+) -> Result<Option<TransactionRecord>, String> {
+    let after = snapshot_text_files(root)?;
+    let paths = before
+        .keys()
+        .chain(after.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let changes = paths
+        .into_iter()
+        .filter_map(|path| {
+            let old = before.get(&path).cloned();
+            let new = after.get(&path).cloned();
+            (old != new).then_some(FileChange {
+                path,
+                before: old,
+                after: new,
+            })
+        })
+        .collect::<Vec<_>>();
+    if changes.is_empty() {
+        return Ok(None);
+    }
+    let record = TransactionRecord {
+        id: format!(
+            "{}-{}",
+            Utc::now().format("%Y%m%dT%H%M%S%.3fZ"),
+            Uuid::new_v4()
+        ),
+        label: label.to_string(),
+        timestamp: Utc::now().to_rfc3339(),
+        changes,
+    };
+    persist_transaction(root, &record)?;
+    Ok(Some(record))
+}
+
 pub fn history(root: &Path) -> Result<Vec<HistoryItem>, String> {
     let directory = root.join(".research/history");
     if !directory.exists() {
@@ -665,6 +731,31 @@ mod tests {
         revert(&root, &transaction.id).unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "before");
         assert!(history(&root).unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn external_agent_edits_are_recorded_and_reverted() {
+        let root = temp_root("external-transaction");
+        fs::create_dir_all(root.join(".research/history")).unwrap();
+        fs::write(root.join("main.tex"), "before").unwrap();
+        fs::write(root.join("removed.tex"), "remove me").unwrap();
+        let before = snapshot_text_files(&root).unwrap();
+        fs::write(root.join("main.tex"), "after").unwrap();
+        fs::write(root.join("created.tex"), "new").unwrap();
+        fs::remove_file(root.join("removed.tex")).unwrap();
+
+        let transaction = record_external_changes(&root, &before, "Agent edit")
+            .unwrap()
+            .unwrap();
+        assert_eq!(transaction.changes.len(), 3);
+        revert(&root, &transaction.id).unwrap();
+        assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "before");
+        assert_eq!(
+            fs::read_to_string(root.join("removed.tex")).unwrap(),
+            "remove me"
+        );
+        assert!(!root.join("created.tex").exists());
         fs::remove_dir_all(root).unwrap();
     }
 

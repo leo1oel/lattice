@@ -119,6 +119,19 @@ pub struct AgentSettings {
     pub reasoning_effort: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentRunRequest {
+    pub settings: AgentSettings,
+    pub message: String,
+    pub active_file: Option<String>,
+    pub selection: Option<String>,
+    pub session_id: String,
+    pub session_title: String,
+    #[serde(default)]
+    pub system_prompt: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubscriptionStatus {
@@ -153,21 +166,6 @@ pub struct AgentSessionSummary {
     pub model: String,
     pub reasoning_effort: String,
     pub message_count: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentEdit {
-    pub path: String,
-    pub content: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentPayload {
-    pub summary: String,
-    #[serde(default)]
-    pub edits: Vec<AgentEdit>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -156,7 +156,7 @@ type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "u
 type RecentProject = { name: string; path: string };
 type PanelKind = "navigator" | "agent";
 type PanelWidths = { navigator: number; agent: number };
-type SettingsTab = "appearance" | "editor" | "accounts" | "api";
+type SettingsTab = "appearance" | "editor" | "agent" | "accounts" | "api";
 type AppearanceSettings = { uiFont: string; interfaceScale: number; editorFont: string; editorFontSize: number };
 type AutoBuildMode = "manual" | "automatic";
 type BuildPreferences = { autoBuildMode: AutoBuildMode };
@@ -169,12 +169,13 @@ const APPEARANCE_KEY = "lattice.appearance.v2";
 const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v1";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
+const AGENT_SYSTEM_PROMPT_KEY = "lattice.agent-system-prompt.v1";
 
 const defaultWelcomeMessages: ChatMessage[] = [
   {
     id: "welcome",
     role: "agent",
-    text: "What would you like to write or revise?",
+    text: "What would you like to work on?",
   },
 ];
 
@@ -224,6 +225,8 @@ function App() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
   const [appearance, setAppearance] = useState<AppearanceSettings>(loadAppearance);
   const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
+  const [systemPrompt, setSystemPrompt] = useState(loadSystemPrompt);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [subscriptions, setSubscriptions] = useState<SubscriptionStatus[]>([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [subscriptionNotice, setSubscriptionNotice] = useState("");
@@ -478,6 +481,33 @@ function App() {
       // Build preferences still apply for the current session without storage.
     }
   }, [buildPreferences]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(AGENT_SYSTEM_PROMPT_KEY, systemPrompt);
+    } catch {
+      // The prompt still applies for the current session without storage.
+    }
+  }, [systemPrompt]);
+
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    if (typeof appWindow.isFullscreen !== "function" || typeof appWindow.onResized !== "function") return;
+    let active = true;
+    let stopListening: (() => void) | undefined;
+    const refresh = () => {
+      void appWindow.isFullscreen().then((value) => active && setIsFullscreen(value));
+    };
+    refresh();
+    void appWindow.onResized(refresh).then((unlisten) => {
+      if (active) stopListening = unlisten;
+      else unlisten();
+    });
+    return () => {
+      active = false;
+      stopListening?.();
+    };
+  }, []);
 
   useEffect(() => {
     chatEnd.current?.scrollIntoView({ behavior: "smooth" });
@@ -783,11 +813,15 @@ function App() {
       if (!(await save())) throw new Error("Save the current file before running the agent.");
       const result = await invoke<AgentResult>("run_agent", {
         onEvent,
-        settings: { provider, model: agentModel, reasoningEffort },
-        message,
-        activeFile: activeFile || null,
-        selection: selection || null,
-        conversation: messages,
+        request: {
+          settings: { provider, model: agentModel, reasoningEffort },
+          message,
+          activeFile: activeFile || null,
+          selection: selection || null,
+          sessionId: session.id,
+          sessionTitle: session.title,
+          systemPrompt,
+        },
       });
       const completedMessages: ChatMessage[] = [...pendingMessages, {
         id: streamedMessageId,
@@ -831,7 +865,7 @@ function App() {
       setAgentStreaming(false);
       setAgentStatus("");
     }
-  }, [activeFile, activeSession, agentInput, agentModel, agentRunning, compile, loadFile, messages, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection]);
+  }, [activeFile, activeSession, agentInput, agentModel, agentRunning, compile, loadFile, messages, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
 
   const revert = useCallback(
     async (id: string) => {
@@ -952,6 +986,8 @@ function App() {
       setAppearance={setAppearance}
       buildPreferences={buildPreferences}
       setBuildPreferences={setBuildPreferences}
+      systemPrompt={systemPrompt}
+      setSystemPrompt={setSystemPrompt}
       subscriptions={subscriptions}
       subscriptionsLoading={subscriptionsLoading}
       subscriptionNotice={subscriptionNotice}
@@ -993,7 +1029,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell" ref={shellRef}>
+    <div className={`app-shell ${isFullscreen ? "fullscreen" : ""}`} ref={shellRef}>
       <header className="titlebar" onMouseDown={beginWindowDrag}>
         <div className="titlebar-navigator">
           <div className="traffic-space" />
@@ -1996,6 +2032,8 @@ function SettingsDialog(props: {
   setAppearance: (appearance: AppearanceSettings) => void;
   buildPreferences: BuildPreferences;
   setBuildPreferences: (preferences: BuildPreferences) => void;
+  systemPrompt: string;
+  setSystemPrompt: (prompt: string) => void;
   subscriptions: SubscriptionStatus[];
   subscriptionsLoading: boolean;
   subscriptionNotice: string;
@@ -2021,6 +2059,7 @@ function SettingsDialog(props: {
           <nav className="settings-nav">
             <button className={props.tab === "appearance" ? "active" : ""} onClick={() => props.setTab("appearance")}>Appearance</button>
             <button className={props.tab === "editor" ? "active" : ""} onClick={() => props.setTab("editor")}>Editor & builds</button>
+            <button className={props.tab === "agent" ? "active" : ""} onClick={() => props.setTab("agent")}>Agent</button>
             <button className={props.tab === "accounts" ? "active" : ""} onClick={() => props.setTab("accounts")}>Subscriptions</button>
             <button className={props.tab === "api" ? "active" : ""} onClick={() => props.setTab("api")}>API keys</button>
           </nav>
@@ -2068,6 +2107,25 @@ function SettingsDialog(props: {
                 <div className="settings-detail">
                   <Play size={14} />
                   <div><strong>{autoBuildTitle(props.buildPreferences.autoBuildMode)}</strong><span>{autoBuildDetail(props.buildPreferences.autoBuildMode)}</span></div>
+                </div>
+              </div>
+            )}
+            {props.tab === "agent" && (
+              <div className="settings-section">
+                <h2>Agent</h2>
+                <p>Lattice runs the Pi agent harness with project tools and four bundled research skills. Leave this blank to use Pi’s default system prompt.</p>
+                <label htmlFor="agent-system-prompt">System prompt
+                  <textarea
+                    id="agent-system-prompt"
+                    aria-label="Agent system prompt"
+                    placeholder="Write the system prompt you want Pi to use…"
+                    value={props.systemPrompt}
+                    onChange={(event) => props.setSystemPrompt(event.target.value)}
+                  />
+                </label>
+                <div className="settings-detail">
+                  <Bot size={14} />
+                  <div><strong>Application-local skills</strong><span>Writing, research taste, related work, and bibcite are available on demand without changing your global agent setup.</span></div>
                 </div>
               </div>
             )}
@@ -2158,14 +2216,24 @@ function modelOptions(provider: AgentProvider): ModelOption[] {
     case "claude":
       return [
         { value: "claude-opus-4-8", label: "Claude Opus 4.8", efforts: frontier },
+        { value: "claude-opus-4-7", label: "Claude Opus 4.7", efforts: frontier },
+        { value: "claude-opus-4-6", label: "Claude Opus 4.6", efforts: frontier },
+        { value: "claude-opus-4-5", label: "Claude Opus 4.5", efforts: frontier },
+        { value: "claude-opus-4-1", label: "Claude Opus 4.1", efforts: frontier },
         { value: "claude-sonnet-5", label: "Claude Sonnet 5", efforts: frontier },
-        { value: "claude-fable-5", label: "Claude Fable 5", efforts: frontier },
+        { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", efforts: frontier },
+        { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", efforts: frontier },
       ];
     case "anthropic-api":
       return [
         { value: "claude-opus-4-8", label: "Claude Opus 4.8", efforts: frontier },
+        { value: "claude-opus-4-7", label: "Claude Opus 4.7", efforts: frontier },
+        { value: "claude-opus-4-6", label: "Claude Opus 4.6", efforts: frontier },
+        { value: "claude-opus-4-5", label: "Claude Opus 4.5", efforts: frontier },
+        { value: "claude-opus-4-1", label: "Claude Opus 4.1", efforts: frontier },
         { value: "claude-sonnet-5", label: "Claude Sonnet 5", efforts: frontier },
-        { value: "claude-fable-5", label: "Claude Fable 5", efforts: frontier },
+        { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", efforts: frontier },
+        { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", efforts: frontier },
       ];
   }
 }
@@ -2178,7 +2246,7 @@ function normalizeModel(provider: AgentProvider, model: string | undefined): str
   if (provider === "claude") {
     if (model === "sonnet") return "claude-sonnet-5";
     if (model === "opus") return "claude-opus-4-8";
-    if (model === "fable") return "claude-fable-5";
+    if (model === "fable" || model === "claude-fable-5") return "claude-sonnet-5";
   }
   return modelOptions(provider).some((option) => option.value === model) ? model as string : defaultModel(provider);
 }
@@ -2283,6 +2351,14 @@ function loadBuildPreferences(): BuildPreferences {
     };
   } catch {
     return { autoBuildMode: "manual" };
+  }
+}
+
+function loadSystemPrompt(): string {
+  try {
+    return localStorage.getItem(AGENT_SYSTEM_PROMPT_KEY) ?? "";
+  } catch {
+    return "";
   }
 }
 

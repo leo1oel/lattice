@@ -7,7 +7,11 @@ import { getDocument } from "pdfjs-dist";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
-const windowApi = vi.hoisted(() => ({ startDragging: vi.fn() }));
+const windowApi = vi.hoisted(() => ({
+  startDragging: vi.fn(),
+  isFullscreen: vi.fn(),
+  onResized: vi.fn(),
+}));
 const tauriCore = vi.hoisted(() => {
   class MockChannel {
     onmessage: (response: unknown) => void;
@@ -20,7 +24,7 @@ const tauriCore = vi.hoisted(() => {
 });
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), Channel: tauriCore.MockChannel }));
-vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ startDragging: windowApi.startDragging }) }));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn() }));
 vi.mock("pdfjs-dist", () => ({ GlobalWorkerOptions: {}, getDocument: vi.fn() }));
@@ -60,6 +64,8 @@ beforeEach(() => {
   vi.mocked(open).mockResolvedValue(null);
   vi.mocked(save).mockResolvedValue(null);
   vi.mocked(revealItemInDir).mockResolvedValue(undefined);
+  windowApi.isFullscreen.mockResolvedValue(false);
+  windowApi.onResized.mockResolvedValue(() => undefined);
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "initial_project") return null;
     throw new Error(`Unexpected command: ${command}`);
@@ -104,6 +110,10 @@ describe("welcome screen", () => {
     expect(screen.getByText("Build automatically")).toBeInTheDocument();
     expect(screen.getByText(/leave the editor or after 1.2 seconds/i)).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v1")).toContain("automatic"));
+    fireEvent.click(screen.getByRole("button", { name: "Agent" }));
+    const systemPrompt = screen.getByLabelText("Agent system prompt");
+    fireEvent.change(systemPrompt, { target: { value: "Write with precision." } });
+    await waitFor(() => expect(localStorage.getItem("lattice.agent-system-prompt.v1")).toBe("Write with precision."));
   });
 });
 
@@ -149,6 +159,32 @@ describe("project workspace", () => {
     expect(composer).toHaveAttribute("rows", "1");
     expect(composer).toHaveStyle({ height: "44px", overflowY: "hidden" });
     expect(screen.getByTitle("Conversation history")).toHaveTextContent("New");
+  });
+
+  it("moves the navigator control to the left edge in fullscreen", async () => {
+    windowApi.isFullscreen.mockResolvedValue(true);
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    await screen.findByTitle("Hide navigator");
+    await waitFor(() => expect(document.querySelector(".app-shell")).toHaveClass("fullscreen"));
   });
 
   it("resizes panels with the accessible divider controls", async () => {
@@ -643,9 +679,15 @@ describe("project workspace", () => {
     const streamedReply = screen.getByText("Reviewing the abstract as evidence arrives…");
     expect(streamedReply.closest(".chat-message.streaming")).not.toBeNull();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("run_agent", expect.objectContaining({
-      settings: { provider: "claude", model: "claude-opus-4-8", reasoningEffort: "xhigh" },
-      message,
-      conversation: testSession.messages,
+      request: {
+        settings: { provider: "claude", model: "claude-opus-4-8", reasoningEffort: "xhigh" },
+        message,
+        activeFile: "main.tex",
+        selection: null,
+        sessionId: testSession.id,
+        sessionTitle: testSession.title,
+        systemPrompt: "",
+      },
     })));
   });
 
