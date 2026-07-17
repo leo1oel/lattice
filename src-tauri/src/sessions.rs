@@ -29,6 +29,7 @@ pub fn create(
             role: "agent".to_string(),
             text: "What would you like to write or revise?".to_string(),
             files: Vec::new(),
+            skills: Vec::new(),
         }],
     };
     write(root, &session)?;
@@ -169,6 +170,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn legacy_messages_without_skills_remain_readable() {
+        let message: AgentMessage = serde_json::from_str(
+            r#"{"id":"old","role":"agent","text":"Earlier response","files":[]}"#,
+        )
+        .unwrap();
+        assert!(message.skills.is_empty());
+    }
+
+    #[test]
     fn conversations_can_be_created_saved_restored_and_deleted() {
         let root = std::env::temp_dir().join(format!("lattice-session-{}", Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
@@ -179,6 +189,7 @@ mod tests {
             role: "user".to_string(),
             text: "Rewrite the introduction around the central hypothesis".to_string(),
             files: Vec::new(),
+            skills: Vec::new(),
         });
         let session = save(&root, session).unwrap();
         assert_eq!(

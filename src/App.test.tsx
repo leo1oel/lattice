@@ -648,4 +648,41 @@ describe("project workspace", () => {
       conversation: testSession.messages,
     })));
   });
+
+  it("shows the application skills selected for a completed agent turn", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "run_agent") {
+        return {
+          summary: "Revised the experiment section.",
+          changedFiles: [],
+          skillsUsed: ["Writing", "Research taste"],
+        };
+      }
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const composer = await screen.findByPlaceholderText(/ask the agent/i);
+    fireEvent.change(composer, { target: { value: "Revise the experiment section and check the baseline." } });
+    fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
+
+    expect(await screen.findByText("Revised the experiment section.")).toBeInTheDocument();
+    expect(screen.getByText("Writing")).toBeInTheDocument();
+    expect(screen.getByText("Research taste")).toBeInTheDocument();
+  });
 });

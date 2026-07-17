@@ -107,6 +107,7 @@ type AgentResult = {
   summary: string;
   changedFiles: string[];
   transactionId?: string;
+  skillsUsed: string[];
 };
 
 type AgentStreamEvent =
@@ -124,6 +125,7 @@ type ChatMessage = {
   role: "user" | "agent" | "system";
   text: string;
   files?: string[];
+  skills?: string[];
 };
 
 type AgentSession = {
@@ -792,6 +794,7 @@ function App() {
         role: "agent",
         text: result.summary,
         files: result.changedFiles,
+        skills: result.skillsUsed ?? [],
       }];
       currentMessages = completedMessages;
       setAgentStreaming(false);
@@ -1668,6 +1671,7 @@ function AgentPanel({
             {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
             <div className="message-body">
               <p>{message.text}</p>
+              {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
               {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
             </div>
           </div>

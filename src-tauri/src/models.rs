@@ -107,6 +107,8 @@ pub struct AgentMessage {
     pub text: String,
     #[serde(default)]
     pub files: Vec<String>,
+    #[serde(default)]
+    pub skills: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,6 +176,7 @@ pub struct AgentResult {
     pub summary: String,
     pub changed_files: Vec<String>,
     pub transaction_id: Option<String>,
+    pub skills_used: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

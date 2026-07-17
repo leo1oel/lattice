@@ -193,6 +193,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .message-avatar { width: 22px; height: 22px; flex: none; border-radius: 7px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
 .message-body p { max-width: 100%; margin: 0; overflow-wrap: anywhere; word-break: break-word; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; }
 .chat-message.streaming .message-body p::after { content: ""; width: 1.5px; height: .95em; margin-left: 3px; display: inline-block; vertical-align: -.08em; border-radius: 1px; background: var(--accent); animation: stream-cursor .8s steps(1) infinite; }
+.skills-used { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }
+.skills-used small { color: var(--faint); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
+.skills-used span { border-radius: 5px; padding: 3px 5px; background: var(--accent-soft); color: var(--accent); font-size: 9px; }
 .changed-files { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .changed-files span { max-width: 100%; border: 1px solid var(--line); border-radius: 5px; padding: 3px 5px; display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thinking { height: 22px; display: flex; align-items: center; gap: 4px; }

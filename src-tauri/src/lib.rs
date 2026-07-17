@@ -5,6 +5,7 @@ mod models;
 mod papers;
 mod project;
 mod sessions;
+mod skills;
 
 use models::{
     AgentMessage, AgentResult, AgentSession, AgentSessionSummary, AgentSettings, AgentStreamEvent,
