@@ -5,10 +5,12 @@ mod models;
 mod papers;
 mod project;
 mod sessions;
+mod skill_store;
 
 use models::{
-    AgentResult, AgentRunRequest, AgentSession, AgentSessionSummary, AgentStreamEvent, BuildResult,
-    HistoryItem, ImportResult, PaperSummary, ProjectSnapshot, SubscriptionStatus,
+    AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
+    AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, BuildResult, HistoryItem, ImportResult,
+    PaperSummary, ProjectSnapshot, SubscriptionStatus,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -274,6 +276,14 @@ fn list_agent_sessions(
 }
 
 #[tauri::command]
+fn search_agent_sessions(
+    state: tauri::State<'_, AppState>,
+    query: String,
+) -> Result<Vec<AgentSessionSearchResult>, String> {
+    sessions::search(&current_root(&state)?, &query)
+}
+
+#[tauri::command]
 fn read_agent_session(
     state: tauri::State<'_, AppState>,
     session_id: String,
@@ -295,6 +305,103 @@ fn delete_agent_session(
     session_id: String,
 ) -> Result<(), String> {
     sessions::delete(&current_root(&state)?, &session_id)
+}
+
+#[tauri::command]
+async fn fork_agent_session(
+    state: tauri::State<'_, AppState>,
+    source_session_id: String,
+    message_id: String,
+    system_prompt: String,
+) -> Result<AgentSession, String> {
+    let root = current_root(&state)?;
+    let runtime = state.agent_runtime.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let source = sessions::read(&root, &source_session_id)?;
+        let target_index = source
+            .messages
+            .iter()
+            .position(|message| message.id == message_id && message.role == "user")
+            .ok_or_else(|| "The message to branch from is no longer available.".to_string())?;
+        let user_message_index = source.messages[..target_index]
+            .iter()
+            .filter(|message| message.role == "user")
+            .count();
+        let settings = models::AgentSettings {
+            provider: source.provider.clone(),
+            model: source.model.clone(),
+            reasoning_effort: source.reasoning_effort.clone(),
+        };
+        let branch_id = agents::fork_session(
+            &root,
+            &runtime,
+            &settings,
+            &source.id,
+            &source.title,
+            user_message_index,
+            &system_prompt,
+        )?;
+        sessions::create_branch(&root, &source, &branch_id, &message_id)
+    })
+    .await
+    .map_err(|error| format!("Could not create the conversation branch: {error}"))?
+}
+
+#[tauri::command]
+fn list_agent_skills(state: tauri::State<'_, AppState>) -> Result<Vec<AgentSkill>, String> {
+    let root = state
+        .root
+        .lock()
+        .map_err(|_| "Project state is unavailable.".to_string())?
+        .clone()
+        .unwrap_or_else(|| state.agent_runtime.config.join("no-project"));
+    skill_store::list(&root, &state.agent_runtime)
+}
+
+#[tauri::command]
+fn save_agent_skill(
+    state: tauri::State<'_, AppState>,
+    request: AgentSkillSaveRequest,
+) -> Result<AgentSkill, String> {
+    let root = if request.scope == "project" {
+        current_root(&state)?
+    } else {
+        state
+            .root
+            .lock()
+            .map_err(|_| "Project state is unavailable.".to_string())?
+            .clone()
+            .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
+    };
+    skill_store::save(&root, &state.agent_runtime, request)
+}
+
+#[tauri::command]
+fn set_agent_skill_enabled(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    enabled: bool,
+) -> Result<(), String> {
+    skill_store::set_enabled(&state.agent_runtime, &name, enabled)
+}
+
+#[tauri::command]
+fn delete_agent_skill(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    scope: String,
+) -> Result<(), String> {
+    let root = if scope == "project" {
+        current_root(&state)?
+    } else {
+        state
+            .root
+            .lock()
+            .map_err(|_| "Project state is unavailable.".to_string())?
+            .clone()
+            .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
+    };
+    skill_store::delete(&root, &state.agent_runtime, &name, &scope)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -345,9 +452,15 @@ pub fn run() {
             delete_history_entry,
             create_agent_session,
             list_agent_sessions,
+            search_agent_sessions,
             read_agent_session,
             save_agent_session,
             delete_agent_session,
+            fork_agent_session,
+            list_agent_skills,
+            save_agent_skill,
+            set_agent_skill_enabled,
+            delete_agent_skill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,7 @@
 use crate::commands;
 use crate::models::{AgentResult, AgentSettings, AgentStreamEvent, SubscriptionStatus};
 use crate::project;
+use crate::skill_store;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use serde_json::{json, Map, Value};
@@ -13,13 +14,6 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 const AGENT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
-const BUNDLED_SKILLS: [&str; 4] = [
-    "humanize-writing",
-    "research-taste",
-    "related-work-openalex",
-    "bibcite",
-];
-
 #[derive(Clone)]
 pub struct AgentRuntime {
     pub executable: PathBuf,
@@ -98,62 +92,14 @@ fn run_pi(
     request: &AgentRequest<'_>,
     on_event: &dyn Fn(AgentStreamEvent),
 ) -> Result<String, String> {
-    if !runtime.executable.is_file() {
-        return Err(format!(
-            "The bundled agent runtime is missing at {}.",
-            runtime.executable.display()
-        ));
-    }
-    if !runtime.assets.is_dir() {
-        return Err(format!(
-            "The bundled agent resources are missing at {}.",
-            runtime.assets.display()
-        ));
-    }
-
-    let (provider, agent_dir) = prepare_auth(runtime, &request.settings.provider)?;
-    let session_dir = root.join(".research/pi-sessions");
-    fs::create_dir_all(&session_dir).map_err(err)?;
-
-    let executable = runtime
-        .executable
-        .to_str()
-        .ok_or_else(|| "The bundled agent path is not valid UTF-8.".to_string())?;
-    let mut command = commands::command(executable);
-    command
-        .current_dir(root)
-        .env("PI_PACKAGE_DIR", &runtime.assets)
-        .env("PI_CODING_AGENT_DIR", &agent_dir)
-        .arg("--mode")
-        .arg("rpc")
-        .arg("--provider")
-        .arg(provider)
-        .arg("--model")
-        .arg(&request.settings.model)
-        .arg("--thinking")
-        .arg(&request.settings.reasoning_effort)
-        .arg("--session-dir")
-        .arg(&session_dir)
-        .arg("--session-id")
-        .arg(request.session_id)
-        .arg("--name")
-        .arg(request.session_title)
-        .arg("--no-context-files")
-        .arg("--no-extensions")
-        .arg("--no-skills")
-        .arg("--approve")
-        .arg("--extension")
-        .arg(runtime.assets.join("lattice.ts"));
-    for skill in BUNDLED_SKILLS {
-        command
-            .arg("--skill")
-            .arg(runtime.assets.join("skills").join(skill).join("SKILL.md"));
-    }
-    if !request.system_prompt.trim().is_empty() {
-        command
-            .arg("--system-prompt")
-            .arg(request.system_prompt.trim());
-    }
+    let command = pi_command(
+        root,
+        runtime,
+        request.settings,
+        request.session_id,
+        request.session_title,
+        request.system_prompt,
+    )?;
 
     let mut process = JsonLineProcess::spawn(command, "Lattice agent")?;
     let prompt = editor_prompt(request.message, request.active_file, request.selection);
@@ -260,6 +206,111 @@ fn run_pi(
     } else {
         visible.trim().to_string()
     })
+}
+
+pub fn fork_session(
+    root: &Path,
+    runtime: &AgentRuntime,
+    settings: &AgentSettings,
+    source_session_id: &str,
+    session_title: &str,
+    user_message_index: usize,
+    system_prompt: &str,
+) -> Result<String, String> {
+    let command = pi_command(
+        root,
+        runtime,
+        settings,
+        source_session_id,
+        session_title,
+        system_prompt,
+    )?;
+    let mut process = JsonLineProcess::spawn(command, "Lattice agent")?;
+    let fork_messages = process.request("lattice-fork-messages", "get_fork_messages", json!({}))?;
+    let messages = fork_messages
+        .pointer("/data/messages")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "Pi did not return the conversation branch points.".to_string())?;
+    let entry_id = messages
+        .get(user_message_index)
+        .and_then(|message| message.get("entryId"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| "This conversation cannot be branched because its Pi history is incomplete.".to_string())?;
+    process.request(
+        "lattice-fork",
+        "fork",
+        json!({ "entryId": entry_id }),
+    )?;
+    let state = process.request("lattice-fork-state", "get_state", json!({}))?;
+    let session_id = state
+        .pointer("/data/sessionId")
+        .and_then(Value::as_str)
+        .filter(|id| *id != source_session_id)
+        .ok_or_else(|| "Pi did not create a distinct conversation branch.".to_string())?
+        .to_string();
+    let _ = process.finish(true)?;
+    Ok(session_id)
+}
+
+fn pi_command(
+    root: &Path,
+    runtime: &AgentRuntime,
+    settings: &AgentSettings,
+    session_id: &str,
+    session_title: &str,
+    system_prompt: &str,
+) -> Result<Command, String> {
+    if !runtime.executable.is_file() {
+        return Err(format!(
+            "The bundled agent runtime is missing at {}.",
+            runtime.executable.display()
+        ));
+    }
+    if !runtime.assets.is_dir() {
+        return Err(format!(
+            "The bundled agent resources are missing at {}.",
+            runtime.assets.display()
+        ));
+    }
+    let (provider, agent_dir) = prepare_auth(runtime, &settings.provider)?;
+    let session_dir = root.join(".research/pi-sessions");
+    fs::create_dir_all(&session_dir).map_err(err)?;
+    let executable = runtime
+        .executable
+        .to_str()
+        .ok_or_else(|| "The bundled agent path is not valid UTF-8.".to_string())?;
+    let mut command = commands::command(executable);
+    command
+        .current_dir(root)
+        .env("PI_PACKAGE_DIR", &runtime.assets)
+        .env("PI_CODING_AGENT_DIR", &agent_dir)
+        .arg("--mode")
+        .arg("rpc")
+        .arg("--provider")
+        .arg(provider)
+        .arg("--model")
+        .arg(&settings.model)
+        .arg("--thinking")
+        .arg(&settings.reasoning_effort)
+        .arg("--session-dir")
+        .arg(&session_dir)
+        .arg("--session-id")
+        .arg(session_id)
+        .arg("--name")
+        .arg(session_title)
+        .arg("--no-context-files")
+        .arg("--no-extensions")
+        .arg("--no-skills")
+        .arg("--approve")
+        .arg("--extension")
+        .arg(runtime.assets.join("lattice.ts"));
+    for skill in skill_store::enabled_paths(root, runtime)? {
+        command.arg("--skill").arg(skill);
+    }
+    if !system_prompt.trim().is_empty() {
+        command.arg("--system-prompt").arg(system_prompt.trim());
+    }
+    Ok(command)
 }
 
 fn editor_prompt(message: &str, active_file: Option<&str>, selection: Option<&str>) -> String {
@@ -592,6 +643,31 @@ impl JsonLineProcess {
         }
     }
 
+    fn request(&mut self, id: &str, command: &str, fields: Value) -> Result<Value, String> {
+        let mut value = fields.as_object().cloned().unwrap_or_default();
+        value.insert("id".to_string(), Value::String(id.to_string()));
+        value.insert("type".to_string(), Value::String(command.to_string()));
+        self.send(&Value::Object(value))?;
+        loop {
+            let response = self
+                .next_value()?
+                .ok_or_else(|| format!("{} stopped before responding to {command}.", self.label))?;
+            if response.get("type").and_then(Value::as_str) != Some("response")
+                || response.get("id").and_then(Value::as_str) != Some(id)
+            {
+                continue;
+            }
+            if response.get("success").and_then(Value::as_bool) != Some(true) {
+                return Err(response
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("Pi rejected the request.")
+                    .to_string());
+            }
+            return Ok(response);
+        }
+    }
+
     fn finish(&mut self, terminate: bool) -> Result<(ExitStatus, String), String> {
         self.stdin.take();
         if terminate {
@@ -896,6 +972,22 @@ mod tests {
             .unwrap()
             .contains("State the research problem and central hypothesis clearly."));
         assert!(result.transaction_id.is_some());
+        let branch_id = fork_session(
+            &root,
+            &runtime,
+            &settings,
+            &session_id,
+            "E2E",
+            0,
+            "",
+        )
+        .unwrap();
+        assert_ne!(branch_id, session_id);
+        let source_suffix = format!("_{session_id}.jsonl");
+        assert!(fs::read_dir(root.join(".research/pi-sessions"))
+            .unwrap()
+            .flatten()
+            .any(|entry| entry.file_name().to_string_lossy().ends_with(&source_suffix)));
         fs::remove_dir_all(parent).unwrap();
     }
 }

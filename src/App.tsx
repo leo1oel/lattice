@@ -36,8 +36,10 @@ import {
   PanelLeftOpen,
   Play,
   Plus,
+  Pencil,
   RotateCcw,
   RefreshCw,
+  Search,
   Send,
   Settings2,
   Sparkles,
@@ -149,6 +151,18 @@ type AgentSessionSummary = {
   messageCount: number;
 };
 
+type AgentSessionSearchResult = AgentSessionSummary & { snippet: string };
+type AgentSkill = {
+  name: string;
+  description: string;
+  scope: "built-in" | "application" | "project";
+  enabled: boolean;
+  editable: boolean;
+  overridden: boolean;
+  content: string;
+};
+type SkillDraft = { originalName?: string; scope: "application" | "project"; content: string };
+
 type CanvasMode = "source" | "pdf" | "split" | "paper";
 type Theme = "light" | "dark";
 type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
@@ -197,6 +211,7 @@ function App() {
   const [agentSessions, setAgentSessions] = useState<AgentSessionSummary[]>([]);
   const [activeSession, setActiveSession] = useState<AgentSession | null>(null);
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
+  const [branchSource, setBranchSource] = useState<{ sessionId: string; messageId: string } | null>(null);
   const [agentInput, setAgentInput] = useState("");
   const [provider, setProvider] = useState<AgentProvider>("codex");
   const [agentModel, setAgentModel] = useState(defaultModel("codex"));
@@ -226,6 +241,8 @@ function App() {
   const [appearance, setAppearance] = useState<AppearanceSettings>(loadAppearance);
   const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
   const [systemPrompt, setSystemPrompt] = useState(loadSystemPrompt);
+  const [agentSkills, setAgentSkills] = useState<AgentSkill[]>([]);
+  const [skillDraft, setSkillDraft] = useState<SkillDraft | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [subscriptions, setSubscriptions] = useState<SubscriptionStatus[]>([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
@@ -375,6 +392,7 @@ function App() {
       setAgentSessions(sessionList);
       setActiveSession(session);
       setMessages(session.messages);
+      setBranchSource(null);
       setProvider(session.provider);
       setAgentModel(normalizeModel(session.provider, session.model));
       setReasoningEffort(normalizeEffort(session.reasoningEffort));
@@ -723,6 +741,7 @@ function App() {
       });
       setActiveSession(session);
       setMessages(session.messages);
+      setBranchSource(null);
       setSessionMenuOpen(false);
       await refreshAgentSessions();
     } catch (reason) {
@@ -739,6 +758,7 @@ function App() {
       const session = await invoke<AgentSession>("read_agent_session", { sessionId: id });
       setActiveSession(session);
       setMessages(session.messages);
+      setBranchSource(null);
       setProvider(session.provider);
       setAgentModel(normalizeModel(session.provider, session.model));
       setReasoningEffort(normalizeEffort(session.reasoningEffort));
@@ -773,37 +793,48 @@ function App() {
   const sendToAgent = useCallback(async () => {
     const message = agentInput.trim();
     if (!message || agentRunning) return;
-    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", text: message };
-    const pendingMessages = [...messages, userMessage];
     setAgentInput("");
-    setMessages(pendingMessages);
     setAgentRunning(true);
     setAgentStreaming(false);
-    setAgentStatus("Reading project context…");
+    setAgentStatus(branchSource ? "Creating conversation branch…" : "Reading project context…");
     let session = activeSession;
-    let currentMessages = pendingMessages;
+    let currentMessages = messages;
     const streamedMessageId = crypto.randomUUID();
-    const onEvent = new Channel<AgentStreamEvent>((event) => {
-      if (event.type === "status") {
-        setAgentStatus(event.message);
-        return;
-      }
-      if (!event.text) return;
-      const streamedMessages: ChatMessage[] = [...pendingMessages, {
-        id: streamedMessageId,
-        role: "agent",
-        text: event.text,
-      }];
-      currentMessages = streamedMessages;
-      setAgentStreaming(true);
-      setAgentStatus("");
-      setMessages(streamedMessages);
-    });
     try {
-      if (!session) session = await invoke<AgentSession>("create_agent_session", {
+      if (branchSource) {
+        session = await invoke<AgentSession>("fork_agent_session", {
+          sourceSessionId: branchSource.sessionId,
+          messageId: branchSource.messageId,
+          systemPrompt,
+        });
+        setBranchSource(null);
+        setProvider(session.provider);
+        setAgentModel(normalizeModel(session.provider, session.model));
+        setReasoningEffort(normalizeEffort(session.reasoningEffort));
+      } else if (!session) session = await invoke<AgentSession>("create_agent_session", {
         provider,
         model: agentModel,
         reasoningEffort,
+      });
+      const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", text: message };
+      const pendingMessages = [...session.messages, userMessage];
+      currentMessages = pendingMessages;
+      setMessages(pendingMessages);
+      const onEvent = new Channel<AgentStreamEvent>((event) => {
+        if (event.type === "status") {
+          setAgentStatus(event.message);
+          return;
+        }
+        if (!event.text) return;
+        const streamedMessages: ChatMessage[] = [...pendingMessages, {
+          id: streamedMessageId,
+          role: "agent",
+          text: event.text,
+        }];
+        currentMessages = streamedMessages;
+        setAgentStreaming(true);
+        setAgentStatus("");
+        setMessages(streamedMessages);
       });
       session = await invoke<AgentSession>("save_agent_session", {
         session: { ...session, provider, model: agentModel, reasoningEffort, messages: pendingMessages },
@@ -865,7 +896,13 @@ function App() {
       setAgentStreaming(false);
       setAgentStatus("");
     }
-  }, [activeFile, activeSession, agentInput, agentModel, agentRunning, compile, loadFile, messages, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
+  }, [activeFile, activeSession, agentInput, agentModel, agentRunning, branchSource, compile, loadFile, messages, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
+
+  const editAndBranch = useCallback((message: ChatMessage) => {
+    if (!activeSession || agentRunning || message.role !== "user") return;
+    setBranchSource({ sessionId: activeSession.id, messageId: message.id });
+    setAgentInput(message.text);
+  }, [activeSession, agentRunning]);
 
   const revert = useCallback(
     async (id: string) => {
@@ -898,13 +935,49 @@ function App() {
     }
   }, []);
 
+  const refreshAgentSkills = useCallback(async () => {
+    setAgentSkills(await invoke<AgentSkill[]>("list_agent_skills"));
+  }, []);
+
+  const saveAgentSkill = useCallback(async (draft: SkillDraft) => {
+    try {
+      await invoke("save_agent_skill", {
+        request: { originalName: draft.originalName ?? null, scope: draft.scope, content: draft.content },
+      });
+      setSkillDraft(null);
+      await refreshAgentSkills();
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [refreshAgentSkills]);
+
+  const setAgentSkillEnabled = useCallback(async (name: string, enabled: boolean) => {
+    try {
+      await invoke("set_agent_skill_enabled", { name, enabled });
+      await refreshAgentSkills();
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [refreshAgentSkills]);
+
+  const deleteAgentSkill = useCallback(async (skill: AgentSkill) => {
+    if (!window.confirm(`Delete ${skill.name}?`)) return;
+    try {
+      await invoke("delete_agent_skill", { name: skill.name, scope: skill.scope });
+      await refreshAgentSkills();
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [refreshAgentSkills]);
+
   const openSettings = useCallback((tab: SettingsTab = "appearance") => {
     setSettingsTab(tab);
     setSettingsOpen(true);
     setSubscriptionNotice("");
     if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
     if (tab === "accounts") void refreshSubscriptions();
-  }, [refreshApiKeys, refreshSubscriptions]);
+    if (tab === "agent") void refreshAgentSkills().catch((reason) => setError(toMessage(reason)));
+  }, [refreshAgentSkills, refreshApiKeys, refreshSubscriptions]);
 
   const beginSubscriptionLogin = useCallback(async (providerName: "codex" | "claude") => {
     try {
@@ -981,6 +1054,7 @@ function App() {
         setSettingsTab(tab);
         if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
         if (tab === "accounts") void refreshSubscriptions();
+        if (tab === "agent") void refreshAgentSkills().catch((reason) => setError(toMessage(reason)));
       }}
       appearance={appearance}
       setAppearance={setAppearance}
@@ -988,6 +1062,13 @@ function App() {
       setBuildPreferences={setBuildPreferences}
       systemPrompt={systemPrompt}
       setSystemPrompt={setSystemPrompt}
+      hasProject={Boolean(project)}
+      skills={agentSkills}
+      skillDraft={skillDraft}
+      setSkillDraft={setSkillDraft}
+      onSaveSkill={saveAgentSkill}
+      onSetSkillEnabled={setAgentSkillEnabled}
+      onDeleteSkill={deleteAgentSkill}
       subscriptions={subscriptions}
       subscriptionsLoading={subscriptionsLoading}
       subscriptionNotice={subscriptionNotice}
@@ -1142,6 +1223,7 @@ function App() {
           onNewSession={newAgentSession}
           onOpenSession={openAgentSession}
           onDeleteSession={deleteAgentSession}
+          onEditMessage={editAndBranch}
           input={agentInput}
           setInput={setAgentInput}
           provider={provider}
@@ -1156,6 +1238,8 @@ function App() {
           onSend={sendToAgent}
           onApiSettings={() => openSettings("api")}
           selection={selection}
+          branchSource={branchSource}
+          onCancelBranch={() => setBranchSource(null)}
           chatEnd={chatEnd}
         />
 
@@ -1581,6 +1665,7 @@ function AgentPanel({
   onNewSession,
   onOpenSession,
   onDeleteSession,
+  onEditMessage,
   input,
   setInput,
   provider,
@@ -1595,6 +1680,8 @@ function AgentPanel({
   onSend,
   onApiSettings,
   selection,
+  branchSource,
+  onCancelBranch,
   chatEnd,
 }: {
   messages: ChatMessage[];
@@ -1605,6 +1692,7 @@ function AgentPanel({
   onNewSession: () => void;
   onOpenSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
+  onEditMessage: (message: ChatMessage) => void;
   input: string;
   setInput: (value: string) => void;
   provider: AgentProvider;
@@ -1619,11 +1707,15 @@ function AgentPanel({
   onSend: () => void;
   onApiSettings: () => void;
   selection: string;
+  branchSource: { sessionId: string; messageId: string } | null;
+  onCancelBranch: () => void;
   chatEnd: React.RefObject<HTMLDivElement | null>;
 }) {
   const options = modelOptions(provider);
   const efforts = options.find((option) => option.value === model)?.efforts ?? ["high"];
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const [sessionSearch, setSessionSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<AgentSessionSearchResult[] | null>(null);
   useLayoutEffect(() => {
     const composer = composerRef.current;
     if (!composer) return;
@@ -1647,6 +1739,19 @@ function AgentPanel({
       window.removeEventListener("blur", closeMenu);
     };
   }, [sessionMenuOpen, setSessionMenuOpen]);
+  useEffect(() => {
+    const query = sessionSearch.trim();
+    if (!sessionMenuOpen || !query) return;
+    const timer = window.setTimeout(() => {
+      void invoke<AgentSessionSearchResult[]>("search_agent_sessions", { query })
+        .then(setSearchResults)
+        .catch(() => setSearchResults([]));
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [sessionMenuOpen, sessionSearch]);
+  const visibleSessions: AgentSessionSearchResult[] = sessionSearch.trim() && searchResults
+    ? searchResults
+    : sessions.map((session) => ({ ...session, snippet: "" }));
   return (
     <section className="agent-panel">
       <div className="agent-header">
@@ -1688,16 +1793,19 @@ function AgentPanel({
       {sessionMenuOpen && (
         <div className="session-menu" onPointerDown={(event) => event.stopPropagation()}>
           <div className="session-menu-heading"><span>Conversations</span><button onClick={onNewSession}><Plus size={13} /> New</button></div>
+          <label className="session-search"><Search size={12} /><input aria-label="Search conversations" value={sessionSearch} onChange={(event) => { setSessionSearch(event.target.value); setSearchResults(null); }} placeholder="Search conversations…" /></label>
           <div className="session-list">
-            {sessions.map((session) => (
+            {visibleSessions.map((session) => (
               <div key={session.id} className={session.id === activeSession?.id ? "active" : ""}>
                 <button className="session-open" onClick={() => onOpenSession(session.id)}>
                   <strong>{compactConversationTitle(session.title)}</strong>
                   <small>{modelLabel(session.provider, session.model || defaultModel(session.provider))} · {session.messageCount} messages · {relativeTime(session.updatedAt)}</small>
+                  {session.snippet && <small className="session-snippet">{session.snippet}</small>}
                 </button>
                 <button className="session-delete" title="Delete conversation" disabled={running} onClick={() => onDeleteSession(session.id)}><Trash2 size={12} /></button>
               </div>
             ))}
+            {!visibleSessions.length && <p className="session-empty">No conversations found.</p>}
           </div>
         </div>
       )}
@@ -1707,6 +1815,7 @@ function AgentPanel({
             {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
             <div className="message-body">
               <p>{message.text}</p>
+              {message.role === "user" && <button className="message-edit" title="Edit and branch from this message" disabled={running} onClick={() => onEditMessage(message)}><Pencil size={11} /> Edit</button>}
               {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
               {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
             </div>
@@ -1721,6 +1830,7 @@ function AgentPanel({
         <div ref={chatEnd} />
       </div>
       <div className="composer-wrap">
+        {branchSource && <div className="context-chip branch-chip"><Pencil size={11} /> Editing an earlier message creates a new branch <button title="Cancel conversation branch" onClick={onCancelBranch}><X size={11} /></button></div>}
         {selection && <div className="context-chip"><Code2 size={12} /> Selection · {selection.length} chars <button title="Selection follows the editor"><Check size={11} /></button></div>}
         <div className="composer">
           <textarea
@@ -2034,6 +2144,13 @@ function SettingsDialog(props: {
   setBuildPreferences: (preferences: BuildPreferences) => void;
   systemPrompt: string;
   setSystemPrompt: (prompt: string) => void;
+  hasProject: boolean;
+  skills: AgentSkill[];
+  skillDraft: SkillDraft | null;
+  setSkillDraft: (draft: SkillDraft | null) => void;
+  onSaveSkill: (draft: SkillDraft) => void;
+  onSetSkillEnabled: (name: string, enabled: boolean) => void;
+  onDeleteSkill: (skill: AgentSkill) => void;
   subscriptions: SubscriptionStatus[];
   subscriptionsLoading: boolean;
   subscriptionNotice: string;
@@ -2113,7 +2230,7 @@ function SettingsDialog(props: {
             {props.tab === "agent" && (
               <div className="settings-section">
                 <h2>Agent</h2>
-                <p>Lattice runs the Pi agent harness with project tools and four bundled research skills. Leave this blank to use Pi’s default system prompt.</p>
+                <p>Lattice runs Pi directly. The prompt and skills below stay inside Lattice and never change your global agent setup.</p>
                 <label htmlFor="agent-system-prompt">System prompt
                   <textarea
                     id="agent-system-prompt"
@@ -2123,10 +2240,38 @@ function SettingsDialog(props: {
                     onChange={(event) => props.setSystemPrompt(event.target.value)}
                   />
                 </label>
-                <div className="settings-detail">
-                  <Bot size={14} />
-                  <div><strong>Application-local skills</strong><span>Writing, research taste, related work, and bibcite are available on demand without changing your global agent setup.</span></div>
+                <div className="skill-heading">
+                  <div><strong>Skills</strong><span>Enabled skills are given to Pi on its next turn.</span></div>
+                  <button onClick={() => props.setSkillDraft({ scope: "application", content: "---\nname: new-skill\ndescription: Describe when Pi should use this skill.\n---\n\n# New skill\n\nWrite the instructions here.\n" })}><Plus size={12} /> Add skill</button>
                 </div>
+                {props.skillDraft ? (
+                  <div className="skill-editor">
+                    <label>Availability
+                      <select value={props.skillDraft.scope} onChange={(event) => props.setSkillDraft({ ...props.skillDraft!, scope: event.target.value as "application" | "project" })}>
+                        <option value="application">All Lattice projects</option>
+                        <option value="project" disabled={!props.hasProject}>This project only</option>
+                      </select>
+                    </label>
+                    <label>SKILL.md
+                      <textarea aria-label="Skill instructions" value={props.skillDraft.content} onChange={(event) => props.setSkillDraft({ ...props.skillDraft!, content: event.target.value })} />
+                    </label>
+                    <div className="skill-editor-actions"><button onClick={() => props.setSkillDraft(null)}>Cancel</button><button className="primary-button" onClick={() => props.onSaveSkill(props.skillDraft!)}>Save skill</button></div>
+                  </div>
+                ) : (
+                  <div className="skill-list">
+                    {props.skills.map((skill) => (
+                      <div className="skill-card" key={skill.name}>
+                        <button className={`skill-toggle ${skill.enabled ? "enabled" : ""}`} role="switch" aria-checked={skill.enabled} aria-label={`Enable ${skill.name}`} onClick={() => props.onSetSkillEnabled(skill.name, !skill.enabled)}><span /></button>
+                        <div><strong>{skill.name}</strong><small>{skill.scope === "built-in" ? "Bundled" : skill.scope === "application" ? "All projects" : "This project"}{skill.overridden ? " · overrides bundled" : ""}</small><p>{skill.description}</p></div>
+                        <div className="skill-actions">
+                          <button title={`Edit ${skill.name}`} onClick={() => props.setSkillDraft({ originalName: skill.name, scope: skill.scope === "project" ? "project" : "application", content: skill.content })}><Pencil size={12} /></button>
+                          {skill.scope !== "built-in" && <button title={skill.overridden ? `Restore bundled ${skill.name}` : `Delete ${skill.name}`} onClick={() => props.onDeleteSkill(skill)}>{skill.overridden ? <RotateCcw size={12} /> : <Trash2 size={12} />}</button>}
+                        </div>
+                      </div>
+                    ))}
+                    {!props.skills.length && <p className="settings-empty">No skills are installed in Lattice.</p>}
+                  </div>
+                )}
               </div>
             )}
             {props.tab === "accounts" && (

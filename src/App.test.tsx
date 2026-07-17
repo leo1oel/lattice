@@ -68,6 +68,7 @@ beforeEach(() => {
   windowApi.onResized.mockResolvedValue(() => undefined);
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "initial_project") return null;
+    if (command === "list_agent_skills") return [];
     throw new Error(`Unexpected command: ${command}`);
   });
 });
@@ -114,6 +115,40 @@ describe("welcome screen", () => {
     const systemPrompt = screen.getByLabelText("Agent system prompt");
     fireEvent.change(systemPrompt, { target: { value: "Write with precision." } });
     await waitFor(() => expect(localStorage.getItem("lattice.agent-system-prompt.v1")).toBe("Write with precision."));
+  });
+
+  it("manages application-local skills without installing them globally", async () => {
+    const skill = {
+      name: "research-taste",
+      description: "Apply the user's research taste.",
+      scope: "built-in",
+      enabled: true,
+      editable: false,
+      overridden: false,
+      content: "---\nname: research-taste\ndescription: Apply the user's research taste.\n---\n",
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return null;
+      if (command === "list_agent_skills") return [skill];
+      if (command === "save_agent_skill") return { ...skill, scope: "application" };
+      throw new Error(`Unexpected command: ${command} ${JSON.stringify(args)}`);
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByTitle("Settings"));
+    fireEvent.click(screen.getByRole("button", { name: "Agent" }));
+    expect(await screen.findByText("research-taste")).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Edit research-taste"));
+    const instructions = screen.getByLabelText("Skill instructions");
+    fireEvent.change(instructions, { target: { value: `${skill.content}\nUse it carefully.` } });
+    fireEvent.click(screen.getByRole("button", { name: "Save skill" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("save_agent_skill", {
+      request: {
+        originalName: "research-taste",
+        scope: "application",
+        content: `${skill.content}\nUse it carefully.`,
+      },
+    }));
   });
 });
 
@@ -555,6 +590,70 @@ describe("project workspace", () => {
       model: "gpt-5.6-sol",
       reasoningEffort: "high",
     });
+  });
+
+  it("searches conversation contents", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: { schemaVersion: 1, projectId: "paper-id", name: "Lattice paper", rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }], primaryBibliography: "references.bib", trusted: false },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys") return [];
+      if (command === "search_agent_sessions") return [{ ...testSessionSummary, title: "Earlier draft", snippet: "…strongest diffusion baseline…" }];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    fireEvent.click(await screen.findByTitle("Conversation history"));
+    fireEvent.change(screen.getByLabelText("Search conversations"), { target: { value: "diffusion" } });
+    expect(await screen.findByText("…strongest diffusion baseline…")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("search_agent_sessions", { query: "diffusion" });
+  });
+
+  it("edits an earlier message by creating a new conversation branch", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: { schemaVersion: 1, projectId: "paper-id", name: "Lattice paper", rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }], primaryBibliography: "references.bib", trusted: false },
+      files: [],
+    };
+    const source = {
+      ...testSession,
+      messages: [
+        ...testSession.messages,
+        { id: "question", role: "user", text: "Draft the old argument.", files: [] },
+        { id: "answer", role: "agent", text: "Old answer", files: [] },
+      ],
+    };
+    const branch = { ...source, id: "33333333-3333-4333-8333-333333333333", title: "New", messages: testSession.messages };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys") return [];
+      if (command === "list_agent_sessions") return [{ ...testSessionSummary, messageCount: source.messages.length }];
+      if (command === "read_agent_session") return source;
+      if (command === "fork_agent_session") return branch;
+      if (command === "save_agent_session") return (args as { session: unknown }).session;
+      if (command === "run_agent") return { summary: "New branched answer", changedFiles: [], skillsUsed: [] };
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    render(<App />);
+    fireEvent.click(await screen.findByTitle("Edit and branch from this message"));
+    const composer = screen.getByPlaceholderText(/ask the agent/i);
+    expect(composer).toHaveValue("Draft the old argument.");
+    fireEvent.change(composer, { target: { value: "Draft a stronger argument." } });
+    fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
+
+    expect(await screen.findByText("New branched answer")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("fork_agent_session", {
+      sourceSessionId: testSession.id,
+      messageId: "question",
+      systemPrompt: "",
+    });
+    expect(invoke).toHaveBeenCalledWith("run_agent", expect.objectContaining({ request: expect.objectContaining({ sessionId: branch.id, message: "Draft a stronger argument." }) }));
   });
 
   it("deletes a history entry without creating another one", async () => {

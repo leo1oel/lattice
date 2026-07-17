@@ -20,12 +20,12 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Add every imported paper to the project bibliography through `bibcite`.
 - Browse imported papers by title, read their Markdown snapshots, and remove a paper together with its `bibcite`-managed bibliography entry.
 - Ask a local Codex or Claude Code session to make evidence-aware project edits while its visible response streams into the conversation.
-- Route each request through the bundled Writing, Research taste, and Related work skills only when needed, without installing them into any global agent directory; completed responses show which skills were active.
+- Manage bundled, all-project, and project-only skills from Settings, including adding, editing, disabling, deleting, and restoring overrides without installing anything into a global agent directory.
 - Search OpenAlex for candidate related work on demand while keeping discovery metadata separate from evidence that is safe to cite.
 - Use an OpenAI or Anthropic API key with the same streamed response experience instead of a local subscription.
 - Switch between Codex and Claude between messages, with current full model names and model-specific reasoning-effort controls for subscriptions and APIs.
 - Inspect and start Codex or Claude subscription login from Settings without configuring an API key.
-- Create, restore, and delete project-local agent conversations with prior messages included as context.
+- Create, search, restore, and delete project-local agent conversations, or edit an earlier user message to continue on a new Pi branch while preserving the original conversation.
 - Save direct edits, imports, and agent changes as atomic project transactions.
 - Inspect project history and revert a transaction.
 - Resize the Project and Papers regions vertically and preserve that layout across launches.
@@ -35,7 +35,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 ## Current boundaries
 
 This prototype does not yet implement realtime collaboration, CRDT synchronization, cloud accounts, PDF-to-source selection through SyncTeX, a full ACP agent adapter, MCP tool exposure, or semantic embeddings.
-The local agent bridge uses a constrained structured-edit response and applies validated changes through the application's transaction layer.
+The local agent experience is a Pi harness with project tools, application-local skills, optional user-owned system prompts, and a bibliography prehook that redirects `.bib` edits through `bibcite`.
 Imported paper retrieval is currently a lightweight lexical ranking over project snapshots.
 
 ## Prerequisites
@@ -148,7 +148,7 @@ pnpm tauri build
 3. Add TexLab diagnostics and completion to the source editor.
 4. Add SQLite FTS5 indexing and evaluate a PaperQA2 sidecar for semantic evidence retrieval.
 5. Add current official venue-template conversion for NeurIPS, ICML, ICLR, and other target conferences.
-6. Add user-approved project-local skills beyond the bundled Lattice skills, and harden import upgrades, on-demand figure downloads, provenance sidecars, and failure recovery.
+6. Harden skill import upgrades, on-demand figure downloads, provenance sidecars, and failure recovery.
 7. Introduce a CRDT-backed `DocumentStore` behind the existing transaction interface before adding collaboration UI.
 
 ## License

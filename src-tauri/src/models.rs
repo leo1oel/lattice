@@ -170,6 +170,34 @@ pub struct AgentSessionSummary {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AgentSessionSearchResult {
+    #[serde(flatten)]
+    pub session: AgentSessionSummary,
+    pub snippet: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSkill {
+    pub name: String,
+    pub description: String,
+    pub scope: String,
+    pub enabled: bool,
+    pub editable: bool,
+    pub overridden: bool,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSkillSaveRequest {
+    pub original_name: Option<String>,
+    pub scope: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentResult {
     pub summary: String,
     pub changed_files: Vec<String>,

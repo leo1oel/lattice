@@ -1,4 +1,6 @@
-use crate::models::{AgentMessage, AgentSession, AgentSessionSummary};
+use crate::models::{
+    AgentMessage, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
+};
 use chrono::Utc;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -91,6 +93,56 @@ pub fn list(root: &Path) -> Result<Vec<AgentSessionSummary>, String> {
     Ok(sessions)
 }
 
+pub fn search(root: &Path, query: &str) -> Result<Vec<AgentSessionSearchResult>, String> {
+    let needle = query.trim().to_lowercase();
+    let summaries = list(root)?;
+    let mut results = Vec::new();
+    for summary in summaries {
+        let session = read(root, &summary.id)?;
+        let matching_message = session.messages.iter().find(|message| {
+            message.text.to_lowercase().contains(&needle)
+                || message
+                    .files
+                    .iter()
+                    .any(|file| file.to_lowercase().contains(&needle))
+        });
+        if needle.is_empty() || session.title.to_lowercase().contains(&needle) || matching_message.is_some() {
+            let snippet = matching_message
+                .map(|message| search_snippet(&message.text, &needle))
+                .unwrap_or_default();
+            results.push(AgentSessionSearchResult { session: summary, snippet });
+        }
+    }
+    Ok(results)
+}
+
+pub fn create_branch(
+    root: &Path,
+    source: &AgentSession,
+    new_session_id: &str,
+    message_id: &str,
+) -> Result<AgentSession, String> {
+    session_path(root, new_session_id)?;
+    let message_index = source
+        .messages
+        .iter()
+        .position(|message| message.id == message_id && message.role == "user")
+        .ok_or_else(|| "The message to branch from is no longer available.".to_string())?;
+    let timestamp = Utc::now().to_rfc3339();
+    let session = AgentSession {
+        id: new_session_id.to_string(),
+        title: NEW_CONVERSATION.to_string(),
+        created_at: timestamp.clone(),
+        updated_at: timestamp,
+        provider: source.provider.clone(),
+        model: source.model.clone(),
+        reasoning_effort: source.reasoning_effort.clone(),
+        messages: source.messages[..message_index].to_vec(),
+    };
+    write(root, &session)?;
+    Ok(session)
+}
+
 pub fn delete(root: &Path, session_id: &str) -> Result<(), String> {
     fs::remove_file(session_path(root, session_id)?).map_err(err)?;
     let pi_sessions = root.join(".research/pi-sessions");
@@ -176,6 +228,29 @@ fn conversation_title(message: &str) -> String {
     }
 }
 
+fn search_snippet(text: &str, needle: &str) -> String {
+    let compact = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.is_empty() {
+        return String::new();
+    }
+    let lower = compact.to_lowercase();
+    let start = lower
+        .find(needle)
+        .map(|index| lower[..index].chars().count().saturating_sub(36))
+        .unwrap_or(0);
+    let total = compact.chars().count();
+    let visible = compact.chars().skip(start).take(110).collect::<String>();
+    let visible_count = visible.chars().count();
+    let mut snippet = visible;
+    if start > 0 {
+        snippet.insert(0, '…');
+    }
+    if start + visible_count < total {
+        snippet.push('…');
+    }
+    snippet
+}
+
 fn err(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
@@ -222,6 +297,38 @@ mod tests {
         delete(&root, &session.id).unwrap();
         assert!(list(&root).unwrap().is_empty());
         assert!(!pi_session.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn conversations_can_be_searched_and_branched_without_changing_the_original() {
+        let root = std::env::temp_dir().join(format!("lattice-session-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let mut original = create(&root, "codex", "gpt-5.6-sol", "high").unwrap();
+        let message_id = Uuid::new_v4().to_string();
+        original.messages.push(AgentMessage {
+            id: message_id.clone(),
+            role: "user".to_string(),
+            text: "Compare against the strongest diffusion baseline".to_string(),
+            files: vec!["sections/related.tex".to_string()],
+            skills: Vec::new(),
+        });
+        original.messages.push(AgentMessage {
+            id: Uuid::new_v4().to_string(),
+            role: "agent".to_string(),
+            text: "I updated the section.".to_string(),
+            files: Vec::new(),
+            skills: Vec::new(),
+        });
+        original = save(&root, original).unwrap();
+        let results = search(&root, "diffusion baseline").unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(results[0].snippet.contains("diffusion baseline"));
+
+        let branch_id = Uuid::new_v4().to_string();
+        let branch = create_branch(&root, &original, &branch_id, &message_id).unwrap();
+        assert_eq!(branch.messages.len(), 1);
+        assert_eq!(read(&root, &original.id).unwrap().messages.len(), 3);
         fs::remove_dir_all(root).unwrap();
     }
 }
