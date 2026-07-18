@@ -1360,7 +1360,7 @@ function CreateProjectDialog(props: {
       <div className="modal" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-icon"><FileText size={20} /></div>
         <h2>Create a research project</h2>
-        <p>Lattice will create a polished single-column arXiv preprint, bibliography, project brief, and private conversation history.</p>
+        <p>Lattice will create a concise NeurIPS 2026 preprint, bibliography, project brief, and private conversation history.</p>
         <label>
           Project name
           <input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />

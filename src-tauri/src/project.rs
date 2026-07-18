@@ -12,8 +12,8 @@ use walkdir::WalkDir;
 
 const MANIFEST_PATH: &str = ".research/project.json";
 const RESEARCH_GITIGNORE: &str = "history/\nsessions/\npi-sessions/\ncheckpoints/\ncache/\n";
-const ARXIV_STYLE: &str = include_str!("../templates/arxiv-style/arxiv.sty");
-const ARXIV_STYLE_LICENSE: &str = include_str!("../templates/arxiv-style/LICENSE");
+const NEURIPS_2026_MAIN: &str = include_str!("../templates/neurips-2026/main.tex");
+const NEURIPS_2026_STYLE: &str = include_str!("../templates/neurips-2026/neurips_2026.sty");
 
 pub fn default_manifest(name: &str) -> ProjectManifest {
     ProjectManifest {
@@ -57,13 +57,8 @@ pub fn create(parent: &Path, name: &str) -> Result<PathBuf, String> {
     write_manifest(&root, &manifest)?;
     fs::write(root.join(".research/brief.md"), default_brief(safe_name)).map_err(err)?;
     fs::write(root.join(".research/.gitignore"), RESEARCH_GITIGNORE).map_err(err)?;
-    fs::write(
-        root.join(".research/licenses/arxiv-style-MIT.txt"),
-        ARXIV_STYLE_LICENSE,
-    )
-    .map_err(err)?;
     fs::write(root.join("main.tex"), default_tex(safe_name)).map_err(err)?;
-    fs::write(root.join("arxiv.sty"), ARXIV_STYLE).map_err(err)?;
+    fs::write(root.join("neurips_2026.sty"), NEURIPS_2026_STYLE).map_err(err)?;
     fs::write(root.join("references.bib"), "").map_err(err)?;
     fs::write(root.join(".gitignore"), ".research/history/\n.research/sessions/\n.research/pi-sessions/\n.research/checkpoints/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n").map_err(err)?;
     Ok(root)
@@ -805,10 +800,7 @@ fn is_build_artifact(path: &Path) -> bool {
 }
 
 fn default_tex(name: &str) -> String {
-    let title = latex_title(name);
-    format!(
-        "\\documentclass{{article}}\n\n\\usepackage{{arxiv}}\n\\usepackage[utf8]{{inputenc}}\n\\usepackage[T1]{{fontenc}}\n\\usepackage{{amsmath,amssymb,amsfonts}}\n\\usepackage{{booktabs}}\n\\usepackage{{graphicx}}\n\\usepackage{{hyperref}}\n\\usepackage{{microtype}}\n\\usepackage{{natbib}}\n\\usepackage{{url}}\n\n\\title{{{title}}}\n\\author{{Author Name \\\\\nInstitution \\\\\n\\texttt{{author@example.com}}}}\n\\date{{}}\n\\renewcommand{{\\shorttitle}}{{{title}}}\n\n\\begin{{document}}\n\\maketitle\n\n\\begin{{abstract}}\nDescribe the research question, method, and primary result.\n\\end{{abstract}}\n\n\\keywords{{research \\and scientific writing}}\n\n\\section{{Introduction}}\nState the problem, why it matters, and the central hypothesis.\n\n\\section{{Related Work}}\nPosition the paper against the most relevant evidence.\n\n\\section{{Method}}\nDescribe the proposed method precisely enough to reproduce it.\n\n\\section{{Experiments}}\nDefine the evaluation protocol, baselines, and primary results.\n\n\\section{{Conclusion}}\nSummarize the supported claims and remaining limitations.\n\n\\bibliographystyle{{unsrtnat}}\n\\bibliography{{references}}\n\\end{{document}}\n"
-    )
+    NEURIPS_2026_MAIN.replace("LATTICE_PROJECT_TITLE", &latex_title(name))
 }
 
 fn latex_title(name: &str) -> String {
@@ -1053,14 +1045,16 @@ mod tests {
     }
 
     #[test]
-    fn new_projects_use_the_bundled_arxiv_style_template() {
-        let parent = temp_root("arxiv-style-project");
+    fn new_projects_use_the_bundled_neurips_2026_template() {
+        let parent = temp_root("neurips-2026-project");
         let root = create(&parent, "Elegant paper").unwrap();
         let source = fs::read_to_string(root.join("main.tex")).unwrap();
         assert!(source.contains("\\documentclass{article}"));
-        assert!(source.contains("\\usepackage{arxiv}"));
-        assert!(root.join("arxiv.sty").exists());
-        assert!(root.join(".research/licenses/arxiv-style-MIT.txt").exists());
+        assert!(source.contains("\\usepackage[preprint]{neurips_2026}"));
+        assert!(source.contains("\\bibliographystyle{plainnat}"));
+        assert!(!source.contains("Formatting Instructions For NeurIPS 2026"));
+        assert!(root.join("neurips_2026.sty").exists());
+        assert!(!root.join("arxiv.sty").exists());
         fs::remove_dir_all(parent).unwrap();
     }
 }

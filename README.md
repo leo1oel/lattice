@@ -9,7 +9,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 ## What works today
 
 - Create a new research project or open an existing LaTeX folder.
-- Start new projects with the bundled, MIT-licensed `kourgeorge/arxiv-style` single-column preprint template.
+- Start new projects with the official NeurIPS 2026 preprint style and a concise research-paper skeleton.
 - Browse, create, delete, scroll, and directly edit project source files with a full-height CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
 - Get automatic braces after citation commands and bibliography-key completion inside `\\cite{...}`.
 - Compile the default root document with the local `latexmk` installation.
@@ -62,7 +62,7 @@ pnpm install
 pnpm tauri dev
 ```
 
-Choose **New project** to create an arXiv-style preprint, bibliography, project brief, and private transaction and conversation history.
+Choose **New project** to create a NeurIPS 2026-style preprint, bibliography, project brief, and private transaction and conversation history.
 Choose **Open folder** to import an existing LaTeX directory.
 
 Press `Cmd+S` to save and build, or use the build button in the title bar.
@@ -83,7 +83,7 @@ Lattice preserves normal LaTeX files and adds a small human-readable sidecar:
 ```text
 paper-project/
 ├── main.tex
-├── arxiv.sty
+├── neurips_2026.sty
 ├── references.bib
 ├── figures/
 └── .research/
@@ -97,7 +97,8 @@ paper-project/
 The manuscript remains buildable if `.research` is removed.
 The sidecar contains application metadata, the durable research brief, imported evidence, local undo history, and agent conversations.
 History and conversations are ignored by the generated `.gitignore` because they may contain private manuscript context.
-The bundled `arxiv.sty` is taken from [`kourgeorge/arxiv-style`](https://github.com/kourgeorge/arxiv-style) at commit `920514696f6e7270cab0558fd97c44515c63b4c4` under its MIT license.
+The bundled `neurips_2026.sty` is copied unchanged from the NeurIPS 2026 formatting package supplied for this project.
+That package did not include a separate license file, so Lattice records its provenance without assigning it the repository's Apache-2.0 license.
 
 ## Safety model
 
@@ -147,7 +148,7 @@ pnpm tauri build
 2. Replace the embedded browser PDF viewer with PDF.js selection, annotation, and bidirectional SyncTeX navigation.
 3. Add TexLab diagnostics and completion to the source editor.
 4. Add SQLite FTS5 indexing and evaluate a PaperQA2 sidecar for semantic evidence retrieval.
-5. Add current official venue-template conversion for NeurIPS, ICML, ICLR, and other target conferences.
+5. Add one-click switching from the bundled NeurIPS 2026 style to current ICML, ICLR, and other venue templates.
 6. Harden skill import upgrades, on-demand figure downloads, provenance sidecars, and failure recovery.
 7. Introduce a CRDT-backed `DocumentStore` behind the existing transaction interface before adding collaboration UI.
 
