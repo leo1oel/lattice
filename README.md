@@ -11,8 +11,9 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Create a new research project or open an existing LaTeX folder.
 - Start new projects with the official NeurIPS 2026 preprint style and a concise research-paper skeleton.
 - Browse, create, delete, scroll, and directly edit project source files with a full-height CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
+- Write in a softly tinted CodeMirror canvas with MonoLisa as the default editor font and parser-aware LaTeX highlighting derived from the Lux Light palette.
 - Get automatic braces after citation commands and bibliography-key completion inside `\\cite{...}`.
-- Compile the default root document with the local `latexmk` installation.
+- Compile the default root document with the local `latexmk` installation, including an immediate build whenever a project is entered.
 - Choose manual builds or automatic builds that run when you leave the editor or pause typing for 1.2 seconds.
 - Review the generated PDF beside the source with a draggable split divider and a themed PDF.js toolbar for paging, zoom, and native Save As export.
 - Drag PNG, JPEG, PDF, SVG, EPS, or WebP figures onto a project folder, or import them through the figures-folder action.
@@ -30,7 +31,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Inspect project history and revert a transaction.
 - Resize the Project and Papers regions vertically and preserve that layout across launches.
 - Drag the macOS window from non-interactive title-bar space, with native traffic lights aligned to the project controls.
-- Choose interface and editor fonts, scale the entire interface from 90% to 135%, and set editor text from 10 to 24 pixels in Settings, with a more readable 110% default scale, light and dark themes, and reduced-motion support.
+- Choose the light or dark theme, interface and editor fonts, scale the entire interface from 90% to 135%, and set editor text from 10 to 24 pixels in Settings, with a more readable 110% default scale and reduced-motion support.
 
 ## Current boundaries
 

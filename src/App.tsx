@@ -31,7 +31,6 @@ import {
   KeyRound,
   Library,
   LoaderCircle,
-  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Play,
@@ -43,7 +42,6 @@ import {
   Send,
   Settings2,
   Sparkles,
-  Sun,
   Trash2,
   X,
   ZoomIn,
@@ -185,7 +183,9 @@ type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 
 const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 const PANEL_WIDTHS_KEY = "lattice.panel-widths.v1";
-const APPEARANCE_KEY = "lattice.appearance.v2";
+const APPEARANCE_KEY = "lattice.appearance.v3";
+const LEGACY_APPEARANCE_KEY = "lattice.appearance.v2";
+const THEME_KEY = "lattice.theme.v1";
 const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
@@ -233,9 +233,7 @@ function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [navigatorOpen, setNavigatorOpen] = useState(true);
   const [panelWidths, setPanelWidths] = useState<PanelWidths>(loadPanelWidths);
-  const [theme, setTheme] = useState<Theme>(() =>
-    window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
-  );
+  const [theme, setTheme] = useState<Theme>(loadTheme);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -375,9 +373,9 @@ function App() {
   }, [compile, save]);
 
   const enterProject = useCallback(
-    async (snapshot: ProjectSnapshot, buildOnEntry = false) => {
+    async (snapshot: ProjectSnapshot) => {
       setProject(snapshot);
-      if (buildOnEntry) void runBuild();
+      void runBuild();
       rememberProject(snapshot);
       setProjectMenuOpen(false);
       setBuild(null);
@@ -453,7 +451,7 @@ function App() {
       const snapshot = await invoke<ProjectSnapshot>("create_project", { parent, name: projectName });
       setCreateError(null);
       setCreateOpen(false);
-      await enterProject(snapshot, true);
+      await enterProject(snapshot);
     } catch (reason) {
       setCreateError(toMessage(reason));
     } finally {
@@ -496,6 +494,11 @@ function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Theme changes still apply for the current session without storage.
+    }
   }, [theme]);
 
   useEffect(() => {
@@ -1131,6 +1134,8 @@ function App() {
       }}
       appearance={appearance}
       setAppearance={setAppearance}
+      theme={theme}
+      setTheme={setTheme}
       buildPreferences={buildPreferences}
       setBuildPreferences={setBuildPreferences}
       systemPrompt={systemPrompt}
@@ -1185,8 +1190,6 @@ function App() {
           onCreate={createProject}
           onOpen={chooseExisting}
           onSettings={() => openSettings("appearance")}
-          theme={theme}
-          toggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
         />
         {settingsDialog}
       </>
@@ -1238,9 +1241,6 @@ function App() {
         <div className="title-actions">
           <button className="icon-button" onClick={() => openSettings("appearance")} title="Settings">
             <Settings2 size={16} />
-          </button>
-          <button className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Toggle theme">
-            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <button className={`build-button ${build?.success ? "success" : ""}`} title={autoBuildDescription(buildPreferences.autoBuildMode)} onClick={compile} disabled={building} aria-live="polite">
             {building ? <LoaderCircle className="spin" size={15} /> : build?.success ? <Check size={15} /> : <Play size={15} />}
@@ -1407,16 +1407,11 @@ function Welcome(props: {
   onCreate: () => void;
   onOpen: () => void;
   onSettings: () => void;
-  theme: Theme;
-  toggleTheme: () => void;
 }) {
   return (
     <div className="welcome-screen">
       <div className="welcome-titlebar" onMouseDown={beginWindowDrag}>
         <button className="icon-button" onClick={props.onSettings} title="Settings"><Settings2 size={16} /></button>
-        <button className="icon-button" onClick={props.toggleTheme}>
-          {props.theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
       </div>
       <div className="welcome-glow" />
       <div className="welcome-content">
@@ -2231,7 +2226,7 @@ function DocumentCanvas(props: {
     <div
       ref={splitRef}
       className="split-canvas"
-      style={{ gridTemplateColumns: `minmax(220px, ${splitRatio}fr) 5px minmax(260px, ${1 - splitRatio}fr)` }}
+      style={{ gridTemplateColumns: `minmax(220px, ${splitRatio}fr) 1px minmax(260px, ${1 - splitRatio}fr)` }}
     >
       {editor}
       <div
@@ -2398,6 +2393,8 @@ function SettingsDialog(props: {
   setTab: (tab: SettingsTab) => void;
   appearance: AppearanceSettings;
   setAppearance: (appearance: AppearanceSettings) => void;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
   buildPreferences: BuildPreferences;
   setBuildPreferences: (preferences: BuildPreferences) => void;
   systemPrompt: string;
@@ -2443,6 +2440,12 @@ function SettingsDialog(props: {
               <div className="settings-section">
                 <h2>Appearance</h2>
                 <p>These preferences apply across every project on this Mac.</p>
+                <label>Color theme
+                  <select aria-label="Color theme" value={props.theme} onChange={(event) => props.setTheme(event.target.value as Theme)}>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </label>
                 <label>Interface font
                   <select value={props.appearance.uiFont} onChange={(event) => props.setAppearance({ ...props.appearance, uiFont: event.target.value })}>
                     <option value='"DM Sans", -apple-system, sans-serif'>DM Sans</option>
@@ -2457,6 +2460,7 @@ function SettingsDialog(props: {
                 </div>
                 <label>LaTeX editor font
                   <select value={props.appearance.editorFont} onChange={(event) => props.setAppearance({ ...props.appearance, editorFont: event.target.value })}>
+                    <option value='"MonoLisa", "JetBrains Mono", monospace'>MonoLisa</option>
                     <option value='"JetBrains Mono", monospace'>JetBrains Mono</option>
                     <option value='"SFMono-Regular", Consolas, monospace'>SF Mono</option>
                     <option value='"Fira Code", monospace'>Fira Code</option>
@@ -2729,20 +2733,35 @@ function loadAppearance(): AppearanceSettings {
   const defaults: AppearanceSettings = {
     uiFont: '"DM Sans", -apple-system, sans-serif',
     interfaceScale: 1.1,
-    editorFont: '"JetBrains Mono", monospace',
+    editorFont: '"MonoLisa", "JetBrains Mono", monospace',
     editorFontSize: 14,
   };
   try {
-    const value = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "null") as Partial<AppearanceSettings> | null;
+    const current = localStorage.getItem(APPEARANCE_KEY);
+    const legacy = localStorage.getItem(LEGACY_APPEARANCE_KEY);
+    const value = JSON.parse(current ?? legacy ?? "null") as Partial<AppearanceSettings> | null;
+    const migratedEditorFont = !current && value?.editorFont === '"JetBrains Mono", monospace'
+      ? defaults.editorFont
+      : value?.editorFont;
     return {
       uiFont: typeof value?.uiFont === "string" ? value.uiFont : defaults.uiFont,
       interfaceScale: clamp(Number(value?.interfaceScale) || defaults.interfaceScale, 0.9, 1.35),
-      editorFont: typeof value?.editorFont === "string" ? value.editorFont : defaults.editorFont,
+      editorFont: typeof migratedEditorFont === "string" ? migratedEditorFont : defaults.editorFont,
       editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 24),
     };
   } catch {
     return defaults;
   }
+}
+
+function loadTheme(): Theme {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === "light" || stored === "dark") return stored;
+  } catch {
+    // Fall through to the system preference when storage is unavailable.
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function loadBuildPreferences(): BuildPreferences {

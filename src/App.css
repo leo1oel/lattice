@@ -2,7 +2,7 @@
 
 :root {
   --ui-font: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-  --editor-font: "JetBrains Mono", monospace;
+  --editor-font: "MonoLisa", "JetBrains Mono", monospace;
   --editor-font-size: 13px;
   font-family: var(--ui-font);
   color: #242426;
@@ -22,6 +22,22 @@
   --danger: #c34b48;
   --success: #318566;
   --shadow: 0 20px 60px rgba(24, 22, 35, 0.12);
+  --editor-bg: #fbfaf7;
+  --editor-gutter: #f4f2ed;
+  --syntax-keyword: #f2636a;
+  --syntax-operator: #fa8b01;
+  --syntax-function: #2d82bd;
+  --syntax-type: #97b201;
+  --syntax-variable: #229e99;
+  --syntax-variable-special: #cc3399;
+  --syntax-property: #1965a0;
+  --syntax-attribute: #ffc545;
+  --syntax-string: #529302;
+  --syntax-comment: #9b9c9b;
+  --syntax-comment-doc: #9b744a;
+  --syntax-number: #fa8b01;
+  --syntax-constant: #d08c60;
+  --syntax-bracket: #77777d;
 }
 
 :root[data-theme="dark"] {
@@ -40,6 +56,22 @@
   --danger: #ee7772;
   --success: #66bd99;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+  --editor-bg: #1c1d1f;
+  --editor-gutter: #18191b;
+  --syntax-keyword: #ff7b82;
+  --syntax-operator: #f7a63c;
+  --syntax-function: #6cb6e8;
+  --syntax-type: #bdd34d;
+  --syntax-variable: #55c6c0;
+  --syntax-variable-special: #e37ac3;
+  --syntax-property: #71b2dc;
+  --syntax-attribute: #ffd36d;
+  --syntax-string: #82bd59;
+  --syntax-comment: #82858a;
+  --syntax-comment-doc: #c19a70;
+  --syntax-number: #f7a63c;
+  --syntax-constant: #dfa27d;
+  --syntax-bracket: #a6a8ad;
 }
 
 * { box-sizing: border-box; }
@@ -249,13 +281,14 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .split-canvas { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
 .source-editor, .pdf-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .canvas-panel > .source-editor, .canvas-panel > .pdf-preview, .canvas-panel > .split-canvas, .canvas-panel > .paper-reader { flex: 1 1 0; width: 100%; height: 0; }
-.source-editor { position: relative; width: 100%; height: 100%; background: var(--panel-strong); }
+.source-editor { position: relative; width: 100%; height: 100%; background: var(--editor-bg); }
 .source-editor > .code-editor-root { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
 .source-editor .cm-editor, .source-editor .cm-scroller { width: 100%; height: 100%; min-height: 0; }
 .source-editor .cm-scroller { overflow: auto !important; }
 .source-editor .cm-content, .source-editor .cm-gutter { min-height: 100%; }
-.source-editor .cm-editor { background: var(--panel-strong); color: var(--text); font-family: var(--editor-font); font-size: var(--editor-font-size); }
-.source-editor .cm-gutters { background: var(--panel-strong); color: var(--faint); border-right: 1px solid var(--line); }
+.source-editor .cm-content { font-variant-ligatures: contextual; font-feature-settings: "calt" 1, "liga" 1; caret-color: var(--accent); }
+.source-editor .cm-editor { background: var(--editor-bg); color: var(--text); font-family: var(--editor-font); font-size: var(--editor-font-size); }
+.source-editor .cm-gutters { background: var(--editor-gutter); color: var(--faint); border-right: 1px solid var(--line); }
 .source-editor .cm-activeLine, .source-editor .cm-activeLineGutter { background: var(--accent-soft); }
 .source-editor .cm-focused { outline: none; }
 .source-editor .cm-tooltip.cm-tooltip-autocomplete { border: 1px solid var(--line-strong); border-radius: 8px; background: var(--panel-strong); box-shadow: var(--shadow); overflow: hidden; }
@@ -263,15 +296,15 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .source-editor .cm-tooltip-autocomplete > ul > li { padding: 5px 8px; border-radius: 5px; color: var(--muted); line-height: 1.35; text-align: left; }
 .source-editor .cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--accent-soft); color: var(--text); }
 .source-editor .cm-completionLabel { display: inline-block; width: 100%; text-align: left; }
-.split-resizer { position: relative; z-index: 2; width: 5px; min-height: 0; cursor: col-resize; background: var(--line); outline: none; touch-action: none; }
-.split-resizer::after { content: ""; position: absolute; inset: 0 -3px; }
+.split-resizer { position: relative; z-index: 2; width: 1px; min-height: 0; cursor: col-resize; background: var(--line-strong); outline: none; touch-action: none; }
+.split-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
 .split-resizer:hover, .split-resizer:focus-visible, .resizing-split .split-resizer { background: var(--accent); }
 .resizing-split { cursor: col-resize; user-select: none; }
 .pdf-preview { position: relative; padding: 0; display: flex; flex-direction: column; background: color-mix(in srgb, var(--bg) 84%, #888 16%); }
-.pdf-toolbar { height: 38px; flex: none; padding: 0 8px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel-strong) 94%, transparent); backdrop-filter: blur(12px); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
-.pdf-toolbar button { width: 27px; height: 27px; border-radius: 6px; padding: 0; background: transparent; color: var(--muted); display: grid; place-items: center; }
+.pdf-toolbar { height: 38px; flex: none; padding: 0 3px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel-strong) 94%, transparent); backdrop-filter: blur(12px); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+.pdf-toolbar button { width: 24px; height: 27px; border-radius: 6px; padding: 0; background: transparent; color: var(--muted); display: grid; place-items: center; }
 .pdf-toolbar button:hover:not(:disabled) { background: var(--line); color: var(--text); }
-.pdf-page-controls, .pdf-zoom-controls { display: flex; align-items: center; gap: 3px; color: var(--muted); font-size: 10px; }
+.pdf-page-controls, .pdf-zoom-controls { display: flex; align-items: center; gap: 1px; color: var(--muted); font-size: 10px; }
 .pdf-page-controls { justify-self: start; }
 .pdf-zoom-controls { justify-self: center; }
 .pdf-page-controls span { min-width: 48px; text-align: center; }

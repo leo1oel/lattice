@@ -143,8 +143,13 @@ describe("welcome screen", () => {
 
   it("opens appearance settings and persists font choices", async () => {
     render(<App />);
+    expect(screen.queryByTitle("Toggle theme")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Settings"));
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/latex editor font/i)).toHaveValue('"MonoLisa", "JetBrains Mono", monospace');
+    fireEvent.change(screen.getByLabelText("Color theme"), { target: { value: "dark" } });
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
+    expect(localStorage.getItem("lattice.theme.v1")).toBe("dark");
     fireEvent.change(screen.getByLabelText(/interface font/i), { target: { value: "Inter, -apple-system, sans-serif" } });
     await waitFor(() => {
       expect(document.documentElement.style.getPropertyValue("--ui-font")).toBe("Inter, -apple-system, sans-serif");
@@ -399,13 +404,15 @@ describe("project workspace", () => {
     });
     const view = EditorView.findFromDOM(editorElement);
     if (!view) throw new Error("CodeMirror view was not available");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project"));
+    vi.mocked(invoke).mockClear();
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nIdle build." } });
 
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project"), { timeout: 2_500 });
-    expect(invoke).toHaveBeenCalledWith("write_project_file", {
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: "\\documentclass{article}\nIdle build.",
-    });
+    }), { timeout: 2_500 });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project"));
   });
 
   it("shows subscription status in settings without asking for an API key", async () => {
@@ -626,7 +633,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.click(await screen.findByRole("button", { name: "Build" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project"));
     const savePdf = await screen.findByTitle("Save PDF as…");
     expect(screen.getByTitle("Previous page")).toBeDisabled();
     await waitFor(() => expect(screen.getByTitle("Next page")).toBeEnabled());
