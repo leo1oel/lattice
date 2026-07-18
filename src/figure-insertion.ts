@@ -1,4 +1,9 @@
-export function latexFigureInsertion(source: string, position: number, paths: string[]): string {
+export type LatexFigureEdit = {
+  text: string;
+  cursorOffset: number;
+};
+
+export function latexFigureInsertion(source: string, position: number, paths: string[]): LatexFigureEdit {
   const blocks = paths.map((path) => {
     const normalized = path.replace(/\\/g, "/");
     const fileName = normalized.split("/").pop() ?? "figure";
@@ -17,5 +22,10 @@ export function latexFigureInsertion(source: string, position: number, paths: st
   const after = source.slice(position);
   const prefix = !before ? "" : before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
   const suffix = !after ? "\n" : after.startsWith("\n\n") ? "" : after.startsWith("\n") ? "\n" : "\n\n";
-  return `${prefix}${blocks}${suffix}`;
+  const text = `${prefix}${blocks}${suffix}`;
+  const caption = "Describe the figure.";
+  return {
+    text,
+    cursorOffset: text.indexOf(caption) + caption.length,
+  };
 }

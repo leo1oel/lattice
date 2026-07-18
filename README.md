@@ -15,7 +15,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Get automatic braces after citation commands and bibliography-key completion inside `\\cite{...}`.
 - Compile the default root document with the local `latexmk` installation, including an immediate build whenever a project is entered.
 - Choose manual builds or automatic builds that run when you leave the editor or pause typing for 1.2 seconds.
-- Review the generated PDF beside the source with a draggable split divider and a themed PDF.js toolbar for paging, zoom, and native Save As export.
+- Review the generated PDF beside the source with a draggable split divider and a themed PDF.js toolbar for paging, zoom, native Save As export, and click-to-source SyncTeX navigation.
 - Drag PNG, JPEG, PDF, SVG, EPS, or WebP figures onto a project folder, or import them through the figures-folder action.
 - Click a project figure to preview it in the writing canvas, or drag it from Project onto a LaTeX line to insert an editable `figure` block at that position.
 - Drop an external figure directly onto the LaTeX editor to import and insert it in one step; SVG and WebP sources are converted to shareable PDF or PNG companions for reliable LaTeX builds.
@@ -29,7 +29,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Switch between Codex and Claude between messages, with current full model names and model-specific reasoning-effort controls for subscriptions and APIs.
 - Inspect and start Codex or Claude subscription login from Settings without configuring an API key.
 - Create, search, restore, and delete project-local agent conversations, or edit an earlier user message to continue on a new Pi branch while restoring the project files to that turn and preserving the original conversation.
-- Save direct edits, imports, and agent changes as atomic project transactions.
+- Save direct edits, imports, and agent changes as atomic project transactions, retaining the latest 100 entries per project.
 - Inspect project history and revert a transaction.
 - Resize the Project and Papers regions vertically and preserve that layout across launches.
 - Drag the macOS window from non-interactive title-bar space, with native traffic lights aligned to the project controls.
@@ -37,7 +37,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 
 ## Current boundaries
 
-This prototype does not yet implement realtime collaboration, CRDT synchronization, cloud accounts, PDF-to-source selection through SyncTeX, a full ACP agent adapter, MCP tool exposure, or semantic embeddings.
+This prototype does not yet implement realtime collaboration, CRDT synchronization, cloud accounts, source-to-PDF SyncTeX navigation, a full ACP agent adapter, MCP tool exposure, or semantic embeddings.
 The local agent experience is a Pi harness with project tools, application-local skills, optional user-owned system prompts, and a bibliography prehook that redirects `.bib` edits through `bibcite`.
 Imported paper retrieval is currently a lightweight lexical ranking over project snapshots.
 
@@ -148,7 +148,7 @@ pnpm tauri build
 ## Next milestones
 
 1. Replace the subprocess-specific agent bridge with ACP adapters and expose project operations through MCP.
-2. Replace the embedded browser PDF viewer with PDF.js selection, annotation, and bidirectional SyncTeX navigation.
+2. Add PDF selection and annotation plus source-to-PDF SyncTeX navigation.
 3. Add TexLab diagnostics and completion to the source editor.
 4. Add SQLite FTS5 indexing and evaluate a PaperQA2 sidecar for semantic evidence retrieval.
 5. Add one-click switching from the bundled NeurIPS 2026 style to current ICML, ICLR, and other venue templates.

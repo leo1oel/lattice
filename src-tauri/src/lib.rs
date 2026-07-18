@@ -10,7 +10,7 @@ mod skill_store;
 use models::{
     AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
     AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, HistoryItem,
-    ImportResult, PaperSummary, ProjectSnapshot, SubscriptionStatus,
+    ImportResult, PaperSummary, ProjectSnapshot, SubscriptionStatus, SyncTexTarget,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -171,6 +171,16 @@ async fn build_project(state: tauri::State<'_, AppState>) -> Result<BuildResult,
 #[tauri::command]
 fn save_compiled_pdf(path: String, pdf_base64: String) -> Result<String, String> {
     latex::save_pdf(Path::new(&path), &pdf_base64)
+}
+
+#[tauri::command]
+fn synctex_edit(
+    state: tauri::State<'_, AppState>,
+    page: u32,
+    x: f64,
+    y: f64,
+) -> Result<SyncTexTarget, String> {
+    latex::inverse_search(&current_root(&state)?, page, x, y)
 }
 
 #[tauri::command]
@@ -493,6 +503,7 @@ pub fn run() {
             prepare_latex_figure,
             build_project,
             save_compiled_pdf,
+            synctex_edit,
             import_arxiv,
             list_papers,
             read_paper,

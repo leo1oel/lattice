@@ -14,6 +14,7 @@ use walkdir::WalkDir;
 
 const MANIFEST_PATH: &str = ".research/project.json";
 const RESEARCH_GITIGNORE: &str = "history/\nsessions/\npi-sessions/\ncheckpoints/\ncache/\n";
+const MAX_HISTORY_ENTRIES: usize = 100;
 const NEURIPS_2026_MAIN: &str = include_str!("../templates/neurips-2026/main.tex");
 const NEURIPS_2026_STYLE: &str = include_str!("../templates/neurips-2026/neurips_2026.sty");
 
@@ -899,7 +900,26 @@ fn persist_transaction(root: &Path, record: &TransactionRecord) -> Result<(), St
         directory.join(format!("{}.json", record.id)),
         format!("{raw}\n"),
     )
-    .map_err(err)
+    .map_err(err)?;
+    prune_history(&directory, MAX_HISTORY_ENTRIES)
+}
+
+fn prune_history(directory: &Path, limit: usize) -> Result<(), String> {
+    let mut entries = fs::read_dir(directory)
+        .map_err(err)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "json")
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.file_name().cmp(&right.file_name()));
+    let remove_count = entries.len().saturating_sub(limit);
+    for path in entries.into_iter().take(remove_count) {
+        fs::remove_file(path).map_err(err)?;
+    }
+    Ok(())
 }
 
 fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
@@ -1156,6 +1176,27 @@ mod tests {
         delete_history(&root, &transaction.id).unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "after");
         assert!(history(&root).unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn project_history_keeps_only_the_newest_entries() {
+        let root = temp_root("history-limit");
+        let directory = root.join(".research/history");
+        fs::create_dir_all(&directory).unwrap();
+        for index in 0..5 {
+            fs::write(directory.join(format!("{index:02}.json")), "{}\n").unwrap();
+        }
+
+        prune_history(&directory, 3).unwrap();
+
+        let mut remaining = fs::read_dir(&directory)
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name().to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+        remaining.sort();
+        assert_eq!(remaining, vec!["02.json", "03.json", "04.json"]);
         fs::remove_dir_all(root).unwrap();
     }
 

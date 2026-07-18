@@ -690,6 +690,7 @@ describe("project workspace", () => {
         diagnostics: [],
       };
       if (command === "save_compiled_pdf") return "/tmp/exported-paper.pdf";
+      if (command === "synctex_edit") return { path: "main.tex", line: 1 };
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
 
@@ -707,6 +708,13 @@ describe("project workspace", () => {
       pdfBase64: "JVBERi0xLjQ=",
     }));
     expect(await screen.findByText("Saved to /tmp/exported-paper.pdf")).toBeInTheDocument();
+    const pdfPage = screen.getByLabelText("PDF page 1");
+    fireEvent.click(pdfPage, { clientX: 110, clientY: 220 });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("synctex_edit", {
+      page: 1,
+      x: 100,
+      y: 200,
+    }));
   });
 
   it("creates and restores project conversations", async () => {

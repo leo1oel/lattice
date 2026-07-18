@@ -105,6 +105,13 @@ type FigurePointerDrag = {
   overEditor: boolean;
 };
 
+type SyncTexTarget = {
+  path: string;
+  line: number;
+};
+
+type EditorNavigation = SyncTexTarget & { id: string };
+
 type Diagnostic = {
   file?: string;
   line?: number;
@@ -243,6 +250,7 @@ function App() {
   const [figureDropRequest, setFigureDropRequest] = useState<FigureDropRequest | null>(null);
   const [figurePointerDrag, setFigurePointerDrag] = useState<FigurePointerDrag | null>(null);
   const suppressedFigureClick = useRef<string | null>(null);
+  const [editorNavigation, setEditorNavigation] = useState<EditorNavigation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(defaultWelcomeMessages);
   const [agentSessions, setAgentSessions] = useState<AgentSessionSummary[]>([]);
   const [activeSession, setActiveSession] = useState<AgentSession | null>(null);
@@ -341,6 +349,18 @@ function App() {
       setError(toMessage(reason));
     }
   }, []);
+
+  const revealPdfSource = useCallback(async (page: number, x: number, y: number) => {
+    try {
+      const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y });
+      await loadFile(target.path);
+      setCanvasMode("split");
+      setEditorNavigation({ ...target, id: crypto.randomUUID() });
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [loadFile]);
 
   const save = useCallback(async (): Promise<boolean> => {
     if (!project || !activeFile || source === savedSource) return true;
@@ -855,6 +875,10 @@ function App() {
 
   const handleFigureDropHandled = useCallback((id: string) => {
     setFigureDropRequest((request) => request?.id === id ? null : request);
+  }, []);
+
+  const handleEditorNavigationHandled = useCallback((id: string) => {
+    setEditorNavigation((request) => request?.id === id ? null : request);
   }, []);
 
   const deleteProjectEntry = useCallback(async (path: string) => {
@@ -1512,6 +1536,7 @@ function App() {
           <DocumentCanvas
             mode={canvasMode}
             source={source}
+            activeFile={activeFile}
             setSource={setSource}
             setSelection={setSelection}
             pdfUrl={pdfUrl}
@@ -1529,6 +1554,9 @@ function App() {
             } : null}
             figureDropRequest={figureDropRequest}
             onFigureDropHandled={handleFigureDropHandled}
+            editorNavigation={editorNavigation}
+            onEditorNavigationHandled={handleEditorNavigationHandled}
+            onPdfSource={revealPdfSource}
           />
         </section>
       </main>
@@ -2326,6 +2354,7 @@ function CanvasToolbar(props: {
 function DocumentCanvas(props: {
   mode: CanvasMode;
   source: string;
+  activeFile: string;
   setSource: (value: string) => void;
   setSelection: (value: string) => void;
   pdfUrl: string | null;
@@ -2340,11 +2369,24 @@ function DocumentCanvas(props: {
   figurePointerPosition: { x: number; y: number } | null;
   figureDropRequest: FigureDropRequest | null;
   onFigureDropHandled: (id: string) => void;
+  editorNavigation: EditorNavigation | null;
+  onEditorNavigationHandled: (id: string) => void;
+  onPdfSource: (page: number, x: number, y: number) => void;
 }) {
-  const { figureDropRequest, onFigureDropHandled, onPrepareFigure } = props;
+  const {
+    activeFile,
+    editorNavigation,
+    figureDropRequest,
+    onEditorNavigationHandled,
+    onFigureDropHandled,
+    onPrepareFigure,
+    setSource,
+    source: editorSource,
+  } = props;
   const splitRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const lastInsertionPositionRef = useRef(0);
+  const pendingFigureCursorRef = useRef<number | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
   const [figureDropActive, setFigureDropActive] = useState(false);
   const [figureDropMarker, setFigureDropMarker] = useState<{ top: number; line: number } | null>(null);
@@ -2376,14 +2418,34 @@ function DocumentCanvas(props: {
     }
     const cursor = coordinatePosition ?? lastInsertionPositionRef.current;
     const position = currentView.state.doc.lineAt(clamp(cursor, 0, currentView.state.doc.length)).from;
-    const insertion = latexFigureInsertion(currentView.state.doc.toString(), position, prepared);
-    currentView.dispatch({
-      changes: { from: position, insert: insertion },
-      selection: { anchor: position + insertion.length },
-      scrollIntoView: true,
+    const source = currentView.state.doc.toString();
+    const edit = latexFigureInsertion(source, position, prepared);
+    pendingFigureCursorRef.current = position + edit.cursorOffset;
+    setSource(`${source.slice(0, position)}${edit.text}${source.slice(position)}`);
+  }, [onPrepareFigure, setSource]);
+  useEffect(() => {
+    const view = editorViewRef.current;
+    const cursor = pendingFigureCursorRef.current;
+    if (!view || cursor === null || view.state.doc.toString() !== editorSource) return;
+    pendingFigureCursorRef.current = null;
+    view.dispatch({ selection: { anchor: cursor }, scrollIntoView: true });
+    view.focus();
+  }, [editorSource]);
+  useEffect(() => {
+    const request = editorNavigation;
+    const view = editorViewRef.current;
+    if (!request || !view || request.path !== activeFile) return;
+    const frame = window.requestAnimationFrame(() => {
+      const currentView = editorViewRef.current;
+      if (!currentView) return;
+      const lineNumber = clamp(request.line, 1, currentView.state.doc.lines);
+      const line = currentView.state.doc.line(lineNumber);
+      currentView.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+      currentView.focus();
+      onEditorNavigationHandled(request.id);
     });
-    currentView.focus();
-  }, [onPrepareFigure]);
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeFile, editorNavigation, onEditorNavigationHandled, editorSource]);
   useEffect(() => {
     const view = editorViewRef.current;
     const point = props.figurePointerPosition;
@@ -2481,7 +2543,7 @@ function DocumentCanvas(props: {
     </div>
   );
   const preview = (
-    <PdfPreview key={props.pdfUrl ?? "empty-pdf"} url={props.pdfUrl} pdfBase64={props.pdfBase64} />
+    <PdfPreview key={props.pdfUrl ?? "empty-pdf"} url={props.pdfUrl} pdfBase64={props.pdfBase64} onSource={props.onPdfSource} />
   );
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
@@ -2566,7 +2628,7 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
   );
 }
 
-function PdfPreview({ url, pdfBase64, fileName = "paper.pdf" }: { url: string | null; pdfBase64: string | null; fileName?: string }) {
+function PdfPreview({ url, pdfBase64, fileName = "paper.pdf", onSource }: { url: string | null; pdfBase64: string | null; fileName?: string; onSource?: (page: number, x: number, y: number) => void }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -2643,6 +2705,15 @@ function PdfPreview({ url, pdfBase64, fileName = "paper.pdf" }: { url: string | 
       setSavingPdf(false);
     }
   };
+  const revealSource = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!onSource) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    onSource(
+      pageNumber,
+      Number(((event.clientX - bounds.left) / scale).toFixed(3)),
+      Number(((event.clientY - bounds.top) / scale).toFixed(3)),
+    );
+  };
   return (
     <div className="pdf-preview">
       <div className="pdf-toolbar">
@@ -2660,7 +2731,7 @@ function PdfPreview({ url, pdfBase64, fileName = "paper.pdf" }: { url: string | 
       </div>
       {saveNotice && <div className={`pdf-save-notice ${saveNotice.startsWith("Could not") ? "error" : ""}`}>{saveNotice}<button title="Dismiss PDF save notice" onClick={() => setSaveNotice("")}><X size={12} /></button></div>}
       <div className="pdf-scroll-area">
-        {pdfError ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div> : <canvas ref={canvasRef} aria-label={`PDF page ${pageNumber}`} />}
+        {pdfError ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div> : <canvas ref={canvasRef} className={onSource ? "synctex-enabled" : ""} title={onSource ? "Click to reveal this position in LaTeX" : undefined} onClick={revealSource} aria-label={`PDF page ${pageNumber}`} />}
         {loading && <div className="pdf-loading"><LoaderCircle className="spin" size={17} /> Rendering PDF…</div>}
       </div>
     </div>
