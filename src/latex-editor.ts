@@ -1,7 +1,7 @@
 import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { Transaction } from "@codemirror/state";
-import { EditorView, hoverTooltip } from "@codemirror/view";
+import { EditorView, hoverTooltip, tooltips, type Rect } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { latexCompletionSource } from "codemirror-lang-latex";
 
@@ -98,6 +98,16 @@ export function citationHoverTarget(text: string, position: number): { from: num
   return null;
 }
 
+export function citationTooltipSpace(bounds: Rect): Rect {
+  const inset = 8;
+  return {
+    left: bounds.left + inset,
+    right: bounds.right - inset,
+    top: bounds.top + inset,
+    bottom: bounds.bottom - inset,
+  };
+}
+
 function citationTooltips(citations: CitationInfo[]) {
   const byKey = new Map(citations.map((citation) => [citation.key, citation]));
   return hoverTooltip((view, position) => {
@@ -112,6 +122,7 @@ function citationTooltips(citations: CitationInfo[]) {
       create() {
         const dom = document.createElement("div");
         dom.className = "citation-hover-card";
+        dom.style.maxWidth = `${Math.max(160, view.dom.clientWidth - 16)}px`;
         const key = document.createElement("small");
         key.textContent = citation.key;
         const title = document.createElement("strong");
@@ -143,6 +154,9 @@ export function latexEditorExtensions(citationKeys: string[], citations: Citatio
       autocapitalize: "off",
     }),
     syntaxHighlighting(luxLatexHighlightStyle),
+    tooltips({
+      tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()),
+    }),
     citationTooltips(citations),
     autocompletion({
       override: [citationCompletions(citationKeys), latexCompletionSource(true)],

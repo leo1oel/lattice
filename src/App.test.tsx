@@ -711,8 +711,9 @@ describe("project workspace", () => {
       promise: Promise.resolve(pdf),
       destroy: vi.fn(),
     } as never);
+    let pdfUrlSequence = 0;
     vi.stubGlobal("URL", {
-      createObjectURL: vi.fn(() => "blob:lattice-pdf"),
+      createObjectURL: vi.fn(() => `blob:lattice-pdf-${++pdfUrlSequence}`),
       revokeObjectURL: vi.fn(),
     });
     vi.mocked(save).mockResolvedValue("/tmp/exported-paper.pdf");
@@ -743,6 +744,11 @@ describe("project workspace", () => {
     expect(pdf.getPage).toHaveBeenCalledWith(2);
     expect(screen.getByTitle("Zoom out")).toBeInTheDocument();
     expect(screen.getByTitle("Zoom in")).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Zoom in"));
+    expect(screen.getByText("120%")).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Build automatically · Command-S builds now"));
+    await waitFor(() => expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("120%")).toBeInTheDocument();
     fireEvent.click(savePdf);
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: "paper.pdf" })));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("save_compiled_pdf", {
@@ -754,8 +760,8 @@ describe("project workspace", () => {
     fireEvent.click(pdfPage, { clientX: 110, clientY: 220 });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("synctex_edit", {
       page: 1,
-      x: 100,
-      y: 200,
+      x: 91.667,
+      y: 183.333,
     }));
   });
 

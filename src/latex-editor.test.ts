@@ -2,7 +2,7 @@ import { completionStatus, currentCompletions } from "@codemirror/autocomplete";
 import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { describe, expect, it, vi } from "vitest";
-import { citationCompletionRange, citationHoverTarget, latexEditorExtensions, latexLanguageOptions, shouldInsertCommandBraces } from "./latex-editor";
+import { citationCompletionRange, citationHoverTarget, citationTooltipSpace, latexEditorExtensions, latexLanguageOptions, shouldInsertCommandBraces } from "./latex-editor";
 
 describe("LaTeX citation editing", () => {
   it("soft-wraps long logical lines instead of scrolling horizontally", () => {
@@ -45,6 +45,15 @@ describe("LaTeX citation editing", () => {
     expect(citationHoverTarget(source, first)?.key).toBe("vaswani2017attention");
     expect(citationHoverTarget(source, second)?.key).toBe("dosovitskiy2021image");
     expect(citationHoverTarget("Plain text", 3)).toBeNull();
+  });
+
+  it("keeps citation tooltips inside the editor boundary", () => {
+    expect(citationTooltipSpace({ left: 320, right: 720, top: 80, bottom: 680 })).toEqual({
+      left: 328,
+      right: 712,
+      top: 88,
+      bottom: 672,
+    });
   });
 
   it("inserts braces in the editor and keeps an existing pair", () => {

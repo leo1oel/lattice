@@ -2639,9 +2639,7 @@ function DocumentCanvas(props: {
       )}
     </div>
   );
-  const preview = (
-    <PdfPreview key={props.pdfUrl ?? "empty-pdf"} url={props.pdfUrl} pdfBase64={props.pdfBase64} onSource={props.onPdfSource} />
-  );
+  const preview = <PdfPreview url={props.pdfUrl} pdfBase64={props.pdfBase64} onSource={props.onPdfSource} />;
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
   const resizeSplit = (clientX: number) => {
