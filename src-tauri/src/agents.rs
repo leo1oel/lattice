@@ -4,7 +4,8 @@ use crate::project;
 use crate::skill_store;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
-use serde_json::{json, Map, Value};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -36,6 +37,19 @@ pub struct ForkedSession {
     pub source_timestamp: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OmpSessionRef {
+    session_id: String,
+    file_name: String,
+}
+
+struct OmpAuth {
+    provider: &'static str,
+    environment: &'static str,
+    credential: String,
+}
+
 pub fn run(
     root: &Path,
     runtime: &AgentRuntime,
@@ -55,7 +69,7 @@ pub fn run(
     on_event(AgentStreamEvent::Status {
         message: "Starting agent…".to_string(),
     });
-    let outcome = run_pi(root, runtime, &request, on_event);
+    let outcome = run_omp(root, runtime, &request, on_event);
     let transaction = project::record_external_changes(
         root,
         &before,
@@ -91,13 +105,13 @@ pub fn run(
     }
 }
 
-fn run_pi(
+fn run_omp(
     root: &Path,
     runtime: &AgentRuntime,
     request: &AgentRequest<'_>,
     on_event: &dyn Fn(AgentStreamEvent),
 ) -> Result<String, String> {
-    let command = pi_command(
+    let command = omp_command(
         root,
         runtime,
         request.settings,
@@ -107,6 +121,15 @@ fn run_pi(
     )?;
 
     let mut process = JsonLineProcess::spawn(command, "Lattice agent")?;
+    let state = process.request("lattice-session-state", "get_state", json!({}))?;
+    persist_session_from_state(root, request.session_id, &state)?;
+    if !request.session_title.trim().is_empty() {
+        process.request(
+            "lattice-session-name",
+            "set_session_name",
+            json!({ "name": request.session_title.trim() }),
+        )?;
+    }
     let prompt = editor_prompt(request.message, request.active_file, request.selection);
     process.send(&json!({
         "id": "lattice-prompt",
@@ -119,6 +142,7 @@ fn run_pi(
     });
     let mut visible = String::new();
     let mut accepted = false;
+    let mut completed = false;
     let mut failure = None;
     loop {
         let Some(value) = process.next_value()? else {
@@ -192,11 +216,23 @@ fn run_pi(
                         .to_string(),
                 );
             }
-            Some("agent_settled") => break,
+            Some("agent_end") => completed = true,
+            Some("prompt_result")
+                if value.get("id").and_then(Value::as_str) == Some("lattice-prompt")
+                    && value.get("agentInvoked").and_then(Value::as_bool) == Some(false) =>
+            {
+                completed = true;
+            }
             _ => {}
         }
+        if completed && accepted {
+            break;
+        }
+        if failure.is_some() && !accepted {
+            break;
+        }
     }
-    let (_, stderr) = process.finish(true)?;
+    let (_, stderr) = process.finish(false)?;
     if let Some(error) = failure {
         return Err(format!("{error}{}", stderr_suffix(&stderr)));
     }
@@ -222,7 +258,7 @@ pub fn fork_session(
     user_message_index: usize,
     system_prompt: &str,
 ) -> Result<ForkedSession, String> {
-    let command = pi_command(
+    let command = omp_command(
         root,
         runtime,
         settings,
@@ -231,53 +267,52 @@ pub fn fork_session(
         system_prompt,
     )?;
     let mut process = JsonLineProcess::spawn(command, "Lattice agent")?;
-    let fork_messages = process.request("lattice-fork-messages", "get_fork_messages", json!({}))?;
+    let fork_messages = process.request("lattice-fork-messages", "get_branch_messages", json!({}))?;
     let messages = fork_messages
         .pointer("/data/messages")
         .and_then(Value::as_array)
-        .ok_or_else(|| "Pi did not return the conversation branch points.".to_string())?;
+        .ok_or_else(|| "OMP did not return the conversation branch points.".to_string())?;
     let entry_id = messages
         .get(user_message_index)
         .and_then(|message| message.get("entryId"))
         .and_then(Value::as_str)
-        .ok_or_else(|| "This conversation cannot be branched because its Pi history is incomplete.".to_string())?;
-    let entries = process.request("lattice-fork-entries", "get_entries", json!({}))?;
-    let source_timestamp = entries
-        .pointer("/data/entries")
-        .and_then(Value::as_array)
-        .and_then(|entries| {
-            entries.iter().find(|entry| {
-                entry.get("id").and_then(Value::as_str) == Some(entry_id)
-            })
-        })
-        .and_then(|entry| entry.get("timestamp"))
-        .and_then(Value::as_str)
-        .map(str::to_string);
-    process.request(
+        .ok_or_else(|| "This conversation cannot be branched because its OMP history is incomplete.".to_string())?;
+    let source_timestamp = session_entry_timestamp(root, source_session_id, entry_id)?;
+    let branch = process.request(
         "lattice-fork",
-        "fork",
+        "branch",
         json!({ "entryId": entry_id }),
     )?;
+    if branch.pointer("/data/cancelled").and_then(Value::as_bool) == Some(true) {
+        return Err("An OMP extension cancelled the conversation branch.".to_string());
+    }
     let state = process.request("lattice-fork-state", "get_state", json!({}))?;
     let session_id = state
         .pointer("/data/sessionId")
         .and_then(Value::as_str)
-        .filter(|id| *id != source_session_id)
-        .ok_or_else(|| "Pi did not create a distinct conversation branch.".to_string())?
+        .ok_or_else(|| "OMP did not create a conversation branch.".to_string())?
         .to_string();
-    let _ = process.finish(true)?;
+    persist_session_from_state(root, &session_id, &state)?;
+    if !session_title.trim().is_empty() {
+        process.request(
+            "lattice-fork-name",
+            "set_session_name",
+            json!({ "name": session_title.trim() }),
+        )?;
+    }
+    let _ = process.finish(false)?;
     Ok(ForkedSession {
         session_id,
         source_timestamp,
     })
 }
 
-fn pi_command(
+fn omp_command(
     root: &Path,
     runtime: &AgentRuntime,
     settings: &AgentSettings,
     session_id: &str,
-    session_title: &str,
+    _session_title: &str,
     system_prompt: &str,
 ) -> Result<Command, String> {
     if !runtime.executable.is_file() {
@@ -288,14 +323,15 @@ fn pi_command(
     }
     if !runtime.assets.is_dir() {
         return Err(format!(
-            "The bundled agent resources are missing at {}.",
+            "The bundled OMP resources are missing at {}.",
             runtime.assets.display()
         ));
     }
-    let (provider, agent_dir) = prepare_auth(runtime, &settings.provider)?;
-    let session_dir = root.join(".research/pi-sessions");
+    let auth = prepare_auth(&settings.provider)?;
+    let session_dir = root.join(".research/omp-sessions");
     fs::create_dir_all(&session_dir).map_err(err)?;
-    sanitize_legacy_session(&session_dir, session_id)?;
+    fs::create_dir_all(&runtime.config).map_err(err)?;
+    let overlay = prepare_omp_overlay(root, runtime)?;
     let executable = runtime
         .executable
         .to_str()
@@ -303,30 +339,26 @@ fn pi_command(
     let mut command = commands::command(executable);
     command
         .current_dir(root)
-        .env("PI_PACKAGE_DIR", &runtime.assets)
-        .env("PI_CODING_AGENT_DIR", &agent_dir)
+        .env("PI_CODING_AGENT_DIR", &runtime.config)
+        .env(auth.environment, auth.credential)
         .arg("--mode")
         .arg("rpc")
-        .arg("--provider")
-        .arg(provider)
         .arg("--model")
-        .arg(&settings.model)
+        .arg(format!("{}/{}", auth.provider, settings.model))
         .arg("--thinking")
-        .arg(&settings.reasoning_effort)
+        .arg(omp_thinking_level(&settings.reasoning_effort))
         .arg("--session-dir")
         .arg(&session_dir)
-        .arg("--session-id")
-        .arg(session_id)
-        .arg("--name")
-        .arg(session_title)
-        .arg("--no-context-files")
+        .arg("--config")
+        .arg(overlay)
         .arg("--no-extensions")
-        .arg("--no-skills")
-        .arg("--approve")
+        .arg("--no-rules")
+        .arg("--no-title")
+        .arg("--auto-approve")
         .arg("--extension")
         .arg(runtime.assets.join("lattice.ts"));
-    for skill in skill_store::enabled_paths(root, runtime)? {
-        command.arg("--skill").arg(skill);
+    if let Some(session_file) = omp_session_file(root, session_id)? {
+        command.arg("--resume").arg(session_file);
     }
     if !system_prompt.trim().is_empty() {
         command.arg("--system-prompt").arg(system_prompt.trim());
@@ -334,52 +366,200 @@ fn pi_command(
     Ok(command)
 }
 
-fn sanitize_legacy_session(session_dir: &Path, session_id: &str) -> Result<(), String> {
-    if !session_dir.is_dir() {
-        return Ok(());
+fn prepare_omp_overlay(root: &Path, runtime: &AgentRuntime) -> Result<PathBuf, String> {
+    let runtime_root = root.join(".research/omp-runtime");
+    let skills_root = runtime_root.join("skills");
+    if skills_root.is_dir() {
+        fs::remove_dir_all(&skills_root).map_err(err)?;
     }
-    let suffix = format!("_{session_id}.jsonl");
-    for entry in fs::read_dir(session_dir).map_err(err)? {
-        let path = entry.map_err(err)?.path();
-        if !path
+    fs::create_dir_all(&skills_root).map_err(err)?;
+    for skill_file in skill_store::enabled_paths(root, runtime)? {
+        let source = skill_file
+            .parent()
+            .ok_or_else(|| format!("Invalid skill path: {}", skill_file.display()))?;
+        let name = source
             .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| name.ends_with(&suffix))
-        {
-            continue;
-        }
-        let raw = fs::read_to_string(&path).map_err(err)?;
-        let mut changed = false;
-        let mut lines = Vec::new();
-        for line in raw.lines() {
-            let mut value: Value = serde_json::from_str(line).map_err(err)?;
-            if value.pointer("/message/role").and_then(Value::as_str) == Some("user") {
-                if let Some(content) = value
-                    .pointer_mut("/message/content")
-                    .and_then(Value::as_array_mut)
-                {
-                    for part in content {
-                        let clean = part
-                            .get("text")
-                            .and_then(Value::as_str)
-                            .and_then(without_legacy_editor_context)
-                            .map(str::to_string);
-                        if let Some(clean) = clean {
-                            part["text"] = Value::String(clean);
-                            changed = true;
-                        }
-                    }
-                }
-            }
-            lines.push(serde_json::to_string(&value).map_err(err)?);
-        }
-        if changed {
-            let temporary = path.with_extension("jsonl.tmp");
-            fs::write(&temporary, format!("{}\n", lines.join("\n"))).map_err(err)?;
-            fs::rename(temporary, path).map_err(err)?;
+            .and_then(|value| value.to_str())
+            .ok_or_else(|| format!("Invalid skill path: {}", source.display()))?;
+        copy_directory(source, &skills_root.join(name))?;
+    }
+
+    let skills_path = skills_root
+        .to_str()
+        .ok_or_else(|| "The OMP skill directory is not valid UTF-8.".to_string())?;
+    let quoted_skills_path = serde_json::to_string(skills_path).map_err(err)?;
+    let overlay = runtime_root.join("config.yml");
+    let contents = format!(
+        concat!(
+            "disabledProviders:\n",
+            "  - native\n",
+            "  - claude\n",
+            "  - codex\n",
+            "  - gemini\n",
+            "  - opencode\n",
+            "  - github\n",
+            "  - agents\n",
+            "  - agents-md\n",
+            "skills:\n",
+            "  enabled: true\n",
+            "  enableCodexUser: false\n",
+            "  enableClaudeUser: false\n",
+            "  enableClaudeProject: false\n",
+            "  enablePiUser: false\n",
+            "  enablePiProject: false\n",
+            "  enableAgentsUser: false\n",
+            "  enableAgentsProject: false\n",
+            "  customDirectories: [{}]\n",
+        ),
+        quoted_skills_path,
+    );
+    fs::write(&overlay, contents).map_err(err)?;
+    Ok(overlay)
+}
+
+fn copy_directory(source: &Path, destination: &Path) -> Result<(), String> {
+    fs::create_dir_all(destination).map_err(err)?;
+    for entry in fs::read_dir(source).map_err(err)? {
+        let entry = entry.map_err(err)?;
+        let target = destination.join(entry.file_name());
+        if entry.file_type().map_err(err)?.is_dir() {
+            copy_directory(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), target).map_err(err)?;
         }
     }
     Ok(())
+}
+
+fn omp_thinking_level(level: &str) -> &str {
+    match level {
+        "none" => "off",
+        "ultra" => "max",
+        other => other,
+    }
+}
+
+fn session_map_path(root: &Path, session_id: &str) -> Result<PathBuf, String> {
+    uuid::Uuid::parse_str(session_id)
+        .map_err(|_| "Invalid conversation id for the OMP session.".to_string())?;
+    Ok(root
+        .join(".research/omp-session-map")
+        .join(format!("{session_id}.json")))
+}
+
+fn omp_session_file(root: &Path, session_id: &str) -> Result<Option<PathBuf>, String> {
+    let map_path = session_map_path(root, session_id)?;
+    if !map_path.is_file() {
+        let suffix = format!("_{session_id}.jsonl");
+        let session_dir = root.join(".research/omp-sessions");
+        if session_dir.is_dir() {
+            if let Some(path) = fs::read_dir(&session_dir)
+                .map_err(err)?
+                .filter_map(Result::ok)
+                .map(|entry| entry.path())
+                .find(|path| {
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .is_some_and(|name| name.ends_with(&suffix))
+                })
+            {
+                return Ok(Some(path));
+            }
+        }
+        return migrate_legacy_pi_session(root, session_id, &suffix);
+    }
+    let session: OmpSessionRef =
+        serde_json::from_str(&fs::read_to_string(&map_path).map_err(err)?).map_err(err)?;
+    uuid::Uuid::parse_str(&session.session_id)
+        .map_err(|_| "The saved OMP session id is invalid.".to_string())?;
+    let file_name = Path::new(&session.file_name);
+    if file_name.file_name().and_then(|name| name.to_str()) != Some(&session.file_name)
+        || file_name.extension().and_then(|value| value.to_str()) != Some("jsonl")
+    {
+        return Err("The saved OMP session path is invalid.".to_string());
+    }
+    let path = root.join(".research/omp-sessions").join(file_name);
+    if !path.is_file() {
+        return Err(format!(
+            "The OMP conversation history is missing at {}.",
+            path.display()
+        ));
+    }
+    Ok(Some(path))
+}
+
+fn migrate_legacy_pi_session(
+    root: &Path,
+    session_id: &str,
+    suffix: &str,
+) -> Result<Option<PathBuf>, String> {
+    let legacy_dir = root.join(".research/pi-sessions");
+    if !legacy_dir.is_dir() {
+        return Ok(None);
+    }
+    let mut candidates = fs::read_dir(&legacy_dir)
+        .map_err(err)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(suffix))
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_by_key(|path| {
+        fs::metadata(path)
+            .and_then(|metadata| metadata.modified())
+            .ok()
+    });
+    let Some(source) = candidates.pop() else {
+        return Ok(None);
+    };
+    let raw = fs::read_to_string(&source).map_err(err)?;
+    let header = raw
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .ok_or_else(|| "The legacy Pi conversation is empty.".to_string())?;
+    let header: Value = serde_json::from_str(header).map_err(err)?;
+    if header.get("type").and_then(Value::as_str) != Some("session")
+        || header.get("id").and_then(Value::as_str) != Some(session_id)
+    {
+        return Err("The legacy Pi conversation does not match this conversation.".to_string());
+    }
+    let file_name = source
+        .file_name()
+        .ok_or_else(|| "The legacy Pi conversation has no file name.".to_string())?;
+    let session_dir = root.join(".research/omp-sessions");
+    fs::create_dir_all(&session_dir).map_err(err)?;
+    let destination = session_dir.join(file_name);
+    let migrated = sanitize_legacy_pi_jsonl(&raw)?;
+    fs::write(&destination, migrated).map_err(err)?;
+    Ok(Some(destination))
+}
+
+fn sanitize_legacy_pi_jsonl(raw: &str) -> Result<String, String> {
+    let mut lines = Vec::new();
+    for line in raw.lines().filter(|line| !line.trim().is_empty()) {
+        let mut value: Value = serde_json::from_str(line).map_err(err)?;
+        if value.pointer("/message/role").and_then(Value::as_str) == Some("user") {
+            if let Some(content) = value
+                .pointer_mut("/message/content")
+                .and_then(Value::as_array_mut)
+            {
+                for part in content {
+                    if let Some(clean) = part
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .and_then(without_legacy_editor_context)
+                    {
+                        part["text"] = Value::String(clean.to_string());
+                    }
+                }
+            }
+        }
+        lines.push(serde_json::to_string(&value).map_err(err)?);
+    }
+    Ok(format!("{}\n", lines.join("\n")))
 }
 
 fn without_legacy_editor_context(text: &str) -> Option<&str> {
@@ -389,6 +569,68 @@ fn without_legacy_editor_context(text: &str) -> Option<&str> {
         return None;
     }
     text.find(START).map(|index| &text[..index])
+}
+
+fn persist_session_from_state(
+    root: &Path,
+    lattice_session_id: &str,
+    state: &Value,
+) -> Result<(), String> {
+    let omp_session_id = state
+        .pointer("/data/sessionId")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "OMP did not provide a session id.".to_string())?;
+    uuid::Uuid::parse_str(omp_session_id)
+        .map_err(|_| "OMP returned an invalid session id.".to_string())?;
+    let session_file = state
+        .pointer("/data/sessionFile")
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+        .ok_or_else(|| "OMP did not provide a persistent session file.".to_string())?;
+    let file_name = session_file
+        .file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| value.ends_with(".jsonl"))
+        .ok_or_else(|| "OMP returned an invalid session file.".to_string())?;
+    let expected_parent = root.join(".research/omp-sessions");
+    if session_file.parent() != Some(expected_parent.as_path()) {
+        return Err("OMP tried to place conversation history outside this project.".to_string());
+    }
+    let reference = OmpSessionRef {
+        session_id: omp_session_id.to_string(),
+        file_name: file_name.to_string(),
+    };
+    let path = session_map_path(root, lattice_session_id)?;
+    fs::create_dir_all(path.parent().expect("OMP map path has a parent")).map_err(err)?;
+    let temporary = path.with_extension("json.tmp");
+    fs::write(
+        &temporary,
+        format!("{}\n", serde_json::to_string_pretty(&reference).map_err(err)?),
+    )
+    .map_err(err)?;
+    fs::rename(temporary, path).map_err(err)
+}
+
+fn session_entry_timestamp(
+    root: &Path,
+    session_id: &str,
+    entry_id: &str,
+) -> Result<Option<String>, String> {
+    let Some(path) = omp_session_file(root, session_id)? else {
+        return Ok(None);
+    };
+    for line in fs::read_to_string(path).map_err(err)?.lines() {
+        let Ok(entry) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        if entry.get("id").and_then(Value::as_str) == Some(entry_id) {
+            return Ok(entry
+                .get("timestamp")
+                .and_then(Value::as_str)
+                .map(str::to_string));
+        }
+    }
+    Ok(None)
 }
 
 fn editor_prompt(message: &str, active_file: Option<&str>, selection: Option<&str>) -> String {
@@ -446,66 +688,33 @@ fn compact_label(message: &str) -> String {
     value
 }
 
-fn prepare_auth(runtime: &AgentRuntime, provider: &str) -> Result<(&'static str, PathBuf), String> {
-    let (pi_provider, mut auth, subscription) = match provider {
-        "codex" => ("openai-codex", codex_auth()?, true),
-        "claude" => ("anthropic", claude_auth()?, true),
-        "openai-api" => {
-            let key = load_api_key("openai")?;
-            (
-                "openai",
-                json!({"openai": {"type": "api_key", "key": key}}),
-                false,
-            )
-        }
-        "anthropic-api" => {
-            let key = load_api_key("anthropic")?;
-            (
-                "anthropic",
-                json!({"anthropic": {"type": "api_key", "key": key}}),
-                false,
-            )
-        }
-        _ => return Err("Choose Codex, Claude, OpenAI API, or Anthropic API.".to_string()),
-    };
-    let agent_dir = runtime.config.join(provider);
-    fs::create_dir_all(&agent_dir).map_err(err)?;
-    let auth_path = agent_dir.join("auth.json");
-    if subscription {
-        auth = prefer_newer_credential(&auth_path, pi_provider, auth);
+fn prepare_auth(provider: &str) -> Result<OmpAuth, String> {
+    match provider {
+        "codex" => Ok(OmpAuth {
+            provider: "openai-codex",
+            environment: "OPENAI_CODEX_OAUTH_TOKEN",
+            credential: codex_access_token()?,
+        }),
+        "claude" => Ok(OmpAuth {
+            provider: "anthropic",
+            environment: "ANTHROPIC_OAUTH_TOKEN",
+            credential: claude_access_token()?,
+        }),
+        "openai-api" => Ok(OmpAuth {
+            provider: "openai",
+            environment: "OPENAI_API_KEY",
+            credential: load_api_key("openai")?,
+        }),
+        "anthropic-api" => Ok(OmpAuth {
+            provider: "anthropic",
+            environment: "ANTHROPIC_API_KEY",
+            credential: load_api_key("anthropic")?,
+        }),
+        _ => Err("Choose Codex, Claude, OpenAI API, or Anthropic API.".to_string()),
     }
-    write_private_json(&auth_path, &auth)?;
-    Ok((pi_provider, agent_dir))
 }
 
-fn prefer_newer_credential(path: &Path, provider: &str, incoming: Value) -> Value {
-    let incoming_expiry = incoming
-        .get(provider)
-        .and_then(|credential| credential.get("expires"))
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    let existing = fs::read_to_string(path)
-        .ok()
-        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok());
-    let Some(credential) = existing
-        .as_ref()
-        .and_then(|value| value.get(provider))
-        .filter(|credential| {
-            credential
-                .get("expires")
-                .and_then(Value::as_u64)
-                .unwrap_or(0)
-                > incoming_expiry
-        })
-    else {
-        return incoming;
-    };
-    let mut auth = Map::new();
-    auth.insert(provider.to_string(), credential.clone());
-    Value::Object(auth)
-}
-
-fn codex_auth() -> Result<Value, String> {
+fn codex_access_token() -> Result<String, String> {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
         .ok_or_else(|| "Could not find the current user folder.".to_string())?;
@@ -516,33 +725,13 @@ fn codex_auth() -> Result<Value, String> {
         .pointer("/tokens/access_token")
         .and_then(Value::as_str)
         .ok_or_else(|| "The Codex sign-in does not contain an access token.".to_string())?;
-    let refresh = value
-        .pointer("/tokens/refresh_token")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "The Codex sign-in does not contain a refresh token.".to_string())?;
-    let account_id = value
-        .pointer("/tokens/account_id")
-        .and_then(Value::as_str)
-        .or_else(|| value.get("account_id").and_then(Value::as_str));
-    let expires = jwt_expiry_ms(access).ok_or_else(|| {
+    let _expires = jwt_expiry_ms(access).ok_or_else(|| {
         "The Codex access token has an unreadable expiration time. Sign in again.".to_string()
     })?;
-    let mut credential = Map::from_iter([
-        ("type".to_string(), Value::String("oauth".to_string())),
-        ("access".to_string(), Value::String(access.to_string())),
-        ("refresh".to_string(), Value::String(refresh.to_string())),
-        ("expires".to_string(), Value::Number(expires.into())),
-    ]);
-    if let Some(account_id) = account_id {
-        credential.insert(
-            "accountId".to_string(),
-            Value::String(account_id.to_string()),
-        );
-    }
-    Ok(json!({"openai-codex": Value::Object(credential)}))
+    Ok(access.to_string())
 }
 
-fn claude_auth() -> Result<Value, String> {
+fn claude_access_token() -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
         let output = Command::new("/usr/bin/security")
@@ -565,22 +754,11 @@ fn claude_auth() -> Result<Value, String> {
             .get("accessToken")
             .and_then(Value::as_str)
             .ok_or_else(|| "The Claude sign-in does not contain an access token.".to_string())?;
-        let refresh = oauth
-            .get("refreshToken")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "The Claude sign-in does not contain a refresh token.".to_string())?;
-        let expires = oauth
+        let _expires = oauth
             .get("expiresAt")
             .and_then(Value::as_u64)
             .ok_or_else(|| "The Claude sign-in has an unreadable expiration time.".to_string())?;
-        Ok(json!({
-            "anthropic": {
-                "type": "oauth",
-                "access": access,
-                "refresh": refresh,
-                "expires": expires
-            }
-        }))
+        Ok(access.to_string())
     }
     #[cfg(not(target_os = "macos"))]
     Err("Claude subscription sign-in is currently supported on macOS.".to_string())
@@ -591,25 +769,6 @@ fn jwt_expiry_ms(token: &str) -> Option<u64> {
     let decoded = URL_SAFE_NO_PAD.decode(payload).ok()?;
     let value: Value = serde_json::from_slice(&decoded).ok()?;
     value.get("exp")?.as_u64()?.checked_mul(1000)
-}
-
-fn write_private_json(path: &Path, value: &Value) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| "The agent configuration path has no parent folder.".to_string())?;
-    fs::create_dir_all(parent).map_err(err)?;
-    let temporary = path.with_extension("json.tmp");
-    fs::write(
-        &temporary,
-        format!("{}\n", serde_json::to_string_pretty(value).map_err(err)?),
-    )
-    .map_err(err)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600)).map_err(err)?;
-    }
-    fs::rename(temporary, path).map_err(err)
 }
 
 fn stderr_suffix(stderr: &str) -> String {
@@ -728,7 +887,7 @@ impl JsonLineProcess {
                 return Err(response
                     .get("error")
                     .and_then(Value::as_str)
-                    .unwrap_or("Pi rejected the request.")
+                    .unwrap_or("OMP rejected the request.")
                     .to_string());
             }
             return Ok(response);
@@ -977,29 +1136,6 @@ mod tests {
     }
 
     #[test]
-    fn removes_legacy_editor_context_from_pi_history() {
-        let root = std::env::temp_dir().join(format!("lattice-pi-history-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&root).unwrap();
-        let session_id = uuid::Uuid::new_v4().to_string();
-        let path = root.join(format!("2026-07-17_{session_id}.jsonl"));
-        fs::write(
-            &path,
-            concat!(
-                "{\"type\":\"session\",\"id\":\"session\"}\n",
-                "{\"type\":\"message\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Hello\\n\\n<lattice_editor_context><active_file>main.tex</active_file></lattice_editor_context>\"}]}}\n",
-                "{\"type\":\"message\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Keep me\"}]}}\n"
-            ),
-        )
-        .unwrap();
-        sanitize_legacy_session(&root, &session_id).unwrap();
-        let migrated = fs::read_to_string(&path).unwrap();
-        assert!(migrated.contains("\"text\":\"Hello\""));
-        assert!(migrated.contains("Keep me"));
-        assert!(!migrated.contains("lattice_editor_context"));
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
     fn never_renders_a_user_message_as_assistant_text() {
         let user = json!({
             "role": "user",
@@ -1019,32 +1155,59 @@ mod tests {
     }
 
     #[test]
-    fn keeps_a_newer_pi_subscription_refresh() {
-        let root = std::env::temp_dir().join(format!("lattice-auth-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&root).unwrap();
-        let path = root.join("auth.json");
-        fs::write(
-            &path,
-            r#"{"openai-codex":{"type":"oauth","access":"new","refresh":"new","expires":2000}}"#,
-        )
-        .unwrap();
-        let incoming = json!({
-            "openai-codex": {"type": "oauth", "access": "old", "refresh": "old", "expires": 1000}
+    fn maps_lattice_effort_names_to_omp() {
+        assert_eq!(omp_thinking_level("none"), "off");
+        assert_eq!(omp_thinking_level("high"), "high");
+        assert_eq!(omp_thinking_level("ultra"), "max");
+    }
+
+    #[test]
+    fn persists_an_omp_session_reference_inside_the_project() {
+        let root = std::env::temp_dir().join(format!("lattice-omp-session-{}", uuid::Uuid::new_v4()));
+        let session_dir = root.join(".research/omp-sessions");
+        fs::create_dir_all(&session_dir).unwrap();
+        let lattice_id = uuid::Uuid::new_v4().to_string();
+        let omp_id = uuid::Uuid::new_v4().to_string();
+        let file_name = format!("2026-07-18_{omp_id}.jsonl");
+        let session_file = session_dir.join(&file_name);
+        fs::write(&session_file, "{}\n").unwrap();
+        let state = json!({
+            "data": { "sessionId": omp_id, "sessionFile": session_file }
         });
-        let selected = prefer_newer_credential(&path, "openai-codex", incoming);
-        assert_eq!(
-            selected
-                .pointer("/openai-codex/access")
-                .and_then(Value::as_str),
-            Some("new")
-        );
+        persist_session_from_state(&root, &lattice_id, &state).unwrap();
+        assert_eq!(omp_session_file(&root, &lattice_id).unwrap(), Some(session_file));
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
-    #[ignore = "uses the local Codex subscription and bundled Pi sidecar"]
-    fn pi_edits_a_project_and_records_the_change() {
-        let parent = std::env::temp_dir().join(format!("lattice-pi-e2e-{}", uuid::Uuid::new_v4()));
+    fn copies_a_legacy_pi_conversation_before_omp_resumes_it() {
+        let root = std::env::temp_dir().join(format!("lattice-omp-migration-{}", uuid::Uuid::new_v4()));
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let legacy_dir = root.join(".research/pi-sessions");
+        fs::create_dir_all(&legacy_dir).unwrap();
+        let file_name = format!("2026-07-18T12-00-00_{session_id}.jsonl");
+        fs::write(
+            legacy_dir.join(&file_name),
+            format!(
+                "{{\"type\":\"session\",\"version\":3,\"id\":\"{session_id}\",\"timestamp\":\"2026-07-18T12:00:00Z\",\"cwd\":\"{}\"}}\n{{\"type\":\"message\",\"id\":\"message-1\",\"parentId\":null,\"timestamp\":\"2026-07-18T12:00:01Z\",\"message\":{{\"role\":\"user\",\"content\":[{{\"type\":\"text\",\"text\":\"Hello\\n\\n<lattice_editor_context><active_file>main.tex</active_file></lattice_editor_context>\"}}]}}}}\n",
+                root.display()
+            ),
+        )
+        .unwrap();
+        let migrated = omp_session_file(&root, &session_id).unwrap().unwrap();
+        assert_eq!(migrated, root.join(".research/omp-sessions").join(file_name));
+        assert!(migrated.is_file());
+        let migrated_content = fs::read_to_string(migrated).unwrap();
+        assert!(migrated_content.contains("Hello"));
+        assert!(!migrated_content.contains("lattice_editor_context"));
+        assert!(legacy_dir.is_dir());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    #[ignore = "uses the local Codex subscription and bundled OMP sidecar"]
+    fn omp_edits_a_project_and_records_the_change() {
+        let parent = std::env::temp_dir().join(format!("lattice-omp-e2e-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&parent).unwrap();
         let root = project::create(&parent, "paper").unwrap();
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1052,8 +1215,8 @@ mod tests {
             executable: manifest
                 .join("binaries")
                 .join("lattice-agent-aarch64-apple-darwin"),
-            assets: manifest.join("pi-assets"),
-            config: parent.join("pi-config"),
+            assets: manifest.join("omp-assets"),
+            config: parent.join("omp-config"),
         };
         let settings = AgentSettings {
             provider: "codex".to_string(),
@@ -1068,7 +1231,7 @@ mod tests {
             &runtime,
             AgentRequest {
                 settings: &settings,
-                message: "Edit main.tex and replace 'State the problem, why it matters, and the central hypothesis.' with 'State the research problem and central hypothesis clearly.' Then briefly report what you changed.",
+                message: "Edit main.tex and replace 'Motivate the problem and state the paper's main contribution.' with 'State the research problem and central hypothesis clearly.' Then briefly report what you changed.",
                 active_file: Some("main.tex"),
                 selection: None,
                 session_id: &session_id,
@@ -1104,12 +1267,11 @@ mod tests {
         .unwrap();
         assert!(fs::read_to_string(root.join("main.tex"))
             .unwrap()
-            .contains("State the problem, why it matters, and the central hypothesis."));
-        let source_suffix = format!("_{session_id}.jsonl");
-        assert!(fs::read_dir(root.join(".research/pi-sessions"))
-            .unwrap()
-            .flatten()
-            .any(|entry| entry.file_name().to_string_lossy().ends_with(&source_suffix)));
+            .contains("Motivate the problem and state the paper's main contribution."));
+        assert!(root
+            .join(".research/omp-session-map")
+            .join(format!("{session_id}.json"))
+            .is_file());
         fs::remove_dir_all(parent).unwrap();
     }
 }

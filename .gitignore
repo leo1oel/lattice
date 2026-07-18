@@ -12,7 +12,7 @@ dist
 dist-ssr
 *.local
 src-tauri/binaries/
-src-tauri/pi-assets/
+src-tauri/omp-assets/
 
 # Editor directories and files
 .vscode/*

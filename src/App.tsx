@@ -3076,19 +3076,19 @@ function SettingsDialog(props: {
             {props.tab === "agent" && (
               <div className="settings-section">
                 <h2>Agent</h2>
-                <p>Lattice runs Pi directly. The prompt and skills below stay inside Lattice and never change your global agent setup.</p>
+                <p>Lattice uses Oh My Pi as its agent backend. The prompt and skills below stay inside Lattice and never change your global agent setup.</p>
                 <label htmlFor="agent-system-prompt">System prompt
                   <textarea
                     id="agent-system-prompt"
                     aria-label="Agent system prompt"
-                    placeholder="Write the system prompt you want Pi to use…"
+                    placeholder="Write the system prompt you want OMP to use…"
                     value={props.systemPrompt}
                     onChange={(event) => props.setSystemPrompt(event.target.value)}
                   />
                 </label>
                 <div className="skill-heading">
-                  <div><strong>Skills</strong><span>Enabled skills are given to Pi on its next turn.</span></div>
-                  <button onClick={() => props.setSkillDraft({ scope: "application", content: "---\nname: new-skill\ndescription: Describe when Pi should use this skill.\n---\n\n# New skill\n\nWrite the instructions here.\n" })}><Plus size={12} /> Add skill</button>
+                  <div><strong>Skills</strong><span>Enabled skills are given to OMP on its next turn.</span></div>
+                  <button onClick={() => props.setSkillDraft({ scope: "application", content: "---\nname: new-skill\ndescription: Describe when OMP should use this skill.\n---\n\n# New skill\n\nWrite the instructions here.\n" })}><Plus size={12} /> Add skill</button>
                 </div>
                 {props.skillDraft ? (
                   <div className="skill-editor">

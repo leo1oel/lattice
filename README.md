@@ -29,7 +29,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Use an OpenAI or Anthropic API key with the same streamed response experience instead of a local subscription.
 - Switch between Codex and Claude between messages, with current full model names and model-specific reasoning-effort controls for subscriptions and APIs.
 - Inspect and start Codex or Claude subscription login from Settings without configuring an API key.
-- Create, search, restore, and delete project-local agent conversations, copy any user or agent message, or edit an earlier user message to continue on a new Pi branch while restoring the project files to that turn and preserving the original conversation.
+- Create, search, restore, and delete project-local agent conversations, copy any user or agent message, or edit an earlier user message to continue on a new OMP branch while restoring the project files to that turn and preserving the original conversation.
 - Save direct edits, imports, and agent changes as atomic project transactions, retaining the latest 100 entries per project.
 - Inspect project history and revert a transaction.
 - Resize the Project and Papers regions vertically and preserve that layout across launches.
@@ -38,8 +38,8 @@ It is intended to validate the complete writing loop before collaboration and ho
 
 ## Current boundaries
 
-This prototype does not yet implement realtime collaboration, CRDT synchronization, cloud accounts, source-to-PDF SyncTeX navigation, a full ACP agent adapter, MCP tool exposure, or semantic embeddings.
-The local agent experience is a Pi harness with project tools, application-local skills, optional user-owned system prompts, and a bibliography prehook that redirects `.bib` edits through `bibcite`.
+This prototype does not yet implement realtime collaboration, CRDT synchronization, cloud accounts, source-to-PDF SyncTeX navigation, MCP tool exposure, or semantic embeddings.
+The local agent experience uses the bundled Oh My Pi backend for model access, streaming, tools, and conversation branching, with application-local skills, optional user-owned system prompts, and a bibliography prehook that redirects `.bib` edits through `bibcite`.
 Imported paper retrieval is currently a lightweight lexical ranking over project snapshots.
 
 ## Prerequisites
@@ -95,7 +95,9 @@ paper-project/
     ├── brief.md
     ├── papers/<arxiv-id>/paper.md
     ├── history/<transaction-id>.json
-    └── sessions/<conversation-id>.json
+    ├── sessions/<conversation-id>.json
+    ├── omp-sessions/<omp-session>.jsonl
+    └── omp-session-map/<conversation-id>.json
 ```
 
 The manuscript remains buildable if `.research` is removed.
@@ -106,17 +108,17 @@ That package did not include a separate license file, so Lattice records its pro
 
 ## Safety model
 
-Every path accepted from the interface or an agent is validated against the active project root.
-An agent cannot write outside the project or modify transaction history.
+Every project path accepted from the interface is validated against the active project root.
+OMP runs with the user's local permissions and the project folder as its working directory, while Lattice records every resulting project-file change as one reversible transaction.
 Untrusted projects compile with shell escape disabled.
-Agent CLIs run in read-only mode and return complete structured edits, which the application validates and commits as one transaction.
+The bundled prehook blocks direct bibliography writes and tells OMP to use the application-local `bibcite` skill instead.
 Direct API keys are stored in macOS Keychain and never enter project files or browser storage.
 Paper Markdown is sanitized before rendering.
 
 ## Architecture
 
 The React and TypeScript interface runs inside Tauri 2.
-Rust owns filesystem access, project validation, transactions, subprocess execution, LaTeX compilation, paper import, bibliography changes, and agent bridges.
+Rust owns project validation, transactions, subprocess execution, LaTeX compilation, paper import, bibliography changes, and the OMP RPC bridge.
 
 The central boundary is the document transaction layer:
 
@@ -127,8 +129,7 @@ Writing agent ─┘
 ```
 
 This boundary is designed to become the `DocumentStore` abstraction used by later CRDT collaboration.
-ACP should connect complete external agents to Lattice, while MCP should expose Lattice project tools to those agents.
-Neither protocol is required to validate the prototype's local writing loop.
+OMP is the agent backend; Lattice keeps the UI, projects, LaTeX editor, paper library, and PDF review as the product-owned layers.
 
 ## Development
 
@@ -148,7 +149,7 @@ pnpm tauri build
 
 ## Next milestones
 
-1. Replace the subprocess-specific agent bridge with ACP adapters and expose project operations through MCP.
+1. Harden OMP cancellation, tool-progress rendering, legacy-conversation migration, and recovery after an interrupted agent process.
 2. Add PDF selection and annotation plus source-to-PDF SyncTeX navigation.
 3. Add TexLab diagnostics and completion to the source editor.
 4. Add SQLite FTS5 indexing and evaluate a PaperQA2 sidecar for semantic evidence retrieval.

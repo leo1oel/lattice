@@ -15,7 +15,7 @@ function hook() {
   return callback;
 }
 
-describe("Lattice Pi extension", () => {
+describe("Lattice OMP extension", () => {
   it("blocks direct bibliography writes and points the agent to bibcite", () => {
     const result = hook()({ toolName: "edit", input: { path: "references.bib" } });
     expect(result?.block).toBe(true);

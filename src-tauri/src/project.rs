@@ -12,7 +12,8 @@ use uuid::Uuid;
 use walkdir::WalkDir;
 
 const MANIFEST_PATH: &str = ".research/project.json";
-const RESEARCH_GITIGNORE: &str = "history/\nsessions/\npi-sessions/\ncheckpoints/\ncache/\n";
+const RESEARCH_GITIGNORE: &str =
+    "history/\nsessions/\nomp-sessions/\nomp-session-map/\nomp-runtime/\ncheckpoints/\ncache/\n";
 const MAX_HISTORY_ENTRIES: usize = 100;
 const NEURIPS_2026_MAIN: &str = include_str!("../templates/neurips-2026/main.tex");
 const NEURIPS_2026_STYLE: &str = include_str!("../templates/neurips-2026/neurips_2026.sty");
@@ -51,7 +52,8 @@ pub fn create(parent: &Path, name: &str) -> Result<PathBuf, String> {
     fs::create_dir_all(root.join(".research/papers")).map_err(err)?;
     fs::create_dir_all(root.join(".research/history")).map_err(err)?;
     fs::create_dir_all(root.join(".research/sessions")).map_err(err)?;
-    fs::create_dir_all(root.join(".research/pi-sessions")).map_err(err)?;
+    fs::create_dir_all(root.join(".research/omp-sessions")).map_err(err)?;
+    fs::create_dir_all(root.join(".research/omp-session-map")).map_err(err)?;
     fs::create_dir_all(root.join(".research/licenses")).map_err(err)?;
     fs::create_dir_all(root.join("figures")).map_err(err)?;
 
@@ -70,7 +72,7 @@ pub fn create(parent: &Path, name: &str) -> Result<PathBuf, String> {
     )
     .map_err(err)?;
     fs::write(root.join("references.bib"), "").map_err(err)?;
-    fs::write(root.join(".gitignore"), ".research/history/\n.research/sessions/\n.research/pi-sessions/\n.research/checkpoints/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n").map_err(err)?;
+    fs::write(root.join(".gitignore"), ".research/history/\n.research/sessions/\n.research/omp-sessions/\n.research/omp-session-map/\n.research/omp-runtime/\n.research/checkpoints/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n").map_err(err)?;
     Ok(root)
 }
 
@@ -83,14 +85,21 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     fs::create_dir_all(root.join(".research/history")).map_err(err)?;
     fs::create_dir_all(root.join(".research/papers")).map_err(err)?;
     fs::create_dir_all(root.join(".research/sessions")).map_err(err)?;
-    fs::create_dir_all(root.join(".research/pi-sessions")).map_err(err)?;
+    fs::create_dir_all(root.join(".research/omp-sessions")).map_err(err)?;
+    fs::create_dir_all(root.join(".research/omp-session-map")).map_err(err)?;
     let research_ignore = root.join(".research/.gitignore");
     if research_ignore.exists() {
         ensure_ignore_line(&research_ignore, "checkpoints/")?;
+        ensure_ignore_line(&research_ignore, "omp-sessions/")?;
+        ensure_ignore_line(&research_ignore, "omp-session-map/")?;
+        ensure_ignore_line(&research_ignore, "omp-runtime/")?;
     } else {
         fs::write(&research_ignore, RESEARCH_GITIGNORE).map_err(err)?;
     }
     ensure_ignore_line(&root.join(".gitignore"), ".research/checkpoints/")?;
+    ensure_ignore_line(&root.join(".gitignore"), ".research/omp-sessions/")?;
+    ensure_ignore_line(&root.join(".gitignore"), ".research/omp-session-map/")?;
+    ensure_ignore_line(&root.join(".gitignore"), ".research/omp-runtime/")?;
 
     let manifest = if root.join(MANIFEST_PATH).exists() {
         read_manifest(&root)?

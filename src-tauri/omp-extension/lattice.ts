@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 
 const BIBLIOGRAPHY_PATTERN = /(?:^|[\s'"=])[^\s'"<>|;&]*\.bib(?:$|[\s'"<>|;&])/i;
 const READ_ONLY_COMMAND = /^\s*(?:cat|rg|grep|head|tail|wc|less|git\s+diff)\b/i;
@@ -15,8 +15,8 @@ function blockReason(target: string): string {
   return `Direct changes to ${target} are blocked by Lattice. Read and follow the bundled bibcite skill, then use the bibcite CLI. After adding a paper, use the exact citation key returned by bibcite.`;
 }
 
-export default function latticeExtension(pi: ExtensionAPI) {
-  pi.on("tool_call", (event) => {
+export default function latticeExtension(omp: ExtensionAPI) {
+  omp.on("tool_call", (event) => {
     if (event.toolName === "edit" || event.toolName === "write") {
       const path = bibliographyPath(event.input);
       if (path) return { block: true, reason: blockReason(path) };

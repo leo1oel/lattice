@@ -500,7 +500,7 @@ pub fn run() {
                 .path()
                 .app_config_dir()
                 .map_err(|error| error.to_string())?
-                .join("pi");
+                .join("omp");
             let (executable, assets) = agent_runtime_paths(app)?;
             app.manage(AppState::from_environment(agents::AgentRuntime {
                 executable,
@@ -572,7 +572,7 @@ fn agent_runtime_paths(app: &tauri::App) -> Result<(PathBuf, PathBuf), Box<dyn s
         } else if cfg!(all(target_arch = "x86_64", target_os = "linux")) {
             "x86_64-unknown-linux-gnu"
         } else {
-            return Err("This development target is not configured for the Pi sidecar.".into());
+            return Err("This development target is not configured for the OMP sidecar.".into());
         };
         let suffix = if cfg!(target_os = "windows") {
             ".exe"
@@ -583,7 +583,7 @@ fn agent_runtime_paths(app: &tauri::App) -> Result<(PathBuf, PathBuf), Box<dyn s
             manifest
                 .join("binaries")
                 .join(format!("lattice-agent-{target}{suffix}")),
-            manifest.join("pi-assets"),
+            manifest.join("omp-assets"),
         ));
     }
 
@@ -596,5 +596,5 @@ fn agent_runtime_paths(app: &tauri::App) -> Result<(PathBuf, PathBuf), Box<dyn s
         .parent()
         .ok_or("The application executable has no parent folder.")?
         .join(executable_name);
-    Ok((executable, app.path().resource_dir()?.join("pi-assets")))
+    Ok((executable, app.path().resource_dir()?.join("omp-assets")))
 }

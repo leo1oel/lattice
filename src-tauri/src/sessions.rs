@@ -152,10 +152,33 @@ pub fn delete(root: &Path, session_id: &str) -> Result<(), String> {
     if checkpoints.is_dir() {
         fs::remove_dir_all(checkpoints).map_err(err)?;
     }
-    let pi_sessions = root.join(".research/pi-sessions");
-    if pi_sessions.is_dir() {
+    let omp_map = root
+        .join(".research/omp-session-map")
+        .join(format!("{session_id}.json"));
+    if omp_map.is_file() {
+        let value = fs::read_to_string(&omp_map)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
+        if let Some(file_name) = value
+            .as_ref()
+            .and_then(|value| value.get("fileName"))
+            .and_then(serde_json::Value::as_str)
+            .filter(|name| {
+                Path::new(name).file_name().and_then(|value| value.to_str()) == Some(*name)
+                    && Path::new(name).extension().and_then(|value| value.to_str()) == Some("jsonl")
+            })
+        {
+            let history = root.join(".research/omp-sessions").join(file_name);
+            if history.is_file() {
+                fs::remove_file(history).map_err(err)?;
+            }
+        }
+        fs::remove_file(omp_map).map_err(err)?;
+    }
+    let legacy_pi_sessions = root.join(".research/pi-sessions");
+    if legacy_pi_sessions.is_dir() {
         let suffix = format!("_{session_id}.jsonl");
-        for entry in fs::read_dir(pi_sessions).map_err(err)? {
+        for entry in fs::read_dir(legacy_pi_sessions).map_err(err)? {
             let path = entry.map_err(err)?.path();
             if path
                 .file_name()
