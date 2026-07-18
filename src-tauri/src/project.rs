@@ -1,7 +1,7 @@
 use crate::commands;
 use crate::models::{
-    AssetPreview, FileChange, FileNode, HistoryItem, ProjectManifest, ProjectSnapshot, RootDocument,
-    TransactionRecord,
+    AssetPreview, FileChange, FileNode, HistoryItem, ProjectManifest, ProjectSearchResult,
+    ProjectSnapshot, RootDocument, TransactionRecord,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::Utc;
@@ -206,6 +206,76 @@ pub fn citation_keys(root: &Path) -> Result<Vec<String>, String> {
     keys.sort_by_key(|key| key.to_lowercase());
     keys.dedup();
     Ok(keys)
+}
+
+pub fn search_files(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
+    let needle = query.trim().to_lowercase();
+    if needle.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut results = Vec::new();
+    search_file_nodes(root, &scan_files(root)?, &needle, &mut results)?;
+    results.truncate(60);
+    Ok(results)
+}
+
+fn search_file_nodes(
+    root: &Path,
+    nodes: &[FileNode],
+    needle: &str,
+    results: &mut Vec<ProjectSearchResult>,
+) -> Result<(), String> {
+    for node in nodes {
+        if node.kind == "directory" {
+            search_file_nodes(root, &node.children, needle, results)?;
+            continue;
+        }
+        let path_matches = node.path.to_lowercase().contains(needle);
+        let snippet = if searchable_text_path(&node.path) {
+            fs::read_to_string(safe_path(root, &node.path)?)
+                .ok()
+                .and_then(|content| matching_snippet(&content, needle))
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+        if path_matches || !snippet.is_empty() {
+            results.push(ProjectSearchResult {
+                kind: "file".to_string(),
+                path: node.path.clone(),
+                title: node.name.clone(),
+                snippet,
+                arxiv_id: None,
+                file_kind: Some(node.kind.clone()),
+            });
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn matching_snippet(content: &str, needle: &str) -> Option<String> {
+    content.lines().find_map(|line| {
+        line.to_lowercase().contains(needle).then(|| {
+            let trimmed = line.trim();
+            let snippet = trimmed.chars().take(180).collect::<String>();
+            if trimmed.chars().count() > 180 {
+                format!("{snippet}…")
+            } else {
+                snippet
+            }
+        })
+    })
+}
+
+fn searchable_text_path(path: &str) -> bool {
+    matches!(
+        Path::new(path)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .map(str::to_lowercase)
+            .as_deref(),
+        Some("tex" | "bib" | "sty" | "cls" | "md" | "txt")
+    )
 }
 
 pub fn create_entry(root: &Path, relative: &str, kind: &str) -> Result<String, String> {
@@ -1227,6 +1297,28 @@ mod tests {
             vec!["dosovitskiy2021image", "vaswani2017attention"]
         );
         fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn project_search_matches_file_paths_and_contents() {
+        let root = temp_root("project-search");
+        create(&root, "searchable").unwrap();
+        let project = root.join("searchable");
+        create_entry(&project, "sections/method.tex", "file").unwrap();
+        fs::write(
+            project.join("sections/method.tex"),
+            "A distinctive latent alignment objective.\n",
+        )
+        .unwrap();
+
+        let content_results = search_files(&project, "latent alignment").unwrap();
+        assert_eq!(content_results[0].path, "sections/method.tex");
+        assert!(content_results[0].snippet.contains("distinctive latent"));
+        assert_eq!(
+            search_files(&project, "method.tex").unwrap()[0].path,
+            "sections/method.tex"
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

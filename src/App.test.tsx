@@ -488,6 +488,40 @@ describe("project workspace", () => {
     await waitFor(() => expect(paper.closest(".paper-row")).not.toHaveClass("active"));
   });
 
+  it("searches project files and paper contents from one navigator field", async () => {
+    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention" };
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "method.tex", path: "sections/method.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "A latent alignment objective.";
+      if (command === "list_papers") return [paper];
+      if (command === "list_history") return [];
+      if (command === "search_project") return [
+        { kind: "file", path: "sections/method.tex", title: "method.tex", snippet: "A latent alignment objective.", fileKind: "tex" },
+        { kind: "paper", path: ".research/papers/1706.03762/paper.md", title: paper.title, snippet: "The model relies entirely on self-attention.", arxivId: paper.arxivId },
+      ];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    fireEvent.change(await screen.findByLabelText("Search project files and papers"), { target: { value: "alignment" } });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_project", { query: "alignment" }));
+    expect((await screen.findAllByText("A latent alignment objective.")).length).toBeGreaterThan(0);
+    expect(screen.getByText("The model relies entirely on self-attention.")).toBeInTheDocument();
+  });
+
   it("renames project items and paper display titles from their context menus", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",

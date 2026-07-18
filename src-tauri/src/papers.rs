@@ -1,5 +1,5 @@
 use crate::commands;
-use crate::models::{ImportResult, PaperSummary};
+use crate::models::{ImportResult, PaperSummary, ProjectSearchResult};
 use crate::project;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -137,6 +137,33 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
     }
     papers.sort_by_key(|paper| paper.title.to_lowercase());
     Ok(papers)
+}
+
+pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
+    let needle = query.trim().to_lowercase();
+    if needle.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut results = Vec::new();
+    for paper in list_papers(root)? {
+        let markdown = read_paper(root, &paper.arxiv_id)?;
+        let snippet = project::matching_snippet(&markdown, &needle).unwrap_or_default();
+        if paper.title.to_lowercase().contains(&needle)
+            || paper.arxiv_id.to_lowercase().contains(&needle)
+            || !snippet.is_empty()
+        {
+            results.push(ProjectSearchResult {
+                kind: "paper".to_string(),
+                path: format!(".research/papers/{}/paper.md", paper.arxiv_id),
+                title: paper.title,
+                snippet,
+                arxiv_id: Some(paper.arxiv_id),
+                file_kind: None,
+            });
+        }
+    }
+    results.truncate(60);
+    Ok(results)
 }
 
 pub fn read_paper(root: &Path, arxiv_id: &str) -> Result<String, String> {
@@ -436,6 +463,30 @@ mod tests {
             Some("vaswani2017attention")
         );
         assert_eq!(list_papers(&root).unwrap()[0].title, "A clearer title");
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn paper_search_matches_markdown_contents() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-search-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let directory = root.join(".research/papers/1706.03762");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("paper.md"),
+            "Title: Attention Is All You Need\nThe model relies entirely on self-attention.\n",
+        )
+        .unwrap();
+        fs::write(
+            directory.join("metadata.json"),
+            r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
+        )
+        .unwrap();
+
+        let results = search_papers(&root, "self-attention").unwrap();
+
+        assert_eq!(results[0].arxiv_id.as_deref(), Some("1706.03762"));
+        assert!(results[0].snippet.contains("self-attention"));
         fs::remove_dir_all(parent).unwrap();
     }
 

@@ -112,6 +112,15 @@ type SyncTexTarget = {
 
 type EditorNavigation = SyncTexTarget & { id: string };
 
+type ProjectSearchResult = {
+  kind: "file" | "paper";
+  path: string;
+  title: string;
+  snippet: string;
+  arxivId?: string;
+  fileKind?: string;
+};
+
 type Diagnostic = {
   file?: string;
   line?: number;
@@ -1812,6 +1821,44 @@ function Navigator(props: {
   const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
   const [entryBusy, setEntryBusy] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string; label: string; paper?: PaperSummary } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ProjectSearchResult[]>([]);
+  const [searchResultQuery, setSearchResultQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      if (!active) return;
+      setSearching(true);
+      void invoke<ProjectSearchResult[]>("search_project", { query })
+        .then((results) => {
+          if (active) {
+            setSearchResults(results);
+            setSearchResultQuery(query);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setSearchResults([]);
+            setSearchResultQuery(query);
+          }
+        })
+        .finally(() => {
+          if (active) setSearching(false);
+        });
+    }, 180);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [searchQuery]);
+  const searchActive = Boolean(searchQuery.trim());
+  const searchPending = searchActive && searchResultQuery !== searchQuery.trim();
+  const visibleSearchResults = searchActive && searchResultQuery === searchQuery.trim() ? searchResults : [];
+  const fileSearchResults = visibleSearchResults.filter((result) => result.kind === "file");
+  const paperSearchResults = visibleSearchResults.filter((result) => result.kind === "paper");
   useEffect(() => {
     if (!contextMenu) return;
     const close = () => setContextMenu(null);
@@ -1898,6 +1945,11 @@ function Navigator(props: {
           <span>Project</span>
           <button className="section-action" title="Add file or folder" aria-label="Add file or folder" onClick={() => setEntryFormOpen((value) => !value)}><FolderPlus size={14} strokeWidth={1.8} /></button>
         </div>
+        <label className="navigator-search">
+          <Search size={13} />
+          <input aria-label="Search project files and papers" placeholder="Search files and papers" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
+          {searchPending || searching ? <LoaderCircle className="spin" size={12} /> : searchActive && <button title="Clear search" onClick={() => setSearchQuery("")}><X size={12} /></button>}
+        </label>
         {entryFormOpen && (
           <div className="project-entry-form" onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) closeEntryForm();
@@ -1923,7 +1975,13 @@ function Navigator(props: {
           </div>
         )}
         <div className="file-tree">
-          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} onContextMenu={showContextMenu} />)}
+          {searchActive ? fileSearchResults.map((result) => (
+            <button key={result.path} className="navigator-search-result" onClick={() => result.fileKind === "figure" ? props.onAsset(result.path) : props.onFile(result.path)}>
+              {result.fileKind === "figure" ? <Image size={13} /> : <FileText size={13} />}
+              <span><strong>{result.title}</strong><small>{result.snippet || result.path}</small></span>
+            </button>
+          )) : props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} onContextMenu={showContextMenu} />)}
+          {searchActive && !searchPending && !searching && !fileSearchResults.length && <p className="search-empty">No matching project files.</p>}
         </div>
       </div>
       <div
@@ -1952,16 +2010,17 @@ function Navigator(props: {
           <span className="count-badge">{props.papers.length}</span>
         </div>
         <div className="paper-list">
-          {props.papers.map((paper) => (
+          {(searchActive ? paperSearchResults.map((result) => props.papers.find((paper) => paper.arxivId === result.arxivId)).filter((paper): paper is PaperSummary => Boolean(paper)) : props.papers).map((paper) => (
             <div key={paper.arxivId} className={`paper-row ${props.activePaper?.arxivId === paper.arxivId ? "active" : ""}`} onContextMenu={(event) => showContextMenu(event, `.research/papers/${paper.arxivId}/paper.md`, paper.title, paper)}>
               <button title={paper.title} className="paper-open" onClick={() => props.onPaper(paper)}>
                 <BookOpen size={14} />
-                <span><strong>{paper.title}</strong><small>{paper.citationKey ? `\\cite{${paper.citationKey}}` : `arXiv ${paper.arxivId}`}</small></span>
+                <span><strong>{paper.title}</strong><small>{searchActive ? paperSearchResults.find((result) => result.arxivId === paper.arxivId)?.snippet || `arXiv ${paper.arxivId}` : paper.citationKey ? `\\cite{${paper.citationKey}}` : `arXiv ${paper.arxivId}`}</small></span>
               </button>
               <button className="row-delete" title={`Remove ${paper.title}`} onClick={() => props.onDeletePaper(paper)}><Trash2 size={12} /></button>
             </div>
           ))}
-          {!props.papers.length && <p className="empty-note">Add an arXiv paper to ground the agent in project evidence.</p>}
+          {!searchActive && !props.papers.length && <p className="empty-note">Add an arXiv paper to ground the agent in project evidence.</p>}
+          {searchActive && !searchPending && !searching && !paperSearchResults.length && <p className="search-empty">No matching papers.</p>}
         </div>
         <div className="import-box">
           <input

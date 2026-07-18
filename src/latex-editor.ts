@@ -27,7 +27,7 @@ export const luxLatexHighlightStyle = HighlightStyle.define([
   { tag: tags.bracket, color: "var(--syntax-bracket)" },
   { tag: tags.strong, fontWeight: "700" },
   { tag: tags.emphasis, fontStyle: "italic" },
-  { tag: tags.invalid, color: "var(--danger)", textDecoration: "underline wavy" },
+  { tag: tags.invalid, color: "inherit", textDecoration: "none" },
 ]);
 
 export function shouldInsertCommandBraces(textBeforeCursor: string): boolean {
@@ -58,6 +58,11 @@ function citationCompletions(keys: string[]) {
 
 export function latexEditorExtensions(citationKeys: string[]) {
   return [
+    EditorView.contentAttributes.of({
+      spellcheck: "false",
+      autocorrect: "off",
+      autocapitalize: "off",
+    }),
     syntaxHighlighting(luxLatexHighlightStyle),
     autocompletion({
       override: [citationCompletions(citationKeys), latexCompletionSource(true)],

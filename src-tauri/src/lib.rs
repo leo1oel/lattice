@@ -10,7 +10,8 @@ mod skill_store;
 use models::{
     AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
     AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, HistoryItem,
-    ImportResult, PaperSummary, ProjectSnapshot, SubscriptionStatus, SyncTexTarget,
+    ImportResult, PaperSummary, ProjectSearchResult, ProjectSnapshot, SubscriptionStatus,
+    SyncTexTarget,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -110,6 +111,21 @@ fn write_project_file(
 #[tauri::command]
 fn list_citation_keys(state: tauri::State<'_, AppState>) -> Result<Vec<String>, String> {
     project::citation_keys(&current_root(&state)?)
+}
+
+#[tauri::command]
+async fn search_project(
+    state: tauri::State<'_, AppState>,
+    query: String,
+) -> Result<Vec<ProjectSearchResult>, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut results = project::search_files(&root, &query)?;
+        results.extend(papers::search_papers(&root, &query)?);
+        Ok(results)
+    })
+    .await
+    .map_err(|error| format!("Project search stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
@@ -495,6 +511,7 @@ pub fn run() {
             read_project_file,
             write_project_file,
             list_citation_keys,
+            search_project,
             create_project_entry,
             delete_project_entry,
             rename_project_entry,
