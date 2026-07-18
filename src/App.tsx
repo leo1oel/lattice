@@ -4,6 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import CodeMirror from "@uiw/react-codemirror";
+import type { EditorView } from "@codemirror/view";
 import { latex } from "codemirror-lang-latex";
 import DOMPurify from "dompurify";
 import { gsap } from "gsap";
@@ -27,6 +28,7 @@ import {
   FolderOpen,
   FolderPlus,
   History,
+  Image,
   ImagePlus,
   KeyRound,
   Library,
@@ -49,6 +51,7 @@ import {
 } from "lucide-react";
 import { marked } from "marked";
 import { latexEditorExtensions } from "./latex-editor";
+import { latexFigureInsertion } from "./figure-insertion";
 import "./App.css";
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -79,6 +82,19 @@ type ProjectSnapshot = {
   root: string;
   manifest: ProjectManifest;
   files: FileNode[];
+};
+
+type AssetPreview = {
+  path: string;
+  mimeType: string;
+  base64: string;
+};
+
+type FigureDropRequest = {
+  id: string;
+  paths: string[];
+  clientX: number;
+  clientY: number;
 };
 
 type Diagnostic = {
@@ -167,7 +183,7 @@ type SkillDraft = { originalName?: string; scope: "application" | "project"; con
 type AgentMention = { key: string; label: string; path: string; kind: "file" | "paper" };
 type MentionState = { start: number; end: number; query: string };
 
-type CanvasMode = "source" | "pdf" | "split" | "paper";
+type CanvasMode = "source" | "pdf" | "split" | "paper" | "asset";
 type Theme = "light" | "dark";
 type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
 type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
@@ -190,6 +206,7 @@ const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
 const AGENT_SYSTEM_PROMPT_KEY = "lattice.agent-system-prompt.v1";
+const PROJECT_FIGURE_DRAG_TYPE = "application/x-lattice-project-figure";
 
 const defaultWelcomeMessages: ChatMessage[] = [
   {
@@ -213,6 +230,9 @@ function App() {
   const [citationKeys, setCitationKeys] = useState<string[]>([]);
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
+  const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
+  const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
+  const [figureDropRequest, setFigureDropRequest] = useState<FigureDropRequest | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(defaultWelcomeMessages);
   const [agentSessions, setAgentSessions] = useState<AgentSessionSummary[]>([]);
   const [activeSession, setActiveSession] = useState<AgentSession | null>(null);
@@ -303,8 +323,9 @@ function App() {
       setSource(content);
       setSavedSource(content);
       setActivePaper(null);
+      setActiveAsset(null);
       setPaperMarkdown("");
-      setCanvasMode((mode) => (mode === "paper" ? "split" : mode));
+      setCanvasMode((mode) => (mode === "paper" || mode === "asset" ? "split" : mode));
       setError(null);
     } catch (reason) {
       setError(toMessage(reason));
@@ -381,6 +402,7 @@ function App() {
       setBuild(null);
       setSelection("");
       setActivePaper(null);
+      setActiveAsset(null);
       setPaperMarkdown("");
       setCanvasMode("split");
       setPdfUrl((previous) => {
@@ -623,10 +645,31 @@ function App() {
     try {
       setPaperMarkdown(await invoke<string>("read_paper", { arxivId: paper.arxivId }));
       setActivePaper(paper);
+      setActiveAsset(null);
       setCanvasMode("paper");
     } catch (reason) {
       setError(toMessage(reason));
     }
+  }, []);
+
+  const openProjectAsset = useCallback(async (path: string) => {
+    try {
+      const asset = await invoke<AssetPreview>("read_project_asset", { path });
+      setActiveAsset(asset);
+      setActivePaper(null);
+      setPaperMarkdown("");
+      setCanvasMode("asset");
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, []);
+
+  const openDocumentMode = useCallback((mode: "source" | "split" | "pdf") => {
+    setActiveAsset(null);
+    setActivePaper(null);
+    setPaperMarkdown("");
+    setCanvasMode(mode);
   }, []);
 
   const createProjectEntry = useCallback(async (path: string, kind: "file" | "folder") => {
@@ -641,8 +684,8 @@ function App() {
     }
   }, [loadFile, refreshHistory, refreshProject]);
 
-  const importProjectAssets = useCallback(async (paths: string[], targetDirectory = "figures") => {
-    if (!paths.length || assetImporting) return;
+  const importProjectAssets = useCallback(async (paths: string[], targetDirectory = "figures"): Promise<string[]> => {
+    if (!paths.length || assetImporting) return [];
     setAssetImporting(true);
     try {
       const imported = await invoke<string[]>("import_project_assets", { paths, targetDirectory });
@@ -657,8 +700,10 @@ function App() {
         },
       ]);
       setError(null);
+      return imported;
     } catch (reason) {
       setError(toMessage(reason));
+      return [];
     } finally {
       setAssetImporting(false);
       setAssetDropTarget(null);
@@ -684,13 +729,29 @@ function App() {
         if (!active) return;
         if (event.payload.type === "leave") {
           setAssetDropTarget(null);
+          setNativeEditorDropActive(false);
           return;
         }
+        const editorPosition = dropEditorAt(event.payload.position);
         const targetDirectory = dropDirectoryAt(event.payload.position);
         setAssetDropTarget(targetDirectory);
+        setNativeEditorDropActive(Boolean(editorPosition));
         if (event.payload.type === "drop") {
           setAssetDropTarget(null);
-          if (targetDirectory) void importProjectAssets(event.payload.paths, targetDirectory);
+          setNativeEditorDropActive(false);
+          if (!event.payload.paths.length) return;
+          if (editorPosition) {
+            void importProjectAssets(event.payload.paths, "figures").then((paths) => {
+              if (paths.length) {
+                setFigureDropRequest({
+                  id: crypto.randomUUID(),
+                  paths,
+                  clientX: editorPosition.x,
+                  clientY: editorPosition.y,
+                });
+              }
+            });
+          } else if (targetDirectory) void importProjectAssets(event.payload.paths, targetDirectory);
           else setError("Drop image files onto a project folder or anywhere in the Project pane to add them to figures.");
         }
       }))
@@ -707,6 +768,22 @@ function App() {
     };
   }, [importProjectAssets, project]);
 
+  const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
+    try {
+      const prepared = await invoke<string>("prepare_latex_figure", { path });
+      if (prepared !== path) await refreshProject();
+      setError(null);
+      return prepared;
+    } catch (reason) {
+      setError(toMessage(reason));
+      return null;
+    }
+  }, [refreshProject]);
+
+  const handleFigureDropHandled = useCallback((id: string) => {
+    setFigureDropRequest((request) => request?.id === id ? null : request);
+  }, []);
+
   const deleteProjectEntry = useCallback(async (path: string) => {
     if (!window.confirm(`Delete “${path}” from this project?`)) return;
     try {
@@ -717,11 +794,14 @@ function App() {
         const rootDocument = snapshot.manifest.rootDocuments.find((document) => document.isDefault)
           ?? snapshot.manifest.rootDocuments[0];
         if (rootDocument) await loadFile(rootDocument.path);
+      } else if (activeAsset?.path === path || activeAsset?.path.startsWith(`${path}/`)) {
+        setActiveAsset(null);
+        setCanvasMode("split");
       }
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [activeFile, loadFile, refreshHistory, refreshProject]);
+  }, [activeAsset, activeFile, loadFile, refreshHistory, refreshProject]);
 
   const renameProjectEntry = useCallback((path: string, name: string) => {
     setRenameError(null);
@@ -747,7 +827,13 @@ function App() {
           : activeFile.startsWith(`${renameTarget.path}/`)
             ? `${renamedPath}${activeFile.slice(renameTarget.path.length)}`
             : null;
+        const renamedActiveAsset = activeAsset?.path === renameTarget.path
+          ? renamedPath
+          : activeAsset?.path.startsWith(`${renameTarget.path}/`)
+            ? `${renamedPath}${activeAsset.path.slice(renameTarget.path.length)}`
+            : null;
         if (renamedActiveFile) await loadFile(renamedActiveFile);
+        if (renamedActiveAsset) await openProjectAsset(renamedActiveAsset);
       } else {
         const renamedPaper = await invoke<PaperSummary>("rename_paper", {
           arxivId: renameTarget.paper.arxivId,
@@ -761,7 +847,7 @@ function App() {
     } catch (reason) {
       setRenameError(toMessage(reason));
     }
-  }, [activeFile, activePaper, loadFile, refreshProject, renameTarget]);
+  }, [activeAsset, activeFile, activePaper, loadFile, openProjectAsset, refreshProject, renameTarget]);
 
   const revealProjectItem = useCallback(async (relativePath: string) => {
     if (!project) return;
@@ -1269,7 +1355,8 @@ function App() {
           <>
             <Navigator
               files={project.files}
-              activeFile={activeFile}
+              activeFile={activeAsset || activePaper ? "" : activeFile}
+              activeAssetPath={activeAsset?.path ?? ""}
               protectedPaths={[
                 ...project.manifest.rootDocuments.map((document) => document.path),
                 project.manifest.primaryBibliography,
@@ -1277,6 +1364,7 @@ function App() {
               papers={papers}
               activePaper={activePaper}
               onFile={loadFile}
+              onAsset={openProjectAsset}
               onCreateEntry={createProjectEntry}
               onDeleteEntry={deleteProjectEntry}
               onRenameEntry={renameProjectEntry}
@@ -1341,8 +1429,9 @@ function App() {
         <section className="canvas-panel">
           <CanvasToolbar
             mode={canvasMode}
-            setMode={setCanvasMode}
-            activeFile={activeFile}
+            setMode={openDocumentMode}
+            activePath={activeAsset?.path ?? activePaper?.title ?? activeFile}
+            activeKind={activeAsset ? "asset" : activePaper ? "paper" : "document"}
             dirty={source !== savedSource}
             onHistory={() => setHistoryOpen(true)}
           />
@@ -1355,8 +1444,13 @@ function App() {
             pdfBase64={build?.pdfBase64 ?? null}
             paperMarkdown={paperMarkdown}
             activePaper={activePaper}
+            activeAsset={activeAsset}
             citationKeys={citationKeys}
             onEditorLeave={buildWhenLeavingEditor}
+            onPrepareFigure={prepareLatexFigure}
+            nativeFigureDropActive={nativeEditorDropActive}
+            figureDropRequest={figureDropRequest}
+            onFigureDropHandled={handleFigureDropHandled}
           />
         </section>
       </main>
@@ -1573,10 +1667,12 @@ function PanelResizer(props: {
 function Navigator(props: {
   files: FileNode[];
   activeFile: string;
+  activeAssetPath: string;
   protectedPaths: string[];
   papers: PaperSummary[];
   activePaper: PaperSummary | null;
   onFile: (path: string) => void;
+  onAsset: (path: string) => void;
   onCreateEntry: (path: string, kind: "file" | "folder") => Promise<void>;
   onDeleteEntry: (path: string) => void;
   onRenameEntry: (path: string, name: string) => void;
@@ -1710,7 +1806,7 @@ function Navigator(props: {
           </div>
         )}
         <div className="file-tree">
-          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} protectedPaths={props.protectedPaths} onFile={props.onFile} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} onContextMenu={showContextMenu} />)}
+          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} onContextMenu={showContextMenu} />)}
         </div>
       </div>
       <div
@@ -1777,7 +1873,7 @@ function Navigator(props: {
   );
 }
 
-function TreeNode({ node, activeFile, protectedPaths, onFile, onDelete, onImportAssets, assetDropTarget, assetImporting, onContextMenu }: { node: FileNode; activeFile: string; protectedPaths: string[]; onFile: (path: string) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; onContextMenu: (event: React.MouseEvent, path: string, label: string) => void }) {
+function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, onAsset, onDelete, onImportAssets, assetDropTarget, assetImporting, onContextMenu }: { node: FileNode; activeFile: string; activeAssetPath: string; protectedPaths: string[]; onFile: (path: string) => void; onAsset: (path: string) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; onContextMenu: (event: React.MouseEvent, path: string, label: string) => void }) {
   const [open, setOpen] = useState(true);
   const protectedEntry = protectedPaths.some((path) => path === node.path || path.startsWith(`${node.path}/`));
   if (node.kind === "directory") {
@@ -1792,15 +1888,25 @@ function TreeNode({ node, activeFile, protectedPaths, onFile, onDelete, onImport
           {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
         </div>
         {assetDropTarget === node.path && <div className="asset-drop-hint">Drop images into {node.path}</div>}
-        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} protectedPaths={protectedPaths} onFile={onFile} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} onContextMenu={onContextMenu} />)}</div>}
+        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} activeAssetPath={activeAssetPath} protectedPaths={protectedPaths} onFile={onFile} onAsset={onAsset} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} onContextMenu={onContextMenu} />)}</div>}
       </div>
     );
   }
   const Icon = node.kind === "tex" ? FileCode2 : node.kind === "bib" ? Library : File;
   if (node.kind === "figure") {
     return (
-      <div className="tree-row asset-row" title="Binary assets are listed here but are not opened in the source editor." onContextMenu={(event) => onContextMenu(event, node.path, node.name)}>
-        <div className="tree-main"><span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span></div>
+      <div className={`tree-row asset-row ${activeAssetPath === node.path ? "active" : ""}`} onContextMenu={(event) => onContextMenu(event, node.path, node.name)}>
+        <button
+          className="tree-main"
+          title={`Preview ${node.name}; drag into the LaTeX editor to insert`}
+          draggable
+          onClick={() => onAsset(node.path)}
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = "copy";
+            event.dataTransfer.setData(PROJECT_FIGURE_DRAG_TYPE, node.path);
+            event.dataTransfer.setData("text/plain", node.path);
+          }}
+        ><span className="tree-spacer" /><Image size={14} /><span>{node.name}</span></button>
         {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
       </div>
     );
@@ -2111,16 +2217,18 @@ function mentionAtCaret(value: string, caret: number): MentionState | null {
 
 function CanvasToolbar(props: {
   mode: CanvasMode;
-  setMode: (mode: CanvasMode) => void;
-  activeFile: string;
+  setMode: (mode: "source" | "split" | "pdf") => void;
+  activePath: string;
+  activeKind: "document" | "paper" | "asset";
   dirty: boolean;
   onHistory: () => void;
 }) {
+  const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
   return (
     <div className="canvas-toolbar">
-      <div className="active-document"><FileCode2 size={14} /><span>{props.activeFile}</span>{props.dirty && <i />}</div>
+      <div className="active-document"><ActiveIcon size={14} /><span>{props.activePath}</span>{props.activeKind === "document" && props.dirty && <i />}</div>
       <div className="view-switcher">
-        {(["source", "split", "pdf"] as CanvasMode[]).map((mode) => (
+        {(["source", "split", "pdf"] as const).map((mode) => (
           <button key={mode} className={props.mode === mode ? "active" : ""} onClick={() => props.setMode(mode)}>{mode}</button>
         ))}
       </div>
@@ -2140,11 +2248,19 @@ function DocumentCanvas(props: {
   pdfBase64: string | null;
   paperMarkdown: string;
   activePaper: PaperSummary | null;
+  activeAsset: AssetPreview | null;
   citationKeys: string[];
   onEditorLeave: () => void;
+  onPrepareFigure: (path: string) => Promise<string | null>;
+  nativeFigureDropActive: boolean;
+  figureDropRequest: FigureDropRequest | null;
+  onFigureDropHandled: (id: string) => void;
 }) {
+  const { figureDropRequest, onFigureDropHandled, onPrepareFigure } = props;
   const splitRef = useRef<HTMLDivElement | null>(null);
+  const editorViewRef = useRef<EditorView | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
+  const [figureDropActive, setFigureDropActive] = useState(false);
   const paperHtml = useMemo(
     () => DOMPurify.sanitize(marked.parse(props.paperMarkdown, { async: false }) as string),
     [props.paperMarkdown],
@@ -2153,6 +2269,40 @@ function DocumentCanvas(props: {
     () => [latex({ enableAutocomplete: false }), ...latexEditorExtensions(props.citationKeys)],
     [props.citationKeys],
   );
+  const insertFigures = useCallback(async (paths: string[], coordinates?: { x: number; y: number }) => {
+    const view = editorViewRef.current;
+    if (!view || !paths.length) return;
+    const prepared: string[] = [];
+    for (const path of paths) {
+      const latexPath = await onPrepareFigure(path);
+      if (latexPath) prepared.push(latexPath);
+    }
+    if (!prepared.length || !editorViewRef.current) return;
+    const currentView = editorViewRef.current;
+    let coordinatePosition: number | null = null;
+    if (coordinates) {
+      try {
+        coordinatePosition = currentView.posAtCoords(coordinates);
+      } catch {
+        // CodeMirror may not have layout coordinates yet; use the current cursor instead.
+      }
+    }
+    const cursor = coordinatePosition ?? currentView.state.selection.main.head;
+    const position = currentView.state.doc.lineAt(clamp(cursor, 0, currentView.state.doc.length)).from;
+    const insertion = latexFigureInsertion(currentView.state.doc.toString(), position, prepared);
+    currentView.dispatch({
+      changes: { from: position, insert: insertion },
+      selection: { anchor: position + insertion.length },
+      scrollIntoView: true,
+    });
+    currentView.focus();
+  }, [onPrepareFigure]);
+  useEffect(() => {
+    if (!figureDropRequest) return;
+    const request = figureDropRequest;
+    void insertFigures(request.paths, { x: request.clientX, y: request.clientY })
+      .finally(() => onFigureDropHandled(request.id));
+  }, [figureDropRequest, insertFigures, onFigureDropHandled]);
   if (props.mode === "paper") {
     return (
       <article className="paper-reader">
@@ -2161,12 +2311,34 @@ function DocumentCanvas(props: {
       </article>
     );
   }
+  if (props.mode === "asset" && props.activeAsset) {
+    return <ProjectAssetPreview asset={props.activeAsset} />;
+  }
   const editor = (
     <div
-      className="source-editor"
+      className={`source-editor ${figureDropActive || props.nativeFigureDropActive ? "figure-drop-active" : ""}`}
       onPointerLeave={props.onEditorLeave}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) props.onEditorLeave();
+      }}
+      onDragEnter={(event) => {
+        if (Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE)) setFigureDropActive(true);
+      }}
+      onDragOver={(event) => {
+        if (!Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        setFigureDropActive(true);
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFigureDropActive(false);
+      }}
+      onDrop={(event) => {
+        const path = event.dataTransfer.getData(PROJECT_FIGURE_DRAG_TYPE);
+        if (!path) return;
+        event.preventDefault();
+        setFigureDropActive(false);
+        void insertFigures([path], { x: event.clientX, y: event.clientY });
       }}
     >
       <CodeMirror
@@ -2174,6 +2346,7 @@ function DocumentCanvas(props: {
         value={props.source}
         height="100%"
         extensions={editorExtensions}
+        onCreateEditor={(view) => { editorViewRef.current = view; }}
         onChange={props.setSource}
         onUpdate={(view) => {
           const range = view.state.selection.main;
@@ -2254,7 +2427,28 @@ function DocumentCanvas(props: {
   );
 }
 
-function PdfPreview({ url, pdfBase64 }: { url: string | null; pdfBase64: string | null }) {
+function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
+  const url = `data:${asset.mimeType};base64,${asset.base64}`;
+  if (asset.mimeType === "application/pdf") {
+    return <PdfPreview url={url} pdfBase64={asset.base64} fileName={asset.path.split("/").pop() ?? "figure.pdf"} />;
+  }
+  return (
+    <div className="asset-preview">
+      <div className="asset-preview-heading">
+        <Image size={14} />
+        <span>{asset.path}</span>
+        <small>Drag this file from Project into the LaTeX editor to insert it.</small>
+      </div>
+      <div className="asset-preview-stage">
+        {asset.mimeType.startsWith("image/")
+          ? <img src={url} alt={`Preview of ${asset.path}`} />
+          : <div className="asset-preview-unsupported"><FileText size={28} /><p>This format cannot be rendered in the preview.</p></div>}
+      </div>
+    </div>
+  );
+}
+
+function PdfPreview({ url, pdfBase64, fileName = "paper.pdf" }: { url: string | null; pdfBase64: string | null; fileName?: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -2319,7 +2513,7 @@ function PdfPreview({ url, pdfBase64 }: { url: string | null; pdfBase64: string 
     try {
       const destination = await saveDialog({
         title: "Save compiled PDF",
-        defaultPath: "paper.pdf",
+        defaultPath: fileName,
         filters: [{ name: "PDF document", extensions: ["pdf"] }],
       });
       if (!destination) return;
@@ -2828,6 +3022,12 @@ function dropDirectoryAt(position: { x: number; y: number }): string | null {
   const directory = element?.closest<HTMLElement>("[data-drop-directory]")?.dataset.dropDirectory;
   if (directory) return directory;
   return element?.closest(".navigator") ? "figures" : null;
+}
+
+function dropEditorAt(position: { x: number; y: number }): { x: number; y: number } | null {
+  const scale = window.devicePixelRatio || 1;
+  const point = { x: position.x / scale, y: position.y / scale };
+  return document.elementFromPoint(point.x, point.y)?.closest(".source-editor") ? point : null;
 }
 
 function persistPanelWidths(widths: PanelWidths) {

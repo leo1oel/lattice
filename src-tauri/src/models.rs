@@ -38,6 +38,14 @@ pub struct ProjectSnapshot {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AssetPreview {
+    pub path: String,
+    pub mime_type: String,
+    pub base64: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Diagnostic {
     pub file: Option<String>,
     pub line: Option<u32>,

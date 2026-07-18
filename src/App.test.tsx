@@ -587,6 +587,63 @@ describe("project workspace", () => {
     }));
   });
 
+  it("previews SVG figures and inserts them at the editor drop position", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{
+        name: "figures",
+        path: "figures",
+        kind: "directory",
+        children: [{ name: "native-umm.svg", path: "figures/native-umm.svg", kind: "figure", children: [] }],
+      }, { name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}\n\\begin{document}\n\\end{document}";
+      if (command === "read_project_asset") return {
+        path: "figures/native-umm.svg",
+        mimeType: "image/svg+xml",
+        base64: "PHN2Zy8+",
+      };
+      if (command === "prepare_latex_figure") return "figures/native-umm-converted.pdf";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "native-umm.svg" }));
+    expect(await screen.findByAltText("Preview of figures/native-umm.svg")).toHaveAttribute("src", "data:image/svg+xml;base64,PHN2Zy8+");
+    expect(screen.getAllByText("figures/native-umm.svg").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("button", { name: "native-umm.svg" }).closest(".tree-row")).toHaveClass("active");
+    expect(screen.getByRole("button", { name: "main.tex" }).closest(".tree-row")).not.toHaveClass("active");
+
+    fireEvent.click(screen.getByRole("button", { name: "source" }));
+    const editorElement = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const transfer = {
+      getData: (type: string) => type === "application/x-lattice-project-figure" ? "figures/native-umm.svg" : "",
+      types: ["application/x-lattice-project-figure"],
+    };
+    fireEvent.drop(document.querySelector(".source-editor")!, { dataTransfer: transfer, clientX: 0, clientY: 0 });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("prepare_latex_figure", { path: "figures/native-umm.svg" }));
+    await waitFor(() => {
+      const view = EditorView.findFromDOM(editorElement);
+      expect(view?.state.doc.toString()).toContain("\\includegraphics[width=\\linewidth]{\\detokenize{figures/native-umm-converted.pdf}}");
+    });
+  });
+
   it("uses the themed PDF toolbar after a successful build", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",

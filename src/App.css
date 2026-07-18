@@ -154,7 +154,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .tree-row { width: 100%; height: 29px; border-radius: 6px; padding: 0 6px; background: transparent; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; text-align: left; }
 .tree-row:hover { color: var(--text); background: var(--line); }
 .tree-row.active { color: var(--text); background: var(--accent-soft); }
-.tree-row.asset-row { cursor: default; }
+.tree-row.asset-row .tree-main { cursor: grab; }
+.tree-row.asset-row .tree-main:active { cursor: grabbing; }
 .tree-main { width: 0; min-width: 0; flex: 1; height: 100%; padding: 0; background: transparent; color: inherit; display: flex; align-items: center; gap: 6px; text-align: left; }
 .tree-main span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-delete { width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: 5px !important; background: transparent !important; color: var(--faint) !important; display: grid !important; place-items: center; opacity: 0; }
@@ -296,6 +297,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .source-editor .cm-tooltip-autocomplete > ul > li { padding: 5px 8px; border-radius: 5px; color: var(--muted); line-height: 1.35; text-align: left; }
 .source-editor .cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--accent-soft); color: var(--text); }
 .source-editor .cm-completionLabel { display: inline-block; width: 100%; text-align: left; }
+.source-editor.figure-drop-active::after { content: "Insert figure here"; position: absolute; z-index: 5; inset: 8px; border: 1px dashed color-mix(in srgb, var(--accent) 58%, transparent); border-radius: 9px; background: color-mix(in srgb, var(--accent-soft) 82%, transparent); color: var(--accent); display: grid; place-items: center; font-family: var(--ui-font); font-size: 11px; font-weight: 600; pointer-events: none; backdrop-filter: blur(2px); }
 .split-resizer { position: relative; z-index: 2; width: 1px; min-height: 0; cursor: col-resize; background: var(--line-strong); outline: none; touch-action: none; }
 .split-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
 .split-resizer:hover, .split-resizer:focus-visible, .resizing-split .split-resizer { background: var(--accent); }
@@ -329,6 +331,13 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .paper-content pre { overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
 .paper-content img { max-width: 100%; }
 .paper-content a { color: var(--accent); }
+.asset-preview { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--panel); }
+.asset-preview-heading { height: 38px; flex: none; padding: 0 13px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
+.asset-preview-heading span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-preview-heading small { margin-left: auto; flex: none; color: var(--faint); font-size: 9px; }
+.asset-preview-stage { min-height: 0; flex: 1; overflow: auto; padding: 28px; display: grid; place-items: center; background-color: color-mix(in srgb, var(--panel) 88%, var(--line)); background-image: linear-gradient(45deg, color-mix(in srgb, var(--line) 42%, transparent) 25%, transparent 25%), linear-gradient(-45deg, color-mix(in srgb, var(--line) 42%, transparent) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--line) 42%, transparent) 75%), linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--line) 42%, transparent) 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0; }
+.asset-preview-stage img { display: block; max-width: min(100%, 1100px); max-height: 100%; object-fit: contain; border-radius: 3px; filter: drop-shadow(0 10px 24px rgba(0, 0, 0, .11)); }
+.asset-preview-unsupported { color: var(--faint); display: grid; place-items: center; gap: 8px; font-size: 11px; }
 
 .drawer-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .18); display: flex; justify-content: flex-end; }
 .history-drawer { width: 380px; height: 100%; background: var(--panel-strong); box-shadow: var(--shadow); padding: 14px; overflow: auto; animation: drawer-in .2s ease-out; }

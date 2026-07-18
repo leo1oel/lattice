@@ -9,8 +9,8 @@ mod skill_store;
 
 use models::{
     AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
-    AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, BuildResult, HistoryItem, ImportResult,
-    PaperSummary, ProjectSnapshot, SubscriptionStatus,
+    AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, HistoryItem,
+    ImportResult, PaperSummary, ProjectSnapshot, SubscriptionStatus,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -142,6 +142,22 @@ fn import_project_assets(
     target_directory: String,
 ) -> Result<Vec<String>, String> {
     project::import_assets(&current_root(&state)?, &paths, &target_directory)
+}
+
+#[tauri::command]
+fn read_project_asset(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<AssetPreview, String> {
+    project::read_asset(&current_root(&state)?, &path)
+}
+
+#[tauri::command]
+fn prepare_latex_figure(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<String, String> {
+    project::prepare_latex_figure(&current_root(&state)?, &path)
 }
 
 #[tauri::command]
@@ -473,6 +489,8 @@ pub fn run() {
             delete_project_entry,
             rename_project_entry,
             import_project_assets,
+            read_project_asset,
+            prepare_latex_figure,
             build_project,
             save_compiled_pdf,
             import_arxiv,

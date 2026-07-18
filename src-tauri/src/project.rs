@@ -1,7 +1,9 @@
+use crate::commands;
 use crate::models::{
-    FileChange, FileNode, HistoryItem, ProjectManifest, ProjectSnapshot, RootDocument,
+    AssetPreview, FileChange, FileNode, HistoryItem, ProjectManifest, ProjectSnapshot, RootDocument,
     TransactionRecord,
 };
+use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::Utc;
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
@@ -343,6 +345,121 @@ pub fn import_assets(
         );
     }
     Ok(imported)
+}
+
+pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
+    let path = safe_path(root, relative)?;
+    if !path.is_file() || !is_supported_asset(&path) {
+        return Err("Choose an image or PDF from the project.".to_string());
+    }
+    let size = fs::metadata(&path).map_err(err)?.len();
+    if size > 50 * 1024 * 1024 {
+        return Err("This figure is too large to preview inside Lattice (50 MB maximum).".to_string());
+    }
+    let mime_type = asset_mime_type(&path)
+        .ok_or_else(|| "Lattice cannot preview this figure type.".to_string())?;
+    Ok(AssetPreview {
+        path: relative.replace('\\', "/"),
+        mime_type: mime_type.to_string(),
+        base64: STANDARD.encode(fs::read(&path).map_err(err)?),
+    })
+}
+
+pub fn prepare_latex_figure(root: &Path, relative: &str) -> Result<String, String> {
+    let source = safe_path(root, relative)?;
+    if !source.is_file() || !is_supported_asset(&source) {
+        return Err("Choose an image or PDF from the project.".to_string());
+    }
+    let extension = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .unwrap_or_default();
+    match extension.as_str() {
+        "svg" => convert_figure(root, relative, &source, "pdf"),
+        "webp" => convert_figure(root, relative, &source, "png"),
+        _ => Ok(relative.replace('\\', "/")),
+    }
+}
+
+fn convert_figure(
+    root: &Path,
+    relative: &str,
+    source: &Path,
+    target_extension: &str,
+) -> Result<String, String> {
+    let relative_path = Path::new(relative);
+    let stem = relative_path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("figure");
+    let converted_name = format!("{stem}-converted.{target_extension}");
+    let converted_relative = relative_path
+        .parent()
+        .unwrap_or_else(|| Path::new(""))
+        .join(converted_name);
+    let destination = safe_path(root, &converted_relative.to_string_lossy())?;
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent).map_err(err)?;
+    }
+    let current = destination.exists()
+        && fs::metadata(&destination).and_then(|value| value.modified()).ok()
+            >= fs::metadata(source).and_then(|value| value.modified()).ok();
+    if !current {
+        let output = if source.extension().is_some_and(|value| value.eq_ignore_ascii_case("svg")) {
+            if commands::available("rsvg-convert") {
+                commands::command("rsvg-convert")
+                    .arg("-f")
+                    .arg("pdf")
+                    .arg("-o")
+                    .arg(&destination)
+                    .arg(source)
+                    .output()
+            } else if commands::available("magick") {
+                commands::command("magick").arg(source).arg(&destination).output()
+            } else {
+                return Err("SVG insertion needs rsvg-convert or ImageMagick. The figure can still be previewed in Lattice.".to_string());
+            }
+        } else if commands::available("magick") {
+            commands::command("magick").arg(source).arg(&destination).output()
+        } else {
+            commands::command("sips")
+                .arg("-s")
+                .arg("format")
+                .arg("png")
+                .arg(source)
+                .arg("--out")
+                .arg(&destination)
+                .output()
+        }
+        .map_err(err)?;
+        if !output.status.success() || !destination.is_file() {
+            let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            return Err(if detail.is_empty() {
+                "Lattice could not convert this figure for LaTeX.".to_string()
+            } else {
+                format!("Lattice could not convert this figure for LaTeX. {detail}")
+            });
+        }
+    }
+    Ok(converted_relative.to_string_lossy().replace('\\', "/"))
+}
+
+fn asset_mime_type(path: &Path) -> Option<&'static str> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("png") => Some("image/png"),
+        Some("jpg" | "jpeg") => Some("image/jpeg"),
+        Some("svg") => Some("image/svg+xml"),
+        Some("webp") => Some("image/webp"),
+        Some("pdf") => Some("application/pdf"),
+        Some("eps") => Some("application/postscript"),
+        _ => None,
+    }
 }
 
 fn available_asset_path(directory: &Path, file_name: &str) -> PathBuf {
@@ -1136,6 +1253,35 @@ mod tests {
             "figures"
         )
         .is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn project_figures_can_be_previewed_and_prepared_for_latex() {
+        let parent = temp_root("preview-assets");
+        let root = create(&parent, "paper").unwrap();
+        let png = root.join("figures/result.png");
+        fs::write(&png, b"png-bytes").unwrap();
+        let preview = read_asset(&root, "figures/result.png").unwrap();
+        assert_eq!(preview.path, "figures/result.png");
+        assert_eq!(preview.mime_type, "image/png");
+        assert_eq!(preview.base64, "cG5nLWJ5dGVz");
+        assert_eq!(
+            prepare_latex_figure(&root, "figures/result.png").unwrap(),
+            "figures/result.png"
+        );
+
+        let svg = root.join("figures/diagram.svg");
+        fs::write(
+            &svg,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>"#,
+        )
+        .unwrap();
+        if commands::available("rsvg-convert") || commands::available("magick") {
+            let converted = prepare_latex_figure(&root, "figures/diagram.svg").unwrap();
+            assert_eq!(converted, "figures/diagram-converted.pdf");
+            assert!(root.join(converted).is_file());
+        }
         fs::remove_dir_all(parent).unwrap();
     }
 

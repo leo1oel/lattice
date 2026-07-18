@@ -17,6 +17,8 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Choose manual builds or automatic builds that run when you leave the editor or pause typing for 1.2 seconds.
 - Review the generated PDF beside the source with a draggable split divider and a themed PDF.js toolbar for paging, zoom, and native Save As export.
 - Drag PNG, JPEG, PDF, SVG, EPS, or WebP figures onto a project folder, or import them through the figures-folder action.
+- Click a project figure to preview it in the writing canvas, or drag it from Project onto a LaTeX line to insert an editable `figure` block at that position.
+- Drop an external figure directly onto the LaTeX editor to import and insert it in one step; SVG and WebP sources are converted to shareable PDF or PNG companions for reliable LaTeX builds.
 - Import an arXiv paper as Markdown with `arxiv2md`.
 - Add every imported paper to the project bibliography through `bibcite`.
 - Browse imported papers by title, read their Markdown snapshots, and remove a paper together with its `bibcite`-managed bibliography entry.
