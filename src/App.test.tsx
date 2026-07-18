@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { EditorView } from "@codemirror/view";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { getDocument } from "pdfjs-dist";
@@ -27,6 +28,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), Channel: tauriCore.Moc
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn() }));
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
 vi.mock("pdfjs-dist", () => ({ GlobalWorkerOptions: {}, getDocument: vi.fn() }));
 
 const testSession = {
@@ -52,6 +54,7 @@ const testSessionSummary = {
 
 function mockSessionCommand(command: string, args?: Record<string, unknown>) {
   if (command === "list_citation_keys") return [];
+  if (command === "list_citations") return [];
   if (command === "list_agent_sessions") return [testSessionSummary];
   if (command === "read_agent_session") return testSession;
   if (command === "save_agent_session") return args?.session;
@@ -65,6 +68,7 @@ beforeEach(() => {
   vi.mocked(open).mockResolvedValue(null);
   vi.mocked(save).mockResolvedValue(null);
   vi.mocked(revealItemInDir).mockResolvedValue(undefined);
+  vi.mocked(writeText).mockResolvedValue(undefined);
   windowApi.isFullscreen.mockResolvedValue(false);
   windowApi.onResized.mockResolvedValue(() => undefined);
   vi.mocked(invoke).mockImplementation(async (command) => {
@@ -786,7 +790,7 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys") return [];
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations") return [];
       if (command === "list_agent_sessions") return summaries;
       if (command === "read_agent_session") return (args as { sessionId: string }).sessionId === earlier.id ? earlier : testSession;
       if (command === "create_agent_session") return testSession;
@@ -818,7 +822,7 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys") return [];
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations") return [];
       if (command === "search_agent_sessions") return [{ ...testSessionSummary, title: "Earlier draft", snippet: "…strongest diffusion baseline…" }];
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
@@ -848,7 +852,7 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys") return [];
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations") return [];
       if (command === "list_agent_sessions") return [{ ...testSessionSummary, messageCount: source.messages.length }];
       if (command === "read_agent_session") return source;
       if (command === "fork_agent_session") return branch;
@@ -927,7 +931,7 @@ describe("project workspace", () => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") return "\\section{Notes}";
       if (command === "list_papers") return [paper];
-      if (command === "list_history" || command === "list_citation_keys") return [];
+      if (command === "list_history" || command === "list_citation_keys" || command === "list_citations") return [];
       if (command === "create_project_entry") return "sections/method.tex";
       if (command === "delete_project_entry" || command === "delete_paper") return undefined;
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
@@ -996,6 +1000,10 @@ describe("project workspace", () => {
     expect(sentMessage.textContent).toContain("\n");
     const streamedReply = screen.getByText("Reviewing the abstract as evidence arrives…");
     expect(streamedReply.closest(".chat-message.streaming")).not.toBeNull();
+    fireEvent.click(screen.getByTitle("Copy user message"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(message));
+    fireEvent.click(streamedReply.closest(".message-body")!.querySelector<HTMLButtonElement>('[title="Copy agent response"]')!);
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("Reviewing the abstract as evidence arrives…"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("run_agent", expect.objectContaining({
       request: {
         settings: { provider: "claude", model: "claude-opus-4-8", reasoningEffort: "xhigh" },

@@ -2,7 +2,7 @@ import { completionStatus, currentCompletions } from "@codemirror/autocomplete";
 import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { describe, expect, it, vi } from "vitest";
-import { citationCompletionRange, latexEditorExtensions, latexLanguageOptions, shouldInsertCommandBraces } from "./latex-editor";
+import { citationCompletionRange, citationHoverTarget, latexEditorExtensions, latexLanguageOptions, shouldInsertCommandBraces } from "./latex-editor";
 
 describe("LaTeX citation editing", () => {
   it("soft-wraps long logical lines instead of scrolling horizontally", () => {
@@ -36,6 +36,15 @@ describe("LaTeX citation editing", () => {
     expect(citationCompletionRange("Text \\cite{first,", 17)).toEqual({ from: 17, query: "" });
     expect(citationCompletionRange("Text \\cite{first, trans", 23)).toEqual({ from: 18, query: "trans" });
     expect(citationCompletionRange("Text \\section{intro", 19)).toBeNull();
+  });
+
+  it("identifies the exact bibliography key hovered inside a citation", () => {
+    const source = "Evidence \\citep{vaswani2017attention, dosovitskiy2021image}.";
+    const first = source.indexOf("vaswani") + 3;
+    const second = source.indexOf("dosovitskiy") + 4;
+    expect(citationHoverTarget(source, first)?.key).toBe("vaswani2017attention");
+    expect(citationHoverTarget(source, second)?.key).toBe("dosovitskiy2021image");
+    expect(citationHoverTarget("Plain text", 3)).toBeNull();
   });
 
   it("inserts braces in the editor and keeps an existing pair", () => {

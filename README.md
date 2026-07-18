@@ -12,7 +12,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Start new projects with the official NeurIPS 2026 preprint style and a concise research-paper skeleton.
 - Browse, create, delete, scroll, and directly edit project source files with a full-height, soft-wrapping CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
 - Write in a softly tinted CodeMirror canvas with MonoLisa as the default editor font and parser-aware LaTeX highlighting derived from the Lux Light palette.
-- Get automatic braces after citation commands and bibliography-key completion inside `\\cite{...}`.
+- Get automatic braces after citation commands, bibliography-key completion inside `\\cite{...}`, and title, author, venue, and year previews when hovering over a citation key.
 - Compile the default root document with the local `latexmk` installation, including an immediate build whenever a project is entered.
 - Choose manual builds or automatic builds that run when you leave the editor or pause typing for 1.2 seconds.
 - Review every generated PDF page in one continuously scrolling column beside the source, with a draggable split divider and a themed PDF.js toolbar for page navigation, zoom, native Save As export, and click-to-source SyncTeX navigation.
@@ -29,7 +29,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Use an OpenAI or Anthropic API key with the same streamed response experience instead of a local subscription.
 - Switch between Codex and Claude between messages, with current full model names and model-specific reasoning-effort controls for subscriptions and APIs.
 - Inspect and start Codex or Claude subscription login from Settings without configuring an API key.
-- Create, search, restore, and delete project-local agent conversations, or edit an earlier user message to continue on a new Pi branch while restoring the project files to that turn and preserving the original conversation.
+- Create, search, restore, and delete project-local agent conversations, copy any user or agent message, or edit an earlier user message to continue on a new Pi branch while restoring the project files to that turn and preserving the original conversation.
 - Save direct edits, imports, and agent changes as atomic project transactions, retaining the latest 100 entries per project.
 - Inspect project history and revert a transaction.
 - Resize the Project and Papers regions vertically and preserve that layout across launches.

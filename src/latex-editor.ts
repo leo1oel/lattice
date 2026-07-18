@@ -1,13 +1,22 @@
 import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { Transaction } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { EditorView, hoverTooltip } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { latexCompletionSource } from "codemirror-lang-latex";
 
 const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite";
 const BRACED_COMMANDS = new RegExp(`\\\\(?:${CITATION_COMMANDS}|ref|eqref|pageref|label|input|include)$`);
 const OPEN_CITATION = new RegExp(`\\\\(?:${CITATION_COMMANDS})\\*?(?:\\[[^\\]]*\\]){0,2}\\{([^}]*)$`);
+const COMPLETE_CITATION = new RegExp(`\\\\(?:${CITATION_COMMANDS})\\*?(?:\\[[^\\]]*\\]){0,2}\\{([^}]*)\\}`, "g");
+
+export type CitationInfo = {
+  key: string;
+  title: string;
+  authors: string;
+  year: string;
+  venue: string;
+};
 
 export const latexLanguageOptions = {
   enableAutocomplete: false,
@@ -62,7 +71,70 @@ function citationCompletions(keys: string[]) {
   };
 }
 
-export function latexEditorExtensions(citationKeys: string[]) {
+export function citationHoverTarget(text: string, position: number): { from: number; to: number; key: string } | null {
+  const windowStart = Math.max(0, position - 800);
+  const windowEnd = Math.min(text.length, position + 800);
+  const source = text.slice(windowStart, windowEnd);
+  COMPLETE_CITATION.lastIndex = 0;
+  for (let match = COMPLETE_CITATION.exec(source); match; match = COMPLETE_CITATION.exec(source)) {
+    const citationFrom = windowStart + match.index;
+    const citationTo = citationFrom + match[0].length;
+    if (position < citationFrom || position > citationTo) continue;
+    const content = match[1];
+    const contentFrom = citationFrom + match[0].lastIndexOf("{") + 1;
+    const keys: { from: number; to: number; key: string }[] = [];
+    for (const keyMatch of content.matchAll(/[^,]+/g)) {
+      const raw = keyMatch[0];
+      const leading = raw.length - raw.trimStart().length;
+      const key = raw.trim();
+      if (!key) continue;
+      const from = contentFrom + (keyMatch.index ?? 0) + leading;
+      keys.push({ from, to: from + key.length, key });
+    }
+    const hovered = keys.find((key) => position >= key.from && position <= key.to);
+    if (hovered) return hovered;
+    if (keys.length === 1) return keys[0];
+  }
+  return null;
+}
+
+function citationTooltips(citations: CitationInfo[]) {
+  const byKey = new Map(citations.map((citation) => [citation.key, citation]));
+  return hoverTooltip((view, position) => {
+    const target = citationHoverTarget(view.state.doc.toString(), position);
+    if (!target) return null;
+    const citation = byKey.get(target.key);
+    if (!citation) return null;
+    return {
+      pos: target.from,
+      end: target.to,
+      above: true,
+      create() {
+        const dom = document.createElement("div");
+        dom.className = "citation-hover-card";
+        const key = document.createElement("small");
+        key.textContent = citation.key;
+        const title = document.createElement("strong");
+        title.textContent = citation.title || citation.key;
+        dom.append(key, title);
+        if (citation.authors) {
+          const authors = document.createElement("span");
+          authors.textContent = citation.authors.replace(/ and /g, " · ");
+          dom.append(authors);
+        }
+        const publication = [citation.venue, citation.year].filter(Boolean).join(" · ");
+        if (publication) {
+          const detail = document.createElement("em");
+          detail.textContent = publication;
+          dom.append(detail);
+        }
+        return { dom };
+      },
+    };
+  });
+}
+
+export function latexEditorExtensions(citationKeys: string[], citations: CitationInfo[] = []) {
   return [
     EditorView.lineWrapping,
     EditorView.contentAttributes.of({
@@ -71,6 +143,7 @@ export function latexEditorExtensions(citationKeys: string[]) {
       autocapitalize: "off",
     }),
     syntaxHighlighting(luxLatexHighlightStyle),
+    citationTooltips(citations),
     autocompletion({
       override: [citationCompletions(citationKeys), latexCompletionSource(true)],
       activateOnTyping: true,

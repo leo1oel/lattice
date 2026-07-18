@@ -244,9 +244,11 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .chat-message.system { padding: 8px 10px; border-radius: 7px; background: color-mix(in srgb, var(--success) 8%, transparent); color: var(--success); font-size: 10px; }
 .message-avatar { width: 22px; height: 22px; flex: none; border-radius: 7px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
 .message-body p { max-width: 100%; margin: 0; overflow-wrap: anywhere; word-break: break-word; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; }
-.message-edit { height: 21px; margin: 6px -3px -4px auto; padding: 0 4px; border-radius: 5px; background: transparent; color: var(--faint); display: flex; align-items: center; gap: 3px; font-size: 8px; opacity: 0; }
-.chat-message.user:hover .message-edit, .message-edit:focus-visible { opacity: 1; }
-.message-edit:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); }
+.message-actions { min-height: 21px; margin: 6px -3px -4px; display: flex; justify-content: flex-end; gap: 2px; opacity: 0; transition: opacity .14s ease; }
+.chat-message:hover .message-actions, .message-actions:focus-within { opacity: 1; }
+.message-actions button { height: 21px; padding: 0 4px; border-radius: 5px; background: transparent; color: var(--faint); display: flex; align-items: center; gap: 3px; font-size: 8px; }
+.message-actions button:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); }
+.message-copy { width: 21px; justify-content: center; }
 .chat-message.streaming .message-body p::after { content: ""; width: 1.5px; height: .95em; margin-left: 3px; display: inline-block; vertical-align: -.08em; border-radius: 1px; background: var(--accent); animation: stream-cursor .8s steps(1) infinite; }
 .skills-used { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }
 .skills-used small { color: var(--faint); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
@@ -309,6 +311,13 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .source-editor .cm-tooltip-autocomplete > ul > li { padding: 5px 8px; border-radius: 5px; color: var(--muted); line-height: 1.35; text-align: left; }
 .source-editor .cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--accent-soft); color: var(--text); }
 .source-editor .cm-completionLabel { display: inline-block; width: 100%; text-align: left; }
+.source-editor .cm-tooltip-hover { border: 0; border-radius: 9px; background: transparent; box-shadow: var(--shadow); overflow: hidden; }
+.citation-hover-card { width: min(340px, calc(100vw - 32px)); padding: 10px 12px 11px; border: 1px solid var(--line-strong); border-radius: 9px; background: color-mix(in srgb, var(--panel-strong) 97%, transparent); color: var(--text); backdrop-filter: blur(14px); }
+.citation-hover-card small, .citation-hover-card strong, .citation-hover-card span, .citation-hover-card em { display: block; }
+.citation-hover-card small { margin-bottom: 5px; color: var(--accent); font-family: var(--editor-font); font-size: 8px; }
+.citation-hover-card strong { font-size: 11px; font-weight: 650; line-height: 1.35; }
+.citation-hover-card span { margin-top: 6px; color: var(--muted); font-size: 9px; line-height: 1.4; }
+.citation-hover-card em { margin-top: 5px; color: var(--faint); font-size: 8.5px; font-style: normal; }
 .source-editor.figure-drop-active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent); }
 .figure-drop-line { position: absolute; z-index: 6; left: 48px; right: 10px; height: 1px; background: color-mix(in srgb, var(--accent) 78%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--editor-bg) 65%, transparent); pointer-events: none; }
 .figure-drop-line::before { content: ""; position: absolute; left: -3px; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }

@@ -117,6 +117,16 @@ pub struct PaperSummary {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CitationInfo {
+    pub key: String,
+    pub title: String,
+    pub authors: String,
+    pub year: String,
+    pub venue: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectSearchResult {
     pub kind: String,
     pub path: String,

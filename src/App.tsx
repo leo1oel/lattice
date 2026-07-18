@@ -3,6 +3,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import CodeMirror from "@uiw/react-codemirror";
 import type { EditorView } from "@codemirror/view";
 import { latex } from "codemirror-lang-latex";
@@ -20,6 +21,7 @@ import {
   CircleAlert,
   Clock3,
   Code2,
+  Copy,
   Download,
   File,
   FileCode2,
@@ -50,7 +52,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { marked } from "marked";
-import { latexEditorExtensions, latexLanguageOptions } from "./latex-editor";
+import { latexEditorExtensions, latexLanguageOptions, type CitationInfo } from "./latex-editor";
 import { latexFigureInsertion } from "./figure-insertion";
 import "./App.css";
 
@@ -252,6 +254,7 @@ function App() {
   const [building, setBuilding] = useState(false);
   const [papers, setPapers] = useState<PaperSummary[]>([]);
   const [citationKeys, setCitationKeys] = useState<string[]>([]);
+  const [citations, setCitations] = useState<CitationInfo[]>([]);
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
   const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
@@ -334,12 +337,14 @@ function App() {
   const refreshProject = useCallback(async () => {
     const snapshot = await invoke<ProjectSnapshot>("refresh_project");
     setProject(snapshot);
-    const [nextPapers, nextCitationKeys] = await Promise.all([
+    const [nextPapers, nextCitationKeys, nextCitations] = await Promise.all([
       invoke<PaperSummary[]>("list_papers"),
       invoke<string[]>("list_citation_keys"),
+      invoke<CitationInfo[]>("list_citations"),
     ]);
     setPapers(nextPapers);
     setCitationKeys(nextCitationKeys);
+    setCitations(nextCitations);
     return snapshot;
   }, []);
 
@@ -377,7 +382,12 @@ function App() {
       await invoke("write_project_file", { path: activeFile, content: source });
       setSavedSource(source);
       if (activeFile === project.manifest.primaryBibliography) {
-        setCitationKeys(await invoke<string[]>("list_citation_keys"));
+        const [nextCitationKeys, nextCitations] = await Promise.all([
+          invoke<string[]>("list_citation_keys"),
+          invoke<CitationInfo[]>("list_citations"),
+        ]);
+        setCitationKeys(nextCitationKeys);
+        setCitations(nextCitations);
       }
       await refreshHistory();
       return true;
@@ -452,12 +462,14 @@ function App() {
         snapshot.manifest.rootDocuments.find((document) => document.isDefault) ??
         snapshot.manifest.rootDocuments[0];
       if (rootDocument) await loadFile(rootDocument.path);
-      const [nextPapers, nextCitationKeys] = await Promise.all([
+      const [nextPapers, nextCitationKeys, nextCitations] = await Promise.all([
         invoke<PaperSummary[]>("list_papers"),
         invoke<string[]>("list_citation_keys"),
+        invoke<CitationInfo[]>("list_citations"),
       ]);
       setPapers(nextPapers);
       setCitationKeys(nextCitationKeys);
+      setCitations(nextCitations);
       setHistory(await invoke<HistoryItem[]>("list_history"));
       let sessionList = await invoke<AgentSessionSummary[]>("list_agent_sessions");
       const session = sessionList.length
@@ -1554,6 +1566,7 @@ function App() {
             activePaper={activePaper}
             activeAsset={activeAsset}
             citationKeys={citationKeys}
+            citations={citations}
             onEditorLeave={buildWhenLeavingEditor}
             onPrepareFigure={prepareLatexFigure}
             nativeFigureDropActive={nativeEditorDropActive}
@@ -2155,6 +2168,21 @@ function AgentPanel({
   const [searchResults, setSearchResults] = useState<AgentSessionSearchResult[] | null>(null);
   const [mention, setMention] = useState<MentionState | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const copyResetTimer = useRef<number | null>(null);
+  const copyMessage = async (message: ChatMessage) => {
+    try {
+      await writeText(message.text);
+      setCopiedMessageId(message.id);
+      if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
+      copyResetTimer.current = window.setTimeout(() => setCopiedMessageId(null), 1400);
+    } catch {
+      setCopiedMessageId(null);
+    }
+  };
+  useEffect(() => () => {
+    if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
+  }, []);
   useLayoutEffect(() => {
     const composer = composerRef.current;
     if (!composer) return;
@@ -2271,7 +2299,12 @@ function AgentPanel({
             {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
             <div className="message-body">
               <p>{message.text}</p>
-              {message.role === "user" && <button className="message-edit" title="Edit and branch from this message" disabled={running} onClick={() => onEditMessage(message)}><Pencil size={11} /> Edit</button>}
+              {message.role !== "system" && <div className="message-actions">
+                <button className="message-copy" title={message.role === "user" ? "Copy user message" : "Copy agent response"} onClick={() => void copyMessage(message)}>
+                  {copiedMessageId === message.id ? <Check size={11} /> : <Copy size={11} />}
+                </button>
+                {message.role === "user" && <button className="message-edit" title="Edit and branch from this message" disabled={running} onClick={() => onEditMessage(message)}><Pencil size={11} /> Edit</button>}
+              </div>}
               {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
               {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
             </div>
@@ -2423,6 +2456,7 @@ function DocumentCanvas(props: {
   activePaper: PaperSummary | null;
   activeAsset: AssetPreview | null;
   citationKeys: string[];
+  citations: CitationInfo[];
   onEditorLeave: () => void;
   onPrepareFigure: (path: string) => Promise<string | null>;
   nativeFigureDropActive: boolean;
@@ -2457,9 +2491,9 @@ function DocumentCanvas(props: {
   const editorExtensions = useMemo(
     () => [
       latex(latexLanguageOptions),
-      ...latexEditorExtensions(props.citationKeys),
+      ...latexEditorExtensions(props.citationKeys, props.citations),
     ],
-    [props.citationKeys],
+    [props.citationKeys, props.citations],
   );
   const insertFigures = useCallback(async (paths: string[], coordinates?: { x: number; y: number }) => {
     const view = editorViewRef.current;

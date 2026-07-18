@@ -1,6 +1,6 @@
 [package]
 name = "research-writer"
-version = "0.1.31"
+version = "0.1.32"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
@@ -31,3 +31,4 @@ keyring = { version = "3", features = ["apple-native"] }
 uuid = { version = "1", features = ["v4"] }
 walkdir = "2"
 wait-timeout = "0.2"
+tauri-plugin-clipboard-manager = "2"

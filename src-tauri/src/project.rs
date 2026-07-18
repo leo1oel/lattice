@@ -1,11 +1,10 @@
 use crate::commands;
 use crate::models::{
-    AssetPreview, FileChange, FileNode, HistoryItem, ProjectManifest, ProjectSearchResult,
-    ProjectSnapshot, RootDocument, TransactionRecord,
+    AssetPreview, CitationInfo, FileChange, FileNode, HistoryItem, ProjectManifest,
+    ProjectSearchResult, ProjectSnapshot, RootDocument, TransactionRecord,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::Utc;
-use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -196,16 +195,186 @@ pub fn read_file(root: &Path, relative: &str) -> Result<String, String> {
 }
 
 pub fn citation_keys(root: &Path) -> Result<Vec<String>, String> {
+    Ok(citations(root)?
+        .into_iter()
+        .map(|citation| citation.key)
+        .collect())
+}
+
+pub fn citations(root: &Path) -> Result<Vec<CitationInfo>, String> {
     let manifest = read_manifest(root)?;
     let bibliography = read_file(root, &manifest.primary_bibliography)?;
-    let entry = Regex::new(r"(?m)^\s*@[A-Za-z]+\s*\{\s*([^,\s]+)\s*,").unwrap();
-    let mut keys = entry
-        .captures_iter(&bibliography)
-        .filter_map(|capture| capture.get(1).map(|value| value.as_str().to_string()))
-        .collect::<Vec<_>>();
-    keys.sort_by_key(|key| key.to_lowercase());
-    keys.dedup();
-    Ok(keys)
+    let mut citations = parse_bibliography(&bibliography);
+    citations.sort_by_key(|citation| citation.key.to_lowercase());
+    citations.dedup_by(|left, right| left.key.eq_ignore_ascii_case(&right.key));
+    Ok(citations)
+}
+
+fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
+    let bytes = bibliography.as_bytes();
+    let mut cursor = 0;
+    let mut citations = Vec::new();
+    while cursor < bytes.len() {
+        let Some(relative_start) = bibliography[cursor..].find('@') else {
+            break;
+        };
+        let mut position = cursor + relative_start + 1;
+        let entry_type_start = position;
+        while position < bytes.len() && bytes[position].is_ascii_alphabetic() {
+            position += 1;
+        }
+        let entry_type = bibliography[entry_type_start..position].to_ascii_lowercase();
+        while position < bytes.len() && bytes[position].is_ascii_whitespace() {
+            position += 1;
+        }
+        let Some(&opening) = bytes.get(position).filter(|value| **value == b'{' || **value == b'(') else {
+            cursor = position.saturating_add(1);
+            continue;
+        };
+        let closing = if opening == b'{' { b'}' } else { b')' };
+        position += 1;
+        while position < bytes.len() && bytes[position].is_ascii_whitespace() {
+            position += 1;
+        }
+        let key_start = position;
+        while position < bytes.len() && bytes[position] != b',' && bytes[position] != closing {
+            position += 1;
+        }
+        if position >= bytes.len() || bytes[position] != b',' {
+            cursor = position.saturating_add(1);
+            continue;
+        }
+        let key = bibliography[key_start..position].trim().to_string();
+        position += 1;
+        let body_start = position;
+        let mut depth = 1usize;
+        let mut quoted = false;
+        while position < bytes.len() {
+            let byte = bytes[position];
+            if byte == b'"' && (position == 0 || bytes[position - 1] != b'\\') {
+                quoted = !quoted;
+            } else if !quoted && byte == opening {
+                depth += 1;
+            } else if !quoted && byte == closing {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            position += 1;
+        }
+        cursor = position.saturating_add(1);
+        if key.is_empty() || matches!(entry_type.as_str(), "comment" | "preamble" | "string") {
+            continue;
+        }
+        let fields = parse_bibliography_fields(&bibliography[body_start..position]);
+        citations.push(CitationInfo {
+            key,
+            title: fields.get("title").cloned().unwrap_or_default(),
+            authors: fields.get("author").cloned().unwrap_or_default(),
+            year: fields.get("year").cloned().unwrap_or_default(),
+            venue: fields
+                .get("journal")
+                .or_else(|| fields.get("booktitle"))
+                .or_else(|| fields.get("publisher"))
+                .cloned()
+                .unwrap_or_default(),
+        });
+    }
+    citations
+}
+
+fn parse_bibliography_fields(body: &str) -> BTreeMap<String, String> {
+    let bytes = body.as_bytes();
+    let mut fields = BTreeMap::new();
+    let mut position = 0;
+    while position < bytes.len() {
+        while position < bytes.len() && (bytes[position].is_ascii_whitespace() || bytes[position] == b',') {
+            position += 1;
+        }
+        let name_start = position;
+        while position < bytes.len()
+            && (bytes[position].is_ascii_alphanumeric() || matches!(bytes[position], b'_' | b'-'))
+        {
+            position += 1;
+        }
+        if name_start == position {
+            position += 1;
+            continue;
+        }
+        let name = body[name_start..position].to_ascii_lowercase();
+        while position < bytes.len() && bytes[position].is_ascii_whitespace() {
+            position += 1;
+        }
+        if bytes.get(position) != Some(&b'=') {
+            continue;
+        }
+        position += 1;
+        while position < bytes.len() && bytes[position].is_ascii_whitespace() {
+            position += 1;
+        }
+        let value = match bytes.get(position) {
+            Some(b'{') => parse_braced_bibliography_value(body, &mut position),
+            Some(b'"') => parse_quoted_bibliography_value(body, &mut position),
+            Some(_) => {
+                let value_start = position;
+                while position < bytes.len() && bytes[position] != b',' {
+                    position += 1;
+                }
+                body[value_start..position].to_string()
+            }
+            None => String::new(),
+        };
+        fields.insert(name, clean_bibliography_value(&value));
+    }
+    fields
+}
+
+fn parse_braced_bibliography_value(body: &str, position: &mut usize) -> String {
+    let bytes = body.as_bytes();
+    *position += 1;
+    let start = *position;
+    let mut depth = 1usize;
+    while *position < bytes.len() {
+        match bytes[*position] {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    let value = body[start..*position].to_string();
+                    *position += 1;
+                    return value;
+                }
+            }
+            _ => {}
+        }
+        *position += 1;
+    }
+    body[start..].to_string()
+}
+
+fn parse_quoted_bibliography_value(body: &str, position: &mut usize) -> String {
+    let bytes = body.as_bytes();
+    *position += 1;
+    let start = *position;
+    while *position < bytes.len() {
+        if bytes[*position] == b'"' && (*position == start || bytes[*position - 1] != b'\\') {
+            let value = body[start..*position].to_string();
+            *position += 1;
+            return value;
+        }
+        *position += 1;
+    }
+    body[start..].to_string()
+}
+
+fn clean_bibliography_value(value: &str) -> String {
+    value
+        .replace(['{', '}'], "")
+        .replace("\\&", "&")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub fn search_files(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
@@ -1298,18 +1467,23 @@ mod tests {
     }
 
     #[test]
-    fn bibliography_keys_are_listed_for_editor_completion() {
+    fn bibliography_entries_are_parsed_for_editor_completion_and_hover() {
         let parent = temp_root("citation-keys");
         let root = create(&parent, "paper").unwrap();
         fs::write(
             root.join("references.bib"),
-            "@article{vaswani2017attention,\n  title={Attention}\n}\n@inproceedings{dosovitskiy2021image,\n}\n",
+            "@article{vaswani2017attention,\n  title={Attention {Is} All You Need},\n  author={Vaswani, Ashish and Shazeer, Noam},\n  year={2017},\n  journal={NeurIPS}\n}\n@inproceedings{dosovitskiy2021image,\n}\n",
         )
         .unwrap();
         assert_eq!(
             citation_keys(&root).unwrap(),
             vec!["dosovitskiy2021image", "vaswani2017attention"]
         );
+        let entries = citations(&root).unwrap();
+        assert_eq!(entries[1].title, "Attention Is All You Need");
+        assert_eq!(entries[1].authors, "Vaswani, Ashish and Shazeer, Noam");
+        assert_eq!(entries[1].year, "2017");
+        assert_eq!(entries[1].venue, "NeurIPS");
         fs::remove_dir_all(parent).unwrap();
     }
 

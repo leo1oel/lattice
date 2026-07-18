@@ -9,9 +9,9 @@ mod skill_store;
 
 use models::{
     AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
-    AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, HistoryItem,
-    ImportResult, PaperSummary, ProjectSearchResult, ProjectSnapshot, SubscriptionStatus,
-    SyncTexTarget,
+    AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, CitationInfo,
+    HistoryItem, ImportResult, PaperSummary, ProjectSearchResult, ProjectSnapshot,
+    SubscriptionStatus, SyncTexTarget,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -111,6 +111,11 @@ fn write_project_file(
 #[tauri::command]
 fn list_citation_keys(state: tauri::State<'_, AppState>) -> Result<Vec<String>, String> {
     project::citation_keys(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn list_citations(state: tauri::State<'_, AppState>) -> Result<Vec<CitationInfo>, String> {
+    project::citations(&current_root(&state)?)
 }
 
 #[tauri::command]
@@ -488,6 +493,7 @@ fn delete_agent_skill(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let config = app
@@ -511,6 +517,7 @@ pub fn run() {
             read_project_file,
             write_project_file,
             list_citation_keys,
+            list_citations,
             search_project,
             create_project_entry,
             delete_project_entry,
