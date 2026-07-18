@@ -22,8 +22,8 @@
   --danger: #c34b48;
   --success: #318566;
   --shadow: 0 20px 60px rgba(24, 22, 35, 0.12);
-  --editor-bg: #fbfaf7;
-  --editor-gutter: #f4f2ed;
+  --editor-bg: var(--panel);
+  --editor-gutter: var(--panel);
   --syntax-keyword: #f2636a;
   --syntax-operator: #fa8b01;
   --syntax-function: #2d82bd;
@@ -56,8 +56,8 @@
   --danger: #ee7772;
   --success: #66bd99;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
-  --editor-bg: #1c1d1f;
-  --editor-gutter: #18191b;
+  --editor-bg: var(--panel);
+  --editor-gutter: var(--panel);
   --syntax-keyword: #ff7b82;
   --syntax-operator: #f7a63c;
   --syntax-function: #6cb6e8;
