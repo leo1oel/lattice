@@ -140,23 +140,20 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
 }
 
 pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
-    let needle = query.trim().to_lowercase();
-    if needle.is_empty() {
+    let terms = project::search_terms(query);
+    if terms.is_empty() {
         return Ok(Vec::new());
     }
     let mut results = Vec::new();
     for paper in list_papers(root)? {
         let markdown = read_paper(root, &paper.arxiv_id)?;
-        let snippet = project::matching_snippet(&markdown, &needle).unwrap_or_default();
-        if paper.title.to_lowercase().contains(&needle)
-            || paper.arxiv_id.to_lowercase().contains(&needle)
-            || !snippet.is_empty()
-        {
+        let searchable = format!("{}\n{}\n{markdown}", paper.title, paper.arxiv_id);
+        if project::matches_search(&searchable, &terms) {
             results.push(ProjectSearchResult {
                 kind: "paper".to_string(),
                 path: format!(".research/papers/{}/paper.md", paper.arxiv_id),
                 title: paper.title,
-                snippet,
+                snippet: project::matching_snippet(&markdown, &terms).unwrap_or_default(),
                 arxiv_id: Some(paper.arxiv_id),
                 file_kind: None,
             });
@@ -474,7 +471,7 @@ mod tests {
         fs::create_dir_all(&directory).unwrap();
         fs::write(
             directory.join("paper.md"),
-            "Title: Attention Is All You Need\nThe model relies entirely on self-attention.\n",
+            "Title: Attention Is All You Need\nThe encoder-free model relies entirely on self-attention.\n",
         )
         .unwrap();
         fs::write(
@@ -487,6 +484,12 @@ mod tests {
 
         assert_eq!(results[0].arxiv_id.as_deref(), Some("1706.03762"));
         assert!(results[0].snippet.contains("self-attention"));
+        assert_eq!(
+            search_papers(&root, "encoder free").unwrap()[0]
+                .arxiv_id
+                .as_deref(),
+            Some("1706.03762")
+        );
         fs::remove_dir_all(parent).unwrap();
     }
 

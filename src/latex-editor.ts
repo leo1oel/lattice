@@ -9,6 +9,12 @@ const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite
 const BRACED_COMMANDS = new RegExp(`\\\\(?:${CITATION_COMMANDS}|ref|eqref|pageref|label|input|include)$`);
 const OPEN_CITATION = new RegExp(`\\\\(?:${CITATION_COMMANDS})\\*?(?:\\[[^\\]]*\\]){0,2}\\{([^}]*)$`);
 
+export const latexLanguageOptions = {
+  enableAutocomplete: false,
+  enableLinting: false,
+  enableTooltips: false,
+} as const;
+
 export const luxLatexHighlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.definitionKeyword], color: "var(--syntax-keyword)", fontWeight: "600", fontStyle: "oblique" },
   { tag: tags.operator, color: "var(--syntax-operator)" },

@@ -209,12 +209,12 @@ pub fn citation_keys(root: &Path) -> Result<Vec<String>, String> {
 }
 
 pub fn search_files(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
-    let needle = query.trim().to_lowercase();
-    if needle.is_empty() {
+    let terms = search_terms(query);
+    if terms.is_empty() {
         return Ok(Vec::new());
     }
     let mut results = Vec::new();
-    search_file_nodes(root, &scan_files(root)?, &needle, &mut results)?;
+    search_file_nodes(root, &scan_files(root)?, &terms, &mut results)?;
     results.truncate(60);
     Ok(results)
 }
@@ -222,29 +222,26 @@ pub fn search_files(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>
 fn search_file_nodes(
     root: &Path,
     nodes: &[FileNode],
-    needle: &str,
+    terms: &[String],
     results: &mut Vec<ProjectSearchResult>,
 ) -> Result<(), String> {
     for node in nodes {
         if node.kind == "directory" {
-            search_file_nodes(root, &node.children, needle, results)?;
+            search_file_nodes(root, &node.children, terms, results)?;
             continue;
         }
-        let path_matches = node.path.to_lowercase().contains(needle);
-        let snippet = if searchable_text_path(&node.path) {
-            fs::read_to_string(safe_path(root, &node.path)?)
-                .ok()
-                .and_then(|content| matching_snippet(&content, needle))
-                .unwrap_or_default()
+        let content = if searchable_text_path(&node.path) {
+            fs::read_to_string(safe_path(root, &node.path)?).unwrap_or_default()
         } else {
             String::new()
         };
-        if path_matches || !snippet.is_empty() {
+        let searchable = format!("{}\n{content}", node.path);
+        if matches_search(&searchable, terms) {
             results.push(ProjectSearchResult {
                 kind: "file".to_string(),
                 path: node.path.clone(),
                 title: node.name.clone(),
-                snippet,
+                snippet: matching_snippet(&content, terms).unwrap_or_default(),
                 arxiv_id: None,
                 file_kind: Some(node.kind.clone()),
             });
@@ -253,17 +250,34 @@ fn search_file_nodes(
     Ok(())
 }
 
-pub(crate) fn matching_snippet(content: &str, needle: &str) -> Option<String> {
-    content.lines().find_map(|line| {
-        line.to_lowercase().contains(needle).then(|| {
-            let trimmed = line.trim();
-            let snippet = trimmed.chars().take(180).collect::<String>();
-            if trimmed.chars().count() > 180 {
-                format!("{snippet}…")
-            } else {
-                snippet
-            }
-        })
+pub(crate) fn search_terms(query: &str) -> Vec<String> {
+    query
+        .to_lowercase()
+        .split(|character: char| !character.is_alphanumeric())
+        .filter(|term| !term.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+pub(crate) fn matches_search(content: &str, terms: &[String]) -> bool {
+    let content = content.to_lowercase();
+    terms.iter().all(|term| content.contains(term))
+}
+
+pub(crate) fn matching_snippet(content: &str, terms: &[String]) -> Option<String> {
+    let matching_line = content.lines().find(|line| matches_search(line, terms)).or_else(|| {
+        content
+            .lines()
+            .find(|line| terms.iter().any(|term| line.to_lowercase().contains(term)))
+    });
+    matching_line.map(|line| {
+        let trimmed = line.trim();
+        let snippet = trimmed.chars().take(180).collect::<String>();
+        if trimmed.chars().count() > 180 {
+            format!("{snippet}…")
+        } else {
+            snippet
+        }
     })
 }
 
@@ -1316,6 +1330,10 @@ mod tests {
         assert!(content_results[0].snippet.contains("distinctive latent"));
         assert_eq!(
             search_files(&project, "method.tex").unwrap()[0].path,
+            "sections/method.tex"
+        );
+        assert_eq!(
+            search_files(&project, "method tex").unwrap()[0].path,
             "sections/method.tex"
         );
         fs::remove_dir_all(root).unwrap();

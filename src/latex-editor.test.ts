@@ -2,9 +2,16 @@ import { completionStatus, currentCompletions } from "@codemirror/autocomplete";
 import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { describe, expect, it, vi } from "vitest";
-import { citationCompletionRange, latexEditorExtensions, shouldInsertCommandBraces } from "./latex-editor";
+import { citationCompletionRange, latexEditorExtensions, latexLanguageOptions, shouldInsertCommandBraces } from "./latex-editor";
 
 describe("LaTeX citation editing", () => {
+  it("uses build output instead of parser diagnostics and hover documentation", () => {
+    expect(latexLanguageOptions).toMatchObject({
+      enableLinting: false,
+      enableTooltips: false,
+    });
+  });
+
   it("adds braces after citation and reference commands", () => {
     expect(shouldInsertCommandBraces("Text \\cite")).toBe(true);
     expect(shouldInsertCommandBraces("See \\citet")).toBe(true);

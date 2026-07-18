@@ -50,7 +50,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { marked } from "marked";
-import { latexEditorExtensions } from "./latex-editor";
+import { latexEditorExtensions, latexLanguageOptions } from "./latex-editor";
 import { latexFigureInsertion } from "./figure-insertion";
 import "./App.css";
 
@@ -1859,6 +1859,7 @@ function Navigator(props: {
   const visibleSearchResults = searchActive && searchResultQuery === searchQuery.trim() ? searchResults : [];
   const fileSearchResults = visibleSearchResults.filter((result) => result.kind === "file");
   const paperSearchResults = visibleSearchResults.filter((result) => result.kind === "paper");
+  const paperResultCount = searchPending ? "…" : paperSearchResults.length;
   useEffect(() => {
     if (!contextMenu) return;
     const close = () => setContextMenu(null);
@@ -2007,7 +2008,7 @@ function Navigator(props: {
       <div className="navigator-section papers-section">
         <div className="section-heading">
           <span>Papers</span>
-          <span className="count-badge">{props.papers.length}</span>
+          <span className="count-badge">{searchActive ? paperResultCount : props.papers.length}</span>
         </div>
         <div className="paper-list">
           {(searchActive ? paperSearchResults.map((result) => props.papers.find((paper) => paper.arxivId === result.arxivId)).filter((paper): paper is PaperSummary => Boolean(paper)) : props.papers).map((paper) => (
@@ -2454,7 +2455,10 @@ function DocumentCanvas(props: {
     [props.paperMarkdown],
   );
   const editorExtensions = useMemo(
-    () => [latex({ enableAutocomplete: false }), ...latexEditorExtensions(props.citationKeys)],
+    () => [
+      latex(latexLanguageOptions),
+      ...latexEditorExtensions(props.citationKeys),
+    ],
     [props.citationKeys],
   );
   const insertFigures = useCallback(async (paths: string[], coordinates?: { x: number; y: number }) => {

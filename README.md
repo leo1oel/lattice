@@ -22,7 +22,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Import an arXiv paper as Markdown with `arxiv2md`.
 - Add every imported paper to the project bibliography through `bibcite`.
 - Browse imported papers by title, read their Markdown snapshots, and remove a paper together with its `bibcite`-managed bibliography entry. Re-adding the same arXiv paper, including another version URL, reuses the existing import without touching the project.
-- Search project filenames and source contents together with imported paper titles, arXiv IDs, and Markdown contents from one navigator field.
+- Search project filenames and source contents together with imported paper titles, arXiv IDs, and Markdown contents from one navigator field, with punctuation-tolerant multi-word matching.
 - Ask a local Codex or Claude Code session to make evidence-aware project edits while its visible response streams into the conversation.
 - Manage bundled, all-project, and project-only skills from Settings, including adding, editing, disabling, deleting, and restoring overrides without installing anything into a global agent directory.
 - Search OpenAlex for candidate related work on demand while keeping discovery metadata separate from evidence that is safe to cite.
