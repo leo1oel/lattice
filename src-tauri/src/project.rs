@@ -58,7 +58,15 @@ pub fn create(parent: &Path, name: &str) -> Result<PathBuf, String> {
     fs::write(root.join(".research/brief.md"), default_brief(safe_name)).map_err(err)?;
     fs::write(root.join(".research/.gitignore"), RESEARCH_GITIGNORE).map_err(err)?;
     fs::write(root.join("main.tex"), default_tex(safe_name)).map_err(err)?;
-    fs::write(root.join("neurips_2026.sty"), NEURIPS_2026_STYLE).map_err(err)?;
+    fs::write(
+        root.join("neurips.sty"),
+        NEURIPS_2026_STYLE.replacen(
+            "\\ProvidesPackage{neurips_2026}",
+            "\\ProvidesPackage{neurips}",
+            1,
+        ),
+    )
+    .map_err(err)?;
     fs::write(root.join("references.bib"), "").map_err(err)?;
     fs::write(root.join(".gitignore"), ".research/history/\n.research/sessions/\n.research/pi-sessions/\n.research/checkpoints/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n").map_err(err)?;
     Ok(root)
@@ -226,6 +234,66 @@ pub fn create_entry(root: &Path, relative: &str, kind: &str) -> Result<String, S
     }
 }
 
+pub fn rename_entry(root: &Path, relative: &str, new_name: &str) -> Result<String, String> {
+    validate_user_entry(relative)?;
+    let requested_name = validate_entry_name(new_name)?;
+    let source = safe_path(root, relative)?;
+    if !source.exists() {
+        return Err("That file or folder no longer exists.".to_string());
+    }
+
+    let normalized_name = if source.is_file() && Path::new(requested_name).extension().is_none() {
+        match source.extension().and_then(|extension| extension.to_str()) {
+            Some(extension) => format!("{requested_name}.{extension}"),
+            None => requested_name.to_string(),
+        }
+    } else {
+        requested_name.to_string()
+    };
+    if source.is_file() && !is_visible_source(Path::new(&normalized_name)) {
+        return Err("Keep a supported project file extension when renaming this file.".to_string());
+    }
+
+    let parent = Path::new(relative).parent().unwrap_or_else(|| Path::new(""));
+    let destination_relative = parent.join(&normalized_name).to_string_lossy().to_string();
+    if destination_relative == relative {
+        return Ok(destination_relative);
+    }
+    let destination = safe_path(root, &destination_relative)?;
+    if destination.exists() {
+        return Err("A file or folder already exists with that name.".to_string());
+    }
+
+    let original_manifest = read_manifest(root)?;
+    let mut updated_manifest = original_manifest.clone();
+    for document in &mut updated_manifest.root_documents {
+        document.path = renamed_relative_path(&document.path, relative, &destination_relative);
+    }
+    updated_manifest.primary_bibliography = renamed_relative_path(
+        &updated_manifest.primary_bibliography,
+        relative,
+        &destination_relative,
+    );
+
+    fs::rename(&source, &destination).map_err(err)?;
+    if let Err(error) = write_manifest(root, &updated_manifest) {
+        let _ = fs::rename(&destination, &source);
+        let _ = write_manifest(root, &original_manifest);
+        return Err(error);
+    }
+    Ok(destination_relative)
+}
+
+fn renamed_relative_path(path: &str, old_path: &str, new_path: &str) -> String {
+    let path = Path::new(path);
+    let old_path = Path::new(old_path);
+    match path.strip_prefix(old_path) {
+        Ok(suffix) if suffix.as_os_str().is_empty() => new_path.to_string(),
+        Ok(suffix) => Path::new(new_path).join(suffix).to_string_lossy().to_string(),
+        Err(_) => path.to_string_lossy().to_string(),
+    }
+}
+
 pub fn import_assets(
     root: &Path,
     sources: &[String],
@@ -375,6 +443,17 @@ fn validate_user_entry(relative: &str) -> Result<(), String> {
         return Err("Choose a project-relative path outside .research.".to_string());
     }
     Ok(())
+}
+
+fn validate_entry_name(name: &str) -> Result<&str, String> {
+    let trimmed = name.trim();
+    let mut components = Path::new(trimmed).components();
+    let simple_name = matches!(components.next(), Some(Component::Normal(_)))
+        && components.next().is_none();
+    if !simple_name || trimmed.starts_with('.') {
+        return Err("Choose a simple name without folders or a leading dot.".to_string());
+    }
+    Ok(trimmed)
 }
 
 fn ensure_ignore_line(path: &Path, line: &str) -> Result<(), String> {
@@ -1013,6 +1092,28 @@ mod tests {
     }
 
     #[test]
+    fn project_entries_can_be_renamed_and_manifest_paths_follow_them() {
+        let parent = temp_root("rename-project-entries");
+        let root = create(&parent, "paper").unwrap();
+        assert_eq!(
+            rename_entry(&root, "main.tex", "paper").unwrap(),
+            "paper.tex"
+        );
+        assert_eq!(
+            read_manifest(&root).unwrap().root_documents[0].path,
+            "paper.tex"
+        );
+        create_entry(&root, "sections/method", "file").unwrap();
+        assert_eq!(
+            rename_entry(&root, "sections", "chapters").unwrap(),
+            "chapters"
+        );
+        assert!(root.join("chapters/method.tex").exists());
+        assert!(rename_entry(&root, "paper.tex", "references.bib").is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
     fn imported_assets_are_copied_and_renamed_on_collision() {
         let parent = temp_root("import-assets");
         let root = create(&parent, "paper").unwrap();
@@ -1050,10 +1151,11 @@ mod tests {
         let root = create(&parent, "Elegant paper").unwrap();
         let source = fs::read_to_string(root.join("main.tex")).unwrap();
         assert!(source.contains("\\documentclass{article}"));
-        assert!(source.contains("\\usepackage[preprint]{neurips_2026}"));
+        assert!(source.contains("\\usepackage[preprint]{neurips}"));
         assert!(source.contains("\\bibliographystyle{plainnat}"));
         assert!(!source.contains("Formatting Instructions For NeurIPS 2026"));
-        assert!(root.join("neurips_2026.sty").exists());
+        assert!(root.join("neurips.sty").exists());
+        assert!(!root.join("neurips_2026.sty").exists());
         assert!(!root.join("arxiv.sty").exists());
         fs::remove_dir_all(parent).unwrap();
     }

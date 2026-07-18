@@ -115,6 +115,43 @@ pub fn read_paper(root: &Path, arxiv_id: &str) -> Result<String, String> {
     project::read_file(root, &format!(".research/papers/{arxiv_id}/paper.md"))
 }
 
+pub fn rename_paper(root: &Path, arxiv_id: &str, title: &str) -> Result<PaperSummary, String> {
+    validate_arxiv_id(arxiv_id)?;
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("Enter a paper title.".to_string());
+    }
+    if title.chars().count() > 300 {
+        return Err("Keep the paper title under 300 characters.".to_string());
+    }
+    let current = list_papers(root)?
+        .into_iter()
+        .find(|paper| paper.arxiv_id == arxiv_id)
+        .ok_or_else(|| "That imported paper no longer exists.".to_string())?;
+    let metadata = PaperMetadata {
+        arxiv_id: arxiv_id.to_string(),
+        title: title.to_string(),
+        citation_key: current.citation_key.clone(),
+    };
+    let metadata_path = root
+        .join(".research/papers")
+        .join(arxiv_id)
+        .join("metadata.json");
+    fs::write(
+        metadata_path,
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&metadata).map_err(err)?
+        ),
+    )
+    .map_err(err)?;
+    Ok(PaperSummary {
+        arxiv_id: arxiv_id.to_string(),
+        title: title.to_string(),
+        citation_key: current.citation_key,
+    })
+}
+
 pub fn delete_paper(root: &Path, arxiv_id: &str) -> Result<(), String> {
     validate_arxiv_id(arxiv_id)?;
     let paper_directory = root.join(".research/papers").join(arxiv_id);
@@ -323,6 +360,28 @@ mod tests {
             find_citation_key_for_arxiv(bibliography, "1706.03762"),
             Some("vaswani2017attention".to_string())
         );
+    }
+
+    #[test]
+    fn renames_only_the_paper_display_title() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-rename-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let directory = root.join(".research/papers/1706.03762");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("paper.md"), "Title: Original title\n").unwrap();
+        fs::write(
+            directory.join("metadata.json"),
+            r#"{"arxivId":"1706.03762","title":"Original title","citationKey":"vaswani2017attention"}"#,
+        )
+        .unwrap();
+        let renamed = rename_paper(&root, "1706.03762", "A clearer title").unwrap();
+        assert_eq!(renamed.title, "A clearer title");
+        assert_eq!(
+            renamed.citation_key.as_deref(),
+            Some("vaswani2017attention")
+        );
+        assert_eq!(list_papers(&root).unwrap()[0].title, "A clearer title");
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]

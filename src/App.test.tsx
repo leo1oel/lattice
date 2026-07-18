@@ -95,6 +95,52 @@ describe("welcome screen", () => {
     expect(screen.getByLabelText("Project name")).toHaveValue("Untitled research");
   });
 
+  it("keeps duplicate project errors inside the creation dialog", async () => {
+    vi.mocked(open).mockResolvedValue("/tmp/research");
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "initial_project") return null;
+      if (command === "list_agent_skills") return [];
+      if (command === "create_project") throw new Error("That folder already exists and is not empty.");
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /new project/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("That folder already exists and is not empty.");
+    expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
+  });
+
+  it("starts the first build as soon as a new project opens", async () => {
+    const snapshot = {
+      root: "/tmp/research/New paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "new-paper-id",
+        name: "New paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(open).mockResolvedValue("/tmp/research");
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return null;
+      if (command === "list_agent_skills") return [];
+      if (command === "create_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /new project/i }));
+    fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "New paper" } });
+    fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project"));
+    expect(await screen.findByRole("button", { name: "Switch project" })).toHaveTextContent("New paper");
+  });
+
   it("opens appearance settings and persists font choices", async () => {
     render(<App />);
     fireEvent.click(screen.getByTitle("Settings"));
@@ -180,7 +226,7 @@ describe("project workspace", () => {
         primaryBibliography: "references.bib",
         trusted: false,
       },
-      files: [],
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
@@ -414,7 +460,7 @@ describe("project workspace", () => {
         primaryBibliography: "references.bib",
         trusted: false,
       },
-      files: [],
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
@@ -430,6 +476,47 @@ describe("project workspace", () => {
     fireEvent.click(paper);
     expect(await screen.findByText("Attention Is All You Need", { selector: ".paper-reader-title span" })).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
+    expect(paper.closest(".paper-row")).toHaveClass("active");
+    fireEvent.click(screen.getByRole("button", { name: "main.tex" }));
+    await waitFor(() => expect(paper.closest(".paper-row")).not.toHaveClass("active"));
+  });
+
+  it("renames project items and paper display titles from their context menus", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention" };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers") return [paper];
+      if (command === "list_history") return [];
+      if (command === "rename_project_entry") return "paper.tex";
+      if (command === "rename_paper") return { ...paper, title: "Transformer" };
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+    render(<App />);
+
+    fireEvent.contextMenu(await screen.findByRole("button", { name: "main.tex" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    fireEvent.change(screen.getByLabelText("New name"), { target: { value: "paper" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("rename_project_entry", { path: "main.tex", newName: "paper" }));
+
+    fireEvent.contextMenu(screen.getByTitle("Attention Is All You Need"));
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    fireEvent.change(screen.getByLabelText("New name"), { target: { value: "Transformer" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("rename_paper", { arxivId: "1706.03762", title: "Transformer" }));
   });
 
   it("reveals project files and imported papers in Finder from the context menu", async () => {

@@ -122,6 +122,10 @@ type PaperSummary = {
   citationKey?: string;
 };
 
+type RenameTarget =
+  | { kind: "entry"; path: string; name: string }
+  | { kind: "paper"; paper: PaperSummary };
+
 type ChatMessage = {
   id: string;
   role: "user" | "agent" | "system";
@@ -234,9 +238,12 @@ function App() {
   );
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
   const [projectName, setProjectName] = useState("Untitled research");
+  const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
@@ -297,6 +304,8 @@ function App() {
       setActiveFile(path);
       setSource(content);
       setSavedSource(content);
+      setActivePaper(null);
+      setPaperMarkdown("");
       setCanvasMode((mode) => (mode === "paper" ? "split" : mode));
       setError(null);
     } catch (reason) {
@@ -320,8 +329,7 @@ function App() {
     }
   }, [activeFile, project, refreshHistory, savedSource, source]);
 
-  const compile = useCallback(async () => {
-    if (!project) return;
+  const runBuild = useCallback(async () => {
     if (buildingRef.current) {
       buildQueued.current = true;
       return;
@@ -349,7 +357,12 @@ function App() {
       buildingRef.current = false;
       setBuilding(false);
     }
-  }, [project]);
+  }, []);
+
+  const compile = useCallback(async () => {
+    if (!project) return;
+    await runBuild();
+  }, [project, runBuild]);
 
   const saveAndCompileAutomatically = useCallback(async () => {
     if (automaticBuildPending.current) return;
@@ -362,8 +375,9 @@ function App() {
   }, [compile, save]);
 
   const enterProject = useCallback(
-    async (snapshot: ProjectSnapshot) => {
+    async (snapshot: ProjectSnapshot, buildOnEntry = false) => {
       setProject(snapshot);
+      if (buildOnEntry) void runBuild();
       rememberProject(snapshot);
       setProjectMenuOpen(false);
       setBuild(null);
@@ -409,7 +423,7 @@ function App() {
         }
       });
     },
-    [loadFile, rememberProject],
+    [loadFile, rememberProject, runBuild],
   );
 
   const chooseExisting = useCallback(async () => {
@@ -427,16 +441,21 @@ function App() {
   }, [enterProject, save]);
 
   const createProject = useCallback(async () => {
+    if (!projectName.trim()) {
+      setCreateError("Enter a project name.");
+      return;
+    }
     const parent = await open({ directory: true, multiple: false, title: "Choose where to create the project" });
     if (!parent) return;
     setBusyLabel("Creating project…");
     try {
       if (!(await save())) return;
       const snapshot = await invoke<ProjectSnapshot>("create_project", { parent, name: projectName });
+      setCreateError(null);
       setCreateOpen(false);
-      await enterProject(snapshot);
+      await enterProject(snapshot, true);
     } catch (reason) {
-      setError(toMessage(reason));
+      setCreateError(toMessage(reason));
     } finally {
       setBusyLabel(null);
     }
@@ -700,6 +719,46 @@ function App() {
       setError(toMessage(reason));
     }
   }, [activeFile, loadFile, refreshHistory, refreshProject]);
+
+  const renameProjectEntry = useCallback((path: string, name: string) => {
+    setRenameError(null);
+    setRenameTarget({ kind: "entry", path, name });
+  }, []);
+
+  const renameImportedPaper = useCallback((paper: PaperSummary) => {
+    setRenameError(null);
+    setRenameTarget({ kind: "paper", paper });
+  }, []);
+
+  const submitRename = useCallback(async (name: string) => {
+    if (!renameTarget) return;
+    try {
+      if (renameTarget.kind === "entry") {
+        const renamedPath = await invoke<string>("rename_project_entry", {
+          path: renameTarget.path,
+          newName: name,
+        });
+        await refreshProject();
+        const renamedActiveFile = activeFile === renameTarget.path
+          ? renamedPath
+          : activeFile.startsWith(`${renameTarget.path}/`)
+            ? `${renamedPath}${activeFile.slice(renameTarget.path.length)}`
+            : null;
+        if (renamedActiveFile) await loadFile(renamedActiveFile);
+      } else {
+        const renamedPaper = await invoke<PaperSummary>("rename_paper", {
+          arxivId: renameTarget.paper.arxivId,
+          title: name,
+        });
+        await refreshProject();
+        if (activePaper?.arxivId === renamedPaper.arxivId) setActivePaper(renamedPaper);
+      }
+      setRenameError(null);
+      setRenameTarget(null);
+    } catch (reason) {
+      setRenameError(toMessage(reason));
+    }
+  }, [activeFile, activePaper, loadFile, refreshProject, renameTarget]);
 
   const revealProjectItem = useCallback(async (relativePath: string) => {
     if (!project) return;
@@ -1109,9 +1168,20 @@ function App() {
           busyLabel={busyLabel}
           createOpen={createOpen}
           error={error}
+          createError={createError}
           projectName={projectName}
-          setCreateOpen={setCreateOpen}
-          setProjectName={setProjectName}
+          onOpenCreate={() => {
+            setCreateError(null);
+            setCreateOpen(true);
+          }}
+          onCloseCreate={() => {
+            setCreateError(null);
+            setCreateOpen(false);
+          }}
+          setProjectName={(value) => {
+            setProjectName(value);
+            setCreateError(null);
+          }}
           onCreate={createProject}
           onOpen={chooseExisting}
           onSettings={() => openSettings("appearance")}
@@ -1158,6 +1228,7 @@ function App() {
               }}
               onNew={() => {
                 setProjectMenuOpen(false);
+                setCreateError(null);
                 setCreateOpen(true);
               }}
               onClose={() => setProjectMenuOpen(false)}
@@ -1208,12 +1279,14 @@ function App() {
               onFile={loadFile}
               onCreateEntry={createProjectEntry}
               onDeleteEntry={deleteProjectEntry}
+              onRenameEntry={renameProjectEntry}
               onReveal={revealProjectItem}
               onImportAssets={chooseProjectAssets}
               assetDropTarget={assetDropTarget}
               assetImporting={assetImporting}
               onPaper={openPaper}
               onDeletePaper={deletePaper}
+              onRenamePaper={renameImportedPaper}
               importInput={importInput}
               setImportInput={setImportInput}
               onImport={importPaper}
@@ -1295,9 +1368,27 @@ function App() {
       {createOpen && (
         <CreateProjectDialog
           projectName={projectName}
-          setProjectName={setProjectName}
+          setProjectName={(value) => {
+            setProjectName(value);
+            setCreateError(null);
+          }}
+          error={createError}
           onCreate={createProject}
-          onClose={() => setCreateOpen(false)}
+          onClose={() => {
+            setCreateError(null);
+            setCreateOpen(false);
+          }}
+        />
+      )}
+      {renameTarget && (
+        <RenameDialog
+          target={renameTarget}
+          error={renameError}
+          onRename={submitRename}
+          onClose={() => {
+            setRenameError(null);
+            setRenameTarget(null);
+          }}
         />
       )}
     </div>
@@ -1308,8 +1399,10 @@ function Welcome(props: {
   busyLabel: string | null;
   createOpen: boolean;
   error: string | null;
+  createError: string | null;
   projectName: string;
-  setCreateOpen: (value: boolean) => void;
+  onOpenCreate: () => void;
+  onCloseCreate: () => void;
   setProjectName: (value: string) => void;
   onCreate: () => void;
   onOpen: () => void;
@@ -1334,7 +1427,7 @@ function Welcome(props: {
           A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected.
         </p>
         <div className="welcome-actions">
-          <button className="primary-button" onClick={() => props.setCreateOpen(true)}>
+          <button className="primary-button" onClick={props.onOpenCreate}>
             <Plus size={17} /> New project
           </button>
           <button className="secondary-button" onClick={props.onOpen}>
@@ -1344,7 +1437,7 @@ function Welcome(props: {
         {props.busyLabel && <p className="busy-label"><LoaderCircle className="spin" size={15} /> {props.busyLabel}</p>}
         {props.error && <p className="welcome-error">{props.error}</p>}
       </div>
-      {props.createOpen && <CreateProjectDialog projectName={props.projectName} setProjectName={props.setProjectName} onCreate={props.onCreate} onClose={() => props.setCreateOpen(false)} />}
+      {props.createOpen && <CreateProjectDialog projectName={props.projectName} setProjectName={props.setProjectName} error={props.createError} onCreate={props.onCreate} onClose={props.onCloseCreate} />}
     </div>
   );
 }
@@ -1352,6 +1445,7 @@ function Welcome(props: {
 function CreateProjectDialog(props: {
   projectName: string;
   setProjectName: (value: string) => void;
+  error: string | null;
   onCreate: () => void;
   onClose: () => void;
 }) {
@@ -1365,9 +1459,54 @@ function CreateProjectDialog(props: {
           Project name
           <input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
         </label>
+        {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">
           <button className="text-button" onClick={props.onClose}>Cancel</button>
           <button className="primary-button" onClick={props.onCreate}>Choose location</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RenameDialog(props: {
+  target: RenameTarget;
+  error: string | null;
+  onRename: (name: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const initialName = props.target.kind === "entry" ? props.target.name : props.target.paper.title;
+  const [name, setName] = useState(initialName);
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    await props.onRename(name.trim());
+    setBusy(false);
+  };
+  return (
+    <div className="modal-backdrop" onMouseDown={props.onClose}>
+      <div className="modal rename-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modal-icon"><Pencil size={19} /></div>
+        <h2>{props.target.kind === "paper" ? "Rename paper" : "Rename project item"}</h2>
+        <p>{props.target.kind === "paper" ? "This changes the title shown in Papers. The citation key stays unchanged." : "Use a simple name. Existing file extensions are kept when omitted."}</p>
+        <label>
+          Name
+          <input
+            autoFocus
+            aria-label="New name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void submit();
+              if (event.key === "Escape") props.onClose();
+            }}
+          />
+        </label>
+        {props.error && <p className="field-error" role="alert">{props.error}</p>}
+        <div className="modal-actions">
+          <button className="text-button" onClick={props.onClose}>Cancel</button>
+          <button className="primary-button" disabled={busy || !name.trim()} onClick={() => void submit()}>{busy ? "Renaming…" : "Rename"}</button>
         </div>
       </div>
     </div>
@@ -1445,12 +1584,14 @@ function Navigator(props: {
   onFile: (path: string) => void;
   onCreateEntry: (path: string, kind: "file" | "folder") => Promise<void>;
   onDeleteEntry: (path: string) => void;
+  onRenameEntry: (path: string, name: string) => void;
   onReveal: (path: string) => void;
   onImportAssets: (targetDirectory?: string) => void;
   assetDropTarget: string | null;
   assetImporting: boolean;
   onPaper: (paper: PaperSummary) => void;
   onDeletePaper: (paper: PaperSummary) => void;
+  onRenamePaper: (paper: PaperSummary) => void;
   importInput: string;
   setImportInput: (value: string) => void;
   onImport: () => void;
@@ -1462,7 +1603,7 @@ function Navigator(props: {
   const [entryPath, setEntryPath] = useState("");
   const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
   const [entryBusy, setEntryBusy] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string; label: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string; label: string; paper?: PaperSummary } | null>(null);
   useEffect(() => {
     if (!contextMenu) return;
     const close = () => setContextMenu(null);
@@ -1478,7 +1619,7 @@ function Navigator(props: {
       window.removeEventListener("keydown", closeWithEscape);
     };
   }, [contextMenu]);
-  const showContextMenu = (event: React.MouseEvent, path: string, label: string) => {
+  const showContextMenu = (event: React.MouseEvent, path: string, label: string, paper?: PaperSummary) => {
     event.preventDefault();
     event.stopPropagation();
     setContextMenu({
@@ -1486,6 +1627,7 @@ function Navigator(props: {
       y: Math.min(event.clientY, window.innerHeight - 82),
       path,
       label,
+      paper,
     });
   };
   const closeEntryForm = () => {
@@ -1603,7 +1745,7 @@ function Navigator(props: {
         </div>
         <div className="paper-list">
           {props.papers.map((paper) => (
-            <div key={paper.arxivId} className={`paper-row ${props.activePaper?.arxivId === paper.arxivId ? "active" : ""}`} onContextMenu={(event) => showContextMenu(event, `.research/papers/${paper.arxivId}/paper.md`, paper.title)}>
+            <div key={paper.arxivId} className={`paper-row ${props.activePaper?.arxivId === paper.arxivId ? "active" : ""}`} onContextMenu={(event) => showContextMenu(event, `.research/papers/${paper.arxivId}/paper.md`, paper.title, paper)}>
               <button title={paper.title} className="paper-open" onClick={() => props.onPaper(paper)}>
                 <BookOpen size={14} />
                 <span><strong>{paper.title}</strong><small>{paper.citationKey ? `\\cite{${paper.citationKey}}` : `arXiv ${paper.arxivId}`}</small></span>
@@ -1627,6 +1769,11 @@ function Navigator(props: {
       </div>
       {contextMenu && (
         <div className="file-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
+          {(contextMenu.paper || contextMenu.path) && <button onClick={() => {
+            if (contextMenu.paper) props.onRenamePaper(contextMenu.paper);
+            else props.onRenameEntry(contextMenu.path, contextMenu.label);
+            setContextMenu(null);
+          }}><Pencil size={14} /><span>Rename</span></button>}
           <button onClick={() => { props.onReveal(contextMenu.path); setContextMenu(null); }}><FolderOpen size={14} /><span>Show in Finder</span></button>
           <small title={contextMenu.label}>{contextMenu.label}</small>
         </div>

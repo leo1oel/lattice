@@ -127,6 +127,15 @@ fn delete_project_entry(state: tauri::State<'_, AppState>, path: String) -> Resu
 }
 
 #[tauri::command]
+fn rename_project_entry(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    new_name: String,
+) -> Result<String, String> {
+    project::rename_entry(&current_root(&state)?, &path, &new_name)
+}
+
+#[tauri::command]
 fn import_project_assets(
     state: tauri::State<'_, AppState>,
     paths: Vec<String>,
@@ -167,6 +176,15 @@ fn list_papers(state: tauri::State<'_, AppState>) -> Result<Vec<PaperSummary>, S
 #[tauri::command]
 fn read_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<String, String> {
     papers::read_paper(&current_root(&state)?, &arxiv_id)
+}
+
+#[tauri::command]
+fn rename_paper(
+    state: tauri::State<'_, AppState>,
+    arxiv_id: String,
+    title: String,
+) -> Result<PaperSummary, String> {
+    papers::rename_paper(&current_root(&state)?, &arxiv_id, &title)
 }
 
 #[tauri::command]
@@ -453,12 +471,14 @@ pub fn run() {
             list_citation_keys,
             create_project_entry,
             delete_project_entry,
+            rename_project_entry,
             import_project_assets,
             build_project,
             save_compiled_pdf,
             import_arxiv,
             list_papers,
             read_paper,
+            rename_paper,
             delete_paper,
             run_agent,
             provider_status,

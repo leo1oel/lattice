@@ -339,6 +339,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .modal label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 600; }
 .modal input { height: 38px; border: 1px solid var(--line-strong); border-radius: 8px; outline: none; background: var(--bg); padding: 0 10px; color: var(--text); font-size: 12px; }
 .modal input:focus { border-color: var(--accent); }
+.modal .field-error { margin: 7px 0 0; color: var(--danger); font-size: 10px; line-height: 1.4; }
+.modal .field-error + .modal-actions { margin-top: 16px; }
+.rename-modal { width: 420px; }
 .modal select { height: 38px; border: 1px solid var(--line-strong); border-radius: 8px; outline: none; background: var(--bg); padding: 0 10px; color: var(--text); font-size: 12px; }
 .settings-modal { width: min(680px, calc(100vw - 40px)); height: min(520px, calc(100vh - 40px)); border: 1px solid var(--line-strong); border-radius: 14px; background: var(--panel-strong); box-shadow: var(--shadow); overflow: hidden; text-align: left; }
 .settings-header { height: 50px; padding: 0 14px 0 17px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }

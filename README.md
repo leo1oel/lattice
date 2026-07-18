@@ -83,7 +83,7 @@ Lattice preserves normal LaTeX files and adds a small human-readable sidecar:
 ```text
 paper-project/
 ├── main.tex
-├── neurips_2026.sty
+├── neurips.sty
 ├── references.bib
 ├── figures/
 └── .research/
@@ -97,7 +97,7 @@ paper-project/
 The manuscript remains buildable if `.research` is removed.
 The sidecar contains application metadata, the durable research brief, imported evidence, local undo history, and agent conversations.
 History and conversations are ignored by the generated `.gitignore` because they may contain private manuscript context.
-The bundled `neurips_2026.sty` is copied unchanged from the NeurIPS 2026 formatting package supplied for this project.
+The bundled source is the supplied NeurIPS 2026 style; new projects receive it as `neurips.sty` with the internal package name adjusted to match.
 That package did not include a separate license file, so Lattice records its provenance without assigning it the repository's Apache-2.0 license.
 
 ## Safety model
