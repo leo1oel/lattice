@@ -146,14 +146,12 @@ pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult
     }
     let mut results = Vec::new();
     for paper in list_papers(root)? {
-        let markdown = read_paper(root, &paper.arxiv_id)?;
-        let searchable = format!("{}\n{}\n{markdown}", paper.title, paper.arxiv_id);
-        if project::matches_search(&searchable, &terms) {
+        if project::matches_search(&paper.title, &terms) {
             results.push(ProjectSearchResult {
                 kind: "paper".to_string(),
                 path: format!(".research/papers/{}/paper.md", paper.arxiv_id),
                 title: paper.title,
-                snippet: project::matching_snippet(&markdown, &terms).unwrap_or_default(),
+                snippet: String::new(),
                 arxiv_id: Some(paper.arxiv_id),
                 file_kind: None,
             });
@@ -464,7 +462,7 @@ mod tests {
     }
 
     #[test]
-    fn paper_search_matches_markdown_contents() {
+    fn paper_search_matches_only_titles() {
         let parent = std::env::temp_dir().join(format!("lattice-paper-search-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
         let directory = root.join(".research/papers/1706.03762");
@@ -480,16 +478,13 @@ mod tests {
         )
         .unwrap();
 
-        let results = search_papers(&root, "self-attention").unwrap();
+        let results = search_papers(&root, "attention need").unwrap();
 
         assert_eq!(results[0].arxiv_id.as_deref(), Some("1706.03762"));
-        assert!(results[0].snippet.contains("self-attention"));
-        assert_eq!(
-            search_papers(&root, "encoder free").unwrap()[0]
-                .arxiv_id
-                .as_deref(),
-            Some("1706.03762")
-        );
+        assert!(results[0].snippet.is_empty());
+        assert!(search_papers(&root, "self-attention").unwrap().is_empty());
+        assert!(search_papers(&root, "encoder free").unwrap().is_empty());
+        assert!(search_papers(&root, "1706.03762").unwrap().is_empty());
         fs::remove_dir_all(parent).unwrap();
     }
 
