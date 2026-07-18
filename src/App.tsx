@@ -8,7 +8,7 @@ import type { EditorView } from "@codemirror/view";
 import { latex } from "codemirror-lang-latex";
 import DOMPurify from "dompurify";
 import { gsap } from "gsap";
-import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from "pdfjs-dist";
+import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
   BookOpen,
@@ -2673,7 +2673,7 @@ function DocumentCanvas(props: {
 function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
   const url = `data:${asset.mimeType};base64,${asset.base64}`;
   if (asset.mimeType === "application/pdf") {
-    return <PdfPreview url={url} pdfBase64={asset.base64} fileName={asset.path.split("/").pop() ?? "figure.pdf"} />;
+    return <PdfPreview key={url} url={url} pdfBase64={asset.base64} fileName={asset.path.split("/").pop() ?? "figure.pdf"} />;
   }
   return (
     <div className="asset-preview">
@@ -2691,8 +2691,110 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
   );
 }
 
-function PdfPreview({ url, pdfBase64, fileName = "paper.pdf", onSource }: { url: string | null; pdfBase64: string | null; fileName?: string; onSource?: (page: number, x: number, y: number) => void }) {
+function ContinuousPdfPage({ documentProxy, pageNumber, scale, onSource }: {
+  documentProxy: PDFDocumentProxy;
+  pageNumber: number;
+  scale: number;
+  onSource?: (page: number, x: number, y: number) => void;
+}) {
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [page, setPage] = useState<PDFPageProxy | null>(null);
+  const [shouldRender, setShouldRender] = useState(pageNumber === 1);
+  const [rendering, setRendering] = useState(true);
+  const [pageError, setPageError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void documentProxy.getPage(pageNumber)
+      .then((nextPage) => {
+        if (active) setPage(nextPage);
+      })
+      .catch((reason) => {
+        if (active) {
+          setPageError(toMessage(reason));
+          setRendering(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [documentProxy, pageNumber]);
+
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    if (typeof IntersectionObserver === "undefined") {
+      const frame = window.requestAnimationFrame(() => setShouldRender(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setShouldRender(true);
+    }, {
+      root: shell.closest(".pdf-scroll-area"),
+      rootMargin: "900px 0px",
+    });
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!page || !canvas || !shouldRender) return;
+    let active = true;
+    const pixelRatio = window.devicePixelRatio || 1;
+    const viewport = page.getViewport({ scale: scale * pixelRatio });
+    const cssViewport = page.getViewport({ scale });
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    canvas.style.width = `${Math.floor(cssViewport.width)}px`;
+    canvas.style.height = `${Math.floor(cssViewport.height)}px`;
+    setRendering(true);
+    setPageError("");
+    const renderTask = page.render({ canvas, viewport });
+    void renderTask.promise
+      .catch((reason) => {
+        if (active && reason?.name !== "RenderingCancelledException") setPageError(toMessage(reason));
+      })
+      .finally(() => {
+        if (active) setRendering(false);
+      });
+    return () => {
+      active = false;
+      renderTask.cancel();
+    };
+  }, [page, scale, shouldRender]);
+
+  const viewport = page?.getViewport({ scale });
+  const width = Math.floor(viewport?.width ?? 612 * scale);
+  const height = Math.floor(viewport?.height ?? 792 * scale);
+  const revealSource = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!onSource) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    onSource(
+      pageNumber,
+      Number(((event.clientX - bounds.left) / scale).toFixed(3)),
+      Number(((event.clientY - bounds.top) / scale).toFixed(3)),
+    );
+  };
+
+  return (
+    <div ref={shellRef} className="pdf-page-shell" data-pdf-page={pageNumber} style={{ width, height }} aria-busy={rendering}>
+      <canvas
+        ref={canvasRef}
+        className={onSource ? "synctex-enabled" : ""}
+        title={onSource ? "Click to reveal this position in LaTeX" : undefined}
+        onClick={revealSource}
+        aria-label={`PDF page ${pageNumber}`}
+      />
+      {rendering && <div className="pdf-page-skeleton" aria-hidden="true" />}
+      {pageError && <div className="pdf-page-error">Could not render page {pageNumber}. {pageError}</div>}
+    </div>
+  );
+}
+
+function PdfPreview({ url, pdfBase64, fileName = "paper.pdf", onSource }: { url: string | null; pdfBase64: string | null; fileName?: string; onSource?: (page: number, x: number, y: number) => void }) {
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1.1);
@@ -2717,33 +2819,32 @@ function PdfPreview({ url, pdfBase64, fileName = "paper.pdf", onSource }: { url:
     };
   }, [url]);
 
+  const updateCurrentPage = useCallback(() => {
+    const scrollArea = scrollAreaRef.current;
+    if (!scrollArea) return;
+    const scrollBounds = scrollArea.getBoundingClientRect();
+    const marker = scrollBounds.top + Math.min(scrollBounds.height * 0.35, 240);
+    let closestPage = 1;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    for (const shell of scrollArea.querySelectorAll<HTMLElement>("[data-pdf-page]")) {
+      const bounds = shell.getBoundingClientRect();
+      const distance = marker < bounds.top
+        ? bounds.top - marker
+        : marker > bounds.bottom
+          ? marker - bounds.bottom
+          : 0;
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestPage = Number(shell.dataset.pdfPage ?? 1);
+      }
+    }
+    setPageNumber(closestPage);
+  }, []);
+
   useEffect(() => {
-    if (!documentProxy || !canvasRef.current) return;
-    let active = true;
-    let cancelRender: (() => void) | undefined;
-    void documentProxy.getPage(pageNumber)
-      .then((page) => {
-        if (!active || !canvasRef.current) return;
-        const pixelRatio = window.devicePixelRatio || 1;
-        const viewport = page.getViewport({ scale: scale * pixelRatio });
-        const canvas = canvasRef.current;
-        canvas.width = Math.floor(viewport.width);
-        canvas.height = Math.floor(viewport.height);
-        canvas.style.width = `${Math.floor(viewport.width / pixelRatio)}px`;
-        canvas.style.height = `${Math.floor(viewport.height / pixelRatio)}px`;
-        const renderTask = page.render({ canvas, viewport });
-        cancelRender = () => renderTask.cancel();
-        return renderTask.promise;
-      })
-      .catch((reason) => {
-        if (active && reason?.name !== "RenderingCancelledException") setPdfError(toMessage(reason));
-      })
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-      cancelRender?.();
-    };
-  }, [documentProxy, pageNumber, scale]);
+    const frame = window.requestAnimationFrame(updateCurrentPage);
+    return () => window.cancelAnimationFrame(frame);
+  }, [documentProxy, scale, updateCurrentPage]);
 
   if (!url) {
     return <div className="pdf-preview"><div className="pdf-placeholder"><FileText size={28} /><p>Build the project to preview the paper.</p></div></div>;
@@ -2768,33 +2869,38 @@ function PdfPreview({ url, pdfBase64, fileName = "paper.pdf", onSource }: { url:
       setSavingPdf(false);
     }
   };
-  const revealSource = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!onSource) return;
-    const bounds = event.currentTarget.getBoundingClientRect();
-    onSource(
-      pageNumber,
-      Number(((event.clientX - bounds.left) / scale).toFixed(3)),
-      Number(((event.clientY - bounds.top) / scale).toFixed(3)),
-    );
+  const scrollToPage = (nextPage: number) => {
+    const scrollArea = scrollAreaRef.current;
+    const page = scrollArea?.querySelector<HTMLElement>(`[data-pdf-page="${nextPage}"]`);
+    if (!scrollArea || !page) return;
+    setPageNumber(nextPage);
+    scrollArea.scrollTo({ top: Math.max(0, page.offsetTop - 20), behavior: "smooth" });
   };
+  const pages = documentProxy
+    ? Array.from({ length: documentProxy.numPages }, (_, index) => index + 1)
+    : [];
   return (
     <div className="pdf-preview">
       <div className="pdf-toolbar">
         <div className="pdf-page-controls">
-          <button title="Previous page" disabled={pageNumber <= 1} onClick={() => { setLoading(true); setPageNumber((page) => Math.max(1, page - 1)); }}><ChevronLeft size={14} /></button>
+          <button title="Previous page" disabled={pageNumber <= 1} onClick={() => scrollToPage(Math.max(1, pageNumber - 1))}><ChevronLeft size={14} /></button>
           <span>{pageNumber} / {documentProxy?.numPages ?? "–"}</span>
-          <button title="Next page" disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => { setLoading(true); setPageNumber((page) => Math.min(documentProxy?.numPages ?? page, page + 1)); }}><ChevronRight size={14} /></button>
+          <button title="Next page" disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => scrollToPage(Math.min(documentProxy?.numPages ?? pageNumber, pageNumber + 1))}><ChevronRight size={14} /></button>
         </div>
         <div className="pdf-zoom-controls">
-          <button title="Zoom out" disabled={scale <= 0.6} onClick={() => { setLoading(true); setScale((value) => clamp(Number((value - 0.1).toFixed(1)), 0.6, 2.2)); }}><ZoomOut size={14} /></button>
+          <button title="Zoom out" disabled={scale <= 0.6} onClick={() => setScale((value) => clamp(Number((value - 0.1).toFixed(1)), 0.6, 2.2))}><ZoomOut size={14} /></button>
           <span>{Math.round(scale * 100)}%</span>
-          <button title="Zoom in" disabled={scale >= 2.2} onClick={() => { setLoading(true); setScale((value) => clamp(Number((value + 0.1).toFixed(1)), 0.6, 2.2)); }}><ZoomIn size={14} /></button>
+          <button title="Zoom in" disabled={scale >= 2.2} onClick={() => setScale((value) => clamp(Number((value + 0.1).toFixed(1)), 0.6, 2.2))}><ZoomIn size={14} /></button>
         </div>
         <button className="pdf-download" title="Save PDF as…" disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}</button>
       </div>
       {saveNotice && <div className={`pdf-save-notice ${saveNotice.startsWith("Could not") ? "error" : ""}`}>{saveNotice}<button title="Dismiss PDF save notice" onClick={() => setSaveNotice("")}><X size={12} /></button></div>}
-      <div className="pdf-scroll-area">
-        {pdfError ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div> : <canvas ref={canvasRef} className={onSource ? "synctex-enabled" : ""} title={onSource ? "Click to reveal this position in LaTeX" : undefined} onClick={revealSource} aria-label={`PDF page ${pageNumber}`} />}
+      <div ref={scrollAreaRef} className="pdf-scroll-area" onScroll={updateCurrentPage}>
+        {pdfError
+          ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div>
+          : <div className="pdf-pages">{documentProxy && pages.map((page) => (
+            <ContinuousPdfPage key={page} documentProxy={documentProxy} pageNumber={page} scale={scale} onSource={onSource} />
+          ))}</div>}
         {loading && <div className="pdf-loading"><LoaderCircle className="spin" size={17} /> Rendering PDF…</div>}
       </div>
     </div>

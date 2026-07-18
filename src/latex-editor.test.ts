@@ -5,6 +5,17 @@ import { describe, expect, it, vi } from "vitest";
 import { citationCompletionRange, latexEditorExtensions, latexLanguageOptions, shouldInsertCommandBraces } from "./latex-editor";
 
 describe("LaTeX citation editing", () => {
+  it("soft-wraps long logical lines instead of scrolling horizontally", () => {
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: "A single logical line that can wrap across several visual rows.",
+        extensions: latexEditorExtensions([]),
+      }),
+    });
+    expect(view.contentDOM).toHaveClass("cm-lineWrapping");
+    view.destroy();
+  });
+
   it("uses build output instead of parser diagnostics and hover documentation", () => {
     expect(latexLanguageOptions).toMatchObject({
       enableLinting: false,

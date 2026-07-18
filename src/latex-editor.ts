@@ -64,6 +64,7 @@ function citationCompletions(keys: string[]) {
 
 export function latexEditorExtensions(citationKeys: string[]) {
   return [
+    EditorView.lineWrapping,
     EditorView.contentAttributes.of({
       spellcheck: "false",
       autocorrect: "off",

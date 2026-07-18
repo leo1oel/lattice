@@ -10,12 +10,12 @@ It is intended to validate the complete writing loop before collaboration and ho
 
 - Create a new research project or open an existing LaTeX folder.
 - Start new projects with the official NeurIPS 2026 preprint style and a concise research-paper skeleton.
-- Browse, create, delete, scroll, and directly edit project source files with a full-height CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
+- Browse, create, delete, scroll, and directly edit project source files with a full-height, soft-wrapping CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
 - Write in a softly tinted CodeMirror canvas with MonoLisa as the default editor font and parser-aware LaTeX highlighting derived from the Lux Light palette.
 - Get automatic braces after citation commands and bibliography-key completion inside `\\cite{...}`.
 - Compile the default root document with the local `latexmk` installation, including an immediate build whenever a project is entered.
 - Choose manual builds or automatic builds that run when you leave the editor or pause typing for 1.2 seconds.
-- Review the generated PDF beside the source with a draggable split divider and a themed PDF.js toolbar for paging, zoom, native Save As export, and click-to-source SyncTeX navigation.
+- Review every generated PDF page in one continuously scrolling column beside the source, with a draggable split divider and a themed PDF.js toolbar for page navigation, zoom, native Save As export, and click-to-source SyncTeX navigation.
 - Drag PNG, JPEG, PDF, SVG, EPS, or WebP figures onto a project folder, or import them through the figures-folder action.
 - Click a project figure to preview it in the writing canvas, or drag it from Project onto a LaTeX line to insert an editable `figure` block at that position.
 - Drop an external figure directly onto the LaTeX editor to import and insert it in one step; SVG and WebP sources are converted to shareable PDF or PNG companions for reliable LaTeX builds.

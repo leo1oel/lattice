@@ -682,7 +682,7 @@ describe("project workspace", () => {
     Reflect.deleteProperty(document, "elementFromPoint");
   });
 
-  it("uses the themed PDF toolbar after a successful build", async () => {
+  it("renders every PDF page in one continuous themed reader", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -733,6 +733,10 @@ describe("project workspace", () => {
     const savePdf = await screen.findByTitle("Save PDF as…");
     expect(screen.getByTitle("Previous page")).toBeDisabled();
     await waitFor(() => expect(screen.getByTitle("Next page")).toBeEnabled());
+    expect(await screen.findByLabelText("PDF page 1")).toBeInTheDocument();
+    expect(await screen.findByLabelText("PDF page 2")).toBeInTheDocument();
+    expect(pdf.getPage).toHaveBeenCalledWith(1);
+    expect(pdf.getPage).toHaveBeenCalledWith(2);
     expect(screen.getByTitle("Zoom out")).toBeInTheDocument();
     expect(screen.getByTitle("Zoom in")).toBeInTheDocument();
     fireEvent.click(savePdf);

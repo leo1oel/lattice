@@ -297,9 +297,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .source-editor { position: relative; width: 100%; height: 100%; background: var(--editor-bg); }
 .source-editor > .code-editor-root { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
 .source-editor .cm-editor, .source-editor .cm-scroller { width: 100%; height: 100%; min-height: 0; }
-.source-editor .cm-scroller { overflow: auto !important; }
+.source-editor .cm-scroller { overflow-x: hidden !important; overflow-y: auto !important; }
 .source-editor .cm-content, .source-editor .cm-gutter { min-height: 100%; }
-.source-editor .cm-content { font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; caret-color: var(--accent); }
+.source-editor .cm-content { min-width: 0; font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; caret-color: var(--accent); }
 .source-editor .cm-editor { background: var(--editor-bg); color: var(--text); font-family: var(--editor-font); font-size: var(--editor-font-size); }
 .source-editor .cm-gutters { background: var(--editor-gutter); color: var(--faint); border-right: 1px solid var(--line); }
 .source-editor .cm-activeLine, .source-editor .cm-activeLineGutter { background: var(--accent-soft); }
@@ -335,10 +335,15 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .pdf-save-notice { position: absolute; z-index: 3; top: 48px; right: 10px; max-width: min(420px, calc(100% - 20px)); min-height: 30px; padding: 6px 8px 6px 10px; border: 1px solid color-mix(in srgb, var(--success) 35%, var(--line)); border-radius: 8px; background: var(--panel-strong); box-shadow: var(--shadow); color: var(--success); display: flex; align-items: center; gap: 7px; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pdf-save-notice.error { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); color: var(--danger); }
 .pdf-save-notice button { flex: none; padding: 2px; background: transparent; color: inherit; display: grid; place-items: center; }
-.pdf-scroll-area { position: relative; flex: 1; min-height: 0; overflow: auto; padding: 20px; display: flex; align-items: flex-start; justify-content: center; }
+.pdf-scroll-area { position: relative; flex: 1; min-height: 0; overflow: auto; padding: 20px; }
+.pdf-pages { width: max-content; min-width: 100%; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.pdf-page-shell { position: relative; flex: none; background: white; box-shadow: 0 5px 24px rgba(0, 0, 0, .15); overflow: hidden; }
 .pdf-scroll-area canvas.synctex-enabled { cursor: text; }
-.pdf-scroll-area canvas { flex: none; background: white; box-shadow: 0 5px 24px rgba(0, 0, 0, .15); }
+.pdf-scroll-area canvas { display: block; background: white; }
+.pdf-page-skeleton { position: absolute; inset: 0; background: linear-gradient(110deg, #fff 20%, #f5f5f4 45%, #fff 70%); background-size: 220% 100%; animation: pdf-page-loading 1.3s ease-in-out infinite; }
+.pdf-page-error { position: absolute; inset: 0; padding: 24px; display: grid; place-content: center; color: #9b4b4b; font-size: 11px; text-align: center; }
 .pdf-loading { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-strong); box-shadow: var(--shadow); color: var(--muted); display: flex; align-items: center; gap: 6px; font-size: 10px; }
+@keyframes pdf-page-loading { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 .pdf-placeholder { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--faint); font-size: 11px; }
 .paper-reader { height: 100%; overflow: auto; background: var(--panel-strong); }
 .paper-reader-title { position: sticky; top: 0; z-index: 2; height: 38px; padding: 0 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel-strong) 94%, transparent); backdrop-filter: blur(12px); display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
