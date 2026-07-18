@@ -107,15 +107,30 @@ describe("welcome screen", () => {
     expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("14");
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
     const autoBuild = screen.getByLabelText("Automatic build");
-    expect(autoBuild).toHaveValue("manual");
-    fireEvent.change(autoBuild, { target: { value: "automatic" } });
+    expect(autoBuild).toHaveValue("automatic");
     expect(screen.getByText("Build automatically")).toBeInTheDocument();
     expect(screen.getByText(/leave the editor or after 1.2 seconds/i)).toBeInTheDocument();
-    await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v1")).toContain("automatic"));
+    await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v2")).toContain("automatic"));
     fireEvent.click(screen.getByRole("button", { name: "Agent" }));
     const systemPrompt = screen.getByLabelText("Agent system prompt");
     fireEvent.change(systemPrompt, { target: { value: "Write with precision." } });
     await waitFor(() => expect(localStorage.getItem("lattice.agent-system-prompt.v1")).toBe("Write with precision."));
+  });
+
+  it("keeps an explicitly selected manual build preference", () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    render(<App />);
+    fireEvent.click(screen.getByTitle("Settings"));
+    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+    expect(screen.getByLabelText("Automatic build")).toHaveValue("manual");
+  });
+
+  it("migrates the legacy manual default to automatic build", () => {
+    localStorage.setItem("lattice.build-preferences.v1", JSON.stringify({ autoBuildMode: "manual" }));
+    render(<App />);
+    fireEvent.click(screen.getByTitle("Settings"));
+    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+    expect(screen.getByLabelText("Automatic build")).toHaveValue("automatic");
   });
 
   it("manages application-local skills without installing them globally", async () => {
@@ -266,7 +281,7 @@ describe("project workspace", () => {
   });
 
   it("saves and builds changed source when the pointer leaves the editor", async () => {
-    localStorage.setItem("lattice.build-preferences.v1", JSON.stringify({ autoBuildMode: "automatic" }));
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -308,7 +323,7 @@ describe("project workspace", () => {
   });
 
   it("automatically builds after 1.2 seconds without editing", async () => {
-    localStorage.setItem("lattice.build-preferences.v1", JSON.stringify({ autoBuildMode: "automatic" }));
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {

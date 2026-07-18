@@ -258,6 +258,11 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .source-editor .cm-gutters { background: var(--panel-strong); color: var(--faint); border-right: 1px solid var(--line); }
 .source-editor .cm-activeLine, .source-editor .cm-activeLineGutter { background: var(--accent-soft); }
 .source-editor .cm-focused { outline: none; }
+.source-editor .cm-tooltip.cm-tooltip-autocomplete { border: 1px solid var(--line-strong); border-radius: 8px; background: var(--panel-strong); box-shadow: var(--shadow); overflow: hidden; }
+.source-editor .cm-tooltip-autocomplete > ul { min-width: 230px; padding: 4px; font-family: var(--editor-font); font-size: calc(var(--editor-font-size) - 1px); }
+.source-editor .cm-tooltip-autocomplete > ul > li { padding: 5px 8px; border-radius: 5px; color: var(--muted); line-height: 1.35; text-align: left; }
+.source-editor .cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--accent-soft); color: var(--text); }
+.source-editor .cm-completionLabel { display: inline-block; width: 100%; text-align: left; }
 .split-resizer { position: relative; z-index: 2; width: 5px; min-height: 0; cursor: col-resize; background: var(--line); outline: none; touch-action: none; }
 .split-resizer::after { content: ""; position: absolute; inset: 0 -3px; }
 .split-resizer:hover, .split-resizer:focus-visible, .resizing-split .split-resizer { background: var(--accent); }

@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { completionStatus, currentCompletions } from "@codemirror/autocomplete";
+import { EditorState, Transaction } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { describe, expect, it, vi } from "vitest";
 import { citationCompletionRange, latexEditorExtensions, shouldInsertCommandBraces } from "./latex-editor";
 
 describe("LaTeX citation editing", () => {
@@ -10,7 +13,9 @@ describe("LaTeX citation editing", () => {
   });
 
   it("completes the current key inside citation braces", () => {
+    expect(citationCompletionRange("Text \\cite{", 11)).toEqual({ from: 11, query: "" });
     expect(citationCompletionRange("Text \\cite{vas", 14)).toEqual({ from: 11, query: "vas" });
+    expect(citationCompletionRange("Text \\cite{first,", 17)).toEqual({ from: 17, query: "" });
     expect(citationCompletionRange("Text \\cite{first, trans", 23)).toEqual({ from: 18, query: "trans" });
     expect(citationCompletionRange("Text \\section{intro", 19)).toBeNull();
   });
@@ -49,6 +54,51 @@ describe("LaTeX citation editing", () => {
     expect(existing.state.doc.toString()).toBe("\\cite{}");
     existing.destroy();
   });
+
+  it("adds braces when a citation command is accepted from completion", () => {
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: "\\ci",
+        selection: { anchor: 3 },
+        extensions: latexEditorExtensions([]),
+      }),
+    });
+    view.dispatch({
+      changes: { from: 0, to: 3, insert: "\\cite" },
+      selection: { anchor: 5 },
+      annotations: Transaction.userEvent.of("input.complete"),
+    });
+    expect(view.state.doc.toString()).toBe("\\cite{}");
+    view.destroy();
+  });
+
+  it("shows citation keys immediately for an empty slot and after a comma", async () => {
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: "\\cit",
+        selection: { anchor: 4 },
+        extensions: latexEditorExtensions(["vaswani2017attention", "dosovitskiy2021image"]),
+      }),
+    });
+    view.dispatch({
+      changes: { from: 4, insert: "e" },
+      selection: { anchor: 5 },
+      annotations: Transaction.userEvent.of("input.type"),
+    });
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+    expect(currentCompletions(view.state).map((completion) => completion.label)).toEqual([
+      "dosovitskiy2021image",
+      "vaswani2017attention",
+    ]);
+    expect(currentCompletions(view.state).every((completion) => completion.detail === undefined)).toBe(true);
+
+    view.dispatch({
+      changes: { from: 6, insert: "first," },
+      selection: { anchor: 12 },
+      annotations: Transaction.userEvent.of("input.type"),
+    });
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+    expect(currentCompletions(view.state).map((completion) => completion.label)).toContain("vaswani2017attention");
+    view.destroy();
+  });
 });
-import { EditorState, Transaction } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";

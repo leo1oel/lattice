@@ -182,7 +182,7 @@ type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 const PANEL_WIDTHS_KEY = "lattice.panel-widths.v1";
 const APPEARANCE_KEY = "lattice.appearance.v2";
-const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v1";
+const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
 const AGENT_SYSTEM_PROMPT_KEY = "lattice.agent-system-prompt.v1";
@@ -2603,10 +2603,10 @@ function loadBuildPreferences(): BuildPreferences {
     const value = JSON.parse(localStorage.getItem(BUILD_PREFERENCES_KEY) ?? "null") as { autoBuildMode?: string } | null;
     const autoBuildMode = value?.autoBuildMode;
     return {
-      autoBuildMode: autoBuildMode === "automatic" || autoBuildMode === "on-leave" || autoBuildMode === "after-pause" ? "automatic" : "manual",
+      autoBuildMode: autoBuildMode === "manual" ? "manual" : "automatic",
     };
   } catch {
-    return { autoBuildMode: "manual" };
+    return { autoBuildMode: "automatic" };
   }
 }
 

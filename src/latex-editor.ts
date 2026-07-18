@@ -1,4 +1,5 @@
 import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
+import { Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { latexCompletionSource } from "codemirror-lang-latex";
 
@@ -23,10 +24,10 @@ function citationCompletions(keys: string[]) {
     const windowStart = Math.max(0, context.pos - 600);
     const before = context.state.sliceDoc(windowStart, context.pos);
     const range = citationCompletionRange(before, context.pos);
-    if (!range || (!context.explicit && !range.query)) return null;
+    if (!range) return null;
     return {
       from: range.from,
-      options: keys.map((key) => ({ label: key, type: "reference", detail: "bibliography" })),
+      options: keys.map((key) => ({ label: key, type: "reference" })),
       validFor: /^[^,}\s]*$/,
     };
   };
@@ -34,9 +35,17 @@ function citationCompletions(keys: string[]) {
 
 export function latexEditorExtensions(citationKeys: string[]) {
   return [
-    autocompletion({ override: [citationCompletions(citationKeys), latexCompletionSource(true)], activateOnTyping: true }),
+    autocompletion({
+      override: [citationCompletions(citationKeys), latexCompletionSource(true)],
+      activateOnTyping: true,
+      activateOnTypingDelay: 0,
+      icons: false,
+    }),
     EditorView.updateListener.of((update) => {
-      if (!update.docChanged || !update.transactions.some((transaction) => transaction.isUserEvent("input.type"))) return;
+      const insertedCommand = update.transactions.some((transaction) =>
+        transaction.isUserEvent("input.type") || transaction.isUserEvent("input.complete"),
+      );
+      if (!update.docChanged || !insertedCommand) return;
       const selection = update.state.selection.main;
       if (!selection.empty) return;
       if (update.state.sliceDoc(selection.head, selection.head + 1) === "{") return;
@@ -45,6 +54,7 @@ export function latexEditorExtensions(citationKeys: string[]) {
       update.view.dispatch({
         changes: { from: selection.head, insert: "{}" },
         selection: { anchor: selection.head + 1 },
+        annotations: Transaction.userEvent.of("input.type"),
       });
     }),
   ];
