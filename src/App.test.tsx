@@ -637,6 +637,8 @@ describe("project workspace", () => {
     fireEvent.pointerDown(screen.getByRole("button", { name: "native-umm.svg" }), { button: 0, clientX: 10, clientY: 10 });
     fireEvent.pointerMove(window, { clientX: 100, clientY: 100 });
     expect(document.querySelector(".figure-drag-ghost")).toHaveTextContent("native-umm.svg");
+    expect(document.querySelector(".figure-drop-line")).toHaveTextContent(/Insert above line \d+/);
+    expect(document.querySelector(".source-editor")).not.toHaveTextContent("Insert figure here");
     fireEvent.pointerUp(window, { clientX: 100, clientY: 100 });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("prepare_latex_figure", { path: "figures/native-umm.svg" }));
     await waitFor(() => {

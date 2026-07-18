@@ -1523,6 +1523,10 @@ function App() {
             onEditorLeave={buildWhenLeavingEditor}
             onPrepareFigure={prepareLatexFigure}
             nativeFigureDropActive={nativeEditorDropActive}
+            figurePointerPosition={figurePointerDrag?.overEditor ? {
+              x: figurePointerDrag.clientX,
+              y: figurePointerDrag.clientY,
+            } : null}
             figureDropRequest={figureDropRequest}
             onFigureDropHandled={handleFigureDropHandled}
           />
@@ -2333,6 +2337,7 @@ function DocumentCanvas(props: {
   onEditorLeave: () => void;
   onPrepareFigure: (path: string) => Promise<string | null>;
   nativeFigureDropActive: boolean;
+  figurePointerPosition: { x: number; y: number } | null;
   figureDropRequest: FigureDropRequest | null;
   onFigureDropHandled: (id: string) => void;
 }) {
@@ -2342,6 +2347,7 @@ function DocumentCanvas(props: {
   const lastInsertionPositionRef = useRef(0);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
   const [figureDropActive, setFigureDropActive] = useState(false);
+  const [figureDropMarker, setFigureDropMarker] = useState<{ top: number; line: number } | null>(null);
   const paperHtml = useMemo(
     () => DOMPurify.sanitize(marked.parse(props.paperMarkdown, { async: false }) as string),
     [props.paperMarkdown],
@@ -2378,6 +2384,27 @@ function DocumentCanvas(props: {
     });
     currentView.focus();
   }, [onPrepareFigure]);
+  useEffect(() => {
+    const view = editorViewRef.current;
+    const point = props.figurePointerPosition;
+    if (!view || !point) {
+      setFigureDropMarker(null);
+      return;
+    }
+    let position: number | null = null;
+    try {
+      position = view.posAtCoords(point);
+    } catch {
+      // Fall back to the last cursor when layout coordinates are unavailable.
+    }
+    const line = view.state.doc.lineAt(clamp(position ?? lastInsertionPositionRef.current, 0, view.state.doc.length));
+    const editorBounds = view.dom.closest(".source-editor")?.getBoundingClientRect();
+    const lineCoordinates = view.coordsAtPos(line.from);
+    const top = editorBounds
+      ? clamp((lineCoordinates?.top ?? point.y) - editorBounds.top, 0, editorBounds.height)
+      : 0;
+    setFigureDropMarker({ top, line: line.number });
+  }, [props.figurePointerPosition]);
   useEffect(() => {
     if (!figureDropRequest) return;
     const request = figureDropRequest;
@@ -2446,6 +2473,11 @@ function DocumentCanvas(props: {
           highlightActiveLineGutter: false,
         }}
       />
+      {figureDropMarker && (
+        <div className="figure-drop-line" style={{ top: figureDropMarker.top }}>
+          <span>Insert above line {figureDropMarker.line}</span>
+        </div>
+      )}
     </div>
   );
   const preview = (
