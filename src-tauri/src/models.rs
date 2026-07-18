@@ -97,6 +97,7 @@ pub struct ImportResult {
     pub paper_path: String,
     pub citation_key: Option<String>,
     pub citation_output: String,
+    pub already_imported: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

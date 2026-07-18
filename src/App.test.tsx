@@ -632,16 +632,18 @@ describe("project workspace", () => {
       expect(element).not.toBeNull();
       return element!;
     });
-    const transfer = {
-      getData: (type: string) => type === "application/x-lattice-project-figure" ? "figures/native-umm.svg" : "",
-      types: ["application/x-lattice-project-figure"],
-    };
-    fireEvent.drop(document.querySelector(".source-editor")!, { dataTransfer: transfer, clientX: 0, clientY: 0 });
+    const content = document.querySelector<HTMLElement>(".cm-content")!;
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: vi.fn(() => content) });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "native-umm.svg" }), { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(window, { clientX: 100, clientY: 100 });
+    expect(document.querySelector(".figure-drag-ghost")).toHaveTextContent("native-umm.svg");
+    fireEvent.pointerUp(window, { clientX: 100, clientY: 100 });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("prepare_latex_figure", { path: "figures/native-umm.svg" }));
     await waitFor(() => {
       const view = EditorView.findFromDOM(editorElement);
       expect(view?.state.doc.toString()).toContain("\\includegraphics[width=\\linewidth]{\\detokenize{figures/native-umm-converted.pdf}}");
     });
+    Reflect.deleteProperty(document, "elementFromPoint");
   });
 
   it("uses the themed PDF toolbar after a successful build", async () => {

@@ -20,6 +20,16 @@ struct PaperMetadata {
 pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
     let arxiv_id = parse_arxiv_id(input)?;
     let manifest = project::read_manifest(root)?;
+    if let Some(existing) = find_imported_paper(root, &arxiv_id)? {
+        return Ok(ImportResult {
+            paper_path: format!(".research/papers/{}/paper.md", existing.arxiv_id),
+            arxiv_id: existing.arxiv_id,
+            title: existing.title,
+            citation_key: existing.citation_key,
+            citation_output: String::new(),
+            already_imported: true,
+        });
+    }
     let temp = std::env::temp_dir().join(format!("research-writer-import-{}", Uuid::new_v4()));
     fs::create_dir_all(&temp).map_err(err)?;
     let markdown_path = temp.join("paper.md");
@@ -77,7 +87,26 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
         paper_path: paper_relative,
         citation_key,
         citation_output,
+        already_imported: false,
     })
+}
+
+fn find_imported_paper(root: &Path, requested_id: &str) -> Result<Option<PaperSummary>, String> {
+    let requested_base = arxiv_base_id(requested_id);
+    Ok(list_papers(root)?
+        .into_iter()
+        .find(|paper| arxiv_base_id(&paper.arxiv_id) == requested_base))
+}
+
+fn arxiv_base_id(arxiv_id: &str) -> &str {
+    match arxiv_id.rsplit_once('v') {
+        Some((base, version))
+            if !base.is_empty() && version.chars().all(|c| c.is_ascii_digit()) =>
+        {
+            base
+        }
+        _ => arxiv_id,
+    }
 }
 
 pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
@@ -360,6 +389,32 @@ mod tests {
             find_citation_key_for_arxiv(bibliography, "1706.03762"),
             Some("vaswani2017attention".to_string())
         );
+    }
+
+    #[test]
+    fn reuses_an_imported_paper_for_url_and_version_variants() {
+        let parent =
+            std::env::temp_dir().join(format!("lattice-paper-duplicate-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let directory = root.join(".research/papers/1706.03762");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("paper.md"),
+            "Title: Attention Is All You Need\n",
+        )
+        .unwrap();
+        fs::write(
+            directory.join("metadata.json"),
+            r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
+        )
+        .unwrap();
+
+        let result = import_arxiv(&root, "https://arxiv.org/abs/1706.03762v7").unwrap();
+
+        assert!(result.already_imported);
+        assert_eq!(result.arxiv_id, "1706.03762");
+        assert_eq!(result.citation_key.as_deref(), Some("vaswani2017attention"));
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]

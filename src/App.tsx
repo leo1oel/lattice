@@ -97,6 +97,14 @@ type FigureDropRequest = {
   clientY: number;
 };
 
+type FigurePointerDrag = {
+  path: string;
+  label: string;
+  clientX: number;
+  clientY: number;
+  overEditor: boolean;
+};
+
 type Diagnostic = {
   file?: string;
   line?: number;
@@ -233,6 +241,8 @@ function App() {
   const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
   const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
   const [figureDropRequest, setFigureDropRequest] = useState<FigureDropRequest | null>(null);
+  const [figurePointerDrag, setFigurePointerDrag] = useState<FigurePointerDrag | null>(null);
+  const suppressedFigureClick = useRef<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(defaultWelcomeMessages);
   const [agentSessions, setAgentSessions] = useState<AgentSessionSummary[]>([]);
   const [activeSession, setActiveSession] = useState<AgentSession | null>(null);
@@ -620,7 +630,7 @@ function App() {
     if (!importInput.trim()) return;
     setImporting(true);
     try {
-      const result = await invoke<{ arxivId: string; title: string; citationKey?: string }>("import_arxiv", {
+      const result = await invoke<{ arxivId: string; title: string; citationKey?: string; alreadyImported: boolean }>("import_arxiv", {
         input: importInput,
       });
       setImportInput("");
@@ -631,7 +641,9 @@ function App() {
         {
           id: crypto.randomUUID(),
           role: "system",
-          text: `Imported “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`,
+          text: result.alreadyImported
+            ? `“${result.title}” is already in Papers${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
+            : `Imported “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`,
         },
       ]);
     } catch (reason) {
@@ -663,6 +675,67 @@ function App() {
     } catch (reason) {
       setError(toMessage(reason));
     }
+  }, []);
+
+  const openProjectAssetFromClick = useCallback((path: string) => {
+    if (suppressedFigureClick.current === path) {
+      suppressedFigureClick.current = null;
+      return;
+    }
+    void openProjectAsset(path);
+  }, [openProjectAsset]);
+
+  const beginProjectFigureDrag = useCallback((path: string, label: string, event: React.PointerEvent) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let dragging = false;
+    const editorAt = (clientX: number, clientY: number) =>
+      Boolean((document.elementFromPoint(clientX, clientY) as Element | null)?.closest(".source-editor"));
+    const move = (pointerEvent: PointerEvent) => {
+      if (!dragging && Math.hypot(pointerEvent.clientX - startX, pointerEvent.clientY - startY) < 5) return;
+      dragging = true;
+      const overEditor = editorAt(pointerEvent.clientX, pointerEvent.clientY);
+      setNativeEditorDropActive(overEditor);
+      setFigurePointerDrag({
+        path,
+        label,
+        clientX: pointerEvent.clientX,
+        clientY: pointerEvent.clientY,
+        overEditor,
+      });
+    };
+    const finish = (pointerEvent: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", cancel);
+      setNativeEditorDropActive(false);
+      setFigurePointerDrag(null);
+      if (!dragging) return;
+      suppressedFigureClick.current = path;
+      window.setTimeout(() => {
+        if (suppressedFigureClick.current === path) suppressedFigureClick.current = null;
+      }, 0);
+      if (!editorAt(pointerEvent.clientX, pointerEvent.clientY)) return;
+      setFigureDropRequest({
+        id: crypto.randomUUID(),
+        paths: [path],
+        clientX: pointerEvent.clientX,
+        clientY: pointerEvent.clientY,
+      });
+    };
+    const cancel = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", cancel);
+      setNativeEditorDropActive(false);
+      setFigurePointerDrag(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", cancel);
   }, []);
 
   const openDocumentMode = useCallback((mode: "source" | "split" | "pdf") => {
@@ -1364,7 +1437,8 @@ function App() {
               papers={papers}
               activePaper={activePaper}
               onFile={loadFile}
-              onAsset={openProjectAsset}
+              onAsset={openProjectAssetFromClick}
+              onBeginFigureDrag={beginProjectFigureDrag}
               onCreateEntry={createProjectEntry}
               onDeleteEntry={deleteProjectEntry}
               onRenameEntry={renameProjectEntry}
@@ -1454,6 +1528,16 @@ function App() {
           />
         </section>
       </main>
+
+      {figurePointerDrag && (
+        <div
+          className={`figure-drag-ghost ${figurePointerDrag.overEditor ? "ready" : ""}`}
+          style={{ left: figurePointerDrag.clientX + 12, top: figurePointerDrag.clientY + 12 }}
+        >
+          <Image size={13} />
+          <span>{figurePointerDrag.label}</span>
+        </div>
+      )}
 
       {historyOpen && (
         <HistoryDrawer history={history} onClose={() => setHistoryOpen(false)} onRevert={revert} onDelete={deleteHistory} />
@@ -1673,6 +1757,7 @@ function Navigator(props: {
   activePaper: PaperSummary | null;
   onFile: (path: string) => void;
   onAsset: (path: string) => void;
+  onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onCreateEntry: (path: string, kind: "file" | "folder") => Promise<void>;
   onDeleteEntry: (path: string) => void;
   onRenameEntry: (path: string, name: string) => void;
@@ -1806,7 +1891,7 @@ function Navigator(props: {
           </div>
         )}
         <div className="file-tree">
-          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} onContextMenu={showContextMenu} />)}
+          {props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} onContextMenu={showContextMenu} />)}
         </div>
       </div>
       <div
@@ -1873,7 +1958,7 @@ function Navigator(props: {
   );
 }
 
-function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, onAsset, onDelete, onImportAssets, assetDropTarget, assetImporting, onContextMenu }: { node: FileNode; activeFile: string; activeAssetPath: string; protectedPaths: string[]; onFile: (path: string) => void; onAsset: (path: string) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; onContextMenu: (event: React.MouseEvent, path: string, label: string) => void }) {
+function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, onAsset, onBeginFigureDrag, onDelete, onImportAssets, assetDropTarget, assetImporting, onContextMenu }: { node: FileNode; activeFile: string; activeAssetPath: string; protectedPaths: string[]; onFile: (path: string) => void; onAsset: (path: string) => void; onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; onContextMenu: (event: React.MouseEvent, path: string, label: string) => void }) {
   const [open, setOpen] = useState(true);
   const protectedEntry = protectedPaths.some((path) => path === node.path || path.startsWith(`${node.path}/`));
   if (node.kind === "directory") {
@@ -1888,7 +1973,7 @@ function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, o
           {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
         </div>
         {assetDropTarget === node.path && <div className="asset-drop-hint">Drop images into {node.path}</div>}
-        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} activeAssetPath={activeAssetPath} protectedPaths={protectedPaths} onFile={onFile} onAsset={onAsset} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} onContextMenu={onContextMenu} />)}</div>}
+        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} activeAssetPath={activeAssetPath} protectedPaths={protectedPaths} onFile={onFile} onAsset={onAsset} onBeginFigureDrag={onBeginFigureDrag} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} onContextMenu={onContextMenu} />)}</div>}
       </div>
     );
   }
@@ -1899,13 +1984,8 @@ function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, o
         <button
           className="tree-main"
           title={`Preview ${node.name}; drag into the LaTeX editor to insert`}
-          draggable
           onClick={() => onAsset(node.path)}
-          onDragStart={(event) => {
-            event.dataTransfer.effectAllowed = "copy";
-            event.dataTransfer.setData(PROJECT_FIGURE_DRAG_TYPE, node.path);
-            event.dataTransfer.setData("text/plain", node.path);
-          }}
+          onPointerDown={(event) => onBeginFigureDrag(node.path, node.name, event)}
         ><span className="tree-spacer" /><Image size={14} /><span>{node.name}</span></button>
         {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
       </div>
@@ -2259,6 +2339,7 @@ function DocumentCanvas(props: {
   const { figureDropRequest, onFigureDropHandled, onPrepareFigure } = props;
   const splitRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
+  const lastInsertionPositionRef = useRef(0);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
   const [figureDropActive, setFigureDropActive] = useState(false);
   const paperHtml = useMemo(
@@ -2287,7 +2368,7 @@ function DocumentCanvas(props: {
         // CodeMirror may not have layout coordinates yet; use the current cursor instead.
       }
     }
-    const cursor = coordinatePosition ?? currentView.state.selection.main.head;
+    const cursor = coordinatePosition ?? lastInsertionPositionRef.current;
     const position = currentView.state.doc.lineAt(clamp(cursor, 0, currentView.state.doc.length)).from;
     const insertion = latexFigureInsertion(currentView.state.doc.toString(), position, prepared);
     currentView.dispatch({
@@ -2321,10 +2402,10 @@ function DocumentCanvas(props: {
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) props.onEditorLeave();
       }}
-      onDragEnter={(event) => {
+      onDragEnterCapture={(event) => {
         if (Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE)) setFigureDropActive(true);
       }}
-      onDragOver={(event) => {
+      onDragOverCapture={(event) => {
         if (!Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE)) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "copy";
@@ -2333,10 +2414,11 @@ function DocumentCanvas(props: {
       onDragLeave={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFigureDropActive(false);
       }}
-      onDrop={(event) => {
+      onDropCapture={(event) => {
         const path = event.dataTransfer.getData(PROJECT_FIGURE_DRAG_TYPE);
         if (!path) return;
         event.preventDefault();
+        event.stopPropagation();
         setFigureDropActive(false);
         void insertFigures([path], { x: event.clientX, y: event.clientY });
       }}
@@ -2346,10 +2428,14 @@ function DocumentCanvas(props: {
         value={props.source}
         height="100%"
         extensions={editorExtensions}
-        onCreateEditor={(view) => { editorViewRef.current = view; }}
+        onCreateEditor={(view) => {
+          editorViewRef.current = view;
+          lastInsertionPositionRef.current = view.state.selection.main.head;
+        }}
         onChange={props.setSource}
         onUpdate={(view) => {
           const range = view.state.selection.main;
+          lastInsertionPositionRef.current = range.head;
           props.setSelection(range.empty ? "" : view.state.sliceDoc(range.from, range.to));
         }}
         basicSetup={{
