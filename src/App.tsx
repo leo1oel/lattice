@@ -52,7 +52,12 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { marked } from "marked";
-import { latexEditorExtensions, latexLanguageOptions, type CitationInfo } from "./latex-editor";
+import {
+  latexEditorExtensions,
+  latexLanguageOptions,
+  type CitationInfo,
+  type ReferenceInfo,
+} from "./latex-editor";
 import { latexFigureInsertion } from "./figure-insertion";
 import "./App.css";
 
@@ -255,6 +260,7 @@ function App() {
   const [papers, setPapers] = useState<PaperSummary[]>([]);
   const [citationKeys, setCitationKeys] = useState<string[]>([]);
   const [citations, setCitations] = useState<CitationInfo[]>([]);
+  const [references, setReferences] = useState<ReferenceInfo[]>([]);
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
   const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
@@ -337,14 +343,16 @@ function App() {
   const refreshProject = useCallback(async () => {
     const snapshot = await invoke<ProjectSnapshot>("refresh_project");
     setProject(snapshot);
-    const [nextPapers, nextCitationKeys, nextCitations] = await Promise.all([
+    const [nextPapers, nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
       invoke<PaperSummary[]>("list_papers"),
       invoke<string[]>("list_citation_keys"),
       invoke<CitationInfo[]>("list_citations"),
+      invoke<ReferenceInfo[]>("list_references"),
     ]);
     setPapers(nextPapers);
     setCitationKeys(nextCitationKeys);
     setCitations(nextCitations);
+    setReferences(nextReferences ?? []);
     return snapshot;
   }, []);
 
@@ -388,6 +396,9 @@ function App() {
         ]);
         setCitationKeys(nextCitationKeys);
         setCitations(nextCitations);
+      }
+      if (activeFile.endsWith(".tex")) {
+        setReferences((await invoke<ReferenceInfo[]>("list_references")) ?? []);
       }
       await refreshHistory();
       return true;
@@ -462,14 +473,16 @@ function App() {
         snapshot.manifest.rootDocuments.find((document) => document.isDefault) ??
         snapshot.manifest.rootDocuments[0];
       if (rootDocument) await loadFile(rootDocument.path);
-      const [nextPapers, nextCitationKeys, nextCitations] = await Promise.all([
+      const [nextPapers, nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
         invoke<PaperSummary[]>("list_papers"),
         invoke<string[]>("list_citation_keys"),
         invoke<CitationInfo[]>("list_citations"),
+        invoke<ReferenceInfo[]>("list_references"),
       ]);
       setPapers(nextPapers);
       setCitationKeys(nextCitationKeys);
       setCitations(nextCitations);
+      setReferences(nextReferences ?? []);
       setHistory(await invoke<HistoryItem[]>("list_history"));
       let sessionList = await invoke<AgentSessionSummary[]>("list_agent_sessions");
       const session = sessionList.length
@@ -716,6 +729,12 @@ function App() {
     } catch (reason) {
       setError(toMessage(reason));
     }
+  }, []);
+
+  const loadReferenceImage = useCallback(async (path: string) => {
+    const asset = await invoke<AssetPreview>("read_project_asset", { path });
+    if (!asset.mimeType.startsWith("image/")) return null;
+    return `data:${asset.mimeType};base64,${asset.base64}`;
   }, []);
 
   const openProjectAssetFromClick = useCallback((path: string) => {
@@ -1260,11 +1279,18 @@ function App() {
   }, [refreshAgentSkills, refreshApiKeys, refreshSubscriptions]);
 
   const beginSubscriptionLogin = useCallback(async (providerName: "codex" | "claude") => {
+    setSubscriptionsLoading(true);
+    setSubscriptionNotice(`Starting ${providerName === "codex" ? "Codex" : "Claude"} sign-in through OMP…`);
     try {
-      await invoke("begin_subscription_login", { provider: providerName });
-      setSubscriptionNotice(`Complete ${providerName === "codex" ? "Codex" : "Claude"} sign-in in the browser, then refresh status.`);
+      const onEvent = new Channel<{ message: string }>();
+      onEvent.onmessage = (event) => setSubscriptionNotice(event.message);
+      await invoke("begin_subscription_login", { provider: providerName, onEvent });
+      setSubscriptionNotice(`${providerName === "codex" ? "Codex" : "Claude"} is connected through OMP.`);
+      setSubscriptions(await invoke<SubscriptionStatus[]>("subscription_status"));
     } catch (reason) {
       setError(toMessage(reason));
+    } finally {
+      setSubscriptionsLoading(false);
     }
   }, []);
 
@@ -1567,6 +1593,8 @@ function App() {
             activeAsset={activeAsset}
             citationKeys={citationKeys}
             citations={citations}
+            references={references}
+            onLoadReferenceImage={loadReferenceImage}
             onEditorLeave={buildWhenLeavingEditor}
             onPrepareFigure={prepareLatexFigure}
             nativeFigureDropActive={nativeEditorDropActive}
@@ -2297,16 +2325,23 @@ function AgentPanel({
         {messages.map((message, index) => (
           <div key={message.id} className={`chat-message ${message.role} ${streaming && index === messages.length - 1 && message.role === "agent" ? "streaming" : ""}`}>
             {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
-            <div className="message-body">
-              <p>{message.text}</p>
-              {message.role !== "system" && <div className="message-actions">
-                <button className="message-copy" title={message.role === "user" ? "Copy user message" : "Copy agent response"} onClick={() => void copyMessage(message)}>
+            <div className="message-column">
+              <div className="message-body">
+                <p>{message.text}</p>
+                {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
+                {message.role === "agent" && <div className="agent-message-meta">
+                  {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
+                  <button className="agent-message-copy" title="Copy agent response" onClick={() => void copyMessage(message)}>
+                    {copiedMessageId === message.id ? <Check size={11} /> : <Copy size={11} />}
+                  </button>
+                </div>}
+              </div>
+              {message.role === "user" && <div className="message-actions user-message-actions">
+                <button className="message-copy" title="Copy user message" onClick={() => void copyMessage(message)}>
                   {copiedMessageId === message.id ? <Check size={11} /> : <Copy size={11} />}
                 </button>
-                {message.role === "user" && <button className="message-edit" title="Edit and branch from this message" disabled={running} onClick={() => onEditMessage(message)}><Pencil size={11} /> Edit</button>}
+                <button className="message-edit" title="Edit and branch from this message" disabled={running} onClick={() => onEditMessage(message)}><Pencil size={11} /> Edit</button>
               </div>}
-              {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
-              {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
             </div>
           </div>
         ))}
@@ -2457,6 +2492,8 @@ function DocumentCanvas(props: {
   activeAsset: AssetPreview | null;
   citationKeys: string[];
   citations: CitationInfo[];
+  references: ReferenceInfo[];
+  onLoadReferenceImage: (path: string) => Promise<string | null>;
   onEditorLeave: () => void;
   onPrepareFigure: (path: string) => Promise<string | null>;
   nativeFigureDropActive: boolean;
@@ -2491,9 +2528,14 @@ function DocumentCanvas(props: {
   const editorExtensions = useMemo(
     () => [
       latex(latexLanguageOptions),
-      ...latexEditorExtensions(props.citationKeys, props.citations),
+      ...latexEditorExtensions(
+        props.citationKeys,
+        props.citations,
+        props.references,
+        props.onLoadReferenceImage,
+      ),
     ],
-    [props.citationKeys, props.citations],
+    [props.citationKeys, props.citations, props.onLoadReferenceImage, props.references],
   );
   const insertFigures = useCallback(async (paths: string[], coordinates?: { x: number; y: number }) => {
     const view = editorViewRef.current;
@@ -3122,13 +3164,13 @@ function SettingsDialog(props: {
             )}
             {props.tab === "accounts" && (
               <div className="settings-section">
-                <div className="settings-section-title"><div><h2>Subscriptions</h2><p>Lattice uses the login already owned by each local CLI.</p></div><button title="Refresh subscription status" onClick={props.onRefreshSubscriptions} disabled={props.subscriptionsLoading}><RefreshCw className={props.subscriptionsLoading ? "spin" : ""} size={14} /></button></div>
+                <div className="settings-section-title"><div><h2>Subscriptions</h2><p>OMP manages sign-in and token refresh for Lattice.</p></div><button title="Refresh subscription status" onClick={props.onRefreshSubscriptions} disabled={props.subscriptionsLoading}><RefreshCw className={props.subscriptionsLoading ? "spin" : ""} size={14} /></button></div>
                 <div className="account-list">
                   {props.subscriptions.map((account) => (
                     <div className="account-card" key={account.provider}>
                       <div className={`account-mark ${account.loggedIn ? "connected" : ""}`}>{account.provider === "codex" ? "O" : "C"}</div>
                       <div><strong>{account.provider === "codex" ? "Codex subscription" : "Claude subscription"}</strong><small>{account.detail}</small></div>
-                      {!account.loggedIn && <button disabled={!account.installed} onClick={() => props.onSubscriptionLogin(account.provider)}>Sign in</button>}
+                      {!account.loggedIn && <button disabled={!account.installed || props.subscriptionsLoading} onClick={() => props.onSubscriptionLogin(account.provider)}>Sign in with OMP</button>}
                       {account.loggedIn && <span className="connected-label"><Check size={12} /> Connected</span>}
                     </div>
                   ))}
@@ -3140,7 +3182,7 @@ function SettingsDialog(props: {
             {props.tab === "api" && (
               <div className="settings-section">
                 <h2>API keys</h2>
-                <p>API keys are optional and only used by the API providers. Subscription providers use their own CLI login.</p>
+                <p>API keys are optional and only used by the API providers. OMP authenticates subscription providers separately.</p>
                 <label>Provider
                   <select value={props.apiProvider} onChange={(event) => props.setApiProvider(event.target.value as "openai" | "anthropic")}>
                     <option value="openai">OpenAI API</option>

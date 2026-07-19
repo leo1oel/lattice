@@ -12,7 +12,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Start new projects with the official NeurIPS 2026 preprint style and a concise research-paper skeleton.
 - Browse, create, delete, scroll, and directly edit project source files with a full-height, soft-wrapping CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
 - Write in a softly tinted CodeMirror canvas with MonoLisa as the default editor font and parser-aware LaTeX highlighting derived from the Lux Light palette.
-- Get automatic braces after citation commands, bibliography-key completion inside `\\cite{...}`, and title, author, venue, and year previews when hovering over a citation key.
+- Get automatic braces after citation commands, bibliography-key completion inside `\\cite{...}`, citation metadata on `\\cite` hover, and local figure, table, equation, or section previews on `\\ref` hover.
 - Compile the default root document with the local `latexmk` installation, including an immediate build whenever a project is entered.
 - Choose manual builds or automatic builds that run when you leave the editor or pause typing for 1.2 seconds.
 - Review every generated PDF page in one continuously scrolling column beside the source, with a draggable split divider and a themed PDF.js toolbar for page navigation, zoom, native Save As export, and click-to-source SyncTeX navigation.
@@ -28,8 +28,8 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Search OpenAlex for candidate related work on demand while keeping discovery metadata separate from evidence that is safe to cite.
 - Use an OpenAI or Anthropic API key with the same streamed response experience instead of a local subscription.
 - Switch between Codex and Claude between messages, with current full model names and model-specific reasoning-effort controls for subscriptions and APIs.
-- Inspect and start Codex or Claude subscription login from Settings without configuring an API key.
-- Create, search, restore, and delete project-local agent conversations, copy any user or agent message, or edit an earlier user message to continue on a new OMP branch while restoring the project files to that turn and preserving the original conversation.
+- Sign in to Codex or Claude through OMP from Settings without installing or operating a separate CLI login screen.
+- Create, search, restore, and delete project-local agent conversations, copy any user or agent message, or edit an earlier user message to continue on a new OMP branch while restoring the project files to that turn and preserving the original conversation; user actions stay outside the message bubble and appear on hover.
 - Save direct edits, imports, and agent changes as atomic project transactions, retaining the latest 100 entries per project.
 - Inspect project history and revert a transaction.
 - Resize the Project and Papers regions vertically and preserve that layout across launches.
@@ -38,7 +38,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 
 ## Current boundaries
 
-This prototype does not yet implement realtime collaboration, CRDT synchronization, cloud accounts, source-to-PDF SyncTeX navigation, MCP tool exposure, or semantic embeddings.
+This prototype does not yet implement realtime collaboration, CRDT synchronization, cloud accounts, source-to-PDF SyncTeX forward navigation, MCP tool exposure, or semantic embeddings.
 The local agent experience uses the bundled Oh My Pi backend for model access, streaming, tools, and conversation branching, with application-local skills, optional user-owned system prompts, and a bibliography prehook that redirects `.bib` edits through `bibcite`.
 Imported paper retrieval is currently a lightweight lexical ranking over project snapshots.
 
@@ -51,7 +51,7 @@ Install the following tools before running it:
 - Rust and Cargo.
 - MacTeX or TeX Live with `latexmk`.
 - `uv`, which runs `arxiv2md` and provides the `bibcite` fallback.
-- A logged-in Codex CLI, Claude Code CLI, an OpenAI API key, or an Anthropic API key for agent writing.
+- A Codex or Claude subscription authenticated through OMP in Lattice Settings, or an OpenAI or Anthropic API key.
 
 Installing `bibcite` as a persistent tool avoids its one-time fallback startup cost:
 
@@ -77,7 +77,7 @@ Right-click the project heading, any project entry, or an imported paper and cho
 The `.tex` suffix is optional while naming a new source file and is added automatically.
 Drag figure files anywhere over the Project pane to add them to `figures`, or drop them directly on another project directory to target that folder.
 Choose the agent model and effort directly above the conversation; the selection is saved with each project-local conversation.
-Open Settings to enlarge the interface, adjust fonts, choose automatic build behavior, inspect subscription login, or manage API keys.
+Open Settings to enlarge the interface, adjust fonts, choose automatic build behavior, sign in to Codex or Claude through OMP, or manage API keys.
 The key icon only appears for OpenAI API and Anthropic API providers and stores those keys in macOS Keychain.
 
 ## Project format

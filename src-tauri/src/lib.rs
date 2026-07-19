@@ -10,8 +10,8 @@ mod skill_store;
 use models::{
     AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
     AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, CitationInfo,
-    HistoryItem, ImportResult, PaperSummary, ProjectSearchResult, ProjectSnapshot,
-    SubscriptionStatus, SyncTexTarget,
+    HistoryItem, ImportResult, PaperSummary, ProjectSearchResult, ProjectSnapshot, ReferenceInfo,
+    SubscriptionLoginEvent, SubscriptionStatus, SyncTexTarget,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -116,6 +116,11 @@ fn list_citation_keys(state: tauri::State<'_, AppState>) -> Result<Vec<String>, 
 #[tauri::command]
 fn list_citations(state: tauri::State<'_, AppState>) -> Result<Vec<CitationInfo>, String> {
     project::citations(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn list_references(state: tauri::State<'_, AppState>) -> Result<Vec<ReferenceInfo>, String> {
+    project::references(&current_root(&state)?)
 }
 
 #[tauri::command]
@@ -270,20 +275,29 @@ async fn run_agent(
 }
 
 #[tauri::command]
-fn provider_status() -> Vec<(String, bool)> {
-    agents::provider_status()
-}
-
-#[tauri::command]
-async fn subscription_status() -> Result<Vec<SubscriptionStatus>, String> {
-    tauri::async_runtime::spawn_blocking(agents::subscription_status)
+async fn subscription_status(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<SubscriptionStatus>, String> {
+    let runtime = state.agent_runtime.clone();
+    tauri::async_runtime::spawn_blocking(move || agents::subscription_status(&runtime))
         .await
-        .map_err(|error| format!("Could not check subscription status: {error}"))
+        .map_err(|error| format!("Could not check subscription status: {error}"))?
 }
 
 #[tauri::command]
-fn begin_subscription_login(provider: String) -> Result<(), String> {
-    agents::begin_subscription_login(&provider)
+async fn begin_subscription_login(
+    state: tauri::State<'_, AppState>,
+    provider: String,
+    on_event: tauri::ipc::Channel<SubscriptionLoginEvent>,
+) -> Result<(), String> {
+    let runtime = state.agent_runtime.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        agents::begin_subscription_login(&runtime, &provider, &|event| {
+            let _ = on_event.send(event);
+        })
+    })
+    .await
+    .map_err(|error| format!("Could not complete OMP sign-in: {error}"))?
 }
 
 #[tauri::command]
@@ -518,6 +532,7 @@ pub fn run() {
             write_project_file,
             list_citation_keys,
             list_citations,
+            list_references,
             search_project,
             create_project_entry,
             delete_project_entry,
@@ -534,7 +549,6 @@ pub fn run() {
             rename_paper,
             delete_paper,
             run_agent,
-            provider_status,
             subscription_status,
             begin_subscription_login,
             save_api_key,

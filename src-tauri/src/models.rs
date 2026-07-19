@@ -127,6 +127,17 @@ pub struct CitationInfo {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ReferenceInfo {
+    pub label: String,
+    pub kind: String,
+    pub title: String,
+    pub snippet: String,
+    pub path: String,
+    pub image_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectSearchResult {
     pub kind: String,
     pub path: String,
@@ -176,6 +187,12 @@ pub struct SubscriptionStatus {
     pub installed: bool,
     pub logged_in: bool,
     pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionLoginEvent {
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

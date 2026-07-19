@@ -238,17 +238,26 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .session-delete:hover { background: color-mix(in srgb, var(--danger) 9%, transparent); color: var(--danger); }
 .chat-list { flex: 1; min-width: 0; overflow-x: hidden; overflow-y: auto; padding: 18px 13px; }
 .chat-message { min-width: 0; max-width: 100%; display: flex; gap: 8px; margin-bottom: 17px; }
-.chat-message.user { justify-content: flex-end; }
-.chat-message.user .message-body { min-width: 0; max-width: 88%; overflow: hidden; padding: 9px 11px; border-radius: 12px 12px 3px 12px; background: var(--accent-soft); color: var(--text); }
-.chat-message.agent .message-body { flex: 1; min-width: 0; }
+.chat-message.user { justify-content: flex-end; margin-bottom: 24px; }
+.message-column { min-width: 0; }
+.chat-message.user .message-column { position: relative; max-width: 88%; display: flex; flex-direction: column; align-items: flex-end; }
+.chat-message.user .message-body { min-width: 0; max-width: 100%; overflow: hidden; padding: 9px 11px; border-radius: 12px 12px 3px 12px; background: var(--accent-soft); color: var(--text); }
+.chat-message.agent .message-column { width: 0; flex: 1; }
+.chat-message.agent .message-body { min-width: 0; }
 .chat-message.system { padding: 8px 10px; border-radius: 7px; background: color-mix(in srgb, var(--success) 8%, transparent); color: var(--success); font-size: 10px; }
+.chat-message.system .message-column { width: 100%; }
 .message-avatar { width: 22px; height: 22px; flex: none; border-radius: 7px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
 .message-body p { max-width: 100%; margin: 0; overflow-wrap: anywhere; word-break: break-word; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; }
-.message-actions { min-height: 21px; margin: 6px -3px -4px; display: flex; justify-content: flex-end; gap: 2px; opacity: 0; transition: opacity .14s ease; }
-.chat-message:hover .message-actions, .message-actions:focus-within { opacity: 1; }
+.message-actions { min-height: 21px; display: flex; justify-content: flex-end; gap: 2px; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-2px); transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s; }
+.user-message-actions { position: absolute; top: 100%; right: -3px; margin-top: 2px; }
+.chat-message.user:hover .message-actions, .message-actions:focus-within { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); transition-delay: 0s; }
 .message-actions button { height: 21px; padding: 0 4px; border-radius: 5px; background: transparent; color: var(--faint); display: flex; align-items: center; gap: 3px; font-size: 8px; }
 .message-actions button:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); }
 .message-copy { width: 21px; justify-content: center; }
+.agent-message-meta { min-width: 0; display: flex; align-items: flex-end; gap: 4px; margin-top: 8px; }
+.agent-message-meta .changed-files { min-width: 0; margin-top: 0; }
+.agent-message-copy { width: 23px; height: 23px; flex: none; border-radius: 5px; background: transparent; color: var(--faint); display: grid; place-items: center; opacity: .7; }
+.agent-message-copy:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); opacity: 1; }
 .chat-message.streaming .message-body p::after { content: ""; width: 1.5px; height: .95em; margin-left: 3px; display: inline-block; vertical-align: -.08em; border-radius: 1px; background: var(--accent); animation: stream-cursor .8s steps(1) infinite; }
 .skills-used { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }
 .skills-used small { color: var(--faint); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
@@ -318,6 +327,15 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .citation-hover-card strong { font-size: 11px; font-weight: 650; line-height: 1.35; }
 .citation-hover-card span { margin-top: 6px; color: var(--muted); font-size: 9px; line-height: 1.4; }
 .citation-hover-card em { margin-top: 5px; color: var(--faint); font-size: 8.5px; font-style: normal; }
+.reference-hover-card { width: min(360px, calc(100vw - 32px)); padding: 10px 12px 11px; border: 1px solid var(--line-strong); border-radius: 9px; background: color-mix(in srgb, var(--panel-strong) 97%, transparent); color: var(--text); backdrop-filter: blur(14px); }
+.reference-hover-card small, .reference-hover-card strong, .reference-hover-card em { display: block; }
+.reference-hover-card small { margin-bottom: 5px; color: var(--accent); font-family: var(--editor-font); font-size: 8px; text-transform: capitalize; }
+.reference-hover-card strong { font-size: 11px; font-weight: 650; line-height: 1.35; }
+.reference-hover-card pre { max-height: 132px; margin: 7px 0 0; overflow: hidden; color: var(--muted); font-family: var(--editor-font); font-size: 9px; line-height: 1.45; white-space: pre-wrap; }
+.reference-hover-card em { margin-top: 6px; color: var(--faint); font-size: 8.5px; font-style: normal; }
+.reference-hover-media { max-height: 190px; margin: -2px -3px 9px; overflow: hidden; border-radius: 6px; background: var(--editor-bg); color: var(--faint); display: grid; place-items: center; font-size: 9px; }
+.reference-hover-media.loading { min-height: 72px; }
+.reference-hover-media img { display: block; max-width: 100%; max-height: 190px; object-fit: contain; }
 .source-editor.figure-drop-active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent); }
 .figure-drop-line { position: absolute; z-index: 6; left: 48px; right: 10px; height: 1px; background: color-mix(in srgb, var(--accent) 78%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--editor-bg) 65%, transparent); pointer-events: none; }
 .figure-drop-line::before { content: ""; position: absolute; left: -3px; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }

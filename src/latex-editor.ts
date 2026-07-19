@@ -9,6 +9,7 @@ const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite
 const BRACED_COMMANDS = new RegExp(`\\\\(?:${CITATION_COMMANDS}|ref|eqref|pageref|label|input|include)$`);
 const OPEN_CITATION = new RegExp(`\\\\(?:${CITATION_COMMANDS})\\*?(?:\\[[^\\]]*\\]){0,2}\\{([^}]*)$`);
 const COMPLETE_CITATION = new RegExp(`\\\\(?:${CITATION_COMMANDS})\\*?(?:\\[[^\\]]*\\]){0,2}\\{([^}]*)\\}`, "g");
+const COMPLETE_REFERENCE = /\\(?:ref|eqref|pageref|autoref|cref|Cref)\{([^}]*)\}/g;
 
 export type CitationInfo = {
   key: string;
@@ -16,6 +17,15 @@ export type CitationInfo = {
   authors: string;
   year: string;
   venue: string;
+};
+
+export type ReferenceInfo = {
+  label: string;
+  kind: "figure" | "table" | "equation" | "section" | "reference";
+  title: string;
+  snippet: string;
+  path: string;
+  imagePath?: string;
 };
 
 export const latexLanguageOptions = {
@@ -98,6 +108,32 @@ export function citationHoverTarget(text: string, position: number): { from: num
   return null;
 }
 
+export function referenceHoverTarget(text: string, position: number): { from: number; to: number; label: string } | null {
+  const windowStart = Math.max(0, position - 800);
+  const windowEnd = Math.min(text.length, position + 800);
+  const source = text.slice(windowStart, windowEnd);
+  COMPLETE_REFERENCE.lastIndex = 0;
+  for (let match = COMPLETE_REFERENCE.exec(source); match; match = COMPLETE_REFERENCE.exec(source)) {
+    const referenceFrom = windowStart + match.index;
+    const referenceTo = referenceFrom + match[0].length;
+    if (position < referenceFrom || position > referenceTo) continue;
+    const content = match[1];
+    const contentFrom = referenceFrom + match[0].lastIndexOf("{") + 1;
+    const labels = [...content.matchAll(/[^,]+/g)].flatMap((labelMatch) => {
+      const raw = labelMatch[0];
+      const leading = raw.length - raw.trimStart().length;
+      const label = raw.trim();
+      if (!label) return [];
+      const from = contentFrom + (labelMatch.index ?? 0) + leading;
+      return [{ from, to: from + label.length, label }];
+    });
+    const hovered = labels.find((label) => position >= label.from && position <= label.to);
+    if (hovered) return hovered;
+    if (labels.length === 1) return labels[0];
+  }
+  return null;
+}
+
 export function citationTooltipSpace(bounds: Rect): Rect {
   const inset = 8;
   return {
@@ -145,7 +181,78 @@ function citationTooltips(citations: CitationInfo[]) {
   });
 }
 
-export function latexEditorExtensions(citationKeys: string[], citations: CitationInfo[] = []) {
+function referenceTooltips(
+  references: ReferenceInfo[],
+  loadImage?: (path: string) => Promise<string | null>,
+) {
+  const byLabel = new Map(references.map((reference) => [reference.label, reference]));
+  return hoverTooltip((view, position) => {
+    const target = referenceHoverTarget(view.state.doc.toString(), position);
+    if (!target) return null;
+    const reference = byLabel.get(target.label);
+    if (!reference) return null;
+    return {
+      pos: target.from,
+      end: target.to,
+      above: true,
+      create() {
+        let destroyed = false;
+        const dom = document.createElement("div");
+        dom.className = "reference-hover-card";
+        dom.style.maxWidth = `${Math.max(180, view.dom.clientWidth - 16)}px`;
+        if (reference.imagePath && loadImage) {
+          const media = document.createElement("div");
+          media.className = "reference-hover-media loading";
+          media.textContent = "Loading figure preview…";
+          dom.append(media);
+          void loadImage(reference.imagePath).then((source) => {
+            if (destroyed) return;
+            media.classList.remove("loading");
+            if (!source) {
+              media.textContent = "Preview unavailable for this figure format.";
+              return;
+            }
+            const image = document.createElement("img");
+            image.src = source;
+            image.alt = reference.title || reference.label;
+            media.replaceChildren(image);
+          }).catch(() => {
+            if (!destroyed) {
+              media.classList.remove("loading");
+              media.textContent = "Figure preview could not be loaded.";
+            }
+          });
+        }
+        const label = document.createElement("small");
+        label.textContent = `${reference.kind} · ${reference.label}`;
+        const title = document.createElement("strong");
+        title.textContent = reference.title || reference.label;
+        dom.append(label, title);
+        if (reference.snippet) {
+          const snippet = document.createElement("pre");
+          snippet.textContent = reference.snippet;
+          dom.append(snippet);
+        }
+        const path = document.createElement("em");
+        path.textContent = reference.path;
+        dom.append(path);
+        return {
+          dom,
+          destroy() {
+            destroyed = true;
+          },
+        };
+      },
+    };
+  });
+}
+
+export function latexEditorExtensions(
+  citationKeys: string[],
+  citations: CitationInfo[] = [],
+  references: ReferenceInfo[] = [],
+  loadReferenceImage?: (path: string) => Promise<string | null>,
+) {
   return [
     EditorView.lineWrapping,
     EditorView.contentAttributes.of({
@@ -158,6 +265,7 @@ export function latexEditorExtensions(citationKeys: string[], citations: Citatio
       tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()),
     }),
     citationTooltips(citations),
+    referenceTooltips(references, loadReferenceImage),
     autocompletion({
       override: [citationCompletions(citationKeys), latexCompletionSource(true)],
       activateOnTyping: true,

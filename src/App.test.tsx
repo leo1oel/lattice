@@ -55,6 +55,7 @@ const testSessionSummary = {
 function mockSessionCommand(command: string, args?: Record<string, unknown>) {
   if (command === "list_citation_keys") return [];
   if (command === "list_citations") return [];
+  if (command === "list_references") return [];
   if (command === "list_agent_sessions") return [testSessionSummary];
   if (command === "read_agent_session") return testSession;
   if (command === "save_agent_session") return args?.session;
@@ -796,7 +797,7 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations") return [];
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
       if (command === "list_agent_sessions") return summaries;
       if (command === "read_agent_session") return (args as { sessionId: string }).sessionId === earlier.id ? earlier : testSession;
       if (command === "create_agent_session") return testSession;
@@ -828,7 +829,7 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations") return [];
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
       if (command === "search_agent_sessions") return [{ ...testSessionSummary, title: "Earlier draft", snippet: "…strongest diffusion baseline…" }];
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
@@ -858,7 +859,7 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations") return [];
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
       if (command === "list_agent_sessions") return [{ ...testSessionSummary, messageCount: source.messages.length }];
       if (command === "read_agent_session") return source;
       if (command === "fork_agent_session") return branch;
@@ -937,7 +938,7 @@ describe("project workspace", () => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") return "\\section{Notes}";
       if (command === "list_papers") return [paper];
-      if (command === "list_history" || command === "list_citation_keys" || command === "list_citations") return [];
+      if (command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
       if (command === "create_project_entry") return "sections/method.tex";
       if (command === "delete_project_entry" || command === "delete_paper") return undefined;
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
@@ -1008,6 +1009,7 @@ describe("project workspace", () => {
     expect(streamedReply.closest(".chat-message.streaming")).not.toBeNull();
     fireEvent.click(screen.getByTitle("Copy user message"));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(message));
+    expect(screen.getByTitle("Copy user message").closest(".message-body")).toBeNull();
     fireEvent.click(streamedReply.closest(".message-body")!.querySelector<HTMLButtonElement>('[title="Copy agent response"]')!);
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("Reviewing the abstract as evidence arrives…"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("run_agent", expect.objectContaining({

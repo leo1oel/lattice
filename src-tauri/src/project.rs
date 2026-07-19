@@ -1,6 +1,6 @@
 use crate::commands;
 use crate::models::{
-    AssetPreview, CitationInfo, FileChange, FileNode, HistoryItem, ProjectManifest,
+    AssetPreview, CitationInfo, FileChange, FileNode, HistoryItem, ProjectManifest, ReferenceInfo,
     ProjectSearchResult, ProjectSnapshot, RootDocument, TransactionRecord,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -217,6 +217,269 @@ pub fn citations(root: &Path) -> Result<Vec<CitationInfo>, String> {
     citations.sort_by_key(|citation| citation.key.to_lowercase());
     citations.dedup_by(|left, right| left.key.eq_ignore_ascii_case(&right.key));
     Ok(citations)
+}
+
+pub fn references(root: &Path) -> Result<Vec<ReferenceInfo>, String> {
+    let mut references = Vec::new();
+    for entry in WalkDir::new(root)
+        .max_depth(8)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .filter(|entry| entry.path().extension().is_some_and(|extension| extension == "tex"))
+        .filter(|entry| {
+            !entry
+                .path()
+                .strip_prefix(root)
+                .is_ok_and(|path| path.components().any(|part| part.as_os_str() == ".research"))
+        })
+    {
+        let relative = entry.path().strip_prefix(root).map_err(err)?;
+        let path = relative.to_string_lossy().replace('\\', "/");
+        let source = fs::read_to_string(entry.path()).map_err(err)?;
+        references.extend(parse_latex_references(root, relative, &path, &source));
+    }
+    references.sort_by_key(|reference| reference.label.to_lowercase());
+    references.dedup_by(|left, right| left.label.eq_ignore_ascii_case(&right.label));
+    Ok(references)
+}
+
+fn parse_latex_references(
+    root: &Path,
+    source_path: &Path,
+    display_path: &str,
+    source: &str,
+) -> Vec<ReferenceInfo> {
+    let environments = [
+        ("figure", "figure"),
+        ("figure*", "figure"),
+        ("table", "table"),
+        ("table*", "table"),
+        ("equation", "equation"),
+        ("equation*", "equation"),
+        ("align", "equation"),
+        ("align*", "equation"),
+        ("gather", "equation"),
+        ("gather*", "equation"),
+        ("multline", "equation"),
+        ("multline*", "equation"),
+    ];
+    let mut references = Vec::new();
+    let mut cursor = 0;
+    while let Some(offset) = source[cursor..].find("\\label") {
+        let position = cursor + offset;
+        let Some((label, end)) = command_argument_at(source, position + "\\label".len()) else {
+            cursor = position + "\\label".len();
+            continue;
+        };
+        cursor = end;
+        let label = label.trim();
+        if label.is_empty() {
+            continue;
+        }
+
+        let environment = environments
+            .iter()
+            .filter_map(|(name, kind)| {
+                enclosing_environment(source, position, name)
+                    .map(|(start, finish)| (*kind, start, finish))
+            })
+            .max_by_key(|(_, start, _)| *start);
+        let (kind, title, snippet, image_path) = if let Some((kind, start, finish)) = environment {
+            let body = &source[start..finish];
+            let caption = command_argument(body, "\\caption")
+                .map(|value| compact_inline_tex(&value))
+                .filter(|value| !value.is_empty());
+            let image_path = (kind == "figure")
+                .then(|| includegraphics_argument(body))
+                .flatten()
+                .and_then(|value| resolve_graphics_path(root, source_path, &value));
+            let title = caption.unwrap_or_else(|| match kind {
+                "figure" => "Figure".to_string(),
+                "table" => "Table".to_string(),
+                _ => "Equation".to_string(),
+            });
+            let snippet = environment_snippet(body, kind);
+            (kind.to_string(), title, snippet, image_path)
+        } else if let Some(title) = nearest_section_title(source, position) {
+            (
+                "section".to_string(),
+                title,
+                String::new(),
+                None,
+            )
+        } else {
+            (
+                "reference".to_string(),
+                label.to_string(),
+                String::new(),
+                None,
+            )
+        };
+        references.push(ReferenceInfo {
+            label: label.to_string(),
+            kind,
+            title,
+            snippet,
+            path: display_path.to_string(),
+            image_path,
+        });
+    }
+    references
+}
+
+fn enclosing_environment(source: &str, position: usize, name: &str) -> Option<(usize, usize)> {
+    let opening = format!("\\begin{{{name}}}");
+    let closing = format!("\\end{{{name}}}");
+    let start = source.get(..position)?.rfind(&opening)?;
+    if source.get(..position)?.rfind(&closing).is_some_and(|end| end > start) {
+        return None;
+    }
+    let finish = position + source.get(position..)?.find(&closing)? + closing.len();
+    Some((start, finish))
+}
+
+fn command_argument(source: &str, command: &str) -> Option<String> {
+    let position = source.find(command)? + command.len();
+    command_argument_at(source, position).map(|(value, _)| value)
+}
+
+fn command_argument_at(source: &str, mut position: usize) -> Option<(String, usize)> {
+    let bytes = source.as_bytes();
+    while bytes.get(position).is_some_and(u8::is_ascii_whitespace) {
+        position += 1;
+    }
+    if bytes.get(position) != Some(&b'{') {
+        return None;
+    }
+    let start = position + 1;
+    let mut depth = 1usize;
+    position += 1;
+    while position < bytes.len() {
+        match bytes[position] {
+            b'\\' => position += 2,
+            b'{' => {
+                depth += 1;
+                position += 1;
+            }
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some((source[start..position].to_string(), position + 1));
+                }
+                position += 1;
+            }
+            _ => position += 1,
+        }
+    }
+    None
+}
+
+fn includegraphics_argument(source: &str) -> Option<String> {
+    let command = "\\includegraphics";
+    let mut position = source.find(command)? + command.len();
+    let bytes = source.as_bytes();
+    if bytes.get(position) == Some(&b'*') {
+        position += 1;
+    }
+    while bytes.get(position).is_some_and(u8::is_ascii_whitespace) {
+        position += 1;
+    }
+    if bytes.get(position) == Some(&b'[') {
+        position += 1;
+        let mut depth = 1usize;
+        while position < bytes.len() && depth > 0 {
+            match bytes[position] {
+                b'[' => depth += 1,
+                b']' => depth -= 1,
+                _ => {}
+            }
+            position += 1;
+        }
+    }
+    command_argument_at(source, position).map(|(value, _)| value.trim().to_string())
+}
+
+fn resolve_graphics_path(root: &Path, source_path: &Path, value: &str) -> Option<String> {
+    let requested = Path::new(value.trim());
+    if requested.is_absolute() {
+        return None;
+    }
+    let source_parent = source_path.parent().unwrap_or_else(|| Path::new(""));
+    let bases = [root.join(source_parent).join(requested), root.join(requested)];
+    let extensions = ["png", "jpg", "jpeg", "svg", "webp", "pdf"];
+    for base in bases {
+        let candidates = if base.extension().is_some() {
+            vec![base]
+        } else {
+            extensions
+                .iter()
+                .map(|extension| base.with_extension(extension))
+                .collect()
+        };
+        for candidate in candidates {
+            let Ok(canonical) = candidate.canonicalize() else {
+                continue;
+            };
+            let Ok(canonical_root) = root.canonicalize() else {
+                continue;
+            };
+            if canonical.is_file() && canonical.starts_with(&canonical_root) {
+                return canonical
+                    .strip_prefix(&canonical_root)
+                    .ok()
+                    .map(|path| path.to_string_lossy().replace('\\', "/"));
+            }
+        }
+    }
+    None
+}
+
+fn nearest_section_title(source: &str, position: usize) -> Option<String> {
+    let before = source.get(..position)?;
+    [
+        "\\part",
+        "\\chapter",
+        "\\section",
+        "\\subsection",
+        "\\subsubsection",
+        "\\paragraph",
+    ]
+    .into_iter()
+    .filter_map(|command| {
+        let start = before.rfind(command)?;
+        let argument_start = start + command.len();
+        let (title, _) = command_argument_at(source, argument_start)?;
+        (position.saturating_sub(start) < 1_200).then_some((start, compact_inline_tex(&title)))
+    })
+    .max_by_key(|(start, _)| *start)
+    .map(|(_, title)| title)
+}
+
+fn compact_inline_tex(source: &str) -> String {
+    source.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn environment_snippet(source: &str, kind: &str) -> String {
+    let mut lines = source
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('%'))
+        .filter(|line| {
+            !line.starts_with("\\begin")
+                && !line.starts_with("\\end")
+                && !line.starts_with("\\caption")
+                && !line.starts_with("\\label")
+                && *line != "\\centering"
+                && (kind != "figure" || !line.starts_with("\\includegraphics"))
+        })
+        .take(8)
+        .collect::<Vec<_>>()
+        .join("\n");
+    if lines.chars().count() > 480 {
+        lines = lines.chars().take(479).collect::<String>() + "…";
+    }
+    lines
 }
 
 fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
@@ -1493,6 +1756,53 @@ mod tests {
         assert_eq!(entries[1].authors, "Vaswani, Ashish and Shazeer, Noam");
         assert_eq!(entries[1].year, "2017");
         assert_eq!(entries[1].venue, "NeurIPS");
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn latex_labels_are_indexed_for_reference_hover_previews() {
+        let parent = temp_root("latex-reference-previews");
+        let root = create(&parent, "paper").unwrap();
+        fs::write(root.join("figures/model.png"), b"png-bytes").unwrap();
+        fs::write(
+            root.join("main.tex"),
+            r#"\section{Introduction}\label{sec:intro}
+\begin{figure}
+  \includegraphics[width=\linewidth]{figures/model}
+  \caption{Our model architecture}
+  \label{fig:model}
+\end{figure}
+\begin{table}
+  \caption{Main benchmark results}
+  \begin{tabular}{lc}
+  Method & Score \\
+  Ours & 90
+  \end{tabular}
+  \label{tab:results}
+\end{table}
+\begin{equation}
+  \mathcal{L} = \lVert x - y \rVert_2
+  \label{eq:loss}
+\end{equation}
+"#,
+        )
+        .unwrap();
+
+        let indexed = references(&root).unwrap();
+        let figure = indexed.iter().find(|item| item.label == "fig:model").unwrap();
+        assert_eq!(figure.kind, "figure");
+        assert_eq!(figure.title, "Our model architecture");
+        assert_eq!(figure.image_path.as_deref(), Some("figures/model.png"));
+        let table = indexed.iter().find(|item| item.label == "tab:results").unwrap();
+        assert_eq!(table.kind, "table");
+        assert!(table.snippet.contains("Method & Score"));
+        assert_eq!(
+            indexed.iter().find(|item| item.label == "eq:loss").unwrap().kind,
+            "equation"
+        );
+        let section = indexed.iter().find(|item| item.label == "sec:intro").unwrap();
+        assert_eq!(section.kind, "section");
+        assert_eq!(section.title, "Introduction");
         fs::remove_dir_all(parent).unwrap();
     }
 

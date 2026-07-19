@@ -2,7 +2,7 @@ import { completionStatus, currentCompletions } from "@codemirror/autocomplete";
 import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { describe, expect, it, vi } from "vitest";
-import { citationCompletionRange, citationHoverTarget, citationTooltipSpace, latexEditorExtensions, latexLanguageOptions, shouldInsertCommandBraces } from "./latex-editor";
+import { citationCompletionRange, citationHoverTarget, citationTooltipSpace, latexEditorExtensions, latexLanguageOptions, referenceHoverTarget, shouldInsertCommandBraces } from "./latex-editor";
 
 describe("LaTeX citation editing", () => {
   it("soft-wraps long logical lines instead of scrolling horizontally", () => {
@@ -54,6 +54,15 @@ describe("LaTeX citation editing", () => {
       top: 88,
       bottom: 672,
     });
+  });
+
+  it("identifies figure, table, and equation labels inside reference commands", () => {
+    const source = "See \\ref{fig:model}, \\cref{tab:results, eq:loss}, and \\autoref{sec:intro}.";
+    expect(referenceHoverTarget(source, source.indexOf("fig:model") + 3)?.label).toBe("fig:model");
+    expect(referenceHoverTarget(source, source.indexOf("tab:results") + 4)?.label).toBe("tab:results");
+    expect(referenceHoverTarget(source, source.indexOf("eq:loss") + 3)?.label).toBe("eq:loss");
+    expect(referenceHoverTarget(source, source.indexOf("sec:intro") + 3)?.label).toBe("sec:intro");
+    expect(referenceHoverTarget("Plain text", 3)).toBeNull();
   });
 
   it("inserts braces in the editor and keeps an existing pair", () => {

@@ -1,5 +1,7 @@
 use crate::commands;
-use crate::models::{AgentResult, AgentSettings, AgentStreamEvent, SubscriptionStatus};
+use crate::models::{
+    AgentResult, AgentSettings, AgentStreamEvent, SubscriptionLoginEvent, SubscriptionStatus,
+};
 use crate::project;
 use crate::skill_store;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -46,8 +48,7 @@ struct OmpSessionRef {
 
 struct OmpAuth {
     provider: &'static str,
-    environment: &'static str,
-    credential: String,
+    environment: Option<(&'static str, String)>,
 }
 
 pub fn run(
@@ -327,7 +328,7 @@ fn omp_command(
             runtime.assets.display()
         ));
     }
-    let auth = prepare_auth(&settings.provider)?;
+    let auth = prepare_auth(runtime, &settings.provider)?;
     let session_dir = root.join(".research/omp-sessions");
     fs::create_dir_all(&session_dir).map_err(err)?;
     fs::create_dir_all(&runtime.config).map_err(err)?;
@@ -340,7 +341,6 @@ fn omp_command(
     command
         .current_dir(root)
         .env("PI_CODING_AGENT_DIR", &runtime.config)
-        .env(auth.environment, auth.credential)
         .arg("--mode")
         .arg("rpc")
         .arg("--model")
@@ -357,6 +357,9 @@ fn omp_command(
         .arg("--auto-approve")
         .arg("--extension")
         .arg(runtime.assets.join("lattice.ts"));
+    if let Some((name, value)) = auth.environment {
+        command.env(name, value);
+    }
     if let Some(session_file) = omp_session_file(root, session_id)? {
         command.arg("--resume").arg(session_file);
     }
@@ -688,30 +691,48 @@ fn compact_label(message: &str) -> String {
     value
 }
 
-fn prepare_auth(provider: &str) -> Result<OmpAuth, String> {
+fn prepare_auth(runtime: &AgentRuntime, provider: &str) -> Result<OmpAuth, String> {
     match provider {
         "codex" => Ok(OmpAuth {
             provider: "openai-codex",
-            environment: "OPENAI_CODEX_OAUTH_TOKEN",
-            credential: codex_access_token()?,
+            environment: legacy_subscription_environment(runtime, "codex"),
         }),
         "claude" => Ok(OmpAuth {
             provider: "anthropic",
-            environment: "ANTHROPIC_OAUTH_TOKEN",
-            credential: claude_access_token()?,
+            environment: legacy_subscription_environment(runtime, "claude"),
         }),
         "openai-api" => Ok(OmpAuth {
             provider: "openai",
-            environment: "OPENAI_API_KEY",
-            credential: load_api_key("openai")?,
+            environment: Some(("OPENAI_API_KEY", load_api_key("openai")?)),
         }),
         "anthropic-api" => Ok(OmpAuth {
             provider: "anthropic",
-            environment: "ANTHROPIC_API_KEY",
-            credential: load_api_key("anthropic")?,
+            environment: Some(("ANTHROPIC_API_KEY", load_api_key("anthropic")?)),
         }),
         _ => Err("Choose Codex, Claude, OpenAI API, or Anthropic API.".to_string()),
     }
+}
+
+fn legacy_subscription_environment(
+    runtime: &AgentRuntime,
+    provider: &str,
+) -> Option<(&'static str, String)> {
+    if omp_auth_marker(runtime, provider).is_file() {
+        return None;
+    }
+    match provider {
+        "codex" => codex_access_token()
+            .ok()
+            .map(|token| ("OPENAI_CODEX_OAUTH_TOKEN", token)),
+        "claude" => claude_access_token()
+            .ok()
+            .map(|token| ("ANTHROPIC_OAUTH_TOKEN", token)),
+        _ => None,
+    }
+}
+
+fn omp_auth_marker(runtime: &AgentRuntime, provider: &str) -> PathBuf {
+    runtime.config.join(format!("lattice-{provider}-auth"))
 }
 
 fn codex_access_token() -> Result<String, String> {
@@ -969,140 +990,183 @@ fn keychain_provider(provider: &str) -> Result<&str, String> {
     }
 }
 
-pub fn provider_status() -> Vec<(String, bool)> {
-    ["codex", "claude"]
-        .into_iter()
-        .map(|name| (name.to_string(), commands::available(name)))
-        .collect()
-}
-
-pub fn subscription_status() -> Vec<SubscriptionStatus> {
-    vec![codex_subscription_status(), claude_subscription_status()]
-}
-
-pub fn begin_subscription_login(provider: &str) -> Result<(), String> {
-    let mut command = match provider {
-        "codex" => commands::command("codex"),
-        "claude" => {
-            let mut command = commands::command("claude");
-            command.arg("auth").arg("login");
-            command
+pub fn subscription_status(runtime: &AgentRuntime) -> Result<Vec<SubscriptionStatus>, String> {
+    let mut process = JsonLineProcess::spawn(omp_account_command(runtime)?, "OMP accounts")?;
+    let response = process.request("lattice-login-providers", "get_login_providers", json!({}))?;
+    let _ = process.finish(false)?;
+    let providers = response
+        .pointer("/data/providers")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "OMP did not return its login providers.".to_string())?;
+    [
+        ("codex", "openai-codex", "ChatGPT Codex subscription"),
+        ("claude", "anthropic", "Claude Pro or Max subscription"),
+    ]
+    .into_iter()
+    .map(|(provider, omp_id, fallback_name)| {
+        let account = providers
+            .iter()
+            .find(|account| account.get("id").and_then(Value::as_str) == Some(omp_id));
+        let installed = account
+            .and_then(|account| account.get("available"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let logged_in = account
+            .and_then(|account| account.get("authenticated"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if logged_in {
+            fs::write(omp_auth_marker(runtime, provider), "OMP\n").map_err(err)?;
         }
-        _ => return Err("Unknown subscription provider.".to_string()),
+        let name = account
+            .and_then(|account| account.get("name"))
+            .and_then(Value::as_str)
+            .unwrap_or(fallback_name);
+        Ok(SubscriptionStatus {
+            provider: provider.to_string(),
+            installed,
+            logged_in,
+            detail: if logged_in {
+                format!("Connected through OMP · {name}")
+            } else if installed {
+                format!("Sign in through OMP · {name}")
+            } else {
+                format!("This OMP build does not provide {name}.")
+            },
+        })
+    })
+    .collect()
+}
+
+pub fn begin_subscription_login(
+    runtime: &AgentRuntime,
+    provider: &str,
+    on_event: &dyn Fn(SubscriptionLoginEvent),
+) -> Result<(), String> {
+    let provider_id = match provider {
+        "codex" => "openai-codex",
+        "claude" => "anthropic",
+        _ => return Err("Unknown OMP subscription provider.".to_string()),
     };
-    if provider == "codex" {
-        command.arg("login");
+    let mut process = JsonLineProcess::spawn(omp_account_command(runtime)?, "OMP sign-in")?;
+    process.send(&json!({
+        "id": "lattice-login",
+        "type": "login",
+        "providerId": provider_id,
+    }))?;
+    let mut opened_browser = false;
+    loop {
+        let value = process
+            .next_value()?
+            .ok_or_else(|| "OMP stopped before sign-in completed.".to_string())?;
+        if value.get("type").and_then(Value::as_str) == Some("extension_ui_request") {
+            match value.get("method").and_then(Value::as_str) {
+                Some("open_url") => {
+                    let url = value
+                        .get("launchUrl")
+                        .or_else(|| value.get("url"))
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| "OMP returned an invalid sign-in URL.".to_string())?;
+                    open_browser(url)?;
+                    opened_browser = true;
+                    let message = value
+                        .get("instructions")
+                        .and_then(Value::as_str)
+                        .unwrap_or("Complete sign-in in your browser.");
+                    on_event(SubscriptionLoginEvent {
+                        message: message.to_string(),
+                    });
+                }
+                Some("notify") => {
+                    if let Some(message) = value.get("message").and_then(Value::as_str) {
+                        on_event(SubscriptionLoginEvent {
+                            message: message.to_string(),
+                        });
+                    }
+                }
+                Some("input") if opened_browser => {
+                    on_event(SubscriptionLoginEvent {
+                        message: "Waiting for the browser to return the authorization to OMP…"
+                            .to_string(),
+                    });
+                }
+                _ => {}
+            }
+            continue;
+        }
+        if value.get("type").and_then(Value::as_str) != Some("response")
+            || value.get("id").and_then(Value::as_str) != Some("lattice-login")
+        {
+            continue;
+        }
+        if value.get("success").and_then(Value::as_bool) != Some(true) {
+            return Err(value
+                .get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("OMP sign-in failed.")
+                .to_string());
+        }
+        fs::write(omp_auth_marker(runtime, provider), "OMP\n").map_err(err)?;
+        on_event(SubscriptionLoginEvent {
+            message: "Connected. OMP will manage and refresh this subscription."
+                .to_string(),
+        });
+        let _ = process.finish(false)?;
+        return Ok(());
     }
+}
+
+fn omp_account_command(runtime: &AgentRuntime) -> Result<Command, String> {
+    if !runtime.executable.is_file() {
+        return Err(format!(
+            "The bundled OMP executable is missing at {}.",
+            runtime.executable.display()
+        ));
+    }
+    fs::create_dir_all(&runtime.config).map_err(err)?;
+    let executable = runtime
+        .executable
+        .to_str()
+        .ok_or_else(|| "The OMP executable path is not valid UTF-8.".to_string())?;
+    let mut command = commands::command(executable);
     command
+        .current_dir(&runtime.config)
+        .env("PI_CODING_AGENT_DIR", &runtime.config)
+        .arg("--mode")
+        .arg("rpc")
+        .arg("--no-session")
+        .arg("--no-tools")
+        .arg("--no-extensions")
+        .arg("--no-skills")
+        .arg("--no-rules")
+        .arg("--no-title")
+        .arg("--model")
+        .arg("openai-codex/gpt-5.6-sol");
+    Ok(command)
+}
+
+fn open_browser(url: &str) -> Result<(), String> {
+    if !url.starts_with("https://") && !url.starts_with("http://") {
+        return Err("OMP returned a sign-in URL with an unsupported scheme.".to_string());
+    }
+    #[cfg(target_os = "macos")]
+    let mut command = Command::new("/usr/bin/open");
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut command = Command::new("cmd");
+        command.arg("/C").arg("start").arg("");
+        command
+    };
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    let mut command = Command::new("xdg-open");
+    command
+        .arg(url)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
         .map(|_| ())
-        .map_err(|error| format!("Could not start {provider} sign-in: {error}"))
-}
-
-fn codex_subscription_status() -> SubscriptionStatus {
-    if !commands::available("codex") {
-        return SubscriptionStatus {
-            provider: "codex".to_string(),
-            installed: false,
-            logged_in: false,
-            detail: "Codex CLI is not installed.".to_string(),
-        };
-    }
-    let mut command = commands::command("codex");
-    command.arg("login").arg("status");
-    match commands::output_with_timeout(command, Duration::from_secs(10), "Codex login status") {
-        Ok(output) => {
-            let detail = format!(
-                "{}{}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            )
-            .trim()
-            .to_string();
-            SubscriptionStatus {
-                provider: "codex".to_string(),
-                installed: true,
-                logged_in: output.status.success() && detail.to_lowercase().contains("logged in"),
-                detail: if detail.is_empty() {
-                    "Codex login status is unavailable.".to_string()
-                } else {
-                    detail
-                },
-            }
-        }
-        Err(error) => SubscriptionStatus {
-            provider: "codex".to_string(),
-            installed: true,
-            logged_in: false,
-            detail: error,
-        },
-    }
-}
-
-fn claude_subscription_status() -> SubscriptionStatus {
-    if !commands::available("claude") {
-        return SubscriptionStatus {
-            provider: "claude".to_string(),
-            installed: false,
-            logged_in: false,
-            detail: "Claude Code CLI is not installed.".to_string(),
-        };
-    }
-    let mut command = commands::command("claude");
-    command.arg("auth").arg("status");
-    match commands::output_with_timeout(command, Duration::from_secs(10), "Claude login status") {
-        Ok(output) => {
-            let value = serde_json::from_slice::<Value>(&output.stdout).unwrap_or(Value::Null);
-            let logged_in = value
-                .get("loggedIn")
-                .and_then(Value::as_bool)
-                .unwrap_or(false);
-            let subscription = value
-                .get("subscriptionType")
-                .and_then(Value::as_str)
-                .map(|name| format!("{} subscription", title_case(name)));
-            let email = value
-                .get("email")
-                .and_then(Value::as_str)
-                .map(ToString::to_string);
-            let detail = [subscription, email]
-                .into_iter()
-                .flatten()
-                .collect::<Vec<_>>()
-                .join(" · ");
-            SubscriptionStatus {
-                provider: "claude".to_string(),
-                installed: true,
-                logged_in,
-                detail: if detail.is_empty() {
-                    if logged_in {
-                        "Signed in to Claude.".to_string()
-                    } else {
-                        "Claude is not signed in.".to_string()
-                    }
-                } else {
-                    detail
-                },
-            }
-        }
-        Err(error) => SubscriptionStatus {
-            provider: "claude".to_string(),
-            installed: true,
-            logged_in: false,
-            detail: error,
-        },
-    }
-}
-
-fn title_case(value: &str) -> String {
-    let mut characters = value.chars();
-    match characters.next() {
-        Some(first) => first.to_uppercase().collect::<String>() + characters.as_str(),
-        None => String::new(),
-    }
+        .map_err(|error| format!("Could not open the OMP sign-in page: {error}"))
 }
 
 fn err(error: impl std::fmt::Display) -> String {
