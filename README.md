@@ -12,7 +12,7 @@ It is intended to validate the complete writing loop before collaboration and ho
 - Start new projects with the official NeurIPS 2026 preprint style and a concise research-paper skeleton.
 - Browse, create, delete, scroll, and directly edit project source files with a full-height, soft-wrapping CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
 - Write in a softly tinted CodeMirror canvas with MonoLisa as the default editor font and parser-aware LaTeX highlighting derived from the Lux Light palette.
-- Get automatic braces after citation commands, bibliography-key completion inside `\\cite{...}`, citation metadata on `\\cite` hover, and local figure, table, equation, or section previews on `\\ref` hover.
+- Get automatic braces after citation commands, bibliography-key completion inside `\\cite{...}`, citation metadata on `\\cite` hover, and local figure, table, equation, or section previews on `\\ref` hover, including first-page thumbnails for PDF figures.
 - Compile the default root document with the local `latexmk` installation, including an immediate build whenever a project is entered.
 - Choose manual builds or automatic builds that run when you leave the editor or pause typing for 1.2 seconds.
 - Review every generated PDF page in one continuously scrolling column beside the source, with a draggable split divider and a themed PDF.js toolbar for page navigation, zoom, native Save As export, and click-to-source SyncTeX navigation.

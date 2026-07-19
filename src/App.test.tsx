@@ -7,6 +7,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { getDocument } from "pdfjs-dist";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { referenceAssetPreviewDataUrl } from "./reference-preview";
 
 const windowApi = vi.hoisted(() => ({
   startDragging: vi.fn(),
@@ -86,6 +87,29 @@ afterEach(() => {
 });
 
 describe("welcome screen", () => {
+  it("renders the first page of a PDF figure for reference hover previews", async () => {
+    const render = vi.fn(() => ({ promise: Promise.resolve() }));
+    const destroy = vi.fn(() => Promise.resolve());
+    const getViewport = vi.fn(({ scale }: { scale: number }) => ({ width: 500 * scale, height: 300 * scale }));
+    vi.mocked(getDocument).mockReturnValue({
+      promise: Promise.resolve({
+        getPage: vi.fn(() => Promise.resolve({ getViewport, render })),
+      }),
+      destroy,
+    } as never);
+    const image = "data:image/png;base64,preview";
+    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(image);
+
+    await expect(referenceAssetPreviewDataUrl({
+      path: "figures/result.pdf",
+      mimeType: "application/pdf",
+      base64: "JVBERi0xLjQ=",
+    })).resolves.toBe(image);
+
+    expect(render).toHaveBeenCalledWith(expect.objectContaining({ background: "#ffffff" }));
+    expect(destroy).toHaveBeenCalled();
+  });
+
   it("offers project creation and existing folder import", () => {
     render(<App />);
     expect(screen.getByRole("heading", { name: "Research, written with evidence." })).toBeInTheDocument();
@@ -1007,6 +1031,7 @@ describe("project workspace", () => {
     expect(sentMessage.textContent).toContain("\n");
     const streamedReply = screen.getByText("Reviewing the abstract as evidence arrives…");
     expect(streamedReply.closest(".chat-message.streaming")).not.toBeNull();
+    expect(screen.getAllByTitle("Copy agent response")).toHaveLength(1);
     fireEvent.click(screen.getByTitle("Copy user message"));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(message));
     expect(screen.getByTitle("Copy user message").closest(".message-body")).toBeNull();

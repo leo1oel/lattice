@@ -249,14 +249,15 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .message-avatar { width: 22px; height: 22px; flex: none; border-radius: 7px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
 .message-body p { max-width: 100%; margin: 0; overflow-wrap: anywhere; word-break: break-word; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; }
 .message-actions { min-height: 21px; display: flex; justify-content: flex-end; gap: 2px; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-2px); transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s; }
-.user-message-actions { position: absolute; top: 100%; right: -3px; margin-top: 2px; }
-.chat-message.user:hover .message-actions, .message-actions:focus-within { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); transition-delay: 0s; }
+.user-message-actions { position: absolute; top: 100%; right: -3px; padding-top: 2px; }
+.chat-message.user .message-body:hover + .message-actions, .user-message-actions:hover, .message-actions:focus-within { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); transition-delay: 0s; }
 .message-actions button { height: 21px; padding: 0 4px; border-radius: 5px; background: transparent; color: var(--faint); display: flex; align-items: center; gap: 3px; font-size: 8px; }
 .message-actions button:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); }
 .message-copy { width: 21px; justify-content: center; }
-.agent-message-meta { min-width: 0; display: flex; align-items: flex-end; gap: 4px; margin-top: 8px; }
+.agent-message-meta { min-width: 0; display: flex; align-items: flex-start; gap: 4px; margin-top: 8px; }
 .agent-message-meta .changed-files { min-width: 0; margin-top: 0; }
-.agent-message-copy { width: 23px; height: 23px; flex: none; border-radius: 5px; background: transparent; color: var(--faint); display: grid; place-items: center; opacity: .7; }
+.agent-message-meta .changed-files span, .agent-message-copy { height: 22px; box-sizing: border-box; }
+.agent-message-copy { width: 22px; flex: none; border-radius: 5px; background: transparent; color: var(--faint); display: grid; place-items: center; opacity: .7; }
 .agent-message-copy:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); opacity: 1; }
 .chat-message.streaming .message-body p::after { content: ""; width: 1.5px; height: .95em; margin-left: 3px; display: inline-block; vertical-align: -.08em; border-radius: 1px; background: var(--accent); animation: stream-cursor .8s steps(1) infinite; }
 .skills-used { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }

@@ -59,6 +59,7 @@ import {
   type ReferenceInfo,
 } from "./latex-editor";
 import { latexFigureInsertion } from "./figure-insertion";
+import { referenceAssetPreviewDataUrl, type ReferenceAssetPreview } from "./reference-preview";
 import "./App.css";
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -91,11 +92,7 @@ type ProjectSnapshot = {
   files: FileNode[];
 };
 
-type AssetPreview = {
-  path: string;
-  mimeType: string;
-  base64: string;
-};
+type AssetPreview = ReferenceAssetPreview;
 
 type FigureDropRequest = {
   id: string;
@@ -261,6 +258,7 @@ function App() {
   const [citationKeys, setCitationKeys] = useState<string[]>([]);
   const [citations, setCitations] = useState<CitationInfo[]>([]);
   const [references, setReferences] = useState<ReferenceInfo[]>([]);
+  const referencePreviewCache = useRef(new Map<string, Promise<string | null>>());
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
   const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
@@ -731,10 +729,21 @@ function App() {
     }
   }, []);
 
-  const loadReferenceImage = useCallback(async (path: string) => {
-    const asset = await invoke<AssetPreview>("read_project_asset", { path });
-    if (!asset.mimeType.startsWith("image/")) return null;
-    return `data:${asset.mimeType};base64,${asset.base64}`;
+  useEffect(() => {
+    referencePreviewCache.current.clear();
+  }, [project?.root, references]);
+
+  const loadReferenceImage = useCallback((path: string) => {
+    const cached = referencePreviewCache.current.get(path);
+    if (cached) return cached;
+    const preview = invoke<AssetPreview>("read_project_asset", { path })
+      .then(referenceAssetPreviewDataUrl)
+      .catch((reason) => {
+        referencePreviewCache.current.delete(path);
+        throw reason;
+      });
+    referencePreviewCache.current.set(path, preview);
+    return preview;
   }, []);
 
   const openProjectAssetFromClick = useCallback((path: string) => {
@@ -2329,11 +2338,11 @@ function AgentPanel({
               <div className="message-body">
                 <p>{message.text}</p>
                 {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
-                {message.role === "agent" && <div className="agent-message-meta">
+                {message.role === "agent" && (message.id !== "welcome" || !!message.files?.length) && <div className="agent-message-meta">
                   {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
-                  <button className="agent-message-copy" title="Copy agent response" onClick={() => void copyMessage(message)}>
+                  {message.id !== "welcome" && <button className="agent-message-copy" title="Copy agent response" onClick={() => void copyMessage(message)}>
                     {copiedMessageId === message.id ? <Check size={11} /> : <Copy size={11} />}
-                  </button>
+                  </button>}
                 </div>}
               </div>
               {message.role === "user" && <div className="message-actions user-message-actions">
