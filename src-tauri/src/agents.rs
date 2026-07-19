@@ -70,7 +70,9 @@ pub fn run(
     on_event(AgentStreamEvent::Status {
         message: "Starting agent…".to_string(),
     });
-    let outcome = run_omp(root, runtime, &request, on_event);
+    let outcome = run_omp(root, runtime, &request, on_event).map_err(|error| {
+        rewrite_agent_auth_error(runtime, &request.settings.provider, &error)
+    });
     let transaction = project::record_external_changes(
         root,
         &before,
@@ -693,14 +695,20 @@ fn compact_label(message: &str) -> String {
 
 fn prepare_auth(runtime: &AgentRuntime, provider: &str) -> Result<OmpAuth, String> {
     match provider {
-        "codex" => Ok(OmpAuth {
-            provider: "openai-codex",
-            environment: legacy_subscription_environment(runtime, "codex"),
-        }),
-        "claude" => Ok(OmpAuth {
-            provider: "anthropic",
-            environment: legacy_subscription_environment(runtime, "claude"),
-        }),
+        "codex" => {
+            ensure_subscription_auth(runtime, "codex")?;
+            Ok(OmpAuth {
+                provider: "openai-codex",
+                environment: legacy_subscription_environment(runtime, "codex"),
+            })
+        }
+        "claude" => {
+            ensure_subscription_auth(runtime, "claude")?;
+            Ok(OmpAuth {
+                provider: "anthropic",
+                environment: legacy_subscription_environment(runtime, "claude"),
+            })
+        }
         "openai-api" => Ok(OmpAuth {
             provider: "openai",
             environment: Some(("OPENAI_API_KEY", load_api_key("openai")?)),
@@ -711,6 +719,96 @@ fn prepare_auth(runtime: &AgentRuntime, provider: &str) -> Result<OmpAuth, Strin
         }),
         _ => Err("Choose Codex, Claude, OpenAI API, or Anthropic API.".to_string()),
     }
+}
+
+fn ensure_subscription_auth(runtime: &AgentRuntime, provider: &str) -> Result<(), String> {
+    if omp_auth_marker(runtime, provider).is_file() {
+        return Ok(());
+    }
+    if has_legacy_subscription_token(provider) {
+        return Ok(());
+    }
+    match omp_provider_authenticated(runtime, provider) {
+        Ok(true) => {
+            fs::write(omp_auth_marker(runtime, provider), "OMP\n").map_err(err)?;
+            Ok(())
+        }
+        Ok(false) => Err(subscription_sign_in_guidance(provider)),
+        Err(_) => Err(subscription_sign_in_guidance(provider)),
+    }
+}
+
+fn has_legacy_subscription_token(provider: &str) -> bool {
+    match provider {
+        "codex" => codex_access_token().is_ok(),
+        "claude" => claude_access_token().is_ok(),
+        _ => false,
+    }
+}
+
+fn omp_provider_authenticated(runtime: &AgentRuntime, provider: &str) -> Result<bool, String> {
+    let omp_id = match provider {
+        "codex" => "openai-codex",
+        "claude" => "anthropic",
+        _ => return Err("Unknown subscription provider.".to_string()),
+    };
+    let mut process = JsonLineProcess::spawn(omp_account_command(runtime)?, "OMP accounts")?;
+    let response = process.request("lattice-login-providers", "get_login_providers", json!({}))?;
+    let _ = process.finish(false)?;
+    let providers = response
+        .pointer("/data/providers")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "OMP did not return its login providers.".to_string())?;
+    Ok(providers.iter().any(|account| {
+        account.get("id").and_then(Value::as_str) == Some(omp_id)
+            && account
+                .get("authenticated")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+    }))
+}
+
+fn subscription_sign_in_guidance(provider: &str) -> String {
+    match provider {
+        "codex" => "Sign in to Codex in Settings → Subscriptions before using the Codex subscription.".to_string(),
+        "claude" => "Sign in to Claude in Settings → Subscriptions before using the Claude subscription.".to_string(),
+        _ => "Sign in through Settings → Subscriptions before using this subscription.".to_string(),
+    }
+}
+
+fn api_key_guidance(provider: &str) -> String {
+    match provider {
+        "openai" | "openai-api" => {
+            "Add an OpenAI API key in Settings → API keys before using the OpenAI API provider.".to_string()
+        }
+        "anthropic" | "anthropic-api" => {
+            "Add an Anthropic API key in Settings → API keys before using the Anthropic API provider.".to_string()
+        }
+        _ => "Add an API key in Settings → API keys before using this provider.".to_string(),
+    }
+}
+
+fn rewrite_agent_auth_error(runtime: &AgentRuntime, provider: &str, error: &str) -> String {
+    if !looks_like_missing_auth_error(error) {
+        return error.to_string();
+    }
+    match provider {
+        "codex" | "claude" => {
+            let _ = fs::remove_file(omp_auth_marker(runtime, provider));
+            subscription_sign_in_guidance(provider)
+        }
+        "openai-api" | "anthropic-api" => api_key_guidance(provider),
+        _ => error.to_string(),
+    }
+}
+
+fn looks_like_missing_auth_error(error: &str) -> bool {
+    let lower = error.to_ascii_lowercase();
+    lower.contains("no api key found")
+        || lower.contains("use /login")
+        || lower.contains("agent.db")
+        || lower.contains("no credentials")
+        || lower.contains("not authenticated")
 }
 
 fn legacy_subscription_environment(
@@ -978,9 +1076,7 @@ fn load_api_key(provider: &str) -> Result<String, String> {
     keyring::Entry::new("app.leo1oel.researchwriter", provider)
         .map_err(err)?
         .get_password()
-        .map_err(|_| {
-            format!("No {provider} API key is configured. Open agent settings to add one.")
-        })
+        .map_err(|_| api_key_guidance(provider))
 }
 
 fn keychain_provider(provider: &str) -> Result<&str, String> {
@@ -1223,6 +1319,39 @@ mod tests {
         assert_eq!(omp_thinking_level("none"), "off");
         assert_eq!(omp_thinking_level("high"), "high");
         assert_eq!(omp_thinking_level("ultra"), "max");
+    }
+
+    #[test]
+    fn rewrites_omp_missing_key_errors_to_settings_guidance() {
+        let runtime = AgentRuntime {
+            executable: PathBuf::from("/tmp/missing-omp"),
+            assets: PathBuf::from("/tmp/missing-omp-assets"),
+            config: std::env::temp_dir().join(format!("lattice-omp-auth-{}", uuid::Uuid::new_v4())),
+        };
+        fs::create_dir_all(&runtime.config).unwrap();
+        fs::write(omp_auth_marker(&runtime, "claude"), "OMP\n").unwrap();
+        let rewritten = rewrite_agent_auth_error(
+            &runtime,
+            "claude",
+            "No API key found for anthropic.\n\nUse /login, set an API key environment variable, or create agent.db",
+        );
+        assert!(rewritten.contains("Settings → Subscriptions"));
+        assert!(!rewritten.contains("/login"));
+        assert!(!omp_auth_marker(&runtime, "claude").is_file());
+        assert!(rewrite_agent_auth_error(&runtime, "openai-api", "No API key found for openai.")
+            .contains("Settings → API keys"));
+        assert_eq!(
+            rewrite_agent_auth_error(&runtime, "claude", "Model timed out."),
+            "Model timed out."
+        );
+        fs::remove_dir_all(&runtime.config).unwrap();
+    }
+
+    #[test]
+    fn subscription_guidance_points_at_settings() {
+        assert!(subscription_sign_in_guidance("claude").contains("Settings → Subscriptions"));
+        assert!(subscription_sign_in_guidance("codex").contains("Settings → Subscriptions"));
+        assert!(api_key_guidance("anthropic-api").contains("Settings → API keys"));
     }
 
     #[test]

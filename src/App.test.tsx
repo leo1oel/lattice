@@ -444,6 +444,45 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project"));
   });
 
+  it("opens Settings → Subscriptions when Claude subscription auth is missing", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "write_project_file") return undefined;
+      if (command === "run_agent") {
+        throw new Error("Sign in to Claude in Settings → Subscriptions before using the Claude subscription.");
+      }
+      if (command === "subscription_status") return [
+        { provider: "codex", installed: true, loggedIn: false, detail: "Sign in through OMP · ChatGPT Codex subscription" },
+        { provider: "claude", installed: true, loggedIn: false, detail: "Sign in through OMP · Claude Pro or Max subscription" },
+      ];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    fireEvent.change(await screen.findByLabelText("Agent provider"), { target: { value: "claude" } });
+    const composer = screen.getByPlaceholderText(/ask the agent/i);
+    fireEvent.change(composer, { target: { value: "Revise the abstract." } });
+    fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
+
+    expect(await screen.findByText(/Sign in to Claude in Settings → Subscriptions/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Subscriptions" })).toBeInTheDocument();
+    expect(await screen.findAllByRole("button", { name: "Sign in with OMP" })).toHaveLength(2);
+  });
+
   it("shows subscription status in settings without asking for an API key", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",

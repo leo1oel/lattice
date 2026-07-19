@@ -1095,6 +1095,35 @@ function App() {
     }
   }, [activeSession, agentModel, agentRunning, provider, reasoningEffort]);
 
+  const refreshApiKeys = useCallback(async () => {
+    const statuses = await invoke<[string, boolean][]>("api_key_status");
+    setApiKeyStatus(Object.fromEntries(statuses));
+  }, []);
+
+  const refreshSubscriptions = useCallback(async () => {
+    setSubscriptionsLoading(true);
+    try {
+      setSubscriptions(await invoke<SubscriptionStatus[]>("subscription_status"));
+    } catch (reason) {
+      setError(toMessage(reason));
+    } finally {
+      setSubscriptionsLoading(false);
+    }
+  }, []);
+
+  const refreshAgentSkills = useCallback(async () => {
+    setAgentSkills(await invoke<AgentSkill[]>("list_agent_skills"));
+  }, []);
+
+  const openSettings = useCallback((tab: SettingsTab = "appearance") => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+    setSubscriptionNotice("");
+    if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
+    if (tab === "accounts") void refreshSubscriptions();
+    if (tab === "agent") void refreshAgentSkills().catch((reason) => setError(toMessage(reason)));
+  }, [refreshAgentSkills, refreshApiKeys, refreshSubscriptions]);
+
   const sendToAgent = useCallback(async () => {
     const message = agentInput.trim();
     if (!message || agentRunning) return;
@@ -1188,11 +1217,14 @@ function App() {
       await refreshHistory();
       if (result.changedFiles.length) await compile();
     } catch (reason) {
+      const text = toMessage(reason);
       const failedMessages: ChatMessage[] = [
         ...currentMessages,
-        { id: crypto.randomUUID(), role: "system", text: toMessage(reason) },
+        { id: crypto.randomUUID(), role: "system", text },
       ];
       setMessages(failedMessages);
+      const authTab = settingsTabForAuthError(text);
+      if (authTab) openSettings(authTab);
       if (session) {
         try {
           const saved = await invoke<AgentSession>("save_agent_session", {
@@ -1209,7 +1241,7 @@ function App() {
       setAgentStreaming(false);
       setAgentStatus("");
     }
-  }, [activeFile, activeSession, agentInput, agentModel, agentRunning, branchSource, compile, loadFile, messages, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
+  }, [activeFile, activeSession, agentInput, agentModel, agentRunning, branchSource, compile, loadFile, messages, openSettings, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
 
   const editAndBranch = useCallback((message: ChatMessage) => {
     if (!activeSession || agentRunning || message.role !== "user") return;
@@ -1231,26 +1263,6 @@ function App() {
     },
     [activeFile, compile, loadFile, refreshHistory, refreshProject],
   );
-
-  const refreshApiKeys = useCallback(async () => {
-    const statuses = await invoke<[string, boolean][]>("api_key_status");
-    setApiKeyStatus(Object.fromEntries(statuses));
-  }, []);
-
-  const refreshSubscriptions = useCallback(async () => {
-    setSubscriptionsLoading(true);
-    try {
-      setSubscriptions(await invoke<SubscriptionStatus[]>("subscription_status"));
-    } catch (reason) {
-      setError(toMessage(reason));
-    } finally {
-      setSubscriptionsLoading(false);
-    }
-  }, []);
-
-  const refreshAgentSkills = useCallback(async () => {
-    setAgentSkills(await invoke<AgentSkill[]>("list_agent_skills"));
-  }, []);
 
   const saveAgentSkill = useCallback(async (draft: SkillDraft) => {
     try {
@@ -1282,15 +1294,6 @@ function App() {
       setError(toMessage(reason));
     }
   }, [refreshAgentSkills]);
-
-  const openSettings = useCallback((tab: SettingsTab = "appearance") => {
-    setSettingsTab(tab);
-    setSettingsOpen(true);
-    setSubscriptionNotice("");
-    if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
-    if (tab === "accounts") void refreshSubscriptions();
-    if (tab === "agent") void refreshAgentSkills().catch((reason) => setError(toMessage(reason)));
-  }, [refreshAgentSkills, refreshApiKeys, refreshSubscriptions]);
 
   const beginSubscriptionLogin = useCallback(async (providerName: "codex" | "claude") => {
     setSubscriptionsLoading(true);
@@ -3236,6 +3239,12 @@ function beginWindowDrag(event: React.MouseEvent<HTMLElement>) {
 
 function toMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
+}
+
+function settingsTabForAuthError(message: string): SettingsTab | null {
+  if (/Settings → Subscriptions/i.test(message)) return "accounts";
+  if (/Settings → API keys/i.test(message)) return "api";
+  return null;
 }
 
 function modelOptions(provider: AgentProvider): ModelOption[] {
