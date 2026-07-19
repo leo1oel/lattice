@@ -264,4 +264,5 @@ pub struct AgentResult {
 pub enum AgentStreamEvent {
     Status { message: String },
     Text { text: String },
+    Cancellable { enabled: bool },
 }

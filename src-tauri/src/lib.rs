@@ -275,6 +275,14 @@ async fn run_agent(
 }
 
 #[tauri::command]
+fn abort_agent(
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+) -> Result<bool, String> {
+    state.agent_runtime.abort_run(&session_id)
+}
+
+#[tauri::command]
 async fn subscription_status(
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<SubscriptionStatus>, String> {
@@ -516,11 +524,11 @@ pub fn run() {
                 .map_err(|error| error.to_string())?
                 .join("omp");
             let (executable, assets) = agent_runtime_paths(app)?;
-            app.manage(AppState::from_environment(agents::AgentRuntime {
+            app.manage(AppState::from_environment(agents::AgentRuntime::new(
                 executable,
                 assets,
                 config,
-            }));
+            )));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -549,6 +557,7 @@ pub fn run() {
             rename_paper,
             delete_paper,
             run_agent,
+            abort_agent,
             subscription_status,
             begin_subscription_login,
             save_api_key,

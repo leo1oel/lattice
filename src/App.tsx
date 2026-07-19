@@ -46,6 +46,7 @@ import {
   Send,
   Settings2,
   Sparkles,
+  Square,
   Trash2,
   X,
   ZoomIn,
@@ -156,7 +157,8 @@ type AgentResult = {
 
 type AgentStreamEvent =
   | { type: "status"; message: string }
-  | { type: "text"; text: string };
+  | { type: "text"; text: string }
+  | { type: "cancellable"; enabled: boolean };
 
 type PaperSummary = {
   arxivId: string;
@@ -284,6 +286,8 @@ function App() {
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentStreaming, setAgentStreaming] = useState(false);
   const [agentStatus, setAgentStatus] = useState("");
+  const [agentStopping, setAgentStopping] = useState(false);
+  const [agentCancellable, setAgentCancellable] = useState(false);
   const [importInput, setImportInput] = useState("");
   const [importing, setImporting] = useState(false);
   const [assetImporting, setAssetImporting] = useState(false);
@@ -321,6 +325,7 @@ function App() {
   const buildingRef = useRef(false);
   const buildQueued = useRef(false);
   const chatEnd = useRef<HTMLDivElement | null>(null);
+  const runningAgentSession = useRef<string | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const agentMentions = useMemo(
     () => buildAgentMentions(project?.files ?? [], papers),
@@ -1130,6 +1135,8 @@ function App() {
     setAgentInput("");
     setAgentRunning(true);
     setAgentStreaming(false);
+    setAgentStopping(false);
+    setAgentCancellable(false);
     setAgentStatus(branchSource ? "Creating conversation branch…" : "Reading project context…");
     let session = activeSession;
     let currentMessages = messages;
@@ -1164,6 +1171,10 @@ function App() {
       currentMessages = pendingMessages;
       setMessages(pendingMessages);
       const onEvent = new Channel<AgentStreamEvent>((event) => {
+        if (event.type === "cancellable") {
+          setAgentCancellable(event.enabled);
+          return;
+        }
         if (event.type === "status") {
           setAgentStatus(event.message);
           return;
@@ -1184,6 +1195,7 @@ function App() {
       });
       setActiveSession(session);
       await refreshAgentSessions();
+      runningAgentSession.current = session.id;
       const result = await invoke<AgentResult>("run_agent", {
         onEvent,
         request: {
@@ -1236,11 +1248,28 @@ function App() {
         }
       }
     } finally {
+      runningAgentSession.current = null;
       setAgentRunning(false);
       setAgentStreaming(false);
+      setAgentStopping(false);
+      setAgentCancellable(false);
       setAgentStatus("");
     }
   }, [activeFile, activeSession, agentInput, agentModel, agentRunning, branchSource, compile, loadFile, messages, openSettings, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
+
+  const stopAgent = useCallback(async () => {
+    const sessionId = runningAgentSession.current;
+    if (!sessionId || agentStopping) return;
+    setAgentStopping(true);
+    setAgentStatus("Stopping agent…");
+    try {
+      const stopped = await invoke<boolean>("abort_agent", { sessionId });
+      if (!stopped) setAgentStatus("Agent is already finishing…");
+    } catch (reason) {
+      setAgentStopping(false);
+      setError(toMessage(reason));
+    }
+  }, [agentStopping]);
 
   const editAndBranch = useCallback((message: ChatMessage) => {
     if (!activeSession || agentRunning || message.role !== "user") return;
@@ -1571,7 +1600,10 @@ function App() {
           running={agentRunning}
           streaming={agentStreaming}
           status={agentStatus}
+          cancellable={agentCancellable}
+          stopping={agentStopping}
           onSend={sendToAgent}
+          onStop={stopAgent}
           onApiSettings={() => openSettings("api")}
           selection={selection}
           branchSource={branchSource}
@@ -2169,7 +2201,10 @@ function AgentPanel({
   running,
   streaming,
   status,
+  cancellable,
+  stopping,
   onSend,
+  onStop,
   onApiSettings,
   selection,
   branchSource,
@@ -2197,7 +2232,10 @@ function AgentPanel({
   running: boolean;
   streaming: boolean;
   status: string;
+  cancellable: boolean;
+  stopping: boolean;
   onSend: () => void;
+  onStop: () => void;
   onApiSettings: () => void;
   selection: string;
   branchSource: { sessionId: string; messageId: string } | null;
@@ -2434,8 +2472,10 @@ function AgentPanel({
             }}
           />
           <div className="composer-footer">
-            <span>Enter sends · Shift+Enter adds a line</span>
-            <button title="Send message" onClick={() => { setMention(null); onSend(); }} disabled={running || !input.trim()}><Send size={14} /></button>
+            <span>{running ? status || "Agent is working…" : "Enter sends · Shift+Enter adds a line"}</span>
+            {running
+              ? <button className="stop-agent-button" title={stopping ? "Stopping agent" : "Stop agent"} onClick={onStop} disabled={!cancellable || stopping}><Square size={12} fill="currentColor" /></button>
+              : <button title="Send message" onClick={() => { setMention(null); onSend(); }} disabled={!input.trim()}><Send size={14} /></button>}
           </div>
         </div>
       </div>

@@ -292,6 +292,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .composer-footer { min-height: 32px; padding: 4px 6px 6px 11px; display: flex; align-items: center; justify-content: space-between; color: var(--faint); font-size: 9px; }
 .composer-footer > span { min-width: 0; padding-right: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .composer-footer button { width: 26px; height: 26px; border-radius: 7px; background: var(--text); color: var(--bg); display: grid; place-items: center; }
+.composer-footer .stop-agent-button { background: color-mix(in srgb, var(--danger) 12%, var(--panel-strong)); color: var(--danger); }
+.composer-footer .stop-agent-button:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 20%, var(--panel-strong)); }
 
 .canvas-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
 .canvas-toolbar { height: 44px; flex: none; padding: 0 10px 0 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; background: var(--panel); }

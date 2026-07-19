@@ -8,23 +8,138 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
+use std::sync::{Arc, Mutex, Weak};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 const AGENT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SUBSCRIPTION_AUTH_ERROR_PREFIX: &str = "LATTICE_AUTH_SUBSCRIPTION:";
 const API_KEY_AUTH_ERROR_PREFIX: &str = "LATTICE_AUTH_API_KEY:";
+const AGENT_STOPPED_ERROR_PREFIX: &str = "LATTICE_AGENT_STOPPED:";
 
 #[derive(Clone)]
 pub struct AgentRuntime {
     pub executable: PathBuf,
     pub assets: PathBuf,
     pub config: PathBuf,
+    active_runs: Arc<Mutex<HashMap<String, ActiveRun>>>,
+}
+
+#[derive(Clone)]
+struct ActiveRun {
+    stdin: Weak<Mutex<ChildStdin>>,
+    cancellation_requested: Arc<AtomicBool>,
+}
+
+impl AgentRuntime {
+    pub fn new(executable: PathBuf, assets: PathBuf, config: PathBuf) -> Self {
+        Self {
+            executable,
+            assets,
+            config,
+            active_runs: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    fn register_run(
+        &self,
+        session_id: &str,
+        stdin: Weak<Mutex<ChildStdin>>,
+    ) -> Result<ActiveRunRegistration, String> {
+        let mut runs = self
+            .active_runs
+            .lock()
+            .map_err(|_| "Agent run state is unavailable.".to_string())?;
+        if runs
+            .get(session_id)
+            .is_some_and(|run| run.stdin.upgrade().is_some())
+        {
+            return Err("This conversation already has an agent running.".to_string());
+        }
+        let cancellation_requested = Arc::new(AtomicBool::new(false));
+        runs.insert(
+            session_id.to_string(),
+            ActiveRun {
+                stdin,
+                cancellation_requested: Arc::clone(&cancellation_requested),
+            },
+        );
+        Ok(ActiveRunRegistration {
+            runtime: self.clone(),
+            session_id: session_id.to_string(),
+            cancellation_requested,
+        })
+    }
+
+    pub fn abort_run(&self, session_id: &str) -> Result<bool, String> {
+        let active = self
+            .active_runs
+            .lock()
+            .map_err(|_| "Agent run state is unavailable.".to_string())?
+            .get(session_id)
+            .cloned();
+        let Some(active) = active else {
+            return Ok(false);
+        };
+        if active.cancellation_requested.swap(true, Ordering::SeqCst) {
+            return Ok(true);
+        }
+        let Some(stdin) = active.stdin.upgrade() else {
+            return Ok(false);
+        };
+        let _ = write_json_line(
+            &stdin,
+            &json!({ "id": "lattice-abort", "type": "abort" }),
+            "Lattice agent",
+        );
+        Ok(true)
+    }
+}
+
+struct ActiveRunRegistration {
+    runtime: AgentRuntime,
+    session_id: String,
+    cancellation_requested: Arc<AtomicBool>,
+}
+
+impl ActiveRunRegistration {
+    fn was_cancelled(&self) -> bool {
+        self.cancellation_requested.load(Ordering::SeqCst)
+    }
+
+    fn result_or_cancelled<T>(&self, result: Result<T, String>) -> Result<T, String> {
+        result.map_err(|error| {
+            if self.was_cancelled() {
+                agent_stopped_error()
+            } else {
+                error
+            }
+        })
+    }
+}
+
+impl Drop for ActiveRunRegistration {
+    fn drop(&mut self) {
+        let Ok(mut runs) = self.runtime.active_runs.lock() else {
+            return;
+        };
+        let is_current = runs.get(&self.session_id).is_some_and(|run| {
+            Arc::ptr_eq(
+                &run.cancellation_requested,
+                &self.cancellation_requested,
+            )
+        });
+        if is_current {
+            runs.remove(&self.session_id);
+        }
+    }
 }
 
 pub struct AgentRequest<'a> {
@@ -52,6 +167,11 @@ struct OmpSessionRef {
 struct OmpAuth {
     provider: &'static str,
     environment: Option<(&'static str, String)>,
+}
+
+struct OmpRunResult {
+    summary: String,
+    skills_used: Vec<String>,
 }
 
 pub fn run(
@@ -93,8 +213,19 @@ pub fn run(
         .unwrap_or_default();
 
     match outcome {
-        Ok(summary) => Ok(AgentResult {
-            summary,
+        Ok(outcome) => Ok(AgentResult {
+            summary: outcome.summary,
+            changed_files,
+            transaction_id: transaction.map(|record| record.id),
+            skills_used: outcome.skills_used,
+        }),
+        Err(error) if error.starts_with(AGENT_STOPPED_ERROR_PREFIX) => Ok(AgentResult {
+            summary: if transaction.is_some() {
+                "Stopped. File changes made before cancellation were preserved in Project History."
+                    .to_string()
+            } else {
+                "Stopped.".to_string()
+            },
             changed_files,
             transaction_id: transaction.map(|record| record.id),
             skills_used: Vec::new(),
@@ -116,7 +247,7 @@ fn run_omp(
     runtime: &AgentRuntime,
     request: &AgentRequest<'_>,
     on_event: &dyn Fn(AgentStreamEvent),
-) -> Result<String, String> {
+) -> Result<OmpRunResult, String> {
     let command = omp_command(
         root,
         runtime,
@@ -127,21 +258,31 @@ fn run_omp(
     )?;
 
     let mut process = JsonLineProcess::spawn(command, "Lattice agent")?;
-    let state = process.request("lattice-session-state", "get_state", json!({}))?;
+    let run_registration =
+        runtime.register_run(request.session_id, process.stdin_handle())?;
+    on_event(AgentStreamEvent::Cancellable { enabled: true });
+    let state = run_registration.result_or_cancelled(process.request(
+        "lattice-session-state",
+        "get_state",
+        json!({}),
+    ))?;
     persist_session_from_state(root, request.session_id, &state)?;
     if !request.session_title.trim().is_empty() {
-        process.request(
+        run_registration.result_or_cancelled(process.request(
             "lattice-session-name",
             "set_session_name",
             json!({ "name": request.session_title.trim() }),
-        )?;
+        ))?;
+    }
+    if run_registration.was_cancelled() {
+        return Err(agent_stopped_error());
     }
     let prompt = editor_prompt(request.message, request.active_file, request.selection);
-    process.send(&json!({
+    run_registration.result_or_cancelled(process.send(&json!({
         "id": "lattice-prompt",
         "type": "prompt",
         "message": prompt
-    }))?;
+    })))?;
 
     on_event(AgentStreamEvent::Status {
         message: "Thinking…".to_string(),
@@ -150,9 +291,16 @@ fn run_omp(
     let mut accepted = false;
     let mut completed = false;
     let mut failure = None;
+    let mut skills_used = BTreeSet::new();
     loop {
-        let Some(value) = process.next_value()? else {
-            let (_, stderr) = process.finish(false)?;
+        let Some(value) =
+            run_registration.result_or_cancelled(process.next_value())?
+        else {
+            let (_, stderr) =
+                run_registration.result_or_cancelled(process.finish(false))?;
+            if run_registration.was_cancelled() {
+                return Err(agent_stopped_error());
+            }
             return Err(format!(
                 "The agent stopped before completing the response.{}",
                 stderr_suffix(&stderr)
@@ -209,8 +357,26 @@ fn run_omp(
                 }
             }
             Some("tool_execution_start") => {
+                if let Some(skill) = tool_skill_name(&value) {
+                    skills_used.insert(skill);
+                }
                 on_event(AgentStreamEvent::Status {
                     message: tool_status(&value),
+                });
+            }
+            Some("tool_execution_end") => {
+                on_event(AgentStreamEvent::Status {
+                    message: "Reviewing tool results…".to_string(),
+                });
+            }
+            Some("auto_compaction_start") => {
+                on_event(AgentStreamEvent::Status {
+                    message: "Compressing conversation context…".to_string(),
+                });
+            }
+            Some("auto_retry_start") | Some("retry_fallback_start") => {
+                on_event(AgentStreamEvent::Status {
+                    message: "Retrying after a temporary model error…".to_string(),
                 });
             }
             Some("extension_error") => {
@@ -238,7 +404,10 @@ fn run_omp(
             break;
         }
     }
-    let (_, stderr) = process.finish(false)?;
+    let (_, stderr) = run_registration.result_or_cancelled(process.finish(false))?;
+    if run_registration.was_cancelled() {
+        return Err(agent_stopped_error());
+    }
     if let Some(error) = failure {
         return Err(format!("{error}{}", stderr_suffix(&stderr)));
     }
@@ -248,10 +417,13 @@ fn run_omp(
             stderr_suffix(&stderr)
         ));
     }
-    Ok(if visible.trim().is_empty() {
-        "Finished working on the project.".to_string()
-    } else {
-        visible.trim().to_string()
+    Ok(OmpRunResult {
+        summary: if visible.trim().is_empty() {
+            "Finished working on the project.".to_string()
+        } else {
+            visible.trim().to_string()
+        },
+        skills_used: skills_used.into_iter().collect(),
     })
 }
 
@@ -687,6 +859,24 @@ fn tool_status(value: &Value) -> String {
     }
 }
 
+fn tool_skill_name(value: &Value) -> Option<String> {
+    if value.get("toolName").and_then(Value::as_str) != Some("read") {
+        return None;
+    }
+    let path = value
+        .get("args")
+        .and_then(|args| args.get("path").or_else(|| args.get("file_path")))
+        .and_then(Value::as_str)?;
+    let components = Path::new(path)
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .collect::<Vec<_>>();
+    components.windows(3).find_map(|window| {
+        (window[0] == "skills" && window[2] == "SKILL.md")
+            .then(|| window[1].to_string())
+    })
+}
+
 fn compact_label(message: &str) -> String {
     let compact = message.split_whitespace().collect::<Vec<_>>().join(" ");
     let mut value = compact.chars().take(64).collect::<String>();
@@ -912,9 +1102,26 @@ fn stderr_suffix(stderr: &str) -> String {
     }
 }
 
+fn agent_stopped_error() -> String {
+    format!("{AGENT_STOPPED_ERROR_PREFIX}The agent was stopped.")
+}
+
+fn write_json_line(
+    stdin: &Arc<Mutex<ChildStdin>>,
+    value: &Value,
+    label: &str,
+) -> Result<(), String> {
+    let mut stdin = stdin
+        .lock()
+        .map_err(|_| format!("{label} input is unavailable."))?;
+    serde_json::to_writer(&mut *stdin, value).map_err(err)?;
+    stdin.write_all(b"\n").map_err(err)?;
+    stdin.flush().map_err(err)
+}
+
 struct JsonLineProcess {
     child: Child,
-    stdin: Option<ChildStdin>,
+    stdin: Option<Arc<Mutex<ChildStdin>>>,
     lines: Receiver<Result<Option<String>, String>>,
     stderr: Option<JoinHandle<Result<String, String>>>,
     deadline: Instant,
@@ -964,7 +1171,7 @@ impl JsonLineProcess {
         });
         Ok(Self {
             child,
-            stdin: Some(stdin),
+            stdin: Some(Arc::new(Mutex::new(stdin))),
             lines,
             stderr: Some(stderr),
             deadline: Instant::now() + AGENT_TIMEOUT,
@@ -973,14 +1180,19 @@ impl JsonLineProcess {
         })
     }
 
-    fn send(&mut self, value: &Value) -> Result<(), String> {
+    fn stdin_handle(&self) -> Weak<Mutex<ChildStdin>> {
+        self.stdin
+            .as_ref()
+            .map(Arc::downgrade)
+            .unwrap_or_default()
+    }
+
+    fn send(&self, value: &Value) -> Result<(), String> {
         let stdin = self
             .stdin
-            .as_mut()
+            .as_ref()
             .ok_or_else(|| format!("{} input is closed.", self.label))?;
-        serde_json::to_writer(&mut *stdin, value).map_err(err)?;
-        stdin.write_all(b"\n").map_err(err)?;
-        stdin.flush().map_err(err)
+        write_json_line(stdin, value, self.label)
     }
 
     fn next_value(&self) -> Result<Option<Value>, String> {
@@ -1335,12 +1547,31 @@ mod tests {
     }
 
     #[test]
+    fn records_skills_read_by_omp_tools() {
+        let skill_read = json!({
+            "toolName": "read",
+            "args": {
+                "path": "/paper/.research/omp-runtime/skills/research-taste/SKILL.md"
+            }
+        });
+        let ordinary_read = json!({
+            "toolName": "read",
+            "args": { "path": "/paper/main.tex" }
+        });
+        assert_eq!(
+            tool_skill_name(&skill_read).as_deref(),
+            Some("research-taste")
+        );
+        assert_eq!(tool_skill_name(&ordinary_read), None);
+    }
+
+    #[test]
     fn rewrites_omp_missing_key_errors_to_settings_guidance() {
-        let runtime = AgentRuntime {
-            executable: PathBuf::from("/tmp/missing-omp"),
-            assets: PathBuf::from("/tmp/missing-omp-assets"),
-            config: std::env::temp_dir().join(format!("lattice-omp-auth-{}", uuid::Uuid::new_v4())),
-        };
+        let runtime = AgentRuntime::new(
+            PathBuf::from("/tmp/missing-omp"),
+            PathBuf::from("/tmp/missing-omp-assets"),
+            std::env::temp_dir().join(format!("lattice-omp-auth-{}", uuid::Uuid::new_v4())),
+        );
         fs::create_dir_all(&runtime.config).unwrap();
         fs::write(omp_auth_marker(&runtime, "claude"), "OMP\n").unwrap();
         let rewritten = rewrite_agent_auth_error(
@@ -1388,6 +1619,51 @@ mod tests {
         assert!(error.contains("Could not check claude subscription status through OMP"));
         assert!(error.contains("bundled OMP executable is missing"));
         assert!(!error.contains(SUBSCRIPTION_AUTH_ERROR_PREFIX));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn sends_abort_to_the_active_omp_process() {
+        let runtime = AgentRuntime::new(
+            PathBuf::from("/tmp/unused-omp"),
+            PathBuf::from("/tmp/unused-assets"),
+            std::env::temp_dir(),
+        );
+        let mut process =
+            JsonLineProcess::spawn(Command::new("/bin/cat"), "test agent").unwrap();
+        let registration = runtime
+            .register_run("test-session", process.stdin_handle())
+            .unwrap();
+
+        assert!(runtime.abort_run("test-session").unwrap());
+        assert!(registration.was_cancelled());
+        let command = process.next_value().unwrap().unwrap();
+        assert_eq!(command.get("type").and_then(Value::as_str), Some("abort"));
+
+        process.finish(true).unwrap();
+        drop(registration);
+        assert!(!runtime.abort_run("test-session").unwrap());
+    }
+
+    #[test]
+    fn preserves_cancellation_when_omp_is_already_closing() {
+        let runtime = AgentRuntime::new(
+            PathBuf::from("/tmp/unused-omp"),
+            PathBuf::from("/tmp/unused-assets"),
+            std::env::temp_dir(),
+        );
+        let registration = runtime
+            .register_run("closing-session", Weak::new())
+            .unwrap();
+
+        assert!(!runtime.abort_run("closing-session").unwrap());
+        assert!(registration.was_cancelled());
+        let error = registration
+            .result_or_cancelled::<()>(Err(
+                "Lattice agent stopped before responding to get_state.".to_string()
+            ))
+            .unwrap_err();
+        assert!(error.starts_with(AGENT_STOPPED_ERROR_PREFIX));
     }
 
     #[test]
@@ -1440,13 +1716,13 @@ mod tests {
         fs::create_dir_all(&parent).unwrap();
         let root = project::create(&parent, "paper").unwrap();
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let runtime = AgentRuntime {
-            executable: manifest
+        let runtime = AgentRuntime::new(
+            manifest
                 .join("binaries")
                 .join("lattice-agent-aarch64-apple-darwin"),
-            assets: manifest.join("omp-assets"),
-            config: parent.join("omp-config"),
-        };
+            manifest.join("omp-assets"),
+            parent.join("omp-config"),
+        );
         let settings = AgentSettings {
             provider: "codex".to_string(),
             model: "gpt-5.6-sol".to_string(),

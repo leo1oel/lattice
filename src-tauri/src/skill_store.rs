@@ -200,7 +200,7 @@ mod tests {
         let config = base.join("config");
         fs::create_dir_all(assets.join("skills/writing")).unwrap();
         fs::write(assets.join("skills/writing/SKILL.md"), "---\nname: writing\ndescription: Built in.\n---\n").unwrap();
-        let runtime = AgentRuntime { executable: base.join("pi"), assets, config };
+        let runtime = AgentRuntime::new(base.join("pi"), assets, config);
         save(&root, &runtime, AgentSkillSaveRequest {
             original_name: None,
             scope: "project".to_string(),

@@ -1090,6 +1090,53 @@ describe("project workspace", () => {
     })));
   });
 
+  it("stops an active agent run from the composer", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    let finishRun: ((result: { summary: string; changedFiles: string[]; skillsUsed: string[] }) => void) | undefined;
+    let runChannel: { onmessage: (event: unknown) => void } | undefined;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "run_agent") {
+        runChannel = (args as { onEvent: { onmessage: (event: unknown) => void } }).onEvent;
+        return new Promise((resolve) => {
+          finishRun = resolve;
+        });
+      }
+      if (command === "abort_agent") {
+        finishRun?.({ summary: "Stopped.", changedFiles: [], skillsUsed: [] });
+        return true;
+      }
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const composer = await screen.findByPlaceholderText(/ask the agent/i);
+    fireEvent.change(composer, { target: { value: "Rewrite the abstract." } });
+    fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
+
+    const stop = await screen.findByTitle("Stop agent");
+    expect(stop).toBeDisabled();
+    runChannel?.onmessage({ type: "cancellable", enabled: true });
+    await waitFor(() => expect(stop).toBeEnabled());
+    fireEvent.click(stop);
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("abort_agent", { sessionId: testSession.id }));
+    expect(await screen.findByText("Stopped.")).toBeInTheDocument();
+  });
+
   it("does not send while an input method is composing text", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
