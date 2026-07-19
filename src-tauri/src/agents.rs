@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -23,6 +23,10 @@ const AGENT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SUBSCRIPTION_AUTH_ERROR_PREFIX: &str = "LATTICE_AUTH_SUBSCRIPTION:";
 const API_KEY_AUTH_ERROR_PREFIX: &str = "LATTICE_AUTH_API_KEY:";
 const AGENT_STOPPED_ERROR_PREFIX: &str = "LATTICE_AGENT_STOPPED:";
+#[cfg(not(test))]
+const CANCEL_GRACE_PERIOD: Duration = Duration::from_secs(2);
+#[cfg(test)]
+const CANCEL_GRACE_PERIOD: Duration = Duration::from_millis(100);
 
 #[derive(Clone)]
 pub struct AgentRuntime {
@@ -36,6 +40,50 @@ pub struct AgentRuntime {
 struct ActiveRun {
     stdin: Weak<Mutex<ChildStdin>>,
     cancellation_requested: Arc<AtomicBool>,
+    process_lifecycle: Arc<ProcessLifecycle>,
+    process_id: u32,
+}
+
+struct ProcessLifecycle {
+    exited: Mutex<bool>,
+    exit_notification: Condvar,
+    termination_sent: AtomicBool,
+}
+
+impl ProcessLifecycle {
+    fn new() -> Self {
+        Self {
+            exited: Mutex::new(false),
+            exit_notification: Condvar::new(),
+            termination_sent: AtomicBool::new(false),
+        }
+    }
+
+    fn mark_exited(&self) {
+        if let Ok(mut exited) = self.exited.lock() {
+            *exited = true;
+            self.exit_notification.notify_all();
+        }
+    }
+
+    fn wait_for_exit(&self, timeout: Duration) -> bool {
+        let Ok(exited) = self.exited.lock() else {
+            return false;
+        };
+        let Ok((exited, _)) = self
+            .exit_notification
+            .wait_timeout_while(exited, timeout, |exited| !*exited)
+        else {
+            return false;
+        };
+        *exited
+    }
+
+    fn terminate_once(&self, process_id: u32) {
+        if !self.termination_sent.swap(true, Ordering::SeqCst) {
+            terminate_process_tree(process_id);
+        }
+    }
 }
 
 impl AgentRuntime {
@@ -52,6 +100,8 @@ impl AgentRuntime {
         &self,
         session_id: &str,
         stdin: Weak<Mutex<ChildStdin>>,
+        process_id: u32,
+        process_lifecycle: Arc<ProcessLifecycle>,
     ) -> Result<ActiveRunRegistration, String> {
         let mut runs = self
             .active_runs
@@ -69,6 +119,8 @@ impl AgentRuntime {
             ActiveRun {
                 stdin,
                 cancellation_requested: Arc::clone(&cancellation_requested),
+                process_lifecycle,
+                process_id,
             },
         );
         Ok(ActiveRunRegistration {
@@ -91,8 +143,12 @@ impl AgentRuntime {
         if active.cancellation_requested.swap(true, Ordering::SeqCst) {
             return Ok(true);
         }
+        schedule_forced_stop(
+            active.process_id,
+            Arc::clone(&active.process_lifecycle),
+        );
         let Some(stdin) = active.stdin.upgrade() else {
-            return Ok(false);
+            return Ok(true);
         };
         let _ = write_json_line(
             &stdin,
@@ -258,8 +314,12 @@ fn run_omp(
     )?;
 
     let mut process = JsonLineProcess::spawn(command, "Lattice agent")?;
-    let run_registration =
-        runtime.register_run(request.session_id, process.stdin_handle())?;
+    let run_registration = runtime.register_run(
+        request.session_id,
+        process.stdin_handle(),
+        process.id(),
+        process.lifecycle_handle(),
+    )?;
     on_event(AgentStreamEvent::Cancellable { enabled: true });
     let state = run_registration.result_or_cancelled(process.request(
         "lattice-session-state",
@@ -1106,6 +1166,39 @@ fn agent_stopped_error() -> String {
     format!("{AGENT_STOPPED_ERROR_PREFIX}The agent was stopped.")
 }
 
+fn schedule_forced_stop(
+    process_id: u32,
+    process_lifecycle: Arc<ProcessLifecycle>,
+) {
+    thread::spawn(move || {
+        if !process_lifecycle.wait_for_exit(CANCEL_GRACE_PERIOD) {
+            process_lifecycle.terminate_once(process_id);
+        }
+    });
+}
+
+#[cfg(unix)]
+fn terminate_process_tree(process_id: u32) {
+    let Ok(process_group) = i32::try_from(process_id) else {
+        return;
+    };
+    // The sidecar is spawned as its own process-group leader, so a negative
+    // pid terminates OMP and any shell tools it started.
+    unsafe {
+        libc::kill(-process_group, libc::SIGKILL);
+    }
+}
+
+#[cfg(windows)]
+fn terminate_process_tree(process_id: u32) {
+    let _ = Command::new("taskkill")
+        .args(["/PID", &process_id.to_string(), "/T", "/F"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
 fn write_json_line(
     stdin: &Arc<Mutex<ChildStdin>>,
     value: &Value,
@@ -1124,6 +1217,7 @@ struct JsonLineProcess {
     stdin: Option<Arc<Mutex<ChildStdin>>>,
     lines: Receiver<Result<Option<String>, String>>,
     stderr: Option<JoinHandle<Result<String, String>>>,
+    process_lifecycle: Arc<ProcessLifecycle>,
     deadline: Instant,
     label: &'static str,
     finished: bool,
@@ -1131,6 +1225,11 @@ struct JsonLineProcess {
 
 impl JsonLineProcess {
     fn spawn(mut command: Command, label: &'static str) -> Result<Self, String> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            command.process_group(0);
+        }
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -1169,15 +1268,21 @@ impl JsonLineProcess {
                 .map_err(|error| error.to_string())?;
             Ok(output)
         });
+        let process_lifecycle = Arc::new(ProcessLifecycle::new());
         Ok(Self {
             child,
             stdin: Some(Arc::new(Mutex::new(stdin))),
             lines,
             stderr: Some(stderr),
+            process_lifecycle,
             deadline: Instant::now() + AGENT_TIMEOUT,
             label,
             finished: false,
         })
+    }
+
+    fn id(&self) -> u32 {
+        self.child.id()
     }
 
     fn stdin_handle(&self) -> Weak<Mutex<ChildStdin>> {
@@ -1185,6 +1290,10 @@ impl JsonLineProcess {
             .as_ref()
             .map(Arc::downgrade)
             .unwrap_or_default()
+    }
+
+    fn lifecycle_handle(&self) -> Arc<ProcessLifecycle> {
+        Arc::clone(&self.process_lifecycle)
     }
 
     fn send(&self, value: &Value) -> Result<(), String> {
@@ -1241,12 +1350,14 @@ impl JsonLineProcess {
     fn finish(&mut self, terminate: bool) -> Result<(ExitStatus, String), String> {
         self.stdin.take();
         if terminate {
+            self.process_lifecycle.terminate_once(self.child.id());
             let _ = self.child.kill();
         }
-        let status = self
-            .child
-            .wait()
-            .map_err(|error| format!("Could not stop {}: {error}", self.label))?;
+        let status = self.child.wait().map_err(|error| {
+            self.process_lifecycle.terminate_once(self.child.id());
+            format!("Could not stop {}: {error}", self.label)
+        })?;
+        self.process_lifecycle.mark_exited();
         self.finished = true;
         let stderr = self
             .stderr
@@ -1261,8 +1372,14 @@ impl JsonLineProcess {
 impl Drop for JsonLineProcess {
     fn drop(&mut self) {
         if !self.finished {
+            self.process_lifecycle.terminate_once(self.child.id());
             let _ = self.child.kill();
             let _ = self.child.wait();
+            self.process_lifecycle.mark_exited();
+            self.finished = true;
+        }
+        if let Some(stderr) = self.stderr.take() {
+            let _ = stderr.join();
         }
     }
 }
@@ -1632,7 +1749,12 @@ mod tests {
         let mut process =
             JsonLineProcess::spawn(Command::new("/bin/cat"), "test agent").unwrap();
         let registration = runtime
-            .register_run("test-session", process.stdin_handle())
+            .register_run(
+                "test-session",
+                process.stdin_handle(),
+                process.id(),
+                process.lifecycle_handle(),
+            )
             .unwrap();
 
         assert!(runtime.abort_run("test-session").unwrap());
@@ -1645,6 +1767,35 @@ mod tests {
         assert!(!runtime.abort_run("test-session").unwrap());
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn force_stops_an_unresponsive_agent_after_the_grace_period() {
+        let runtime = AgentRuntime::new(
+            PathBuf::from("/tmp/unused-omp"),
+            PathBuf::from("/tmp/unused-assets"),
+            std::env::temp_dir(),
+        );
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "trap '' TERM; sleep 30"]);
+        let mut process = JsonLineProcess::spawn(command, "unresponsive agent").unwrap();
+        let registration = runtime
+            .register_run(
+                "unresponsive-session",
+                process.stdin_handle(),
+                process.id(),
+                process.lifecycle_handle(),
+            )
+            .unwrap();
+        let started = Instant::now();
+
+        assert!(runtime.abort_run("unresponsive-session").unwrap());
+        let (status, _) = process.finish(false).unwrap();
+
+        assert!(!status.success());
+        assert!(registration.was_cancelled());
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
     #[test]
     fn preserves_cancellation_when_omp_is_already_closing() {
         let runtime = AgentRuntime::new(
@@ -1652,11 +1803,17 @@ mod tests {
             PathBuf::from("/tmp/unused-assets"),
             std::env::temp_dir(),
         );
+        let process_lifecycle = Arc::new(ProcessLifecycle::new());
         let registration = runtime
-            .register_run("closing-session", Weak::new())
+            .register_run(
+                "closing-session",
+                Weak::new(),
+                u32::MAX,
+                Arc::clone(&process_lifecycle),
+            )
             .unwrap();
 
-        assert!(!runtime.abort_run("closing-session").unwrap());
+        assert!(runtime.abort_run("closing-session").unwrap());
         assert!(registration.was_cancelled());
         let error = registration
             .result_or_cancelled::<()>(Err(
@@ -1664,6 +1821,7 @@ mod tests {
             ))
             .unwrap_err();
         assert!(error.starts_with(AGENT_STOPPED_ERROR_PREFIX));
+        process_lifecycle.mark_exited();
     }
 
     #[test]

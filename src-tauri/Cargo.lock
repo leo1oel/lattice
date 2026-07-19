@@ -3089,6 +3089,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "keyring",
+ "libc",
  "regex",
  "reqwest 0.12.28",
  "serde",

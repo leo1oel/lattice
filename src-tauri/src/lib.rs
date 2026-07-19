@@ -275,11 +275,14 @@ async fn run_agent(
 }
 
 #[tauri::command]
-fn abort_agent(
+async fn abort_agent(
     state: tauri::State<'_, AppState>,
     session_id: String,
 ) -> Result<bool, String> {
-    state.agent_runtime.abort_run(&session_id)
+    let runtime = state.agent_runtime.clone();
+    tauri::async_runtime::spawn_blocking(move || runtime.abort_run(&session_id))
+        .await
+        .map_err(|error| format!("Could not stop the writing agent: {error}"))?
 }
 
 #[tauri::command]

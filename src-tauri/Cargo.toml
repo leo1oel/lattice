@@ -29,5 +29,6 @@ regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 keyring = { version = "3", features = ["apple-native"] }
 uuid = { version = "1", features = ["v4"] }
+libc = "0.2"
 walkdir = "2"
 tauri-plugin-clipboard-manager = "2"
