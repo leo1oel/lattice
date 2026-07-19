@@ -17,6 +17,9 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 const AGENT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const SUBSCRIPTION_AUTH_ERROR_PREFIX: &str = "LATTICE_AUTH_SUBSCRIPTION:";
+const API_KEY_AUTH_ERROR_PREFIX: &str = "LATTICE_AUTH_API_KEY:";
+
 #[derive(Clone)]
 pub struct AgentRuntime {
     pub executable: PathBuf,
@@ -728,14 +731,23 @@ fn ensure_subscription_auth(runtime: &AgentRuntime, provider: &str) -> Result<()
     if has_legacy_subscription_token(provider) {
         return Ok(());
     }
-    match omp_provider_authenticated(runtime, provider) {
-        Ok(true) => {
-            fs::write(omp_auth_marker(runtime, provider), "OMP\n").map_err(err)?;
-            Ok(())
-        }
-        Ok(false) => Err(subscription_sign_in_guidance(provider)),
-        Err(_) => Err(subscription_sign_in_guidance(provider)),
+    let authenticated =
+        subscription_status_result(provider, omp_provider_authenticated(runtime, provider))?;
+    if authenticated {
+        fs::write(omp_auth_marker(runtime, provider), "OMP\n").map_err(err)?;
+        Ok(())
+    } else {
+        Err(subscription_sign_in_guidance(provider))
     }
+}
+
+fn subscription_status_result(
+    provider: &str,
+    result: Result<bool, String>,
+) -> Result<bool, String> {
+    result.map_err(|error| {
+        format!("Could not check {provider} subscription status through OMP: {error}")
+    })
 }
 
 fn has_legacy_subscription_token(provider: &str) -> bool {
@@ -769,15 +781,16 @@ fn omp_provider_authenticated(runtime: &AgentRuntime, provider: &str) -> Result<
 }
 
 fn subscription_sign_in_guidance(provider: &str) -> String {
-    match provider {
+    let guidance = match provider {
         "codex" => "Sign in to Codex in Settings → Subscriptions before using the Codex subscription.".to_string(),
         "claude" => "Sign in to Claude in Settings → Subscriptions before using the Claude subscription.".to_string(),
         _ => "Sign in through Settings → Subscriptions before using this subscription.".to_string(),
-    }
+    };
+    format!("{SUBSCRIPTION_AUTH_ERROR_PREFIX}{guidance}")
 }
 
 fn api_key_guidance(provider: &str) -> String {
-    match provider {
+    let guidance = match provider {
         "openai" | "openai-api" => {
             "Add an OpenAI API key in Settings → API keys before using the OpenAI API provider.".to_string()
         }
@@ -785,7 +798,8 @@ fn api_key_guidance(provider: &str) -> String {
             "Add an Anthropic API key in Settings → API keys before using the Anthropic API provider.".to_string()
         }
         _ => "Add an API key in Settings → API keys before using this provider.".to_string(),
-    }
+    };
+    format!("{API_KEY_AUTH_ERROR_PREFIX}{guidance}")
 }
 
 fn rewrite_agent_auth_error(runtime: &AgentRuntime, provider: &str, error: &str) -> String {
@@ -806,7 +820,6 @@ fn looks_like_missing_auth_error(error: &str) -> bool {
     let lower = error.to_ascii_lowercase();
     lower.contains("no api key found")
         || lower.contains("use /login")
-        || lower.contains("agent.db")
         || lower.contains("no credentials")
         || lower.contains("not authenticated")
 }
@@ -1335,6 +1348,7 @@ mod tests {
             "claude",
             "No API key found for anthropic.\n\nUse /login, set an API key environment variable, or create agent.db",
         );
+        assert!(rewritten.starts_with(SUBSCRIPTION_AUTH_ERROR_PREFIX));
         assert!(rewritten.contains("Settings → Subscriptions"));
         assert!(!rewritten.contains("/login"));
         assert!(!omp_auth_marker(&runtime, "claude").is_file());
@@ -1344,14 +1358,36 @@ mod tests {
             rewrite_agent_auth_error(&runtime, "claude", "Model timed out."),
             "Model timed out."
         );
+        fs::write(omp_auth_marker(&runtime, "claude"), "OMP\n").unwrap();
+        assert_eq!(
+            rewrite_agent_auth_error(
+                &runtime,
+                "claude",
+                "Could not open agent.db because the database is locked."
+            ),
+            "Could not open agent.db because the database is locked."
+        );
+        assert!(omp_auth_marker(&runtime, "claude").is_file());
         fs::remove_dir_all(&runtime.config).unwrap();
     }
 
     #[test]
     fn subscription_guidance_points_at_settings() {
-        assert!(subscription_sign_in_guidance("claude").contains("Settings → Subscriptions"));
+        assert!(subscription_sign_in_guidance("claude").starts_with(SUBSCRIPTION_AUTH_ERROR_PREFIX));
         assert!(subscription_sign_in_guidance("codex").contains("Settings → Subscriptions"));
-        assert!(api_key_guidance("anthropic-api").contains("Settings → API keys"));
+        assert!(api_key_guidance("anthropic-api").starts_with(API_KEY_AUTH_ERROR_PREFIX));
+    }
+
+    #[test]
+    fn preserves_omp_failures_during_subscription_status_checks() {
+        let error = subscription_status_result(
+            "claude",
+            Err("The bundled OMP executable is missing.".to_string()),
+        )
+        .unwrap_err();
+        assert!(error.contains("Could not check claude subscription status through OMP"));
+        assert!(error.contains("bundled OMP executable is missing"));
+        assert!(!error.contains(SUBSCRIPTION_AUTH_ERROR_PREFIX));
     }
 
     #[test]

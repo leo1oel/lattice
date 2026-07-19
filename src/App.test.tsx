@@ -463,7 +463,7 @@ describe("project workspace", () => {
       if (command === "list_papers" || command === "list_history") return [];
       if (command === "write_project_file") return undefined;
       if (command === "run_agent") {
-        throw new Error("Sign in to Claude in Settings → Subscriptions before using the Claude subscription.");
+        throw new Error("LATTICE_AUTH_SUBSCRIPTION:Sign in to Claude in Settings → Subscriptions before using the Claude subscription.");
       }
       if (command === "subscription_status") return [
         { provider: "codex", installed: true, loggedIn: false, detail: "Sign in through OMP · ChatGPT Codex subscription" },
@@ -478,7 +478,8 @@ describe("project workspace", () => {
     fireEvent.change(composer, { target: { value: "Revise the abstract." } });
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
 
-    expect(await screen.findByText(/Sign in to Claude in Settings → Subscriptions/i)).toBeInTheDocument();
+    expect(await screen.findByText("Sign in to Claude in Settings → Subscriptions before using the Claude subscription.")).toBeInTheDocument();
+    expect(screen.queryByText(/LATTICE_AUTH_SUBSCRIPTION/)).not.toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Subscriptions" })).toBeInTheDocument();
     expect(await screen.findAllByRole("button", { name: "Sign in with OMP" })).toHaveLength(2);
   });

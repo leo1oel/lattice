@@ -1217,14 +1217,13 @@ function App() {
       await refreshHistory();
       if (result.changedFiles.length) await compile();
     } catch (reason) {
-      const text = toMessage(reason);
+      const { text, settingsTab } = agentErrorDetails(toMessage(reason));
       const failedMessages: ChatMessage[] = [
         ...currentMessages,
         { id: crypto.randomUUID(), role: "system", text },
       ];
       setMessages(failedMessages);
-      const authTab = settingsTabForAuthError(text);
-      if (authTab) openSettings(authTab);
+      if (settingsTab) openSettings(settingsTab);
       if (session) {
         try {
           const saved = await invoke<AgentSession>("save_agent_session", {
@@ -3241,10 +3240,14 @@ function toMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-function settingsTabForAuthError(message: string): SettingsTab | null {
-  if (/Settings → Subscriptions/i.test(message)) return "accounts";
-  if (/Settings → API keys/i.test(message)) return "api";
-  return null;
+function agentErrorDetails(message: string): { text: string; settingsTab: SettingsTab | null } {
+  const routes: Array<[prefix: string, tab: SettingsTab]> = [
+    ["LATTICE_AUTH_SUBSCRIPTION:", "accounts"],
+    ["LATTICE_AUTH_API_KEY:", "api"],
+  ];
+  const route = routes.find(([prefix]) => message.startsWith(prefix));
+  if (!route) return { text: message, settingsTab: null };
+  return { text: message.slice(route[0].length).trim(), settingsTab: route[1] };
 }
 
 function modelOptions(provider: AgentProvider): ModelOption[] {
