@@ -236,13 +236,18 @@ const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
 const AGENT_SYSTEM_PROMPT_KEY = "lattice.agent-system-prompt.v1";
 const PROJECT_FIGURE_DRAG_TYPE = "application/x-lattice-project-figure";
 
+const WELCOME_MESSAGE = "What would you like to work on?";
 const defaultWelcomeMessages: ChatMessage[] = [
   {
     id: "welcome",
     role: "agent",
-    text: "What would you like to work on?",
+    text: WELCOME_MESSAGE,
   },
 ];
+
+function isConversationWelcome(message: ChatMessage, index: number): boolean {
+  return index === 0 && message.role === "agent" && message.text.trim() === WELCOME_MESSAGE;
+}
 
 function App() {
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
@@ -2338,9 +2343,9 @@ function AgentPanel({
               <div className="message-body">
                 <p>{message.text}</p>
                 {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
-                {message.role === "agent" && (message.id !== "welcome" || !!message.files?.length) && <div className="agent-message-meta">
+                {message.role === "agent" && (!isConversationWelcome(message, index) || !!message.files?.length) && <div className="agent-message-meta">
                   {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
-                  {message.id !== "welcome" && <button className="agent-message-copy" title="Copy agent response" onClick={() => void copyMessage(message)}>
+                  {!isConversationWelcome(message, index) && <button className="agent-message-copy" title="Copy agent response" onClick={() => void copyMessage(message)}>
                     {copiedMessageId === message.id ? <Check size={11} /> : <Copy size={11} />}
                   </button>}
                 </div>}

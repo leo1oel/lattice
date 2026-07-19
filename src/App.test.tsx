@@ -40,7 +40,7 @@ const testSession = {
   provider: "codex",
   model: "gpt-5.6-sol",
   reasoningEffort: "high",
-  messages: [{ id: "welcome", role: "agent", text: "Tell me what you want to write or revise.", files: [] }],
+  messages: [{ id: "random-persisted-id", role: "agent", text: "What would you like to work on?", files: [] }],
 };
 
 const testSessionSummary = {

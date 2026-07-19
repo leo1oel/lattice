@@ -401,7 +401,8 @@ fn includegraphics_argument(source: &str) -> Option<String> {
 }
 
 fn resolve_graphics_path(root: &Path, source_path: &Path, value: &str) -> Option<String> {
-    let requested = Path::new(value.trim());
+    let value = normalized_graphics_path(value)?;
+    let requested = Path::new(&value);
     if requested.is_absolute() {
         return None;
     }
@@ -433,6 +434,15 @@ fn resolve_graphics_path(root: &Path, source_path: &Path, value: &str) -> Option
         }
     }
     None
+}
+
+fn normalized_graphics_path(value: &str) -> Option<String> {
+    let value = value.trim();
+    if !value.starts_with("\\detokenize") {
+        return (!value.is_empty()).then(|| value.to_string());
+    }
+    let (path, end) = command_argument_at(value, "\\detokenize".len())?;
+    (end == value.len() && !path.trim().is_empty()).then(|| path.trim().to_string())
 }
 
 fn nearest_section_title(source: &str, position: usize) -> Option<String> {
@@ -1768,7 +1778,7 @@ mod tests {
             root.join("main.tex"),
             r#"\section{Introduction}\label{sec:intro}
 \begin{figure}
-  \includegraphics[width=\linewidth]{figures/model}
+  \includegraphics[width=\linewidth]{\detokenize{figures/model.png}}
   \caption{Our model architecture}
   \label{fig:model}
 \end{figure}
