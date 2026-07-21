@@ -1,0 +1,93 @@
+/* In-app update banner + settings control. Uses Lattice's design tokens with
+   safe fallbacks so it also renders correctly outside the app shell. */
+.app-update-banner {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 340px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+  border-radius: 12px;
+  background: var(--panel, #ffffff);
+  color: var(--text, #1a1a1a);
+  box-shadow: var(--shadow, 0 10px 30px rgba(0, 0, 0, 0.18));
+  font-size: 12px;
+  animation: app-update-in 0.18s ease-out;
+}
+/* Progress phases: title on its own full-width row, bar stacked below it. */
+.app-update-banner.stacked { flex-direction: column; align-items: stretch; gap: 6px; }
+/* top offset clears the overlay title bar */
+.app-update-banner.top-right { top: 52px; right: 16px; }
+.app-update-banner.top-left { top: 52px; left: 16px; }
+.app-update-banner.bottom-right { bottom: 16px; right: 16px; }
+.app-update-banner.bottom-left { bottom: 16px; left: 16px; }
+
+.app-update-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.app-update-text strong {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app-update-text span {
+  opacity: 0.65;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-update-primary {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent, #3d7af2);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+}
+.app-update-primary:hover { filter: brightness(1.05); }
+
+.app-update-dismiss {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text, #1a1a1a);
+  opacity: 0.5;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.app-update-dismiss:hover {
+  opacity: 1;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.app-update-progress {
+  flex: 1 1 120px;
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--text, #1a1a1a) 12%, transparent);
+  overflow: hidden;
+}
+.app-update-progress-fill {
+  height: 100%;
+  background: var(--accent, #3d7af2);
+  transition: width 0.15s ease;
+}
+
+.app-update-setting { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.app-update-setting label { display: flex; align-items: center; gap: 8px; }
+
+@keyframes app-update-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}

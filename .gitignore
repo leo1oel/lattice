@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+public/pdfjs
 *.local
 src-tauri/binaries/
 src-tauri/omp-assets/
@@ -25,3 +26,11 @@ src-tauri/omp-assets/
 *.sln
 *.sw?
 .e2e-project/
+
+.env
+.env.*
+!.env.example
+
+# Local scratch / caches (never commit)
+_to_delete/
+.arxiv2md_cache/

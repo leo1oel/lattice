@@ -1,0 +1,67 @@
+name: Release
+
+# Push a version tag (e.g. v0.1.38) to build, sign, and publish a GitHub
+# Release for Apple Silicon macOS. tauri-action also generates latest.json,
+# which the in-app updater reads to offer updates to installed copies.
+on:
+  push:
+    tags:
+      - "v*"
+
+# tauri-action needs write access to create the Release and upload assets.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # macos-latest is Apple Silicon (arm64), which is all we target.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build, sign, and publish the release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The updater signing key, stored as a repo secret (see setup guide).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Lattice ${{ github.ref_name }}"
+          releaseBody: |
+            ## Install (Apple Silicon Mac)
+
+            Download the **.dmg** below, open it, and drag Lattice to Applications.
+
+            First launch only: right-click the app and choose **Open** (or go to
+            System Settings → Privacy & Security → **Open Anyway**). This is
+            because the app is not notarized with an Apple Developer account.
+
+            Already running Lattice? It updates itself automatically — no need to
+            re-download.
+          releaseDraft: false
+          prerelease: false
+          # Generate and upload latest.json so the in-app updater can find updates.
+          includeUpdaterJson: true
+          # Apple Silicon only. This makes the updater platform key darwin-aarch64.
+          args: --target aarch64-apple-darwin

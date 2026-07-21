@@ -3,18 +3,44 @@ export type LatexFigureEdit = {
   cursorOffset: number;
 };
 
-export function latexFigureInsertion(source: string, position: number, paths: string[]): LatexFigureEdit {
-  const blocks = paths.map((path) => {
+export type FigureInsertOptions = {
+  width: string;
+  placement: string;
+  caption: string;
+  label?: string;
+};
+
+export const DEFAULT_FIGURE_OPTIONS: FigureInsertOptions = {
+  width: "\\linewidth",
+  placement: "t",
+  caption: "Describe the figure.",
+};
+
+function figureLabelFromPath(path: string): string {
+  const fileName = path.split("/").pop() ?? "figure";
+  const stem = fileName.replace(/\.[^.]+$/, "").replace(/-converted$/, "");
+  return stem.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "figure";
+}
+
+export function latexFigureInsertion(
+  source: string,
+  position: number,
+  paths: string[],
+  options: FigureInsertOptions = DEFAULT_FIGURE_OPTIONS,
+): LatexFigureEdit {
+  const width = options.width.trim() || "\\linewidth";
+  const placement = options.placement.trim() || "t";
+  const caption = options.caption.trim() || "Describe the figure.";
+  const blocks = paths.map((path, index) => {
     const normalized = path.replace(/\\/g, "/");
-    const fileName = normalized.split("/").pop() ?? "figure";
-    const stem = fileName.replace(/\.[^.]+$/, "").replace(/-converted$/, "");
-    const label = stem.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "figure";
+    const base = options.label?.trim() || `fig:${figureLabelFromPath(normalized)}`;
+    const resolvedLabel = paths.length > 1 && index > 0 ? `${base}-${index + 1}` : base;
     return [
-      "\\begin{figure}[t]",
+      `\\begin{figure}[${placement}]`,
       "  \\centering",
-      `  \\includegraphics[width=\\linewidth]{\\detokenize{${normalized}}}`,
-      "  \\caption{Describe the figure.}",
-      `  \\label{fig:${label}}`,
+      `  \\includegraphics[width=${width}]{\\detokenize{${normalized}}}`,
+      `  \\caption{${caption}}`,
+      `  \\label{${resolvedLabel}}`,
       "\\end{figure}",
     ].join("\n");
   }).join("\n\n");
@@ -23,7 +49,6 @@ export function latexFigureInsertion(source: string, position: number, paths: st
   const prefix = !before ? "" : before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
   const suffix = !after ? "\n" : after.startsWith("\n\n") ? "" : after.startsWith("\n") ? "\n" : "\n\n";
   const text = `${prefix}${blocks}${suffix}`;
-  const caption = "Describe the figure.";
   return {
     text,
     cursorOffset: text.indexOf(caption) + caption.length,

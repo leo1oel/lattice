@@ -1,6 +1,6 @@
 [package]
 name = "research-writer"
-version = "0.1.37"
+version = "0.1.44"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
@@ -32,3 +32,19 @@ uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
 walkdir = "2"
 tauri-plugin-clipboard-manager = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+rusqlite = { version = "0.40.1", features = ["bundled"] }
+flate2 = "1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSGeometry"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+  "std",
+  "NSButton",
+  "NSControl",
+  "NSResponder",
+  "NSView",
+  "NSWindow",
+] }

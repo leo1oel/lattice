@@ -1,25 +1,41 @@
 mod agents;
 mod commands;
+mod doctor;
+mod fts;
+mod git;
 mod latex;
 mod models;
 mod papers;
 mod project;
 mod sessions;
 mod skill_store;
+mod texcount;
+mod format_latex;
+mod openalex;
+mod tex_setup;
+mod texlab;
+mod pdf_fonts;
+#[cfg(target_os = "macos")]
+mod macos_window;
 
 use models::{
     AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
     AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, CitationInfo,
-    HistoryItem, ImportResult, PaperSummary, ProjectSearchResult, ProjectSnapshot, ReferenceInfo,
-    SubscriptionLoginEvent, SubscriptionStatus, SyncTexTarget,
+    DoctorReport, EditorComment, GitDiff, GitRemoteResult, GitStatus, HistoryItem, ImportResult,
+    OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
+    ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult, ResolvedCitation,
+    SubscriptionLoginEvent, SubscriptionStatus, SymbolOccurrence, SyncTexTarget, TexlabCompletionItem,
+    TexlabHover, TexlabLocation, TodoHit, TransactionRecord, UnusedSymbols, WordCount,
 };
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
 struct AppState {
     root: Mutex<Option<PathBuf>>,
     agent_runtime: agents::AgentRuntime,
+    active_build: latex::ActiveBuild,
+    texlab: Arc<Mutex<texlab::TexlabPool>>,
 }
 
 impl AppState {
@@ -31,6 +47,8 @@ impl AppState {
         Self {
             root: Mutex::new(root),
             agent_runtime,
+            active_build: latex::new_active_build(),
+            texlab: Arc::new(Mutex::new(texlab::TexlabPool::default())),
         }
     }
 }
@@ -45,6 +63,9 @@ fn current_root(state: &tauri::State<'_, AppState>) -> Result<PathBuf, String> {
 }
 
 fn set_root(state: &tauri::State<'_, AppState>, root: PathBuf) -> Result<(), String> {
+    if let Ok(mut pool) = state.texlab.lock() {
+        pool.reset();
+    }
     *state
         .root
         .lock()
@@ -57,11 +78,99 @@ fn create_project(
     state: tauri::State<'_, AppState>,
     parent: String,
     name: String,
+    venue: Option<String>,
 ) -> Result<ProjectSnapshot, String> {
-    let root = project::create(Path::new(&parent), &name)?;
+    let venue = project::Venue::parse(venue.as_deref().unwrap_or("neurips"))?;
+    let root = if venue == project::Venue::Neurips {
+        project::create(Path::new(&parent), &name)?
+    } else {
+        project::create_with_venue(Path::new(&parent), &name, venue)?
+    };
     let snapshot = project::open(&root)?;
     set_root(&state, root)?;
     Ok(snapshot)
+}
+
+/// Fresh blank folder under Documents/Lattice Shares for joining a share.
+/// Does not modify whatever project the guest had open before.
+#[tauri::command]
+fn create_collab_join_workspace(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    room: String,
+) -> Result<ProjectSnapshot, String> {
+    use tauri::Manager;
+    let room = room.trim();
+    if room.is_empty() {
+        return Err("A share room is required.".to_string());
+    }
+    let safe_room: String = room
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let documents = app
+        .path()
+        .document_dir()
+        .map_err(|error| format!("Could not resolve Documents folder: {error}"))?;
+    let parent = documents.join("Lattice Shares");
+    std::fs::create_dir_all(&parent)
+        .map_err(|error| format!("Could not create Lattice Shares folder: {error}"))?;
+    let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+    let name = format!("share-{safe_room}-{stamp}");
+    let root = project::create_blank(&parent, &name)?;
+    // Each join materializes a full local copy here; it's only a convenience
+    // backup, so keep the most-recent handful and delete older ones.
+    prune_old_share_workspaces(&parent, &root, MAX_SHARE_WORKSPACES);
+    let snapshot = project::open(&root)?;
+    set_root(&state, root)?;
+    Ok(snapshot)
+}
+
+/// How many joined-share workspaces to retain under Documents/Lattice Shares.
+const MAX_SHARE_WORKSPACES: usize = 8;
+
+/// Keep the `keep` most-recently-modified `share-*` folders under `parent`
+/// (always keeping `current`), deleting older ones. Best-effort: any failure to
+/// enumerate or remove a stale copy is ignored so it never blocks joining.
+fn prune_old_share_workspaces(parent: &std::path::Path, current: &std::path::Path, keep: usize) {
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return;
+    };
+    let mut workspaces: Vec<(std::time::SystemTime, std::path::PathBuf)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            if !path.is_dir() {
+                return None;
+            }
+            let name = path.file_name()?.to_string_lossy();
+            if !name.starts_with("share-") {
+                return None;
+            }
+            let modified = entry
+                .metadata()
+                .and_then(|meta| meta.modified())
+                .unwrap_or(std::time::UNIX_EPOCH);
+            Some((modified, path))
+        })
+        .collect();
+    if workspaces.len() <= keep {
+        return;
+    }
+    // Newest first, so everything past `keep` is the oldest.
+    workspaces.sort_by(|a, b| b.0.cmp(&a.0));
+    for (_, path) in workspaces.into_iter().skip(keep) {
+        if path == current {
+            continue;
+        }
+        let _ = std::fs::remove_dir_all(&path);
+    }
 }
 
 #[tauri::command]
@@ -82,6 +191,33 @@ fn open_project(
     let snapshot = project::open(Path::new(&path))?;
     set_root(&state, PathBuf::from(&snapshot.root))?;
     Ok(snapshot)
+}
+
+#[tauri::command]
+fn import_project_zip(
+    state: tauri::State<'_, AppState>,
+    zip_path: String,
+    parent: String,
+) -> Result<ProjectSnapshot, String> {
+    let snapshot = project::import_project_zip(Path::new(&zip_path), Path::new(&parent))?;
+    set_root(&state, PathBuf::from(&snapshot.root))?;
+    Ok(snapshot)
+}
+
+#[tauri::command]
+fn export_project_zip(
+    state: tauri::State<'_, AppState>,
+    zip_path: String,
+) -> Result<(), String> {
+    project::export_project_zip(&current_root(&state)?, Path::new(&zip_path))
+}
+
+#[tauri::command]
+fn stat_project_file(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<project::ProjectFileStat, String> {
+    project::stat_file(&current_root(&state)?, &path)
 }
 
 #[tauri::command]
@@ -121,6 +257,145 @@ fn list_citations(state: tauri::State<'_, AppState>) -> Result<Vec<CitationInfo>
 #[tauri::command]
 fn list_references(state: tauri::State<'_, AppState>) -> Result<Vec<ReferenceInfo>, String> {
     project::references(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn list_unused_symbols(state: tauri::State<'_, AppState>) -> Result<UnusedSymbols, String> {
+    project::unused_symbols(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn list_todos(state: tauri::State<'_, AppState>) -> Result<Vec<TodoHit>, String> {
+    project::list_todos(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn count_project_words(state: tauri::State<'_, AppState>) -> Result<WordCount, String> {
+    texcount::count_project(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn update_project_manifest(
+    state: tauri::State<'_, AppState>,
+    engine: Option<String>,
+    default_root: Option<String>,
+    trusted: Option<bool>,
+    word_budget: Option<u32>,
+    page_budget: Option<u32>,
+    clear_word_budget: Option<bool>,
+    clear_page_budget: Option<bool>,
+) -> Result<ProjectManifest, String> {
+    let words = if clear_word_budget.unwrap_or(false) {
+        Some(None)
+    } else {
+        word_budget.map(Some)
+    };
+    let pages = if clear_page_budget.unwrap_or(false) {
+        Some(None)
+    } else {
+        page_budget.map(Some)
+    };
+    project::update_manifest_settings(
+        &current_root(&state)?,
+        engine,
+        default_root,
+        trusted,
+        words,
+        pages,
+    )
+}
+
+#[tauri::command]
+fn add_root_document(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    name: Option<String>,
+    make_default: Option<bool>,
+) -> Result<ProjectManifest, String> {
+    project::add_root_document(
+        &current_root(&state)?,
+        &path,
+        name,
+        make_default.unwrap_or(false),
+    )
+}
+
+#[tauri::command]
+fn remove_root_document(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<ProjectManifest, String> {
+    project::remove_root_document(&current_root(&state)?, &path)
+}
+
+#[tauri::command]
+fn preview_replace_in_project(
+    state: tauri::State<'_, AppState>,
+    query: String,
+    paths: Option<Vec<String>>,
+    match_case: Option<bool>,
+    use_regex: Option<bool>,
+) -> Result<ReplacePreview, String> {
+    project::preview_replace_in_project(
+        &current_root(&state)?,
+        &query,
+        paths,
+        match_case.unwrap_or(true),
+        use_regex.unwrap_or(false),
+    )
+}
+
+#[tauri::command]
+fn replace_in_project(
+    state: tauri::State<'_, AppState>,
+    query: String,
+    replacement: String,
+    paths: Option<Vec<String>>,
+    match_case: Option<bool>,
+    use_regex: Option<bool>,
+) -> Result<ReplaceResult, String> {
+    project::replace_in_project(
+        &current_root(&state)?,
+        &query,
+        &replacement,
+        paths,
+        match_case.unwrap_or(true),
+        use_regex.unwrap_or(false),
+    )
+}
+
+#[tauri::command]
+fn find_label_occurrences(
+    state: tauri::State<'_, AppState>,
+    label: String,
+) -> Result<Vec<SymbolOccurrence>, String> {
+    project::find_label_occurrences(&current_root(&state)?, &label)
+}
+
+#[tauri::command]
+fn find_citation_occurrences(
+    state: tauri::State<'_, AppState>,
+    key: String,
+) -> Result<Vec<SymbolOccurrence>, String> {
+    project::find_citation_occurrences(&current_root(&state)?, &key)
+}
+
+#[tauri::command]
+fn rename_label(
+    state: tauri::State<'_, AppState>,
+    old_label: String,
+    new_label: String,
+) -> Result<RenameSymbolResult, String> {
+    project::rename_label(&current_root(&state)?, &old_label, &new_label)
+}
+
+#[tauri::command]
+fn rename_citation_key(
+    state: tauri::State<'_, AppState>,
+    old_key: String,
+    new_key: String,
+) -> Result<RenameSymbolResult, String> {
+    project::rename_citation_key(&current_root(&state)?, &old_key, &new_key)
 }
 
 #[tauri::command]
@@ -171,11 +446,40 @@ fn import_project_assets(
 }
 
 #[tauri::command]
+fn import_clipboard_image(
+    state: tauri::State<'_, AppState>,
+    target_directory: String,
+    file_name: String,
+    base64_data: String,
+) -> Result<String, String> {
+    project::import_image_bytes(
+        &current_root(&state)?,
+        &target_directory,
+        &file_name,
+        &base64_data,
+    )
+}
+
+#[tauri::command]
+fn resolve_citation_query(query: String) -> Result<ResolvedCitation, String> {
+    project::resolve_citation_query(&query)
+}
+
+#[tauri::command]
 fn read_project_asset(
     state: tauri::State<'_, AppState>,
     path: String,
 ) -> Result<AssetPreview, String> {
     project::read_asset(&current_root(&state)?, &path)
+}
+
+#[tauri::command]
+fn write_project_bytes(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    base64_data: String,
+) -> Result<(), String> {
+    project::write_bytes(&current_root(&state)?, &path, &base64_data)
 }
 
 #[tauri::command]
@@ -187,11 +491,226 @@ fn prepare_latex_figure(
 }
 
 #[tauri::command]
-async fn build_project(state: tauri::State<'_, AppState>) -> Result<BuildResult, String> {
+async fn build_project(
+    state: tauri::State<'_, AppState>,
+    force: Option<bool>,
+) -> Result<BuildResult, String> {
     let root = current_root(&state)?;
-    tauri::async_runtime::spawn_blocking(move || latex::build(&root))
+    let force = force.unwrap_or(false);
+    let active = state.active_build.clone();
+    tauri::async_runtime::spawn_blocking(move || latex::build(&root, force, &active))
         .await
         .map_err(|error| format!("The LaTeX build task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+fn abort_build(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    latex::abort(&state.active_build)
+}
+
+#[tauri::command]
+async fn clean_project(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || latex::clean(&root))
+        .await
+        .map_err(|error| format!("The LaTeX clean task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+fn run_doctor(state: tauri::State<'_, AppState>) -> DoctorReport {
+    let root = state
+        .root
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clone());
+    doctor::run(
+        root.as_deref(),
+        &state.agent_runtime.executable,
+        &state.agent_runtime.assets,
+    )
+}
+
+#[tauri::command]
+async fn texlab_diagnostics(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    text: String,
+) -> Result<Vec<models::Diagnostic>, String> {
+    let root = current_root(&state)?;
+    let pool = Arc::clone(&state.texlab);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut pool = pool
+            .lock()
+            .map_err(|_| "TexLab state is unavailable.".to_string())?;
+        pool.diagnostics(&root, &path, &text)
+    })
+    .await
+    .map_err(|error| format!("The TexLab task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn texlab_completion(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    text: String,
+    line: u32,
+    character: u32,
+) -> Result<Vec<TexlabCompletionItem>, String> {
+    let root = current_root(&state)?;
+    let pool = Arc::clone(&state.texlab);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut pool = pool
+            .lock()
+            .map_err(|_| "TexLab state is unavailable.".to_string())?;
+        pool.completion(&root, &path, &text, line, character)
+    })
+    .await
+    .map_err(|error| format!("The TexLab task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn texlab_hover(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    text: String,
+    line: u32,
+    character: u32,
+) -> Result<Option<TexlabHover>, String> {
+    let root = current_root(&state)?;
+    let pool = Arc::clone(&state.texlab);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut pool = pool
+            .lock()
+            .map_err(|_| "TexLab state is unavailable.".to_string())?;
+        pool.hover(&root, &path, &text, line, character)
+    })
+    .await
+    .map_err(|error| format!("The TexLab task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn texlab_definition(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    text: String,
+    line: u32,
+    character: u32,
+) -> Result<Option<TexlabLocation>, String> {
+    let root = current_root(&state)?;
+    let pool = Arc::clone(&state.texlab);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut pool = pool
+            .lock()
+            .map_err(|_| "TexLab state is unavailable.".to_string())?;
+        pool.definition(&root, &path, &text, line, character)
+    })
+    .await
+    .map_err(|error| format!("The TexLab task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+fn format_latex(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    text: String,
+) -> Result<String, String> {
+    format_latex::format_document(&current_root(&state)?, &path, &text)
+}
+
+#[tauri::command]
+async fn search_openalex(query: String, precise: Option<bool>) -> Result<Vec<OpenAlexWork>, String> {
+    let precise = precise.unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || openalex::search_works(&query, precise))
+        .await
+        .map_err(|error| format!("The OpenAlex task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+fn git_status(state: tauri::State<'_, AppState>) -> Result<GitStatus, String> {
+    git::status(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn git_diff(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    staged: bool,
+) -> Result<GitDiff, String> {
+    git::diff(&current_root(&state)?, &path, staged)
+}
+
+#[tauri::command]
+fn git_stage(state: tauri::State<'_, AppState>, paths: Vec<String>) -> Result<(), String> {
+    git::stage(&current_root(&state)?, &paths)
+}
+
+#[tauri::command]
+fn git_unstage(state: tauri::State<'_, AppState>, paths: Vec<String>) -> Result<(), String> {
+    git::unstage(&current_root(&state)?, &paths)
+}
+
+#[tauri::command]
+fn git_commit(state: tauri::State<'_, AppState>, message: String) -> Result<String, String> {
+    git::commit(&current_root(&state)?, &message)
+}
+
+#[tauri::command]
+fn git_init(state: tauri::State<'_, AppState>) -> Result<GitStatus, String> {
+    git::init(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn git_set_remote(
+    state: tauri::State<'_, AppState>,
+    name: Option<String>,
+    url: String,
+) -> Result<GitStatus, String> {
+    git::set_remote(
+        &current_root(&state)?,
+        name.as_deref().unwrap_or("origin"),
+        &url,
+    )
+}
+
+#[tauri::command]
+fn git_push(state: tauri::State<'_, AppState>) -> Result<GitRemoteResult, String> {
+    git::push(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn git_pull(state: tauri::State<'_, AppState>) -> Result<GitRemoteResult, String> {
+    git::pull(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn git_fetch(state: tauri::State<'_, AppState>) -> Result<GitRemoteResult, String> {
+    git::fetch(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn list_pdf_annotations(state: tauri::State<'_, AppState>) -> Result<Vec<PdfMark>, String> {
+    project::read_pdf_marks(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn save_pdf_annotations(
+    state: tauri::State<'_, AppState>,
+    annotations: Vec<PdfMark>,
+) -> Result<(), String> {
+    project::write_pdf_marks(&current_root(&state)?, annotations)
+}
+
+#[tauri::command]
+fn list_editor_comments(state: tauri::State<'_, AppState>) -> Result<Vec<EditorComment>, String> {
+    project::read_editor_comments(&current_root(&state)?)
+}
+
+#[tauri::command]
+fn save_editor_comments(
+    state: tauri::State<'_, AppState>,
+    comments: Vec<EditorComment>,
+) -> Result<(), String> {
+    project::write_editor_comments(&current_root(&state)?, comments)
 }
 
 #[tauri::command]
@@ -207,6 +726,21 @@ fn synctex_edit(
     y: f64,
 ) -> Result<SyncTexTarget, String> {
     latex::inverse_search(&current_root(&state)?, page, x, y)
+}
+
+#[tauri::command]
+async fn synctex_view(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    line: u32,
+    column: u32,
+) -> Result<PdfSyncTarget, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        latex::forward_search(&root, &path, line, column)
+    })
+    .await
+    .map_err(|error| format!("The SyncTeX lookup stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
@@ -332,11 +866,29 @@ fn list_history(state: tauri::State<'_, AppState>) -> Result<Vec<HistoryItem>, S
 }
 
 #[tauri::command]
+fn get_history_entry(
+    state: tauri::State<'_, AppState>,
+    transaction_id: String,
+) -> Result<TransactionRecord, String> {
+    project::get_history_entry(&current_root(&state)?, &transaction_id)
+}
+
+#[tauri::command]
 fn revert_transaction(
     state: tauri::State<'_, AppState>,
     transaction_id: String,
 ) -> Result<String, String> {
     let record = project::revert(&current_root(&state)?, &transaction_id)?;
+    Ok(record.id)
+}
+
+#[tauri::command]
+fn revert_history_file(
+    state: tauri::State<'_, AppState>,
+    transaction_id: String,
+    path: String,
+) -> Result<String, String> {
+    let record = project::revert_file(&current_root(&state)?, &transaction_id, &path)?;
     Ok(record.id)
 }
 
@@ -458,6 +1010,34 @@ async fn fork_agent_session(
 }
 
 #[tauri::command]
+fn start_tex_install(kind: String) -> Result<(), String> {
+    tex_setup::start_tex_install(&kind)
+}
+
+/// Align macOS traffic lights to a web-measured titlebar control center.
+#[tauri::command]
+fn align_traffic_lights(
+    app: tauri::AppHandle,
+    center_y: f64,
+    titlebar_height: f64,
+) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Manager;
+        let window = app
+            .get_webview_window("main")
+            .ok_or_else(|| "Main window is unavailable.".to_string())?;
+        macos_window::align_traffic_lights_to(&window, center_y, titlebar_height);
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, center_y, titlebar_height);
+        Ok(())
+    }
+}
+
+#[tauri::command]
 fn list_agent_skills(state: tauri::State<'_, AppState>) -> Result<Vec<AgentSkill>, String> {
     let root = state
         .root
@@ -520,6 +1100,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
+        // In-app auto-update (checks GitHub Releases, verifies with the updater key).
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let config = app
                 .path()
@@ -532,28 +1115,78 @@ pub fn run() {
                 assets,
                 config,
             )));
+            #[cfg(target_os = "macos")]
+            {
+                macos_window::clear_launch_quarantine();
+                if let Some(window) = app.get_webview_window("main") {
+                    macos_window::apply_traffic_light_position(&window);
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             create_project,
+            create_collab_join_workspace,
             initial_project,
             open_project,
+            import_project_zip,
+            export_project_zip,
             refresh_project,
             read_project_file,
+            stat_project_file,
             write_project_file,
             list_citation_keys,
             list_citations,
             list_references,
+            list_unused_symbols,
+            list_todos,
+            count_project_words,
+            update_project_manifest,
+            add_root_document,
+            remove_root_document,
+            preview_replace_in_project,
+            replace_in_project,
+            find_label_occurrences,
+            find_citation_occurrences,
+            rename_label,
+            rename_citation_key,
             search_project,
             create_project_entry,
             delete_project_entry,
             rename_project_entry,
             import_project_assets,
+            import_clipboard_image,
+            resolve_citation_query,
             read_project_asset,
+            write_project_bytes,
             prepare_latex_figure,
             build_project,
+            abort_build,
+            clean_project,
+            run_doctor,
+            texlab_diagnostics,
+            texlab_completion,
+            texlab_hover,
+            texlab_definition,
+            format_latex,
+            search_openalex,
+            git_status,
+            git_diff,
+            git_stage,
+            git_unstage,
+            git_commit,
+            git_init,
+            git_set_remote,
+            git_push,
+            git_pull,
+            git_fetch,
+            list_pdf_annotations,
+            save_pdf_annotations,
+            list_editor_comments,
+            save_editor_comments,
             save_compiled_pdf,
             synctex_edit,
+            synctex_view,
             import_arxiv,
             list_papers,
             read_paper,
@@ -567,7 +1200,9 @@ pub fn run() {
             delete_api_key,
             api_key_status,
             list_history,
+            get_history_entry,
             revert_transaction,
+            revert_history_file,
             delete_history_entry,
             create_agent_session,
             list_agent_sessions,
@@ -581,6 +1216,8 @@ pub fn run() {
             save_agent_skill,
             set_agent_skill_enabled,
             delete_agent_skill,
+            start_tex_install,
+            align_traffic_lights,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

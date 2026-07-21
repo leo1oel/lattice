@@ -1,12 +1,35 @@
-import { defineConfig } from "vite";
+import { cpSync, mkdirSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+/** Ship pdf.js CMaps + standard fonts next to the web assets (needed offline in Tauri). */
+function pdfjsAssetsPlugin(): Plugin {
+  const copy = () => {
+    const pdfjsRoot = path.dirname(fileURLToPath(import.meta.resolve("pdfjs-dist/package.json")));
+    const outRoot = path.resolve("public/pdfjs");
+    mkdirSync(outRoot, { recursive: true });
+    cpSync(path.join(pdfjsRoot, "cmaps"), path.join(outRoot, "cmaps"), { recursive: true });
+    cpSync(path.join(pdfjsRoot, "standard_fonts"), path.join(outRoot, "standard_fonts"), {
+      recursive: true,
+    });
+  };
+  return {
+    name: "pdfjs-assets",
+    buildStart: copy,
+    configureServer() {
+      copy();
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react()],
+  plugins: [react(), pdfjsAssetsPlugin()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

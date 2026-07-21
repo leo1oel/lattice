@@ -9,4 +9,17 @@ describe("LaTeX figure insertion", () => {
     );
     expect(edit.text.slice(0, edit.cursorOffset).endsWith("Describe the figure.")).toBe(true);
   });
+
+  it("applies custom width caption placement and label", () => {
+    const edit = latexFigureInsertion("body", 0, ["figures/plot.pdf"], {
+      width: "0.5\\linewidth",
+      placement: "ht",
+      caption: "A plot",
+      label: "fig:plot",
+    });
+    expect(edit.text).toContain("\\begin{figure}[ht]");
+    expect(edit.text).toContain("width=0.5\\linewidth");
+    expect(edit.text).toContain("\\caption{A plot}");
+    expect(edit.text).toContain("\\label{fig:plot}");
+  });
 });

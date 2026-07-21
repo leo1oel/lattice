@@ -6,9 +6,13 @@
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
+    "core:window:allow-set-fullscreen",
     "core:webview:allow-set-webview-zoom",
     "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-image",
     "opener:default",
-    "dialog:default"
+    "dialog:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

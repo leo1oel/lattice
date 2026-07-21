@@ -5,41 +5,51 @@ import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import CodeMirror from "@uiw/react-codemirror";
-import type { EditorView } from "@codemirror/view";
+import { linter, lintGutter } from "@codemirror/lint";
+import type { Extension } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { emacs } from "@replit/codemirror-emacs";
+import { vim } from "@replit/codemirror-vim";
 import { latex } from "codemirror-lang-latex";
 import DOMPurify from "dompurify";
-import { gsap } from "gsap";
-import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
+  BookMarked,
   BookOpen,
   Bot,
   Check,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   CircleAlert,
-  Clock3,
   Code2,
   Copy,
-  Download,
+  Eraser,
   File,
+  FileArchive,
   FileCode2,
+  FilePlus,
   FileText,
   Folder,
   FolderOpen,
   FolderPlus,
+  GitBranch,
   History,
   Image,
   ImagePlus,
   KeyRound,
   Library,
+  ListTodo,
   LoaderCircle,
+  LocateFixed,
+  MessageSquareText,
+  Omega,
+  Columns2,
   PanelLeftClose,
   PanelLeftOpen,
   Play,
   Plus,
   Pencil,
+  Quote,
+  Radio,
   RotateCcw,
   RefreshCw,
   Search,
@@ -48,28 +58,152 @@ import {
   Sparkles,
   Square,
   Trash2,
+  Undo2,
+  Redo2,
   X,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import { marked } from "marked";
 import {
+  bibliographyEntryLine,
+  countWords,
   latexEditorExtensions,
   latexLanguageOptions,
+  mergeReferences,
+  parseGraphicsPaths,
+  parseLocalLabels,
+  parseLocalMacros,
+  renameEnvironmentAt,
+  textStats,
+  wrapEnvironment,
   type CitationInfo,
+  type DefinitionTarget,
   type ReferenceInfo,
+  type SymbolTarget,
 } from "./latex-editor";
-import { latexFigureInsertion } from "./figure-insertion";
+import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "./bib-entry";
+import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
+import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./clipboard-image";
+import { latexFigureInsertion, type FigureInsertOptions } from "./figure-insertion";
+import { FigureInsertDialog } from "./figure-insert-dialog";
+import { GotoLineDialog } from "./goto-line-dialog";
+import { QuickOpenDialog } from "./quick-open-dialog";
+import { SearchPickerDialog, type SearchPickerItem } from "./search-picker-dialog";
+import { CollabDialog, type CollabDialogMode } from "./collab-dialog";
+import { TexSetupWizard } from "./tex-setup-wizard";
+import {
+  dismissTexSetup,
+  isConferenceFontsMissing,
+  isMissingTexBuildError,
+  isTexToolchainMissing,
+  wasTexSetupDismissed,
+} from "./tex-setup";
+import {
+  attachCollabProjectObservers,
+  materializeCollabDocToProject,
+  pushLocalBlobToCollab,
+  pushLocalTextToCollab,
+  seedCollabDocFromProject,
+} from "./collab-project-io";
+import {
+  COLLAB_EDITOR_COMMENTS_PATH,
+  collabDocHasProject,
+  collabTextsMap,
+  endCollabShare,
+  observeCollabShareEnded,
+  removeCollabPath,
+  renameCollabPath,
+  waitForCollabProject,
+} from "./collab-project-sync";
+import {
+  createEditorComment,
+  createEditorCommentReply,
+  editorCommentsExtension,
+  loadEditorCommentAuthorId,
+  resolveCommentRange,
+  serializeEditorComments,
+  setEditorCommentsEffect,
+  tryParseEditorComments,
+} from "./editor-comments";
+import { useUpdater, type UpdateMode } from "./app-updater";
+import {
+  type EditorComment,
+} from "./editor-comments";
+import { EditorCommentsPanel } from "./editor-comments-panel";
+import {
+  clearPreCollabProjectRoot,
+  rememberPreCollabProjectRoot,
+  resolvePreCollabProjectRoot,
+} from "./collab-return";
+import { pdfBase64Fingerprint, pdfBase64ToObjectUrl } from "./pdf-bytes";
+import {
+  collabEditorExtensions,
+  createCollabSession,
+  createShareRoomCode,
+  formatCollabInviteMessage,
+  loadCollabDisplayName,
+  loadCollabHost,
+  parseCollabInvite,
+  resolveCollabHost,
+  saveCollabDisplayName,
+  saveCollabHost,
+  type CollabSession,
+  type CollabStatus,
+} from "./collab-session";
+import { CompileDiagnosticsPanel } from "./compile-diagnostics-panel";
+import {
+  editorDiagnosticsForFile,
+  flattenProjectPaths,
+  resolveDiagnosticPath,
+  type CompileDiagnostic,
+} from "./compile-diagnostics";
+import { editorTexlabDiagnosticsForFile } from "./texlab-diagnostics";
+import { formatLatexDocument } from "./texlab-language";
+import { DocumentOutline } from "./document-outline";
+import {
+  activeOutlineNode,
+  flattenOutline,
+  includedPathsIn,
+  parseProjectOutline,
+  sectionBreadcrumbNodes,
+  type OutlineNode,
+} from "./latex-outline";
+import { ReferencesPanel, type SymbolOccurrence } from "./references-panel";
+import { GitPanel } from "./git-panel";
+import { HistoryDrawer, type HistoryItem } from "./history-drawer";
+import { InsertPalette } from "./insert-palette";
+import type { InsertSnippet } from "./insert-snippets";
+import { expandSnippetPlaceholders, nextSnippetStop, previousSnippetStop } from "./snippet-placeholders";
+import { MathPreview } from "./math-preview";
+import { katexMacrosFromSources } from "./katex-macros";
+import { EditorTabs } from "./editor-tabs";
+import { TableGeneratorDialog } from "./table-generator-dialog";
+import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
+import { ProjectReplaceDialog, type ReplacePreviewResult } from "./project-replace-dialog";
+import type { PdfMark } from "./pdf-annotations";
+import { LiteratureDiscoveryPanel } from "./literature-discovery-panel";
+import { PdfPreview, type PdfSyncTarget } from "./pdf-viewer";
+import { findAppendixMarker } from "./appendix-pages";
+import { ManuscriptChecklistPanel } from "./manuscript-checklist";
+import { mergeTodosWithBuffer, type TodoHit } from "./todo-scavenger";
+import { TodoScavengerPanel } from "./todo-scavenger-panel";
 import { referenceAssetPreviewDataUrl, type ReferenceAssetPreview } from "./reference-preview";
+import {
+  DEFAULT_EDITOR_FONT,
+  DEFAULT_UI_FONT,
+  EDITOR_FONT_OPTIONS,
+  UI_FONT_OPTIONS,
+  availableFontOptions,
+  resolveFontValue,
+} from "./available-fonts";
 import "./App.css";
-
-GlobalWorkerOptions.workerSrc = pdfWorker;
 
 type RootDocument = {
   path: string;
   name: string;
   isDefault: boolean;
 };
+
+type ProjectVenue = "neurips" | "icml" | "iclr";
 
 type ProjectManifest = {
   schemaVersion: number;
@@ -78,6 +212,45 @@ type ProjectManifest = {
   rootDocuments: RootDocument[];
   primaryBibliography: string;
   trusted: boolean;
+  engine?: string;
+  venue?: ProjectVenue | string;
+  wordBudget?: number | null;
+  pageBudget?: number | null;
+};
+
+type WordCount = {
+  text: number;
+  headers: number;
+  captions: number;
+  total: number;
+  source: string;
+};
+
+type AgentToolStep = {
+  id: string;
+  name: string;
+  detail: string;
+  phase: "start" | "end";
+};
+
+type UnusedSymbols = {
+  labels: string[];
+  citations: string[];
+};
+
+type ReplaceResult = {
+  filesChanged: string[];
+  replacements: number;
+};
+
+type EditorViewState = {
+  cursor: number;
+  scrollTop: number;
+};
+
+type NavigationEntry = {
+  path: string;
+  line: number;
 };
 
 type FileNode = {
@@ -116,21 +289,17 @@ type SyncTexTarget = {
 };
 
 type EditorNavigation = SyncTexTarget & { id: string };
+type EditorPosition = { path: string; line: number; column: number };
+type PdfSyncResponse = Omit<PdfSyncTarget, "id">;
 
 type ProjectSearchResult = {
   kind: "file" | "paper";
   path: string;
   title: string;
   snippet: string;
+  line?: number | null;
   arxivId?: string;
   fileKind?: string;
-};
-
-type Diagnostic = {
-  file?: string;
-  line?: number;
-  level: string;
-  message: string;
 };
 
 type BuildResult = {
@@ -138,14 +307,7 @@ type BuildResult = {
   pdfBase64?: string;
   log: string;
   durationMs: number;
-  diagnostics: Diagnostic[];
-};
-
-type HistoryItem = {
-  id: string;
-  label: string;
-  timestamp: string;
-  files: string[];
+  diagnostics: CompileDiagnostic[];
 };
 
 type AgentResult = {
@@ -158,7 +320,8 @@ type AgentResult = {
 type AgentStreamEvent =
   | { type: "status"; message: string }
   | { type: "text"; text: string }
-  | { type: "cancellable"; enabled: boolean };
+  | { type: "cancellable"; enabled: boolean }
+  | { type: "tool"; name: string; detail: string; phase: string };
 
 type PaperSummary = {
   arxivId: string;
@@ -168,7 +331,17 @@ type PaperSummary = {
 
 type RenameTarget =
   | { kind: "entry"; path: string; name: string }
-  | { kind: "paper"; paper: PaperSummary };
+  | { kind: "paper"; paper: PaperSummary }
+  | { kind: "label"; label: string }
+  | { kind: "citation"; key: string }
+  | { kind: "environment"; name: string }
+  | { kind: "wrap-environment" };
+
+type RenameSymbolResult = {
+  changedFiles: string[];
+  occurrenceCount: number;
+  transactionId: string;
+};
 
 type ChatMessage = {
   id: string;
@@ -213,27 +386,43 @@ type SkillDraft = { originalName?: string; scope: "application" | "project"; con
 type AgentMention = { key: string; label: string; path: string; kind: "file" | "paper" };
 type MentionState = { start: number; end: number; query: string };
 
-type CanvasMode = "source" | "pdf" | "split" | "paper" | "asset";
+type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "paper" | "asset";
+type EditorPaneId = "primary" | "secondary";
+type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
 type Theme = "light" | "dark";
 type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
 type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 type RecentProject = { name: string; path: string };
 type PanelKind = "navigator" | "agent";
 type PanelWidths = { navigator: number; agent: number };
-type SettingsTab = "appearance" | "editor" | "agent" | "accounts" | "api";
-type AppearanceSettings = { uiFont: string; interfaceScale: number; editorFont: string; editorFontSize: number };
+type SettingsTab = "appearance" | "editor" | "agent" | "accounts" | "api" | "doctor";
+type CiteCommand = "cite" | "citep" | "citet";
+type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
+type DoctorCheck = { name: string; detail: string; ok: boolean };
+type DoctorReport = { ok: boolean; summary: string; checks: DoctorCheck[] };
+type EditorKeymap = "default" | "vim" | "emacs";
+const CITE_COMMANDS: CiteCommand[] = ["cite", "citep", "citet"];
+type AppearanceSettings = {
+  uiFont: string;
+  interfaceScale: number;
+  editorFont: string;
+  editorFontSize: number;
+  editorKeymap: EditorKeymap;
+  editorSpellcheck: boolean;
+};
 type AutoBuildMode = "manual" | "automatic";
 type BuildPreferences = { autoBuildMode: AutoBuildMode };
 type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
 type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 
 const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
-const PANEL_WIDTHS_KEY = "lattice.panel-widths.v1";
-const APPEARANCE_KEY = "lattice.appearance.v3";
-const LEGACY_APPEARANCE_KEY = "lattice.appearance.v2";
+const PANEL_WIDTHS_KEY = "lattice.panel-widths.v2";
+const APPEARANCE_KEY = "lattice.appearance.v4";
+const LEGACY_APPEARANCE_KEY = "lattice.appearance.v3";
 const THEME_KEY = "lattice.theme.v1";
 const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
+const COLUMNS_PDF_RATIO_KEY = "lattice.columns-pdf-ratio.v1";
 const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
 const AGENT_SYSTEM_PROMPT_KEY = "lattice.agent-system-prompt.v1";
 const PROJECT_FIGURE_DRAG_TYPE = "application/x-lattice-project-figure";
@@ -256,15 +445,55 @@ function App() {
   const [activeFile, setActiveFile] = useState("");
   const [source, setSource] = useState("");
   const [savedSource, setSavedSource] = useState("");
+  const [secondaryFile, setSecondaryFile] = useState<string | null>(null);
+  const [secondarySource, setSecondarySource] = useState("");
+  const [secondarySavedSource, setSecondarySavedSource] = useState("");
+  const [focusedPane, setFocusedPane] = useState<EditorPaneId>("primary");
   const [selection, setSelection] = useState("");
+  const [selectionSource, setSelectionSource] = useState<"editor" | "pdf" | null>(null);
+  const [texlabDiagnostics, setTexlabDiagnostics] = useState<CompileDiagnostic[]>([]);
   const [canvasMode, setCanvasMode] = useState<CanvasMode>("split");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  /** Stable preview payload — debounced so automatic rebuilds do not thrash pdf.js. */
+  const [previewPdfBase64, setPreviewPdfBase64] = useState<string | null>(null);
+  const pdfFingerprintRef = useRef<string | null>(null);
+  const pdfPreviewTimerRef = useRef<number | null>(null);
+  const pendingPreviewPdfRef = useRef<string | null>(null);
+  /** Bumped when leaving a project so a late build cannot revive a stale PDF. */
+  const previewGenerationRef = useRef(0);
+  const [editorPosition, setEditorPosition] = useState<EditorPosition | null>(null);
+  const [pdfSyncTarget, setPdfSyncTarget] = useState<PdfSyncTarget | null>(null);
+  const [locatingPdf, setLocatingPdf] = useState(false);
   const [build, setBuild] = useState<BuildResult | null>(null);
+  const [diagnosticsExpanded, setDiagnosticsExpanded] = useState(false);
+  const [diagnosticsDismissed, setDiagnosticsDismissed] = useState(false);
   const [building, setBuilding] = useState(false);
   const [papers, setPapers] = useState<PaperSummary[]>([]);
   const [citationKeys, setCitationKeys] = useState<string[]>([]);
   const [citations, setCitations] = useState<CitationInfo[]>([]);
   const [references, setReferences] = useState<ReferenceInfo[]>([]);
+  const [unusedSymbols, setUnusedSymbols] = useState<UnusedSymbols>({ labels: [], citations: [] });
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
+  const [navStack, setNavStack] = useState<NavigationEntry[]>([]);
+  const [navIndex, setNavIndex] = useState(-1);
+  const navLock = useRef(false);
+  const viewStateRef = useRef(new Map<string, EditorViewState>());
+  const [viewRestore, setViewRestore] = useState<{ path: string; cursor: number; scrollTop: number; id: string } | null>(null);
+  const [envRenameRequest, setEnvRenameRequest] = useState<{ newName: string; id: string } | null>(null);
+  const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
+  const [projectReplaceOpen, setProjectReplaceOpen] = useState(false);
+  const [projectReplaceBusy, setProjectReplaceBusy] = useState(false);
+  const [projectReplaceError, setProjectReplaceError] = useState<string | null>(null);
+  const [projectReplacePreview, setProjectReplacePreview] = useState<ReplacePreviewResult | null>(null);
+  const [projectFindOpen, setProjectFindOpen] = useState(false);
+  const [projectFindBusy, setProjectFindBusy] = useState(false);
+  const [projectFindError, setProjectFindError] = useState<string | null>(null);
+  const [projectFindHits, setProjectFindHits] = useState<ProjectFindHit[]>([]);
+  const [quickOpenOpen, setQuickOpenOpen] = useState(false);
+  const [gotoLineOpen, setGotoLineOpen] = useState(false);
+  const [wrapEnvRequest, setWrapEnvRequest] = useState<{ name: string; id: string } | null>(null);
+  const [cleaning, setCleaning] = useState(false);
+  const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
   const referencePreviewCache = useRef(new Map<string, Promise<string | null>>());
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
@@ -286,20 +515,119 @@ function App() {
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentStreaming, setAgentStreaming] = useState(false);
   const [agentStatus, setAgentStatus] = useState("");
+  const [agentToolSteps, setAgentToolSteps] = useState<AgentToolStep[]>([]);
   const [agentStopping, setAgentStopping] = useState(false);
   const [agentCancellable, setAgentCancellable] = useState(false);
+  const [projectWordCount, setProjectWordCount] = useState<WordCount | null>(null);
+  const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
+  const [mainBodyPages, setMainBodyPages] = useState<number | null>(null);
+  const [checklistOpen, setChecklistOpen] = useState(false);
   const [importInput, setImportInput] = useState("");
   const [importing, setImporting] = useState(false);
   const [assetImporting, setAssetImporting] = useState(false);
   const [assetDropTarget, setAssetDropTarget] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [gitOpen, setGitOpen] = useState(false);
+  const [todosOpen, setTodosOpen] = useState(false);
+  const [diskTodos, setDiskTodos] = useState<TodoHit[]>([]);
+  const [editorComments, setEditorComments] = useState<EditorComment[]>([]);
+  const [editorCommentsOpen, setEditorCommentsOpen] = useState(false);
+  const [activeEditorCommentId, setActiveEditorCommentId] = useState<string | null>(null);
+  const [commentPanelFocusId, setCommentPanelFocusId] = useState<string | null>(null);
+  const [commentFocusRequest, setCommentFocusRequest] = useState<{ id: string; nonce: string } | null>(null);
+  const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
+  const [literatureOpen, setLiteratureOpen] = useState(false);
+  const [bibResolveSeed, setBibResolveSeed] = useState("");
+  const [outlineOpen, setOutlineOpen] = useState(false);
+  const [insertOpen, setInsertOpen] = useState(false);
+  const [collabOpen, setCollabOpen] = useState(false);
+  const [collabMode, setCollabMode] = useState<CollabDialogMode>("start");
+  const [collabHost, setCollabHost] = useState(loadCollabHost);
+  const [collabRoom, setCollabRoom] = useState("");
+  const [collabInvite, setCollabInvite] = useState("");
+  const [collabName, setCollabName] = useState(loadCollabDisplayName);
+  const [collabStatus, setCollabStatus] = useState<CollabStatus>("disconnected");
+  const [collabStatusDetail, setCollabStatusDetail] = useState<string | null>(null);
+  const [collabSession, setCollabSession] = useState<CollabSession | null>(null);
+  // True only after the shared doc has been seeded (host) / materialized (guest).
+  // The editor must not bind yCollab before this: binding early makes the guest
+  // create a competing main.tex Y.Text that loses the map key to the host's copy,
+  // orphaning the editor on the "Waiting for shared project files" placeholder.
+  const [collabReady, setCollabReady] = useState(false);
+  const [collabPeers, setCollabPeers] = useState(0);
+  const [collabFileCount, setCollabFileCount] = useState(0);
+  const [collabRole, setCollabRole] = useState<"host" | "guest">("host");
+  const collabRoleRef = useRef<"host" | "guest">("host");
+  const collabSessionRef = useRef<CollabSession | null>(null);
+  const collabDetachRef = useRef<(() => void) | null>(null);
+  const collabShareWatchRef = useRef<(() => void) | null>(null);
+  // The provider re-fires "sync" on every reconnect. Guard the one-time
+  // seed/materialize so a network blip does not re-materialize the whole doc
+  // over local disk and yank the open tab back to the root document.
+  const collabInitializedRef = useRef(false);
+  const collabLeavingRef = useRef(false);
+  const preCollabProjectRootRef = useRef<string | null>(null);
+  const projectRootRef = useRef<string | null>(null);
+  const enterProjectRef = useRef<((
+    snapshot: ProjectSnapshot,
+    options?: { skipCollabLifecycle?: boolean; deferInitialBuild?: boolean },
+  ) => Promise<void>) | null>(null);
+  const compileRef = useRef<(force?: boolean) => Promise<void>>(async () => undefined);
+  const activeFileRef = useRef(activeFile);
+  const secondaryFileRef = useRef(secondaryFile);
+  activeFileRef.current = activeFile;
+  secondaryFileRef.current = secondaryFile;
+  const collabRebuildTimerRef = useRef<number | null>(null);
+  const scheduleCollabRebuild = useCallback(() => {
+    // Shared inputs (figures, \input'd sections, .sty/.bib) can arrive just after
+    // the join's first compile, so that compile fails on not-yet-present files.
+    // Coalesce late arrivals into a single rebuild so the guest's PDF heals on its
+    // own instead of needing a manual Build.
+    if (collabRebuildTimerRef.current) window.clearTimeout(collabRebuildTimerRef.current);
+    collabRebuildTimerRef.current = window.setTimeout(() => {
+      collabRebuildTimerRef.current = null;
+      void compileRef.current();
+    }, 1_500);
+  }, []);
+  collabSessionRef.current = collabSession;
+  projectRootRef.current = project?.root ?? null;
+  const [citeInsertRequest, setCiteInsertRequest] = useState<{ key: string; command: InsertSymbolCommand; id: string } | null>(null);
+  const [bibEntryOpen, setBibEntryOpen] = useState(false);
+  const [bibEntryBusy, setBibEntryBusy] = useState(false);
+  const [bibEntryResolving, setBibEntryResolving] = useState(false);
+  const [bibEntryError, setBibEntryError] = useState<string | null>(null);
+  const [bibEntryKey, setBibEntryKey] = useState(0);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [goToSymbolOpen, setGoToSymbolOpen] = useState(false);
+  const [refCitePicker, setRefCitePicker] = useState<"cite" | "ref" | null>(null);
+  const diagnosticCursor = useRef(0);
+  const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
+  const [doctorBusy, setDoctorBusy] = useState(false);
+  const [doctorNotice, setDoctorNotice] = useState("");
+  const [texSetupOpen, setTexSetupOpen] = useState(false);
+  const [texSetupStatus, setTexSetupStatus] = useState<string | null>(null);
+  const closedTabsRef = useRef<string[]>([]);
+  const [outlineSources, setOutlineSources] = useState<Record<string, string>>({});
+  const [referenceHits, setReferenceHits] = useState<{
+    kind: "label" | "citation";
+    symbol: string;
+    occurrences: SymbolOccurrence[];
+  } | null>(null);
   const [navigatorOpen, setNavigatorOpen] = useState(true);
   const [panelWidths, setPanelWidths] = useState<PanelWidths>(loadPanelWidths);
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [projectVenue, setProjectVenue] = useState<ProjectVenue>("neurips");
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
   const [projectName, setProjectName] = useState("Untitled research");
@@ -348,6 +676,38 @@ function App() {
     setHistory(await invoke<HistoryItem[]>("list_history"));
   }, [project]);
 
+  const refreshTodos = useCallback(async () => {
+    if (!project) {
+      setDiskTodos([]);
+      return;
+    }
+    try {
+      setDiskTodos(await invoke<TodoHit[]>("list_todos"));
+    } catch {
+      setDiskTodos([]);
+    }
+  }, [project]);
+
+  const refreshWordCount = useCallback(async () => {
+    if (!project) {
+      setProjectWordCount(null);
+      return;
+    }
+    try {
+      setProjectWordCount(await invoke<WordCount>("count_project_words"));
+    } catch {
+      setProjectWordCount(null);
+    }
+  }, [project]);
+
+  const refreshUnusedSymbols = useCallback(async () => {
+    try {
+      setUnusedSymbols(await invoke<UnusedSymbols>("list_unused_symbols"));
+    } catch {
+      setUnusedSymbols({ labels: [], citations: [] });
+    }
+  }, []);
+
   const refreshProject = useCallback(async () => {
     const snapshot = await invoke<ProjectSnapshot>("refresh_project");
     setProject(snapshot);
@@ -361,13 +721,30 @@ function App() {
     setCitationKeys(nextCitationKeys);
     setCitations(nextCitations);
     setReferences(nextReferences ?? []);
+    await refreshUnusedSymbols();
     return snapshot;
+  }, [refreshUnusedSymbols]);
+
+  const diskMtimeRef = useRef<number | null>(null);
+  const sourceRef = useRef(source);
+  const savedSourceRef = useRef(savedSource);
+  sourceRef.current = source;
+  savedSourceRef.current = savedSource;
+
+  const markDiskMtime = useCallback(async (path: string) => {
+    try {
+      const stat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", { path });
+      diskMtimeRef.current = stat.exists ? stat.mtimeMs : null;
+    } catch {
+      diskMtimeRef.current = null;
+    }
   }, []);
 
   const loadFile = useCallback(async (path: string) => {
     try {
       const content = await invoke<string>("read_project_file", { path });
       setActiveFile(path);
+      setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
       setSource(content);
       setSavedSource(content);
       setActivePaper(null);
@@ -375,29 +752,402 @@ function App() {
       setPaperMarkdown("");
       setCanvasMode((mode) => (mode === "paper" || mode === "asset" ? "split" : mode));
       setError(null);
+      await markDiskMtime(path);
+      const saved = viewStateRef.current.get(path);
+      if (saved) {
+        setViewRestore({ path, cursor: saved.cursor, scrollTop: saved.scrollTop, id: crypto.randomUUID() });
+      }
     } catch (reason) {
       setError(toMessage(reason));
     }
+  }, [markDiskMtime]);
+
+  const clearCollabLocalState = useCallback(() => {
+    collabInitializedRef.current = false;
+    setCollabReady(false);
+    collabShareWatchRef.current?.();
+    collabShareWatchRef.current = null;
+    collabDetachRef.current?.();
+    collabDetachRef.current = null;
+    const session = collabSessionRef.current;
+    if (session) session.destroy();
+    collabSessionRef.current = null;
+    setCollabSession(null);
+    setCollabStatus("disconnected");
+    setCollabStatusDetail(null);
+    setCollabPeers(0);
+    setCollabFileCount(0);
   }, []);
 
-  const revealPdfSource = useCallback(async (page: number, x: number, y: number) => {
+  const restorePreCollabProject = useCallback(async () => {
+    const prior = resolvePreCollabProjectRoot(
+      preCollabProjectRootRef.current,
+      recentProjects.map((item) => item.path),
+    );
+    preCollabProjectRootRef.current = null;
+    clearPreCollabProjectRoot();
+    if (!prior) {
+      setNotice("Share ended. Open one of your projects from the menu.");
+      return;
+    }
+    setBusyLabel("Returning to your project…");
     try {
-      const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y });
-      await loadFile(target.path);
-      setCanvasMode("split");
-      setEditorNavigation({ ...target, id: crypto.randomUUID() });
-      setError(null);
+      // Skip lifecycle so we do not re-enter leave/end while restoring.
+      await enterProjectRef.current?.(
+        await invoke<ProjectSnapshot>("open_project", { path: prior }),
+        { skipCollabLifecycle: true },
+      );
+      setNotice("Returned to your previous project");
+    } catch {
+      setNotice("Share ended. Open one of your projects from the menu.");
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [recentProjects]);
+
+  const endHostShareSession = useCallback(async (noticeText: string) => {
+    if (collabLeavingRef.current) return;
+    collabLeavingRef.current = true;
+    try {
+      const session = collabSessionRef.current;
+      if (session && collabRoleRef.current === "host") {
+        endCollabShare(session.doc);
+        // Flush the end signal to peers before tearing down the socket.
+        await new Promise((resolve) => window.setTimeout(resolve, 280));
+      }
+      clearCollabLocalState();
+      setNotice(noticeText);
+      setCollabOpen(false);
+    } finally {
+      collabLeavingRef.current = false;
+    }
+  }, [clearCollabLocalState]);
+
+  const leaveGuestShareSession = useCallback(async (noticeText: string, restorePrior: boolean) => {
+    if (collabLeavingRef.current) return;
+    collabLeavingRef.current = true;
+    try {
+      clearCollabLocalState();
+      setCollabOpen(false);
+      if (restorePrior) {
+        setNotice(noticeText);
+        await restorePreCollabProject();
+      } else {
+        preCollabProjectRootRef.current = null;
+        clearPreCollabProjectRoot();
+        setNotice(noticeText);
+      }
+    } finally {
+      collabLeavingRef.current = false;
+    }
+  }, [clearCollabLocalState, restorePreCollabProject]);
+
+  /** Dialog button: host stops for everyone; guest leaves without affecting the host. */
+  const disconnectCollab = useCallback(() => {
+    if (collabRoleRef.current === "host") {
+      void endHostShareSession("Stopped sharing");
+      return;
+    }
+    void leaveGuestShareSession("Left the shared session", true);
+  }, [endHostShareSession, leaveGuestShareSession]);
+
+  const settleCollabBeforeProjectSwitch = useCallback(async (nextRoot: string) => {
+    const session = collabSessionRef.current;
+    if (!session) return;
+    const currentRoot = projectRootRef.current;
+    if (currentRoot && currentRoot === nextRoot) return;
+    if (collabRoleRef.current === "host") {
+      await endHostShareSession("Sharing stopped — you switched projects");
+      return;
+    }
+    // Guest opened a different project: leave quietly; host keeps sharing.
+    await leaveGuestShareSession("Left the shared session", false);
+  }, [endHostShareSession, leaveGuestShareSession]);
+
+  const connectCollab = useCallback((
+    hostRaw: string,
+    roomRaw: string,
+    noticeText: string,
+    role: "host" | "guest",
+  ) => {
+    // Host shares the currently open project. Guests join into a fresh
+    // Documents/Lattice Shares workspace created before connect.
+    if (role === "host" && !project) {
+      setError("Open a project before starting live collaboration.");
+      return;
+    }
+    const room = roomRaw.trim();
+    if (!room) {
+      setError("A share room is required.");
+      return;
+    }
+    const host = resolveCollabHost(hostRaw);
+    saveCollabHost(host);
+    saveCollabDisplayName(collabName.trim());
+    setCollabHost(host);
+    setCollabRoom(room);
+    collabRoleRef.current = role;
+    setCollabRole(role);
+    // Fresh session: the next "sync" is a first sync, not a reconnect.
+    collabInitializedRef.current = false;
+    setCollabReady(false);
+    collabShareWatchRef.current?.();
+    collabShareWatchRef.current = null;
+    collabDetachRef.current?.();
+    collabDetachRef.current = null;
+    collabSession?.destroy();
+    try {
+      const session = createCollabSession({
+        host,
+        room,
+        displayName: collabName,
+        // Guests just entered a blank Shares workspace; React state may still
+        // hold the previous project's activeFile until the next render.
+        activePath: role === "guest" ? "main.tex" : (activeFile || "main.tex"),
+        onStatus: (status, detail) => {
+          setCollabStatus(status);
+          setCollabStatusDetail(detail ?? null);
+          if (status === "error" && detail) setError(detail);
+        },
+        onActiveText: (path, text) => {
+          // Active file is live-bound by yCollab; setSource here re-renders React
+          // on every remote keystroke and makes carets/edits feel seconds late.
+          if (path === activeFileRef.current) {
+            setSavedSource(text);
+          } else if (path === secondaryFileRef.current) {
+            setSecondarySource(text);
+            setSecondarySavedSource(text);
+          }
+        },
+        onSynced: async (live) => {
+          const roleNow = collabRoleRef.current;
+          // Seed (host) / materialize (guest) exactly once per session. On a
+          // reconnect the doc already has project data, so without this guard a
+          // host would fall into the guest branch and clobber its own tab, and a
+          // guest would be yanked back to the root doc on every blip.
+          if (!collabInitializedRef.current) {
+          if (roleNow === "host" && !collabDocHasProject(live.doc)) {
+            if (!project) {
+              throw new Error("Open a project before starting live collaboration.");
+            }
+            const seeded = await seedCollabDocFromProject(live.doc, {
+              files: project.files,
+              manifest: project.manifest,
+              papers,
+            });
+            const openPath = activeFileRef.current || "main.tex";
+            // Seed uses COLLAB_LOCAL_ORIGIN so the active observer skips UI updates —
+            // bind + pull the seeded text back into the editor explicitly.
+            live.setActivePath(openPath);
+            const text = collabTextsMap(live.doc).get(openPath)?.toString();
+            if (text != null && text.length > 0) {
+              setSource(text);
+              setSavedSource(text);
+            }
+            setCollabFileCount(live.fileCount());
+            const skip = seeded.skippedBlobs.length
+              ? ` · skipped ${seeded.skippedBlobs.length} large figure(s)`
+              : "";
+            setNotice(`Sharing project · ${seeded.textCount + seeded.blobCount} files${skip}`);
+          } else {
+            // Guest/rejoin: wait for the host to publish project meta, then
+            // materialize into the current Shares workspace only.
+            if (roleNow === "guest" && !collabDocHasProject(live.doc)) {
+              setCollabStatus("connecting");
+              setCollabStatusDetail("Waiting for host to Start sharing…");
+              setNotice("Waiting for the host to Start sharing…");
+              await waitForCollabProject(live.doc);
+              setCollabStatusDetail(null);
+            }
+            const applied = await materializeCollabDocToProject(live.doc);
+            const snapshot = await refreshProject();
+            const openPath = applied.rootDocument
+              || activeFileRef.current
+              || snapshot.manifest.rootDocuments.find((document) => document.path === "main.tex")?.path
+              || snapshot.manifest.rootDocuments.find((document) => document.isDefault)?.path
+              || snapshot.manifest.rootDocuments[0]?.path
+              || "main.tex";
+            live.setActivePath(openPath);
+            await loadFile(openPath);
+            try {
+              setEditorComments(await invoke<EditorComment[]>("list_editor_comments"));
+            } catch {
+              setEditorComments([]);
+            }
+            setCollabFileCount(live.fileCount());
+            const skipped = applied.skippedBlobs.length
+              ? ` · ${applied.skippedBlobs.length} figure(s) too large to sync`
+              : "";
+            setNotice(
+              roleNow === "guest"
+                ? `Joined shared workspace · ${applied.textCount + applied.blobCount} files${skipped}`
+                : `Rejoined share · ${applied.textCount + applied.blobCount} files${skipped}`,
+            );
+            // The shared sources, figures, and .sty are now all on disk. Build
+            // once so the guest sees the real PDF instead of the deferred empty
+            // scaffold (previously this required a manual recompile after join).
+            void compileRef.current();
+          }
+          collabInitializedRef.current = true;
+          }
+          // Shared doc is seeded/materialized: the real Y.Texts now exist, so it is
+          // safe to bind the editor to them without racing the initial sync.
+          setCollabReady(true);
+
+          collabDetachRef.current?.();
+          collabDetachRef.current = attachCollabProjectObservers(live.doc, {
+            onRemoteText: (path, content) => {
+              // Apply comments immediately from the Y payload — don't wait on disk I/O.
+              if (path === COLLAB_EDITOR_COMMENTS_PATH) {
+                const parsed = tryParseEditorComments(content);
+                // A corrupt payload (two peers rewrote the whole JSON at once and
+                // the CRDT merged them into invalid text) must not wipe or persist
+                // over everyone's comments. Keep the last good state on disk and in
+                // memory; the next comment edit heals the shared doc.
+                if (!parsed) return;
+                setEditorComments(parsed);
+                void invoke("write_project_file", { path, content })
+                  .catch((reason) => setError(toMessage(reason)));
+                return;
+              }
+              void invoke("write_project_file", { path, content }).then(async () => {
+                // Active path is bound through yCollab — only keep savedSource in sync.
+                if (path === activeFileRef.current) {
+                  setSavedSource(content);
+                } else if (path === secondaryFileRef.current) {
+                  setSecondarySource(content);
+                  setSecondarySavedSource(content);
+                }
+                if (path.startsWith(".research/papers/") || path.endsWith(".bib")) {
+                  await refreshProject();
+                }
+                // A changed shared input that isn't the buffer you're editing won't
+                // trip the editor's own autobuild — rebuild so the PDF reflects it
+                // (and so the join's first compile heals once late files arrive).
+                if (path !== activeFileRef.current && path !== secondaryFileRef.current) {
+                  scheduleCollabRebuild();
+                }
+              }).catch((reason) => setError(toMessage(reason)));
+            },
+            onRemoteBlob: (path, _mime, base64) => {
+              void invoke("write_project_bytes", { path, base64Data: base64 })
+                .then(() => refreshProject())
+                .then(() => scheduleCollabRebuild())
+                .catch((reason) => setError(toMessage(reason)));
+            },
+            onRemoteDelete: (path) => {
+              void invoke("delete_project_entry", { path })
+                .then(() => refreshProject())
+                .catch(() => { /* path may already be gone */ });
+            },
+          });
+
+          // Guests leave when the host ends the share (or switches projects).
+          collabShareWatchRef.current?.();
+          collabShareWatchRef.current = null;
+          if (roleNow === "guest") {
+            collabShareWatchRef.current = observeCollabShareEnded(live.doc, () => {
+              void leaveGuestShareSession(
+                "Host stopped sharing — returned to your project",
+                true,
+              );
+            });
+          }
+          setCollabFileCount(live.fileCount());
+        },
+        onPeers: setCollabPeers,
+      });
+      setCollabSession(session);
+      setNotice(noticeText);
     } catch (reason) {
+      setCollabStatus("error");
+      setCollabStatusDetail(toMessage(reason));
       setError(toMessage(reason));
     }
-  }, [loadFile]);
+  }, [
+    activeFile,
+    collabName,
+    collabSession,
+    leaveGuestShareSession,
+    loadFile,
+    papers,
+    project,
+    refreshProject,
+  ]);
+
+  const startCollabShare = useCallback(() => {
+    if (!collabName.trim()) {
+      setError("Enter your name before starting a share.");
+      setCollabOpen(true);
+      return;
+    }
+    if (!project) {
+      setError("Open a project before starting live collaboration.");
+      return;
+    }
+    const room = createShareRoomCode();
+    const host = resolveCollabHost(collabHost);
+    setCollabRoom(room);
+    connectCollab(host, room, `Starting project share ${room}…`, "host");
+    void writeText(formatCollabInviteMessage(host, room))
+      .then(() => setNotice(`Started share ${room} · invite copied`))
+      .catch(() => setNotice(`Started share ${room}`));
+  }, [collabHost, collabName, connectCollab, project]);
+
+  const copyCollabInvite = useCallback(async () => {
+    const host = collabSession?.host ?? resolveCollabHost(collabHost);
+    const room = collabSession?.room ?? collabRoom;
+    if (!room) return;
+    await writeText(formatCollabInviteMessage(host, room));
+    setNotice("Invite copied");
+  }, [collabHost, collabRoom, collabSession]);
+
+  const openCollabDialog = useCallback((mode: CollabDialogMode = "start") => {
+    setCollabMode(mode);
+    setCollabHost(resolveCollabHost(collabHost));
+    setCollabOpen(true);
+  }, [collabHost]);
+
+  useEffect(() => {
+    if (!collabSession) return;
+    return () => {
+      collabShareWatchRef.current?.();
+      collabShareWatchRef.current = null;
+      collabDetachRef.current?.();
+      collabDetachRef.current = null;
+      collabSession.destroy();
+    };
+  }, [collabSession]);
 
   const save = useCallback(async (): Promise<boolean> => {
-    if (!project || !activeFile || source === savedSource) return true;
+    if (!project) return true;
     try {
-      await invoke("write_project_file", { path: activeFile, content: source });
-      setSavedSource(source);
-      if (activeFile === project.manifest.primaryBibliography) {
+      let wroteTex = false;
+      let wroteBib = false;
+      if (activeFile && source !== savedSource) {
+        await invoke("write_project_file", { path: activeFile, content: source });
+        // Do NOT push the active buffer into Yjs here. It is already synced
+        // character-by-character by yCollab. Re-publishing it as a full
+        // delete+insert of the whole Y.Text on every autosave collapses remote
+        // carets and bounces recompiles between peers (the "cursors freeze /
+        // PDF re-renders forever" bug). The disk write + savedSource are all the
+        // active file needs; non-active buffers below still push explicitly.
+        setSavedSource(source);
+        await markDiskMtime(activeFile);
+        wroteTex = wroteTex || activeFile.endsWith(".tex");
+        wroteBib = wroteBib || activeFile === project.manifest.primaryBibliography;
+      }
+      if (secondaryFile && secondarySource !== secondarySavedSource) {
+        await invoke("write_project_file", { path: secondaryFile, content: secondarySource });
+        if (collabSession) pushLocalTextToCollab(collabSession.doc, secondaryFile, secondarySource);
+        setSecondarySavedSource(secondarySource);
+        wroteTex = wroteTex || secondaryFile.endsWith(".tex");
+        wroteBib = wroteBib || secondaryFile === project.manifest.primaryBibliography;
+      }
+      if (!wroteTex && !wroteBib && source === savedSource && secondarySource === secondarySavedSource) {
+        return true;
+      }
+      if (wroteBib) {
         const [nextCitationKeys, nextCitations] = await Promise.all([
           invoke<string[]>("list_citation_keys"),
           invoke<CitationInfo[]>("list_citations"),
@@ -405,81 +1155,489 @@ function App() {
         setCitationKeys(nextCitationKeys);
         setCitations(nextCitations);
       }
-      if (activeFile.endsWith(".tex")) {
+      if (wroteTex) {
         setReferences((await invoke<ReferenceInfo[]>("list_references")) ?? []);
       }
+      await refreshUnusedSymbols();
       await refreshHistory();
+      await refreshTodos();
+      await refreshWordCount();
       return true;
     } catch (reason) {
       setError(toMessage(reason));
       return false;
     }
-  }, [activeFile, project, refreshHistory, savedSource, source]);
+  }, [
+    activeFile,
+    collabSession,
+    markDiskMtime,
+    project,
+    refreshHistory,
+    refreshTodos,
+    refreshUnusedSymbols,
+    refreshWordCount,
+    savedSource,
+    secondaryFile,
+    secondarySavedSource,
+    secondarySource,
+    source,
+  ]);
 
-  const runBuild = useCallback(async () => {
+  const secondarySourceRef = useRef(secondarySource);
+  const secondarySavedRef = useRef(secondarySavedSource);
+  secondarySourceRef.current = secondarySource;
+  secondarySavedRef.current = secondarySavedSource;
+  const secondaryMtimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!project || !activeFile || activeAsset || activePaper) return;
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      void (async () => {
+        try {
+          const stat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", {
+            path: activeFile,
+          });
+          if (cancelled || !stat.exists) return;
+          if (diskMtimeRef.current == null) {
+            diskMtimeRef.current = stat.mtimeMs;
+          } else if (stat.mtimeMs > diskMtimeRef.current) {
+            diskMtimeRef.current = stat.mtimeMs;
+            if (sourceRef.current === savedSourceRef.current) {
+              const content = await invoke<string>("read_project_file", { path: activeFile });
+              if (!cancelled && content !== sourceRef.current) {
+                setSource(content);
+                setSavedSource(content);
+              }
+            }
+          }
+          if (secondaryFile) {
+            const secondaryStat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", {
+              path: secondaryFile,
+            });
+            if (!secondaryStat.exists) return;
+            if (secondaryMtimeRef.current == null) {
+              secondaryMtimeRef.current = secondaryStat.mtimeMs;
+              return;
+            }
+            if (secondaryStat.mtimeMs <= secondaryMtimeRef.current) return;
+            secondaryMtimeRef.current = secondaryStat.mtimeMs;
+            if (secondarySourceRef.current !== secondarySavedRef.current) return;
+            const content = await invoke<string>("read_project_file", { path: secondaryFile });
+            if (cancelled || content === secondarySourceRef.current) return;
+            setSecondarySource(content);
+            setSecondarySavedSource(content);
+          }
+        } catch {
+          // Ignore transient filesystem races while the editor is open.
+        }
+      })();
+    }, 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeAsset, activeFile, activePaper, project, secondaryFile]);
+
+  const pushNavigation = useCallback((path: string, line: number) => {
+    if (navLock.current || !path) return;
+    setNavStack((stack) => {
+      const trimmed = stack.slice(0, Math.max(0, navIndex + 1));
+      const last = trimmed[trimmed.length - 1];
+      if (last && last.path === path && last.line === line) {
+        setNavIndex(trimmed.length - 1);
+        return trimmed;
+      }
+      const next = [...trimmed, { path, line }].slice(-80);
+      setNavIndex(next.length - 1);
+      return next;
+    });
+  }, [navIndex]);
+
+  const openProjectFile = useCallback(async (path: string, line?: number) => {
+    const keepDocumentMode = (mode: CanvasMode): CanvasMode => (
+      mode === "pdf" || mode === "paper" || mode === "asset" ? "split" : mode
+    );
+    const secondaryFocused = (canvasMode === "dual" || canvasMode === "columns")
+      && focusedPane === "secondary"
+      && !activePaper
+      && !activeAsset;
+    if (secondaryFocused) {
+      if (path === secondaryFile) {
+        if (line) {
+          setEditorNavigation({ path, line, id: crypto.randomUUID() });
+          pushNavigation(path, line);
+        }
+        return;
+      }
+      if (secondaryFile && secondarySource !== secondarySavedSource) {
+        try {
+          await invoke("write_project_file", { path: secondaryFile, content: secondarySource });
+          if (collabSession) pushLocalTextToCollab(collabSession.doc, secondaryFile, secondarySource);
+          setSecondarySavedSource(secondarySource);
+        } catch (reason) {
+          setError(toMessage(reason));
+          return;
+        }
+      }
+      try {
+        const content = await invoke<string>("read_project_file", { path });
+        setSecondaryFile(path);
+        setSecondarySource(content);
+        setSecondarySavedSource(content);
+        setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
+        setError(null);
+        if (line) {
+          setEditorNavigation({ path, line, id: crypto.randomUUID() });
+          pushNavigation(path, line);
+        } else {
+          pushNavigation(path, 1);
+        }
+      } catch (reason) {
+        setError(toMessage(reason));
+      }
+      return;
+    }
+    const alreadyOpen = path === activeFile && !activePaper && !activeAsset;
+    if (alreadyOpen) {
+      if (line) {
+        setEditorNavigation({ path, line, id: crypto.randomUUID() });
+        setCanvasMode(keepDocumentMode);
+        pushNavigation(path, line);
+      }
+      return;
+    }
+    if (activeFile && !activePaper && !activeAsset) {
+      const current = viewStateRef.current.get(activeFile);
+      viewStateRef.current.set(activeFile, {
+        cursor: current?.cursor ?? 0,
+        scrollTop: current?.scrollTop ?? 0,
+      });
+    }
+    if (source !== savedSource || (secondaryFile && secondarySource !== secondarySavedSource)) {
+      const saved = await save();
+      if (!saved) return;
+    }
+    await loadFile(path);
+    setFocusedPane("primary");
+    if (line) {
+      setEditorNavigation({ path, line, id: crypto.randomUUID() });
+      setCanvasMode(keepDocumentMode);
+      pushNavigation(path, line);
+    } else {
+      pushNavigation(path, 1);
+    }
+  }, [
+    activeAsset,
+    activeFile,
+    activePaper,
+    canvasMode,
+    collabSession,
+    focusedPane,
+    loadFile,
+    pushNavigation,
+    save,
+    savedSource,
+    secondaryFile,
+    secondarySavedSource,
+    secondarySource,
+    source,
+  ]);
+
+  const navigateHistory = useCallback(async (direction: -1 | 1) => {
+    const nextIndex = navIndex + direction;
+    const entry = navStack[nextIndex];
+    if (!entry) return;
+    navLock.current = true;
+    setNavIndex(nextIndex);
+    try {
+      await openProjectFile(entry.path, entry.line);
+    } finally {
+      navLock.current = false;
+    }
+  }, [navIndex, navStack, openProjectFile]);
+
+  const closeEditorTab = useCallback(async (path: string) => {
+    const remaining = openTabs.filter((tab) => tab !== path);
+    setOpenTabs(remaining);
+    viewStateRef.current.delete(path);
+    closedTabsRef.current = [path, ...closedTabsRef.current.filter((item) => item !== path)].slice(0, 20);
+    if (path === secondaryFile) {
+      setSecondaryFile(null);
+      setSecondarySource("");
+      setSecondarySavedSource("");
+      setFocusedPane("primary");
+      if (path !== activeFile) return;
+    }
+    if (path !== activeFile) return;
+    const fallback = remaining[remaining.length - 1];
+    if (fallback) await openProjectFile(fallback);
+  }, [activeFile, openTabs, openProjectFile]);
+
+  const reopenClosedTab = useCallback(async () => {
+    const path = closedTabsRef.current.shift();
+    if (!path) return;
+    await openProjectFile(path);
+  }, [openProjectFile]);
+
+  const revealPdfSource = useCallback(async (page: number, x: number, y: number) => {
+    try {
+      const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y });
+      await openProjectFile(target.path, target.line);
+      setCanvasMode((mode) => (
+        mode === "pdf" || mode === "paper" || mode === "asset"
+          ? "split"
+          : mode === "columns"
+            ? "columns"
+            : mode === "dual"
+              ? "split"
+              : mode
+      ));
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [openProjectFile]);
+
+  const runBuild = useCallback(async (
+    force = false,
+    options?: { immediatePreview?: boolean },
+  ) => {
     if (buildingRef.current) {
       buildQueued.current = true;
       return;
     }
     buildingRef.current = true;
     setBuilding(true);
+    const immediatePreview = options?.immediatePreview ?? force;
+    const previewGeneration = previewGenerationRef.current;
     try {
       do {
         buildQueued.current = false;
-        const result = await invoke<BuildResult>("build_project");
+        const result = await invoke<BuildResult>("build_project", { force });
         setBuild(result);
+        setDiagnosticsDismissed(false);
+        setDiagnosticsExpanded(!result.success || result.diagnostics.some((item) => item.level === "error"));
         if (result.pdfBase64) {
-          const nextUrl = base64PdfUrl(result.pdfBase64);
-          setPdfUrl((previous) => {
-            if (previous) URL.revokeObjectURL(previous);
-            return nextUrl;
-          });
+          // LaTeX rewrites PDF metadata on every compile, so bytes almost always
+          // change. Debounce preview updates for autosave compiles so pdf.js is
+          // not destroyed mid-load on every keystroke pause.
+          pendingPreviewPdfRef.current = result.pdfBase64;
+          if (pdfPreviewTimerRef.current) window.clearTimeout(pdfPreviewTimerRef.current);
+          const applyPreview = () => {
+            pdfPreviewTimerRef.current = null;
+            if (previewGeneration !== previewGenerationRef.current) return;
+            const base64 = pendingPreviewPdfRef.current;
+            if (!base64) return;
+            const fingerprint = pdfBase64Fingerprint(base64);
+            if (fingerprint === pdfFingerprintRef.current) return;
+            pdfFingerprintRef.current = fingerprint;
+            const nextUrl = pdfBase64ToObjectUrl(base64);
+            setPreviewPdfBase64(base64);
+            setPdfUrl((previous) => {
+              if (previous) URL.revokeObjectURL(previous);
+              return nextUrl;
+            });
+          };
+          // Autosave compiles settle longer than typing pauses so a slow first
+          // pdf.js load is not cancelled by the next rebuild.
+          if (immediatePreview) applyPreview();
+          else pdfPreviewTimerRef.current = window.setTimeout(applyPreview, 2_800);
         }
-        if (!result.success) setError(result.diagnostics[0]?.message ?? "LaTeX compilation failed.");
-        else setError(null);
+        if (!result.success) {
+          const firstError = result.diagnostics.find((item) => item.level === "error")
+            ?? result.diagnostics[0]
+            ?? null;
+          if (firstError) void openCompileDiagnosticRef.current(firstError);
+          if (!result.diagnostics.length) setError("LaTeX compilation failed.");
+          else setError(null);
+          const failureText = [
+            result.log,
+            ...result.diagnostics.map((item) => item.message),
+          ].join("\n");
+          if (isMissingTexBuildError(failureText)) setTexSetupOpen(true);
+        } else {
+          setError(null);
+        }
       } while (buildQueued.current);
     } catch (reason) {
-      setError(toMessage(reason));
+      const message = toMessage(reason);
+      setError(message);
+      if (isMissingTexBuildError(message)) setTexSetupOpen(true);
     } finally {
       buildingRef.current = false;
       setBuilding(false);
     }
   }, []);
 
-  const compile = useCallback(async () => {
+  const compile = useCallback(async (force = false) => {
     if (!project) return;
-    await runBuild();
+    await runBuild(force, { immediatePreview: true });
   }, [project, runBuild]);
+  compileRef.current = compile;
+
+  const abortBuild = useCallback(async () => {
+    if (!buildingRef.current) return;
+    try {
+      await invoke<boolean>("abort_build");
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, []);
+
+  const cleanProject = useCallback(async () => {
+    if (!project || cleaning || building) return;
+    if (!window.confirm("Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?")) return;
+    setCleaning(true);
+    try {
+      await invoke("clean_project");
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    } finally {
+      setCleaning(false);
+    }
+  }, [building, cleaning, project]);
+
+  const cleanAndRebuild = useCallback(async () => {
+    if (!project || cleaning || building) return;
+    if (!window.confirm("Delete auxiliary files and rebuild the PDF?")) return;
+    setCleaning(true);
+    try {
+      await invoke("clean_project");
+      setCleaning(false);
+      await runBuild(true);
+    } catch (reason) {
+      setError(toMessage(reason));
+      setCleaning(false);
+    }
+  }, [building, cleaning, project, runBuild]);
+
+  const revealSourceInPdf = useCallback(async () => {
+    if (!editorPosition || locatingPdf) return;
+    setLocatingPdf(true);
+    try {
+      if (!(await save())) return;
+      if (source !== savedSource || !pdfUrl) await runBuild();
+      const target = await invoke<PdfSyncResponse>("synctex_view", {
+        path: editorPosition.path,
+        line: editorPosition.line,
+        column: editorPosition.column,
+      });
+      setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
+      setCanvasMode((mode) => {
+        if (mode === "dual") return "columns";
+        if (mode === "source") return "split";
+        return mode;
+      });
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    } finally {
+      setLocatingPdf(false);
+    }
+  }, [editorPosition, locatingPdf, pdfUrl, runBuild, save, savedSource, source]);
+
+  const openCompileDiagnostic = useCallback(async (diagnostic: CompileDiagnostic) => {
+    if (!project) return;
+    const path = resolveDiagnosticPath(
+      diagnostic.file,
+      flattenProjectPaths(project.files),
+      activeFile,
+    );
+    if (!path) {
+      setError(diagnostic.message);
+      return;
+    }
+    try {
+      await openProjectFile(path, diagnostic.line ?? undefined);
+      setDiagnosticsExpanded(true);
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [activeFile, openProjectFile, project]);
+  useEffect(() => {
+    openCompileDiagnosticRef.current = openCompileDiagnostic;
+  }, [openCompileDiagnostic]);
+
+  const cycleCompileDiagnostic = useCallback((direction: 1 | -1) => {
+    const diagnostics = build?.diagnostics ?? [];
+    if (!diagnostics.length) return;
+    const next = (diagnosticCursor.current + direction + diagnostics.length * 10) % diagnostics.length;
+    diagnosticCursor.current = next;
+    void openCompileDiagnostic(diagnostics[next]);
+  }, [build?.diagnostics, openCompileDiagnostic]);
+
+  useEffect(() => {
+    diagnosticCursor.current = 0;
+  }, [build]);
 
   const saveAndCompileAutomatically = useCallback(async () => {
     if (automaticBuildPending.current) return;
     automaticBuildPending.current = true;
     try {
-      if (await save()) await compile();
+      if (await save()) await runBuild(false, { immediatePreview: false });
     } finally {
       automaticBuildPending.current = false;
     }
-  }, [compile, save]);
+  }, [runBuild, save]);
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const saveAndCompileAutomaticallyRef = useRef(saveAndCompileAutomatically);
+  saveAndCompileAutomaticallyRef.current = saveAndCompileAutomatically;
 
   const enterProject = useCallback(
-    async (snapshot: ProjectSnapshot) => {
+    async (
+      snapshot: ProjectSnapshot,
+      options?: { skipCollabLifecycle?: boolean; deferInitialBuild?: boolean },
+    ) => {
+      if (!options?.skipCollabLifecycle) {
+        await settleCollabBeforeProjectSwitch(snapshot.root);
+      }
       setProject(snapshot);
-      void runBuild();
       rememberProject(snapshot);
       setProjectMenuOpen(false);
       setBuild(null);
       setSelection("");
+      setSelectionSource(null);
+      setTexlabDiagnostics([]);
+      setEditorComments([]);
+      setEditorCommentsOpen(false);
+      setActiveEditorCommentId(null);
+      setDiskTodos([]);
+      setTodosOpen(false);
       setActivePaper(null);
       setActiveAsset(null);
       setPaperMarkdown("");
       setCanvasMode("split");
+      // Invalidate any in-flight preview from the previous project, then clear
+      // UI state *before* starting the first build (starting first used to race
+      // applyPreview and wipe a just-loaded PDF → endless “Rendering PDF…”).
+      previewGenerationRef.current += 1;
+      pdfFingerprintRef.current = null;
+      pendingPreviewPdfRef.current = null;
+      if (pdfPreviewTimerRef.current) {
+        window.clearTimeout(pdfPreviewTimerRef.current);
+        pdfPreviewTimerRef.current = null;
+      }
+      setPreviewPdfBase64(null);
       setPdfUrl((previous) => {
         if (previous) URL.revokeObjectURL(previous);
         return null;
       });
+      // A guest joining a share enters an empty scaffold workspace *before* the
+      // shared sources have synced. Building it now compiles the placeholder and
+      // pops a spurious "compilation failed". The join flow defers the build and
+      // triggers one once the real project has materialized (see onSynced).
+      if (!options?.deferInitialBuild) {
+        void runBuild(false, { immediatePreview: true });
+      }
       const rootDocument =
-        snapshot.manifest.rootDocuments.find((document) => document.isDefault) ??
-        snapshot.manifest.rootDocuments[0];
+        snapshot.manifest.rootDocuments.find((document) => document.path === "main.tex")
+        ?? snapshot.manifest.rootDocuments.find((document) => document.isDefault)
+        ?? snapshot.manifest.rootDocuments[0];
       if (rootDocument) await loadFile(rootDocument.path);
       const [nextPapers, nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
         invoke<PaperSummary[]>("list_papers"),
@@ -491,7 +1649,29 @@ function App() {
       setCitationKeys(nextCitationKeys);
       setCitations(nextCitations);
       setReferences(nextReferences ?? []);
+      setOpenTabs(rootDocument ? [rootDocument.path] : []);
+      setNavStack(rootDocument ? [{ path: rootDocument.path, line: 1 }] : []);
+      setNavIndex(rootDocument ? 0 : -1);
+      viewStateRef.current.clear();
+      await refreshUnusedSymbols();
       setHistory(await invoke<HistoryItem[]>("list_history"));
+      try {
+        setEditorComments(await invoke<EditorComment[]>("list_editor_comments"));
+      } catch {
+        setEditorComments([]);
+      }
+      try {
+        setDiskTodos(await invoke<TodoHit[]>("list_todos"));
+      } catch {
+        setDiskTodos([]);
+      }
+      try {
+        setProjectWordCount(await invoke<WordCount>("count_project_words"));
+      } catch {
+        setProjectWordCount(null);
+      }
+      setPdfPageCount(null);
+      setChecklistOpen(false);
       let sessionList = await invoke<AgentSessionSummary[]>("list_agent_sessions");
       const session = sessionList.length
         ? await invoke<AgentSession>("read_agent_session", { sessionId: sessionList[0].id })
@@ -509,14 +1689,75 @@ function App() {
       setAgentModel(normalizeModel(session.provider, session.model));
       setReasoningEffort(normalizeEffort(session.reasoningEffort));
       setSessionMenuOpen(false);
-      requestAnimationFrame(() => {
-        if (shellRef.current) {
-          gsap.fromTo(shellRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" });
-        }
-      });
+      // Never animate shell opacity from 0 — a cancelled/interrupted tween leaves the
+      // whole window blank white with the UI still "mounted".
+      if (shellRef.current) shellRef.current.style.opacity = "1";
     },
-    [loadFile, rememberProject, runBuild],
+    [loadFile, refreshUnusedSymbols, rememberProject, runBuild, settleCollabBeforeProjectSwitch],
   );
+  enterProjectRef.current = enterProject;
+
+  const joinCollabShare = useCallback(() => {
+    if (!collabName.trim()) {
+      setError("Enter your name before joining a share.");
+      setCollabOpen(true);
+      return;
+    }
+    const parsed = parseCollabInvite(collabInvite) ?? parseCollabInvite(collabRoom);
+    if (!parsed?.room) {
+      setError("Paste the full invite from Copy invite (lattice:host/LT-XXXXXX).");
+      return;
+    }
+    if (!/lattice:\S+\//i.test(collabInvite) && !/lattice:\S+\//i.test(collabRoom)) {
+      setError("Paste the full invite from Copy invite (lattice:host/LT-XXXXXX), not just the room code.");
+      return;
+    }
+    const host = resolveCollabHost(parsed.host || collabHost);
+    setCollabHost(host);
+    setCollabRoom(parsed.room);
+    void (async () => {
+      setBusyLabel("Opening a shared workspace…");
+      try {
+        // Remember where the guest came from *before* any await / workspace switch.
+        const priorRoot = project?.root ?? null;
+        preCollabProjectRootRef.current = priorRoot;
+        rememberPreCollabProjectRoot(priorRoot);
+        // Save the project the user already had open, then switch into a fresh
+        // Lattice Shares folder. Their previous folder is left untouched.
+        if (project && (source !== savedSource
+          || (secondaryFile && secondarySource !== secondarySavedSource))) {
+          if (!(await save())) return;
+        }
+        const snapshot = await invoke<ProjectSnapshot>("create_collab_join_workspace", {
+          room: parsed.room,
+        });
+        // Guest is entering a new workspace on purpose — do not treat as leave/end.
+        // Defer the build: the workspace is an empty scaffold until the shared
+        // sources sync, so connectCollab → onSynced compiles once it is populated.
+        await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
+        connectCollab(host, parsed.room, `Joining project share ${parsed.room}…`, "guest");
+        setNotice(`Opened shared workspace · ${snapshot.root}`);
+      } catch (reason) {
+        setError(toMessage(reason));
+      } finally {
+        setBusyLabel(null);
+      }
+    })();
+  }, [
+    collabHost,
+    collabName,
+    collabInvite,
+    collabRoom,
+    connectCollab,
+    enterProject,
+    project,
+    save,
+    savedSource,
+    secondaryFile,
+    secondarySavedSource,
+    secondarySource,
+    source,
+  ]);
 
   const chooseExisting = useCallback(async () => {
     const selected = await open({ directory: true, multiple: false, title: "Open a LaTeX project" });
@@ -542,7 +1783,11 @@ function App() {
     setBusyLabel("Creating project…");
     try {
       if (!(await save())) return;
-      const snapshot = await invoke<ProjectSnapshot>("create_project", { parent, name: projectName });
+      const snapshot = await invoke<ProjectSnapshot>("create_project", {
+        parent,
+        name: projectName,
+        venue: projectVenue,
+      });
       setCreateError(null);
       setCreateOpen(false);
       await enterProject(snapshot);
@@ -551,7 +1796,54 @@ function App() {
     } finally {
       setBusyLabel(null);
     }
-  }, [enterProject, projectName, save]);
+  }, [enterProject, projectName, projectVenue, save]);
+
+  const importOverleafZip = useCallback(async () => {
+    const zipPath = await open({
+      multiple: false,
+      title: "Import Overleaf ZIP",
+      filters: [{ name: "ZIP archive", extensions: ["zip"] }],
+    });
+    if (!zipPath) return;
+    const parent = await open({
+      directory: true,
+      multiple: false,
+      title: "Choose where to extract the project",
+    });
+    if (!parent) return;
+    setBusyLabel("Importing ZIP…");
+    try {
+      if (!(await save())) return;
+      await enterProject(await invoke<ProjectSnapshot>("import_project_zip", {
+        zipPath,
+        parent,
+      }));
+    } catch (reason) {
+      setError(toMessage(reason));
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [enterProject, save]);
+
+  const exportProjectZip = useCallback(async () => {
+    if (!project) return;
+    const zipPath = await saveDialog({
+      title: "Export project ZIP",
+      defaultPath: `${project.manifest.name.replace(/[\\/:*?"<>|]+/g, "-") || "project"}.zip`,
+      filters: [{ name: "ZIP archive", extensions: ["zip"] }],
+    });
+    if (!zipPath) return;
+    setBusyLabel("Exporting ZIP…");
+    try {
+      if (!(await save())) return;
+      await invoke("export_project_zip", { zipPath });
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [project, save]);
 
   const chooseRecentProject = useCallback(async (path: string) => {
     if (path === project?.root) {
@@ -576,15 +1868,36 @@ function App() {
 
   useEffect(() => {
     let active = true;
+    // Boot once. Depending on `enterProject` re-ran this whenever that callback
+    // identity churned (after every build/load), which cleared the PDF and
+    // restarted compile → endless “Rendering PDF…”.
     void invoke<ProjectSnapshot | null>("initial_project")
       .then((snapshot) => {
-        if (active && snapshot) return enterProject(snapshot);
+        if (active && snapshot) return enterProjectRef.current?.(snapshot);
       })
       .catch((reason) => active && setError(toMessage(reason)));
     return () => {
       active = false;
     };
-  }, [enterProject]);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void invoke<DoctorReport>("run_doctor")
+      .then((report) => {
+        if (!active) return;
+        setDoctorReport(report);
+        if (isTexToolchainMissing(report) && !wasTexSetupDismissed()) {
+          setTexSetupOpen(true);
+        }
+      })
+      .catch(() => {
+        // Tests and incomplete environments may not expose doctor.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -613,6 +1926,36 @@ function App() {
         // Browser-based tests and previews do not expose native webview zoom.
       });
   }, [appearance.interfaceScale]);
+
+  // Measure the sidebar toggle and tell AppKit to center traffic lights on it.
+  // No OS-specific nudges — host and VM share the same geometry once zoom is applied.
+  useEffect(() => {
+    let cancelled = false;
+    const align = () => {
+      if (cancelled || isFullscreen) return;
+      const titlebar = shellRef.current?.querySelector<HTMLElement>(".titlebar");
+      const toggle = shellRef.current?.querySelector<HTMLElement>(".titlebar-navigator > .icon-button");
+      if (!titlebar || !toggle) return;
+      const titlebarRect = titlebar.getBoundingClientRect();
+      const toggleRect = toggle.getBoundingClientRect();
+      // WKWebView zoom leaves getBoundingClientRect in CSS pixels; native chrome uses points.
+      const zoom = appearance.interfaceScale;
+      const centerY = (toggleRect.top + toggleRect.height / 2) * zoom;
+      const titlebarHeight = titlebarRect.height * zoom;
+      void invoke("align_traffic_lights", { centerY, titlebarHeight }).catch(() => {
+        // Browser tests / non-macOS builds have no traffic lights.
+      });
+    };
+    const frame = window.requestAnimationFrame(align);
+    const timer = window.setTimeout(align, 120);
+    window.addEventListener("resize", align);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+      window.removeEventListener("resize", align);
+    };
+  }, [appearance.interfaceScale, isFullscreen, project]);
 
   useEffect(() => {
     try {
@@ -658,14 +2001,31 @@ function App() {
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     const automatic = buildPreferences.autoBuildMode === "automatic";
     const delay = automatic ? 1_200 : 900;
+    // Call through refs so enterProject / build state updates do not keep
+    // resetting the idle timer (that starved autosave and left PDF stuck reloading).
     saveTimer.current = window.setTimeout(() => {
-      if (automatic) void saveAndCompileAutomatically();
-      else void save();
+      if (automatic) void saveAndCompileAutomaticallyRef.current();
+      else void saveRef.current();
     }, delay);
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
-  }, [activeFile, buildPreferences.autoBuildMode, project, save, saveAndCompileAutomatically, savedSource, source]);
+  }, [activeFile, buildPreferences.autoBuildMode, project, savedSource, source]);
+
+  // Dual-pane secondary buffer is not yCollab-bound; push + save while sharing.
+  useEffect(() => {
+    if (!project || !collabSession || !secondaryFile) return;
+    if (secondarySource === secondarySavedSource) return;
+    const timer = window.setTimeout(() => {
+      void invoke("write_project_file", { path: secondaryFile, content: secondarySource })
+        .then(() => {
+          pushLocalTextToCollab(collabSession.doc, secondaryFile, secondarySource);
+          setSecondarySavedSource(secondarySource);
+        })
+        .catch((reason) => setError(toMessage(reason)));
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [collabSession, project, secondaryFile, secondarySavedSource, secondarySource]);
 
   const buildWhenLeavingEditor = useCallback(() => {
     if (buildPreferences.autoBuildMode !== "automatic" || source === savedSource) return;
@@ -688,16 +2048,31 @@ function App() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [chooseExisting, compile, save]);
 
-  const importPaper = useCallback(async () => {
-    if (!importInput.trim()) return;
+  const importArxivInput = useCallback(async (input: string) => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
     setImporting(true);
     try {
       const result = await invoke<{ arxivId: string; title: string; citationKey?: string; alreadyImported: boolean }>("import_arxiv", {
-        input: importInput,
+        input: trimmed,
       });
-      setImportInput("");
-      await refreshProject();
+      const snapshot = await refreshProject();
       await refreshHistory();
+      if (collabSession && !result.alreadyImported) {
+        for (const path of [
+          `.research/papers/${result.arxivId}/paper.md`,
+          `.research/papers/${result.arxivId}/metadata.json`,
+          snapshot.manifest.primaryBibliography,
+        ].filter(Boolean) as string[]) {
+          try {
+            const content = await invoke<string>("read_project_file", { path });
+            pushLocalTextToCollab(collabSession.doc, path, content);
+          } catch {
+            // Optional sidecar / bib may be missing.
+          }
+        }
+        setCollabFileCount(collabSession.fileCount());
+      }
       setMessages((items) => [
         ...items,
         {
@@ -710,13 +2085,28 @@ function App() {
       ]);
     } catch (reason) {
       setError(toMessage(reason));
+      throw reason instanceof Error ? reason : new Error(toMessage(reason));
     } finally {
       setImporting(false);
     }
-  }, [importInput, refreshHistory, refreshProject]);
+  }, [collabSession, refreshHistory, refreshProject]);
+
+  const importPaper = useCallback(async () => {
+    if (!importInput.trim()) return;
+    try {
+      await importArxivInput(importInput);
+      setImportInput("");
+    } catch {
+      // Error already surfaced by importArxivInput.
+    }
+  }, [importArxivInput, importInput]);
 
   const openPaper = useCallback(async (paper: PaperSummary) => {
     try {
+      if (source !== savedSource) {
+        const saved = await save();
+        if (!saved) return;
+      }
       setPaperMarkdown(await invoke<string>("read_paper", { arxivId: paper.arxivId }));
       setActivePaper(paper);
       setActiveAsset(null);
@@ -724,10 +2114,14 @@ function App() {
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, []);
+  }, [save, savedSource, source]);
 
   const openProjectAsset = useCallback(async (path: string) => {
     try {
+      if (source !== savedSource) {
+        const saved = await save();
+        if (!saved) return;
+      }
       const asset = await invoke<AssetPreview>("read_project_asset", { path });
       setActiveAsset(asset);
       setActivePaper(null);
@@ -737,7 +2131,7 @@ function App() {
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, []);
+  }, [save, savedSource, source]);
 
   useEffect(() => {
     referencePreviewCache.current.clear();
@@ -817,24 +2211,99 @@ function App() {
     window.addEventListener("pointercancel", cancel);
   }, []);
 
-  const openDocumentMode = useCallback((mode: "source" | "split" | "pdf") => {
+  const ensureSecondaryFile = useCallback(async (preferred?: string | null) => {
+    const candidate = preferred
+      ?? (secondaryFile && secondaryFile !== activeFile ? secondaryFile : null)
+      ?? openTabs.find((path) => path !== activeFile && path.endsWith(".tex"))
+      ?? openTabs.find((path) => path !== activeFile)
+      ?? null;
+    if (!candidate) return null;
+    if (candidate === secondaryFile) return candidate;
+    const content = await invoke<string>("read_project_file", { path: candidate });
+    setSecondaryFile(candidate);
+    setSecondarySource(content);
+    setSecondarySavedSource(content);
+    setOpenTabs((tabs) => (tabs.includes(candidate) ? tabs : [...tabs, candidate]));
+    return candidate;
+  }, [activeFile, openTabs, secondaryFile]);
+
+  const openDocumentMode = useCallback((mode: DocumentViewMode) => {
     setActiveAsset(null);
     setActivePaper(null);
     setPaperMarkdown("");
+    if (mode === "dual" || mode === "columns") {
+      void (async () => {
+        try {
+          await ensureSecondaryFile();
+          setCanvasMode(mode);
+        } catch (reason) {
+          setError(toMessage(reason));
+        }
+      })();
+      return;
+    }
     setCanvasMode(mode);
-  }, []);
+  }, [ensureSecondaryFile]);
+
+  const swapEditorPanes = useCallback(async () => {
+    if (!secondaryFile || !activeFile || secondaryFile === activeFile) return;
+    try {
+      if (source !== savedSource || secondarySource !== secondarySavedSource) {
+        if (!(await save())) return;
+      }
+      const nextPrimary = secondaryFile;
+      const nextSecondary = activeFile;
+      const primaryContent = await invoke<string>("read_project_file", { path: nextPrimary });
+      const secondaryContent = await invoke<string>("read_project_file", { path: nextSecondary });
+      setActiveFile(nextPrimary);
+      setSource(primaryContent);
+      setSavedSource(primaryContent);
+      setSecondaryFile(nextSecondary);
+      setSecondarySource(secondaryContent);
+      setSecondarySavedSource(secondaryContent);
+      setOpenTabs((tabs) => {
+        const next = new Set(tabs);
+        next.add(nextPrimary);
+        next.add(nextSecondary);
+        return [...next];
+      });
+      setFocusedPane((pane) => (pane === "primary" ? "secondary" : "primary"));
+      if (canvasMode !== "dual" && canvasMode !== "columns") {
+        setCanvasMode("dual");
+      }
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [
+    activeFile,
+    canvasMode,
+    save,
+    savedSource,
+    secondaryFile,
+    secondarySavedSource,
+    secondarySource,
+    source,
+  ]);
 
   const createProjectEntry = useCallback(async (path: string, kind: "file" | "folder") => {
     try {
       const createdPath = await invoke<string>("create_project_entry", { path, kind });
       await refreshProject();
       await refreshHistory();
-      if (kind === "file") await loadFile(createdPath);
+      if (kind === "file") {
+        const content = await invoke<string>("read_project_file", { path: createdPath }).catch(() => "");
+        if (collabSession) {
+          pushLocalTextToCollab(collabSession.doc, createdPath, content);
+          setCollabFileCount(collabSession.fileCount());
+        }
+        await loadFile(createdPath);
+      }
     } catch (reason) {
       setError(toMessage(reason));
       throw reason;
     }
-  }, [loadFile, refreshHistory, refreshProject]);
+  }, [collabSession, loadFile, refreshHistory, refreshProject]);
 
   const importProjectAssets = useCallback(async (paths: string[], targetDirectory = "figures"): Promise<string[]> => {
     if (!paths.length || assetImporting) return [];
@@ -842,6 +2311,16 @@ function App() {
     try {
       const imported = await invoke<string[]>("import_project_assets", { paths, targetDirectory });
       await refreshProject();
+      if (collabSession) {
+        for (const path of imported) {
+          try {
+            await pushLocalBlobToCollab(collabSession.doc, path);
+          } catch (reason) {
+            setError(toMessage(reason));
+          }
+        }
+        setCollabFileCount(collabSession.fileCount());
+      }
       setMessages((items) => [
         ...items,
         {
@@ -860,7 +2339,7 @@ function App() {
       setAssetImporting(false);
       setAssetDropTarget(null);
     }
-  }, [assetImporting, refreshProject]);
+  }, [assetImporting, collabSession, refreshProject]);
 
   const chooseProjectAssets = useCallback(async (targetDirectory = "figures") => {
     const selected = await open({
@@ -940,10 +2419,75 @@ function App() {
     setEditorNavigation((request) => request?.id === id ? null : request);
   }, []);
 
+  const handleEditorPosition = useCallback((position: EditorPosition) => {
+    setEditorPosition((current) => (
+      current
+      && current.path === position.path
+      && current.line === position.line
+      && current.column === position.column
+        ? current
+        : position
+    ));
+  }, []);
+
+  const gotoDefinition = useCallback(async (target: DefinitionTarget) => {
+    if (!project) return;
+    try {
+      if (target.kind === "reference") {
+        await openProjectFile(target.path, target.line);
+        setError(null);
+        return;
+      }
+      if (target.kind === "include") {
+        const paths = flattenProjectPaths(project.files);
+        const resolved = paths.includes(target.path)
+          ? target.path
+          : paths.find((path) => path === target.path || path.endsWith(`/${target.path}`));
+        if (!resolved) {
+          setError(`Could not find included file “${target.path}”.`);
+          return;
+        }
+        await openProjectFile(resolved, 1);
+        setError(null);
+        return;
+      }
+      if (target.kind === "asset") {
+        const paths = flattenProjectPaths(project.files);
+        const resolved = paths.includes(target.path)
+          ? target.path
+          : paths.find((path) => path === target.path || path.endsWith(`/${target.path}`));
+        if (!resolved) {
+          setError(`Could not find figure “${target.path}”.`);
+          return;
+        }
+        await openProjectAsset(resolved);
+        setError(null);
+        return;
+      }
+      const bibliography = project.manifest.primaryBibliography;
+      if (!bibliography) {
+        setError("This project has no primary bibliography.");
+        return;
+      }
+      const content = bibliography === activeFile
+        ? source
+        : await invoke<string>("read_project_file", { path: bibliography });
+      const line = bibliographyEntryLine(content, target.key) ?? 1;
+      await openProjectFile(bibliography, line);
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [activeFile, openProjectAsset, openProjectFile, project, source]);
+
   const deleteProjectEntry = useCallback(async (path: string) => {
     if (!window.confirm(`Delete “${path}” from this project?`)) return;
     try {
       await invoke("delete_project_entry", { path });
+      if (collabSession) {
+        removeCollabPath(collabSession.doc, path);
+        setCollabFileCount(collabSession.fileCount());
+      }
       const snapshot = await refreshProject();
       await refreshHistory();
       if (activeFile === path || activeFile.startsWith(`${path}/`)) {
@@ -957,7 +2501,7 @@ function App() {
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [activeAsset, activeFile, loadFile, refreshHistory, refreshProject]);
+  }, [activeAsset, activeFile, collabSession, loadFile, refreshHistory, refreshProject]);
 
   const renameProjectEntry = useCallback((path: string, name: string) => {
     setRenameError(null);
@@ -977,6 +2521,9 @@ function App() {
           path: renameTarget.path,
           newName: name,
         });
+        if (collabSession) {
+          renameCollabPath(collabSession.doc, renameTarget.path, renamedPath);
+        }
         await refreshProject();
         const renamedActiveFile = activeFile === renameTarget.path
           ? renamedPath
@@ -990,20 +2537,311 @@ function App() {
             : null;
         if (renamedActiveFile) await loadFile(renamedActiveFile);
         if (renamedActiveAsset) await openProjectAsset(renamedActiveAsset);
-      } else {
+      } else if (renameTarget.kind === "paper") {
         const renamedPaper = await invoke<PaperSummary>("rename_paper", {
           arxivId: renameTarget.paper.arxivId,
           title: name,
         });
         await refreshProject();
         if (activePaper?.arxivId === renamedPaper.arxivId) setActivePaper(renamedPaper);
+      } else if (renameTarget.kind === "label" || renameTarget.kind === "citation") {
+        const result = renameTarget.kind === "label"
+          ? await invoke<RenameSymbolResult>("rename_label", {
+            oldLabel: renameTarget.label,
+            newLabel: name,
+          })
+          : await invoke<RenameSymbolResult>("rename_citation_key", {
+            oldKey: renameTarget.key,
+            newKey: name,
+          });
+        const [nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
+          invoke<string[]>("list_citation_keys"),
+          invoke<CitationInfo[]>("list_citations"),
+          invoke<ReferenceInfo[]>("list_references"),
+        ]);
+        setCitationKeys(nextCitationKeys);
+        setCitations(nextCitations);
+        setReferences(nextReferences);
+        await refreshUnusedSymbols();
+        await refreshHistory();
+        if (result.changedFiles.includes(activeFile)) await loadFile(activeFile);
+        setOutlineSources({});
+        setReferenceHits((current) => current && {
+          kind: renameTarget.kind,
+          symbol: name,
+          occurrences: [],
+        });
+        if (renameTarget.kind === "label") {
+          const occurrences = await invoke<SymbolOccurrence[]>("find_label_occurrences", { label: name });
+          setReferenceHits({ kind: "label", symbol: name, occurrences });
+        } else {
+          const occurrences = await invoke<SymbolOccurrence[]>("find_citation_occurrences", { key: name });
+          setReferenceHits({ kind: "citation", symbol: name, occurrences });
+        }
+      } else if (renameTarget.kind === "environment") {
+        setEnvRenameRequest({ newName: name, id: crypto.randomUUID() });
+      } else if (renameTarget.kind === "wrap-environment") {
+        setWrapEnvRequest({ name, id: crypto.randomUUID() });
       }
       setRenameError(null);
       setRenameTarget(null);
     } catch (reason) {
       setRenameError(toMessage(reason));
     }
-  }, [activeAsset, activeFile, activePaper, loadFile, openProjectAsset, refreshProject, renameTarget]);
+  }, [activeAsset, activeFile, activePaper, loadFile, openProjectAsset, refreshHistory, refreshProject, refreshUnusedSymbols, renameTarget, collabSession]);
+
+  const findSymbolReferences = useCallback(async (target: SymbolTarget) => {
+    try {
+      if (target.kind === "label") {
+        const occurrences = await invoke<SymbolOccurrence[]>("find_label_occurrences", { label: target.label });
+        setReferenceHits({ kind: "label", symbol: target.label, occurrences });
+      } else {
+        const occurrences = await invoke<SymbolOccurrence[]>("find_citation_occurrences", { key: target.key });
+        setReferenceHits({ kind: "citation", symbol: target.key, occurrences });
+      }
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, []);
+
+  const beginSymbolRename = useCallback((target: SymbolTarget) => {
+    setRenameError(null);
+    setRenameTarget(target.kind === "label"
+      ? { kind: "label", label: target.label }
+      : { kind: "citation", key: target.key });
+  }, []);
+
+  const openSymbolOccurrence = useCallback(async (occurrence: SymbolOccurrence) => {
+    try {
+      await openProjectFile(occurrence.path, occurrence.line);
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [openProjectFile]);
+
+  const insertCitationFromPaper = useCallback(async (
+    paper: PaperSummary,
+    command: CiteCommand = "cite",
+  ) => {
+    if (!paper.citationKey) {
+      setError(`“${paper.title}” has no citation key yet.`);
+      return;
+    }
+    if (source !== savedSource) {
+      const saved = await save();
+      if (!saved) return;
+    }
+    if (activePaper || activeAsset || !activeFile.endsWith(".tex")) {
+      const root = project?.manifest.rootDocuments.find((document) => document.isDefault)?.path
+        ?? project?.manifest.rootDocuments[0]?.path
+        ?? activeFile;
+      if (root) await openProjectFile(root);
+    }
+    setCiteInsertRequest({ key: paper.citationKey, command, id: crypto.randomUUID() });
+    setCanvasMode((mode) => (mode === "pdf" || mode === "paper" || mode === "asset" ? "split" : mode));
+    setError(null);
+  }, [activeAsset, activeFile, activePaper, openProjectFile, project, save, savedSource, source]);
+
+  const openBibEntryDialog = useCallback((resolveSeed = "") => {
+    setBibEntryError(null);
+    setBibResolveSeed(resolveSeed);
+    setBibEntryKey((value) => value + 1);
+    setBibEntryOpen(true);
+  }, []);
+
+  const importClipboardImageFile = useCallback(async (file: File): Promise<string | null> => {
+    try {
+      const base64 = await fileToBase64(file);
+      const path = await invoke<string>("import_clipboard_image", {
+        targetDirectory: "figures",
+        fileName: clipboardImageFileName(file.type || "image/png"),
+        base64Data: base64,
+      });
+      await refreshProject();
+      if (collabSession) {
+        try {
+          await pushLocalBlobToCollab(collabSession.doc, path);
+          setCollabFileCount(collabSession.fileCount());
+        } catch (reason) {
+          setError(toMessage(reason));
+        }
+      }
+      setError(null);
+      return path;
+    } catch (reason) {
+      setError(toMessage(reason));
+      return null;
+    }
+  }, [collabSession, refreshProject]);
+
+  const handlePasteImageFile = useCallback((file: File) => {
+    void importClipboardImageFile(file).then((path) => {
+      if (!path) return;
+      setFigureDropRequest({
+        id: crypto.randomUUID(),
+        paths: [path],
+        clientX: -1,
+        clientY: -1,
+      });
+    });
+    return true;
+  }, [importClipboardImageFile]);
+
+  const pasteClipboardImage = useCallback(async () => {
+    if (!project || !activeFile?.endsWith(".tex")) {
+      setError("Open a .tex file before pasting a figure.");
+      return;
+    }
+    try {
+      const { readImage } = await import("@tauri-apps/plugin-clipboard-manager");
+      const image = await readImage();
+      const size = await image.size();
+      const rgba = await image.rgba();
+      const base64 = await rgbaImageToPngBase64(rgba, size.width, size.height);
+      const path = await invoke<string>("import_clipboard_image", {
+        targetDirectory: "figures",
+        fileName: clipboardImageFileName("image/png"),
+        base64Data: base64,
+      });
+      await refreshProject();
+      if (collabSession) {
+        try {
+          await pushLocalBlobToCollab(collabSession.doc, path);
+          setCollabFileCount(collabSession.fileCount());
+        } catch (reason) {
+          setError(toMessage(reason));
+        }
+      }
+      setCanvasMode((mode) => (mode === "pdf" || mode === "paper" || mode === "asset" ? "split" : mode));
+      setFigureDropRequest({
+        id: crypto.randomUUID(),
+        paths: [path],
+        clientX: -1,
+        clientY: -1,
+      });
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason) || "No image found on the clipboard.");
+    }
+  }, [activeFile, collabSession, project, refreshProject]);
+
+  const resolveBibQuery = useCallback(async (query: string): Promise<ResolvedCitationDraft | null> => {
+    setBibEntryResolving(true);
+    setBibEntryError(null);
+    try {
+      const resolved = await invoke<{
+        key: string;
+        title: string;
+        author: string;
+        year: string;
+        journal: string;
+        booktitle: string;
+        publisher: string;
+        url: string;
+        doi: string;
+        entryType: string;
+      }>("resolve_citation_query", { query });
+      return resolved;
+    } catch (reason) {
+      setBibEntryError(toMessage(reason));
+      return null;
+    } finally {
+      setBibEntryResolving(false);
+    }
+  }, []);
+
+  const saveBibEntry = useCallback(async (draft: BibEntryDraft, insertCite: boolean) => {
+    if (!project) return;
+    const bibliography = project.manifest.primaryBibliography;
+    if (!bibliography) {
+      setBibEntryError("This project has no primary bibliography.");
+      return;
+    }
+    if (!draft.title.trim() || !draft.author.trim() || !draft.year.trim()) {
+      setBibEntryError("Title, author, and year are required.");
+      return;
+    }
+    setBibEntryBusy(true);
+    setBibEntryError(null);
+    try {
+      if (source !== savedSource) {
+        const saved = await save();
+        if (!saved) return;
+      }
+      const existing = bibliography === activeFile
+        ? source
+        : await invoke<string>("read_project_file", { path: bibliography });
+      const entry = formatBibEntry(draft);
+      const next = appendBibEntry(existing, entry);
+      await invoke("write_project_file", { path: bibliography, content: next });
+      if (collabSession) pushLocalTextToCollab(collabSession.doc, bibliography, next);
+      if (bibliography === activeFile) {
+        setSource(next);
+        setSavedSource(next);
+      }
+      await refreshProject();
+      setBibEntryOpen(false);
+      if (insertCite) {
+        setCiteInsertRequest({ key: draft.key, command: "cite", id: crypto.randomUUID() });
+        setCanvasMode((mode) => (mode === "pdf" || mode === "paper" || mode === "asset" ? "split" : mode));
+      }
+      setError(null);
+    } catch (reason) {
+      setBibEntryError(toMessage(reason));
+    } finally {
+      setBibEntryBusy(false);
+    }
+  }, [activeFile, collabSession, project, refreshProject, save, savedSource, source]);
+
+  const runDoctor = useCallback(async (options?: {
+    openWizardIfMissing?: boolean;
+    fromRecheck?: boolean;
+  }) => {
+    setDoctorBusy(true);
+    setDoctorNotice("");
+    if (options?.fromRecheck) setTexSetupStatus("Checking…");
+    try {
+      const report = await invoke<DoctorReport>("run_doctor");
+      setDoctorReport(report);
+      const missing = isTexToolchainMissing(report);
+      const fontsMissing = isConferenceFontsMissing(report);
+      if (options?.openWizardIfMissing && missing) setTexSetupOpen(true);
+      if (options?.fromRecheck) {
+        setTexSetupStatus(
+          missing || fontsMissing
+            ? "Still not ready. Finish the Terminal install, then Recheck."
+            : "LaTeX is ready. You can Build now.",
+        );
+      }
+      return report;
+    } catch (reason) {
+      const message = toMessage(reason);
+      setDoctorNotice(message);
+      if (options?.fromRecheck) setTexSetupStatus(message);
+      return null;
+    } finally {
+      setDoctorBusy(false);
+    }
+  }, []);
+
+  const openTexSetupWizard = useCallback(() => {
+    setTexSetupStatus(null);
+    setTexSetupOpen(true);
+    void runDoctor();
+  }, [runDoctor]);
+
+  const copyDoctorSummary = useCallback(async () => {
+    if (!doctorReport) return;
+    try {
+      await writeText(doctorReport.summary);
+      setDoctorNotice("Copied doctor summary.");
+    } catch (reason) {
+      setDoctorNotice(toMessage(reason));
+    }
+  }, [doctorReport]);
+
 
   const revealProjectItem = useCallback(async (relativePath: string) => {
     if (!project) return;
@@ -1019,6 +2857,11 @@ function App() {
     if (!window.confirm(`Remove “${paper.title}” and its bibliography entry?`)) return;
     try {
       await invoke("delete_paper", { arxivId: paper.arxivId });
+      if (collabSession) {
+        removeCollabPath(collabSession.doc, `.research/papers/${paper.arxivId}/paper.md`);
+        removeCollabPath(collabSession.doc, `.research/papers/${paper.arxivId}/metadata.json`);
+        setCollabFileCount(collabSession.fileCount());
+      }
       if (activePaper?.arxivId === paper.arxivId) {
         setActivePaper(null);
         setPaperMarkdown("");
@@ -1029,7 +2872,7 @@ function App() {
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [activePaper, refreshHistory, refreshProject]);
+  }, [activePaper, collabSession, refreshHistory, refreshProject]);
 
   const changeProvider = useCallback((nextProvider: AgentProvider) => {
     setProvider(nextProvider);
@@ -1080,6 +2923,7 @@ function App() {
 
   const deleteAgentSession = useCallback(async (id: string) => {
     if (agentRunning) return;
+    if (!window.confirm("Delete this conversation? This cannot be undone.")) return;
     try {
       await invoke("delete_agent_session", { sessionId: id });
       let remaining = await invoke<AgentSessionSummary[]>("list_agent_sessions");
@@ -1156,6 +3000,7 @@ function App() {
         currentMessages = session.messages;
         setMessages(session.messages);
         setSelection("");
+        setSelectionSource(null);
         await refreshProject();
         await refreshHistory();
         if (activeFile) await loadFile(activeFile);
@@ -1170,6 +3015,7 @@ function App() {
       const pendingMessages = [...session.messages, userMessage];
       currentMessages = pendingMessages;
       setMessages(pendingMessages);
+      setAgentToolSteps([]);
       const onEvent = new Channel<AgentStreamEvent>((event) => {
         if (event.type === "cancellable") {
           setAgentCancellable(event.enabled);
@@ -1177,6 +3023,32 @@ function App() {
         }
         if (event.type === "status") {
           setAgentStatus(event.message);
+          return;
+        }
+        if (event.type === "tool") {
+          setAgentToolSteps((steps) => {
+            if (event.phase === "end") {
+              const next = [...steps];
+              for (let index = next.length - 1; index >= 0; index -= 1) {
+                if (next[index]?.name === event.name && next[index]?.phase === "start") {
+                  next[index] = { ...next[index]!, phase: "end", detail: event.detail || "done" };
+                  return next;
+                }
+              }
+              return [...next, {
+                id: crypto.randomUUID(),
+                name: event.name,
+                detail: event.detail || "done",
+                phase: "end",
+              }];
+            }
+            return [...steps, {
+              id: crypto.randomUUID(),
+              name: event.name,
+              detail: event.detail,
+              phase: "start",
+            }];
+          });
           return;
         }
         if (!event.text) return;
@@ -1279,6 +3151,7 @@ function App() {
 
   const revert = useCallback(
     async (id: string) => {
+      if (!window.confirm("Restore the project to the state before this change?")) return;
       try {
         await invoke("revert_transaction", { transactionId: id });
         if (activeFile) await loadFile(activeFile);
@@ -1362,6 +3235,7 @@ function App() {
   }, [apiProvider, refreshApiKeys]);
 
   const deleteHistory = useCallback(async (id: string) => {
+    if (!window.confirm("Delete this history entry? This cannot be undone.")) return;
     try {
       await invoke("delete_history_entry", { transactionId: id });
       await refreshHistory();
@@ -1369,6 +3243,47 @@ function App() {
       setError(toMessage(reason));
     }
   }, [refreshHistory]);
+
+  const persistEditorComments = useCallback(async (next: EditorComment[]) => {
+    setEditorComments(next);
+    const payload = serializeEditorComments(next);
+    try {
+      await invoke("save_editor_comments", { comments: next });
+      // Push the same payload we just saved — avoid a disk re-read race.
+      if (collabSession) {
+        pushLocalTextToCollab(collabSession.doc, COLLAB_EDITOR_COMMENTS_PATH, payload);
+      }
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [collabSession]);
+
+  const toggleEditorCommentResolved = useCallback((id: string) => {
+    void persistEditorComments(editorComments.map((item) => (
+      item.id === id
+        ? { ...item, resolved: !item.resolved, updatedAt: new Date().toISOString() }
+        : item
+    )));
+  }, [editorComments, persistEditorComments]);
+
+  const replyToEditorComment = useCallback((commentId: string, body: string) => {
+    const reply = createEditorCommentReply({
+      body,
+      authorId: editorCommentAuthorId,
+      authorName: collabName.trim() || "Anonymous",
+    });
+    if (!reply) return;
+    void persistEditorComments(editorComments.map((item) => (
+      item.id === commentId
+        ? { ...item, replies: [...item.replies, reply], updatedAt: new Date().toISOString() }
+        : item
+    )));
+  }, [collabName, editorCommentAuthorId, editorComments, persistEditorComments]);
+
+  const openEditorCommentReply = useCallback((commentId: string) => {
+    setCommentPanelFocusId(commentId);
+    setEditorCommentsOpen(true);
+  }, []);
 
   const beginPanelResize = useCallback((panel: PanelKind, event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -1406,7 +3321,14 @@ function App() {
         if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
         if (tab === "accounts") void refreshSubscriptions();
         if (tab === "agent") void refreshAgentSkills().catch((reason) => setError(toMessage(reason)));
+        if (tab === "doctor") void runDoctor();
       }}
+      doctorReport={doctorReport}
+      doctorBusy={doctorBusy}
+      doctorNotice={doctorNotice}
+      onRunDoctor={() => { void runDoctor(); }}
+      onOpenTexSetup={() => openTexSetupWizard()}
+      onCopyDoctorSummary={() => { void copyDoctorSummary(); }}
       appearance={appearance}
       setAppearance={setAppearance}
       theme={theme}
@@ -1416,6 +3338,39 @@ function App() {
       systemPrompt={systemPrompt}
       setSystemPrompt={setSystemPrompt}
       hasProject={Boolean(project)}
+      project={project}
+      onUpdateManifest={async (patch) => {
+        try {
+          const manifest = await invoke<ProjectManifest>("update_project_manifest", patch);
+          setProject((current) => current ? { ...current, manifest } : current);
+          setError(null);
+        } catch (reason) {
+          setError(toMessage(reason));
+        }
+      }}
+      activeFile={activeFile}
+      onAddRootDocument={async (path, makeDefault) => {
+        try {
+          const manifest = await invoke<ProjectManifest>("add_root_document", {
+            path,
+            name: null,
+            makeDefault,
+          });
+          setProject((current) => current ? { ...current, manifest } : current);
+          setError(null);
+        } catch (reason) {
+          setError(toMessage(reason));
+        }
+      }}
+      onRemoveRootDocument={async (path) => {
+        try {
+          const manifest = await invoke<ProjectManifest>("remove_root_document", { path });
+          setProject((current) => current ? { ...current, manifest } : current);
+          setError(null);
+        } catch (reason) {
+          setError(toMessage(reason));
+        }
+      }}
       skills={agentSkills}
       skillDraft={skillDraft}
       setSkillDraft={setSkillDraft}
@@ -1441,6 +3396,276 @@ function App() {
     />
   ) : null;
 
+
+  const projectPaths = useMemo(
+    () => (project ? flattenProjectPaths(project.files) : []),
+    [project],
+  );
+  const rootDocumentPath = project?.manifest.rootDocuments.find((document) => document.isDefault)?.path
+    ?? project?.manifest.rootDocuments[0]?.path
+    ?? "";
+  const liveOutlineSources = useMemo(() => ({
+    ...outlineSources,
+    ...(activeFile.endsWith(".tex") ? { [activeFile]: source } : {}),
+  }), [activeFile, outlineSources, source]);
+  useEffect(() => {
+    if (!project || !outlineOpen || !rootDocumentPath) return;
+    let cancelled = false;
+    const missing: string[] = [];
+    const seen = new Set<string>();
+    const visit = (path: string, depth: number) => {
+      if (depth > 8 || seen.has(path)) return;
+      seen.add(path);
+      const text = liveOutlineSources[path];
+      if (text == null) {
+        missing.push(path);
+        return;
+      }
+      for (const included of includedPathsIn(text, projectPaths)) visit(included, depth + 1);
+    };
+    visit(rootDocumentPath, 0);
+    const uniqueMissing = missing.filter((path, index) => missing.indexOf(path) === index);
+    if (!uniqueMissing.length) return;
+    void Promise.all(uniqueMissing.map(async (path) => {
+      try {
+        return [path, await invoke<string>("read_project_file", { path })] as const;
+      } catch {
+        return [path, ""] as const;
+      }
+    })).then((entries) => {
+      if (cancelled) return;
+      setOutlineSources((current) => {
+        const next = { ...current };
+        let changed = false;
+        for (const [path, content] of entries) {
+          if (current[path] === content) continue;
+          next[path] = content;
+          changed = true;
+        }
+        return changed ? next : current;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [liveOutlineSources, outlineOpen, project, projectPaths, rootDocumentPath]);
+  const outlineNodes = useMemo(() => {
+    if (!rootDocumentPath) return [];
+    return parseProjectOutline(rootDocumentPath, liveOutlineSources, projectPaths);
+  }, [liveOutlineSources, projectPaths, rootDocumentPath]);
+  const liveReferences = useMemo(() => {
+    let merged = references;
+    if (activeFile.endsWith(".tex")) {
+      merged = mergeReferences(merged, activeFile, parseLocalLabels(activeFile, source));
+    }
+    if (secondaryFile?.endsWith(".tex")) {
+      merged = mergeReferences(merged, secondaryFile, parseLocalLabels(secondaryFile, secondarySource));
+    }
+    return merged;
+  }, [activeFile, references, secondaryFile, secondarySource, source]);
+  const goToSymbolItems = useMemo((): SearchPickerItem[] => {
+    const sections = flattenOutline(outlineNodes)
+      .filter((node) => node.kind !== "input")
+      .map((node) => ({
+        id: `section:${node.id}`,
+        label: node.title,
+        detail: `${node.path || activeFile}:${node.line}`,
+        group: "Section",
+      }));
+    const labels = liveReferences.map((reference) => ({
+      id: `label:${reference.path}:${reference.label}`,
+      label: reference.label,
+      detail: `${reference.path}:${reference.line}${reference.title && reference.title !== reference.label ? ` · ${reference.title}` : ""}`,
+      group: "Label",
+    }));
+    return [...sections, ...labels];
+  }, [activeFile, liveReferences, outlineNodes]);
+  const citePickerItems = useMemo((): SearchPickerItem[] => (
+    (citations.length
+      ? citations.map((citation) => ({
+        id: `cite:${citation.key}`,
+        label: citation.key,
+        detail: [citation.title, citation.authors, citation.year].filter(Boolean).join(" · "),
+        group: "Citation",
+      }))
+      : citationKeys.map((key) => ({
+        id: `cite:${key}`,
+        label: key,
+        group: "Citation",
+      })))
+  ), [citationKeys, citations]);
+  const refPickerItems = useMemo((): SearchPickerItem[] => (
+    liveReferences.map((reference) => ({
+      id: `ref:${reference.path}:${reference.label}`,
+      label: reference.label,
+      detail: `${reference.path}:${reference.line}`,
+      group: "Reference",
+    }))
+  ), [liveReferences]);
+  const activeOutlineId = useMemo(() => {
+    if (!activeFile.endsWith(".tex") || !editorPosition) return null;
+    return activeOutlineNode(outlineNodes, activeFile, editorPosition.line)?.id ?? null;
+  }, [activeFile, editorPosition, outlineNodes]);
+  const editorTabItems = useMemo(
+    () => openTabs.map((path) => ({
+      path,
+      dirty: (path === activeFile && source !== savedSource)
+        || (path === secondaryFile && secondarySource !== secondarySavedSource),
+      beside: path === secondaryFile && (canvasMode === "dual" || canvasMode === "columns"),
+    })),
+    [activeFile, canvasMode, openTabs, savedSource, secondaryFile, secondarySavedSource, secondarySource, source],
+  );
+  const liveSourceMap = useMemo(() => ({
+    ...outlineSources,
+    ...(activeFile.endsWith(".tex") ? { [activeFile]: source } : {}),
+    ...(secondaryFile?.endsWith(".tex") ? { [secondaryFile]: secondarySource } : {}),
+  }), [activeFile, outlineSources, secondaryFile, secondarySource, source]);
+  const liveMacroSources = useMemo(() => Object.values(liveSourceMap), [liveSourceMap]);
+  const liveMacros = useMemo(() => parseLocalMacros(liveMacroSources), [liveMacroSources]);
+  const graphicsRoots = useMemo(
+    () => parseGraphicsPaths(liveMacroSources),
+    [liveMacroSources],
+  );
+  const katexMacros = useMemo(() => katexMacrosFromSources(liveMacroSources), [liveMacroSources]);
+  const collabEditorExtensionsMemo = useMemo(() => {
+    // Do not bind until the shared doc is ready (see collabReady). Binding before
+    // the host's Y.Texts have synced makes ensureCollabText create a competing
+    // main.tex that loses the map key and strands the editor on the placeholder.
+    if (!collabSession || !activeFile || !collabReady) return [];
+    // Bind the open path's Y.Text before yCollab is constructed. Only depends on
+    // session/path/readiness — not on keystrokes — so awareness listeners stay alive.
+    // eslint-disable-next-line react-hooks/refs -- intentional path bind with loaded buffer
+    collabSession.setActivePath(activeFile, sourceRef.current);
+    return collabEditorExtensions(collabSession);
+  }, [collabSession, activeFile, collabReady]);
+  const todoHits = useMemo(
+    () => mergeTodosWithBuffer(diskTodos, activeFile, source),
+    [activeFile, diskTodos, source],
+  );
+
+  useEffect(() => {
+    if (!build?.success || !pdfUrl) {
+      setMainBodyPages(null);
+      return;
+    }
+    const marker = findAppendixMarker(liveSourceMap);
+    if (!marker) {
+      setMainBodyPages(null);
+      return;
+    }
+    let cancelled = false;
+    void invoke<{ page: number }>("synctex_view", {
+      path: marker.path,
+      line: marker.line,
+      column: 0,
+    })
+      .then((target) => {
+        if (!cancelled) setMainBodyPages(Math.max(0, target.page - 1));
+      })
+      .catch(() => {
+        if (!cancelled) setMainBodyPages(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [build?.success, liveSourceMap, pdfUrl]);
+
+  useEffect(() => {
+    if (!project || !activeFile.endsWith(".tex")) {
+      setTexlabDiagnostics([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void invoke<CompileDiagnostic[]>("texlab_diagnostics", {
+        path: activeFile,
+        text: source,
+      })
+        .then((diagnostics) => {
+          if (!cancelled) setTexlabDiagnostics(diagnostics);
+        })
+        .catch(() => {
+          if (!cancelled) setTexlabDiagnostics([]);
+        });
+    }, 700);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeFile, project, source]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "F8") {
+        event.preventDefault();
+        cycleCompileDiagnostic(event.shiftKey ? -1 : 1);
+        return;
+      }
+      const mod = event.metaKey || event.ctrlKey;
+      if (!mod || event.altKey) return;
+      if (event.key === "[" && !event.shiftKey) {
+        event.preventDefault();
+        void navigateHistory(-1);
+        return;
+      }
+      if (event.key === "]" && !event.shiftKey) {
+        event.preventDefault();
+        void navigateHistory(1);
+        return;
+      }
+      if (event.key.toLocaleLowerCase() === "p" && !event.shiftKey) {
+        event.preventDefault();
+        setQuickOpenOpen(true);
+      }
+      if (event.key.toLocaleLowerCase() === "p" && event.shiftKey) {
+        event.preventDefault();
+        setCommandPaletteOpen(true);
+      }
+      if (event.key.toLocaleLowerCase() === "o" && event.shiftKey) {
+        event.preventDefault();
+        setGoToSymbolOpen(true);
+      }
+      if (event.key.toLocaleLowerCase() === "g" && !event.shiftKey) {
+        event.preventDefault();
+        setGotoLineOpen(true);
+      }
+      if (event.key.toLocaleLowerCase() === "j" && event.shiftKey) {
+        event.preventDefault();
+        void revealSourceInPdf();
+      }
+      if (event.key.toLocaleLowerCase() === "t" && event.shiftKey) {
+        event.preventDefault();
+        void reopenClosedTab();
+      }
+      if (event.key.toLocaleLowerCase() === "k" && event.shiftKey) {
+        event.preventDefault();
+        setRefCitePicker("cite");
+      }
+      if (event.key.toLocaleLowerCase() === "l" && event.shiftKey) {
+        event.preventDefault();
+        setRefCitePicker("ref");
+      }
+      if (event.key.toLocaleLowerCase() === "i" && event.shiftKey) {
+        event.preventDefault();
+        setInsertOpen(true);
+      }
+      if (event.key.toLocaleLowerCase() === "h" && event.shiftKey) {
+        event.preventDefault();
+        setProjectReplaceError(null);
+        setProjectReplacePreview(null);
+        setProjectReplaceOpen(true);
+      }
+      if (event.key.toLocaleLowerCase() === "f" && event.shiftKey) {
+        event.preventDefault();
+        setProjectFindError(null);
+        setProjectFindHits([]);
+        setProjectFindOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [cycleCompileDiagnostic, navigateHistory, reopenClosedTab, revealSourceInPdf]);
+
   if (!project) {
     return (
       <>
@@ -1450,6 +3675,7 @@ function App() {
           error={error}
           createError={createError}
           projectName={projectName}
+          projectVenue={projectVenue}
           onOpenCreate={() => {
             setCreateError(null);
             setCreateOpen(true);
@@ -1462,18 +3688,63 @@ function App() {
             setProjectName(value);
             setCreateError(null);
           }}
+          setProjectVenue={(value) => {
+            setProjectVenue(value);
+            setCreateError(null);
+          }}
           onCreate={createProject}
           onOpen={chooseExisting}
+          onImportZip={() => void importOverleafZip()}
+          onJoinCollab={() => openCollabDialog("join")}
           onSettings={() => openSettings("appearance")}
+          onInstallTex={openTexSetupWizard}
+        />
+        <CollabDialog
+          open={collabOpen}
+          mode="join"
+          role={collabRole}
+          joinOnly
+          host={collabHost}
+          room={collabRoom}
+          displayName={collabName}
+          inviteText={collabInvite}
+          status={collabStatus}
+          statusDetail={collabStatusDetail}
+          peerCount={collabPeers}
+          fileCount={collabFileCount}
+          connectedRoom={collabSession?.room ?? null}
+          onClose={() => setCollabOpen(false)}
+          onModeChange={setCollabMode}
+          onHostChange={setCollabHost}
+          onRoomChange={setCollabRoom}
+          onDisplayNameChange={setCollabName}
+          onInviteChange={setCollabInvite}
+          onStartShare={startCollabShare}
+          onJoinShare={joinCollabShare}
+          onDisconnect={disconnectCollab}
+          onCopyInvite={copyCollabInvite}
+          onInstallTex={openTexSetupWizard}
         />
         {settingsDialog}
+        <TexSetupWizard
+          open={texSetupOpen}
+          report={doctorReport}
+          checking={doctorBusy}
+          statusMessage={texSetupStatus}
+          onClose={() => setTexSetupOpen(false)}
+          onDismiss={() => {
+            dismissTexSetup();
+            setTexSetupOpen(false);
+          }}
+          onRecheck={() => { void runDoctor({ openWizardIfMissing: true, fromRecheck: true }); }}
+        />
       </>
     );
   }
 
   return (
     <div className={`app-shell ${isFullscreen ? "fullscreen" : ""}`} ref={shellRef}>
-      <header className="titlebar" onMouseDown={beginWindowDrag}>
+      <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
         <div className="titlebar-navigator">
           <div className="traffic-space" />
           <button className="icon-button" onClick={() => setNavigatorOpen((value) => !value)} title={navigatorOpen ? "Hide navigator" : "Show navigator"}>
@@ -1493,6 +3764,23 @@ function App() {
             <span>{project.manifest.name}</span>
             <ChevronDown size={13} />
           </button>
+          {(collabStatus === "synced" || collabStatus === "connecting") && (
+            <button
+              type="button"
+              className="collab-title-chip"
+              title="Live collaboration"
+              onClick={() => openCollabDialog(collabRole === "guest" ? "join" : "start")}
+            >
+              <Radio size={12} />
+              <span>
+                {collabStatus === "connecting"
+                  ? "Connecting…"
+                  : collabRole === "guest"
+                    ? (collabPeers > 0 ? `Guest · ${collabPeers} other${collabPeers === 1 ? "" : "s"}` : "Guest · live")
+                    : (collabPeers > 0 ? `Sharing · ${collabPeers} other${collabPeers === 1 ? "" : "s"}` : "Sharing · just you")}
+              </span>
+            </button>
+          )}
           <div className="titlebar-drag-area" aria-hidden="true" />
           {projectMenuOpen && (
             <ProjectMenu
@@ -1509,6 +3797,10 @@ function App() {
                 setCreateError(null);
                 setCreateOpen(true);
               }}
+              onExportZip={() => {
+                setProjectMenuOpen(false);
+                void exportProjectZip();
+              }}
               onClose={() => setProjectMenuOpen(false)}
             />
           )}
@@ -1517,10 +3809,39 @@ function App() {
           <button className="icon-button" onClick={() => openSettings("appearance")} title="Settings">
             <Settings2 size={16} />
           </button>
-          <button className={`build-button ${build?.success ? "success" : ""}`} title={autoBuildDescription(buildPreferences.autoBuildMode)} onClick={compile} disabled={building} aria-live="polite">
-            {building ? <LoaderCircle className="spin" size={15} /> : build?.success ? <Check size={15} /> : <Play size={15} />}
-            {building ? "Building" : build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : "Build"}
+          <button
+            className="icon-button"
+            title="Clean aux files"
+            disabled={building || cleaning}
+            onClick={() => void cleanProject()}
+          >
+            {cleaning ? <LoaderCircle className="spin" size={15} /> : <Eraser size={15} />}
           </button>
+          {building ? (
+            <button
+              className="build-button stop"
+              title="Stop the current LaTeX build"
+              onClick={() => void abortBuild()}
+              aria-live="polite"
+            >
+              <Square size={13} fill="currentColor" />
+              Stop
+            </button>
+          ) : (
+            <button
+              className={`build-button ${build?.success ? "success" : ""}`}
+              title={`${autoBuildDescription(buildPreferences.autoBuildMode)}. Shift-click for clean rebuild.`}
+              onClick={(event) => {
+                if (event.shiftKey) void cleanAndRebuild();
+                else void compile();
+              }}
+              disabled={cleaning}
+              aria-live="polite"
+            >
+              {build?.success ? <Check size={15} /> : <Play size={15} />}
+              {build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : "Build"}
+            </button>
+          )}
         </div>
       </header>
 
@@ -1530,6 +3851,38 @@ function App() {
           <span>{error}</span>
           <button onClick={() => setError(null)}><X size={14} /></button>
         </div>
+      )}
+      {notice && !error && (
+        <div className="notice-banner">
+          <Check size={15} />
+          <span>{notice}</span>
+          <button onClick={() => setNotice(null)}><X size={14} /></button>
+        </div>
+      )}
+      {!diagnosticsDismissed && build && (!build.success || build.diagnostics.length > 0) ? (
+        <CompileDiagnosticsPanel
+          diagnostics={build.diagnostics}
+          log={build.log}
+          success={build.success}
+          expanded={diagnosticsExpanded}
+          onExpandedChange={setDiagnosticsExpanded}
+          onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
+          onDismiss={() => setDiagnosticsDismissed(true)}
+        />
+      ) : null}
+      {referenceHits && (
+        <ReferencesPanel
+          kind={referenceHits.kind}
+          symbol={referenceHits.symbol}
+          occurrences={referenceHits.occurrences}
+          onSelect={(occurrence) => void openSymbolOccurrence(occurrence)}
+          onRename={() => beginSymbolRename(
+            referenceHits.kind === "label"
+              ? { kind: "label", label: referenceHits.symbol }
+              : { kind: "citation", key: referenceHits.symbol },
+          )}
+          onDismiss={() => setReferenceHits(null)}
+        />
       )}
 
       <main
@@ -1552,7 +3905,7 @@ function App() {
               ]}
               papers={papers}
               activePaper={activePaper}
-              onFile={loadFile}
+              onFile={(path, line) => { void openProjectFile(path, line); }}
               onAsset={openProjectAssetFromClick}
               onBeginFigureDrag={beginProjectFigureDrag}
               onCreateEntry={createProjectEntry}
@@ -1563,6 +3916,9 @@ function App() {
               assetDropTarget={assetDropTarget}
               assetImporting={assetImporting}
               onPaper={openPaper}
+              onCitePaper={(paper, command) => void insertCitationFromPaper(paper, command)}
+              onAddBibEntry={() => openBibEntryDialog()}
+              onDiscoverLiterature={() => setLiteratureOpen(true)}
               onDeletePaper={deletePaper}
               onRenamePaper={renameImportedPaper}
               importInput={importInput}
@@ -1600,12 +3956,18 @@ function App() {
           running={agentRunning}
           streaming={agentStreaming}
           status={agentStatus}
+          toolSteps={agentToolSteps}
           cancellable={agentCancellable}
           stopping={agentStopping}
           onSend={sendToAgent}
           onStop={stopAgent}
           onApiSettings={() => openSettings("api")}
           selection={selection}
+          selectionSource={selectionSource}
+          onClearSelection={() => {
+            setSelection("");
+            setSelectionSource(null);
+          }}
           branchSource={branchSource}
           onCancelBranch={() => setBranchSource(null)}
           mentions={agentMentions}
@@ -1623,28 +3985,69 @@ function App() {
           <CanvasToolbar
             mode={canvasMode}
             setMode={openDocumentMode}
-            activePath={activeAsset?.path ?? activePaper?.title ?? activeFile}
+            activePath={activeAsset?.path ?? activePaper?.title ?? (
+              focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile
+            )}
             activeKind={activeAsset ? "asset" : activePaper ? "paper" : "document"}
-            dirty={source !== savedSource}
+            dirty={
+              source !== savedSource
+              || (Boolean(secondaryFile) && secondarySource !== secondarySavedSource)
+            }
+            canForwardSync={Boolean(editorPosition && (pdfUrl || build?.pdfBase64))}
+            locatingPdf={locatingPdf}
+            canNavigateBack={navIndex > 0}
+            canNavigateForward={navIndex >= 0 && navIndex < navStack.length - 1}
+            onNavigateBack={() => void navigateHistory(-1)}
+            onNavigateForward={() => void navigateHistory(1)}
+            onInsert={() => setInsertOpen(true)}
+            onCollab={openCollabDialog}
+            collabLive={collabStatus === "synced" || collabStatus === "connecting"}
+            collabPeers={collabPeers}
+            onForwardSync={() => void revealSourceInPdf()}
             onHistory={() => setHistoryOpen(true)}
+            onGit={() => setGitOpen(true)}
+            commentCount={editorComments.filter((comment) => !comment.resolved).length}
+            onComments={() => setEditorCommentsOpen(true)}
+          />
+          <div className="canvas-body">
+          <EditorTabs
+            tabs={editorTabItems}
+            activePath={focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile}
+            onSelect={(path) => { void openProjectFile(path); }}
+            onClose={(path) => { void closeEditorTab(path); }}
           />
           <DocumentCanvas
             mode={canvasMode}
             source={source}
             activeFile={activeFile}
+            secondaryFile={secondaryFile}
+            secondarySource={secondarySource}
+            setSecondarySource={setSecondarySource}
+            focusedPane={focusedPane}
+            onFocusPane={setFocusedPane}
             setSource={setSource}
-            setSelection={setSelection}
+            setSelection={(value) => {
+              setSelection(value);
+              setSelectionSource(value ? "editor" : null);
+            }}
+            onPdfTextSelect={(value) => {
+              setSelection(value);
+              setSelectionSource(value ? "pdf" : null);
+            }}
             pdfUrl={pdfUrl}
-            pdfBase64={build?.pdfBase64 ?? null}
+            pdfBase64={previewPdfBase64}
             paperMarkdown={paperMarkdown}
             activePaper={activePaper}
             activeAsset={activeAsset}
             citationKeys={citationKeys}
             citations={citations}
-            references={references}
+            references={liveReferences}
+            unusedLabels={unusedSymbols.labels}
+            unusedCitations={unusedSymbols.citations}
             onLoadReferenceImage={loadReferenceImage}
             onEditorLeave={buildWhenLeavingEditor}
             onPrepareFigure={prepareLatexFigure}
+            onPasteImageFile={handlePasteImageFile}
             nativeFigureDropActive={nativeEditorDropActive}
             figurePointerPosition={figurePointerDrag?.overEditor ? {
               x: figurePointerDrag.clientX,
@@ -1654,10 +4057,126 @@ function App() {
             onFigureDropHandled={handleFigureDropHandled}
             editorNavigation={editorNavigation}
             onEditorNavigationHandled={handleEditorNavigationHandled}
+            onEditorPosition={handleEditorPosition}
+            onViewState={(path, state) => { viewStateRef.current.set(path, state); }}
+            viewRestore={viewRestore}
+            onViewRestoreHandled={(id) => setViewRestore((current) => current?.id === id ? null : current)}
+            onGotoDefinition={(target) => void gotoDefinition(target)}
+            onTexlabGoto={(path, line) => { void openProjectFile(path, line); }}
+            onFindReferences={(target) => void findSymbolReferences(target)}
+            onRenameSymbol={beginSymbolRename}
+            onRenameEnvironment={(name) => {
+              setRenameError(null);
+              setRenameTarget({ kind: "environment", name });
+            }}
+            onWrapEnvironment={() => {
+              setRenameError(null);
+              setRenameTarget({ kind: "wrap-environment" });
+            }}
+            envRenameRequest={envRenameRequest}
+            onEnvRenameHandled={(id) => setEnvRenameRequest((current) => current?.id === id ? null : current)}
+            wrapEnvRequest={wrapEnvRequest}
+            onWrapEnvHandled={(id) => setWrapEnvRequest((current) => current?.id === id ? null : current)}
+            localMacros={liveMacros}
+            katexMacros={katexMacros}
+            onGotoLineRequest={() => setGotoLineOpen(true)}
+            outlineOpen={outlineOpen}
+            onOutlineOpenChange={setOutlineOpen}
+            outlineNodes={outlineNodes}
+            activeOutlineId={activeOutlineId}
+            onOutlineNavigate={(path, line) => { void openProjectFile(path, line); }}
+            insertOpen={insertOpen}
+            onInsertOpenChange={setInsertOpen}
+            tableGeneratorOpen={tableGeneratorOpen}
+            onTableGeneratorOpenChange={setTableGeneratorOpen}
+            editorKeymap={appearance.editorKeymap}
+            editorSpellcheck={appearance.editorSpellcheck}
+            citeInsertRequest={citeInsertRequest}
+            onCiteInsertHandled={(id) => setCiteInsertRequest((current) => current?.id === id ? null : current)}
+            projectPaths={projectPaths}
+            graphicsRoots={graphicsRoots}
+            buildDiagnostics={build?.diagnostics ?? []}
+            texlabDiagnostics={texlabDiagnostics}
+            pdfSyncTarget={pdfSyncTarget}
             onPdfSource={revealPdfSource}
+            pdfMarks={[]}
+            activePdfMarkId={null}
+            onCreatePdfMark={undefined}
+            onSelectPdfMark={undefined}
+            onOpenPdfMarks={undefined}
+            editorComments={editorComments}
+            activeEditorCommentId={activeEditorCommentId}
+            commentAuthorName={collabName.trim() || "Anonymous"}
+            commentAuthorId={editorCommentAuthorId}
+            onCreateEditorComment={(comment) => {
+              void persistEditorComments([...editorComments, comment]);
+              setActiveEditorCommentId(comment.id);
+            }}
+            onOpenEditorComments={() => setEditorCommentsOpen(true)}
+            onResolveEditorComment={toggleEditorCommentResolved}
+            onReplyEditorComment={openEditorCommentReply}
+            commentFocusRequest={commentFocusRequest}
+            onCommentFocusHandled={(nonce) => {
+              setCommentFocusRequest((current) => (current?.nonce === nonce ? null : current));
+            }}
+            todoCount={todoHits.length}
+            onOpenTodos={() => {
+              void refreshTodos();
+              setTodosOpen(true);
+            }}
+            projectWordCount={projectWordCount}
+            onPdfPageCount={setPdfPageCount}
+            onCreateMissingFile={(path) => {
+              void createProjectEntry(path, "file");
+            }}
+            collabExtensions={collabEditorExtensionsMemo}
+            collabEditorKey={collabSession
+              ? `collab:${collabSession.room}:${activeFile}:${collabReady ? "live" : "wait"}`
+              : `local:${activeFile}`}
           />
+          </div>
         </section>
       </main>
+
+      <CollabDialog
+        open={collabOpen}
+        mode={collabMode}
+        role={collabRole}
+        joinOnly={false}
+        host={collabHost}
+        room={collabRoom}
+        displayName={collabName}
+        inviteText={collabInvite}
+        status={collabStatus}
+        statusDetail={collabStatusDetail}
+        peerCount={collabPeers}
+        fileCount={collabFileCount}
+        connectedRoom={collabSession?.room ?? null}
+        onClose={() => setCollabOpen(false)}
+        onModeChange={setCollabMode}
+        onHostChange={setCollabHost}
+        onRoomChange={setCollabRoom}
+        onDisplayNameChange={setCollabName}
+        onInviteChange={setCollabInvite}
+        onStartShare={startCollabShare}
+        onJoinShare={joinCollabShare}
+        onDisconnect={disconnectCollab}
+        onCopyInvite={copyCollabInvite}
+        onInstallTex={openTexSetupWizard}
+      />
+
+      <TexSetupWizard
+        open={texSetupOpen}
+        report={doctorReport}
+        checking={doctorBusy}
+        statusMessage={texSetupStatus}
+        onClose={() => setTexSetupOpen(false)}
+        onDismiss={() => {
+          dismissTexSetup();
+          setTexSetupOpen(false);
+        }}
+        onRecheck={() => { void runDoctor({ openWizardIfMissing: true, fromRecheck: true }); }}
+      />
 
       {figurePointerDrag && (
         <div
@@ -1670,14 +4189,425 @@ function App() {
       )}
 
       {historyOpen && (
-        <HistoryDrawer history={history} onClose={() => setHistoryOpen(false)} onRevert={revert} onDelete={deleteHistory} />
+        <HistoryDrawer
+          history={history}
+          onClose={() => setHistoryOpen(false)}
+          onRevert={revert}
+          onRevertFile={async (id, path) => {
+            if (!window.confirm(`Restore only “${path}” to the state before this change?`)) return;
+            try {
+              await invoke("revert_history_file", { transactionId: id, path });
+              if (activeFile === path || activeFile) await loadFile(activeFile);
+              await refreshProject();
+              await refreshHistory();
+              await compile();
+            } catch (reason) {
+              setError(toMessage(reason));
+            }
+          }}
+          onDelete={deleteHistory}
+          onOpenFile={(path, line) => { void openProjectFile(path, line); }}
+        />
       )}
+      {gitOpen && (
+        <GitPanel
+          onClose={() => setGitOpen(false)}
+          onOpenFile={(path, line) => { void openProjectFile(path, line); }}
+        />
+      )}
+      {editorCommentsOpen && (
+        <EditorCommentsPanel
+          comments={editorComments}
+          activePath={activeFile}
+          currentAuthorId={editorCommentAuthorId}
+          focusCommentId={commentPanelFocusId}
+          onClose={() => {
+            setEditorCommentsOpen(false);
+            setCommentPanelFocusId(null);
+          }}
+          onOpen={(comment) => {
+            setActiveEditorCommentId(comment.id);
+            setEditorCommentsOpen(false);
+            setCommentPanelFocusId(null);
+            void openProjectFile(comment.path).then(() => {
+              setCommentFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
+            });
+          }}
+          onDelete={(id) => {
+            void persistEditorComments(editorComments.filter((comment) => comment.id !== id));
+            setActiveEditorCommentId((current) => (current === id ? null : current));
+          }}
+          onToggleResolved={(comment) => toggleEditorCommentResolved(comment.id)}
+          onUpdateBody={(comment, body) => {
+            const trimmed = body.trim();
+            if (!trimmed) return;
+            void persistEditorComments(editorComments.map((item) => (
+              item.id === comment.id
+                ? { ...item, body: trimmed, updatedAt: new Date().toISOString() }
+                : item
+            )));
+          }}
+          onReply={(comment, body) => replyToEditorComment(comment.id, body)}
+        />
+      )}
+      {todosOpen && (
+        <TodoScavengerPanel
+          hits={todoHits}
+          onClose={() => setTodosOpen(false)}
+          onOpen={(path, line) => {
+            void openProjectFile(path, line);
+            setTodosOpen(false);
+          }}
+        />
+      )}
+      {checklistOpen && project && (
+        <ManuscriptChecklistPanel
+          data={{
+            words: projectWordCount?.total ?? 0,
+            wordSource: projectWordCount?.source ?? "estimate",
+            wordBudget: project.manifest.wordBudget ?? null,
+            pages: pdfPageCount,
+            mainPages: mainBodyPages,
+            pageBudget: project.manifest.pageBudget ?? null,
+            todos: todoHits.length,
+            unusedLabels: unusedSymbols.labels.length,
+            unusedCitations: unusedSymbols.citations.length,
+            buildOk: build ? build.success : null,
+            buildMessage: build?.log?.split("\n").slice(-1)[0] ?? "",
+          }}
+          onClose={() => setChecklistOpen(false)}
+          onOpenTodos={() => {
+            setChecklistOpen(false);
+            void refreshTodos();
+            setTodosOpen(true);
+          }}
+          onSaveBudgets={(wordBudget, pageBudget) => {
+            void (async () => {
+              try {
+                const manifest = await invoke<ProjectManifest>("update_project_manifest", {
+                  wordBudget: wordBudget ?? undefined,
+                  pageBudget: pageBudget ?? undefined,
+                  clearWordBudget: wordBudget == null,
+                  clearPageBudget: pageBudget == null,
+                });
+                setProject((current) => current ? { ...current, manifest } : current);
+              } catch (reason) {
+                setError(toMessage(reason));
+              }
+            })();
+          }}
+        />
+      )}
+      <QuickOpenDialog
+        open={quickOpenOpen}
+        paths={projectPaths}
+        onClose={() => setQuickOpenOpen(false)}
+        onOpen={(path) => {
+          setQuickOpenOpen(false);
+          void openProjectFile(path);
+        }}
+      />
+      <SearchPickerDialog
+        open={goToSymbolOpen}
+        title="Go to symbol"
+        placeholder="Go to section or label…"
+        items={goToSymbolItems}
+        onClose={() => setGoToSymbolOpen(false)}
+        onSelect={(item) => {
+          setGoToSymbolOpen(false);
+          if (item.id.startsWith("section:")) {
+            const node = flattenOutline(outlineNodes).find((entry) => `section:${entry.id}` === item.id);
+            if (node) void openProjectFile(node.path || activeFile, node.line);
+            return;
+          }
+          const reference = liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
+          if (reference) void openProjectFile(reference.path, reference.line);
+        }}
+      />
+      <SearchPickerDialog
+        open={refCitePicker === "cite"}
+        title="Insert citation"
+        placeholder="Insert \\cite{…}"
+        items={citePickerItems}
+        onClose={() => setRefCitePicker(null)}
+        onSelect={(item) => {
+          setRefCitePicker(null);
+          setCiteInsertRequest({ key: item.label, command: "cite", id: crypto.randomUUID() });
+          setCanvasMode((mode) => (mode === "pdf" || mode === "paper" || mode === "asset" ? "split" : mode));
+        }}
+      />
+      <SearchPickerDialog
+        open={refCitePicker === "ref"}
+        title="Insert reference"
+        placeholder="Insert \\ref{…}"
+        items={refPickerItems}
+        onClose={() => setRefCitePicker(null)}
+        onSelect={(item) => {
+          setRefCitePicker(null);
+          setCiteInsertRequest({ key: item.label, command: "ref", id: crypto.randomUUID() });
+          setCanvasMode((mode) => (mode === "pdf" || mode === "paper" || mode === "asset" ? "split" : mode));
+        }}
+      />
+      <GotoLineDialog
+        open={gotoLineOpen}
+        line={editorPosition?.line ?? 1}
+        maxLine={Math.max(1, source.split("\n").length)}
+        onClose={() => setGotoLineOpen(false)}
+        onGoto={(line) => {
+          setGotoLineOpen(false);
+          if (activeFile) {
+            setEditorNavigation({ path: activeFile, line, id: crypto.randomUUID() });
+          }
+        }}
+      />
+      <ProjectFindDialog
+        open={projectFindOpen}
+        busy={projectFindBusy}
+        error={projectFindError}
+        hits={projectFindHits}
+        onClose={() => {
+          setProjectFindOpen(false);
+          setProjectFindError(null);
+        }}
+        onSearch={(query) => {
+          void (async () => {
+            if (!query.trim()) {
+              setProjectFindHits([]);
+              setProjectFindBusy(false);
+              setProjectFindError(null);
+              return;
+            }
+            setProjectFindBusy(true);
+            setProjectFindError(null);
+            try {
+              const results = await invoke<ProjectFindHit[]>("search_project", { query });
+              setProjectFindHits(results);
+            } catch (reason) {
+              setProjectFindHits([]);
+              setProjectFindError(toMessage(reason));
+            } finally {
+              setProjectFindBusy(false);
+            }
+          })();
+        }}
+        onOpenHit={(path, line) => {
+          void openProjectFile(path, line);
+        }}
+      />
+      <ProjectReplaceDialog
+        open={projectReplaceOpen}
+        busy={projectReplaceBusy}
+        error={projectReplaceError}
+        preview={projectReplacePreview}
+        onClose={() => {
+          setProjectReplaceOpen(false);
+          setProjectReplacePreview(null);
+        }}
+        onOpenMatch={(path, line) => {
+          void openProjectFile(path, line);
+        }}
+        onPreview={(query, options) => {
+          void (async () => {
+            setProjectReplaceBusy(true);
+            setProjectReplaceError(null);
+            try {
+              if (source !== savedSource) {
+                const saved = await save();
+                if (!saved) return;
+              }
+              const preview = await invoke<ReplacePreviewResult>("preview_replace_in_project", {
+                query,
+                paths: null,
+                matchCase: options.matchCase,
+                useRegex: options.useRegex,
+              });
+              setProjectReplacePreview(preview);
+            } catch (reason) {
+              setProjectReplacePreview(null);
+              setProjectReplaceError(toMessage(reason));
+            } finally {
+              setProjectReplaceBusy(false);
+            }
+          })();
+        }}
+        onReplace={(query, replacement, options) => {
+          void (async () => {
+            setProjectReplaceBusy(true);
+            setProjectReplaceError(null);
+            try {
+              if (source !== savedSource) {
+                const saved = await save();
+                if (!saved) return;
+              }
+              const result = await invoke<ReplaceResult>("replace_in_project", {
+                query,
+                replacement,
+                paths: null,
+                matchCase: options.matchCase,
+                useRegex: options.useRegex,
+              });
+              if (activeFile) await loadFile(activeFile);
+              await refreshProject();
+              await refreshHistory();
+              setProjectReplaceOpen(false);
+              setProjectReplacePreview(null);
+              setError(null);
+              setNotice(result.replacements
+                ? `Replaced ${result.replacements} occurrence${result.replacements === 1 ? "" : "s"} in ${result.filesChanged.length} file${result.filesChanged.length === 1 ? "" : "s"}.`
+                : "No matches found.");
+            } catch (reason) {
+              setProjectReplaceError(toMessage(reason));
+            } finally {
+              setProjectReplaceBusy(false);
+            }
+          })();
+        }}
+      />
+      <BibEntryDialog
+        key={bibEntryKey}
+        open={bibEntryOpen}
+        busy={bibEntryBusy}
+        resolving={bibEntryResolving}
+        error={bibEntryError}
+        initialResolveQuery={bibResolveSeed}
+        onClose={() => {
+          if (!bibEntryBusy && !bibEntryResolving) setBibEntryOpen(false);
+        }}
+        onResolve={resolveBibQuery}
+        onSave={(draft, insertCite) => { void saveBibEntry(draft, insertCite); }}
+      />
+      {literatureOpen && (
+        <LiteratureDiscoveryPanel
+          onClose={() => setLiteratureOpen(false)}
+          onImportArxiv={(arxivId) => importArxivInput(arxivId)}
+          onAddBib={(query) => {
+            setLiteratureOpen(false);
+            openBibEntryDialog(query);
+          }}
+        />
+      )}
+      <SearchPickerDialog
+        open={commandPaletteOpen}
+        title="Command palette"
+        placeholder="Run a command…"
+        items={[
+          { id: "build", label: "Build project", detail: "Compile LaTeX", group: "Build" },
+          { id: "rebuild", label: "Clean rebuild", detail: "latexmk -c then -g", group: "Build" },
+          { id: "clean", label: "Clean aux files", group: "Build" },
+          { id: "stop-build", label: "Stop build", group: "Build" },
+          { id: "sync-pdf", label: "Jump to PDF", detail: "⌘⇧J", group: "Navigate" },
+          { id: "quick-open", label: "Quick open file", detail: "⌘P", group: "Navigate" },
+          { id: "goto-line", label: "Go to line", detail: "⌘G", group: "Navigate" },
+          { id: "goto-symbol", label: "Go to symbol", detail: "⌘⇧O", group: "Navigate" },
+          { id: "view-dual", label: "Dual source view", detail: "Two files side by side", group: "View" },
+          { id: "view-columns", label: "Two sources + PDF", detail: "2+pdf", group: "View" },
+          { id: "view-split", label: "Source + PDF", detail: "split", group: "View" },
+          { id: "swap-panes", label: "Swap editor panes", detail: secondaryFile ? `${activeFile} ↔ ${secondaryFile}` : "Needs dual view", group: "View" },
+          { id: "insert", label: "Insert snippet", detail: "⌘⇧I", group: "Edit" },
+          {
+            id: "collab",
+            label: collabSession ? "Live sharing…" : "Start / join live sharing",
+            detail: collabSession ? `${collabPeers} connected · ${collabSession.room}` : "Share invite with a collaborator",
+            group: "Edit",
+          },
+          { id: "table", label: "Insert table", detail: "Grid generator", group: "Edit" },
+          { id: "cite", label: "Insert citation", detail: "⌘⇧K", group: "Edit" },
+          { id: "ref", label: "Insert reference", detail: "⌘⇧L", group: "Edit" },
+          { id: "bib", label: "Add bibliography entry", group: "Edit" },
+          { id: "discover", label: "Discover literature", detail: "OpenAlex search", group: "Research" },
+          { id: "find", label: "Find in project", detail: "⌘⇧F · all .tex files", group: "Edit" },
+          { id: "replace", label: "Replace in project", detail: "⌘⇧H · all .tex files", group: "Edit" },
+          { id: "todos", label: "Manuscript TODOs", detail: `${todoHits.length || "No"} markers`, group: "Edit" },
+          { id: "checklist", label: "Submission checklist", detail: "Words / pages / TODOs", group: "Edit" },
+          { id: "paste-image", label: "Paste clipboard image as figure", group: "Edit" },
+          { id: "format", label: "Format document", detail: "latexindent", group: "Edit" },
+          { id: "history", label: "Open project history", group: "Project" },
+          { id: "export-zip", label: "Export project ZIP", detail: "Overleaf / arXiv source pack", group: "Project" },
+          { id: "doctor", label: "Run TeX doctor", group: "Project" },
+          { id: "settings", label: "Open settings", group: "Project" },
+        ]}
+        onClose={() => setCommandPaletteOpen(false)}
+        onSelect={(item) => {
+          setCommandPaletteOpen(false);
+          switch (item.id) {
+            case "build": void compile(); break;
+            case "rebuild": void cleanAndRebuild(); break;
+            case "clean": void cleanProject(); break;
+            case "stop-build": void abortBuild(); break;
+            case "sync-pdf": void revealSourceInPdf(); break;
+            case "quick-open": setQuickOpenOpen(true); break;
+            case "goto-line": setGotoLineOpen(true); break;
+            case "goto-symbol": setGoToSymbolOpen(true); break;
+            case "view-dual": openDocumentMode("dual"); break;
+            case "view-columns": openDocumentMode("columns"); break;
+            case "view-split": openDocumentMode("split"); break;
+            case "swap-panes": void swapEditorPanes(); break;
+            case "insert": setInsertOpen(true); break;
+            case "collab": openCollabDialog(); break;
+            case "table": setTableGeneratorOpen(true); break;
+            case "cite": setRefCitePicker("cite"); break;
+            case "ref": setRefCitePicker("ref"); break;
+            case "bib": openBibEntryDialog(); break;
+            case "discover": setLiteratureOpen(true); break;
+            case "find":
+              setProjectFindError(null);
+              setProjectFindHits([]);
+              setProjectFindOpen(true);
+              break;
+            case "replace":
+              setProjectReplaceError(null);
+              setProjectReplacePreview(null);
+              setProjectReplaceOpen(true);
+              break;
+            case "todos":
+              void refreshTodos();
+              setTodosOpen(true);
+              break;
+            case "checklist":
+              void refreshTodos();
+              void refreshWordCount();
+              setChecklistOpen(true);
+              break;
+            case "paste-image": void pasteClipboardImage(); break;
+            case "format": {
+              const path = focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile;
+              const text = focusedPane === "secondary" && secondaryFile ? secondarySource : source;
+              if (!path.endsWith(".tex")) {
+                setError("Open a .tex file before formatting.");
+                break;
+              }
+              void formatLatexDocument(path, text)
+                .then((formatted) => {
+                  if (formatted === text) {
+                    setNotice("Document is already formatted.");
+                    return;
+                  }
+                  if (focusedPane === "secondary" && secondaryFile) setSecondarySource(formatted);
+                  else setSource(formatted);
+                  setNotice("Formatted with latexindent.");
+                })
+                .catch((reason) => setError(toMessage(reason)));
+              break;
+            }
+            case "history": setHistoryOpen(true); break;
+            case "export-zip": void exportProjectZip(); break;
+            case "doctor": openSettings("doctor"); break;
+            case "settings": openSettings("appearance"); break;
+            default: break;
+          }
+        }}
+      />
       {settingsDialog}
       {createOpen && (
         <CreateProjectDialog
           projectName={projectName}
           setProjectName={(value) => {
             setProjectName(value);
+            setCreateError(null);
+          }}
+          projectVenue={projectVenue}
+          setProjectVenue={(value) => {
+            setProjectVenue(value);
             setCreateError(null);
           }}
           error={createError}
@@ -1709,16 +4639,21 @@ function Welcome(props: {
   error: string | null;
   createError: string | null;
   projectName: string;
+  projectVenue: ProjectVenue;
   onOpenCreate: () => void;
   onCloseCreate: () => void;
   setProjectName: (value: string) => void;
+  setProjectVenue: (value: ProjectVenue) => void;
   onCreate: () => void;
   onOpen: () => void;
+  onImportZip: () => void;
+  onJoinCollab: () => void;
   onSettings: () => void;
+  onInstallTex: () => void;
 }) {
   return (
     <div className="welcome-screen">
-      <div className="welcome-titlebar" onMouseDown={beginWindowDrag}>
+      <div className="welcome-titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
         <button className="icon-button" onClick={props.onSettings} title="Settings"><Settings2 size={16} /></button>
       </div>
       <div className="welcome-glow" />
@@ -1736,32 +4671,80 @@ function Welcome(props: {
           <button className="secondary-button" onClick={props.onOpen}>
             <FolderOpen size={17} /> Open folder
           </button>
+          <button className="secondary-button" onClick={props.onImportZip}>
+            <FileArchive size={17} /> Import ZIP
+          </button>
+          <button className="secondary-button" onClick={props.onJoinCollab}>
+            <Radio size={17} /> Join share
+          </button>
         </div>
+        <button type="button" className="text-button welcome-tex-setup" onClick={props.onInstallTex}>
+          Install LaTeX tools (needed to compile PDFs)
+        </button>
         {props.busyLabel && <p className="busy-label"><LoaderCircle className="spin" size={15} /> {props.busyLabel}</p>}
         {props.error && <p className="welcome-error">{props.error}</p>}
       </div>
-      {props.createOpen && <CreateProjectDialog projectName={props.projectName} setProjectName={props.setProjectName} error={props.createError} onCreate={props.onCreate} onClose={props.onCloseCreate} />}
+      {props.createOpen && (
+        <CreateProjectDialog
+          projectName={props.projectName}
+          setProjectName={props.setProjectName}
+          projectVenue={props.projectVenue}
+          setProjectVenue={props.setProjectVenue}
+          error={props.createError}
+          onCreate={props.onCreate}
+          onClose={props.onCloseCreate}
+        />
+      )}
     </div>
   );
 }
 
+const PROJECT_VENUES: { id: ProjectVenue; label: string; detail: string }[] = [
+  { id: "neurips", label: "NeurIPS", detail: "Official 2026 style, preprint option" },
+  { id: "icml", label: "ICML", detail: "Official 2026 style, preprint option" },
+  { id: "iclr", label: "ICLR", detail: "Official 2026 conference style" },
+];
+
 function CreateProjectDialog(props: {
   projectName: string;
   setProjectName: (value: string) => void;
+  projectVenue: ProjectVenue;
+  setProjectVenue: (value: ProjectVenue) => void;
   error: string | null;
   onCreate: () => void;
   onClose: () => void;
 }) {
+  const venue = PROJECT_VENUES.find((item) => item.id === props.projectVenue) ?? PROJECT_VENUES[0];
   return (
     <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <div className="modal" onMouseDown={(event) => event.stopPropagation()}>
+      <div className="modal create-project-modal" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-icon"><FileText size={20} /></div>
         <h2>Create a research project</h2>
-        <p>Lattice will create a concise NeurIPS 2026 preprint, bibliography, project brief, and private conversation history.</p>
+        <p>
+          Lattice will create a {venue.label} preprint template, bibliography, project brief, and private conversation history.
+        </p>
         <label>
           Project name
           <input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
         </label>
+        <fieldset className="venue-picker" aria-label="Venue template">
+          <legend>Venue template</legend>
+          {PROJECT_VENUES.map((item) => (
+            <label key={item.id} className={`venue-option ${props.projectVenue === item.id ? "active" : ""}`}>
+              <input
+                type="radio"
+                name="project-venue"
+                value={item.id}
+                checked={props.projectVenue === item.id}
+                onChange={() => props.setProjectVenue(item.id)}
+              />
+              <span>
+                <strong>{item.label}</strong>
+                <small>{item.detail}</small>
+              </span>
+            </label>
+          ))}
+        </fieldset>
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">
           <button className="text-button" onClick={props.onClose}>Cancel</button>
@@ -1778,9 +4761,41 @@ function RenameDialog(props: {
   onRename: (name: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const initialName = props.target.kind === "entry" ? props.target.name : props.target.paper.title;
+  const initialName = props.target.kind === "entry"
+    ? props.target.name
+    : props.target.kind === "paper"
+      ? props.target.paper.title
+      : props.target.kind === "label"
+        ? props.target.label
+        : props.target.kind === "environment"
+          ? props.target.name
+          : props.target.kind === "wrap-environment"
+            ? "equation"
+            : props.target.key;
   const [name, setName] = useState(initialName);
   const [busy, setBusy] = useState(false);
+  const title = props.target.kind === "paper"
+    ? "Rename paper"
+    : props.target.kind === "label"
+      ? "Rename label"
+      : props.target.kind === "citation"
+        ? "Rename citation key"
+        : props.target.kind === "environment"
+          ? "Rename environment"
+          : props.target.kind === "wrap-environment"
+            ? "Wrap in environment"
+            : "Rename project item";
+  const copy = props.target.kind === "paper"
+    ? "This changes the title shown in Papers. The citation key stays unchanged."
+    : props.target.kind === "label"
+      ? "Updates every \\label and \\ref/\\cref occurrence across the project."
+      : props.target.kind === "citation"
+        ? "Updates the bibliography entry and every \\cite occurrence across the project."
+        : props.target.kind === "environment"
+          ? "Renames the matching \\begin and \\end pair under the cursor."
+          : props.target.kind === "wrap-environment"
+            ? "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
+            : "Use a simple name. Existing file extensions are kept when omitted.";
   const submit = async () => {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -1791,8 +4806,8 @@ function RenameDialog(props: {
     <div className="modal-backdrop" onMouseDown={props.onClose}>
       <div className="modal rename-modal" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-icon"><Pencil size={19} /></div>
-        <h2>{props.target.kind === "paper" ? "Rename paper" : "Rename project item"}</h2>
-        <p>{props.target.kind === "paper" ? "This changes the title shown in Papers. The citation key stays unchanged." : "Use a simple name. Existing file extensions are kept when omitted."}</p>
+        <h2>{title}</h2>
+        <p>{copy}</p>
         <label>
           Name
           <input
@@ -1823,6 +4838,7 @@ function ProjectMenu(props: {
   onRecent: (path: string) => void;
   onOpen: () => void;
   onNew: () => void;
+  onExportZip: () => void;
   onClose: () => void;
 }) {
   const alternatives = props.recentProjects.filter((item) => item.path !== props.currentPath);
@@ -1843,6 +4859,7 @@ function ProjectMenu(props: {
         <div className="project-menu-actions">
           <button onClick={props.onOpen}><FolderOpen size={14} /> Open another folder <kbd>⌘O</kbd></button>
           <button onClick={props.onNew}><Plus size={14} /> New project</button>
+          <button onClick={props.onExportZip}><FileArchive size={14} /> Export ZIP</button>
         </div>
         {props.busyLabel && <div className="project-menu-busy"><LoaderCircle className="spin" size={13} /> {props.busyLabel}</div>}
       </div>
@@ -1885,7 +4902,7 @@ function Navigator(props: {
   protectedPaths: string[];
   papers: PaperSummary[];
   activePaper: PaperSummary | null;
-  onFile: (path: string) => void;
+  onFile: (path: string, line?: number) => void;
   onAsset: (path: string) => void;
   onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onCreateEntry: (path: string, kind: "file" | "folder") => Promise<void>;
@@ -1896,6 +4913,9 @@ function Navigator(props: {
   assetDropTarget: string | null;
   assetImporting: boolean;
   onPaper: (paper: PaperSummary) => void;
+  onCitePaper: (paper: PaperSummary, command: CiteCommand) => void;
+  onAddBibEntry: () => void;
+  onDiscoverLiterature: () => void;
   onDeletePaper: (paper: PaperSummary) => void;
   onRenamePaper: (paper: PaperSummary) => void;
   importInput: string;
@@ -1909,7 +4929,15 @@ function Navigator(props: {
   const [entryPath, setEntryPath] = useState("");
   const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
   const [entryBusy, setEntryBusy] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string; label: string; paper?: PaperSummary } | null>(null);
+  const [citeMenuId, setCiteMenuId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    path: string;
+    label: string;
+    kind: "project" | "directory" | "file";
+    paper?: PaperSummary;
+  } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ProjectSearchResult[]>([]);
   const [searchResultQuery, setSearchResultQuery] = useState("");
@@ -1964,16 +4992,49 @@ function Navigator(props: {
       window.removeEventListener("keydown", closeWithEscape);
     };
   }, [contextMenu]);
-  const showContextMenu = (event: React.MouseEvent, path: string, label: string, paper?: PaperSummary) => {
+  useEffect(() => {
+    if (!citeMenuId) return;
+    const close = () => setCiteMenuId(null);
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", closeWithEscape);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [citeMenuId]);
+  const showContextMenu = (
+    event: React.MouseEvent,
+    path: string,
+    label: string,
+    kind: "project" | "directory" | "file" = path ? "file" : "project",
+    paper?: PaperSummary,
+  ) => {
     event.preventDefault();
     event.stopPropagation();
     setContextMenu({
-      x: Math.min(event.clientX, window.innerWidth - 202),
-      y: Math.min(event.clientY, window.innerHeight - 82),
+      x: Math.min(event.clientX, window.innerWidth - 220),
+      y: Math.min(event.clientY, window.innerHeight - 180),
       path,
       label,
+      kind: paper ? "file" : kind,
       paper,
     });
+  };
+  const directoryForCreate = (path: string, kind: "project" | "directory" | "file") => {
+    if (!path || kind === "project") return "";
+    if (kind === "directory") return path;
+    const slash = path.lastIndexOf("/");
+    return slash >= 0 ? path.slice(0, slash) : "";
+  };
+  const openCreateForm = (kind: "file" | "folder", basePath = "", baseKind: "project" | "directory" | "file" = "project") => {
+    const directory = directoryForCreate(basePath, baseKind);
+    setEntryKind(kind);
+    setEntryPath(directory ? `${directory}/` : "");
+    setEntryFormOpen(true);
+    setContextMenu(null);
   };
   const closeEntryForm = () => {
     if (entryBusy) return;
@@ -2031,13 +5092,16 @@ function Navigator(props: {
         const target = event.target as Element;
         if (!target.closest(".project-entry-form") && !target.closest(".section-action")) closeEntryForm();
       }}>
-        <div className="section-heading" onContextMenu={(event) => showContextMenu(event, "", "Project folder")}>
+        <div className="section-heading" onContextMenu={(event) => showContextMenu(event, "", "Project folder", "project")}>
           <span>Project</span>
-          <button className="section-action" title="Add file or folder" aria-label="Add file or folder" onClick={() => setEntryFormOpen((value) => !value)}><FolderPlus size={14} strokeWidth={1.8} /></button>
+          <button className="section-action" title="Add file or folder" aria-label="Add file or folder" onClick={() => {
+            if (entryFormOpen) closeEntryForm();
+            else openCreateForm("file");
+          }}><FolderPlus size={14} strokeWidth={1.8} /></button>
         </div>
         <label className="navigator-search">
           <Search size={13} />
-          <input aria-label="Search project files and papers" placeholder="Search files and papers" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
+          <input aria-label="Filter project files and papers" placeholder="Filter files and papers" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
           {searchPending || searching ? <LoaderCircle className="spin" size={12} /> : searchActive && <button title="Clear search" onClick={() => setSearchQuery("")}><X size={12} /></button>}
         </label>
         {entryFormOpen && (
@@ -2045,13 +5109,13 @@ function Navigator(props: {
             if (!event.currentTarget.contains(event.relatedTarget)) closeEntryForm();
           }}>
             <select aria-label="Entry type" value={entryKind} onChange={(event) => setEntryKind(event.target.value as "file" | "folder")}>
-              <option value="file">LaTeX</option>
+              <option value="file">File</option>
               <option value="folder">Folder</option>
             </select>
             <input
               autoFocus
               aria-label="Project-relative path"
-              placeholder={entryKind === "file" ? "sections/method" : "figures/results"}
+              placeholder={entryKind === "file" ? "sections/method.tex or notes.md" : "figures/results"}
               value={entryPath}
               onChange={(event) => setEntryPath(event.target.value)}
               onKeyDown={(event) => {
@@ -2065,10 +5129,22 @@ function Navigator(props: {
           </div>
         )}
         <div className="file-tree">
-          {searchActive ? fileSearchResults.map((result) => (
-            <button key={result.path} className="navigator-search-result" onClick={() => result.fileKind === "figure" ? props.onAsset(result.path) : props.onFile(result.path)}>
+          {searchActive ? fileSearchResults.map((result, index) => (
+            <button
+              key={`${result.path}:${result.line ?? 0}:${index}`}
+              className="navigator-search-result"
+              onClick={() => result.fileKind === "figure"
+                ? props.onAsset(result.path)
+                : props.onFile(result.path, result.line ?? undefined)}
+            >
               {result.fileKind === "figure" ? <Image size={13} /> : <FileText size={13} />}
-              <span><strong>{result.title}</strong><small>{result.snippet || result.path}</small></span>
+              <span>
+                <strong>{result.title}</strong>
+                <small>
+                  {result.line ? `L${result.line} · ` : ""}
+                  {result.snippet || result.path}
+                </small>
+              </span>
             </button>
           )) : props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} onContextMenu={showContextMenu} />)}
           {searchActive && !searchPending && !searching && !fileSearchResults.length && <p className="search-empty">No matching project files.</p>}
@@ -2097,15 +5173,53 @@ function Navigator(props: {
       <div className="navigator-section papers-section">
         <div className="section-heading">
           <span>Papers</span>
-          <span className="count-badge">{searchActive ? paperResultCount : props.papers.length}</span>
+          <div className="section-heading-actions">
+            <button className="section-action" title="Discover literature (OpenAlex)" aria-label="Discover literature" onClick={props.onDiscoverLiterature}>
+              <Search size={14} strokeWidth={1.8} />
+            </button>
+            <button className="section-action" title="Add bibliography entry" aria-label="Add bibliography entry" onClick={props.onAddBibEntry}>
+              <BookMarked size={14} strokeWidth={1.8} />
+            </button>
+            <span className="count-badge">{searchActive ? paperResultCount : props.papers.length}</span>
+          </div>
         </div>
         <div className="paper-list">
           {(searchActive ? paperSearchResults.map((result) => props.papers.find((paper) => paper.arxivId === result.arxivId)).filter((paper): paper is PaperSummary => Boolean(paper)) : props.papers).map((paper) => (
-            <div key={paper.arxivId} className={`paper-row ${props.activePaper?.arxivId === paper.arxivId ? "active" : ""}`} onContextMenu={(event) => showContextMenu(event, `.research/papers/${paper.arxivId}/paper.md`, paper.title, paper)}>
+            <div key={paper.arxivId} className={`paper-row ${props.activePaper?.arxivId === paper.arxivId ? "active" : ""}`} onContextMenu={(event) => showContextMenu(event, `.research/papers/${paper.arxivId}/paper.md`, paper.title, "file", paper)}>
               <button title={paper.title} className="paper-open" onClick={() => props.onPaper(paper)}>
                 <BookOpen size={14} />
                 <span><strong>{paper.title}</strong><small>{searchActive ? paperSearchResults.find((result) => result.arxivId === paper.arxivId)?.snippet || `arXiv ${paper.arxivId}` : paper.citationKey ? `\\cite{${paper.citationKey}}` : `arXiv ${paper.arxivId}`}</small></span>
               </button>
+              {paper.citationKey && (
+                <div className="cite-menu-wrap">
+                  <button
+                    className="row-cite"
+                    title={`Insert citation for ${paper.citationKey}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setCiteMenuId((current) => current === paper.arxivId ? null : paper.arxivId);
+                    }}
+                  >
+                    <Quote size={12} />
+                  </button>
+                  {citeMenuId === paper.arxivId && (
+                    <div className="cite-command-menu" onPointerDown={(event) => event.stopPropagation()}>
+                      {CITE_COMMANDS.map((command) => (
+                        <button
+                          key={command}
+                          type="button"
+                          onClick={() => {
+                            props.onCitePaper(paper, command);
+                            setCiteMenuId(null);
+                          }}
+                        >
+                          \{command}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <button className="row-delete" title={`Remove ${paper.title}`} onClick={() => props.onDeletePaper(paper)}><Trash2 size={12} /></button>
             </div>
           ))}
@@ -2126,12 +5240,34 @@ function Navigator(props: {
       </div>
       {contextMenu && (
         <div className="file-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
+          {!contextMenu.paper && (
+            <>
+              <button onClick={() => openCreateForm("file", contextMenu.path, contextMenu.kind)}>
+                <FilePlus size={14} /><span>New file</span>
+              </button>
+              <button onClick={() => openCreateForm("folder", contextMenu.path, contextMenu.kind)}>
+                <FolderPlus size={14} /><span>New folder</span>
+              </button>
+            </>
+          )}
           {(contextMenu.paper || contextMenu.path) && <button onClick={() => {
             if (contextMenu.paper) props.onRenamePaper(contextMenu.paper);
             else props.onRenameEntry(contextMenu.path, contextMenu.label);
             setContextMenu(null);
           }}><Pencil size={14} /><span>Rename</span></button>}
+          {contextMenu.path && !contextMenu.paper && (
+            <button onClick={() => {
+              void writeText(contextMenu.path);
+              setContextMenu(null);
+            }}><Copy size={14} /><span>Copy path</span></button>
+          )}
           <button onClick={() => { props.onReveal(contextMenu.path); setContextMenu(null); }}><FolderOpen size={14} /><span>Show in Finder</span></button>
+          {contextMenu.path && !contextMenu.paper && !props.protectedPaths.some((path) => path === contextMenu.path || path.startsWith(`${contextMenu.path}/`)) && (
+            <button className="danger" onClick={() => {
+              props.onDeleteEntry(contextMenu.path);
+              setContextMenu(null);
+            }}><Trash2 size={14} /><span>Delete</span></button>
+          )}
           <small title={contextMenu.label}>{contextMenu.label}</small>
         </div>
       )}
@@ -2139,13 +5275,13 @@ function Navigator(props: {
   );
 }
 
-function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, onAsset, onBeginFigureDrag, onDelete, onImportAssets, assetDropTarget, assetImporting, onContextMenu }: { node: FileNode; activeFile: string; activeAssetPath: string; protectedPaths: string[]; onFile: (path: string) => void; onAsset: (path: string) => void; onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; onContextMenu: (event: React.MouseEvent, path: string, label: string) => void }) {
+function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, onAsset, onBeginFigureDrag, onDelete, onImportAssets, assetDropTarget, assetImporting, onContextMenu }: { node: FileNode; activeFile: string; activeAssetPath: string; protectedPaths: string[]; onFile: (path: string) => void; onAsset: (path: string) => void; onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; onContextMenu: (event: React.MouseEvent, path: string, label: string, kind?: "project" | "directory" | "file") => void }) {
   const [open, setOpen] = useState(true);
   const protectedEntry = protectedPaths.some((path) => path === node.path || path.startsWith(`${node.path}/`));
   if (node.kind === "directory") {
     return (
       <div className={`tree-directory ${assetDropTarget === node.path ? "drop-target" : ""}`} data-drop-directory={node.path}>
-        <div className="tree-row" onContextMenu={(event) => onContextMenu(event, node.path, node.name)}>
+        <div className="tree-row" onContextMenu={(event) => onContextMenu(event, node.path, node.name, "directory")}>
           <button className="tree-main" onClick={() => setOpen((value) => !value)}>
             <ChevronRight className={`tree-chevron ${open ? "open" : ""}`} size={13} />
             <Folder size={14} /> <span>{node.name}</span>
@@ -2161,7 +5297,7 @@ function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, o
   const Icon = node.kind === "tex" ? FileCode2 : node.kind === "bib" ? Library : File;
   if (node.kind === "figure") {
     return (
-      <div className={`tree-row asset-row ${activeAssetPath === node.path ? "active" : ""}`} onContextMenu={(event) => onContextMenu(event, node.path, node.name)}>
+      <div className={`tree-row asset-row ${activeAssetPath === node.path ? "active" : ""}`} onContextMenu={(event) => onContextMenu(event, node.path, node.name, "file")}>
         <button
           className="tree-main"
           title={`Preview ${node.name}; drag into the LaTeX editor to insert`}
@@ -2173,7 +5309,7 @@ function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, o
     );
   }
   return (
-    <div className={`tree-row ${activeFile === node.path ? "active" : ""}`} onContextMenu={(event) => onContextMenu(event, node.path, node.name)}>
+    <div className={`tree-row ${activeFile === node.path ? "active" : ""}`} onContextMenu={(event) => onContextMenu(event, node.path, node.name, "file")}>
       <button className="tree-main" onClick={() => onFile(node.path)}><span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span></button>
       {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
     </div>
@@ -2201,12 +5337,15 @@ function AgentPanel({
   running,
   streaming,
   status,
+  toolSteps,
   cancellable,
   stopping,
   onSend,
   onStop,
   onApiSettings,
   selection,
+  selectionSource,
+  onClearSelection,
   branchSource,
   onCancelBranch,
   mentions,
@@ -2232,12 +5371,15 @@ function AgentPanel({
   running: boolean;
   streaming: boolean;
   status: string;
+  toolSteps: AgentToolStep[];
   cancellable: boolean;
   stopping: boolean;
   onSend: () => void;
   onStop: () => void;
   onApiSettings: () => void;
   selection: string;
+  selectionSource: "editor" | "pdf" | null;
+  onClearSelection: () => void;
   branchSource: { sessionId: string; messageId: string } | null;
   onCancelBranch: () => void;
   mentions: AgentMention[];
@@ -2405,11 +5547,28 @@ function AgentPanel({
             <div className="thinking"><span /><span /><span /><em>{status || (provider === "claude" ? "Claude is writing…" : "Agent is writing…")}</em></div>
           </div>
         )}
+        {toolSteps.length > 0 && (
+          <div className="agent-tool-timeline" aria-label="Agent tool progress">
+            {toolSteps.map((step) => (
+              <div key={step.id} className={`agent-tool-step ${step.phase}`}>
+                <i aria-hidden="true" />
+                <strong>{step.name}</strong>
+                <span>{step.detail || (step.phase === "start" ? "running…" : "done")}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div ref={chatEnd} />
       </div>
       <div className="composer-wrap">
         {branchSource && <div className="context-chip branch-chip"><Pencil size={11} /> Editing an earlier message creates a new branch <button title="Cancel conversation branch" onClick={onCancelBranch}><X size={11} /></button></div>}
-        {selection && <div className="context-chip"><Code2 size={12} /> Selection · {selection.length} chars <button title="Selection follows the editor"><Check size={11} /></button></div>}
+        {selection && (
+          <div className="context-chip">
+            {selectionSource === "pdf" ? <FileText size={12} /> : <Code2 size={12} />}
+            {selectionSource === "pdf" ? "PDF selection" : "Selection"} · {selection.length} chars
+            <button type="button" title="Clear selection context" onClick={onClearSelection}><X size={11} /></button>
+          </div>
+        )}
         {mention && (
           <div className="mention-menu" role="listbox" aria-label="Project references">
             <div className="mention-heading"><span>Reference project context</span><small>{mentionSuggestions.length ? "↑↓ to navigate · Enter to insert" : "No matches"}</small></div>
@@ -2513,24 +5672,93 @@ function mentionAtCaret(value: string, caret: number): MentionState | null {
 
 function CanvasToolbar(props: {
   mode: CanvasMode;
-  setMode: (mode: "source" | "split" | "pdf") => void;
+  setMode: (mode: DocumentViewMode) => void;
   activePath: string;
   activeKind: "document" | "paper" | "asset";
   dirty: boolean;
+  canForwardSync: boolean;
+  locatingPdf: boolean;
+  canNavigateBack: boolean;
+  canNavigateForward: boolean;
+  onNavigateBack: () => void;
+  onNavigateForward: () => void;
+  onInsert: () => void;
+  onCollab: () => void;
+  collabLive: boolean;
+  collabPeers: number;
+  onForwardSync: () => void;
   onHistory: () => void;
+  onGit: () => void;
+  commentCount: number;
+  onComments: () => void;
 }) {
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
+  const switcherMode = props.mode === "dual" || props.mode === "columns" ? "split" : props.mode;
   return (
     <div className="canvas-toolbar">
       <div className="active-document"><ActiveIcon size={14} /><span>{props.activePath}</span>{props.activeKind === "document" && props.dirty && <i />}</div>
       <div className="view-switcher">
-        {(["source", "split", "pdf"] as const).map((mode) => (
-          <button key={mode} className={props.mode === mode ? "active" : ""} onClick={() => props.setMode(mode)}>{mode}</button>
+        {([
+          { id: "source" as const, label: "source", title: "Source only" },
+          { id: "split" as const, label: "split", title: "Source and PDF" },
+          { id: "pdf" as const, label: "pdf", title: "PDF only" },
+        ]).map((mode) => (
+          <button
+            key={mode.id}
+            className={switcherMode === mode.id ? "active" : ""}
+            title={mode.title}
+            onClick={() => props.setMode(mode.id)}
+          >
+            {mode.label}
+          </button>
         ))}
       </div>
-      <button className="history-button" title="Project history" onClick={props.onHistory}>
-        <History size={14} />
-      </button>
+      <div className="canvas-actions">
+        {props.activeKind === "document" && (
+          <>
+            <button type="button" title="Go back (⌘[)" disabled={!props.canNavigateBack} onClick={props.onNavigateBack}>
+              <Undo2 size={14} />
+            </button>
+            <button type="button" title="Go forward (⌘])" disabled={!props.canNavigateForward} onClick={props.onNavigateForward}>
+              <Redo2 size={14} />
+            </button>
+            <button type="button" title="Insert snippet or symbol (⌘⇧I)" onClick={props.onInsert}>
+              <Omega size={14} />
+            </button>
+            <button
+              type="button"
+              className={props.commentCount ? "active" : ""}
+              title="Editor comments"
+              onClick={props.onComments}
+            >
+              <MessageSquareText size={14} />
+              {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
+            </button>
+            <button
+              type="button"
+              className={props.collabLive ? "active collab-toolbar-button" : "collab-toolbar-button"}
+              title={props.collabLive
+                ? (props.collabPeers > 0
+                  ? `Live · ${props.collabPeers} other${props.collabPeers === 1 ? "" : "s"}`
+                  : "Live collaboration · just you")
+                : "Live collaboration"}
+              onClick={props.onCollab}
+            >
+              <Radio size={14} />
+              {props.collabLive ? <em className="collab-peer-badge">{props.collabPeers}</em> : null}
+            </button>
+            <button title="Reveal cursor in PDF (⌘⇧J)" disabled={!props.canForwardSync || props.locatingPdf} onClick={props.onForwardSync}>
+              {props.locatingPdf ? <LoaderCircle className="spin" size={14} /> : <LocateFixed size={14} />}
+            </button>
+          </>
+        )}
+        <button className="history-button" title="Git status and commit" onClick={props.onGit}>
+          <GitBranch size={14} />
+        </button>
+        <button className="history-button" title="Project history" onClick={props.onHistory}>
+          <History size={14} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -2539,8 +5767,14 @@ function DocumentCanvas(props: {
   mode: CanvasMode;
   source: string;
   activeFile: string;
+  secondaryFile: string | null;
+  secondarySource: string;
+  setSecondarySource: (value: string) => void;
+  focusedPane: EditorPaneId;
+  onFocusPane: (pane: EditorPaneId) => void;
   setSource: (value: string) => void;
   setSelection: (value: string) => void;
+  onPdfTextSelect: (value: string) => void;
   pdfUrl: string | null;
   pdfBase64: string | null;
   paperMarkdown: string;
@@ -2549,50 +5783,447 @@ function DocumentCanvas(props: {
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
+  unusedLabels: string[];
+  unusedCitations: string[];
   onLoadReferenceImage: (path: string) => Promise<string | null>;
   onEditorLeave: () => void;
   onPrepareFigure: (path: string) => Promise<string | null>;
+  onPasteImageFile: (file: File) => boolean | void;
   nativeFigureDropActive: boolean;
   figurePointerPosition: { x: number; y: number } | null;
   figureDropRequest: FigureDropRequest | null;
   onFigureDropHandled: (id: string) => void;
   editorNavigation: EditorNavigation | null;
   onEditorNavigationHandled: (id: string) => void;
+  onEditorPosition: (position: EditorPosition) => void;
+  onViewState: (path: string, state: EditorViewState) => void;
+  viewRestore: { path: string; cursor: number; scrollTop: number; id: string } | null;
+  onViewRestoreHandled: (id: string) => void;
+  onGotoDefinition: (target: DefinitionTarget) => void;
+  onTexlabGoto: (path: string, line: number, column?: number) => void;
+  onFindReferences: (target: SymbolTarget) => void;
+  onRenameSymbol: (target: SymbolTarget) => void;
+  onRenameEnvironment: (name: string) => void;
+  onWrapEnvironment: () => void;
+  envRenameRequest: { newName: string; id: string } | null;
+  onEnvRenameHandled: (id: string) => void;
+  wrapEnvRequest: { name: string; id: string } | null;
+  onWrapEnvHandled: (id: string) => void;
+  localMacros: { label: string; detail: string; type: "keyword" | "type" }[];
+  katexMacros: Record<string, string>;
+  onGotoLineRequest: () => void;
+  outlineOpen: boolean;
+  onOutlineOpenChange: (open: boolean) => void;
+  outlineNodes: OutlineNode[];
+  activeOutlineId: string | null;
+  onOutlineNavigate: (path: string, line: number) => void;
+  insertOpen: boolean;
+  onInsertOpenChange: (open: boolean) => void;
+  tableGeneratorOpen: boolean;
+  onTableGeneratorOpenChange: (open: boolean) => void;
+  editorKeymap: EditorKeymap;
+  editorSpellcheck: boolean;
+  citeInsertRequest: { key: string; command: InsertSymbolCommand; id: string } | null;
+  onCiteInsertHandled: (id: string) => void;
+  projectPaths: string[];
+  graphicsRoots: string[];
+  buildDiagnostics: CompileDiagnostic[];
+  texlabDiagnostics: CompileDiagnostic[];
+  pdfSyncTarget: PdfSyncTarget | null;
   onPdfSource: (page: number, x: number, y: number) => void;
+  pdfMarks: PdfMark[];
+  activePdfMarkId: string | null;
+  onCreatePdfMark?: (mark: PdfMark) => void;
+  onSelectPdfMark?: (mark: PdfMark) => void;
+  onOpenPdfMarks?: () => void;
+  editorComments: EditorComment[];
+  activeEditorCommentId: string | null;
+  commentAuthorName: string;
+  commentAuthorId: string;
+  onCreateEditorComment: (comment: EditorComment) => void;
+  onOpenEditorComments: () => void;
+  onResolveEditorComment: (id: string) => void;
+  onReplyEditorComment: (commentId: string) => void;
+  commentFocusRequest: { id: string; nonce: string } | null;
+  onCommentFocusHandled: (nonce: string) => void;
+  todoCount: number;
+  onOpenTodos: () => void;
+  projectWordCount: WordCount | null;
+  onPdfPageCount: (pages: number | null) => void;
+  onCreateMissingFile: (path: string) => void;
+  collabExtensions: Extension[];
+  collabEditorKey: string;
 }) {
   const {
     activeFile,
+    secondaryFile,
+    secondarySource,
+    setSecondarySource,
+    focusedPane,
+    onFocusPane,
+    buildDiagnostics,
+    texlabDiagnostics,
+    citeInsertRequest,
+    collabEditorKey,
+    collabExtensions,
+    editorKeymap,
     editorNavigation,
+    editorSpellcheck,
+    envRenameRequest,
     figureDropRequest,
+    insertOpen,
+    localMacros,
+    katexMacros,
+    onCiteInsertHandled,
     onEditorNavigationHandled,
+    onEditorPosition,
+    onEnvRenameHandled,
     onFigureDropHandled,
+    onFindReferences,
+    onGotoDefinition,
+    onTexlabGoto,
+    onGotoLineRequest,
+    onInsertOpenChange,
+    onOutlineNavigate,
+    onOutlineOpenChange,
     onPrepareFigure,
+    onPasteImageFile,
+    onCreateMissingFile,
+    onRenameEnvironment,
+    onRenameSymbol,
+    onTableGeneratorOpenChange,
+    onViewRestoreHandled,
+    onViewState,
+    onWrapEnvHandled,
+    onWrapEnvironment,
+    activeOutlineId,
+    outlineNodes,
+    outlineOpen,
+    projectPaths,
+    graphicsRoots,
     setSource,
     source: editorSource,
+    tableGeneratorOpen,
+    viewRestore,
+    wrapEnvRequest,
+    editorComments,
+    commentAuthorName,
+    commentAuthorId,
+    onCreateEditorComment,
+    onOpenEditorComments,
+    commentFocusRequest,
+    onCommentFocusHandled,
   } = props;
   const splitRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
+  const primaryViewRef = useRef<EditorView | null>(null);
+  const secondaryViewRef = useRef<EditorView | null>(null);
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<number | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
+  const [columnsPdfRatio, setColumnsPdfRatio] = useState(loadColumnsPdfRatio);
   const [figureDropActive, setFigureDropActive] = useState(false);
   const [figureDropMarker, setFigureDropMarker] = useState<{ top: number; line: number } | null>(null);
+  const [cursorOffset, setCursorOffset] = useState(0);
+  const [statusPosition, setStatusPosition] = useState({ line: 1, column: 0 });
+  const [snippetStops, setSnippetStops] = useState<{ base: number; stops: { from: number; to: number }[] } | null>(null);
+  const [figureInsertPending, setFigureInsertPending] = useState<{
+    paths: string[];
+    position: number;
+  } | null>(null);
+  const [commentComposer, setCommentComposer] = useState<{
+    from: number;
+    to: number;
+    quote: string;
+    body: string;
+  } | null>(null);
+  const focusedPath = focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile;
+  const focusedSource = focusedPane === "secondary" && secondaryFile ? secondarySource : editorSource;
+  const wordCount = useMemo(() => countWords(focusedSource), [focusedSource]);
+  const [selectedText, setSelectedText] = useState("");
+  const selectionStats = useMemo(() => textStats(selectedText), [selectedText]);
+  const commentsForActiveFile = useMemo(
+    () => editorComments.filter((comment) => comment.path === activeFile),
+    [activeFile, editorComments],
+  );
+  const commentsForActiveFileRef = useRef(commentsForActiveFile);
+  commentsForActiveFileRef.current = commentsForActiveFile;
+  const resolveEditorCommentRef = useRef(props.onResolveEditorComment);
+  resolveEditorCommentRef.current = props.onResolveEditorComment;
+  const replyEditorCommentRef = useRef(props.onReplyEditorComment);
+  replyEditorCommentRef.current = props.onReplyEditorComment;
+
+  const latexLiveRef = useRef({
+    citationKeys: props.citationKeys,
+    citations: props.citations,
+    references: props.references,
+    unusedLabels: props.unusedLabels,
+    unusedCitations: props.unusedCitations,
+    localMacros,
+    graphicsRoots,
+    projectPaths,
+  });
+  latexLiveRef.current = {
+    citationKeys: props.citationKeys,
+    citations: props.citations,
+    references: props.references,
+    unusedLabels: props.unusedLabels,
+    unusedCitations: props.unusedCitations,
+    localMacros,
+    graphicsRoots,
+    projectPaths,
+  };
+
+  const diagnosticsRef = useRef({ build: buildDiagnostics, texlab: texlabDiagnostics });
+  diagnosticsRef.current = { build: buildDiagnostics, texlab: texlabDiagnostics };
+
+  const focusedPaneRef = useRef(focusedPane);
+  focusedPaneRef.current = focusedPane;
+  const activeFileRefEditor = useRef(activeFile);
+  activeFileRefEditor.current = activeFile;
+  const secondaryFileRefEditor = useRef(secondaryFile);
+  secondaryFileRefEditor.current = secondaryFile;
+  const setSourceRef = useRef(props.setSource);
+  setSourceRef.current = props.setSource;
+  const setSelectionRef = useRef(props.setSelection);
+  setSelectionRef.current = props.setSelection;
+  const setSecondarySourceRef = useRef(setSecondarySource);
+  setSecondarySourceRef.current = setSecondarySource;
+  const reportEditorPositionRef = useRef<(view: EditorView, path: string) => void>(() => {});
+  // reportEditorPosition is assigned below after its useCallback.
+
+  const collabLive = collabExtensions.length > 0;
+  const mountSourceRef = useRef(props.source);
+  const prevCollabEditorKeyRef = useRef(collabEditorKey);
+  if (prevCollabEditorKeyRef.current !== collabEditorKey) {
+    prevCollabEditorKeyRef.current = collabEditorKey;
+    mountSourceRef.current = props.source;
+  }
+
+  // Stable callbacks — @uiw/react-codemirror reconfigures (destroying yCollab +
+  // comment fields) whenever onUpdate/onChange identity changes.
+  const onPrimaryChange = useCallback((value: string) => {
+    setSourceRef.current(value);
+  }, []);
+  const onPrimaryUpdate = useCallback((viewUpdate: { state: EditorView["state"]; view: EditorView }) => {
+    if (focusedPaneRef.current !== "primary") return;
+    const range = viewUpdate.state.selection.main;
+    lastInsertionPositionRef.current = range.head;
+    const nextSelection = range.empty ? "" : viewUpdate.state.sliceDoc(range.from, range.to);
+    setSelectionRef.current(nextSelection);
+    setSelectedText(nextSelection);
+    if (range.empty) setCommentComposer(null);
+    reportEditorPositionRef.current?.(viewUpdate.view, activeFileRefEditor.current);
+  }, []);
+  const onSecondaryChange = useCallback((value: string) => {
+    setSecondarySourceRef.current(value);
+  }, []);
+  const onSecondaryUpdate = useCallback((viewUpdate: { state: EditorView["state"]; view: EditorView }) => {
+    if (focusedPaneRef.current !== "secondary") return;
+    const range = viewUpdate.state.selection.main;
+    lastInsertionPositionRef.current = range.head;
+    const nextSelection = range.empty ? "" : viewUpdate.state.sliceDoc(range.from, range.to);
+    setSelectionRef.current(nextSelection);
+    setSelectedText(nextSelection);
+    const path = secondaryFileRefEditor.current;
+    if (path) reportEditorPositionRef.current?.(viewUpdate.view, path);
+  }, []);
+
+  useEffect(() => {
+    const view = primaryViewRef.current;
+    if (!view) return;
+    view.dispatch({ effects: setEditorCommentsEffect.of(commentsForActiveFile) });
+  }, [commentsForActiveFile, collabEditorKey]);
+
+  useEffect(() => {
+    if (!commentFocusRequest) return;
+    const comment = editorComments.find((item) => item.id === commentFocusRequest.id);
+    if (!comment || comment.path !== activeFile) return;
+    const view = primaryViewRef.current;
+    if (!view) return;
+    const range = resolveCommentRange(view.state.doc.toString(), comment);
+    if (!range) {
+      onCommentFocusHandled(commentFocusRequest.nonce);
+      return;
+    }
+    view.dispatch({
+      selection: { anchor: range.from, head: range.to },
+      effects: EditorView.scrollIntoView(range.from, { y: "center" }),
+    });
+    view.focus();
+    onCommentFocusHandled(commentFocusRequest.nonce);
+  }, [activeFile, commentFocusRequest, editorComments, onCommentFocusHandled]);
+
+  const openCommentComposer = useCallback(() => {
+    const view = editorViewRef.current;
+    if (!view || !activeFile) return;
+    const range = view.state.selection.main;
+    if (range.empty) return;
+    const quote = view.state.sliceDoc(range.from, range.to);
+    if (!quote.trim()) return;
+    setCommentComposer({
+      from: range.from,
+      to: range.to,
+      quote,
+      body: "",
+    });
+  }, [activeFile]);
+
+  const saveCommentComposer = useCallback(() => {
+    if (!commentComposer || !activeFile) return;
+    const comment = createEditorComment({
+      path: activeFile,
+      source: editorSource,
+      from: commentComposer.from,
+      to: commentComposer.to,
+      body: commentComposer.body,
+      authorId: commentAuthorId,
+      authorName: commentAuthorName,
+    });
+    if (!comment) return;
+    onCreateEditorComment(comment);
+    setCommentComposer(null);
+  }, [activeFile, commentAuthorId, commentAuthorName, commentComposer, editorSource, onCreateEditorComment]);
+  const breadcrumb = useMemo(
+    () => (focusedPath.endsWith(".tex")
+      ? sectionBreadcrumbNodes(focusedSource, statusPosition.line, focusedPath)
+      : []),
+    [focusedPath, focusedSource, statusPosition.line],
+  );
+  const reportEditorPosition = useCallback((view: EditorView, path: string) => {
+    const head = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(head);
+    const column = head - line.from;
+    setCursorOffset((current) => (current === head ? current : head));
+    setStatusPosition((current) => (
+      current.line === line.number && current.column === column
+        ? current
+        : { line: line.number, column }
+    ));
+    onEditorPosition({
+      path,
+      line: line.number,
+      column,
+    });
+    onViewState(path, {
+      cursor: head,
+      scrollTop: view.scrollDOM.scrollTop,
+    });
+  }, [onEditorPosition, onViewState]);
+  reportEditorPositionRef.current = reportEditorPosition;
   const paperHtml = useMemo(
     () => DOMPurify.sanitize(marked.parse(props.paperMarkdown, { async: false }) as string),
     [props.paperMarkdown],
   );
   const editorExtensions = useMemo(
     () => [
+      ...(editorKeymap === "vim" ? [vim({ status: true })] : editorKeymap === "emacs" ? [emacs()] : []),
       latex(latexLanguageOptions),
       ...latexEditorExtensions(
         props.citationKeys,
         props.citations,
         props.references,
         props.onLoadReferenceImage,
+        onGotoDefinition,
+        projectPaths,
+        onFindReferences,
+        onRenameSymbol,
+        editorSpellcheck,
+        props.unusedLabels,
+        props.unusedCitations,
+        onRenameEnvironment,
+        onWrapEnvironment,
+        localMacros,
+        activeFile,
+        onPasteImageFile,
+        graphicsRoots,
+        onCreateMissingFile,
+        true,
+        onTexlabGoto,
+        latexLiveRef,
       ),
+      ...collabExtensions,
+      editorCommentsExtension(activeFile, {
+        getComments: () => commentsForActiveFileRef.current,
+        currentAuthorId: commentAuthorId,
+        onResolve: (id) => resolveEditorCommentRef.current(id),
+        onReply: (comment) => replyEditorCommentRef.current(comment.id),
+      }),
+      lintGutter(),
+      linter((view) => editorDiagnosticsForFile(diagnosticsRef.current.build, activeFile, view.state.doc), {
+        delay: 150,
+      }),
+      linter((view) => editorTexlabDiagnosticsForFile(diagnosticsRef.current.texlab, activeFile, view.state.doc), {
+        delay: 200,
+      }),
     ],
-    [props.citationKeys, props.citations, props.onLoadReferenceImage, props.references],
+    // Volatile macros/diagnostics/comments are read via refs so this array stays
+    // stable across keystrokes — otherwise reconfigure kills yCollab carets.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
+    [activeFile, collabExtensions, editorKeymap, editorSpellcheck],
   );
+  const secondaryEditorExtensions = useMemo(
+    () => {
+      if (!secondaryFile) return [];
+      return [
+        ...(editorKeymap === "vim" ? [vim({ status: true })] : editorKeymap === "emacs" ? [emacs()] : []),
+        latex(latexLanguageOptions),
+        ...latexEditorExtensions(
+          props.citationKeys,
+          props.citations,
+          props.references,
+          props.onLoadReferenceImage,
+          onGotoDefinition,
+          projectPaths,
+          onFindReferences,
+          onRenameSymbol,
+          editorSpellcheck,
+          props.unusedLabels,
+          props.unusedCitations,
+          onRenameEnvironment,
+          onWrapEnvironment,
+          localMacros,
+          secondaryFile,
+          onPasteImageFile,
+          graphicsRoots,
+          onCreateMissingFile,
+          true,
+          onTexlabGoto,
+        ),
+        lintGutter(),
+        linter((view) => editorDiagnosticsForFile(buildDiagnostics, secondaryFile, view.state.doc), {
+          delay: 150,
+        }),
+        linter((view) => editorTexlabDiagnosticsForFile(texlabDiagnostics, secondaryFile, view.state.doc), {
+          delay: 200,
+        }),
+      ];
+    },
+    [buildDiagnostics, editorKeymap, editorSpellcheck, graphicsRoots, localMacros, onCreateMissingFile, onFindReferences, onGotoDefinition, onPasteImageFile, onRenameEnvironment, onRenameSymbol, onTexlabGoto, onWrapEnvironment, projectPaths, props.citationKeys, props.citations, props.onLoadReferenceImage, props.references, props.unusedCitations, props.unusedLabels, secondaryFile, texlabDiagnostics],
+  );
+  const insertTextAtCursor = useCallback((insert: string, cursorOffset = insert.length) => {
+    const view = editorViewRef.current;
+    if (!view) return;
+    const from = view.state.selection.main.head;
+    const expanded = expandSnippetPlaceholders(insert);
+    const text = expanded.text;
+    const anchor = expanded.stops[0]
+      ? from + expanded.stops[0].from
+      : from + Math.min(cursorOffset, text.length);
+    const head = expanded.stops[0]
+      ? from + expanded.stops[0].to
+      : anchor;
+    view.dispatch({
+      changes: { from, insert: text },
+      selection: { anchor, head },
+      scrollIntoView: true,
+    });
+    setSnippetStops(expanded.stops.length > 1 ? { base: from, stops: expanded.stops } : null);
+    view.focus();
+  }, [setSnippetStops]);
+  const insertSnippet = useCallback((snippet: InsertSnippet) => {
+    insertTextAtCursor(snippet.insert, snippet.cursorOffset ?? snippet.insert.length);
+  }, [insertTextAtCursor]);
   const insertFigures = useCallback(async (paths: string[], coordinates?: { x: number; y: number }) => {
     const view = editorViewRef.current;
     if (!view || !paths.length) return;
@@ -2604,7 +6235,7 @@ function DocumentCanvas(props: {
     if (!prepared.length || !editorViewRef.current) return;
     const currentView = editorViewRef.current;
     let coordinatePosition: number | null = null;
-    if (coordinates) {
+    if (coordinates && coordinates.x >= 0 && coordinates.y >= 0) {
       try {
         coordinatePosition = currentView.posAtCoords(coordinates);
       } catch {
@@ -2613,11 +6244,17 @@ function DocumentCanvas(props: {
     }
     const cursor = coordinatePosition ?? lastInsertionPositionRef.current;
     const position = currentView.state.doc.lineAt(clamp(cursor, 0, currentView.state.doc.length)).from;
-    const source = currentView.state.doc.toString();
-    const edit = latexFigureInsertion(source, position, prepared);
-    pendingFigureCursorRef.current = position + edit.cursorOffset;
-    setSource(`${source.slice(0, position)}${edit.text}${source.slice(position)}`);
-  }, [onPrepareFigure, setSource]);
+    setFigureInsertPending({ paths: prepared, position });
+  }, [onPrepareFigure, setFigureInsertPending]);
+  const confirmFigureInsert = useCallback((options: FigureInsertOptions) => {
+    const pending = figureInsertPending;
+    if (!pending) return;
+    const source = editorSource;
+    const edit = latexFigureInsertion(source, pending.position, pending.paths, options);
+    pendingFigureCursorRef.current = pending.position + edit.cursorOffset;
+    setSource(`${source.slice(0, pending.position)}${edit.text}${source.slice(pending.position)}`);
+    setFigureInsertPending(null);
+  }, [editorSource, figureInsertPending, setFigureInsertPending, setSource]);
   useEffect(() => {
     const view = editorViewRef.current;
     const cursor = pendingFigureCursorRef.current;
@@ -2628,19 +6265,29 @@ function DocumentCanvas(props: {
   }, [editorSource]);
   useEffect(() => {
     const request = editorNavigation;
-    const view = editorViewRef.current;
-    if (!request || !view || request.path !== activeFile) return;
+    if (!request) return;
+    const view = request.path === secondaryFile
+      ? secondaryViewRef.current
+      : request.path === activeFile
+        ? primaryViewRef.current ?? editorViewRef.current
+        : null;
+    if (!view) return;
     const frame = window.requestAnimationFrame(() => {
-      const currentView = editorViewRef.current;
+      const currentView = request.path === secondaryFile
+        ? secondaryViewRef.current
+        : primaryViewRef.current ?? editorViewRef.current;
       if (!currentView) return;
       const lineNumber = clamp(request.line, 1, currentView.state.doc.lines);
       const line = currentView.state.doc.line(lineNumber);
       currentView.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+      editorViewRef.current = currentView;
+      if (request.path === secondaryFile) onFocusPane("secondary");
+      else onFocusPane("primary");
       currentView.focus();
       onEditorNavigationHandled(request.id);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeFile, editorNavigation, onEditorNavigationHandled, editorSource]);
+  }, [activeFile, editorNavigation, editorSource, onEditorNavigationHandled, onFocusPane, secondaryFile, secondarySource]);
   useEffect(() => {
     const view = editorViewRef.current;
     const point = props.figurePointerPosition;
@@ -2668,6 +6315,103 @@ function DocumentCanvas(props: {
     void insertFigures(request.paths, { x: request.clientX, y: request.clientY })
       .finally(() => onFigureDropHandled(request.id));
   }, [figureDropRequest, insertFigures, onFigureDropHandled]);
+  useEffect(() => {
+    const request = citeInsertRequest;
+    const view = editorViewRef.current;
+    if (!request || !view) return;
+    const from = view.state.selection.main.head;
+    const insert = `\\${request.command}{${request.key}}`;
+    view.dispatch({
+      changes: { from, insert },
+      selection: { anchor: from + insert.length },
+      scrollIntoView: true,
+    });
+    view.focus();
+    onCiteInsertHandled(request.id);
+  }, [citeInsertRequest, editorSource, onCiteInsertHandled]);
+  useEffect(() => {
+    const request = viewRestore;
+    const view = editorViewRef.current;
+    if (!request || !view || request.path !== activeFile) return;
+    const frame = window.requestAnimationFrame(() => {
+      const current = editorViewRef.current;
+      if (!current) return;
+      const cursor = clamp(request.cursor, 0, current.state.doc.length);
+      current.dispatch({ selection: { anchor: cursor }, scrollIntoView: true });
+      current.scrollDOM.scrollTop = request.scrollTop;
+      onViewRestoreHandled(request.id);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeFile, onViewRestoreHandled, viewRestore, editorSource]);
+  useEffect(() => {
+    const request = envRenameRequest;
+    const view = editorViewRef.current;
+    if (!request || !view) return;
+    const edits = renameEnvironmentAt(view.state.doc.toString(), view.state.selection.main.head, request.newName);
+    if (edits) {
+      view.dispatch({
+        changes: edits,
+        scrollIntoView: true,
+      });
+      view.focus();
+    }
+    onEnvRenameHandled(request.id);
+  }, [editorSource, envRenameRequest, onEnvRenameHandled]);
+  useEffect(() => {
+    const request = wrapEnvRequest;
+    const view = editorViewRef.current;
+    if (!request || !view) return;
+    const range = view.state.selection.main;
+    const edit = wrapEnvironment(view.state.doc.toString(), range.from, range.to, request.name);
+    view.dispatch({
+      changes: { from: edit.from, to: edit.to, insert: edit.insert },
+      selection: edit.cursorFrom === edit.cursorTo
+        ? { anchor: edit.cursorFrom }
+        : { anchor: edit.cursorFrom, head: edit.cursorTo },
+      scrollIntoView: true,
+    });
+    view.focus();
+    onWrapEnvHandled(request.id);
+  }, [editorSource, onWrapEnvHandled, wrapEnvRequest]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || event.altKey || event.metaKey || event.ctrlKey) return;
+      if (!snippetStops) return;
+      const view = editorViewRef.current;
+      if (!view) return;
+      const cursor = view.state.selection.main.head;
+      if (event.shiftKey) {
+        const previous = previousSnippetStop(snippetStops.stops, cursor, snippetStops.base);
+        if (!previous) return;
+        event.preventDefault();
+        view.dispatch({
+          selection: { anchor: previous.from, head: previous.to },
+          scrollIntoView: true,
+        });
+        return;
+      }
+      const absolute = snippetStops.stops.map((stop) => ({
+        from: snippetStops.base + stop.from,
+        to: snippetStops.base + stop.to,
+      }));
+      const next = nextSnippetStop(snippetStops.stops, cursor, snippetStops.base);
+      if (!next) return;
+      const last = absolute[absolute.length - 1];
+      const atOrPastLast = Boolean(last && cursor >= last.to);
+      if (atOrPastLast && next.from === absolute[0]?.from) {
+        event.preventDefault();
+        setSnippetStops(null);
+        return;
+      }
+      event.preventDefault();
+      view.dispatch({
+        selection: { anchor: next.from, head: next.to },
+        scrollIntoView: true,
+      });
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [snippetStops]);
   if (props.mode === "paper") {
     return (
       <article className="paper-reader">
@@ -2679,67 +6423,369 @@ function DocumentCanvas(props: {
   if (props.mode === "asset" && props.activeAsset) {
     return <ProjectAssetPreview asset={props.activeAsset} />;
   }
+  const showTexChrome = activeFile.endsWith(".tex");
   const editor = (
-    <div
-      className={`source-editor ${figureDropActive || props.nativeFigureDropActive ? "figure-drop-active" : ""}`}
-      onPointerLeave={props.onEditorLeave}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) props.onEditorLeave();
-      }}
-      onDragEnterCapture={(event) => {
-        if (Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE)) setFigureDropActive(true);
-      }}
-      onDragOverCapture={(event) => {
-        if (!Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE)) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-        setFigureDropActive(true);
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFigureDropActive(false);
-      }}
-      onDropCapture={(event) => {
-        const path = event.dataTransfer.getData(PROJECT_FIGURE_DRAG_TYPE);
-        if (!path) return;
-        event.preventDefault();
-        event.stopPropagation();
-        setFigureDropActive(false);
-        void insertFigures([path], { x: event.clientX, y: event.clientY });
-      }}
-    >
-      <CodeMirror
-        className="code-editor-root"
-        value={props.source}
-        height="100%"
-        extensions={editorExtensions}
-        onCreateEditor={(view) => {
-          editorViewRef.current = view;
-          lastInsertionPositionRef.current = view.state.selection.main.head;
-        }}
-        onChange={props.setSource}
-        onUpdate={(view) => {
-          const range = view.state.selection.main;
-          lastInsertionPositionRef.current = range.head;
-          props.setSelection(range.empty ? "" : view.state.sliceDoc(range.from, range.to));
-        }}
-        basicSetup={{
-          autocompletion: false,
-          lineNumbers: true,
-          foldGutter: true,
-          highlightActiveLine: true,
-          highlightActiveLineGutter: false,
-        }}
+    <div className="source-workspace">
+      <DocumentOutline
+        nodes={outlineNodes}
+        activeId={activeOutlineId}
+        available={showTexChrome}
+        open={outlineOpen}
+        onSelect={onOutlineNavigate}
+        onClose={() => onOutlineOpenChange(false)}
+        onOpen={() => onOutlineOpenChange(true)}
       />
-      {figureDropMarker && (
-        <div className="figure-drop-line" style={{ top: figureDropMarker.top }}>
-          <span>Insert above line {figureDropMarker.line}</span>
+      <div className="source-main">
+        <div
+          className={`source-editor ${figureDropActive || props.nativeFigureDropActive ? "figure-drop-active" : ""}`}
+          onPointerLeave={props.onEditorLeave}
+          onFocusCapture={() => {
+            onFocusPane("primary");
+            if (primaryViewRef.current) editorViewRef.current = primaryViewRef.current;
+          }}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) props.onEditorLeave();
+          }}
+          onDragEnterCapture={(event) => {
+            if (Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE)) setFigureDropActive(true);
+          }}
+          onDragOverCapture={(event) => {
+            if (!Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            setFigureDropActive(true);
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFigureDropActive(false);
+          }}
+          onDropCapture={(event) => {
+            const path = event.dataTransfer.getData(PROJECT_FIGURE_DRAG_TYPE);
+            if (!path) return;
+            event.preventDefault();
+            event.stopPropagation();
+            setFigureDropActive(false);
+            void insertFigures([path], { x: event.clientX, y: event.clientY });
+          }}
+        >
+          <CodeMirror
+            key={collabEditorKey}
+            className="code-editor-root"
+            value={collabLive ? mountSourceRef.current : props.source}
+            height="100%"
+            extensions={editorExtensions}
+            onCreateEditor={(view) => {
+              primaryViewRef.current = view;
+              if (focusedPaneRef.current === "primary") editorViewRef.current = view;
+              lastInsertionPositionRef.current = view.state.selection.main.head;
+              reportEditorPositionRef.current(view, activeFile);
+              view.dispatch({ effects: setEditorCommentsEffect.of(commentsForActiveFileRef.current) });
+            }}
+            onChange={onPrimaryChange}
+            onUpdate={onPrimaryUpdate}
+            basicSetup={{
+              autocompletion: false,
+              lineNumbers: true,
+              foldGutter: true,
+              highlightActiveLine: true,
+              highlightActiveLineGutter: true,
+            }}
+          />
+          {figureDropMarker && (
+            <div className="figure-drop-line" style={{ top: figureDropMarker.top }}>
+              <span>Insert above line {figureDropMarker.line}</span>
+            </div>
+          )}
+          {selectedText.trim() && !commentComposer && focusedPane === "primary" && (
+            <button
+              type="button"
+              className="editor-comment-chip"
+              title="Add a comment on the selected text"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                openCommentComposer();
+              }}
+            >
+              <MessageSquareText size={13} /> Comment
+            </button>
+          )}
+          {commentComposer && (
+            <div
+              className="editor-comment-popover"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <p className="editor-comment-quote">{commentComposer.quote}</p>
+              <textarea
+                autoFocus
+                rows={3}
+                placeholder="Leave a comment for collaborators…"
+                value={commentComposer.body}
+                onChange={(event) => setCommentComposer((current) => (
+                  current ? { ...current, body: event.target.value } : current
+                ))}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setCommentComposer(null);
+                  }
+                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                    event.preventDefault();
+                    saveCommentComposer();
+                  }
+                }}
+              />
+              <div className="editor-comment-popover-actions">
+                <button type="button" onClick={() => setCommentComposer(null)}>Cancel</button>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={!commentComposer.body.trim()}
+                  onClick={saveCommentComposer}
+                >
+                  Add comment
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+        {showTexChrome && focusedPane === "primary" && (
+          <MathPreview source={focusedSource} cursor={cursorOffset} macros={katexMacros} />
+        )}
+        <div className="editor-status-bar" aria-label="Editor status">
+          <button type="button" className="status-goto" title="Go to line (⌘G)" onClick={onGotoLineRequest}>
+            Ln {statusPosition.line}, Col {statusPosition.column + 1}
+          </button>
+          {breadcrumb.length > 0 && (
+            <span className="editor-breadcrumb" title={breadcrumb.map((node) => node.title).join(" › ")}>
+              {breadcrumb.map((node, index) => (
+                <span key={node.id}>
+                  {index > 0 && <i aria-hidden="true">›</i>}
+                  <button
+                    type="button"
+                    title={`Go to ${node.title}`}
+                    onClick={() => onOutlineNavigate(node.path || focusedPath, node.line)}
+                  >
+                    {node.title}
+                  </button>
+                </span>
+              ))}
+            </span>
+          )}
+          <span className="status-hint" title="Editor shortcuts">
+            {buildDiagnostics.length > 0
+              ? <><kbd>F8</kbd> next · <kbd>⇧F8</kbd> prev</>
+              : <><kbd>⌘F</kbd> find · <kbd>⌘/</kbd> comment · <kbd>⌘⇧I</kbd> insert</>}
+          </span>
+          <button
+            type="button"
+            className={`status-todos${commentsForActiveFile.some((comment) => !comment.resolved) ? " has-todos" : ""}`}
+            title="Editor comments"
+            onClick={onOpenEditorComments}
+          >
+            <MessageSquareText size={12} />
+            {commentsForActiveFile.filter((comment) => !comment.resolved).length
+              ? `${commentsForActiveFile.filter((comment) => !comment.resolved).length} comments`
+              : "Comments"}
+          </button>
+          <button
+            type="button"
+            className={`status-todos${props.todoCount ? " has-todos" : ""}`}
+            title="Manuscript TODOs"
+            onClick={props.onOpenTodos}
+          >
+            <ListTodo size={12} />
+            {props.todoCount ? `${props.todoCount} TODO` : "TODOs"}
+          </button>
+          <span
+            className="status-body-words"
+            title={props.projectWordCount
+              ? `Body words (${props.projectWordCount.source === "texcount" ? "texcount" : "estimate"}): text ${props.projectWordCount.text}, headers ${props.projectWordCount.headers}, captions ${props.projectWordCount.captions}`
+              : "Body word count unavailable"}
+          >
+            {selectedText
+              ? `Sel ${selectionStats.words.toLocaleString()} words · ${selectionStats.chars.toLocaleString()} chars · ${selectionStats.lines.toLocaleString()} lines`
+              : props.projectWordCount
+                ? `Body ${props.projectWordCount.total.toLocaleString()} · raw ${wordCount.toLocaleString()} · ${focusedSource.length.toLocaleString()} chars`
+                : `${wordCount.toLocaleString()} words · ${focusedSource.length.toLocaleString()} chars`}
+          </span>
+        </div>
+      </div>
+      <InsertPalette
+        open={insertOpen}
+        onClose={() => onInsertOpenChange(false)}
+        onInsert={insertSnippet}
+      />
+      <TableGeneratorDialog
+        open={tableGeneratorOpen}
+        onClose={() => onTableGeneratorOpenChange(false)}
+        onInsert={(insert, cursorOffset) => insertTextAtCursor(insert, cursorOffset)}
+      />
+      <FigureInsertDialog
+        open={Boolean(figureInsertPending)}
+        paths={figureInsertPending?.paths ?? []}
+        onClose={() => setFigureInsertPending(null)}
+        onInsert={confirmFigureInsert}
+      />
     </div>
   );
-  const preview = <PdfPreview url={props.pdfUrl} pdfBase64={props.pdfBase64} onSource={props.onPdfSource} />;
+  const preview = (
+    <PdfPreview
+      url={props.pdfUrl}
+      pdfBase64={props.pdfBase64}
+      syncTarget={props.pdfSyncTarget}
+      marks={props.pdfMarks}
+      activeMarkId={props.activePdfMarkId}
+      onSource={props.onPdfSource}
+      onTextSelect={props.onPdfTextSelect}
+      onCreateMark={props.onCreatePdfMark}
+      onSelectMark={props.onSelectPdfMark}
+      onOpenMarks={props.onOpenPdfMarks}
+      onNumPages={props.onPdfPageCount}
+    />
+  );
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
+  if (props.mode === "dual" || props.mode === "columns") {
+    const dualSecondary = secondaryFile ? (
+      <div
+        className={`source-main dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
+        onFocusCapture={() => {
+          onFocusPane("secondary");
+          if (secondaryViewRef.current) editorViewRef.current = secondaryViewRef.current;
+        }}
+      >
+        <div className="dual-pane-label"><FileCode2 size={12} /><span>{secondaryFile}</span></div>
+        <div className="source-editor">
+          <CodeMirror
+            className="code-editor-root"
+            value={secondarySource}
+            height="100%"
+            extensions={secondaryEditorExtensions}
+            onCreateEditor={(view) => {
+              secondaryViewRef.current = view;
+              if (focusedPane === "secondary") editorViewRef.current = view;
+            }}
+            onChange={onSecondaryChange}
+            onUpdate={onSecondaryUpdate}
+            basicSetup={{
+              autocompletion: false,
+              lineNumbers: true,
+              foldGutter: true,
+              highlightActiveLine: true,
+              highlightActiveLineGutter: true,
+            }}
+          />
+        </div>
+      </div>
+    ) : (
+      <div className="dual-empty">
+        <Columns2 size={18} />
+        <p>Use Dual source view from the command palette to open a second file here.</p>
+      </div>
+    );
+    const editorsShare = 1 - columnsPdfRatio;
+    const beginDualResize = (event: React.PointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      let latest = splitRatio;
+      document.body.classList.add("resizing-split");
+      const handleMove = (moveEvent: PointerEvent) => {
+        const bounds = splitRef.current?.getBoundingClientRect();
+        if (!bounds?.width) return;
+        if (props.mode === "columns") {
+          // Resize only across the two editor panes (everything left of the PDF).
+          const editorsWidth = bounds.width * editorsShare;
+          latest = clamp((moveEvent.clientX - bounds.left) / Math.max(editorsWidth, 1), 0.25, 0.75);
+        } else {
+          latest = clamp((moveEvent.clientX - bounds.left) / bounds.width, 0.2, 0.8);
+        }
+        setSplitRatio(latest);
+      };
+      const handleUp = () => {
+        document.body.classList.remove("resizing-split");
+        window.removeEventListener("pointermove", handleMove);
+        window.removeEventListener("pointerup", handleUp);
+        persistSplitRatio(latest);
+      };
+      window.addEventListener("pointermove", handleMove);
+      window.addEventListener("pointerup", handleUp);
+    };
+    const beginColumnsPdfResize = (event: React.PointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      let latest = columnsPdfRatio;
+      document.body.classList.add("resizing-split");
+      const handleMove = (moveEvent: PointerEvent) => {
+        const bounds = splitRef.current?.getBoundingClientRect();
+        if (!bounds?.width) return;
+        const fromRight = (bounds.right - moveEvent.clientX) / bounds.width;
+        latest = clamp(fromRight, 0.22, 0.55);
+        setColumnsPdfRatio(latest);
+      };
+      const handleUp = () => {
+        document.body.classList.remove("resizing-split");
+        window.removeEventListener("pointermove", handleMove);
+        window.removeEventListener("pointerup", handleUp);
+        persistColumnsPdfRatio(latest);
+      };
+      window.addEventListener("pointermove", handleMove);
+      window.addEventListener("pointerup", handleUp);
+    };
+    const primaryPane = (
+      <div
+        className={`dual-primary ${focusedPane === "primary" ? "focused" : ""}`}
+        onFocusCapture={() => {
+          onFocusPane("primary");
+          if (primaryViewRef.current) editorViewRef.current = primaryViewRef.current;
+        }}
+      >
+        {editor}
+      </div>
+    );
+    const editorResizer = (
+      <div
+        className="split-resizer"
+        role="separator"
+        aria-label="Resize dual source panes"
+        aria-orientation="vertical"
+        tabIndex={0}
+        onPointerDown={beginDualResize}
+      />
+    );
+    if (props.mode === "columns") {
+      return (
+        <div
+          ref={splitRef}
+          className="split-canvas dual-canvas columns-canvas"
+          style={{
+            gridTemplateColumns: `minmax(160px, ${splitRatio * editorsShare}fr) 1px minmax(160px, ${(1 - splitRatio) * editorsShare}fr) 1px minmax(220px, ${columnsPdfRatio}fr)`,
+          }}
+        >
+          {primaryPane}
+          {editorResizer}
+          {dualSecondary}
+          <div
+            className="split-resizer"
+            role="separator"
+            aria-label="Resize PDF pane"
+            aria-orientation="vertical"
+            aria-valuenow={Math.round(columnsPdfRatio * 100)}
+            tabIndex={0}
+            onPointerDown={beginColumnsPdfResize}
+          />
+          {preview}
+        </div>
+      );
+    }
+    return (
+      <div
+        ref={splitRef}
+        className="split-canvas dual-canvas"
+        style={{ gridTemplateColumns: `minmax(220px, ${splitRatio}fr) 1px minmax(220px, ${1 - splitRatio}fr)` }}
+      >
+        {primaryPane}
+        {editorResizer}
+        {dualSecondary}
+      </div>
+    );
+  }
   const resizeSplit = (clientX: number) => {
     const bounds = splitRef.current?.getBoundingClientRect();
     if (!bounds?.width) return splitRatio;
@@ -2821,255 +6867,6 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
   );
 }
 
-function ContinuousPdfPage({ documentProxy, pageNumber, scale, onSource }: {
-  documentProxy: PDFDocumentProxy;
-  pageNumber: number;
-  scale: number;
-  onSource?: (page: number, x: number, y: number) => void;
-}) {
-  const shellRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [page, setPage] = useState<PDFPageProxy | null>(null);
-  const [shouldRender, setShouldRender] = useState(pageNumber === 1);
-  const [rendering, setRendering] = useState(true);
-  const [pageError, setPageError] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    void documentProxy.getPage(pageNumber)
-      .then((nextPage) => {
-        if (active) setPage(nextPage);
-      })
-      .catch((reason) => {
-        if (active) {
-          setPageError(toMessage(reason));
-          setRendering(false);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [documentProxy, pageNumber]);
-
-  useEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) return;
-    if (typeof IntersectionObserver === "undefined") {
-      const frame = window.requestAnimationFrame(() => setShouldRender(true));
-      return () => window.cancelAnimationFrame(frame);
-    }
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) setShouldRender(true);
-    }, {
-      root: shell.closest(".pdf-scroll-area"),
-      rootMargin: "900px 0px",
-    });
-    observer.observe(shell);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!page || !canvas || !shouldRender) return;
-    let active = true;
-    const pixelRatio = window.devicePixelRatio || 1;
-    const viewport = page.getViewport({ scale: scale * pixelRatio });
-    const cssViewport = page.getViewport({ scale });
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    canvas.style.width = `${Math.floor(cssViewport.width)}px`;
-    canvas.style.height = `${Math.floor(cssViewport.height)}px`;
-    setRendering(true);
-    setPageError("");
-    const renderTask = page.render({ canvas, viewport });
-    void renderTask.promise
-      .catch((reason) => {
-        if (active && reason?.name !== "RenderingCancelledException") setPageError(toMessage(reason));
-      })
-      .finally(() => {
-        if (active) setRendering(false);
-      });
-    return () => {
-      active = false;
-      renderTask.cancel();
-    };
-  }, [page, scale, shouldRender]);
-
-  const viewport = page?.getViewport({ scale });
-  const width = Math.floor(viewport?.width ?? 612 * scale);
-  const height = Math.floor(viewport?.height ?? 792 * scale);
-  const revealSource = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!onSource) return;
-    const bounds = event.currentTarget.getBoundingClientRect();
-    onSource(
-      pageNumber,
-      Number(((event.clientX - bounds.left) / scale).toFixed(3)),
-      Number(((event.clientY - bounds.top) / scale).toFixed(3)),
-    );
-  };
-
-  return (
-    <div ref={shellRef} className="pdf-page-shell" data-pdf-page={pageNumber} style={{ width, height }} aria-busy={rendering}>
-      <canvas
-        ref={canvasRef}
-        className={onSource ? "synctex-enabled" : ""}
-        title={onSource ? "Click to reveal this position in LaTeX" : undefined}
-        onClick={revealSource}
-        aria-label={`PDF page ${pageNumber}`}
-      />
-      {rendering && <div className="pdf-page-skeleton" aria-hidden="true" />}
-      {pageError && <div className="pdf-page-error">Could not render page {pageNumber}. {pageError}</div>}
-    </div>
-  );
-}
-
-function PdfPreview({ url, pdfBase64, fileName = "paper.pdf", onSource }: { url: string | null; pdfBase64: string | null; fileName?: string; onSource?: (page: number, x: number, y: number) => void }) {
-  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
-  const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [scale, setScale] = useState(1.1);
-  const [loading, setLoading] = useState(Boolean(url));
-  const [pdfError, setPdfError] = useState("");
-  const [savingPdf, setSavingPdf] = useState(false);
-  const [saveNotice, setSaveNotice] = useState("");
-
-  useEffect(() => {
-    if (!url) return;
-    let active = true;
-    const loadingTask = getDocument({ url });
-    void loadingTask.promise
-      .then((pdf) => {
-        if (active) setDocumentProxy(pdf);
-      })
-      .catch((reason) => active && setPdfError(toMessage(reason)))
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-      void loadingTask.destroy();
-    };
-  }, [url]);
-
-  const updateCurrentPage = useCallback(() => {
-    const scrollArea = scrollAreaRef.current;
-    if (!scrollArea) return;
-    const scrollBounds = scrollArea.getBoundingClientRect();
-    const marker = scrollBounds.top + Math.min(scrollBounds.height * 0.35, 240);
-    let closestPage = 1;
-    let closestDistance = Number.POSITIVE_INFINITY;
-    for (const shell of scrollArea.querySelectorAll<HTMLElement>("[data-pdf-page]")) {
-      const bounds = shell.getBoundingClientRect();
-      const distance = marker < bounds.top
-        ? bounds.top - marker
-        : marker > bounds.bottom
-          ? marker - bounds.bottom
-          : 0;
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestPage = Number(shell.dataset.pdfPage ?? 1);
-      }
-    }
-    setPageNumber(closestPage);
-  }, []);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(updateCurrentPage);
-    return () => window.cancelAnimationFrame(frame);
-  }, [documentProxy, scale, updateCurrentPage]);
-
-  if (!url) {
-    return <div className="pdf-preview"><div className="pdf-placeholder"><FileText size={28} /><p>Build the project to preview the paper.</p></div></div>;
-  }
-
-  const download = async () => {
-    if (!pdfBase64 || savingPdf) return;
-    setSavingPdf(true);
-    setSaveNotice("");
-    try {
-      const destination = await saveDialog({
-        title: "Save compiled PDF",
-        defaultPath: fileName,
-        filters: [{ name: "PDF document", extensions: ["pdf"] }],
-      });
-      if (!destination) return;
-      const savedPath = await invoke<string>("save_compiled_pdf", { path: destination, pdfBase64 });
-      setSaveNotice(`Saved to ${savedPath}`);
-    } catch (reason) {
-      setSaveNotice(`Could not save PDF. ${toMessage(reason)}`);
-    } finally {
-      setSavingPdf(false);
-    }
-  };
-  const scrollToPage = (nextPage: number) => {
-    const scrollArea = scrollAreaRef.current;
-    const page = scrollArea?.querySelector<HTMLElement>(`[data-pdf-page="${nextPage}"]`);
-    if (!scrollArea || !page) return;
-    setPageNumber(nextPage);
-    scrollArea.scrollTo({ top: Math.max(0, page.offsetTop - 20), behavior: "smooth" });
-  };
-  const pages = documentProxy
-    ? Array.from({ length: documentProxy.numPages }, (_, index) => index + 1)
-    : [];
-  return (
-    <div className="pdf-preview">
-      <div className="pdf-toolbar">
-        <div className="pdf-page-controls">
-          <button title="Previous page" disabled={pageNumber <= 1} onClick={() => scrollToPage(Math.max(1, pageNumber - 1))}><ChevronLeft size={14} /></button>
-          <span>{pageNumber} / {documentProxy?.numPages ?? "–"}</span>
-          <button title="Next page" disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => scrollToPage(Math.min(documentProxy?.numPages ?? pageNumber, pageNumber + 1))}><ChevronRight size={14} /></button>
-        </div>
-        <div className="pdf-zoom-controls">
-          <button title="Zoom out" disabled={scale <= 0.6} onClick={() => setScale((value) => clamp(Number((value - 0.1).toFixed(1)), 0.6, 2.2))}><ZoomOut size={14} /></button>
-          <span>{Math.round(scale * 100)}%</span>
-          <button title="Zoom in" disabled={scale >= 2.2} onClick={() => setScale((value) => clamp(Number((value + 0.1).toFixed(1)), 0.6, 2.2))}><ZoomIn size={14} /></button>
-        </div>
-        <button className="pdf-download" title="Save PDF as…" disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}</button>
-      </div>
-      {saveNotice && <div className={`pdf-save-notice ${saveNotice.startsWith("Could not") ? "error" : ""}`}>{saveNotice}<button title="Dismiss PDF save notice" onClick={() => setSaveNotice("")}><X size={12} /></button></div>}
-      <div ref={scrollAreaRef} className="pdf-scroll-area" onScroll={updateCurrentPage}>
-        {pdfError
-          ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div>
-          : <div className="pdf-pages">{documentProxy && pages.map((page) => (
-            <ContinuousPdfPage key={page} documentProxy={documentProxy} pageNumber={page} scale={scale} onSource={onSource} />
-          ))}</div>}
-        {loading && <div className="pdf-loading"><LoaderCircle className="spin" size={17} /> Rendering PDF…</div>}
-      </div>
-    </div>
-  );
-}
-
-function HistoryDrawer(props: {
-  history: HistoryItem[];
-  onClose: () => void;
-  onRevert: (id: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  return (
-    <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside className="history-drawer" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="drawer-header"><div><History size={16} /><span>Project history</span></div><button onClick={props.onClose}><X size={16} /></button></div>
-        <p className="drawer-copy">Every direct edit, paper import, and agent change is stored as a project transaction.</p>
-        <div className="history-list">
-          {props.history.map((item) => (
-            <div className="history-item" key={item.id}>
-              <div className="history-dot" />
-              <div className="history-body">
-                <strong>{item.label}</strong>
-                <span><Clock3 size={11} /> {new Date(item.timestamp).toLocaleString()}</span>
-                <p>{item.files.join(", ")}</p>
-              </div>
-              <div className="history-actions">
-                <button title="Restore the state before this change" onClick={() => props.onRevert(item.id)}><RotateCcw size={14} /></button>
-                <button className="history-delete" title="Delete this history entry" onClick={() => props.onDelete(item.id)}><Trash2 size={13} /></button>
-              </div>
-            </div>
-          ))}
-          {!props.history.length && <p className="empty-history">No changes recorded yet.</p>}
-        </div>
-      </aside>
-    </div>
-  );
-}
-
 function SettingsDialog(props: {
   tab: SettingsTab;
   setTab: (tab: SettingsTab) => void;
@@ -3082,6 +6879,15 @@ function SettingsDialog(props: {
   systemPrompt: string;
   setSystemPrompt: (prompt: string) => void;
   hasProject: boolean;
+  project: ProjectSnapshot | null;
+  activeFile: string | null;
+  onUpdateManifest: (patch: {
+    engine?: string | null;
+    defaultRoot?: string | null;
+    trusted?: boolean | null;
+  }) => void;
+  onAddRootDocument: (path: string, makeDefault: boolean) => void;
+  onRemoveRootDocument: (path: string) => void;
   skills: AgentSkill[];
   skillDraft: SkillDraft | null;
   setSkillDraft: (draft: SkillDraft | null) => void;
@@ -3091,6 +6897,7 @@ function SettingsDialog(props: {
   subscriptions: SubscriptionStatus[];
   subscriptionsLoading: boolean;
   subscriptionNotice: string;
+  // (updater state is read from context via useUpdater, not passed as a prop)
   onRefreshSubscriptions: () => void;
   onSubscriptionLogin: (provider: "codex" | "claude") => void;
   apiProvider: "openai" | "anthropic";
@@ -3100,8 +6907,36 @@ function SettingsDialog(props: {
   apiConfigured: boolean;
   onSaveApiKey: () => void;
   onDeleteApiKey: () => void;
+  doctorReport: DoctorReport | null;
+  doctorBusy: boolean;
+  doctorNotice: string;
+  onRunDoctor: () => void;
+  onOpenTexSetup: () => void;
+  onCopyDoctorSummary: () => void;
   onClose: () => void;
 }) {
+  const updater = useUpdater();
+  const updateBusy = updater.phase === "checking"
+    || updater.phase === "downloading"
+    || updater.phase === "installing";
+  const updateTitle = updater.phase === "available"
+    ? `Version ${updater.version ?? ""} is ready to install`.trim()
+    : updater.phase === "downloading"
+      ? "Downloading update…"
+      : updater.phase === "installing"
+        ? "Installing update…"
+        : updater.phase === "error"
+          ? "Couldn’t check for updates"
+          : updater.phase === "up-to-date"
+            ? "You’re on the latest version"
+            : updater.mode === "auto"
+              ? "New versions install automatically"
+              : "You’ll be notified when a new version is ready";
+  const updateDetail = updater.phase === "error"
+    ? (updater.error ?? "Check your connection and try again.")
+    : updater.mode === "auto"
+      ? "Lattice checks in the background and installs updates on its own."
+      : "Lattice checks in the background; you decide when to install.";
   return (
     <div className="modal-backdrop" onMouseDown={props.onClose}>
       <div className="settings-modal" onMouseDown={(event) => event.stopPropagation()}>
@@ -3116,6 +6951,7 @@ function SettingsDialog(props: {
             <button className={props.tab === "agent" ? "active" : ""} onClick={() => props.setTab("agent")}>Agent</button>
             <button className={props.tab === "accounts" ? "active" : ""} onClick={() => props.setTab("accounts")}>Subscriptions</button>
             <button className={props.tab === "api" ? "active" : ""} onClick={() => props.setTab("api")}>API keys</button>
+            <button className={props.tab === "doctor" ? "active" : ""} onClick={() => props.setTab("doctor")}>TeX doctor</button>
           </nav>
           <div className="settings-content">
             {props.tab === "appearance" && (
@@ -3130,10 +6966,9 @@ function SettingsDialog(props: {
                 </label>
                 <label>Interface font
                   <select value={props.appearance.uiFont} onChange={(event) => props.setAppearance({ ...props.appearance, uiFont: event.target.value })}>
-                    <option value='"DM Sans", -apple-system, sans-serif'>DM Sans</option>
-                    <option value='Inter, -apple-system, sans-serif'>Inter</option>
-                    <option value='-apple-system, BlinkMacSystemFont, sans-serif'>System</option>
-                    <option value='"Avenir Next", sans-serif'>Avenir Next</option>
+                    {availableFontOptions(UI_FONT_OPTIONS).map((option) => (
+                      <option key={option.family} value={option.value}>{option.label}</option>
+                    ))}
                   </select>
                 </label>
                 <div className="settings-range">
@@ -3141,12 +6976,17 @@ function SettingsDialog(props: {
                   <input id="interface-size" type="range" min="90" max="135" step="5" value={Math.round(props.appearance.interfaceScale * 100)} onChange={(event) => props.setAppearance({ ...props.appearance, interfaceScale: Number(event.target.value) / 100 })} />
                 </div>
                 <label>LaTeX editor font
-                  <select value={props.appearance.editorFont} onChange={(event) => props.setAppearance({ ...props.appearance, editorFont: event.target.value })}>
-                    <option value='"MonoLisa", "JetBrains Mono", monospace'>MonoLisa</option>
-                    <option value='"JetBrains Mono", monospace'>JetBrains Mono</option>
-                    <option value='"SFMono-Regular", Consolas, monospace'>SF Mono</option>
-                    <option value='"Fira Code", monospace'>Fira Code</option>
-                    <option value='Menlo, monospace'>Menlo</option>
+                  <select
+                    value={
+                      availableFontOptions(EDITOR_FONT_OPTIONS).some((option) => option.value === props.appearance.editorFont)
+                        ? props.appearance.editorFont
+                        : DEFAULT_EDITOR_FONT
+                    }
+                    onChange={(event) => props.setAppearance({ ...props.appearance, editorFont: event.target.value })}
+                  >
+                    {availableFontOptions(EDITOR_FONT_OPTIONS).map((option) => (
+                      <option key={option.family} value={option.value}>{option.label}</option>
+                    ))}
                   </select>
                 </label>
                 <div className="settings-range">
@@ -3158,7 +6998,36 @@ function SettingsDialog(props: {
             {props.tab === "editor" && (
               <div className="settings-section">
                 <h2>Editor & builds</h2>
-                <p>Choose when Lattice recompiles the current project after a source change.</p>
+                <p>Choose keymap behavior and when Lattice recompiles after a source change.</p>
+                <label>Editor keymap
+                  <select
+                    aria-label="Editor keymap"
+                    value={props.appearance.editorKeymap}
+                    onChange={(event) => props.setAppearance({
+                      ...props.appearance,
+                      editorKeymap: event.target.value === "vim"
+                        ? "vim"
+                        : event.target.value === "emacs"
+                          ? "emacs"
+                          : "default",
+                    })}
+                  >
+                    <option value="default">Default</option>
+                    <option value="vim">Vim</option>
+                    <option value="emacs">Emacs</option>
+                  </select>
+                </label>
+                <label className="settings-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={props.appearance.editorSpellcheck}
+                    onChange={(event) => props.setAppearance({
+                      ...props.appearance,
+                      editorSpellcheck: event.target.checked,
+                    })}
+                  />
+                  <span>Spellcheck prose in the editor</span>
+                </label>
                 <label>Automatic build
                   <select aria-label="Automatic build" value={props.buildPreferences.autoBuildMode} onChange={(event) => props.setBuildPreferences({ autoBuildMode: event.target.value as AutoBuildMode })}>
                     <option value="manual">Manual only</option>
@@ -3168,6 +7037,101 @@ function SettingsDialog(props: {
                 <div className="settings-detail">
                   <Play size={14} />
                   <div><strong>{autoBuildTitle(props.buildPreferences.autoBuildMode)}</strong><span>{autoBuildDetail(props.buildPreferences.autoBuildMode)}</span></div>
+                </div>
+                {props.project && (
+                  <>
+                    <label>Compile engine
+                      <select
+                        aria-label="Compile engine"
+                        value={props.project.manifest.engine ?? "pdf"}
+                        onChange={(event) => props.onUpdateManifest({ engine: event.target.value })}
+                      >
+                        <option value="pdf">pdfLaTeX</option>
+                        <option value="xelatex">XeLaTeX</option>
+                        <option value="lualatex">LuaLaTeX</option>
+                      </select>
+                    </label>
+                    <label>Root document
+                      <select
+                        aria-label="Root document"
+                        value={
+                          props.project.manifest.rootDocuments.find((document) => document.isDefault)?.path
+                          ?? props.project.manifest.rootDocuments[0]?.path
+                          ?? ""
+                        }
+                        onChange={(event) => props.onUpdateManifest({ defaultRoot: event.target.value })}
+                      >
+                        {props.project.manifest.rootDocuments.map((document) => (
+                          <option key={document.path} value={document.path}>{document.name} ({document.path})</option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="root-document-actions">
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={!props.activeFile?.endsWith(".tex")}
+                        title={props.activeFile?.endsWith(".tex") ? `Add ${props.activeFile} as a compile root` : "Open a .tex file first"}
+                        onClick={() => {
+                          if (props.activeFile?.endsWith(".tex")) {
+                            props.onAddRootDocument(props.activeFile, false);
+                          }
+                        }}
+                      >
+                        Add open .tex
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={props.project.manifest.rootDocuments.length <= 1}
+                        title="Remove the selected root document"
+                        onClick={() => {
+                          const selected =
+                            props.project!.manifest.rootDocuments.find((document) => document.isDefault)?.path
+                            ?? props.project!.manifest.rootDocuments[0]?.path;
+                          if (selected) props.onRemoveRootDocument(selected);
+                        }}
+                      >
+                        Remove selected
+                      </button>
+                    </div>
+                    <label className="settings-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={props.project.manifest.trusted}
+                        onChange={(event) => props.onUpdateManifest({ trusted: event.target.checked })}
+                      />
+                      <span>Allow shell escape when compiling</span>
+                    </label>
+                  </>
+                )}
+                <div className="settings-updates">
+                  <h3>App updates</h3>
+                  <p>Choose whether Lattice installs new versions automatically or just tells you.</p>
+                  <label>Automatic updates
+                    <select
+                      aria-label="Automatic updates"
+                      value={updater.mode}
+                      onChange={(event) => updater.setMode(event.target.value as UpdateMode)}
+                    >
+                      <option value="manual">Notify me (manual)</option>
+                      <option value="auto">Install automatically</option>
+                    </select>
+                  </label>
+                  <div className="settings-detail">
+                    <RefreshCw size={14} />
+                    <div><strong>{updateTitle}</strong><span>{updateDetail}</span></div>
+                  </div>
+                  <div className="root-document-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={updateBusy}
+                      onClick={() => void updater.check(false)}
+                    >
+                      {updater.phase === "checking" ? "Checking…" : "Check for updates"}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -3256,6 +7220,54 @@ function SettingsDialog(props: {
                 </div>
               </div>
             )}
+            {props.tab === "doctor" && (
+              <div className="settings-section">
+                <div className="settings-section-title">
+                  <div>
+                    <h2>TeX doctor</h2>
+                    <p>Checks local LaTeX tools, SyncTeX, bibliography processors, and the bundled agent runtime.</p>
+                  </div>
+                  <button title="Run TeX doctor" onClick={props.onRunDoctor} disabled={props.doctorBusy}>
+                    <RefreshCw className={props.doctorBusy ? "spin" : ""} size={14} />
+                  </button>
+                </div>
+                {props.doctorReport && (
+                  <>
+                    <div className={`doctor-status ${props.doctorReport.ok ? "ok" : "bad"}`}>
+                      {props.doctorReport.ok ? "Ready to compile" : "Missing required tools"}
+                    </div>
+                    <ul className="doctor-checklist">
+                      {props.doctorReport.checks.map((check) => (
+                        <li key={check.name} className={check.ok ? "ok" : "bad"}>
+                          <strong>{check.name}</strong>
+                          <span>{check.detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="settings-api-actions">
+                      <button className="secondary-button" type="button" onClick={props.onOpenTexSetup}>
+                        Open install guide
+                      </button>
+                      <button className="secondary-button" type="button" onClick={props.onCopyDoctorSummary}>
+                        <Copy size={13} /> Copy summary
+                      </button>
+                    </div>
+                  </>
+                )}
+                {!props.doctorReport && !props.doctorBusy && (
+                  <>
+                    <p className="settings-empty">Run the doctor to inspect this Mac’s TeX toolchain.</p>
+                    <div className="settings-api-actions">
+                      <button className="secondary-button" type="button" onClick={props.onOpenTexSetup}>
+                        Open install guide
+                      </button>
+                    </div>
+                  </>
+                )}
+                {props.doctorBusy && <p className="settings-empty">Checking local tools…</p>}
+                {props.doctorNotice && <p className="settings-notice">{props.doctorNotice}</p>}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -3263,17 +7275,31 @@ function SettingsDialog(props: {
   );
 }
 
-function base64PdfUrl(base64: string): string {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  return URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
-}
+let windowDragTimer: ReturnType<typeof setTimeout> | null = null;
 
 function beginWindowDrag(event: React.MouseEvent<HTMLElement>) {
-  if (event.buttons !== 1 || (event.target as Element).closest("button, input, select, textarea, a")) return;
+  if (event.buttons !== 1 || event.detail > 1 || (event.target as Element).closest("button, input, select, textarea, a")) return;
   event.preventDefault();
-  void getCurrentWindow().startDragging();
+  if (windowDragTimer) clearTimeout(windowDragTimer);
+  // Delay drag so a second click can still register as double-click → fullscreen.
+  windowDragTimer = setTimeout(() => {
+    windowDragTimer = null;
+    void getCurrentWindow().startDragging();
+  }, 180);
+}
+
+function toggleWindowFullscreen(event: React.MouseEvent<HTMLElement>) {
+  if ((event.target as Element).closest("button, input, select, textarea, a")) return;
+  event.preventDefault();
+  if (windowDragTimer) {
+    clearTimeout(windowDragTimer);
+    windowDragTimer = null;
+  }
+  const appWindow = getCurrentWindow();
+  if (typeof appWindow.isFullscreen !== "function" || typeof appWindow.setFullscreen !== "function") return;
+  void appWindow.isFullscreen()
+    .then((value) => appWindow.setFullscreen(!value))
+    .catch(() => undefined);
 }
 
 function toMessage(reason: unknown): string {
@@ -3410,36 +7436,51 @@ function persistRecentProjects(projects: RecentProject[]) {
 }
 
 function loadPanelWidths(): PanelWidths {
+  // Keep navigator/agent narrower so the editor + PDF canvas get more room by default.
+  const defaults = { navigator: 200, agent: 280 };
   try {
     const value = JSON.parse(localStorage.getItem(PANEL_WIDTHS_KEY) ?? "null") as Partial<PanelWidths> | null;
     return {
-      navigator: clamp(Number(value?.navigator) || 220, 160, 420),
-      agent: clamp(Number(value?.agent) || 340, 260, 600),
+      navigator: clamp(Number(value?.navigator) || defaults.navigator, 160, 420),
+      agent: clamp(Number(value?.agent) || defaults.agent, 260, 600),
     };
   } catch {
-    return { navigator: 220, agent: 340 };
+    return defaults;
   }
 }
 
 function loadAppearance(): AppearanceSettings {
   const defaults: AppearanceSettings = {
-    uiFont: '"DM Sans", -apple-system, sans-serif',
+    uiFont: DEFAULT_UI_FONT,
     interfaceScale: 1.1,
-    editorFont: '"MonoLisa", "JetBrains Mono", monospace',
+    editorFont: DEFAULT_EDITOR_FONT,
     editorFontSize: 14,
+    editorKeymap: "default",
+    editorSpellcheck: false,
   };
   try {
     const current = localStorage.getItem(APPEARANCE_KEY);
     const legacy = localStorage.getItem(LEGACY_APPEARANCE_KEY);
     const value = JSON.parse(current ?? legacy ?? "null") as Partial<AppearanceSettings> | null;
-    const migratedEditorFont = !current && value?.editorFont === '"JetBrains Mono", monospace'
-      ? defaults.editorFont
-      : value?.editorFont;
     return {
-      uiFont: typeof value?.uiFont === "string" ? value.uiFont : defaults.uiFont,
+      uiFont: resolveFontValue(
+        typeof value?.uiFont === "string" ? value.uiFont : undefined,
+        UI_FONT_OPTIONS,
+        defaults.uiFont,
+      ),
       interfaceScale: clamp(Number(value?.interfaceScale) || defaults.interfaceScale, 0.9, 1.35),
-      editorFont: typeof migratedEditorFont === "string" ? migratedEditorFont : defaults.editorFont,
+      editorFont: resolveFontValue(
+        typeof value?.editorFont === "string" ? value.editorFont : undefined,
+        EDITOR_FONT_OPTIONS,
+        defaults.editorFont,
+      ),
       editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 24),
+      editorKeymap: value?.editorKeymap === "vim"
+        ? "vim"
+        : value?.editorKeymap === "emacs"
+          ? "emacs"
+          : "default",
+      editorSpellcheck: value?.editorSpellcheck === true,
     };
   } catch {
     return defaults;
@@ -3495,6 +7536,22 @@ function persistSplitRatio(ratio: number) {
     localStorage.setItem(SPLIT_RATIO_KEY, String(ratio));
   } catch {
     // Split resizing remains available for the current session without storage.
+  }
+}
+
+function loadColumnsPdfRatio(): number {
+  try {
+    return clamp(Number(localStorage.getItem(COLUMNS_PDF_RATIO_KEY)) || 0.38, 0.22, 0.55);
+  } catch {
+    return 0.38;
+  }
+}
+
+function persistColumnsPdfRatio(ratio: number) {
+  try {
+    localStorage.setItem(COLUMNS_PDF_RATIO_KEY, String(ratio));
+  } catch {
+    // Columns PDF resizing remains available for the current session without storage.
   }
 }
 

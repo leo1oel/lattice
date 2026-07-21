@@ -54,7 +54,7 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
         .arg("-o")
         .arg(&markdown_path)
         .output()
-        .map_err(|error| format!("Could not start arxiv2md: {error}"))?;
+        .map_err(|error| uv_tool_spawn_error("arxiv2md", &error))?;
     ensure_success("arxiv2md", &markdown_output)?;
     let markdown = fs::read_to_string(&markdown_path).map_err(err)?;
     let title = parse_title(&markdown).unwrap_or_else(|| format!("arXiv {arxiv_id}"));
@@ -152,6 +152,7 @@ pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult
                 path: format!(".research/papers/{}/paper.md", paper.arxiv_id),
                 title: paper.title,
                 snippet: String::new(),
+                line: None,
                 arxiv_id: Some(paper.arxiv_id),
                 file_kind: None,
             });
@@ -274,7 +275,7 @@ fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
             .arg(path)
             .arg(query)
             .output()
-            .map_err(|error| format!("Could not start bibcite: {error}"))?,
+            .map_err(|error| uv_tool_spawn_error("bibcite", &error))?,
     };
     ensure_success("bibcite", &output)?;
     Ok(format!(
@@ -301,7 +302,7 @@ fn run_bibcite_remove(path: &PathBuf, key: &str) -> Result<(), String> {
             .arg(path)
             .arg(key)
             .output()
-            .map_err(|error| format!("Could not start bibcite: {error}"))?,
+            .map_err(|error| uv_tool_spawn_error("bibcite", &error))?,
     };
     ensure_success("bibcite", &output)
 }
@@ -380,6 +381,19 @@ fn ensure_success(name: &str, output: &Output) -> Result<(), String> {
 
 fn err(error: impl std::fmt::Display) -> String {
     error.to_string()
+}
+
+/// Importing arXiv papers shells out to `uvx` (arxiv2markdown + bibcite-cli).
+/// When uv isn't installed the raw spawn error ("No such file or directory") is
+/// baffling, so point the user straight at the installer.
+pub(crate) fn uv_tool_spawn_error(tool: &str, error: &std::io::Error) -> String {
+    if error.kind() == std::io::ErrorKind::NotFound {
+        "Adding arXiv papers needs the `uv` tool, which isn't installed yet. \
+Install it from Settings → TeX doctor → Open install guide (or run `brew install uv`), then try again."
+            .to_string()
+    } else {
+        format!("Could not start {tool}: {error}")
+    }
 }
 
 #[cfg(test)]

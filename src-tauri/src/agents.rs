@@ -420,13 +420,24 @@ fn run_omp(
                 if let Some(skill) = tool_skill_name(&value) {
                     skills_used.insert(skill);
                 }
+                let detail = tool_status(&value);
                 on_event(AgentStreamEvent::Status {
-                    message: tool_status(&value),
+                    message: detail.clone(),
+                });
+                on_event(AgentStreamEvent::Tool {
+                    name: tool_name(&value),
+                    detail,
+                    phase: "start".to_string(),
                 });
             }
             Some("tool_execution_end") => {
                 on_event(AgentStreamEvent::Status {
                     message: "Reviewing tool results…".to_string(),
+                });
+                on_event(AgentStreamEvent::Tool {
+                    name: tool_name(&value),
+                    detail: "done".to_string(),
+                    phase: "end".to_string(),
                 });
             }
             Some("auto_compaction_start") => {
@@ -565,6 +576,7 @@ fn omp_command(
             runtime.assets.display()
         ));
     }
+    ensure_omp_native(runtime);
     let auth = prepare_auth(runtime, &settings.provider)?;
     let session_dir = root.join(".research/omp-sessions");
     fs::create_dir_all(&session_dir).map_err(err)?;
@@ -900,17 +912,22 @@ fn assistant_text(message: &Value) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
-fn tool_status(value: &Value) -> String {
-    let name = value
+fn tool_name(value: &Value) -> String {
+    value
         .get("toolName")
         .and_then(Value::as_str)
-        .unwrap_or("tool");
+        .unwrap_or("tool")
+        .to_string()
+}
+
+fn tool_status(value: &Value) -> String {
+    let name = tool_name(value);
     let args = value.get("args").unwrap_or(&Value::Null);
     let target = args
         .get("path")
         .or_else(|| args.get("file_path"))
         .and_then(Value::as_str);
-    match (name, target) {
+    match (name.as_str(), target) {
         ("read", Some(path)) => format!("Reading {path}…"),
         ("edit" | "write", Some(path)) => format!("Editing {path}…"),
         ("bash", _) => "Running a project command…".to_string(),
@@ -1322,15 +1339,32 @@ impl JsonLineProcess {
         }
     }
 
+    /// Drain whatever the sidecar wrote to stderr (best-effort). Used to turn an
+    /// opaque "stopped before responding" into a diagnosable message.
+    fn drain_stderr(&mut self) -> String {
+        match self.stderr.take() {
+            Some(handle) => handle.join().ok().and_then(|result| result.ok()).unwrap_or_default(),
+            None => String::new(),
+        }
+    }
+
     fn request(&mut self, id: &str, command: &str, fields: Value) -> Result<Value, String> {
         let mut value = fields.as_object().cloned().unwrap_or_default();
         value.insert("id".to_string(), Value::String(id.to_string()));
         value.insert("type".to_string(), Value::String(command.to_string()));
         self.send(&Value::Object(value))?;
         loop {
-            let response = self
-                .next_value()?
-                .ok_or_else(|| format!("{} stopped before responding to {command}.", self.label))?;
+            let response = match self.next_value()? {
+                Some(response) => response,
+                None => {
+                    let stderr = self.drain_stderr();
+                    let detail = sidecar_error_detail(&stderr);
+                    return Err(format!(
+                        "{} stopped before responding to {command}.{detail}",
+                        self.label
+                    ));
+                }
+            };
             if response.get("type").and_then(Value::as_str) != Some("response")
                 || response.get("id").and_then(Value::as_str) != Some(id)
             {
@@ -1554,6 +1588,73 @@ pub fn begin_subscription_login(
     }
 }
 
+/// Oh My Pi loads a ~130 MB native module from `~/.omp/natives/<version>/` and,
+/// when it is missing, downloads it from a GitHub release asset that no longer
+/// exists — so on any machine without a cached copy OMP 404s and crashes on first
+/// use (Settings → Subscriptions, or running the agent). We bundle the native
+/// (see prepare-omp-sidecar.mjs) and pre-place it here so no download is needed.
+/// Best-effort: any failure just leaves OMP to its own (doomed) download path.
+fn ensure_omp_native(runtime: &AgentRuntime) {
+    let Some(filename) = omp_native_filename() else {
+        return;
+    };
+    let Some(version) = omp_bundled_version(runtime) else {
+        return;
+    };
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
+    let target = PathBuf::from(home)
+        .join(".omp")
+        .join("natives")
+        .join(&version)
+        .join(filename);
+    // Already present at a plausible size — nothing to do.
+    if target.metadata().map(|meta| meta.len() > 1_000_000).unwrap_or(false) {
+        return;
+    }
+    let source = runtime.assets.join("natives").join(filename);
+    if !source.is_file() {
+        return;
+    }
+    let Some(parent) = target.parent() else {
+        return;
+    };
+    if fs::create_dir_all(parent).is_err() {
+        return;
+    }
+    // Copy to a temp path then rename, so a partial copy is never seen as done.
+    let tmp = parent.join(format!("{filename}.partial"));
+    if fs::copy(&source, &tmp).is_ok() {
+        let _ = fs::rename(&tmp, &target);
+    } else {
+        let _ = fs::remove_file(&tmp);
+    }
+}
+
+fn omp_native_filename() -> Option<&'static str> {
+    if cfg!(all(target_arch = "aarch64", target_os = "macos")) {
+        Some("pi_natives.darwin-arm64.node")
+    } else if cfg!(all(target_arch = "x86_64", target_os = "macos")) {
+        Some("pi_natives.darwin-x64.node")
+    } else if cfg!(all(target_arch = "aarch64", target_os = "linux")) {
+        Some("pi_natives.linux-arm64.node")
+    } else if cfg!(all(target_arch = "x86_64", target_os = "linux")) {
+        Some("pi_natives.linux-x64.node")
+    } else if cfg!(all(target_arch = "x86_64", target_os = "windows")) {
+        Some("pi_natives.win32-x64.node")
+    } else {
+        None
+    }
+}
+
+/// The bundled OMP version, read from the shipped omp-assets/package.json.
+fn omp_bundled_version(runtime: &AgentRuntime) -> Option<String> {
+    let raw = fs::read_to_string(runtime.assets.join("package.json")).ok()?;
+    let value: Value = serde_json::from_str(&raw).ok()?;
+    value.get("version")?.as_str().map(str::to_string)
+}
+
 fn omp_account_command(runtime: &AgentRuntime) -> Result<Command, String> {
     if !runtime.executable.is_file() {
         return Err(format!(
@@ -1561,6 +1662,7 @@ fn omp_account_command(runtime: &AgentRuntime) -> Result<Command, String> {
             runtime.executable.display()
         ));
     }
+    ensure_omp_native(runtime);
     fs::create_dir_all(&runtime.config).map_err(err)?;
     let executable = runtime
         .executable
@@ -1611,9 +1713,61 @@ fn err(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
 
+/// Format a sidecar's captured stderr into a short, appendable error detail.
+/// A Bun/Node uncaught exception prints the error MESSAGE first, then a run of
+/// "at …" stack frames; naively taking the last lines shows only frames and
+/// hides the message. So skip the trailing frames and surface the message line
+/// (plus one frame for locality), capped so a verbose log never floods the UI.
+fn sidecar_error_detail(stderr: &str) -> String {
+    let lines: Vec<&str> = stderr
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect();
+    if lines.is_empty() {
+        return String::new();
+    }
+    let is_frame = |line: &&str| {
+        let l = line.trim_start_matches(['•', '-', ' ']);
+        l.starts_with("at ") || l.starts_with("at<") || l.starts_with("at@")
+    };
+    // Last non-frame line = the actual error message (frames come after it).
+    let message_index = lines.iter().rposition(|line| !is_frame(line)).unwrap_or(0);
+    let detail = lines[message_index..]
+        .iter()
+        .take(3)
+        .copied()
+        .collect::<Vec<_>>()
+        .join(" · ");
+    if detail.is_empty() {
+        return String::new();
+    }
+    let capped: String = detail.chars().take(500).collect();
+    format!(" Details: {capped}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sidecar_detail_surfaces_the_error_message_not_just_stack_frames() {
+        let stderr = "\
+some startup noise
+Error: keychain access denied
+    at getProviders (cli.ts:47:37)
+    at handle (cli.ts:712834:5)
+    at main (cli.ts:47:37)";
+        let detail = sidecar_error_detail(stderr);
+        assert!(detail.contains("keychain access denied"), "got: {detail}");
+        // The message line must lead, not be buried behind frames.
+        assert!(detail.starts_with(" Details: Error: keychain access denied"), "got: {detail}");
+    }
+
+    #[test]
+    fn sidecar_detail_is_empty_for_blank_stderr() {
+        assert_eq!(sidecar_error_detail("   \n\n  "), "");
+    }
 
     #[test]
     fn adds_only_an_explicit_editor_selection_without_hidden_xml() {

@@ -117,4 +117,40 @@ cpSync(
   join(assets, "LICENSES/oh-my-pi-MIT.txt"),
 );
 
+// Bundle the OMP native module. Oh My Pi downloads this ~130 MB file at runtime
+// from a GitHub release asset that has since been REMOVED — so on any machine
+// without a cached copy the download 404s and the agent crashes on first use
+// (e.g. Settings → Subscriptions). Ship it instead; the Rust side pre-places it
+// under ~/.omp/natives/<version>/ before launching OMP, so no download happens.
+const nativePlatforms = {
+  "aarch64-apple-darwin": "darwin-arm64",
+  "x86_64-apple-darwin": "darwin-x64",
+  "aarch64-unknown-linux-gnu": "linux-arm64",
+  "x86_64-unknown-linux-gnu": "linux-x64",
+  "x86_64-pc-windows-msvc": "win32-x64",
+};
+const nativePlatform = nativePlatforms[target];
+if (nativePlatform) {
+  const nativeFile = `pi_natives.${nativePlatform}.node`;
+  const nativePkg = `@oh-my-pi/pi-natives-${nativePlatform}`;
+  const ompRequire = createRequire(join(packageRoot, "package.json"));
+  let nativeSrc = null;
+  try {
+    nativeSrc = ompRequire.resolve(`${nativePkg}/${nativeFile}`);
+  } catch {
+    nativeSrc = null;
+  }
+  const nativesDir = join(assets, "natives");
+  mkdirSync(nativesDir, { recursive: true });
+  if (nativeSrc && existsSync(nativeSrc)) {
+    cpSync(nativeSrc, join(nativesDir, nativeFile));
+    console.log(`Bundled OMP native ${nativeFile} (${ompPackage.version}).`);
+  } else {
+    console.warn(
+      `WARNING: OMP native ${nativeFile} not found via ${nativePkg}; ` +
+        "subscriptions will fail on machines without a cached ~/.omp copy.",
+    );
+  }
+}
+
 console.log(`Prepared Oh My Pi ${ompPackage.version} sidecar for ${target}.`);
