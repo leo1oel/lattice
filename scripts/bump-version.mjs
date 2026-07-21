@@ -20,6 +20,7 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pkgPath = join(projectRoot, "package.json");
 const confPath = join(projectRoot, "src-tauri/tauri.conf.json");
 const cargoPath = join(projectRoot, "src-tauri/Cargo.toml");
+const lockPath = join(projectRoot, "src-tauri/Cargo.lock");
 
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 const current = pkg.version;
@@ -66,10 +67,21 @@ if (!replaced) {
 }
 writeFileSync(cargoPath, nextCargo);
 
+// Cargo.lock — cargo would fix this on the next build, but leaving it stale
+// means every release commit carries an unrelated lockfile diff.
+const lock = readFileSync(lockPath, "utf8");
+const lockEntry = new RegExp(
+  `(\\[\\[package\\]\\]\\nname = "${pkg.name === "research-writer" ? "research-writer" : pkg.name}"\\nversion = )"[^"]*"`,
+);
+if (!lockEntry.test(lock)) {
+  throw new Error(`Could not find the research-writer package entry in ${lockPath}.`);
+}
+writeFileSync(lockPath, lock.replace(lockEntry, `$1"${next}"`));
+
 console.log(`Bumped ${current} -> ${next}`);
 console.log("");
 console.log("Next steps:");
-console.log(`  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml`);
+console.log(`  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock`);
 console.log(`  git commit -m "Release v${next}"`);
 console.log(`  git tag v${next}`);
 console.log(`  git push origin main --tags`);
