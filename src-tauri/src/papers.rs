@@ -556,6 +556,32 @@ mod tests {
     }
 
     #[test]
+    fn finds_the_arxiv_id_in_a_conference_entry_that_also_cites_the_preprint() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-eprint-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            r#"@inproceedings{lei2025scalability,
+  author        = {Weixian Lei and Jiacong Wang},
+  title         = {The Scalability of Simplicity},
+  booktitle     = {IEEE/CVF International Conference on Computer Vision (ICCV)},
+  year          = {2025},
+  url           = {https://arxiv.org/abs/2504.10462},
+  archiveprefix = {arXiv},
+  eprint        = {2504.10462},
+  primaryclass  = {cs.CV},
+}
+"#,
+        )
+        .unwrap();
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 1, "got: {papers:?}");
+        assert_eq!(papers[0].arxiv_id, "2504.10462", "got: {:?}", papers[0]);
+        assert!(!papers[0].has_full_text);
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
     fn removes_a_cited_only_work_that_has_no_arxiv_id() {
         let parent = std::env::temp_dir().join(format!("lattice-paper-del-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();

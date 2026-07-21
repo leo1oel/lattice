@@ -730,6 +730,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   background: transparent;
 }
 .cm-editor-comment-tooltip {
+  /* The card lives inside .cm-editor, which forces the monospace editor face
+     on everything under it; comments are prose and belong in the UI face. */
+  font-family: var(--ui-font);
   max-width: 320px;
   display: flex;
   flex-direction: column;
@@ -804,11 +807,66 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .editor-comment-reply-meta {
   display: flex;
   gap: 8px;
-  font-size: 11px;
+  font-size: 10px;
   opacity: .7;
 }
 .editor-comment-reply-meta span:first-child { font-weight: 600; }
-.editor-comment-reply p { margin: 0; white-space: pre-wrap; word-break: break-word; }
+/* Sized to the comment body above it (.pdf-mark-body p), which a reply
+   continues — it used to render larger than the comment it answered. */
+.editor-comment-reply p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Reply composer: part of the thread, styled like it. */
+.editor-comment-reply-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 4px 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--accent, #3b82f6);
+}
+.editor-comment-reply-compose textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.editor-comment-reply-compose textarea:focus {
+  outline: none;
+  border-color: var(--accent, #3b82f6);
+}
+.editor-comment-reply-actions { display: flex; gap: 6px; }
+.editor-comment-reply-actions button {
+  height: 24px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.editor-comment-reply-actions button:hover:not(:disabled) { background: var(--line); }
+.editor-comment-reply-actions button.primary {
+  border-color: transparent;
+  background: var(--accent, #3b82f6);
+  color: #fff;
+}
+.editor-comment-reply-actions button.primary:hover:not(:disabled) { filter: brightness(1.06); }
+.editor-comment-reply-actions button:disabled { opacity: .5; cursor: default; }
 .pdf-mark-item.focused {
   outline: 2px solid var(--accent, #3b82f6);
   outline-offset: -1px;
@@ -932,6 +990,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   font-size: 0.92em;
 }
 .source-editor .cm-tooltip-hover { border: 0; border-radius: 9px; background: transparent; box-shadow: var(--shadow); overflow: hidden; }
+/* A comment card sizes itself to its text — clipping it here is what turned a
+   long comment into a scroll box. */
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip) { overflow: visible; box-shadow: none; }
 .texlab-hover-card {
   width: min(380px, calc(100vw - 32px));
   max-height: 240px;
@@ -1454,9 +1515,16 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   height: 0.22em !important;
   top: -0.12em !important;
   left: -0.12em !important;
+  /* y-codemirror.next animates the dot; a caret that lags its own position
+     reads as lag in the connection. */
+  transition: none !important;
 }
 .source-editor .cm-ySelectionCaret > .cm-ySelectionInfo {
   opacity: 1 !important;
+  /* The upstream theme fades this label over .3s (it is normally shown only on
+     hover). We force it always-visible but inherited the fade, so a peer moving
+     quickly left a name hanging at every position they had just left. */
+  transition: none !important;
   top: -1.35em;
   left: -1px;
   padding: 1px 5px;
@@ -1470,6 +1538,28 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .source-editor .cm-ySelection {
   border-radius: 2px;
 }
+
+/* Who else is here, in the title bar. Overlapped like a stack of chips. */
+.collab-peer-avatars { display: flex; align-items: center; padding-left: 4px; }
+.collab-peer-avatar {
+  width: 20px;
+  height: 20px;
+  margin-left: -5px;
+  padding: 0;
+  border: 1.5px solid var(--panel);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font: 600 9px/1 var(--ui-font);
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: transform .12s ease;
+}
+.collab-peer-avatar:first-child { margin-left: 0; }
+.collab-peer-avatar:hover { transform: translateY(-1px) scale(1.08); z-index: 1; }
+.collab-peer-avatar.more { background: var(--line); color: var(--muted); cursor: default; }
+.collab-peer-avatar.more:hover { transform: none; }
 
 .todo-toolbar-button { position: relative; }
 .collab-toolbar-button { position: relative; }

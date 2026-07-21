@@ -201,7 +201,7 @@ describe("editor comments", () => {
     expect(dom.querySelector(".cm-editor-comment-tooltip-reply .cm-editor-comment-tooltip-body")?.textContent)
       .toBe("will do");
     const buttons = Array.from(dom.querySelectorAll<HTMLButtonElement>(".cm-editor-comment-tooltip-actions button"));
-    expect(buttons.map((b) => b.textContent)).toEqual(["Resolve", "Reply…"]);
+    expect(buttons.map((b) => b.textContent)).toEqual(["Resolve", "Reply"]);
     buttons[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     buttons[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(resolved).toEqual([comment.id]);

@@ -167,6 +167,50 @@ export function maybeSeedCollabText(ytext: Y.Text, seedText: string): boolean {
   return true;
 }
 
+/** Another person in the room, as the presence UI needs them. */
+export type CollabPeer = {
+  clientId: number;
+  name: string;
+  color: string;
+  /** The file they are looking at, when they have announced one. */
+  path: string | null;
+};
+
+/**
+ * Awareness states are written by other clients, so treat every field as
+ * untrusted: a peer running an older build announces no path, and a malformed
+ * state must not take the presence list down.
+ */
+export function readCollabPeers(
+  states: Map<number, unknown>,
+  selfClientId: number,
+): CollabPeer[] {
+  const peers: CollabPeer[] = [];
+  for (const [clientId, state] of states) {
+    if (clientId === selfClientId) continue;
+    const record = (state ?? {}) as { user?: unknown; path?: unknown };
+    const user = (record.user ?? {}) as { name?: unknown; color?: unknown };
+    const name = typeof user.name === "string" && user.name.trim() ? user.name.trim() : "Anonymous";
+    peers.push({
+      clientId,
+      name,
+      color: typeof user.color === "string" && user.color ? user.color : "#8b8b93",
+      path: typeof record.path === "string" && record.path.trim() ? record.path.trim() : null,
+    });
+  }
+  // Stable order so avatars do not shuffle on every awareness tick.
+  peers.sort((left, right) => left.clientId - right.clientId);
+  return peers;
+}
+
+/** Up to two letters standing in for a name in a presence avatar. */
+export function peerInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toLocaleUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toLocaleUpperCase();
+}
+
 export function createCollabSession(options: {
   host: string;
   room: string;
@@ -175,7 +219,7 @@ export function createCollabSession(options: {
   onStatus: (status: CollabStatus, detail?: string) => void;
   onSynced: (session: CollabSession) => void | Promise<void>;
   onActiveText: (path: string, text: string) => void;
-  onPeers?: (count: number) => void;
+  onPeers?: (peers: CollabPeer[]) => void;
 }): CollabSession {
   const host = normalizeCollabHost(options.host);
   const room = options.room.trim();
@@ -208,6 +252,8 @@ export function createCollabSession(options: {
     color: colors.color,
     colorLight: colors.colorLight,
   });
+  // Which file we are in, so peers can show where everyone is and jump there.
+  provider.awareness.setLocalStateField("path", activePath);
 
   options.onStatus("connecting");
 
@@ -235,6 +281,11 @@ export function createCollabSession(options: {
 
   const setActivePath = (path: string, seedIfEmpty?: string) => {
     const next = bindActiveText(path);
+    try {
+      provider.awareness.setLocalStateField("path", path);
+    } catch {
+      // Awareness may be torn down mid-switch; presence is not worth failing on.
+    }
     if (next.length === 0 && seedIfEmpty) {
       next.doc?.transact(() => {
         next.insert(0, seedIfEmpty);
@@ -291,8 +342,8 @@ export function createCollabSession(options: {
   };
 
   const pushPeers = () => {
-    // Exclude ourselves — UI should show "other people in the room".
-    options.onPeers?.(Math.max(0, provider.awareness.getStates().size - 1));
+    // Exclude ourselves — the UI shows the other people in the room.
+    options.onPeers?.(readCollabPeers(provider.awareness.getStates(), doc.clientID));
   };
 
   provider.awareness.on("change", pushPeers);
@@ -323,7 +374,7 @@ export function createCollabSession(options: {
     provider.destroy();
     doc.destroy();
     options.onStatus("disconnected");
-    options.onPeers?.(0);
+    options.onPeers?.([]);
   };
 
   return session;
@@ -342,6 +393,39 @@ export function collabEditorExtensions(session: CollabSession): Extension[] {
       },
     }),
   ];
+}
+
+/**
+ * Which file a peer's caret is in and on which line, or null if it cannot be
+ * placed.
+ *
+ * Awareness carries the cursor as a relative position that survived a JSON round
+ * trip, so rebuild it explicitly rather than trusting the wire shape.
+ */
+export function peerCursorLocation(
+  session: CollabSession,
+  clientId: number,
+): { path: string; line: number } | null {
+  try {
+    const state = session.provider.awareness.getStates().get(clientId) as
+      | { cursor?: { head?: unknown } | null }
+      | undefined;
+    const head = state?.cursor?.head;
+    if (!head) return null;
+    const relative = Y.createRelativePositionFromJSON(head);
+    const absolute = Y.createAbsolutePositionFromRelativePosition(relative, session.doc);
+    if (!absolute) return null;
+    // Resolve against the whole document tree rather than the file we happen to
+    // have bound, so following someone into another file works.
+    for (const [path, text] of collabTextsMap(session.doc).entries()) {
+      if (text !== absolute.type) continue;
+      const before = text.toString().slice(0, absolute.index);
+      return { path, line: before.split("\n").length };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export function collabPeerCount(session: CollabSession | null): number {

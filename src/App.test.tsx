@@ -608,6 +608,8 @@ describe("project workspace", () => {
           { arxivId: "1706.03762", title: "Attention Is All You Need", hasFullText: true },
           // Added through bibcite: in the bibliography, never fetched.
           { arxivId: "1412.6980", title: "Adam: A Method for Stochastic Optimization", citationKey: "kingma2015adam", hasFullText: false },
+          // A book: cited, but there is no preprint to fetch.
+          { arxivId: "", title: "The TeXbook", citationKey: "knuth1984texbook", hasFullText: false },
         ];
       }
       if (command === "list_history") return [];
@@ -621,15 +623,20 @@ describe("project workspace", () => {
 
     render(<App />);
     const papers = within(await screen.findByRole("list", { name: "Papers" }));
-    const citedOnly = await papers.findByTitle(/Adam: A Method.*cited only/);
-    expect(citedOnly).toBeDisabled();
+    // Its preprint is known, so the row offers to fetch rather than going dead.
+    const citedOnly = await papers.findByTitle("Fetch the full text of arXiv 1412.6980");
+    expect(citedOnly).toBeEnabled();
     expect(citedOnly.closest(".paper-row")).toHaveClass("cited-only");
+    expect(citedOnly).toHaveTextContent("arXiv 1412.6980");
 
-    // The fetched one is still openable.
+    // A work with no preprint has nothing to fetch, so it stays inert.
+    const noPreprint = papers.getByTitle(/The TeXbook.*no full text available/);
+    expect(noPreprint).toBeDisabled();
+
+    // The fetched one still opens in the reader.
     expect(papers.getByTitle("Attention Is All You Need")).toBeEnabled();
 
-    // Its arXiv id is known, so the full text can be fetched on demand.
-    fireEvent.click(screen.getByTitle("Fetch the full text of arXiv 1412.6980"));
+    fireEvent.click(citedOnly);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_arxiv", { input: "1412.6980" }));
   });
 

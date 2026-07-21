@@ -144,17 +144,27 @@ export function EditorCommentsPanel(props: {
                     </div>
                   </div>
                 ) : replyingId === comment.id ? (
-                  <div className="pdf-mark-edit">
+                  // Sits in the reply thread, so it is indented and sized like
+                  // the replies it joins rather than borrowing the PDF-mark shell.
+                  <div className="editor-comment-reply-compose">
                     <textarea
                       value={replyDraft}
                       rows={3}
                       autoFocus
                       onChange={(event) => setReplyDraft(event.target.value)}
-                      placeholder={`Reply to ${comment.authorName}…`}
+                      placeholder={`Reply to ${comment.authorName}`}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          setReplyingId(null);
+                          setReplyDraft("");
+                        }
+                      }}
                     />
-                    <div className="pdf-mark-actions">
+                    <div className="editor-comment-reply-actions">
                       <button
                         type="button"
+                        className="primary"
+                        disabled={!replyDraft.trim()}
                         onClick={() => {
                           props.onReply(comment, replyDraft);
                           setReplyingId(null);

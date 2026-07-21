@@ -359,7 +359,8 @@ export function buildCommentTooltipDom(
       resolveBtn.textContent = comment.resolved ? "Reopen" : "Resolve";
       const replyBtn = document.createElement("button");
       replyBtn.type = "button";
-      replyBtn.textContent = "Reply…";
+      // Matches the drawer's own Reply button; the ellipsis promised a menu.
+      replyBtn.textContent = "Reply";
 
       // Keep the hover tooltip alive: a mousedown outside the range would
       // otherwise dismiss it before the click lands.
@@ -449,7 +450,6 @@ export function editorCommentsExtension(
     const comments = view.state.field(field).comments;
     const hits = commentsAtPosition(view.state.doc.toString(), path, comments, pos);
     if (!hits.length) return null;
-    // Anchor the tooltip to the widest covered span so it stays put while hovering.
     let from = pos;
     let to = pos;
     const source = view.state.doc.toString();
@@ -459,11 +459,29 @@ export function editorCommentsExtension(
       from = Math.min(from, range.from);
       to = Math.max(to, range.to);
     }
+    // Anchor to the hovered line, not to the start of the whole span.
+    //
+    // CodeMirror hides a hover tooltip once the pointer maps to a document
+    // offset outside the anchored range. On a comment covering several lines,
+    // anchoring to the span start puts the card above the *first* line while
+    // the pointer is on a later one — and moving up to reach it crosses
+    // offsets before the span start, so the card vanished mid-approach and its
+    // buttons could not be clicked. Per-line anchoring puts the card directly
+    // above the pointer, one short hop away.
+    const line = view.state.doc.lineAt(pos);
     return {
-      pos: from,
-      end: to,
+      pos: Math.max(from, line.from),
+      end: Math.min(to, line.to),
       above: true,
-      create: () => ({ dom: buildCommentTooltipDom(hits, tooltipActions) }),
+      // The arrow counts as part of the tooltip for hit-testing, bridging the
+      // gap between the card and the text.
+      arrow: true,
+      create: () => ({
+        dom: buildCommentTooltipDom(hits, tooltipActions),
+        // Let a long comment grow; otherwise CodeMirror clamps the height to
+        // the space above the line and the body becomes a scroll box.
+        resize: false,
+      }),
     };
   });
 

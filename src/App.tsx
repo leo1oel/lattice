@@ -148,6 +148,9 @@ import {
   resolveCollabHost,
   saveCollabDisplayName,
   saveCollabHost,
+  peerCursorLocation,
+  peerInitials,
+  type CollabPeer,
   type CollabSession,
   type CollabStatus,
 } from "./collab-session";
@@ -334,6 +337,19 @@ type PaperSummary = {
   /** False for works that are only cited — there is nothing to open. */
   hasFullText: boolean;
 };
+
+/** What the second line of a paper row says: where it came from, and its state. */
+function paperSubtitle(paper: PaperSummary, snippet?: string): string {
+  if (snippet) return snippet;
+  const parts: string[] = [];
+  if (paper.citationKey) parts.push(`\\cite{${paper.citationKey}}`);
+  if (paper.arxivId) parts.push(`arXiv ${paper.arxivId}`);
+  if (!paper.hasFullText) {
+    // Say why it cannot be opened, and whether that is fixable from here.
+    parts.push(paper.arxivId ? "get full text" : "cited only");
+  }
+  return parts.join(" · ");
+}
 
 /** A cited-only work may have no arXiv id, so identity falls back to its key. */
 function paperKey(paper: PaperSummary): string {
@@ -573,7 +589,8 @@ function App() {
   // create a competing main.tex Y.Text that loses the map key to the host's copy,
   // orphaning the editor on the "Waiting for shared project files" placeholder.
   const [collabReady, setCollabReady] = useState(false);
-  const [collabPeers, setCollabPeers] = useState(0);
+  const [collabPeerList, setCollabPeerList] = useState<CollabPeer[]>([]);
+  const collabPeers = collabPeerList.length;
   const [collabFileCount, setCollabFileCount] = useState(0);
   const [collabRole, setCollabRole] = useState<"host" | "guest">("host");
   const collabRoleRef = useRef<"host" | "guest">("host");
@@ -801,7 +818,7 @@ function App() {
     setCollabSession(null);
     setCollabStatus("disconnected");
     setCollabStatusDetail(null);
-    setCollabPeers(0);
+    setCollabPeerList([]);
     setCollabFileCount(0);
   }, []);
 
@@ -844,10 +861,17 @@ function App() {
       clearCollabLocalState();
       setNotice(noticeText);
       setCollabOpen(false);
+      // Peers edited these files during the session; re-read from disk so the
+      // navigator, papers and citations reflect what is actually there now.
+      try {
+        await refreshProject();
+      } catch {
+        // A refresh failure must not block ending the share.
+      }
     } finally {
       collabLeavingRef.current = false;
     }
-  }, [clearCollabLocalState]);
+  }, [clearCollabLocalState, refreshProject]);
 
   const leaveGuestShareSession = useCallback(async (noticeText: string, restorePrior: boolean) => {
     if (collabLeavingRef.current) return;
@@ -867,6 +891,20 @@ function App() {
       collabLeavingRef.current = false;
     }
   }, [clearCollabLocalState, restorePreCollabProject]);
+
+  /** Jump to where a collaborator is working, following them into their file. */
+  const followCollabPeer = useCallback((peer: CollabPeer) => {
+    const session = collabSessionRef.current;
+    const location = session ? peerCursorLocation(session, peer.clientId) : null;
+    // Their caret is the precise answer; the file they announced is the fallback
+    // for a peer who has not placed a cursor yet.
+    const path = location?.path ?? peer.path;
+    if (!path) {
+      setNotice(`${peer.name} is not in a file right now`);
+      return;
+    }
+    setEditorNavigation({ path, line: location?.line ?? 1, id: crypto.randomUUID() });
+  }, []);
 
   /** Dialog button: host stops for everyone; guest leaves without affecting the host. */
   const disconnectCollab = useCallback(() => {
@@ -1081,7 +1119,7 @@ function App() {
           }
           setCollabFileCount(live.fileCount());
         },
-        onPeers: setCollabPeers,
+        onPeers: setCollabPeerList,
       });
       setCollabSession(session);
       setNotice(noticeText);
@@ -3850,6 +3888,27 @@ function App() {
               </span>
             </button>
           )}
+          {collabPeerList.length > 0 && (
+            <div className="collab-peer-avatars" aria-label="People in this session">
+              {collabPeerList.slice(0, 5).map((peer) => (
+                <button
+                  key={peer.clientId}
+                  type="button"
+                  className="collab-peer-avatar"
+                  style={{ background: peer.color }}
+                  title={peer.path ? `${peer.name} · ${peer.path} — click to follow` : peer.name}
+                  onClick={() => followCollabPeer(peer)}
+                >
+                  {peerInitials(peer.name)}
+                </button>
+              ))}
+              {collabPeerList.length > 5 && (
+                <span className="collab-peer-avatar more" title={collabPeerList.slice(5).map((peer) => peer.name).join(", ")}>
+                  +{collabPeerList.length - 5}
+                </span>
+              )}
+            </div>
+          )}
           <div className="titlebar-drag-area" aria-hidden="true" />
           {projectMenuOpen && (
             <ProjectMenu
@@ -5259,21 +5318,19 @@ function Navigator(props: {
           {(searchActive ? paperSearchResults.map((result) => props.papers.find((paper) => paper.arxivId === result.arxivId)).filter((paper): paper is PaperSummary => Boolean(paper)) : props.papers).map((paper) => (
             <div key={paperKey(paper)} className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`} onContextMenu={(event) => paper.hasFullText && showContextMenu(event, `.research/papers/${paper.arxivId}/paper.md`, paper.title, "file", paper)}>
               <button
-                title={paper.hasFullText ? paper.title : `${paper.title} — cited only, full text not fetched`}
+                title={paper.hasFullText
+                  ? paper.title
+                  : paper.arxivId
+                    ? `Fetch the full text of arXiv ${paper.arxivId}`
+                    : `${paper.title} — cited only, no full text available`}
                 className="paper-open"
-                disabled={!paper.hasFullText}
-                onClick={() => paper.hasFullText && props.onPaper(paper)}
+                // Knowing the preprint is as good as having it: clicking fetches.
+                disabled={!paper.hasFullText && !paper.arxivId}
+                onClick={() => paper.hasFullText ? props.onPaper(paper) : props.onFetchFullText(paper)}
               >
-                {paper.hasFullText ? <BookOpen size={14} /> : <BookMarked size={14} />}
-                <span><strong>{paper.title}</strong><small>{searchActive ? paperSearchResults.find((result) => result.arxivId === paper.arxivId)?.snippet || `arXiv ${paper.arxivId}` : paper.citationKey ? `\\cite{${paper.citationKey}}` : `arXiv ${paper.arxivId}`}</small></span>
+                {paper.hasFullText ? <BookOpen size={14} /> : paper.arxivId ? <Download size={14} /> : <BookMarked size={14} />}
+                <span><strong>{paper.title}</strong><small>{paperSubtitle(paper, searchActive ? paperSearchResults.find((result) => result.arxivId === paper.arxivId)?.snippet : undefined)}</small></span>
               </button>
-              {!paper.hasFullText && paper.arxivId && (
-                <button
-                  className="row-cite"
-                  title={`Fetch the full text of arXiv ${paper.arxivId}`}
-                  onClick={(event) => { event.stopPropagation(); props.onFetchFullText(paper); }}
-                ><Download size={12} /></button>
-              )}
               {paper.citationKey && (
                 <div className="cite-menu-wrap">
                   <button
