@@ -587,6 +587,52 @@ describe("project workspace", () => {
     expect(screen.getByTitle("API key settings")).toBeInTheDocument();
   });
 
+  it("lists a work that is only cited but does not offer to open it", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{main}";
+      if (command === "list_papers") {
+        return [
+          { arxivId: "1706.03762", title: "Attention Is All You Need", hasFullText: true },
+          // Added through bibcite: in the bibliography, never fetched.
+          { arxivId: "1412.6980", title: "Adam: A Method for Stochastic Optimization", citationKey: "kingma2015adam", hasFullText: false },
+        ];
+      }
+      if (command === "list_history") return [];
+      if (command === "import_arxiv") {
+        return { paperPath: ".research/papers/1412.6980/paper.md", arxivId: "1412.6980", title: "Adam", citationKey: "kingma2015adam", citationOutput: "", alreadyImported: false };
+      }
+      // Importing refreshes the project afterwards.
+      if (command === "refresh_project") return snapshot;
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const papers = within(await screen.findByRole("list", { name: "Papers" }));
+    const citedOnly = await papers.findByTitle(/Adam: A Method.*cited only/);
+    expect(citedOnly).toBeDisabled();
+    expect(citedOnly.closest(".paper-row")).toHaveClass("cited-only");
+
+    // The fetched one is still openable.
+    expect(papers.getByTitle("Attention Is All You Need")).toBeEnabled();
+
+    // Its arXiv id is known, so the full text can be fetched on demand.
+    fireEvent.click(screen.getByTitle("Fetch the full text of arXiv 1412.6980"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_arxiv", { input: "1412.6980" }));
+  });
+
   it("shows imported papers by title while keeping the arXiv id", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -603,7 +649,7 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers") return [{ arxivId: "1706.03762", title: "Attention Is All You Need" }];
+      if (command === "list_papers") return [{ arxivId: "1706.03762", title: "Attention Is All You Need", hasFullText: true }];
       if (command === "list_history") return [];
       if (command === "read_paper") return "Title: Attention Is All You Need\n\n## Abstract";
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
@@ -620,7 +666,7 @@ describe("project workspace", () => {
   });
 
   it("searches project files and paper contents from one navigator field", async () => {
-    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention" };
+    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -672,7 +718,7 @@ describe("project workspace", () => {
       },
       files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
     };
-    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention" };
+    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
@@ -713,7 +759,7 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return [{ arxivId: "1706.03762", title: "Attention Is All You Need" }];
+      if (command === "list_papers") return [{ arxivId: "1706.03762", title: "Attention Is All You Need", hasFullText: true }];
       if (command === "list_history") return [];
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
@@ -1065,7 +1111,7 @@ describe("project workspace", () => {
 
   it("inserts a cite command from the Papers panel", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention" };
+    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -1340,7 +1386,7 @@ describe("project workspace", () => {
       },
       files: [{ name: "notes.tex", path: "notes.tex", kind: "tex", children: [] }],
     };
-    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention" };
+    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") return "\\section{Notes}";

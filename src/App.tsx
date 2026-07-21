@@ -14,6 +14,7 @@ import { latex } from "codemirror-lang-latex";
 import DOMPurify from "dompurify";
 import {
   BookMarked,
+  Download,
   BookOpen,
   Bot,
   Check,
@@ -330,7 +331,14 @@ type PaperSummary = {
   arxivId: string;
   title: string;
   citationKey?: string;
+  /** False for works that are only cited — there is nothing to open. */
+  hasFullText: boolean;
 };
+
+/** A cited-only work may have no arXiv id, so identity falls back to its key. */
+function paperKey(paper: PaperSummary): string {
+  return paper.arxivId || `cite:${paper.citationKey ?? paper.title}`;
+}
 
 type RenameTarget =
   | { kind: "entry"; path: string; name: string }
@@ -3970,6 +3978,7 @@ function App() {
               assetImporting={assetImporting}
               onPaper={openPaper}
               onCitePaper={(paper, command) => void insertCitationFromPaper(paper, command)}
+              onFetchFullText={(paper) => void importArxivInput(paper.arxivId)}
               onAddBibEntry={() => openBibEntryDialog()}
               onDiscoverLiterature={() => setLiteratureOpen(true)}
               onDeletePaper={deletePaper}
@@ -4968,6 +4977,7 @@ function Navigator(props: {
   assetImporting: boolean;
   onPaper: (paper: PaperSummary) => void;
   onCitePaper: (paper: PaperSummary, command: CiteCommand) => void;
+  onFetchFullText: (paper: PaperSummary) => void;
   onAddBibEntry: () => void;
   onDiscoverLiterature: () => void;
   onDeletePaper: (paper: PaperSummary) => void;
@@ -5237,13 +5247,25 @@ function Navigator(props: {
             <span className="count-badge">{searchActive ? paperResultCount : props.papers.length}</span>
           </div>
         </div>
-        <div className="paper-list">
+        <div className="paper-list" role="list" aria-label="Papers">
           {(searchActive ? paperSearchResults.map((result) => props.papers.find((paper) => paper.arxivId === result.arxivId)).filter((paper): paper is PaperSummary => Boolean(paper)) : props.papers).map((paper) => (
-            <div key={paper.arxivId} className={`paper-row ${props.activePaper?.arxivId === paper.arxivId ? "active" : ""}`} onContextMenu={(event) => showContextMenu(event, `.research/papers/${paper.arxivId}/paper.md`, paper.title, "file", paper)}>
-              <button title={paper.title} className="paper-open" onClick={() => props.onPaper(paper)}>
-                <BookOpen size={14} />
+            <div key={paperKey(paper)} className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`} onContextMenu={(event) => paper.hasFullText && showContextMenu(event, `.research/papers/${paper.arxivId}/paper.md`, paper.title, "file", paper)}>
+              <button
+                title={paper.hasFullText ? paper.title : `${paper.title} — cited only, full text not fetched`}
+                className="paper-open"
+                disabled={!paper.hasFullText}
+                onClick={() => paper.hasFullText && props.onPaper(paper)}
+              >
+                {paper.hasFullText ? <BookOpen size={14} /> : <BookMarked size={14} />}
                 <span><strong>{paper.title}</strong><small>{searchActive ? paperSearchResults.find((result) => result.arxivId === paper.arxivId)?.snippet || `arXiv ${paper.arxivId}` : paper.citationKey ? `\\cite{${paper.citationKey}}` : `arXiv ${paper.arxivId}`}</small></span>
               </button>
+              {!paper.hasFullText && paper.arxivId && (
+                <button
+                  className="row-cite"
+                  title={`Fetch the full text of arXiv ${paper.arxivId}`}
+                  onClick={(event) => { event.stopPropagation(); props.onFetchFullText(paper); }}
+                ><Download size={12} /></button>
+              )}
               {paper.citationKey && (
                 <div className="cite-menu-wrap">
                   <button
@@ -5251,12 +5273,12 @@ function Navigator(props: {
                     title={`Insert citation for ${paper.citationKey}`}
                     onClick={(event) => {
                       event.stopPropagation();
-                      setCiteMenuId((current) => current === paper.arxivId ? null : paper.arxivId);
+                      setCiteMenuId((current) => current === paperKey(paper) ? null : paperKey(paper));
                     }}
                   >
                     <Quote size={12} />
                   </button>
-                  {citeMenuId === paper.arxivId && (
+                  {citeMenuId === paperKey(paper) && (
                     <div className="cite-command-menu" onPointerDown={(event) => event.stopPropagation()}>
                       {CITE_COMMANDS.map((command) => (
                         <button

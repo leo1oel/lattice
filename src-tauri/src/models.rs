@@ -334,6 +334,8 @@ pub struct PaperSummary {
     pub arxiv_id: String,
     pub title: String,
     pub citation_key: Option<String>,
+    /// False for works that are only cited — the reader has nothing to open.
+    pub has_full_text: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -344,6 +346,10 @@ pub struct CitationInfo {
     pub authors: String,
     pub year: String,
     pub venue: String,
+    /// Present when the entry names an arXiv preprint, so its full text can be
+    /// fetched later.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arxiv_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -367,6 +367,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .paper-list { min-height: 0; flex: 1; overflow: auto; padding-top: 3px; }
 .paper-row { width: 100%; border-radius: 6px; display: flex; align-items: center; color: var(--muted); }
 .paper-row:hover, .paper-row.active { color: var(--text); background: var(--line); }
+/* Cited but never fetched: nothing to open, so the row reads as a reference. */
+.paper-row.cited-only .paper-open { cursor: default; opacity: .72; }
+.paper-row.cited-only .paper-open strong { font-weight: 500; }
 .paper-open { width: 0; flex: 1; min-width: 0; padding: 7px; border-radius: 6px; background: transparent; display: flex; align-items: flex-start; gap: 7px; color: inherit; font-size: 11px; text-align: left; }
 .paper-open > svg { margin-top: 2px; flex: none; }
 .paper-open > span { min-width: 0; }

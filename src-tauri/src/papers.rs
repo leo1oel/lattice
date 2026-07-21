@@ -109,34 +109,87 @@ fn arxiv_base_id(arxiv_id: &str) -> &str {
     }
 }
 
+/// Everything the project cites, whether or not its full text was fetched.
+///
+/// Citations and downloaded papers used to be separate worlds: only a directory
+/// under `.research/papers` holding a `paper.md` counted, so anything the agent
+/// added through bibcite — and anything without an arXiv id at all — was
+/// invisible here while sitting in the bibliography. Read both and join them on
+/// the citation key.
 pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
+    let mut imported = imported_papers(root)?;
+    let mut papers = Vec::new();
+    for citation in project::citations(root)? {
+        let matched = imported
+            .iter()
+            .position(|(_, metadata)| {
+                metadata
+                    .citation_key
+                    .as_deref()
+                    .is_some_and(|key| key.eq_ignore_ascii_case(&citation.key))
+            })
+            .map(|index| imported.remove(index));
+        let title = match &matched {
+            Some((_, metadata)) if !metadata.title.trim().is_empty() => metadata.title.clone(),
+            _ if !citation.title.trim().is_empty() => citation.title.clone(),
+            _ => citation.key.clone(),
+        };
+        papers.push(PaperSummary {
+            // Keep whichever id can actually fetch the text: the imported one,
+            // else whatever the bibliography entry points at.
+            arxiv_id: matched
+                .as_ref()
+                .map(|(id, _)| id.clone())
+                .or(citation.arxiv_id)
+                .unwrap_or_default(),
+            title,
+            citation_key: Some(citation.key),
+            has_full_text: matched.is_some(),
+        });
+    }
+    // Papers imported before their citation landed, or whose key was rewritten.
+    for (arxiv_id, metadata) in imported {
+        papers.push(PaperSummary {
+            title: if metadata.title.trim().is_empty() {
+                format!("arXiv {arxiv_id}")
+            } else {
+                metadata.title
+            },
+            citation_key: metadata.citation_key,
+            arxiv_id,
+            has_full_text: true,
+        });
+    }
+    papers.sort_by_key(|paper| paper.title.to_lowercase());
+    Ok(papers)
+}
+
+/// Directories under `.research/papers` that hold a fetched `paper.md`.
+fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata)>, String> {
     let directory = root.join(".research/papers");
     if !directory.exists() {
         return Ok(Vec::new());
     }
-    let mut papers = Vec::new();
+    let mut imported = Vec::new();
     for entry in fs::read_dir(directory).map_err(err)? {
         let entry = entry.map_err(err)?;
         let markdown_path = entry.path().join("paper.md");
-        if markdown_path.exists() {
-            let arxiv_id = entry.file_name().to_string_lossy().to_string();
-            let markdown = fs::read_to_string(markdown_path).map_err(err)?;
-            let metadata = fs::read_to_string(entry.path().join("metadata.json"))
-                .ok()
-                .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok());
-            papers.push(PaperSummary {
-                title: metadata
-                    .as_ref()
-                    .map(|item| item.title.clone())
-                    .or_else(|| parse_title(&markdown))
-                    .unwrap_or_else(|| format!("arXiv {arxiv_id}")),
-                citation_key: metadata.and_then(|item| item.citation_key),
-                arxiv_id,
-            });
+        if !markdown_path.exists() {
+            continue;
         }
+        let arxiv_id = entry.file_name().to_string_lossy().to_string();
+        let markdown = fs::read_to_string(markdown_path).map_err(err)?;
+        let metadata = fs::read_to_string(entry.path().join("metadata.json"))
+            .ok()
+            .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok())
+            .unwrap_or_else(|| PaperMetadata {
+                arxiv_id: arxiv_id.clone(),
+                title: parse_title(&markdown).unwrap_or_default(),
+                citation_key: None,
+            });
+        imported.push((arxiv_id, metadata));
     }
-    papers.sort_by_key(|paper| paper.title.to_lowercase());
-    Ok(papers)
+    Ok(imported)
 }
 
 pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
@@ -201,6 +254,8 @@ pub fn rename_paper(root: &Path, arxiv_id: &str, title: &str) -> Result<PaperSum
         arxiv_id: arxiv_id.to_string(),
         title: title.to_string(),
         citation_key: current.citation_key,
+        // Renaming only ever targets a paper that was fetched.
+        has_full_text: true,
     })
 }
 
@@ -425,6 +480,71 @@ mod tests {
             find_citation_key_for_arxiv(bibliography, "1706.03762"),
             Some("vaswani2017attention".to_string())
         );
+    }
+
+    #[test]
+    fn lists_cited_works_even_when_only_the_bibliography_knows_them() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-list-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        // Two citations; only the first was ever fetched.
+        fs::write(
+            root.join("references.bib"),
+            "@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  eprint = {1706.03762}\n}\n\
+             @article{kingma2015adam,\n  title = {Adam: A Method for Stochastic Optimization},\n  eprint = {1412.6980}\n}\n",
+        )
+        .unwrap();
+        let directory = root.join(".research/papers/1706.03762");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("paper.md"), "Title: Attention Is All You Need\n").unwrap();
+        fs::write(
+            directory.join("metadata.json"),
+            r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
+        )
+        .unwrap();
+
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 2, "got: {papers:?}");
+
+        let adam = papers
+            .iter()
+            .find(|paper| paper.citation_key.as_deref() == Some("kingma2015adam"))
+            .expect("a bibliography-only entry should still be listed");
+        assert!(!adam.has_full_text);
+        assert_eq!(adam.title, "Adam: A Method for Stochastic Optimization");
+        // Its arXiv id came off the bibliography, so the text can be fetched later.
+        assert_eq!(adam.arxiv_id, "1412.6980");
+
+        let attention = papers
+            .iter()
+            .find(|paper| paper.citation_key.as_deref() == Some("vaswani2017attention"))
+            .expect("the fetched paper should still be listed");
+        assert!(attention.has_full_text);
+        assert_eq!(attention.arxiv_id, "1706.03762");
+
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn does_not_list_a_fetched_paper_twice_when_it_is_also_cited() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-dedupe-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{vaswani2017attention,\n  title = {Attention Is All You Need}\n}\n",
+        )
+        .unwrap();
+        let directory = root.join(".research/papers/1706.03762");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("paper.md"), "Title: Attention Is All You Need\n").unwrap();
+        fs::write(
+            directory.join("metadata.json"),
+            r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
+        )
+        .unwrap();
+
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 1, "got: {papers:?}");
+        assert!(papers[0].has_full_text);
     }
 
     #[test]

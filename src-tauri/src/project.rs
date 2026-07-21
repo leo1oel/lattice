@@ -8,6 +8,7 @@ use crate::models::{
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::Utc;
+use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -1579,9 +1580,38 @@ fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
                 .or_else(|| fields.get("publisher"))
                 .cloned()
                 .unwrap_or_default(),
+            arxiv_id: bibliography_arxiv_id(&fields),
         });
     }
     citations
+}
+
+/// arXiv preprints reach a .bib in several shapes: an `eprint` field, an
+/// `archivePrefix`/`primaryClass` pair, or just a URL or DOI pointing at arXiv.
+fn bibliography_arxiv_id(fields: &BTreeMap<String, String>) -> Option<String> {
+    let looks_like_id =
+        |value: &str| Regex::new(r"^(\d{4}\.\d{4,5}|[a-z-]+(\.[A-Z]{2})?/\d{7})(v\d+)?$")
+            .ok()
+            .is_some_and(|pattern| pattern.is_match(value));
+    if let Some(eprint) = fields.get("eprint").map(|value| value.trim()) {
+        let candidate = eprint.trim_start_matches("arXiv:").trim_start_matches("arxiv:");
+        if looks_like_id(candidate) {
+            return Some(candidate.to_string());
+        }
+    }
+    let pattern = Regex::new(r"arxiv\.org/(?:abs|pdf)/([^\s,}]+?)(?:v\d+)?(?:\.pdf)?$").ok()?;
+    for field in ["url", "doi", "note", "howpublished"] {
+        let Some(value) = fields.get(field) else {
+            continue;
+        };
+        if let Some(capture) = pattern.captures(value.trim()) {
+            return Some(capture[1].to_string());
+        }
+        if let Some(rest) = value.trim().strip_prefix("10.48550/arXiv.") {
+            return Some(rest.to_string());
+        }
+    }
+    None
 }
 
 fn parse_bibliography_fields(body: &str) -> BTreeMap<String, String> {
