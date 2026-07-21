@@ -6,7 +6,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: 340px;
+  /* An explicit width, not just a max: a fixed-position flex box is otherwise
+     shrink-to-fit, so the banner resized per phase and "Installing…" ended up
+     narrower than its own label. */
+  box-sizing: border-box;
+  width: 320px;
+  max-width: calc(100vw - 32px);
   padding: 10px 12px;
   border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
   border-radius: 12px;
@@ -18,6 +23,13 @@
 }
 /* Progress phases: title on its own full-width row, bar stacked below it. */
 .app-update-banner.stacked { flex-direction: column; align-items: stretch; gap: 6px; }
+/* Nothing competes for width here, so let the title wrap instead of clipping —
+   an ellipsis on a two-word status is pure loss. */
+.app-update-banner.stacked .app-update-text strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
 /* top offset clears the overlay title bar */
 .app-update-banner.top-right { top: 52px; right: 16px; }
 .app-update-banner.top-left { top: 52px; left: 16px; }
@@ -72,7 +84,11 @@
 }
 
 .app-update-progress {
-  flex: 1 1 120px;
+  /* The bar only ever renders inside `.stacked`, i.e. a column flex container,
+     where flex-basis would size it on the *vertical* axis — `flex: 1 1 120px`
+     made it a 120px-tall slab instead of a 5px rule. */
+  flex: none;
+  width: 100%;
   height: 5px;
   border-radius: 3px;
   background: color-mix(in srgb, var(--text, #1a1a1a) 12%, transparent);

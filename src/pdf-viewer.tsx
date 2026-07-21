@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
+// The *legacy* build, deliberately. pdf.js's default build targets engines
+// newer than the WKWebView on supported macOS versions; there it silently fails
+// to decode embedded Type1 font programs, reports every font as `missingFile`,
+// and falls back to `sans-serif` — a LaTeX paper renders in Helvetica instead of
+// its embedded Times. The legacy build decodes the same fonts correctly.
 import {
   GlobalWorkerOptions,
   TextLayer,
   getDocument,
   type PDFDocumentProxy,
   type PDFPageProxy,
-} from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+} from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorker from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import {
   ChevronDown,
   ChevronLeft,
@@ -23,7 +28,6 @@ import {
   RectangleHorizontal,
   Search,
   StickyNote,
-  Type,
   X,
   ZoomIn,
   ZoomOut,
@@ -44,48 +48,15 @@ import {
   fitPdfScale,
   normalizePdfSelection,
   pdfRenderPixelRatio,
+  PDF_CMAP_URL,
+  PDF_STANDARD_FONT_DATA_URL,
   type PdfPageSize,
 } from "./pdf-viewer-utils";
 import "./pdf-viewer.css";
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
 
-/** Copied from pdfjs-dist into public/pdfjs by the Vite pdfjs-assets plugin. */
-function pdfAssetUrl(relative: string): string {
-  try {
-    return new URL(`${import.meta.env.BASE_URL}${relative}`, window.location.href).href;
-  } catch {
-    return `${import.meta.env.BASE_URL}${relative}`;
-  }
-}
-const PDF_CMAP_URL = pdfAssetUrl("pdfjs/cmaps/");
-const PDF_STANDARD_FONT_DATA_URL = pdfAssetUrl("pdfjs/standard_fonts/");
 const PDF_LOAD_TIMEOUT_MS = 45_000;
-
-// How embedded fonts are rasterized. "system" loads them through the FontFace
-// API (crisp, but on some WebKit builds — notably macOS VMs — the load fails and
-// text collapses to a sans-serif fallback). "outline" makes pdf.js draw each
-// glyph as a vector path from the embedded font program, bypassing the browser
-// font system entirely; it fixes the "wrong fonts in the PDF" bug where FontFace
-// rendering is broken. Persisted per-Mac so a user can flip it if fonts look off.
-export type PdfFontMode = "system" | "outline";
-const PDF_FONT_MODE_KEY = "lattice.pdf.font-mode.v1";
-
-function loadPdfFontMode(): PdfFontMode {
-  try {
-    return localStorage.getItem(PDF_FONT_MODE_KEY) === "outline" ? "outline" : "system";
-  } catch {
-    return "system";
-  }
-}
-
-function savePdfFontMode(mode: PdfFontMode): void {
-  try {
-    localStorage.setItem(PDF_FONT_MODE_KEY, mode);
-  } catch {
-    // Private mode / disabled storage — the in-memory state still applies.
-  }
-}
 
 export type PdfSyncTarget = {
   id: string;
@@ -518,9 +489,6 @@ export function PdfPreview({
   const [markColor, setMarkColor] = useState("yellow");
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
-  const [pdfFontMode, setPdfFontMode] = useState<PdfFontMode>(loadPdfFontMode);
-  const pdfFontModeRef = useRef(pdfFontMode);
-  pdfFontModeRef.current = pdfFontMode;
   // Trackpad pinch on macOS (and ctrl+scroll) arrives as a wheel event with
   // ctrlKey set. Zoom continuously and keep the point under the cursor fixed.
   const pendingZoomAnchorRef = useRef<{ x: number; y: number; prevScale: number } | null>(null);
@@ -596,17 +564,11 @@ export function PdfPreview({
     const source = currentBase64
       ? { data: pdfBase64ToBytes(currentBase64) }
       : { url: currentUrl! };
-    // Font rendering mode (see PdfFontMode). "outline" draws glyph paths from the
-    // embedded font — the robust fallback when FontFace rendering is broken on a
-    // WebKit build; "system" uses FontFace + system-serif substitution.
-    const outlineMode = pdfFontModeRef.current === "outline";
     const loadingTask = getDocument({
       ...source,
       cMapUrl: PDF_CMAP_URL,
       cMapPacked: true,
       standardFontDataUrl: PDF_STANDARD_FONT_DATA_URL,
-      disableFontFace: outlineMode,
-      useSystemFonts: !outlineMode,
     });
     const timeout = window.setTimeout(() => {
       if (!active) return;
@@ -662,8 +624,7 @@ export function PdfPreview({
       // clearing it here caused endless “Rendering PDF…” during autosave builds.
       void Promise.resolve(loadingTask.destroy()).catch(() => undefined);
     };
-    // pdfFontMode is a load-time option, so re-run getDocument when it changes.
-  }, [stableLoadKey, pdfFontMode]);
+  }, [stableLoadKey]);
 
   const applyFit = useCallback((mode: "width" | "page") => {
     const area = scrollAreaRef.current;
@@ -942,20 +903,6 @@ export function PdfPreview({
           <i className="pdf-fit-divider" aria-hidden="true" />
           <button title="Fit page to width" disabled={!pageSize} onClick={() => applyFit("width")}><RectangleHorizontal size={14} /></button>
           <button title="Fit whole page" disabled={!pageSize} onClick={() => applyFit("page")}><Maximize2 size={14} /></button>
-          <i className="pdf-fit-divider" aria-hidden="true" />
-          <button
-            className={pdfFontMode === "outline" ? "active" : ""}
-            title={pdfFontMode === "outline"
-              ? "Font rendering: vector outlines. Click to switch to system fonts."
-              : "Font rendering: system fonts. If text looks wrong (e.g. serif shows as sans-serif), click to switch to vector outlines."}
-            onClick={() => {
-              const next: PdfFontMode = pdfFontMode === "outline" ? "system" : "outline";
-              setPdfFontMode(next);
-              savePdfFontMode(next);
-            }}
-          >
-            <Type size={14} />
-          </button>
           {onOpenMarks && (
             <button title="PDF marks" onClick={onOpenMarks}>
               <Highlighter size={14} />

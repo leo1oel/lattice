@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for Lattice and its bundled `lattice-agent` sidecar.
+
+  Tauri signs every executable in Contents/MacOS with the hardened runtime, and
+  the hardened runtime defaults to enforcing library validation. The sidecar is
+  a bun-compiled binary that dlopen()s `pi_natives.darwin-arm64.node`, which OMP
+  downloads into ~/.omp/natives at first run and which carries its own ad-hoc
+  signature. Without these entitlements macOS refuses the load with
+
+    code signature ... not valid for use in process:
+    mapping process and mapped file (non-platform) have different Team IDs
+
+  which surfaced in the app as "OMP accounts stopped before responding to
+  get_login_providers".
+-->
+<plist version="1.0">
+  <dict>
+    <!-- Allow the sidecar to load OMP's separately-signed native addon. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!-- bun's JavaScriptCore needs JIT; without it SharedArrayBuffer is absent
+         and the OMP CLI aborts on startup. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+  </dict>
+</plist>

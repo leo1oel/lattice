@@ -1731,8 +1731,23 @@ fn sidecar_error_detail(stderr: &str) -> String {
         let l = line.trim_start_matches(['•', '-', ' ']);
         l.starts_with("at ") || l.starts_with("at<") || l.starts_with("at@")
     };
-    // Last non-frame line = the actual error message (frames come after it).
-    let message_index = lines.iter().rposition(|line| !is_frame(line)).unwrap_or(0);
+    // A thrown error usually announces itself. Prefer the first such line:
+    // runtimes like bun print the cause up front and then pad the tail with
+    // recovery hints (e.g. a `curl` command to fetch a native addon by hand),
+    // and reporting the hint instead of the cause sends debugging sideways.
+    let is_error_headline = |line: &&str| {
+        let l = line.trim_start_matches(['•', '-', ' ']);
+        l.starts_with("error:")
+            || l.starts_with("Error:")
+            || l.split_once(':')
+                .is_some_and(|(head, _)| head.ends_with("Error") && !head.contains(' '))
+    };
+    // Otherwise the last non-frame line, since frames come after the message.
+    let message_index = lines
+        .iter()
+        .position(is_error_headline)
+        .or_else(|| lines.iter().rposition(|line| !is_frame(line)))
+        .unwrap_or(0);
     let detail = lines[message_index..]
         .iter()
         .take(3)
@@ -1762,6 +1777,24 @@ Error: keychain access denied
         assert!(detail.contains("keychain access denied"), "got: {detail}");
         // The message line must lead, not be buried behind frames.
         assert!(detail.starts_with(" Details: Error: keychain access denied"), "got: {detail}");
+    }
+
+    #[test]
+    fn sidecar_detail_reports_the_cause_not_the_trailing_recovery_hint() {
+        // Shape of a real bun failure: the cause is printed first, then a long
+        // tail of "here is how to fix it by hand" advice.
+        let stderr = "\
+error: Failed to load pi_natives native addon for darwin-arm64.
+Tried:
+- /Users/leo/.omp/natives/17.0.5/pi_natives.darwin-arm64.node: dlopen failed
+If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manually:
+  curl -fsSL \"https://github.com/can1357/oh-my-pi/releases/latest/download/pi_natives.darwin-arm64.node\"";
+        let detail = sidecar_error_detail(stderr);
+        assert!(
+            detail.starts_with(" Details: error: Failed to load pi_natives native addon"),
+            "got: {detail}"
+        );
+        assert!(!detail.contains("curl -fsSL"), "got: {detail}");
     }
 
     #[test]

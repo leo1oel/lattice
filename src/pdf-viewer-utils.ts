@@ -3,6 +3,19 @@ export type PdfSearchMatch = {
   occurrence: number;
 };
 
+/** Copied from pdfjs-dist into public/pdfjs by the Vite pdfjs-assets plugin. */
+function pdfAssetUrl(relative: string): string {
+  try {
+    return new URL(`${import.meta.env.BASE_URL}${relative}`, window.location.href).href;
+  } catch {
+    return `${import.meta.env.BASE_URL}${relative}`;
+  }
+}
+
+/** Shared by every getDocument() call so previews and the viewer agree on fonts. */
+export const PDF_CMAP_URL = pdfAssetUrl("pdfjs/cmaps/");
+export const PDF_STANDARD_FONT_DATA_URL = pdfAssetUrl("pdfjs/standard_fonts/");
+
 /** Normalize a browser text selection from the PDF text layer for agent context. */
 export function normalizePdfSelection(raw: string): string {
   return raw.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
