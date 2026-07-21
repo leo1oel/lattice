@@ -423,6 +423,16 @@ pub struct AgentMessage {
     pub parts: Vec<MessagePart>,
 }
 
+/// A slash command offered by the OMP build we ship.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentCommand {
+    pub name: String,
+    pub description: String,
+    pub hint: Option<String>,
+    pub subcommands: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentSettings {

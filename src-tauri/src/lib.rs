@@ -19,7 +19,7 @@ mod pdf_fonts;
 mod macos_window;
 
 use models::{
-    AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
+    AgentCommand, AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
     AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, CitationInfo,
     DoctorReport, EditorComment, GitDiff, GitRemoteResult, GitStatus, HistoryItem, ImportResult,
     OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
@@ -830,6 +830,16 @@ async fn subscription_status(
 }
 
 #[tauri::command]
+async fn list_agent_commands(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<AgentCommand>, String> {
+    let runtime = state.agent_runtime.clone();
+    tauri::async_runtime::spawn_blocking(move || agents::list_agent_commands(&runtime))
+        .await
+        .map_err(|error| format!("Could not list agent commands: {error}"))?
+}
+
+#[tauri::command]
 async fn begin_subscription_login(
     state: tauri::State<'_, AppState>,
     provider: String,
@@ -1195,6 +1205,7 @@ pub fn run() {
             run_agent,
             abort_agent,
             subscription_status,
+            list_agent_commands,
             begin_subscription_login,
             save_api_key,
             delete_api_key,

@@ -56,6 +56,7 @@ import {
   Send,
   Settings2,
   Sparkles,
+  TerminalSquare,
   Square,
   Trash2,
   Undo2,
@@ -176,6 +177,7 @@ import { expandSnippetPlaceholders, nextSnippetStop, previousSnippetStop } from 
 import { MathPreview } from "./math-preview";
 import { katexMacrosFromSources } from "./katex-macros";
 import { ChatMarkdown } from "./chat-markdown";
+import { applySlashCommand, filterSlashCommands, slashAtCaret, type AgentCommand, type SlashState } from "./slash-commands";
 import { EditorTabs } from "./editor-tabs";
 import { TableGeneratorDialog } from "./table-generator-dialog";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
@@ -523,6 +525,7 @@ function App() {
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentStreaming, setAgentStreaming] = useState(false);
   const [agentStatus, setAgentStatus] = useState("");
+  const [agentCommands, setAgentCommands] = useState<AgentCommand[]>([]);
   const [agentStopping, setAgentStopping] = useState(false);
   const [agentCancellable, setAgentCancellable] = useState(false);
   const [projectWordCount, setProjectWordCount] = useState<WordCount | null>(null);
@@ -597,6 +600,14 @@ function App() {
       void compileRef.current();
     }, 1_500);
   }, []);
+  useEffect(() => {
+    // Asked once: the list is a property of the bundled OMP build, not of the
+    // project or session. Failing leaves the menu empty rather than nagging.
+    void invoke<AgentCommand[]>("list_agent_commands")
+      .then(setAgentCommands)
+      .catch(() => setAgentCommands([]));
+  }, []);
+
   collabSessionRef.current = collabSession;
   projectRootRef.current = project?.root ?? null;
   const [citeInsertRequest, setCiteInsertRequest] = useState<{ key: string; command: InsertSymbolCommand; id: string } | null>(null);
@@ -3978,6 +3989,7 @@ function App() {
         )}
 
         <AgentPanel
+          agentCommands={agentCommands}
           katexMacros={katexMacros}
           messages={messages}
           sessions={agentSessions}
@@ -5369,6 +5381,7 @@ function AgentToolRow({ step }: { step: AgentToolStep }) {
 }
 
 function AgentPanel({
+  agentCommands,
   katexMacros,
   messages,
   sessions,
@@ -5403,6 +5416,7 @@ function AgentPanel({
   mentions,
   chatEnd,
 }: {
+  agentCommands: AgentCommand[];
   katexMacros: Record<string, string>;
   messages: ChatMessage[];
   sessions: AgentSessionSummary[];
@@ -5444,6 +5458,8 @@ function AgentPanel({
   const [searchResults, setSearchResults] = useState<AgentSessionSearchResult[] | null>(null);
   const [mention, setMention] = useState<MentionState | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [slash, setSlash] = useState<SlashState | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const copyResetTimer = useRef<number | null>(null);
   const copyMessage = async (message: ChatMessage) => {
@@ -5500,6 +5516,17 @@ function AgentPanel({
       .filter((item) => `${item.label} ${item.path}`.toLowerCase().includes(mention.query.toLowerCase()))
       .slice(0, 8)
     : [];
+  const slashSuggestions = slash ? filterSlashCommands(agentCommands, slash.query).slice(0, 8) : [];
+  const insertSlashCommand = (command: AgentCommand) => {
+    if (!slash) return;
+    const { value, caret } = applySlashCommand(input, slash, command);
+    setInput(value);
+    setSlash(null);
+    requestAnimationFrame(() => {
+      composerRef.current?.focus();
+      composerRef.current?.setSelectionRange(caret, caret);
+    });
+  };
   const insertMention = (item: AgentMention) => {
     if (!mention) return;
     const inserted = `@${item.path}`;
@@ -5621,6 +5648,23 @@ function AgentPanel({
             <button type="button" title="Clear selection context" onClick={onClearSelection}><X size={11} /></button>
           </div>
         )}
+        {slash && (
+          <div className="mention-menu" role="listbox" aria-label="Agent commands">
+            <div className="mention-heading"><span>Agent commands</span><small>{slashSuggestions.length ? "↑↓ to navigate · Enter to insert" : "No matches"}</small></div>
+            {slashSuggestions.map((command, index) => (
+              <button
+                key={command.name}
+                role="option"
+                aria-selected={index === slashIndex}
+                className={index === slashIndex ? "active" : ""}
+                onMouseDown={(event) => { event.preventDefault(); insertSlashCommand(command); }}
+              >
+                <TerminalSquare size={13} />
+                <span><strong>/{command.name}{command.hint ? ` ${command.hint}` : ""}</strong><small>{command.description}</small></span>
+              </button>
+            ))}
+          </div>
+        )}
         {mention && (
           <div className="mention-menu" role="listbox" aria-label="Project references">
             <div className="mention-heading"><span>Reference project context</span><small>{mentionSuggestions.length ? "↑↓ to navigate · Enter to insert" : "No matches"}</small></div>
@@ -5648,11 +5692,40 @@ function AgentPanel({
               setInput(event.target.value);
               setMention(mentionAtCaret(event.target.value, event.target.selectionStart));
               setMentionIndex(0);
+              setSlash(slashAtCaret(event.target.value, event.target.selectionStart));
+              setSlashIndex(0);
             }}
-            onSelect={(event) => setMention(mentionAtCaret(event.currentTarget.value, event.currentTarget.selectionStart))}
-            onBlur={() => setMention(null)}
+            onSelect={(event) => {
+              setMention(mentionAtCaret(event.currentTarget.value, event.currentTarget.selectionStart));
+              setSlash(slashAtCaret(event.currentTarget.value, event.currentTarget.selectionStart));
+            }}
+            onBlur={() => { setMention(null); setSlash(null); }}
             onKeyDown={(event) => {
               if (event.nativeEvent.isComposing || event.keyCode === 229 || event.key === "Process") return;
+              if (slash && slashSuggestions.length) {
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  setSlashIndex((index) => (index + 1) % slashSuggestions.length);
+                  return;
+                }
+                if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  setSlashIndex((index) => (index - 1 + slashSuggestions.length) % slashSuggestions.length);
+                  return;
+                }
+                // Enter still sends: a fully typed command should not need a
+                // second keystroke just because the menu is open.
+                if (event.key === "Tab") {
+                  event.preventDefault();
+                  insertSlashCommand(slashSuggestions[Math.min(slashIndex, slashSuggestions.length - 1)]);
+                  return;
+                }
+              }
+              if (event.key === "Escape" && slash) {
+                event.preventDefault();
+                setSlash(null);
+                return;
+              }
               if (mention && mentionSuggestions.length) {
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
@@ -5678,6 +5751,7 @@ function AgentPanel({
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
                 setMention(null);
+                setSlash(null);
                 onSend();
               }
             }}
@@ -5686,7 +5760,7 @@ function AgentPanel({
             <span>{running ? status || "Agent is working…" : "Enter sends · Shift+Enter adds a line"}</span>
             {running
               ? <button className="stop-agent-button" title={stopping ? "Stopping agent" : "Stop agent"} onClick={onStop} disabled={!cancellable || stopping}><Square size={12} fill="currentColor" /></button>
-              : <button title="Send message" onClick={() => { setMention(null); onSend(); }} disabled={!input.trim()}><Send size={14} /></button>}
+              : <button title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={!input.trim()}><Send size={14} /></button>}
           </div>
         </div>
       </div>

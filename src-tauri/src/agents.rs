@@ -1,6 +1,6 @@
 use crate::commands;
 use crate::models::{
-    AgentResult, AgentSettings, AgentStreamEvent, SubscriptionLoginEvent, SubscriptionStatus,
+    AgentCommand, AgentResult, AgentSettings, AgentStreamEvent, SubscriptionLoginEvent, SubscriptionStatus,
 };
 use crate::project;
 use crate::skill_store;
@@ -373,6 +373,13 @@ fn run_omp(
                 .get("success")
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
+            // A slash command (`/context`, `/compact`, …) is answered inline and
+            // never starts a turn, so no `agent_end` is coming. OMP reports that
+            // as `data.agentInvoked: false` on this very response; without this
+            // the loop would wait out the full timeout.
+            if value.pointer("/data/agentInvoked").and_then(Value::as_bool) == Some(false) {
+                completed = true;
+            }
             if !accepted {
                 failure = Some(
                     value
@@ -458,6 +465,22 @@ fn run_omp(
                         .unwrap_or("A Lattice agent extension failed.")
                         .to_string(),
                 );
+            }
+            // Slash-command output. It is written for a terminal, so strip the
+            // colour codes before it reaches a chat bubble.
+            Some("command_output") => {
+                if let Some(text) = value.get("text").and_then(Value::as_str) {
+                    let plain = strip_ansi(text);
+                    if !plain.trim().is_empty() {
+                        if !visible.is_empty() {
+                            visible.push('\n');
+                        }
+                        visible.push_str(plain.trim_end());
+                        on_event(AgentStreamEvent::Text {
+                            text: visible.clone(),
+                        });
+                    }
+                }
             }
             Some("agent_end") => completed = true,
             Some("prompt_result")
@@ -1170,6 +1193,44 @@ fn jwt_expiry_ms(token: &str) -> Option<u64> {
     value.get("exp")?.as_u64()?.checked_mul(1000)
 }
 
+/// Drop ANSI SGR/CSI sequences and the odd OSC hyperlink from terminal output.
+fn strip_ansi(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(character) = chars.next() {
+        if character != '\u{1b}' {
+            out.push(character);
+            continue;
+        }
+        match chars.next() {
+            // CSI: parameters and intermediates, then one final byte.
+            Some('[') => {
+                for next in chars.by_ref() {
+                    if ('\u{40}'..='\u{7e}').contains(&next) {
+                        break;
+                    }
+                }
+            }
+            // OSC: runs until BEL or ST (ESC \).
+            Some(']') => {
+                while let Some(next) = chars.next() {
+                    if next == '\u{7}' {
+                        break;
+                    }
+                    if next == '\u{1b}' {
+                        chars.next();
+                        break;
+                    }
+                }
+            }
+            // Two-character escapes; the second byte is part of the sequence.
+            Some(_) => {}
+            None => {}
+        }
+    }
+    out
+}
+
 fn stderr_suffix(stderr: &str) -> String {
     let trimmed = stderr.trim();
     if trimmed.is_empty() {
@@ -1460,6 +1521,55 @@ fn keychain_provider(provider: &str) -> Result<&str, String> {
         "openai" | "anthropic" => Ok(provider),
         _ => Err("Unknown API key provider.".to_string()),
     }
+}
+
+/// The slash commands this OMP build offers. OMP announces them unprompted, as
+/// an `available_commands_update` right after `ready`, so we start a throwaway
+/// session and read the first one rather than asking for anything.
+pub fn list_agent_commands(runtime: &AgentRuntime) -> Result<Vec<AgentCommand>, String> {
+    let mut process = JsonLineProcess::spawn(omp_account_command(runtime)?, "OMP commands")?;
+    let mut commands = Vec::new();
+    while let Some(value) = process.next_value()? {
+        if value.get("type").and_then(Value::as_str) != Some("available_commands_update") {
+            continue;
+        }
+        for entry in value
+            .get("commands")
+            .and_then(Value::as_array)
+            .unwrap_or(&Vec::new())
+        {
+            let Some(name) = entry.get("name").and_then(Value::as_str) else {
+                continue;
+            };
+            commands.push(AgentCommand {
+                name: name.to_string(),
+                description: entry
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                hint: entry
+                    .pointer("/input/hint")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                subcommands: entry
+                    .get("subcommands")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(|item| item.get("name").and_then(Value::as_str))
+                            .map(str::to_string)
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+            });
+        }
+        break;
+    }
+    let _ = process.finish(true)?;
+    commands.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(commands)
 }
 
 pub fn subscription_status(runtime: &AgentRuntime) -> Result<Vec<SubscriptionStatus>, String> {
@@ -1795,6 +1905,22 @@ If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manual
             "got: {detail}"
         );
         assert!(!detail.contains("curl -fsSL"), "got: {detail}");
+    }
+
+    #[test]
+    fn strips_terminal_colour_codes_from_command_output() {
+        // Shape of real `/context` output.
+        let raw = "Context window: 372000 tokens\n  System prompt \u{1b}[38;2;107;114;128m\u{2591}\u{2591}\u{1b}[39m 2%\n";
+        let plain = strip_ansi(raw);
+        assert!(!plain.contains('\u{1b}'), "got: {plain:?}");
+        assert!(plain.contains("Context window: 372000 tokens"));
+        assert!(plain.contains("2%"));
+    }
+
+    #[test]
+    fn leaves_ordinary_text_untouched() {
+        let text = "No escapes here — just prose with 100% and [brackets].";
+        assert_eq!(strip_ansi(text), text);
     }
 
     #[test]
