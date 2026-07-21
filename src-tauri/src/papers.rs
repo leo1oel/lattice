@@ -259,38 +259,69 @@ pub fn rename_paper(root: &Path, arxiv_id: &str, title: &str) -> Result<PaperSum
     })
 }
 
-pub fn delete_paper(root: &Path, arxiv_id: &str) -> Result<(), String> {
-    validate_arxiv_id(arxiv_id)?;
-    let paper_directory = root.join(".research/papers").join(arxiv_id);
-    if !paper_directory.exists() {
-        return Err("That imported paper no longer exists.".to_string());
+/// Remove a work from the project: its fetched text if there is any, and its
+/// bibliography entry if it has one.
+///
+/// Either half may be absent. A paper added through bibcite has a citation key
+/// and no directory; one imported before its citation landed has the reverse.
+/// Identifying by arXiv id alone used to reject the first case outright with
+/// "Invalid arXiv id", leaving those entries unmanageable from the panel.
+pub fn delete_paper(
+    root: &Path,
+    arxiv_id: Option<&str>,
+    citation_key: Option<&str>,
+) -> Result<(), String> {
+    let arxiv_id = arxiv_id.map(str::trim).filter(|value| !value.is_empty());
+    let citation_key = citation_key.map(str::trim).filter(|value| !value.is_empty());
+    if arxiv_id.is_none() && citation_key.is_none() {
+        return Err("That paper has neither an arXiv id nor a citation key.".to_string());
     }
+
+    let paper_directory = match arxiv_id {
+        Some(id) => {
+            validate_arxiv_id(id)?;
+            let directory = root.join(".research/papers").join(id);
+            directory.exists().then_some(directory)
+        }
+        None => None,
+    };
+
     let manifest = project::read_manifest(root)?;
     let bibliography_path = project::safe_path(root, &manifest.primary_bibliography)?;
     let bibliography = fs::read_to_string(&bibliography_path).unwrap_or_default();
-    let metadata = fs::read_to_string(paper_directory.join("metadata.json"))
-        .ok()
-        .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok());
-    let citation_key = metadata
-        .and_then(|item| item.citation_key)
-        .or_else(|| find_citation_key_for_arxiv(&bibliography, arxiv_id));
+    let citation_key = citation_key.map(str::to_string).or_else(|| {
+        paper_directory
+            .as_ref()
+            .and_then(|directory| fs::read_to_string(directory.join("metadata.json")).ok())
+            .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok())
+            .and_then(|item| item.citation_key)
+            .or_else(|| arxiv_id.and_then(|id| find_citation_key_for_arxiv(&bibliography, id)))
+    });
 
-    if let Some(citation_key) = citation_key {
+    if paper_directory.is_none() && citation_key.is_none() {
+        return Err("That paper no longer exists.".to_string());
+    }
+
+    if let Some(citation_key) = &citation_key {
         let temp = std::env::temp_dir().join(format!("research-writer-delete-{}", Uuid::new_v4()));
         fs::create_dir_all(&temp).map_err(err)?;
         let temporary_bibliography = temp.join("references.bib");
         fs::write(&temporary_bibliography, &bibliography).map_err(err)?;
-        let result = run_bibcite_remove(&temporary_bibliography, &citation_key)
+        let result = run_bibcite_remove(&temporary_bibliography, citation_key)
             .and_then(|_| fs::read_to_string(&temporary_bibliography).map_err(err));
         let _ = fs::remove_dir_all(&temp);
         let updated_bibliography = result?;
         project::apply_transaction(
             root,
-            &format!("Remove arXiv {arxiv_id}"),
+            &format!("Remove {citation_key}"),
             vec![(manifest.primary_bibliography, updated_bibliography)],
         )?;
     }
-    fs::remove_dir_all(paper_directory).map_err(err)
+
+    match paper_directory {
+        Some(directory) => fs::remove_dir_all(directory).map_err(err),
+        None => Ok(()),
+    }
 }
 
 fn validate_arxiv_id(arxiv_id: &str) -> Result<(), String> {
@@ -525,6 +556,42 @@ mod tests {
     }
 
     #[test]
+    fn removes_a_cited_only_work_that_has_no_arxiv_id() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-del-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@book{knuth1984texbook,\n  title = {The TeXbook},\n  author = {Knuth, Donald}\n}\n",
+        )
+        .unwrap();
+        // Listed, so it must be removable — this is the case that used to fail
+        // with "Invalid arXiv id" before the identifier was allowed to be a key.
+        let listed = list_papers(&root).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert!(listed[0].arxiv_id.is_empty());
+
+        // bibcite may be absent on the machine running tests; either way the
+        // call must get past identifier validation rather than rejecting outright.
+        match delete_paper(&root, None, Some("knuth1984texbook")) {
+            Ok(()) => assert!(list_papers(&root).unwrap().is_empty()),
+            Err(error) => assert!(
+                !error.contains("Invalid arXiv id") && !error.contains("no longer exists"),
+                "got: {error}"
+            ),
+        }
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn refuses_a_paper_with_no_identifier_at_all() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-noid-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let error = delete_paper(&root, Some("  "), None).unwrap_err();
+        assert!(error.contains("neither an arXiv id nor a citation key"), "got: {error}");
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
     fn does_not_list_a_fetched_paper_twice_when_it_is_also_cited() {
         let parent = std::env::temp_dir().join(format!("lattice-paper-dedupe-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
@@ -635,7 +702,7 @@ mod tests {
         assert!(!fs::read_to_string(root.join("references.bib"))
             .unwrap()
             .is_empty());
-        delete_paper(&root, "1706.03762").unwrap();
+        delete_paper(&root, Some("1706.03762"), None).unwrap();
         assert!(!root.join(&result.paper_path).exists());
         assert!(fs::read_to_string(root.join("references.bib"))
             .unwrap()

@@ -1417,7 +1417,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByTitle("Delete notes.tex"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_project_entry", { path: "notes.tex" }));
     fireEvent.click(screen.getByTitle("Remove Attention Is All You Need"));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_paper", { arxivId: "1706.03762" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_paper", { arxivId: "1706.03762", citationKey: "vaswani2017attention" }));
   });
 
   it("interleaves what the agent said with what it did, in order", async () => {
@@ -1473,6 +1473,48 @@ describe("project workspace", () => {
       "tool:edit",
       "text:Done.",
     ]);
+  });
+
+  it("marks only the run of text being written, not every block in the turn", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "run_agent") {
+        const channel = (args as { onEvent: { onmessage: (event: unknown) => void } }).onEvent;
+        channel.onmessage({ type: "text", text: "First thought." });
+        channel.onmessage({ type: "tool", name: "read", detail: "main.tex", phase: "start" });
+        channel.onmessage({ type: "tool", name: "read", detail: "done", phase: "end" });
+        channel.onmessage({ type: "text", text: "First thought.Still going" });
+        return new Promise(() => undefined);
+      }
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const composer = await screen.findByPlaceholderText(/ask the agent/i);
+    fireEvent.change(composer, { target: { value: "Go." } });
+    fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
+
+    const written = await screen.findByText("Still going");
+    const body = written.closest(".message-body")!;
+    const blocks = [...body.querySelectorAll(":scope > .chat-markdown")];
+    expect(blocks).toHaveLength(2);
+    // The caret belongs to the run still growing, not to the settled one above it.
+    expect(blocks[0]).not.toHaveClass("streaming-tail");
+    expect(blocks[1]).toHaveClass("streaming-tail");
   });
 
   it("shows a sent message while Claude is still working", async () => {

@@ -774,8 +774,16 @@ fn rename_paper(
 }
 
 #[tauri::command]
-fn delete_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<(), String> {
-    papers::delete_paper(&current_root(&state)?, &arxiv_id)
+fn delete_paper(
+    state: tauri::State<'_, AppState>,
+    arxiv_id: Option<String>,
+    citation_key: Option<String>,
+) -> Result<(), String> {
+    papers::delete_paper(
+        &current_root(&state)?,
+        arxiv_id.as_deref(),
+        citation_key.as_deref(),
+    )
 }
 
 #[tauri::command]

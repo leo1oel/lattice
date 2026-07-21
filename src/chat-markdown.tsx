@@ -92,7 +92,11 @@ export function renderChatMarkdown(text: string, macros: Record<string, string> 
   });
 }
 
-export function ChatMarkdown({ text, macros }: { text: string; macros?: Record<string, string> }) {
+export function ChatMarkdown({ text, macros, className }: {
+  text: string;
+  macros?: Record<string, string>;
+  className?: string;
+}) {
   const html = useMemo(() => renderChatMarkdown(text, macros ?? {}), [text, macros]);
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -111,5 +115,11 @@ export function ChatMarkdown({ text, macros }: { text: string; macros?: Record<s
     return () => container.removeEventListener("click", onClick);
   }, []);
 
-  return <div ref={ref} className="chat-markdown" dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div
+      ref={ref}
+      className={className ? `chat-markdown ${className}` : "chat-markdown"}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
 }

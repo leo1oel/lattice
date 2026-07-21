@@ -2880,15 +2880,23 @@ function App() {
   }, [project]);
 
   const deletePaper = useCallback(async (paper: PaperSummary) => {
-    if (!window.confirm(`Remove “${paper.title}” and its bibliography entry?`)) return;
+    const prompt = paper.hasFullText
+      ? `Remove “${paper.title}” and its bibliography entry?`
+      : `Remove “${paper.title}” from the bibliography?`;
+    if (!window.confirm(prompt)) return;
     try {
-      await invoke("delete_paper", { arxivId: paper.arxivId });
-      if (collabSession) {
+      // Either identifier is enough: a cited-only work may have no arXiv id, and
+      // a paper fetched before its citation landed may have no key.
+      await invoke("delete_paper", {
+        arxivId: paper.arxivId || null,
+        citationKey: paper.citationKey ?? null,
+      });
+      if (collabSession && paper.arxivId) {
         removeCollabPath(collabSession.doc, `.research/papers/${paper.arxivId}/paper.md`);
         removeCollabPath(collabSession.doc, `.research/papers/${paper.arxivId}/metadata.json`);
         setCollabFileCount(collabSession.fileCount());
       }
-      if (activePaper?.arxivId === paper.arxivId) {
+      if (activePaper && paperKey(activePaper) === paperKey(paper)) {
         setActivePaper(null);
         setPaperMarkdown("");
         setCanvasMode("split");
@@ -5632,7 +5640,13 @@ function AgentPanel({
                   ? <p>{message.text}</p>
                   : (message.parts?.length
                     ? message.parts.map((part, partIndex) => (part.kind === "text"
-                      ? <ChatMarkdown key={partIndex} text={part.text} macros={katexMacros} />
+                      ? <ChatMarkdown
+                          key={partIndex}
+                          text={part.text}
+                          macros={katexMacros}
+                          // Only the run being written now shows the caret.
+                          className={streaming && index === messages.length - 1 && partIndex === message.parts!.length - 1 ? "streaming-tail" : undefined}
+                        />
                       : <AgentToolRow key={part.id} step={part} />))
                     : <ChatMarkdown text={message.text} macros={katexMacros} />)}
                 {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
@@ -5654,8 +5668,10 @@ function AgentPanel({
         );
         })}
         {running && !streaming && (
-          <div className="chat-message agent">
-            <div className="message-avatar"><Sparkles size={13} /></div>
+          // Same turn as the reply above it, so no second avatar and no full
+          // message gap — it reads as a continuation, not a new speaker.
+          <div className="chat-message agent thinking-row">
+            <div className="message-avatar-spacer" aria-hidden="true" />
             <div className="thinking"><span /><span /><span /><em>{status || (provider === "claude" ? "Claude is writing…" : "Agent is writing…")}</em></div>
           </div>
         )}

@@ -476,6 +476,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 /* Holds the avatar gutter open for agent rows that carry no avatar, so their
    content aligns with the message bubbles above. */
 .message-avatar-spacer { width: 22px; flex: none; }
+/* The thinking indicator continues the turn above rather than opening a new
+   one, so it sits tight under it instead of a full message gap away. */
+.chat-message.thinking-row { margin-top: -12px; margin-bottom: 10px; }
 .message-body p { max-width: 100%; margin: 0; overflow-wrap: anywhere; word-break: break-word; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; }
 
 /* Rendered agent replies. marked already turned single newlines into <br>, so
@@ -513,8 +516,10 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .agent-message-meta .changed-files span, .agent-message-copy { height: 22px; box-sizing: border-box; }
 .agent-message-copy { width: 22px; flex: none; border-radius: 5px; background: transparent; color: var(--faint); display: grid; place-items: center; opacity: .7; }
 .agent-message-copy:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); opacity: 1; }
-.chat-message.streaming .message-body > p::after,
-.chat-message.streaming .message-body .chat-markdown > :last-child::after { content: ""; width: 1.5px; height: .95em; margin-left: 3px; display: inline-block; vertical-align: -.08em; border-radius: 1px; background: var(--accent); animation: stream-cursor .8s steps(1) infinite; }
+/* Only the run of text currently being written carries the caret. A turn now
+   holds several text blocks, so this is marked in the markup rather than
+   guessed at with :last-child, which lit up every block at once. */
+.chat-markdown.streaming-tail > :last-child::after { content: ""; width: 1.5px; height: .95em; margin-left: 3px; display: inline-block; vertical-align: -.08em; border-radius: 1px; background: var(--accent); animation: stream-cursor .8s steps(1) infinite; }
 .skills-used { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }
 .skills-used small { color: var(--faint); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
 .skills-used span { border-radius: 5px; padding: 3px 5px; background: var(--accent-soft); color: var(--accent); font-size: 9px; }
