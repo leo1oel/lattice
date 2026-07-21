@@ -175,6 +175,7 @@ import type { InsertSnippet } from "./insert-snippets";
 import { expandSnippetPlaceholders, nextSnippetStop, previousSnippetStop } from "./snippet-placeholders";
 import { MathPreview } from "./math-preview";
 import { katexMacrosFromSources } from "./katex-macros";
+import { ChatMarkdown } from "./chat-markdown";
 import { EditorTabs } from "./editor-tabs";
 import { TableGeneratorDialog } from "./table-generator-dialog";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
@@ -3940,6 +3941,7 @@ function App() {
         )}
 
         <AgentPanel
+          katexMacros={katexMacros}
           messages={messages}
           sessions={agentSessions}
           activeSession={activeSession}
@@ -5321,6 +5323,7 @@ function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, o
 }
 
 function AgentPanel({
+  katexMacros,
   messages,
   sessions,
   activeSession,
@@ -5355,6 +5358,7 @@ function AgentPanel({
   mentions,
   chatEnd,
 }: {
+  katexMacros: Record<string, string>;
   messages: ChatMessage[];
   sessions: AgentSessionSummary[];
   activeSession: AgentSession | null;
@@ -5531,7 +5535,9 @@ function AgentPanel({
             {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
             <div className="message-column">
               <div className="message-body">
-                <p>{message.text}</p>
+                {message.role === "agent"
+                  ? <ChatMarkdown text={message.text} macros={katexMacros} />
+                  : <p>{message.text}</p>}
                 {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
                 {message.role === "agent" && (!isConversationWelcome(message, index) || !!message.files?.length) && <div className="agent-message-meta">
                   {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}

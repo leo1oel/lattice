@@ -474,6 +474,31 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
    content aligns with the message bubbles above. */
 .message-avatar-spacer { width: 22px; flex: none; }
 .message-body p { max-width: 100%; margin: 0; overflow-wrap: anywhere; word-break: break-word; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; }
+
+/* Rendered agent replies. marked already turned single newlines into <br>, so
+   this subtree must not also honour literal whitespace the way the plain
+   pre-wrap bubble does. */
+.chat-markdown { font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere; word-break: break-word; }
+.chat-markdown > :first-child { margin-top: 0; }
+.chat-markdown > :last-child { margin-bottom: 0; }
+.chat-markdown p { white-space: normal; margin: 0 0 8px; }
+.chat-markdown h1, .chat-markdown h2, .chat-markdown h3,
+.chat-markdown h4, .chat-markdown h5, .chat-markdown h6 { margin: 12px 0 6px; font-size: 13px; font-weight: 650; line-height: 1.35; }
+.chat-markdown ul, .chat-markdown ol { margin: 0 0 8px; padding-left: 19px; }
+.chat-markdown li { margin: 2px 0; }
+.chat-markdown li > p { margin: 0; }
+.chat-markdown blockquote { margin: 0 0 8px; padding: 2px 0 2px 9px; border-left: 2px solid var(--line); color: var(--muted); }
+.chat-markdown a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.chat-markdown code { padding: 1px 4px; border-radius: 4px; background: var(--accent-soft); font-family: Menlo, ui-monospace, monospace; font-size: .92em; }
+.chat-markdown pre { margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: color-mix(in srgb, var(--bg) 70%, var(--panel)); overflow-x: auto; }
+.chat-markdown pre code { padding: 0; border-radius: 0; background: none; white-space: pre; }
+.chat-markdown hr { margin: 10px 0; border: none; border-top: 1px solid var(--line); }
+/* Wide tables and long formulas scroll inside the bubble instead of widening it. */
+.chat-markdown table { margin: 0 0 8px; display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.chat-markdown th, .chat-markdown td { padding: 3px 7px; border: 1px solid var(--line); text-align: left; }
+.chat-markdown .chat-math-block { margin: 0 0 8px; max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+.chat-markdown .katex { font-size: 1.03em; }
+.chat-markdown .chat-math-error { color: var(--danger, #c0392b); background: none; padding: 0; }
 .message-actions { min-height: 21px; display: flex; justify-content: flex-end; gap: 2px; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-2px); transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s; }
 .user-message-actions { position: absolute; top: 100%; right: -3px; padding-top: 2px; }
 .chat-message.user .message-body:hover + .message-actions, .user-message-actions:hover, .message-actions:focus-within { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); transition-delay: 0s; }
@@ -485,7 +510,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .agent-message-meta .changed-files span, .agent-message-copy { height: 22px; box-sizing: border-box; }
 .agent-message-copy { width: 22px; flex: none; border-radius: 5px; background: transparent; color: var(--faint); display: grid; place-items: center; opacity: .7; }
 .agent-message-copy:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); opacity: 1; }
-.chat-message.streaming .message-body p::after { content: ""; width: 1.5px; height: .95em; margin-left: 3px; display: inline-block; vertical-align: -.08em; border-radius: 1px; background: var(--accent); animation: stream-cursor .8s steps(1) infinite; }
+.chat-message.streaming .message-body > p::after,
+.chat-message.streaming .message-body .chat-markdown > :last-child::after { content: ""; width: 1.5px; height: .95em; margin-left: 3px; display: inline-block; vertical-align: -.08em; border-radius: 1px; background: var(--accent); animation: stream-cursor .8s steps(1) infinite; }
 .skills-used { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }
 .skills-used small { color: var(--faint); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
 .skills-used span { border-radius: 5px; padding: 3px 5px; background: var(--accent-soft); color: var(--accent); font-size: 9px; }
