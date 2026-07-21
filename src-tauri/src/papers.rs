@@ -120,13 +120,21 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
     let mut imported = imported_papers(root)?;
     let mut papers = Vec::new();
     for citation in project::citations(root)? {
+        // Join on either identifier. Keying on the citation key alone missed
+        // every paper whose metadata.json predates that field or whose key was
+        // later rewritten: the fetched text sat right there while the row
+        // claimed the work had none and offered to download it again.
         let matched = imported
             .iter()
-            .position(|(_, metadata)| {
-                metadata
+            .position(|(id, metadata)| {
+                let by_key = metadata
                     .citation_key
                     .as_deref()
-                    .is_some_and(|key| key.eq_ignore_ascii_case(&citation.key))
+                    .is_some_and(|key| key.eq_ignore_ascii_case(&citation.key));
+                let by_arxiv = citation.arxiv_id.as_deref().is_some_and(|cited| {
+                    arxiv_base_id(cited).eq_ignore_ascii_case(arxiv_base_id(id))
+                });
+                by_key || by_arxiv
             })
             .map(|index| imported.remove(index));
         let title = match &matched {
@@ -614,6 +622,32 @@ mod tests {
         let root = project::create(&parent, "paper").unwrap();
         let error = delete_paper(&root, Some("  "), None).unwrap_err();
         assert!(error.contains("neither an arXiv id nor a citation key"), "got: {error}");
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn joins_a_fetched_paper_to_its_citation_by_arxiv_id_when_the_key_is_unknown() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-join-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@inproceedings{lei2025scalability,\n  title = {The Scalability of Simplicity},\n  eprint = {2504.10462}\n}\n",
+        )
+        .unwrap();
+        // Imported before the citation key existed, so metadata knows no key —
+        // and the stored id carries a version suffix the citation omits.
+        let directory = root.join(".research/papers/2504.10462v2");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("paper.md"), "Title: The Scalability of Simplicity\n").unwrap();
+        fs::write(
+            directory.join("metadata.json"),
+            r#"{"arxivId":"2504.10462v2","title":"The Scalability of Simplicity"}"#,
+        )
+        .unwrap();
+
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 1, "the fetched text and its citation are one work: {papers:?}");
+        assert!(papers[0].has_full_text, "got: {:?}", papers[0]);
         let _ = fs::remove_dir_all(parent);
     }
 

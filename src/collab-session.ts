@@ -1,6 +1,7 @@
 import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import * as Y from "yjs";
+import { removeAwarenessStates } from "y-protocols/awareness";
 import { yCollab } from "y-codemirror.next";
 import YProvider from "y-partyserver/provider";
 import { builtInCollabHost, isLocalCollabHost } from "./collab-config";
@@ -166,6 +167,9 @@ export function maybeSeedCollabText(ytext: Y.Text, seedText: string): boolean {
   ytext.insert(0, seedText);
   return true;
 }
+
+/** Matches y-protocols' own `outdatedTimeout`, which we reinstate below. */
+const AWARENESS_TIMEOUT_MS = 30_000;
 
 /** Another person in the room, as the presence UI needs them. */
 export type CollabPeer = {
@@ -347,6 +351,33 @@ export function createCollabSession(options: {
   };
 
   provider.awareness.on("change", pushPeers);
+
+  // y-partyserver clears y-protocols' own presence housekeeping
+  // (`clearInterval(awareness._checkInterval)`), which does two jobs: it
+  // republishes our state so peers know we are still here, and it drops peers
+  // that have gone quiet. Without it a client that reconnects with a new id
+  // leaves its old caret and name label on everyone else's screen forever, and
+  // the participant list fills with ghosts. Put both back.
+  const presenceInterval = window.setInterval(() => {
+    const awareness = provider.awareness;
+    const now = Date.now();
+    const localMeta = awareness.meta.get(awareness.clientID);
+    if (awareness.getLocalState() !== null
+      && localMeta
+      && AWARENESS_TIMEOUT_MS / 2 <= now - localMeta.lastUpdated) {
+      // Re-announce unchanged state purely to refresh its timestamp.
+      awareness.setLocalState(awareness.getLocalState());
+    }
+    const stale: number[] = [];
+    awareness.meta.forEach((meta, clientId) => {
+      if (clientId !== awareness.clientID
+        && AWARENESS_TIMEOUT_MS <= now - meta.lastUpdated
+        && awareness.states.has(clientId)) {
+        stale.push(clientId);
+      }
+    });
+    if (stale.length) removeAwarenessStates(awareness, stale, "timeout");
+  }, Math.floor(AWARENESS_TIMEOUT_MS / 10));
   provider.on("sync", onSync);
   provider.on("status", onStatus);
   provider.on("connection-error", onConnectionError);
@@ -358,6 +389,7 @@ export function createCollabSession(options: {
     destroyed = true;
     if (activeObserver) ytext.unobserve(activeObserver);
     undoManager.clear();
+    window.clearInterval(presenceInterval);
     provider.awareness.off("change", pushPeers);
     provider.off("sync", onSync);
     provider.off("status", onStatus);

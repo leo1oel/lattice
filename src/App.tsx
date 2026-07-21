@@ -892,19 +892,6 @@ function App() {
     }
   }, [clearCollabLocalState, restorePreCollabProject]);
 
-  /** Jump to where a collaborator is working, following them into their file. */
-  const followCollabPeer = useCallback((peer: CollabPeer) => {
-    const session = collabSessionRef.current;
-    const location = session ? peerCursorLocation(session, peer.clientId) : null;
-    // Their caret is the precise answer; the file they announced is the fallback
-    // for a peer who has not placed a cursor yet.
-    const path = location?.path ?? peer.path;
-    if (!path) {
-      setNotice(`${peer.name} is not in a file right now`);
-      return;
-    }
-    setEditorNavigation({ path, line: location?.line ?? 1, id: crypto.randomUUID() });
-  }, []);
 
   /** Dialog button: host stops for everyone; guest leaves without affecting the host. */
   const disconnectCollab = useCallback(() => {
@@ -1407,6 +1394,27 @@ function App() {
     secondarySource,
     source,
   ]);
+
+  /** Jump to where a collaborator is working, following them into their file. */
+  const followCollabPeer = useCallback(async (peer: CollabPeer) => {
+    const session = collabSessionRef.current;
+    const location = session ? peerCursorLocation(session, peer.clientId) : null;
+    // Their caret is the precise answer; the file they announced is the fallback
+    // for a peer who has not placed a cursor yet.
+    const path = location?.path ?? peer.path;
+    if (!path) {
+      setNotice(`${peer.name} is not in a file right now`);
+      return;
+    }
+    // Go through the normal open-a-file route: a bare navigation request is
+    // ignored unless that file is already on screen, which is exactly the case
+    // when following someone into a file you are not in.
+    try {
+      await openProjectFile(path, location?.line ?? 1);
+    } catch {
+      setNotice(`Could not open ${path}`);
+    }
+  }, [openProjectFile]);
 
   const navigateHistory = useCallback(async (direction: -1 | 1) => {
     const nextIndex = navIndex + direction;
@@ -3897,7 +3905,7 @@ function App() {
                   className="collab-peer-avatar"
                   style={{ background: peer.color }}
                   title={peer.path ? `${peer.name} · ${peer.path} — click to follow` : peer.name}
-                  onClick={() => followCollabPeer(peer)}
+                  onClick={() => void followCollabPeer(peer)}
                 >
                   {peerInitials(peer.name)}
                 </button>
