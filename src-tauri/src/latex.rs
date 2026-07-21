@@ -550,6 +550,13 @@ fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
             },
         );
     }
+    // Only the file-less warning loop above consulted the noise list, but the
+    // same warnings also arrive with a `file:line:` prefix through the other two
+    // patterns. Filter once at the end so every producer is covered. Errors are
+    // never suppressed, however they happen to be worded.
+    diagnostics.retain(|diagnostic| {
+        diagnostic.level == "error" || !is_pass_noise_warning(&diagnostic.message)
+    });
     diagnostics
 }
 
@@ -575,6 +582,9 @@ fn is_pass_noise_warning(message: &str) -> bool {
         || lower.contains("empty thebibliography")
         // Default Lattice builds use -no-shell-escape; epstopdf always complains.
         || lower.contains("shell escape feature is not enabled")
+        // hyperref fires this for every \section without a label. Nothing to act
+        // on, and a normal paper produces one per heading.
+        || lower.contains("ignoring empty anchor")
 }
 
 fn push_unique_diagnostic(diagnostics: &mut Vec<Diagnostic>, candidate: Diagnostic) {
@@ -793,6 +803,37 @@ Latexmk: All targets (main.pdf) are up-to-date\n";
             parse_diagnostics(log).is_empty(),
             "fresh BasicTeX NeurIPS template should not surface noise warnings"
         );
+    }
+
+    #[test]
+    fn ignores_hyperref_empty_anchor_noise_in_every_log_shape() {
+        // hyperref reports this once per unlabelled heading, in two shapes: bare,
+        // and prefixed with `file:line:`. The prefixed shape is parsed by a
+        // different pattern, which used to bypass the noise filter entirely.
+        let log = "\
+------------\n\
+Running 'pdflatex  -interaction=nonstopmode \"main.tex\"'\n\
+------------\n\
+Package hyperref Warning: Ignoring empty anchor on input line 42.\n\
+./main.tex:57: Package hyperref Warning: Ignoring empty anchor on input line 57.\n\
+Output written on main.pdf (1 page, 54890 bytes).\n\
+Latexmk: All targets (main.pdf) are up-to-date\n";
+        assert!(
+            parse_diagnostics(log).is_empty(),
+            "hyperref empty-anchor warnings should not reach the diagnostics panel"
+        );
+    }
+
+    #[test]
+    fn still_reports_real_errors_that_mention_a_noise_phrase() {
+        let log = "\
+------------\n\
+Running 'pdflatex  -interaction=nonstopmode \"main.tex\"'\n\
+------------\n\
+./main.tex:12: Undefined control sequence while ignoring empty anchor handling.\n";
+        let diagnostics = parse_diagnostics(log);
+        assert_eq!(diagnostics.len(), 1, "got: {diagnostics:?}");
+        assert_eq!(diagnostics[0].level, "error");
     }
 
     #[test]

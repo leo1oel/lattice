@@ -3026,6 +3026,10 @@ function App() {
           return;
         }
         if (event.type === "tool") {
+          // A blinking caret with no text arriving reads as "stuck". Hand the
+          // floor back to the status row ("Editing main.tex…") for the duration
+          // of the tool call; the next text delta re-raises the caret.
+          if (event.phase === "start") setAgentStreaming(false);
           setAgentToolSteps((steps) => {
             if (event.phase === "end") {
               const next = [...steps];
@@ -5518,7 +5522,11 @@ function AgentPanel({
         </div>
       )}
       <div className="chat-list">
-        {messages.map((message, index) => (
+        {messages.map((message, index) => {
+        // The turn in progress: its text may still grow and its tool calls may
+        // still be running, so it is not copyable yet.
+        const inFlight = running && message.role === "agent" && index === messages.length - 1;
+        return (
           <div key={message.id} className={`chat-message ${message.role} ${streaming && index === messages.length - 1 && message.role === "agent" ? "streaming" : ""}`}>
             {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
             <div className="message-column">
@@ -5527,7 +5535,7 @@ function AgentPanel({
                 {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
                 {message.role === "agent" && (!isConversationWelcome(message, index) || !!message.files?.length) && <div className="agent-message-meta">
                   {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
-                  {!isConversationWelcome(message, index) && <button className="agent-message-copy" title="Copy agent response" onClick={() => void copyMessage(message)}>
+                  {!isConversationWelcome(message, index) && !inFlight && <button className="agent-message-copy" title="Copy agent response" onClick={() => void copyMessage(message)}>
                     {copiedMessageId === message.id ? <Check size={11} /> : <Copy size={11} />}
                   </button>}
                 </div>}
@@ -5540,7 +5548,8 @@ function AgentPanel({
               </div>}
             </div>
           </div>
-        ))}
+        );
+        })}
         {running && !streaming && (
           <div className="chat-message agent">
             <div className="message-avatar"><Sparkles size={13} /></div>
@@ -5548,14 +5557,21 @@ function AgentPanel({
           </div>
         )}
         {toolSteps.length > 0 && (
-          <div className="agent-tool-timeline" aria-label="Agent tool progress">
-            {toolSteps.map((step) => (
-              <div key={step.id} className={`agent-tool-step ${step.phase}`}>
-                <i aria-hidden="true" />
-                <strong>{step.name}</strong>
-                <span>{step.detail || (step.phase === "start" ? "running…" : "done")}</span>
+          // Sits in an agent row so the timeline lines up with the text bubble
+          // instead of spanning the avatar gutter too.
+          <div className="chat-message agent">
+            <div className="message-avatar-spacer" aria-hidden="true" />
+            <div className="message-column">
+              <div className="agent-tool-timeline" aria-label="Agent tool progress">
+                {toolSteps.map((step) => (
+                  <div key={step.id} className={`agent-tool-step ${step.phase}`}>
+                    <i aria-hidden="true" />
+                    <strong>{step.name}</strong>
+                    <span>{step.detail || (step.phase === "start" ? "running…" : "done")}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         )}
         <div ref={chatEnd} />

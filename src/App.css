@@ -470,6 +470,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .chat-message.system { padding: 8px 10px; border-radius: 7px; background: color-mix(in srgb, var(--success) 8%, transparent); color: var(--success); font-size: 10px; }
 .chat-message.system .message-column { width: 100%; }
 .message-avatar { width: 22px; height: 22px; flex: none; border-radius: 7px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
+/* Holds the avatar gutter open for agent rows that carry no avatar, so their
+   content aligns with the message bubbles above. */
+.message-avatar-spacer { width: 22px; flex: none; }
 .message-body p { max-width: 100%; margin: 0; overflow-wrap: anywhere; word-break: break-word; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; }
 .message-actions { min-height: 21px; display: flex; justify-content: flex-end; gap: 2px; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-2px); transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s; }
 .user-message-actions { position: absolute; top: 100%; right: -3px; padding-top: 2px; }
@@ -1759,7 +1762,8 @@ button.checklist-row:hover { border-color: color-mix(in srgb, var(--accent) 35%,
   font-weight: 650;
 }
 .agent-tool-timeline {
-  margin: 4px 10px 10px;
+  /* Width now comes from .message-column, so it matches the text bubble. */
+  margin: 0;
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;

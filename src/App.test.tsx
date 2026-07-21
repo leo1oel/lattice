@@ -1387,6 +1387,7 @@ describe("project workspace", () => {
       },
       files: [],
     };
+    let finishRun: ((result: unknown) => void) | undefined;
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
@@ -1395,7 +1396,7 @@ describe("project workspace", () => {
         const channel = (args as { onEvent: { onmessage: (event: unknown) => void } }).onEvent;
         channel.onmessage({ type: "status", message: "Thinking…" });
         channel.onmessage({ type: "text", text: "Reviewing the abstract as evidence arrives…" });
-        return new Promise(() => undefined);
+        return new Promise((resolve) => { finishRun = resolve; });
       }
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
@@ -1414,11 +1415,15 @@ describe("project workspace", () => {
     expect(sentMessage.textContent).toContain("\n");
     const streamedReply = screen.getByText("Reviewing the abstract as evidence arrives…");
     expect(streamedReply.closest(".chat-message.streaming")).not.toBeNull();
-    expect(screen.getAllByTitle("Copy agent response")).toHaveLength(1);
+    // A reply that is still being written is not offered for copying.
+    expect(screen.queryAllByTitle("Copy agent response")).toHaveLength(0);
     fireEvent.click(screen.getByTitle("Copy user message"));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(message));
     expect(screen.getByTitle("Copy user message").closest(".message-body")).toBeNull();
-    fireEvent.click(streamedReply.closest(".message-body")!.querySelector<HTMLButtonElement>('[title="Copy agent response"]')!);
+
+    finishRun?.({ summary: "Reviewing the abstract as evidence arrives…", changedFiles: [], skillsUsed: [] });
+    const agentCopy = await screen.findByTitle("Copy agent response");
+    fireEvent.click(agentCopy);
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("Reviewing the abstract as evidence arrives…"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("run_agent", expect.objectContaining({
       request: {
