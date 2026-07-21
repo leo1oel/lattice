@@ -19,6 +19,7 @@ import {
   texlabCompletionSource,
   texlabHoverTooltip,
 } from "./texlab-language";
+import { compactSearchPanel } from "./search-panel";
 
 const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite";
 const REFERENCE_COMMANDS = "ref|eqref|pageref|autoref|cref|Cref";
@@ -1407,6 +1408,7 @@ export function latexEditorExtensions(
     }),
     syntaxHighlighting(luxLatexHighlightStyle),
     search({ top: true }),
+    compactSearchPanel,
     highlightSelectionMatches(),
     tooltips({
       tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()),

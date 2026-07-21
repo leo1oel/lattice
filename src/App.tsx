@@ -108,6 +108,7 @@ import {
 } from "./collab-project-io";
 import {
   COLLAB_EDITOR_COMMENTS_PATH,
+  classifySyncablePath,
   collabDocHasProject,
   collabTextsMap,
   endCollabShare,
@@ -342,7 +343,9 @@ type PaperSummary = {
 function paperSubtitle(paper: PaperSummary, snippet?: string): string {
   if (snippet) return snippet;
   const parts: string[] = [];
-  if (paper.citationKey) parts.push(`\\cite{${paper.citationKey}}`);
+  // Just the key: the \cite{} wrapper is noise in a list that is entirely
+  // citations, and it crowds out the arXiv id in a narrow panel.
+  if (paper.citationKey) parts.push(paper.citationKey);
   if (paper.arxivId) parts.push(`arXiv ${paper.arxivId}`);
   if (!paper.hasFullText) {
     // Say why it cannot be opened, and whether that is fixable from here.
@@ -3212,6 +3215,29 @@ function App() {
       setActiveSession(session);
       await refreshAgentSessions();
       if (activeFile && result.changedFiles.includes(activeFile)) await loadFile(activeFile);
+      // The agent writes straight to disk, so nothing has told the shared doc.
+      // Without this a collaborator sees none of the work it just did.
+      if (collabSession && result.changedFiles.length) {
+        for (const path of result.changedFiles) {
+          const kind = classifySyncablePath(path);
+          if (!kind) continue;
+          try {
+            if (kind === "text") {
+              pushLocalTextToCollab(
+                collabSession.doc,
+                path,
+                await invoke<string>("read_project_file", { path }),
+              );
+            } else {
+              await pushLocalBlobToCollab(collabSession.doc, path);
+            }
+          } catch {
+            // A file the agent deleted, or one too large to share; the rest
+            // must still go out.
+          }
+        }
+        setCollabFileCount(collabSession.fileCount());
+      }
       await refreshProject();
       await refreshHistory();
       if (result.changedFiles.length) await compile();

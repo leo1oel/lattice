@@ -557,6 +557,10 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 
 .canvas-panel { min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
 .canvas-toolbar {
+  /* Measured against itself, not the window: the editor pane can be narrow in a
+     wide window once the side panels take their share. */
+  container-type: inline-size;
+  container-name: canvas-toolbar;
   height: 44px;
   flex: none;
   padding: 0 10px 0 14px;
@@ -580,9 +584,15 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .canvas-actions button.active { background: var(--accent-soft); color: var(--accent); }
 .canvas-actions .canvas-text-button { width: auto; min-width: 28px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; }
 .canvas-actions .canvas-text-button span { line-height: 1; }
-@media (max-width: 1180px) {
+@container canvas-toolbar (max-width: 620px) {
   .canvas-actions .canvas-text-button span { display: none; }
   .canvas-actions .canvas-text-button { width: 28px; padding: 0; }
+}
+/* Tighter still: the view switcher gives up its padding before anything is
+   allowed to collide. */
+@container canvas-toolbar (max-width: 420px) {
+  .view-switcher button { padding: 0 6px; }
+  .canvas-toolbar { padding-left: 10px; gap: 4px; }
 }
 .split-canvas { min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
 .split-canvas > .source-workspace, .split-canvas > .pdf-preview { min-width: 0; min-height: 0; overflow: hidden; }
@@ -907,14 +917,13 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .source-editor .cm-panel.cm-search {
   position: relative;
   padding: 7px 42px 7px 10px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(6, auto);
-  grid-auto-rows: 28px;
+  /* Wraps rather than scrolls: a fixed grid let the controls squeeze the query
+     field to nothing in a narrow editor. */
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  column-gap: 6px;
-  row-gap: 6px;
+  gap: 6px;
   font-size: 11px;
-  overflow-x: auto;
 }
 .source-editor .cm-panel.cm-search > br { display: none; }
 .source-editor .cm-panel.cm-search input.cm-textfield {
@@ -928,10 +937,15 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   padding: 0 9px;
   color: var(--text);
   font: 12px/1 var(--ui-font);
-  grid-column: 1;
+  /* Keeps a usable field, and takes a whole row of its own when space is tight. */
+  flex: 1 1 150px;
+  min-width: 120px;
+  width: auto;
 }
 .source-editor .cm-panel.cm-search input.cm-textfield:focus { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .source-editor .cm-panel.cm-search button {
+  flex: 0 0 auto;
+  min-width: 28px;
   height: 28px;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -962,6 +976,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   justify-content: center;
 }
 .source-editor .cm-panel.cm-search label {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1521,10 +1536,17 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .source-editor .cm-ySelectionCaret > .cm-ySelectionInfo {
   opacity: 1 !important;
-  /* The upstream theme fades this label over .3s (it is normally shown only on
-     hover). We force it always-visible but inherited the fade, so a peer moving
-     quickly left a name hanging at every position they had just left. */
+  /* Two reasons a name used to hang at positions its owner had already left.
+     The upstream theme fades this label over .3s (it is normally shown only on
+     hover) and we force it visible without cancelling the fade. And
+     y-codemirror.next recycles one caret element per peer and relocates it (its
+     widget compares only colour and refuses updateDOM) — moving an absolutely
+     positioned child of an inline box leaves WebKit repainting the old rect
+     late. Cancel the fade, and give the label its own compositing layer so a
+     move repaints cleanly. Measured: neither changes line height. */
   transition: none !important;
+  will-change: transform;
+  transform: translateZ(0);
   top: -1.35em;
   left: -1px;
   padding: 1px 5px;
