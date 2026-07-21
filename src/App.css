@@ -1787,23 +1787,23 @@ button.checklist-row:hover { border-color: color-mix(in srgb, var(--accent) 35%,
   font-size: 10px;
   font-weight: 650;
 }
-.agent-tool-timeline {
-  /* Width now comes from .message-column, so it matches the text bubble. */
-  margin: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg) 70%, var(--panel));
-  display: grid;
-  gap: 5px;
-}
+/* Each step is its own row inside the turn now, sitting between the runs of
+   text it happened between. Width comes from .message-column, so it lines up
+   with the reply rather than spanning the avatar gutter. */
 .agent-tool-step {
+  margin: 5px 0;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg) 70%, var(--panel));
   display: grid;
   grid-template-columns: 8px 1fr auto;
   gap: 8px;
   align-items: center;
   font-size: 10px;
 }
+.agent-tool-step:first-child { margin-top: 0; }
+.agent-tool-step:last-child { margin-bottom: 0; }
 .agent-tool-step i {
   width: 6px;
   height: 6px;

@@ -32,6 +32,7 @@ pub fn create(
             text: "What would you like to work on?".to_string(),
             files: Vec::new(),
             skills: Vec::new(),
+            parts: Vec::new(),
         }],
     };
     write(root, &session)?;
@@ -329,6 +330,7 @@ mod tests {
             text: "Rewrite the introduction around the central hypothesis".to_string(),
             files: Vec::new(),
             skills: Vec::new(),
+            parts: Vec::new(),
         });
         let session = save(&root, session).unwrap();
         assert_eq!(
@@ -361,6 +363,7 @@ mod tests {
             text: "Compare against the strongest diffusion baseline".to_string(),
             files: vec!["sections/related.tex".to_string()],
             skills: Vec::new(),
+            parts: Vec::new(),
         });
         original.messages.push(AgentMessage {
             id: Uuid::new_v4().to_string(),
@@ -368,6 +371,7 @@ mod tests {
             text: "I updated the section.".to_string(),
             files: Vec::new(),
             skills: Vec::new(),
+            parts: Vec::new(),
         });
         original = save(&root, original).unwrap();
         let results = search(&root, "diffusion baseline").unwrap();
@@ -392,8 +396,8 @@ mod tests {
             model: "gpt-5.6-sol".to_string(),
             reasoning_effort: "high".to_string(),
             messages: vec![
-                AgentMessage { id: Uuid::new_v4().to_string(), role: "user".to_string(), text: "What model are you?".to_string(), files: Vec::new(), skills: Vec::new() },
-                AgentMessage { id: Uuid::new_v4().to_string(), role: "agent".to_string(), text: "What model are you?I am an assistant.".to_string(), files: Vec::new(), skills: Vec::new() },
+                AgentMessage { id: Uuid::new_v4().to_string(), role: "user".to_string(), text: "What model are you?".to_string(), files: Vec::new(), skills: Vec::new(), parts: Vec::new() },
+                AgentMessage { id: Uuid::new_v4().to_string(), role: "agent".to_string(), text: "What model are you?I am an assistant.".to_string(), files: Vec::new(), skills: Vec::new(), parts: Vec::new() },
             ],
         };
         normalize_legacy_echoes(&mut session);

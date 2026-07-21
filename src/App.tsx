@@ -344,12 +344,19 @@ type RenameSymbolResult = {
   transactionId: string;
 };
 
+/** One chronological slice of an agent turn: something it said, or something it did. */
+type ChatPart =
+  | { kind: "text"; text: string }
+  | ({ kind: "tool" } & AgentToolStep);
+
 type ChatMessage = {
   id: string;
   role: "user" | "agent" | "system";
   text: string;
   files?: string[];
   skills?: string[];
+  /** Absent on user/system turns; the bubble falls back to `text` then. */
+  parts?: ChatPart[];
 };
 
 type AgentSession = {
@@ -516,7 +523,6 @@ function App() {
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentStreaming, setAgentStreaming] = useState(false);
   const [agentStatus, setAgentStatus] = useState("");
-  const [agentToolSteps, setAgentToolSteps] = useState<AgentToolStep[]>([]);
   const [agentStopping, setAgentStopping] = useState(false);
   const [agentCancellable, setAgentCancellable] = useState(false);
   const [projectWordCount, setProjectWordCount] = useState<WordCount | null>(null);
@@ -3016,7 +3022,23 @@ function App() {
       const pendingMessages = [...session.messages, userMessage];
       currentMessages = pendingMessages;
       setMessages(pendingMessages);
-      setAgentToolSteps([]);
+      // The turn is assembled in order as it happens. Rust re-sends the whole
+      // transcript on every delta, so the length already committed to closed
+      // text parts is exactly where the next spoken run begins — that offset is
+      // all the interleaving needs.
+      let parts: ChatPart[] = [];
+      let fullText = "";
+      let committed = 0;
+      const publish = () => {
+        const streamedMessages: ChatMessage[] = [...pendingMessages, {
+          id: streamedMessageId,
+          role: "agent",
+          text: fullText,
+          parts: [...parts],
+        }];
+        currentMessages = streamedMessages;
+        setMessages(streamedMessages);
+      };
       const onEvent = new Channel<AgentStreamEvent>((event) => {
         if (event.type === "cancellable") {
           setAgentCancellable(event.enabled);
@@ -3027,45 +3049,54 @@ function App() {
           return;
         }
         if (event.type === "tool") {
+          if (event.phase === "end") {
+            for (let index = parts.length - 1; index >= 0; index -= 1) {
+              const part = parts[index];
+              if (part?.kind === "tool" && part.name === event.name && part.phase === "start") {
+                parts[index] = { ...part, phase: "end", detail: event.detail || "done" };
+                publish();
+                return;
+              }
+            }
+            parts = [...parts, {
+              kind: "tool",
+              id: crypto.randomUUID(),
+              name: event.name,
+              detail: event.detail || "done",
+              phase: "end",
+            }];
+            publish();
+            return;
+          }
           // A blinking caret with no text arriving reads as "stuck". Hand the
           // floor back to the status row ("Editing main.tex…") for the duration
           // of the tool call; the next text delta re-raises the caret.
-          if (event.phase === "start") setAgentStreaming(false);
-          setAgentToolSteps((steps) => {
-            if (event.phase === "end") {
-              const next = [...steps];
-              for (let index = next.length - 1; index >= 0; index -= 1) {
-                if (next[index]?.name === event.name && next[index]?.phase === "start") {
-                  next[index] = { ...next[index]!, phase: "end", detail: event.detail || "done" };
-                  return next;
-                }
-              }
-              return [...next, {
-                id: crypto.randomUUID(),
-                name: event.name,
-                detail: event.detail || "done",
-                phase: "end",
-              }];
-            }
-            return [...steps, {
-              id: crypto.randomUUID(),
-              name: event.name,
-              detail: event.detail,
-              phase: "start",
-            }];
-          });
+          setAgentStreaming(false);
+          // Seal whatever has been said so far so the next run of text lands
+          // after this tool rather than growing the paragraph above it.
+          committed = fullText.length;
+          parts = [...parts, {
+            kind: "tool",
+            id: crypto.randomUUID(),
+            name: event.name,
+            detail: event.detail,
+            phase: "start",
+          }];
+          publish();
           return;
         }
         if (!event.text) return;
-        const streamedMessages: ChatMessage[] = [...pendingMessages, {
-          id: streamedMessageId,
-          role: "agent",
-          text: event.text,
-        }];
-        currentMessages = streamedMessages;
+        fullText = event.text;
+        const spoken = fullText.slice(committed);
+        const last = parts[parts.length - 1];
+        if (last?.kind === "text") {
+          parts = [...parts.slice(0, -1), { kind: "text", text: spoken }];
+        } else if (spoken) {
+          parts = [...parts, { kind: "text", text: spoken }];
+        }
         setAgentStreaming(true);
         setAgentStatus("");
-        setMessages(streamedMessages);
+        publish();
       });
       session = await invoke<AgentSession>("save_agent_session", {
         session: { ...session, provider, model: agentModel, reasoningEffort, messages: pendingMessages },
@@ -3085,12 +3116,18 @@ function App() {
           systemPrompt,
         },
       });
+      // Nothing streamed (a short non-streaming reply) leaves no parts to keep,
+      // so fall back to the summary as a single spoken part.
+      const completedParts: ChatPart[] = parts.length
+        ? parts
+        : [{ kind: "text", text: result.summary }];
       const completedMessages: ChatMessage[] = [...pendingMessages, {
         id: streamedMessageId,
         role: "agent",
         text: result.summary,
         files: result.changedFiles,
         skills: result.skillsUsed ?? [],
+        parts: completedParts,
       }];
       currentMessages = completedMessages;
       setAgentStreaming(false);
@@ -3962,7 +3999,6 @@ function App() {
           running={agentRunning}
           streaming={agentStreaming}
           status={agentStatus}
-          toolSteps={agentToolSteps}
           cancellable={agentCancellable}
           stopping={agentStopping}
           onSend={sendToAgent}
@@ -5322,6 +5358,16 @@ function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, o
   );
 }
 
+function AgentToolRow({ step }: { step: AgentToolStep }) {
+  return (
+    <div className={`agent-tool-step ${step.phase}`}>
+      <i aria-hidden="true" />
+      <strong>{step.name}</strong>
+      <span>{step.detail || (step.phase === "start" ? "running…" : "done")}</span>
+    </div>
+  );
+}
+
 function AgentPanel({
   katexMacros,
   messages,
@@ -5344,7 +5390,6 @@ function AgentPanel({
   running,
   streaming,
   status,
-  toolSteps,
   cancellable,
   stopping,
   onSend,
@@ -5379,7 +5424,6 @@ function AgentPanel({
   running: boolean;
   streaming: boolean;
   status: string;
-  toolSteps: AgentToolStep[];
   cancellable: boolean;
   stopping: boolean;
   onSend: () => void;
@@ -5535,9 +5579,13 @@ function AgentPanel({
             {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
             <div className="message-column">
               <div className="message-body">
-                {message.role === "agent"
-                  ? <ChatMarkdown text={message.text} macros={katexMacros} />
-                  : <p>{message.text}</p>}
+                {message.role !== "agent"
+                  ? <p>{message.text}</p>
+                  : (message.parts?.length
+                    ? message.parts.map((part, partIndex) => (part.kind === "text"
+                      ? <ChatMarkdown key={partIndex} text={part.text} macros={katexMacros} />
+                      : <AgentToolRow key={part.id} step={part} />))
+                    : <ChatMarkdown text={message.text} macros={katexMacros} />)}
                 {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
                 {message.role === "agent" && (!isConversationWelcome(message, index) || !!message.files?.length) && <div className="agent-message-meta">
                   {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
@@ -5560,24 +5608,6 @@ function AgentPanel({
           <div className="chat-message agent">
             <div className="message-avatar"><Sparkles size={13} /></div>
             <div className="thinking"><span /><span /><span /><em>{status || (provider === "claude" ? "Claude is writing…" : "Agent is writing…")}</em></div>
-          </div>
-        )}
-        {toolSteps.length > 0 && (
-          // Sits in an agent row so the timeline lines up with the text bubble
-          // instead of spanning the avatar gutter too.
-          <div className="chat-message agent">
-            <div className="message-avatar-spacer" aria-hidden="true" />
-            <div className="message-column">
-              <div className="agent-tool-timeline" aria-label="Agent tool progress">
-                {toolSteps.map((step) => (
-                  <div key={step.id} className={`agent-tool-step ${step.phase}`}>
-                    <i aria-hidden="true" />
-                    <strong>{step.name}</strong>
-                    <span>{step.detail || (step.phase === "start" ? "running…" : "done")}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
         <div ref={chatEnd} />

@@ -1374,6 +1374,61 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_paper", { arxivId: "1706.03762" }));
   });
 
+  it("interleaves what the agent said with what it did, in order", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "run_agent") {
+        const channel = (args as { onEvent: { onmessage: (event: unknown) => void } }).onEvent;
+        // Rust re-sends the whole transcript on every delta, hence the growth.
+        channel.onmessage({ type: "text", text: "Let me look at the abstract." });
+        channel.onmessage({ type: "tool", name: "read", detail: "main.tex", phase: "start" });
+        channel.onmessage({ type: "tool", name: "read", detail: "done", phase: "end" });
+        channel.onmessage({ type: "text", text: "Let me look at the abstract.Now I will tighten it." });
+        channel.onmessage({ type: "tool", name: "edit", detail: "main.tex", phase: "start" });
+        channel.onmessage({ type: "tool", name: "edit", detail: "done", phase: "end" });
+        channel.onmessage({ type: "text", text: "Let me look at the abstract.Now I will tighten it.Done." });
+        return { summary: "unused", changedFiles: [], skillsUsed: [] };
+      }
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const composer = await screen.findByPlaceholderText(/ask the agent/i);
+    fireEvent.change(composer, { target: { value: "Tighten the abstract." } });
+    fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
+
+    const bubble = await screen.findByText("Let me look at the abstract.");
+    const body = bubble.closest(".message-body")!;
+    await waitFor(() => expect(body.textContent).toContain("Done."));
+
+    // Reading the turn top to bottom must match the order things happened.
+    const sequence = [...body.querySelectorAll(":scope > .chat-markdown, :scope > .agent-tool-step")]
+      .map((child) => child.classList.contains("agent-tool-step")
+        ? `tool:${child.querySelector("strong")?.textContent}`
+        : `text:${child.textContent?.trim()}`);
+    expect(sequence).toEqual([
+      "text:Let me look at the abstract.",
+      "tool:read",
+      "text:Now I will tighten it.",
+      "tool:edit",
+      "text:Done.",
+    ]);
+  });
+
   it("shows a sent message while Claude is still working", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",

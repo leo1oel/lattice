@@ -389,6 +389,24 @@ pub struct ProjectSearchResult {
     pub file_kind: Option<String>,
 }
 
+/// One chronological slice of an agent turn: something it said, or something it
+/// did. `text` on the message stays the full transcript for copying and for
+/// clients that predate this field; `parts` is what the bubble renders.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum MessagePart {
+    Text {
+        text: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    Tool {
+        id: String,
+        name: String,
+        detail: String,
+        phase: String,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentMessage {
@@ -399,6 +417,10 @@ pub struct AgentMessage {
     pub files: Vec<String>,
     #[serde(default)]
     pub skills: Vec<String>,
+    /// Empty for user/system messages and for turns recorded before the field
+    /// existed; the renderer falls back to `text` then.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<MessagePart>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
