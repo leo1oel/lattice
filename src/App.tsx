@@ -186,7 +186,7 @@ import { TableGeneratorDialog } from "./table-generator-dialog";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "./project-replace-dialog";
 import type { PdfMark } from "./pdf-annotations";
-import { LiteratureDiscoveryPanel } from "./literature-discovery-panel";
+import { LiteratureDiscoveryPanel, baseArxivId } from "./literature-discovery-panel";
 import { PdfPreview, type PdfSyncTarget } from "./pdf-viewer";
 import { findAppendixMarker } from "./appendix-pages";
 import { ManuscriptChecklistPanel } from "./manuscript-checklist";
@@ -445,6 +445,7 @@ type AppearanceSettings = {
   editorFontSize: number;
   editorKeymap: EditorKeymap;
   editorSpellcheck: boolean;
+  maxOpenTabs: number;
 };
 type AutoBuildMode = "manual" | "automatic";
 type BuildPreferences = { autoBuildMode: AutoBuildMode };
@@ -510,6 +511,11 @@ function App() {
   const [references, setReferences] = useState<ReferenceInfo[]>([]);
   const [unusedSymbols, setUnusedSymbols] = useState<UnusedSymbols>({ labels: [], citations: [] });
   const [openTabs, setOpenTabs] = useState<string[]>([]);
+  // Most-recently-active tab key first; drives LRU eviction over the max-tabs cap.
+  const tabRecency = useRef<string[]>([]);
+  const noteTabActive = useCallback((key: string) => {
+    tabRecency.current = [key, ...tabRecency.current.filter((existing) => existing !== key)];
+  }, []);
   const [navStack, setNavStack] = useState<NavigationEntry[]>([]);
   const [navIndex, setNavIndex] = useState(-1);
   const navLock = useRef(false);
@@ -1438,8 +1444,23 @@ function App() {
   const closeEditorTab = useCallback(async (path: string) => {
     const remaining = openTabs.filter((tab) => tab !== path);
     setOpenTabs(remaining);
+    tabRecency.current = tabRecency.current.filter((key) => key !== path);
     viewStateRef.current.delete(path);
     closedTabsRef.current = [path, ...closedTabsRef.current.filter((item) => item !== path)].slice(0, 20);
+    // The most recent still-open text file to fall back to (papers can't load
+    // into the editor).
+    const fileFallback = [...remaining].reverse().find((key) => !isPaperTabKey(key));
+    if (isPaperTabKey(path)) {
+      // Only the paper currently on screen needs the canvas returned to the editor.
+      if (canvasMode === "paper" && activePaper && paperTabKey(activePaper.arxivId) === path) {
+        setActivePaper(null);
+        setPaperMarkdown("");
+        setPaperBlog(null);
+        if (fileFallback) await openProjectFile(fileFallback);
+        else setCanvasMode((mode) => (mode === "paper" ? "split" : mode));
+      }
+      return;
+    }
     if (path === secondaryFile) {
       setSecondaryFile(null);
       setSecondarySource("");
@@ -1448,9 +1469,8 @@ function App() {
       if (path !== activeFile) return;
     }
     if (path !== activeFile) return;
-    const fallback = remaining[remaining.length - 1];
-    if (fallback) await openProjectFile(fallback);
-  }, [activeFile, openTabs, openProjectFile]);
+    if (fileFallback) await openProjectFile(fileFallback);
+  }, [activeFile, activePaper, canvasMode, openTabs, openProjectFile, secondaryFile]);
 
   const reopenClosedTab = useCallback(async () => {
     const path = closedTabsRef.current.shift();
@@ -1728,6 +1748,7 @@ function App() {
       setCitations(nextCitations);
       setReferences(nextReferences ?? []);
       setOpenTabs(rootDocument ? [rootDocument.path] : []);
+      tabRecency.current = rootDocument ? [rootDocument.path] : [];
       setNavStack(rootDocument ? [{ path: rootDocument.path, line: 1 }] : []);
       setNavIndex(rootDocument ? 0 : -1);
       viewStateRef.current.clear();
@@ -2198,6 +2219,8 @@ function App() {
       setActivePaper(paper);
       setActiveAsset(null);
       setCanvasMode("paper");
+      const key = paperTabKey(paper.arxivId);
+      setOpenTabs((tabs) => (tabs.includes(key) ? tabs : [...tabs, key]));
     } catch (reason) {
       setError(toMessage(reason));
     }
@@ -2302,7 +2325,7 @@ function App() {
     const candidate = preferred
       ?? (secondaryFile && secondaryFile !== activeFile ? secondaryFile : null)
       ?? openTabs.find((path) => path !== activeFile && path.endsWith(".tex"))
-      ?? openTabs.find((path) => path !== activeFile)
+      ?? openTabs.find((path) => path !== activeFile && !isPaperTabKey(path))
       ?? null;
     if (!candidate) return null;
     if (candidate === secondaryFile) return candidate;
@@ -3660,13 +3683,56 @@ function App() {
     return activeOutlineNode(outlineNodes, activeFile, editorPosition.line)?.id ?? null;
   }, [activeFile, editorPosition, outlineNodes]);
   const editorTabItems = useMemo(
-    () => openTabs.map((path) => ({
-      path,
-      dirty: (path === activeFile && source !== savedSource)
-        || (path === secondaryFile && secondarySource !== secondarySavedSource),
-      beside: path === secondaryFile && (canvasMode === "dual" || canvasMode === "columns"),
-    })),
-    [activeFile, canvasMode, openTabs, savedSource, secondaryFile, secondarySavedSource, secondarySource, source],
+    () => openTabs.map((path) => {
+      if (isPaperTabKey(path)) {
+        const id = arxivIdFromTabKey(path);
+        // Papers are read-only, so never dirty and never a split "beside" pane.
+        return { path, kind: "paper" as const, label: papers.find((paper) => paper.arxivId === id)?.title ?? "Paper" };
+      }
+      return {
+        path,
+        kind: "file" as const,
+        dirty: (path === activeFile && source !== savedSource)
+          || (path === secondaryFile && secondarySource !== secondarySavedSource),
+        beside: path === secondaryFile && (canvasMode === "dual" || canvasMode === "columns"),
+      };
+    }),
+    [activeFile, canvasMode, openTabs, papers, savedSource, secondaryFile, secondarySavedSource, secondarySource, source],
+  );
+  // The tab that reads as active: the open paper in paper mode, else the focused
+  // editor pane. Also the key eviction must never close.
+  const activeTabKey = canvasMode === "paper" && activePaper
+    ? paperTabKey(activePaper.arxivId)
+    : (focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile);
+  // Whatever is on screen is the most-recently-used tab; the split's other pane
+  // counts too. Tracking recency here covers every path that opens a tab.
+  useEffect(() => {
+    if (activeTabKey) noteTabActive(activeTabKey);
+  }, [activeTabKey, noteTabActive]);
+  useEffect(() => {
+    if (secondaryFile) noteTabActive(secondaryFile);
+  }, [secondaryFile, noteTabActive]);
+  // Cap open tabs: over the limit, close the least-recently-active tab that is
+  // neither on screen nor the split's other pane (papers are never dirty; only
+  // the active/secondary editors can be, and both are protected here).
+  useEffect(() => {
+    if (openTabs.length <= appearance.maxOpenTabs) return;
+    const keep = new Set([activeTabKey, activeFile, secondaryFile].filter(Boolean) as string[]);
+    const candidates = openTabs.filter((key) => !keep.has(key));
+    if (!candidates.length) return;
+    const staleness = (key: string) => {
+      const index = tabRecency.current.indexOf(key);
+      return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+    };
+    const victim = candidates.reduce((worst, key) => (staleness(key) > staleness(worst) ? key : worst));
+    setOpenTabs((tabs) => tabs.filter((key) => key !== victim));
+    tabRecency.current = tabRecency.current.filter((key) => key !== victim);
+  }, [openTabs, appearance.maxOpenTabs, activeTabKey, activeFile, secondaryFile]);
+  // Versionless arXiv ids whose full text is already in the library — the
+  // Discover panel shows these hits as done instead of importable.
+  const importedArxivIds = useMemo(
+    () => new Set(papers.filter((paper) => paper.hasFullText && paper.arxivId).map((paper) => baseArxivId(paper.arxivId))),
+    [papers],
   );
   const liveSourceMap = useMemo(() => ({
     ...outlineSources,
@@ -4188,9 +4254,18 @@ function App() {
           <div className="canvas-body">
           <EditorTabs
             tabs={editorTabItems}
-            activePath={focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile}
-            onSelect={(path) => { void openProjectFile(path); }}
+            activePath={activeTabKey}
+            onSelect={(path) => {
+              if (isPaperTabKey(path)) {
+                const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));
+                if (paper) void openPaper(paper);
+                else void closeEditorTab(path);
+              } else {
+                void openProjectFile(path);
+              }
+            }}
             onClose={(path) => { void closeEditorTab(path); }}
+            onReorder={(next) => setOpenTabs(next)}
           />
           <DocumentCanvas
             mode={canvasMode}
@@ -4658,6 +4733,7 @@ function App() {
       {literatureOpen && (
         <LiteratureDiscoveryPanel
           onClose={() => setLiteratureOpen(false)}
+          importedIds={importedArxivIds}
           onImportArxiv={(arxivId) => importArxivInput(arxivId)}
           onAddBib={(query) => {
             setLiteratureOpen(false);
@@ -6050,6 +6126,20 @@ function CanvasToolbar(props: {
   );
 }
 
+// Papers ride in the same `openTabs` string[] as files. A paper's tab key is
+// its full-text path — unambiguous, since only papers live under this prefix.
+const PAPER_TAB_PREFIX = ".research/papers/";
+const PAPER_TAB_SUFFIX = "/paper.md";
+function isPaperTabKey(key: string): boolean {
+  return key.startsWith(PAPER_TAB_PREFIX) && key.endsWith(PAPER_TAB_SUFFIX);
+}
+function paperTabKey(arxivId: string): string {
+  return `${PAPER_TAB_PREFIX}${arxivId}${PAPER_TAB_SUFFIX}`;
+}
+function arxivIdFromTabKey(key: string): string {
+  return key.slice(PAPER_TAB_PREFIX.length, key.length - PAPER_TAB_SUFFIX.length);
+}
+
 /**
  * Full text imported with `arxiv2md --frontmatter` leads with a YAML block; the
  * reader shows the title from metadata, so drop the raw YAML rather than render
@@ -6722,7 +6812,7 @@ function DocumentCanvas(props: {
           {props.paperBlog != null && (
             <div className="paper-view-toggle" role="group" aria-label="Reading view">
               <button type="button" className={showBlog ? "active" : ""} onClick={() => props.onSetPaperView("blog")}>Blog</button>
-              <button type="button" className={!showBlog ? "active" : ""} onClick={() => props.onSetPaperView("fulltext")}>原文</button>
+              <button type="button" className={!showBlog ? "active" : ""} onClick={() => props.onSetPaperView("fulltext")}>Paper</button>
             </div>
           )}
           {props.activePaper && <small>arXiv {props.activePaper.arxivId}</small>}
@@ -7339,6 +7429,10 @@ function SettingsDialog(props: {
                   />
                   <span>Spellcheck prose in the editor</span>
                 </label>
+                <div className="settings-range">
+                  <div><label htmlFor="max-open-tabs">Max open tabs</label><output>{props.appearance.maxOpenTabs}</output></div>
+                  <input id="max-open-tabs" type="range" min="1" max="20" step="1" value={props.appearance.maxOpenTabs} onChange={(event) => props.setAppearance({ ...props.appearance, maxOpenTabs: Number(event.target.value) })} />
+                </div>
                 <label>Automatic build
                   <select aria-label="Automatic build" value={props.buildPreferences.autoBuildMode} onChange={(event) => props.setBuildPreferences({ autoBuildMode: event.target.value as AutoBuildMode })}>
                     <option value="manual">Manual only</option>
@@ -7768,6 +7862,7 @@ function loadAppearance(): AppearanceSettings {
     editorFontSize: 14,
     editorKeymap: "default",
     editorSpellcheck: false,
+    maxOpenTabs: 5,
   };
   try {
     const current = localStorage.getItem(APPEARANCE_KEY);
@@ -7792,6 +7887,7 @@ function loadAppearance(): AppearanceSettings {
           ? "emacs"
           : "default",
       editorSpellcheck: value?.editorSpellcheck === true,
+      maxOpenTabs: clamp(Math.round(Number(value?.maxOpenTabs) || defaults.maxOpenTabs), 1, 20),
     };
   } catch {
     return defaults;

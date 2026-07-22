@@ -2,12 +2,19 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   BookOpen,
+  Check,
   ExternalLink,
   LoaderCircle,
   Quote,
   Search,
   X,
 } from "lucide-react";
+
+/** Versionless arXiv id, mirroring Rust `papers::arxiv_base_id`. */
+export function baseArxivId(id: string): string {
+  const match = /^(.*?)v\d+$/.exec(id.trim());
+  return match ? match[1] : id.trim();
+}
 
 export type LiteratureHit = {
   source: "alphaxiv" | "openalex" | string;
@@ -49,14 +56,23 @@ export function LiteratureDiscoveryPanel(props: {
   onClose: () => void;
   onImportArxiv: (arxivId: string) => Promise<void> | void;
   onAddBib: (query: string) => void;
+  /** Versionless arXiv ids already in the library, shown as done. */
+  importedIds: Set<string>;
 }) {
   const [query, setQuery] = useState("");
   const [precise, setPrecise] = useState(true);
   const [results, setResults] = useState<LiteratureHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [justImported, setJustImported] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  const isImported = (arxivId?: string | null): boolean => {
+    if (!arxivId) return false;
+    const base = baseArxivId(arxivId);
+    return props.importedIds.has(base) || justImported.has(base);
+  };
 
   const search = async () => {
     const trimmed = query.trim();
@@ -137,22 +153,31 @@ export function LiteratureDiscoveryPanel(props: {
               </div>
               <div className="literature-result-actions">
                 {work.arxivId ? (
-                  <button
-                    type="button"
-                    disabled={busyId === key}
-                    title="Import arXiv snapshot + bibliography entry"
-                    onClick={() => {
-                      setBusyId(key);
-                      setError("");
-                      Promise.resolve(props.onImportArxiv(work.arxivId!))
-                        .then(() => setNotice(`Imported arXiv:${work.arxivId}`))
-                        .catch((reason) => setError(message(reason)))
-                        .finally(() => setBusyId(null));
-                    }}
-                  >
-                    {busyId === key ? <LoaderCircle className="spin" size={13} /> : <BookOpen size={13} />}
-                    Import
-                  </button>
+                  isImported(work.arxivId) ? (
+                    <span className="lit-imported" title="Already in Papers">
+                      <Check size={13} /> Imported
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busyId === key}
+                      title="Import arXiv snapshot + bibliography entry"
+                      onClick={() => {
+                        setBusyId(key);
+                        setError("");
+                        Promise.resolve(props.onImportArxiv(work.arxivId!))
+                          .then(() => {
+                            setNotice(`Imported arXiv:${work.arxivId}`);
+                            setJustImported((current) => new Set(current).add(baseArxivId(work.arxivId!)));
+                          })
+                          .catch((reason) => setError(message(reason)))
+                          .finally(() => setBusyId(null));
+                      }}
+                    >
+                      {busyId === key ? <LoaderCircle className="spin" size={13} /> : <BookOpen size={13} />}
+                      Import
+                    </button>
+                  )
                 ) : null}
                 <button
                   type="button"

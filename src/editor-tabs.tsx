@@ -5,11 +5,14 @@ export type EditorTab = {
   path: string;
   dirty?: boolean;
   beside?: boolean;
+  kind?: "file" | "paper";
+  label?: string;
 };
 
-function tabLabel(path: string): string {
-  const parts = path.split("/");
-  return parts[parts.length - 1] || path;
+function tabLabel(tab: EditorTab): string {
+  if (tab.label) return tab.label;
+  const parts = tab.path.split("/");
+  return parts[parts.length - 1] || tab.path;
 }
 
 export function EditorTabs(props: {
@@ -17,8 +20,24 @@ export function EditorTabs(props: {
   activePath: string;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
+  onReorder: (nextPaths: string[]) => void;
 }) {
   const [menu, setMenu] = useState<{ path: string; x: number; y: number } | null>(null);
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dropKey, setDropKey] = useState<string | null>(null);
+
+  const reorder = (from: string, to: string) => {
+    if (from === to) return;
+    const paths = props.tabs.map((tab) => tab.path);
+    const fromIdx = paths.indexOf(from);
+    const toIdx = paths.indexOf(to);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const without = paths.filter((path) => path !== from);
+    // Dropping onto a tab lands before it when moving left, after it moving right.
+    const insertAt = without.indexOf(to) + (fromIdx < toIdx ? 1 : 0);
+    without.splice(insertAt, 0, from);
+    props.onReorder(without);
+  };
 
   useEffect(() => {
     if (!menu) return;
@@ -44,8 +63,29 @@ export function EditorTabs(props: {
           return (
             <div
               key={tab.path}
-              className={`editor-tab ${active ? "active" : ""}${tab.beside ? " beside" : ""}`}
+              className={`editor-tab ${active ? "active" : ""}${tab.beside ? " beside" : ""}${dragKey === tab.path ? " dragging" : ""}${dropKey === tab.path ? " drop-target" : ""}`}
               role="presentation"
+              draggable
+              onDragStart={(event) => {
+                setDragKey(tab.path);
+                event.dataTransfer.effectAllowed = "move";
+              }}
+              onDragOver={(event) => {
+                if (!dragKey || dragKey === tab.path) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                setDropKey(tab.path);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (dragKey) reorder(dragKey, tab.path);
+                setDragKey(null);
+                setDropKey(null);
+              }}
+              onDragEnd={() => {
+                setDragKey(null);
+                setDropKey(null);
+              }}
               onAuxClick={(event) => {
                 if (event.button !== 1) return;
                 event.preventDefault();
@@ -60,18 +100,18 @@ export function EditorTabs(props: {
                 type="button"
                 role="tab"
                 aria-selected={active}
-                title={`${tab.path} · middle-click close · ⌘⇧T reopen`}
+                title={`${tab.label ?? tab.path} · middle-click close · ⌘⇧T reopen`}
                 onClick={() => {
                   props.onSelect(tab.path);
                 }}
               >
-                <span>{tabLabel(tab.path)}</span>
+                <span>{tabLabel(tab)}</span>
                 {tab.dirty && <i aria-label="Unsaved changes" />}
               </button>
               <button
                 type="button"
                 className="editor-tab-close"
-                title={`Close ${tabLabel(tab.path)}`}
+                title={`Close ${tabLabel(tab)}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   props.onClose(tab.path);

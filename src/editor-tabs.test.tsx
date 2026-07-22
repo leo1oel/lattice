@@ -18,6 +18,7 @@ describe("EditorTabs", () => {
         activePath="main.tex"
         onSelect={onSelect}
         onClose={vi.fn()}
+        onReorder={vi.fn()}
       />,
     );
     fireEvent.click(screen.getByRole("tab", { name: /intro\.tex/i }));
@@ -35,6 +36,7 @@ describe("EditorTabs", () => {
         activePath="main.tex"
         onSelect={vi.fn()}
         onClose={onClose}
+        onReorder={vi.fn()}
       />,
     );
     const introTab = screen.getByRole("tab", { name: /intro\.tex/i }).closest(".editor-tab");
