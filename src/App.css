@@ -525,12 +525,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .skills-used span { border-radius: 5px; padding: 3px 5px; background: var(--accent-soft); color: var(--accent); font-size: 9px; }
 .changed-files { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .changed-files span { max-width: 100%; border: 1px solid var(--line); border-radius: 5px; padding: 3px 5px; display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thinking { height: 22px; display: flex; align-items: center; gap: 4px; }
-.thinking span { width: 4px; height: 4px; border-radius: 50%; background: var(--faint); animation: think 1.2s infinite ease-in-out; }
-.thinking span:nth-child(2) { animation-delay: 0.15s; }
-.thinking span:nth-child(3) { animation-delay: 0.3s; }
-.thinking em { margin-left: 4px; color: var(--faint); font-size: 9px; font-style: normal; }
-@keyframes think { 0%, 60%, 100% { opacity: .35; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+.thinking { min-height: 22px; display: flex; align-items: center; gap: 6px; }
+.thinking canvas { flex: none; }
+.thinking em { color: var(--faint); font-size: 9px; font-style: normal; }
 @keyframes stream-cursor { 0%, 48% { opacity: 1; } 49%, 100% { opacity: 0; } }
 .composer-wrap { position: relative; flex: none; padding: 8px 10px 11px; }
 .context-chip { width: fit-content; max-width: 100%; height: 22px; margin: 0 0 5px 4px; padding: 0 7px; border-radius: 6px 6px 0 0; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; gap: 5px; font-size: 9px; }

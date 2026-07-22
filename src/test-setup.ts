@@ -32,6 +32,14 @@ Object.defineProperty(Element.prototype, "scrollIntoView", {
   value: () => undefined,
 });
 
+// jsdom has no 2D canvas backend; ThinkingOrb reads getContext("2d") and
+// bails when it is null, so return null here to exercise that path without
+// flooding the run with jsdom "Not implemented" warnings.
+Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+  configurable: true,
+  value: () => null,
+});
+
 Object.defineProperty(Range.prototype, "getClientRects", {
   configurable: true,
   value: () => [],

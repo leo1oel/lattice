@@ -195,6 +195,7 @@ import { ManuscriptChecklistPanel } from "./manuscript-checklist";
 import { mergeTodosWithBuffer, type TodoHit } from "./todo-scavenger";
 import { TodoScavengerPanel } from "./todo-scavenger-panel";
 import { referenceAssetPreviewDataUrl, type ReferenceAssetPreview } from "./reference-preview";
+import { ThinkingOrb, type OrbState } from "./thinking-orbs";
 import {
   DEFAULT_EDITOR_FONT,
   DEFAULT_UI_FONT,
@@ -5501,6 +5502,23 @@ function AgentToolRow({ step }: { step: AgentToolStep }) {
   );
 }
 
+/**
+ * Map the agent's current status line to a thinking-orb animation, so the
+ * orb reflects what the agent is actually doing (reading, editing, running a
+ * command, …) rather than one generic spinner. Driven entirely by the status
+ * string the backend already emits, so it needs no extra event plumbing.
+ * Order matters: a path like "Editing search-panel.ts…" must read as editing,
+ * not searching, so the write/edit test runs before the read/search one.
+ */
+function statusToOrbState(status: string): OrbState {
+  const s = status.toLowerCase();
+  if (/edit|writ|compos/.test(s)) return "composing";
+  if (/compress/.test(s)) return "shaping";
+  if (/run|command|bash|compil|retry/.test(s)) return "solving";
+  if (/read|search|find|review|discover|literatur|fetch|grep|look/.test(s)) return "searching";
+  return "working";
+}
+
 function AgentPanel({
   agentCommands,
   katexMacros,
@@ -5763,7 +5781,7 @@ function AgentPanel({
           // message gap — it reads as a continuation, not a new speaker.
           <div className="chat-message agent thinking-row">
             <div className="message-avatar-spacer" aria-hidden="true" />
-            <div className="thinking"><span /><span /><span /><em>{status || (provider === "claude" ? "Claude is writing…" : "Agent is writing…")}</em></div>
+            <div className="thinking"><ThinkingOrb state={statusToOrbState(status)} size={20} /><em>{status || (provider === "claude" ? "Claude is writing…" : "Agent is writing…")}</em></div>
           </div>
         )}
         <div ref={chatEnd} />
