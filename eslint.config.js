@@ -4,7 +4,9 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "src-tauri/target"] },
+  // src/thinking-orbs is vendored verbatim from a third-party package; hold it
+  // to upstream's conventions, not ours, so it stays a clean drop-in on update.
+  { ignores: ["dist", "src-tauri/target", "src/thinking-orbs/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
