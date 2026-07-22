@@ -143,7 +143,7 @@ fn arxiv_id_from_doi(doi: &str) -> Option<String> {
     }
 }
 
-fn urlencoding(value: &str) -> String {
+pub(crate) fn urlencoding(value: &str) -> String {
     let mut encoded = String::with_capacity(value.len());
     for byte in value.bytes() {
         match byte {

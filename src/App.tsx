@@ -11,7 +11,6 @@ import { EditorView } from "@codemirror/view";
 import { emacs } from "@replit/codemirror-emacs";
 import { vim } from "@replit/codemirror-vim";
 import { latex } from "codemirror-lang-latex";
-import DOMPurify from "dompurify";
 import {
   BookMarked,
   Download,
@@ -64,7 +63,6 @@ import {
   Redo2,
   X,
 } from "lucide-react";
-import { marked } from "marked";
 import {
   bibliographyEntryLine,
   countWords,
@@ -535,6 +533,10 @@ function App() {
   const referencePreviewCache = useRef(new Map<string, Promise<string | null>>());
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
+  // The alphaXiv overview ("blog") is the default reading view; null when the
+  // paper has no report. `paperView` picks which of blog/full-text is shown.
+  const [paperBlog, setPaperBlog] = useState<string | null>(null);
+  const [paperView, setPaperView] = useState<"blog" | "fulltext">("blog");
   const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
   const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
   const [figureDropRequest, setFigureDropRequest] = useState<FigureDropRequest | null>(null);
@@ -2137,6 +2139,7 @@ function App() {
       if (collabSession && !result.alreadyImported) {
         for (const path of [
           `.research/papers/${result.arxivId}/paper.md`,
+          `.research/papers/${result.arxivId}/blog.md`,
           `.research/papers/${result.arxivId}/metadata.json`,
           snapshot.manifest.primaryBibliography,
         ].filter(Boolean) as string[]) {
@@ -2183,7 +2186,15 @@ function App() {
         const saved = await save();
         if (!saved) return;
       }
-      setPaperMarkdown(await invoke<string>("read_paper", { arxivId: paper.arxivId }));
+      // Full text and blog are independent files; fetch together so the toggle
+      // is instant. read_paper_blog lazily backfills the blog when missing.
+      const [fullText, blog] = await Promise.all([
+        invoke<string>("read_paper", { arxivId: paper.arxivId }),
+        invoke<string | null>("read_paper_blog", { arxivId: paper.arxivId }).catch(() => null),
+      ]);
+      setPaperMarkdown(fullText);
+      setPaperBlog(blog);
+      setPaperView(blog ? "blog" : "fulltext");
       setActivePaper(paper);
       setActiveAsset(null);
       setCanvasMode("paper");
@@ -4202,6 +4213,9 @@ function App() {
             pdfUrl={pdfUrl}
             pdfBase64={previewPdfBase64}
             paperMarkdown={paperMarkdown}
+            paperBlog={paperBlog}
+            paperView={paperView}
+            onSetPaperView={setPaperView}
             activePaper={activePaper}
             activeAsset={activeAsset}
             citationKeys={citationKeys}
@@ -6036,6 +6050,19 @@ function CanvasToolbar(props: {
   );
 }
 
+/**
+ * Full text imported with `arxiv2md --frontmatter` leads with a YAML block; the
+ * reader shows the title from metadata, so drop the raw YAML rather than render
+ * it as a stray `<hr>` + text. A no-op for older papers without frontmatter.
+ */
+function stripFrontmatter(markdown: string): string {
+  if (!markdown.startsWith("---")) return markdown;
+  const end = markdown.indexOf("\n---", 3);
+  if (end === -1) return markdown;
+  const after = markdown.indexOf("\n", end + 1);
+  return after === -1 ? "" : markdown.slice(after + 1).replace(/^\s+/, "");
+}
+
 function DocumentCanvas(props: {
   mode: CanvasMode;
   source: string;
@@ -6051,6 +6078,9 @@ function DocumentCanvas(props: {
   pdfUrl: string | null;
   pdfBase64: string | null;
   paperMarkdown: string;
+  paperBlog: string | null;
+  paperView: "blog" | "fulltext";
+  onSetPaperView: (view: "blog" | "fulltext") => void;
   activePaper: PaperSummary | null;
   activeAsset: AssetPreview | null;
   citationKeys: string[];
@@ -6384,10 +6414,6 @@ function DocumentCanvas(props: {
     });
   }, [onEditorPosition, onViewState]);
   reportEditorPositionRef.current = reportEditorPosition;
-  const paperHtml = useMemo(
-    () => DOMPurify.sanitize(marked.parse(props.paperMarkdown, { async: false }) as string),
-    [props.paperMarkdown],
-  );
   const editorExtensions = useMemo(
     () => [
       ...(editorKeymap === "vim" ? [vim({ status: true })] : editorKeymap === "emacs" ? [emacs()] : []),
@@ -6686,10 +6712,22 @@ function DocumentCanvas(props: {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [snippetStops]);
   if (props.mode === "paper") {
+    const showBlog = props.paperView === "blog" && props.paperBlog != null;
+    const content = showBlog ? props.paperBlog! : stripFrontmatter(props.paperMarkdown);
     return (
       <article className="paper-reader">
-        <div className="paper-reader-title"><BookOpen size={15} /><span>{props.activePaper?.title ?? "Imported paper"}</span>{props.activePaper && <small>arXiv {props.activePaper.arxivId}</small>}</div>
-        <div className="paper-content" dangerouslySetInnerHTML={{ __html: paperHtml }} />
+        <div className="paper-reader-title">
+          <BookOpen size={15} />
+          <span>{props.activePaper?.title ?? "Imported paper"}</span>
+          {props.paperBlog != null && (
+            <div className="paper-view-toggle" role="group" aria-label="Reading view">
+              <button type="button" className={showBlog ? "active" : ""} onClick={() => props.onSetPaperView("blog")}>Blog</button>
+              <button type="button" className={!showBlog ? "active" : ""} onClick={() => props.onSetPaperView("fulltext")}>原文</button>
+            </div>
+          )}
+          {props.activePaper && <small>arXiv {props.activePaper.arxivId}</small>}
+        </div>
+        <ChatMarkdown text={content} macros={props.katexMacros} className="paper-content" breaks={false} />
       </article>
     );
   }

@@ -9,19 +9,40 @@ import {
   X,
 } from "lucide-react";
 
-export type OpenAlexWork = {
-  id: string;
+export type LiteratureHit = {
+  source: "alphaxiv" | "openalex" | string;
+  arxivId?: string | null;
   title: string;
   year?: number | null;
-  citedByCount: number;
-  doi?: string | null;
-  arxivId?: string | null;
-  landingUrl?: string | null;
   authors: string[];
+  citedByCount?: number | null;
+  votes?: number | null;
+  snippet?: string | null;
+  doi?: string | null;
+  landingUrl?: string | null;
 };
 
 function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
+}
+
+function hitKey(work: LiteratureHit): string {
+  return `${work.source}:${work.arxivId ?? work.doi ?? work.title}`;
+}
+
+function hitMeta(work: LiteratureHit): string {
+  if (work.source === "alphaxiv") {
+    return [work.year ? String(work.year) : null, work.votes != null ? `▲ ${work.votes}` : null]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  return [
+    work.authors.slice(0, 3).join(", ") + (work.authors.length > 3 ? " et al." : ""),
+    work.year ? String(work.year) : null,
+    work.citedByCount != null ? `${work.citedByCount} cites` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function LiteratureDiscoveryPanel(props: {
@@ -31,7 +52,7 @@ export function LiteratureDiscoveryPanel(props: {
 }) {
   const [query, setQuery] = useState("");
   const [precise, setPrecise] = useState(true);
-  const [results, setResults] = useState<OpenAlexWork[]>([]);
+  const [results, setResults] = useState<LiteratureHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -44,12 +65,12 @@ export function LiteratureDiscoveryPanel(props: {
     setError("");
     setNotice("");
     try {
-      const next = await invoke<OpenAlexWork[]>("search_openalex", {
+      const next = await invoke<LiteratureHit[]>("search_literature", {
         query: trimmed,
         precise,
       });
       setResults(next);
-      if (!next.length) setNotice("No OpenAlex hits. Try broader terms or turn off precise mode.");
+      if (!next.length) setNotice("No hits. Try broader terms or turn off precise mode.");
     } catch (reason) {
       setResults([]);
       setError(message(reason));
@@ -66,7 +87,7 @@ export function LiteratureDiscoveryPanel(props: {
           <button type="button" onClick={props.onClose}><X size={16} /></button>
         </div>
         <p className="drawer-copy">
-          Search OpenAlex for candidates. Import an arXiv PDF snapshot only when you intend to cite it; until then these hits stay outside project evidence.
+          alphaXiv full-text first, then OpenAlex citations (arXiv-only). Import an arXiv snapshot only when you intend to cite it; until then these hits stay outside project evidence.
         </p>
         <form
           className="literature-search"
@@ -98,17 +119,17 @@ export function LiteratureDiscoveryPanel(props: {
         {error ? <p className="history-diff-error">{error}</p> : null}
         {notice ? <p className="git-notice">{notice}</p> : null}
         <div className="literature-results">
-          {results.map((work) => (
-            <article className="literature-result" key={work.id}>
+          {results.map((work) => {
+            const key = hitKey(work);
+            return (
+            <article className="literature-result" key={key}>
               <div className="literature-result-body">
+                <span className={`lit-source lit-source-${work.source}`}>
+                  {work.source === "alphaxiv" ? "alphaXiv · full-text" : "openalex · citations"}
+                </span>
                 <strong>{work.title}</strong>
-                <p>
-                  {[
-                    work.authors.slice(0, 3).join(", ") + (work.authors.length > 3 ? " et al." : ""),
-                    work.year ? String(work.year) : null,
-                    `${work.citedByCount} cites`,
-                  ].filter(Boolean).join(" · ")}
-                </p>
+                <p>{hitMeta(work)}</p>
+                {work.snippet ? <p className="lit-snippet">{work.snippet}</p> : null}
                 <div className="literature-result-ids">
                   {work.arxivId ? <em>arXiv:{work.arxivId}</em> : null}
                   {work.doi ? <em>{work.doi}</em> : null}
@@ -118,10 +139,10 @@ export function LiteratureDiscoveryPanel(props: {
                 {work.arxivId ? (
                   <button
                     type="button"
-                    disabled={busyId === work.id}
+                    disabled={busyId === key}
                     title="Import arXiv snapshot + bibliography entry"
                     onClick={() => {
-                      setBusyId(work.id);
+                      setBusyId(key);
                       setError("");
                       Promise.resolve(props.onImportArxiv(work.arxivId!))
                         .then(() => setNotice(`Imported arXiv:${work.arxivId}`))
@@ -129,7 +150,7 @@ export function LiteratureDiscoveryPanel(props: {
                         .finally(() => setBusyId(null));
                     }}
                   >
-                    {busyId === work.id ? <LoaderCircle className="spin" size={13} /> : <BookOpen size={13} />}
+                    {busyId === key ? <LoaderCircle className="spin" size={13} /> : <BookOpen size={13} />}
                     Import
                   </button>
                 ) : null}
@@ -152,9 +173,10 @@ export function LiteratureDiscoveryPanel(props: {
                 ) : null}
               </div>
             </article>
-          ))}
+            );
+          })}
           {!loading && !results.length && !error && !notice && (
-            <p className="empty-history">Search OpenAlex to find related work before importing evidence.</p>
+            <p className="empty-history">Search alphaXiv and OpenAlex to find related work before importing evidence.</p>
           )}
         </div>
       </aside>

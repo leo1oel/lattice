@@ -170,6 +170,25 @@ pub struct OpenAlexWork {
     pub authors: Vec<String>,
 }
 
+/// A merged search hit shown in the Discover panel. alphaXiv (full-text) and
+/// OpenAlex (citation graph) both flow into this single shape; the panel reads
+/// `source` to label the row and picks the fields each source populates.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiteratureHit {
+    /// "alphaxiv" | "openalex"
+    pub source: String,
+    pub arxiv_id: Option<String>,
+    pub title: String,
+    pub year: Option<u32>,
+    pub authors: Vec<String>,
+    pub cited_by_count: Option<u32>,
+    pub votes: Option<u32>,
+    pub snippet: Option<String>,
+    pub doi: Option<String>,
+    pub landing_url: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TexlabCompletionItem {

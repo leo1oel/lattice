@@ -1052,6 +1052,11 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .paper-reader-title { position: sticky; top: 0; z-index: 2; height: 38px; padding: 0 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel-strong) 94%, transparent); backdrop-filter: blur(12px); display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
 .paper-reader-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paper-reader-title small { margin-left: auto; flex: none; color: var(--faint); font-size: 9px; }
+.paper-view-toggle { margin-left: auto; flex: none; display: flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 7px; }
+.paper-view-toggle + small { margin-left: 10px; }
+.paper-view-toggle button { border: none; background: none; color: var(--muted); font-size: 9px; line-height: 1.6; padding: 1px 9px; border-radius: 5px; cursor: pointer; }
+.paper-view-toggle button:hover { color: var(--text); }
+.paper-view-toggle button.active { background: var(--accent-soft); color: var(--text); }
 .paper-content { max-width: 780px; margin: 0 auto; padding: 42px 50px 100px; color: var(--text); font-family: Georgia, serif; font-size: 14px; line-height: 1.75; }
 .paper-content h1 { font-family: "Instrument Serif", Georgia, serif; font-size: 36px; line-height: 1.08; font-weight: 400; }
 .paper-content h2 { margin-top: 2em; font-size: 21px; }
@@ -1364,11 +1369,36 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   border-radius: 8px;
   background: var(--panel);
 }
+.lit-source {
+  display: inline-block;
+  margin-bottom: 5px;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--accent-soft);
+}
+.lit-source-alphaxiv { color: var(--accent); }
 .literature-result-body strong {
   display: block;
   font-size: 12px;
   line-height: 1.35;
   color: var(--text);
+}
+.lit-snippet {
+  margin: 5px 0 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--line);
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .literature-result-body p {
   margin: 4px 0 0;

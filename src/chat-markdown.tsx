@@ -80,8 +80,14 @@ function mathExtensions(macros: Record<string, string>) {
  * string, so marked's own tokenizer decides what is code first — a `$` inside a
  * fenced block or `` `…` `` span stays literal instead of opening a formula.
  */
-export function renderChatMarkdown(text: string, macros: Record<string, string> = {}): string {
-  const marked = new Marked({ gfm: true, breaks: true });
+export function renderMarkdown(
+  text: string,
+  macros: Record<string, string> = {},
+  options: { breaks?: boolean } = {},
+): string {
+  // Chat wants a single newline to break (fast, message-like); prose like a
+  // paper reads better when soft-wrapped source stays one paragraph.
+  const marked = new Marked({ gfm: true, breaks: options.breaks ?? true });
   marked.use({ extensions: mathExtensions(macros) });
   const html = marked.parse(text, { async: false }) as string;
   return DOMPurify.sanitize(html, {
@@ -92,12 +98,20 @@ export function renderChatMarkdown(text: string, macros: Record<string, string> 
   });
 }
 
-export function ChatMarkdown({ text, macros, className }: {
+export function renderChatMarkdown(text: string, macros: Record<string, string> = {}): string {
+  return renderMarkdown(text, macros, { breaks: true });
+}
+
+export function ChatMarkdown({ text, macros, className, breaks }: {
   text: string;
   macros?: Record<string, string>;
   className?: string;
+  breaks?: boolean;
 }) {
-  const html = useMemo(() => renderChatMarkdown(text, macros ?? {}), [text, macros]);
+  const html = useMemo(
+    () => renderMarkdown(text, macros ?? {}, { breaks: breaks ?? true }),
+    [text, macros, breaks],
+  );
   const ref = useRef<HTMLDivElement | null>(null);
 
   // Links must leave the webview, not navigate the app out of existence.

@@ -51,6 +51,7 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
         .arg("arxiv2markdown")
         .arg("arxiv2md")
         .arg(&arxiv_id)
+        .arg("--frontmatter")
         .arg("-o")
         .arg(&markdown_path)
         .output()
@@ -70,15 +71,19 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
         citation_key: citation_key.clone(),
     })
     .map_err(err)?;
-    project::apply_transaction(
-        root,
-        &format!("Import arXiv {arxiv_id}"),
-        vec![
-            (paper_relative.clone(), markdown),
-            (metadata_relative, format!("{metadata}\n")),
-            (manifest.primary_bibliography, bibliography),
-        ],
-    )?;
+    // The alphaXiv overview is the default reading view. Fetching it is
+    // best-effort: a network failure or a paper with no report must not fail
+    // the import — the reader falls back to the full text.
+    let blog = crate::alphaxiv::fetch_overview(&arxiv_id).unwrap_or(None);
+    let mut edits = vec![
+        (paper_relative.clone(), markdown),
+        (metadata_relative, format!("{metadata}\n")),
+        (manifest.primary_bibliography, bibliography),
+    ];
+    if let Some(blog) = blog {
+        edits.push((format!(".research/papers/{arxiv_id}/blog.md"), blog));
+    }
+    project::apply_transaction(root, &format!("Import arXiv {arxiv_id}"), edits)?;
     let _ = fs::remove_dir_all(temp);
 
     Ok(ImportResult {
@@ -98,7 +103,7 @@ fn find_imported_paper(root: &Path, requested_id: &str) -> Result<Option<PaperSu
         .find(|paper| arxiv_base_id(&paper.arxiv_id) == requested_base))
 }
 
-fn arxiv_base_id(arxiv_id: &str) -> &str {
+pub(crate) fn arxiv_base_id(arxiv_id: &str) -> &str {
     match arxiv_id.rsplit_once('v') {
         Some((base, version))
             if !base.is_empty() && version.chars().all(|c| c.is_ascii_digit()) =>
@@ -226,6 +231,31 @@ pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult
 pub fn read_paper(root: &Path, arxiv_id: &str) -> Result<String, String> {
     validate_arxiv_id(arxiv_id)?;
     project::read_file(root, &format!(".research/papers/{arxiv_id}/paper.md"))
+}
+
+/// The alphaXiv overview ("blog") for an imported paper. Returns the stored
+/// `blog.md` when present; otherwise backfills it once from alphaXiv (covering
+/// papers imported before blogs existed, or whose import-time fetch failed) and
+/// caches it. `Ok(None)` when alphaXiv has no report for the paper.
+pub fn read_paper_blog(root: &Path, arxiv_id: &str) -> Result<Option<String>, String> {
+    validate_arxiv_id(arxiv_id)?;
+    let blog_path = project::safe_path(root, &format!(".research/papers/{arxiv_id}/blog.md"))?;
+    if blog_path.exists() {
+        return fs::read_to_string(&blog_path).map(Some).map_err(err);
+    }
+    // Only backfill papers we actually hold; the reader has nothing to show for
+    // a cite-only work, and we would not have a directory to cache into.
+    let paper_dir = project::safe_path(root, &format!(".research/papers/{arxiv_id}"))?;
+    if !paper_dir.exists() {
+        return Ok(None);
+    }
+    match crate::alphaxiv::fetch_overview(arxiv_id)? {
+        Some(blog) => {
+            fs::write(&blog_path, &blog).map_err(err)?;
+            Ok(Some(blog))
+        }
+        None => Ok(None),
+    }
 }
 
 pub fn rename_paper(root: &Path, arxiv_id: &str, title: &str) -> Result<PaperSummary, String> {
@@ -453,12 +483,36 @@ fn parse_citation_key(output: &str) -> Option<String> {
 }
 
 fn parse_title(markdown: &str) -> Option<String> {
-    markdown.lines().find_map(|line| {
-        line.strip_prefix("Title:")
-            .map(str::trim)
-            .filter(|title| !title.is_empty())
-            .map(ToString::to_string)
+    // With --frontmatter, arxiv2md's clean title is the YAML `title:` field;
+    // older output carried a plain `Title:` line. Prefer the frontmatter.
+    yaml_frontmatter_title(markdown).or_else(|| {
+        markdown.lines().find_map(|line| {
+            line.strip_prefix("Title:")
+                .map(str::trim)
+                .filter(|title| !title.is_empty())
+                .map(ToString::to_string)
+        })
     })
+}
+
+fn yaml_frontmatter_title(markdown: &str) -> Option<String> {
+    let mut lines = markdown.lines();
+    if lines.next()?.trim() != "---" {
+        return None;
+    }
+    for line in lines {
+        let trimmed = line.trim();
+        if trimmed == "---" {
+            return None;
+        }
+        if let Some(rest) = trimmed.strip_prefix("title:") {
+            let value = rest.trim().trim_matches('"').trim();
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
 }
 
 fn ensure_success(name: &str, output: &Output) -> Result<(), String> {
@@ -508,6 +562,16 @@ mod tests {
     fn extracts_the_paper_title_from_arxiv_markdown() {
         assert_eq!(
             parse_title("Title: Attention Is All You Need\nArXiv: 1706.03762\n"),
+            Some("Attention Is All You Need".to_string())
+        );
+    }
+
+    #[test]
+    fn extracts_the_title_from_yaml_frontmatter() {
+        let markdown =
+            "---\ntitle: \"Attention Is All You Need\"\nsections: 28\n---\n\n## Contents\n";
+        assert_eq!(
+            parse_title(markdown),
             Some("Attention Is All You Need".to_string())
         );
     }
@@ -759,6 +823,14 @@ mod tests {
         assert_eq!(result.arxiv_id, "1706.03762");
         assert_eq!(result.title, "Attention Is All You Need");
         assert!(root.join(&result.paper_path).exists());
+        // --frontmatter now leads the full text with a YAML block.
+        assert!(fs::read_to_string(root.join(&result.paper_path))
+            .unwrap()
+            .starts_with("---"));
+        // The alphaXiv overview is fetched and stored as the blog view.
+        assert!(root
+            .join(".research/papers/1706.03762/blog.md")
+            .exists());
         assert!(!fs::read_to_string(root.join("references.bib"))
             .unwrap()
             .is_empty());

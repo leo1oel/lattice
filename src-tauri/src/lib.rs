@@ -12,6 +12,8 @@ mod skill_store;
 mod texcount;
 mod format_latex;
 mod openalex;
+mod alphaxiv;
+mod literature;
 mod tex_setup;
 mod texlab;
 mod pdf_fonts;
@@ -22,7 +24,7 @@ use models::{
     AgentCommand, AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
     AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, CitationInfo,
     DoctorReport, EditorComment, GitDiff, GitRemoteResult, GitStatus, HistoryItem, ImportResult,
-    OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
+    LiteratureHit, OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
     ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult, ResolvedCitation,
     SubscriptionLoginEvent, SubscriptionStatus, SymbolOccurrence, SyncTexTarget, TexlabCompletionItem,
     TexlabHover, TexlabLocation, TodoHit, TransactionRecord, UnusedSymbols, WordCount,
@@ -626,6 +628,14 @@ async fn search_openalex(query: String, precise: Option<bool>) -> Result<Vec<Ope
 }
 
 #[tauri::command]
+async fn search_literature(query: String, precise: Option<bool>) -> Result<Vec<LiteratureHit>, String> {
+    let precise = precise.unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || literature::search(&query, precise))
+        .await
+        .map_err(|error| format!("The literature search task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
 fn git_status(state: tauri::State<'_, AppState>) -> Result<GitStatus, String> {
     git::status(&current_root(&state)?)
 }
@@ -762,6 +772,18 @@ fn list_papers(state: tauri::State<'_, AppState>) -> Result<Vec<PaperSummary>, S
 #[tauri::command]
 fn read_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<String, String> {
     papers::read_paper(&current_root(&state)?, &arxiv_id)
+}
+
+#[tauri::command]
+async fn read_paper_blog(
+    state: tauri::State<'_, AppState>,
+    arxiv_id: String,
+) -> Result<Option<String>, String> {
+    // May reach the network (lazy backfill), so keep it off the main thread.
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || papers::read_paper_blog(&root, &arxiv_id))
+        .await
+        .map_err(|error| format!("The paper overview task stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
@@ -1188,6 +1210,7 @@ pub fn run() {
             texlab_definition,
             format_latex,
             search_openalex,
+            search_literature,
             git_status,
             git_diff,
             git_stage,
@@ -1208,6 +1231,7 @@ pub fn run() {
             import_arxiv,
             list_papers,
             read_paper,
+            read_paper_blog,
             rename_paper,
             delete_paper,
             run_agent,
