@@ -1,0 +1,66 @@
+/* Tailwind v4 WITHOUT Preflight — theme + utilities only.
+ *
+ * We deliberately skip Tailwind's global reset (preflight) so the app's mature
+ * hand-written CSS in App.css is left completely untouched: no stripping of
+ * markdown list bullets, heading margins, form-control styling, etc. shadcn/ui
+ * components still work because they style themselves with utility classes and
+ * the design tokens below.
+ *
+ * The tokens map shadcn's colour names onto the app's OWN theme variables
+ * (App.css). We map through Tailwind's `--color-*` namespace via `@theme inline`
+ * and never redefine `--accent` / `--muted` themselves — those names already
+ * belong to App.css and reusing them would repaint the whole app. Because the
+ * mappings point at the app's vars, shadcn components flip automatically under
+ * :root[data-theme="dark"]; no separate dark block is needed. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+
+/* The app toggles dark mode with :root[data-theme="dark"] (not Tailwind's
+   default `.dark` class), so point the `dark:` variant at that selector —
+   otherwise every shadcn `dark:` utility silently no-ops. */
+@custom-variant dark (&:is([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --radius: 8px;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--panel-strong);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--panel-strong);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--panel);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--panel);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--accent-soft);
+  --color-accent-foreground: var(--accent);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--line-strong);
+  --color-input: var(--line-strong);
+  --color-ring: var(--accent);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  /* shadcn components use a bare `border` utility for their 1px edges; give it a
+     sensible colour. Harmless to the existing app: this only sets border-COLOR
+     (never a width), it lives in @layer base (which every unlayered App.css rule
+     outranks), and App.css always uses the full `border:` shorthand anyway. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--line-strong);
+  }
+}
