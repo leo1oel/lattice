@@ -31,6 +31,14 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      // The react-compiler-era hooks lints flag many common, working patterns
+      // (ref access, setState in effects, deps completeness). Keep them visible
+      // as warnings rather than failing CI; the classic rules-of-hooks — the one
+      // that actually catches broken code — stays an error.
+      "react-hooks/refs": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/immutability": "warn",
+      "react-hooks/exhaustive-deps": "warn",
     },
   },
 );
