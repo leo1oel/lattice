@@ -98,9 +98,12 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
 
 fn find_imported_paper(root: &Path, requested_id: &str) -> Result<Option<PaperSummary>, String> {
     let requested_base = arxiv_base_id(requested_id);
+    // Only a paper that already has full text counts as imported. A cited-only
+    // work (a .bib entry with no paper.md, e.g. one the agent added) must fall
+    // through so "get full text" actually downloads the paper and blog.
     Ok(list_papers(root)?
         .into_iter()
-        .find(|paper| arxiv_base_id(&paper.arxiv_id) == requested_base))
+        .find(|paper| paper.has_full_text && arxiv_base_id(&paper.arxiv_id) == requested_base))
 }
 
 pub(crate) fn arxiv_base_id(arxiv_id: &str) -> &str {

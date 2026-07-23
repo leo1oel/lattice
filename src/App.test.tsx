@@ -319,7 +319,7 @@ describe("project workspace", () => {
     expect(screen.getByRole("separator", { name: "Resize project navigator" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize writing agent" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize Project and Papers" })).toBeInTheDocument();
-    expect(screen.getByTitle("Add file or folder").querySelector(".lucide-folder-plus")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Add file or folder" }).querySelector(".lucide-folder-plus")).not.toBeNull();
     expect(document.querySelector(".count-badge")).toHaveTextContent("0");
     expect(document.querySelector(".source-editor > .code-editor-root")).toBeInTheDocument();
     const composer = screen.getByPlaceholderText(/ask the agent/i);
@@ -1405,18 +1405,18 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.click(await screen.findByTitle("Add file or folder"));
+    fireEvent.click(await screen.findByRole("button", { name: "Add file or folder" }));
     expect(screen.queryByTitle("Cancel file creation")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "sections/method" } });
     fireEvent.click(screen.getByTitle("Create"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "sections/method", kind: "file" }));
 
-    fireEvent.click(screen.getByTitle("Add file or folder"));
+    fireEvent.click(screen.getByRole("button", { name: "Add file or folder" }));
     fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "draft" } });
     fireEvent.keyDown(screen.getByLabelText("Project-relative path"), { key: "Escape" });
     expect(screen.queryByLabelText("Project-relative path")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTitle("Add file or folder"));
+    fireEvent.click(screen.getByRole("button", { name: "Add file or folder" }));
     fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "draft" } });
     fireEvent.pointerDown(screen.getByText("Project").closest(".navigator-section")!);
     expect(screen.queryByLabelText("Project-relative path")).not.toBeInTheDocument();

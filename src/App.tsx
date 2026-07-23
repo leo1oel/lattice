@@ -498,6 +498,10 @@ function App() {
   const [focusedPane, setFocusedPane] = useState<EditorPaneId>("primary");
   const [selection, setSelection] = useState("");
   const [selectionSource, setSelectionSource] = useState<"editor" | "pdf" | null>(null);
+  // The editor re-reports its live selection on every update, so clearing the
+  // chip isn't enough — remember the text we dismissed and ignore the editor
+  // re-reporting that same text until the selection actually changes.
+  const dismissedSelectionRef = useRef("");
   const [texlabDiagnostics, setTexlabDiagnostics] = useState<CompileDiagnostic[]>([]);
   const [canvasMode, setCanvasMode] = useState<CanvasMode>("split");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -4202,6 +4206,7 @@ function App() {
               onDeleteEntry={deleteProjectEntry}
               onRenameEntry={renameProjectEntry}
               onReveal={revealProjectItem}
+              onRefresh={() => void refreshProject()}
               onImportAssets={chooseProjectAssets}
               assetDropTarget={assetDropTarget}
               assetImporting={assetImporting}
@@ -4260,6 +4265,7 @@ function App() {
           selection={selection}
           selectionSource={selectionSource}
           onClearSelection={() => {
+            dismissedSelectionRef.current = selection;
             setSelection("");
             setSelectionSource(null);
           }}
@@ -4333,10 +4339,15 @@ function App() {
             onFocusPane={setFocusedPane}
             setSource={setSource}
             setSelection={(value) => {
+              // The editor keeps re-reporting a dismissed selection; ignore it
+              // until the selection changes to something else (or collapses).
+              if (value && value === dismissedSelectionRef.current) return;
+              dismissedSelectionRef.current = "";
               setSelection(value);
               setSelectionSource(value ? "editor" : null);
             }}
             onPdfTextSelect={(value) => {
+              dismissedSelectionRef.current = "";
               setSelection(value);
               setSelectionSource(value ? "pdf" : null);
             }}
@@ -5226,6 +5237,7 @@ function Navigator(props: {
   onDeleteEntry: (path: string) => void;
   onRenameEntry: (path: string, name: string) => void;
   onReveal: (path: string) => void;
+  onRefresh: () => void;
   onImportAssets: (targetDirectory?: string) => void;
   assetDropTarget: string | null;
   assetImporting: boolean;
@@ -5413,10 +5425,17 @@ function Navigator(props: {
       }}>
         <div className="section-heading" onContextMenu={(event) => showContextMenu(event, "", "Project folder", "project")}>
           <span>Project</span>
-          <button className="section-action" title="Add file or folder" aria-label="Add file or folder" onClick={() => {
-            if (entryFormOpen) closeEntryForm();
-            else openCreateForm("file");
-          }}><FolderPlus size={14} strokeWidth={1.8} /></button>
+          <div className="section-heading-actions">
+            <Tip label="Refresh files">
+              <button className="section-action" onClick={props.onRefresh}><RefreshCw size={13} strokeWidth={1.8} /></button>
+            </Tip>
+            <Tip label="Add file or folder">
+              <button className="section-action" onClick={() => {
+                if (entryFormOpen) closeEntryForm();
+                else openCreateForm("file");
+              }}><FolderPlus size={14} strokeWidth={1.8} /></button>
+            </Tip>
+          </div>
         </div>
         <label className="navigator-search">
           <Search size={13} />
