@@ -316,22 +316,30 @@ mod tests {
         assert!(hits.iter().any(|hit| hit.line == Some(3)));
 
         let path_hits = search(&root, "method.tex").unwrap();
-        assert!(path_hits.iter().any(|hit| hit.path == "sections/method.tex"));
+        assert!(path_hits
+            .iter()
+            .any(|hit| hit.path == "sections/method.tex"));
 
         let _ = fs::remove_dir_all(parent);
     }
 
     #[test]
     fn rebuilds_when_files_change() {
-        let parent = std::env::temp_dir().join(format!("lattice-fts-rebuild-{}", uuid::Uuid::new_v4()));
+        let parent =
+            std::env::temp_dir().join(format!("lattice-fts-rebuild-{}", uuid::Uuid::new_v4()));
         let _ = fs::create_dir_all(&parent);
         let root = project::create(&parent, "paper").unwrap();
         fs::write(root.join("main.tex"), "alpha unique_token_one\n").unwrap();
-        assert!(search(&root, "unique_token_one").unwrap().iter().any(|hit| hit.snippet.contains("unique_token_one")));
+        assert!(search(&root, "unique_token_one")
+            .unwrap()
+            .iter()
+            .any(|hit| hit.snippet.contains("unique_token_one")));
 
         fs::write(root.join("main.tex"), "beta unique_token_two\n").unwrap();
         let hits = search(&root, "unique_token_two").unwrap();
-        assert!(hits.iter().any(|hit| hit.snippet.contains("unique_token_two")));
+        assert!(hits
+            .iter()
+            .any(|hit| hit.snippet.contains("unique_token_two")));
         assert!(search(&root, "unique_token_one").unwrap().is_empty());
 
         let _ = fs::remove_dir_all(parent);

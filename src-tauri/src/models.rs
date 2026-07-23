@@ -570,9 +570,15 @@ pub struct AgentResult {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AgentStreamEvent {
-    Status { message: String },
-    Text { text: String },
-    Cancellable { enabled: bool },
+    Status {
+        message: String,
+    },
+    Text {
+        text: String,
+    },
+    Cancellable {
+        enabled: bool,
+    },
     Tool {
         name: String,
         detail: String,

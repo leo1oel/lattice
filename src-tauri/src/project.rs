@@ -1,10 +1,9 @@
 use crate::commands;
 use crate::models::{
-    AssetPreview, CitationInfo, EditorComment, EditorCommentsFile, FileChange, FileNode, HistoryItem,
-    PdfMark, PdfMarksFile,
-    ProjectManifest, ReferenceInfo, ProjectSearchResult, ProjectSnapshot, RenameSymbolResult,
-    ReplaceMatch, ReplacePreview, ReplaceResult, ResolvedCitation, RootDocument, SymbolOccurrence,
-    TodoHit, TransactionRecord, UnusedSymbols,
+    AssetPreview, CitationInfo, EditorComment, EditorCommentsFile, FileChange, FileNode,
+    HistoryItem, PdfMark, PdfMarksFile, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
+    ReferenceInfo, RenameSymbolResult, ReplaceMatch, ReplacePreview, ReplaceResult,
+    ResolvedCitation, RootDocument, SymbolOccurrence, TodoHit, TransactionRecord, UnusedSymbols,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::Utc;
@@ -292,7 +291,10 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
 }
 
 /// Honor `% !TEX root=` / `% !TEX program=` style magic comments when present.
-pub fn apply_tex_magic_comments(root: &Path, manifest: &mut ProjectManifest) -> Result<bool, String> {
+pub fn apply_tex_magic_comments(
+    root: &Path,
+    manifest: &mut ProjectManifest,
+) -> Result<bool, String> {
     let seed = manifest
         .root_documents
         .iter()
@@ -311,7 +313,11 @@ pub fn apply_tex_magic_comments(root: &Path, manifest: &mut ProjectManifest) -> 
         let relative = magic_root.replace('\\', "/");
         if let Ok(path) = safe_path(root, &relative) {
             if path.is_file() {
-                if !manifest.root_documents.iter().any(|document| document.path == relative) {
+                if !manifest
+                    .root_documents
+                    .iter()
+                    .any(|document| document.path == relative)
+                {
                     let name = Path::new(&relative)
                         .file_stem()
                         .and_then(|value| value.to_str())
@@ -393,24 +399,35 @@ pub fn has_latexmkrc(root: &Path) -> bool {
 /// Pick the best root `.tex` for foreign / Overleaf-style trees.
 fn detect_root_document(root: &Path) -> Option<String> {
     // Honor `% !TEX root=` first when it points at a real file.
-    for entry in WalkDir::new(root).max_depth(4).into_iter().filter_map(Result::ok) {
+    for entry in WalkDir::new(root)
+        .max_depth(4)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
         let path = entry.path();
-        if !path.is_file() || !path.extension().is_some_and(|ext| ext == "tex") {
+        if !path.is_file() || path.extension().is_none_or(|ext| ext != "tex") {
             continue;
         }
         let content = fs::read_to_string(path).unwrap_or_default();
         if let Some(magic_root) = parse_tex_magic_comments(&content).root {
             let candidate = magic_root.replace('\\', "/");
-            if safe_path(root, &candidate).map(|path| path.is_file()).unwrap_or(false) {
+            if safe_path(root, &candidate)
+                .map(|path| path.is_file())
+                .unwrap_or(false)
+            {
                 return Some(candidate);
             }
         }
     }
 
     let mut best: Option<(i32, String)> = None;
-    for entry in WalkDir::new(root).max_depth(4).into_iter().filter_map(Result::ok) {
+    for entry in WalkDir::new(root)
+        .max_depth(4)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
         let path = entry.path();
-        if !path.is_file() || !path.extension().is_some_and(|ext| ext == "tex") {
+        if !path.is_file() || path.extension().is_none_or(|ext| ext != "tex") {
             continue;
         }
         let Ok(relative) = path.strip_prefix(root) else {
@@ -557,7 +574,13 @@ pub fn import_project_zip(zip_path: &Path, parent: &Path) -> Result<ProjectSnaps
         .and_then(|value| value.to_str())
         .unwrap_or("overleaf-project")
         .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '-' })
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
         .collect::<String>();
     let stem = if stem.is_empty() {
         "overleaf-project".to_string()
@@ -777,8 +800,16 @@ pub fn references(root: &Path) -> Result<Vec<ReferenceInfo>, String> {
 
 const REFERENCE_COMMANDS: &[&str] = &["ref", "eqref", "pageref", "autoref", "cref", "Cref"];
 const CITATION_COMMANDS: &[&str] = &[
-    "cite", "citep", "citet", "citealp", "citealt", "citeauthor", "parencite", "textcite",
-    "autocite", "footcite",
+    "cite",
+    "citep",
+    "citet",
+    "citealp",
+    "citealt",
+    "citeauthor",
+    "parencite",
+    "textcite",
+    "autocite",
+    "footcite",
 ];
 
 fn iter_tex_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
@@ -788,12 +819,17 @@ fn iter_tex_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
         .into_iter()
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_file())
-        .filter(|entry| entry.path().extension().is_some_and(|extension| extension == "tex"))
         .filter(|entry| {
-            !entry
+            entry
                 .path()
-                .strip_prefix(root)
-                .is_ok_and(|path| path.components().any(|part| part.as_os_str() == ".research"))
+                .extension()
+                .is_some_and(|extension| extension == "tex")
+        })
+        .filter(|entry| {
+            !entry.path().strip_prefix(root).is_ok_and(|path| {
+                path.components()
+                    .any(|part| part.as_os_str() == ".research")
+            })
         })
     {
         let relative = entry.path().strip_prefix(root).map_err(err)?;
@@ -813,10 +849,9 @@ fn validate_symbol_name(kind: &str, value: &str) -> Result<(), String> {
     if value.chars().count() > 120 {
         return Err(format!("Keep the {kind} under 120 characters."));
     }
-    if !value
-        .chars()
-        .all(|character| character.is_ascii_alphanumeric() || matches!(character, ':' | '_' | '-' | '.' | '+'))
-    {
+    if !value.chars().all(|character| {
+        character.is_ascii_alphanumeric() || matches!(character, ':' | '_' | '-' | '.' | '+')
+    }) {
         return Err(format!("Use letters, numbers, and :_-.+ in the {kind}."));
     }
     Ok(())
@@ -836,10 +871,7 @@ fn line_snippet(source: &str, offset: usize) -> String {
     }
 }
 
-fn find_command_argument_keys(
-    source: &str,
-    commands: &[&str],
-) -> Vec<(usize, usize, String)> {
+fn find_command_argument_keys(source: &str, commands: &[&str]) -> Vec<(usize, usize, String)> {
     let mut hits = Vec::new();
     let bytes = source.as_bytes();
     let mut index = 0usize;
@@ -850,7 +882,9 @@ fn find_command_argument_keys(
         }
         let name_start = index + 1;
         let mut name_end = name_start;
-        while name_end < bytes.len() && (bytes[name_end].is_ascii_alphabetic() || bytes[name_end] == b'*') {
+        while name_end < bytes.len()
+            && (bytes[name_end].is_ascii_alphabetic() || bytes[name_end] == b'*')
+        {
             name_end += 1;
         }
         if name_end == name_start {
@@ -861,7 +895,7 @@ fn find_command_argument_keys(
         if let Some(stripped) = name.strip_suffix('*') {
             name = stripped;
         }
-        if !commands.iter().any(|command| *command == name) {
+        if !commands.contains(&name) {
             index = name_end;
             continue;
         }
@@ -902,7 +936,10 @@ fn find_command_argument_keys(
     hits
 }
 
-fn collect_label_edits(root: &Path, label: &str) -> Result<Vec<(String, usize, usize, u32, String, String)>, String> {
+/// One in-place edit to a `\label`/`\cite` reference: (path, from, to, line, old, new).
+type ReferenceEdit = (String, usize, usize, u32, String, String);
+
+fn collect_label_edits(root: &Path, label: &str) -> Result<Vec<ReferenceEdit>, String> {
     let mut edits = Vec::new();
     for (path, source) in iter_tex_sources(root)? {
         for (from, to, key) in find_command_argument_keys(&source, &["label"]) {
@@ -935,7 +972,7 @@ fn collect_label_edits(root: &Path, label: &str) -> Result<Vec<(String, usize, u
     Ok(edits)
 }
 
-fn collect_citation_edits(root: &Path, key: &str) -> Result<Vec<(String, usize, usize, u32, String, String)>, String> {
+fn collect_citation_edits(root: &Path, key: &str) -> Result<Vec<ReferenceEdit>, String> {
     let mut edits = Vec::new();
     for (path, source) in iter_tex_sources(root)? {
         for (from, to, found) in find_command_argument_keys(&source, CITATION_COMMANDS) {
@@ -1173,7 +1210,12 @@ pub fn remove_root_document(root: &Path, path: &str) -> Result<ProjectManifest, 
     if manifest.root_documents.len() == before {
         return Err("That root document is not listed in the project manifest.".to_string());
     }
-    if removed_default || !manifest.root_documents.iter().any(|document| document.is_default) {
+    if removed_default
+        || !manifest
+            .root_documents
+            .iter()
+            .any(|document| document.is_default)
+    {
         if let Some(first) = manifest.root_documents.first_mut() {
             first.is_default = true;
         }
@@ -1208,16 +1250,22 @@ fn apply_symbol_rename(
     for (path, ranges) in by_path {
         let mut source = read_file(root, &path)?;
         let mut ranges = ranges;
-        ranges.sort_by(|left, right| right.0.cmp(&left.0));
+        // Descending by start offset, so edits apply back-to-front.
+        ranges.sort_by_key(|range| std::cmp::Reverse(range.0));
         for (from, to) in ranges {
             if source.get(from..to) != Some(old) {
-                return Err(format!("Could not rename “{old}” in {path}; the file changed."));
+                return Err(format!(
+                    "Could not rename “{old}” in {path}; the file changed."
+                ));
             }
             source.replace_range(from..to, new);
         }
         file_edits.push((path, source));
     }
-    let changed_files = file_edits.iter().map(|(path, _)| path.clone()).collect::<Vec<_>>();
+    let changed_files = file_edits
+        .iter()
+        .map(|(path, _)| path.clone())
+        .collect::<Vec<_>>();
     let occurrence_count = edits.len() as u32;
     let transaction = apply_transaction(root, label, file_edits)?;
     Ok(RenameSymbolResult {
@@ -1227,7 +1275,11 @@ fn apply_symbol_rename(
     })
 }
 
-pub fn rename_label(root: &Path, old_label: &str, new_label: &str) -> Result<RenameSymbolResult, String> {
+pub fn rename_label(
+    root: &Path,
+    old_label: &str,
+    new_label: &str,
+) -> Result<RenameSymbolResult, String> {
     validate_symbol_name("label", old_label)?;
     validate_symbol_name("label", new_label)?;
     let old = old_label.trim();
@@ -1239,10 +1291,20 @@ pub fn rename_label(root: &Path, old_label: &str, new_label: &str) -> Result<Ren
         return Err(format!("The label “{new}” already exists."));
     }
     let edits = collect_label_edits(root, old)?;
-    apply_symbol_rename(root, &format!("Rename label {old} → {new}"), edits, old, new)
+    apply_symbol_rename(
+        root,
+        &format!("Rename label {old} → {new}"),
+        edits,
+        old,
+        new,
+    )
 }
 
-pub fn rename_citation_key(root: &Path, old_key: &str, new_key: &str) -> Result<RenameSymbolResult, String> {
+pub fn rename_citation_key(
+    root: &Path,
+    old_key: &str,
+    new_key: &str,
+) -> Result<RenameSymbolResult, String> {
     validate_symbol_name("citation key", old_key)?;
     validate_symbol_name("citation key", new_key)?;
     let old = old_key.trim();
@@ -1254,7 +1316,13 @@ pub fn rename_citation_key(root: &Path, old_key: &str, new_key: &str) -> Result<
         return Err(format!("The citation key “{new}” already exists."));
     }
     let edits = collect_citation_edits(root, old)?;
-    apply_symbol_rename(root, &format!("Rename citation {old} → {new}"), edits, old, new)
+    apply_symbol_rename(
+        root,
+        &format!("Rename citation {old} → {new}"),
+        edits,
+        old,
+        new,
+    )
 }
 
 fn parse_latex_references(
@@ -1315,12 +1383,7 @@ fn parse_latex_references(
             let snippet = environment_snippet(body, kind);
             (kind.to_string(), title, snippet, image_path)
         } else if let Some(title) = nearest_section_title(source, position) {
-            (
-                "section".to_string(),
-                title,
-                String::new(),
-                None,
-            )
+            ("section".to_string(), title, String::new(), None)
         } else {
             (
                 "reference".to_string(),
@@ -1344,14 +1407,22 @@ fn parse_latex_references(
 
 fn line_number_at(source: &str, offset: usize) -> u32 {
     let clamped = offset.min(source.len());
-    source[..clamped].bytes().filter(|byte| *byte == b'\n').count() as u32 + 1
+    source[..clamped]
+        .bytes()
+        .filter(|byte| *byte == b'\n')
+        .count() as u32
+        + 1
 }
 
 fn enclosing_environment(source: &str, position: usize, name: &str) -> Option<(usize, usize)> {
     let opening = format!("\\begin{{{name}}}");
     let closing = format!("\\end{{{name}}}");
     let start = source.get(..position)?.rfind(&opening)?;
-    if source.get(..position)?.rfind(&closing).is_some_and(|end| end > start) {
+    if source
+        .get(..position)?
+        .rfind(&closing)
+        .is_some_and(|end| end > start)
+    {
         return None;
     }
     let finish = position + source.get(position..)?.find(&closing)? + closing.len();
@@ -1426,7 +1497,10 @@ fn resolve_graphics_path(root: &Path, source_path: &Path, value: &str) -> Option
         return None;
     }
     let source_parent = source_path.parent().unwrap_or_else(|| Path::new(""));
-    let bases = [root.join(source_parent).join(requested), root.join(requested)];
+    let bases = [
+        root.join(source_parent).join(requested),
+        root.join(requested),
+    ];
     let extensions = ["png", "jpg", "jpeg", "svg", "webp", "pdf"];
     for base in bases {
         let candidates = if base.extension().is_some() {
@@ -1528,7 +1602,10 @@ fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
         while position < bytes.len() && bytes[position].is_ascii_whitespace() {
             position += 1;
         }
-        let Some(&opening) = bytes.get(position).filter(|value| **value == b'{' || **value == b'(') else {
+        let Some(&opening) = bytes
+            .get(position)
+            .filter(|value| **value == b'{' || **value == b'(')
+        else {
             cursor = position.saturating_add(1);
             continue;
         };
@@ -1589,12 +1666,15 @@ fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
 /// arXiv preprints reach a .bib in several shapes: an `eprint` field, an
 /// `archivePrefix`/`primaryClass` pair, or just a URL or DOI pointing at arXiv.
 fn bibliography_arxiv_id(fields: &BTreeMap<String, String>) -> Option<String> {
-    let looks_like_id =
-        |value: &str| Regex::new(r"^(\d{4}\.\d{4,5}|[a-z-]+(\.[A-Z]{2})?/\d{7})(v\d+)?$")
+    let looks_like_id = |value: &str| {
+        Regex::new(r"^(\d{4}\.\d{4,5}|[a-z-]+(\.[A-Z]{2})?/\d{7})(v\d+)?$")
             .ok()
-            .is_some_and(|pattern| pattern.is_match(value));
+            .is_some_and(|pattern| pattern.is_match(value))
+    };
     if let Some(eprint) = fields.get("eprint").map(|value| value.trim()) {
-        let candidate = eprint.trim_start_matches("arXiv:").trim_start_matches("arxiv:");
+        let candidate = eprint
+            .trim_start_matches("arXiv:")
+            .trim_start_matches("arxiv:");
         if looks_like_id(candidate) {
             return Some(candidate.to_string());
         }
@@ -1619,7 +1699,9 @@ fn parse_bibliography_fields(body: &str) -> BTreeMap<String, String> {
     let mut fields = BTreeMap::new();
     let mut position = 0;
     while position < bytes.len() {
-        while position < bytes.len() && (bytes[position].is_ascii_whitespace() || bytes[position] == b',') {
+        while position < bytes.len()
+            && (bytes[position].is_ascii_whitespace() || bytes[position] == b',')
+        {
             position += 1;
         }
         let name_start = position;
@@ -1715,7 +1797,7 @@ pub fn search_files(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>
 }
 
 pub(crate) fn list_files_for_search(root: &Path) -> Result<Vec<FileNode>, String> {
-    Ok(scan_files(root)?)
+    scan_files(root)
 }
 
 fn search_files_linear(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
@@ -1889,7 +1971,9 @@ pub fn rename_entry(root: &Path, relative: &str, new_name: &str) -> Result<Strin
         return Err("Keep a supported project file extension when renaming this file.".to_string());
     }
 
-    let parent = Path::new(relative).parent().unwrap_or_else(|| Path::new(""));
+    let parent = Path::new(relative)
+        .parent()
+        .unwrap_or_else(|| Path::new(""));
     let destination_relative = parent.join(&normalized_name).to_string_lossy().to_string();
     if destination_relative == relative {
         return Ok(destination_relative);
@@ -1924,7 +2008,10 @@ fn renamed_relative_path(path: &str, old_path: &str, new_path: &str) -> String {
     let old_path = Path::new(old_path);
     match path.strip_prefix(old_path) {
         Ok(suffix) if suffix.as_os_str().is_empty() => new_path.to_string(),
-        Ok(suffix) => Path::new(new_path).join(suffix).to_string_lossy().to_string(),
+        Ok(suffix) => Path::new(new_path)
+            .join(suffix)
+            .to_string_lossy()
+            .to_string(),
         Err(_) => path.to_string_lossy().to_string(),
     }
 }
@@ -2034,7 +2121,7 @@ fn citation_from_bibtex(bibtex: &str, fallback_key: &str) -> ResolvedCitation {
     let info = parse_bibliography(bibtex).into_iter().next();
     let body = bibtex
         .find(',')
-        .map(|index| bibtex[index + 1..].trim_end_matches(|character| character == '}' || character == '\n'))
+        .map(|index| bibtex[index + 1..].trim_end_matches(['}', '\n']))
         .unwrap_or("");
     let fields = parse_bibliography_fields(body);
     ResolvedCitation {
@@ -2088,7 +2175,10 @@ fn bib_entry_span(bibliography: &str, target_key: &str) -> Option<(usize, usize)
         while position < bytes.len() && bytes[position].is_ascii_whitespace() {
             position += 1;
         }
-        let Some(&opening) = bytes.get(position).filter(|value| **value == b'{' || **value == b'(') else {
+        let Some(&opening) = bytes
+            .get(position)
+            .filter(|value| **value == b'{' || **value == b'(')
+        else {
             cursor = position.saturating_add(1);
             continue;
         };
@@ -2105,7 +2195,9 @@ fn bib_entry_span(bibliography: &str, target_key: &str) -> Option<(usize, usize)
             cursor = position.saturating_add(1);
             continue;
         }
-        let key = bibliography[key_start..position].trim().to_ascii_lowercase();
+        let key = bibliography[key_start..position]
+            .trim()
+            .to_ascii_lowercase();
         position += 1;
         let mut depth = 1usize;
         let mut quoted = false;
@@ -2171,7 +2263,11 @@ pub fn save_bib_entry(root: &Path, key: &str, bibtex: &str) -> Result<(), String
             }
         }
     };
-    apply_transaction(root, &format!("Edit {relative}"), vec![(relative.clone(), next)])?;
+    apply_transaction(
+        root,
+        &format!("Edit {relative}"),
+        vec![(relative.clone(), next)],
+    )?;
     Ok(())
 }
 
@@ -2249,7 +2345,9 @@ pub fn write_bytes(root: &Path, relative: &str, base64_data: &str) -> Result<(),
         && relative != ".research/project.json"
         && relative != ".research/brief.md"
     {
-        return Err("Only papers metadata and project sidecar files can sync under .research.".to_string());
+        return Err(
+            "Only papers metadata and project sidecar files can sync under .research.".to_string(),
+        );
     }
     let bytes = STANDARD
         .decode(base64_data.trim())
@@ -2271,7 +2369,9 @@ pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
     }
     let size = fs::metadata(&path).map_err(err)?.len();
     if size > 50 * 1024 * 1024 {
-        return Err("This figure is too large to preview inside Lattice (50 MB maximum).".to_string());
+        return Err(
+            "This figure is too large to preview inside Lattice (50 MB maximum).".to_string(),
+        );
     }
     let mime_type = asset_mime_type(&path)
         .ok_or_else(|| "Lattice cannot preview this figure type.".to_string())?;
@@ -2320,7 +2420,9 @@ fn convert_figure(
         fs::create_dir_all(parent).map_err(err)?;
     }
     let current = destination.exists()
-        && fs::metadata(&destination).and_then(|value| value.modified()).ok()
+        && fs::metadata(&destination)
+            .and_then(|value| value.modified())
+            .ok()
             >= fs::metadata(source).and_then(|value| value.modified()).ok();
     if !current {
         let output = if source.extension().is_some_and(|value| value.eq_ignore_ascii_case("svg")) {
@@ -2502,8 +2604,8 @@ fn validate_user_entry(relative: &str) -> Result<(), String> {
 fn validate_entry_name(name: &str) -> Result<&str, String> {
     let trimmed = name.trim();
     let mut components = Path::new(trimmed).components();
-    let simple_name = matches!(components.next(), Some(Component::Normal(_)))
-        && components.next().is_none();
+    let simple_name =
+        matches!(components.next(), Some(Component::Normal(_))) && components.next().is_none();
     if !simple_name || trimmed.starts_with('.') {
         return Err("Choose a simple name without folders or a leading dot.".to_string());
     }
@@ -2515,7 +2617,11 @@ fn ensure_ignore_line(path: &Path, line: &str) -> Result<(), String> {
     if current.lines().any(|existing| existing.trim() == line) {
         return Ok(());
     }
-    let separator = if current.is_empty() || current.ends_with('\n') { "" } else { "\n" };
+    let separator = if current.is_empty() || current.ends_with('\n') {
+        ""
+    } else {
+        "\n"
+    };
     fs::write(path, format!("{current}{separator}{line}\n")).map_err(err)
 }
 
@@ -2614,7 +2720,7 @@ fn latest_history_record(root: &Path) -> Result<Option<TransactionRecord>, Strin
     let mut newest: Option<(String, TransactionRecord)> = None;
     for entry in fs::read_dir(directory).map_err(err)? {
         let path = entry.map_err(err)?.path();
-        if !path.extension().is_some_and(|extension| extension == "json") {
+        if path.extension().is_none_or(|extension| extension != "json") {
             continue;
         }
         let raw = fs::read_to_string(&path).map_err(err)?;
@@ -2668,7 +2774,10 @@ pub fn save_conversation_checkpoint(
     let snapshot = snapshot_text_files(root)?;
     fs::write(
         path,
-        format!("{}\n", serde_json::to_string_pretty(&snapshot).map_err(err)?),
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&snapshot).map_err(err)?
+        ),
     )
     .map_err(err)
 }
@@ -2683,11 +2792,15 @@ pub fn restore_conversation_checkpoint(
     validate_checkpoint_id(message_id)?;
     let path = checkpoint_path(root, session_id, message_id);
     let target = if path.is_file() {
-        serde_json::from_str::<TextSnapshot>(&fs::read_to_string(path).map_err(err)?).map_err(err)?
+        serde_json::from_str::<TextSnapshot>(&fs::read_to_string(path).map_err(err)?)
+            .map_err(err)?
     } else if let Some(timestamp) = fallback_timestamp {
         reconstruct_snapshot_at(root, timestamp)?
     } else {
-        return Err("This message predates project checkpoints and its file state cannot be reconstructed.".to_string());
+        return Err(
+            "This message predates project checkpoints and its file state cannot be reconstructed."
+                .to_string(),
+        );
     };
     restore_text_snapshot(root, &target, "Restore files for conversation branch")
 }
@@ -2702,8 +2815,13 @@ fn reconstruct_snapshot_at(root: &Path, timestamp: &str) -> Result<TextSnapshot,
     let mut records = Vec::new();
     for entry in fs::read_dir(directory).map_err(err)? {
         let path = entry.map_err(err)?.path();
-        if path.extension().is_some_and(|extension| extension == "json") {
-            if let Ok(record) = serde_json::from_str::<TransactionRecord>(&fs::read_to_string(path).map_err(err)?) {
+        if path
+            .extension()
+            .is_some_and(|extension| extension == "json")
+        {
+            if let Ok(record) =
+                serde_json::from_str::<TransactionRecord>(&fs::read_to_string(path).map_err(err)?)
+            {
                 if chrono::DateTime::parse_from_rfc3339(&record.timestamp)
                     .is_ok_and(|record_time| record_time > target_time)
                 {
@@ -2744,7 +2862,11 @@ fn restore_text_snapshot(
         .filter_map(|path| {
             let before = current.get(&path).cloned();
             let after = target.get(&path).cloned();
-            (before != after).then_some(FileChange { path, before, after })
+            (before != after).then_some(FileChange {
+                path,
+                before,
+                after,
+            })
         })
         .collect::<Vec<_>>();
     if changes.is_empty() {
@@ -2909,7 +3031,7 @@ fn replace_targets(root: &Path, paths: Option<Vec<String>>) -> Result<Vec<String
             .collect())
     } else {
         let mut collected = Vec::new();
-        collect_searchable_paths(root, &scan_files(root)?, &mut collected);
+        collect_searchable_paths(&scan_files(root)?, &mut collected);
         Ok(collected)
     }
 }
@@ -3182,10 +3304,10 @@ impl ReplaceMatcher {
     }
 }
 
-fn collect_searchable_paths(root: &Path, nodes: &[FileNode], out: &mut Vec<String>) {
+fn collect_searchable_paths(nodes: &[FileNode], out: &mut Vec<String>) {
     for node in nodes {
         if node.kind == "directory" {
-            collect_searchable_paths(root, &node.children, out);
+            collect_searchable_paths(&node.children, out);
             continue;
         }
         if searchable_text_path(&node.path) {
@@ -3501,14 +3623,9 @@ mod tests {
             vec![("main.tex".to_string(), "after".to_string())],
         )
         .unwrap();
-        let restored = restore_conversation_checkpoint(
-            &root,
-            &session_id,
-            &message_id,
-            None,
-        )
-        .unwrap()
-        .unwrap();
+        let restored = restore_conversation_checkpoint(&root, &session_id, &message_id, None)
+            .unwrap()
+            .unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "before");
         assert_eq!(restored.label, "Restore files for conversation branch");
         fs::remove_dir_all(root).unwrap();
@@ -3639,18 +3756,31 @@ mod tests {
         .unwrap();
 
         let indexed = references(&root).unwrap();
-        let figure = indexed.iter().find(|item| item.label == "fig:model").unwrap();
+        let figure = indexed
+            .iter()
+            .find(|item| item.label == "fig:model")
+            .unwrap();
         assert_eq!(figure.kind, "figure");
         assert_eq!(figure.title, "Our model architecture");
         assert_eq!(figure.image_path.as_deref(), Some("figures/model.png"));
-        let table = indexed.iter().find(|item| item.label == "tab:results").unwrap();
+        let table = indexed
+            .iter()
+            .find(|item| item.label == "tab:results")
+            .unwrap();
         assert_eq!(table.kind, "table");
         assert!(table.snippet.contains("Method & Score"));
         assert_eq!(
-            indexed.iter().find(|item| item.label == "eq:loss").unwrap().kind,
+            indexed
+                .iter()
+                .find(|item| item.label == "eq:loss")
+                .unwrap()
+                .kind,
             "equation"
         );
-        let section = indexed.iter().find(|item| item.label == "sec:intro").unwrap();
+        let section = indexed
+            .iter()
+            .find(|item| item.label == "sec:intro")
+            .unwrap();
         assert_eq!(section.kind, "section");
         assert_eq!(section.title, "Introduction");
         assert_eq!(section.line, 1);
@@ -3675,7 +3805,11 @@ mod tests {
         let entry = get_history_entry(&root, &items[0].id).unwrap();
         assert_eq!(entry.label, "Edit main.tex");
         assert_eq!(entry.changes[0].before.as_deref(), Some(before.as_str()));
-        assert!(entry.changes[0].after.as_deref().unwrap().contains("% edited"));
+        assert!(entry.changes[0]
+            .after
+            .as_deref()
+            .unwrap()
+            .contains("% edited"));
         assert!(get_history_entry(&root, "../escape").is_err());
         fs::remove_dir_all(parent).unwrap();
     }
@@ -3718,10 +3852,16 @@ mod tests {
         .unwrap();
         fs::write(root.join("notes.md"), "# Notes\n% XXX temp\n").unwrap();
         let hits = list_todos(&root).unwrap();
-        assert!(hits.iter().any(|hit| hit.kind == "TODO" && hit.path == "sections/method.tex"));
-        assert!(hits.iter().any(|hit| hit.kind == "todo" && hit.preview.contains("\\todo")));
+        assert!(hits
+            .iter()
+            .any(|hit| hit.kind == "TODO" && hit.path == "sections/method.tex"));
+        assert!(hits
+            .iter()
+            .any(|hit| hit.kind == "todo" && hit.preview.contains("\\todo")));
         assert!(hits.iter().any(|hit| hit.kind == "FIXME"));
-        assert!(hits.iter().any(|hit| hit.kind == "XXX" && hit.path == "notes.md"));
+        assert!(hits
+            .iter()
+            .any(|hit| hit.kind == "XXX" && hit.path == "notes.md"));
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -3887,7 +4027,10 @@ mod tests {
         assert_eq!(label_hits.len(), 3);
         assert!(label_hits.iter().any(|hit| hit.role == "definition"));
         assert_eq!(
-            label_hits.iter().filter(|hit| hit.role == "reference").count(),
+            label_hits
+                .iter()
+                .filter(|hit| hit.role == "reference")
+                .count(),
             2
         );
 
@@ -4017,8 +4160,14 @@ mod tests {
         .unwrap();
         let items = history(&root).unwrap();
         revert_file(&root, &items[0].id, "main.tex").unwrap();
-        assert_ne!(fs::read_to_string(root.join("main.tex")).unwrap(), "% main-new\n");
-        assert_eq!(fs::read_to_string(root.join("references.bib")).unwrap(), "% bib-new\n");
+        assert_ne!(
+            fs::read_to_string(root.join("main.tex")).unwrap(),
+            "% main-new\n"
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("references.bib")).unwrap(),
+            "% bib-new\n"
+        );
         assert!(transaction_path(&root, &items[0].id).unwrap().exists());
         fs::remove_dir_all(parent).unwrap();
     }
@@ -4030,13 +4179,8 @@ mod tests {
         let png = [
             0x89u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
         ];
-        let path = import_image_bytes(
-            &root,
-            "figures",
-            "paste.png",
-            &STANDARD.encode(png),
-        )
-        .unwrap();
+        let path =
+            import_image_bytes(&root, "figures", "paste.png", &STANDARD.encode(png)).unwrap();
         assert_eq!(path, "figures/paste.png");
         assert!(root.join("figures/paste.png").is_file());
         fs::remove_dir_all(parent).unwrap();
@@ -4070,7 +4214,9 @@ mod tests {
         assert_eq!(result.replacements, 2);
         assert!(result.files_changed.contains(&"main.tex".to_string()));
         assert!(result.files_changed.contains(&"sections/a.tex".to_string()));
-        assert!(fs::read_to_string(root.join("main.tex")).unwrap().contains("VALUE"));
+        assert!(fs::read_to_string(root.join("main.tex"))
+            .unwrap()
+            .contains("VALUE"));
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -4083,7 +4229,10 @@ mod tests {
         assert_eq!(insensitive.replacements, 3);
         let regex = replace_in_project(&root, r"[Tt]oken", "X", None, true, true).unwrap();
         assert_eq!(regex.replacements, 2);
-        assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "X TOKEN X\n");
+        assert_eq!(
+            fs::read_to_string(root.join("main.tex")).unwrap(),
+            "X TOKEN X\n"
+        );
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -4142,7 +4291,9 @@ mod tests {
         assert!(added
             .root_documents
             .iter()
-            .any(|document| document.path == "alt.tex" && document.is_default && document.name == "Alt"));
+            .any(|document| document.path == "alt.tex"
+                && document.is_default
+                && document.name == "Alt"));
         assert!(remove_root_document(&root, "main.tex").is_ok());
         assert!(remove_root_document(&root, "alt.tex").is_err());
         fs::remove_dir_all(parent).unwrap();
@@ -4219,7 +4370,10 @@ mod tests {
             "\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n",
         )
         .unwrap();
-        assert_eq!(detect_root_document(&root).as_deref(), Some("manuscript.tex"));
+        assert_eq!(
+            detect_root_document(&root).as_deref(),
+            Some("manuscript.tex")
+        );
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -4228,10 +4382,10 @@ mod tests {
         let root = temp_root("export-zip");
         fs::write(root.join("main.tex"), "\\documentclass{article}\n").unwrap();
         fs::write(root.join("main.log"), "noise\n").unwrap();
-        let zip_path = root.parent().unwrap().join(format!(
-            "lattice-export-{}.zip",
-            Uuid::new_v4()
-        ));
+        let zip_path = root
+            .parent()
+            .unwrap()
+            .join(format!("lattice-export-{}.zip", Uuid::new_v4()));
         export_project_zip(&root, &zip_path).unwrap();
         assert!(zip_path.is_file());
         let listing = std::process::Command::new("unzip")

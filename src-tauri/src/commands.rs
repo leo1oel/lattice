@@ -66,7 +66,9 @@ fn command_directories() -> Vec<PathBuf> {
 fn discover_tex_directories() -> Vec<PathBuf> {
     let mut directories = vec![PathBuf::from("/Library/TeX/texbin")];
     directories.extend(discover_texlive_bins(PathBuf::from("/usr/local/texlive")));
-    directories.extend(discover_texlive_bins(PathBuf::from("/opt/homebrew/texlive")));
+    directories.extend(discover_texlive_bins(PathBuf::from(
+        "/opt/homebrew/texlive",
+    )));
     directories
 }
 

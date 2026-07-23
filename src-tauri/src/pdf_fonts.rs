@@ -66,7 +66,10 @@ fn inflate_flate_streams(bytes: &[u8]) -> Vec<Vec<u8>> {
     while let Some(rel) = find_subslice(&bytes[search_from..], b"stream") {
         let stream_kw = search_from + rel;
         // Only inflate streams whose dict mentions FlateDecode.
-        let dict_start = bytes[..stream_kw].iter().rposition(|&b| b == b'<').unwrap_or(0);
+        let dict_start = bytes[..stream_kw]
+            .iter()
+            .rposition(|&b| b == b'<')
+            .unwrap_or(0);
         let dict = &bytes[dict_start..stream_kw];
         if !contains_ascii_ci(dict, b"FlateDecode") {
             search_from = stream_kw + 6;
@@ -112,7 +115,9 @@ fn try_inflate(data: &[u8]) -> Option<Vec<u8>> {
 }
 
 fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|window| window == needle)
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 fn contains_ascii_ci(haystack: &[u8], needle: &[u8]) -> bool {

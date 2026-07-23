@@ -134,7 +134,10 @@ mod tests {
                 open(Some("2402.00002"), "Open Two"),
             ],
         );
-        let sources: Vec<_> = hits.iter().map(|h| (h.source.as_str(), h.title.as_str())).collect();
+        let sources: Vec<_> = hits
+            .iter()
+            .map(|h| (h.source.as_str(), h.title.as_str()))
+            .collect();
         assert_eq!(
             sources,
             vec![("alphaxiv", "Alpha One"), ("openalex", "Open Two")]

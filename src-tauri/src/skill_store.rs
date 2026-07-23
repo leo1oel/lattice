@@ -46,7 +46,10 @@ pub fn list(root: &Path, runtime: &AgentRuntime) -> Result<Vec<AgentSkill>, Stri
 pub fn enabled_paths(root: &Path, runtime: &AgentRuntime) -> Result<Vec<PathBuf>, String> {
     let preferences = read_preferences(runtime)?;
     let mut effective = read_directory(&runtime.assets.join("skills"), "built-in")?;
-    effective.extend(read_directory(&runtime.config.join("skills"), "application")?);
+    effective.extend(read_directory(
+        &runtime.config.join("skills"),
+        "application",
+    )?);
     effective.extend(read_directory(&root.join(".research/skills"), "project")?);
     Ok(effective
         .into_values()
@@ -107,7 +110,10 @@ pub fn delete(root: &Path, runtime: &AgentRuntime, name: &str, scope: &str) -> R
     fs::remove_dir_all(path).map_err(err)
 }
 
-fn read_directory(directory: &Path, scope: &'static str) -> Result<BTreeMap<String, SkillSource>, String> {
+fn read_directory(
+    directory: &Path,
+    scope: &'static str,
+) -> Result<BTreeMap<String, SkillSource>, String> {
     let mut skills = BTreeMap::new();
     if !directory.is_dir() {
         return Ok(skills);
@@ -119,7 +125,16 @@ fn read_directory(directory: &Path, scope: &'static str) -> Result<BTreeMap<Stri
         }
         let content = fs::read_to_string(&path).map_err(err)?;
         let (name, description) = parse_metadata(&content)?;
-        skills.insert(name.clone(), SkillSource { name, description, scope, content, path });
+        skills.insert(
+            name.clone(),
+            SkillSource {
+                name,
+                description,
+                scope,
+                content,
+                path,
+            },
+        );
     }
     Ok(skills)
 }
@@ -127,7 +142,9 @@ fn read_directory(directory: &Path, scope: &'static str) -> Result<BTreeMap<Stri
 fn parse_metadata(content: &str) -> Result<(String, String), String> {
     let mut lines = content.lines();
     if lines.next() != Some("---") {
-        return Err("A skill must start with YAML frontmatter containing name and description.".to_string());
+        return Err(
+            "A skill must start with YAML frontmatter containing name and description.".to_string(),
+        );
     }
     let mut name = None;
     let mut description = None;
@@ -141,18 +158,26 @@ fn parse_metadata(content: &str) -> Result<(String, String), String> {
             description = Some(value.trim().trim_matches(['\'', '"']).to_string());
         }
     }
-    let name = name.filter(|value| !value.is_empty()).ok_or_else(|| "The skill frontmatter needs a name.".to_string())?;
+    let name = name
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "The skill frontmatter needs a name.".to_string())?;
     validate_name(&name)?;
-    let description = description.filter(|value| !value.is_empty()).ok_or_else(|| "The skill frontmatter needs a description.".to_string())?;
+    let description = description
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "The skill frontmatter needs a description.".to_string())?;
     Ok((name, description))
 }
 
 fn validate_name(name: &str) -> Result<(), String> {
     if name.is_empty()
         || name.starts_with('-')
-        || !name.chars().all(|character| character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-')
+        || !name.chars().all(|character| {
+            character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
+        })
     {
-        return Err("Skill names may only contain lowercase letters, numbers, and hyphens.".to_string());
+        return Err(
+            "Skill names may only contain lowercase letters, numbers, and hyphens.".to_string(),
+        );
     }
     Ok(())
 }
@@ -161,7 +186,10 @@ fn scope_directory(root: &Path, runtime: &AgentRuntime, scope: &str) -> Result<P
     match scope {
         "application" => Ok(runtime.config.join("skills")),
         "project" => Ok(root.join(".research/skills")),
-        _ => Err("Choose whether the skill applies to all Lattice projects or only this project.".to_string()),
+        _ => Err(
+            "Choose whether the skill applies to all Lattice projects or only this project."
+                .to_string(),
+        ),
     }
 }
 
@@ -199,13 +227,22 @@ mod tests {
         let assets = base.join("assets");
         let config = base.join("config");
         fs::create_dir_all(assets.join("skills/writing")).unwrap();
-        fs::write(assets.join("skills/writing/SKILL.md"), "---\nname: writing\ndescription: Built in.\n---\n").unwrap();
+        fs::write(
+            assets.join("skills/writing/SKILL.md"),
+            "---\nname: writing\ndescription: Built in.\n---\n",
+        )
+        .unwrap();
         let runtime = AgentRuntime::new(base.join("pi"), assets, config);
-        save(&root, &runtime, AgentSkillSaveRequest {
-            original_name: None,
-            scope: "project".to_string(),
-            content: "---\nname: writing\ndescription: Project voice.\n---\n".to_string(),
-        }).unwrap();
+        save(
+            &root,
+            &runtime,
+            AgentSkillSaveRequest {
+                original_name: None,
+                scope: "project".to_string(),
+                content: "---\nname: writing\ndescription: Project voice.\n---\n".to_string(),
+            },
+        )
+        .unwrap();
         let skills = list(&root, &runtime).unwrap();
         assert_eq!(skills[0].scope, "project");
         assert!(skills[0].overridden);

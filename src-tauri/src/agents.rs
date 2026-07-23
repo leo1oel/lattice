@@ -1,6 +1,7 @@
 use crate::commands;
 use crate::models::{
-    AgentCommand, AgentResult, AgentSettings, AgentStreamEvent, SubscriptionLoginEvent, SubscriptionStatus,
+    AgentCommand, AgentResult, AgentSettings, AgentStreamEvent, SubscriptionLoginEvent,
+    SubscriptionStatus,
 };
 use crate::project;
 use crate::skill_store;
@@ -70,9 +71,9 @@ impl ProcessLifecycle {
         let Ok(exited) = self.exited.lock() else {
             return false;
         };
-        let Ok((exited, _)) = self
-            .exit_notification
-            .wait_timeout_while(exited, timeout, |exited| !*exited)
+        let Ok((exited, _)) =
+            self.exit_notification
+                .wait_timeout_while(exited, timeout, |exited| !*exited)
         else {
             return false;
         };
@@ -143,10 +144,7 @@ impl AgentRuntime {
         if active.cancellation_requested.swap(true, Ordering::SeqCst) {
             return Ok(true);
         }
-        schedule_forced_stop(
-            active.process_id,
-            Arc::clone(&active.process_lifecycle),
-        );
+        schedule_forced_stop(active.process_id, Arc::clone(&active.process_lifecycle));
         let Some(stdin) = active.stdin.upgrade() else {
             return Ok(true);
         };
@@ -187,10 +185,7 @@ impl Drop for ActiveRunRegistration {
             return;
         };
         let is_current = runs.get(&self.session_id).is_some_and(|run| {
-            Arc::ptr_eq(
-                &run.cancellation_requested,
-                &self.cancellation_requested,
-            )
+            Arc::ptr_eq(&run.cancellation_requested, &self.cancellation_requested)
         });
         if is_current {
             runs.remove(&self.session_id);
@@ -249,9 +244,8 @@ pub fn run(
     on_event(AgentStreamEvent::Status {
         message: "Starting agent…".to_string(),
     });
-    let outcome = run_omp(root, runtime, &request, on_event).map_err(|error| {
-        rewrite_agent_auth_error(runtime, &request.settings.provider, &error)
-    });
+    let outcome = run_omp(root, runtime, &request, on_event)
+        .map_err(|error| rewrite_agent_auth_error(runtime, &request.settings.provider, &error));
     let transaction = project::record_external_changes(
         root,
         &before,
@@ -353,11 +347,8 @@ fn run_omp(
     let mut failure = None;
     let mut skills_used = BTreeSet::new();
     loop {
-        let Some(value) =
-            run_registration.result_or_cancelled(process.next_value())?
-        else {
-            let (_, stderr) =
-                run_registration.result_or_cancelled(process.finish(false))?;
+        let Some(value) = run_registration.result_or_cancelled(process.next_value())? else {
+            let (_, stderr) = run_registration.result_or_cancelled(process.finish(false))?;
             if run_registration.was_cancelled() {
                 return Err(agent_stopped_error());
             }
@@ -539,7 +530,8 @@ pub fn fork_session(
         system_prompt,
     )?;
     let mut process = JsonLineProcess::spawn(command, "Lattice agent")?;
-    let fork_messages = process.request("lattice-fork-messages", "get_branch_messages", json!({}))?;
+    let fork_messages =
+        process.request("lattice-fork-messages", "get_branch_messages", json!({}))?;
     let messages = fork_messages
         .pointer("/data/messages")
         .and_then(Value::as_array)
@@ -548,13 +540,12 @@ pub fn fork_session(
         .get(user_message_index)
         .and_then(|message| message.get("entryId"))
         .and_then(Value::as_str)
-        .ok_or_else(|| "This conversation cannot be branched because its OMP history is incomplete.".to_string())?;
+        .ok_or_else(|| {
+            "This conversation cannot be branched because its OMP history is incomplete."
+                .to_string()
+        })?;
     let source_timestamp = session_entry_timestamp(root, source_session_id, entry_id)?;
-    let branch = process.request(
-        "lattice-fork",
-        "branch",
-        json!({ "entryId": entry_id }),
-    )?;
+    let branch = process.request("lattice-fork", "branch", json!({ "entryId": entry_id }))?;
     if branch.pointer("/data/cancelled").and_then(Value::as_bool) == Some(true) {
         return Err("An OMP extension cancelled the conversation branch.".to_string());
     }
@@ -880,7 +871,10 @@ fn persist_session_from_state(
     let temporary = path.with_extension("json.tmp");
     fs::write(
         &temporary,
-        format!("{}\n", serde_json::to_string_pretty(&reference).map_err(err)?),
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&reference).map_err(err)?
+        ),
     )
     .map_err(err)?;
     fs::rename(temporary, path).map_err(err)
@@ -972,8 +966,7 @@ fn tool_skill_name(value: &Value) -> Option<String> {
         .filter_map(|component| component.as_os_str().to_str())
         .collect::<Vec<_>>();
     components.windows(3).find_map(|window| {
-        (window[0] == "skills" && window[2] == "SKILL.md")
-            .then(|| window[1].to_string())
+        (window[0] == "skills" && window[2] == "SKILL.md").then(|| window[1].to_string())
     })
 }
 
@@ -1072,8 +1065,14 @@ fn omp_provider_authenticated(runtime: &AgentRuntime, provider: &str) -> Result<
 
 fn subscription_sign_in_guidance(provider: &str) -> String {
     let guidance = match provider {
-        "codex" => "Sign in to Codex in Settings → Subscriptions before using the Codex subscription.".to_string(),
-        "claude" => "Sign in to Claude in Settings → Subscriptions before using the Claude subscription.".to_string(),
+        "codex" => {
+            "Sign in to Codex in Settings → Subscriptions before using the Codex subscription."
+                .to_string()
+        }
+        "claude" => {
+            "Sign in to Claude in Settings → Subscriptions before using the Claude subscription."
+                .to_string()
+        }
         _ => "Sign in through Settings → Subscriptions before using this subscription.".to_string(),
     };
     format!("{SUBSCRIPTION_AUTH_ERROR_PREFIX}{guidance}")
@@ -1244,10 +1243,7 @@ fn agent_stopped_error() -> String {
     format!("{AGENT_STOPPED_ERROR_PREFIX}The agent was stopped.")
 }
 
-fn schedule_forced_stop(
-    process_id: u32,
-    process_lifecycle: Arc<ProcessLifecycle>,
-) {
+fn schedule_forced_stop(process_id: u32, process_lifecycle: Arc<ProcessLifecycle>) {
     thread::spawn(move || {
         if !process_lifecycle.wait_for_exit(CANCEL_GRACE_PERIOD) {
             process_lifecycle.terminate_once(process_id);
@@ -1364,10 +1360,7 @@ impl JsonLineProcess {
     }
 
     fn stdin_handle(&self) -> Weak<Mutex<ChildStdin>> {
-        self.stdin
-            .as_ref()
-            .map(Arc::downgrade)
-            .unwrap_or_default()
+        self.stdin.as_ref().map(Arc::downgrade).unwrap_or_default()
     }
 
     fn lifecycle_handle(&self) -> Arc<ProcessLifecycle> {
@@ -1404,7 +1397,11 @@ impl JsonLineProcess {
     /// opaque "stopped before responding" into a diagnosable message.
     fn drain_stderr(&mut self) -> String {
         match self.stderr.take() {
-            Some(handle) => handle.join().ok().and_then(|result| result.ok()).unwrap_or_default(),
+            Some(handle) => handle
+                .join()
+                .ok()
+                .and_then(|result| result.ok())
+                .unwrap_or_default(),
             None => String::new(),
         }
     }
@@ -1690,8 +1687,7 @@ pub fn begin_subscription_login(
         }
         fs::write(omp_auth_marker(runtime, provider), "OMP\n").map_err(err)?;
         on_event(SubscriptionLoginEvent {
-            message: "Connected. OMP will manage and refresh this subscription."
-                .to_string(),
+            message: "Connected. OMP will manage and refresh this subscription.".to_string(),
         });
         let _ = process.finish(false)?;
         return Ok(());
@@ -1720,7 +1716,11 @@ fn ensure_omp_native(runtime: &AgentRuntime) {
         .join(&version)
         .join(filename);
     // Already present at a plausible size — nothing to do.
-    if target.metadata().map(|meta| meta.len() > 1_000_000).unwrap_or(false) {
+    if target
+        .metadata()
+        .map(|meta| meta.len() > 1_000_000)
+        .unwrap_or(false)
+    {
         return;
     }
     let source = runtime.assets.join("natives").join(filename);
@@ -1886,7 +1886,10 @@ Error: keychain access denied
         let detail = sidecar_error_detail(stderr);
         assert!(detail.contains("keychain access denied"), "got: {detail}");
         // The message line must lead, not be buried behind frames.
-        assert!(detail.starts_with(" Details: Error: keychain access denied"), "got: {detail}");
+        assert!(
+            detail.starts_with(" Details: Error: keychain access denied"),
+            "got: {detail}"
+        );
     }
 
     #[test]
@@ -1944,10 +1947,7 @@ If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manual
     #[test]
     fn leaves_messages_untouched_without_editor_context() {
         assert_eq!(editor_prompt("Hello", None, None), "Hello");
-        assert_eq!(
-            editor_prompt("Hello", Some("main.tex"), None),
-            "Hello"
-        );
+        assert_eq!(editor_prompt("Hello", Some("main.tex"), None), "Hello");
     }
 
     #[test]
@@ -2013,8 +2013,10 @@ If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manual
         assert!(rewritten.contains("Settings → Subscriptions"));
         assert!(!rewritten.contains("/login"));
         assert!(!omp_auth_marker(&runtime, "claude").is_file());
-        assert!(rewrite_agent_auth_error(&runtime, "openai-api", "No API key found for openai.")
-            .contains("Settings → API keys"));
+        assert!(
+            rewrite_agent_auth_error(&runtime, "openai-api", "No API key found for openai.")
+                .contains("Settings → API keys")
+        );
         assert_eq!(
             rewrite_agent_auth_error(&runtime, "claude", "Model timed out."),
             "Model timed out."
@@ -2059,8 +2061,7 @@ If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manual
             PathBuf::from("/tmp/unused-assets"),
             std::env::temp_dir(),
         );
-        let mut process =
-            JsonLineProcess::spawn(Command::new("/bin/cat"), "test agent").unwrap();
+        let mut process = JsonLineProcess::spawn(Command::new("/bin/cat"), "test agent").unwrap();
         let registration = runtime
             .register_run(
                 "test-session",
@@ -2139,7 +2140,8 @@ If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manual
 
     #[test]
     fn persists_an_omp_session_reference_inside_the_project() {
-        let root = std::env::temp_dir().join(format!("lattice-omp-session-{}", uuid::Uuid::new_v4()));
+        let root =
+            std::env::temp_dir().join(format!("lattice-omp-session-{}", uuid::Uuid::new_v4()));
         let session_dir = root.join(".research/omp-sessions");
         fs::create_dir_all(&session_dir).unwrap();
         let lattice_id = uuid::Uuid::new_v4().to_string();
@@ -2151,13 +2153,17 @@ If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manual
             "data": { "sessionId": omp_id, "sessionFile": session_file }
         });
         persist_session_from_state(&root, &lattice_id, &state).unwrap();
-        assert_eq!(omp_session_file(&root, &lattice_id).unwrap(), Some(session_file));
+        assert_eq!(
+            omp_session_file(&root, &lattice_id).unwrap(),
+            Some(session_file)
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn copies_a_legacy_pi_conversation_before_omp_resumes_it() {
-        let root = std::env::temp_dir().join(format!("lattice-omp-migration-{}", uuid::Uuid::new_v4()));
+        let root =
+            std::env::temp_dir().join(format!("lattice-omp-migration-{}", uuid::Uuid::new_v4()));
         let session_id = uuid::Uuid::new_v4().to_string();
         let legacy_dir = root.join(".research/pi-sessions");
         fs::create_dir_all(&legacy_dir).unwrap();
@@ -2171,7 +2177,10 @@ If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manual
         )
         .unwrap();
         let migrated = omp_session_file(&root, &session_id).unwrap().unwrap();
-        assert_eq!(migrated, root.join(".research/omp-sessions").join(file_name));
+        assert_eq!(
+            migrated,
+            root.join(".research/omp-sessions").join(file_name)
+        );
         assert!(migrated.is_file());
         let migrated_content = fs::read_to_string(migrated).unwrap();
         assert!(migrated_content.contains("Hello"));
@@ -2222,16 +2231,7 @@ If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manual
             .unwrap()
             .contains("State the research problem and central hypothesis clearly."));
         assert!(result.transaction_id.is_some());
-        let branch = fork_session(
-            &root,
-            &runtime,
-            &settings,
-            &session_id,
-            "E2E",
-            0,
-            "",
-        )
-        .unwrap();
+        let branch = fork_session(&root, &runtime, &settings, &session_id, "E2E", 0, "").unwrap();
         assert_ne!(branch.session_id, session_id);
         assert!(branch.source_timestamp.is_some());
         project::restore_conversation_checkpoint(

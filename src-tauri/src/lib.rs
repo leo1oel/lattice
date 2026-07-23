@@ -1,33 +1,34 @@
 mod agents;
+mod alphaxiv;
 mod commands;
 mod doctor;
+mod format_latex;
 mod fts;
 mod git;
 mod latex;
+mod literature;
+#[cfg(target_os = "macos")]
+mod macos_window;
 mod models;
+mod openalex;
 mod papers;
+mod pdf_fonts;
 mod project;
 mod sessions;
 mod skill_store;
-mod texcount;
-mod format_latex;
-mod openalex;
-mod alphaxiv;
-mod literature;
 mod tex_setup;
+mod texcount;
 mod texlab;
-mod pdf_fonts;
-#[cfg(target_os = "macos")]
-mod macos_window;
 
 use models::{
-    AgentCommand, AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
-    AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, CitationInfo,
-    DoctorReport, EditorComment, GitDiff, GitRemoteResult, GitStatus, HistoryItem, ImportResult,
-    LiteraturePage, OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
-    ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult, ResolvedCitation,
-    SubscriptionLoginEvent, SubscriptionStatus, SymbolOccurrence, SyncTexTarget, TexlabCompletionItem,
-    TexlabHover, TexlabLocation, TodoHit, TransactionRecord, UnusedSymbols, WordCount,
+    AgentCommand, AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult,
+    AgentSessionSummary, AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview,
+    BuildResult, CitationInfo, DoctorReport, EditorComment, GitDiff, GitRemoteResult, GitStatus,
+    HistoryItem, ImportResult, LiteraturePage, OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget,
+    ProjectManifest, ProjectSearchResult, ProjectSnapshot, ReferenceInfo, RenameSymbolResult,
+    ReplacePreview, ReplaceResult, ResolvedCitation, SubscriptionLoginEvent, SubscriptionStatus,
+    SymbolOccurrence, SyncTexTarget, TexlabCompletionItem, TexlabHover, TexlabLocation, TodoHit,
+    TransactionRecord, UnusedSymbols, WordCount,
 };
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -166,7 +167,7 @@ fn prune_old_share_workspaces(parent: &std::path::Path, current: &std::path::Pat
         return;
     }
     // Newest first, so everything past `keep` is the oldest.
-    workspaces.sort_by(|a, b| b.0.cmp(&a.0));
+    workspaces.sort_by_key(|workspace| std::cmp::Reverse(workspace.0));
     for (_, path) in workspaces.into_iter().skip(keep) {
         if path == current {
             continue;
@@ -207,10 +208,7 @@ fn import_project_zip(
 }
 
 #[tauri::command]
-fn export_project_zip(
-    state: tauri::State<'_, AppState>,
-    zip_path: String,
-) -> Result<(), String> {
+fn export_project_zip(state: tauri::State<'_, AppState>, zip_path: String) -> Result<(), String> {
     project::export_project_zip(&current_root(&state)?, Path::new(&zip_path))
 }
 
@@ -294,6 +292,7 @@ fn count_project_words(state: tauri::State<'_, AppState>) -> Result<WordCount, S
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 fn update_project_manifest(
     state: tauri::State<'_, AppState>,
     engine: Option<String>,
@@ -502,10 +501,7 @@ fn write_project_bytes(
 }
 
 #[tauri::command]
-fn prepare_latex_figure(
-    state: tauri::State<'_, AppState>,
-    path: String,
-) -> Result<String, String> {
+fn prepare_latex_figure(state: tauri::State<'_, AppState>, path: String) -> Result<String, String> {
     project::prepare_latex_figure(&current_root(&state)?, &path)
 }
 
@@ -537,11 +533,7 @@ async fn clean_project(state: tauri::State<'_, AppState>) -> Result<String, Stri
 
 #[tauri::command]
 fn run_doctor(state: tauri::State<'_, AppState>) -> DoctorReport {
-    let root = state
-        .root
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone());
+    let root = state.root.lock().ok().and_then(|guard| guard.clone());
     doctor::run(
         root.as_deref(),
         &state.agent_runtime.executable,
@@ -637,7 +629,10 @@ fn format_latex(
 }
 
 #[tauri::command]
-async fn search_openalex(query: String, precise: Option<bool>) -> Result<Vec<OpenAlexWork>, String> {
+async fn search_openalex(
+    query: String,
+    precise: Option<bool>,
+) -> Result<Vec<OpenAlexWork>, String> {
     let precise = precise.unwrap_or(false);
     tauri::async_runtime::spawn_blocking(move || openalex::search_works(&query, precise, 1))
         .await
@@ -768,11 +763,9 @@ async fn synctex_view(
     column: u32,
 ) -> Result<PdfSyncTarget, String> {
     let root = current_root(&state)?;
-    tauri::async_runtime::spawn_blocking(move || {
-        latex::forward_search(&root, &path, line, column)
-    })
-    .await
-    .map_err(|error| format!("The SyncTeX lookup stopped unexpectedly: {error}"))?
+    tauri::async_runtime::spawn_blocking(move || latex::forward_search(&root, &path, line, column))
+        .await
+        .map_err(|error| format!("The SyncTeX lookup stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
@@ -1009,11 +1002,7 @@ fn save_agent_checkpoint(
     session_id: String,
     message_id: String,
 ) -> Result<(), String> {
-    project::save_conversation_checkpoint(
-        &current_root(&state)?,
-        &session_id,
-        &message_id,
-    )
+    project::save_conversation_checkpoint(&current_root(&state)?, &session_id, &message_id)
 }
 
 #[tauri::command]
@@ -1173,9 +1162,7 @@ pub fn run() {
                 .join("omp");
             let (executable, assets) = agent_runtime_paths(app)?;
             app.manage(AppState::from_environment(agents::AgentRuntime::new(
-                executable,
-                assets,
-                config,
+                executable, assets, config,
             )));
             #[cfg(target_os = "macos")]
             {

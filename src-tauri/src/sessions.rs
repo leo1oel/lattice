@@ -1,6 +1,4 @@
-use crate::models::{
-    AgentMessage, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
-};
+use crate::models::{AgentMessage, AgentSession, AgentSessionSearchResult, AgentSessionSummary};
 use chrono::Utc;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -110,11 +108,17 @@ pub fn search(root: &Path, query: &str) -> Result<Vec<AgentSessionSearchResult>,
                     .iter()
                     .any(|file| file.to_lowercase().contains(&needle))
         });
-        if needle.is_empty() || session.title.to_lowercase().contains(&needle) || matching_message.is_some() {
+        if needle.is_empty()
+            || session.title.to_lowercase().contains(&needle)
+            || matching_message.is_some()
+        {
             let snippet = matching_message
                 .map(|message| search_snippet(&message.text, &needle))
                 .unwrap_or_default();
-            results.push(AgentSessionSearchResult { session: summary, snippet });
+            results.push(AgentSessionSearchResult {
+                session: summary,
+                snippet,
+            });
         }
     }
     Ok(results)
@@ -396,8 +400,22 @@ mod tests {
             model: "gpt-5.6-sol".to_string(),
             reasoning_effort: "high".to_string(),
             messages: vec![
-                AgentMessage { id: Uuid::new_v4().to_string(), role: "user".to_string(), text: "What model are you?".to_string(), files: Vec::new(), skills: Vec::new(), parts: Vec::new() },
-                AgentMessage { id: Uuid::new_v4().to_string(), role: "agent".to_string(), text: "What model are you?I am an assistant.".to_string(), files: Vec::new(), skills: Vec::new(), parts: Vec::new() },
+                AgentMessage {
+                    id: Uuid::new_v4().to_string(),
+                    role: "user".to_string(),
+                    text: "What model are you?".to_string(),
+                    files: Vec::new(),
+                    skills: Vec::new(),
+                    parts: Vec::new(),
+                },
+                AgentMessage {
+                    id: Uuid::new_v4().to_string(),
+                    role: "agent".to_string(),
+                    text: "What model are you?I am an assistant.".to_string(),
+                    files: Vec::new(),
+                    skills: Vec::new(),
+                    parts: Vec::new(),
+                },
             ],
         };
         normalize_legacy_echoes(&mut session);

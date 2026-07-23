@@ -82,8 +82,7 @@ pub fn parse_texcount_output(stdout: &str) -> Result<WordCount, String> {
 fn extract_labeled_count(line: &str, label: &str) -> Option<u32> {
     let rest = line.split_once(label)?.1;
     rest.split(|character: char| !character.is_ascii_digit())
-        .filter(|token| !token.is_empty())
-        .next_back()
+        .rfind(|token| !token.is_empty())
         .and_then(|token| token.parse().ok())
 }
 
@@ -103,11 +102,17 @@ pub fn estimate_from_latex(source: &str) -> WordCount {
         .collect::<Vec<_>>()
         .join("\n");
     // Drop common environments that are not body prose
-    for env in ["figure", "table", "equation", "align", "gather", "verbatim", "lstlisting"] {
-        let pattern = regex::Regex::new(&format!(
-            r"(?s)\\begin\{{{env}\}}.*?\\end\{{{env}\}}"
-        ))
-        .ok();
+    for env in [
+        "figure",
+        "table",
+        "equation",
+        "align",
+        "gather",
+        "verbatim",
+        "lstlisting",
+    ] {
+        let pattern =
+            regex::Regex::new(&format!(r"(?s)\\begin\{{{env}\}}.*?\\end\{{{env}\}}")).ok();
         if let Some(regex) = pattern {
             text = regex.replace_all(&text, " ").into_owned();
         }
@@ -119,7 +124,9 @@ pub fn estimate_from_latex(source: &str) -> WordCount {
     }
     text = text.replace(['{', '}', '$', '&', '#', '_', '~', '^'], " ");
     let words = text
-        .split(|character: char| !character.is_alphanumeric() && character != '\'' && character != '-')
+        .split(|character: char| {
+            !character.is_alphanumeric() && character != '\'' && character != '-'
+        })
         .filter(|token| !token.is_empty())
         .count() as u32;
     WordCount {

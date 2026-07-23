@@ -267,8 +267,7 @@ pub fn start_tex_install(kind: &str) -> Result<(), String> {
         {
             let mut file = fs::File::create(&path)
                 .map_err(|error| format!("Could not create install script: {error}"))?;
-            file
-                .write_all(script.as_bytes())
+            file.write_all(script.as_bytes())
                 .map_err(|error| format!("Could not write install script: {error}"))?;
         }
 

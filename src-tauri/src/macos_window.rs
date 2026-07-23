@@ -26,11 +26,7 @@ pub fn apply_traffic_light_position(window: &tauri::WebviewWindow) {
 ///
 /// `center_y` / `titlebar_height` are in the same coordinate space as the
 /// window's AppKit point size (logical points from the top of the window).
-pub fn align_traffic_lights_to(
-    window: &tauri::WebviewWindow,
-    center_y: f64,
-    titlebar_height: f64,
-) {
+pub fn align_traffic_lights_to(window: &tauri::WebviewWindow, center_y: f64, titlebar_height: f64) {
     if !center_y.is_finite() || center_y < 0.0 {
         return;
     }
@@ -151,8 +147,7 @@ unsafe fn align_traffic_lights(ns_window: *mut std::ffi::c_void) {
     let space_between = NSView::frame(&miniaturize).origin.x - close_rect.origin.x;
     // AppKit origin is bottom-left inside the titlebar container.
     // Place the button so its vertical center matches the measured web control.
-    let button_y =
-        (titlebar_height - target.center_y - close_rect.size.height / 2.0).max(0.0);
+    let button_y = (titlebar_height - target.center_y - close_rect.size.height / 2.0).max(0.0);
 
     for (index, button) in [close, miniaturize, zoom].into_iter().enumerate() {
         let mut rect = NSView::frame(&button);

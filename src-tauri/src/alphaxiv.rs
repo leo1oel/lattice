@@ -66,7 +66,10 @@ pub fn search_works(query: &str) -> Result<Vec<AlphaxivWork>, String> {
         .send()
         .map_err(|error| format!("alphaXiv request failed: {error}"))?;
     if !response.status().is_success() {
-        return Err(format!("alphaXiv returned HTTP {}.", response.status().as_u16()));
+        return Err(format!(
+            "alphaXiv returned HTTP {}.",
+            response.status().as_u16()
+        ));
     }
     let hits: Vec<SearchHit> = response
         .json()

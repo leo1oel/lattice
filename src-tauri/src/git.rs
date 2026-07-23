@@ -21,10 +21,18 @@ pub fn status(root: &Path) -> Result<GitStatus, String> {
         .and_then(|name| git_output(root, &["remote", "get-url", name]).ok())
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
-    let upstream = git_output(root, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
+    let upstream = git_output(
+        root,
+        &[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}",
+        ],
+    )
+    .ok()
+    .map(|value| value.trim().to_string())
+    .filter(|value| !value.is_empty());
     let (ahead, behind) = ahead_behind(root, upstream.is_some());
     let porcelain = git_output(root, &["status", "--porcelain=v1", "-uall"])?;
     let files = parse_porcelain(&porcelain);
@@ -81,7 +89,11 @@ pub fn stage(root: &Path, paths: &[String]) -> Result<(), String> {
 pub fn unstage(root: &Path, paths: &[String]) -> Result<(), String> {
     ensure_repository(root)?;
     let relative_paths = validated_paths(root, paths)?;
-    let mut args = vec!["restore".to_string(), "--staged".to_string(), "--".to_string()];
+    let mut args = vec![
+        "restore".to_string(),
+        "--staged".to_string(),
+        "--".to_string(),
+    ];
     args.extend(relative_paths);
     match git_run(root, &args.iter().map(String::as_str).collect::<Vec<_>>()) {
         Ok(()) => Ok(()),
@@ -89,7 +101,10 @@ pub fn unstage(root: &Path, paths: &[String]) -> Result<(), String> {
             // Older git / first commit: fall back to `git reset HEAD -- paths`.
             let mut fallback = vec!["reset".to_string(), "HEAD".to_string(), "--".to_string()];
             fallback.extend(validated_paths(root, paths)?);
-            git_run(root, &fallback.iter().map(String::as_str).collect::<Vec<_>>())
+            git_run(
+                root,
+                &fallback.iter().map(String::as_str).collect::<Vec<_>>(),
+            )
         }
     }
 }
@@ -101,8 +116,7 @@ pub fn commit(root: &Path, message: &str) -> Result<String, String> {
         return Err("Commit message cannot be empty.".to_string());
     }
     git_run(root, &["commit", "-m", trimmed])?;
-    git_output(root, &["rev-parse", "--short", "HEAD"])
-        .map(|value| value.trim().to_string())
+    git_output(root, &["rev-parse", "--short", "HEAD"]).map(|value| value.trim().to_string())
 }
 
 pub fn init(root: &Path) -> Result<GitStatus, String> {
@@ -130,11 +144,20 @@ pub fn set_remote(root: &Path, name: &str, url: &str) -> Result<GitStatus, Strin
 
 pub fn push(root: &Path) -> Result<GitRemoteResult, String> {
     ensure_repository(root)?;
-    let remote = primary_remote(root)
-        .ok_or_else(|| "Add a remote URL before pushing.".to_string())?;
+    let remote =
+        primary_remote(root).ok_or_else(|| "Add a remote URL before pushing.".to_string())?;
     let branch = current_branch(root)?
         .ok_or_else(|| "Checkout a named branch before pushing.".to_string())?;
-    let has_upstream = git_run(root, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]).is_ok();
+    let has_upstream = git_run(
+        root,
+        &[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}",
+        ],
+    )
+    .is_ok();
     let output = if has_upstream {
         git_run_capture(root, &["push"])?
     } else {
@@ -151,7 +174,16 @@ pub fn pull(root: &Path) -> Result<GitRemoteResult, String> {
     if primary_remote(root).is_none() {
         return Err("Add a remote URL before pulling.".to_string());
     }
-    let has_upstream = git_run(root, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]).is_ok();
+    let has_upstream = git_run(
+        root,
+        &[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}",
+        ],
+    )
+    .is_ok();
     let output = if has_upstream {
         git_run_capture(root, &["pull", "--ff-only"])?
     } else {
@@ -168,8 +200,8 @@ pub fn pull(root: &Path) -> Result<GitRemoteResult, String> {
 
 pub fn fetch(root: &Path) -> Result<GitRemoteResult, String> {
     ensure_repository(root)?;
-    let remote = primary_remote(root)
-        .ok_or_else(|| "Add a remote URL before fetching.".to_string())?;
+    let remote =
+        primary_remote(root).ok_or_else(|| "Add a remote URL before fetching.".to_string())?;
     let output = git_run_capture(root, &["fetch", &remote])?;
     Ok(GitRemoteResult {
         summary: summarize_remote_output("Fetch", &output),
@@ -250,7 +282,10 @@ fn ahead_behind(root: &Path, has_upstream: bool) -> (u32, u32) {
     if !has_upstream {
         return (0, 0);
     }
-    let Ok(value) = git_output(root, &["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]) else {
+    let Ok(value) = git_output(
+        root,
+        &["rev-list", "--left-right", "--count", "@{upstream}...HEAD"],
+    ) else {
         return (0, 0);
     };
     let mut parts = value.split_whitespace();
@@ -400,7 +435,9 @@ fn parse_porcelain(porcelain: &str) -> Vec<GitFileStatus> {
         let worktree = line.as_bytes()[1] as char;
         let rest = &line[3..];
         let path = if rest.contains(" -> ") {
-            rest.rsplit_once(" -> ").map(|(_, right)| right).unwrap_or(rest)
+            rest.rsplit_once(" -> ")
+                .map(|(_, right)| right)
+                .unwrap_or(rest)
         } else {
             rest
         }
@@ -450,7 +487,8 @@ mod tests {
     use std::process::Command;
 
     fn temp_root(label: &str) -> std::path::PathBuf {
-        let root = std::env::temp_dir().join(format!("lattice-git-{label}-{}", uuid::Uuid::new_v4()));
+        let root =
+            std::env::temp_dir().join(format!("lattice-git-{label}-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
         root
     }
@@ -551,13 +589,20 @@ mod tests {
         let first = set_remote(&root, "origin", "https://example.com/lattice/paper.git").unwrap();
         assert_eq!(first.remote.as_deref(), Some("origin"));
         assert!(
-            first.remote_url.as_deref().is_some_and(|url| url.contains("lattice/paper.git")),
+            first
+                .remote_url
+                .as_deref()
+                .is_some_and(|url| url.contains("lattice/paper.git")),
             "unexpected remote url: {:?}",
             first.remote_url
         );
-        let second = set_remote(&root, "origin", "ssh://git@example.com/lattice/paper2.git").unwrap();
+        let second =
+            set_remote(&root, "origin", "ssh://git@example.com/lattice/paper2.git").unwrap();
         assert!(
-            second.remote_url.as_deref().is_some_and(|url| url.contains("paper2.git")),
+            second
+                .remote_url
+                .as_deref()
+                .is_some_and(|url| url.contains("paper2.git")),
             "unexpected remote url: {:?}",
             second.remote_url
         );

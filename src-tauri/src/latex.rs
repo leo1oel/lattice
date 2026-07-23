@@ -127,8 +127,7 @@ pub fn build(root: &Path, force: bool, active: &ActiveBuild) -> Result<BuildResu
 fn is_stale_previous_invocation_log(log: &str) -> bool {
     let lower = log.to_ascii_lowercase();
     lower.contains("error in previous invocation")
-        || (lower.contains("nothing to do")
-            && lower.contains("gave an error in previous"))
+        || (lower.contains("nothing to do") && lower.contains("gave an error in previous"))
 }
 
 fn run_latexmk(
@@ -171,9 +170,9 @@ fn run_latexmk(
         command.process_group(0);
     }
 
-    let child = command.spawn().map_err(|error| {
-        format!("Could not start latexmk. Install MacTeX or TeX Live. {error}")
-    })?;
+    let child = command
+        .spawn()
+        .map_err(|error| format!("Could not start latexmk. Install MacTeX or TeX Live. {error}"))?;
     let pid = child.id();
     if let Err(error) = begin_active(active, pid) {
         terminate_process_group(pid);
@@ -337,7 +336,11 @@ pub fn forward_search(
     if !root.join(&pdf_path).is_file() {
         return Err("Build the project before locating source in the PDF.".to_string());
     }
-    let column = if column == 0 { 0 } else { column.saturating_sub(1) };
+    let column = if column == 0 {
+        0
+    } else {
+        column.saturating_sub(1)
+    };
     let output = commands::command("synctex")
         .current_dir(root)
         .arg("view")
@@ -378,10 +381,7 @@ fn parse_synctex_edit(output: &str) -> Result<(String, u32), String> {
 fn parse_synctex_view(output: &str) -> Result<Vec<PdfSyncTarget>, String> {
     let mut targets = Vec::new();
     for block in output.split("SyncTeX result begin").skip(1) {
-        let body = block
-            .split("SyncTeX result end")
-            .next()
-            .unwrap_or(block);
+        let body = block.split("SyncTeX result end").next().unwrap_or(block);
         let page = field_u32(body, "Page:")?;
         let x = field_f64(body, "h:").or_else(|_| field_f64(body, "x:"))?;
         let y = field_f64(body, "v:").or_else(|_| field_f64(body, "y:"))?;
@@ -709,12 +709,11 @@ mod tests {
 
     #[test]
     fn maps_algorithm_sty_to_algorithms_tlmgr_package() {
-        let diagnostics = parse_diagnostics(
-            "! LaTeX Error: File `algorithm.sty' not found.\n",
-        );
+        let diagnostics = parse_diagnostics("! LaTeX Error: File `algorithm.sty' not found.\n");
         assert!(
             diagnostics.iter().any(|item| {
-                item.message.contains("algorithm.sty") && item.message.contains("tlmgr install algorithms")
+                item.message.contains("algorithm.sty")
+                    && item.message.contains("tlmgr install algorithms")
             }),
             "expected algorithms package hint, got {diagnostics:?}"
         );

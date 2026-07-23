@@ -85,11 +85,7 @@ pub fn search_works(query: &str, precise: bool, page: u32) -> Result<Vec<OpenAle
     let payload: WorksResponse = response
         .json()
         .map_err(|error| format!("Could not parse OpenAlex response: {error}"))?;
-    Ok(payload
-        .results
-        .into_iter()
-        .filter_map(map_work)
-        .collect())
+    Ok(payload.results.into_iter().filter_map(map_work).collect())
 }
 
 fn map_work(work: WorkPayload) -> Option<OpenAlexWork> {
@@ -137,10 +133,7 @@ fn arxiv_id_from_doi(doi: &str) -> Option<String> {
     let marker = "arxiv.";
     let index = lower.find(marker)?;
     let rest = &doi[index + marker.len()..];
-    let id = rest
-        .split(|ch: char| ch == '?' || ch == '#' || ch == '/')
-        .next()?
-        .trim();
+    let id = rest.split(['?', '#', '/']).next()?.trim();
     if id.is_empty() {
         None
     } else {

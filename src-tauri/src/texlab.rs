@@ -64,7 +64,10 @@ impl TexlabPool {
                 version: 0,
             });
         }
-        let live = self.live.as_mut().ok_or_else(|| "TexLab session missing.".to_string())?;
+        let live = self
+            .live
+            .as_mut()
+            .ok_or_else(|| "TexLab session missing.".to_string())?;
         match live.publish_for(&absolute, &relative, text) {
             Ok(items) => Ok(items),
             Err(error) => {
@@ -185,7 +188,10 @@ impl TexlabPool {
                 version: 0,
             });
         }
-        let live = self.live.as_mut().ok_or_else(|| "TexLab session missing.".to_string())?;
+        let live = self
+            .live
+            .as_mut()
+            .ok_or_else(|| "TexLab session missing.".to_string())?;
         let file_uri = live.sync_document(&absolute, &relative, text)?;
         work(live, &file_uri)
     }
@@ -193,7 +199,11 @@ impl TexlabPool {
 
 /// One-shot diagnostics used by tests when a pooled session is unnecessary.
 #[cfg(test)]
-pub fn diagnostics(root: &Path, relative_path: &str, text: &str) -> Result<Vec<Diagnostic>, String> {
+pub fn diagnostics(
+    root: &Path,
+    relative_path: &str,
+    text: &str,
+) -> Result<Vec<Diagnostic>, String> {
     let mut pool = TexlabPool::default();
     pool.diagnostics(root, relative_path, text)
 }
@@ -337,12 +347,8 @@ impl TexlabSession {
 
     fn write_message(&mut self, value: &Value) -> Result<(), String> {
         let body = serde_json::to_vec(value).map_err(|error| error.to_string())?;
-        write!(
-            self.stdin,
-            "Content-Length: {}\r\n\r\n",
-            body.len()
-        )
-        .map_err(|error| format!("Could not write TexLab headers: {error}"))?;
+        write!(self.stdin, "Content-Length: {}\r\n\r\n", body.len())
+            .map_err(|error| format!("Could not write TexLab headers: {error}"))?;
         self.stdin
             .write_all(&body)
             .map_err(|error| format!("Could not write TexLab body: {error}"))?;
@@ -383,50 +389,48 @@ impl TexlabSession {
 
     fn read_message_deadline(&mut self, timeout: Duration) -> Result<Value, String> {
         let deadline = Instant::now() + timeout;
-        loop {
-            if Instant::now() >= deadline {
-                return Err("TexLab read timed out.".to_string());
-            }
-            // BufReader doesn't support true timeouts; poll with short sleeps when buffer empty.
-            if self.stdout.buffer().is_empty() {
-                // Peek by attempting non-blocking isn't available on BufReader easily.
-                // Use a short sleep then try reading headers; read_line blocks.
-                // Prefer setting read timeout on the underlying file descriptor on Unix.
-                #[cfg(unix)]
-                {
-                    use std::os::unix::io::AsRawFd;
-                    let fd = self.stdout.get_ref().as_raw_fd();
-                    let remaining = deadline.saturating_duration_since(Instant::now());
-                    let mut timeval = libc::timeval {
-                        tv_sec: remaining.as_secs() as libc::time_t,
-                        tv_usec: remaining.subsec_micros() as libc::suseconds_t,
-                    };
-                    unsafe {
-                        let mut set: libc::fd_set = std::mem::zeroed();
-                        libc::FD_ZERO(&mut set);
-                        libc::FD_SET(fd, &mut set);
-                        let ready = libc::select(
-                            fd + 1,
-                            &mut set,
-                            std::ptr::null_mut(),
-                            std::ptr::null_mut(),
-                            &mut timeval,
-                        );
-                        if ready == 0 {
-                            return Err("TexLab read timed out.".to_string());
-                        }
-                        if ready < 0 {
-                            return Err("TexLab select failed.".to_string());
-                        }
+        if Instant::now() >= deadline {
+            return Err("TexLab read timed out.".to_string());
+        }
+        // BufReader doesn't support true timeouts; poll with short sleeps when buffer empty.
+        if self.stdout.buffer().is_empty() {
+            // Peek by attempting non-blocking isn't available on BufReader easily.
+            // Use a short sleep then try reading headers; read_line blocks.
+            // Prefer setting read timeout on the underlying file descriptor on Unix.
+            #[cfg(unix)]
+            {
+                use std::os::unix::io::AsRawFd;
+                let fd = self.stdout.get_ref().as_raw_fd();
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                let mut timeval = libc::timeval {
+                    tv_sec: remaining.as_secs() as libc::time_t,
+                    tv_usec: remaining.subsec_micros() as libc::suseconds_t,
+                };
+                unsafe {
+                    let mut set: libc::fd_set = std::mem::zeroed();
+                    libc::FD_ZERO(&mut set);
+                    libc::FD_SET(fd, &mut set);
+                    let ready = libc::select(
+                        fd + 1,
+                        &mut set,
+                        std::ptr::null_mut(),
+                        std::ptr::null_mut(),
+                        &mut timeval,
+                    );
+                    if ready == 0 {
+                        return Err("TexLab read timed out.".to_string());
+                    }
+                    if ready < 0 {
+                        return Err("TexLab select failed.".to_string());
                     }
                 }
-                #[cfg(not(unix))]
-                {
-                    std::thread::sleep(Duration::from_millis(20));
-                }
             }
-            return self.read_message();
+            #[cfg(not(unix))]
+            {
+                std::thread::sleep(Duration::from_millis(20));
+            }
         }
+        self.read_message()
     }
 
     fn read_message(&mut self) -> Result<Value, String> {
@@ -452,7 +456,8 @@ impl TexlabSession {
                 );
             }
         }
-        let length = content_length.ok_or_else(|| "TexLab message missing Content-Length.".to_string())?;
+        let length =
+            content_length.ok_or_else(|| "TexLab message missing Content-Length.".to_string())?;
         let mut body = vec![0u8; length];
         self.stdout
             .read_exact(&mut body)
@@ -573,8 +578,13 @@ fn encode_uri_component(value: &str) -> String {
     encoded
 }
 
-fn publish_diagnostics_for(message: &Value, file_uri: &str, relative: &str) -> Option<Vec<Diagnostic>> {
-    if message.get("method").and_then(|value| value.as_str()) != Some("textDocument/publishDiagnostics")
+fn publish_diagnostics_for(
+    message: &Value,
+    file_uri: &str,
+    relative: &str,
+) -> Option<Vec<Diagnostic>> {
+    if message.get("method").and_then(|value| value.as_str())
+        != Some("textDocument/publishDiagnostics")
     {
         return None;
     }
@@ -607,7 +617,11 @@ fn map_completions(result: Option<&Value>) -> Vec<TexlabCompletionItem> {
     } else {
         return Vec::new();
     };
-    items.iter().filter_map(map_completion_item).take(80).collect()
+    items
+        .iter()
+        .filter_map(map_completion_item)
+        .take(80)
+        .collect()
 }
 
 fn map_completion_item(item: &Value) -> Option<TexlabCompletionItem> {
@@ -754,9 +768,11 @@ fn markup_to_string(value: Option<&Value>) -> Option<String> {
         let joined = array
             .iter()
             .filter_map(|item| {
-                item.as_str()
-                    .map(str::to_string)
-                    .or_else(|| item.get("value").and_then(|inner| inner.as_str()).map(str::to_string))
+                item.as_str().map(str::to_string).or_else(|| {
+                    item.get("value")
+                        .and_then(|inner| inner.as_str())
+                        .map(str::to_string)
+                })
             })
             .collect::<Vec<_>>()
             .join("\n\n");
@@ -835,7 +851,8 @@ mod tests {
                 ]
             }
         });
-        let diagnostics = publish_diagnostics_for(&message, "file:///tmp/paper/main.tex", "main.tex").unwrap();
+        let diagnostics =
+            publish_diagnostics_for(&message, "file:///tmp/paper/main.tex", "main.tex").unwrap();
         assert_eq!(diagnostics.len(), 2);
         assert_eq!(diagnostics[0].level, "error");
         assert_eq!(diagnostics[0].line, Some(4));
@@ -867,7 +884,10 @@ mod tests {
         assert_eq!(completions.len(), 1);
         assert_eq!(completions[0].label, "\\usepackage");
         assert_eq!(completions[0].kind.as_deref(), Some("keyword"));
-        assert_eq!(completions[0].documentation.as_deref(), Some("Load a package"));
+        assert_eq!(
+            completions[0].documentation.as_deref(),
+            Some("Load a package")
+        );
 
         let hover = map_hover(Some(&json!({
             "contents": { "kind": "markdown", "value": "Package amsmath" }
@@ -892,7 +912,11 @@ mod tests {
         let parent = std::env::temp_dir().join(format!("lattice-texlab-{}", uuid::Uuid::new_v4()));
         let _ = std::fs::create_dir_all(&parent);
         let root = crate::project::create(&parent, "paper").unwrap();
-        let result = diagnostics(&root, "main.tex", "\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n");
+        let result = diagnostics(
+            &root,
+            "main.tex",
+            "\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n",
+        );
         assert!(result.is_ok());
         let _ = std::fs::remove_dir_all(parent);
     }

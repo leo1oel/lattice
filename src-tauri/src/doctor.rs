@@ -13,9 +13,21 @@ pub fn run(root: Option<&Path>, agent_executable: &Path, agent_assets: &Path) ->
     push_tool(&mut checks, "synctex", "SyncTeX bidirectional search");
     push_tool(&mut checks, "bibtex", "BibTeX bibliography processor");
     push_tool(&mut checks, "biber", "Biber bibliography processor");
-    push_tool(&mut checks, "texlab", "TexLab language server (optional editor diagnostics)");
-    push_tool(&mut checks, "git", "Git (optional project status / commit panel)");
-    push_tool(&mut checks, "texcount", "TeXcount body word counts (optional status bar)");
+    push_tool(
+        &mut checks,
+        "texlab",
+        "TexLab language server (optional editor diagnostics)",
+    );
+    push_tool(
+        &mut checks,
+        "git",
+        "Git (optional project status / commit panel)",
+    );
+    push_tool(
+        &mut checks,
+        "texcount",
+        "TeXcount body word counts (optional status bar)",
+    );
     push_tool(&mut checks, "uv", "Python tooling used by research skills");
     push_tool(&mut checks, "npx", "Node helper used by bibcite skill");
 
@@ -25,7 +37,10 @@ pub fn run(root: Option<&Path>, agent_executable: &Path, agent_assets: &Path) ->
         if agent_ok {
             format!("Bundled agent runtime at {}", agent_executable.display())
         } else {
-            format!("Missing bundled agent runtime at {}", agent_executable.display())
+            format!(
+                "Missing bundled agent runtime at {}",
+                agent_executable.display()
+            )
         },
         agent_ok,
     ));
@@ -48,7 +63,9 @@ pub fn run(root: Option<&Path>, agent_executable: &Path, agent_assets: &Path) ->
                     .iter()
                     .find(|document| document.is_default)
                     .or_else(|| manifest.root_documents.first());
-                let root_path = root_document.map(|document| document.path.as_str()).unwrap_or("(none)");
+                let root_path = root_document
+                    .map(|document| document.path.as_str())
+                    .unwrap_or("(none)");
                 let root_exists = root_document
                     .map(|document| {
                         project::safe_path(root, &document.path)
@@ -110,12 +127,18 @@ pub fn run(root: Option<&Path>, agent_executable: &Path, agent_assets: &Path) ->
     push_conference_fonts(&mut checks);
     push_project_pdf_fonts(&mut checks, root);
 
-    let required_ok = ["latexmk", "synctex", "bibtex", "lattice-agent", "omp-assets"]
-        .into_iter()
-        .all(|name| checks.iter().any(|item| item.name == name && item.ok))
-        && checks
-            .iter()
-            .any(|item| matches!(item.name.as_str(), "pdflatex" | "xelatex" | "lualatex") && item.ok);
+    let required_ok = [
+        "latexmk",
+        "synctex",
+        "bibtex",
+        "lattice-agent",
+        "omp-assets",
+    ]
+    .into_iter()
+    .all(|name| checks.iter().any(|item| item.name == name && item.ok))
+        && checks.iter().any(|item| {
+            matches!(item.name.as_str(), "pdflatex" | "xelatex" | "lualatex") && item.ok
+        });
 
     DoctorReport {
         ok: required_ok,
@@ -144,7 +167,8 @@ fn push_icml_packages(checks: &mut Vec<DoctorCheck>) {
     if !commands::available("kpsewhich") {
         checks.push(check(
             "icml-packages",
-            "Cannot verify ICML packages (kpsewhich missing). Install BasicTeX from Lattice.".to_string(),
+            "Cannot verify ICML packages (kpsewhich missing). Install BasicTeX from Lattice."
+                .to_string(),
             false,
         ));
         return;

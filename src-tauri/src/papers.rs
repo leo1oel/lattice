@@ -310,7 +310,9 @@ pub fn delete_paper(
     citation_key: Option<&str>,
 ) -> Result<(), String> {
     let arxiv_id = arxiv_id.map(str::trim).filter(|value| !value.is_empty());
-    let citation_key = citation_key.map(str::trim).filter(|value| !value.is_empty());
+    let citation_key = citation_key
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     if arxiv_id.is_none() && citation_key.is_none() {
         return Err("That paper has neither an arXiv id nor a citation key.".to_string());
     }
@@ -598,7 +600,11 @@ mod tests {
         .unwrap();
         let directory = root.join(".research/papers/1706.03762");
         fs::create_dir_all(&directory).unwrap();
-        fs::write(directory.join("paper.md"), "Title: Attention Is All You Need\n").unwrap();
+        fs::write(
+            directory.join("paper.md"),
+            "Title: Attention Is All You Need\n",
+        )
+        .unwrap();
         fs::write(
             directory.join("metadata.json"),
             r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
@@ -685,7 +691,10 @@ mod tests {
         let parent = std::env::temp_dir().join(format!("lattice-paper-noid-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
         let error = delete_paper(&root, Some("  "), None).unwrap_err();
-        assert!(error.contains("neither an arXiv id nor a citation key"), "got: {error}");
+        assert!(
+            error.contains("neither an arXiv id nor a citation key"),
+            "got: {error}"
+        );
         let _ = fs::remove_dir_all(parent);
     }
 
@@ -702,7 +711,11 @@ mod tests {
         // and the stored id carries a version suffix the citation omits.
         let directory = root.join(".research/papers/2504.10462v2");
         fs::create_dir_all(&directory).unwrap();
-        fs::write(directory.join("paper.md"), "Title: The Scalability of Simplicity\n").unwrap();
+        fs::write(
+            directory.join("paper.md"),
+            "Title: The Scalability of Simplicity\n",
+        )
+        .unwrap();
         fs::write(
             directory.join("metadata.json"),
             r#"{"arxivId":"2504.10462v2","title":"The Scalability of Simplicity"}"#,
@@ -710,7 +723,11 @@ mod tests {
         .unwrap();
 
         let papers = list_papers(&root).unwrap();
-        assert_eq!(papers.len(), 1, "the fetched text and its citation are one work: {papers:?}");
+        assert_eq!(
+            papers.len(),
+            1,
+            "the fetched text and its citation are one work: {papers:?}"
+        );
         assert!(papers[0].has_full_text, "got: {:?}", papers[0]);
         let _ = fs::remove_dir_all(parent);
     }
@@ -726,7 +743,11 @@ mod tests {
         .unwrap();
         let directory = root.join(".research/papers/1706.03762");
         fs::create_dir_all(&directory).unwrap();
-        fs::write(directory.join("paper.md"), "Title: Attention Is All You Need\n").unwrap();
+        fs::write(
+            directory.join("paper.md"),
+            "Title: Attention Is All You Need\n",
+        )
+        .unwrap();
         fs::write(
             directory.join("metadata.json"),
             r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
@@ -828,9 +849,7 @@ mod tests {
             .unwrap()
             .starts_with("---"));
         // The alphaXiv overview is fetched and stored as the blog view.
-        assert!(root
-            .join(".research/papers/1706.03762/blog.md")
-            .exists());
+        assert!(root.join(".research/papers/1706.03762/blog.md").exists());
         assert!(!fs::read_to_string(root.join("references.bib"))
             .unwrap()
             .is_empty());
