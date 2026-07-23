@@ -32,15 +32,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      # cargo test/clippy compile the Tauri app, whose build script requires the
-      # `externalBin` agent sidecar to exist. The tests never execute it, so an
-      # empty stub satisfies the check without downloading the real binary
-      # (that only happens for real bundles via `beforeBuildCommand`).
-      - name: Stub the agent sidecar for compilation
+      # cargo test/clippy compile the Tauri app, whose build script validates the
+      # `externalBin` sidecar and `resources` globs exist. The tests never use
+      # them, so empty stubs satisfy the checks without downloading the real
+      # agent (that only happens for real bundles via `beforeBuildCommand`).
+      - name: Stub the agent sidecar and assets for compilation
         run: |
-          mkdir -p src-tauri/binaries
+          mkdir -p src-tauri/binaries src-tauri/omp-assets
           touch src-tauri/binaries/lattice-agent-aarch64-apple-darwin
           chmod +x src-tauri/binaries/lattice-agent-aarch64-apple-darwin
+          echo stub > src-tauri/omp-assets/placeholder.txt
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
