@@ -49,3 +49,17 @@ Object.defineProperty(Range.prototype, "getBoundingClientRect", {
   configurable: true,
   value: () => ({ bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0, x: 0, y: 0 }),
 });
+
+// Radix UI (shadcn menus/tooltips/etc.) relies on APIs jsdom doesn't implement.
+if (!("ResizeObserver" in globalThis)) {
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+for (const method of ["hasPointerCapture", "setPointerCapture", "releasePointerCapture"] as const) {
+  if (!(method in Element.prototype)) {
+    Object.defineProperty(Element.prototype, method, { configurable: true, value: () => undefined });
+  }
+}

@@ -311,11 +311,11 @@ describe("project workspace", () => {
     expect(document.querySelector(".titlebar-navigator")).not.toHaveAttribute("style");
     fireEvent.mouseDown(document.querySelector(".titlebar-drag-area")!, { button: 0, buttons: 1 });
     await waitFor(() => expect(windowApi.startDragging).toHaveBeenCalledOnce());
-    fireEvent.click(await screen.findByRole("button", { name: "Switch project" }));
+    fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
 
-    expect(screen.getByText("Recent projects")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /open another folder/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /new project/i })).toBeInTheDocument();
+    expect(await screen.findByText("Recent projects")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /open another folder/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize project navigator" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize writing agent" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize Project and Papers" })).toBeInTheDocument();

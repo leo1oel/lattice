@@ -117,23 +117,6 @@ select:disabled { opacity: 0.45; cursor: default; }
 .project-title > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-title > svg { flex: none; color: var(--faint); }
 .titlebar-drag-area { min-width: 12px; height: 100%; flex: 1; }
-.project-menu-dismiss { position: fixed; z-index: 6; inset: 0; background: transparent; cursor: default; }
-.project-menu { position: absolute; z-index: 7; top: 36px; left: 0; width: 330px; padding: 7px; border: 1px solid var(--line-strong); border-radius: 11px; background: var(--panel-strong); box-shadow: var(--shadow); animation: menu-in .16s cubic-bezier(.2, .75, .25, 1); transform-origin: top left; }
-.project-menu-heading { padding: 7px 8px 5px; color: var(--faint); font-size: 9px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
-.recent-projects { max-height: 230px; overflow: auto; }
-.recent-projects > button { width: 100%; min-width: 0; padding: 7px; border-radius: 7px; background: transparent; display: flex; align-items: center; gap: 8px; text-align: left; }
-.recent-projects > button:hover { background: var(--line); }
-.recent-project-icon { width: 27px; height: 27px; flex: none; border-radius: 7px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
-.recent-projects > button > span:last-child { min-width: 0; display: block; }
-.recent-projects strong, .recent-projects small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recent-projects strong { font-size: 11px; font-weight: 600; }
-.recent-projects small { margin-top: 2px; color: var(--faint); font-size: 9px; }
-.recent-projects > p { margin: 8px; color: var(--faint); font-size: 10px; }
-.project-menu-actions { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
-.project-menu-actions button { width: 100%; height: 30px; padding: 0 8px; border-radius: 6px; background: transparent; color: var(--muted); display: flex; align-items: center; gap: 7px; font-size: 10px; text-align: left; }
-.project-menu-actions button:hover { background: var(--line); color: var(--text); }
-.project-menu-actions kbd { margin-left: auto; border: 0; color: var(--faint); font: inherit; }
-.project-menu-busy { margin: 5px 7px 4px; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; }
 .title-actions { display: flex; align-items: center; gap: 6px; padding-right: 12px; }
 .build-button { height: 28px; border-radius: 7px; padding: 0 10px; display: flex; align-items: center; gap: 6px; background: var(--text); color: var(--bg); font-size: 11px; font-weight: 600; }
 .build-button.success { background: var(--accent-soft); color: var(--success); }
@@ -2122,32 +2105,6 @@ button.checklist-row:hover { border-color: color-mix(in srgb, var(--accent) 35%,
   place-items: center;
 }
 .editor-tab-beside:hover { color: var(--accent); background: var(--accent-soft); }
-.editor-tab-menu {
-  position: fixed;
-  z-index: 40;
-  min-width: 168px;
-  padding: 4px;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  background: var(--panel-strong);
-  box-shadow: var(--shadow);
-  display: grid;
-  gap: 2px;
-}
-.editor-tab-menu button {
-  height: 28px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  text-align: left;
-}
-.editor-tab-menu button:hover { background: var(--accent-soft); color: var(--accent); }
 .welcome-actions { display: flex; flex-wrap: wrap; gap: 9px; }
 .welcome-tex-setup {
   margin-top: 14px;

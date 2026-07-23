@@ -183,6 +183,15 @@ import { ChatMarkdown } from "./chat-markdown";
 import { applySlashCommand, filterSlashCommands, slashAtCaret, type AgentCommand, type SlashState } from "./slash-commands";
 import { EditorTabs } from "./editor-tabs";
 import { Tip } from "./components/icon-tip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "./components/ui/dropdown-menu";
 import { TableGeneratorDialog } from "./table-generator-dialog";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "./project-replace-dialog";
@@ -4005,16 +4014,30 @@ function App() {
           </Tip>
         </div>
         <div className="project-switcher">
-          <button
-            className="project-title"
-            aria-label="Switch project"
-            aria-expanded={projectMenuOpen}
-            disabled={agentRunning || building || importing}
-            onClick={() => setProjectMenuOpen((value) => !value)}
-          >
-            <span>{project.manifest.name}</span>
-            <ChevronDown size={13} />
-          </button>
+          <DropdownMenu open={projectMenuOpen} onOpenChange={setProjectMenuOpen} modal={false}>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="project-title"
+                aria-label="Switch project"
+                disabled={agentRunning || building || importing}
+              >
+                <span>{project.manifest.name}</span>
+                <ChevronDown size={13} />
+              </button>
+            </DropdownMenuTrigger>
+            <ProjectMenu
+              currentPath={project.root}
+              recentProjects={recentProjects}
+              busyLabel={busyLabel}
+              onRecent={chooseRecentProject}
+              onOpen={() => void chooseExisting()}
+              onNew={() => {
+                setCreateError(null);
+                setCreateOpen(true);
+              }}
+              onExportZip={() => void exportProjectZip()}
+            />
+          </DropdownMenu>
           {(collabStatus === "synced" || collabStatus === "connecting") && (
             <button
               type="button"
@@ -4054,28 +4077,6 @@ function App() {
             </div>
           )}
           <div className="titlebar-drag-area" aria-hidden="true" />
-          {projectMenuOpen && (
-            <ProjectMenu
-              currentPath={project.root}
-              recentProjects={recentProjects}
-              busyLabel={busyLabel}
-              onRecent={chooseRecentProject}
-              onOpen={() => {
-                setProjectMenuOpen(false);
-                void chooseExisting();
-              }}
-              onNew={() => {
-                setProjectMenuOpen(false);
-                setCreateError(null);
-                setCreateOpen(true);
-              }}
-              onExportZip={() => {
-                setProjectMenuOpen(false);
-                void exportProjectZip();
-              }}
-              onClose={() => setProjectMenuOpen(false)}
-            />
-          )}
         </div>
         <div className="title-actions">
           <Tip label={agentOpen ? "Hide writing agent" : "Show writing agent"}>
@@ -5150,31 +5151,36 @@ function ProjectMenu(props: {
   onOpen: () => void;
   onNew: () => void;
   onExportZip: () => void;
-  onClose: () => void;
 }) {
   const alternatives = props.recentProjects.filter((item) => item.path !== props.currentPath);
+  const busy = Boolean(props.busyLabel);
   return (
-    <>
-      <button className="project-menu-dismiss" aria-label="Close project menu" onClick={props.onClose} />
-      <div className="project-menu">
-        <div className="project-menu-heading">Recent projects</div>
-        <div className="recent-projects">
-          {alternatives.map((item) => (
-            <button key={item.path} onClick={() => props.onRecent(item.path)} disabled={Boolean(props.busyLabel)}>
-              <span className="recent-project-icon"><Folder size={14} /></span>
-              <span><strong>{item.name}</strong><small>{item.path}</small></span>
-            </button>
-          ))}
-          {!alternatives.length && <p>No other recent projects yet.</p>}
-        </div>
-        <div className="project-menu-actions">
-          <button onClick={props.onOpen}><FolderOpen size={14} /> Open another folder <kbd>⌘O</kbd></button>
-          <button onClick={props.onNew}><Plus size={14} /> New project</button>
-          <button onClick={props.onExportZip}><FileArchive size={14} /> Export ZIP</button>
-        </div>
-        {props.busyLabel && <div className="project-menu-busy"><LoaderCircle className="spin" size={13} /> {props.busyLabel}</div>}
-      </div>
-    </>
+    <DropdownMenuContent align="start" sideOffset={6} className="w-72">
+      <DropdownMenuLabel>Recent projects</DropdownMenuLabel>
+      {alternatives.map((item) => (
+        <DropdownMenuItem key={item.path} disabled={busy} onSelect={() => props.onRecent(item.path)}>
+          <Folder />
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate font-medium">{item.name}</span>
+            <span className="truncate text-xs text-muted-foreground">{item.path}</span>
+          </span>
+        </DropdownMenuItem>
+      ))}
+      {!alternatives.length && (
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">No other recent projects yet.</p>
+      )}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onSelect={props.onOpen}>
+        <FolderOpen /> Open another folder <DropdownMenuShortcut>⌘O</DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={props.onNew}><Plus /> New project</DropdownMenuItem>
+      <DropdownMenuItem onSelect={props.onExportZip}><FileArchive /> Export ZIP</DropdownMenuItem>
+      {props.busyLabel && (
+        <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+          <LoaderCircle className="size-3 animate-spin" /> {props.busyLabel}
+        </p>
+      )}
+    </DropdownMenuContent>
   );
 }
 

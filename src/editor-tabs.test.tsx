@@ -36,7 +36,7 @@ describe("EditorTabs", () => {
     expect(onSelect).toHaveBeenCalledWith("sections/intro.tex");
   });
 
-  it("closes from the context menu", () => {
+  it("closes from the context menu", async () => {
     const onClose = vi.fn();
     render(
       <EditorTabs
@@ -52,7 +52,7 @@ describe("EditorTabs", () => {
     );
     const introTab = screen.getByRole("tab", { name: /intro\.tex/i }).closest(".editor-tab");
     fireEvent.contextMenu(introTab as HTMLElement);
-    fireEvent.click(screen.getByRole("button", { name: /^close$/i }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /^close$/i }));
     expect(onClose).toHaveBeenCalledWith("sections/intro.tex");
   });
 
