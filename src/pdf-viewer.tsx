@@ -32,6 +32,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { Tip } from "./components/icon-tip";
 import {
   createPdfMark,
   pageElementForNode,
@@ -872,9 +873,13 @@ export function PdfPreview({
     <div className="pdf-preview">
       <div className="pdf-toolbar">
         <div className="pdf-page-controls">
-          <button title="Previous page" disabled={pageNumber <= 1} onClick={() => scrollToPage(Math.max(1, pageNumber - 1))}><ChevronLeft size={14} /></button>
+          <Tip label="Previous page">
+            <button disabled={pageNumber <= 1} onClick={() => scrollToPage(Math.max(1, pageNumber - 1))}><ChevronLeft size={14} /></button>
+          </Tip>
           <span>{pageNumber} / {documentProxy?.numPages ?? "–"}</span>
-          <button title="Next page" disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => scrollToPage(Math.min(documentProxy?.numPages ?? pageNumber, pageNumber + 1))}><ChevronRight size={14} /></button>
+          <Tip label="Next page">
+            <button disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => scrollToPage(Math.min(documentProxy?.numPages ?? pageNumber, pageNumber + 1))}><ChevronRight size={14} /></button>
+          </Tip>
         </div>
         <label className="pdf-search">
           <Search size={12} />
@@ -890,26 +895,44 @@ export function PdfPreview({
           {searchQuery && (
             <>
               <small title={searchError || undefined}>{searchError ? "Unavailable" : searchIndexing ? "Indexing…" : matches.length ? `${selectedMatchIndex + 1}/${matches.length}` : "0/0"}</small>
-              <button title="Previous search result" disabled={!matches.length} onClick={() => selectMatch(-1)}><ChevronUp size={12} /></button>
-              <button title="Next search result" disabled={!matches.length} onClick={() => selectMatch(1)}><ChevronDown size={12} /></button>
-              <button title="Clear PDF search" onClick={() => setSearchQuery("")}><X size={12} /></button>
+              <Tip label="Previous search result">
+                <button disabled={!matches.length} onClick={() => selectMatch(-1)}><ChevronUp size={12} /></button>
+              </Tip>
+              <Tip label="Next search result">
+                <button disabled={!matches.length} onClick={() => selectMatch(1)}><ChevronDown size={12} /></button>
+              </Tip>
+              <Tip label="Clear PDF search">
+                <button onClick={() => setSearchQuery("")}><X size={12} /></button>
+              </Tip>
             </>
           )}
         </label>
         <div className="pdf-zoom-controls">
-          <button title="Zoom out" disabled={scale <= 0.6} onClick={() => setScale((value) => clamp(Number((value - 0.1).toFixed(1)), 0.6, 2.2))}><ZoomOut size={14} /></button>
+          <Tip label="Zoom out">
+            <button disabled={scale <= 0.6} onClick={() => setScale((value) => clamp(Number((value - 0.1).toFixed(1)), 0.6, 2.2))}><ZoomOut size={14} /></button>
+          </Tip>
           <span>{Math.round(scale * 100)}%</span>
-          <button title="Zoom in" disabled={scale >= 2.2} onClick={() => setScale((value) => clamp(Number((value + 0.1).toFixed(1)), 0.6, 2.2))}><ZoomIn size={14} /></button>
+          <Tip label="Zoom in">
+            <button disabled={scale >= 2.2} onClick={() => setScale((value) => clamp(Number((value + 0.1).toFixed(1)), 0.6, 2.2))}><ZoomIn size={14} /></button>
+          </Tip>
           <i className="pdf-fit-divider" aria-hidden="true" />
-          <button title="Fit page to width" disabled={!pageSize} onClick={() => applyFit("width")}><RectangleHorizontal size={14} /></button>
-          <button title="Fit whole page" disabled={!pageSize} onClick={() => applyFit("page")}><Maximize2 size={14} /></button>
+          <Tip label="Fit page to width">
+            <button disabled={!pageSize} onClick={() => applyFit("width")}><RectangleHorizontal size={14} /></button>
+          </Tip>
+          <Tip label="Fit whole page">
+            <button disabled={!pageSize} onClick={() => applyFit("page")}><Maximize2 size={14} /></button>
+          </Tip>
           {onOpenMarks && (
-            <button title="PDF marks" onClick={onOpenMarks}>
-              <Highlighter size={14} />
-              {marks.length ? <em className="pdf-mark-count">{marks.length}</em> : null}
-            </button>
+            <Tip label="PDF marks">
+              <button onClick={onOpenMarks}>
+                <Highlighter size={14} />
+                {marks.length ? <em className="pdf-mark-count">{marks.length}</em> : null}
+              </button>
+            </Tip>
           )}
-          <button title="Save PDF as…" disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}</button>
+          <Tip label="Save PDF as…">
+            <button disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}</button>
+          </Tip>
         </div>
       </div>
       {saveNotice && <div className={`pdf-save-notice ${saveNotice.startsWith("Could not") ? "error" : ""}`}>{saveNotice}<button title="Dismiss PDF save notice" onClick={() => setSaveNotice("")}><X size={12} /></button></div>}

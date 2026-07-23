@@ -938,9 +938,9 @@ describe("project workspace", () => {
 
     render(<App />);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
-    const savePdf = await screen.findByTitle("Save PDF as…");
-    expect(screen.getByTitle("Previous page")).toBeDisabled();
-    await waitFor(() => expect(screen.getByTitle("Next page")).toBeEnabled());
+    const savePdf = await screen.findByRole("button", { name: "Save PDF as…" });
+    expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled());
     expect(await screen.findByLabelText("PDF page 1")).toBeInTheDocument();
     expect(await screen.findByLabelText("PDF page 2")).toBeInTheDocument();
     await waitFor(() => {
@@ -951,13 +951,13 @@ describe("project workspace", () => {
     });
     expect(pdf.getPage).toHaveBeenCalledWith(1);
     expect(pdf.getPage).toHaveBeenCalledWith(2);
-    expect(screen.getByTitle("Zoom out")).toBeInTheDocument();
-    expect(screen.getByTitle("Zoom in")).toBeInTheDocument();
-    expect(screen.getByTitle("Fit page to width")).toBeInTheDocument();
-    expect(screen.getByTitle("Fit whole page")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fit page to width" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fit whole page" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Search PDF"), { target: { value: "attention" } });
     expect(await screen.findByText("1/2")).toBeInTheDocument();
-    fireEvent.click(screen.getByTitle("Next search result"));
+    fireEvent.click(screen.getByRole("button", { name: "Next search result" }));
     expect(await screen.findByText("2/2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Reveal cursor in PDF/i }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("synctex_view", {
@@ -967,7 +967,7 @@ describe("project workspace", () => {
     }));
     expect(await screen.findByLabelText("Source location in PDF")).toBeInTheDocument();
     const zoomBefore = Number(screen.getByText(/\d+%/).textContent?.replace("%", ""));
-    fireEvent.click(screen.getByTitle("Zoom in"));
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
     const zoomAfter = `${zoomBefore + 10}%`;
     expect(screen.getByText(zoomAfter)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
