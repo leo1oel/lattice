@@ -1031,6 +1031,29 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 /* A comment card sizes itself to its text — clipping it here is what turned a
    long comment into a scroll box. */
 .source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip) { overflow: visible; box-shadow: none; }
+/* Lint diagnostics (e.g. "Unused label …") hover in a tooltip that also carries
+   .cm-tooltip-lint. The shared .cm-tooltip-hover above is transparent because
+   the comment/texlab cards bring their own background — but a lint diagnostic
+   has none, so without this its text sits on nothing and is unreadable. */
+.source-editor .cm-tooltip-hover.cm-tooltip-lint {
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  max-width: min(440px, 72vw);
+}
+.source-editor .cm-tooltip-lint .cm-diagnostic {
+  color: var(--text);
+  font-family: var(--editor-font);
+  font-size: calc(var(--editor-font-size) - 1px);
+  line-height: 1.45;
+  white-space: normal;
+}
+.source-editor .cm-tooltip-lint .cm-diagnostic-error { border-left-color: var(--danger); }
+.source-editor .cm-tooltip-lint .cm-diagnostic-warning { border-left-color: var(--syntax-attribute); }
+.source-editor .cm-tooltip-lint .cm-diagnostic-info { border-left-color: var(--accent); }
+.source-editor .cm-tooltip-lint .cm-diagnosticSource { color: var(--faint); font-size: 0.9em; }
 .texlab-hover-card {
   width: min(380px, calc(100vw - 32px));
   max-height: 240px;
