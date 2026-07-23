@@ -55,7 +55,7 @@ import {
   RefreshCw,
   Search,
   Send,
-  Settings2,
+  Settings,
   Sparkles,
   Sun,
   TerminalSquare,
@@ -4124,7 +4124,7 @@ function App() {
           </Tip>
           <Tip label="Settings">
             <button className="icon-button gear-button" onClick={() => openSettings("appearance")}>
-              <Settings2 size={16} />
+              <Settings size={16} />
             </button>
           </Tip>
           <Tip label="Clean aux files">
@@ -5007,7 +5007,7 @@ function Welcome(props: {
   return (
     <div className="welcome-screen">
       <div className="welcome-titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
-        <button className="icon-button" onClick={props.onSettings} title="Settings"><Settings2 size={16} /></button>
+        <button className="icon-button" onClick={props.onSettings} title="Settings"><Settings size={16} /></button>
       </div>
       <div className="welcome-glow" />
       <div className="welcome-content">
@@ -7459,7 +7459,7 @@ function SettingsDialog(props: {
     <div className="modal-backdrop" onMouseDown={props.onClose}>
       <div className="settings-modal" onMouseDown={(event) => event.stopPropagation()}>
         <div className="settings-header">
-          <div><Settings2 size={17} /><span>Settings</span></div>
+          <div><Settings size={17} /><span>Settings</span></div>
           <button title="Close settings" onClick={props.onClose}><X size={16} /></button>
         </div>
         <div className="settings-body">

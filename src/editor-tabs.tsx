@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { motion } from "motion/react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -132,7 +133,11 @@ export function EditorTabs(props: {
           return (
             <ContextMenu key={tab.path}>
               <ContextMenuTrigger asChild>
-                <div
+                <motion.div
+                  layout
+                  // Snappy so a dragged tab tracks the cursor closely while the
+                  // others slide out of its way instead of jumping.
+                  transition={{ layout: { type: "spring", stiffness: 700, damping: 46, mass: 0.5 } }}
                   data-tab-path={tab.path}
                   ref={(el) => {
                     if (el) tabEls.current.set(tab.path, el);
@@ -176,7 +181,7 @@ export function EditorTabs(props: {
                   >
                     <X size={11} />
                   </button>
-                </div>
+                </motion.div>
               </ContextMenuTrigger>
               <ContextMenuContent>
                 <ContextMenuItem onSelect={() => props.onSelect(tab.path)}>Open</ContextMenuItem>

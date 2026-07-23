@@ -140,6 +140,10 @@ select:disabled { opacity: 0.45; cursor: default; }
 /* Soften the light/dark switch on the big themed surfaces (a rare action, so a
    short color transition here is cheap even on weak WebKit). */
 .app-shell, .titlebar { transition: background-color 0.3s ease, color 0.3s ease; }
+/* Fade the document view in when switching source / split / PDF. Each root only
+   remounts on a mode change (not on file switches), so this fires exactly there. */
+@keyframes canvas-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.source-workspace, .split-canvas, .pdf-preview { animation: canvas-fade-in 0.18s ease; }
 .toggle-icon { display: grid; place-items: center; animation: icon-swap .16s cubic-bezier(.2, .75, .25, 1); }
 .project-switcher { min-width: 0; height: 100%; flex: 1; position: relative; display: flex; align-items: center; }
 .project-title { max-width: min(260px, 48%); height: 30px; min-width: 0; flex: none; border-radius: 7px; padding: 0 8px; background: transparent; display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; text-align: left; }
