@@ -5,16 +5,18 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 pub fn format_document(root: &Path, relative_path: &str, text: &str) -> Result<String, String> {
-    if !commands::available("latexindent") {
-        return Err(
-            "latexindent is not installed. Install MacTeX/TeX Live tools, then retry.".to_string(),
-        );
-    }
+    // Validate the input before checking tooling, so an unsupported path always
+    // reports the same reason whether or not latexindent happens to be installed.
     let relative = relative_path.trim().replace('\\', "/");
     if relative.is_empty()
         || !(relative.ends_with(".tex") || relative.ends_with(".cls") || relative.ends_with(".sty"))
     {
         return Err("Format currently supports .tex, .cls, and .sty files.".to_string());
+    }
+    if !commands::available("latexindent") {
+        return Err(
+            "latexindent is not installed. Install MacTeX/TeX Live tools, then retry.".to_string(),
+        );
     }
     let _ = project::safe_path(root, &relative)?;
     let mut child = Command::new("latexindent")
