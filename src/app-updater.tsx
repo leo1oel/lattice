@@ -19,6 +19,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select";
 
 export type UpdateMode = "auto" | "manual";
 export type UpdatePhase =
@@ -301,10 +308,13 @@ export function UpdateModeSetting() {
     <div className="app-update-setting">
       <label>
         Updates
-        <select value={mode} onChange={(event) => setMode(event.target.value as UpdateMode)}>
-          <option value="manual">Notify me (manual)</option>
-          <option value="auto">Install automatically</option>
-        </select>
+        <Select value={mode} onValueChange={(value) => setMode(value as UpdateMode)}>
+          <SelectTrigger aria-label="Updates"><SelectValue /></SelectTrigger>
+          <SelectContent position="popper" align="start">
+            <SelectItem value="manual">Notify me (manual)</SelectItem>
+            <SelectItem value="auto">Install automatically</SelectItem>
+          </SelectContent>
+        </Select>
       </label>
       <button
         type="button"

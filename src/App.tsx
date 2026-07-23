@@ -45,8 +45,6 @@ import {
   Columns2,
   PanelLeftClose,
   PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
   Play,
   Plus,
   Pencil,
@@ -4044,9 +4042,7 @@ function App() {
               onClick={() => setAgentOpen((value) => !value)}
               aria-pressed={agentOpen}
             >
-              <span key={agentOpen ? "open" : "closed"} className="toggle-icon">
-                {agentOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-              </span>
+              <Bot size={16} />
             </button>
           </Tip>
         </div>
@@ -5284,6 +5280,10 @@ function Navigator(props: {
   const [entryPath, setEntryPath] = useState("");
   const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
   const [entryBusy, setEntryBusy] = useState(false);
+  // The entry form closes when focus leaves it, but opening the type Select
+  // moves focus into a portaled listbox; this ref lets the blur handler tell
+  // "the dropdown is open" apart from "the user clicked away".
+  const entryTypeOpenRef = useRef(false);
   const [citeMenuId, setCiteMenuId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ProjectSearchResult[]>([]);
@@ -5462,12 +5462,16 @@ function Navigator(props: {
         </label>
         {entryFormOpen && (
           <div className="project-entry-form" onBlur={(event) => {
+            if (entryTypeOpenRef.current) return;
             if (!event.currentTarget.contains(event.relatedTarget)) closeEntryForm();
           }}>
-            <select aria-label="Entry type" value={entryKind} onChange={(event) => setEntryKind(event.target.value as "file" | "folder")}>
-              <option value="file">File</option>
-              <option value="folder">Folder</option>
-            </select>
+            <Select value={entryKind} onValueChange={(value) => setEntryKind(value as "file" | "folder")} onOpenChange={(open) => { entryTypeOpenRef.current = open; }}>
+              <SelectTrigger aria-label="Entry type" className="entry-type-select"><SelectValue /></SelectTrigger>
+              <SelectContent position="popper" align="start">
+                <SelectItem value="file">File</SelectItem>
+                <SelectItem value="folder">Folder</SelectItem>
+              </SelectContent>
+            </Select>
             <input
               autoFocus
               aria-label="Project-relative path"
@@ -7461,35 +7465,44 @@ function SettingsDialog(props: {
                 <h2>Appearance</h2>
                 <p>These preferences apply across every project on this Mac.</p>
                 <label>Color theme
-                  <select aria-label="Color theme" value={props.theme} onChange={(event) => props.setTheme(event.target.value as Theme)}>
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                  </select>
+                  <Select value={props.theme} onValueChange={(value) => props.setTheme(value as Theme)}>
+                    <SelectTrigger aria-label="Color theme"><SelectValue /></SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </label>
                 <label>Interface font
-                  <select value={props.appearance.uiFont} onChange={(event) => props.setAppearance({ ...props.appearance, uiFont: event.target.value })}>
-                    {availableFontOptions(UI_FONT_OPTIONS).map((option) => (
-                      <option key={option.family} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
+                  <Select value={props.appearance.uiFont} onValueChange={(value) => props.setAppearance({ ...props.appearance, uiFont: value })}>
+                    <SelectTrigger aria-label="Interface font"><SelectValue /></SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                      {availableFontOptions(UI_FONT_OPTIONS).map((option) => (
+                        <SelectItem key={option.family} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </label>
                 <div className="settings-range">
                   <div><label htmlFor="interface-size">Interface size</label><output>{Math.round(props.appearance.interfaceScale * 100)}%</output></div>
                   <input id="interface-size" type="range" min="90" max="135" step="5" value={Math.round(props.appearance.interfaceScale * 100)} onChange={(event) => props.setAppearance({ ...props.appearance, interfaceScale: Number(event.target.value) / 100 })} />
                 </div>
                 <label>LaTeX editor font
-                  <select
+                  <Select
                     value={
                       availableFontOptions(EDITOR_FONT_OPTIONS).some((option) => option.value === props.appearance.editorFont)
                         ? props.appearance.editorFont
                         : DEFAULT_EDITOR_FONT
                     }
-                    onChange={(event) => props.setAppearance({ ...props.appearance, editorFont: event.target.value })}
+                    onValueChange={(value) => props.setAppearance({ ...props.appearance, editorFont: value })}
                   >
-                    {availableFontOptions(EDITOR_FONT_OPTIONS).map((option) => (
-                      <option key={option.family} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger aria-label="LaTeX editor font"><SelectValue /></SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                      {availableFontOptions(EDITOR_FONT_OPTIONS).map((option) => (
+                        <SelectItem key={option.family} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </label>
                 <div className="settings-range">
                   <div><label htmlFor="editor-font-size">Editor font size</label><output>{props.appearance.editorFontSize}px</output></div>
@@ -7502,22 +7515,24 @@ function SettingsDialog(props: {
                 <h2>Editor & builds</h2>
                 <p>Choose keymap behavior and when Lattice recompiles after a source change.</p>
                 <label>Editor keymap
-                  <select
-                    aria-label="Editor keymap"
+                  <Select
                     value={props.appearance.editorKeymap}
-                    onChange={(event) => props.setAppearance({
+                    onValueChange={(value) => props.setAppearance({
                       ...props.appearance,
-                      editorKeymap: event.target.value === "vim"
+                      editorKeymap: value === "vim"
                         ? "vim"
-                        : event.target.value === "emacs"
+                        : value === "emacs"
                           ? "emacs"
                           : "default",
                     })}
                   >
-                    <option value="default">Default</option>
-                    <option value="vim">Vim</option>
-                    <option value="emacs">Emacs</option>
-                  </select>
+                    <SelectTrigger aria-label="Editor keymap"><SelectValue /></SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                      <SelectItem value="default">Default</SelectItem>
+                      <SelectItem value="vim">Vim</SelectItem>
+                      <SelectItem value="emacs">Emacs</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </label>
                 <label className="settings-checkbox">
                   <input
@@ -7535,10 +7550,13 @@ function SettingsDialog(props: {
                   <input id="max-open-tabs" type="range" min="1" max="20" step="1" value={props.appearance.maxOpenTabs} onChange={(event) => props.setAppearance({ ...props.appearance, maxOpenTabs: Number(event.target.value) })} />
                 </div>
                 <label>Automatic build
-                  <select aria-label="Automatic build" value={props.buildPreferences.autoBuildMode} onChange={(event) => props.setBuildPreferences({ autoBuildMode: event.target.value as AutoBuildMode })}>
-                    <option value="manual">Manual only</option>
-                    <option value="automatic">Automatic</option>
-                  </select>
+                  <Select value={props.buildPreferences.autoBuildMode} onValueChange={(value) => props.setBuildPreferences({ autoBuildMode: value as AutoBuildMode })}>
+                    <SelectTrigger aria-label="Automatic build"><SelectValue /></SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                      <SelectItem value="manual">Manual only</SelectItem>
+                      <SelectItem value="automatic">Automatic</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </label>
                 <div className="settings-detail">
                   <Play size={14} />
@@ -7547,30 +7565,34 @@ function SettingsDialog(props: {
                 {props.project && (
                   <>
                     <label>Compile engine
-                      <select
-                        aria-label="Compile engine"
+                      <Select
                         value={props.project.manifest.engine ?? "pdf"}
-                        onChange={(event) => props.onUpdateManifest({ engine: event.target.value })}
+                        onValueChange={(value) => props.onUpdateManifest({ engine: value })}
                       >
-                        <option value="pdf">pdfLaTeX</option>
-                        <option value="xelatex">XeLaTeX</option>
-                        <option value="lualatex">LuaLaTeX</option>
-                      </select>
+                        <SelectTrigger aria-label="Compile engine"><SelectValue /></SelectTrigger>
+                        <SelectContent position="popper" align="start">
+                          <SelectItem value="pdf">pdfLaTeX</SelectItem>
+                          <SelectItem value="xelatex">XeLaTeX</SelectItem>
+                          <SelectItem value="lualatex">LuaLaTeX</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </label>
                     <label>Root document
-                      <select
-                        aria-label="Root document"
+                      <Select
                         value={
                           props.project.manifest.rootDocuments.find((document) => document.isDefault)?.path
                           ?? props.project.manifest.rootDocuments[0]?.path
                           ?? ""
                         }
-                        onChange={(event) => props.onUpdateManifest({ defaultRoot: event.target.value })}
+                        onValueChange={(value) => props.onUpdateManifest({ defaultRoot: value })}
                       >
-                        {props.project.manifest.rootDocuments.map((document) => (
-                          <option key={document.path} value={document.path}>{document.name} ({document.path})</option>
-                        ))}
-                      </select>
+                        <SelectTrigger aria-label="Root document"><SelectValue /></SelectTrigger>
+                        <SelectContent position="popper" align="start">
+                          {props.project.manifest.rootDocuments.map((document) => (
+                            <SelectItem key={document.path} value={document.path}>{document.name} ({document.path})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </label>
                     <div className="root-document-actions">
                       <button
@@ -7615,14 +7637,13 @@ function SettingsDialog(props: {
                   <h3>App updates</h3>
                   <p>Choose whether Lattice installs new versions automatically or just tells you.</p>
                   <label>Automatic updates
-                    <select
-                      aria-label="Automatic updates"
-                      value={updater.mode}
-                      onChange={(event) => updater.setMode(event.target.value as UpdateMode)}
-                    >
-                      <option value="manual">Notify me (manual)</option>
-                      <option value="auto">Install automatically</option>
-                    </select>
+                    <Select value={updater.mode} onValueChange={(value) => updater.setMode(value as UpdateMode)}>
+                      <SelectTrigger aria-label="Automatic updates"><SelectValue /></SelectTrigger>
+                      <SelectContent position="popper" align="start">
+                        <SelectItem value="manual">Notify me (manual)</SelectItem>
+                        <SelectItem value="auto">Install automatically</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </label>
                   <div className="settings-detail">
                     <RefreshCw size={14} />
@@ -7661,10 +7682,13 @@ function SettingsDialog(props: {
                 {props.skillDraft ? (
                   <div className="skill-editor">
                     <label>Availability
-                      <select value={props.skillDraft.scope} onChange={(event) => props.setSkillDraft({ ...props.skillDraft!, scope: event.target.value as "application" | "project" })}>
-                        <option value="application">All Lattice projects</option>
-                        <option value="project" disabled={!props.hasProject}>This project only</option>
-                      </select>
+                      <Select value={props.skillDraft.scope} onValueChange={(value) => props.setSkillDraft({ ...props.skillDraft!, scope: value as "application" | "project" })}>
+                        <SelectTrigger aria-label="Availability"><SelectValue /></SelectTrigger>
+                        <SelectContent position="popper" align="start">
+                          <SelectItem value="application">All Lattice projects</SelectItem>
+                          <SelectItem value="project" disabled={!props.hasProject}>This project only</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </label>
                     <label>SKILL.md
                       <textarea aria-label="Skill instructions" value={props.skillDraft.content} onChange={(event) => props.setSkillDraft({ ...props.skillDraft!, content: event.target.value })} />
@@ -7710,10 +7734,13 @@ function SettingsDialog(props: {
                 <h2>API keys</h2>
                 <p>API keys are optional and only used by the API providers. OMP authenticates subscription providers separately.</p>
                 <label>Provider
-                  <select value={props.apiProvider} onChange={(event) => props.setApiProvider(event.target.value as "openai" | "anthropic")}>
-                    <option value="openai">OpenAI API</option>
-                    <option value="anthropic">Anthropic API</option>
-                  </select>
+                  <Select value={props.apiProvider} onValueChange={(value) => props.setApiProvider(value as "openai" | "anthropic")}>
+                    <SelectTrigger aria-label="Provider"><SelectValue /></SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                      <SelectItem value="openai">OpenAI API</SelectItem>
+                      <SelectItem value="anthropic">Anthropic API</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </label>
                 <label>
                   <span className="key-label">API key {props.apiConfigured && <span className="configured-label"><Check size={11} /> Configured</span>}</span>
