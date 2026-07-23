@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 export type EditorTab = {
@@ -15,6 +15,10 @@ function tabLabel(tab: EditorTab): string {
   return parts[parts.length - 1] || tab.path;
 }
 
+function sameOrder(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
 export function EditorTabs(props: {
   tabs: EditorTab[];
   activePath: string;
@@ -23,27 +27,85 @@ export function EditorTabs(props: {
   onReorder: (nextPaths: string[]) => void;
 }) {
   const [menu, setMenu] = useState<{ path: string; x: number; y: number } | null>(null);
-  const [dragKey, setDragKey] = useState<string | null>(null);
-  const [dropKey, setDropKey] = useState<string | null>(null);
+  const [dragPath, setDragPath] = useState<string | null>(null);
   const activeTabRef = useRef<HTMLDivElement | null>(null);
+
+  // Refs so the window-level pointer handlers always see the latest props even
+  // though the drag reorders the list (and re-renders) many times mid-gesture.
+  const tabsRef = useRef(props.tabs);
+  tabsRef.current = props.tabs;
+  const onReorderRef = useRef(props.onReorder);
+  onReorderRef.current = props.onReorder;
+  const tabEls = useRef(new Map<string, HTMLElement>());
+  const dragRef = useRef<{ path: string; startX: number; active: boolean } | null>(null);
+  const suppressClick = useRef(false);
 
   // Keep the active tab visible when the bar overflows (the scrollbar is hidden).
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
   }, [props.activePath]);
 
-  const reorder = (from: string, to: string) => {
-    if (from === to) return;
-    const paths = props.tabs.map((tab) => tab.path);
-    const fromIdx = paths.indexOf(from);
-    const toIdx = paths.indexOf(to);
-    if (fromIdx < 0 || toIdx < 0) return;
-    const without = paths.filter((path) => path !== from);
-    // Dropping onto a tab lands before it when moving left, after it moving right.
-    const insertAt = without.indexOf(to) + (fromIdx < toIdx ? 1 : 0);
-    without.splice(insertAt, 0, from);
-    props.onReorder(without);
+  // The insertion gap (0..len) for the cursor: how many tabs sit left of it,
+  // measured against each tab's horizontal midpoint in the current order.
+  const gapIndexForX = (clientX: number): number => {
+    let gap = 0;
+    tabsRef.current.forEach((tab, index) => {
+      const el = tabEls.current.get(tab.path);
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (clientX > rect.left + rect.width / 2) gap = index + 1;
+    });
+    return gap;
   };
+
+  // Native HTML5 drag-and-drop drops unreliably in WKWebView (Tauri on macOS),
+  // so tab reordering runs on pointer events instead: dragging live-reorders the
+  // list so a tab can be moved anywhere, including from the end to the front.
+  const onPointerMove = useCallback((event: PointerEvent) => {
+    const state = dragRef.current;
+    if (!state) return;
+    if (!state.active) {
+      if (Math.abs(event.clientX - state.startX) < 4) return;
+      state.active = true;
+      setDragPath(state.path);
+      document.body.classList.add("reordering-tabs");
+    }
+    event.preventDefault();
+    const paths = tabsRef.current.map((tab) => tab.path);
+    const from = paths.indexOf(state.path);
+    if (from < 0) return;
+    const gap = gapIndexForX(event.clientX);
+    const without = paths.filter((path) => path !== state.path);
+    const insertAt = Math.max(0, Math.min(without.length, gap > from ? gap - 1 : gap));
+    without.splice(insertAt, 0, state.path);
+    if (!sameOrder(without, paths)) onReorderRef.current(without);
+  }, []);
+
+  const endDrag = useCallback(() => {
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", endDrag);
+    document.body.classList.remove("reordering-tabs");
+    const state = dragRef.current;
+    dragRef.current = null;
+    // A drag that moved must not also fire the tab's click (which would select).
+    suppressClick.current = Boolean(state?.active);
+    setDragPath(null);
+  }, [onPointerMove]);
+
+  const startDrag = useCallback((path: string, event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest(".editor-tab-close")) return;
+    dragRef.current = { path, startX: event.clientX, active: false };
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", endDrag);
+  }, [onPointerMove, endDrag]);
+
+  // Clean up window listeners if unmounted mid-drag.
+  useEffect(() => () => {
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", endDrag);
+    document.body.classList.remove("reordering-tabs");
+  }, [onPointerMove, endDrag]);
 
   useEffect(() => {
     if (!menu) return;
@@ -79,32 +141,15 @@ export function EditorTabs(props: {
           return (
             <div
               key={tab.path}
-              className={`editor-tab ${active ? "active" : ""}${tab.beside ? " beside" : ""}${dragKey === tab.path ? " dragging" : ""}${dropKey === tab.path ? " drop-target" : ""}`}
+              data-tab-path={tab.path}
+              ref={(el) => {
+                if (el) tabEls.current.set(tab.path, el);
+                else tabEls.current.delete(tab.path);
+                if (active) activeTabRef.current = el;
+              }}
+              className={`editor-tab ${active ? "active" : ""}${tab.beside ? " beside" : ""}${dragPath === tab.path ? " dragging" : ""}`}
               role="presentation"
-              ref={active ? activeTabRef : undefined}
-              draggable
-              onDragStart={(event) => {
-                setDragKey(tab.path);
-                event.dataTransfer.effectAllowed = "move";
-                // WebKit only fires drop events when the drag carries data.
-                event.dataTransfer.setData("text/plain", tab.path);
-              }}
-              onDragOver={(event) => {
-                if (!dragKey || dragKey === tab.path) return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                setDropKey(tab.path);
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                if (dragKey) reorder(dragKey, tab.path);
-                setDragKey(null);
-                setDropKey(null);
-              }}
-              onDragEnd={() => {
-                setDragKey(null);
-                setDropKey(null);
-              }}
+              onPointerDown={(event) => startDrag(tab.path, event)}
               onAuxClick={(event) => {
                 if (event.button !== 1) return;
                 event.preventDefault();
@@ -121,6 +166,11 @@ export function EditorTabs(props: {
                 aria-selected={active}
                 title={`${tab.label ?? tab.path} · middle-click close · ⌘⇧T reopen`}
                 onClick={() => {
+                  // Swallow the click that ends a drag so it doesn't re-select.
+                  if (suppressClick.current) {
+                    suppressClick.current = false;
+                    return;
+                  }
                   props.onSelect(tab.path);
                 }}
               >

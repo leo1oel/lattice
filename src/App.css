@@ -218,18 +218,22 @@ select:disabled { opacity: 0.45; cursor: default; }
 .cm-latex-tooltip-syntax, .cm-latex-tooltip-example { margin: 0; font-family: var(--editor-font); color: var(--muted); white-space: pre-wrap; }
 .cm-latex-tooltip-package { margin-top: 6px; color: var(--faint); font-size: 10px; }
 .canvas-body { flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
-/* 36px so the tab strip's bottom rule lines up with the agent panel's
-   model/effort bar (.agent-config-bar, also 36px) on the same row. */
-.editor-tabs { flex: 0 0 auto; min-width: 0; width: 100%; max-width: 100%; min-height: 36px; border-bottom: 1px solid var(--line); background: var(--panel); overflow: hidden; }
-.editor-tabs-scroll { min-width: 0; width: 100%; height: 36px; padding: 0 8px; display: flex; align-items: stretch; gap: 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+/* Exactly 36px tall (border-box, border included) so the tab strip's bottom
+   rule lines up with the agent panel's model/effort bar (.agent-config-bar,
+   also 36px) on the same row. The scroll child fills the 35px content box —
+   a fixed 36px child here would overflow by the 1px border and push the rule
+   1px low. */
+.editor-tabs { flex: 0 0 auto; min-width: 0; width: 100%; max-width: 100%; height: 36px; border-bottom: 1px solid var(--line); background: var(--panel); overflow: hidden; }
+.editor-tabs-scroll { min-width: 0; width: 100%; height: 100%; padding: 0 8px 0 0; display: flex; align-items: stretch; gap: 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
 /* Hide the horizontal scrollbar so it can't overlap the tab labels; the strip
    still scrolls via trackpad, mouse wheel, and auto-scroll-to-active-tab. */
 .editor-tabs-scroll::-webkit-scrollbar { height: 0; width: 0; display: none; }
-.editor-tab { flex: 0 0 auto; max-width: 180px; display: flex; align-items: stretch; border: 1px solid transparent; border-bottom: 0; border-radius: 7px 7px 0 0; background: transparent; }
+.editor-tab { flex: 0 0 auto; max-width: 180px; display: flex; align-items: stretch; border: 1px solid transparent; border-bottom: 0; border-radius: 7px 7px 0 0; background: transparent; cursor: grab; }
 .editor-tab.active { border-color: var(--line); background: var(--editor-bg); }
-.editor-tab[draggable="true"] { cursor: grab; }
-.editor-tab.dragging { opacity: 0.45; }
-.editor-tab.drop-target { box-shadow: inset 2px 0 0 var(--accent); }
+.editor-tab.dragging { opacity: 0.8; background: var(--editor-bg); border-color: var(--line-strong); box-shadow: var(--shadow); cursor: grabbing; }
+/* While a tab is being dragged, the whole strip shows the grab cursor and stops
+   selecting text under the pointer. */
+body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user-select: none; }
 .editor-tab > button[role="tab"] { height: 100%; min-width: 0; padding: 0 8px; border: 0; background: transparent; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; font-size: 11px; overflow: hidden; }
 .editor-tab > button[role="tab"] span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-tab.active > button[role="tab"] { color: var(--text); font-weight: 600; }

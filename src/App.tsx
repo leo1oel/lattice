@@ -672,6 +672,7 @@ function App() {
     occurrences: SymbolOccurrence[];
   } | null>(null);
   const [navigatorOpen, setNavigatorOpen] = useState(true);
+  const [agentOpen, setAgentOpen] = useState(true);
   const [panelWidths, setPanelWidths] = useState<PanelWidths>(loadPanelWidths);
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [error, setError] = useState<string | null>(null);
@@ -3496,7 +3497,7 @@ function App() {
     let latest = panelWidths;
     document.body.classList.add("resizing-panels");
     const handleMove = (moveEvent: PointerEvent) => {
-      latest = resizePanelWidths(panel, startWidths, moveEvent.clientX - startX, navigatorOpen);
+      latest = resizePanelWidths(panel, startWidths, moveEvent.clientX - startX, navigatorOpen, agentOpen);
       setPanelWidths(latest);
     };
     const handleUp = () => {
@@ -3507,15 +3508,15 @@ function App() {
     };
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
-  }, [navigatorOpen, panelWidths]);
+  }, [agentOpen, navigatorOpen, panelWidths]);
 
   const nudgePanel = useCallback((panel: PanelKind, delta: number) => {
     setPanelWidths((current) => {
-      const next = resizePanelWidths(panel, current, delta, navigatorOpen);
+      const next = resizePanelWidths(panel, current, delta, navigatorOpen, agentOpen);
       persistPanelWidths(next);
       return next;
     });
-  }, [navigatorOpen]);
+  }, [agentOpen, navigatorOpen]);
 
   const settingsDialog = settingsOpen ? (
     <SettingsDialog
@@ -4074,6 +4075,14 @@ function App() {
           )}
         </div>
         <div className="title-actions">
+          <button
+            className={`icon-button ${agentOpen ? "active" : ""}`}
+            onClick={() => setAgentOpen((value) => !value)}
+            title={agentOpen ? "Hide writing agent" : "Show writing agent"}
+            aria-pressed={agentOpen}
+          >
+            <Bot size={16} />
+          </button>
           <button className="icon-button" onClick={() => openSettings("appearance")} title="Settings">
             <Settings2 size={16} />
           </button>
@@ -4154,11 +4163,13 @@ function App() {
       )}
 
       <main
-        className={`workspace ${navigatorOpen ? "" : "navigator-hidden"}`}
+        className={`workspace ${navigatorOpen ? "" : "navigator-hidden"} ${agentOpen ? "" : "agent-hidden"}`}
         style={{
-          gridTemplateColumns: navigatorOpen
-            ? `${panelWidths.navigator}px 5px ${panelWidths.agent}px 5px minmax(360px, 1fr)`
-            : `${panelWidths.agent}px 5px minmax(360px, 1fr)`,
+          gridTemplateColumns: [
+            navigatorOpen ? `${panelWidths.navigator}px 5px` : "",
+            agentOpen ? `${panelWidths.agent}px 5px` : "",
+            "minmax(360px, 1fr)",
+          ].filter(Boolean).join(" "),
         }}
       >
         {navigatorOpen && (
@@ -4205,6 +4216,8 @@ function App() {
           </>
         )}
 
+        {agentOpen && (
+        <>
         <AgentPanel
           agentCommands={agentCommands}
           katexMacros={katexMacros}
@@ -4251,6 +4264,8 @@ function App() {
           onPointerDown={(event) => beginPanelResize("agent", event)}
           onNudge={(delta) => nudgePanel("agent", delta)}
         />
+        </>
+        )}
 
         <section className="canvas-panel">
           <CanvasToolbar
@@ -8040,11 +8055,14 @@ function resizePanelWidths(
   start: PanelWidths,
   delta: number,
   navigatorOpen: boolean,
+  agentOpen: boolean,
 ): PanelWidths {
   const canvasMinimum = 360;
-  const handles = navigatorOpen ? 10 : 5;
+  // One 5px handle per visible side panel.
+  const handles = (navigatorOpen ? 5 : 0) + (agentOpen ? 5 : 0);
   if (panel === "navigator") {
-    const maximum = Math.max(160, Math.min(420, window.innerWidth - start.agent - canvasMinimum - handles));
+    const agentWidth = agentOpen ? start.agent : 0;
+    const maximum = Math.max(160, Math.min(420, window.innerWidth - agentWidth - canvasMinimum - handles));
     return { ...start, navigator: clamp(start.navigator + delta, 160, maximum) };
   }
   const navigatorWidth = navigatorOpen ? start.navigator : 0;
