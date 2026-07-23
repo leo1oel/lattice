@@ -81,6 +81,28 @@ function mockSessionCommand(command: string, args?: Record<string, unknown>) {
   throw new Error(`Unexpected command: ${command}`);
 }
 
+// The provider/model/effort pickers are Radix Selects: options are portaled
+// and only exist while the menu is open, so a native `fireEvent.change` no
+// longer works. The trigger opens on pointerdown only for a real mouse press
+// (pointerType "mouse", primary button), so spell that out.
+function openSelect(trigger: HTMLElement) {
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
+}
+async function chooseOption(selectLabel: string, optionName: string | RegExp) {
+  openSelect(await screen.findByLabelText(selectLabel));
+  fireEvent.click(await screen.findByRole("option", { name: optionName }));
+}
+
+// Open a Radix Select, run assertions against its options, then close it so
+// the portal overlay does not swallow later clicks.
+async function withOpenSelect(selectLabel: string, assert: () => void) {
+  openSelect(await screen.findByLabelText(selectLabel));
+  await screen.findByRole("listbox");
+  assert();
+  fireEvent.keyDown(screen.getByLabelText(selectLabel), { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+}
+
 beforeEach(() => {
   localStorage.clear();
   vi.stubGlobal("confirm", vi.fn(() => true));
@@ -535,7 +557,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.change(await screen.findByLabelText("Agent provider"), { target: { value: "claude" } });
+    await chooseOption("Agent provider", "Claude subscription");
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "Revise the abstract." } });
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
@@ -571,19 +593,21 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    expect(await screen.findByLabelText("Agent provider")).toHaveValue("codex");
-    expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument();
+    expect(await screen.findByLabelText("Agent provider")).toHaveTextContent("Codex subscription");
+    await withOpenSelect("Agent model", () => expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "API key settings" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Subscriptions" }));
     expect(await screen.findAllByText("Connected")).toHaveLength(2);
 
     fireEvent.click(screen.getByTitle("Close settings"));
-    fireEvent.change(screen.getByLabelText("Agent provider"), { target: { value: "claude" } });
-    expect(screen.getByRole("option", { name: "Claude Opus 4.8" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Claude Sonnet 5" })).toBeInTheDocument();
+    await chooseOption("Agent provider", "Claude subscription");
+    await withOpenSelect("Agent model", () => {
+      expect(screen.getByRole("option", { name: "Claude Opus 4.8" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Claude Sonnet 5" })).toBeInTheDocument();
+    });
     expect(screen.queryByRole("button", { name: "API key settings" })).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Agent provider"), { target: { value: "openai-api" } });
+    await chooseOption("Agent provider", "OpenAI API");
     expect(screen.getByRole("button", { name: "API key settings" })).toBeInTheDocument();
   });
 
@@ -1553,9 +1577,9 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.change(await screen.findByLabelText("Agent provider"), { target: { value: "claude" } });
-    fireEvent.change(screen.getByLabelText("Agent model"), { target: { value: "claude-opus-4-8" } });
-    fireEvent.change(screen.getByLabelText("Reasoning effort"), { target: { value: "xhigh" } });
+    await chooseOption("Agent provider", "Claude subscription");
+    await chooseOption("Agent model", "Claude Opus 4.8");
+    await chooseOption("Reasoning effort", "Extra high");
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     const message = `Review the abstract.\n${"longword".repeat(40)}`;
     fireEvent.change(composer, { target: { value: message } });

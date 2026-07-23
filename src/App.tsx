@@ -199,6 +199,13 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select";
 import { TableGeneratorDialog } from "./table-generator-dialog";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "./project-replace-dialog";
@@ -5860,12 +5867,15 @@ function AgentPanel({
           </Tip>
         </div>
         <div className="provider-controls">
-          <select aria-label="Agent provider" value={provider} disabled={running} onChange={(event) => setProvider(event.target.value as AgentProvider)}>
-            <option value="codex">Codex subscription</option>
-            <option value="claude">Claude subscription</option>
-            <option value="openai-api">OpenAI API</option>
-            <option value="anthropic-api">Anthropic API</option>
-          </select>
+          <Select value={provider} disabled={running} onValueChange={(value) => setProvider(value as AgentProvider)}>
+            <SelectTrigger aria-label="Agent provider" className="provider-select"><SelectValue /></SelectTrigger>
+            <SelectContent position="popper" align="end">
+              <SelectItem value="codex">Codex subscription</SelectItem>
+              <SelectItem value="claude">Claude subscription</SelectItem>
+              <SelectItem value="openai-api">OpenAI API</SelectItem>
+              <SelectItem value="anthropic-api">Anthropic API</SelectItem>
+            </SelectContent>
+          </Select>
           {(provider === "openai-api" || provider === "anthropic-api") && (
             <Tip label="API key settings">
               <button onClick={onApiSettings}><KeyRound size={14} /></button>
@@ -5874,23 +5884,28 @@ function AgentPanel({
         </div>
       </div>
       <div className="agent-config-bar">
-        <label>
+        <div className="config-pill">
           <span>Model</span>
-          <select aria-label="Agent model" value={model} disabled={running} onChange={(event) => {
-            const nextModel = event.target.value;
+          <Select value={model} disabled={running} onValueChange={(nextModel) => {
             const nextEfforts = options.find((option) => option.value === nextModel)?.efforts ?? ["high"];
             setModel(nextModel);
             if (!nextEfforts.includes(reasoningEffort)) setReasoningEffort(nextEfforts.includes("high") ? "high" : nextEfforts[0]);
           }}>
-            {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </label>
-        <label>
+            <SelectTrigger aria-label="Agent model" className="config-select"><SelectValue /></SelectTrigger>
+            <SelectContent position="popper" align="start">
+              {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="config-pill">
           <span>Effort</span>
-          <select aria-label="Reasoning effort" value={reasoningEffort} disabled={running} onChange={(event) => setReasoningEffort(event.target.value as ReasoningEffort)}>
-            {efforts.map((effort) => <option key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</option>)}
-          </select>
-        </label>
+          <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}>
+            <SelectTrigger aria-label="Reasoning effort" className="config-select"><SelectValue /></SelectTrigger>
+            <SelectContent position="popper" align="start">
+              {efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="chat-list">
         {messages.map((message, index) => {
