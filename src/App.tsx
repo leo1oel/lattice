@@ -3857,6 +3857,12 @@ function App() {
     };
   }, [activeFile, project, source]);
 
+  // texlab, when installed, reports unused labels/citations itself, so the local
+  // check would duplicate its warnings. Suppress the local one when texlab is
+  // available (assume it is until the doctor report loads) and fall back to it
+  // otherwise. The unused-symbol counts elsewhere still use the full list.
+  const texlabActive = doctorReport?.checks.some((check) => check.name === "texlab" && check.ok) ?? true;
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "F8") {
@@ -4363,8 +4369,8 @@ function App() {
             citationKeys={citationKeys}
             citations={citations}
             references={liveReferences}
-            unusedLabels={unusedSymbols.labels}
-            unusedCitations={unusedSymbols.citations}
+            unusedLabels={texlabActive ? [] : unusedSymbols.labels}
+            unusedCitations={texlabActive ? [] : unusedSymbols.citations}
             onLoadReferenceImage={loadReferenceImage}
             onEditorLeave={buildWhenLeavingEditor}
             onPrepareFigure={prepareLatexFigure}
