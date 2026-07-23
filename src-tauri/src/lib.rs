@@ -257,6 +257,23 @@ fn list_citations(state: tauri::State<'_, AppState>) -> Result<Vec<CitationInfo>
 }
 
 #[tauri::command]
+fn read_bib_entry(
+    state: tauri::State<'_, AppState>,
+    key: String,
+) -> Result<Option<ResolvedCitation>, String> {
+    project::read_bib_entry(&current_root(&state)?, &key)
+}
+
+#[tauri::command]
+fn save_bib_entry(
+    state: tauri::State<'_, AppState>,
+    key: String,
+    bibtex: String,
+) -> Result<(), String> {
+    project::save_bib_entry(&current_root(&state)?, &key, &bibtex)
+}
+
+#[tauri::command]
 fn list_references(state: tauri::State<'_, AppState>) -> Result<Vec<ReferenceInfo>, String> {
     project::references(&current_root(&state)?)
 }
@@ -1182,6 +1199,8 @@ pub fn run() {
             write_project_file,
             list_citation_keys,
             list_citations,
+            read_bib_entry,
+            save_bib_entry,
             list_references,
             list_unused_symbols,
             list_todos,

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BookMarked, X } from "lucide-react";
+import { BookMarked, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   BIB_ENTRY_TYPES,
   formatBibEntry,
@@ -7,6 +7,7 @@ import {
   type BibEntryDraft,
   type BibEntryType,
 } from "./bib-entry";
+import { VENUES } from "./venues";
 
 export type ResolvedCitationDraft = {
   key: string;
@@ -21,28 +22,45 @@ export type ResolvedCitationDraft = {
   entryType: string;
 };
 
+const ENTRY_TYPES = ["article", "inproceedings", "book", "misc"] as const;
+
+function inferType(draft?: ResolvedCitationDraft): BibEntryType {
+  if (draft && ENTRY_TYPES.includes(draft.entryType as BibEntryType)) {
+    return draft.entryType as BibEntryType;
+  }
+  if (draft?.journal) return "article";
+  if (draft?.booktitle) return "inproceedings";
+  if (draft?.publisher) return "book";
+  return draft ? "misc" : "article";
+}
+
 export function BibEntryDialog(props: {
   open: boolean;
   busy: boolean;
   resolving?: boolean;
   error: string | null;
+  mode?: "add" | "edit";
   initialResolveQuery?: string;
+  initialDraft?: ResolvedCitationDraft;
   onClose: () => void;
   onSave: (draft: BibEntryDraft, insertCite: boolean) => void;
   onResolve?: (query: string) => Promise<ResolvedCitationDraft | null>;
 }) {
-  const [type, setType] = useState<BibEntryType>("article");
-  const [key, setKey] = useState("");
-  const [title, setTitle] = useState("");
-  const [author, setAuthor] = useState("");
-  const [year, setYear] = useState("");
-  const [journal, setJournal] = useState("");
-  const [booktitle, setBooktitle] = useState("");
-  const [publisher, setPublisher] = useState("");
-  const [url, setUrl] = useState("");
-  const [doi, setDoi] = useState("");
-  const [insertCite, setInsertCite] = useState(true);
+  const editing = props.mode === "edit";
+  const seed = props.initialDraft;
+  const [type, setType] = useState<BibEntryType>(() => inferType(seed));
+  const [key, setKey] = useState(seed?.key ?? "");
+  const [title, setTitle] = useState(seed?.title ?? "");
+  const [author, setAuthor] = useState(seed?.author ?? "");
+  const [year, setYear] = useState(seed?.year ?? "");
+  const [journal, setJournal] = useState(seed?.journal ?? "");
+  const [booktitle, setBooktitle] = useState(seed?.booktitle ?? "");
+  const [publisher, setPublisher] = useState(seed?.publisher ?? "");
+  const [url, setUrl] = useState(seed?.url ?? "");
+  const [doi, setDoi] = useState(seed?.doi ?? "");
+  const [insertCite, setInsertCite] = useState(!editing);
   const [resolveQuery, setResolveQuery] = useState(props.initialResolveQuery ?? "");
+  const [venueOpen, setVenueOpen] = useState(false);
 
   const normalizedDoi = doi.replace(/^https?:\/\/(dx\.)?doi\.org\//i, "").trim();
   const draft: BibEntryDraft = useMemo(() => ({
@@ -58,17 +76,41 @@ export function BibEntryDialog(props: {
     doi: normalizedDoi || undefined,
   }), [author, booktitle, journal, key, normalizedDoi, publisher, title, type, url, year]);
 
+  // The venue field is the journal (article) or booktitle (anything else); a
+  // preprint (@misc) with no venue yet edits into booktitle and is promoted to
+  // @inproceedings once a real venue is chosen.
+  const venue = type === "article" ? journal : booktitle;
+  const setVenueText = (value: string) => {
+    if (type === "article") setJournal(value);
+    else setBooktitle(value);
+  };
+  const venueMatches = useMemo(() => {
+    const query = venue.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!query) return [];
+    const tokens = query.split(" ");
+    return VENUES.filter((item) => tokens.every((token) => item.search.includes(token))).slice(0, 8);
+  }, [venue]);
+  const chooseVenue = (choice: (typeof VENUES)[number]) => {
+    setType(choice.entryType);
+    if (choice.entryType === "article") {
+      setJournal(choice.name);
+      setBooktitle("");
+    } else {
+      setBooktitle(choice.name);
+      setJournal("");
+    }
+    setVenueOpen(false);
+  };
+
+  const stepYear = (delta: number) => {
+    const parsed = Number.parseInt(year, 10);
+    if (Number.isFinite(parsed)) setYear(String(parsed + delta));
+  };
+
   if (!props.open) return null;
 
   const applyResolved = (resolved: ResolvedCitationDraft) => {
-    const nextType = (["article", "inproceedings", "book", "misc"] as const)
-      .includes(resolved.entryType as BibEntryType)
-      ? resolved.entryType as BibEntryType
-      : resolved.journal ? "article" as const
-        : resolved.booktitle ? "inproceedings" as const
-          : resolved.publisher ? "book" as const
-            : "misc" as const;
-    setType(nextType);
+    setType(inferType(resolved));
     setKey(resolved.key);
     setTitle(resolved.title);
     setAuthor(resolved.author);
@@ -80,16 +122,22 @@ export function BibEntryDialog(props: {
     setDoi(resolved.doi);
   };
 
+  const heading = editing ? "Edit bibliography entry" : "Add bibliography entry";
+
   return (
     <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside className="bib-entry-dialog" onMouseDown={(event) => event.stopPropagation()} aria-label="Add bibliography entry">
+      <aside className="bib-entry-dialog" onMouseDown={(event) => event.stopPropagation()} aria-label={heading}>
         <div className="drawer-header">
-          <div><BookMarked size={16} /><span>Add bibliography entry</span></div>
+          <div><BookMarked size={16} /><span>{heading}</span></div>
           <button type="button" onClick={props.onClose}><X size={16} /></button>
         </div>
-        <p className="drawer-copy">Resolve a DOI, arXiv id, or title with bibcite, or fill the fields by hand. Optionally insert a cite command at the cursor.</p>
+        <p className="drawer-copy">
+          {editing
+            ? "Pick a venue to set its canonical name and entry type, or edit any field by hand."
+            : "Resolve a DOI, arXiv id, or title with bibcite, or fill the fields by hand. Optionally insert a cite command at the cursor."}
+        </p>
         <div className="bib-entry-form">
-        {props.onResolve && (
+        {!editing && props.onResolve && (
           <label className="bib-resolve-field">
             Resolve from DOI / arXiv / title
             <div className="bib-resolve-row">
@@ -132,7 +180,13 @@ export function BibEntryDialog(props: {
           </label>
           <label>
             Citation key
-            <input aria-label="Citation key" value={key} onChange={(event) => setKey(event.target.value)} placeholder={draft.key || "author2024title"} />
+            <input
+              aria-label="Citation key"
+              value={key}
+              readOnly={editing}
+              onChange={(event) => setKey(event.target.value)}
+              placeholder={draft.key || "author2024title"}
+            />
           </label>
           <label>
             Title
@@ -144,18 +198,43 @@ export function BibEntryDialog(props: {
           </label>
           <label>
             Year
-            <input aria-label="Year" value={year} onChange={(event) => setYear(event.target.value)} />
+            <div className="year-stepper">
+              <input aria-label="Year" value={year} onChange={(event) => setYear(event.target.value)} inputMode="numeric" />
+              <div className="year-stepper-buttons">
+                <button type="button" aria-label="Increment year" onClick={() => stepYear(1)}><ChevronUp size={12} /></button>
+                <button type="button" aria-label="Decrement year" onClick={() => stepYear(-1)}><ChevronDown size={12} /></button>
+              </div>
+            </div>
           </label>
-          {type === "article" && (
+          {type !== "book" && (
             <label>
-              Journal
-              <input value={journal} onChange={(event) => setJournal(event.target.value)} />
-            </label>
-          )}
-          {type === "inproceedings" && (
-            <label>
-              Booktitle
-              <input value={booktitle} onChange={(event) => setBooktitle(event.target.value)} />
+              Venue
+              <div className="venue-combobox">
+                <input
+                  aria-label="Venue"
+                  value={venue}
+                  placeholder="NeurIPS, CVPR, Nature, …"
+                  onChange={(event) => { setVenueText(event.target.value); setVenueOpen(true); }}
+                  onFocus={() => setVenueOpen(true)}
+                  onBlur={() => setVenueOpen(false)}
+                />
+                {venueOpen && venueMatches.length > 0 && (
+                  <div className="venue-menu" role="listbox">
+                    {venueMatches.map((item) => (
+                      <button
+                        key={item.name}
+                        type="button"
+                        role="option"
+                        aria-selected={item.name === venue}
+                        onMouseDown={(event) => { event.preventDefault(); chooseVenue(item); }}
+                      >
+                        <span>{item.name}</span>
+                        <em>{item.entryType === "article" ? "journal" : "conference"}</em>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </label>
           )}
           {type === "book" && (
@@ -172,10 +251,12 @@ export function BibEntryDialog(props: {
             URL
             <input value={url} onChange={(event) => setUrl(event.target.value)} />
           </label>
-          <label className="settings-checkbox">
-            <input type="checkbox" checked={insertCite} onChange={(event) => setInsertCite(event.target.checked)} />
-            <span>Insert cite at cursor after saving</span>
-          </label>
+          {!editing && (
+            <label className="settings-checkbox">
+              <input type="checkbox" checked={insertCite} onChange={(event) => setInsertCite(event.target.checked)} />
+              <span>Insert cite at cursor after saving</span>
+            </label>
+          )}
         </div>
         <pre className="bib-entry-preview" aria-label="BibTeX preview">{formatBibEntry(draft)}</pre>
         {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
@@ -186,7 +267,7 @@ export function BibEntryDialog(props: {
             disabled={props.busy || props.resolving || !title.trim() || !author.trim() || !year.trim()}
             onClick={() => props.onSave(draft, insertCite)}
           >
-            {props.busy ? "Saving…" : "Save entry"}
+            {props.busy ? "Saving…" : editing ? "Save changes" : "Save entry"}
           </button>
         </div>
       </aside>

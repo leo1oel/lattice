@@ -585,6 +585,8 @@ function App() {
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
   const [literatureOpen, setLiteratureOpen] = useState(false);
   const [bibResolveSeed, setBibResolveSeed] = useState("");
+  const [bibEntryMode, setBibEntryMode] = useState<"add" | "edit">("add");
+  const [bibEntryInitial, setBibEntryInitial] = useState<ResolvedCitationDraft | undefined>(undefined);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [insertOpen, setInsertOpen] = useState(false);
   const [collabOpen, setCollabOpen] = useState(false);
@@ -2756,9 +2758,30 @@ function App() {
 
   const openBibEntryDialog = useCallback((resolveSeed = "") => {
     setBibEntryError(null);
+    setBibEntryMode("add");
+    setBibEntryInitial(undefined);
     setBibResolveSeed(resolveSeed);
     setBibEntryKey((value) => value + 1);
     setBibEntryOpen(true);
+  }, []);
+
+  const openEditBibEntry = useCallback(async (paper: PaperSummary) => {
+    if (!paper.citationKey) return;
+    try {
+      const entry = await invoke<ResolvedCitationDraft | null>("read_bib_entry", { key: paper.citationKey });
+      if (!entry) {
+        setError(`Couldn't find a bibliography entry for \\cite{${paper.citationKey}}.`);
+        return;
+      }
+      setBibEntryError(null);
+      setBibEntryMode("edit");
+      setBibEntryInitial(entry);
+      setBibResolveSeed("");
+      setBibEntryKey((value) => value + 1);
+      setBibEntryOpen(true);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
   }, []);
 
   const importClipboardImageFile = useCallback(async (file: File): Promise<string | null> => {
@@ -2880,12 +2903,17 @@ function App() {
         const saved = await save();
         if (!saved) return;
       }
-      const existing = bibliography === activeFile
-        ? source
-        : await invoke<string>("read_project_file", { path: bibliography });
-      const entry = formatBibEntry(draft);
-      const next = appendBibEntry(existing, entry);
-      await invoke("write_project_file", { path: bibliography, content: next });
+      if (bibEntryMode === "edit") {
+        // The key is read-only when editing, so this replaces the entry in place.
+        await invoke("save_bib_entry", { key: draft.key, bibtex: formatBibEntry(draft) });
+      } else {
+        const existing = bibliography === activeFile
+          ? source
+          : await invoke<string>("read_project_file", { path: bibliography });
+        await invoke("write_project_file", { path: bibliography, content: appendBibEntry(existing, formatBibEntry(draft)) });
+      }
+      // Re-sync the editor buffer and collab peers with what's now on disk.
+      const next = await invoke<string>("read_project_file", { path: bibliography });
       if (collabSession) pushLocalTextToCollab(collabSession.doc, bibliography, next);
       if (bibliography === activeFile) {
         setSource(next);
@@ -2903,7 +2931,7 @@ function App() {
     } finally {
       setBibEntryBusy(false);
     }
-  }, [activeFile, collabSession, project, refreshProject, save, savedSource, source]);
+  }, [activeFile, bibEntryMode, collabSession, project, refreshProject, save, savedSource, source]);
 
   const runDoctor = useCallback(async (options?: {
     openWizardIfMissing?: boolean;
@@ -4162,6 +4190,7 @@ function App() {
               onDiscoverLiterature={() => setLiteratureOpen(true)}
               onDeletePaper={deletePaper}
               onRenamePaper={renameImportedPaper}
+              onEditBibEntry={(paper) => void openEditBibEntry(paper)}
               importInput={importInput}
               setImportInput={setImportInput}
               onImport={importPaper}
@@ -4723,7 +4752,9 @@ function App() {
         busy={bibEntryBusy}
         resolving={bibEntryResolving}
         error={bibEntryError}
+        mode={bibEntryMode}
         initialResolveQuery={bibResolveSeed}
+        initialDraft={bibEntryInitial}
         onClose={() => {
           if (!bibEntryBusy && !bibEntryResolving) setBibEntryOpen(false);
         }}
@@ -5174,6 +5205,7 @@ function Navigator(props: {
   onDiscoverLiterature: () => void;
   onDeletePaper: (paper: PaperSummary) => void;
   onRenamePaper: (paper: PaperSummary) => void;
+  onEditBibEntry: (paper: PaperSummary) => void;
   importInput: string;
   setImportInput: (value: string) => void;
   onImport: () => void;
@@ -5485,6 +5517,9 @@ function Navigator(props: {
                     </div>
                   )}
                 </div>
+              )}
+              {paper.citationKey && (
+                <button className="row-edit-bib" title="Edit bibliography entry" onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
               )}
               <button className="row-delete" title={`Remove ${paper.title}`} onClick={() => props.onDeletePaper(paper)}><Trash2 size={12} /></button>
             </div>

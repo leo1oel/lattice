@@ -254,6 +254,20 @@ select:disabled { opacity: 0.45; cursor: default; }
 .bib-entry-form .bib-resolve-field { grid-column: 1 / -1; }
 .bib-entry-form .settings-checkbox { flex-direction: row; align-items: center; grid-column: 1 / -1; }
 .bib-entry-preview { margin: 0; flex: 1; min-height: 140px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--bg); color: var(--muted); font: 11px/1.45 var(--editor-font); white-space: pre-wrap; }
+.venue-combobox { position: relative; }
+.venue-combobox input { width: 100%; }
+.venue-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; max-height: 232px; overflow: auto; padding: 4px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--panel-strong); box-shadow: var(--shadow); display: grid; gap: 2px; }
+.venue-menu button { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: auto; min-height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--text); padding: 5px 8px; text-align: left; font: 11px/1.3 var(--ui-font); font-weight: 500; cursor: pointer; }
+.venue-menu button span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.venue-menu button em { flex: none; font-style: normal; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.venue-menu button:hover, .venue-menu button[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); }
+.venue-menu button:hover em, .venue-menu button[aria-selected="true"] em { color: var(--accent); }
+.year-stepper { position: relative; display: flex; }
+.year-stepper input { width: 100%; padding-right: 26px; }
+.year-stepper-buttons { position: absolute; top: 0; right: 0; bottom: 0; width: 22px; display: flex; flex-direction: column; }
+.year-stepper-buttons button { flex: 1; width: 22px; height: auto !important; min-height: 0; padding: 0 !important; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.year-stepper-buttons button:first-child { border-bottom: 1px solid var(--line); }
+.year-stepper-buttons button:hover { background: var(--accent-soft); color: var(--accent); }
 .cite-menu-wrap { position: relative; flex: none; }
 .cite-command-menu { position: absolute; top: 24px; right: 0; z-index: 5; min-width: 88px; padding: 4px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--panel-strong); box-shadow: var(--shadow); display: grid; gap: 2px; }
 .cite-command-menu button { height: 26px; border: 0; border-radius: 6px; background: transparent; color: var(--text); padding: 0 8px; text-align: left; font: 11px/1 var(--editor-font); }
@@ -360,10 +374,10 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .tree-main { width: 0; min-width: 0; flex: 1; height: 100%; padding: 0; background: transparent; color: inherit; display: flex; align-items: center; gap: 6px; text-align: left; }
 .tree-main > svg, .tree-spacer { flex: none; width: 14px; height: 14px; }
 .tree-main span:last-child { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row-delete, .row-cite { width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: 5px !important; background: transparent !important; color: var(--faint) !important; display: grid !important; place-items: center; opacity: 0; }
+.row-delete, .row-cite, .row-edit-bib { width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: 5px !important; background: transparent !important; color: var(--faint) !important; display: grid !important; place-items: center; opacity: 0; }
 .row-import { width: 22px; height: 22px; flex: none; padding: 0; border-radius: 5px; background: transparent; color: var(--faint); display: grid; place-items: center; opacity: 0; }
-.tree-row:hover > .row-delete, .tree-row:hover > .row-import, .paper-row:hover > .row-delete, .paper-row:hover .row-cite, .paper-row.active > .row-delete, .paper-row.active .row-cite { opacity: 1; }
-.row-cite:hover { background: var(--accent-soft) !important; color: var(--accent) !important; }
+.tree-row:hover > .row-delete, .tree-row:hover > .row-import, .paper-row:hover > .row-delete, .paper-row:hover .row-cite, .paper-row:hover .row-edit-bib, .paper-row.active > .row-delete, .paper-row.active .row-cite, .paper-row.active .row-edit-bib { opacity: 1; }
+.row-cite:hover, .row-edit-bib:hover { background: var(--accent-soft) !important; color: var(--accent) !important; }
 .row-import:hover { background: var(--accent-soft); color: var(--accent); }
 .row-delete:hover { background: color-mix(in srgb, var(--danger) 10%, transparent) !important; color: var(--danger) !important; }
 .tree-directory.drop-target > .tree-row { background: var(--accent-soft); color: var(--accent); outline: 1px solid color-mix(in srgb, var(--accent) 32%, transparent); }

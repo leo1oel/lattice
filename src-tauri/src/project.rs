@@ -2069,6 +2069,112 @@ fn citation_from_bibtex(bibtex: &str, fallback_key: &str) -> ResolvedCitation {
     }
 }
 
+/// Byte range `[start, end)` of the `@type{key, … }` entry whose key matches
+/// (case-insensitive), from the `@` through its closing brace. Mirrors the scan
+/// in `parse_bibliography` so an entry can be read or replaced in place.
+fn bib_entry_span(bibliography: &str, target_key: &str) -> Option<(usize, usize)> {
+    let bytes = bibliography.as_bytes();
+    let target = target_key.trim().to_ascii_lowercase();
+    let mut cursor = 0;
+    while cursor < bytes.len() {
+        let relative_start = bibliography[cursor..].find('@')?;
+        let at = cursor + relative_start;
+        let mut position = at + 1;
+        let entry_type_start = position;
+        while position < bytes.len() && bytes[position].is_ascii_alphabetic() {
+            position += 1;
+        }
+        let entry_type = bibliography[entry_type_start..position].to_ascii_lowercase();
+        while position < bytes.len() && bytes[position].is_ascii_whitespace() {
+            position += 1;
+        }
+        let Some(&opening) = bytes.get(position).filter(|value| **value == b'{' || **value == b'(') else {
+            cursor = position.saturating_add(1);
+            continue;
+        };
+        let closing = if opening == b'{' { b'}' } else { b')' };
+        position += 1;
+        while position < bytes.len() && bytes[position].is_ascii_whitespace() {
+            position += 1;
+        }
+        let key_start = position;
+        while position < bytes.len() && bytes[position] != b',' && bytes[position] != closing {
+            position += 1;
+        }
+        if position >= bytes.len() || bytes[position] != b',' {
+            cursor = position.saturating_add(1);
+            continue;
+        }
+        let key = bibliography[key_start..position].trim().to_ascii_lowercase();
+        position += 1;
+        let mut depth = 1usize;
+        let mut quoted = false;
+        while position < bytes.len() {
+            let byte = bytes[position];
+            if byte == b'"' && (position == 0 || bytes[position - 1] != b'\\') {
+                quoted = !quoted;
+            } else if !quoted && byte == opening {
+                depth += 1;
+            } else if !quoted && byte == closing {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            position += 1;
+        }
+        let entry_end = position.saturating_add(1).min(bytes.len());
+        cursor = position.saturating_add(1);
+        if matches!(entry_type.as_str(), "comment" | "preamble" | "string") {
+            continue;
+        }
+        if key == target {
+            return Some((at, entry_end));
+        }
+    }
+    None
+}
+
+/// The full field set of a single existing entry (by citation key) from the
+/// project's primary bibliography, for pre-filling the entry editor.
+pub fn read_bib_entry(root: &Path, key: &str) -> Result<Option<ResolvedCitation>, String> {
+    let manifest = read_manifest(root)?;
+    let path = safe_path(root, &manifest.primary_bibliography)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let bibliography = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
+    Ok(bib_entry_span(&bibliography, key)
+        .map(|(start, end)| citation_from_bibtex(&bibliography[start..end], key)))
+}
+
+/// Replace the entry with `key` in the primary bibliography (or append it when
+/// absent), writing the whole file through the undoable transaction log.
+pub fn save_bib_entry(root: &Path, key: &str, bibtex: &str) -> Result<(), String> {
+    let manifest = read_manifest(root)?;
+    let relative = manifest.primary_bibliography.clone();
+    let path = safe_path(root, &relative)?;
+    let existing = if path.exists() {
+        std::fs::read_to_string(&path).map_err(|error| error.to_string())?
+    } else {
+        String::new()
+    };
+    let entry = bibtex.trim();
+    let next = match bib_entry_span(&existing, key) {
+        Some((start, end)) => format!("{}{}{}", &existing[..start], entry, &existing[end..]),
+        None => {
+            let trimmed = existing.trim_end();
+            if trimmed.is_empty() {
+                format!("{entry}\n")
+            } else {
+                format!("{trimmed}\n\n{entry}\n")
+            }
+        }
+    };
+    apply_transaction(root, &format!("Edit {relative}"), vec![(relative.clone(), next)])?;
+    Ok(())
+}
+
 pub fn import_assets(
     root: &Path,
     sources: &[String],
@@ -3289,6 +3395,54 @@ mod tests {
         let root = temp_root("safe-path");
         assert!(safe_path(&root, "../secret.txt").is_err());
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn finds_a_bib_entry_span_by_key_case_insensitively() {
+        let bib = "@misc{one, title = {A}}\n\n@inproceedings{Two, booktitle = {B}}\n";
+        let (start, end) = bib_entry_span(bib, "TWO").unwrap();
+        assert_eq!(&bib[start..end], "@inproceedings{Two, booktitle = {B}}");
+        assert!(bib_entry_span(bib, "missing").is_none());
+        // A nested brace in a value must not end the entry early.
+        let nested = "@article{k, title = {Deep {Nets}}, year = {2020}}\n";
+        let (s, e) = bib_entry_span(nested, "k").unwrap();
+        assert_eq!(&nested[s..e], nested.trim_end());
+    }
+
+    #[test]
+    fn reads_and_replaces_one_entry_in_place() {
+        let parent = temp_root("bib-edit-parent");
+        let root = create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@misc{keep, title = {Keep Me}, year = {2019}}\n\n\
+             @misc{vaswani2017, title = {Attention}, howpublished = {arXiv preprint arXiv:1706.03762}, year = {2017}}\n",
+        )
+        .unwrap();
+
+        let entry = read_bib_entry(&root, "vaswani2017").unwrap().unwrap();
+        assert_eq!(entry.entry_type, "misc");
+        assert_eq!(entry.title, "Attention");
+        assert!(read_bib_entry(&root, "nope").unwrap().is_none());
+
+        save_bib_entry(
+            &root,
+            "vaswani2017",
+            "@inproceedings{vaswani2017, title = {Attention Is All You Need}, booktitle = {NeurIPS}, year = {2017}}",
+        )
+        .unwrap();
+
+        let updated = fs::read_to_string(root.join("references.bib")).unwrap();
+        assert!(updated.contains("@inproceedings{vaswani2017"));
+        assert!(updated.contains("booktitle = {NeurIPS}"));
+        assert!(!updated.contains("@misc{vaswani2017"));
+        // The sibling entry is untouched.
+        assert!(updated.contains("@misc{keep, title = {Keep Me}"));
+
+        let reread = read_bib_entry(&root, "vaswani2017").unwrap().unwrap();
+        assert_eq!(reread.entry_type, "inproceedings");
+        assert_eq!(reread.booktitle, "NeurIPS");
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]
