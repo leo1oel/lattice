@@ -101,6 +101,31 @@ select:hover { border-color: color-mix(in srgb, var(--accent) 32%, var(--line-st
 select:focus { border-color: var(--accent); }
 select:disabled { opacity: 0.45; cursor: default; }
 
+/* Radix Select triggers (shadcn) that replaced the native selects inherit the
+   same flattened look here; specific contexts set width/height below, and the
+   compact agent pickers override through their own classes. App.css is
+   unlayered, so these win over the component's Tailwind utility classes. */
+[data-slot="select-trigger"] {
+  box-shadow: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background-color: var(--bg);
+  color: var(--text);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 400;
+}
+[data-slot="select-trigger"]:hover { border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong)); }
+[data-slot="select-trigger"][data-state="open"],
+[data-slot="select-trigger"]:focus-visible { border-color: var(--accent); }
+[data-slot="select-trigger"][data-disabled] { opacity: 0.45; }
+[data-slot="select-trigger"] > svg { opacity: 0.55; }
+[data-slot="select-trigger"] [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Settings rows and dialog forms want the full-width, taller field the native
+   selects had; the agent pill/compact rules override these where they apply. */
+.settings-section [data-slot="select-trigger"] { width: 100%; height: 38px; }
+.bib-entry-form [data-slot="select-trigger"] { width: 100%; height: 34px; }
+
 .app-shell { height: 100%; background: var(--bg); display: flex; flex-direction: column; }
 .titlebar { position: relative; z-index: 5; height: 46px; flex: none; display: flex; align-items: center; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 92%, transparent); user-select: none; }
 .titlebar-navigator { width: 166px; height: 100%; flex: none; padding: 0 10px 0 0; display: flex; align-items: center; gap: 2px; }
@@ -339,17 +364,20 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .navigator-search-result small { margin-top: 2px; color: var(--faint); font-size: 9px; }
 .search-empty { margin: 10px 7px; color: var(--faint); font-size: 10px; }
 .project-entry-form { height: 32px; margin: 1px 3px 5px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--panel-strong); display: flex; overflow: hidden; animation: menu-in .14s cubic-bezier(.2, .75, .25, 1); transform-origin: top; }
-.project-entry-form select {
-  width: 72px;
+.project-entry-form [data-slot="select-trigger"] {
+  width: 66px;
+  height: 100%;
+  flex: none;
   border: 0;
   border-right: 1px solid var(--line);
   border-radius: 0;
-  outline: 0;
-  background-color: transparent;
-  background-position: right 4px center;
-  padding: 0 16px 0 4px;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 4px 0 7px;
   font-size: 9px;
+  gap: 2px;
 }
+.project-entry-form [data-slot="select-trigger"] > svg { width: 11px; height: 11px; }
 .project-entry-form input { width: 0; flex: 1; border: 0; outline: 0; background: transparent; padding: 0 7px; font-size: 9.5px; }
 .project-entry-form > button { width: 28px; flex: none; background: transparent; color: var(--accent); display: grid; place-items: center; }
 .file-tree { min-height: 42px; padding-top: 4px; }
@@ -435,9 +463,10 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .config-pill .config-select svg { width: 12px; height: 12px; opacity: .5; }
 .config-pill .config-select [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The agent pickers' dropdown panel: match its list text to the compact 10px
-   trigger and tighten each row so the menu reads as part of the same control. */
-.agent-select-menu { min-width: var(--radix-select-trigger-width); border-radius: 7px; }
-.agent-select-menu [data-slot="select-item"] { font-size: 10px; padding-top: 3px; padding-bottom: 3px; padding-left: 21px; padding-right: 8px; }
+   trigger and tighten each row so the menu reads as part of the same control.
+   The panel sizes to its content, so short options don't trail whitespace. */
+.agent-select-menu { border-radius: 7px; }
+.agent-select-menu [data-slot="select-item"] { font-size: 10px; padding-top: 3px; padding-bottom: 3px; padding-left: 20px; padding-right: 9px; }
 .agent-select-menu [data-slot="select-item-indicator"] { left: 5px; }
 .agent-select-menu [data-slot="select-item-indicator"] svg { width: 11px; height: 11px; }
 /* The conversation history is a shadcn Popover now; its container supplies the

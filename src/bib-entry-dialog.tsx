@@ -8,6 +8,13 @@ import {
   type BibEntryType,
 } from "./bib-entry";
 import { VENUES } from "./venues";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select";
 
 export type ResolvedCitationDraft = {
   key: string;
@@ -172,11 +179,14 @@ export function BibEntryDialog(props: {
         )}
           <label>
             Type
-            <select aria-label="Entry type" value={type} onChange={(event) => setType(event.target.value as BibEntryType)}>
-              {BIB_ENTRY_TYPES.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </select>
+            <Select value={type} onValueChange={(value) => setType(value as BibEntryType)}>
+              <SelectTrigger aria-label="Entry type"><SelectValue /></SelectTrigger>
+              <SelectContent position="popper" align="start">
+                {BIB_ENTRY_TYPES.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
           <label>
             Citation key

@@ -223,19 +223,18 @@ describe("welcome screen", () => {
     expect(screen.queryByTitle("Toggle theme")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
-    expect(screen.getByLabelText(/latex editor font/i)).toHaveValue("Menlo, ui-monospace, monospace");
-    fireEvent.change(screen.getByLabelText("Color theme"), { target: { value: "dark" } });
+    expect(screen.getByLabelText(/latex editor font/i)).toHaveTextContent("Menlo");
+    await chooseOption("Color theme", "Dark");
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
     expect(localStorage.getItem("lattice.theme.v1")).toBe("dark");
-    fireEvent.change(screen.getByLabelText(/interface font/i), { target: { value: "-apple-system, BlinkMacSystemFont, sans-serif" } });
+    await chooseOption("Interface font", "System");
     await waitFor(() => {
       expect(document.documentElement.style.getPropertyValue("--ui-font")).toBe("-apple-system, BlinkMacSystemFont, sans-serif");
     });
     expect(screen.getByRole("slider", { name: /interface size/i })).toHaveValue("110");
     expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("14");
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
-    const autoBuild = screen.getByLabelText("Automatic build");
-    expect(autoBuild).toHaveValue("automatic");
+    expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
     expect(screen.getByText("Build automatically")).toBeInTheDocument();
     expect(screen.getByText(/leave the editor or after 1.2 seconds/i)).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v2")).toContain("automatic"));
@@ -260,7 +259,7 @@ describe("welcome screen", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
-    expect(screen.getByLabelText("Automatic build")).toHaveValue("manual");
+    expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Manual only");
   });
 
   it("migrates the legacy manual default to automatic build", () => {
@@ -268,7 +267,7 @@ describe("welcome screen", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
-    expect(screen.getByLabelText("Automatic build")).toHaveValue("automatic");
+    expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
   });
 
   it("manages application-local skills without installing them globally", async () => {
