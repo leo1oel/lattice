@@ -43,6 +43,7 @@ import {
   type PdfSelectionDraft,
 } from "./pdf-annotations";
 import { pdfBase64Fingerprint, pdfBase64ToBytes } from "./pdf-bytes";
+import { MotionButton } from "./motion";
 import {
   annotationBounds,
   findPdfMatches,
@@ -929,7 +930,7 @@ export function PdfPreview({
             </Tip>
           )}
           <Tip label="Save PDF as…">
-            <button disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}</button>
+            <MotionButton disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}</MotionButton>
           </Tip>
         </div>
       </div>

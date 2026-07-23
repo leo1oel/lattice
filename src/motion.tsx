@@ -2,8 +2,9 @@
 // spirit of Amicro, tuned to stay light: only transform/opacity animate (GPU
 // composited) and springs are short, so they hold up on weak WebKit (the macOS
 // VM). Reach for these instead of hand-rolling motion props per call site.
-import { forwardRef, useRef } from "react";
+import { forwardRef, useRef, useState, type ReactNode } from "react";
 import {
+  AnimatePresence,
   motion,
   useMotionValue,
   useSpring,
@@ -72,6 +73,65 @@ export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(
         {...rest}
       >
         {children}
+      </motion.button>
+    );
+  },
+);
+
+/**
+ * Crossfade + spin-scale morph between two icon states, keyed by `swapKey`.
+ * Used for copy→check and the light/dark sun↔moon toggle — the swap reads as a
+ * deliberate transformation instead of an instant flip.
+ */
+export function IconSwap({ swapKey, children }: { swapKey: string; children: ReactNode }) {
+  return (
+    <span style={{ display: "inline-flex", position: "relative" }}>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={swapKey}
+          style={{ display: "inline-flex" }}
+          initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
+          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+          exit={{ opacity: 0, scale: 0.5, rotate: 45 }}
+          transition={{ type: "spring", stiffness: 620, damping: 26, mass: 0.5 }}
+        >
+          {children}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
+
+/**
+ * Icon button that spins its contents one full turn on each click (a satisfying
+ * refresh gesture) and spins continuously while `busy`. Falls back to the same
+ * className so existing button styles apply.
+ */
+export const SpinButton = forwardRef<HTMLButtonElement, HTMLMotionProps<"button"> & { busy?: boolean }>(
+  function SpinButton({ busy = false, onClick, children, ...rest }, ref) {
+    const [turns, setTurns] = useState(0);
+    return (
+      <motion.button
+        ref={ref}
+        whileTap={{ scale: 0.88 }}
+        transition={PRESS_SPRING}
+        onClick={(event) => {
+          setTurns((value) => value + 1);
+          onClick?.(event);
+        }}
+        {...rest}
+      >
+        <motion.span
+          style={{ display: "inline-flex" }}
+          animate={busy ? { rotate: 360 } : { rotate: turns * 360 }}
+          transition={
+            busy
+              ? { repeat: Infinity, duration: 0.8, ease: "linear" }
+              : { type: "spring", stiffness: 240, damping: 22, mass: 0.7 }
+          }
+        >
+          {children}
+        </motion.span>
       </motion.button>
     );
   },

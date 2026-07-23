@@ -134,6 +134,12 @@ select:disabled { opacity: 0.45; cursor: default; }
 .app-shell.fullscreen .traffic-space { width: 0; }
 .icon-button { width: 30px; height: 30px; border-radius: 7px; background: transparent; display: grid; place-items: center; color: var(--muted); }
 .icon-button:hover { background: var(--line); color: var(--text); }
+/* Settings gear turns a quarter-turn on hover. */
+.gear-button svg { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.gear-button:hover svg { transform: rotate(90deg); }
+/* Soften the light/dark switch on the big themed surfaces (a rare action, so a
+   short color transition here is cheap even on weak WebKit). */
+.app-shell, .titlebar { transition: background-color 0.3s ease, color 0.3s ease; }
 .toggle-icon { display: grid; place-items: center; animation: icon-swap .16s cubic-bezier(.2, .75, .25, 1); }
 .project-switcher { min-width: 0; height: 100%; flex: 1; position: relative; display: flex; align-items: center; }
 .project-title { max-width: min(260px, 48%); height: 30px; min-width: 0; flex: none; border-radius: 7px; padding: 0 8px; background: transparent; display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; text-align: left; }

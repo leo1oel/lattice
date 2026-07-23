@@ -51,11 +51,13 @@ import {
   Quote,
   Radio,
   RotateCcw,
+  Moon,
   RefreshCw,
   Search,
   Send,
   Settings2,
   Sparkles,
+  Sun,
   TerminalSquare,
   Square,
   Trash2,
@@ -130,7 +132,7 @@ import {
   type EditorComment,
 } from "./editor-comments";
 import { EditorCommentsPanel } from "./editor-comments-panel";
-import { MotionButton } from "./motion";
+import { MotionButton, IconSwap, SpinButton } from "./motion";
 import {
   clearPreCollabProjectRoot,
   rememberPreCollabProjectRoot,
@@ -4113,8 +4115,15 @@ function App() {
           <div className="titlebar-drag-area" aria-hidden="true" />
         </div>
         <div className="title-actions">
+          <Tip label={theme === "dark" ? "Light mode" : "Dark mode"}>
+            <button className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+              <IconSwap swapKey={theme}>
+                {theme === "dark" ? <Moon size={16} /> : <Sun size={16} />}
+              </IconSwap>
+            </button>
+          </Tip>
           <Tip label="Settings">
-            <button className="icon-button" onClick={() => openSettings("appearance")}>
+            <button className="icon-button gear-button" onClick={() => openSettings("appearance")}>
               <Settings2 size={16} />
             </button>
           </Tip>
@@ -5445,7 +5454,7 @@ function Navigator(props: {
             <span>Project</span>
             <div className="section-heading-actions">
               <Tip label="Refresh files">
-                <button className="section-action" onClick={props.onRefresh}><RefreshCw size={13} strokeWidth={1.8} /></button>
+                <SpinButton className="section-action" onClick={props.onRefresh}><RefreshCw size={13} strokeWidth={1.8} /></SpinButton>
               </Tip>
               <Tip label="Add file or folder">
                 <button className="section-action" onClick={() => {
@@ -5943,7 +5952,9 @@ function AgentPanel({
                 {message.role === "agent" && (!isConversationWelcome(message, index) || !!message.files?.length) && <div className="agent-message-meta">
                   {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
                   {!isConversationWelcome(message, index) && !inFlight && <button className="agent-message-copy" title="Copy agent response" onClick={() => void copyMessage(message)}>
-                    {copiedMessageId === message.id ? <Check size={11} /> : <Copy size={11} />}
+                    <IconSwap swapKey={copiedMessageId === message.id ? "check" : "copy"}>
+                      {copiedMessageId === message.id ? <Check size={11} /> : <Copy size={11} />}
+                    </IconSwap>
                   </button>}
                 </div>}
               </div>
@@ -7715,7 +7726,7 @@ function SettingsDialog(props: {
             )}
             {props.tab === "accounts" && (
               <div className="settings-section">
-                <div className="settings-section-title"><div><h2>Subscriptions</h2><p>OMP manages sign-in and token refresh for Lattice.</p></div><button title="Refresh subscription status" onClick={props.onRefreshSubscriptions} disabled={props.subscriptionsLoading}><RefreshCw className={props.subscriptionsLoading ? "spin" : ""} size={14} /></button></div>
+                <div className="settings-section-title"><div><h2>Subscriptions</h2><p>OMP manages sign-in and token refresh for Lattice.</p></div><SpinButton title="Refresh subscription status" busy={props.subscriptionsLoading} onClick={props.onRefreshSubscriptions} disabled={props.subscriptionsLoading}><RefreshCw size={14} /></SpinButton></div>
                 <div className="account-list">
                   {props.subscriptions.map((account) => (
                     <div className="account-card" key={account.provider}>
@@ -7761,9 +7772,9 @@ function SettingsDialog(props: {
                     <h2>TeX doctor</h2>
                     <p>Checks local LaTeX tools, SyncTeX, bibliography processors, and the bundled agent runtime.</p>
                   </div>
-                  <button title="Run TeX doctor" onClick={props.onRunDoctor} disabled={props.doctorBusy}>
-                    <RefreshCw className={props.doctorBusy ? "spin" : ""} size={14} />
-                  </button>
+                  <SpinButton title="Run TeX doctor" busy={props.doctorBusy} onClick={props.onRunDoctor} disabled={props.doctorBusy}>
+                    <RefreshCw size={14} />
+                  </SpinButton>
                 </div>
                 {props.doctorReport && (
                   <>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Check, Copy, LoaderCircle, Radio } from "lucide-react";
-import { MotionButton, PopIn } from "./motion";
+import { IconSwap, MotionButton, PopIn } from "./motion";
 import { isLocalCollabHost } from "./collab-config";
 import type { CollabStatus } from "./collab-session";
 
@@ -147,7 +147,9 @@ export function CollabDialog(props: {
               <>
                 <code className="collab-invite-code">{formatInvitePreview(props.host, props.room)}</code>
                 <button type="button" className="collab-copy-button" onClick={() => { void copyInvite(); }}>
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                  <IconSwap swapKey={copied ? "check" : "copy"}>
+                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                  </IconSwap>
                   {copied ? "Copied" : "Copy invite"}
                 </button>
               </>
