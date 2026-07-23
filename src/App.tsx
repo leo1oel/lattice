@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -184,6 +184,12 @@ import { applySlashCommand, filterSlashCommands, slashAtCaret, type AgentCommand
 import { EditorTabs } from "./editor-tabs";
 import { Tip } from "./components/icon-tip";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "./components/ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -5268,14 +5274,6 @@ function Navigator(props: {
   const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
   const [entryBusy, setEntryBusy] = useState(false);
   const [citeMenuId, setCiteMenuId] = useState<string | null>(null);
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    path: string;
-    label: string;
-    kind: "project" | "directory" | "file";
-    paper?: PaperSummary;
-  } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ProjectSearchResult[]>([]);
   const [searchResultQuery, setSearchResultQuery] = useState("");
@@ -5316,21 +5314,6 @@ function Navigator(props: {
   const paperSearchResults = visibleSearchResults.filter((result) => result.kind === "paper");
   const paperResultCount = searchPending ? "…" : paperSearchResults.length;
   useEffect(() => {
-    if (!contextMenu) return;
-    const close = () => setContextMenu(null);
-    const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-    };
-    window.addEventListener("pointerdown", close);
-    window.addEventListener("blur", close);
-    window.addEventListener("keydown", closeWithEscape);
-    return () => {
-      window.removeEventListener("pointerdown", close);
-      window.removeEventListener("blur", close);
-      window.removeEventListener("keydown", closeWithEscape);
-    };
-  }, [contextMenu]);
-  useEffect(() => {
     if (!citeMenuId) return;
     const close = () => setCiteMenuId(null);
     const closeWithEscape = (event: KeyboardEvent) => {
@@ -5343,24 +5326,6 @@ function Navigator(props: {
       window.removeEventListener("keydown", closeWithEscape);
     };
   }, [citeMenuId]);
-  const showContextMenu = (
-    event: React.MouseEvent,
-    path: string,
-    label: string,
-    kind: "project" | "directory" | "file" = path ? "file" : "project",
-    paper?: PaperSummary,
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setContextMenu({
-      x: Math.min(event.clientX, window.innerWidth - 220),
-      y: Math.min(event.clientY, window.innerHeight - 180),
-      path,
-      label,
-      kind: paper ? "file" : kind,
-      paper,
-    });
-  };
   const directoryForCreate = (path: string, kind: "project" | "directory" | "file") => {
     if (!path || kind === "project") return "";
     if (kind === "directory") return path;
@@ -5372,7 +5337,6 @@ function Navigator(props: {
     setEntryKind(kind);
     setEntryPath(directory ? `${directory}/` : "");
     setEntryFormOpen(true);
-    setContextMenu(null);
   };
   const closeEntryForm = () => {
     if (entryBusy) return;
@@ -5391,6 +5355,40 @@ function Navigator(props: {
     } finally {
       setEntryBusy(false);
     }
+  };
+  // Wrap a tree/paper row with a Radix ContextMenu (right-click). The items are
+  // computed from the row's target, matching the old hand-rolled menu.
+  const renderItemContextMenu = (
+    target: { path: string; label: string; kind: "project" | "directory" | "file"; paper?: PaperSummary },
+    children: React.ReactElement,
+  ) => {
+    const { path, label, kind, paper } = target;
+    const isProtected = props.protectedPaths.some((entry) => entry === path || path.startsWith(`${entry}/`));
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+        <ContextMenuContent>
+          {!paper && (
+            <>
+              <ContextMenuItem onSelect={() => openCreateForm("file", path, kind)}><FilePlus size={14} />New file</ContextMenuItem>
+              <ContextMenuItem onSelect={() => openCreateForm("folder", path, kind)}><FolderPlus size={14} />New folder</ContextMenuItem>
+            </>
+          )}
+          {(paper || path) && (
+            <ContextMenuItem onSelect={() => (paper ? props.onRenamePaper(paper) : props.onRenameEntry(path, label))}>
+              <Pencil size={14} />Rename
+            </ContextMenuItem>
+          )}
+          {path && !paper && (
+            <ContextMenuItem onSelect={() => void writeText(path)}><Copy size={14} />Copy path</ContextMenuItem>
+          )}
+          <ContextMenuItem onSelect={() => props.onReveal(path)}><FolderOpen size={14} />Show in Finder</ContextMenuItem>
+          {path && !paper && !isProtected && (
+            <ContextMenuItem variant="destructive" onSelect={() => props.onDeleteEntry(path)}><Trash2 size={14} />Delete</ContextMenuItem>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+    );
   };
   const setSplitFromPointer = (clientY: number) => {
     const bounds = navigatorRef.current?.getBoundingClientRect();
@@ -5430,20 +5428,22 @@ function Navigator(props: {
         const target = event.target as Element;
         if (!target.closest(".project-entry-form") && !target.closest(".section-action")) closeEntryForm();
       }}>
-        <div className="section-heading" onContextMenu={(event) => showContextMenu(event, "", "Project folder", "project")}>
-          <span>Project</span>
-          <div className="section-heading-actions">
-            <Tip label="Refresh files">
-              <button className="section-action" onClick={props.onRefresh}><RefreshCw size={13} strokeWidth={1.8} /></button>
-            </Tip>
-            <Tip label="Add file or folder">
-              <button className="section-action" onClick={() => {
-                if (entryFormOpen) closeEntryForm();
-                else openCreateForm("file");
-              }}><FolderPlus size={14} strokeWidth={1.8} /></button>
-            </Tip>
+        {renderItemContextMenu({ path: "", label: "Project folder", kind: "project" }, (
+          <div className="section-heading">
+            <span>Project</span>
+            <div className="section-heading-actions">
+              <Tip label="Refresh files">
+                <button className="section-action" onClick={props.onRefresh}><RefreshCw size={13} strokeWidth={1.8} /></button>
+              </Tip>
+              <Tip label="Add file or folder">
+                <button className="section-action" onClick={() => {
+                  if (entryFormOpen) closeEntryForm();
+                  else openCreateForm("file");
+                }}><FolderPlus size={14} strokeWidth={1.8} /></button>
+              </Tip>
+            </div>
           </div>
-        </div>
+        ))}
         <label className="navigator-search">
           <Search size={13} />
           <input aria-label="Filter project files and papers" placeholder="Filter files and papers" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
@@ -5491,7 +5491,7 @@ function Navigator(props: {
                 </small>
               </span>
             </button>
-          )) : props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} onContextMenu={showContextMenu} />)}
+          )) : props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} renderContextMenu={renderItemContextMenu} />)}
           {searchActive && !searchPending && !searching && !fileSearchResults.length && <p className="search-empty">No matching project files.</p>}
         </div>
       </div>
@@ -5529,8 +5529,9 @@ function Navigator(props: {
           </div>
         </div>
         <div className="paper-list" role="list" aria-label="Papers">
-          {(searchActive ? paperSearchResults.map((result) => props.papers.find((paper) => paper.arxivId === result.arxivId)).filter((paper): paper is PaperSummary => Boolean(paper)) : props.papers).map((paper) => (
-            <div key={paperKey(paper)} className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`} onContextMenu={(event) => paper.hasFullText && showContextMenu(event, `.research/papers/${paper.arxivId}/paper.md`, paper.title, "file", paper)}>
+          {(searchActive ? paperSearchResults.map((result) => props.papers.find((paper) => paper.arxivId === result.arxivId)).filter((paper): paper is PaperSummary => Boolean(paper)) : props.papers).map((paper) => {
+            const row = (
+              <div className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}>
               <button
                 title={paper.hasFullText
                   ? paper.title
@@ -5579,8 +5580,18 @@ function Navigator(props: {
                 <button className="row-edit-bib" title="Edit bibliography entry" onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
               )}
               <button className="row-delete" title={`Remove ${paper.title}`} onClick={() => props.onDeletePaper(paper)}><Trash2 size={12} /></button>
-            </div>
-          ))}
+              </div>
+            );
+            // A cited-only paper has no local file to act on, so it stays bare;
+            // one with full text gets the same right-click menu as a tree file.
+            return (
+              <Fragment key={paperKey(paper)}>
+                {paper.hasFullText
+                  ? renderItemContextMenu({ path: `.research/papers/${paper.arxivId}/paper.md`, label: paper.title, kind: "file", paper }, row)
+                  : row}
+              </Fragment>
+            );
+          })}
           {!searchActive && !props.papers.length && <p className="empty-note">Add an arXiv paper to ground the agent in project evidence.</p>}
           {searchActive && !searchPending && !searching && !paperSearchResults.length && <p className="search-empty">No matching papers.</p>}
         </div>
@@ -5596,66 +5607,35 @@ function Navigator(props: {
           </button>
         </div>
       </div>
-      {contextMenu && (
-        <div className="file-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
-          {!contextMenu.paper && (
-            <>
-              <button onClick={() => openCreateForm("file", contextMenu.path, contextMenu.kind)}>
-                <FilePlus size={14} /><span>New file</span>
-              </button>
-              <button onClick={() => openCreateForm("folder", contextMenu.path, contextMenu.kind)}>
-                <FolderPlus size={14} /><span>New folder</span>
-              </button>
-            </>
-          )}
-          {(contextMenu.paper || contextMenu.path) && <button onClick={() => {
-            if (contextMenu.paper) props.onRenamePaper(contextMenu.paper);
-            else props.onRenameEntry(contextMenu.path, contextMenu.label);
-            setContextMenu(null);
-          }}><Pencil size={14} /><span>Rename</span></button>}
-          {contextMenu.path && !contextMenu.paper && (
-            <button onClick={() => {
-              void writeText(contextMenu.path);
-              setContextMenu(null);
-            }}><Copy size={14} /><span>Copy path</span></button>
-          )}
-          <button onClick={() => { props.onReveal(contextMenu.path); setContextMenu(null); }}><FolderOpen size={14} /><span>Show in Finder</span></button>
-          {contextMenu.path && !contextMenu.paper && !props.protectedPaths.some((path) => path === contextMenu.path || path.startsWith(`${contextMenu.path}/`)) && (
-            <button className="danger" onClick={() => {
-              props.onDeleteEntry(contextMenu.path);
-              setContextMenu(null);
-            }}><Trash2 size={14} /><span>Delete</span></button>
-          )}
-          <small title={contextMenu.label}>{contextMenu.label}</small>
-        </div>
-      )}
     </aside>
   );
 }
 
-function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, onAsset, onBeginFigureDrag, onDelete, onImportAssets, assetDropTarget, assetImporting, onContextMenu }: { node: FileNode; activeFile: string; activeAssetPath: string; protectedPaths: string[]; onFile: (path: string) => void; onAsset: (path: string) => void; onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; onContextMenu: (event: React.MouseEvent, path: string, label: string, kind?: "project" | "directory" | "file") => void }) {
+function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, onAsset, onBeginFigureDrag, onDelete, onImportAssets, assetDropTarget, assetImporting, renderContextMenu }: { node: FileNode; activeFile: string; activeAssetPath: string; protectedPaths: string[]; onFile: (path: string) => void; onAsset: (path: string) => void; onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; renderContextMenu: (target: { path: string; label: string; kind: "project" | "directory" | "file" }, children: React.ReactElement) => React.ReactElement }) {
   const [open, setOpen] = useState(true);
   const protectedEntry = protectedPaths.some((path) => path === node.path || path.startsWith(`${node.path}/`));
   if (node.kind === "directory") {
     return (
       <div className={`tree-directory ${assetDropTarget === node.path ? "drop-target" : ""}`} data-drop-directory={node.path}>
-        <div className="tree-row" onContextMenu={(event) => onContextMenu(event, node.path, node.name, "directory")}>
-          <button className="tree-main" onClick={() => setOpen((value) => !value)}>
-            <ChevronRight className={`tree-chevron ${open ? "open" : ""}`} size={13} />
-            <Folder size={14} /> <span>{node.name}</span>
-          </button>
-          {node.path === "figures" && <button className="row-import" title="Import images into figures" disabled={assetImporting} onClick={() => onImportAssets(node.path)}>{assetImporting ? <LoaderCircle className="spin" size={12} /> : <ImagePlus size={12} />}</button>}
-          {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
-        </div>
+        {renderContextMenu({ path: node.path, label: node.name, kind: "directory" }, (
+          <div className="tree-row">
+            <button className="tree-main" onClick={() => setOpen((value) => !value)}>
+              <ChevronRight className={`tree-chevron ${open ? "open" : ""}`} size={13} />
+              <Folder size={14} /> <span>{node.name}</span>
+            </button>
+            {node.path === "figures" && <button className="row-import" title="Import images into figures" disabled={assetImporting} onClick={() => onImportAssets(node.path)}>{assetImporting ? <LoaderCircle className="spin" size={12} /> : <ImagePlus size={12} />}</button>}
+            {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
+          </div>
+        ))}
         {assetDropTarget === node.path && <div className="asset-drop-hint">Drop images into {node.path}</div>}
-        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} activeAssetPath={activeAssetPath} protectedPaths={protectedPaths} onFile={onFile} onAsset={onAsset} onBeginFigureDrag={onBeginFigureDrag} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} onContextMenu={onContextMenu} />)}</div>}
+        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} activeAssetPath={activeAssetPath} protectedPaths={protectedPaths} onFile={onFile} onAsset={onAsset} onBeginFigureDrag={onBeginFigureDrag} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} renderContextMenu={renderContextMenu} />)}</div>}
       </div>
     );
   }
   const Icon = node.kind === "tex" ? FileCode2 : node.kind === "bib" ? Library : File;
   if (node.kind === "figure") {
-    return (
-      <div className={`tree-row asset-row ${activeAssetPath === node.path ? "active" : ""}`} onContextMenu={(event) => onContextMenu(event, node.path, node.name, "file")}>
+    return renderContextMenu({ path: node.path, label: node.name, kind: "file" }, (
+      <div className={`tree-row asset-row ${activeAssetPath === node.path ? "active" : ""}`}>
         <button
           className="tree-main"
           title={`Preview ${node.name}; drag into the LaTeX editor to insert`}
@@ -5664,14 +5644,14 @@ function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, o
         ><span className="tree-spacer" /><Image size={14} /><span>{node.name}</span></button>
         {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
       </div>
-    );
+    ));
   }
-  return (
-    <div className={`tree-row ${activeFile === node.path ? "active" : ""}`} onContextMenu={(event) => onContextMenu(event, node.path, node.name, "file")}>
+  return renderContextMenu({ path: node.path, label: node.name, kind: "file" }, (
+    <div className={`tree-row ${activeFile === node.path ? "active" : ""}`}>
       <button className="tree-main" onClick={() => onFile(node.path)}><span className="tree-spacer" /><Icon size={14} /><span>{node.name}</span></button>
       {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}
     </div>
-  );
+  ));
 }
 
 function AgentToolRow({ step }: { step: AgentToolStep }) {
