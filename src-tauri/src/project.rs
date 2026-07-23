@@ -3,7 +3,8 @@ use crate::models::{
     AssetPreview, CitationInfo, EditorComment, EditorCommentsFile, FileChange, FileNode,
     HistoryItem, PdfMark, PdfMarksFile, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
     ReferenceInfo, RenameSymbolResult, ReplaceMatch, ReplacePreview, ReplaceResult,
-    ResolvedCitation, RootDocument, SymbolOccurrence, TodoHit, TransactionRecord, UnusedSymbols,
+    ResolvedCitation, RootDocument, SymbolOccurrence, SyncTexTarget, TodoHit, TransactionRecord,
+    UnusedSymbols,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::Utc;
@@ -744,6 +745,83 @@ pub fn citations(root: &Path) -> Result<Vec<CitationInfo>, String> {
     citations.sort_by_key(|citation| citation.key.to_lowercase());
     citations.dedup_by(|left, right| left.key.eq_ignore_ascii_case(&right.key));
     Ok(citations)
+}
+
+/// A reverse SyncTeX click on a rendered reference lands in the generated `.bbl`,
+/// which the writer never edits. Follow the `\bibitem` there back to its source
+/// `.bib` entry so "jump to source" opens something editable.
+pub fn bib_target_for_bbl(
+    root: &Path,
+    bbl_relative: &Path,
+    line: u32,
+) -> Result<Option<SyncTexTarget>, String> {
+    let contents = fs::read_to_string(root.join(bbl_relative)).map_err(err)?;
+    let Some(key) = bibitem_key_at(&contents, line) else {
+        return Ok(None);
+    };
+    for (relative, source) in iter_bibliography_sources(root)? {
+        if let Some(entry_line) = bib_entry_line(&source, &key) {
+            return Ok(Some(SyncTexTarget {
+                path: relative,
+                line: entry_line,
+            }));
+        }
+    }
+    Ok(None)
+}
+
+/// The citation key of the `\bibitem` that governs `line` (1-based) in a `.bbl`.
+fn bibitem_key_at(contents: &str, line: u32) -> Option<String> {
+    // Byte offset just past the end of the target line, so a click on the
+    // `\bibitem` line itself still finds it.
+    let mut offset = 0usize;
+    let mut boundary = contents.len();
+    for (index, text) in contents.lines().enumerate() {
+        offset += text.len() + 1;
+        if index as u32 + 1 == line {
+            boundary = offset.min(contents.len());
+            break;
+        }
+    }
+    let item_start = contents[..boundary].rfind("\\bibitem")?;
+    let after = contents[item_start + "\\bibitem".len()..].trim_start();
+    // Skip natbib's optional [label] argument.
+    let after = if let Some(rest) = after.strip_prefix('[') {
+        let close = rest.find(']')?;
+        rest[close + 1..].trim_start()
+    } else {
+        after
+    };
+    let rest = after.strip_prefix('{')?;
+    let close = rest.find('}')?;
+    let key = rest[..close].trim();
+    if key.is_empty() {
+        None
+    } else {
+        Some(key.to_string())
+    }
+}
+
+/// The 1-based line where `@type{key,` is defined in a `.bib` source.
+fn bib_entry_line(contents: &str, key: &str) -> Option<u32> {
+    for (index, line) in contents.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if !trimmed.starts_with('@') {
+            continue;
+        }
+        let Some(brace) = trimmed.find('{') else {
+            continue;
+        };
+        let entry_key = trimmed[brace + 1..]
+            .split(|character: char| character == ',' || character == '}' || character.is_whitespace())
+            .next()
+            .unwrap_or("")
+            .trim();
+        if entry_key.eq_ignore_ascii_case(key) {
+            return Some(index as u32 + 1);
+        }
+    }
+    None
 }
 
 fn iter_bibliography_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
@@ -3529,6 +3607,34 @@ mod tests {
         let nested = "@article{k, title = {Deep {Nets}}, year = {2020}}\n";
         let (s, e) = bib_entry_span(nested, "k").unwrap();
         assert_eq!(&nested[s..e], nested.trim_end());
+    }
+
+    #[test]
+    fn resolves_a_bbl_click_to_the_bibitem_key() {
+        let bbl = "\\begin{thebibliography}{1}\n\
+                   \\bibitem[Smith(2020)]{smith2020}\n\
+                   J. Smith. A great paper. 2020.\n\
+                   \\bibitem{jones2021}\n\
+                   K. Jones. Another one. 2021.\n\
+                   \\end{thebibliography}\n";
+        // Line 3 falls under the first \bibitem (natbib optional label form).
+        assert_eq!(bibitem_key_at(bbl, 3).as_deref(), Some("smith2020"));
+        // Clicking the \bibitem line itself resolves too.
+        assert_eq!(bibitem_key_at(bbl, 4).as_deref(), Some("jones2021"));
+        assert_eq!(bibitem_key_at(bbl, 5).as_deref(), Some("jones2021"));
+        // Before any \bibitem there is no key.
+        assert_eq!(bibitem_key_at(bbl, 1), None);
+    }
+
+    #[test]
+    fn finds_the_bib_line_for_a_key() {
+        let bib = "% a comment\n\
+                   @article{smith2020,\n  title = {A},\n}\n\
+                   @inproceedings{Jones2021,\n  booktitle = {B},\n}\n";
+        assert_eq!(bib_entry_line(bib, "smith2020"), Some(2));
+        // Case-insensitive key match.
+        assert_eq!(bib_entry_line(bib, "jones2021"), Some(5));
+        assert_eq!(bib_entry_line(bib, "missing"), None);
     }
 
     #[test]

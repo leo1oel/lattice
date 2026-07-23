@@ -310,6 +310,13 @@ pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexT
     let relative = canonical_input
         .strip_prefix(&canonical_root)
         .map_err(|_| "SyncTeX returned a source file outside this project.".to_string())?;
+    // Clicking a reference lands in the generated .bbl; redirect to the .bib entry
+    // the writer can actually edit. Fall through to the .bbl if we can't resolve it.
+    if relative.extension().and_then(|value| value.to_str()) == Some("bbl") {
+        if let Ok(Some(target)) = project::bib_target_for_bbl(root, relative, line) {
+            return Ok(target);
+        }
+    }
     Ok(SyncTexTarget {
         path: relative.to_string_lossy().to_string(),
         line,

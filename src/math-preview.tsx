@@ -3,6 +3,18 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import { mathRegionAt } from "./math-region";
 
+/**
+ * Strip LaTeX bookkeeping that lives inside a math environment but isn't math —
+ * KaTeX would otherwise typeset `\label{eq:foo}` as literal text in the preview.
+ */
+function forPreview(source: string): string {
+  return source
+    .replace(/\\label\s*\{[^}]*\}/g, "")
+    .replace(/\\(?:nonumber|notag)\b/g, "")
+    .replace(/\\intertext\s*\{[^}]*\}/g, "")
+    .trim();
+}
+
 export function MathPreview(props: {
   source: string;
   cursor: number;
@@ -14,9 +26,11 @@ export function MathPreview(props: {
   );
   const rendered = useMemo(() => {
     if (!region?.source) return null;
+    const source = forPreview(region.source);
+    if (!source) return null;
     try {
       return {
-        html: katex.renderToString(region.source, {
+        html: katex.renderToString(source, {
           displayMode: region.display,
           throwOnError: false,
           strict: "ignore",

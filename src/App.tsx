@@ -532,6 +532,10 @@ function App() {
   // chip isn't enough — remember the text we dismissed and ignore the editor
   // re-reporting that same text until the selection actually changes.
   const dismissedSelectionRef = useRef("");
+  // In split view the editor and PDF both live behind the one shared selection
+  // chip. An empty report from one pane must not wipe a live selection the other
+  // pane owns, or the chip flickers as they fight. This tracks the current owner.
+  const selectionSourceRef = useRef<"editor" | "pdf" | null>(null);
   const [texlabDiagnostics, setTexlabDiagnostics] = useState<CompileDiagnostic[]>([]);
   const [canvasMode, setCanvasMode] = useState<CanvasMode>("split");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -1751,6 +1755,7 @@ function App() {
       setBuild(null);
       setSelection("");
       setSelectionSource(null);
+      selectionSourceRef.current = null;
       setTexlabDiagnostics([]);
       setEditorComments([]);
       setEditorCommentsOpen(false);
@@ -3247,6 +3252,7 @@ function App() {
         setMessages(session.messages);
         setSelection("");
         setSelectionSource(null);
+        selectionSourceRef.current = null;
         await refreshProject();
         await refreshHistory();
         if (activeFile) await loadFile(activeFile);
@@ -4396,6 +4402,7 @@ function App() {
             dismissedSelectionRef.current = selection;
             setSelection("");
             setSelectionSource(null);
+            selectionSourceRef.current = null;
           }}
           branchSource={branchSource}
           onCancelBranch={() => setBranchSource(null)}
@@ -4471,12 +4478,20 @@ function App() {
               // The editor keeps re-reporting a dismissed selection; ignore it
               // until the selection changes to something else (or collapses).
               if (value && value === dismissedSelectionRef.current) return;
+              // An empty editor report while the PDF owns the selection is just
+              // the editor losing its DOM selection — don't let it wipe the chip.
+              if (!value && selectionSourceRef.current === "pdf") return;
               dismissedSelectionRef.current = "";
+              selectionSourceRef.current = value ? "editor" : null;
               setSelection(value);
               setSelectionSource(value ? "editor" : null);
             }}
             onPdfTextSelect={(value) => {
+              // Symmetrically, an empty PDF report must not clear an editor
+              // selection the user just made in the other pane.
+              if (!value && selectionSourceRef.current === "editor") return;
               dismissedSelectionRef.current = "";
+              selectionSourceRef.current = value ? "pdf" : null;
               setSelection(value);
               setSelectionSource(value ? "pdf" : null);
             }}
@@ -6903,7 +6918,12 @@ function DocumentCanvas(props: {
       if (!currentView) return;
       const lineNumber = clamp(request.line, 1, currentView.state.doc.lines);
       const line = currentView.state.doc.line(lineNumber);
-      currentView.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+      // Center the target line so a jump lands in the middle of the viewport,
+      // not pinned to the top (jumping down) or bottom (jumping up).
+      currentView.dispatch({
+        selection: { anchor: line.from },
+        effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+      });
       editorViewRef.current = currentView;
       if (request.path === secondaryFile) onFocusPane("secondary");
       else onFocusPane("primary");
