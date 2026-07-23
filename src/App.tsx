@@ -1842,12 +1842,16 @@ function App() {
     void (async () => {
       try {
         const snapshot = await invoke<ProjectSnapshot>("open_project", { path: mostRecent });
-        await enterProject(snapshot);
+        // Defer enterProject's own initial build (it races cold-start init and
+        // the PDF never appears), then kick one explicitly once the project is
+        // fully entered.
+        await enterProject(snapshot, { deferInitialBuild: true });
+        void runBuild(false, { immediatePreview: true });
       } catch {
         // Folder gone — stay on the welcome screen.
       }
     })();
-  }, [enterProject]);
+  }, [enterProject, runBuild]);
 
   const joinCollabShare = useCallback(() => {
     if (!collabName.trim()) {
@@ -7181,7 +7185,10 @@ function DocumentCanvas(props: {
       syncTarget={props.pdfSyncTarget}
       marks={props.pdfMarks}
       activeMarkId={props.activePdfMarkId}
-      onSource={props.onPdfSource}
+      // Reverse-jump to source only when the editor is visible (split/dual/
+      // columns). In PDF-only view there's nothing to jump to, so clicks stay
+      // inert and the synctex cursor is off.
+      onSource={props.mode === "pdf" ? undefined : props.onPdfSource}
       onTextSelect={props.onPdfTextSelect}
       onCreateMark={props.onCreatePdfMark}
       onSelectMark={props.onSelectPdfMark}

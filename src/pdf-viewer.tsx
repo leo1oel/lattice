@@ -499,7 +499,7 @@ export function PdfPreview({
       if (!event.ctrlKey) return;
       event.preventDefault();
       const prev = scaleRef.current;
-      const next = clamp(Number((prev * Math.exp(-event.deltaY * 0.01)).toFixed(3)), 0.6, 2.2);
+      const next = clamp(Number((prev * Math.exp(-event.deltaY * 0.01)).toFixed(3)), 0.6, 4);
       if (next === prev) return;
       const rect = area.getBoundingClientRect();
       pendingZoomAnchorRef.current = {
@@ -908,11 +908,11 @@ export function PdfPreview({
         </label>
         <div className="pdf-zoom-controls">
           <Tip label="Zoom out">
-            <button disabled={scale <= 0.6} onClick={() => setScale((value) => clamp(Number((value - 0.1).toFixed(1)), 0.6, 2.2))}><ZoomOut size={14} /></button>
+            <button disabled={scale <= 0.6} onClick={() => setScale((value) => clamp(Number((value - 0.1).toFixed(1)), 0.6, 4))}><ZoomOut size={14} /></button>
           </Tip>
           <span>{Math.round(scale * 100)}%</span>
           <Tip label="Zoom in">
-            <button disabled={scale >= 2.2} onClick={() => setScale((value) => clamp(Number((value + 0.1).toFixed(1)), 0.6, 2.2))}><ZoomIn size={14} /></button>
+            <button disabled={scale >= 4} onClick={() => setScale((value) => clamp(Number((value + 0.1).toFixed(1)), 0.6, 4))}><ZoomIn size={14} /></button>
           </Tip>
           <i className="pdf-fit-divider" aria-hidden="true" />
           <Tip label="Fit page to width">
