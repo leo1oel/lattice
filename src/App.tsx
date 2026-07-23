@@ -1831,6 +1831,24 @@ function App() {
   );
   enterProjectRef.current = enterProject;
 
+  // On launch, reopen the project you had open last. Falls back to the welcome
+  // screen if that folder was moved or deleted.
+  const didAutoReopenRef = useRef(false);
+  useEffect(() => {
+    if (didAutoReopenRef.current) return;
+    didAutoReopenRef.current = true;
+    const mostRecent = loadRecentProjects()[0]?.path;
+    if (!mostRecent) return;
+    void (async () => {
+      try {
+        const snapshot = await invoke<ProjectSnapshot>("open_project", { path: mostRecent });
+        await enterProject(snapshot);
+      } catch {
+        // Folder gone — stay on the welcome screen.
+      }
+    })();
+  }, [enterProject]);
+
   const joinCollabShare = useCallback(() => {
     if (!collabName.trim()) {
       setError("Enter your name before joining a share.");
@@ -6181,7 +6199,7 @@ function CanvasToolbar(props: {
                 <motion.span
                   layoutId="view-switcher-pill"
                   className="view-switcher-pill"
-                  transition={{ type: "tween", ease: [0.65, 0, 0.35, 1], duration: 0.4 }}
+                  transition={{ type: "tween", ease: [0.65, 0, 0.35, 1], duration: 0.25 }}
                 />
               )}
               <span className="view-switcher-label">{mode.label}</span>

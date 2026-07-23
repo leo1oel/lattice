@@ -1154,6 +1154,8 @@ pub fn run() {
         // In-app auto-update (checks GitHub Releases, verifies with the updater key).
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // Remember the window's size + position across launches.
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             let config = app
                 .path()

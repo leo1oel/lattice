@@ -612,7 +612,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .active-document span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .active-document i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
 .view-switcher { height: 26px; padding: 2px; border-radius: 7px; display: flex; flex: none; background: var(--line); }
-.view-switcher button { position: relative; padding: 0 9px; border-radius: 5px; background: transparent; color: var(--faint); font-size: 10px; text-transform: capitalize; transition: color 0.4s cubic-bezier(0.65, 0, 0.35, 1); }
+.view-switcher button { position: relative; padding: 0 9px; border-radius: 5px; background: transparent; color: var(--faint); font-size: 10px; text-transform: capitalize; transition: color 0.25s cubic-bezier(0.65, 0, 0.35, 1); }
 .view-switcher button.active { color: var(--text); }
 /* Sliding pill (Framer Motion layoutId) — glides between segments on switch. */
 .view-switcher-pill { position: absolute; inset: 0; z-index: 0; border-radius: 5px; background: var(--panel-strong); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); }
