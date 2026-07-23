@@ -45,6 +45,8 @@ import {
   Columns2,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Play,
   Plus,
   Pencil,
@@ -4036,6 +4038,17 @@ function App() {
               </span>
             </button>
           </Tip>
+          <Tip label={agentOpen ? "Hide writing agent" : "Show writing agent"}>
+            <button
+              className={`icon-button ${agentOpen ? "active" : ""}`}
+              onClick={() => setAgentOpen((value) => !value)}
+              aria-pressed={agentOpen}
+            >
+              <span key={agentOpen ? "open" : "closed"} className="toggle-icon">
+                {agentOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+              </span>
+            </button>
+          </Tip>
         </div>
         <div className="project-switcher">
           <DropdownMenu open={projectMenuOpen} onOpenChange={setProjectMenuOpen} modal={false}>
@@ -4103,15 +4116,6 @@ function App() {
           <div className="titlebar-drag-area" aria-hidden="true" />
         </div>
         <div className="title-actions">
-          <Tip label={agentOpen ? "Hide writing agent" : "Show writing agent"}>
-            <button
-              className={`icon-button ${agentOpen ? "active" : ""}`}
-              onClick={() => setAgentOpen((value) => !value)}
-              aria-pressed={agentOpen}
-            >
-              <Bot size={16} />
-            </button>
-          </Tip>
           <Tip label="Settings">
             <button className="icon-button" onClick={() => openSettings("appearance")}>
               <Settings2 size={16} />
@@ -5869,7 +5873,7 @@ function AgentPanel({
         <div className="provider-controls">
           <Select value={provider} disabled={running} onValueChange={(value) => setProvider(value as AgentProvider)}>
             <SelectTrigger aria-label="Agent provider" className="provider-select"><SelectValue /></SelectTrigger>
-            <SelectContent position="popper" align="end">
+            <SelectContent position="popper" align="end" className="agent-select-menu">
               <SelectItem value="codex">Codex subscription</SelectItem>
               <SelectItem value="claude">Claude subscription</SelectItem>
               <SelectItem value="openai-api">OpenAI API</SelectItem>
@@ -5892,7 +5896,7 @@ function AgentPanel({
             if (!nextEfforts.includes(reasoningEffort)) setReasoningEffort(nextEfforts.includes("high") ? "high" : nextEfforts[0]);
           }}>
             <SelectTrigger aria-label="Agent model" className="config-select"><SelectValue /></SelectTrigger>
-            <SelectContent position="popper" align="start">
+            <SelectContent position="popper" align="start" className="agent-select-menu">
               {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -5901,7 +5905,7 @@ function AgentPanel({
           <span>Effort</span>
           <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}>
             <SelectTrigger aria-label="Reasoning effort" className="config-select"><SelectValue /></SelectTrigger>
-            <SelectContent position="popper" align="start">
+            <SelectContent position="popper" align="start" className="agent-select-menu">
               {efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}
             </SelectContent>
           </Select>

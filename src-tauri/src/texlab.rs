@@ -792,11 +792,13 @@ fn map_diagnostic(item: &Value, relative: &str) -> Option<Diagnostic> {
     if message.is_empty() {
         return None;
     }
+    // texlab reports its lints (unused label, unused BibTeX entry, …) at
+    // Information/Hint severity. Surfacing those as "info" draws CodeMirror's
+    // blue-grey square in the gutter; they read as warnings to the user (and
+    // did before texlab took over the unused-symbol checks), so keep the
+    // yellow-triangle warning marker for anything short of an error.
     let severity = match item.get("severity").and_then(|value| value.as_u64()) {
         Some(1) => "error",
-        Some(2) => "warning",
-        Some(3) => "info",
-        Some(4) => "info",
         _ => "warning",
     };
     let line = item
@@ -847,19 +849,26 @@ mod tests {
                         "range": { "start": { "line": 10, "character": 0 }, "end": { "line": 10, "character": 1 } },
                         "severity": 2,
                         "message": "Package natbib Warning: Citation undefined."
+                    },
+                    {
+                        "range": { "start": { "line": 12, "character": 0 }, "end": { "line": 12, "character": 8 } },
+                        "severity": 4,
+                        "message": "Unused label 'fig:native-umm'."
                     }
                 ]
             }
         });
         let diagnostics =
             publish_diagnostics_for(&message, "file:///tmp/paper/main.tex", "main.tex").unwrap();
-        assert_eq!(diagnostics.len(), 2);
+        assert_eq!(diagnostics.len(), 3);
         assert_eq!(diagnostics[0].level, "error");
         assert_eq!(diagnostics[0].line, Some(4));
         assert_eq!(diagnostics[0].column, Some(1));
         assert_eq!(diagnostics[0].end_column, Some(6));
         assert_eq!(diagnostics[0].file.as_deref(), Some("main.tex"));
         assert_eq!(diagnostics[1].level, "warning");
+        // Hint-severity lints (unused label) surface as warnings, not info.
+        assert_eq!(diagnostics[2].level, "warning");
     }
 
     #[test]

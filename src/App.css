@@ -103,9 +103,9 @@ select:disabled { opacity: 0.45; cursor: default; }
 
 .app-shell { height: 100%; background: var(--bg); display: flex; flex-direction: column; }
 .titlebar { position: relative; z-index: 5; height: 46px; flex: none; display: flex; align-items: center; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 92%, transparent); user-select: none; }
-.titlebar-navigator { width: 132px; height: 100%; flex: none; padding: 0 10px 0 0; display: flex; align-items: center; }
-.traffic-space { width: 86px; height: 100%; flex: none; }
-.app-shell.fullscreen .titlebar-navigator { width: 48px; padding: 0 8px; }
+.titlebar-navigator { width: 166px; height: 100%; flex: none; padding: 0 10px 0 0; display: flex; align-items: center; gap: 2px; }
+.traffic-space { width: 86px; height: 100%; flex: none; margin-right: 2px; }
+.app-shell.fullscreen .titlebar-navigator { width: 82px; padding: 0 8px; }
 .app-shell.fullscreen .traffic-space { width: 0; }
 .icon-button { width: 30px; height: 30px; border-radius: 7px; background: transparent; display: grid; place-items: center; color: var(--muted); }
 .icon-button:hover { background: var(--line); color: var(--text); }
@@ -434,6 +434,12 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .config-pill .config-select svg { width: 12px; height: 12px; opacity: .5; }
 .config-pill .config-select [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The agent pickers' dropdown panel: match its list text to the compact 10px
+   trigger and tighten each row so the menu reads as part of the same control. */
+.agent-select-menu { min-width: var(--radix-select-trigger-width); border-radius: 7px; }
+.agent-select-menu [data-slot="select-item"] { font-size: 10px; padding-top: 3px; padding-bottom: 3px; padding-left: 21px; padding-right: 8px; }
+.agent-select-menu [data-slot="select-item-indicator"] { left: 5px; }
+.agent-select-menu [data-slot="select-item-indicator"] svg { width: 11px; height: 11px; }
 /* The conversation history is a shadcn Popover now; its container supplies the
    border, background, shadow, and open/close animation. Override only the size
    and padding to fit the dense session list. */

@@ -405,14 +405,12 @@ function ContinuousPdfPage({
       <canvas
         ref={canvasRef}
         className={onSource ? "synctex-enabled" : ""}
-        title={onSource ? "Click to reveal LaTeX source" : undefined}
         onClick={revealSourceFromCanvas}
         aria-label={`PDF page ${pageNumber}`}
       />
       <div
         ref={textLayerRef}
         className="textLayer pdf-text-layer"
-        title={onSource ? "Click to reveal LaTeX source; drag to select text" : undefined}
         onClick={revealSourceFromText}
       />
       <PdfMarkLayer
