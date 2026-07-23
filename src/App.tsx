@@ -132,6 +132,7 @@ import {
   type EditorComment,
 } from "./editor-comments";
 import { EditorCommentsPanel } from "./editor-comments-panel";
+import { motion } from "motion/react";
 import { MotionButton, IconSwap, SpinButton } from "./motion";
 import {
   clearPreCollabProjectRoot,
@@ -6167,16 +6168,26 @@ function CanvasToolbar(props: {
           { id: "source" as const, label: "source", title: "Source only" },
           { id: "split" as const, label: "split", title: "Source and PDF" },
           { id: "pdf" as const, label: "pdf", title: "PDF only" },
-        ]).map((mode) => (
-          <button
-            key={mode.id}
-            className={switcherMode === mode.id ? "active" : ""}
-            title={mode.title}
-            onClick={() => props.setMode(mode.id)}
-          >
-            {mode.label}
-          </button>
-        ))}
+        ]).map((mode) => {
+          const active = switcherMode === mode.id;
+          return (
+            <button
+              key={mode.id}
+              className={active ? "active" : ""}
+              title={mode.title}
+              onClick={() => props.setMode(mode.id)}
+            >
+              {active && (
+                <motion.span
+                  layoutId="view-switcher-pill"
+                  className="view-switcher-pill"
+                  transition={{ type: "tween", ease: [0.65, 0, 0.35, 1], duration: 0.4 }}
+                />
+              )}
+              <span className="view-switcher-label">{mode.label}</span>
+            </button>
+          );
+        })}
       </div>
       <div className="canvas-actions">
         {props.activeKind === "document" && (
