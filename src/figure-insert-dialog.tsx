@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ImagePlus, X } from "lucide-react";
+import { MotionButton, PopIn } from "./motion";
 import { DEFAULT_FIGURE_OPTIONS, type FigureInsertOptions } from "./figure-insertion";
 
 export function FigureInsertDialog(props: {
@@ -17,7 +18,7 @@ export function FigureInsertDialog(props: {
 
   return (
     <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <div className="modal figure-insert-modal" onMouseDown={(event) => event.stopPropagation()} aria-label="Insert figure">
+      <PopIn className="modal figure-insert-modal" onMouseDown={(event) => event.stopPropagation()} aria-label="Insert figure">
         <div className="modal-icon"><ImagePlus size={19} /></div>
         <div className="drawer-header" style={{ padding: 0, border: 0, marginBottom: 8 }}>
           <div><span>Insert figure</span></div>
@@ -42,15 +43,15 @@ export function FigureInsertDialog(props: {
         </label>
         <div className="modal-actions">
           <button type="button" className="text-button" onClick={props.onClose}>Cancel</button>
-          <button
+          <MotionButton
             type="button"
             className="primary-button"
             onClick={() => props.onInsert({ width, placement, caption, label: label.trim() || undefined })}
           >
             Insert
-          </button>
+          </MotionButton>
         </div>
-      </div>
+      </PopIn>
     </div>
   );
 }

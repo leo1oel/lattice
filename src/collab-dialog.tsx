@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Check, Copy, LoaderCircle, Radio } from "lucide-react";
+import { MotionButton, PopIn } from "./motion";
 import { isLocalCollabHost } from "./collab-config";
 import type { CollabStatus } from "./collab-session";
 
@@ -69,7 +70,7 @@ export function CollabDialog(props: {
 
   return (
     <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <div
+      <PopIn
         className="modal collab-modal"
         onMouseDown={(event) => event.stopPropagation()}
         aria-label="Live collaboration"
@@ -220,30 +221,30 @@ export function CollabDialog(props: {
         <div className="modal-actions">
           <button type="button" className="text-button" onClick={props.onClose}>Close</button>
           {live ? (
-            <button type="button" className="primary-button" onClick={stopOrLeave}>
+            <MotionButton type="button" className="primary-button" onClick={stopOrLeave}>
               {props.role === "guest" ? "Leave share" : "Stop sharing"}
-            </button>
+            </MotionButton>
           ) : mode === "start" ? (
-            <button
+            <MotionButton
               type="button"
               className="primary-button"
               disabled={!nameReady}
               onClick={props.onStartShare}
             >
               Start sharing
-            </button>
+            </MotionButton>
           ) : (
-            <button
+            <MotionButton
               type="button"
               className="primary-button"
               disabled={!nameReady}
               onClick={props.onJoinShare}
             >
               Join share
-            </button>
+            </MotionButton>
           )}
         </div>
-      </div>
+      </PopIn>
     </div>
   );
 }

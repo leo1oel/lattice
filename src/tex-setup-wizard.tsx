@@ -14,6 +14,7 @@ import {
   TEX_INSTALL_SIZE_HINT,
   type DoctorReportLike,
 } from "./tex-setup";
+import { MotionButton, PopIn } from "./motion";
 
 type InstallKind = "basic" | "full";
 
@@ -72,7 +73,7 @@ export function TexSetupWizard(props: {
 
   return (
     <div className="modal-backdrop tex-setup-backdrop" onMouseDown={props.onClose}>
-      <div
+      <PopIn
         className="modal tex-setup-modal"
         onMouseDown={(event) => event.stopPropagation()}
         aria-label="Install LaTeX tools"
@@ -154,11 +155,11 @@ export function TexSetupWizard(props: {
             {props.checking ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
             Recheck
           </button>
-          <button type="button" className="primary-button" onClick={props.onClose} disabled={installing !== null}>
+          <MotionButton type="button" className="primary-button" onClick={props.onClose} disabled={installing !== null}>
             {ready ? "Done" : "Close"}
-          </button>
+          </MotionButton>
         </div>
-      </div>
+      </PopIn>
     </div>
   );
 }

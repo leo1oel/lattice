@@ -130,6 +130,7 @@ import {
   type EditorComment,
 } from "./editor-comments";
 import { EditorCommentsPanel } from "./editor-comments-panel";
+import { MotionButton } from "./motion";
 import {
   clearPreCollabProjectRoot,
   rememberPreCollabProjectRoot,
@@ -5008,9 +5009,9 @@ function Welcome(props: {
           A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected.
         </p>
         <div className="welcome-actions">
-          <button className="primary-button" onClick={props.onOpenCreate}>
+          <MotionButton className="primary-button" magnetic onClick={props.onOpenCreate}>
             <Plus size={17} /> New project
-          </button>
+          </MotionButton>
           <button className="secondary-button" onClick={props.onOpen}>
             <FolderOpen size={17} /> Open folder
           </button>
@@ -5091,7 +5092,7 @@ function CreateProjectDialog(props: {
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">
           <button className="text-button" onClick={props.onClose}>Cancel</button>
-          <button className="primary-button" onClick={props.onCreate}>Choose location</button>
+          <MotionButton className="primary-button" onClick={props.onCreate}>Choose location</MotionButton>
         </div>
       </div>
     </div>
@@ -5167,7 +5168,7 @@ function RenameDialog(props: {
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">
           <button className="text-button" onClick={props.onClose}>Cancel</button>
-          <button className="primary-button" disabled={busy || !name.trim()} onClick={() => void submit()}>{busy ? "Renaming…" : "Rename"}</button>
+          <MotionButton className="primary-button" disabled={busy || !name.trim()} onClick={() => void submit()}>{busy ? "Renaming…" : "Rename"}</MotionButton>
         </div>
       </div>
     </div>
@@ -7693,7 +7694,7 @@ function SettingsDialog(props: {
                     <label>SKILL.md
                       <textarea aria-label="Skill instructions" value={props.skillDraft.content} onChange={(event) => props.setSkillDraft({ ...props.skillDraft!, content: event.target.value })} />
                     </label>
-                    <div className="skill-editor-actions"><button onClick={() => props.setSkillDraft(null)}>Cancel</button><button className="primary-button" onClick={() => props.onSaveSkill(props.skillDraft!)}>Save skill</button></div>
+                    <div className="skill-editor-actions"><button onClick={() => props.setSkillDraft(null)}>Cancel</button><MotionButton className="primary-button" onClick={() => props.onSaveSkill(props.skillDraft!)}>Save skill</MotionButton></div>
                   </div>
                 ) : (
                   <div className="skill-list">
@@ -7749,7 +7750,7 @@ function SettingsDialog(props: {
                 <div className="settings-api-actions">
                   {props.apiConfigured && <button className="delete-key-button" onClick={props.onDeleteApiKey}><Trash2 size={13} /> Remove</button>}
                   <span />
-                  <button className="primary-button" onClick={props.onSaveApiKey} disabled={!props.apiKey.trim()}>Save key</button>
+                  <MotionButton className="primary-button" onClick={props.onSaveApiKey} disabled={!props.apiKey.trim()}>Save key</MotionButton>
                 </div>
               </div>
             )}

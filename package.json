@@ -48,6 +48,7 @@
     "katex": "^0.18.0",
     "lucide-react": "^1.24.0",
     "marked": "^18.0.6",
+    "motion": "^12.42.2",
     "pdfjs-dist": "^6.1.200",
     "radix-ui": "^1.6.5",
     "react": "^19.1.0",
