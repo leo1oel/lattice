@@ -1191,10 +1191,11 @@ describe("project workspace", () => {
     render(<App />);
     fireEvent.click(await screen.findByTitle("Conversation history"));
     expect(screen.getByText("Revise the related work")).toBeInTheDocument();
-    fireEvent.pointerDown(document.body);
-    expect(screen.queryByText("Conversations")).not.toBeInTheDocument();
+    // Re-clicking the trigger toggles the Popover closed.
     fireEvent.click(screen.getByTitle("Conversation history"));
-    fireEvent.click(screen.getByText("Revise the related work"));
+    await waitFor(() => expect(screen.queryByText("Conversations")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByTitle("Conversation history"));
+    fireEvent.click(await screen.findByText("Revise the related work"));
     expect(await screen.findByText("Compare against the strongest baseline.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     expect(invoke).toHaveBeenCalledWith("create_agent_session", {

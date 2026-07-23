@@ -183,6 +183,7 @@ import { ChatMarkdown } from "./chat-markdown";
 import { applySlashCommand, filterSlashCommands, slashAtCaret, type AgentCommand, type SlashState } from "./slash-commands";
 import { EditorTabs } from "./editor-tabs";
 import { Tip } from "./components/icon-tip";
+import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -5797,21 +5798,8 @@ function AgentPanel({
     composer.style.height = `${height}px`;
     composer.style.overflowY = composer.scrollHeight > 160 ? "auto" : "hidden";
   }, [input]);
-  useEffect(() => {
-    if (!sessionMenuOpen) return;
-    const closeMenu = () => setSessionMenuOpen(false);
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeMenu();
-    };
-    window.addEventListener("pointerdown", closeMenu);
-    window.addEventListener("keydown", closeOnEscape);
-    window.addEventListener("blur", closeMenu);
-    return () => {
-      window.removeEventListener("pointerdown", closeMenu);
-      window.removeEventListener("keydown", closeOnEscape);
-      window.removeEventListener("blur", closeMenu);
-    };
-  }, [sessionMenuOpen, setSessionMenuOpen]);
+  // The conversation history is a Radix Popover now, which handles outside-click
+  // and Escape dismissal itself — no manual window listeners needed.
   useEffect(() => {
     const query = sessionSearch.trim();
     if (!sessionMenuOpen || !query) return;
@@ -5857,9 +5845,30 @@ function AgentPanel({
     <section className="agent-panel">
       <div className="agent-header">
         <div className="agent-conversation-controls">
-          <button className="agent-title" title="Conversation history" aria-expanded={sessionMenuOpen} onClick={() => setSessionMenuOpen(!sessionMenuOpen)}>
-            <Bot size={16} /><span>{compactConversationTitle(activeSession?.title ?? "Writing agent")}</span><ChevronDown size={12} />
-          </button>
+          <Popover open={sessionMenuOpen} onOpenChange={setSessionMenuOpen}>
+            <PopoverTrigger asChild>
+              <button className="agent-title" title="Conversation history">
+                <Bot size={16} /><span>{compactConversationTitle(activeSession?.title ?? "Writing agent")}</span><ChevronDown size={12} />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" sideOffset={6} className="session-popover">
+              <div className="session-menu-heading"><span>Conversations</span><button onClick={onNewSession}><Plus size={13} /> New</button></div>
+              <label className="session-search"><Search size={12} /><input aria-label="Search conversations" value={sessionSearch} onChange={(event) => { setSessionSearch(event.target.value); setSearchResults(null); }} placeholder="Search conversations…" /></label>
+              <div className="session-list">
+                {visibleSessions.map((session) => (
+                  <div key={session.id} className={session.id === activeSession?.id ? "active" : ""}>
+                    <button className="session-open" onClick={() => onOpenSession(session.id)}>
+                      <strong>{compactConversationTitle(session.title)}</strong>
+                      <small>{modelLabel(session.provider, session.model || defaultModel(session.provider))} · {session.messageCount} messages · {relativeTime(session.updatedAt)}</small>
+                      {session.snippet && <small className="session-snippet">{session.snippet}</small>}
+                    </button>
+                    <button className="session-delete" title="Delete conversation" disabled={running} onClick={() => onDeleteSession(session.id)}><Trash2 size={12} /></button>
+                  </div>
+                ))}
+                {!visibleSessions.length && <p className="session-empty">No conversations found.</p>}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Tip label="New conversation">
             <button className="new-conversation-button" disabled={running} onClick={onNewSession}><Plus size={14} /></button>
           </Tip>
@@ -5897,25 +5906,6 @@ function AgentPanel({
           </select>
         </label>
       </div>
-      {sessionMenuOpen && (
-        <div className="session-menu" onPointerDown={(event) => event.stopPropagation()}>
-          <div className="session-menu-heading"><span>Conversations</span><button onClick={onNewSession}><Plus size={13} /> New</button></div>
-          <label className="session-search"><Search size={12} /><input aria-label="Search conversations" value={sessionSearch} onChange={(event) => { setSessionSearch(event.target.value); setSearchResults(null); }} placeholder="Search conversations…" /></label>
-          <div className="session-list">
-            {visibleSessions.map((session) => (
-              <div key={session.id} className={session.id === activeSession?.id ? "active" : ""}>
-                <button className="session-open" onClick={() => onOpenSession(session.id)}>
-                  <strong>{compactConversationTitle(session.title)}</strong>
-                  <small>{modelLabel(session.provider, session.model || defaultModel(session.provider))} · {session.messageCount} messages · {relativeTime(session.updatedAt)}</small>
-                  {session.snippet && <small className="session-snippet">{session.snippet}</small>}
-                </button>
-                <button className="session-delete" title="Delete conversation" disabled={running} onClick={() => onDeleteSession(session.id)}><Trash2 size={12} /></button>
-              </div>
-            ))}
-            {!visibleSessions.length && <p className="session-empty">No conversations found.</p>}
-          </div>
-        </div>
-      )}
       <div className="chat-list">
         {messages.map((message, index) => {
         // The turn in progress: its text may still grow and its tool calls may

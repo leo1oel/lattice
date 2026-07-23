@@ -452,7 +452,10 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .agent-config-bar select:hover,
 .agent-config-bar select:focus { border-color: transparent; }
-.session-menu { position: absolute; z-index: 6; top: 75px; left: 8px; right: 8px; max-height: min(420px, calc(100% - 92px)); border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel-strong); box-shadow: var(--shadow); padding: 6px; overflow: hidden; animation: menu-in .16s cubic-bezier(.2, .75, .25, 1); transform-origin: top; }
+/* The conversation history is a shadcn Popover now; its container supplies the
+   border, background, shadow, and open/close animation. Override only the size
+   and padding to fit the dense session list. */
+.session-popover { width: min(340px, 78vw); max-height: min(460px, 70vh); padding: 6px; overflow: hidden; }
 .session-menu-heading { height: 30px; padding: 0 5px 4px 7px; display: flex; align-items: center; justify-content: space-between; color: var(--faint); font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
 .session-menu-heading button { height: 24px; padding: 0 7px; border-radius: 5px; background: transparent; color: var(--muted); display: flex; align-items: center; gap: 4px; font-size: 9px; text-transform: none; letter-spacing: 0; }
 .session-menu-heading button:hover { background: var(--line); color: var(--text); }
