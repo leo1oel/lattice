@@ -400,52 +400,40 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .agent-title svg:last-child { color: var(--faint); }
 .new-conversation-button { width: 25px; height: 25px; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; }
 .new-conversation-button:hover { background: var(--line); color: var(--text); }
-.agent-header select {
-  width: 0;
-  min-width: 0;
-  flex: 1;
-  height: 28px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background-color: var(--panel-strong);
-  background-position: right 5px center;
-  padding: 0 18px 0 8px;
-  font-size: 10px;
-  line-height: 1.2;
-}
 .provider-controls { min-width: 0; width: 100%; display: flex; align-items: center; gap: 4px; }
-.provider-controls button { width: 25px; height: 25px; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; }
-.provider-controls button:hover { background: var(--line); color: var(--text); }
+/* The API-key button, not the Radix Select trigger (also a <button>). */
+.provider-controls button:not([data-slot="select-trigger"]) { width: 25px; height: 25px; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; }
+.provider-controls button:not([data-slot="select-trigger"]):hover { background: var(--line); color: var(--text); }
+/* Radix Select trigger, compacted to the old native-select footprint.
+   App.css is unlayered, so these win over the trigger's Tailwind classes. */
+.provider-controls .provider-select {
+  width: 0; min-width: 0; flex: 1; height: 28px; gap: 4px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background-color: var(--panel-strong); color: var(--text);
+  padding: 0 7px; font-size: 10px; line-height: 1.2; box-shadow: none;
+}
+.provider-controls .provider-select:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }
+.provider-controls .provider-select:focus-visible { border-color: var(--accent); outline: none; }
+.provider-controls .provider-select svg { width: 12px; height: 12px; opacity: .55; }
+.provider-controls .provider-select [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agent-config-bar { height: 36px; flex: none; padding: 1px 11px 5px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(84px, .65fr); gap: 5px; }
-.agent-config-bar label {
-  min-width: 0;
-  height: 28px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+.config-pill {
+  min-width: 0; height: 28px;
+  border: 1px solid var(--line); border-radius: 6px;
   background: var(--panel-strong);
-  box-shadow: none;
   padding: 0 4px 0 7px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  display: flex; align-items: center; gap: 5px;
 }
-.agent-config-bar label:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }
-.agent-config-bar label > span { flex: none; color: var(--faint); font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
-.agent-config-bar select {
-  width: 0;
-  min-width: 0;
-  flex: 1;
-  height: 100%;
-  border: 0;
-  border-radius: 0;
-  background-color: transparent;
-  background-position: right 4px center;
-  padding: 0 16px 0 0;
-  font-size: 10px;
-  line-height: 1.2;
+.config-pill:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }
+.config-pill:focus-within { border-color: var(--accent); }
+.config-pill > span { flex: none; color: var(--faint); font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
+.config-pill .config-select {
+  width: 0; min-width: 0; flex: 1; height: 100%; gap: 2px;
+  border: 0; border-radius: 0; background: transparent; color: var(--text);
+  padding: 0; font-size: 10px; line-height: 1.2; box-shadow: none; outline: none;
 }
-.agent-config-bar select:hover,
-.agent-config-bar select:focus { border-color: transparent; }
+.config-pill .config-select svg { width: 12px; height: 12px; opacity: .5; }
+.config-pill .config-select [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The conversation history is a shadcn Popover now; its container supplies the
    border, background, shadow, and open/close animation. Override only the size
    and padding to fit the dense session list. */
