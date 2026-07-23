@@ -199,7 +199,7 @@ describe("welcome screen", () => {
   it("opens appearance settings and persists font choices", async () => {
     render(<App />);
     expect(screen.queryByTitle("Toggle theme")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTitle("Settings"));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
     expect(screen.getByLabelText(/latex editor font/i)).toHaveValue("Menlo, ui-monospace, monospace");
     fireEvent.change(screen.getByLabelText("Color theme"), { target: { value: "dark" } });
@@ -225,7 +225,7 @@ describe("welcome screen", () => {
 
   it("persists the opt-in editor spellcheck setting", async () => {
     render(<App />);
-    fireEvent.click(screen.getByTitle("Settings"));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
     const spellcheck = screen.getByLabelText("Spellcheck prose in the editor");
     expect(spellcheck).not.toBeChecked();
@@ -236,7 +236,7 @@ describe("welcome screen", () => {
   it("keeps an explicitly selected manual build preference", () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     render(<App />);
-    fireEvent.click(screen.getByTitle("Settings"));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
     expect(screen.getByLabelText("Automatic build")).toHaveValue("manual");
   });
@@ -244,7 +244,7 @@ describe("welcome screen", () => {
   it("migrates the legacy manual default to automatic build", () => {
     localStorage.setItem("lattice.build-preferences.v1", JSON.stringify({ autoBuildMode: "manual" }));
     render(<App />);
-    fireEvent.click(screen.getByTitle("Settings"));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
     expect(screen.getByLabelText("Automatic build")).toHaveValue("automatic");
   });
@@ -267,7 +267,7 @@ describe("welcome screen", () => {
     });
 
     render(<App />);
-    fireEvent.click(screen.getByTitle("Settings"));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Agent" }));
     expect(await screen.findByText("research-taste")).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Edit research-taste"));
@@ -350,7 +350,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    await screen.findByTitle("Hide navigator");
+    await screen.findByRole("button", { name: "Hide navigator" });
     await waitFor(() => expect(document.querySelector(".app-shell")).toHaveClass("fullscreen"));
   });
 
@@ -573,8 +573,8 @@ describe("project workspace", () => {
     render(<App />);
     expect(await screen.findByLabelText("Agent provider")).toHaveValue("codex");
     expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument();
-    expect(screen.queryByTitle("API key settings")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTitle("Settings"));
+    expect(screen.queryByRole("button", { name: "API key settings" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Subscriptions" }));
     expect(await screen.findAllByText("Connected")).toHaveLength(2);
 
@@ -582,9 +582,9 @@ describe("project workspace", () => {
     fireEvent.change(screen.getByLabelText("Agent provider"), { target: { value: "claude" } });
     expect(screen.getByRole("option", { name: "Claude Opus 4.8" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Claude Sonnet 5" })).toBeInTheDocument();
-    expect(screen.queryByTitle("API key settings")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "API key settings" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Agent provider"), { target: { value: "openai-api" } });
-    expect(screen.getByTitle("API key settings")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "API key settings" })).toBeInTheDocument();
   });
 
   it("lists a work that is only cited but does not offer to open it", async () => {
@@ -959,7 +959,7 @@ describe("project workspace", () => {
     expect(await screen.findByText("1/2")).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Next search result"));
     expect(await screen.findByText("2/2")).toBeInTheDocument();
-    fireEvent.click(screen.getByTitle(/Reveal cursor in PDF/i));
+    fireEvent.click(screen.getByRole("button", { name: /Reveal cursor in PDF/i }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("synctex_view", {
       path: "main.tex",
       line: 1,
@@ -970,7 +970,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByTitle("Zoom in"));
     const zoomAfter = `${zoomBefore + 10}%`;
     expect(screen.getByText(zoomAfter)).toBeInTheDocument();
-    fireEvent.click(screen.getByTitle(/Build automatically · Command-S builds now/i));
+    fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
     // Identical PDF bytes must not thrash pdf.js — keep the same document + zoom.
     expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(1);
@@ -1196,7 +1196,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByTitle("Conversation history"));
     fireEvent.click(screen.getByText("Revise the related work"));
     expect(await screen.findByText("Compare against the strongest baseline.")).toBeInTheDocument();
-    fireEvent.click(screen.getByTitle("New conversation"));
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     expect(invoke).toHaveBeenCalledWith("create_agent_session", {
       provider: "codex",
       model: "gpt-5.6-sol",
@@ -1305,7 +1305,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.click(await screen.findByTitle("Project history"));
+    fireEvent.click(await screen.findByRole("button", { name: "Project history" }));
     fireEvent.click(screen.getByRole("button", { name: /Edit main\.tex/i }));
     expect(await screen.findByLabelText("Diff for main.tex")).toHaveTextContent("- old line");
     expect(screen.getByLabelText("Diff for main.tex")).toHaveTextContent("+ new line");
@@ -1372,7 +1372,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.click(await screen.findByTitle("Insert snippet or symbol (⌘⇧I)"));
+    fireEvent.click(await screen.findByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }));
     const palette = await screen.findByLabelText("Insert LaTeX snippets");
     expect(palette).toHaveTextContent("Pick a symbol or snippet");
     expect(within(palette).getByRole("button", { name: /Alpha/i })).toBeInTheDocument();

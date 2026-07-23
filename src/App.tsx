@@ -182,6 +182,7 @@ import { katexMacrosFromSources } from "./katex-macros";
 import { ChatMarkdown } from "./chat-markdown";
 import { applySlashCommand, filterSlashCommands, slashAtCaret, type AgentCommand, type SlashState } from "./slash-commands";
 import { EditorTabs } from "./editor-tabs";
+import { Tip } from "./components/icon-tip";
 import { TableGeneratorDialog } from "./table-generator-dialog";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "./project-replace-dialog";
@@ -3995,11 +3996,13 @@ function App() {
       <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
         <div className="titlebar-navigator">
           <div className="traffic-space" />
-          <button className="icon-button" onClick={() => setNavigatorOpen((value) => !value)} title={navigatorOpen ? "Hide navigator" : "Show navigator"}>
-            <span key={navigatorOpen ? "open" : "closed"} className="toggle-icon">
-              {navigatorOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-            </span>
-          </button>
+          <Tip label={navigatorOpen ? "Hide navigator" : "Show navigator"}>
+            <button className="icon-button" onClick={() => setNavigatorOpen((value) => !value)}>
+              <span key={navigatorOpen ? "open" : "closed"} className="toggle-icon">
+                {navigatorOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+              </span>
+            </button>
+          </Tip>
         </div>
         <div className="project-switcher">
           <button
@@ -4075,49 +4078,56 @@ function App() {
           )}
         </div>
         <div className="title-actions">
-          <button
-            className={`icon-button ${agentOpen ? "active" : ""}`}
-            onClick={() => setAgentOpen((value) => !value)}
-            title={agentOpen ? "Hide writing agent" : "Show writing agent"}
-            aria-pressed={agentOpen}
-          >
-            <Bot size={16} />
-          </button>
-          <button className="icon-button" onClick={() => openSettings("appearance")} title="Settings">
-            <Settings2 size={16} />
-          </button>
-          <button
-            className="icon-button"
-            title="Clean aux files"
-            disabled={building || cleaning}
-            onClick={() => void cleanProject()}
-          >
-            {cleaning ? <LoaderCircle className="spin" size={15} /> : <Eraser size={15} />}
-          </button>
+          <Tip label={agentOpen ? "Hide writing agent" : "Show writing agent"}>
+            <button
+              className={`icon-button ${agentOpen ? "active" : ""}`}
+              onClick={() => setAgentOpen((value) => !value)}
+              aria-pressed={agentOpen}
+            >
+              <Bot size={16} />
+            </button>
+          </Tip>
+          <Tip label="Settings">
+            <button className="icon-button" onClick={() => openSettings("appearance")}>
+              <Settings2 size={16} />
+            </button>
+          </Tip>
+          <Tip label="Clean aux files">
+            <button
+              className="icon-button"
+              disabled={building || cleaning}
+              onClick={() => void cleanProject()}
+            >
+              {cleaning ? <LoaderCircle className="spin" size={15} /> : <Eraser size={15} />}
+            </button>
+          </Tip>
           {building ? (
-            <button
-              className="build-button stop"
-              title="Stop the current LaTeX build"
-              onClick={() => void abortBuild()}
-              aria-live="polite"
-            >
-              <Square size={13} fill="currentColor" />
-              Stop
-            </button>
+            <Tip label="Stop the current LaTeX build">
+              <button
+                className="build-button stop"
+                onClick={() => void abortBuild()}
+                aria-live="polite"
+              >
+                <Square size={13} fill="currentColor" />
+                Stop
+              </button>
+            </Tip>
           ) : (
-            <button
-              className={`build-button ${build?.success ? "success" : ""}`}
-              title={`${autoBuildDescription(buildPreferences.autoBuildMode)}. Shift-click for clean rebuild.`}
-              onClick={(event) => {
-                if (event.shiftKey) void cleanAndRebuild();
-                else void compile();
-              }}
-              disabled={cleaning}
-              aria-live="polite"
-            >
-              {build?.success ? <Check size={15} /> : <Play size={15} />}
-              {build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : "Build"}
-            </button>
+            <Tip label={`${autoBuildDescription(buildPreferences.autoBuildMode)}. Shift-click for clean rebuild.`}>
+              <button
+                aria-label="Build"
+                className={`build-button ${build?.success ? "success" : ""}`}
+                onClick={(event) => {
+                  if (event.shiftKey) void cleanAndRebuild();
+                  else void compile();
+                }}
+                disabled={cleaning}
+                aria-live="polite"
+              >
+                {build?.success ? <Check size={15} /> : <Play size={15} />}
+                {build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : "Build"}
+              </button>
+            </Tip>
           )}
         </div>
       </header>
@@ -5825,7 +5835,9 @@ function AgentPanel({
           <button className="agent-title" title="Conversation history" aria-expanded={sessionMenuOpen} onClick={() => setSessionMenuOpen(!sessionMenuOpen)}>
             <Bot size={16} /><span>{compactConversationTitle(activeSession?.title ?? "Writing agent")}</span><ChevronDown size={12} />
           </button>
-          <button className="new-conversation-button" title="New conversation" disabled={running} onClick={onNewSession}><Plus size={14} /></button>
+          <Tip label="New conversation">
+            <button className="new-conversation-button" disabled={running} onClick={onNewSession}><Plus size={14} /></button>
+          </Tip>
         </div>
         <div className="provider-controls">
           <select aria-label="Agent provider" value={provider} disabled={running} onChange={(event) => setProvider(event.target.value as AgentProvider)}>
@@ -5834,7 +5846,11 @@ function AgentPanel({
             <option value="openai-api">OpenAI API</option>
             <option value="anthropic-api">Anthropic API</option>
           </select>
-          {(provider === "openai-api" || provider === "anthropic-api") && <button onClick={onApiSettings} title="API key settings"><KeyRound size={14} /></button>}
+          {(provider === "openai-api" || provider === "anthropic-api") && (
+            <Tip label="API key settings">
+              <button onClick={onApiSettings}><KeyRound size={14} /></button>
+            </Tip>
+          )}
         </div>
       </div>
       <div className="agent-config-bar">
@@ -6129,48 +6145,63 @@ function CanvasToolbar(props: {
       <div className="canvas-actions">
         {props.activeKind === "document" && (
           <>
-            <button type="button" title="Go back (⌘[)" disabled={!props.canNavigateBack} onClick={props.onNavigateBack}>
-              <Undo2 size={14} />
-            </button>
-            <button type="button" title="Go forward (⌘])" disabled={!props.canNavigateForward} onClick={props.onNavigateForward}>
-              <Redo2 size={14} />
-            </button>
-            <button type="button" title="Insert snippet or symbol (⌘⇧I)" onClick={props.onInsert}>
-              <Omega size={14} />
-            </button>
-            <button
-              type="button"
-              className={props.commentCount ? "active" : ""}
-              title="Editor comments"
-              onClick={props.onComments}
+            <Tip label="Go back (⌘[)">
+              <button type="button" disabled={!props.canNavigateBack} onClick={props.onNavigateBack}>
+                <Undo2 size={14} />
+              </button>
+            </Tip>
+            <Tip label="Go forward (⌘])">
+              <button type="button" disabled={!props.canNavigateForward} onClick={props.onNavigateForward}>
+                <Redo2 size={14} />
+              </button>
+            </Tip>
+            <Tip label="Insert snippet or symbol (⌘⇧I)">
+              <button type="button" onClick={props.onInsert}>
+                <Omega size={14} />
+              </button>
+            </Tip>
+            <Tip label="Editor comments">
+              <button
+                type="button"
+                className={props.commentCount ? "active" : ""}
+                onClick={props.onComments}
+              >
+                <MessageSquareText size={14} />
+                {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
+              </button>
+            </Tip>
+            <Tip label={props.collabLive
+              ? (props.collabPeers > 0
+                ? `Live · ${props.collabPeers} other${props.collabPeers === 1 ? "" : "s"}`
+                : "Live collaboration · just you")
+              : "Live collaboration"}
             >
-              <MessageSquareText size={14} />
-              {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
-            </button>
-            <button
-              type="button"
-              className={props.collabLive ? "active collab-toolbar-button" : "collab-toolbar-button"}
-              title={props.collabLive
-                ? (props.collabPeers > 0
-                  ? `Live · ${props.collabPeers} other${props.collabPeers === 1 ? "" : "s"}`
-                  : "Live collaboration · just you")
-                : "Live collaboration"}
-              onClick={props.onCollab}
-            >
-              <Radio size={14} />
-              {props.collabLive ? <em className="collab-peer-badge">{props.collabPeers}</em> : null}
-            </button>
-            <button title="Reveal cursor in PDF (⌘⇧J)" disabled={!props.canForwardSync || props.locatingPdf} onClick={props.onForwardSync}>
-              {props.locatingPdf ? <LoaderCircle className="spin" size={14} /> : <LocateFixed size={14} />}
-            </button>
+              <button
+                type="button"
+                className={props.collabLive ? "active collab-toolbar-button" : "collab-toolbar-button"}
+                onClick={props.onCollab}
+              >
+                <Radio size={14} />
+                {props.collabLive ? <em className="collab-peer-badge">{props.collabPeers}</em> : null}
+              </button>
+            </Tip>
+            <Tip label="Reveal cursor in PDF (⌘⇧J)">
+              <button disabled={!props.canForwardSync || props.locatingPdf} onClick={props.onForwardSync}>
+                {props.locatingPdf ? <LoaderCircle className="spin" size={14} /> : <LocateFixed size={14} />}
+              </button>
+            </Tip>
           </>
         )}
-        <button className="history-button" title="Git status and commit" onClick={props.onGit}>
-          <GitBranch size={14} />
-        </button>
-        <button className="history-button" title="Project history" onClick={props.onHistory}>
-          <History size={14} />
-        </button>
+        <Tip label="Git status and commit">
+          <button className="history-button" onClick={props.onGit}>
+            <GitBranch size={14} />
+          </button>
+        </Tip>
+        <Tip label="Project history">
+          <button className="history-button" onClick={props.onHistory}>
+            <History size={14} />
+          </button>
+        </Tip>
       </div>
     </div>
   );
