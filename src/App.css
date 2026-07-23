@@ -1017,8 +1017,12 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 /* Lint diagnostics (e.g. "Unused label …") hover in a tooltip that also carries
    .cm-tooltip-lint. The shared .cm-tooltip-hover above is transparent because
    the comment/texlab cards bring their own background — but a lint diagnostic
-   has none, so without this its text sits on nothing and is unreadable. */
-.source-editor .cm-tooltip-hover.cm-tooltip-lint {
+   has none, so without this its text sits on nothing and is unreadable.
+   Match .cm-tooltip-lint on its own (not only combined with .cm-tooltip-hover):
+   hovering the gutter marker puts both classes on one element, but hovering the
+   underline nests the lint tooltip as a *child* of the shared hover host (next
+   to the texlab card), where it carries only .cm-tooltip-lint. */
+.source-editor .cm-tooltip-lint {
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: var(--panel-strong);
