@@ -738,13 +738,13 @@ describe("project workspace", () => {
     render(<App />);
 
     fireEvent.contextMenu(await screen.findByRole("button", { name: "main.tex" }));
-    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
     fireEvent.change(screen.getByLabelText("New name"), { target: { value: "paper" } });
     fireEvent.click(screen.getByRole("button", { name: "Rename" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("rename_project_entry", { path: "main.tex", newName: "paper" }));
 
     fireEvent.contextMenu(screen.getByTitle("Attention Is All You Need"));
-    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
     fireEvent.change(screen.getByLabelText("New name"), { target: { value: "Transformer" } });
     fireEvent.click(screen.getByRole("button", { name: "Rename" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("rename_paper", { arxivId: "1706.03762", title: "Transformer" }));
@@ -773,11 +773,11 @@ describe("project workspace", () => {
 
     render(<App />);
     fireEvent.contextMenu(await screen.findByRole("button", { name: "main.tex" }));
-    fireEvent.click(screen.getByRole("button", { name: "Show in Finder" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Show in Finder" }));
     await waitFor(() => expect(revealItemInDir).toHaveBeenCalledWith("/tmp/lattice-paper/main.tex"));
 
     fireEvent.contextMenu(screen.getByTitle("Attention Is All You Need"));
-    fireEvent.click(screen.getByRole("button", { name: "Show in Finder" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Show in Finder" }));
     await waitFor(() => expect(revealItemInDir).toHaveBeenCalledWith("/tmp/lattice-paper/.research/papers/1706.03762/paper.md"));
   });
 
