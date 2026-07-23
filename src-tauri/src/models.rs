@@ -189,6 +189,15 @@ pub struct LiteratureHit {
     pub landing_url: Option<String>,
 }
 
+/// One page of Discover results. `has_more` means another backend page can be
+/// fetched (OpenAlex has deeper pages); alphaXiv is exhausted after page 0.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiteraturePage {
+    pub hits: Vec<LiteratureHit>,
+    pub has_more: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TexlabCompletionItem {

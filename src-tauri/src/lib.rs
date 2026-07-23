@@ -24,7 +24,7 @@ use models::{
     AgentCommand, AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult, AgentSessionSummary,
     AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview, BuildResult, CitationInfo,
     DoctorReport, EditorComment, GitDiff, GitRemoteResult, GitStatus, HistoryItem, ImportResult,
-    LiteratureHit, OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
+    LiteraturePage, OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
     ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult, ResolvedCitation,
     SubscriptionLoginEvent, SubscriptionStatus, SymbolOccurrence, SyncTexTarget, TexlabCompletionItem,
     TexlabHover, TexlabLocation, TodoHit, TransactionRecord, UnusedSymbols, WordCount,
@@ -622,15 +622,20 @@ fn format_latex(
 #[tauri::command]
 async fn search_openalex(query: String, precise: Option<bool>) -> Result<Vec<OpenAlexWork>, String> {
     let precise = precise.unwrap_or(false);
-    tauri::async_runtime::spawn_blocking(move || openalex::search_works(&query, precise))
+    tauri::async_runtime::spawn_blocking(move || openalex::search_works(&query, precise, 1))
         .await
         .map_err(|error| format!("The OpenAlex task stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-async fn search_literature(query: String, precise: Option<bool>) -> Result<Vec<LiteratureHit>, String> {
+async fn search_literature(
+    query: String,
+    precise: Option<bool>,
+    page: Option<u32>,
+) -> Result<LiteraturePage, String> {
     let precise = precise.unwrap_or(false);
-    tauri::async_runtime::spawn_blocking(move || literature::search(&query, precise))
+    let page = page.unwrap_or(0);
+    tauri::async_runtime::spawn_blocking(move || literature::search(&query, precise, page))
         .await
         .map_err(|error| format!("The literature search task stopped unexpectedly: {error}"))?
 }

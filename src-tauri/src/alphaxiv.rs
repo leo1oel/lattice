@@ -9,6 +9,9 @@ use crate::openalex::urlencoding;
 use serde::Deserialize;
 
 const SEARCH_URL: &str = "https://api.alphaxiv.org/search/v2/paper/full-text";
+/// alphaXiv's full-text endpoint has no pagination and caps `limit` at 50, so we
+/// pull its whole pool once and reveal it incrementally on the client.
+const SEARCH_LIMIT: usize = 50;
 const OVERVIEW_BASE: &str = "https://www.alphaxiv.org/overview";
 const USER_AGENT: &str = "Lattice/0.1 (research writing; mailto:lattice@local)";
 /// An overview shorter than this is alphaXiv's "not found" stub, not a report.
@@ -55,7 +58,7 @@ pub fn search_works(query: &str) -> Result<Vec<AlphaxivWork>, String> {
         return Ok(Vec::new());
     }
     let url = format!(
-        "{SEARCH_URL}?q={}&limit=10",
+        "{SEARCH_URL}?q={}&limit={SEARCH_LIMIT}",
         urlencoding(trimmed)
     );
     let response = http_client()?

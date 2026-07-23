@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 export type EditorTab = {
@@ -25,6 +25,12 @@ export function EditorTabs(props: {
   const [menu, setMenu] = useState<{ path: string; x: number; y: number } | null>(null);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
+  const activeTabRef = useRef<HTMLDivElement | null>(null);
+
+  // Keep the active tab visible when the bar overflows (the scrollbar is hidden).
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [props.activePath]);
 
   const reorder = (from: string, to: string) => {
     if (from === to) return;
@@ -57,7 +63,17 @@ export function EditorTabs(props: {
 
   return (
     <div className="editor-tabs">
-      <div className="editor-tabs-scroll" role="tablist" aria-label="Open files">
+      <div
+        className="editor-tabs-scroll"
+        role="tablist"
+        aria-label="Open files"
+        onWheel={(event) => {
+          // A plain mouse wheel (deltaY only) still scrolls the tab strip.
+          if (event.deltaX === 0 && event.deltaY !== 0) {
+            event.currentTarget.scrollLeft += event.deltaY;
+          }
+        }}
+      >
         {props.tabs.map((tab) => {
           const active = tab.path === props.activePath;
           return (
@@ -65,10 +81,13 @@ export function EditorTabs(props: {
               key={tab.path}
               className={`editor-tab ${active ? "active" : ""}${tab.beside ? " beside" : ""}${dragKey === tab.path ? " dragging" : ""}${dropKey === tab.path ? " drop-target" : ""}`}
               role="presentation"
+              ref={active ? activeTabRef : undefined}
               draggable
               onDragStart={(event) => {
                 setDragKey(tab.path);
                 event.dataTransfer.effectAllowed = "move";
+                // WebKit only fires drop events when the drag carries data.
+                event.dataTransfer.setData("text/plain", tab.path);
               }}
               onDragOver={(event) => {
                 if (!dragKey || dragKey === tab.path) return;

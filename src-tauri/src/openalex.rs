@@ -40,19 +40,24 @@ struct PrimaryLocation {
     landing_page_url: Option<String>,
 }
 
-pub fn search_works(query: &str, precise: bool) -> Result<Vec<OpenAlexWork>, String> {
+/// OpenAlex results per page; `page` is 1-indexed.
+pub const PER_PAGE: u32 = 25;
+
+pub fn search_works(query: &str, precise: bool, page: u32) -> Result<Vec<OpenAlexWork>, String> {
     let trimmed = query.trim();
     if trimmed.is_empty() {
         return Ok(Vec::new());
     }
+    let page = page.max(1);
+    let select = "id,title,publication_year,cited_by_count,ids,doi,authorships,primary_location";
     let mut url = if precise {
         format!(
-            "https://api.openalex.org/works?filter=title_and_abstract.search:{}&per_page=20&select=id,title,publication_year,cited_by_count,ids,doi,authorships,primary_location",
+            "https://api.openalex.org/works?filter=title_and_abstract.search:{}&per_page={PER_PAGE}&page={page}&select={select}",
             urlencoding(trimmed)
         )
     } else {
         format!(
-            "https://api.openalex.org/works?search={}&per_page=20&select=id,title,publication_year,cited_by_count,ids,doi,authorships,primary_location",
+            "https://api.openalex.org/works?search={}&per_page={PER_PAGE}&page={page}&select={select}",
             urlencoding(trimmed)
         )
     };

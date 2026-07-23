@@ -5,14 +5,26 @@
 // so a paper both indexes know appears once, on top, as an alphaXiv row.
 
 use crate::alphaxiv::{self, AlphaxivWork};
-use crate::models::{LiteratureHit, OpenAlexWork};
+use crate::models::{LiteratureHit, LiteraturePage, OpenAlexWork};
 use crate::openalex;
 use crate::papers::arxiv_base_id;
 
-pub fn search(query: &str, precise: bool) -> Result<Vec<LiteratureHit>, String> {
-    let alpha = alphaxiv::search_works(query)?;
-    let open = openalex::search_works(query, precise)?;
-    Ok(merge(alpha, open))
+/// One page of merged results. `page` is 0-indexed. Page 0 carries alphaXiv's
+/// whole full-text pool (it can't paginate) plus OpenAlex's first page; later
+/// pages are OpenAlex-only (arXiv works), so the list keeps growing on scroll.
+/// Cross-page de-duplication is the client's job (it tracks what it has shown).
+pub fn search(query: &str, precise: bool, page: u32) -> Result<LiteraturePage, String> {
+    let open = openalex::search_works(query, precise, page + 1)?;
+    let has_more = open.len() as u32 >= openalex::PER_PAGE;
+    let alpha = if page == 0 {
+        alphaxiv::search_works(query)?
+    } else {
+        Vec::new()
+    };
+    Ok(LiteraturePage {
+        hits: merge(alpha, open),
+        has_more,
+    })
 }
 
 fn merge(alpha: Vec<AlphaxivWork>, open: Vec<OpenAlexWork>) -> Vec<LiteratureHit> {
