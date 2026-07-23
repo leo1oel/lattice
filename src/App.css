@@ -1120,13 +1120,16 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .paper-reader { height: 100%; overflow: auto; background: var(--panel-strong); }
 .paper-reader-title { position: sticky; top: 0; z-index: 2; height: 38px; padding: 0 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel-strong) 94%, transparent); backdrop-filter: blur(12px); display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
 .paper-reader-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.paper-reader-title small { margin-left: auto; flex: none; color: var(--faint); font-size: 9px; }
-.paper-view-toggle { margin-left: auto; flex: none; display: flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 7px; }
-.paper-view-toggle + small { margin-left: 10px; }
+.paper-reader-tools { margin-left: auto; flex: none; display: flex; align-items: center; gap: 10px; }
+.paper-reader-title small { flex: none; color: var(--faint); font-size: 9px; }
+.paper-view-toggle { flex: none; display: flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 7px; }
 .paper-view-toggle button { border: none; background: none; color: var(--muted); font-size: 9px; line-height: 1.6; padding: 1px 9px; border-radius: 5px; cursor: pointer; }
 .paper-view-toggle button:hover { color: var(--text); }
 .paper-view-toggle button.active { background: var(--accent-soft); color: var(--text); }
-.paper-content { max-width: 780px; margin: 0 auto; padding: 42px 50px 100px; color: var(--text); font-family: Georgia, serif; font-size: 14px; line-height: 1.75; }
+.paper-width-toggle { flex: none; display: flex; align-items: center; justify-content: center; width: 26px; height: 21px; border: 1px solid var(--line); border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.paper-width-toggle:hover { color: var(--text); border-color: var(--line-strong); }
+.paper-content { max-width: 860px; margin: 0 auto; padding: 42px 50px 100px; color: var(--text); font-family: Georgia, serif; font-size: 14px; line-height: 1.75; }
+.paper-content.pw-wide { max-width: none; }
 .paper-content h1 { font-family: "Instrument Serif", Georgia, serif; font-size: 36px; line-height: 1.08; font-weight: 400; }
 .paper-content h2 { margin-top: 2em; font-size: 21px; }
 .paper-content h3 { margin-top: 1.7em; font-size: 16px; }

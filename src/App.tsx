@@ -28,6 +28,8 @@ import {
   FileCode2,
   FilePlus,
   FileText,
+  FoldHorizontal,
+  UnfoldHorizontal,
   Folder,
   FolderOpen,
   FolderPlus,
@@ -505,6 +507,16 @@ function isConversationWelcome(message: ChatMessage, index: number): boolean {
   return index === 0 && message.role === "agent" && message.text.trim() === WELCOME_MESSAGE;
 }
 
+type PaperReadingWidth = "comfortable" | "wide";
+const PAPER_READING_WIDTH_KEY = "lattice.paper-reading-width";
+function loadPaperReadingWidth(): PaperReadingWidth {
+  try {
+    return localStorage.getItem(PAPER_READING_WIDTH_KEY) === "wide" ? "wide" : "comfortable";
+  } catch {
+    return "comfortable";
+  }
+}
+
 function App() {
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
   const [activeFile, setActiveFile] = useState("");
@@ -743,6 +755,10 @@ function App() {
   const buildingRef = useRef(false);
   const buildQueued = useRef(false);
   const chatEnd = useRef<HTMLDivElement | null>(null);
+  const chatListRef = useRef<HTMLDivElement | null>(null);
+  // While the agent streams we follow the newest text, but only until the user
+  // scrolls up to read something above — then we let them stay there.
+  const stickToBottomRef = useRef(true);
   const runningAgentSession = useRef<string | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const agentMentions = useMemo(
@@ -2149,7 +2165,27 @@ function App() {
   }, []);
 
   useEffect(() => {
-    chatEnd.current?.scrollIntoView({ behavior: "smooth" });
+    const list = chatListRef.current;
+    if (!list) return;
+    let lastTop = list.scrollTop;
+    const onScroll = () => {
+      // Direction-aware so the auto-scroll's own downward motion never counts as
+      // the user leaving: only an upward drag unpins, and coming back to near the
+      // bottom re-pins. "Near" rather than exact so the growing last line counts.
+      const scrolledUp = list.scrollTop < lastTop - 2;
+      lastTop = list.scrollTop;
+      const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+      if (scrolledUp) stickToBottomRef.current = false;
+      else if (atBottom) stickToBottomRef.current = true;
+    };
+    list.addEventListener("scroll", onScroll, { passive: true });
+    return () => list.removeEventListener("scroll", onScroll);
+    // Re-attach when the agent panel mounts/unmounts, since the list element
+    // (and chatListRef.current) only exists while the panel is open.
+  }, [agentOpen]);
+
+  useEffect(() => {
+    if (stickToBottomRef.current) chatEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, agentRunning]);
 
   useEffect(() => {
@@ -3095,6 +3131,7 @@ function App() {
       });
       setActiveSession(session);
       setMessages(session.messages);
+      stickToBottomRef.current = true;
       setBranchSource(null);
       setSessionMenuOpen(false);
       await refreshAgentSessions();
@@ -3112,6 +3149,7 @@ function App() {
       const session = await invoke<AgentSession>("read_agent_session", { sessionId: id });
       setActiveSession(session);
       setMessages(session.messages);
+      stickToBottomRef.current = true;
       setBranchSource(null);
       setProvider(session.provider);
       setAgentModel(normalizeModel(session.provider, session.model));
@@ -3178,11 +3216,18 @@ function App() {
     const message = agentInput.trim();
     if (!message || agentRunning) return;
     setAgentInput("");
+    // Sending is an explicit "show me the reply", so re-pin to the bottom even
+    // if the user had scrolled up in the previous turn.
+    stickToBottomRef.current = true;
     setAgentRunning(true);
     setAgentStreaming(false);
     setAgentStopping(false);
     setAgentCancellable(false);
     setAgentStatus(branchSource ? "Creating conversation branch…" : "Reading project context…");
+    // Where the conversation stood before this turn, so an auth failure can put
+    // everything back instead of leaving a broken, half-formed chat behind.
+    const priorSession = activeSession;
+    const priorMessages = messages;
     let session = activeSession;
     let currentMessages = messages;
     const streamedMessageId = crypto.randomUUID();
@@ -3361,21 +3406,51 @@ function App() {
       if (result.changedFiles.length) await compile();
     } catch (reason) {
       const { text, settingsTab } = agentErrorDetails(toMessage(reason));
-      const failedMessages: ChatMessage[] = [
-        ...currentMessages,
-        { id: crypto.randomUUID(), role: "system", text },
-      ];
-      setMessages(failedMessages);
-      if (settingsTab) openSettings(settingsTab);
-      if (session) {
-        try {
-          const saved = await invoke<AgentSession>("save_agent_session", {
-            session: { ...session, provider, model: agentModel, reasoningEffort, messages: failedMessages },
-          });
-          setActiveSession(saved);
-          await refreshAgentSessions();
-        } catch {
-          // Keep the visible error when persistence also fails.
+      if (settingsTab) {
+        // Missing sign-in or API key. Don't strand the user in a half-formed
+        // conversation whose transcript now carries an error line — that reads
+        // as "this chat is broken, start a new one." Put their message back in
+        // the composer so they can sign in and send again, and undo the
+        // throwaway turn (deleting the session when this send is what created
+        // it, otherwise reverting the un-answered message from an existing one).
+        const createdThisTurn = session && session.id !== priorSession?.id;
+        setAgentInput((current) => (current.trim() ? current : message));
+        setMessages(priorMessages);
+        setActiveSession(priorSession);
+        if (createdThisTurn && session) {
+          try {
+            await invoke("delete_agent_session", { sessionId: session.id });
+          } catch {
+            // A session we cannot delete is harmless; the panel has moved on.
+          }
+        } else if (priorSession) {
+          try {
+            await invoke<AgentSession>("save_agent_session", {
+              session: { ...priorSession, provider, model: agentModel, reasoningEffort, messages: priorMessages },
+            });
+          } catch {
+            // Reverting the un-answered turn on disk is best-effort.
+          }
+        }
+        await refreshAgentSessions();
+        openSettings(settingsTab);
+        setError(text);
+      } else {
+        const failedMessages: ChatMessage[] = [
+          ...currentMessages,
+          { id: crypto.randomUUID(), role: "system", text },
+        ];
+        setMessages(failedMessages);
+        if (session) {
+          try {
+            const saved = await invoke<AgentSession>("save_agent_session", {
+              session: { ...session, provider, model: agentModel, reasoningEffort, messages: failedMessages },
+            });
+            setActiveSession(saved);
+            await refreshAgentSessions();
+          } catch {
+            // Keep the visible error when persistence also fails.
+          }
         }
       }
     } finally {
@@ -4326,6 +4401,7 @@ function App() {
           onCancelBranch={() => setBranchSource(null)}
           mentions={agentMentions}
           chatEnd={chatEnd}
+          chatListRef={chatListRef}
         />
 
         <PanelResizer
@@ -5764,6 +5840,7 @@ function AgentPanel({
   onCancelBranch,
   mentions,
   chatEnd,
+  chatListRef,
 }: {
   agentCommands: AgentCommand[];
   katexMacros: Record<string, string>;
@@ -5799,6 +5876,7 @@ function AgentPanel({
   onCancelBranch: () => void;
   mentions: AgentMention[];
   chatEnd: React.RefObject<HTMLDivElement | null>;
+  chatListRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const options = modelOptions(provider);
   const efforts = options.find((option) => option.value === model)?.efforts ?? ["high"];
@@ -5948,7 +6026,7 @@ function AgentPanel({
           </Select>
         </div>
       </div>
-      <div className="chat-list">
+      <div className="chat-list" ref={chatListRef}>
         {messages.map((message, index) => {
         // The turn in progress: its text may still grow and its tool calls may
         // still be running, so it is not copyable yet.
@@ -5992,10 +6070,14 @@ function AgentPanel({
         );
         })}
         {running && !streaming && (
-          // Same turn as the reply above it, so no second avatar and no full
-          // message gap — it reads as a continuation, not a new speaker.
+          // At the start of a turn the agent is thinking before it has said a
+          // word, so it wears its avatar like any other agent message. Once a
+          // reply is already on screen and it pauses to run a tool, it drops the
+          // avatar and reads as a continuation of that same message instead.
           <div className="chat-message agent thinking-row">
-            <div className="message-avatar-spacer" aria-hidden="true" />
+            {messages[messages.length - 1]?.role === "agent"
+              ? <div className="message-avatar-spacer" aria-hidden="true" />
+              : <div className="message-avatar"><Sparkles size={13} /></div>}
             <div className="thinking"><ThinkingOrb state={statusToOrbState(status)} size={20} /><em>{status || (provider === "claude" ? "Claude is writing…" : "Agent is writing…")}</em></div>
           </div>
         )}
@@ -6143,7 +6225,10 @@ function buildAgentMentions(files: FileNode[], papers: PaperSummary[]): AgentMen
     mentions.push({
       key: `paper:${paper.arxivId}`,
       label: paper.title,
-      path: `.research/papers/${paper.arxivId}/paper.md`,
+      // Point at the paper's folder, not just paper.md: the agent then sees the
+      // full text, the generated blog, and the metadata together — which is what
+      // "reference this paper" means to the writer.
+      path: `.research/papers/${paper.arxivId}/`,
       kind: "paper",
     });
   }
@@ -6951,6 +7036,16 @@ function DocumentCanvas(props: {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [snippetStops]);
+  const [paperWidth, setPaperWidth] = useState<PaperReadingWidth>(loadPaperReadingWidth);
+  const togglePaperWidth = () => setPaperWidth((current) => {
+    const next: PaperReadingWidth = current === "wide" ? "comfortable" : "wide";
+    try {
+      localStorage.setItem(PAPER_READING_WIDTH_KEY, next);
+    } catch {
+      // Preference persistence is best-effort.
+    }
+    return next;
+  });
   if (props.mode === "paper") {
     const showBlog = props.paperView === "blog" && props.paperBlog != null;
     const content = showBlog ? props.paperBlog! : stripFrontmatter(props.paperMarkdown);
@@ -6959,15 +7054,22 @@ function DocumentCanvas(props: {
         <div className="paper-reader-title">
           <BookOpen size={15} />
           <span>{props.activePaper?.title ?? "Imported paper"}</span>
-          {props.paperBlog != null && (
-            <div className="paper-view-toggle" role="group" aria-label="Reading view">
-              <button type="button" className={showBlog ? "active" : ""} onClick={() => props.onSetPaperView("blog")}>Blog</button>
-              <button type="button" className={!showBlog ? "active" : ""} onClick={() => props.onSetPaperView("fulltext")}>Paper</button>
-            </div>
-          )}
-          {props.activePaper && <small>arXiv {props.activePaper.arxivId}</small>}
+          <div className="paper-reader-tools">
+            {props.paperBlog != null && (
+              <div className="paper-view-toggle" role="group" aria-label="Reading view">
+                <button type="button" className={showBlog ? "active" : ""} onClick={() => props.onSetPaperView("blog")}>Blog</button>
+                <button type="button" className={!showBlog ? "active" : ""} onClick={() => props.onSetPaperView("fulltext")}>Paper</button>
+              </div>
+            )}
+            <Tip label={paperWidth === "wide" ? "Comfortable width" : "Full width — fits wide tables"}>
+              <button type="button" className="paper-width-toggle" onClick={togglePaperWidth} aria-label="Toggle reading width">
+                {paperWidth === "wide" ? <FoldHorizontal size={13} /> : <UnfoldHorizontal size={13} />}
+              </button>
+            </Tip>
+            {props.activePaper && <small>arXiv {props.activePaper.arxivId}</small>}
+          </div>
         </div>
-        <ChatMarkdown text={content} macros={props.katexMacros} className="paper-content" breaks={false} />
+        <ChatMarkdown text={content} macros={props.katexMacros} className={`paper-content ${paperWidth === "wide" ? "pw-wide" : ""}`} breaks={false} />
       </article>
     );
   }
@@ -8019,11 +8121,14 @@ function persistRecentProjects(projects: RecentProject[]) {
 function loadPanelWidths(): PanelWidths {
   // Keep navigator/agent narrower so the editor + PDF canvas get more room by default.
   const defaults = { navigator: 200, agent: 280 };
+  // A panel may have been dragged out to half the window; honour that on reload,
+  // re-clamped to this screen's half so a saved width never dwarfs a smaller one.
+  const half = typeof window !== "undefined" ? window.innerWidth / 2 : 600;
   try {
     const value = JSON.parse(localStorage.getItem(PANEL_WIDTHS_KEY) ?? "null") as Partial<PanelWidths> | null;
     return {
-      navigator: clamp(Number(value?.navigator) || defaults.navigator, 160, 420),
-      agent: clamp(Number(value?.agent) || defaults.agent, 260, 600),
+      navigator: clamp(Number(value?.navigator) || defaults.navigator, 160, Math.max(160, half)),
+      agent: clamp(Number(value?.agent) || defaults.agent, 260, Math.max(260, half)),
     };
   } catch {
     return defaults;
@@ -8186,13 +8291,16 @@ function resizePanelWidths(
   const canvasMinimum = 360;
   // One 5px handle per visible side panel.
   const handles = (navigatorOpen ? 5 : 0) + (agentOpen ? 5 : 0);
+  // A side panel may grow to half the window — wide enough for tables, file
+  // trees, and long agent replies — as long as the canvas keeps its minimum.
+  const halfWindow = window.innerWidth / 2;
   if (panel === "navigator") {
     const agentWidth = agentOpen ? start.agent : 0;
-    const maximum = Math.max(160, Math.min(420, window.innerWidth - agentWidth - canvasMinimum - handles));
+    const maximum = Math.max(160, Math.min(halfWindow, window.innerWidth - agentWidth - canvasMinimum - handles));
     return { ...start, navigator: clamp(start.navigator + delta, 160, maximum) };
   }
   const navigatorWidth = navigatorOpen ? start.navigator : 0;
-  const maximum = Math.max(260, Math.min(600, window.innerWidth - navigatorWidth - canvasMinimum - handles));
+  const maximum = Math.max(260, Math.min(halfWindow, window.innerWidth - navigatorWidth - canvasMinimum - handles));
   return { ...start, agent: clamp(start.agent + delta, 260, maximum) };
 }
 
