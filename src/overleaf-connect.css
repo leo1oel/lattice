@@ -1,0 +1,203 @@
+/* Overleaf connect section + project picker dialog.
+   Reuses Lattice's design tokens from App.css (--panel, --line, --text, --muted,
+   --faint, --accent, --danger, --success, …) so light and dark themes both work.
+   Every class here is prefixed .overleaf-. */
+
+/* ---- Settings section ---------------------------------------------------- */
+
+.overleaf-status-row {
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.overleaf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.overleaf-dot.connected { background: var(--success); }
+.overleaf-status-text { flex: 1 1 auto; min-width: 0; }
+.overleaf-status-text strong {
+  display: block;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.overleaf-status-text small { display: block; margin-top: 2px; color: var(--faint); font-size: 9px; }
+.overleaf-status-row .secondary-button { flex: none; height: 30px; padding: 0 11px; font-size: 10px; }
+
+.overleaf-connect-row { margin-top: 18px; }
+.overleaf-connect-row .primary-button { width: fit-content; }
+
+.overleaf-hint { margin: 10px 0 0; color: var(--faint); font-size: 10px; line-height: 1.5; }
+.overleaf-error { margin: 10px 0 0; color: var(--danger); font-size: 10px; line-height: 1.5; }
+.overleaf-retry-row { margin-top: 12px; display: flex; }
+
+.overleaf-waiting {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.overleaf-waiting svg { flex: none; color: var(--accent); }
+.overleaf-waiting .text-button { flex: none; height: 26px; }
+
+.overleaf-advanced { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); }
+.overleaf-advanced summary { cursor: pointer; color: var(--muted); font-size: 11px; font-weight: 600; }
+.overleaf-advanced summary:hover { color: var(--text); }
+.overleaf-advanced input[type="text"] {
+  height: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  outline: none;
+  background: var(--bg);
+  padding: 0 10px;
+  color: var(--text);
+  font-size: 12px;
+}
+.overleaf-advanced input[type="text"]:focus { border-color: var(--accent); }
+/* A cookie is one long line, not a system prompt: keep the field compact. */
+.settings-section .overleaf-advanced textarea { min-height: 74px; }
+.overleaf-advanced-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
+
+/* ---- Picker dialog -------------------------------------------------------- */
+
+.overleaf-picker-modal {
+  width: min(560px, calc(100vw - 40px));
+  max-height: min(620px, calc(100vh - 60px));
+  display: flex;
+  flex-direction: column;
+}
+.overleaf-picker-header { display: flex; align-items: flex-start; justify-content: space-between; }
+.overleaf-picker-modal h2 { margin: 14px 0 6px; font-size: 17px; }
+.overleaf-picker-modal > p { margin: 0 0 14px; }
+.overleaf-picker-modal .overleaf-waiting,
+.overleaf-picker-modal .overleaf-connect-row { margin-top: 4px; }
+.overleaf-advanced-link {
+  margin-top: 16px;
+  padding: 0;
+  align-self: flex-start;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.overleaf-picker-controls { display: flex; align-items: center; gap: 12px; }
+.overleaf-search { position: relative; flex: 1 1 auto; }
+.overleaf-search svg {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  color: var(--faint);
+  pointer-events: none;
+}
+.overleaf-picker-modal .overleaf-search input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px 0 29px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+}
+.overleaf-picker-modal .overleaf-search input:focus { border-color: var(--accent); }
+/* Beat `.modal label { flex-direction: column }` so the box sits left of its text. */
+.modal label.overleaf-checkbox {
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+.modal label.overleaf-checkbox input { width: 13px; height: 13px; accent-color: var(--accent); }
+
+.overleaf-project-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.overleaf-project-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.overleaf-project-row:last-child { border-bottom: none; }
+.overleaf-project-row:hover { background: var(--panel); }
+.overleaf-project-row.selected { background: var(--accent-soft); }
+.overleaf-project-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 12px;
+  background: transparent;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.overleaf-project-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.overleaf-badge {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.overleaf-project-meta {
+  color: var(--faint);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.overleaf-open-button { flex: none; height: 30px; padding: 0 14px; font-size: 10px; }
+.overleaf-row-spinner { flex: none; color: var(--accent); }
+
+.overleaf-loading,
+.overleaf-progress {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.overleaf-loading svg,
+.overleaf-progress svg { flex: none; color: var(--accent); }
+.overleaf-empty { margin: 18px 0 6px; color: var(--faint); font-size: 11px; line-height: 1.55; }
+.overleaf-footer-note {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.5;
+}

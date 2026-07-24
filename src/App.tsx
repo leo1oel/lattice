@@ -74,6 +74,7 @@ import {
 } from "./editor-comments";
 import { useAppearance } from "./use-appearance";
 import { usePanelLayout } from "./use-panel-layout";
+import { OverleafPickerDialog } from "./overleaf-connect";
 import {
   type RecentProject,
   type BuildPreferences,
@@ -210,6 +211,8 @@ import type {
   InsertSymbolCommand,
   DoctorReport,
   SubscriptionStatus,
+  OverleafLink,
+  OverleafSyncResult,
 } from "./app-types";
 import {
   paperKey,
@@ -383,6 +386,12 @@ function App() {
   const [collabPeerList, setCollabPeerList] = useState<CollabPeer[]>([]);
   const collabPeers = collabPeerList.length;
   const [collabFileCount, setCollabFileCount] = useState(0);
+  const [overleafPickerOpen, setOverleafPickerOpen] = useState(false);
+  const [overleafLink, setOverleafLink] = useState<OverleafLink | null>(null);
+  const [overleafSyncing, setOverleafSyncing] = useState(false);
+  const overleafSyncingRef = useRef(false);
+  const overleafAutoSyncedRoot = useRef<string | null>(null);
+  const lastAutoVersionRef = useRef(0);
   const [collabRole, setCollabRole] = useState<"host" | "guest">("host");
   const collabRoleRef = useRef<"host" | "guest">("host");
   // The active room's secret token (host generates it; guest parses it from the
@@ -1398,6 +1407,110 @@ function App() {
   }, [project, runBuild]);
   compileRef.current = compile;
 
+  // ---- Overleaf bridge -----------------------------------------------------
+
+  // Know whether the open project is linked to an Overleaf project (cloned via
+  // "Open from Overleaf"). Drives the toolbar sync button and auto-sync.
+  useEffect(() => {
+    let cancelled = false;
+    setOverleafLink(null);
+    if (!project?.root) return;
+    void invoke<OverleafLink | null>("overleaf_link")
+      .then((link) => {
+        if (!cancelled) setOverleafLink(link ?? null);
+      })
+      .catch(() => {
+        // A project without the state file is simply not linked.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.root]);
+
+  const runOverleafSync = useCallback(async (options?: { auto?: boolean }) => {
+    if (!project || overleafSyncingRef.current) return;
+    overleafSyncingRef.current = true;
+    setOverleafSyncing(true);
+    try {
+      if (!(await save())) return;
+      const result = await invoke<OverleafSyncResult>("overleaf_sync");
+      const pulledSet = new Set(result.pulled);
+      if (result.conflicts.length) {
+        setError(
+          `Overleaf sync kept both copies of: ${result.conflicts.map((item) => item.path).join(", ")}. `
+          + "The Overleaf version is now in place; your edits are saved beside it in the “(local conflict …)” files.",
+        );
+      }
+      if (result.pulled.length || result.deletedLocal.length) {
+        await refreshProject();
+        if (activeFile && pulledSet.has(activeFile)) await loadFile(activeFile);
+        // Files arriving from Overleaf haven't touched the live share doc, so a
+        // Lattice collaborator would never see them without this push.
+        if (collabSession && result.pulled.length) {
+          for (const path of result.pulled) {
+            const kind = classifySyncablePath(path);
+            if (!kind) continue;
+            try {
+              if (kind === "text") {
+                pushLocalTextToCollab(
+                  collabSession.doc,
+                  path,
+                  await invoke<string>("read_project_file", { path }),
+                );
+              } else {
+                await pushLocalBlobToCollab(collabSession.doc, path);
+              }
+            } catch {
+              // Deleted or oversized files must not stop the rest.
+            }
+          }
+          setCollabFileCount(collabSession.fileCount());
+        }
+        await compile();
+      }
+      if (result.pulled.length || result.pushed.length) {
+        setNotice(`Overleaf: pulled ${result.pulled.length}, pushed ${result.pushed.length}.`);
+      } else if (!options?.auto) {
+        setNotice("Overleaf: already up to date.");
+      }
+      // Each sync point becomes a version, so the timeline shows what arrived.
+      void invoke<string | null>("git_auto_commit", {
+        message: "Overleaf sync",
+        author: collabName.trim() || null,
+      }).catch(() => {});
+      void invoke<OverleafLink | null>("overleaf_link")
+        .then((link) => setOverleafLink(link ?? null))
+        .catch(() => {});
+    } catch (reason) {
+      setError(toMessage(reason));
+    } finally {
+      overleafSyncingRef.current = false;
+      setOverleafSyncing(false);
+    }
+  }, [activeFile, collabName, collabSession, compile, loadFile, project, refreshProject, save]);
+
+  // First open after launch pulls collaborators' Overleaf edits automatically.
+  useEffect(() => {
+    if (!overleafLink || !project?.root) return;
+    if (overleafAutoSyncedRoot.current === project.root) return;
+    overleafAutoSyncedRoot.current = project.root;
+    void runOverleafSync({ auto: true });
+  }, [overleafLink, project?.root, runOverleafSync]);
+
+  // Auto-save a version after successful builds of Overleaf-linked projects,
+  // at most every 2 minutes. Unlinked projects only version on explicit "Save
+  // version" — never surprise-commit into a repo the user manages by hand.
+  useEffect(() => {
+    if (!build?.success || !overleafLink) return;
+    const now = Date.now();
+    if (now - lastAutoVersionRef.current < 120_000) return;
+    lastAutoVersionRef.current = now;
+    void invoke<string | null>("git_auto_commit", {
+      message: "Auto-saved version",
+      author: collabName.trim() || null,
+    }).catch(() => {});
+  }, [build, collabName, overleafLink]);
+
   const abortBuild = useCallback(async () => {
     if (!buildingRef.current) return;
     try {
@@ -1648,6 +1761,19 @@ function App() {
       }
     })();
   }, [enterProject, runBuild]);
+
+  const openClonedOverleafProject = useCallback(async (root: string) => {
+    setBusyLabel("Opening the Overleaf project…");
+    try {
+      const snapshot = await invoke<ProjectSnapshot>("open_project", { path: root });
+      await enterProject(snapshot);
+      setError(null);
+    } catch (reason) {
+      setError(toMessage(reason));
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [enterProject]);
 
   const joinCollabRoom = useCallback((invite: { host: string; room: string; token: string }) => {
     if (!collabName.trim()) {
@@ -3554,6 +3680,17 @@ function App() {
     />
   ) : null;
 
+  const overleafPicker = (
+    <OverleafPickerDialog
+      open={overleafPickerOpen}
+      onClose={() => setOverleafPickerOpen(false)}
+      onCloned={(root) => {
+        setOverleafPickerOpen(false);
+        void openClonedOverleafProject(root);
+      }}
+      onOpenSettings={() => openSettings("overleaf")}
+    />
+  );
 
   const projectPaths = useMemo(
     () => (project ? flattenProjectPaths(project.files) : []),
@@ -3905,6 +4042,7 @@ function App() {
           onJoinCollab={() => openCollabDialog("join")}
           onSettings={() => openSettings("appearance")}
           onInstallTex={openTexSetupWizard}
+          onOpenOverleaf={() => setOverleafPickerOpen(true)}
         />
         <CollabDialog
           open={collabOpen}
@@ -3936,6 +4074,7 @@ function App() {
           onInstallTex={openTexSetupWizard}
         />
         {settingsDialog}
+        {overleafPicker}
         <TexSetupWizard
           open={texSetupOpen}
           report={doctorReport}
@@ -3996,6 +4135,7 @@ function App() {
                 setCreateError(null);
                 setCreateOpen(true);
               }}
+              onOpenOverleaf={() => setOverleafPickerOpen(true)}
               onExportZip={() => void exportProjectZip()}
             />
           </DropdownMenu>
@@ -4270,6 +4410,9 @@ function App() {
             onGit={() => setGitOpen(true)}
             commentCount={editorComments.filter((comment) => !comment.resolved).length}
             onComments={() => setEditorCommentsOpen(true)}
+            overleafLinked={overleafLink !== null}
+            overleafSyncing={overleafSyncing}
+            onOverleafSync={() => void runOverleafSync()}
           />
           <div className="canvas-body">
           <EditorTabs
@@ -4483,6 +4626,12 @@ function App() {
         <HistoryDrawer
           history={history}
           onClose={() => setHistoryOpen(false)}
+          onVersionsChanged={async () => {
+            await refreshProject();
+            if (activeFile) await loadFile(activeFile);
+            await refreshHistory();
+            await compile();
+          }}
           onRevert={revert}
           onRevertFile={async (id, path) => {
             if (!window.confirm(`Restore only “${path}” to the state before this change?`)) return;
@@ -4895,6 +5044,7 @@ function App() {
         }}
       />
       {settingsDialog}
+      {overleafPicker}
       {createOpen && (
         <CreateProjectDialog
           projectName={projectName}

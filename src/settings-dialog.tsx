@@ -40,6 +40,7 @@ import {
   availableFontOptions,
 } from "./available-fonts";
 import { autoBuildTitle, autoBuildDetail } from "./app-utils";
+import { OverleafSettingsSection } from "./overleaf-connect";
 
 export function SettingsDialog(props: {
   tab: SettingsTab;
@@ -124,6 +125,7 @@ export function SettingsDialog(props: {
             <button className={props.tab === "editor" ? "active" : ""} onClick={() => props.setTab("editor")}>Editor & builds</button>
             <button className={props.tab === "agent" ? "active" : ""} onClick={() => props.setTab("agent")}>Agent</button>
             <button className={props.tab === "accounts" ? "active" : ""} onClick={() => props.setTab("accounts")}>Subscriptions</button>
+            <button className={props.tab === "overleaf" ? "active" : ""} onClick={() => props.setTab("overleaf")}>Overleaf</button>
             <button className={props.tab === "api" ? "active" : ""} onClick={() => props.setTab("api")}>API keys</button>
             <button className={props.tab === "doctor" ? "active" : ""} onClick={() => props.setTab("doctor")}>TeX doctor</button>
           </nav>
@@ -397,6 +399,7 @@ export function SettingsDialog(props: {
                 {props.subscriptionNotice && <p className="settings-notice">{props.subscriptionNotice}</p>}
               </div>
             )}
+            {props.tab === "overleaf" && <OverleafSettingsSection />}
             {props.tab === "api" && (
               <div className="settings-section">
                 <h2>API keys</h2>
