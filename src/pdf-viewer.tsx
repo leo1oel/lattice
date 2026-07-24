@@ -494,6 +494,13 @@ export function PdfPreview({
   // Trackpad pinch on macOS (and ctrl+scroll) arrives as a wheel event with
   // ctrlKey set. Zoom continuously and keep the point under the cursor fixed.
   const pendingZoomAnchorRef = useRef<{ x: number; y: number; prevScale: number } | null>(null);
+  // Live pinch state: a factor applied as a CSS transform until the gesture
+  // settles, plus where the fingers started so the page stays put under them.
+  const [zoomFactor, setZoomFactor] = useState(1);
+  const zoomFactorRef = useRef(1);
+  const gestureAnchorRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
+  const desiredScrollRef = useRef<{ left: number; top: number } | null>(null);
+  const commitZoomTimerRef = useRef<number | null>(null);
   useEffect(() => {
     const area = scrollAreaRef.current;
     if (!area) return;
@@ -528,11 +535,44 @@ export function PdfPreview({
       const { magnification, x, y } = event.payload;
       // The monitor is app-wide, so only zoom when the pinch is over the PDF.
       if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return;
-      const prev = scaleRef.current;
-      const next = clamp(Number((prev * (1 + magnification)).toFixed(3)), 0.6, 4);
-      if (next === prev) return;
-      pendingZoomAnchorRef.current = { x: x - rect.left, y: y - rect.top, prevScale: prev };
-      setScale(next);
+      // A pinch fires dozens of times a second, and every committed scale
+      // change cancels and restarts the page render — that restart loop is
+      // what made zooming stutter. Scale the pixels we already have (cheap,
+      // and the browser does it on the GPU) and re-render once at the end.
+      if (!gestureAnchorRef.current) {
+        gestureAnchorRef.current = {
+          x: x - rect.left,
+          y: y - rect.top,
+          scrollLeft: area.scrollLeft,
+          scrollTop: area.scrollTop,
+        };
+      }
+      const anchor = gestureAnchorRef.current;
+      const committed = scaleRef.current;
+      const factor = zoomFactorRef.current * (1 + magnification);
+      // Keep the total zoom inside the same bounds the buttons use.
+      const bounded = clamp(committed * factor, 0.6, 4) / committed;
+      zoomFactorRef.current = bounded;
+      setZoomFactor(bounded);
+      // The transform scales content the same way a real re-render will, so
+      // the scroll offset that keeps the pinch point still is the final one.
+      desiredScrollRef.current = {
+        left: (anchor.scrollLeft + anchor.x) * bounded - anchor.x,
+        top: (anchor.scrollTop + anchor.y) * bounded - anchor.y,
+      };
+      area.scrollLeft = desiredScrollRef.current.left;
+      area.scrollTop = desiredScrollRef.current.top;
+
+      if (commitZoomTimerRef.current) window.clearTimeout(commitZoomTimerRef.current);
+      commitZoomTimerRef.current = window.setTimeout(() => {
+        commitZoomTimerRef.current = null;
+        const factorNow = zoomFactorRef.current;
+        gestureAnchorRef.current = null;
+        zoomFactorRef.current = 1;
+        setZoomFactor(1);
+        if (factorNow === 1) return;
+        setScale((current) => clamp(Number((current * factorNow).toFixed(3)), 0.6, 4));
+      }, 160);
     }).then((dispose) => {
       if (disposed) dispose();
       else unlisten = dispose;
@@ -580,8 +620,20 @@ export function PdfPreview({
   }, []);
   useLayoutEffect(() => {
     const area = scrollAreaRef.current;
+    if (!area) return;
+    // A pinch already scrolled to the right place, but a transform does not
+    // grow the scrollable area, so the browser clamped it. Now that the pages
+    // really are bigger, put it exactly where the gesture asked for.
+    const desired = desiredScrollRef.current;
+    if (desired) {
+      desiredScrollRef.current = null;
+      pendingZoomAnchorRef.current = null;
+      area.scrollLeft = desired.left;
+      area.scrollTop = desired.top;
+      return;
+    }
     const anchor = pendingZoomAnchorRef.current;
-    if (!area || !anchor) return;
+    if (!anchor) return;
     pendingZoomAnchorRef.current = null;
     const ratio = scale / anchor.prevScale;
     area.scrollLeft = (area.scrollLeft + anchor.x) * ratio - anchor.x;
@@ -1030,7 +1082,12 @@ export function PdfPreview({
       <div ref={scrollAreaRef} className="pdf-scroll-area" onScroll={updateCurrentPage}>
         {pdfError
           ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div>
-          : <div className="pdf-pages">{documentProxy && pages.map((page) => (
+          : <div
+            className="pdf-pages"
+            style={zoomFactor === 1
+              ? undefined
+              : { transform: `scale(${zoomFactor})`, transformOrigin: "0 0" }}
+          >{documentProxy && pages.map((page) => (
             <ContinuousPdfPage
               key={page}
               documentProxy={documentProxy}

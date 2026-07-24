@@ -1270,6 +1270,10 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
     let page = fetch_projects_page(&client, &host, &session.cookie)?;
     let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
 
+    // Where Overleaf's history stood when we took our copy. Comparing it again
+    // just before uploading tells us whether anyone edited in the meantime.
+    let remote_version_before =
+        fetch_remote_version(&client, &host, &session.cookie, &state.project_id);
     let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
     let local = read_local_files(root)?;
 
@@ -1324,6 +1328,26 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
         // as soon as the markers are gone.
         new_files.remove(&path);
     }
+
+    // Overleaf may have moved on between the copy we planned against and now —
+    // someone typing in the web editor while we worked. Uploading then replaces
+    // whatever they just wrote (and is what makes Overleaf warn them their
+    // recent changes may have been overwritten). Stand down instead: dropping
+    // these paths from state marks them as local edits again, so the next sync
+    // merges their work first and sends the combined result.
+    let to_push = if to_push.is_empty() {
+        to_push
+    } else if remote_version_before.is_some()
+        && fetch_remote_version(&client, &host, &session.cookie, &state.project_id)
+            != remote_version_before
+    {
+        for path in &to_push {
+            new_files.remove(path);
+        }
+        Vec::new()
+    } else {
+        to_push
+    };
 
     let mut uploader = Uploader::new(&client, &host, &session.cookie, &csrf, &state.project_id);
     let push_outcome = (|| {
@@ -1588,6 +1612,12 @@ mod tests {
     }
 
     fn start_server(html: String, zip_bytes: Vec<u8>) -> MockServer {
+        start_server_versioned(html, zip_bytes, Vec::new())
+    }
+
+    /// `versions` is served one per `/updates` request (the last value repeats).
+    /// An empty list answers 404, matching an instance without history.
+    fn start_server_versioned(html: String, zip_bytes: Vec<u8>, versions: Vec<i64>) -> MockServer {
         let server = tiny_http::Server::http("127.0.0.1:0").expect("bind mock server");
         let port = match server.server_addr() {
             tiny_http::ListenAddr::IP(addr) => addr.port(),
@@ -1595,6 +1625,8 @@ mod tests {
         };
         let requests: Arc<Mutex<Vec<RecordedRequest>>> = Arc::new(Mutex::new(Vec::new()));
         let recorded = Arc::clone(&requests);
+        let version_queue: Arc<Mutex<std::collections::VecDeque<i64>>> =
+            Arc::new(Mutex::new(versions.into_iter().collect()));
         std::thread::spawn(move || {
             for mut request in server.incoming_requests() {
                 let mut body = Vec::new();
@@ -1614,7 +1646,23 @@ mod tests {
                 let json_header =
                     tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..])
                         .unwrap();
-                let outcome = if method == "GET" && path == "/project" {
+                let outcome = if method == "GET" && path.ends_with("/updates") {
+                    let mut queue = version_queue.lock().unwrap();
+                    match queue.front().copied() {
+                        None => request.respond(tiny_http::Response::empty(404)),
+                        Some(version) => {
+                            if queue.len() > 1 {
+                                queue.pop_front();
+                            }
+                            request.respond(
+                                tiny_http::Response::from_string(format!(
+                                    "{{\"updates\":[{{\"fromV\":0,\"toV\":{version}}}]}}"
+                                ))
+                                .with_header(json_header),
+                            )
+                        }
+                    }
+                } else if method == "GET" && path == "/project" {
                     request.respond(
                         tiny_http::Response::from_string(html.clone()).with_header(html_header),
                     )
@@ -2101,6 +2149,53 @@ mod tests {
             &sha256_hex(merged.as_bytes())
         );
         assert_eq!(read_base_copy(&root, "main.tex").unwrap(), merged);
+    }
+
+    #[test]
+    fn overleaf_sync_stands_down_when_overleaf_moved_while_we_worked() {
+        // Someone typed in the Overleaf editor between our snapshot and our
+        // upload. Uploading would replace their words, so nothing goes up and
+        // the file stays marked as a local edit for the next round.
+        let base = b"base body".as_slice();
+        let server = start_server_versioned(
+            projects_page_html(),
+            build_zip(&[("main.tex", base)]),
+            // First read (our snapshot), second read (just before uploading).
+            vec![11, 12],
+        );
+        let (root, result) = run_sync(
+            &server,
+            &[("main.tex", b"locally edited".as_slice())],
+            &[("main.tex", base)],
+        );
+        assert!(result.pushed.is_empty());
+        assert!(server.uploads().is_empty());
+        // Dropped from state, so the very next sync re-detects the local edit
+        // and sends it merged with whatever they wrote.
+        assert!(!state_files(&root).contains_key("main.tex"));
+        assert_eq!(read_local(&root, "main.tex").unwrap(), b"locally edited");
+    }
+
+    #[test]
+    fn overleaf_sync_uploads_when_overleaf_held_still() {
+        // Control for the guard above: an unchanged version must not block it.
+        let base = b"base body".as_slice();
+        let server = start_server_versioned(
+            projects_page_html(),
+            build_zip(&[("main.tex", base)]),
+            vec![11],
+        );
+        let (root, result) = run_sync(
+            &server,
+            &[("main.tex", b"locally edited".as_slice())],
+            &[("main.tex", base)],
+        );
+        assert_eq!(result.pushed, vec!["main.tex"]);
+        assert_eq!(server.uploads().len(), 1);
+        assert_eq!(
+            state_files(&root).get("main.tex").unwrap(),
+            &sha256_hex(b"locally edited")
+        );
     }
 
     #[test]

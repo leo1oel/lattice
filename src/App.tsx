@@ -398,6 +398,8 @@ function App() {
   const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
   const [overleafRemoteChanges, setOverleafRemoteChanges] = useState(false);
   const [overleafReviewOpen, setOverleafReviewOpen] = useState(false);
+  /** Bumped whenever a save actually writes, so pushes follow real edits. */
+  const [saveGeneration, setSaveGeneration] = useState(0);
   const [conflictPath, setConflictPath] = useState<string | null>(null);
   const overleafSyncingRef = useRef(false);
   const overleafAutoSyncedRoot = useRef<string | null>(null);
@@ -1059,6 +1061,7 @@ function App() {
       if (!wroteTex && !wroteBib && source === savedSource && secondarySource === secondarySavedSource) {
         return true;
       }
+      setSaveGeneration((generation) => generation + 1);
       if (wroteBib) {
         const [nextCitationKeys, nextCitations] = await Promise.all([
           invoke<string[]>("list_citation_keys"),
@@ -1447,6 +1450,11 @@ function App() {
     if (!project || overleafSyncingRef.current) return;
     overleafSyncingRef.current = true;
     setOverleafSyncing(true);
+    // Saving below clears the dirty flag, which cancels the pending autosave
+    // compile — that is how a sync landing mid-edit left the editor showing a
+    // change the PDF never caught up with. Remember it so we can rebuild.
+    const hadUnsavedEdits = sourceRef.current !== savedSourceRef.current;
+    let compiled = false;
     try {
       if (!(await save())) return;
       const result = await invoke<OverleafSyncResult>("overleaf_sync");
@@ -1496,6 +1504,13 @@ function App() {
           setCollabFileCount(collabSession.fileCount());
         }
         await compile();
+        compiled = true;
+      }
+      // Nothing arrived, but we flushed the user's own unsaved edits — the
+      // autosave compile they were waiting on is gone, so run it here.
+      if (!compiled && hadUnsavedEdits) {
+        await compile();
+        compiled = true;
       }
       if (result.pulled.length || result.pushed.length || result.merged.length) {
         const parts = [`pulled ${result.pulled.length}`, `pushed ${result.pushed.length}`];
@@ -1567,18 +1582,19 @@ function App() {
     };
   }, [overleafLink, overleafSyncMode]);
 
-  // Live mode also pushes: a short pause after you stop typing sends your work
-  // up, so collaborators see it without waiting on a timer.
+  // Live mode also pushes. This keys off *saves* rather than unsaved edits:
+  // autosave clears the dirty flag about a second after typing stops, well
+  // before any sensible push delay, so watching for dirty text meant the push
+  // was almost always cancelled before it ran.
   useEffect(() => {
-    if (!overleafLink || overleafSyncMode !== "live") return;
-    if (source === savedSource) return;
+    if (!overleafLink || overleafSyncMode !== "live" || saveGeneration === 0) return;
     const timer = window.setTimeout(() => {
       if (Date.now() - lastAutoSyncRef.current < 5_000) return;
       lastAutoSyncRef.current = Date.now();
       void overleafSyncRef.current({ auto: true });
     }, OVERLEAF_PUSH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [overleafLink, overleafSyncMode, savedSource, source]);
+  }, [overleafLink, overleafSyncMode, saveGeneration]);
 
   // Manual mode never syncs on its own; it just watches for incoming work so
   // the toolbar can offer it, the way a repository shows commits to pull.
