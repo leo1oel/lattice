@@ -114,6 +114,10 @@ pub enum RealtimeEvent {
         doc_id: String,
         version: i64,
         ops: Vec<OtOp>,
+        /// Who authored it. The server echoes our own updates back, and the
+        /// app has to tell its own acknowledgement apart from someone else's
+        /// edit — applying your own work twice would duplicate what you typed.
+        source: Option<String>,
     },
     OtError {
         doc_id: String,
@@ -821,10 +825,16 @@ fn doc_update_event(value: &Value) -> Option<RealtimeEvent> {
                 .collect()
         })
         .unwrap_or_default();
+    let source = value
+        .get("meta")
+        .and_then(|meta| meta.get("source"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
     Some(RealtimeEvent::DocUpdate {
         doc_id,
         version,
         ops,
+        source,
     })
 }
 
@@ -1294,10 +1304,11 @@ mod tests {
                 i: Some("!".into()),
                 d: None,
             }],
+            source: Some("pub-2".into()),
         };
         assert_eq!(
             serde_json::to_string(&update).unwrap(),
-            r#"{"type":"docUpdate","docId":"doc-1","version":43,"ops":[{"p":9,"i":"!"}]}"#
+            r#"{"type":"docUpdate","docId":"doc-1","version":43,"ops":[{"p":9,"i":"!"}],"source":"pub-2"}"#
         );
         let connected = RealtimeEvent::Connected {
             public_id: "pub-1".into(),
@@ -1549,7 +1560,8 @@ mod tests {
                     // Unsolicited update from another collaborator...
                     let _ = ws.send(Message::text(event_frame(
                         "otUpdateApplied",
-                        json!([{"doc": "doc-1", "v": 43, "op": [{"p": 9, "i": "!"}]}]),
+                        json!([{"doc": "doc-1", "v": 43, "op": [{"p": 9, "i": "!"}],
+                                 "meta": {"source": "someone-else"}}]),
                     )));
                     // ...and a heartbeat the client has to echo.
                     let _ = ws.send(Message::text(encode_frame(FRAME_HEARTBEAT, "", "", "")));
@@ -1690,9 +1702,12 @@ mod tests {
                     doc_id,
                     version,
                     ops,
+                    source,
                 } => {
                     assert_eq!(doc_id, "doc-1");
                     assert_eq!(*version, 43);
+                    // Carried through so the app can recognise its own echo.
+                    assert_eq!(source.as_deref(), Some("someone-else"));
                     assert_eq!(
                         ops,
                         &vec![OtOp {

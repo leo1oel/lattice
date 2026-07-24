@@ -43,6 +43,8 @@ export function CanvasToolbar(props: {
   overleafSyncing?: boolean;
   /** Manual mode only: Overleaf has work you have not taken yet. */
   overleafPending?: boolean;
+  /** True while this file is being edited through Overleaf's live channel. */
+  overleafLiveEditing?: boolean;
   onOverleafSync?: () => void;
   onOverleafOpen?: () => void;
 }) {
@@ -133,7 +135,9 @@ export function CanvasToolbar(props: {
               ? "Syncing with Overleaf…"
               : props.overleafPending
                 ? "New changes on Overleaf — click to bring them in"
-                : "Sync with Overleaf")
+                : props.overleafLiveEditing
+                  ? "Editing live with Overleaf · click to sync everything else"
+                  : "Sync with Overleaf")
             : "Open a project from Overleaf"}
           >
             <button
@@ -144,9 +148,11 @@ export function CanvasToolbar(props: {
               {props.overleafSyncing
                 ? <LoaderCircle className="spin" size={14} />
                 : props.overleafLinked ? <CloudUpload size={14} /> : <Cloud size={14} />}
-              {props.overleafPending && !props.overleafSyncing
-                ? <em className="collab-peer-badge">•</em>
-                : null}
+              {props.overleafLiveEditing && !props.overleafSyncing
+                ? <em className="collab-peer-badge overleaf-live-dot" title="Live">●</em>
+                : props.overleafPending && !props.overleafSyncing
+                  ? <em className="collab-peer-badge">•</em>
+                  : null}
             </button>
           </Tip>
         )}

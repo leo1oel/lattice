@@ -77,6 +77,7 @@ import { usePanelLayout } from "./use-panel-layout";
 import { OverleafPickerDialog } from "./overleaf-connect";
 import { OverleafReviewDialog } from "./overleaf-review";
 import { ConflictResolverDialog } from "./conflict-resolver";
+import { useOverleafRealtime } from "./use-overleaf-realtime";
 import {
   type RecentProject,
   type BuildPreferences,
@@ -1584,6 +1585,34 @@ function App() {
       window.removeEventListener("focus", onFocus);
     };
   }, [overleafLink, overleafSyncMode]);
+
+  // Editing through Overleaf's own channel, when the project is linked and
+  // live. It stays off during a Lattice share: two live channels writing the
+  // same buffer would fight over every keystroke, and the Yjs session already
+  // owns the editor then.
+  const overleafRealtime = useOverleafRealtime({
+    enabled: overleafLink !== null && overleafSyncMode === "live" && !collabSession,
+    projectRoot: project?.root ?? null,
+    activeFile,
+    readCaret: () => viewStateRef.current.get(activeFileRef.current ?? "")?.cursor ?? 0,
+    onRemoteText: (text, caret) => {
+      const path = activeFileRef.current;
+      if (!path) return;
+      setSource(text);
+      setSavedSource(text);
+      // Write it through so a rebuild and any later sync see the same bytes.
+      void invoke("write_project_file", { path, content: text }).catch(() => {});
+      setViewRestore({ path, cursor: caret, scrollTop: 0, id: crypto.randomUUID() });
+    },
+    onNotice: (message) => setNotice(message),
+  });
+
+  // Everything typed goes to the live channel; it ignores text it already has,
+  // so this is safe to call on every change including our own remote applies.
+  useEffect(() => {
+    if (!overleafRealtime.liveFile) return;
+    overleafRealtime.pushLocal(source);
+  }, [overleafRealtime, source]);
 
   // Live mode also pushes. This keys off *saves* rather than unsaved edits:
   // autosave clears the dirty flag about a second after typing stops, well
@@ -4585,6 +4614,7 @@ function App() {
             overleafLinked={overleafLink !== null}
             overleafSyncing={overleafSyncing}
             overleafPending={overleafRemoteChanges}
+            overleafLiveEditing={overleafRealtime.liveFile}
             onOverleafSync={() => {
               // Manual mode is a review step, not a button that quietly
               // rewrites files: show what would change and let the user decide.

@@ -983,13 +983,15 @@ fn overleaf_rt_disconnect(state: tauri::State<'_, AppState>) -> Result<(), Strin
     Ok(())
 }
 
+/// Our own id on the channel, or null when not connected. The server echoes
+/// our updates back, and this is how the app tells them from someone else's.
 #[tauri::command]
-fn overleaf_rt_connected(state: tauri::State<'_, AppState>) -> bool {
+fn overleaf_rt_connected(state: tauri::State<'_, AppState>) -> Option<String> {
     state
         .realtime
         .lock()
-        .map(|slot| slot.is_some())
-        .unwrap_or(false)
+        .ok()
+        .and_then(|slot| slot.as_ref().map(|client| client.public_id()))
 }
 
 /// Subscribe to a document; returns its current text and version.

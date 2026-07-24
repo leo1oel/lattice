@@ -220,3 +220,7 @@
 .overleaf-mode-option span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .overleaf-mode-option strong { font-size: 12px; font-weight: 600; color: var(--text); }
 .overleaf-mode-option small { font-size: 10px; line-height: 1.5; color: var(--muted); }
+
+/* Steady dot on the toolbar while a document is edited through Overleaf's own
+   channel, rather than waiting for the next sync. */
+.overleaf-live-dot { color: var(--success, var(--accent)); }
