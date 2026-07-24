@@ -5,41 +5,21 @@ import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import {
-  BookOpen,
   Bot,
   Check,
   ChevronDown,
   CircleAlert,
-  Copy,
   Eraser,
-  FileArchive,
-  FileCode2,
-  FileText,
-  Folder,
-  FolderOpen,
-  GitBranch,
-  History,
   Image,
   LoaderCircle,
-  LocateFixed,
-  MessageSquareText,
-  Omega,
   PanelLeftClose,
   PanelLeftOpen,
   Play,
-  Plus,
-  Pencil,
   Radio,
-  RotateCcw,
   Moon,
-  RefreshCw,
   Settings,
-  Sparkles,
   Sun,
   Square,
-  Trash2,
-  Undo2,
-  Redo2,
   X,
 } from "lucide-react";
 import {
@@ -92,13 +72,10 @@ import {
   serializeEditorComments,
   tryParseEditorComments,
 } from "./editor-comments";
-import { useUpdater, type UpdateMode } from "./app-updater";
 import { useAppearance } from "./use-appearance";
 import { usePanelLayout } from "./use-panel-layout";
 import {
-  type Theme,
   type RecentProject,
-  type AutoBuildMode,
   type BuildPreferences,
   BUILD_PREFERENCES_KEY,
   AGENT_SYSTEM_PROMPT_KEY,
@@ -108,7 +85,6 @@ import {
   loadSystemPrompt,
   loadLastFile,
   persistLastFile,
-  type AppearanceSettings,
 } from "./app-settings";
 import {
   type EditorComment,
@@ -116,8 +92,7 @@ import {
 const EditorCommentsPanel = lazy(() =>
   import("./editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
 );
-import { motion } from "motion/react";
-import { MotionButton, IconSwap, SpinButton } from "./motion";
+import { IconSwap } from "./motion";
 import {
   clearPreCollabProjectRoot,
   rememberPreCollabProjectRoot,
@@ -158,6 +133,9 @@ import {
 } from "./compile-diagnostics";
 import { formatLatexDocument } from "./texlab-language";
 import { DocumentCanvas } from "./document-canvas";
+import { SettingsDialog } from "./settings-dialog";
+import { CanvasToolbar } from "./canvas-toolbar";
+import { Welcome, CreateProjectDialog, RenameDialog, ProjectMenu } from "./project-dialogs";
 import {
   activeOutlineNode,
   flattenOutline,
@@ -180,20 +158,8 @@ import { EditorTabs } from "./editor-tabs";
 import { Tip } from "./components/icon-tip";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./components/ui/select";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "./project-replace-dialog";
 const LiteratureDiscoveryPanel = lazy(() =>
@@ -206,12 +172,6 @@ import { ManuscriptChecklistPanel } from "./manuscript-checklist";
 import { mergeTodosWithBuffer, type TodoHit } from "./todo-scavenger";
 import { TodoScavengerPanel } from "./todo-scavenger-panel";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
-import {
-  DEFAULT_EDITOR_FONT,
-  EDITOR_FONT_OPTIONS,
-  UI_FONT_OPTIONS,
-  availableFontOptions,
-} from "./available-fonts";
 import type {
   ProjectVenue,
   ProjectManifest,
@@ -258,8 +218,6 @@ import {
   defaultModel,
   normalizeModel,
   normalizeEffort,
-  autoBuildTitle,
-  autoBuildDetail,
   autoBuildDescription,
   projectItemPath,
   dropDirectoryAt,
@@ -4972,245 +4930,6 @@ function App() {
   );
 }
 
-function Welcome(props: {
-  busyLabel: string | null;
-  createOpen: boolean;
-  error: string | null;
-  createError: string | null;
-  projectName: string;
-  projectVenue: ProjectVenue;
-  onOpenCreate: () => void;
-  onCloseCreate: () => void;
-  setProjectName: (value: string) => void;
-  setProjectVenue: (value: ProjectVenue) => void;
-  onCreate: () => void;
-  onOpen: () => void;
-  onImportZip: () => void;
-  onJoinCollab: () => void;
-  onSettings: () => void;
-  onInstallTex: () => void;
-}) {
-  return (
-    <div className="welcome-screen">
-      <div className="welcome-titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
-        <button className="icon-button" onClick={props.onSettings} title="Settings"><Settings size={16} /></button>
-      </div>
-      <div className="welcome-glow" />
-      <div className="welcome-content">
-        <div className="brand-mark"><Sparkles size={24} /></div>
-        <p className="eyebrow">LATTICE</p>
-        <h1>Research, written with evidence.</h1>
-        <p className="welcome-copy">
-          A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected.
-        </p>
-        <div className="welcome-actions">
-          <MotionButton className="primary-button" magnetic onClick={props.onOpenCreate}>
-            <Plus size={17} /> New project
-          </MotionButton>
-          <button className="secondary-button" onClick={props.onOpen}>
-            <FolderOpen size={17} /> Open folder
-          </button>
-          <button className="secondary-button" onClick={props.onImportZip}>
-            <FileArchive size={17} /> Import ZIP
-          </button>
-          <button className="secondary-button" onClick={props.onJoinCollab}>
-            <Radio size={17} /> Join share
-          </button>
-        </div>
-        <button type="button" className="text-button welcome-tex-setup" onClick={props.onInstallTex}>
-          Install LaTeX tools (needed to compile PDFs)
-        </button>
-        {props.busyLabel && <p className="busy-label"><LoaderCircle className="spin" size={15} /> {props.busyLabel}</p>}
-        {props.error && <p className="welcome-error">{props.error}</p>}
-      </div>
-      {props.createOpen && (
-        <CreateProjectDialog
-          projectName={props.projectName}
-          setProjectName={props.setProjectName}
-          projectVenue={props.projectVenue}
-          setProjectVenue={props.setProjectVenue}
-          error={props.createError}
-          onCreate={props.onCreate}
-          onClose={props.onCloseCreate}
-        />
-      )}
-    </div>
-  );
-}
-
-const PROJECT_VENUES: { id: ProjectVenue; label: string; detail: string }[] = [
-  { id: "neurips", label: "NeurIPS", detail: "Official 2026 style, preprint option" },
-  { id: "icml", label: "ICML", detail: "Official 2026 style, preprint option" },
-  { id: "iclr", label: "ICLR", detail: "Official 2026 conference style" },
-];
-
-function CreateProjectDialog(props: {
-  projectName: string;
-  setProjectName: (value: string) => void;
-  projectVenue: ProjectVenue;
-  setProjectVenue: (value: ProjectVenue) => void;
-  error: string | null;
-  onCreate: () => void;
-  onClose: () => void;
-}) {
-  const venue = PROJECT_VENUES.find((item) => item.id === props.projectVenue) ?? PROJECT_VENUES[0];
-  return (
-    <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <div className="modal create-project-modal" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="modal-icon"><FileText size={20} /></div>
-        <h2>Create a research project</h2>
-        <p>
-          Lattice will create a {venue.label} preprint template, bibliography, project brief, and private conversation history.
-        </p>
-        <label>
-          Project name
-          <input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
-        </label>
-        <fieldset className="venue-picker" aria-label="Venue template">
-          <legend>Venue template</legend>
-          {PROJECT_VENUES.map((item) => (
-            <label key={item.id} className={`venue-option ${props.projectVenue === item.id ? "active" : ""}`}>
-              <input
-                type="radio"
-                name="project-venue"
-                value={item.id}
-                checked={props.projectVenue === item.id}
-                onChange={() => props.setProjectVenue(item.id)}
-              />
-              <span>
-                <strong>{item.label}</strong>
-                <small>{item.detail}</small>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-        {props.error && <p className="field-error" role="alert">{props.error}</p>}
-        <div className="modal-actions">
-          <button className="text-button" onClick={props.onClose}>Cancel</button>
-          <MotionButton className="primary-button" onClick={props.onCreate}>Choose location</MotionButton>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RenameDialog(props: {
-  target: RenameTarget;
-  error: string | null;
-  onRename: (name: string) => Promise<void>;
-  onClose: () => void;
-}) {
-  const initialName = props.target.kind === "entry"
-    ? props.target.name
-    : props.target.kind === "paper"
-      ? props.target.paper.title
-      : props.target.kind === "label"
-        ? props.target.label
-        : props.target.kind === "environment"
-          ? props.target.name
-          : props.target.kind === "wrap-environment"
-            ? "equation"
-            : props.target.key;
-  const [name, setName] = useState(initialName);
-  const [busy, setBusy] = useState(false);
-  const title = props.target.kind === "paper"
-    ? "Rename paper"
-    : props.target.kind === "label"
-      ? "Rename label"
-      : props.target.kind === "citation"
-        ? "Rename citation key"
-        : props.target.kind === "environment"
-          ? "Rename environment"
-          : props.target.kind === "wrap-environment"
-            ? "Wrap in environment"
-            : "Rename project item";
-  const copy = props.target.kind === "paper"
-    ? "This changes the title shown in Papers. The citation key stays unchanged."
-    : props.target.kind === "label"
-      ? "Updates every \\label and \\ref/\\cref occurrence across the project."
-      : props.target.kind === "citation"
-        ? "Updates the bibliography entry and every \\cite occurrence across the project."
-        : props.target.kind === "environment"
-          ? "Renames the matching \\begin and \\end pair under the cursor."
-          : props.target.kind === "wrap-environment"
-            ? "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
-            : "Use a simple name. Existing file extensions are kept when omitted.";
-  const submit = async () => {
-    if (!name.trim() || busy) return;
-    setBusy(true);
-    await props.onRename(name.trim());
-    setBusy(false);
-  };
-  return (
-    <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <div className="modal rename-modal" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="modal-icon"><Pencil size={19} /></div>
-        <h2>{title}</h2>
-        <p>{copy}</p>
-        <label>
-          Name
-          <input
-            autoFocus
-            aria-label="New name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void submit();
-              if (event.key === "Escape") props.onClose();
-            }}
-          />
-        </label>
-        {props.error && <p className="field-error" role="alert">{props.error}</p>}
-        <div className="modal-actions">
-          <button className="text-button" onClick={props.onClose}>Cancel</button>
-          <MotionButton className="primary-button" disabled={busy || !name.trim()} onClick={() => void submit()}>{busy ? "Renaming…" : "Rename"}</MotionButton>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProjectMenu(props: {
-  currentPath: string;
-  recentProjects: RecentProject[];
-  busyLabel: string | null;
-  onRecent: (path: string) => void;
-  onOpen: () => void;
-  onNew: () => void;
-  onExportZip: () => void;
-}) {
-  const alternatives = props.recentProjects.filter((item) => item.path !== props.currentPath);
-  const busy = Boolean(props.busyLabel);
-  return (
-    <DropdownMenuContent align="start" sideOffset={6} className="w-72">
-      <DropdownMenuLabel>Recent projects</DropdownMenuLabel>
-      {alternatives.map((item) => (
-        <DropdownMenuItem key={item.path} disabled={busy} onSelect={() => props.onRecent(item.path)}>
-          <Folder />
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate font-medium">{item.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{item.path}</span>
-          </span>
-        </DropdownMenuItem>
-      ))}
-      {!alternatives.length && (
-        <p className="px-2 py-1.5 text-xs text-muted-foreground">No other recent projects yet.</p>
-      )}
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onSelect={props.onOpen}>
-        <FolderOpen /> Open another folder <DropdownMenuShortcut>⌘O</DropdownMenuShortcut>
-      </DropdownMenuItem>
-      <DropdownMenuItem onSelect={props.onNew}><Plus /> New project</DropdownMenuItem>
-      <DropdownMenuItem onSelect={props.onExportZip}><FileArchive /> Export ZIP</DropdownMenuItem>
-      {props.busyLabel && (
-        <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
-          <LoaderCircle className="size-3 animate-spin" /> {props.busyLabel}
-        </p>
-      )}
-    </DropdownMenuContent>
-  );
-}
-
 function PanelResizer(props: {
   label: string;
   value: number;
@@ -5236,559 +4955,6 @@ function PanelResizer(props: {
         }
       }}
     />
-  );
-}
-
-function CanvasToolbar(props: {
-  mode: CanvasMode;
-  setMode: (mode: DocumentViewMode) => void;
-  activePath: string;
-  activeKind: "document" | "paper" | "asset";
-  dirty: boolean;
-  canForwardSync: boolean;
-  locatingPdf: boolean;
-  canNavigateBack: boolean;
-  canNavigateForward: boolean;
-  onNavigateBack: () => void;
-  onNavigateForward: () => void;
-  onInsert: () => void;
-  onCollab: () => void;
-  collabLive: boolean;
-  collabPeers: number;
-  onForwardSync: () => void;
-  onHistory: () => void;
-  onGit: () => void;
-  commentCount: number;
-  onComments: () => void;
-}) {
-  const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
-  const switcherMode = props.mode === "dual" || props.mode === "columns" ? "split" : props.mode;
-  return (
-    <div className="canvas-toolbar">
-      <div className="active-document"><ActiveIcon size={14} /><span>{props.activePath}</span>{props.activeKind === "document" && props.dirty && <i />}</div>
-      <div className="view-switcher">
-        {([
-          { id: "source" as const, label: "source", title: "Source only" },
-          { id: "split" as const, label: "split", title: "Source and PDF" },
-          { id: "pdf" as const, label: "pdf", title: "PDF only" },
-        ]).map((mode) => {
-          const active = switcherMode === mode.id;
-          return (
-            <button
-              key={mode.id}
-              className={active ? "active" : ""}
-              title={mode.title}
-              onClick={() => props.setMode(mode.id)}
-            >
-              {active && (
-                <motion.span
-                  layoutId="view-switcher-pill"
-                  className="view-switcher-pill"
-                  transition={{ type: "tween", ease: [0.65, 0, 0.35, 1], duration: 0.25 }}
-                />
-              )}
-              <span className="view-switcher-label">{mode.label}</span>
-            </button>
-          );
-        })}
-      </div>
-      <div className="canvas-actions">
-        {props.activeKind === "document" && (
-          <>
-            <Tip label="Go back (⌘[)">
-              <button type="button" disabled={!props.canNavigateBack} onClick={props.onNavigateBack}>
-                <Undo2 size={14} />
-              </button>
-            </Tip>
-            <Tip label="Go forward (⌘])">
-              <button type="button" disabled={!props.canNavigateForward} onClick={props.onNavigateForward}>
-                <Redo2 size={14} />
-              </button>
-            </Tip>
-            <Tip label="Insert snippet or symbol (⌘⇧I)">
-              <button type="button" onClick={props.onInsert}>
-                <Omega size={14} />
-              </button>
-            </Tip>
-            <Tip label="Editor comments">
-              <button
-                type="button"
-                className={props.commentCount ? "active" : ""}
-                onClick={props.onComments}
-              >
-                <MessageSquareText size={14} />
-                {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
-              </button>
-            </Tip>
-            <Tip label={props.collabLive
-              ? (props.collabPeers > 0
-                ? `Live · ${props.collabPeers} other${props.collabPeers === 1 ? "" : "s"}`
-                : "Live collaboration · just you")
-              : "Live collaboration"}
-            >
-              <button
-                type="button"
-                className={props.collabLive ? "active collab-toolbar-button" : "collab-toolbar-button"}
-                onClick={props.onCollab}
-              >
-                <Radio size={14} />
-                {props.collabLive ? <em className="collab-peer-badge">{props.collabPeers}</em> : null}
-              </button>
-            </Tip>
-            <Tip label="Reveal cursor in PDF (⌘⇧J)">
-              <button disabled={!props.canForwardSync || props.locatingPdf} onClick={props.onForwardSync}>
-                {props.locatingPdf ? <LoaderCircle className="spin" size={14} /> : <LocateFixed size={14} />}
-              </button>
-            </Tip>
-          </>
-        )}
-        <Tip label="Git status and commit">
-          <button className="history-button" onClick={props.onGit}>
-            <GitBranch size={14} />
-          </button>
-        </Tip>
-        <Tip label="Project history">
-          <button className="history-button" onClick={props.onHistory}>
-            <History size={14} />
-          </button>
-        </Tip>
-      </div>
-    </div>
-  );
-}
-
-function SettingsDialog(props: {
-  tab: SettingsTab;
-  setTab: (tab: SettingsTab) => void;
-  appearance: AppearanceSettings;
-  setAppearance: (appearance: AppearanceSettings) => void;
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-  buildPreferences: BuildPreferences;
-  setBuildPreferences: (preferences: BuildPreferences) => void;
-  systemPrompt: string;
-  setSystemPrompt: (prompt: string) => void;
-  hasProject: boolean;
-  project: ProjectSnapshot | null;
-  activeFile: string | null;
-  onUpdateManifest: (patch: {
-    engine?: string | null;
-    defaultRoot?: string | null;
-    trusted?: boolean | null;
-  }) => void;
-  onAddRootDocument: (path: string, makeDefault: boolean) => void;
-  onRemoveRootDocument: (path: string) => void;
-  skills: AgentSkill[];
-  skillDraft: SkillDraft | null;
-  setSkillDraft: (draft: SkillDraft | null) => void;
-  onSaveSkill: (draft: SkillDraft) => void;
-  onSetSkillEnabled: (name: string, enabled: boolean) => void;
-  onDeleteSkill: (skill: AgentSkill) => void;
-  subscriptions: SubscriptionStatus[];
-  subscriptionsLoading: boolean;
-  subscriptionNotice: string;
-  // (updater state is read from context via useUpdater, not passed as a prop)
-  onRefreshSubscriptions: () => void;
-  onSubscriptionLogin: (provider: "codex" | "claude") => void;
-  apiProvider: "openai" | "anthropic";
-  setApiProvider: (provider: "openai" | "anthropic") => void;
-  apiKey: string;
-  setApiKey: (key: string) => void;
-  apiConfigured: boolean;
-  onSaveApiKey: () => void;
-  onDeleteApiKey: () => void;
-  doctorReport: DoctorReport | null;
-  doctorBusy: boolean;
-  doctorNotice: string;
-  onRunDoctor: () => void;
-  onOpenTexSetup: () => void;
-  onCopyDoctorSummary: () => void;
-  onClose: () => void;
-}) {
-  const updater = useUpdater();
-  const updateBusy = updater.phase === "checking"
-    || updater.phase === "downloading"
-    || updater.phase === "installing";
-  const updateTitle = updater.phase === "available"
-    ? `Version ${updater.version ?? ""} is ready to install`.trim()
-    : updater.phase === "downloading"
-      ? "Downloading update…"
-      : updater.phase === "installing"
-        ? "Installing update…"
-        : updater.phase === "error"
-          ? "Couldn’t check for updates"
-          : updater.phase === "up-to-date"
-            ? "You’re on the latest version"
-            : updater.mode === "auto"
-              ? "New versions install automatically"
-              : "You’ll be notified when a new version is ready";
-  const updateDetail = updater.phase === "error"
-    ? (updater.error ?? "Check your connection and try again.")
-    : updater.mode === "auto"
-      ? "Lattice checks in the background and installs updates on its own."
-      : "Lattice checks in the background; you decide when to install.";
-  return (
-    <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <div className="settings-modal" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="settings-header">
-          <div><Settings size={17} /><span>Settings</span></div>
-          <button title="Close settings" onClick={props.onClose}><X size={16} /></button>
-        </div>
-        <div className="settings-body">
-          <nav className="settings-nav">
-            <button className={props.tab === "appearance" ? "active" : ""} onClick={() => props.setTab("appearance")}>Appearance</button>
-            <button className={props.tab === "editor" ? "active" : ""} onClick={() => props.setTab("editor")}>Editor & builds</button>
-            <button className={props.tab === "agent" ? "active" : ""} onClick={() => props.setTab("agent")}>Agent</button>
-            <button className={props.tab === "accounts" ? "active" : ""} onClick={() => props.setTab("accounts")}>Subscriptions</button>
-            <button className={props.tab === "api" ? "active" : ""} onClick={() => props.setTab("api")}>API keys</button>
-            <button className={props.tab === "doctor" ? "active" : ""} onClick={() => props.setTab("doctor")}>TeX doctor</button>
-          </nav>
-          <div className="settings-content">
-            {props.tab === "appearance" && (
-              <div className="settings-section">
-                <h2>Appearance</h2>
-                <p>These preferences apply across every project on this Mac.</p>
-                <label>Color theme
-                  <Select value={props.theme} onValueChange={(value) => props.setTheme(value as Theme)}>
-                    <SelectTrigger aria-label="Color theme"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                      <SelectItem value="light">Light</SelectItem>
-                      <SelectItem value="dark">Dark</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <label>Interface font
-                  <Select value={props.appearance.uiFont} onValueChange={(value) => props.setAppearance({ ...props.appearance, uiFont: value })}>
-                    <SelectTrigger aria-label="Interface font"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                      {availableFontOptions(UI_FONT_OPTIONS).map((option) => (
-                        <SelectItem key={option.family} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </label>
-                <div className="settings-range">
-                  <div><label htmlFor="interface-size">Interface size</label><output>{Math.round(props.appearance.interfaceScale * 100)}%</output></div>
-                  <input id="interface-size" type="range" min="90" max="135" step="5" value={Math.round(props.appearance.interfaceScale * 100)} onChange={(event) => props.setAppearance({ ...props.appearance, interfaceScale: Number(event.target.value) / 100 })} />
-                </div>
-                <label>LaTeX editor font
-                  <Select
-                    value={
-                      availableFontOptions(EDITOR_FONT_OPTIONS).some((option) => option.value === props.appearance.editorFont)
-                        ? props.appearance.editorFont
-                        : DEFAULT_EDITOR_FONT
-                    }
-                    onValueChange={(value) => props.setAppearance({ ...props.appearance, editorFont: value })}
-                  >
-                    <SelectTrigger aria-label="LaTeX editor font"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                      {availableFontOptions(EDITOR_FONT_OPTIONS).map((option) => (
-                        <SelectItem key={option.family} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </label>
-                <div className="settings-range">
-                  <div><label htmlFor="editor-font-size">Editor font size</label><output>{props.appearance.editorFontSize}px</output></div>
-                  <input id="editor-font-size" type="range" min="10" max="24" step="1" value={props.appearance.editorFontSize} onChange={(event) => props.setAppearance({ ...props.appearance, editorFontSize: Number(event.target.value) })} />
-                </div>
-              </div>
-            )}
-            {props.tab === "editor" && (
-              <div className="settings-section">
-                <h2>Editor & builds</h2>
-                <p>Choose keymap behavior and when Lattice recompiles after a source change.</p>
-                <label>Editor keymap
-                  <Select
-                    value={props.appearance.editorKeymap}
-                    onValueChange={(value) => props.setAppearance({
-                      ...props.appearance,
-                      editorKeymap: value === "vim"
-                        ? "vim"
-                        : value === "emacs"
-                          ? "emacs"
-                          : "default",
-                    })}
-                  >
-                    <SelectTrigger aria-label="Editor keymap"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                      <SelectItem value="default">Default</SelectItem>
-                      <SelectItem value="vim">Vim</SelectItem>
-                      <SelectItem value="emacs">Emacs</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <label className="settings-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={props.appearance.editorSpellcheck}
-                    onChange={(event) => props.setAppearance({
-                      ...props.appearance,
-                      editorSpellcheck: event.target.checked,
-                    })}
-                  />
-                  <span>Spellcheck prose in the editor</span>
-                </label>
-                <div className="settings-range">
-                  <div><label htmlFor="max-open-tabs">Max open tabs</label><output>{props.appearance.maxOpenTabs}</output></div>
-                  <input id="max-open-tabs" type="range" min="1" max="20" step="1" value={props.appearance.maxOpenTabs} onChange={(event) => props.setAppearance({ ...props.appearance, maxOpenTabs: Number(event.target.value) })} />
-                </div>
-                <label>Automatic build
-                  <Select value={props.buildPreferences.autoBuildMode} onValueChange={(value) => props.setBuildPreferences({ autoBuildMode: value as AutoBuildMode })}>
-                    <SelectTrigger aria-label="Automatic build"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                      <SelectItem value="manual">Manual only</SelectItem>
-                      <SelectItem value="automatic">Automatic</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <div className="settings-detail">
-                  <Play size={14} />
-                  <div><strong>{autoBuildTitle(props.buildPreferences.autoBuildMode)}</strong><span>{autoBuildDetail(props.buildPreferences.autoBuildMode)}</span></div>
-                </div>
-                {props.project && (
-                  <>
-                    <label>Compile engine
-                      <Select
-                        value={props.project.manifest.engine ?? "pdf"}
-                        onValueChange={(value) => props.onUpdateManifest({ engine: value })}
-                      >
-                        <SelectTrigger aria-label="Compile engine"><SelectValue /></SelectTrigger>
-                        <SelectContent position="popper" align="start">
-                          <SelectItem value="pdf">pdfLaTeX</SelectItem>
-                          <SelectItem value="xelatex">XeLaTeX</SelectItem>
-                          <SelectItem value="lualatex">LuaLaTeX</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </label>
-                    <label>Root document
-                      <Select
-                        value={
-                          props.project.manifest.rootDocuments.find((document) => document.isDefault)?.path
-                          ?? props.project.manifest.rootDocuments[0]?.path
-                          ?? ""
-                        }
-                        onValueChange={(value) => props.onUpdateManifest({ defaultRoot: value })}
-                      >
-                        <SelectTrigger aria-label="Root document"><SelectValue /></SelectTrigger>
-                        <SelectContent position="popper" align="start">
-                          {props.project.manifest.rootDocuments.map((document) => (
-                            <SelectItem key={document.path} value={document.path}>{document.name} ({document.path})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </label>
-                    <div className="root-document-actions">
-                      <button
-                        type="button"
-                        className="secondary"
-                        disabled={!props.activeFile?.endsWith(".tex")}
-                        title={props.activeFile?.endsWith(".tex") ? `Add ${props.activeFile} as a compile root` : "Open a .tex file first"}
-                        onClick={() => {
-                          if (props.activeFile?.endsWith(".tex")) {
-                            props.onAddRootDocument(props.activeFile, false);
-                          }
-                        }}
-                      >
-                        Add open .tex
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary"
-                        disabled={props.project.manifest.rootDocuments.length <= 1}
-                        title="Remove the selected root document"
-                        onClick={() => {
-                          const selected =
-                            props.project!.manifest.rootDocuments.find((document) => document.isDefault)?.path
-                            ?? props.project!.manifest.rootDocuments[0]?.path;
-                          if (selected) props.onRemoveRootDocument(selected);
-                        }}
-                      >
-                        Remove selected
-                      </button>
-                    </div>
-                    <label className="settings-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={props.project.manifest.trusted}
-                        onChange={(event) => props.onUpdateManifest({ trusted: event.target.checked })}
-                      />
-                      <span>Allow shell escape when compiling</span>
-                    </label>
-                  </>
-                )}
-                <div className="settings-updates">
-                  <h3>App updates</h3>
-                  <p>Choose whether Lattice installs new versions automatically or just tells you.</p>
-                  <label>Automatic updates
-                    <Select value={updater.mode} onValueChange={(value) => updater.setMode(value as UpdateMode)}>
-                      <SelectTrigger aria-label="Automatic updates"><SelectValue /></SelectTrigger>
-                      <SelectContent position="popper" align="start">
-                        <SelectItem value="manual">Notify me (manual)</SelectItem>
-                        <SelectItem value="auto">Install automatically</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </label>
-                  <div className="settings-detail">
-                    <RefreshCw size={14} />
-                    <div><strong>{updateTitle}</strong><span>{updateDetail}</span></div>
-                  </div>
-                  <div className="root-document-actions">
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={updateBusy}
-                      onClick={() => void updater.check(false)}
-                    >
-                      {updater.phase === "checking" ? "Checking…" : "Check for updates"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {props.tab === "agent" && (
-              <div className="settings-section">
-                <h2>Agent</h2>
-                <p>Lattice uses Oh My Pi as its agent backend. The prompt and skills below stay inside Lattice and never change your global agent setup.</p>
-                <label htmlFor="agent-system-prompt">System prompt
-                  <textarea
-                    id="agent-system-prompt"
-                    aria-label="Agent system prompt"
-                    placeholder="Write the system prompt you want OMP to use…"
-                    value={props.systemPrompt}
-                    onChange={(event) => props.setSystemPrompt(event.target.value)}
-                  />
-                </label>
-                <div className="skill-heading">
-                  <div><strong>Skills</strong><span>Enabled skills are given to OMP on its next turn.</span></div>
-                  <button onClick={() => props.setSkillDraft({ scope: "application", content: "---\nname: new-skill\ndescription: Describe when OMP should use this skill.\n---\n\n# New skill\n\nWrite the instructions here.\n" })}><Plus size={12} /> Add skill</button>
-                </div>
-                {props.skillDraft ? (
-                  <div className="skill-editor">
-                    <label>Availability
-                      <Select value={props.skillDraft.scope} onValueChange={(value) => props.setSkillDraft({ ...props.skillDraft!, scope: value as "application" | "project" })}>
-                        <SelectTrigger aria-label="Availability"><SelectValue /></SelectTrigger>
-                        <SelectContent position="popper" align="start">
-                          <SelectItem value="application">All Lattice projects</SelectItem>
-                          <SelectItem value="project" disabled={!props.hasProject}>This project only</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </label>
-                    <label>SKILL.md
-                      <textarea aria-label="Skill instructions" value={props.skillDraft.content} onChange={(event) => props.setSkillDraft({ ...props.skillDraft!, content: event.target.value })} />
-                    </label>
-                    <div className="skill-editor-actions"><button onClick={() => props.setSkillDraft(null)}>Cancel</button><MotionButton className="primary-button" onClick={() => props.onSaveSkill(props.skillDraft!)}>Save skill</MotionButton></div>
-                  </div>
-                ) : (
-                  <div className="skill-list">
-                    {props.skills.map((skill) => (
-                      <div className="skill-card" key={skill.name}>
-                        <button className={`skill-toggle ${skill.enabled ? "enabled" : ""}`} role="switch" aria-checked={skill.enabled} aria-label={`Enable ${skill.name}`} onClick={() => props.onSetSkillEnabled(skill.name, !skill.enabled)}><span /></button>
-                        <div><strong>{skill.name}</strong><small>{skill.scope === "built-in" ? "Bundled" : skill.scope === "application" ? "All projects" : "This project"}{skill.overridden ? " · overrides bundled" : ""}</small><p>{skill.description}</p></div>
-                        <div className="skill-actions">
-                          <button title={`Edit ${skill.name}`} onClick={() => props.setSkillDraft({ originalName: skill.name, scope: skill.scope === "project" ? "project" : "application", content: skill.content })}><Pencil size={12} /></button>
-                          {skill.scope !== "built-in" && <button title={skill.overridden ? `Restore bundled ${skill.name}` : `Delete ${skill.name}`} onClick={() => props.onDeleteSkill(skill)}>{skill.overridden ? <RotateCcw size={12} /> : <Trash2 size={12} />}</button>}
-                        </div>
-                      </div>
-                    ))}
-                    {!props.skills.length && <p className="settings-empty">No skills are installed in Lattice.</p>}
-                  </div>
-                )}
-              </div>
-            )}
-            {props.tab === "accounts" && (
-              <div className="settings-section">
-                <div className="settings-section-title"><div><h2>Subscriptions</h2><p>OMP manages sign-in and token refresh for Lattice.</p></div><SpinButton title="Refresh subscription status" busy={props.subscriptionsLoading} onClick={props.onRefreshSubscriptions} disabled={props.subscriptionsLoading}><RefreshCw size={14} /></SpinButton></div>
-                <div className="account-list">
-                  {props.subscriptions.map((account) => (
-                    <div className="account-card" key={account.provider}>
-                      <div className={`account-mark ${account.loggedIn ? "connected" : ""}`}>{account.provider === "codex" ? "O" : "C"}</div>
-                      <div><strong>{account.provider === "codex" ? "Codex subscription" : "Claude subscription"}</strong><small>{account.detail}</small></div>
-                      {!account.loggedIn && <button disabled={!account.installed || props.subscriptionsLoading} onClick={() => props.onSubscriptionLogin(account.provider)}>Sign in with OMP</button>}
-                      {account.loggedIn && <span className="connected-label"><Check size={12} /> Connected</span>}
-                    </div>
-                  ))}
-                  {!props.subscriptions.length && <p className="settings-empty">{props.subscriptionsLoading ? "Checking local subscriptions…" : "Refresh to check local subscriptions."}</p>}
-                </div>
-                {props.subscriptionNotice && <p className="settings-notice">{props.subscriptionNotice}</p>}
-              </div>
-            )}
-            {props.tab === "api" && (
-              <div className="settings-section">
-                <h2>API keys</h2>
-                <p>API keys are optional and only used by the API providers. OMP authenticates subscription providers separately.</p>
-                <label>Provider
-                  <Select value={props.apiProvider} onValueChange={(value) => props.setApiProvider(value as "openai" | "anthropic")}>
-                    <SelectTrigger aria-label="Provider"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                      <SelectItem value="openai">OpenAI API</SelectItem>
-                      <SelectItem value="anthropic">Anthropic API</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <label>
-                  <span className="key-label">API key {props.apiConfigured && <span className="configured-label"><Check size={11} /> Configured</span>}</span>
-                  <input type="password" autoComplete="off" placeholder={props.apiConfigured ? "Enter a replacement key" : "Paste API key"} value={props.apiKey} onChange={(event) => props.setApiKey(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.apiKey.trim() && props.onSaveApiKey()} />
-                </label>
-                <div className="settings-api-actions">
-                  {props.apiConfigured && <button className="delete-key-button" onClick={props.onDeleteApiKey}><Trash2 size={13} /> Remove</button>}
-                  <span />
-                  <MotionButton className="primary-button" onClick={props.onSaveApiKey} disabled={!props.apiKey.trim()}>Save key</MotionButton>
-                </div>
-              </div>
-            )}
-            {props.tab === "doctor" && (
-              <div className="settings-section">
-                <div className="settings-section-title">
-                  <div>
-                    <h2>TeX doctor</h2>
-                    <p>Checks local LaTeX tools, SyncTeX, bibliography processors, and the bundled agent runtime.</p>
-                  </div>
-                  <SpinButton title="Run TeX doctor" busy={props.doctorBusy} onClick={props.onRunDoctor} disabled={props.doctorBusy}>
-                    <RefreshCw size={14} />
-                  </SpinButton>
-                </div>
-                {props.doctorReport && (
-                  <>
-                    <div className={`doctor-status ${props.doctorReport.ok ? "ok" : "bad"}`}>
-                      {props.doctorReport.ok ? "Ready to compile" : "Missing required tools"}
-                    </div>
-                    <ul className="doctor-checklist">
-                      {props.doctorReport.checks.map((check) => (
-                        <li key={check.name} className={check.ok ? "ok" : "bad"}>
-                          <strong>{check.name}</strong>
-                          <span>{check.detail}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="settings-api-actions">
-                      <button className="secondary-button" type="button" onClick={props.onOpenTexSetup}>
-                        Open install guide
-                      </button>
-                      <button className="secondary-button" type="button" onClick={props.onCopyDoctorSummary}>
-                        <Copy size={13} /> Copy summary
-                      </button>
-                    </div>
-                  </>
-                )}
-                {!props.doctorReport && !props.doctorBusy && (
-                  <>
-                    <p className="settings-empty">Run the doctor to inspect this Mac’s TeX toolchain.</p>
-                    <div className="settings-api-actions">
-                      <button className="secondary-button" type="button" onClick={props.onOpenTexSetup}>
-                        Open install guide
-                      </button>
-                    </div>
-                  </>
-                )}
-                {props.doctorBusy && <p className="settings-empty">Checking local tools…</p>}
-                {props.doctorNotice && <p className="settings-notice">{props.doctorNotice}</p>}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 
