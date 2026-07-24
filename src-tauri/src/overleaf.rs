@@ -984,6 +984,123 @@ pub fn clone_project(
     Ok(root)
 }
 
+/// One message in the project's collaborator chat.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafMessage {
+    pub id: String,
+    pub content: String,
+    pub author_name: String,
+    pub author_email: Option<String>,
+    /// Milliseconds since the epoch, as Overleaf reports it.
+    pub timestamp: i64,
+    /// True when this account wrote it, so the UI can side it.
+    pub mine: bool,
+}
+
+/// Read the project chat, oldest first.
+pub fn chat_messages(
+    config_dir: &Path,
+    root: &Path,
+    limit: u32,
+) -> Result<Vec<OverleafMessage>, String> {
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = sync_host(&state, &session);
+    let client = http_client(20)?;
+    let response = client
+        .get(format!(
+            "{host}/project/{}/messages?limit={limit}",
+            state.project_id
+        ))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    check_authenticated(&response)?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Overleaf returned {} for the project chat.",
+            response.status()
+        ));
+    }
+    let body: serde_json::Value = response.json().map_err(err)?;
+    let mut messages = parse_chat_messages(&body, session.email.as_deref());
+    // Overleaf answers newest-first; a conversation reads the other way.
+    messages.reverse();
+    Ok(messages)
+}
+
+fn parse_chat_messages(body: &serde_json::Value, my_email: Option<&str>) -> Vec<OverleafMessage> {
+    body.as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    let user = item.get("user");
+                    let first = user
+                        .and_then(|u| json_str(u, &["first_name", "firstName"]))
+                        .unwrap_or_default();
+                    let last = user
+                        .and_then(|u| json_str(u, &["last_name", "lastName"]))
+                        .unwrap_or_default();
+                    let email = user.and_then(|u| json_str(u, &["email"]));
+                    let name = format!("{first} {last}").trim().to_string();
+                    let name = if name.is_empty() {
+                        email.clone().unwrap_or_else(|| "Someone".to_string())
+                    } else {
+                        name
+                    };
+                    Some(OverleafMessage {
+                        id: json_str(item, &["id", "_id"])?,
+                        content: json_str(item, &["content"]).unwrap_or_default(),
+                        mine: match (my_email, email.as_deref()) {
+                            (Some(mine), Some(theirs)) => mine.eq_ignore_ascii_case(theirs),
+                            _ => false,
+                        },
+                        author_name: name,
+                        author_email: email,
+                        timestamp: item
+                            .get("timestamp")
+                            .and_then(|value| value.as_i64())
+                            .unwrap_or(0),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Post a message to the project chat.
+pub fn send_chat_message(config_dir: &Path, root: &Path, content: &str) -> Result<(), String> {
+    let content = content.trim();
+    if content.is_empty() {
+        return Err("Write a message first.".to_string());
+    }
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = sync_host(&state, &session);
+    let client = http_client(20)?;
+    let page = fetch_projects_page(&client, &host, &session.cookie)?;
+    let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
+    let response = client
+        .post(format!("{host}/project/{}/messages", state.project_id))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header("X-Csrf-Token", &csrf)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .json(&serde_json::json!({ "content": content }))
+        .send()
+        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    check_authenticated(&response)?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Overleaf returned {} when sending the message.",
+            response.status()
+        ));
+    }
+    Ok(())
+}
+
 /// Cheap "did anything change over there?" check.
 ///
 /// Overleaf's history API reports the project's newest version in a small JSON

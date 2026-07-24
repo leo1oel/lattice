@@ -913,6 +913,35 @@ fn overleaf_link(
     overleaf::project_link(&current_root(&state)?)
 }
 
+#[tauri::command]
+async fn overleaf_chat_messages(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    limit: Option<u32>,
+) -> Result<Vec<overleaf::OverleafMessage>, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    let limit = limit.unwrap_or(80);
+    tauri::async_runtime::spawn_blocking(move || overleaf::chat_messages(&config, &root, limit))
+        .await
+        .map_err(|error| format!("The Overleaf chat task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_send_chat_message(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    content: String,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::send_chat_message(&config, &root, &content)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf chat task stopped unexpectedly: {error}"))?
+}
+
 /// Dry run: what a sync would change, without writing or uploading anything.
 #[tauri::command]
 async fn overleaf_preview(
@@ -1490,6 +1519,8 @@ pub fn run() {
             overleaf_clone_project,
             overleaf_link,
             overleaf_probe,
+            overleaf_chat_messages,
+            overleaf_send_chat_message,
             overleaf_preview,
             overleaf_unlink,
             overleaf_sync,
