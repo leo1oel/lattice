@@ -14,7 +14,8 @@
     "tauri": "tauri",
     "collab:dev": "pnpm --dir collab-server run dev",
     "collab:deploy": "pnpm --dir collab-server run deploy",
-    "collab:login": "pnpm --dir collab-server run login"
+    "collab:login": "pnpm --dir collab-server run login",
+    "verify:overleaf": "node scripts/verify-overleaf.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

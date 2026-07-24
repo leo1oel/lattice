@@ -78,8 +78,19 @@ export class OtDocument {
   /**
    * The server accepted our in-flight operation. Anything typed since goes out
    * now, as a single operation.
+   *
+   * `version` is the version the operation applied at, as the server reports
+   * it. An older one is a duplicate acknowledgement and is ignored; a newer
+   * one means the server and this document disagree about history, which
+   * cannot be recovered from by guessing.
    */
-  acknowledge(): OtSendResult {
+  acknowledge(version?: number): OtSendResult {
+    if (version != null && version < this.version) return { send: null };
+    if (version != null && version !== this.version) {
+      throw new OtDesyncError(
+        `Overleaf acknowledged version ${version} while this document is at ${this.version}.`,
+      );
+    }
     if (!this.inflight) return { send: null };
     this.inflight = null;
     this.version += 1;

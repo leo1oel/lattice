@@ -82,6 +82,26 @@ describe("OtDocument", () => {
     expect(doc.version).toBe(3);
   });
 
+  it("ignores a repeated acknowledgement and refuses one from the future", () => {
+    // Overleaf acknowledges with the version the operation applied at, and can
+    // repeat it if an update was retried. Acting on the repeat would clear an
+    // operation that is genuinely still in flight.
+    const doc = new OtDocument("a", 7);
+    doc.local("ab");
+    expect(doc.acknowledge(7).send).toBeNull();
+    expect(doc.version).toBe(8);
+
+    doc.local("abc");
+    expect(doc.waiting).toBe(true);
+    // A stale repeat of the previous ack: ignored, ours stays in flight.
+    expect(doc.acknowledge(7).send).toBeNull();
+    expect(doc.waiting).toBe(true);
+    expect(doc.version).toBe(8);
+
+    // An acknowledgement past our version means the two histories disagree.
+    expect(() => doc.acknowledge(11)).toThrow(OtDesyncError);
+  });
+
   it("keeps local work when a remote edit lands first", () => {
     const doc = new OtDocument("hello world", 5);
     doc.local("hello brave world");            // insert at 6, in flight

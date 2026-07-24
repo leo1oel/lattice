@@ -27,7 +27,7 @@
 //! ```text
 //! 5:1+::{"name":"joinProject","args":[{"project_id":"<id>"}]}
 //! 5:2+::{"name":"joinDoc","args":["<docId>",{"encodeRanges":true}]}
-//! 5:3+::{"name":"applyOtUpdate","args":["<docId>",{"doc":"<docId>","op":[{"p":5,"i":"hello"}],"v":42,"meta":{"source":"<publicId>"}}]}
+//! 5:3+::{"name":"applyOtUpdate","args":["<docId>",{"doc":"<docId>","op":[{"p":5,"i":"hello"}],"v":42}]}
 //! 5:4+::{"name":"leaveDoc","args":["<docId>"]}
 //! 2::
 //! ```
@@ -125,6 +125,18 @@ pub enum RealtimeEvent {
     OtError {
         doc_id: String,
         message: String,
+    },
+    /// Overleaf accepted the operation we sent.
+    ///
+    /// The server does not echo an operation back to whoever sent it — the
+    /// originating client gets `{doc, v}` with no `op` at all, and everyone
+    /// else gets the operation. Treating that bare answer as an acknowledgement
+    /// is the whole of the client's send loop: miss it and the operation stays
+    /// in flight forever, and every later edit queues behind it unsent.
+    DocAck {
+        doc_id: String,
+        /// The version the operation applied at; the document moves to v + 1.
+        version: i64,
     },
     /// A comment thread was anchored to a span of an open document. Arrives
     /// when someone comments while we have the file open, so the marker can
@@ -488,17 +500,18 @@ struct JoinDocOptions {
     encode_ranges: bool,
 }
 
+/// What `applyOtUpdate` carries: the document, the operation, and the version
+/// it applies to.
+///
+/// No `meta`. Overleaf stamps `meta.source` with our own connection id on the
+/// way through — sending our own is not merely redundant, the server rejects
+/// the whole update with `Unrecognized key: "source"`, which is what stopped
+/// every edit we tried to make and quietly dropped us back to syncing.
 #[derive(Serialize)]
 struct OtUpdate<'a> {
     doc: &'a str,
     op: Vec<OtOp>,
     v: i64,
-    meta: OtMeta<'a>,
-}
-
-#[derive(Serialize)]
-struct OtMeta<'a> {
-    source: &'a str,
 }
 
 fn encode_event<A: Serialize>(name: &str, args: A) -> Result<String, String> {
@@ -1030,6 +1043,13 @@ fn doc_update_events(value: &Value) -> Vec<RealtimeEvent> {
         return Vec::new();
     };
     let version = value.get("v").and_then(Value::as_i64).unwrap_or(-1);
+    // No operation at all: this is the server telling us our own update landed.
+    if value.get("op").is_none() {
+        return match version {
+            -1 => Vec::new(),
+            version => vec![RealtimeEvent::DocAck { doc_id, version }],
+        };
+    }
     let mut ops: Vec<OtOp> = Vec::new();
     let mut events: Vec<RealtimeEvent> = Vec::new();
     if let Some(raw) = value.get("op").and_then(Value::as_array) {
@@ -1197,12 +1217,16 @@ impl RealtimeClient {
         });
 
         rt::spawn(write_loop(sink, out_rx));
-        // Arm the `1::` waiter before the reader can possibly see it.
+        // Arm both waiters before the reader can possibly see what resolves
+        // them. A server that joins us from the handshake query pushes
+        // `joinProjectResponse` immediately after accepting the connection,
+        // and an answer that arrives before anyone is waiting is simply lost.
         let connect_slot = open_slot(
             &shared,
             CONNECT_SLOT,
             "Overleaf's realtime connect handshake".to_string(),
         );
+        let join_slot = open_slot(&shared, JOIN_SLOT, "Overleaf's project join".to_string());
         rt::spawn(read_loop(source, shared.clone()));
         await_slot(&shared, connect_slot).await?;
 
@@ -1211,7 +1235,6 @@ impl RealtimeClient {
         // handshake query and pushes `joinProjectResponse` down. Ask, and take
         // whichever answer arrives first, so both work without guessing which
         // server we are talking to.
-        let join_slot = open_slot(&shared, JOIN_SLOT, "Overleaf's project join".to_string());
         {
             let shared = shared.clone();
             let project_id = project_id.clone();
@@ -1304,20 +1327,18 @@ impl RealtimeClient {
         if ops.is_empty() {
             return Ok(());
         }
-        let source = lock(&self.shared.public_id).clone();
         let update = OtUpdate {
             doc: doc_id,
             op: ops,
             v: version,
-            meta: OtMeta { source: &source },
         };
         let ack = emit_with_ack(&self.shared, "applyOtUpdate", (doc_id, update)).await?;
         ack_body(&ack, "applyOtUpdate")?;
         Ok(())
     }
 
-    /// The id Overleaf gave this session; ops we send carry it as
-    /// `meta.source`, and echoes of our own edits carry it back.
+    /// The id Overleaf gave this session. The server stamps it onto every
+    /// update we send, so an echo carrying it is our own work coming back.
     pub fn public_id(&self) -> String {
         lock(&self.shared.public_id).clone()
     }
@@ -1557,14 +1578,14 @@ mod tests {
                         d: None,
                     }],
                     v: 42,
-                    meta: OtMeta { source: "pub-1" },
                 },
             ),
         )
         .expect("encodes");
+        // No `meta`: Overleaf fills it in, and rejects the update if we do.
         assert_eq!(
             payload,
-            r#"{"name":"applyOtUpdate","args":["doc-1",{"doc":"doc-1","op":[{"p":5,"i":"hello"}],"v":42,"meta":{"source":"pub-1"}}]}"#
+            r#"{"name":"applyOtUpdate","args":["doc-1",{"doc":"doc-1","op":[{"p":5,"i":"hello"}],"v":42}]}"#
         );
     }
 
@@ -1972,6 +1993,162 @@ mod tests {
         panic!("timed out waiting for {what}");
     }
 
+    /// Talks to the real Overleaf, using the session the app already stored.
+    ///
+    /// The mock server proves the protocol is implemented; only this proves it
+    /// is the protocol Overleaf actually speaks. Run it by hand:
+    ///
+    /// ```text
+    /// OVERLEAF_E2E_PROJECT=<project root> \
+    ///   cargo test --manifest-path src-tauri/Cargo.toml \
+    ///   overleaf_rt::tests::connects_to_the_real_overleaf -- --ignored --nocapture
+    /// ```
+    #[test]
+    #[ignore = "talks to overleaf.com with the signed-in session"]
+    fn connects_to_the_real_overleaf() {
+        let root = std::path::PathBuf::from(
+            std::env::var("OVERLEAF_E2E_PROJECT").expect("set OVERLEAF_E2E_PROJECT"),
+        );
+        let config = std::env::var("OVERLEAF_E2E_CONFIG")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| {
+                std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
+                    .join("Library/Application Support/app.leo1oel.researchwriter")
+            });
+        let (host, cookie, project_id) =
+            crate::overleaf::realtime_config(&config, &root).expect("a linked project");
+        println!("host={host} project={project_id}");
+
+        let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let sink = events.clone();
+        let client = rt::block_on(RealtimeClient::connect(
+            RealtimeConfig {
+                host,
+                cookie,
+                project_id,
+            },
+            move |event| lock(&sink).push(event),
+        ))
+        .expect("connect to Overleaf");
+
+        println!("public id: {:?}", client.public_id());
+        println!("root folder: {}", client.project().root_folder_id);
+        for doc in &client.project().docs {
+            println!("  doc {} -> {}", doc.id, doc.path);
+        }
+        assert!(
+            !client.project().docs.is_empty(),
+            "Overleaf reported no documents"
+        );
+
+        let first = client.project().docs[0].clone();
+        let joined = rt::block_on(client.join_doc(&first.id)).expect("joinDoc");
+        println!(
+            "joined {} at v{} ({} chars, {} comments)",
+            first.path,
+            joined.version,
+            joined.text.len(),
+            joined.comments.len()
+        );
+        assert!(joined.version >= 0);
+        client.shutdown();
+    }
+
+    /// Sends a real operation to a real document and checks it comes back.
+    ///
+    /// This is the part the mock cannot prove: that the ops we build are the
+    /// ops Overleaf accepts, that it echoes them with our own id, and that the
+    /// version advances the way the state machine assumes. It edits the
+    /// document named by `OVERLEAF_E2E_DOC` (an inserted character, then the
+    /// same character deleted), leaving the text exactly as it found it.
+    #[test]
+    #[ignore = "edits a document on overleaf.com with the signed-in session"]
+    fn edits_a_document_through_the_real_overleaf() {
+        let root = std::path::PathBuf::from(
+            std::env::var("OVERLEAF_E2E_PROJECT").expect("set OVERLEAF_E2E_PROJECT"),
+        );
+        let target = std::env::var("OVERLEAF_E2E_DOC").expect("set OVERLEAF_E2E_DOC");
+        let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+        let (host, cookie, project_id) =
+            crate::overleaf::realtime_config(&config, &root).expect("a linked project");
+
+        let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let sink = events.clone();
+        let client = rt::block_on(RealtimeClient::connect(
+            RealtimeConfig {
+                host,
+                cookie,
+                project_id,
+            },
+            move |event| lock(&sink).push(event),
+        ))
+        .expect("connect to Overleaf");
+
+        let doc = client
+            .project()
+            .docs
+            .iter()
+            .find(|doc| doc.path == target)
+            .unwrap_or_else(|| panic!("no document named {target}"))
+            .clone();
+        let joined = rt::block_on(client.join_doc(&doc.id)).expect("joinDoc");
+        let before = joined.text.clone();
+        println!("editing {} at v{}", doc.path, joined.version);
+
+        /// Waits for the server to acknowledge an operation at `at`, and
+        /// answers with the version the document has moved to.
+        fn acked(events: &Arc<Mutex<Vec<RealtimeEvent>>>, doc_id: &str, at: i64) -> i64 {
+            let deadline = Instant::now() + Duration::from_secs(15);
+            while Instant::now() < deadline {
+                let seen = lock(events).iter().any(|event| {
+                    matches!(
+                        event,
+                        RealtimeEvent::DocAck { doc_id: id, version } if id == doc_id && *version == at
+                    )
+                });
+                if seen {
+                    return at + 1;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            panic!("Overleaf never acknowledged our update on {doc_id}");
+        }
+
+        rt::block_on(client.send_ops(
+            &doc.id,
+            joined.version,
+            vec![OtOp {
+                p: 0,
+                i: Some("x".into()),
+                d: None,
+            }],
+        ))
+        .expect("send the insert");
+        let after_insert = acked(&events, &doc.id, joined.version);
+        println!("insert accepted, now at v{after_insert}");
+
+        rt::block_on(client.send_ops(
+            &doc.id,
+            after_insert,
+            vec![OtOp {
+                p: 0,
+                i: None,
+                d: Some("x".into()),
+            }],
+        ))
+        .expect("send the delete");
+        let after_delete = acked(&events, &doc.id, after_insert);
+        println!("delete accepted, now at v{after_delete}");
+
+        // Read it back from the server rather than trusting our own bookkeeping.
+        rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
+        let again = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
+        assert_eq!(again.text, before, "the document did not come back unchanged");
+        println!("document unchanged at v{}", again.version);
+        client.shutdown();
+    }
+
     #[test]
     fn comment_operations_never_reach_the_text_stream() {
         let events = doc_update_events(&json!({
@@ -2024,6 +2201,18 @@ mod tests {
             other => panic!("expected CommentAnchored, got {other:?}"),
         }
         assert_eq!(events.len(), 2);
+
+        // Our own update coming back carries no operation at all. That is the
+        // acknowledgement, and it must not be mistaken for an empty edit.
+        let ack = doc_update_events(&json!({"doc": "doc-1", "v": 46}));
+        assert_eq!(ack.len(), 1);
+        match &ack[0] {
+            RealtimeEvent::DocAck { doc_id, version } => {
+                assert_eq!(doc_id, "doc-1");
+                assert_eq!(*version, 46);
+            }
+            other => panic!("expected DocAck, got {other:?}"),
+        }
 
         // A comment on its own still moves the version, so the update goes out
         // with no ops rather than not at all.
@@ -2242,7 +2431,7 @@ mod tests {
             vec![
                 &r#"5:1+::{"name":"joinProject","args":[{"project_id":"proj-1"}]}"#.to_string(),
                 &r#"5:2+::{"name":"joinDoc","args":["doc-1",{"encodeRanges":true}]}"#.to_string(),
-                &r#"5:3+::{"name":"applyOtUpdate","args":["doc-1",{"doc":"doc-1","op":[{"p":5,"i":"hello"}],"v":42,"meta":{"source":"pub-1"}}]}"#.to_string(),
+                &r#"5:3+::{"name":"applyOtUpdate","args":["doc-1",{"doc":"doc-1","op":[{"p":5,"i":"hello"}],"v":42}]}"#.to_string(),
                 &r#"5:4+::{"name":"leaveDoc","args":["doc-1"]}"#.to_string(),
             ]
         );

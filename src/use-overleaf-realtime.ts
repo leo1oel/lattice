@@ -27,6 +27,7 @@ type RealtimeEvent =
   | { type: "connected"; publicId: string }
   | { type: "projectJoined"; rootFolderId: string; docs: DocEntry[] }
   | { type: "docUpdate"; docId: string; version: number; ops: OtOp[]; source: string | null }
+  | { type: "docAck"; docId: string; version: number }
   | { type: "commentAnchored"; docId: string; range: CommentRange }
   | { type: "otError"; docId: string; message: string }
   | { type: "disconnected"; reason: string };
@@ -150,6 +151,23 @@ export function useOverleafRealtime(options: {
         );
         return;
       }
+      if (payload.type === "docAck") {
+        // Overleaf never sends an operation back to whoever sent it: the
+        // originating client gets the version alone, and that is the
+        // acknowledgement. Without acting on it the operation would stay in
+        // flight forever and every later edit would queue behind it unsent.
+        const doc = document.current;
+        if (!doc || payload.docId !== docId.current) return;
+        try {
+          void flush(doc.acknowledge(payload.version).send);
+        } catch (reason) {
+          fail(reason instanceof Error ? reason.message : String(reason));
+          callbacks.current.onNotice(
+            "This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.",
+          );
+        }
+        return;
+      }
       if (payload.type === "commentAnchored") {
         // Someone commented on the file we have open; show the marker without
         // making them re-open it.
@@ -166,11 +184,9 @@ export function useOverleafRealtime(options: {
 
       const doc = document.current;
       if (!doc || payload.docId !== docId.current) return;
-      // Our own work coming back is the acknowledgement, not a new edit.
-      if (payload.source && publicId.current && payload.source === publicId.current) {
-        void flush(doc.acknowledge().send);
-        return;
-      }
+      // Our own work coming back is already in this copy; only the separate
+      // acknowledgement moves the state machine on.
+      if (payload.source && publicId.current && payload.source === publicId.current) return;
       try {
         const caret = callbacks.current.readCaret();
         const { text, applied } = doc.remote(payload.ops, payload.version);

@@ -28,6 +28,9 @@ const tauriCore = vi.hoisted(() => {
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), Channel: tauriCore.MockChannel }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
+// Unmocked, every `listen` reaches for Tauri's IPC bridge and rejects, which
+// jsdom reports as an unhandled rejection for each subscription App makes.
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn(), openUrl: vi.fn() }));
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
