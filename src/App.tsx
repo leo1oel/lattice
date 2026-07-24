@@ -405,9 +405,9 @@ function App() {
   const overleafAutoSyncedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
   /** How often live mode asks Overleaf whether anything changed. */
-  const OVERLEAF_LIVE_POLL_MS = 5_000;
-  /** Quiet time after typing before local work is pushed up. */
-  const OVERLEAF_PUSH_DEBOUNCE_MS = 4_000;
+  const OVERLEAF_LIVE_POLL_MS = 3_000;
+  /** Quiet time after a save before local work is pushed up. */
+  const OVERLEAF_PUSH_DEBOUNCE_MS = 2_500;
   const lastAutoSyncRef = useRef(0);
   const lastAutoVersionRef = useRef(0);
   const [collabRole, setCollabRole] = useState<"host" | "guest">("host");
@@ -1588,12 +1588,26 @@ function App() {
   // was almost always cancelled before it ran.
   useEffect(() => {
     if (!overleafLink || overleafSyncMode !== "live" || saveGeneration === 0) return;
-    const timer = window.setTimeout(() => {
-      if (Date.now() - lastAutoSyncRef.current < 5_000) return;
+    let cancelled = false;
+    let timer: number | null = null;
+    const attempt = () => {
+      if (cancelled) return;
+      // If a sync ran moments ago, wait out the remainder instead of dropping
+      // the push — dropping meant the edit sat here until something else
+      // happened to sync, which is what made pushes feel like they never came.
+      const wait = OVERLEAF_PUSH_DEBOUNCE_MS - (Date.now() - lastAutoSyncRef.current);
+      if (wait > 0) {
+        timer = window.setTimeout(attempt, wait);
+        return;
+      }
       lastAutoSyncRef.current = Date.now();
       void overleafSyncRef.current({ auto: true });
-    }, OVERLEAF_PUSH_DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
+    };
+    timer = window.setTimeout(attempt, OVERLEAF_PUSH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
   }, [overleafLink, overleafSyncMode, saveGeneration]);
 
   // Manual mode never syncs on its own; it just watches for incoming work so
