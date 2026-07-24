@@ -116,13 +116,13 @@ import {
   tryParseEditorComments,
 } from "./editor-comments";
 import { useUpdater, type UpdateMode } from "./app-updater";
+import { useAppearance } from "./use-appearance";
 import {
   type Theme,
   type RecentProject,
   type AutoBuildMode,
   type BuildPreferences,
   type PaperReadingWidth,
-  THEME_KEY,
   BUILD_PREFERENCES_KEY,
   NAVIGATOR_OPEN_KEY,
   AGENT_OPEN_KEY,
@@ -131,7 +131,6 @@ import {
   clamp,
   loadRecentProjects,
   persistRecentProjects,
-  loadTheme,
   loadBuildPreferences,
   loadSystemPrompt,
   loadSplitRatio,
@@ -146,11 +145,9 @@ import {
   type PanelKind,
   type PanelWidths,
   type AppearanceSettings,
-  APPEARANCE_KEY,
   loadPanelWidths,
   persistPanelWidths,
   resizePanelWidths,
-  loadAppearance,
 } from "./app-settings";
 import {
   type EditorComment,
@@ -560,7 +557,7 @@ function App() {
     if (project?.root && activeFile) persistLastFile(project.root, activeFile);
   }, [project?.root, activeFile]);
   const [panelWidths, setPanelWidths] = useState<PanelWidths>(loadPanelWidths);
-  const [theme, setTheme] = useState<Theme>(loadTheme);
+  const { theme, setTheme, appearance, setAppearance } = useAppearance();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
@@ -580,7 +577,6 @@ function App() {
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
-  const [appearance, setAppearance] = useState<AppearanceSettings>(loadAppearance);
   const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
   const [systemPrompt, setSystemPrompt] = useState(loadSystemPrompt);
   const [agentSkills, setAgentSkills] = useState<AgentSkill[]>([]);
@@ -2018,34 +2014,6 @@ function App() {
       active = false;
     };
   }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    try {
-      localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      // Theme changes still apply for the current session without storage.
-    }
-  }, [theme]);
-
-  useEffect(() => {
-    document.documentElement.style.setProperty("--ui-font", appearance.uiFont);
-    document.documentElement.style.setProperty("--editor-font", appearance.editorFont);
-    document.documentElement.style.setProperty("--editor-font-size", `${appearance.editorFontSize}px`);
-    try {
-      localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance));
-    } catch {
-      // Appearance changes still apply for the current session without storage.
-    }
-  }, [appearance]);
-
-  useEffect(() => {
-    void import("@tauri-apps/api/webview")
-      .then(({ getCurrentWebview }) => getCurrentWebview().setZoom(appearance.interfaceScale))
-      .catch(() => {
-        // Browser-based tests and previews do not expose native webview zoom.
-      });
-  }, [appearance.interfaceScale]);
 
   // Measure the sidebar toggle and tell AppKit to center traffic lights on it.
   // No OS-specific nudges — host and VM share the same geometry once zoom is applied.
