@@ -1,57 +1,85 @@
 # Lattice
 
-Lattice is a local-first, agent-first scientific LaTeX writing environment for macOS.
-It keeps the project folder authoritative while connecting direct LaTeX editing, rendered PDF review, imported arXiv evidence, citation management, and local Codex or Claude sessions in one desktop application.
+A local-first, agent-first LaTeX writing environment for scientific papers, built for macOS.
 
-This repository contains an early working prototype.
-It is intended to validate the complete writing loop before collaboration and hosted services are added.
+Lattice keeps your project folder authoritative and puts direct LaTeX editing, rendered PDF review, imported arXiv evidence, citation management, real-time collaboration, and a local Codex or Claude agent in one desktop app.
+The manuscript stays a normal LaTeX project on disk, so nothing here locks you in.
 
-## What works today
+This is an early but working build.
+It targets Apple Silicon Macs and ships signed auto-updates.
 
-- Create a new research project or open an existing LaTeX folder.
-- Start new projects with the official NeurIPS 2026 preprint style and a concise research-paper skeleton.
-- Browse, create, delete, scroll, and directly edit project source files with a full-height, soft-wrapping CodeMirror canvas; new source files automatically receive a `.tex` suffix and reject unsupported extensions.
-- Write in a softly tinted CodeMirror canvas with MonoLisa as the default editor font and parser-aware LaTeX highlighting derived from the Lux Light palette.
-- Get automatic braces after citation commands, bibliography-key completion inside `\\cite{...}`, citation metadata on `\\cite` hover, and local figure, table, equation, or section previews on `\\ref` hover, including first-page thumbnails for PDF figures.
-- Compile the default root document with the local `latexmk` installation, including an immediate build whenever a project is entered.
-- Choose manual builds or automatic builds that run when you leave the editor or pause typing for 1.2 seconds.
-- Review every generated PDF page in one continuously scrolling column beside the source, with a draggable split divider and a themed PDF.js toolbar for page navigation, zoom, native Save As export, and click-to-source SyncTeX navigation.
-- Drag PNG, JPEG, PDF, SVG, EPS, or WebP figures onto a project folder, or import them through the figures-folder action.
-- Click a project figure to preview it in the writing canvas, or drag it from Project onto a LaTeX line to insert an editable `figure` block at that position.
-- Drop an external figure directly onto the LaTeX editor to import and insert it in one step; SVG and WebP sources are converted to shareable PDF or PNG companions for reliable LaTeX builds.
-- Import an arXiv paper as Markdown with `arxiv2md`.
-- Add every imported paper to the project bibliography through `bibcite`.
-- Browse imported papers by title, read their Markdown snapshots, and remove a paper together with its `bibcite`-managed bibliography entry. Re-adding the same arXiv paper, including another version URL, reuses the existing import without touching the project.
-- Search project filenames and source contents together with imported paper titles from one navigator field, with punctuation-tolerant multi-word matching.
-- Ask a local Codex or Claude Code session to make evidence-aware project edits while its visible response streams into the conversation.
-- Manage bundled, all-project, and project-only skills from Settings, including adding, editing, disabling, deleting, and restoring overrides without installing anything into a global agent directory.
-- Search OpenAlex for candidate related work on demand while keeping discovery metadata separate from evidence that is safe to cite.
-- Use an OpenAI or Anthropic API key with the same streamed response experience instead of a local subscription.
-- Switch between Codex and Claude between messages, with current full model names and model-specific reasoning-effort controls for subscriptions and APIs.
-- Sign in to Codex or Claude through OMP from Settings without installing or operating a separate CLI login screen.
-- Create, search, restore, and delete project-local agent conversations, copy any user or agent message, or edit an earlier user message to continue on a new OMP branch while restoring the project files to that turn and preserving the original conversation; user actions stay outside the message bubble and appear on hover.
-- Save direct edits, imports, and agent changes as atomic project transactions, retaining the latest 100 entries per project.
-- Inspect project history and revert a transaction.
-- Resize the Project and Papers regions vertically and preserve that layout across launches.
-- Drag the macOS window from non-interactive title-bar space, with native traffic lights aligned to the project controls.
-- Choose the light or dark theme, interface and editor fonts, scale the entire interface from 90% to 135%, and set editor text from 10 to 24 pixels in Settings, with a more readable 110% default scale and reduced-motion support.
+## Features
 
-## Current boundaries
+### Writing and editing
 
-This prototype does not yet implement realtime collaboration, CRDT synchronization, cloud accounts, source-to-PDF SyncTeX forward navigation, MCP tool exposure, or semantic embeddings.
-The local agent experience uses the bundled Oh My Pi backend for model access, streaming, tools, and conversation branching, with application-local skills, optional user-owned system prompts, and a bibliography prehook that redirects `.bib` edits through `bibcite`.
-Imported paper retrieval is currently a lightweight lexical ranking over project snapshots.
+- Create a new project from the bundled NeurIPS 2026 preprint style and a concise paper skeleton, or open an existing LaTeX folder.
+- Edit source in a soft-wrapping CodeMirror canvas with parser-aware LaTeX highlighting, optional Vim or Emacs keymaps, and automatic `.tex` suffixing for new files.
+- Get braces after citation commands, key completion inside `\cite{...}`, citation metadata on `\cite` hover, and `\ref` hover previews for figures, tables, equations, and sections, including first-page thumbnails for PDF figures.
+- Compile the root document with your local `latexmk`, either manually or automatically when you leave the editor or pause typing for 1.2 seconds.
 
-## Prerequisites
+### PDF review
 
-The desktop application currently targets macOS.
-Install the following tools before running it:
+- Read every generated page in one continuously scrolling column beside the source, with a draggable split divider.
+- Navigate, zoom, and export through a themed PDF.js toolbar, and click a rendered line to jump back to its source with SyncTeX.
+
+### Figures
+
+- Drag PNG, JPEG, PDF, SVG, EPS, or WebP files onto a project folder, or add them through the figures action.
+- Click a figure to preview it in the canvas, or drag it onto a LaTeX line to insert an editable `figure` block at that spot.
+- SVG and WebP sources are converted to PDF or PNG companions so the LaTeX build stays reliable.
+
+### Papers and citations
+
+- Import an arXiv paper as Markdown with `arxiv2md` and add it to the bibliography through `bibcite`.
+- Browse imported papers by title, read their Markdown snapshots, and remove a paper together with its bibliography entry.
+- Re-adding the same arXiv paper, including a different version URL, reuses the existing import instead of touching the project.
+- Search project filenames, source contents, and imported paper titles from one navigator field, with punctuation-tolerant multi-word matching.
+- Search OpenAlex for candidate related work on demand, kept separate from evidence that is safe to cite.
+
+### Live collaboration
+
+- Share an open project in real time over a CRDT, so edits, figures, papers, and inline comments sync as everyone types, including each other's named cursors in the editor.
+- Guests join from an invite into a fresh folder under `Documents/Lattice Shares`, and their other local projects are never touched.
+- Each room is protected by a secret token in the invite, the shared document is persisted on the server, and idle rooms are reclaimed automatically.
+- Reopen a recent share from the dialog to rejoin without pasting an invite again.
+- The PDF stays local, so each machine rebuilds it after sync.
+
+### The writing agent
+
+- Ask a local Codex or Claude Code session to make evidence-aware edits while its response streams into the conversation.
+- Switch between Codex and Claude between messages, with current model names and model-specific reasoning-effort controls.
+- Sign in through Oh My Pi from Settings, or use your own OpenAI or Anthropic API key stored in the macOS Keychain.
+- Manage bundled, all-project, and project-only skills from Settings without installing anything into a global agent directory.
+- Create, search, restore, and delete project-local conversations, copy any message, or edit an earlier message to branch a new attempt while restoring the project files to that turn.
+
+### History and layout
+
+- Every direct edit, import, and agent change is saved as one reversible transaction, keeping the latest 100 per project.
+- Inspect the project history and revert any transaction.
+- The layout is remembered across launches, including panel sizes, whether the navigator or agent is collapsed, and the file you last had open in each project.
+- Choose light or dark theme, interface and editor fonts, interface scale from 90% to 135%, and editor text from 10 to 24 pixels, with reduced-motion support.
+
+## Tech stack
+
+- **Desktop shell:** Tauri 2, a Rust core driving the system WebView. Auto-updates run through `tauri-plugin-updater`, and API keys live in the macOS Keychain via `keyring`.
+- **Frontend:** React 19 and TypeScript, bundled with Vite 7. Tailwind CSS v4 for styling, Motion and GSAP for animation, Radix UI primitives, and lucide-react icons.
+- **Editor:** CodeMirror 6 with `codemirror-lang-latex`, optional Vim and Emacs keymaps, and `y-codemirror.next` for collaborative cursors.
+- **PDF and math:** `pdfjs-dist` renders the PDF; `katex`, `marked`, and `dompurify` render and sanitize imported paper Markdown.
+- **Collaboration:** Yjs with `y-protocols` and `y-partyserver`, synced through a Cloudflare Worker backed by a SQLite Durable Object (the `collab-server/` package).
+- **Rust backend:** project validation, transactions, subprocess execution, LaTeX compilation, paper import, and the agent bridge, using `serde`, `reqwest`, `rusqlite`, `walkdir`, `chrono`, and `objc2` for native macOS window details.
+- **Agent runtime:** Oh My Pi (`@oh-my-pi/pi-coding-agent`) for model access, streaming, tools, and conversation branching across Codex and Claude.
+- **Tooling:** Vitest and Testing Library, ESLint with typescript-eslint, and `cargo test` with Clippy.
+
+## Getting started
+
+Lattice targets macOS.
+Install these first:
 
 - Node.js and `pnpm`.
 - Rust and Cargo.
 - MacTeX or TeX Live with `latexmk`.
 - `uv`, which runs `arxiv2md` and provides the `bibcite` fallback.
-- A Codex or Claude subscription authenticated through OMP in Lattice Settings, or an OpenAI or Anthropic API key.
+- A Codex or Claude subscription signed in through Oh My Pi, or an OpenAI or Anthropic API key.
 
 Installing `bibcite` as a persistent tool avoids its one-time fallback startup cost:
 
@@ -59,26 +87,32 @@ Installing `bibcite` as a persistent tool avoids its one-time fallback startup c
 uv tool install bibcite-cli
 ```
 
-## Quick start
+Then run the app:
 
 ```bash
 pnpm install
 pnpm tauri dev
 ```
 
-Choose **New project** to create a NeurIPS 2026-style preprint, bibliography, project brief, and private transaction and conversation history.
-Choose **Open folder** to import an existing LaTeX directory.
-
+Choose **New project** for a NeurIPS 2026 preprint with a bibliography, brief, and private history, or **Open folder** to import an existing LaTeX directory.
 Press `Cmd+S` to save and build, or use the build button in the title bar.
 Paste an arXiv URL into the paper importer to add a Markdown snapshot and bibliography entry.
-Select LaTeX text before sending a message when the agent should focus on a specific passage.
-Use the project heading's plus button to add a LaTeX file or folder, and the row actions to remove project entries or imported papers.
-Right-click the project heading, any project entry, or an imported paper and choose **Show in Finder** to reveal its local file.
-The `.tex` suffix is optional while naming a new source file and is added automatically.
-Drag figure files anywhere over the Project pane to add them to `figures`, or drop them directly on another project directory to target that folder.
-Choose the agent model and effort directly above the conversation; the selection is saved with each project-local conversation.
-Open Settings to enlarge the interface, adjust fonts, choose automatic build behavior, sign in to Codex or Claude through OMP, or manage API keys.
-The key icon only appears for OpenAI API and Anthropic API providers and stores those keys in macOS Keychain.
+Select LaTeX text before sending a message when the agent should focus on a passage.
+
+## Live collaboration setup
+
+Sharing runs on a small Cloudflare Worker in `collab-server/`.
+The app ships pointing at a default host, so most people never touch this.
+
+To run your own sync server, deploy the worker to your Cloudflare account and point the app at it:
+
+```bash
+pnpm collab:login    # one-time wrangler login
+pnpm collab:deploy   # deploy the worker
+```
+
+Then paste the resulting `*.workers.dev` host into the dialog under Advanced, or set `VITE_LATTICE_COLLAB_HOST` before building.
+The worker uses Durable Objects with the free-tier SQLite storage backend, so a small deployment costs nothing.
 
 ## Project format
 
@@ -100,27 +134,26 @@ paper-project/
     └── omp-session-map/<conversation-id>.json
 ```
 
-The manuscript remains buildable if `.research` is removed.
-The sidecar contains application metadata, the durable research brief, imported evidence, local undo history, and agent conversations.
-History and conversations are ignored by the generated `.gitignore` because they may contain private manuscript context.
-The bundled source is the supplied NeurIPS 2026 style; new projects receive it as `neurips.sty` with the internal package name adjusted to match.
-That package did not include a separate license file, so Lattice records its provenance without assigning it the repository's Apache-2.0 license.
+The manuscript still builds if `.research` is removed.
+The sidecar holds application metadata, the research brief, imported evidence, local undo history, and agent conversations.
+History and conversations are git-ignored because they may contain private manuscript context.
+New projects receive the bundled NeurIPS 2026 style as `neurips.sty`, with its provenance recorded rather than relicensed under the repository's Apache-2.0 license.
 
 ## Safety model
 
-Every project path accepted from the interface is validated against the active project root.
-OMP runs with the user's local permissions and the project folder as its working directory, while Lattice records every resulting project-file change as one reversible transaction.
-Untrusted projects compile with shell escape disabled.
-The bundled prehook blocks direct bibliography writes and tells OMP to use the application-local `bibcite` skill instead.
-Direct API keys are stored in macOS Keychain and never enter project files or browser storage.
-Paper Markdown is sanitized before rendering.
+- Every project path from the interface is validated against the active project root.
+- The agent runs with your local permissions and the project folder as its working directory, and each resulting change is recorded as one reversible transaction.
+- Untrusted projects compile with shell escape disabled.
+- A bundled prehook blocks direct bibliography writes and routes them through the `bibcite` skill instead.
+- API keys stay in the macOS Keychain and never enter project files or browser storage.
+- Imported paper Markdown is sanitized before rendering.
 
 ## Architecture
 
 The React and TypeScript interface runs inside Tauri 2.
-Rust owns project validation, transactions, subprocess execution, LaTeX compilation, paper import, bibliography changes, and the OMP RPC bridge.
+Rust owns project validation, transactions, subprocess execution, LaTeX compilation, paper import, bibliography changes, and the agent RPC bridge.
 
-The central boundary is the document transaction layer:
+Local edits flow through one document transaction layer:
 
 ```text
 Direct editor ─┐
@@ -128,36 +161,37 @@ Paper import ──┼──> validated project edits ──> transaction record
 Writing agent ─┘
 ```
 
-This boundary is designed to become the `DocumentStore` abstraction used by later CRDT collaboration.
-OMP is the agent backend; Lattice keeps the UI, projects, LaTeX editor, paper library, and PDF review as the product-owned layers.
+Collaboration runs alongside this on a separate CRDT path.
+The desktop app mirrors project files into a Yjs document, syncs it through the Cloudflare Worker, and writes remote changes back to disk, while each peer compiles the PDF locally.
+Oh My Pi is the agent backend, and Lattice keeps the UI, projects, editor, paper library, PDF review, and collaboration as the product-owned layers.
 
 ## Development
 
-Run the complete local verification suite with:
+Run the full local verification suite:
 
 ```bash
 pnpm check
 ```
 
-The suite runs frontend linting, frontend tests, a production web build, Rust unit tests, and Clippy with warnings treated as errors.
+This runs frontend lint, frontend tests, a production web build, Rust unit tests, and Clippy with warnings treated as errors.
 
-Build the macOS application bundle with:
+Build the macOS application bundle:
 
 ```bash
 pnpm tauri build
 ```
 
-## Next milestones
+## Roadmap
 
-1. Harden OMP cancellation, tool-progress rendering, legacy-conversation migration, and recovery after an interrupted agent process.
-2. Add PDF selection and annotation plus source-to-PDF SyncTeX navigation.
-3. Add TexLab diagnostics and completion to the source editor.
-4. Add SQLite FTS5 indexing and evaluate a PaperQA2 sidecar for semantic evidence retrieval.
-5. Add one-click switching from the bundled NeurIPS 2026 style to current ICML, ICLR, and other venue templates.
-6. Harden skill import upgrades, on-demand figure downloads, provenance sidecars, and failure recovery.
-7. Introduce a CRDT-backed `DocumentStore` behind the existing transaction interface before adding collaboration UI.
+- Harden agent cancellation, tool-progress rendering, and recovery after an interrupted agent process.
+- Add PDF selection and annotation, and source-to-PDF SyncTeX navigation.
+- Add TexLab diagnostics and completion to the editor.
+- Add SQLite FTS5 indexing and evaluate a semantic evidence-retrieval sidecar.
+- Add one-click switching from the NeurIPS 2026 style to ICML, ICLR, and other venue templates.
+- Add authentication and cross-device persistence to shared rooms.
 
 ## License
 
 Lattice is licensed under the Apache License 2.0.
 GSAP is distributed under its own license and is used only for interface animation.
+The bundled NeurIPS 2026 style keeps its original provenance and is not relicensed.
