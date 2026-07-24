@@ -10,6 +10,8 @@
  * rest of the app.
  */
 
+import { DEFAULT_UI_FONT, DEFAULT_EDITOR_FONT, UI_FONT_OPTIONS, EDITOR_FONT_OPTIONS, resolveFontValue } from "./available-fonts";
+
 export type Theme = "light" | "dark";
 export type RecentProject = { name: string; path: string };
 export type AutoBuildMode = "manual" | "automatic";
@@ -187,4 +189,110 @@ export function persistPanelOpen(key: string, open: boolean) {
   } catch {
     // Layout still toggles this session without storage.
   }
+}
+
+export type PanelKind = "navigator" | "agent";
+export type PanelWidths = { navigator: number; agent: number };
+
+type EditorKeymap = "default" | "vim" | "emacs";
+export type AppearanceSettings = {
+  uiFont: string;
+  interfaceScale: number;
+  editorFont: string;
+  editorFontSize: number;
+  editorKeymap: EditorKeymap;
+  editorSpellcheck: boolean;
+  maxOpenTabs: number;
+};
+
+export const PANEL_WIDTHS_KEY = "lattice.panel-widths.v2";
+export const APPEARANCE_KEY = "lattice.appearance.v4";
+export const LEGACY_APPEARANCE_KEY = "lattice.appearance.v3";
+
+export function loadPanelWidths(): PanelWidths {
+  // Keep navigator/agent narrower so the editor + PDF canvas get more room by default.
+  const defaults = { navigator: 200, agent: 280 };
+  // A panel may have been dragged out to half the window; honour that on reload,
+  // re-clamped to this screen's half so a saved width never dwarfs a smaller one.
+  const half = typeof window !== "undefined" ? window.innerWidth / 2 : 600;
+  try {
+    const value = JSON.parse(localStorage.getItem(PANEL_WIDTHS_KEY) ?? "null") as Partial<PanelWidths> | null;
+    return {
+      navigator: clamp(Number(value?.navigator) || defaults.navigator, 160, Math.max(160, half)),
+      agent: clamp(Number(value?.agent) || defaults.agent, 260, Math.max(260, half)),
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+export function loadAppearance(): AppearanceSettings {
+  const defaults: AppearanceSettings = {
+    uiFont: DEFAULT_UI_FONT,
+    interfaceScale: 1.1,
+    editorFont: DEFAULT_EDITOR_FONT,
+    editorFontSize: 14,
+    editorKeymap: "default",
+    editorSpellcheck: false,
+    maxOpenTabs: 5,
+  };
+  try {
+    const current = localStorage.getItem(APPEARANCE_KEY);
+    const legacy = localStorage.getItem(LEGACY_APPEARANCE_KEY);
+    const value = JSON.parse(current ?? legacy ?? "null") as Partial<AppearanceSettings> | null;
+    return {
+      uiFont: resolveFontValue(
+        typeof value?.uiFont === "string" ? value.uiFont : undefined,
+        UI_FONT_OPTIONS,
+        defaults.uiFont,
+      ),
+      interfaceScale: clamp(Number(value?.interfaceScale) || defaults.interfaceScale, 0.9, 1.35),
+      editorFont: resolveFontValue(
+        typeof value?.editorFont === "string" ? value.editorFont : undefined,
+        EDITOR_FONT_OPTIONS,
+        defaults.editorFont,
+      ),
+      editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 24),
+      editorKeymap: value?.editorKeymap === "vim"
+        ? "vim"
+        : value?.editorKeymap === "emacs"
+          ? "emacs"
+          : "default",
+      editorSpellcheck: value?.editorSpellcheck === true,
+      maxOpenTabs: clamp(Math.round(Number(value?.maxOpenTabs) || defaults.maxOpenTabs), 1, 20),
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+export function persistPanelWidths(widths: PanelWidths) {
+  try {
+    localStorage.setItem(PANEL_WIDTHS_KEY, JSON.stringify(widths));
+  } catch {
+    // Panel resizing remains available for the current session without storage.
+  }
+}
+
+export function resizePanelWidths(
+  panel: PanelKind,
+  start: PanelWidths,
+  delta: number,
+  navigatorOpen: boolean,
+  agentOpen: boolean,
+): PanelWidths {
+  const canvasMinimum = 360;
+  // One 5px handle per visible side panel.
+  const handles = (navigatorOpen ? 5 : 0) + (agentOpen ? 5 : 0);
+  // A side panel may grow to half the window — wide enough for tables, file
+  // trees, and long agent replies — as long as the canvas keeps its minimum.
+  const halfWindow = window.innerWidth / 2;
+  if (panel === "navigator") {
+    const agentWidth = agentOpen ? start.agent : 0;
+    const maximum = Math.max(160, Math.min(halfWindow, window.innerWidth - agentWidth - canvasMinimum - handles));
+    return { ...start, navigator: clamp(start.navigator + delta, 160, maximum) };
+  }
+  const navigatorWidth = navigatorOpen ? start.navigator : 0;
+  const maximum = Math.max(260, Math.min(halfWindow, window.innerWidth - navigatorWidth - canvasMinimum - handles));
+  return { ...start, agent: clamp(start.agent + delta, 260, maximum) };
 }

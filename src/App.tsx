@@ -159,6 +159,14 @@ import {
   loadPanelOpen,
   persistPanelOpen,
   loadPaperReadingWidth,
+  type PanelKind,
+  type PanelWidths,
+  type AppearanceSettings,
+  APPEARANCE_KEY,
+  loadPanelWidths,
+  persistPanelWidths,
+  resizePanelWidths,
+  loadAppearance,
 } from "./app-settings";
 import {
   type EditorComment,
@@ -275,11 +283,9 @@ import { referenceAssetPreviewDataUrl, type ReferenceAssetPreview } from "./refe
 import { ThinkingOrb, type OrbState } from "./thinking-orbs";
 import {
   DEFAULT_EDITOR_FONT,
-  DEFAULT_UI_FONT,
   EDITOR_FONT_OPTIONS,
   UI_FONT_OPTIONS,
   availableFontOptions,
-  resolveFontValue,
 } from "./available-fonts";
 import "./App.css";
 
@@ -506,8 +512,6 @@ type EditorPaneId = "primary" | "secondary";
 type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
 type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
 type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-type PanelKind = "navigator" | "agent";
-type PanelWidths = { navigator: number; agent: number };
 type SettingsTab = "appearance" | "editor" | "agent" | "accounts" | "api" | "doctor";
 type CiteCommand = "cite" | "citep" | "citet";
 type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
@@ -515,21 +519,9 @@ type DoctorCheck = { name: string; detail: string; ok: boolean };
 type DoctorReport = { ok: boolean; summary: string; checks: DoctorCheck[] };
 type EditorKeymap = "default" | "vim" | "emacs";
 const CITE_COMMANDS: CiteCommand[] = ["cite", "citep", "citet"];
-type AppearanceSettings = {
-  uiFont: string;
-  interfaceScale: number;
-  editorFont: string;
-  editorFontSize: number;
-  editorKeymap: EditorKeymap;
-  editorSpellcheck: boolean;
-  maxOpenTabs: number;
-};
 type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
 type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 
-const PANEL_WIDTHS_KEY = "lattice.panel-widths.v2";
-const APPEARANCE_KEY = "lattice.appearance.v4";
-const LEGACY_APPEARANCE_KEY = "lattice.appearance.v3";
 const PROJECT_FIGURE_DRAG_TYPE = "application/x-lattice-project-figure";
 
 const WELCOME_MESSAGE = "What would you like to work on?";
@@ -8339,63 +8331,6 @@ function relativeTime(timestamp: string): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-function loadPanelWidths(): PanelWidths {
-  // Keep navigator/agent narrower so the editor + PDF canvas get more room by default.
-  const defaults = { navigator: 200, agent: 280 };
-  // A panel may have been dragged out to half the window; honour that on reload,
-  // re-clamped to this screen's half so a saved width never dwarfs a smaller one.
-  const half = typeof window !== "undefined" ? window.innerWidth / 2 : 600;
-  try {
-    const value = JSON.parse(localStorage.getItem(PANEL_WIDTHS_KEY) ?? "null") as Partial<PanelWidths> | null;
-    return {
-      navigator: clamp(Number(value?.navigator) || defaults.navigator, 160, Math.max(160, half)),
-      agent: clamp(Number(value?.agent) || defaults.agent, 260, Math.max(260, half)),
-    };
-  } catch {
-    return defaults;
-  }
-}
-
-function loadAppearance(): AppearanceSettings {
-  const defaults: AppearanceSettings = {
-    uiFont: DEFAULT_UI_FONT,
-    interfaceScale: 1.1,
-    editorFont: DEFAULT_EDITOR_FONT,
-    editorFontSize: 14,
-    editorKeymap: "default",
-    editorSpellcheck: false,
-    maxOpenTabs: 5,
-  };
-  try {
-    const current = localStorage.getItem(APPEARANCE_KEY);
-    const legacy = localStorage.getItem(LEGACY_APPEARANCE_KEY);
-    const value = JSON.parse(current ?? legacy ?? "null") as Partial<AppearanceSettings> | null;
-    return {
-      uiFont: resolveFontValue(
-        typeof value?.uiFont === "string" ? value.uiFont : undefined,
-        UI_FONT_OPTIONS,
-        defaults.uiFont,
-      ),
-      interfaceScale: clamp(Number(value?.interfaceScale) || defaults.interfaceScale, 0.9, 1.35),
-      editorFont: resolveFontValue(
-        typeof value?.editorFont === "string" ? value.editorFont : undefined,
-        EDITOR_FONT_OPTIONS,
-        defaults.editorFont,
-      ),
-      editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 24),
-      editorKeymap: value?.editorKeymap === "vim"
-        ? "vim"
-        : value?.editorKeymap === "emacs"
-          ? "emacs"
-          : "default",
-      editorSpellcheck: value?.editorSpellcheck === true,
-      maxOpenTabs: clamp(Math.round(Number(value?.maxOpenTabs) || defaults.maxOpenTabs), 1, 20),
-    };
-  } catch {
-    return defaults;
-  }
-}
-
 function projectItemPath(root: string, relativePath: string): string {
   if (!relativePath) return root;
   const separator = root.includes("\\") ? "\\" : "/";
@@ -8414,37 +8349,6 @@ function dropEditorAt(position: { x: number; y: number }): { x: number; y: numbe
   const scale = window.devicePixelRatio || 1;
   const point = { x: position.x / scale, y: position.y / scale };
   return document.elementFromPoint(point.x, point.y)?.closest(".source-editor") ? point : null;
-}
-
-function persistPanelWidths(widths: PanelWidths) {
-  try {
-    localStorage.setItem(PANEL_WIDTHS_KEY, JSON.stringify(widths));
-  } catch {
-    // Panel resizing remains available for the current session without storage.
-  }
-}
-
-function resizePanelWidths(
-  panel: PanelKind,
-  start: PanelWidths,
-  delta: number,
-  navigatorOpen: boolean,
-  agentOpen: boolean,
-): PanelWidths {
-  const canvasMinimum = 360;
-  // One 5px handle per visible side panel.
-  const handles = (navigatorOpen ? 5 : 0) + (agentOpen ? 5 : 0);
-  // A side panel may grow to half the window — wide enough for tables, file
-  // trees, and long agent replies — as long as the canvas keeps its minimum.
-  const halfWindow = window.innerWidth / 2;
-  if (panel === "navigator") {
-    const agentWidth = agentOpen ? start.agent : 0;
-    const maximum = Math.max(160, Math.min(halfWindow, window.innerWidth - agentWidth - canvasMinimum - handles));
-    return { ...start, navigator: clamp(start.navigator + delta, 160, maximum) };
-  }
-  const navigatorWidth = navigatorOpen ? start.navigator : 0;
-  const maximum = Math.max(260, Math.min(halfWindow, window.innerWidth - navigatorWidth - canvasMinimum - handles));
-  return { ...start, agent: clamp(start.agent + delta, 260, maximum) };
 }
 
 export default App;
