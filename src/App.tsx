@@ -78,6 +78,8 @@ import { OverleafPickerDialog } from "./overleaf-connect";
 import { OverleafReviewDialog } from "./overleaf-review";
 import { ConflictResolverDialog } from "./conflict-resolver";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
+import { useOverleafChat } from "./use-overleaf-chat";
+import { OverleafChatDrawer } from "./overleaf-chat";
 import {
   type RecentProject,
   type BuildPreferences,
@@ -399,6 +401,7 @@ function App() {
   const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
   const [overleafRemoteChanges, setOverleafRemoteChanges] = useState(false);
   const [overleafReviewOpen, setOverleafReviewOpen] = useState(false);
+  const [overleafChatOpen, setOverleafChatOpen] = useState(false);
   /** Bumped whenever a save actually writes, so pushes follow real edits. */
   const [saveGeneration, setSaveGeneration] = useState(0);
   const [conflictPath, setConflictPath] = useState<string | null>(null);
@@ -1640,7 +1643,8 @@ function App() {
   // same buffer would fight over every keystroke, and the Yjs session already
   // owns the editor then.
   const overleafRealtime = useOverleafRealtime({
-    enabled: overleafLink !== null && overleafSyncMode === "live" && !collabSession,
+    enabled: overleafLink !== null,
+    documents: overleafSyncMode === "live" && !collabSession,
     projectRoot: project?.root ?? null,
     activeFile,
     readCaret: () => viewStateRef.current.get(activeFileRef.current ?? "")?.cursor ?? 0,
@@ -1657,8 +1661,23 @@ function App() {
   });
   // The poll loop and the sync both read these mid-flight, so keep them in
   // refs rather than restarting either one every time the channel changes.
-  overleafChannelLiveRef.current = overleafRealtime.status === "live";
+  // "Carrying documents", not merely "connected": the channel also stays up in
+  // manual mode for chat, and slowing the sync down then would leave nothing
+  // watching the files.
+  overleafChannelLiveRef.current = overleafRealtime.status === "live"
+    && overleafSyncMode === "live"
+    && !collabSession;
   overleafLivePathsRef.current = overleafRealtime.liveFile && activeFile ? [activeFile] : [];
+
+  // Collaborators who stayed in the browser talk in Overleaf's chat, so it has
+  // to be readable here or half the conversation happens where we cannot see
+  // it. It listens on the same channel the editor uses.
+  const overleafChat = useOverleafChat({ enabled: overleafLink !== null });
+
+  // Keep the badge quiet while someone is reading the conversation.
+  useEffect(() => {
+    if (overleafChatOpen) overleafChat.markRead();
+  }, [overleafChatOpen, overleafChat.messages, overleafChat.markRead]);
 
   // Everything typed goes to the live channel; it ignores text it already has,
   // so this is safe to call on every change including our own remote applies.
@@ -4698,6 +4717,12 @@ function App() {
               else void runOverleafSync();
             }}
             onOverleafOpen={() => setOverleafPickerOpen(true)}
+            overleafUnreadChat={overleafChat.unread}
+            onOverleafChat={() => {
+              setOverleafChatOpen(true);
+              overleafChat.markRead();
+              void overleafChat.refresh();
+            }}
           />
           <div className="canvas-body">
           <EditorTabs
@@ -4938,6 +4963,16 @@ function App() {
         <GitPanel
           onClose={() => setGitOpen(false)}
           onOpenFile={(path, line) => { void openProjectFile(path, line); }}
+        />
+      )}
+      {overleafChatOpen && overleafLink && (
+        <OverleafChatDrawer
+          projectName={overleafLink.projectName}
+          messages={overleafChat.messages}
+          loading={overleafChat.loading}
+          error={overleafChat.error}
+          onClose={() => setOverleafChatOpen(false)}
+          onSend={overleafChat.send}
         />
       )}
       {editorCommentsOpen && (

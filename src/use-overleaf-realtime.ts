@@ -39,8 +39,15 @@ export type OverleafRealtime = {
 };
 
 export function useOverleafRealtime(options: {
-  /** Only run when the project is linked to Overleaf and live sync is on. */
+  /** Connect whenever the project is linked: chat and presence ride here too. */
   enabled: boolean;
+  /**
+   * Whether to edit the open file through the channel. Off in manual sync mode
+   * and during a Lattice share — two live channels writing one buffer would
+   * fight over every keystroke — while the connection itself stays up so the
+   * rest of the bridge keeps working.
+   */
+  documents: boolean;
   projectRoot: string | null;
   activeFile: string | null;
   /** Replace the buffer with text from a collaborator, keeping the caret. */
@@ -207,7 +214,7 @@ export function useOverleafRealtime(options: {
 
   useEffect(() => {
     stopDocument();
-    if (status !== "live" || !options.activeFile) return;
+    if (!options.documents || status !== "live" || !options.activeFile) return;
     const id = docs.get(options.activeFile);
     // Only text documents Overleaf tracks can be edited live; anything else
     // (figures, files added since we joined) keeps going through syncing.
@@ -232,7 +239,7 @@ export function useOverleafRealtime(options: {
     return () => {
       cancelled = true;
     };
-  }, [options.activeFile, docs, status, stopDocument]);
+  }, [options.activeFile, options.documents, docs, status, stopDocument]);
 
   // ---- local edits --------------------------------------------------------
 

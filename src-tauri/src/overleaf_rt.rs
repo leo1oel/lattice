@@ -72,6 +72,9 @@ const OUT_QUEUE: usize = 256;
 /// Ack slot reserved for "the server accepted the connection" (`1::`). Real ack
 /// ids start at 1, so 0 can never collide.
 const CONNECT_SLOT: u32 = 0;
+/// Ack slot for "we are in the project". Real ack ids count up from 1, so this
+/// end of the range cannot collide with one.
+const JOIN_SLOT: u32 = u32::MAX;
 /// Guard against a pathological (or hostile) folder tree.
 const MAX_FOLDER_DEPTH: usize = 64;
 
@@ -122,6 +125,16 @@ pub enum RealtimeEvent {
     OtError {
         doc_id: String,
         message: String,
+    },
+    /// Someone posted in the project chat. Overleaf sends this to everyone in
+    /// the room, the author included.
+    ChatMessage {
+        id: String,
+        content: String,
+        author_name: String,
+        author_email: Option<String>,
+        /// Milliseconds since the epoch, as Overleaf reports it.
+        timestamp: i64,
     },
     Disconnected {
         reason: String,
@@ -334,11 +347,15 @@ fn now_millis() -> u128 {
 
 /// Blocking half of the handshake — runs on a blocking thread because the crate
 /// only has `reqwest`'s blocking client.
-fn handshake_blocking(
-    origin: &str,
-    cookie: &str,
-    project_id: &str,
-) -> Result<(String, u64), String> {
+/// What the handshake settled: the session id, how often to beat, and the
+/// cookies to carry into the websocket upgrade.
+struct Handshake {
+    sid: String,
+    heartbeat_secs: u64,
+    cookie: String,
+}
+
+fn handshake_blocking(origin: &str, cookie: &str, project_id: &str) -> Result<Handshake, String> {
     let url = format!(
         "{origin}/socket.io/1/?projectId={}&t={}",
         url_encode(project_id),
@@ -357,6 +374,13 @@ fn handshake_blocking(
         .map_err(|e| format!("Could not reach Overleaf ({e})."))?;
     let status = response.status();
     let final_url = response.url().to_string();
+    let handed_back: Vec<String> = response
+        .headers()
+        .get_all(reqwest::header::SET_COOKIE)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .map(str::to_string)
+        .collect();
     let body = response
         .text()
         .map_err(|e| format!("Could not read the Overleaf handshake response: {e}"))?;
@@ -370,13 +394,61 @@ fn handshake_blocking(
             status.as_u16()
         ));
     }
-    parse_handshake(&body).map_err(|e| {
+    let (sid, heartbeat_secs) = parse_handshake(&body).map_err(|e| {
         if body.trim_start().starts_with('<') {
             SESSION_EXPIRED.to_string()
         } else {
             e
         }
+    })?;
+    Ok(Handshake {
+        sid,
+        heartbeat_secs,
+        cookie: merge_cookies(cookie, &handed_back),
     })
+}
+
+/// Fold any cookies the handshake set into the ones we already had.
+///
+/// Overleaf runs several realtime instances behind a load balancer, and the
+/// handshake answers with a cookie that pins the session to the instance
+/// holding it. Leaving that cookie behind means the websocket upgrade reaches
+/// a different instance, which has never heard of the id we were just given
+/// and answers 502 — a failure that looks like the server being down.
+fn merge_cookies(base: &str, set_cookies: &[String]) -> String {
+    let mut order: Vec<String> = Vec::new();
+    let mut values: HashMap<String, String> = HashMap::new();
+    for pair in base.split(';') {
+        push_cookie(&mut order, &mut values, pair);
+    }
+    for header in set_cookies {
+        if let Some(pair) = header.split(';').next() {
+            push_cookie(&mut order, &mut values, pair);
+        }
+    }
+    order
+        .iter()
+        .filter_map(|name| values.get(name))
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// Later values win, but a cookie keeps the position it first appeared in, so
+/// the header stays stable and readable across reconnects.
+fn push_cookie(order: &mut Vec<String>, values: &mut HashMap<String, String>, pair: &str) {
+    let pair = pair.trim();
+    let Some((name, _)) = pair.split_once('=') else {
+        return;
+    };
+    let name = name.trim();
+    if name.is_empty() {
+        return;
+    }
+    if !values.contains_key(name) {
+        order.push(name.to_string());
+    }
+    values.insert(name.to_string(), pair.to_string());
 }
 
 // ---- Emitted payloads -----------------------------------------------------
@@ -610,6 +682,9 @@ fn parse_project(body: &[Value]) -> Result<(String, Vec<DocEntry>), String> {
     let project = body
         .first()
         .ok_or_else(|| "Overleaf's joinProject answer carried no project.".to_string())?;
+    // `joinProjectResponse` wraps the project alongside the public id and the
+    // permission level; the plain ack is the project itself.
+    let project = project.get("project").unwrap_or(project);
     let root_field = project
         .get("rootFolder")
         .ok_or_else(|| "Overleaf's joinProject answer has no rootFolder.".to_string())?;
@@ -801,6 +876,28 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
                 message,
             });
         }
+        // Newer Overleaf joins us from the handshake query and pushes the
+        // project down unprompted, instead of waiting to be asked.
+        "joinProjectResponse" => {
+            if let Some(body) = args.first() {
+                if let Some(id) = body.get("publicId").and_then(Value::as_str) {
+                    let mut current = lock(&shared.public_id);
+                    if current.is_empty() {
+                        *current = id.to_string();
+                        drop(current);
+                        shared.emit(RealtimeEvent::Connected {
+                            public_id: id.to_string(),
+                        });
+                    }
+                }
+                shared.resolve(JOIN_SLOT, AckMsg::Ack(vec![body.clone()]));
+            }
+        }
+        "new-chat-message" => {
+            if let Some(event) = args.first().and_then(chat_event) {
+                shared.emit(event);
+            }
+        }
         "disconnect" | "forceDisconnect" => {
             *reason = args
                 .first()
@@ -811,6 +908,41 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
         _ => {}
     }
     true
+}
+
+/// `{ id, content, timestamp, user: { first_name, last_name, email } }`.
+/// Overleaf has shipped both snake_case and camelCase name fields over the
+/// years, so read either rather than showing a blank author.
+fn chat_event(value: &Value) -> Option<RealtimeEvent> {
+    let user = value.get("user");
+    let first = user
+        .and_then(|u| json_field(u, &["first_name", "firstName"]))
+        .unwrap_or_default();
+    let last = user
+        .and_then(|u| json_field(u, &["last_name", "lastName"]))
+        .unwrap_or_default();
+    let author_email = user.and_then(|u| json_field(u, &["email"]));
+    let name = format!("{first} {last}").trim().to_string();
+    Some(RealtimeEvent::ChatMessage {
+        id: json_field(value, &["id", "_id"])?,
+        content: json_field(value, &["content"]).unwrap_or_default(),
+        author_name: if name.is_empty() {
+            author_email.clone().unwrap_or_else(|| "Someone".to_string())
+        } else {
+            name
+        },
+        author_email,
+        timestamp: value
+            .get("timestamp")
+            .and_then(Value::as_i64)
+            .unwrap_or_default(),
+    })
+}
+
+fn json_field(value: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| value.get(*key).and_then(Value::as_str))
+        .map(str::to_string)
 }
 
 fn doc_update_event(value: &Value) -> Option<RealtimeEvent> {
@@ -908,12 +1040,17 @@ impl RealtimeClient {
             return Err("No Overleaf project selected.".to_string());
         }
 
-        let (sid, heartbeat_secs) = {
+        let handshake = {
             let (origin, cookie, project_id) = (origin.clone(), cookie.clone(), project_id.clone());
             rt::spawn_blocking(move || handshake_blocking(&origin, &cookie, &project_id))
                 .await
                 .map_err(|e| format!("The Overleaf handshake task failed: {e}"))??
         };
+        let Handshake {
+            sid,
+            heartbeat_secs,
+            cookie,
+        } = handshake;
 
         let url = format!(
             "{}/socket.io/1/websocket/{}?projectId={}&t={}",
@@ -970,14 +1107,35 @@ impl RealtimeClient {
         rt::spawn(read_loop(source, shared.clone()));
         await_slot(&shared, connect_slot).await?;
 
-        let ack = emit_with_ack(
-            &shared,
-            "joinProject",
-            (JoinProjectArg {
-                project_id: &project_id,
-            },),
-        )
-        .await?;
+        // Two generations of Overleaf answer this differently: the older one
+        // acks our `joinProject`, the newer one has already joined us from the
+        // handshake query and pushes `joinProjectResponse` down. Ask, and take
+        // whichever answer arrives first, so both work without guessing which
+        // server we are talking to.
+        let join_slot = open_slot(&shared, JOIN_SLOT, "Overleaf's project join".to_string());
+        {
+            let shared = shared.clone();
+            let project_id = project_id.clone();
+            rt::spawn(async move {
+                let asked = emit_with_ack(
+                    &shared,
+                    "joinProject",
+                    (JoinProjectArg {
+                        project_id: &project_id,
+                    },),
+                )
+                .await;
+                // Resolving is a no-op once the pushed answer has been taken.
+                shared.resolve(
+                    JOIN_SLOT,
+                    match asked {
+                        Ok(args) => AckMsg::Ack(args),
+                        Err(message) => AckMsg::Failed(message),
+                    },
+                );
+            });
+        }
+        let ack = await_slot(&shared, join_slot).await?;
         let body = ack_body(&ack, "joinProject")?;
         let (root_folder_id, docs) = parse_project(body)?;
         let project = ProjectTree {
@@ -1340,6 +1498,66 @@ mod tests {
             serde_json::to_string(&connected).unwrap(),
             r#"{"type":"connected","publicId":"pub-1"}"#
         );
+        let chat = RealtimeEvent::ChatMessage {
+            id: "msg-1".into(),
+            content: "ready for review".into(),
+            author_name: "Ada Lovelace".into(),
+            author_email: Some("ada@example.edu".into()),
+            timestamp: 1_700_000_000_000,
+        };
+        assert_eq!(
+            serde_json::to_string(&chat).unwrap(),
+            r#"{"type":"chatMessage","id":"msg-1","content":"ready for review","authorName":"Ada Lovelace","authorEmail":"ada@example.edu","timestamp":1700000000000}"#
+        );
+    }
+
+    #[test]
+    fn chat_messages_read_either_name_spelling() {
+        let snake = chat_event(&json!({
+            "id": "msg-1",
+            "content": "hello",
+            "timestamp": 1_700_000_000_000i64,
+            "user": {"first_name": "Ada", "last_name": "Lovelace", "email": "ada@example.edu"},
+        }))
+        .expect("parses");
+        let camel = chat_event(&json!({
+            "_id": "msg-1",
+            "content": "hello",
+            "timestamp": 1_700_000_000_000i64,
+            "user": {"firstName": "Ada", "lastName": "Lovelace", "email": "ada@example.edu"},
+        }))
+        .expect("parses");
+        for event in [snake, camel] {
+            match event {
+                RealtimeEvent::ChatMessage {
+                    id,
+                    content,
+                    author_name,
+                    author_email,
+                    timestamp,
+                } => {
+                    assert_eq!(id, "msg-1");
+                    assert_eq!(content, "hello");
+                    assert_eq!(author_name, "Ada Lovelace");
+                    assert_eq!(author_email.as_deref(), Some("ada@example.edu"));
+                    assert_eq!(timestamp, 1_700_000_000_000);
+                }
+                other => panic!("expected a chat message, got {other:?}"),
+            }
+        }
+        // No name at all falls back to the address rather than showing blank.
+        let anonymous = chat_event(&json!({
+            "id": "msg-2",
+            "content": "hi",
+            "user": {"email": "someone@example.edu"},
+        }))
+        .expect("parses");
+        match anonymous {
+            RealtimeEvent::ChatMessage { author_name, .. } => {
+                assert_eq!(author_name, "someone@example.edu");
+            }
+            other => panic!("expected a chat message, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1431,12 +1649,22 @@ mod tests {
         ws_cookie: Option<String>,
         ws_origin: Option<String>,
         frames: Vec<String>,
+        /// Newer Overleaf: join from the handshake query and push the project
+        /// down, never answering a `joinProject` ask.
+        push_join: bool,
     }
 
     fn start_mock() -> (u16, Arc<Mutex<MockState>>) {
+        start_mock_with(false)
+    }
+
+    fn start_mock_with(push_join: bool) -> (u16, Arc<Mutex<MockState>>) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind the mock server");
         let port = listener.local_addr().expect("mock address").port();
-        let state = Arc::new(Mutex::new(MockState::default()));
+        let state = Arc::new(Mutex::new(MockState {
+            push_join,
+            ..MockState::default()
+        }));
         let server_state = state.clone();
         std::thread::spawn(move || {
             for stream in listener.incoming() {
@@ -1520,8 +1748,10 @@ mod tests {
             state.handshake_cookie = header(&head, "Cookie");
         }
         let body = "testsid:60:60:websocket";
+        // Load balancers pin the realtime session with a cookie of their own;
+        // the upgrade has to carry it back or it lands on another instance.
         let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: ol-affinity=instance-7; Path=/; HttpOnly\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
             body.len()
         );
         let _ = stream.write_all(response.as_bytes());
@@ -1542,11 +1772,19 @@ mod tests {
     }
 
     fn serve_websocket(mut ws: WebSocket<TcpStream>, state: Arc<Mutex<MockState>>) {
+        let push_join = lock(&state).push_join;
         let _ = ws.send(Message::text(encode_frame(FRAME_CONNECT, "", "", "")));
-        let _ = ws.send(Message::text(event_frame(
-            "connectionAccepted",
-            json!([null, "pub-1"]),
-        )));
+        if push_join {
+            let _ = ws.send(Message::text(event_frame(
+                "joinProjectResponse",
+                json!([{"publicId": "pub-1", "project": project_tree(), "permissionsLevel": "owner"}]),
+            )));
+        } else {
+            let _ = ws.send(Message::text(event_frame(
+                "connectionAccepted",
+                json!([null, "pub-1"]),
+            )));
+        }
         loop {
             let message = match ws.read() {
                 Ok(message) => message,
@@ -1571,6 +1809,9 @@ mod tests {
             };
             let id = frame.id.trim_end_matches('+').to_string();
             let sent = match name.as_str() {
+                // A server that pushed the project ignores the ask entirely,
+                // which is exactly the case the client has to survive.
+                "joinProject" if push_join => Ok(()),
                 "joinProject" => ws.send(Message::text(ack_frame(
                     &id,
                     json!([null, project_tree(), "owner", 2]),
@@ -1613,6 +1854,51 @@ mod tests {
     }
 
     #[test]
+    fn cookies_from_the_handshake_join_the_ones_we_had() {
+        // A new cookie is appended, an existing one is replaced in place, and
+        // anything without a name is ignored.
+        assert_eq!(
+            merge_cookies(
+                "overleaf_session2=abc; other=1",
+                &[
+                    "ol-affinity=instance-7; Path=/; HttpOnly".to_string(),
+                    "other=2; Path=/".to_string(),
+                    "; Path=/".to_string(),
+                ],
+            ),
+            "overleaf_session2=abc; other=2; ol-affinity=instance-7"
+        );
+        assert_eq!(merge_cookies("session=x", &[]), "session=x");
+    }
+
+    #[test]
+    fn joins_a_project_the_server_pushes_without_being_asked() {
+        let (port, _state) = start_mock_with(true);
+        let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let sink = events.clone();
+        let client = rt::block_on(RealtimeClient::connect(
+            RealtimeConfig {
+                host: format!("http://127.0.0.1:{port}"),
+                cookie: "overleaf_session2=test-cookie".to_string(),
+                project_id: "proj-1".to_string(),
+            },
+            move |event| lock(&sink).push(event),
+        ))
+        .expect("connect to a server that joins us itself");
+
+        // Same result as the ask-and-wait path: the tree, and our own id.
+        assert_eq!(client.project().root_folder_id, "root-1");
+        assert_eq!(client.project().docs.len(), 3);
+        assert_eq!(client.project().docs[0].path, "main.tex");
+        assert_eq!(client.public_id(), "pub-1");
+        match lock(&events).first().expect("a Connected event") {
+            RealtimeEvent::Connected { public_id } => assert_eq!(public_id, "pub-1"),
+            other => panic!("expected Connected, got {other:?}"),
+        }
+        client.shutdown();
+    }
+
+    #[test]
     fn talks_the_whole_protocol_to_a_mock_server() {
         let (port, state) = start_mock();
         let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
@@ -1646,9 +1932,11 @@ mod tests {
                 ws_line.contains("/socket.io/1/websocket/testsid?projectId=proj-1&t="),
                 "unexpected websocket request line: {ws_line}"
             );
+            // The handshake's own cookie rides along, or the upgrade would
+            // reach an instance that never issued this session id.
             assert_eq!(
                 state.ws_cookie.as_deref(),
-                Some("overleaf_session2=test-cookie")
+                Some("overleaf_session2=test-cookie; ol-affinity=instance-7")
             );
             assert_eq!(state.ws_origin.as_deref(), Some(host.as_str()));
         }

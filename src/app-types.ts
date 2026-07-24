@@ -283,6 +283,18 @@ export type OverleafProbe = {
   remoteVersion: number | null;
   lastSync: string | null;
 };
+/** One message in the project's Overleaf chat. */
+export type OverleafMessage = {
+  id: string;
+  content: string;
+  authorName: string;
+  authorEmail: string | null;
+  /** Milliseconds since the epoch, as Overleaf reports it. */
+  timestamp: number;
+  /** True when this account wrote it, so the panel can side it. */
+  mine: boolean;
+};
+
 export type OverleafSyncResult = {
   pulled: string[];
   pushed: string[];

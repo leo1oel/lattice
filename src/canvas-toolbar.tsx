@@ -9,6 +9,7 @@ import {
   LoaderCircle,
   LocateFixed,
   MessageSquareText,
+  MessagesSquare,
   Omega,
   Radio,
   Redo2,
@@ -72,6 +73,9 @@ export function CanvasToolbar(props: {
   overleafChannelDetail?: string | null;
   onOverleafSync?: () => void;
   onOverleafOpen?: () => void;
+  /** Messages from Overleaf collaborators that arrived while the panel was closed. */
+  overleafUnreadChat?: number;
+  onOverleafChat?: () => void;
 }) {
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
   const switcherMode = props.mode === "dual" || props.mode === "columns" ? "split" : props.mode;
@@ -178,6 +182,23 @@ export function CanvasToolbar(props: {
                 : props.overleafPending && !props.overleafSyncing
                   ? <em className="collab-peer-badge">•</em>
                   : null}
+            </button>
+          </Tip>
+        )}
+        {props.overleafLinked && props.onOverleafChat && (
+          <Tip label={props.overleafUnreadChat
+            ? `Overleaf chat · ${props.overleafUnreadChat} new`
+            : "Chat with your Overleaf collaborators"}
+          >
+            <button
+              type="button"
+              className={props.overleafUnreadChat ? "history-button active" : "history-button"}
+              onClick={props.onOverleafChat}
+            >
+              <MessagesSquare size={14} />
+              {props.overleafUnreadChat
+                ? <em className="collab-peer-badge">{props.overleafUnreadChat}</em>
+                : null}
             </button>
           </Tip>
         )}

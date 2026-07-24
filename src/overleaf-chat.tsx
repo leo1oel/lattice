@@ -1,0 +1,146 @@
+/**
+ * The Overleaf project chat, in a drawer beside the editor.
+ *
+ * Collaborators who stayed in the browser talk here, so this has to feel like
+ * the chat they are looking at: their messages on the left, yours on the
+ * right, newest at the bottom, and a composer that sends on Enter. Everything
+ * arrives on the realtime channel, so there is no refresh button to hunt for.
+ */
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { LoaderCircle, MessagesSquare, SendHorizontal, X } from "lucide-react";
+import type { OverleafMessage } from "./app-types";
+import "./overleaf-chat.css";
+
+/** "14:32" for today, "12 Mar 14:32" for anything older. */
+function formatStamp(timestamp: number) {
+  if (!timestamp) return "";
+  const when = new Date(timestamp);
+  const now = new Date();
+  const sameDay = when.toDateString() === now.toDateString();
+  return when.toLocaleString(undefined, sameDay
+    ? { hour: "2-digit", minute: "2-digit" }
+    : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+export function OverleafChatDrawer(props: {
+  projectName: string;
+  messages: OverleafMessage[];
+  loading: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSend: (content: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Anchor to the newest message the way every chat does, before paint so it
+  // never looks like it scrolled.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [props.messages]);
+
+  useEffect(() => {
+    composerRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") props.onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [props]);
+
+  const submit = async () => {
+    const content = draft.trim();
+    if (!content || sending) return;
+    setSending(true);
+    try {
+      await props.onSend(content);
+      setDraft("");
+    } catch {
+      // The hook surfaces the reason; keep the text so nothing is lost.
+    }
+    setSending(false);
+    composerRef.current?.focus();
+  };
+
+  return (
+    <div className="drawer-backdrop" onMouseDown={props.onClose}>
+      <aside className="history-drawer overleaf-chat-drawer" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="drawer-header">
+          <div><MessagesSquare size={16} /><span>Overleaf chat</span></div>
+          <button type="button" onClick={props.onClose} aria-label="Close chat"><X size={16} /></button>
+        </div>
+        <p className="drawer-copy">
+          The same conversation as the chat panel in {props.projectName || "this project"} on Overleaf.
+          Messages appear on both sides as they are sent.
+        </p>
+
+        {props.error && <p className="overleaf-chat-error">{props.error}</p>}
+
+        <div className="overleaf-chat-list" ref={listRef}>
+          {props.loading && !props.messages.length && (
+            <p className="git-empty"><LoaderCircle className="spin" size={13} /> Loading the conversation…</p>
+          )}
+          {!props.loading && !props.messages.length && !props.error && (
+            <p className="git-empty">No messages yet. Say something and everyone in the project sees it.</p>
+          )}
+          {props.messages.map((message, index) => {
+            // One name above a run of messages reads as a conversation rather
+            // than a log; repeat it only when the speaker changes.
+            const previous = props.messages[index - 1];
+            const grouped = previous
+              && previous.mine === message.mine
+              && previous.authorName === message.authorName
+              && message.timestamp - previous.timestamp < 5 * 60_000;
+            return (
+              <article
+                className={`overleaf-chat-message${message.mine ? " mine" : ""}${grouped ? " grouped" : ""}`}
+                key={message.id}
+              >
+                {!grouped && (
+                  <div className="overleaf-chat-meta">
+                    <span>{message.mine ? "You" : message.authorName}</span>
+                    <time>{formatStamp(message.timestamp)}</time>
+                  </div>
+                )}
+                <p>{message.content}</p>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="overleaf-chat-composer">
+          <textarea
+            ref={composerRef}
+            rows={2}
+            value={draft}
+            placeholder="Message your collaborators…"
+            aria-label="Message"
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              // Enter sends, Shift+Enter breaks the line — what every chat does.
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                void submit();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="primary-button"
+            disabled={!draft.trim() || sending}
+            onClick={() => void submit()}
+            aria-label="Send message"
+          >
+            {sending ? <LoaderCircle className="spin" size={14} /> : <SendHorizontal size={14} />}
+          </button>
+        </div>
+      </aside>
+    </div>
+  );
+}
