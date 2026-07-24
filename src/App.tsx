@@ -391,6 +391,8 @@ function App() {
   const [overleafSyncing, setOverleafSyncing] = useState(false);
   const overleafSyncingRef = useRef(false);
   const overleafAutoSyncedRoot = useRef<string | null>(null);
+  const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
+  const lastAutoSyncRef = useRef(0);
   const lastAutoVersionRef = useRef(0);
   const [collabRole, setCollabRole] = useState<"host" | "guest">("host");
   const collabRoleRef = useRef<"host" | "guest">("host");
@@ -1494,8 +1496,30 @@ function App() {
     if (!overleafLink || !project?.root) return;
     if (overleafAutoSyncedRoot.current === project.root) return;
     overleafAutoSyncedRoot.current = project.root;
+    lastAutoSyncRef.current = Date.now();
     void runOverleafSync({ auto: true });
   }, [overleafLink, project?.root, runOverleafSync]);
+
+  // Keep a linked project in step with Overleaf while it stays open, so a
+  // collaborator's edits arrive on their own: every two minutes, and whenever
+  // the window regains focus (the moment you switch back from a browser).
+  // Syncing is two-way, so this also carries your own edits up to them.
+  overleafSyncRef.current = runOverleafSync;
+  useEffect(() => {
+    if (!overleafLink) return;
+    const trigger = () => {
+      const now = Date.now();
+      if (now - lastAutoSyncRef.current < 20_000) return;
+      lastAutoSyncRef.current = now;
+      void overleafSyncRef.current({ auto: true });
+    };
+    const timer = window.setInterval(trigger, 120_000);
+    window.addEventListener("focus", trigger);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", trigger);
+    };
+  }, [overleafLink]);
 
   // Auto-save a version after successful builds of Overleaf-linked projects,
   // at most every 2 minutes. Unlinked projects only version on explicit "Save

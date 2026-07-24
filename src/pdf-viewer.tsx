@@ -514,6 +514,44 @@ export function PdfPreview({
     area.addEventListener("wheel", onWheel, { passive: false });
     return () => area.removeEventListener("wheel", onWheel);
   }, []);
+  // The ctrl+wheel path above is the Chrome convention. Tauri runs on
+  // WKWebView, where a trackpad pinch instead fires WebKit's own gesture
+  // events, so without these a two-finger pinch does nothing here.
+  useEffect(() => {
+    const area = scrollAreaRef.current;
+    if (!area) return;
+    // `scale` on a gesture event is cumulative since gesturestart, so zooming
+    // is anchored to the scale the pinch began at rather than compounding.
+    let startScale = scaleRef.current;
+    const onGestureStart = (event: Event) => {
+      event.preventDefault();
+      startScale = scaleRef.current;
+    };
+    const onGestureChange = (event: Event) => {
+      event.preventDefault();
+      const gesture = event as Event & { scale?: number; clientX?: number; clientY?: number };
+      if (typeof gesture.scale !== "number") return;
+      const prev = scaleRef.current;
+      const next = clamp(Number((startScale * gesture.scale).toFixed(3)), 0.6, 4);
+      if (next === prev) return;
+      const rect = area.getBoundingClientRect();
+      pendingZoomAnchorRef.current = {
+        x: (gesture.clientX ?? rect.left + rect.width / 2) - rect.left,
+        y: (gesture.clientY ?? rect.top + rect.height / 2) - rect.top,
+        prevScale: prev,
+      };
+      setScale(next);
+    };
+    const onGestureEnd = (event: Event) => event.preventDefault();
+    area.addEventListener("gesturestart", onGestureStart, { passive: false });
+    area.addEventListener("gesturechange", onGestureChange, { passive: false });
+    area.addEventListener("gestureend", onGestureEnd, { passive: false });
+    return () => {
+      area.removeEventListener("gesturestart", onGestureStart);
+      area.removeEventListener("gesturechange", onGestureChange);
+      area.removeEventListener("gestureend", onGestureEnd);
+    };
+  }, []);
   useLayoutEffect(() => {
     const area = scrollAreaRef.current;
     const anchor = pendingZoomAnchorRef.current;

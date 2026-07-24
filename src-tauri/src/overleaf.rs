@@ -16,20 +16,22 @@
 //! - `GET {host}/project/{id}/download/zip` returns the whole project as a
 //!   zip archive.
 //! - `POST {host}/project/{id}/upload?folder_id={folder}` uploads one file as
-//!   multipart: `name` (file name), `relativePath` (the literal string
-//!   `"null"` for root-level files, otherwise a path whose dirname the server
-//!   mkdirp's relative to `folder_id`), and the file part `qqfile`. CSRF goes
-//!   in the `X-Csrf-Token` header (plus `_csrf` query param, mirroring
-//!   overleaf-sync). When `folder_id` is omitted the server defaults it to
-//!   the project's root folder.
+//!   multipart: `name` (file name), `relativePath`, and the file part
+//!   `qqfile`. CSRF goes in the `X-Csrf-Token` header (plus `_csrf` query
+//!   param, mirroring overleaf-sync). `folder_id` is **required**: the server
+//!   reads it from the query string and answers 422 `folder_not_found` when
+//!   it is missing, so it cannot be omitted for root-level files.
 //! - The root folder id is only exposed over socket.io (`joinProject`), which
-//!   we do not speak. For nested uploads we instead create a uniquely named
-//!   temporary anchor folder at the project root via
+//!   we do not speak. Instead every sync that uploads creates one uniquely
+//!   named temporary anchor folder at the project root via
 //!   `POST {host}/project/{id}/folder` (JSON `{ "name": ... }`, parent
-//!   defaults to root, response carries the new folder's `_id`), upload with
-//!   `folder_id=<anchor>` and `relativePath=../<real/relative/path>` (the
-//!   server path-joins and normalizes, so the file lands at the real path),
-//!   and finally `DELETE {host}/project/{id}/folder/{anchor}`.
+//!   defaults to root, response carries the new folder's `_id`), and uploads
+//!   with `folder_id=<anchor>` plus `relativePath=../<real/relative/path>`.
+//!   The server computes `Path.join('/', <anchor path>, relativePath)`, takes
+//!   its dirname and mkdirp's that — and `mkdirp('/')` is special-cased to
+//!   return the root folder — so files land at their real paths and missing
+//!   subfolders are created. The anchor is removed afterwards with
+//!   `DELETE {host}/project/{id}/folder/{anchor}`.
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -659,20 +661,22 @@ impl<'a> Uploader<'a> {
 
     fn upload(&mut self, rel: &str, bytes: Vec<u8>) -> Result<(), String> {
         let file_name = rel.rsplit('/').next().unwrap_or(rel).to_string();
-        let mut request = self
+        // Every upload needs a real `folder_id`: the server only resolves a
+        // destination folder when one is supplied (omitting it fails with
+        // `folder_not_found`, which is what broke root-level files in 0.1.89).
+        // We can't read the root folder's id over HTTP — Overleaf only sends
+        // it over socket.io — so we anchor on a folder we *can* create and let
+        // the server resolve the real destination: it computes
+        // `Path.join('/', <anchor path>, relativePath)`, takes the dirname and
+        // mkdirp's it, and `mkdirp('/')` is special-cased to the root folder.
+        // So `../main.tex` lands at the root and `../figures/plot.pdf` inside
+        // `figures`, creating it when missing.
+        let anchor = self.ensure_anchor()?;
+        let request = self
             .client
             .post(format!("{}/project/{}/upload", self.host, self.project_id))
-            .query(&[("_csrf", self.csrf)]);
-        let relative_path = if rel.contains('/') {
-            let anchor = self.ensure_anchor()?;
-            request = request.query(&[("folder_id", anchor.as_str())]);
-            // `../` climbs out of the anchor folder back to the project root;
-            // the server normalizes the joined path and mkdirp's the dirname.
-            format!("../{rel}")
-        } else {
-            // Uppy sends the literal string "null" for non-nested files.
-            "null".to_string()
-        };
+            .query(&[("_csrf", self.csrf), ("folder_id", anchor.as_str())]);
+        let relative_path = format!("../{rel}");
         let part = reqwest::blocking::multipart::Part::bytes(bytes).file_name(file_name.clone());
         let form = reqwest::blocking::multipart::Form::new()
             .text("name", file_name)
@@ -1465,15 +1469,17 @@ mod tests {
         assert_eq!(uploads.len(), 1);
         let upload = &uploads[0];
         assert!(upload.url.starts_with("/project/proj-1/upload"));
-        // Root-level file: no folder_id, csrf in both header and query.
-        assert!(!upload.url.contains("folder_id="));
+        // Root-level files need a real folder_id too — omitting it is what
+        // made Overleaf answer 422 folder_not_found. The anchor plus a `../`
+        // relative path resolves to the project root server-side.
+        assert!(upload.url.contains("folder_id=anchor-folder-1"));
         assert!(upload.url.contains(&format!("_csrf={CSRF}")));
         assert_eq!(upload.csrf_header.as_deref(), Some(CSRF));
         let body = upload.body_text();
         assert!(body.contains("name=\"qqfile\"; filename=\"main.tex\""));
         assert!(body.contains("locally edited body"));
         assert!(body.contains("name=\"relativePath\""));
-        assert!(body.contains("null"));
+        assert!(body.contains("../main.tex"));
 
         assert_eq!(
             state_files(&root).get("main.tex").unwrap(),
