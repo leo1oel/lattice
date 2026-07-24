@@ -1436,20 +1436,29 @@ function App() {
     try {
       if (!(await save())) return;
       const result = await invoke<OverleafSyncResult>("overleaf_sync");
-      const pulledSet = new Set(result.pulled);
+      // Merged and conflicted files were rewritten on disk just like pulled
+      // ones, so the editor has to reload them too or it would keep showing
+      // stale text and save over the incoming edits.
+      const changedOnDisk = new Set([
+        ...result.pulled,
+        ...result.merged,
+        ...result.conflicts.map((item) => item.path),
+      ]);
       if (result.conflicts.length) {
         setError(
-          `Overleaf sync kept both copies of: ${result.conflicts.map((item) => item.path).join(", ")}. `
-          + "The Overleaf version is now in place; your edits are saved beside it in the “(local conflict …)” files.",
+          `Overleaf sync could not combine: ${result.conflicts.map((item) => item.path).join(", ")}. `
+          + "Both versions are marked inside the file — search for “<<<<<<<” to pick what you want. "
+          + "Your untouched version is also saved beside it in the “(local conflict …)” files, "
+          + "and nothing uploads until the markers are gone.",
         );
       }
-      if (result.pulled.length || result.deletedLocal.length) {
+      if (changedOnDisk.size || result.deletedLocal.length) {
         await refreshProject();
-        if (activeFile && pulledSet.has(activeFile)) await loadFile(activeFile);
+        if (activeFile && changedOnDisk.has(activeFile)) await loadFile(activeFile);
         // Files arriving from Overleaf haven't touched the live share doc, so a
         // Lattice collaborator would never see them without this push.
-        if (collabSession && result.pulled.length) {
-          for (const path of result.pulled) {
+        if (collabSession && changedOnDisk.size) {
+          for (const path of changedOnDisk) {
             const kind = classifySyncablePath(path);
             if (!kind) continue;
             try {
@@ -1470,8 +1479,10 @@ function App() {
         }
         await compile();
       }
-      if (result.pulled.length || result.pushed.length) {
-        setNotice(`Overleaf: pulled ${result.pulled.length}, pushed ${result.pushed.length}.`);
+      if (result.pulled.length || result.pushed.length || result.merged.length) {
+        const parts = [`pulled ${result.pulled.length}`, `pushed ${result.pushed.length}`];
+        if (result.merged.length) parts.push(`merged ${result.merged.length}`);
+        setNotice(`Overleaf: ${parts.join(", ")}.`);
       } else if (!options?.auto) {
         setNotice("Overleaf: already up to date.");
       }

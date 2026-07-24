@@ -257,6 +257,8 @@ export type OverleafConflict = { path: string; localCopy: string };
 export type OverleafSyncResult = {
   pulled: string[];
   pushed: string[];
+  /** Files where both sides had edits that combined cleanly. */
+  merged: string[];
   conflicts: OverleafConflict[];
   deletedLocal: string[];
   skippedRemoteDeletes: string[];

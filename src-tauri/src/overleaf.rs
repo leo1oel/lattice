@@ -112,6 +112,8 @@ pub struct OverleafConflict {
 pub struct OverleafSyncResult {
     pub pulled: Vec<String>,
     pub pushed: Vec<String>,
+    /// Files where both sides had edits that combined cleanly.
+    pub merged: Vec<String>,
     pub conflicts: Vec<OverleafConflict>,
     pub deleted_local: Vec<String>,
     pub skipped_remote_deletes: Vec<String>,
@@ -530,6 +532,103 @@ fn write_local_file(root: &Path, rel: &str, bytes: &[u8]) -> Result<(), String> 
     fs::write(&path, bytes).map_err(|e| format!("Could not write {rel}: {e}"))
 }
 
+// ---- Three-way merge -------------------------------------------------------
+//
+// Hashes alone can only tell us *that* both sides changed a file, never how to
+// combine them. So alongside the hashes we keep a pristine copy of every text
+// file as it stood at the last sync; that copy is the common ancestor a real
+// line-level merge needs, which is what lets edits to different parts of the
+// same file land together instead of one side being pushed aside.
+
+const BASE_DIR: &str = ".research/overleaf-base";
+
+/// Marks the start of an unresolved conflict; also the guard that stops a file
+/// full of markers from being uploaded to Overleaf.
+const CONFLICT_MARKER: &str = "<<<<<<<";
+
+fn base_dir(root: &Path) -> PathBuf {
+    let mut path = root.to_path_buf();
+    for part in BASE_DIR.split('/') {
+        path.push(part);
+    }
+    path
+}
+
+fn base_copy_path(root: &Path, rel: &str) -> PathBuf {
+    let mut path = base_dir(root);
+    for part in rel.split('/') {
+        path.push(part);
+    }
+    path
+}
+
+/// Only text we can meaningfully merge gets a base copy: merging is
+/// line-based, and keeping shadow copies of figures would double the project
+/// on disk for no benefit.
+fn is_mergeable_text(rel: &str, bytes: &[u8]) -> bool {
+    const TEXT_SUFFIXES: &[&str] = &[
+        ".tex", ".bib", ".txt", ".md", ".cls", ".sty", ".bst", ".json", ".yml", ".yaml", ".csv",
+        ".tikz", ".sty.txt", ".cfg", ".def", ".ltx",
+    ];
+    let lower = rel.to_ascii_lowercase();
+    if !TEXT_SUFFIXES.iter().any(|suffix| lower.ends_with(suffix)) {
+        return false;
+    }
+    // Guard against anything that only looks textual by name.
+    !bytes.contains(&0) && std::str::from_utf8(bytes).is_ok()
+}
+
+fn read_base_copy(root: &Path, rel: &str) -> Option<String> {
+    fs::read_to_string(base_copy_path(root, rel)).ok()
+}
+
+fn write_base_copy(root: &Path, rel: &str, bytes: &[u8]) -> Result<(), String> {
+    if !is_mergeable_text(rel, bytes) {
+        remove_base_copy(root, rel);
+        return Ok(());
+    }
+    let path = base_copy_path(root, rel);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(err)?;
+    }
+    // The shadow tree is Lattice's bookkeeping, never the user's work, so keep
+    // it out of the version timeline with a self-ignoring directory.
+    let _ = fs::write(base_dir(root).join(".gitignore"), "*\n");
+    fs::write(&path, bytes).map_err(|e| format!("Could not record the sync base for {rel}: {e}"))
+}
+
+fn remove_base_copy(root: &Path, rel: &str) {
+    let _ = fs::remove_file(base_copy_path(root, rel));
+}
+
+/// Outcome of reconciling a file both sides changed.
+enum MergeOutcome {
+    /// Combined cleanly; the bytes belong on disk *and* on Overleaf.
+    Clean(Vec<u8>),
+    /// Genuinely overlapping edits; the bytes carry conflict markers.
+    Conflicted(Vec<u8>),
+    /// No usable common ancestor (binary, or a file first seen this sync).
+    Unmergeable,
+}
+
+fn merge_three_way(root: &Path, rel: &str, remote: &[u8], local: &[u8]) -> MergeOutcome {
+    if !is_mergeable_text(rel, remote) || !is_mergeable_text(rel, local) {
+        return MergeOutcome::Unmergeable;
+    }
+    let (Some(base), Ok(ours), Ok(theirs)) = (
+        read_base_copy(root, rel),
+        std::str::from_utf8(local),
+        std::str::from_utf8(remote),
+    ) else {
+        return MergeOutcome::Unmergeable;
+    };
+    let options = diffy::MergeOptions::new();
+    match options.merge(&base, ours, theirs) {
+        Ok(merged) => MergeOutcome::Clean(merged.into_bytes()),
+        Err(conflicted) => MergeOutcome::Conflicted(conflicted.into_bytes()),
+    }
+}
+
 /// Walk the project and load every syncable file (path → bytes).
 fn read_local_files(root: &Path) -> Result<BTreeMap<String, Vec<u8>>, String> {
     let mut files = BTreeMap::new();
@@ -830,6 +929,9 @@ pub fn clone_project(
         write_local_file(&root, rel, data)?;
         if !is_excluded(rel) {
             files.insert(rel.clone(), sha256_hex(data));
+            // The freshly cloned state is the first common ancestor, so later
+            // syncs can merge concurrent edits instead of choosing a winner.
+            write_base_copy(&root, rel, data)?;
         }
     }
     let state = SyncState {
@@ -887,6 +989,9 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
     let mut new_files: BTreeMap<String, String> = BTreeMap::new();
     let mut result = OverleafSyncResult::default();
     let mut to_push: Vec<String> = Vec::new();
+    // Merged bytes that exist on disk but not in the `local` snapshot taken at
+    // the start of this sync; uploads read from here first.
+    let mut merged_content: BTreeMap<String, Vec<u8>> = BTreeMap::new();
 
     for path in &all_paths {
         let remote_bytes = remote.get(path);
@@ -910,16 +1015,49 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
                     to_push.push(path.clone());
                     new_files.insert(path.clone(), local_hash);
                 } else {
-                    // Both sides changed: remote wins the canonical path, the
-                    // local version survives beside it. Not uploaded this round.
-                    let copy = conflict_copy_name(path, &stamp);
-                    write_local_file(root, &copy, lb)?;
-                    write_local_file(root, path, rb)?;
-                    result.conflicts.push(OverleafConflict {
-                        path: path.clone(),
-                        local_copy: copy,
-                    });
-                    new_files.insert(path.clone(), remote_hash);
+                    // Both sides changed. Combine them line by line against
+                    // the copy we kept at the last sync, so edits to different
+                    // parts of a file simply merge — only genuinely
+                    // overlapping edits need a human.
+                    match merge_three_way(root, path, rb, lb) {
+                        MergeOutcome::Clean(merged) => {
+                            write_local_file(root, path, &merged)?;
+                            new_files.insert(path.clone(), sha256_hex(&merged));
+                            // Overleaf still holds only their half, so send the
+                            // combined file back up to converge both sides.
+                            merged_content.insert(path.clone(), merged);
+                            to_push.push(path.clone());
+                            result.merged.push(path.clone());
+                        }
+                        MergeOutcome::Conflicted(conflicted) => {
+                            // Markers land in the file itself so the
+                            // disagreement is visible exactly where it happened,
+                            // and the untouched local version is kept beside it.
+                            let copy = conflict_copy_name(path, &stamp);
+                            write_local_file(root, &copy, lb)?;
+                            write_local_file(root, path, &conflicted)?;
+                            result.conflicts.push(OverleafConflict {
+                                path: path.clone(),
+                                local_copy: copy,
+                            });
+                            // Base is their version: once the markers are
+                            // resolved the file counts as a local edit again
+                            // and goes up on the next sync.
+                            new_files.insert(path.clone(), remote_hash);
+                        }
+                        MergeOutcome::Unmergeable => {
+                            // Binary, or no base copy to merge against: fall
+                            // back to keeping both, remote on the real path.
+                            let copy = conflict_copy_name(path, &stamp);
+                            write_local_file(root, &copy, lb)?;
+                            write_local_file(root, path, rb)?;
+                            result.conflicts.push(OverleafConflict {
+                                path: path.clone(),
+                                local_copy: copy,
+                            });
+                            new_files.insert(path.clone(), remote_hash);
+                        }
+                    }
                 }
             }
             (Some(rb), None) => {
@@ -963,11 +1101,26 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
         }
     }
 
+    // Never hand Overleaf a file whose conflict markers are still unresolved —
+    // that would publish the markers to everyone else in the project.
+    let (to_push, held_back): (Vec<String>, Vec<String>) = to_push.into_iter().partition(|path| {
+        let bytes = merged_content.get(path).or_else(|| local.get(path));
+        !bytes.is_some_and(|value| {
+            std::str::from_utf8(value).is_ok_and(|text| text.contains(CONFLICT_MARKER))
+        })
+    });
+    for path in held_back {
+        // Keep it out of state too, so it counts as a local edit and uploads
+        // as soon as the markers are gone.
+        new_files.remove(&path);
+    }
+
     let mut uploader = Uploader::new(&client, &host, &session.cookie, &csrf, &state.project_id);
     let push_outcome = (|| {
         for path in &to_push {
-            let bytes = local
+            let bytes = merged_content
                 .get(path)
+                .or_else(|| local.get(path))
                 .cloned()
                 .ok_or_else(|| format!("{path} disappeared during sync"))?;
             uploader
@@ -979,6 +1132,27 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
     uploader.cleanup();
     push_outcome?;
     result.pushed = to_push;
+
+    // Record what both sides now agree on: this is the common ancestor the
+    // next sync merges against.
+    for (path, _) in new_files.iter() {
+        let bytes = merged_content
+            .get(path)
+            .or_else(|| local.get(path))
+            .or_else(|| remote.get(path))
+            .cloned();
+        // Re-read anything we wrote to disk this round so the base matches the
+        // file exactly (pulled files, merged files).
+        let bytes = fs::read(local_disk_path(root, path)).ok().or(bytes);
+        if let Some(bytes) = bytes {
+            write_base_copy(root, path, &bytes)?;
+        }
+    }
+    for path in state.files.keys() {
+        if !new_files.contains_key(path) {
+            remove_base_copy(root, path);
+        }
+    }
 
     state.files = new_files;
     state.last_sync = Some(now_iso());
@@ -1264,6 +1438,11 @@ mod tests {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(path, data).unwrap();
         }
+        // A real clone records both the hash and a pristine copy of every text
+        // file, which is what later merges use as their common ancestor.
+        for (rel, data) in base_files {
+            write_base_copy(root, rel, data).unwrap();
+        }
         let files = base_files
             .iter()
             .map(|(rel, data)| (rel.to_string(), sha256_hex(data)))
@@ -1488,7 +1667,8 @@ mod tests {
     }
 
     #[test]
-    fn overleaf_sync_conflict_keeps_local_copy_and_takes_remote() {
+    fn overleaf_sync_conflict_keeps_local_copy_and_marks_the_overlap() {
+        // Both sides rewrote the same line, so no merge can decide for us.
         let base = b"base body".as_slice();
         let server = start_server(
             projects_page_html(),
@@ -1504,7 +1684,12 @@ mod tests {
         assert_eq!(conflict.path, "main.tex");
         assert!(conflict.local_copy.starts_with("main (local conflict "));
         assert!(conflict.local_copy.ends_with(").tex"));
-        assert_eq!(read_local(&root, "main.tex").unwrap(), b"remote edit");
+        // The file shows both versions where they disagree…
+        let merged = String::from_utf8(read_local(&root, "main.tex").unwrap()).unwrap();
+        assert!(merged.contains(CONFLICT_MARKER));
+        assert!(merged.contains("local edit"));
+        assert!(merged.contains("remote edit"));
+        // …and the untouched local version survives beside it.
         assert_eq!(
             read_local(&root, &conflict.local_copy).unwrap(),
             b"local edit"
@@ -1512,9 +1697,91 @@ mod tests {
         // Conflicted files are never uploaded in the same round.
         assert!(server.uploads().is_empty());
         assert!(result.pushed.is_empty());
+        assert!(result.merged.is_empty());
+    }
+
+    #[test]
+    fn overleaf_sync_merges_edits_to_different_parts_of_one_file() {
+        // The case that used to shove the user's work into a sidecar file:
+        // a collaborator edits the top, you edit the bottom.
+        let base = "\\section{One}\nalpha\n\n\\section{Two}\nbeta\n";
+        let remote = "\\section{One}\nALPHA from Overleaf\n\n\\section{Two}\nbeta\n";
+        let local = "\\section{One}\nalpha\n\n\\section{Two}\nBETA edited locally\n";
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[("main.tex", remote.as_bytes())]),
+        );
+        let (root, result) = run_sync(
+            &server,
+            &[("main.tex", local.as_bytes())],
+            &[("main.tex", base.as_bytes())],
+        );
+
+        assert!(result.conflicts.is_empty());
+        assert_eq!(result.merged, vec!["main.tex"]);
+        let merged = String::from_utf8(read_local(&root, "main.tex").unwrap()).unwrap();
+        assert!(merged.contains("ALPHA from Overleaf"));
+        assert!(merged.contains("BETA edited locally"));
+        assert!(!merged.contains(CONFLICT_MARKER));
+
+        // Overleaf only had their half, so the combined file goes back up.
+        assert_eq!(result.pushed, vec!["main.tex"]);
+        let uploads = server.uploads();
+        assert_eq!(uploads.len(), 1);
+        let body = uploads[0].body_text();
+        assert!(body.contains("ALPHA from Overleaf"));
+        assert!(body.contains("BETA edited locally"));
+
+        // Both sides now agree, and that agreement is the next merge base.
         assert_eq!(
             state_files(&root).get("main.tex").unwrap(),
-            &sha256_hex(b"remote edit")
+            &sha256_hex(merged.as_bytes())
+        );
+        assert_eq!(read_base_copy(&root, "main.tex").unwrap(), merged);
+    }
+
+    #[test]
+    fn overleaf_sync_never_uploads_unresolved_conflict_markers() {
+        // A file still carrying markers must not be published to collaborators.
+        let base = "alpha\n";
+        let local = format!("{CONFLICT_MARKER} ours\nmine\n=======\ntheirs\n>>>>>>> theirs\n");
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[("main.tex", base.as_bytes())]),
+        );
+        let (root, result) = run_sync(
+            &server,
+            &[("main.tex", local.as_bytes())],
+            &[("main.tex", base.as_bytes())],
+        );
+        assert!(result.pushed.is_empty());
+        assert!(server.uploads().is_empty());
+        // Left out of state, so it uploads as soon as the markers are gone.
+        assert!(!state_files(&root).contains_key("main.tex"));
+        assert_eq!(read_local(&root, "main.tex").unwrap(), local.as_bytes());
+    }
+
+    #[test]
+    fn overleaf_sync_keeps_both_when_a_binary_file_changed_on_both_sides() {
+        // Figures cannot be merged line by line, so fall back to keep-both.
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[("figures/fig.pdf", b"%PDF remote".as_slice())]),
+        );
+        let (root, result) = run_sync(
+            &server,
+            &[("figures/fig.pdf", b"%PDF local".as_slice())],
+            &[("figures/fig.pdf", b"%PDF base".as_slice())],
+        );
+        assert!(result.merged.is_empty());
+        assert_eq!(result.conflicts.len(), 1);
+        assert_eq!(
+            read_local(&root, "figures/fig.pdf").unwrap(),
+            b"%PDF remote"
+        );
+        assert_eq!(
+            read_local(&root, &result.conflicts[0].local_copy).unwrap(),
+            b"%PDF local"
         );
     }
 
