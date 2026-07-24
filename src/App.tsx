@@ -512,6 +512,8 @@ const COLUMNS_PDF_RATIO_KEY = "lattice.columns-pdf-ratio.v1";
 const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
 const NAVIGATOR_OPEN_KEY = "lattice.navigator-open.v1";
 const AGENT_OPEN_KEY = "lattice.agent-open.v1";
+const LAST_FILE_KEY = "lattice.last-file.v1";
+const LAST_FILE_MAX = 60;
 const AGENT_SYSTEM_PROMPT_KEY = "lattice.agent-system-prompt.v1";
 const PROJECT_FIGURE_DRAG_TYPE = "application/x-lattice-project-figure";
 
@@ -755,6 +757,10 @@ function App() {
   // Remember whether each side panel is collapsed so the layout survives a restart.
   useEffect(() => persistPanelOpen(NAVIGATOR_OPEN_KEY, navigatorOpen), [navigatorOpen]);
   useEffect(() => persistPanelOpen(AGENT_OPEN_KEY, agentOpen), [agentOpen]);
+  // Remember the file open per project, so reopening it lands on the last page.
+  useEffect(() => {
+    if (project?.root && activeFile) persistLastFile(project.root, activeFile);
+  }, [project?.root, activeFile]);
   const [panelWidths, setPanelWidths] = useState<PanelWidths>(loadPanelWidths);
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [error, setError] = useState<string | null>(null);
@@ -1847,7 +1853,13 @@ function App() {
         snapshot.manifest.rootDocuments.find((document) => document.path === "main.tex")
         ?? snapshot.manifest.rootDocuments.find((document) => document.isDefault)
         ?? snapshot.manifest.rootDocuments[0];
-      if (rootDocument) await loadFile(rootDocument.path);
+      // Reopen the file the user last had open here, when it still exists;
+      // otherwise fall back to the project's root document.
+      const remembered = loadLastFile(snapshot.root);
+      const openTarget = remembered && flattenProjectPaths(snapshot.files).includes(remembered)
+        ? remembered
+        : rootDocument?.path;
+      if (openTarget) await loadFile(openTarget);
       const [nextPapers, nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
         invoke<PaperSummary[]>("list_papers"),
         invoke<string[]>("list_citation_keys"),
@@ -8469,6 +8481,36 @@ function loadNavigatorSplit(): number {
     return clamp(Number(localStorage.getItem(NAVIGATOR_SPLIT_KEY)) || 0.58, 0.2, 0.78);
   } catch {
     return 0.58;
+  }
+}
+
+function loadLastFileMap(): Record<string, string> {
+  try {
+    const value = JSON.parse(localStorage.getItem(LAST_FILE_KEY) ?? "{}") as unknown;
+    if (!value || typeof value !== "object") return {};
+    return value as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+/** The file the user last had open in a given project, if remembered. */
+function loadLastFile(root: string): string | null {
+  const value = loadLastFileMap()[root];
+  return typeof value === "string" && value ? value : null;
+}
+
+function persistLastFile(root: string, path: string) {
+  try {
+    const map = loadLastFileMap();
+    if (map[root] === path) return;
+    // Re-insert at the end so trimming drops the least-recently-opened project.
+    delete map[root];
+    const entries = [...Object.entries(map), [root, path] as [string, string]];
+    const trimmed = entries.slice(Math.max(0, entries.length - LAST_FILE_MAX));
+    localStorage.setItem(LAST_FILE_KEY, JSON.stringify(Object.fromEntries(trimmed)));
+  } catch {
+    // Non-fatal: reopening simply falls back to the root document.
   }
 }
 
