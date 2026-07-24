@@ -624,3 +624,31 @@ pub struct GitDiff {
     pub before: Option<String>,
     pub after: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLogFile {
+    pub path: String,
+    /// "added" | "modified" | "deleted" | "renamed"
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLogEntry {
+    pub hash: String,
+    pub short_hash: String,
+    pub author_name: String,
+    /// ISO-8601 author date.
+    pub timestamp: String,
+    pub message: String,
+    pub files: Vec<GitLogFile>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitFileDiff {
+    pub before: Option<String>,
+    pub after: Option<String>,
+    pub binary: bool,
+}

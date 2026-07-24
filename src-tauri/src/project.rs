@@ -813,7 +813,9 @@ fn bib_entry_line(contents: &str, key: &str) -> Option<u32> {
             continue;
         };
         let entry_key = trimmed[brace + 1..]
-            .split(|character: char| character == ',' || character == '}' || character.is_whitespace())
+            .split(|character: char| {
+                character == ',' || character == '}' || character.is_whitespace()
+            })
             .next()
             .unwrap_or("")
             .trim();

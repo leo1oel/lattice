@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Cloud,
   FileArchive,
   FileText,
   Folder,
@@ -40,6 +41,7 @@ export function Welcome(props: {
   onJoinCollab: () => void;
   onSettings: () => void;
   onInstallTex: () => void;
+  onOpenOverleaf?: () => void;
 }) {
   return (
     <div className="welcome-screen">
@@ -67,6 +69,11 @@ export function Welcome(props: {
           <button className="secondary-button" onClick={props.onJoinCollab}>
             <Radio size={17} /> Join share
           </button>
+          {props.onOpenOverleaf && (
+            <button className="secondary-button" onClick={props.onOpenOverleaf}>
+              <Cloud size={17} /> Open from Overleaf
+            </button>
+          )}
         </div>
         <button type="button" className="text-button welcome-tex-setup" onClick={props.onInstallTex}>
           Install LaTeX tools (needed to compile PDFs)
@@ -229,6 +236,7 @@ export function ProjectMenu(props: {
   onOpen: () => void;
   onNew: () => void;
   onExportZip: () => void;
+  onOpenOverleaf?: () => void;
 }) {
   const alternatives = props.recentProjects.filter((item) => item.path !== props.currentPath);
   const busy = Boolean(props.busyLabel);
@@ -252,6 +260,11 @@ export function ProjectMenu(props: {
         <FolderOpen /> Open another folder <DropdownMenuShortcut>⌘O</DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={props.onNew}><Plus /> New project</DropdownMenuItem>
+      {props.onOpenOverleaf && (
+        <DropdownMenuItem disabled={busy} onSelect={props.onOpenOverleaf}>
+          <Cloud /> Open from Overleaf
+        </DropdownMenuItem>
+      )}
       <DropdownMenuItem onSelect={props.onExportZip}><FileArchive /> Export ZIP</DropdownMenuItem>
       {props.busyLabel && (
         <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">

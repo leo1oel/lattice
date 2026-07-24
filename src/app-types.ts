@@ -213,7 +213,7 @@ export type EditorPaneId = "primary" | "secondary";
 export type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
 export type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
 export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-export type SettingsTab = "appearance" | "editor" | "agent" | "accounts" | "api" | "doctor";
+export type SettingsTab = "appearance" | "editor" | "agent" | "accounts" | "overleaf" | "api" | "doctor";
 export type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
 export type DoctorCheck = { name: string; detail: string; ok: boolean };
@@ -221,3 +221,60 @@ export type DoctorReport = { ok: boolean; summary: string; checks: DoctorCheck[]
 export type EditorKeymap = "default" | "vim" | "emacs";
 export type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
 export type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
+
+// ---- Overleaf bridge ----------------------------------------------------
+// Shapes mirror the Rust `overleaf` module's serde camelCase output exactly.
+
+export type OverleafStatus = {
+  connected: boolean;
+  email: string | null;
+  name: string | null;
+  host: string;
+};
+export type OverleafLoginPoll = {
+  status: "pending" | "connected" | "cancelled";
+  session: OverleafStatus | null;
+};
+export type OverleafProject = {
+  id: string;
+  name: string;
+  lastUpdated: string | null;
+  ownerEmail: string | null;
+  ownerName: string | null;
+  accessLevel: string | null;
+  archived: boolean;
+  trashed: boolean;
+};
+export type OverleafLink = {
+  projectId: string;
+  projectName: string;
+  host: string;
+  lastSync: string | null;
+};
+export type OverleafConflict = { path: string; localCopy: string };
+export type OverleafSyncResult = {
+  pulled: string[];
+  pushed: string[];
+  conflicts: OverleafConflict[];
+  deletedLocal: string[];
+  skippedRemoteDeletes: string[];
+};
+
+// ---- Git version timeline ------------------------------------------------
+// Shapes mirror the Rust `git` module's serde camelCase output exactly.
+
+export type GitLogFileKind = "added" | "modified" | "deleted" | "renamed";
+export type GitLogFile = { path: string; kind: GitLogFileKind };
+export type GitLogEntry = {
+  hash: string;
+  shortHash: string;
+  authorName: string;
+  timestamp: string;
+  message: string;
+  files: GitLogFile[];
+};
+export type GitFileDiff = {
+  before: string | null;
+  after: string | null;
+  binary: boolean;
+};

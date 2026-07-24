@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  CloudUpload,
   FileCode2,
   GitBranch,
   History,
@@ -37,6 +38,10 @@ export function CanvasToolbar(props: {
   onGit: () => void;
   commentCount: number;
   onComments: () => void;
+  /** Present only when the project is linked to an Overleaf project. */
+  overleafLinked?: boolean;
+  overleafSyncing?: boolean;
+  onOverleafSync?: () => void;
 }) {
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
   const switcherMode = props.mode === "dual" || props.mode === "columns" ? "split" : props.mode;
@@ -118,6 +123,17 @@ export function CanvasToolbar(props: {
               </button>
             </Tip>
           </>
+        )}
+        {props.overleafLinked && props.onOverleafSync && (
+          <Tip label={props.overleafSyncing ? "Syncing with Overleaf…" : "Sync with Overleaf"}>
+            <button
+              className="history-button"
+              disabled={props.overleafSyncing}
+              onClick={props.onOverleafSync}
+            >
+              {props.overleafSyncing ? <LoaderCircle className="spin" size={14} /> : <CloudUpload size={14} />}
+            </button>
+          </Tip>
         )}
         <Tip label="Git status and commit">
           <button className="history-button" onClick={props.onGit}>

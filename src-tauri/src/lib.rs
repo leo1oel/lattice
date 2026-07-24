@@ -715,6 +715,49 @@ fn git_fetch(state: tauri::State<'_, AppState>) -> Result<GitRemoteResult, Strin
 }
 
 #[tauri::command]
+fn git_log(
+    state: tauri::State<'_, AppState>,
+    limit: Option<u32>,
+) -> Result<Vec<models::GitLogEntry>, String> {
+    git::log(&current_root(&state)?, limit.unwrap_or(200) as usize)
+}
+
+#[tauri::command]
+fn git_show_diff(
+    state: tauri::State<'_, AppState>,
+    rev: String,
+    path: String,
+) -> Result<models::GitFileDiff, String> {
+    git::show_diff(&current_root(&state)?, &rev, &path)
+}
+
+#[tauri::command]
+fn git_restore_file(
+    state: tauri::State<'_, AppState>,
+    rev: String,
+    path: String,
+) -> Result<(), String> {
+    git::restore_file(&current_root(&state)?, &rev, &path)
+}
+
+#[tauri::command]
+fn git_restore_project(
+    state: tauri::State<'_, AppState>,
+    rev: String,
+) -> Result<String, String> {
+    git::restore_project(&current_root(&state)?, &rev)
+}
+
+#[tauri::command]
+fn git_auto_commit(
+    state: tauri::State<'_, AppState>,
+    message: String,
+    author: Option<String>,
+) -> Result<Option<String>, String> {
+    git::auto_commit(&current_root(&state)?, &message, author.as_deref())
+}
+
+#[tauri::command]
 fn list_pdf_annotations(state: tauri::State<'_, AppState>) -> Result<Vec<PdfMark>, String> {
     project::read_pdf_marks(&current_root(&state)?)
 }
@@ -1234,6 +1277,11 @@ pub fn run() {
             git_push,
             git_pull,
             git_fetch,
+            git_log,
+            git_show_diff,
+            git_restore_file,
+            git_restore_project,
+            git_auto_commit,
             list_pdf_annotations,
             save_pdf_annotations,
             list_editor_comments,
