@@ -254,6 +254,11 @@ export type OverleafLink = {
   lastSync: string | null;
 };
 export type OverleafConflict = { path: string; localCopy: string };
+export type OverleafProbe = {
+  changed: boolean;
+  remoteVersion: number | null;
+  lastSync: string | null;
+};
 export type OverleafSyncResult = {
   pulled: string[];
   pushed: string[];

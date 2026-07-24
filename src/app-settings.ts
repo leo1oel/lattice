@@ -296,3 +296,30 @@ export function resizePanelWidths(
   const maximum = Math.max(260, Math.min(halfWindow, window.innerWidth - navigatorWidth - canvasMinimum - handles));
   return { ...start, agent: clamp(start.agent + delta, 260, maximum) };
 }
+
+/**
+ * How a project linked to Overleaf stays in step with it.
+ *
+ * "live" keeps both sides close to current on their own; "manual" leaves every
+ * exchange to an explicit press of the sync button, for people who would
+ * rather review incoming work the way they would review a pull.
+ */
+export type OverleafSyncMode = "live" | "manual";
+
+export const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
+
+export function loadOverleafSyncMode(): OverleafSyncMode {
+  try {
+    return localStorage.getItem(OVERLEAF_SYNC_MODE_KEY) === "manual" ? "manual" : "live";
+  } catch {
+    return "live";
+  }
+}
+
+export function persistOverleafSyncMode(mode: OverleafSyncMode) {
+  try {
+    localStorage.setItem(OVERLEAF_SYNC_MODE_KEY, mode);
+  } catch {
+    // The choice still applies for this session without storage.
+  }
+}

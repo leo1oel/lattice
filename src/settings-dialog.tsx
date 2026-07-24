@@ -24,6 +24,7 @@ import {
   type AutoBuildMode,
   type BuildPreferences,
   type AppearanceSettings,
+  type OverleafSyncMode,
 } from "./app-settings";
 import {
   type ProjectSnapshot,
@@ -45,6 +46,8 @@ import { OverleafSettingsSection } from "./overleaf-connect";
 export function SettingsDialog(props: {
   tab: SettingsTab;
   setTab: (tab: SettingsTab) => void;
+  overleafSyncMode: OverleafSyncMode;
+  onOverleafSyncModeChange: (mode: OverleafSyncMode) => void;
   appearance: AppearanceSettings;
   setAppearance: (appearance: AppearanceSettings) => void;
   theme: Theme;
@@ -399,7 +402,12 @@ export function SettingsDialog(props: {
                 {props.subscriptionNotice && <p className="settings-notice">{props.subscriptionNotice}</p>}
               </div>
             )}
-            {props.tab === "overleaf" && <OverleafSettingsSection />}
+            {props.tab === "overleaf" && (
+              <OverleafSettingsSection
+                syncMode={props.overleafSyncMode}
+                onSyncModeChange={props.onOverleafSyncModeChange}
+              />
+            )}
             {props.tab === "api" && (
               <div className="settings-section">
                 <h2>API keys</h2>

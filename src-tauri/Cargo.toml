@@ -47,12 +47,16 @@ objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSGeometry"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = [
   "std",
+  "block2",
+  "objc2-core-foundation",
   "NSButton",
   "NSControl",
+  "NSEvent",
   "NSResponder",
   "NSView",
   "NSWindow",
 ] }
+block2 = "0.6"
 
 [dev-dependencies]
 tiny_http = "0.12.0"

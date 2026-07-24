@@ -41,6 +41,8 @@ export function CanvasToolbar(props: {
   onComments: () => void;
   overleafLinked?: boolean;
   overleafSyncing?: boolean;
+  /** Manual mode only: Overleaf has work you have not taken yet. */
+  overleafPending?: boolean;
   onOverleafSync?: () => void;
   onOverleafOpen?: () => void;
 }) {
@@ -127,7 +129,11 @@ export function CanvasToolbar(props: {
         )}
         {(props.onOverleafSync || props.onOverleafOpen) && (
           <Tip label={props.overleafLinked
-            ? (props.overleafSyncing ? "Syncing with Overleaf…" : "Sync with Overleaf")
+            ? (props.overleafSyncing
+              ? "Syncing with Overleaf…"
+              : props.overleafPending
+                ? "New changes on Overleaf — click to bring them in"
+                : "Sync with Overleaf")
             : "Open a project from Overleaf"}
           >
             <button
@@ -138,6 +144,9 @@ export function CanvasToolbar(props: {
               {props.overleafSyncing
                 ? <LoaderCircle className="spin" size={14} />
                 : props.overleafLinked ? <CloudUpload size={14} /> : <Cloud size={14} />}
+              {props.overleafPending && !props.overleafSyncing
+                ? <em className="collab-peer-badge">•</em>
+                : null}
             </button>
           </Tip>
         )}

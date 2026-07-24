@@ -1,8 +1,76 @@
-//! macOS-only window chrome helpers (traffic lights + quarantine cleanup).
+//! macOS-only window chrome helpers (traffic lights, pinch gestures, quarantine
+//! cleanup).
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
+
+/// Payload of the `trackpad-magnify` event the web UI listens for.
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MagnifyEvent {
+    /// Incremental scale change for this tick: 0.02 means "2% bigger".
+    pub magnification: f64,
+    /// Cursor position in CSS pixels from the top-left of the web view, so the
+    /// page can decide whether the pinch happened over the PDF.
+    pub x: f64,
+    pub y: f64,
+}
+
+/// Forward trackpad pinches to the web UI.
+///
+/// A pinch never reaches JavaScript in this webview: WebKit's `gesture*` events
+/// are not delivered here, and WKWebView only emits `ctrl`+wheel for pinches in
+/// a browser, not embedded. AppKit still sees the raw `NSEventTypeMagnify`
+/// though, so we watch for it below WebKit and hand the delta to the page,
+/// which is what makes pinch-to-zoom work on the PDF.
+#[cfg(target_os = "macos")]
+pub fn install_magnify_monitor(app: tauri::AppHandle) {
+    use block2::RcBlock;
+    use objc2_app_kit::{NSEvent, NSEventMask};
+    use std::ptr::NonNull;
+    use tauri::{Emitter, Manager};
+
+    // The monitor must outlive this call; AppKit owns it for the app's life.
+    let handler = RcBlock::new(move |event: NonNull<NSEvent>| -> *mut NSEvent {
+        let raw = event.as_ptr();
+        // SAFETY: AppKit hands us a live event for the duration of the block.
+        let magnification = unsafe { event.as_ref().magnification() };
+        if magnification != 0.0 {
+            if let Some(window) = app.get_webview_window("main") {
+                // NSEvent reports window coordinates with a bottom-left origin;
+                // the page wants top-left CSS pixels.
+                let location = unsafe { event.as_ref().locationInWindow() };
+                let (x, y) = window
+                    .inner_size()
+                    .ok()
+                    .zip(window.scale_factor().ok())
+                    .map(|(size, scale)| {
+                        let height = size.height as f64 / scale;
+                        (location.x, height - location.y)
+                    })
+                    .unwrap_or((location.x, location.y));
+                let _ = window.emit(
+                    "trackpad-magnify",
+                    MagnifyEvent {
+                        magnification,
+                        x,
+                        y,
+                    },
+                );
+            }
+        }
+        // Let the event continue on its way; we only observe it.
+        raw
+    });
+    // SAFETY: the block matches the documented handler signature, and we keep
+    // the returned monitor alive for the process lifetime on purpose.
+    let monitor = unsafe {
+        NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::Magnify, &handler)
+    };
+    std::mem::forget(monitor);
+    std::mem::forget(handler);
+}
 
 /// Fallback when the web UI has not reported a measured titlebar yet.
 const DEFAULT_TITLEBAR_HEIGHT: f64 = 46.0;

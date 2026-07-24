@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 // The *legacy* build, deliberately. pdf.js's default build targets engines
 // newer than the WKWebView on supported macOS versions; there it silently fails
@@ -514,9 +515,34 @@ export function PdfPreview({
     area.addEventListener("wheel", onWheel, { passive: false });
     return () => area.removeEventListener("wheel", onWheel);
   }, []);
-  // The ctrl+wheel path above is the Chrome convention. Tauri runs on
-  // WKWebView, where a trackpad pinch instead fires WebKit's own gesture
-  // events, so without these a two-finger pinch does nothing here.
+  // Neither the ctrl+wheel path above nor WebKit's gesture events below are
+  // actually delivered for a trackpad pinch in this embedded webview, so the
+  // Rust side watches AppKit's raw magnify events and forwards them here.
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+    void listen<{ magnification: number; x: number; y: number }>("trackpad-magnify", (event) => {
+      const area = scrollAreaRef.current;
+      if (!area) return;
+      const rect = area.getBoundingClientRect();
+      const { magnification, x, y } = event.payload;
+      // The monitor is app-wide, so only zoom when the pinch is over the PDF.
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return;
+      const prev = scaleRef.current;
+      const next = clamp(Number((prev * (1 + magnification)).toFixed(3)), 0.6, 4);
+      if (next === prev) return;
+      pendingZoomAnchorRef.current = { x: x - rect.left, y: y - rect.top, prevScale: prev };
+      setScale(next);
+    }).then((dispose) => {
+      if (disposed) dispose();
+      else unlisten = dispose;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+  // Kept as a fallback for platforms where WebKit does deliver gesture events.
   useEffect(() => {
     const area = scrollAreaRef.current;
     if (!area) return;

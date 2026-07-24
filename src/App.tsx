@@ -86,6 +86,9 @@ import {
   loadSystemPrompt,
   loadLastFile,
   persistLastFile,
+  type OverleafSyncMode,
+  loadOverleafSyncMode,
+  persistOverleafSyncMode,
 } from "./app-settings";
 import {
   type EditorComment,
@@ -212,6 +215,7 @@ import type {
   DoctorReport,
   SubscriptionStatus,
   OverleafLink,
+  OverleafProbe,
   OverleafSyncResult,
 } from "./app-types";
 import {
@@ -389,9 +393,15 @@ function App() {
   const [overleafPickerOpen, setOverleafPickerOpen] = useState(false);
   const [overleafLink, setOverleafLink] = useState<OverleafLink | null>(null);
   const [overleafSyncing, setOverleafSyncing] = useState(false);
+  const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
+  const [overleafRemoteChanges, setOverleafRemoteChanges] = useState(false);
   const overleafSyncingRef = useRef(false);
   const overleafAutoSyncedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
+  /** How often live mode asks Overleaf whether anything changed. */
+  const OVERLEAF_LIVE_POLL_MS = 5_000;
+  /** Quiet time after typing before local work is pushed up. */
+  const OVERLEAF_PUSH_DEBOUNCE_MS = 4_000;
   const lastAutoSyncRef = useRef(0);
   const lastAutoVersionRef = useRef(0);
   const [collabRole, setCollabRole] = useState<"host" | "guest">("host");
@@ -1511,26 +1521,82 @@ function App() {
     void runOverleafSync({ auto: true });
   }, [overleafLink, project?.root, runOverleafSync]);
 
-  // Keep a linked project in step with Overleaf while it stays open, so a
-  // collaborator's edits arrive on their own: every two minutes, and whenever
-  // the window regains focus (the moment you switch back from a browser).
-  // Syncing is two-way, so this also carries your own edits up to them.
+  // Live mode keeps a linked project close to current without anyone pressing
+  // anything. Asking Overleaf "has your history moved?" is a small JSON call,
+  // so it can run every few seconds; the expensive full sync only follows when
+  // the answer is yes. That is what makes seconds-level latency affordable —
+  // polling the project itself would mean re-downloading it every time.
   overleafSyncRef.current = runOverleafSync;
   useEffect(() => {
-    if (!overleafLink) return;
-    const trigger = () => {
-      const now = Date.now();
-      if (now - lastAutoSyncRef.current < 20_000) return;
-      lastAutoSyncRef.current = now;
-      void overleafSyncRef.current({ auto: true });
+    if (!overleafLink || overleafSyncMode !== "live") return;
+    let stopped = false;
+    let timer: number | null = null;
+    const tick = async () => {
+      if (stopped) return;
+      try {
+        if (!overleafSyncingRef.current) {
+          const probe = await invoke<OverleafProbe>("overleaf_probe");
+          if (!stopped && probe.changed) {
+            lastAutoSyncRef.current = Date.now();
+            await overleafSyncRef.current({ auto: true });
+          }
+        }
+      } catch {
+        // Offline or an expired session: the next tick tries again, and a
+        // manual sync surfaces the real error.
+      }
+      if (!stopped) timer = window.setTimeout(() => void tick(), OVERLEAF_LIVE_POLL_MS);
     };
-    const timer = window.setInterval(trigger, 120_000);
-    window.addEventListener("focus", trigger);
+    void tick();
+    // Coming back from the browser is the moment stale content is most
+    // obvious, so check immediately rather than waiting for the next tick.
+    const onFocus = () => void tick();
+    window.addEventListener("focus", onFocus);
     return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("focus", trigger);
+      stopped = true;
+      if (timer) window.clearTimeout(timer);
+      window.removeEventListener("focus", onFocus);
     };
-  }, [overleafLink]);
+  }, [overleafLink, overleafSyncMode]);
+
+  // Live mode also pushes: a short pause after you stop typing sends your work
+  // up, so collaborators see it without waiting on a timer.
+  useEffect(() => {
+    if (!overleafLink || overleafSyncMode !== "live") return;
+    if (source === savedSource) return;
+    const timer = window.setTimeout(() => {
+      if (Date.now() - lastAutoSyncRef.current < 5_000) return;
+      lastAutoSyncRef.current = Date.now();
+      void overleafSyncRef.current({ auto: true });
+    }, OVERLEAF_PUSH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [overleafLink, overleafSyncMode, savedSource, source]);
+
+  // Manual mode never syncs on its own; it just watches for incoming work so
+  // the toolbar can offer it, the way a repository shows commits to pull.
+  useEffect(() => {
+    if (!overleafLink || overleafSyncMode !== "manual") {
+      setOverleafRemoteChanges(false);
+      return;
+    }
+    let stopped = false;
+    const check = async () => {
+      try {
+        const probe = await invoke<OverleafProbe>("overleaf_probe");
+        if (!stopped) setOverleafRemoteChanges(probe.changed);
+      } catch {
+        // Leave the badge as-is when the check cannot run.
+      }
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), 30_000);
+    window.addEventListener("focus", check);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", check);
+    };
+  }, [overleafLink, overleafSyncMode]);
 
   // Auto-save a version after successful builds of Overleaf-linked projects,
   // at most every 2 minutes. Unlinked projects only version on explicit "Save
@@ -3634,6 +3700,11 @@ function App() {
 
   const settingsDialog = settingsOpen ? (
     <SettingsDialog
+      overleafSyncMode={overleafSyncMode}
+      onOverleafSyncModeChange={(mode) => {
+        setOverleafSyncMode(mode);
+        persistOverleafSyncMode(mode);
+      }}
       tab={settingsTab}
       setTab={(tab) => {
         setSettingsTab(tab);
@@ -4447,6 +4518,7 @@ function App() {
             onComments={() => setEditorCommentsOpen(true)}
             overleafLinked={overleafLink !== null}
             overleafSyncing={overleafSyncing}
+            overleafPending={overleafRemoteChanges}
             onOverleafSync={() => void runOverleafSync()}
             onOverleafOpen={() => setOverleafPickerOpen(true)}
           />

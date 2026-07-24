@@ -119,6 +119,16 @@ pub struct OverleafSyncResult {
     pub skipped_remote_deletes: Vec<String>,
 }
 
+/// Result of the cheap remote-change check that live mode polls.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafProbe {
+    /// True when Overleaf has moved on since our last sync.
+    pub changed: bool,
+    pub remote_version: Option<i64>,
+    pub last_sync: Option<String>,
+}
+
 /// One tick of the sign-in-window polling loop (see `overleaf_poll_login`).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -181,6 +191,11 @@ struct SyncState {
     project_name: String,
     #[serde(default)]
     last_sync: Option<String>,
+    /// Newest history version seen on Overleaf at the last sync. Comparing a
+    /// cheap probe against this is what lets live mode poll every few seconds
+    /// without downloading the project each time.
+    #[serde(default)]
+    remote_version: Option<i64>,
     /// Relative path (forward slashes) → sha256 hex of the content at the
     /// last successful sync.
     #[serde(default)]
@@ -934,15 +949,90 @@ pub fn clone_project(
             write_base_copy(&root, rel, data)?;
         }
     }
+    let remote_version = fetch_remote_version(&client, &session.host, &session.cookie, project_id);
     let state = SyncState {
         host: session.host,
         project_id: project_id.to_string(),
         project_name: project_name.to_string(),
         last_sync: Some(now_iso()),
+        remote_version,
         files,
     };
     save_state(&root, &state)?;
     Ok(root)
+}
+
+/// Cheap "did anything change over there?" check.
+///
+/// Overleaf's history API reports the project's newest version in a small JSON
+/// payload, so this can run every few seconds — unlike a full sync, which
+/// downloads the whole project as a zip. Live mode polls this and only syncs
+/// for real when the version moved.
+pub fn probe(config_dir: &Path, root: &Path) -> Result<OverleafProbe, String> {
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = if state.host.trim().is_empty() {
+        session.host.clone()
+    } else {
+        state.host.clone()
+    };
+    let client = http_client(15)?;
+    let response = client
+        .get(format!(
+            "{host}/project/{}/updates?min_count=1",
+            state.project_id
+        ))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    check_authenticated(&response)?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Overleaf returned {} for the project history.",
+            response.status()
+        ));
+    }
+    let body: serde_json::Value = response.json().map_err(err)?;
+    let remote_version = latest_update_version(&body);
+    Ok(OverleafProbe {
+        // Without a version to compare (older or self-hosted instances that do
+        // not expose history), report "changed" so a sync still happens.
+        changed: match (remote_version, state.remote_version) {
+            (Some(remote), Some(known)) => remote != known,
+            _ => true,
+        },
+        remote_version,
+        last_sync: state.last_sync,
+    })
+}
+
+/// Best-effort read of the project's newest history version. A failure here
+/// only costs the next probe a redundant sync, so it never fails a sync.
+fn fetch_remote_version(
+    client: &reqwest::blocking::Client,
+    host: &str,
+    cookie: &str,
+    project_id: &str,
+) -> Option<i64> {
+    let response = client
+        .get(format!("{host}/project/{project_id}/updates?min_count=1"))
+        .header(reqwest::header::COOKIE, cookie)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    latest_update_version(&response.json::<serde_json::Value>().ok()?)
+}
+
+fn latest_update_version(body: &serde_json::Value) -> Option<i64> {
+    let updates = body.get("updates")?.as_array()?;
+    updates
+        .iter()
+        .filter_map(|update| update.get("toV").and_then(|v| v.as_i64()))
+        .max()
 }
 
 pub fn project_link(root: &Path) -> Result<Option<OverleafLink>, String> {
@@ -1156,6 +1246,9 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
 
     state.files = new_files;
     state.last_sync = Some(now_iso());
+    // Remember where Overleaf's history stood, so the next probe can tell
+    // "nothing changed" without downloading the project.
+    state.remote_version = fetch_remote_version(&client, &host, &session.cookie, &state.project_id);
     save_state(root, &state)?;
 
     result.pulled.sort();
@@ -1454,6 +1547,7 @@ mod tests {
                 project_id: "proj-1".to_string(),
                 project_name: "Test Project".to_string(),
                 last_sync: Some("2026-07-01T00:00:00Z".to_string()),
+                remote_version: None,
                 files,
             },
         )

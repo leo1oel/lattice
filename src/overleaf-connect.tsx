@@ -17,6 +17,7 @@ import {
   type OverleafStatus,
 } from "./app-types";
 import { relativeTime, toMessage } from "./app-utils";
+import { type OverleafSyncMode } from "./app-settings";
 import "./overleaf-connect.css";
 
 const DEFAULT_OVERLEAF_HOST = "https://www.overleaf.com";
@@ -141,7 +142,10 @@ function LoginWaitingRow(props: { onCancel: () => void; hint?: string | null }) 
 }
 
 /** Settings → Overleaf tab: connection status, sign-in, and the manual fallback. */
-export function OverleafSettingsSection() {
+export function OverleafSettingsSection(props: {
+  syncMode: OverleafSyncMode;
+  onSyncModeChange: (mode: OverleafSyncMode) => void;
+}) {
   const [status, setStatus] = useState<OverleafStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -243,6 +247,41 @@ export function OverleafSettingsSection() {
       {login.error && <p className="overleaf-error" role="alert">{login.error}</p>}
       {login.notice && <p className="overleaf-hint">{login.notice}</p>}
       {actionError && <p className="overleaf-error" role="alert">{actionError}</p>}
+      <div className="overleaf-mode">
+        <h3>Keeping in step</h3>
+        <label className="overleaf-mode-option">
+          <input
+            type="radio"
+            name="overleaf-sync-mode"
+            checked={props.syncMode === "live"}
+            onChange={() => props.onSyncModeChange("live")}
+          />
+          <span>
+            <strong>Live sync</strong>
+            <small>
+              Checks Overleaf every few seconds and brings changes in as they happen; your own
+              edits go up shortly after you stop typing. Best when you are writing alongside
+              someone.
+            </small>
+          </span>
+        </label>
+        <label className="overleaf-mode-option">
+          <input
+            type="radio"
+            name="overleaf-sync-mode"
+            checked={props.syncMode === "manual"}
+            onChange={() => props.onSyncModeChange("manual")}
+          />
+          <span>
+            <strong>Manual</strong>
+            <small>
+              Nothing moves until you press the sync button. A dot appears on it when Overleaf
+              has changes waiting, and every sync is recorded in Versions so you can read the
+              diff and roll back.
+            </small>
+          </span>
+        </label>
+      </div>
       <details className="overleaf-advanced">
         <summary>Advanced options</summary>
         <p className="overleaf-hint">

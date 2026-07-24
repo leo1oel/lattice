@@ -913,6 +913,18 @@ fn overleaf_link(
 }
 
 #[tauri::command]
+async fn overleaf_probe(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<overleaf::OverleafProbe, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || overleaf::probe(&config, &root))
+        .await
+        .map_err(|error| format!("The Overleaf check stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
 async fn overleaf_sync(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
@@ -1382,6 +1394,7 @@ pub fn run() {
                 if let Some(window) = app.get_webview_window("main") {
                     macos_window::apply_traffic_light_position(&window);
                 }
+                macos_window::install_magnify_monitor(app.handle().clone());
             }
             Ok(())
         })
@@ -1457,6 +1470,7 @@ pub fn run() {
             overleaf_list_projects,
             overleaf_clone_project,
             overleaf_link,
+            overleaf_probe,
             overleaf_sync,
             list_pdf_annotations,
             save_pdf_annotations,

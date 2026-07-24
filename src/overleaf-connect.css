@@ -201,3 +201,22 @@
   font-size: 10px;
   line-height: 1.5;
 }
+
+.overleaf-mode { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+.overleaf-mode h3 { margin: 0; font-size: 12px; font-weight: 600; color: var(--text); }
+.overleaf-mode-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  cursor: pointer;
+}
+.overleaf-mode-option:hover { border-color: var(--line-strong); }
+.overleaf-mode-option:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.overleaf-mode-option input { margin-top: 2px; flex: none; accent-color: var(--accent); }
+.overleaf-mode-option span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.overleaf-mode-option strong { font-size: 12px; font-weight: 600; color: var(--text); }
+.overleaf-mode-option small { font-size: 10px; line-height: 1.5; color: var(--muted); }
