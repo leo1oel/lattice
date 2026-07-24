@@ -117,6 +117,7 @@ import {
 } from "./editor-comments";
 import { useUpdater, type UpdateMode } from "./app-updater";
 import { useAppearance } from "./use-appearance";
+import { usePanelLayout } from "./use-panel-layout";
 import {
   type Theme,
   type RecentProject,
@@ -124,8 +125,6 @@ import {
   type BuildPreferences,
   type PaperReadingWidth,
   BUILD_PREFERENCES_KEY,
-  NAVIGATOR_OPEN_KEY,
-  AGENT_OPEN_KEY,
   AGENT_SYSTEM_PROMPT_KEY,
   PAPER_READING_WIDTH_KEY,
   clamp,
@@ -139,15 +138,8 @@ import {
   persistColumnsPdfRatio,
   loadLastFile,
   persistLastFile,
-  loadPanelOpen,
-  persistPanelOpen,
   loadPaperReadingWidth,
-  type PanelKind,
-  type PanelWidths,
   type AppearanceSettings,
-  loadPanelWidths,
-  persistPanelWidths,
-  resizePanelWidths,
 } from "./app-settings";
 import {
   type EditorComment,
@@ -547,16 +539,19 @@ function App() {
     symbol: string;
     occurrences: SymbolOccurrence[];
   } | null>(null);
-  const [navigatorOpen, setNavigatorOpen] = useState(() => loadPanelOpen(NAVIGATOR_OPEN_KEY));
-  const [agentOpen, setAgentOpen] = useState(() => loadPanelOpen(AGENT_OPEN_KEY));
-  // Remember whether each side panel is collapsed so the layout survives a restart.
-  useEffect(() => persistPanelOpen(NAVIGATOR_OPEN_KEY, navigatorOpen), [navigatorOpen]);
-  useEffect(() => persistPanelOpen(AGENT_OPEN_KEY, agentOpen), [agentOpen]);
+  const {
+    navigatorOpen,
+    setNavigatorOpen,
+    agentOpen,
+    setAgentOpen,
+    panelWidths,
+    beginPanelResize,
+    nudgePanel,
+  } = usePanelLayout();
   // Remember the file open per project, so reopening it lands on the last page.
   useEffect(() => {
     if (project?.root && activeFile) persistLastFile(project.root, activeFile);
   }, [project?.root, activeFile]);
-  const [panelWidths, setPanelWidths] = useState<PanelWidths>(loadPanelWidths);
   const { theme, setTheme, appearance, setAppearance } = useAppearance();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -3562,34 +3557,6 @@ function App() {
     setCommentPanelFocusId(commentId);
     setEditorCommentsOpen(true);
   }, []);
-
-  const beginPanelResize = useCallback((panel: PanelKind, event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const startX = event.clientX;
-    const startWidths = panelWidths;
-    let latest = panelWidths;
-    document.body.classList.add("resizing-panels");
-    const handleMove = (moveEvent: PointerEvent) => {
-      latest = resizePanelWidths(panel, startWidths, moveEvent.clientX - startX, navigatorOpen, agentOpen);
-      setPanelWidths(latest);
-    };
-    const handleUp = () => {
-      document.body.classList.remove("resizing-panels");
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-      persistPanelWidths(latest);
-    };
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
-  }, [agentOpen, navigatorOpen, panelWidths]);
-
-  const nudgePanel = useCallback((panel: PanelKind, delta: number) => {
-    setPanelWidths((current) => {
-      const next = resizePanelWidths(panel, current, delta, navigatorOpen, agentOpen);
-      persistPanelWidths(next);
-      return next;
-    });
-  }, [agentOpen, navigatorOpen]);
 
   const settingsDialog = settingsOpen ? (
     <SettingsDialog
