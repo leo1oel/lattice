@@ -131,6 +131,36 @@ import {
 } from "./editor-comments";
 import { useUpdater, type UpdateMode } from "./app-updater";
 import {
+  type Theme,
+  type RecentProject,
+  type AutoBuildMode,
+  type BuildPreferences,
+  type PaperReadingWidth,
+  THEME_KEY,
+  BUILD_PREFERENCES_KEY,
+  NAVIGATOR_OPEN_KEY,
+  AGENT_OPEN_KEY,
+  AGENT_SYSTEM_PROMPT_KEY,
+  PAPER_READING_WIDTH_KEY,
+  clamp,
+  loadRecentProjects,
+  persistRecentProjects,
+  loadTheme,
+  loadBuildPreferences,
+  loadSystemPrompt,
+  loadSplitRatio,
+  persistSplitRatio,
+  loadColumnsPdfRatio,
+  persistColumnsPdfRatio,
+  loadNavigatorSplit,
+  persistNavigatorSplit,
+  loadLastFile,
+  persistLastFile,
+  loadPanelOpen,
+  persistPanelOpen,
+  loadPaperReadingWidth,
+} from "./app-settings";
+import {
   type EditorComment,
 } from "./editor-comments";
 const EditorCommentsPanel = lazy(() =>
@@ -474,10 +504,8 @@ type MentionState = { start: number; end: number; query: string };
 type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "paper" | "asset";
 type EditorPaneId = "primary" | "secondary";
 type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
-type Theme = "light" | "dark";
 type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
 type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-type RecentProject = { name: string; path: string };
 type PanelKind = "navigator" | "agent";
 type PanelWidths = { navigator: number; agent: number };
 type SettingsTab = "appearance" | "editor" | "agent" | "accounts" | "api" | "doctor";
@@ -496,25 +524,12 @@ type AppearanceSettings = {
   editorSpellcheck: boolean;
   maxOpenTabs: number;
 };
-type AutoBuildMode = "manual" | "automatic";
-type BuildPreferences = { autoBuildMode: AutoBuildMode };
 type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
 type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 
-const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 const PANEL_WIDTHS_KEY = "lattice.panel-widths.v2";
 const APPEARANCE_KEY = "lattice.appearance.v4";
 const LEGACY_APPEARANCE_KEY = "lattice.appearance.v3";
-const THEME_KEY = "lattice.theme.v1";
-const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
-const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
-const COLUMNS_PDF_RATIO_KEY = "lattice.columns-pdf-ratio.v1";
-const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
-const NAVIGATOR_OPEN_KEY = "lattice.navigator-open.v1";
-const AGENT_OPEN_KEY = "lattice.agent-open.v1";
-const LAST_FILE_KEY = "lattice.last-file.v1";
-const LAST_FILE_MAX = 60;
-const AGENT_SYSTEM_PROMPT_KEY = "lattice.agent-system-prompt.v1";
 const PROJECT_FIGURE_DRAG_TYPE = "application/x-lattice-project-figure";
 
 const WELCOME_MESSAGE = "What would you like to work on?";
@@ -528,16 +543,6 @@ const defaultWelcomeMessages: ChatMessage[] = [
 
 function isConversationWelcome(message: ChatMessage, index: number): boolean {
   return index === 0 && message.role === "agent" && message.text.trim() === WELCOME_MESSAGE;
-}
-
-type PaperReadingWidth = "comfortable" | "wide";
-const PAPER_READING_WIDTH_KEY = "lattice.paper-reading-width";
-function loadPaperReadingWidth(): PaperReadingWidth {
-  try {
-    return localStorage.getItem(PAPER_READING_WIDTH_KEY) === "wide" ? "wide" : "comfortable";
-  } catch {
-    return "comfortable";
-  }
 }
 
 function App() {
@@ -8334,29 +8339,6 @@ function relativeTime(timestamp: string): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-function loadRecentProjects(): RecentProject[] {
-  try {
-    const value = JSON.parse(localStorage.getItem(RECENT_PROJECTS_KEY) ?? "[]") as unknown;
-    if (!Array.isArray(value)) return [];
-    return value
-      .filter((item): item is RecentProject => Boolean(
-        item && typeof item === "object" && "name" in item && typeof item.name === "string" &&
-        "path" in item && typeof item.path === "string",
-      ))
-      .slice(0, 8);
-  } catch {
-    return [];
-  }
-}
-
-function persistRecentProjects(projects: RecentProject[]) {
-  try {
-    localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(projects));
-  } catch {
-    // Recent projects are a convenience; project access still works if storage is unavailable.
-  }
-}
-
 function loadPanelWidths(): PanelWidths {
   // Keep navigator/agent narrower so the editor + PDF canvas get more room by default.
   const defaults = { navigator: 200, agent: 280 };
@@ -8414,135 +8396,10 @@ function loadAppearance(): AppearanceSettings {
   }
 }
 
-function loadTheme(): Theme {
-  try {
-    const stored = localStorage.getItem(THEME_KEY);
-    if (stored === "light" || stored === "dark") return stored;
-  } catch {
-    // Fall through to the system preference when storage is unavailable.
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function loadBuildPreferences(): BuildPreferences {
-  try {
-    const value = JSON.parse(localStorage.getItem(BUILD_PREFERENCES_KEY) ?? "null") as { autoBuildMode?: string } | null;
-    const autoBuildMode = value?.autoBuildMode;
-    return {
-      autoBuildMode: autoBuildMode === "manual" ? "manual" : "automatic",
-    };
-  } catch {
-    return { autoBuildMode: "automatic" };
-  }
-}
-
-function loadSystemPrompt(): string {
-  try {
-    return localStorage.getItem(AGENT_SYSTEM_PROMPT_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
 function projectItemPath(root: string, relativePath: string): string {
   if (!relativePath) return root;
   const separator = root.includes("\\") ? "\\" : "/";
   return `${root.replace(/[\\/]+$/, "")}${separator}${relativePath.replace(/[\\/]/g, separator)}`;
-}
-
-function loadSplitRatio(): number {
-  try {
-    return clamp(Number(localStorage.getItem(SPLIT_RATIO_KEY)) || 0.46, 0.2, 0.8);
-  } catch {
-    return 0.46;
-  }
-}
-
-function persistSplitRatio(ratio: number) {
-  try {
-    localStorage.setItem(SPLIT_RATIO_KEY, String(ratio));
-  } catch {
-    // Split resizing remains available for the current session without storage.
-  }
-}
-
-function loadColumnsPdfRatio(): number {
-  try {
-    return clamp(Number(localStorage.getItem(COLUMNS_PDF_RATIO_KEY)) || 0.38, 0.22, 0.55);
-  } catch {
-    return 0.38;
-  }
-}
-
-function persistColumnsPdfRatio(ratio: number) {
-  try {
-    localStorage.setItem(COLUMNS_PDF_RATIO_KEY, String(ratio));
-  } catch {
-    // Columns PDF resizing remains available for the current session without storage.
-  }
-}
-
-function loadNavigatorSplit(): number {
-  try {
-    return clamp(Number(localStorage.getItem(NAVIGATOR_SPLIT_KEY)) || 0.58, 0.2, 0.78);
-  } catch {
-    return 0.58;
-  }
-}
-
-function loadLastFileMap(): Record<string, string> {
-  try {
-    const value = JSON.parse(localStorage.getItem(LAST_FILE_KEY) ?? "{}") as unknown;
-    if (!value || typeof value !== "object") return {};
-    return value as Record<string, string>;
-  } catch {
-    return {};
-  }
-}
-
-/** The file the user last had open in a given project, if remembered. */
-function loadLastFile(root: string): string | null {
-  const value = loadLastFileMap()[root];
-  return typeof value === "string" && value ? value : null;
-}
-
-function persistLastFile(root: string, path: string) {
-  try {
-    const map = loadLastFileMap();
-    if (map[root] === path) return;
-    // Re-insert at the end so trimming drops the least-recently-opened project.
-    delete map[root];
-    const entries = [...Object.entries(map), [root, path] as [string, string]];
-    const trimmed = entries.slice(Math.max(0, entries.length - LAST_FILE_MAX));
-    localStorage.setItem(LAST_FILE_KEY, JSON.stringify(Object.fromEntries(trimmed)));
-  } catch {
-    // Non-fatal: reopening simply falls back to the root document.
-  }
-}
-
-/** Panels default open; only an explicit "0" (the user hid it) keeps them hidden. */
-function loadPanelOpen(key: string): boolean {
-  try {
-    return localStorage.getItem(key) !== "0";
-  } catch {
-    return true;
-  }
-}
-
-function persistPanelOpen(key: string, open: boolean) {
-  try {
-    localStorage.setItem(key, open ? "1" : "0");
-  } catch {
-    // Layout still toggles this session without storage.
-  }
-}
-
-function persistNavigatorSplit(ratio: number) {
-  try {
-    localStorage.setItem(NAVIGATOR_SPLIT_KEY, String(ratio));
-  } catch {
-    // Navigator resizing remains available for the current session without storage.
-  }
 }
 
 function dropDirectoryAt(position: { x: number; y: number }): string | null {
@@ -8588,10 +8445,6 @@ function resizePanelWidths(
   const navigatorWidth = navigatorOpen ? start.navigator : 0;
   const maximum = Math.max(260, Math.min(halfWindow, window.innerWidth - navigatorWidth - canvasMinimum - handles));
   return { ...start, agent: clamp(start.agent + delta, 260, maximum) };
-}
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(maximum, Math.max(minimum, value));
 }
 
 export default App;
