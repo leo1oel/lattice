@@ -2317,16 +2317,16 @@ function App() {
   useEffect(() => {
     const list = chatListRef.current;
     if (!list) return;
-    let lastTop = list.scrollTop;
     const onScroll = () => {
-      // Direction-aware so the auto-scroll's own downward motion never counts as
-      // the user leaving: only an upward drag unpins, and coming back to near the
-      // bottom re-pins. "Near" rather than exact so the growing last line counts.
-      const scrolledUp = list.scrollTop < lastTop - 2;
-      lastTop = list.scrollTop;
-      const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
-      if (scrolledUp) stickToBottomRef.current = false;
-      else if (atBottom) stickToBottomRef.current = true;
+      // Pin to the bottom only while the user is actually near it, measured by
+      // absolute distance rather than scroll direction. This is what makes it
+      // hold during a fast stream: the auto-scroll's own per-frame jump to the
+      // bottom lands within the threshold and stays pinned, while a real scroll
+      // up past it unpins and stays unpinned. A direction-based check missed the
+      // user's drag because the per-frame auto-scroll kept moving the reference
+      // point to the growing bottom, so the drag never read as a net decrease.
+      const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+      stickToBottomRef.current = distanceFromBottom < 80;
     };
     list.addEventListener("scroll", onScroll, { passive: true });
     return () => list.removeEventListener("scroll", onScroll);
