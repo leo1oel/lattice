@@ -8,7 +8,7 @@
  * Until then, sharing falls back to localhost:8787 (same machine / LAN only).
  */
 /** Fallback when env is unset (your Cloudflare workers.dev deploy). */
-const FALLBACK_COLLAB_HOST = "lattice-collab.liuym13579.workers.dev";
+const FALLBACK_COLLAB_HOST = "lattice-collab.paperlattice.workers.dev";
 
 export function builtInCollabHost(): string {
   const fromEnv = (import.meta.env.VITE_LATTICE_COLLAB_HOST as string | undefined)?.trim() ?? "";
