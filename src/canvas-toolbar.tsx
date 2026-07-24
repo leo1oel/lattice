@@ -73,7 +73,7 @@ export function CanvasToolbar(props: {
   overleafChannelDetail?: string | null;
   onOverleafSync?: () => void;
   onOverleafOpen?: () => void;
-  /** Messages from Overleaf collaborators that arrived while the panel was closed. */
+  /** Open comments plus unread chat: what is waiting on you in the project. */
   overleafUnreadChat?: number;
   onOverleafChat?: () => void;
 }) {
@@ -187,8 +187,8 @@ export function CanvasToolbar(props: {
         )}
         {props.overleafLinked && props.onOverleafChat && (
           <Tip label={props.overleafUnreadChat
-            ? `Overleaf chat · ${props.overleafUnreadChat} new`
-            : "Chat with your Overleaf collaborators"}
+            ? `Overleaf comments and chat · ${props.overleafUnreadChat} waiting`
+            : "Overleaf comments and chat"}
           >
             <button
               type="button"

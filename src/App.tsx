@@ -79,7 +79,8 @@ import { OverleafReviewDialog } from "./overleaf-review";
 import { ConflictResolverDialog } from "./conflict-resolver";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 import { useOverleafChat } from "./use-overleaf-chat";
-import { OverleafChatDrawer } from "./overleaf-chat";
+import { useOverleafComments } from "./use-overleaf-comments";
+import { OverleafCollabDrawer, type OverleafCollabTab } from "./overleaf-collab";
 import {
   type RecentProject,
   type BuildPreferences,
@@ -401,7 +402,8 @@ function App() {
   const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
   const [overleafRemoteChanges, setOverleafRemoteChanges] = useState(false);
   const [overleafReviewOpen, setOverleafReviewOpen] = useState(false);
-  const [overleafChatOpen, setOverleafChatOpen] = useState(false);
+  const [overleafCollabOpen, setOverleafCollabOpen] = useState(false);
+  const [overleafCollabTab, setOverleafCollabTab] = useState<OverleafCollabTab>("comments");
   /** Bumped whenever a save actually writes, so pushes follow real edits. */
   const [saveGeneration, setSaveGeneration] = useState(0);
   const [conflictPath, setConflictPath] = useState<string | null>(null);
@@ -1674,10 +1676,26 @@ function App() {
   // it. It listens on the same channel the editor uses.
   const overleafChat = useOverleafChat({ enabled: overleafLink !== null });
 
+  // Comments are the other half of that conversation. The anchors — which span
+  // of text each thread sits on — only exist for the document the channel has
+  // open, which is why they come from the realtime hook rather than REST.
+  const overleafAnchors = useMemo(
+    () => new Map(overleafRealtime.comments.map((range) => [range.threadId, range])),
+    [overleafRealtime.comments],
+  );
+  const overleafComments = useOverleafComments({
+    enabled: overleafLink !== null,
+    docId: overleafRealtime.docId,
+    anchored: useMemo(
+      () => overleafRealtime.comments.map((range) => range.threadId),
+      [overleafRealtime.comments],
+    ),
+  });
+
   // Keep the badge quiet while someone is reading the conversation.
   useEffect(() => {
-    if (overleafChatOpen) overleafChat.markRead();
-  }, [overleafChatOpen, overleafChat.messages, overleafChat.markRead]);
+    if (overleafCollabOpen && overleafCollabTab === "chat") overleafChat.markRead();
+  }, [overleafCollabOpen, overleafCollabTab, overleafChat.messages, overleafChat.markRead]);
 
   // Everything typed goes to the live channel; it ignores text it already has,
   // so this is safe to call on every change including our own remote applies.
@@ -4717,10 +4735,9 @@ function App() {
               else void runOverleafSync();
             }}
             onOverleafOpen={() => setOverleafPickerOpen(true)}
-            overleafUnreadChat={overleafChat.unread}
+            overleafUnreadChat={overleafChat.unread + overleafComments.openCount}
             onOverleafChat={() => {
-              setOverleafChatOpen(true);
-              overleafChat.markRead();
+              setOverleafCollabOpen(true);
               void overleafChat.refresh();
             }}
           />
@@ -4965,14 +4982,31 @@ function App() {
           onOpenFile={(path, line) => { void openProjectFile(path, line); }}
         />
       )}
-      {overleafChatOpen && overleafLink && (
-        <OverleafChatDrawer
+      {overleafCollabOpen && overleafLink && (
+        <OverleafCollabDrawer
+          tab={overleafCollabTab}
+          onTab={setOverleafCollabTab}
           projectName={overleafLink.projectName}
+          onClose={() => setOverleafCollabOpen(false)}
+          threads={overleafComments.threads}
+          anchors={overleafAnchors}
+          documentOpen={overleafRealtime.docId !== null}
+          commentsLoading={overleafComments.loading}
+          commentsError={overleafComments.error}
+          onReply={overleafComments.reply}
+          onResolve={overleafComments.setResolved}
+          onDeleteThread={overleafComments.remove}
+          onReveal={(position) => {
+            const path = activeFileRef.current;
+            if (!path) return;
+            setViewRestore({ path, cursor: position, scrollTop: 0, id: crypto.randomUUID() });
+            setOverleafCollabOpen(false);
+          }}
           messages={overleafChat.messages}
-          loading={overleafChat.loading}
-          error={overleafChat.error}
-          onClose={() => setOverleafChatOpen(false)}
+          chatLoading={overleafChat.loading}
+          chatError={overleafChat.error}
           onSend={overleafChat.send}
+          unreadChat={overleafChat.unread}
         />
       )}
       {editorCommentsOpen && (

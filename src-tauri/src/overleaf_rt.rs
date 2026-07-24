@@ -126,6 +126,20 @@ pub enum RealtimeEvent {
         doc_id: String,
         message: String,
     },
+    /// A comment thread was anchored to a span of an open document. Arrives
+    /// when someone comments while we have the file open, so the marker can
+    /// appear without re-opening it.
+    CommentAnchored {
+        doc_id: String,
+        range: CommentRange,
+    },
+    /// A comment thread changed: a reply, an edit, a resolve, a delete.
+    ///
+    /// This carries no detail on purpose. Overleaf spreads thread state across
+    /// six socket events and a REST endpoint, and rebuilding it from partial
+    /// events is how panels drift out of step with the browser; re-reading the
+    /// threads is both simpler and always right.
+    ThreadsChanged,
     /// Someone posted in the project chat. Overleaf sends this to everyone in
     /// the room, the author included.
     ChatMessage {
@@ -676,6 +690,54 @@ fn error_text(value: &Value) -> String {
 
 // ---- Project tree ---------------------------------------------------------
 
+/// A joined document: its text, its version, and where its comments sit.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JoinedDoc {
+    pub text: String,
+    pub version: i64,
+    pub comments: Vec<CommentRange>,
+}
+
+/// Where one comment thread is anchored in a document.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommentRange {
+    /// The thread id — what the REST endpoints and socket events key on.
+    pub thread_id: String,
+    /// Character offset of the commented span.
+    pub position: i64,
+    /// The commented text itself, as Overleaf recorded it.
+    pub quote: String,
+}
+
+/// `{ comments: [{ id, op: { p, c, t } }], changes: [...] }`.
+fn parse_comment_ranges(ranges: &Value) -> Vec<CommentRange> {
+    ranges
+        .get("comments")
+        .and_then(Value::as_array)
+        .map(|comments| {
+            comments
+                .iter()
+                .filter_map(|comment| parse_comment_range(comment.get("op")?))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// `{ p, c, t }`: position, the commented text, and the thread it belongs to.
+fn parse_comment_range(op: &Value) -> Option<CommentRange> {
+    Some(CommentRange {
+        thread_id: op.get("t").and_then(Value::as_str)?.to_string(),
+        position: op.get("p").and_then(Value::as_i64).unwrap_or(0),
+        quote: op
+            .get("c")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+    })
+}
+
 /// `joinProject` answers with `[error, project, permissions, protocolVersion]`;
 /// `project.rootFolder` is an array holding the single root folder.
 fn parse_project(body: &[Value]) -> Result<(String, Vec<DocEntry>), String> {
@@ -861,7 +923,7 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
         }
         "otUpdateApplied" => {
             for arg in &args {
-                if let Some(event) = doc_update_event(arg) {
+                for event in doc_update_events(arg) {
                     shared.emit(event);
                 }
             }
@@ -892,6 +954,15 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
                 }
                 shared.resolve(JOIN_SLOT, AckMsg::Ack(vec![body.clone()]));
             }
+        }
+        "new-comment"
+        | "new-comment-threads"
+        | "edit-message"
+        | "delete-message"
+        | "resolve-thread"
+        | "reopen-thread"
+        | "delete-thread" => {
+            shared.emit(RealtimeEvent::ThreadsChanged);
         }
         "new-chat-message" => {
             if let Some(event) = args.first().and_then(chat_event) {
@@ -945,29 +1016,57 @@ fn json_field(value: &Value, keys: &[&str]) -> Option<String> {
         .map(str::to_string)
 }
 
-fn doc_update_event(value: &Value) -> Option<RealtimeEvent> {
-    let doc_id = value.get("doc").and_then(Value::as_str)?.to_string();
+/// One `otUpdateApplied` payload, split into what it means for the text and
+/// what it means for comments.
+///
+/// Overleaf sends both kinds of operation down the same channel: `{p, i}` and
+/// `{p, d}` change the document, while `{p, c, t}` anchors a comment thread to
+/// a span without altering a character. Keeping the comment ops out of the
+/// text stream matters — transformed as if they were edits they would come
+/// back as empty deletes, and the OT state machine should only ever see real
+/// edits.
+fn doc_update_events(value: &Value) -> Vec<RealtimeEvent> {
+    let Some(doc_id) = value.get("doc").and_then(Value::as_str).map(str::to_string) else {
+        return Vec::new();
+    };
     let version = value.get("v").and_then(Value::as_i64).unwrap_or(-1);
-    let ops = value
-        .get("op")
-        .and_then(Value::as_array)
-        .map(|ops| {
-            ops.iter()
-                .filter_map(|op| serde_json::from_value::<OtOp>(op.clone()).ok())
-                .collect()
-        })
-        .unwrap_or_default();
+    let mut ops: Vec<OtOp> = Vec::new();
+    let mut events: Vec<RealtimeEvent> = Vec::new();
+    if let Some(raw) = value.get("op").and_then(Value::as_array) {
+        for op in raw {
+            if op.get("t").and_then(Value::as_str).is_some() {
+                if let Some(range) = parse_comment_range(op) {
+                    events.push(RealtimeEvent::CommentAnchored {
+                        doc_id: doc_id.clone(),
+                        range,
+                    });
+                }
+                continue;
+            }
+            if let Ok(parsed) = serde_json::from_value::<OtOp>(op.clone()) {
+                if parsed.i.is_some() || parsed.d.is_some() {
+                    ops.push(parsed);
+                }
+            }
+        }
+    }
     let source = value
         .get("meta")
         .and_then(|meta| meta.get("source"))
         .and_then(Value::as_str)
         .map(str::to_string);
-    Some(RealtimeEvent::DocUpdate {
-        doc_id,
-        version,
-        ops,
-        source,
-    })
+    // The version moves whatever the operation was, so this goes out even when
+    // nothing in the text changed.
+    events.insert(
+        0,
+        RealtimeEvent::DocUpdate {
+            doc_id,
+            version,
+            ops,
+            source,
+        },
+    );
+    events
 }
 
 /// `otUpdateError` does not have a documented shape; dig a doc id out of
@@ -1157,7 +1256,7 @@ impl RealtimeClient {
 
     /// `joinDoc` → the document's current lines joined with `'\n'`, plus its
     /// version.
-    pub async fn join_doc(&self, doc_id: &str) -> Result<(String, i64), String> {
+    pub async fn join_doc(&self, doc_id: &str) -> Result<JoinedDoc, String> {
         let ack = emit_with_ack(
             &self.shared,
             "joinDoc",
@@ -1183,7 +1282,15 @@ impl RealtimeClient {
             .get(1)
             .and_then(Value::as_i64)
             .ok_or_else(|| format!("Overleaf sent no version for document {doc_id}."))?;
-        Ok((text, version))
+        // The fourth slot holds the document's ranges: tracked changes, and
+        // the spans that comment threads are anchored to. Only the comments
+        // matter here — they are what ties a conversation to a piece of text.
+        let comments = body.get(3).map(parse_comment_ranges).unwrap_or_default();
+        Ok(JoinedDoc {
+            text,
+            version,
+            comments,
+        })
     }
 
     pub async fn leave_doc(&self, doc_id: &str) -> Result<(), String> {
@@ -1497,6 +1604,10 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&connected).unwrap(),
             r#"{"type":"connected","publicId":"pub-1"}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&RealtimeEvent::ThreadsChanged).unwrap(),
+            r#"{"type":"threadsChanged"}"#
         );
         let chat = RealtimeEvent::ChatMessage {
             id: "msg-1".into(),
@@ -1819,7 +1930,15 @@ mod tests {
                 "joinDoc" => {
                     let ack = ws.send(Message::text(ack_frame(
                         &id,
-                        json!([null, ["line one", "line two"], 42, [], {}]),
+                        json!([
+                            null,
+                            ["line one", "line two"],
+                            42,
+                            [],
+                            {"comments": [{"id": "change-1",
+                                            "op": {"p": 4, "c": "one", "t": "thread-1"}}],
+                              "changes": []}
+                        ]),
                     )));
                     // Unsolicited update from another collaborator...
                     let _ = ws.send(Message::text(event_frame(
@@ -1851,6 +1970,75 @@ mod tests {
             std::thread::sleep(Duration::from_millis(20));
         }
         panic!("timed out waiting for {what}");
+    }
+
+    #[test]
+    fn comment_operations_never_reach_the_text_stream() {
+        let events = doc_update_events(&json!({
+            "doc": "doc-1",
+            "v": 44,
+            "op": [
+                {"p": 5, "i": "hello"},
+                {"p": 12, "c": "quoted span", "t": "thread-9"},
+                {"p": 20, "d": "gone"},
+            ],
+            "meta": {"source": "pub-2"},
+        }));
+        match &events[0] {
+            RealtimeEvent::DocUpdate {
+                doc_id,
+                version,
+                ops,
+                source,
+            } => {
+                assert_eq!(doc_id, "doc-1");
+                assert_eq!(*version, 44);
+                assert_eq!(source.as_deref(), Some("pub-2"));
+                // The comment op is gone; transformed as an edit it would come
+                // back as an empty delete.
+                assert_eq!(
+                    ops,
+                    &vec![
+                        OtOp {
+                            p: 5,
+                            i: Some("hello".into()),
+                            d: None
+                        },
+                        OtOp {
+                            p: 20,
+                            i: None,
+                            d: Some("gone".into())
+                        },
+                    ]
+                );
+            }
+            other => panic!("expected DocUpdate first, got {other:?}"),
+        }
+        match &events[1] {
+            RealtimeEvent::CommentAnchored { doc_id, range } => {
+                assert_eq!(doc_id, "doc-1");
+                assert_eq!(range.thread_id, "thread-9");
+                assert_eq!(range.position, 12);
+                assert_eq!(range.quote, "quoted span");
+            }
+            other => panic!("expected CommentAnchored, got {other:?}"),
+        }
+        assert_eq!(events.len(), 2);
+
+        // A comment on its own still moves the version, so the update goes out
+        // with no ops rather than not at all.
+        let only_comment = doc_update_events(&json!({
+            "doc": "doc-1", "v": 45,
+            "op": [{"p": 0, "c": "x", "t": "thread-10"}],
+        }));
+        assert_eq!(only_comment.len(), 2);
+        match &only_comment[0] {
+            RealtimeEvent::DocUpdate { version, ops, .. } => {
+                assert_eq!(*version, 45);
+                assert!(ops.is_empty());
+            }
+            other => panic!("expected DocUpdate, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1980,9 +2168,18 @@ mod tests {
             }
         }
 
-        let (text, version) = rt::block_on(client.join_doc("doc-1")).expect("joinDoc");
-        assert_eq!(text, "line one\nline two");
-        assert_eq!(version, 42);
+        let joined = rt::block_on(client.join_doc("doc-1")).expect("joinDoc");
+        assert_eq!(joined.text, "line one\nline two");
+        assert_eq!(joined.version, 42);
+        // Comment anchors ride in with the document, keyed by thread id.
+        assert_eq!(
+            joined.comments,
+            vec![CommentRange {
+                thread_id: "thread-1".into(),
+                position: 4,
+                quote: "one".into(),
+            }]
+        );
 
         rt::block_on(client.send_ops(
             "doc-1",

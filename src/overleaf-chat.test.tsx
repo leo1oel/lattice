@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { renderHook, act } from "@testing-library/react";
-import { OverleafChatDrawer } from "./overleaf-chat";
+import { OverleafChatPanel } from "./overleaf-chat";
 import { useOverleafChat } from "./use-overleaf-chat";
 import type { OverleafMessage } from "./app-types";
 
@@ -22,18 +22,17 @@ function message(overrides: Partial<OverleafMessage> = {}): OverleafMessage {
   };
 }
 
-describe("Overleaf chat drawer", () => {
+describe("Overleaf chat panel", () => {
   beforeEach(cleanup);
 
   it("shows the conversation and sends on Enter", async () => {
     const onSend = vi.fn().mockResolvedValue(undefined);
     render(
-      <OverleafChatDrawer
+      <OverleafChatPanel
         projectName="Attention Paper"
         messages={[message(), message({ id: "m2", content: "thanks!", mine: true, authorName: "Leo" })]}
         loading={false}
         error={null}
-        onClose={vi.fn()}
         onSend={onSend}
       />,
     );
@@ -56,12 +55,11 @@ describe("Overleaf chat drawer", () => {
   it("keeps the draft when sending fails", async () => {
     const onSend = vi.fn().mockRejectedValue(new Error("offline"));
     render(
-      <OverleafChatDrawer
+      <OverleafChatPanel
         projectName="Attention Paper"
         messages={[]}
         loading={false}
         error="Could not reach Overleaf"
-        onClose={vi.fn()}
         onSend={onSend}
       />,
     );

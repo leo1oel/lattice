@@ -1008,10 +1008,8 @@ fn overleaf_rt_connected(state: tauri::State<'_, AppState>) -> Option<String> {
 async fn overleaf_rt_join_doc(
     state: tauri::State<'_, AppState>,
     doc_id: String,
-) -> Result<serde_json::Value, String> {
-    let client = realtime_client(&state)?;
-    let (text, version) = client.join_doc(&doc_id).await?;
-    Ok(serde_json::json!({ "text": text, "version": version }))
+) -> Result<overleaf_rt::JoinedDoc, String> {
+    realtime_client(&state)?.join_doc(&doc_id).await
 }
 
 #[tauri::command]
@@ -1068,6 +1066,67 @@ async fn overleaf_send_chat_message(
 /// text would reach collaborators as an out-of-band overwrite.
 fn live_paths(live: Option<Vec<String>>) -> std::collections::BTreeSet<String> {
     live.unwrap_or_default().into_iter().collect()
+}
+
+#[tauri::command]
+async fn overleaf_threads(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<overleaf::OverleafThread>, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || overleaf::threads(&config, &root))
+        .await
+        .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_reply_to_thread(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    thread_id: String,
+    content: String,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::reply_to_thread(&config, &root, &thread_id, &content)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_resolve_thread(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+    thread_id: String,
+    resolved: bool,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::resolve_thread(&config, &root, &doc_id, &thread_id, resolved)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_delete_thread(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+    thread_id: String,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::delete_thread(&config, &root, &doc_id, &thread_id)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
 }
 
 /// Dry run: what a sync would change, without writing or uploading anything.
@@ -1659,6 +1718,10 @@ pub fn run() {
             overleaf_rt_send_ops,
             overleaf_chat_messages,
             overleaf_send_chat_message,
+            overleaf_threads,
+            overleaf_reply_to_thread,
+            overleaf_resolve_thread,
+            overleaf_delete_thread,
             overleaf_preview,
             overleaf_unlink,
             overleaf_sync,

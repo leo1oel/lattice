@@ -19,21 +19,32 @@ import type { OtOp } from "./ot-ops";
 
 type DocEntry = { id: string; path: string };
 type JoinedProject = { publicId: string | null; rootFolderId: string; docs: DocEntry[] };
+/** Where a comment thread is anchored in the open document. */
+export type CommentRange = { threadId: string; position: number; quote: string };
+type JoinedDoc = { text: string; version: number; comments: CommentRange[] };
 
 type RealtimeEvent =
   | { type: "connected"; publicId: string }
   | { type: "projectJoined"; rootFolderId: string; docs: DocEntry[] }
   | { type: "docUpdate"; docId: string; version: number; ops: OtOp[]; source: string | null }
+  | { type: "commentAnchored"; docId: string; range: CommentRange }
   | { type: "otError"; docId: string; message: string }
   | { type: "disconnected"; reason: string };
 
 export type RealtimeStatus = "off" | "connecting" | "live" | "error";
+
+/** Shared empty array, so "no comments" is a stable reference across renders. */
+const EMPTY_COMMENTS: CommentRange[] = [];
 
 export type OverleafRealtime = {
   status: RealtimeStatus;
   detail: string | null;
   /** True when the open file is being edited through the live channel. */
   liveFile: boolean;
+  /** Overleaf's id for the open document, when it has one. */
+  docId: string | null;
+  /** Comment anchors in the open document, as Overleaf holds them. */
+  comments: CommentRange[];
   /** Feed the editor's current text in; ops go out when it differs. */
   pushLocal: (text: string) => void;
 };
@@ -59,6 +70,7 @@ export function useOverleafRealtime(options: {
   const [status, setStatus] = useState<RealtimeStatus>("off");
   const [detail, setDetail] = useState<string | null>(null);
   const [liveFile, setLiveFile] = useState(false);
+  const [openDoc, setOpenDoc] = useState<{ id: string; comments: CommentRange[] } | null>(null);
   // State, not a ref: the tree can arrive from the connect call or from an
   // event, and either way the effect that joins the open document has to run
   // again once it does.
@@ -83,6 +95,7 @@ export function useOverleafRealtime(options: {
     document.current = null;
     docId.current = null;
     setLiveFile(false);
+    setOpenDoc(null);
     if (previous) void invoke("overleaf_rt_leave_doc", { docId: previous }).catch(() => {});
   }, []);
 
@@ -135,6 +148,18 @@ export function useOverleafRealtime(options: {
         callbacks.current.onNotice(
           `Overleaf rejected a live update (${payload.message}). Falling back to syncing.`,
         );
+        return;
+      }
+      if (payload.type === "commentAnchored") {
+        // Someone commented on the file we have open; show the marker without
+        // making them re-open it.
+        setOpenDoc((current) => {
+          if (!current || current.id !== payload.docId) return current;
+          if (current.comments.some((item) => item.threadId === payload.range.threadId)) {
+            return current;
+          }
+          return { ...current, comments: [...current.comments, payload.range] };
+        });
         return;
       }
       if (payload.type !== "docUpdate") return;
@@ -223,12 +248,13 @@ export function useOverleafRealtime(options: {
       return;
     }
     let cancelled = false;
-    void invoke<{ text: string; version: number }>("overleaf_rt_join_doc", { docId: id })
+    void invoke<JoinedDoc>("overleaf_rt_join_doc", { docId: id })
       .then((joined) => {
         if (cancelled) return;
         docId.current = id;
         document.current = new OtDocument(joined.text, joined.version);
         setLiveFile(true);
+        setOpenDoc({ id, comments: joined.comments ?? [] });
         setDetail(null);
         // The server's copy is the truth on arrival; show it.
         callbacks.current.onRemoteText(joined.text, callbacks.current.readCaret());
@@ -257,5 +283,12 @@ export function useOverleafRealtime(options: {
     }, 250);
   }, [flush]);
 
-  return { status, detail, liveFile, pushLocal };
+  return {
+    status,
+    detail,
+    liveFile,
+    docId: openDoc?.id ?? null,
+    comments: openDoc?.comments ?? EMPTY_COMMENTS,
+    pushLocal,
+  };
 }

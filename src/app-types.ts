@@ -295,6 +295,25 @@ export type OverleafMessage = {
   mine: boolean;
 };
 
+/** One message in an Overleaf comment thread. */
+export type OverleafComment = {
+  id: string;
+  content: string;
+  authorName: string;
+  authorEmail: string | null;
+  timestamp: number;
+  mine: boolean;
+};
+
+/** A comment thread: everything said about one spot in the project. */
+export type OverleafThread = {
+  id: string;
+  messages: OverleafComment[];
+  resolved: boolean;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+};
+
 export type OverleafSyncResult = {
   pulled: string[];
   pushed: string[];

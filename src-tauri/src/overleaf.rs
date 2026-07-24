@@ -1104,6 +1104,229 @@ pub fn send_chat_message(config_dir: &Path, root: &Path, content: &str) -> Resul
     Ok(())
 }
 
+// ---- Comment threads ------------------------------------------------------
+//
+// Overleaf's review panel is a set of threads keyed by id. The thread's
+// position in the document lives in the document's own ranges (which arrive on
+// the realtime channel when a document is joined); the conversation lives
+// here, behind the same session cookie as everything else.
+
+/// One message in a comment thread.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafComment {
+    pub id: String,
+    pub content: String,
+    pub author_name: String,
+    pub author_email: Option<String>,
+    /// Milliseconds since the epoch, as Overleaf reports it.
+    pub timestamp: i64,
+    pub mine: bool,
+}
+
+/// A comment thread: everything said on one spot in the project.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafThread {
+    pub id: String,
+    pub messages: Vec<OverleafComment>,
+    pub resolved: bool,
+    pub resolved_by: Option<String>,
+    /// ISO 8601, as Overleaf reports it.
+    pub resolved_at: Option<String>,
+}
+
+/// Every comment thread in the project, oldest message first within a thread.
+pub fn threads(config_dir: &Path, root: &Path) -> Result<Vec<OverleafThread>, String> {
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = sync_host(&state, &session);
+    let client = http_client(20)?;
+    let response = client
+        .get(format!("{host}/project/{}/threads", state.project_id))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    check_authenticated(&response)?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Overleaf returned {} for the project's comments.",
+            response.status()
+        ));
+    }
+    let body: serde_json::Value = response.json().map_err(err)?;
+    Ok(parse_threads(&body, session.email.as_deref()))
+}
+
+/// `{ "<threadId>": { messages: [...], resolved?, resolved_at?, resolved_by_user? } }`
+fn parse_threads(body: &serde_json::Value, my_email: Option<&str>) -> Vec<OverleafThread> {
+    let Some(map) = body.as_object() else {
+        return Vec::new();
+    };
+    let mut threads: Vec<OverleafThread> = map
+        .iter()
+        .map(|(id, thread)| {
+            let messages = thread
+                .get("messages")
+                .and_then(|value| value.as_array())
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| parse_comment(item, my_email))
+                        .collect()
+                })
+                .unwrap_or_default();
+            OverleafThread {
+                id: id.clone(),
+                messages,
+                resolved: thread
+                    .get("resolved")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false),
+                resolved_by: thread.get("resolved_by_user").and_then(person_name),
+                resolved_at: json_str(thread, &["resolved_at", "resolvedAt"]),
+            }
+        })
+        .collect();
+    // Newest conversation first: that is the one someone is waiting on.
+    threads.sort_by_key(|thread| {
+        std::cmp::Reverse(thread.messages.last().map(|m| m.timestamp).unwrap_or(0))
+    });
+    threads
+}
+
+fn parse_comment(item: &serde_json::Value, my_email: Option<&str>) -> Option<OverleafComment> {
+    let user = item.get("user");
+    let email = user.and_then(|u| json_str(u, &["email"]));
+    Some(OverleafComment {
+        id: json_str(item, &["id", "_id"])?,
+        content: json_str(item, &["content"]).unwrap_or_default(),
+        mine: match (my_email, email.as_deref()) {
+            (Some(mine), Some(theirs)) => mine.eq_ignore_ascii_case(theirs),
+            _ => false,
+        },
+        author_name: user
+            .and_then(person_name)
+            .or_else(|| email.clone())
+            .unwrap_or_else(|| "Someone".to_string()),
+        author_email: email,
+        timestamp: item
+            .get("timestamp")
+            .and_then(|value| value.as_i64())
+            .unwrap_or(0),
+    })
+}
+
+/// "Ada Lovelace" from whichever spelling of the name fields this Overleaf uses.
+fn person_name(user: &serde_json::Value) -> Option<String> {
+    let first = json_str(user, &["first_name", "firstName"]).unwrap_or_default();
+    let last = json_str(user, &["last_name", "lastName"]).unwrap_or_default();
+    let name = format!("{first} {last}").trim().to_string();
+    if name.is_empty() {
+        json_str(user, &["name"])
+    } else {
+        Some(name)
+    }
+}
+
+/// POST/DELETE against a thread, with the CSRF token Overleaf insists on.
+fn thread_request(
+    config_dir: &Path,
+    root: &Path,
+    method: reqwest::Method,
+    path: &str,
+    body: Option<serde_json::Value>,
+    what: &str,
+) -> Result<(), String> {
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = sync_host(&state, &session);
+    let client = http_client(20)?;
+    let page = fetch_projects_page(&client, &host, &session.cookie)?;
+    let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
+    let mut request = client
+        .request(method, format!("{host}/project/{}{path}", state.project_id))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header("X-Csrf-Token", &csrf)
+        .header(reqwest::header::ACCEPT, "application/json");
+    if let Some(body) = body {
+        request = request.json(&body);
+    }
+    let response = request
+        .send()
+        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    check_authenticated(&response)?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Overleaf returned {} when {what}.",
+            response.status()
+        ));
+    }
+    Ok(())
+}
+
+/// Add a message to an existing thread.
+pub fn reply_to_thread(
+    config_dir: &Path,
+    root: &Path,
+    thread_id: &str,
+    content: &str,
+) -> Result<(), String> {
+    let content = content.trim();
+    if content.is_empty() {
+        return Err("Write a reply first.".to_string());
+    }
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::POST,
+        &format!("/thread/{thread_id}/messages"),
+        Some(serde_json::json!({ "content": content })),
+        "posting the reply",
+    )
+}
+
+/// Resolving, reopening and deleting are all keyed by the document the thread
+/// sits in — Overleaf needs to know where to clear the marker.
+pub fn resolve_thread(
+    config_dir: &Path,
+    root: &Path,
+    doc_id: &str,
+    thread_id: &str,
+    resolved: bool,
+) -> Result<(), String> {
+    let action = if resolved { "resolve" } else { "reopen" };
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::POST,
+        &format!("/doc/{doc_id}/thread/{thread_id}/{action}"),
+        None,
+        if resolved {
+            "resolving the comment"
+        } else {
+            "reopening the comment"
+        },
+    )
+}
+
+pub fn delete_thread(
+    config_dir: &Path,
+    root: &Path,
+    doc_id: &str,
+    thread_id: &str,
+) -> Result<(), String> {
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::DELETE,
+        &format!("/doc/{doc_id}/thread/{thread_id}"),
+        None,
+        "deleting the comment",
+    )
+}
+
 /// What the realtime channel needs to open a connection for this project:
 /// (host, cookie, project id).
 pub fn realtime_config(config_dir: &Path, root: &Path) -> Result<(String, String, String), String> {
@@ -2755,6 +2978,52 @@ mod tests {
             read_local(&root, "main.tex").unwrap(),
             b"locally edited body"
         );
+    }
+
+    #[test]
+    fn overleaf_threads_parse_with_resolution_and_authorship() {
+        let body = serde_json::json!({
+            "thread-old": {
+                "messages": [
+                    {"id": "c1", "content": "tighten this", "timestamp": 1_000i64,
+                     "user": {"first_name": "Ada", "last_name": "Lovelace",
+                              "email": "ada@example.edu"}},
+                ],
+                "resolved": true,
+                "resolved_at": "2026-07-01T10:00:00Z",
+                "resolved_by_user": {"firstName": "Leo", "email": "leo@uw.edu"},
+            },
+            "thread-new": {
+                "messages": [
+                    {"_id": "c2", "content": "who owns this?", "timestamp": 2_000i64,
+                     "user": {"email": "sam@example.edu"}},
+                    {"_id": "c3", "content": "me", "timestamp": 3_000i64,
+                     "user": {"first_name": "Leo", "email": "LEO@uw.edu"}},
+                ],
+            },
+        });
+        let threads = parse_threads(&body, Some("leo@uw.edu"));
+
+        // Most recently discussed first: that is what someone is waiting on.
+        assert_eq!(threads.len(), 2);
+        assert_eq!(threads[0].id, "thread-new");
+        assert!(!threads[0].resolved);
+        assert_eq!(threads[0].messages.len(), 2);
+        // No name at all falls back to the address rather than showing blank.
+        assert_eq!(threads[0].messages[0].author_name, "sam@example.edu");
+        assert!(!threads[0].messages[0].mine);
+        // Our own message is ours regardless of how the address is cased.
+        assert!(threads[0].messages[1].mine);
+
+        assert_eq!(threads[1].id, "thread-old");
+        assert!(threads[1].resolved);
+        assert_eq!(threads[1].resolved_by.as_deref(), Some("Leo"));
+        assert_eq!(threads[1].resolved_at.as_deref(), Some("2026-07-01T10:00:00Z"));
+        assert_eq!(threads[1].messages[0].author_name, "Ada Lovelace");
+
+        // An Overleaf without the review panel answers with nothing at all.
+        assert!(parse_threads(&serde_json::json!({}), None).is_empty());
+        assert!(parse_threads(&serde_json::json!(null), None).is_empty());
     }
 
     #[test]
