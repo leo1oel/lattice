@@ -913,6 +913,11 @@ fn overleaf_link(
 }
 
 #[tauri::command]
+fn overleaf_unlink(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    overleaf::unlink(&current_root(&state)?)
+}
+
+#[tauri::command]
 async fn overleaf_probe(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
@@ -1471,6 +1476,7 @@ pub fn run() {
             overleaf_clone_project,
             overleaf_link,
             overleaf_probe,
+            overleaf_unlink,
             overleaf_sync,
             list_pdf_annotations,
             save_pdf_annotations,

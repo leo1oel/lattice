@@ -1877,11 +1877,11 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .collab-modal textarea:focus { border-color: var(--accent); }
 .collab-mode-switch {
+  position: relative;
   margin: 0 0 14px;
   padding: 2px;
   border-radius: 8px;
   display: flex;
-  gap: 2px;
   background: var(--line);
 }
 .collab-mode-switch button {
@@ -1897,16 +1897,24 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   transition: color 0.25s cubic-bezier(0.65, 0, 0.35, 1);
 }
 .collab-mode-switch button.active { color: var(--accent); }
-/* Sliding pill (Framer Motion layoutId), mirroring the source/split/pdf switch. */
+/* One pill sliding inside the control; its width matches a single button so a
+   translate of 100% lands exactly on the other tab. */
 .collab-mode-pill {
   position: absolute;
-  inset: 0;
+  top: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  height: calc(100% - 4px);
   z-index: 0;
   border-radius: 6px;
   background: var(--accent-soft);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
+.collab-mode-switch button { z-index: 1; }
 .collab-mode-label { position: relative; z-index: 1; }
+/* Keeps Start and Join the same height so the dialog never shifts. */
+.collab-mode-panel { min-height: 108px; display: flex; flex-direction: column; }
+.collab-mode-blurb { margin: 2px 0 0; }
 .collab-recent { margin: 4px 0 2px; }
 .collab-recent-title { margin: 0 0 6px; color: var(--muted); font-size: 10px; font-weight: 650; }
 .collab-recent-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 168px; overflow-y: auto; }

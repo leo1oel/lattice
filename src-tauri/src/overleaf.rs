@@ -1035,6 +1035,16 @@ fn latest_update_version(body: &serde_json::Value) -> Option<i64> {
         .max()
 }
 
+/// Stop syncing this folder with Overleaf, keeping every file in place.
+///
+/// Only the bookkeeping goes: the project stays a normal local project, and
+/// re-cloning it later starts a fresh link.
+pub fn unlink(root: &Path) -> Result<(), String> {
+    let _ = fs::remove_file(state_path(root));
+    let _ = fs::remove_dir_all(base_dir(root));
+    Ok(())
+}
+
 pub fn project_link(root: &Path) -> Result<Option<OverleafLink>, String> {
     if !state_path(root).exists() {
         return Ok(None);

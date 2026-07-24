@@ -36,6 +36,10 @@ describe("collab project sync catalog", () => {
     expect(classifySyncablePath(".research/omp-sessions/x")).toBeNull();
     expect(classifySyncablePath(".research/pdf-annotations.json")).toBeNull();
     expect(classifySyncablePath(".research/editor-comments.json")).toBe("text");
+    // Sharing these would aim a collaborator's app at the host's own Overleaf
+    // project and copy a private shadow of the file tree into their workspace.
+    expect(classifySyncablePath(".research/overleaf.json")).toBeNull();
+    expect(classifySyncablePath(".research/overleaf-base/main.tex")).toBeNull();
   });
 
   it("lists syncable paths from the file tree plus paper sidecars", () => {

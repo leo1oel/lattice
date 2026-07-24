@@ -65,6 +65,11 @@ export function classifySyncablePath(path: string): SyncableKind | null {
     || normalized.startsWith(".research/checkpoints/")
     || normalized.startsWith(".research/cache/")
     || normalized === ".research/pdf-annotations.json"
+    // Overleaf bookkeeping is personal to whoever linked the project: sharing
+    // the link would point a collaborator's app at someone else's Overleaf
+    // project, and the merge base copies are a private shadow of the tree.
+    || normalized === ".research/overleaf.json"
+    || normalized.startsWith(".research/overleaf-base/")
   ) {
     return null;
   }

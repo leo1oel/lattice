@@ -12,6 +12,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Cloud, LoaderCircle, Search, X } from "lucide-react";
 import { MotionButton } from "./motion";
 import {
+  type OverleafLink,
   type OverleafLoginPoll,
   type OverleafProject,
   type OverleafStatus,
@@ -147,6 +148,7 @@ export function OverleafSettingsSection(props: {
   onSyncModeChange: (mode: OverleafSyncMode) => void;
 }) {
   const [status, setStatus] = useState<OverleafStatus | null>(null);
+  const [link, setLink] = useState<OverleafLink | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -167,8 +169,30 @@ export function OverleafSettingsSection(props: {
     } catch (reason) {
       setLoadError(toMessage(reason));
     }
+    // Whether the *open project* is tied to an Overleaf project is separate
+    // from whether the account is connected, and only the former can be
+    // stopped per project.
+    try {
+      setLink(await invoke<OverleafLink | null>("overleaf_link"));
+    } catch {
+      setLink(null);
+    }
     setLoading(false);
   }, []);
+
+  const unlinkProject = async () => {
+    if (!window.confirm(
+      "Stop syncing this project with Overleaf?\n\nEvery file stays where it is — only the link is removed, "
+      + "and the copy on Overleaf is left untouched.",
+    )) return;
+    setActionError(null);
+    try {
+      await invoke("overleaf_unlink");
+      setLink(null);
+    } catch (reason) {
+      setActionError(toMessage(reason));
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -247,6 +271,24 @@ export function OverleafSettingsSection(props: {
       {login.error && <p className="overleaf-error" role="alert">{login.error}</p>}
       {login.notice && <p className="overleaf-hint">{login.notice}</p>}
       {actionError && <p className="overleaf-error" role="alert">{actionError}</p>}
+      {link && (
+        <div className="overleaf-status-row">
+          <span className="overleaf-dot connected" aria-hidden="true" />
+          <div className="overleaf-status-text">
+            <strong>This project syncs with “{link.projectName}”</strong>
+            <small>
+              {link.lastSync ? `Last synced ${relativeTime(link.lastSync)}` : "Not synced yet"}
+            </small>
+          </div>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => void unlinkProject()}
+          >
+            Stop syncing
+          </button>
+        </div>
+      )}
       <div className="overleaf-mode">
         <h3>Keeping in step</h3>
         <label className="overleaf-mode-option">
