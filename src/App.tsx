@@ -75,6 +75,8 @@ import {
 import { useAppearance } from "./use-appearance";
 import { usePanelLayout } from "./use-panel-layout";
 import { OverleafPickerDialog } from "./overleaf-connect";
+import { OverleafReviewDialog } from "./overleaf-review";
+import { ConflictResolverDialog } from "./conflict-resolver";
 import {
   type RecentProject,
   type BuildPreferences,
@@ -395,6 +397,8 @@ function App() {
   const [overleafSyncing, setOverleafSyncing] = useState(false);
   const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
   const [overleafRemoteChanges, setOverleafRemoteChanges] = useState(false);
+  const [overleafReviewOpen, setOverleafReviewOpen] = useState(false);
+  const [conflictPath, setConflictPath] = useState<string | null>(null);
   const overleafSyncingRef = useRef(false);
   const overleafAutoSyncedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
@@ -1455,12 +1459,16 @@ function App() {
         ...result.conflicts.map((item) => item.path),
       ]);
       if (result.conflicts.length) {
+        // Offer the resolver straight away rather than leaving someone to hunt
+        // for markers; the first conflicted file is the one to look at.
+        const first = result.conflicts[0]?.path ?? null;
         setError(
           `Overleaf sync could not combine: ${result.conflicts.map((item) => item.path).join(", ")}. `
-          + "Both versions are marked inside the file — search for “<<<<<<<” to pick what you want. "
+          + "Both versions are kept — resolve each spot to finish. "
           + "Your untouched version is also saved beside it in the “(local conflict …)” files, "
-          + "and nothing uploads until the markers are gone.",
+          + "and nothing uploads until the conflicts are settled.",
         );
+        if (first) setConflictPath(first);
       }
       if (changedOnDisk.size || result.deletedLocal.length) {
         await refreshProject();
@@ -3798,6 +3806,30 @@ function App() {
     />
   );
 
+  const overleafReview = (
+    <>
+      <OverleafReviewDialog
+        open={overleafReviewOpen}
+        onClose={() => setOverleafReviewOpen(false)}
+        onApply={async () => {
+          await runOverleafSync();
+          setOverleafRemoteChanges(false);
+        }}
+      />
+      <ConflictResolverDialog
+        open={conflictPath !== null}
+        path={conflictPath}
+        onClose={() => setConflictPath(null)}
+        onResolved={async (path) => {
+          await refreshProject();
+          if (activeFile === path) await loadFile(path);
+          setError(null);
+          await compile();
+        }}
+      />
+    </>
+  );
+
   const projectPaths = useMemo(
     () => (project ? flattenProjectPaths(project.files) : []),
     [project],
@@ -4181,6 +4213,7 @@ function App() {
         />
         {settingsDialog}
         {overleafPicker}
+        {overleafReview}
         <TexSetupWizard
           open={texSetupOpen}
           report={doctorReport}
@@ -4519,7 +4552,12 @@ function App() {
             overleafLinked={overleafLink !== null}
             overleafSyncing={overleafSyncing}
             overleafPending={overleafRemoteChanges}
-            onOverleafSync={() => void runOverleafSync()}
+            onOverleafSync={() => {
+              // Manual mode is a review step, not a button that quietly
+              // rewrites files: show what would change and let the user decide.
+              if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
+              else void runOverleafSync();
+            }}
             onOverleafOpen={() => setOverleafPickerOpen(true)}
           />
           <div className="canvas-body">
@@ -5153,6 +5191,7 @@ function App() {
       />
       {settingsDialog}
       {overleafPicker}
+      {overleafReview}
       {createOpen && (
         <CreateProjectDialog
           projectName={projectName}

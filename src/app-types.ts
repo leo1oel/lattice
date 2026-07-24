@@ -254,6 +254,28 @@ export type OverleafLink = {
   lastSync: string | null;
 };
 export type OverleafConflict = { path: string; localCopy: string };
+/** What a pending sync would do to one file, before anything is written. */
+export type OverleafChangeKind =
+  | "incoming"
+  | "outgoing"
+  | "merge"
+  | "conflict"
+  | "deleteLocal"
+  | "skippedRemoteDelete";
+export type OverleafChange = {
+  path: string;
+  kind: OverleafChangeKind;
+  /** The file as it stands locally; null when it does not exist here yet. */
+  before: string | null;
+  /** What it becomes if applied; null when it would be deleted. */
+  after: string | null;
+  binary: boolean;
+};
+export type OverleafPreview = {
+  changes: OverleafChange[];
+  remoteVersion: number | null;
+};
+
 export type OverleafProbe = {
   changed: boolean;
   remoteVersion: number | null;

@@ -912,6 +912,19 @@ fn overleaf_link(
     overleaf::project_link(&current_root(&state)?)
 }
 
+/// Dry run: what a sync would change, without writing or uploading anything.
+#[tauri::command]
+async fn overleaf_preview(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<overleaf::OverleafPreview, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || overleaf::preview(&config, &root))
+        .await
+        .map_err(|error| format!("The Overleaf comparison stopped unexpectedly: {error}"))?
+}
+
 #[tauri::command]
 fn overleaf_unlink(state: tauri::State<'_, AppState>) -> Result<(), String> {
     overleaf::unlink(&current_root(&state)?)
@@ -1476,6 +1489,7 @@ pub fn run() {
             overleaf_clone_project,
             overleaf_link,
             overleaf_probe,
+            overleaf_preview,
             overleaf_unlink,
             overleaf_sync,
             list_pdf_annotations,

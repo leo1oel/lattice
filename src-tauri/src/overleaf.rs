@@ -119,6 +119,28 @@ pub struct OverleafSyncResult {
     pub skipped_remote_deletes: Vec<String>,
 }
 
+/// What a pending sync would do to one file, computed without touching disk.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafChange {
+    pub path: String,
+    /// "incoming" | "outgoing" | "merge" | "conflict" | "deleteLocal" | "skippedRemoteDelete"
+    pub kind: String,
+    /// The file as it stands locally right now; None when absent locally.
+    pub before: Option<String>,
+    /// What it becomes if applied; None when it would be deleted.
+    pub after: Option<String>,
+    pub binary: bool,
+}
+
+/// A dry run of `sync`: everything it would do, nothing it did.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafPreview {
+    pub changes: Vec<OverleafChange>,
+    pub remote_version: Option<i64>,
+}
+
 /// Result of the cheap remote-change check that live mode polls.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1058,40 +1080,54 @@ pub fn project_link(root: &Path) -> Result<Option<OverleafLink>, String> {
     }))
 }
 
-pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String> {
-    let session = load_session(config_dir)?;
-    let mut state = load_state(root)?;
-    state.files.retain(|path, _| !is_excluded(path));
-    let host = if state.host.trim().is_empty() {
-        session.host.clone()
-    } else {
-        state.host.clone()
-    };
+// ---- Planning --------------------------------------------------------------
+//
+// Classification and execution are deliberately separate: the exact same
+// decisions drive a real sync and the read-only preview the user sees before
+// committing to one, so there is only ever one set of rules to keep honest.
 
-    let client = http_client(30)?;
-    let page = fetch_projects_page(&client, &host, &session.cookie)?;
-    let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
+/// One file both sides changed in ways that need a human.
+struct ConflictPlan {
+    path: String,
+    /// What lands at `path`: the conflict-marked text, or the remote file when
+    /// the two sides cannot be merged line by line.
+    resolved: Vec<u8>,
+    /// The local file as it stood, kept beside the marked-up one.
+    local: Vec<u8>,
+    /// Where that pristine local copy goes.
+    local_copy: String,
+}
 
-    let zip_client = http_client(120)?;
-    let zip_bytes = download_project_zip(&zip_client, &host, &session.cookie, &state.project_id)?;
-    let remote: BTreeMap<String, Vec<u8>> = read_zip_entries(&zip_bytes)?
-        .into_iter()
-        .filter(|(path, _)| !is_excluded(path))
-        .collect();
-    let local = read_local_files(root)?;
+/// Everything a sync would do, decided but not yet done.
+#[derive(Default)]
+struct SyncPlan {
+    /// Remote content to write locally (path → bytes).
+    pull: Vec<(String, Vec<u8>)>,
+    /// Paths to upload from the local snapshot.
+    push: Vec<String>,
+    /// Cleanly merged content (path → merged bytes); also uploaded.
+    merge: Vec<(String, Vec<u8>)>,
+    conflict: Vec<ConflictPlan>,
+    delete_local: Vec<String>,
+    skipped_remote_deletes: Vec<String>,
+    /// Post-sync hashes for every surviving path.
+    files: BTreeMap<String, String>,
+}
 
+/// Decide what a sync would do. Reads base copies from disk, writes nothing.
+fn plan_sync(
+    root: &Path,
+    state: &SyncState,
+    remote: &BTreeMap<String, Vec<u8>>,
+    local: &BTreeMap<String, Vec<u8>>,
+    stamp: &str,
+) -> Result<SyncPlan, String> {
     let mut all_paths: BTreeSet<String> = BTreeSet::new();
     all_paths.extend(remote.keys().cloned());
     all_paths.extend(local.keys().cloned());
     all_paths.extend(state.files.keys().cloned());
 
-    let stamp = chrono::Local::now().format("%Y%m%d-%H%M").to_string();
-    let mut new_files: BTreeMap<String, String> = BTreeMap::new();
-    let mut result = OverleafSyncResult::default();
-    let mut to_push: Vec<String> = Vec::new();
-    // Merged bytes that exist on disk but not in the `local` snapshot taken at
-    // the start of this sync; uploads read from here first.
-    let mut merged_content: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+    let mut plan = SyncPlan::default();
 
     for path in &all_paths {
         let remote_bytes = remote.get(path);
@@ -1100,7 +1136,7 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
         match (remote_bytes, local_bytes) {
             (Some(rb), Some(lb)) => {
                 if rb == lb {
-                    new_files.insert(path.clone(), sha256_hex(rb));
+                    plan.files.insert(path.clone(), sha256_hex(rb));
                     continue;
                 }
                 let remote_hash = sha256_hex(rb);
@@ -1108,12 +1144,11 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
                 let remote_changed = base_hash != Some(&remote_hash);
                 let local_changed = base_hash != Some(&local_hash);
                 if remote_changed && !local_changed {
-                    write_local_file(root, path, rb)?;
-                    result.pulled.push(path.clone());
-                    new_files.insert(path.clone(), remote_hash);
+                    plan.pull.push((path.clone(), rb.clone()));
+                    plan.files.insert(path.clone(), remote_hash);
                 } else if local_changed && !remote_changed {
-                    to_push.push(path.clone());
-                    new_files.insert(path.clone(), local_hash);
+                    plan.push.push(path.clone());
+                    plan.files.insert(path.clone(), local_hash);
                 } else {
                     // Both sides changed. Combine them line by line against
                     // the copy we kept at the last sync, so edits to different
@@ -1121,41 +1156,36 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
                     // overlapping edits need a human.
                     match merge_three_way(root, path, rb, lb) {
                         MergeOutcome::Clean(merged) => {
-                            write_local_file(root, path, &merged)?;
-                            new_files.insert(path.clone(), sha256_hex(&merged));
+                            plan.files.insert(path.clone(), sha256_hex(&merged));
                             // Overleaf still holds only their half, so send the
                             // combined file back up to converge both sides.
-                            merged_content.insert(path.clone(), merged);
-                            to_push.push(path.clone());
-                            result.merged.push(path.clone());
+                            plan.merge.push((path.clone(), merged));
                         }
                         MergeOutcome::Conflicted(conflicted) => {
                             // Markers land in the file itself so the
                             // disagreement is visible exactly where it happened,
                             // and the untouched local version is kept beside it.
-                            let copy = conflict_copy_name(path, &stamp);
-                            write_local_file(root, &copy, lb)?;
-                            write_local_file(root, path, &conflicted)?;
-                            result.conflicts.push(OverleafConflict {
+                            plan.conflict.push(ConflictPlan {
                                 path: path.clone(),
-                                local_copy: copy,
+                                resolved: conflicted,
+                                local: lb.clone(),
+                                local_copy: conflict_copy_name(path, stamp),
                             });
                             // Base is their version: once the markers are
                             // resolved the file counts as a local edit again
                             // and goes up on the next sync.
-                            new_files.insert(path.clone(), remote_hash);
+                            plan.files.insert(path.clone(), remote_hash);
                         }
                         MergeOutcome::Unmergeable => {
                             // Binary, or no base copy to merge against: fall
                             // back to keeping both, remote on the real path.
-                            let copy = conflict_copy_name(path, &stamp);
-                            write_local_file(root, &copy, lb)?;
-                            write_local_file(root, path, rb)?;
-                            result.conflicts.push(OverleafConflict {
+                            plan.conflict.push(ConflictPlan {
                                 path: path.clone(),
-                                local_copy: copy,
+                                resolved: rb.clone(),
+                                local: lb.clone(),
+                                local_copy: conflict_copy_name(path, stamp),
                             });
-                            new_files.insert(path.clone(), remote_hash);
+                            plan.files.insert(path.clone(), remote_hash);
                         }
                     }
                 }
@@ -1167,14 +1197,13 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
                     // delete remote files in v1, but we also stop
                     // resurrecting the file locally — drop it from state.
                     Some(base) if *base == remote_hash => {
-                        result.skipped_remote_deletes.push(path.clone());
+                        plan.skipped_remote_deletes.push(path.clone());
                     }
                     // New on remote, or deleted locally while remote moved
                     // on (remote wins): pull it.
                     _ => {
-                        write_local_file(root, path, rb)?;
-                        result.pulled.push(path.clone());
-                        new_files.insert(path.clone(), remote_hash);
+                        plan.pull.push((path.clone(), rb.clone()));
+                        plan.files.insert(path.clone(), remote_hash);
                     }
                 }
             }
@@ -1183,15 +1212,13 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
                 match base_hash {
                     // Deleted on remote while local is unchanged: delete it.
                     Some(base) if *base == local_hash => {
-                        fs::remove_file(local_disk_path(root, path))
-                            .map_err(|e| format!("Could not delete {path}: {e}"))?;
-                        result.deleted_local.push(path.clone());
+                        plan.delete_local.push(path.clone());
                     }
                     // New locally, or deleted remotely after local edits
                     // (upload restores it remotely): push it.
                     _ => {
-                        to_push.push(path.clone());
-                        new_files.insert(path.clone(), local_hash);
+                        plan.push.push(path.clone());
+                        plan.files.insert(path.clone(), local_hash);
                     }
                 }
             }
@@ -1200,6 +1227,89 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
             }
         }
     }
+
+    Ok(plan)
+}
+
+/// The remote snapshot a sync or preview works from: the project zip, minus
+/// everything that never syncs.
+fn fetch_remote_files(
+    host: &str,
+    cookie: &str,
+    project_id: &str,
+) -> Result<BTreeMap<String, Vec<u8>>, String> {
+    let zip_client = http_client(120)?;
+    let zip_bytes = download_project_zip(&zip_client, host, cookie, project_id)?;
+    Ok(read_zip_entries(&zip_bytes)?
+        .into_iter()
+        .filter(|(path, _)| !is_excluded(path))
+        .collect())
+}
+
+/// The host this project syncs against: whatever the link recorded, falling
+/// back to the signed-in session.
+fn sync_host(state: &SyncState, session: &SessionFile) -> String {
+    if state.host.trim().is_empty() {
+        session.host.clone()
+    } else {
+        state.host.clone()
+    }
+}
+
+fn sync_stamp() -> String {
+    chrono::Local::now().format("%Y%m%d-%H%M").to_string()
+}
+
+pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String> {
+    let session = load_session(config_dir)?;
+    let mut state = load_state(root)?;
+    state.files.retain(|path, _| !is_excluded(path));
+    let host = sync_host(&state, &session);
+
+    let client = http_client(30)?;
+    let page = fetch_projects_page(&client, &host, &session.cookie)?;
+    let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
+
+    let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
+    let local = read_local_files(root)?;
+
+    let plan = plan_sync(root, &state, &remote, &local, &sync_stamp())?;
+
+    let mut result = OverleafSyncResult::default();
+    let mut new_files = plan.files;
+    // Merged bytes that exist on disk but not in the `local` snapshot taken at
+    // the start of this sync; uploads read from here first.
+    let mut merged_content: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+
+    for (path, bytes) in &plan.pull {
+        write_local_file(root, path, bytes)?;
+        result.pulled.push(path.clone());
+    }
+    for (path, bytes) in &plan.merge {
+        write_local_file(root, path, bytes)?;
+        merged_content.insert(path.clone(), bytes.clone());
+        result.merged.push(path.clone());
+    }
+    for conflict in &plan.conflict {
+        write_local_file(root, &conflict.local_copy, &conflict.local)?;
+        write_local_file(root, &conflict.path, &conflict.resolved)?;
+        result.conflicts.push(OverleafConflict {
+            path: conflict.path.clone(),
+            local_copy: conflict.local_copy.clone(),
+        });
+    }
+    for path in &plan.delete_local {
+        fs::remove_file(local_disk_path(root, path))
+            .map_err(|e| format!("Could not delete {path}: {e}"))?;
+        result.deleted_local.push(path.clone());
+    }
+    result.skipped_remote_deletes = plan.skipped_remote_deletes;
+
+    // Plain pushes and merged files both go up; both lists are already in path
+    // order, so the merge of the two is simply the sorted union.
+    let mut to_push: Vec<String> = plan.push;
+    to_push.extend(merged_content.keys().cloned());
+    to_push.sort();
 
     // Never hand Overleaf a file whose conflict markers are still unresolved —
     // that would publish the markers to everyone else in the project.
@@ -1267,6 +1377,124 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
     result.skipped_remote_deletes.sort();
     result.conflicts.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(result)
+}
+
+/// Text we can show in a diff view. Anything else is treated as binary: the UI
+/// gets a marker instead of the bytes.
+fn displayable_text(bytes: &[u8]) -> Option<String> {
+    if bytes.contains(&0) {
+        return None;
+    }
+    std::str::from_utf8(bytes).ok().map(str::to_string)
+}
+
+/// Build one preview row. A side that exists but cannot be rendered as text
+/// makes the whole change binary, and then neither side is shipped to the UI.
+fn preview_change(
+    path: &str,
+    kind: &str,
+    before: Option<&[u8]>,
+    after: Option<&[u8]>,
+) -> OverleafChange {
+    let before_text = before.map(displayable_text);
+    let after_text = after.map(displayable_text);
+    let binary = matches!(before_text, Some(None)) || matches!(after_text, Some(None));
+    OverleafChange {
+        path: path.to_string(),
+        kind: kind.to_string(),
+        before: if binary { None } else { before_text.flatten() },
+        after: if binary { None } else { after_text.flatten() },
+        binary,
+    }
+}
+
+/// Conflicts first — they are the only rows that need a decision — then the
+/// rest in the order the user reads them.
+fn change_kind_rank(kind: &str) -> u8 {
+    match kind {
+        "conflict" => 0,
+        "incoming" => 1,
+        "merge" => 2,
+        "outgoing" => 3,
+        "deleteLocal" => 4,
+        _ => 5,
+    }
+}
+
+/// Dry run: what `sync` would do to this project, without doing any of it.
+///
+/// Same fetch and the same classification as `sync`, so what the user approves
+/// is exactly what runs. Nothing here writes to disk or uploads: the CSRF token
+/// a real sync needs for uploads is not even fetched.
+pub fn preview(config_dir: &Path, root: &Path) -> Result<OverleafPreview, String> {
+    let session = load_session(config_dir)?;
+    let mut state = load_state(root)?;
+    state.files.retain(|path, _| !is_excluded(path));
+    let host = sync_host(&state, &session);
+
+    let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
+    let local = read_local_files(root)?;
+    let plan = plan_sync(root, &state, &remote, &local, &sync_stamp())?;
+
+    let mut changes: Vec<OverleafChange> = Vec::new();
+    for (path, bytes) in &plan.pull {
+        changes.push(preview_change(
+            path,
+            "incoming",
+            local.get(path).map(Vec::as_slice),
+            Some(bytes),
+        ));
+    }
+    for path in &plan.push {
+        // The base copy is the last version Overleaf saw, so it is the honest
+        // "before" for an upload — when we kept one.
+        let base = read_base_copy(root, path);
+        changes.push(preview_change(
+            path,
+            "outgoing",
+            base.as_deref().map(str::as_bytes),
+            local.get(path).map(Vec::as_slice),
+        ));
+    }
+    for (path, bytes) in &plan.merge {
+        changes.push(preview_change(
+            path,
+            "merge",
+            local.get(path).map(Vec::as_slice),
+            Some(bytes),
+        ));
+    }
+    for conflict in &plan.conflict {
+        changes.push(preview_change(
+            &conflict.path,
+            "conflict",
+            Some(&conflict.local),
+            Some(&conflict.resolved),
+        ));
+    }
+    for path in &plan.delete_local {
+        changes.push(preview_change(
+            path,
+            "deleteLocal",
+            local.get(path).map(Vec::as_slice),
+            None,
+        ));
+    }
+    for path in &plan.skipped_remote_deletes {
+        changes.push(preview_change(path, "skippedRemoteDelete", None, None));
+    }
+    changes.sort_by(|a, b| {
+        change_kind_rank(&a.kind)
+            .cmp(&change_kind_rank(&b.kind))
+            .then_with(|| a.path.cmp(&b.path))
+    });
+
+    let client = http_client(30)?;
+    let remote_version = fetch_remote_version(&client, &host, &session.cookie, &state.project_id);
+    Ok(OverleafPreview {
+        changes,
+        remote_version,
+    })
 }
 
 // ---- Tests -------------------------------------------------------------------
@@ -1575,6 +1803,37 @@ mod tests {
         seed_linked_project(&root, &server.base, local, base);
         let result = sync(&config, &root).unwrap();
         (root, result)
+    }
+
+    /// A linked project plus its session, ready for a sync or a preview.
+    fn seed_preview_project(
+        server: &MockServer,
+        local: &[(&str, &[u8])],
+        base: &[(&str, &[u8])],
+    ) -> (PathBuf, PathBuf) {
+        let config = temp_dir("preview-config");
+        let root = temp_dir("preview-project");
+        write_session_file(&config, &server.base);
+        seed_linked_project(&root, &server.base, local, base);
+        (config, root)
+    }
+
+    fn run_preview(
+        server: &MockServer,
+        local: &[(&str, &[u8])],
+        base: &[(&str, &[u8])],
+    ) -> (PathBuf, OverleafPreview) {
+        let (config, root) = seed_preview_project(server, local, base);
+        let result = preview(&config, &root).unwrap();
+        (root, result)
+    }
+
+    fn change_for<'a>(preview: &'a OverleafPreview, path: &str) -> &'a OverleafChange {
+        preview
+            .changes
+            .iter()
+            .find(|c| c.path == path)
+            .unwrap_or_else(|| panic!("no preview change for {path}"))
     }
 
     fn read_local(root: &Path, rel: &str) -> Option<Vec<u8>> {
@@ -2041,6 +2300,146 @@ mod tests {
         // Excluded files stay untouched on disk.
         assert!(read_local(&root, "main.log").is_some());
         assert!(read_local(&root, "main.pdf").is_some());
+    }
+
+    // ---- preview (dry run) --------------------------------------------------
+
+    #[test]
+    fn overleaf_preview_reports_incoming_without_touching_disk() {
+        let base = b"old body".as_slice();
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[("main.tex", b"new remote body".as_slice())]),
+        );
+        let (config, root) =
+            seed_preview_project(&server, &[("main.tex", base)], &[("main.tex", base)]);
+
+        let file_before = read_local(&root, "main.tex").unwrap();
+        let state_before = fs::read(state_path(&root)).unwrap();
+        let base_copy_before = read_base_copy(&root, "main.tex").unwrap();
+
+        let preview = preview(&config, &root).unwrap();
+
+        assert_eq!(preview.changes.len(), 1);
+        let change = &preview.changes[0];
+        assert_eq!(change.path, "main.tex");
+        assert_eq!(change.kind, "incoming");
+        assert_eq!(change.before.as_deref(), Some("old body"));
+        assert_eq!(change.after.as_deref(), Some("new remote body"));
+        assert!(!change.binary);
+
+        // A dry run leaves the project exactly as it found it…
+        assert_eq!(read_local(&root, "main.tex").unwrap(), file_before);
+        assert_eq!(fs::read(state_path(&root)).unwrap(), state_before);
+        assert_eq!(read_base_copy(&root, "main.tex").unwrap(), base_copy_before);
+        // …and never speaks to Overleaf beyond reading.
+        assert!(server.uploads().is_empty());
+        assert!(!server
+            .recorded()
+            .iter()
+            .any(|r| r.method != "GET" && r.method != "HEAD"));
+    }
+
+    #[test]
+    fn overleaf_preview_reports_merge_and_conflict() {
+        let main_base = "\\section{One}\nalpha\n\n\\section{Two}\nbeta\n";
+        let main_remote = "\\section{One}\nALPHA from Overleaf\n\n\\section{Two}\nbeta\n";
+        let main_local = "\\section{One}\nalpha\n\n\\section{Two}\nBETA edited locally\n";
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[
+                ("main.tex", main_remote.as_bytes()),
+                ("notes.tex", b"remote edit".as_slice()),
+            ]),
+        );
+        let (root, preview) = run_preview(
+            &server,
+            &[
+                ("main.tex", main_local.as_bytes()),
+                ("notes.tex", b"local edit".as_slice()),
+            ],
+            &[
+                ("main.tex", main_base.as_bytes()),
+                ("notes.tex", b"base body".as_slice()),
+            ],
+        );
+
+        // Conflicts sort first: they are the rows that need a decision.
+        assert_eq!(
+            preview
+                .changes
+                .iter()
+                .map(|c| (c.kind.as_str(), c.path.as_str()))
+                .collect::<Vec<_>>(),
+            vec![("conflict", "notes.tex"), ("merge", "main.tex")]
+        );
+
+        let merge = change_for(&preview, "main.tex");
+        assert_eq!(merge.before.as_deref(), Some(main_local));
+        let merged = merge.after.clone().unwrap();
+        assert!(merged.contains("ALPHA from Overleaf"));
+        assert!(merged.contains("BETA edited locally"));
+        assert!(!merged.contains(CONFLICT_MARKER));
+
+        let conflict = change_for(&preview, "notes.tex");
+        assert_eq!(conflict.before.as_deref(), Some("local edit"));
+        let marked = conflict.after.clone().unwrap();
+        assert!(marked.contains(CONFLICT_MARKER));
+        assert!(marked.contains("local edit"));
+        assert!(marked.contains("remote edit"));
+
+        // Still a dry run: nothing merged onto disk, no sidecar, no upload.
+        assert_eq!(
+            read_local(&root, "main.tex").unwrap(),
+            main_local.as_bytes()
+        );
+        assert_eq!(read_local(&root, "notes.tex").unwrap(), b"local edit");
+        assert!(server.uploads().is_empty());
+    }
+
+    #[test]
+    fn overleaf_preview_marks_binary_files() {
+        // Figures cannot be shown as text, so the UI gets a marker, not bytes.
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[("figures/fig.pdf", b"%PDF-1.5\x00remote".as_slice())]),
+        );
+        let (_, preview) = run_preview(
+            &server,
+            &[("figures/fig.pdf", b"%PDF-1.5\x00local".as_slice())],
+            &[("figures/fig.pdf", b"%PDF-1.5\x00base".as_slice())],
+        );
+        assert_eq!(preview.changes.len(), 1);
+        let change = &preview.changes[0];
+        assert_eq!(change.path, "figures/fig.pdf");
+        assert_eq!(change.kind, "conflict");
+        assert!(change.binary);
+        assert!(change.before.is_none());
+        assert!(change.after.is_none());
+    }
+
+    #[test]
+    fn overleaf_preview_lists_outgoing() {
+        let base = b"shared body".as_slice();
+        let server = start_server(projects_page_html(), build_zip(&[("main.tex", base)]));
+        let (root, preview) = run_preview(
+            &server,
+            &[("main.tex", b"locally edited body".as_slice())],
+            &[("main.tex", base)],
+        );
+        assert_eq!(preview.changes.len(), 1);
+        let change = &preview.changes[0];
+        assert_eq!(change.path, "main.tex");
+        assert_eq!(change.kind, "outgoing");
+        // "Before" is what Overleaf last saw, which is the recorded base copy.
+        assert_eq!(change.before.as_deref(), Some("shared body"));
+        assert_eq!(change.after.as_deref(), Some("locally edited body"));
+        assert!(!change.binary);
+        assert!(server.uploads().is_empty());
+        assert_eq!(
+            read_local(&root, "main.tex").unwrap(),
+            b"locally edited body"
+        );
     }
 
     #[test]

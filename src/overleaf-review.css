@@ -1,0 +1,116 @@
+/* Review-changes dialog: file list on the left, diff on the right. */
+
+.overleaf-review {
+  width: min(920px, calc(100vw - 48px));
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.overleaf-review-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.overleaf-review-head h2 { margin: 0 0 4px; }
+.overleaf-review-head p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+
+.overleaf-review-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.overleaf-review-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 0;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.overleaf-review-loading svg { color: var(--accent); }
+
+.overleaf-review-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: 14px;
+}
+
+.overleaf-review-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.overleaf-review-group h3 {
+  margin: 0 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--text);
+}
+.overleaf-review-group h3[data-kind="conflict"] { color: var(--danger); }
+.overleaf-review-group h3[data-kind="incoming"] { color: var(--accent); }
+.overleaf-review-group p { margin: 0 0 6px; color: var(--faint); font-size: 10px; line-height: 1.45; }
+.overleaf-review-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.overleaf-review-group button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: 11px/1.4 var(--ui-font);
+  text-align: left;
+  cursor: pointer;
+}
+.overleaf-review-group button:hover:not(:disabled) { background: var(--line); }
+.overleaf-review-group button.active { background: var(--accent-soft); color: var(--accent); }
+.overleaf-review-group button:disabled { color: var(--faint); cursor: default; }
+.overleaf-review-path { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overleaf-review-group em {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--faint);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.overleaf-review-diff {
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.overleaf-review-empty {
+  margin: 0;
+  padding: 24px 16px;
+  color: var(--faint);
+  font-size: 11px;
+  text-align: center;
+}
+
+.overleaf-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
