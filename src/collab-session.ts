@@ -24,6 +24,8 @@ export type CollabStatus = "disconnected" | "connecting" | "synced" | "error";
 export type CollabSession = {
   host: string;
   room: string;
+  /** Secret room token; carried in the invite and required to join. */
+  token: string;
   doc: Y.Doc;
   provider: YProvider;
   activePath: string;
@@ -37,11 +39,16 @@ export type CollabSession = {
 export type CollabInvite = {
   host: string;
   room: string;
+  /** Secret room token parsed from the invite ("" when absent). */
+  token: string;
 };
 
 const HOST_STORAGE_KEY = "lattice.collab.host";
 const NAME_STORAGE_KEY = "lattice.collab.name";
 const ROOM_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+/** URL-safe (base64url) alphabet for the room token. */
+const TOKEN_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 export function normalizeCollabHost(raw: string): string {
   const trimmed = raw.trim();
@@ -66,6 +73,19 @@ export function createShareRoomCode(): string {
   return `LT-${code}`;
 }
 
+/**
+ * A high-entropy, URL-safe secret that gates access to a room. It is the room's
+ * password: the host generates it, embeds it in the invite, and the sync server
+ * rejects anyone who connects without it. 24 chars × 6 bits ≈ 144 bits.
+ */
+export function createShareToken(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  let token = "";
+  for (const byte of bytes) token += TOKEN_ALPHABET[byte & 63];
+  return token;
+}
+
 export function resolveCollabHost(preferred?: string): string {
   const explicit = normalizeCollabHost(preferred ?? "");
   if (explicit) return explicit;
@@ -87,14 +107,16 @@ export function loadCollabHost(): string {
   return resolveCollabHost();
 }
 
-export function formatCollabInvite(host: string, room: string): string {
+export function formatCollabInvite(host: string, room: string, token = ""): string {
   const normalizedHost = normalizeCollabHost(host) || resolveCollabHost();
   const normalizedRoom = room.trim();
-  return `lattice:${normalizedHost}/${normalizedRoom}`;
+  // The token rides after '#'; room codes and base64url tokens never contain it.
+  const suffix = token.trim() ? `#${token.trim()}` : "";
+  return `lattice:${normalizedHost}/${normalizedRoom}${suffix}`;
 }
 
-export function formatCollabInviteMessage(host: string, room: string): string {
-  const invite = formatCollabInvite(host, room);
+export function formatCollabInviteMessage(host: string, room: string, token = ""): string {
+  const invite = formatCollabInvite(host, room, token);
   const local = isLocalCollabHost(normalizeCollabHost(host) || resolveCollabHost());
   if (local) {
     return [
@@ -121,9 +143,12 @@ export function parseCollabInvite(raw: string): CollabInvite | null {
 
   const lattice = text.match(/lattice:([^\s/]+)\/([^\s]+)/i);
   if (lattice) {
+    const roomAndToken = (lattice[2] ?? "").trim();
+    const hashIdx = roomAndToken.indexOf("#");
     return {
       host: normalizeCollabHost(lattice[1] ?? ""),
-      room: (lattice[2] ?? "").trim(),
+      room: (hashIdx >= 0 ? roomAndToken.slice(0, hashIdx) : roomAndToken).trim(),
+      token: hashIdx >= 0 ? roomAndToken.slice(hashIdx + 1).trim() : "",
     };
   }
 
@@ -132,6 +157,7 @@ export function parseCollabInvite(raw: string): CollabInvite | null {
     return {
       host: resolveCollabHost(),
       room: plain[1].trim(),
+      token: "",
     };
   }
   return null;
@@ -218,6 +244,10 @@ export function peerInitials(name: string): string {
 export function createCollabSession(options: {
   host: string;
   room: string;
+  /** Secret room token sent to the server to authorise this connection. */
+  token: string;
+  /** Whether we are opening (host) or joining (guest) the room. */
+  role: "host" | "guest";
   displayName: string;
   activePath: string;
   onStatus: (status: CollabStatus, detail?: string) => void;
@@ -227,6 +257,7 @@ export function createCollabSession(options: {
 }): CollabSession {
   const host = normalizeCollabHost(options.host);
   const room = options.room.trim();
+  const token = (options.token ?? "").trim();
   if (!host) throw new Error("Collab host is required.");
   if (!room) throw new Error("Collab room is required.");
 
@@ -239,6 +270,9 @@ export function createCollabSession(options: {
   const provider = new YProvider(host, room, doc, {
     connect: true,
     party: COLLAB_PARTY,
+    // Sent as query params on the WebSocket URL; the server gates the room on
+    // them. A function so the token/role are re-attached on every reconnect.
+    params: () => ({ k: token, r: options.role }),
   });
 
   let activePath = options.activePath || "main.tex";
@@ -305,6 +339,7 @@ export function createCollabSession(options: {
   const session: CollabSession = {
     host,
     room,
+    token,
     doc,
     provider,
     get activePath() {

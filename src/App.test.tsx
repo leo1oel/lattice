@@ -1330,7 +1330,8 @@ describe("project workspace", () => {
 
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Project history" }));
-    fireEvent.click(screen.getByRole("button", { name: /Edit main\.tex/i }));
+    // HistoryDrawer is lazy-loaded, so wait for its chunk to resolve.
+    fireEvent.click(await screen.findByRole("button", { name: /Edit main\.tex/i }));
     expect(await screen.findByLabelText("Diff for main.tex")).toHaveTextContent("- old line");
     expect(screen.getByLabelText("Diff for main.tex")).toHaveTextContent("+ new line");
     fireEvent.click(await screen.findByTitle("Delete this history entry"));

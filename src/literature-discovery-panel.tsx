@@ -9,12 +9,9 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { baseArxivId } from "./arxiv-id";
 
-/** Versionless arXiv id, mirroring Rust `papers::arxiv_base_id`. */
-export function baseArxivId(id: string): string {
-  const match = /^(.*?)v\d+$/.exec(id.trim());
-  return match ? match[1] : id.trim();
-}
+export { baseArxivId };
 
 export type LiteratureHit = {
   source: "alphaxiv" | "openalex" | string;

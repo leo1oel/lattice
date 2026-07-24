@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import {
   createShareRoomCode,
+  createShareToken,
   defaultCollabRoom,
   formatCollabInvite,
   maybeSeedCollabText,
@@ -33,8 +34,21 @@ describe("collab session helpers", () => {
     expect(parseCollabInvite(`Join me\n${invite}\nthanks`)).toEqual({
       host: "demo.partykit.dev",
       room: "LT-ABC123",
+      token: "",
     });
     expect(parseCollabInvite("LT-ZZ99KK")?.room).toBe("LT-ZZ99KK");
+  });
+
+  it("round-trips the room token through the invite", () => {
+    const token = createShareToken();
+    expect(token).toMatch(/^[A-Za-z0-9\-_]{24}$/);
+    const invite = formatCollabInvite("demo.partykit.dev", "LT-ABC123", token);
+    expect(invite).toBe(`lattice:demo.partykit.dev/LT-ABC123#${token}`);
+    expect(parseCollabInvite(`Join me\n${invite}\nthanks`)).toEqual({
+      host: "demo.partykit.dev",
+      room: "LT-ABC123",
+      token,
+    });
   });
 
   it("seeds only empty shared text once", () => {

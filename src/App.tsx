@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -133,7 +133,9 @@ import { useUpdater, type UpdateMode } from "./app-updater";
 import {
   type EditorComment,
 } from "./editor-comments";
-import { EditorCommentsPanel } from "./editor-comments-panel";
+const EditorCommentsPanel = lazy(() =>
+  import("./editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
+);
 import { motion } from "motion/react";
 import { MotionButton, IconSwap, SpinButton } from "./motion";
 import {
@@ -146,6 +148,7 @@ import {
   collabEditorExtensions,
   createCollabSession,
   createShareRoomCode,
+  createShareToken,
   formatCollabInviteMessage,
   loadCollabDisplayName,
   loadCollabHost,
@@ -159,7 +162,9 @@ import {
   type CollabSession,
   type CollabStatus,
 } from "./collab-session";
-import { CompileDiagnosticsPanel } from "./compile-diagnostics-panel";
+const CompileDiagnosticsPanel = lazy(() =>
+  import("./compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
+);
 import {
   editorDiagnosticsForFile,
   flattenProjectPaths,
@@ -178,8 +183,13 @@ import {
   type OutlineNode,
 } from "./latex-outline";
 import { ReferencesPanel, type SymbolOccurrence } from "./references-panel";
-import { GitPanel } from "./git-panel";
-import { HistoryDrawer, type HistoryItem } from "./history-drawer";
+const GitPanel = lazy(() =>
+  import("./git-panel").then((module) => ({ default: module.GitPanel })),
+);
+const HistoryDrawer = lazy(() =>
+  import("./history-drawer").then((module) => ({ default: module.HistoryDrawer })),
+);
+import { type HistoryItem } from "./history-drawer";
 import { InsertPalette } from "./insert-palette";
 import type { InsertSnippet } from "./insert-snippets";
 import { expandSnippetPlaceholders, nextSnippetStop, previousSnippetStop } from "./snippet-placeholders";
@@ -216,7 +226,10 @@ import { TableGeneratorDialog } from "./table-generator-dialog";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "./project-replace-dialog";
 import type { PdfMark } from "./pdf-annotations";
-import { LiteratureDiscoveryPanel, baseArxivId } from "./literature-discovery-panel";
+const LiteratureDiscoveryPanel = lazy(() =>
+  import("./literature-discovery-panel").then((module) => ({ default: module.LiteratureDiscoveryPanel })),
+);
+import { baseArxivId } from "./arxiv-id";
 import { PdfPreview, type PdfSyncTarget } from "./pdf-viewer";
 import { findAppendixMarker } from "./appendix-pages";
 import { ManuscriptChecklistPanel } from "./manuscript-checklist";
@@ -656,6 +669,10 @@ function App() {
   const [collabFileCount, setCollabFileCount] = useState(0);
   const [collabRole, setCollabRole] = useState<"host" | "guest">("host");
   const collabRoleRef = useRef<"host" | "guest">("host");
+  // The active room's secret token (host generates it; guest parses it from the
+  // invite). Held in a ref so Copy invite can rebuild the invite before the
+  // session exists, and kept off React state since it must never render.
+  const collabTokenRef = useRef<string>("");
   const collabSessionRef = useRef<CollabSession | null>(null);
   const collabDetachRef = useRef<(() => void) | null>(null);
   const collabShareWatchRef = useRef<(() => void) | null>(null);
@@ -987,6 +1004,7 @@ function App() {
     roomRaw: string,
     noticeText: string,
     role: "host" | "guest",
+    token: string,
   ) => {
     // Host shares the currently open project. Guests join into a fresh
     // Documents/Lattice Shares workspace created before connect.
@@ -1005,6 +1023,7 @@ function App() {
     setCollabHost(host);
     setCollabRoom(room);
     collabRoleRef.current = role;
+    collabTokenRef.current = token;
     setCollabRole(role);
     // Fresh session: the next "sync" is a first sync, not a reconnect.
     collabInitializedRef.current = false;
@@ -1018,6 +1037,8 @@ function App() {
       const session = createCollabSession({
         host,
         room,
+        token,
+        role,
         displayName: collabName,
         // Guests just entered a blank Shares workspace; React state may still
         // hold the previous project's activeFile until the next render.
@@ -1204,10 +1225,11 @@ function App() {
       return;
     }
     const room = createShareRoomCode();
+    const token = createShareToken();
     const host = resolveCollabHost(collabHost);
     setCollabRoom(room);
-    connectCollab(host, room, `Starting project share ${room}…`, "host");
-    void writeText(formatCollabInviteMessage(host, room))
+    connectCollab(host, room, `Starting project share ${room}…`, "host", token);
+    void writeText(formatCollabInviteMessage(host, room, token))
       .then(() => setNotice(`Started share ${room} · invite copied`))
       .catch(() => setNotice(`Started share ${room}`));
   }, [collabHost, collabName, connectCollab, project]);
@@ -1216,7 +1238,8 @@ function App() {
     const host = collabSession?.host ?? resolveCollabHost(collabHost);
     const room = collabSession?.room ?? collabRoom;
     if (!room) return;
-    await writeText(formatCollabInviteMessage(host, room));
+    const token = collabSession?.token ?? collabTokenRef.current;
+    await writeText(formatCollabInviteMessage(host, room, token));
     setNotice("Invite copied");
   }, [collabHost, collabRoom, collabSession]);
 
@@ -1912,7 +1935,7 @@ function App() {
         // Defer the build: the workspace is an empty scaffold until the shared
         // sources sync, so connectCollab → onSynced compiles once it is populated.
         await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
-        connectCollab(host, parsed.room, `Joining project share ${parsed.room}…`, "guest");
+        connectCollab(host, parsed.room, `Joining project share ${parsed.room}…`, "guest", parsed.token);
         setNotice(`Opened shared workspace · ${snapshot.root}`);
       } catch (reason) {
         setError(toMessage(reason));
@@ -4313,15 +4336,17 @@ function App() {
         </div>
       )}
       {!diagnosticsDismissed && build && (!build.success || build.diagnostics.length > 0) ? (
-        <CompileDiagnosticsPanel
-          diagnostics={build.diagnostics}
-          log={build.log}
-          success={build.success}
-          expanded={diagnosticsExpanded}
-          onExpandedChange={setDiagnosticsExpanded}
-          onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
-          onDismiss={() => setDiagnosticsDismissed(true)}
-        />
+        <Suspense fallback={null}>
+          <CompileDiagnosticsPanel
+            diagnostics={build.diagnostics}
+            log={build.log}
+            success={build.success}
+            expanded={diagnosticsExpanded}
+            onExpandedChange={setDiagnosticsExpanded}
+            onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
+            onDismiss={() => setDiagnosticsDismissed(true)}
+          />
+        </Suspense>
       ) : null}
       {referenceHits && (
         <ReferencesPanel
@@ -4679,6 +4704,7 @@ function App() {
         </div>
       )}
 
+      <Suspense fallback={null}>
       {historyOpen && (
         <HistoryDrawer
           history={history}
@@ -4741,6 +4767,7 @@ function App() {
           onReply={(comment, body) => replyToEditorComment(comment.id, body)}
         />
       )}
+      </Suspense>
       {todosOpen && (
         <TodoScavengerPanel
           hits={todoHits}
@@ -4970,15 +4997,17 @@ function App() {
         onSave={(draft, insertCite) => { void saveBibEntry(draft, insertCite); }}
       />
       {literatureOpen && (
-        <LiteratureDiscoveryPanel
-          onClose={() => setLiteratureOpen(false)}
-          importedIds={importedArxivIds}
-          onImportArxiv={(arxivId) => importArxivInput(arxivId)}
-          onAddBib={(query) => {
-            setLiteratureOpen(false);
-            openBibEntryDialog(query);
-          }}
-        />
+        <Suspense fallback={null}>
+          <LiteratureDiscoveryPanel
+            onClose={() => setLiteratureOpen(false)}
+            importedIds={importedArxivIds}
+            onImportArxiv={(arxivId) => importArxivInput(arxivId)}
+            onAddBib={(query) => {
+              setLiteratureOpen(false);
+              openBibEntryDialog(query);
+            }}
+          />
+        </Suspense>
       )}
       <SearchPickerDialog
         open={commandPaletteOpen}
@@ -5831,6 +5860,63 @@ function AgentToolRow({ step }: { step: AgentToolStep }) {
 }
 
 /**
+ * One rendered chat turn. Memoized so a streaming reply only re-renders the last
+ * row: every prop is stable for the earlier rows (the flags derive per-row from
+ * "is this the last message"), so their markdown + KaTeX isn't re-parsed on each
+ * streamed frame.
+ */
+const MessageRow = memo(function MessageRow(props: {
+  message: ChatMessage;
+  index: number;
+  streamingTail: boolean;
+  inFlight: boolean;
+  editDisabled: boolean;
+  copied: boolean;
+  macros: Record<string, string>;
+  onCopy: (message: ChatMessage) => void;
+  onEdit: (message: ChatMessage) => void;
+}) {
+  const { message, index, streamingTail, inFlight, editDisabled, copied, macros, onCopy, onEdit } = props;
+  return (
+    <div className={`chat-message ${message.role} ${streamingTail && message.role === "agent" ? "streaming" : ""}`}>
+      {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
+      <div className="message-column">
+        <div className="message-body">
+          {message.role !== "agent"
+            ? <p>{message.text}</p>
+            : (message.parts?.length
+              ? message.parts.map((part, partIndex) => (part.kind === "text"
+                ? <ChatMarkdown
+                    key={partIndex}
+                    text={part.text}
+                    macros={macros}
+                    // Only the run being written now shows the caret.
+                    className={streamingTail && partIndex === message.parts!.length - 1 ? "streaming-tail" : undefined}
+                  />
+                : <AgentToolRow key={part.id} step={part} />))
+              : <ChatMarkdown text={message.text} macros={macros} />)}
+          {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
+          {message.role === "agent" && (!isConversationWelcome(message, index) || !!message.files?.length) && <div className="agent-message-meta">
+            {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
+            {!isConversationWelcome(message, index) && !inFlight && <button className="agent-message-copy" title="Copy agent response" onClick={() => void onCopy(message)}>
+              <IconSwap swapKey={copied ? "check" : "copy"}>
+                {copied ? <Check size={11} /> : <Copy size={11} />}
+              </IconSwap>
+            </button>}
+          </div>}
+        </div>
+        {message.role === "user" && <div className="message-actions user-message-actions">
+          <button className="message-copy" title="Copy user message" onClick={() => void onCopy(message)}>
+            {copied ? <Check size={11} /> : <Copy size={11} />}
+          </button>
+          <button className="message-edit" title="Edit and branch from this message" disabled={editDisabled} onClick={() => onEdit(message)}><Pencil size={11} /> Edit</button>
+        </div>}
+      </div>
+    </div>
+  );
+});
+
+/**
  * Map the agent's current status line to a thinking-orb animation, so the
  * orb reflects what the agent is actually doing (reading, editing, running a
  * command, …) rather than one generic spinner. Driven entirely by the status
@@ -5931,7 +6017,8 @@ function AgentPanel({
   const [slashIndex, setSlashIndex] = useState(0);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const copyResetTimer = useRef<number | null>(null);
-  const copyMessage = async (message: ChatMessage) => {
+  // Stable identity so a memoized MessageRow isn't invalidated every render.
+  const copyMessage = useCallback(async (message: ChatMessage) => {
     try {
       await writeText(message.text);
       setCopiedMessageId(message.id);
@@ -5940,7 +6027,7 @@ function AgentPanel({
     } catch {
       setCopiedMessageId(null);
     }
-  };
+  }, []);
   useEffect(() => () => {
     if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
   }, []);
@@ -6070,46 +6157,23 @@ function AgentPanel({
       </div>
       <div className="chat-list" ref={chatListRef}>
         {messages.map((message, index) => {
-        // The turn in progress: its text may still grow and its tool calls may
-        // still be running, so it is not copyable yet.
-        const inFlight = running && message.role === "agent" && index === messages.length - 1;
-        return (
-          <div key={message.id} className={`chat-message ${message.role} ${streaming && index === messages.length - 1 && message.role === "agent" ? "streaming" : ""}`}>
-            {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
-            <div className="message-column">
-              <div className="message-body">
-                {message.role !== "agent"
-                  ? <p>{message.text}</p>
-                  : (message.parts?.length
-                    ? message.parts.map((part, partIndex) => (part.kind === "text"
-                      ? <ChatMarkdown
-                          key={partIndex}
-                          text={part.text}
-                          macros={katexMacros}
-                          // Only the run being written now shows the caret.
-                          className={streaming && index === messages.length - 1 && partIndex === message.parts!.length - 1 ? "streaming-tail" : undefined}
-                        />
-                      : <AgentToolRow key={part.id} step={part} />))
-                    : <ChatMarkdown text={message.text} macros={katexMacros} />)}
-                {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
-                {message.role === "agent" && (!isConversationWelcome(message, index) || !!message.files?.length) && <div className="agent-message-meta">
-                  {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
-                  {!isConversationWelcome(message, index) && !inFlight && <button className="agent-message-copy" title="Copy agent response" onClick={() => void copyMessage(message)}>
-                    <IconSwap swapKey={copiedMessageId === message.id ? "check" : "copy"}>
-                      {copiedMessageId === message.id ? <Check size={11} /> : <Copy size={11} />}
-                    </IconSwap>
-                  </button>}
-                </div>}
-              </div>
-              {message.role === "user" && <div className="message-actions user-message-actions">
-                <button className="message-copy" title="Copy user message" onClick={() => void copyMessage(message)}>
-                  {copiedMessageId === message.id ? <Check size={11} /> : <Copy size={11} />}
-                </button>
-                <button className="message-edit" title="Edit and branch from this message" disabled={running} onClick={() => onEditMessage(message)}><Pencil size={11} /> Edit</button>
-              </div>}
-            </div>
-          </div>
-        );
+          const isLast = index === messages.length - 1;
+          return (
+            <MessageRow
+              key={message.id}
+              message={message}
+              index={index}
+              // These derive from "is this the last row", so every earlier row
+              // gets stable props and the memo skips re-rendering it mid-stream.
+              streamingTail={isLast && streaming}
+              inFlight={isLast && running && message.role === "agent"}
+              editDisabled={running}
+              copied={copiedMessageId === message.id}
+              macros={katexMacros}
+              onCopy={copyMessage}
+              onEdit={onEditMessage}
+            />
+          );
         })}
         {running && !streaming && (
           // At the start of a turn the agent is thinking before it has said a
