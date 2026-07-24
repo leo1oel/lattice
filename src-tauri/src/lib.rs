@@ -1032,6 +1032,21 @@ async fn overleaf_rt_send_ops(
         .await
 }
 
+/// Anchor a comment thread to a span of the open document.
+#[tauri::command]
+async fn overleaf_rt_send_comment(
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+    version: i64,
+    position: i64,
+    quote: String,
+    thread_id: String,
+) -> Result<(), String> {
+    realtime_client(&state)?
+        .send_comment(&doc_id, version, position, &quote, &thread_id)
+        .await
+}
+
 #[tauri::command]
 async fn overleaf_chat_messages(
     app: tauri::AppHandle,
@@ -1716,6 +1731,7 @@ pub fn run() {
             overleaf_rt_join_doc,
             overleaf_rt_leave_doc,
             overleaf_rt_send_ops,
+            overleaf_rt_send_comment,
             overleaf_chat_messages,
             overleaf_send_chat_message,
             overleaf_threads,

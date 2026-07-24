@@ -532,6 +532,12 @@ fn is_excluded(path: &str) -> bool {
     if file_name == ".DS_Store" {
         return true;
     }
+    // Conflict copies are ours, not the project's: they exist so someone can
+    // compare two versions here. Uploading them puts a duplicate of the paper
+    // in front of everyone on Overleaf, where it competes with the real file.
+    if is_conflict_copy(file_name) {
+        return true;
+    }
     let lower = file_name.to_ascii_lowercase();
     if ARTIFACT_SUFFIXES.iter().any(|s| lower.ends_with(s)) {
         return true;
@@ -542,6 +548,16 @@ fn is_excluded(path: &str) -> bool {
         return true;
     }
     false
+}
+
+/// A file this app set aside during a conflict, by the name it gave it.
+///
+/// Shared with the project module, which must never choose one of these as the
+/// document to compile — they are byte-identical to the real file at the
+/// moment they are made, so the mistake is invisible until an edit goes
+/// missing from the PDF.
+pub fn is_conflict_copy(file_name: &str) -> bool {
+    file_name.contains(" (local conflict ")
 }
 
 fn relative_slash_path(root: &Path, path: &Path) -> Option<String> {
@@ -584,6 +600,7 @@ const BASE_DIR: &str = ".research/overleaf-base";
 
 /// Marks the start of an unresolved conflict; also the guard that stops a file
 /// full of markers from being uploaded to Overleaf.
+///
 const CONFLICT_MARKER: &str = "<<<<<<<";
 
 fn base_dir(root: &Path) -> PathBuf {
@@ -1252,6 +1269,11 @@ fn thread_request(
         .header(reqwest::header::ACCEPT, "application/json");
     if let Some(body) = body {
         request = request.json(&body);
+    } else {
+        // Overleaf answers 411 Length Required to a POST with no length at
+        // all, which is what a bodyless `reqwest` request sends. Browsers set
+        // this themselves; we have to say it out loud.
+        request = request.header(reqwest::header::CONTENT_LENGTH, "0");
     }
     let response = request
         .send()
@@ -3038,5 +3060,11 @@ mod tests {
         assert!(!is_excluded("figures/fig1.pdf")); // figure pdfs sync
         assert!(!is_excluded("main.tex"));
         assert!(!is_excluded("nested/chapter.tex"));
+        // Conflict copies are ours to hold locally, never the project's.
+        assert!(is_excluded("neurips_2026 (local conflict 20260724-1308).tex"));
+        assert!(is_excluded("nested/paper (local conflict 20260101-0900).tex"));
+        assert!(is_conflict_copy("paper (local conflict 20260101-0900).tex"));
+        assert!(!is_conflict_copy("paper.tex"));
+        assert!(!is_conflict_copy("local conflict notes.tex"));
     }
 }

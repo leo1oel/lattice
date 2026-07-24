@@ -79,7 +79,7 @@ import { OverleafReviewDialog } from "./overleaf-review";
 import { ConflictResolverDialog } from "./conflict-resolver";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 import { useOverleafChat } from "./use-overleaf-chat";
-import { useOverleafComments } from "./use-overleaf-comments";
+import { useOverleafComments, type OverleafComments } from "./use-overleaf-comments";
 import { OverleafCollabDrawer, type OverleafCollabTab } from "./overleaf-collab";
 import {
   type RecentProject,
@@ -410,6 +410,9 @@ function App() {
   const overleafSyncingRef = useRef(false);
   const overleafAutoSyncedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
+  /** Marks a comment that lives on Overleaf rather than in this project. */
+  const OVERLEAF_COMMENT_PREFIX = "overleaf:";
+  const overleafCommentsRef = useRef<OverleafComments>(null as unknown as OverleafComments);
   /** Files the realtime channel owns; syncing must not touch them. */
   const overleafLivePathsRef = useRef<string[]>([]);
   /** Whether the realtime channel is up, for the poll loop to read. */
@@ -1690,7 +1693,54 @@ function App() {
       () => overleafRealtime.comments.map((range) => range.threadId),
       [overleafRealtime.comments],
     ),
+    anchor: overleafRealtime.anchorComment,
   });
+
+  // Overleaf's threads, dressed as editor comments so they highlight in the
+  // text and answer in place like any other. Their ids are prefixed, which is
+  // how every handler below knows to send the reply to Overleaf rather than
+  // writing it into this project's own comments file.
+  const overleafEditorComments = useMemo<EditorComment[]>(() => {
+    const path = activeFile;
+    if (!path || !overleafAnchors.size) return [];
+    return overleafComments.threads.flatMap((thread) => {
+      const anchor = overleafAnchors.get(thread.id);
+      if (!anchor) return [];
+      const [first, ...rest] = thread.messages;
+      return [{
+        id: `${OVERLEAF_COMMENT_PREFIX}${thread.id}`,
+        path,
+        from: anchor.position,
+        to: anchor.position + anchor.quote.length,
+        quote: anchor.quote,
+        prefix: "",
+        suffix: "",
+        body: first?.content ?? "",
+        authorId: first?.authorEmail ?? "overleaf",
+        authorName: first ? `${first.authorName} · Overleaf` : "Overleaf",
+        resolved: thread.resolved,
+        replies: rest.map((message) => ({
+          id: message.id,
+          authorId: message.authorEmail ?? "overleaf",
+          authorName: message.authorName,
+          body: message.content,
+          createdAt: new Date(message.timestamp).toISOString(),
+        })),
+        createdAt: new Date(first?.timestamp ?? 0).toISOString(),
+        updatedAt: new Date(thread.messages[thread.messages.length - 1]?.timestamp ?? 0).toISOString(),
+      }];
+    });
+  }, [activeFile, overleafAnchors, overleafComments.threads]);
+
+  // The comment handlers are declared before this hook runs, so they reach its
+  // actions through a ref rather than forcing the whole tree to be reordered.
+  overleafCommentsRef.current = overleafComments;
+
+  /** Both kinds of comment, as the editor and the panel want them. */
+  const allEditorComments = useMemo(
+    () => [...editorComments, ...overleafEditorComments],
+    [editorComments, overleafEditorComments],
+  );
 
   // Keep the badge quiet while someone is reading the conversation.
   useEffect(() => {
@@ -3850,15 +3900,37 @@ function App() {
     }
   }, [collabSession]);
 
+  /** An Overleaf thread's id, when this comment is one of theirs. */
+  const overleafThreadOf = useCallback((commentId: string) => (
+    commentId.startsWith(OVERLEAF_COMMENT_PREFIX)
+      ? commentId.slice(OVERLEAF_COMMENT_PREFIX.length)
+      : null
+  ), [OVERLEAF_COMMENT_PREFIX]);
+
   const toggleEditorCommentResolved = useCallback((id: string) => {
+    const threadId = overleafThreadOf(id);
+    if (threadId) {
+      const thread = overleafCommentsRef.current.threads.find((item) => item.id === threadId);
+      void overleafCommentsRef.current
+        .setResolved(threadId, !thread?.resolved)
+        .catch((reason) => setError(toMessage(reason)));
+      return;
+    }
     void persistEditorComments(editorComments.map((item) => (
       item.id === id
         ? { ...item, resolved: !item.resolved, updatedAt: new Date().toISOString() }
         : item
     )));
-  }, [editorComments, persistEditorComments]);
+  }, [editorComments, overleafThreadOf, persistEditorComments]);
 
   const replyToEditorComment = useCallback((commentId: string, body: string) => {
+    const threadId = overleafThreadOf(commentId);
+    if (threadId) {
+      void overleafCommentsRef.current
+        .reply(threadId, body)
+        .catch((reason) => setError(toMessage(reason)));
+      return;
+    }
     const reply = createEditorCommentReply({
       body,
       authorId: editorCommentAuthorId,
@@ -3870,7 +3942,7 @@ function App() {
         ? { ...item, replies: [...item.replies, reply], updatedAt: new Date().toISOString() }
         : item
     )));
-  }, [collabName, editorCommentAuthorId, editorComments, persistEditorComments]);
+  }, [collabName, editorCommentAuthorId, editorComments, overleafThreadOf, persistEditorComments]);
 
   const openEditorCommentReply = useCallback((commentId: string) => {
     setCommentPanelFocusId(commentId);
@@ -4720,7 +4792,7 @@ function App() {
             onForwardSync={() => void revealSourceInPdf()}
             onHistory={() => setHistoryOpen(true)}
             onGit={() => setGitOpen(true)}
-            commentCount={editorComments.filter((comment) => !comment.resolved).length}
+            commentCount={allEditorComments.filter((comment) => !comment.resolved).length}
             onComments={() => setEditorCommentsOpen(true)}
             overleafLinked={overleafLink !== null}
             overleafSyncing={overleafSyncing}
@@ -4861,11 +4933,20 @@ function App() {
             onCreatePdfMark={undefined}
             onSelectPdfMark={undefined}
             onOpenPdfMarks={undefined}
-            editorComments={editorComments}
+            editorComments={allEditorComments}
             activeEditorCommentId={activeEditorCommentId}
             commentAuthorName={collabName.trim() || "Anonymous"}
             commentAuthorId={editorCommentAuthorId}
             onCreateEditorComment={(comment) => {
+              // A document being edited live with Overleaf gets Overleaf's
+              // comments, so the person in the browser sees what you wrote.
+              // Anything else keeps this project's own.
+              if (overleafRealtime.liveFile) {
+                void overleafComments
+                  .create(comment.from, comment.quote, comment.body)
+                  .catch((reason) => setError(toMessage(reason)));
+                return;
+              }
               void persistEditorComments([...editorComments, comment]);
               setActiveEditorCommentId(comment.id);
             }}
@@ -5011,7 +5092,7 @@ function App() {
       )}
       {editorCommentsOpen && (
         <EditorCommentsPanel
-          comments={editorComments}
+          comments={allEditorComments}
           activePath={activeFile}
           currentAuthorId={editorCommentAuthorId}
           focusCommentId={commentPanelFocusId}
@@ -5028,6 +5109,11 @@ function App() {
             });
           }}
           onDelete={(id) => {
+            const threadId = overleafThreadOf(id);
+            if (threadId) {
+              void overleafComments.remove(threadId).catch((reason) => setError(toMessage(reason)));
+              return;
+            }
             void persistEditorComments(editorComments.filter((comment) => comment.id !== id));
             setActiveEditorCommentId((current) => (current === id ? null : current));
           }}
@@ -5035,6 +5121,9 @@ function App() {
           onUpdateBody={(comment, body) => {
             const trimmed = body.trim();
             if (!trimmed) return;
+            // Overleaf's threads are edited where they live; changing the text
+            // of someone else's first message is not ours to do from here.
+            if (overleafThreadOf(comment.id)) return;
             void persistEditorComments(editorComments.map((item) => (
               item.id === comment.id
                 ? { ...item, body: trimmed, updatedAt: new Date().toISOString() }

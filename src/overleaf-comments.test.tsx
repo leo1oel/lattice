@@ -114,6 +114,7 @@ describe("useOverleafComments", () => {
       enabled: true,
       docId: "doc-1",
       anchored: ["t1"],
+      anchor: vi.fn().mockResolvedValue(undefined),
     }));
     await waitFor(() => expect(result.current.threads).toHaveLength(1));
     expect(result.current.openCount).toBe(1);
@@ -138,6 +139,7 @@ describe("useOverleafComments", () => {
       enabled: true,
       docId: null,
       anchored: [],
+      anchor: vi.fn().mockResolvedValue(undefined),
     }));
     await act(async () => {
       await expect(result.current.setResolved("t1", true)).rejects.toThrow(/Open the file/);

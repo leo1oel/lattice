@@ -65,14 +65,20 @@
 }
 .overleaf-chat-composer textarea {
   flex: 1;
+  min-width: 0;
   resize: none;
   font-size: 12px;
   line-height: 1.5;
-  padding: 7px 9px;
+  padding: 8px 9px;
   border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--bg);
   color: var(--text);
+  /* Height is set from the content; the box grows rather than scrolling. */
+  overflow-x: hidden;
+  overflow-y: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .overleaf-chat-composer textarea:focus {
   outline: none;

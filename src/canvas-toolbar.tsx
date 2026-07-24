@@ -178,7 +178,7 @@ export function CanvasToolbar(props: {
                 ? <LoaderCircle className="spin" size={14} />
                 : props.overleafLinked ? <CloudUpload size={14} /> : <Cloud size={14} />}
               {props.overleafLiveEditing && !props.overleafSyncing
-                ? <em className="collab-peer-badge overleaf-live-dot" title="Live">●</em>
+                ? <em className="overleaf-live-dot" title="Editing live with Overleaf" />
                 : props.overleafPending && !props.overleafSyncing
                   ? <em className="collab-peer-badge">•</em>
                   : null}

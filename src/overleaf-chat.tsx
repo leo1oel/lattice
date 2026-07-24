@@ -34,6 +34,18 @@ export function OverleafChatPanel(props: {
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // Grow with the text instead of scrolling inside a fixed box, the way the
+  // agent composer does — a two-line box with its own scrollbar is a worse
+  // place to write than one that simply gets taller.
+  useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+    composer.style.height = "0px";
+    const height = Math.min(Math.max(composer.scrollHeight, 38), 160);
+    composer.style.height = `${height}px`;
+    composer.style.overflowY = composer.scrollHeight > 160 ? "auto" : "hidden";
+  }, [draft]);
+
   // Anchor to the newest message the way every chat does, before paint so it
   // never looks like it scrolled.
   useLayoutEffect(() => {
@@ -103,12 +115,18 @@ export function OverleafChatPanel(props: {
       <div className="overleaf-chat-composer">
         <textarea
           ref={composerRef}
-          rows={2}
+          rows={1}
           value={draft}
           placeholder="Message your collaborators…"
           aria-label="Message"
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
+            // While an input method is composing, Enter is choosing a
+            // candidate — sending then would cut a Chinese word in half and
+            // fire off whatever was on screen.
+            if (event.nativeEvent.isComposing || event.keyCode === 229 || event.key === "Process") {
+              return;
+            }
             // Enter sends, Shift+Enter breaks the line — what every chat does.
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();

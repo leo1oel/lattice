@@ -494,6 +494,22 @@ struct JoinProjectArg<'a> {
     project_id: &'a str,
 }
 
+/// A comment anchor on the wire: the commented text, where it starts, and the
+/// thread it belongs to. Overleaf carries these alongside inserts and deletes.
+#[derive(Serialize)]
+struct CommentOp<'a> {
+    p: i64,
+    c: &'a str,
+    t: &'a str,
+}
+
+#[derive(Serialize)]
+struct CommentUpdate<'a> {
+    doc: &'a str,
+    op: Vec<CommentOp<'a>>,
+    v: i64,
+}
+
 #[derive(Serialize)]
 struct JoinDocOptions {
     #[serde(rename = "encodeRanges")]
@@ -1314,6 +1330,34 @@ impl RealtimeClient {
             version,
             comments,
         })
+    }
+
+    /// Anchor a comment thread to a span of a document.
+    ///
+    /// The thread's messages live behind the REST endpoints; this is the half
+    /// that makes the span show as commented for everyone with the file open.
+    /// It travels as an operation like any edit, so it takes a version and is
+    /// acknowledged the same way.
+    pub async fn send_comment(
+        &self,
+        doc_id: &str,
+        version: i64,
+        position: i64,
+        quote: &str,
+        thread_id: &str,
+    ) -> Result<(), String> {
+        let update = CommentUpdate {
+            doc: doc_id,
+            op: vec![CommentOp {
+                p: position,
+                c: quote,
+                t: thread_id,
+            }],
+            v: version,
+        };
+        let ack = emit_with_ack(&self.shared, "applyOtUpdate", (doc_id, update)).await?;
+        ack_body(&ack, "applyOtUpdate")?;
+        Ok(())
     }
 
     pub async fn leave_doc(&self, doc_id: &str) -> Result<(), String> {
@@ -2146,6 +2190,90 @@ mod tests {
         let again = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
         assert_eq!(again.text, before, "the document did not come back unchanged");
         println!("document unchanged at v{}", again.version);
+        client.shutdown();
+    }
+
+    /// Creates a comment thread on a real document, then resolves, reopens and
+    /// deletes it — the whole path a reviewer takes, against the real service.
+    ///
+    /// Overleaf splits a comment in two: the conversation behind REST, the
+    /// anchor on the editing channel. Only doing both makes the span show as
+    /// commented, and only the real service reveals things like the 411 a
+    /// bodyless POST earns.
+    #[test]
+    #[ignore = "creates and deletes a comment on overleaf.com"]
+    fn comments_on_a_real_document() {
+        let root = std::path::PathBuf::from(
+            std::env::var("OVERLEAF_E2E_PROJECT").expect("set OVERLEAF_E2E_PROJECT"),
+        );
+        let target = std::env::var("OVERLEAF_E2E_DOC").expect("set OVERLEAF_E2E_DOC");
+        let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+        let (host, cookie, project_id) =
+            crate::overleaf::realtime_config(&config, &root).expect("a linked project");
+
+        let client = rt::block_on(RealtimeClient::connect(
+            RealtimeConfig {
+                host,
+                cookie,
+                project_id,
+            },
+            move |_| {},
+        ))
+        .expect("connect to Overleaf");
+        let doc = client
+            .project()
+            .docs
+            .iter()
+            .find(|doc| doc.path == target)
+            .unwrap_or_else(|| panic!("no document named {target}"))
+            .clone();
+        let joined = rt::block_on(client.join_doc(&doc.id)).expect("joinDoc");
+
+        // A thread id is minted by the client, not the server; both halves of
+        // the call have to agree on it.
+        let thread_id = format!("{:08x}{:016x}", 1_780_000_000u32, 0x5eedc0ffee1234u64);
+        let quote: String = joined.text.chars().take(12).collect();
+        crate::overleaf::reply_to_thread(&config, &root, &thread_id, "Lattice check: please ignore")
+            .expect("post the first message");
+        rt::block_on(client.send_comment(&doc.id, joined.version, 0, &quote, &thread_id))
+            .expect("anchor the comment");
+        println!("created thread {thread_id} on {:?}", quote);
+
+        let found = crate::overleaf::threads(&config, &root).expect("read threads");
+        let made = found
+            .iter()
+            .find(|thread| thread.id == thread_id)
+            .expect("the thread we just made");
+        assert_eq!(made.messages.len(), 1);
+        assert_eq!(made.messages[0].content, "Lattice check: please ignore");
+        assert!(made.messages[0].mine, "our own message should read as ours");
+        assert!(!made.resolved);
+
+        crate::overleaf::reply_to_thread(&config, &root, &thread_id, "and a reply")
+            .expect("reply");
+        crate::overleaf::resolve_thread(&config, &root, &doc.id, &thread_id, true)
+            .expect("resolve");
+        let resolved = crate::overleaf::threads(&config, &root)
+            .expect("read threads")
+            .into_iter()
+            .find(|thread| thread.id == thread_id)
+            .expect("still there");
+        assert!(resolved.resolved, "the thread should read as resolved");
+        assert_eq!(resolved.messages.len(), 2);
+        println!("resolved by {:?}", resolved.resolved_by);
+
+        crate::overleaf::resolve_thread(&config, &root, &doc.id, &thread_id, false)
+            .expect("reopen");
+        crate::overleaf::delete_thread(&config, &root, &doc.id, &thread_id).expect("delete");
+        assert!(
+            !crate::overleaf::threads(&config, &root)
+                .expect("read threads")
+                .iter()
+                .any(|thread| thread.id == thread_id),
+            "the thread should be gone"
+        );
+        println!("reopened and deleted cleanly");
         client.shutdown();
     }
 

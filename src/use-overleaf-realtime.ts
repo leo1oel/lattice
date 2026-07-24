@@ -48,6 +48,12 @@ export type OverleafRealtime = {
   comments: CommentRange[];
   /** Feed the editor's current text in; ops go out when it differs. */
   pushLocal: (text: string) => void;
+  /**
+   * Anchor a new comment thread to a span of the open document. Resolves once
+   * Overleaf has it; rejects when the document is not live or an edit is still
+   * in flight, which the caller should report rather than swallow.
+   */
+  anchorComment: (threadId: string, position: number, quote: string) => Promise<void>;
 };
 
 export function useOverleafRealtime(options: {
@@ -299,6 +305,39 @@ export function useOverleafRealtime(options: {
     }, 250);
   }, [flush]);
 
+  const anchorComment = useCallback(async (threadId: string, position: number, quote: string) => {
+    const doc = document.current;
+    const id = docId.current;
+    if (!doc || !id) {
+      throw new Error("This file is not being edited live with Overleaf yet.");
+    }
+    // An anchor is an operation like any other, so it needs the wire to
+    // itself; typing while one is outstanding would be built on a version the
+    // server has not confirmed.
+    const reserved = doc.anchor();
+    if (!reserved) {
+      throw new Error("An edit is still on its way to Overleaf. Try again in a moment.");
+    }
+    try {
+      await invoke("overleaf_rt_send_comment", {
+        docId: id,
+        version: reserved.version,
+        position,
+        quote,
+        threadId,
+      });
+    } catch (reason) {
+      fail(String(reason));
+      throw reason;
+    }
+    // Show it straight away rather than waiting for the round trip.
+    setOpenDoc((current) => (
+      current && current.id === id
+        ? { ...current, comments: [...current.comments, { threadId, position, quote }] }
+        : current
+    ));
+  }, [fail]);
+
   return {
     status,
     detail,
@@ -306,5 +345,6 @@ export function useOverleafRealtime(options: {
     docId: openDoc?.id ?? null,
     comments: openDoc?.comments ?? EMPTY_COMMENTS,
     pushLocal,
+    anchorComment,
   };
 }

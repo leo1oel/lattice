@@ -8,8 +8,9 @@
  * carries no operation — were invisible to the mock and obvious here.
  *
  * It uses the session the app already stored, and edits nothing except the
- * document you name (one character inserted, then deleted, leaving the text
- * byte-identical).
+ * document you name: one character inserted then deleted, and one comment
+ * thread created then deleted, leaving both the text and the comments as it
+ * found them.
  *
  *   node scripts/verify-overleaf.mjs "<project folder>" ["<document name>"]
  */
@@ -32,8 +33,11 @@ try {
 }
 
 const tests = ["connects_to_the_real_overleaf"];
-if (doc) tests.push("edits_a_document_through_the_real_overleaf");
-else console.log("No document named, so the editing round trip is skipped.\n");
+if (doc) {
+  tests.push("edits_a_document_through_the_real_overleaf", "comments_on_a_real_document");
+} else {
+  console.log("No document named, so the editing and comment round trips are skipped.\n");
+}
 
 for (const test of tests) {
   const result = spawnSync(

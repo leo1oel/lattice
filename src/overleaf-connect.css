@@ -244,5 +244,16 @@
 .overleaf-channel-error { color: var(--danger, #d2544b); }
 
 /* Steady dot on the toolbar while a document is edited through Overleaf's own
-   channel, rather than waiting for the next sync. */
-.overleaf-live-dot { color: var(--success, var(--accent)); }
+   channel, rather than waiting for the next sync. A plain filled dot, not a
+   count badge: there is nothing to count, and the badge's shape read as a
+   coloured ring rather than "live". */
+.overleaf-live-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2ea043;
+  box-shadow: 0 0 0 1.5px var(--panel-strong, var(--panel));
+}

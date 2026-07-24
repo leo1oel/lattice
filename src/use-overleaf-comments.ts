@@ -26,9 +26,33 @@ export type OverleafComments = {
   openCount: number;
   refresh: () => Promise<void>;
   reply: (threadId: string, content: string) => Promise<void>;
+  /**
+   * Start a thread on a span of the open document. Overleaf keeps the two
+   * halves apart — the conversation behind REST, the anchor on the editing
+   * channel — so this does both and answers with the thread's id.
+   */
+  create: (position: number, quote: string, content: string) => Promise<string>;
   setResolved: (threadId: string, resolved: boolean) => Promise<void>;
   remove: (threadId: string) => Promise<void>;
 };
+
+/**
+ * A Mongo-ObjectId-shaped id, which is what Overleaf's thread ids are.
+ *
+ * Mirrors `RangesTracker.generateId`: eight hex digits of timestamp, six of
+ * machine, four of process, six of increment. The server does not mint these —
+ * the client names the thread and both halves of the call use that name.
+ */
+function newThreadId(): string {
+  const hex = (value: number, width: number) =>
+    Math.floor(value).toString(16).padStart(width, "0").slice(-width);
+  return (
+    hex(Date.now() / 1000, 8)
+    + hex(Math.random() * 0x1000000, 6)
+    + hex(Math.random() * 0x10000, 4)
+    + hex(Math.random() * 0x1000000, 6)
+  );
+}
 
 export function useOverleafComments(options: {
   enabled: boolean;
@@ -36,12 +60,16 @@ export function useOverleafComments(options: {
   docId: string | null;
   /** Thread ids anchored in the open document. */
   anchored: string[];
+  /** Anchors the thread to its span on the editing channel. */
+  anchor: (threadId: string, position: number, quote: string) => Promise<void>;
 }): OverleafComments {
   const [threads, setThreads] = useState<OverleafThread[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const docId = useRef(options.docId);
   docId.current = options.docId;
+  const anchor = useRef(options.anchor);
+  anchor.current = options.anchor;
 
   const enabled = options.enabled;
 
@@ -104,6 +132,22 @@ export function useOverleafComments(options: {
     await invoke("overleaf_reply_to_thread", { threadId, content });
   }), [act]);
 
+  const create = useCallback(async (position: number, quote: string, content: string) => {
+    const threadId = newThreadId();
+    setError(null);
+    try {
+      // The message first, the anchor second — the order Overleaf's own editor
+      // uses, so a thread never exists on the page with nothing in it.
+      await invoke("overleaf_reply_to_thread", { threadId, content });
+      await anchor.current(threadId, position, quote);
+      await refreshRef.current();
+      return threadId;
+    } catch (reason) {
+      setError(String(reason));
+      throw reason;
+    }
+  }, []);
+
   const setResolved = useCallback((threadId: string, resolved: boolean) => act(async () => {
     if (!docId.current) {
       throw new Error(
@@ -127,5 +171,5 @@ export function useOverleafComments(options: {
     (thread) => !thread.resolved && anchored.has(thread.id),
   ).length;
 
-  return { threads, loading, error, openCount, refresh, reply, setResolved, remove };
+  return { threads, loading, error, openCount, refresh, reply, create, setResolved, remove };
 }

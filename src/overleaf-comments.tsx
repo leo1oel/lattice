@@ -99,6 +99,15 @@ export function OverleafCommentsPanel(props: {
               placeholder="Reply…"
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
+                // Enter while an input method is composing picks a candidate;
+                // treating it as "send" would post a half-finished word.
+                if (
+                  event.nativeEvent.isComposing
+                  || event.keyCode === 229
+                  || event.key === "Process"
+                ) {
+                  return;
+                }
                 if (event.key === "Escape") setReplyingTo(null);
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();

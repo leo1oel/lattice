@@ -76,6 +76,20 @@ export class OtDocument {
   }
 
   /**
+   * Reserve the wire for an operation that carries no text — a comment anchor.
+   *
+   * Returns the version to send it at, or null when something is already in
+   * flight: the server numbers versions, so two operations cannot be built on
+   * the same one. Recording it as in flight is what makes the acknowledgement
+   * move the version on, and what makes anything typed meanwhile wait its turn.
+   */
+  anchor(): { version: number } | null {
+    if (this.inflight) return null;
+    this.inflight = [];
+    return { version: this.version };
+  }
+
+  /**
    * The server accepted our in-flight operation. Anything typed since goes out
    * now, as a single operation.
    *

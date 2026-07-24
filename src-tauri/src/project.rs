@@ -456,6 +456,12 @@ fn detect_root_document(root: &Path) -> Option<String> {
         if content.contains("\\documentclass") {
             score += 80;
         }
+        // A conflict copy is byte-identical to the real file when it is made,
+        // so on score alone it can win the tie and quietly become the document
+        // that gets compiled — edits to the real file then never reach the PDF.
+        if crate::overleaf::is_conflict_copy(&file_name) {
+            score -= 500;
+        }
         if content.contains("\\begin{document}") {
             score += 20;
         }
@@ -4446,6 +4452,28 @@ mod tests {
         );
         assert_eq!(hints.root.as_deref(), Some("paper.tex"));
         assert_eq!(hints.engine.as_deref(), Some("xelatex"));
+    }
+
+    #[test]
+    fn never_chooses_a_conflict_copy_as_the_root_document() {
+        // The copy is byte-identical to the real file when it is made, so
+        // nothing but the name tells them apart — and picking the copy means
+        // edits to the real file stop reaching the PDF.
+        let parent = temp_root("detect-conflict-copy");
+        let root = parent.join("proj");
+        fs::create_dir_all(&root).unwrap();
+        let body = "\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n";
+        fs::write(root.join("neurips_2026.tex"), body).unwrap();
+        fs::write(
+            root.join("neurips_2026 (local conflict 20260724-1308).tex"),
+            body,
+        )
+        .unwrap();
+        assert_eq!(
+            detect_root_document(&root).as_deref(),
+            Some("neurips_2026.tex")
+        );
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]
