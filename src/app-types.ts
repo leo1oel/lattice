@@ -234,6 +234,8 @@ export type OverleafStatus = {
 export type OverleafLoginPoll = {
   status: "pending" | "connected" | "cancelled";
   session: OverleafStatus | null;
+  /** Why sign-in is still pending, when the backend knows a reason. */
+  detail?: string | null;
 };
 export type OverleafProject = {
   id: string;

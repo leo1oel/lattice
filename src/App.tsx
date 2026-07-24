@@ -4413,6 +4413,7 @@ function App() {
             overleafLinked={overleafLink !== null}
             overleafSyncing={overleafSyncing}
             onOverleafSync={() => void runOverleafSync()}
+            onOverleafOpen={() => setOverleafPickerOpen(true)}
           />
           <div className="canvas-body">
           <EditorTabs

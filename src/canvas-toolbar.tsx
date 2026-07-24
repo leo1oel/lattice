@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  Cloud,
   CloudUpload,
   FileCode2,
   GitBranch,
@@ -38,10 +39,10 @@ export function CanvasToolbar(props: {
   onGit: () => void;
   commentCount: number;
   onComments: () => void;
-  /** Present only when the project is linked to an Overleaf project. */
   overleafLinked?: boolean;
   overleafSyncing?: boolean;
   onOverleafSync?: () => void;
+  onOverleafOpen?: () => void;
 }) {
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
   const switcherMode = props.mode === "dual" || props.mode === "columns" ? "split" : props.mode;
@@ -124,14 +125,19 @@ export function CanvasToolbar(props: {
             </Tip>
           </>
         )}
-        {props.overleafLinked && props.onOverleafSync && (
-          <Tip label={props.overleafSyncing ? "Syncing with Overleaf…" : "Sync with Overleaf"}>
+        {(props.onOverleafSync || props.onOverleafOpen) && (
+          <Tip label={props.overleafLinked
+            ? (props.overleafSyncing ? "Syncing with Overleaf…" : "Sync with Overleaf")
+            : "Open a project from Overleaf"}
+          >
             <button
-              className="history-button"
+              className={props.overleafLinked ? "history-button active" : "history-button"}
               disabled={props.overleafSyncing}
-              onClick={props.onOverleafSync}
+              onClick={props.overleafLinked ? props.onOverleafSync : props.onOverleafOpen}
             >
-              {props.overleafSyncing ? <LoaderCircle className="spin" size={14} /> : <CloudUpload size={14} />}
+              {props.overleafSyncing
+                ? <LoaderCircle className="spin" size={14} />
+                : props.overleafLinked ? <CloudUpload size={14} /> : <Cloud size={14} />}
             </button>
           </Tip>
         )}

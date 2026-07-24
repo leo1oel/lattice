@@ -742,10 +742,7 @@ fn git_restore_file(
 }
 
 #[tauri::command]
-fn git_restore_project(
-    state: tauri::State<'_, AppState>,
-    rev: String,
-) -> Result<String, String> {
+fn git_restore_project(state: tauri::State<'_, AppState>, rev: String) -> Result<String, String> {
     git::restore_project(&current_root(&state)?, &rev)
 }
 
@@ -786,11 +783,15 @@ fn overleaf_begin_login(app: tauri::AppHandle, host: Option<String>) -> Result<(
     let url: tauri::Url = format!("{host}/login")
         .parse()
         .map_err(|error| format!("Invalid Overleaf host: {error}"))?;
-    tauri::WebviewWindowBuilder::new(&app, OVERLEAF_LOGIN_WINDOW, tauri::WebviewUrl::External(url))
-        .title("Sign in to Overleaf")
-        .inner_size(1040.0, 780.0)
-        .build()
-        .map_err(|error| format!("Could not open the Overleaf sign-in window: {error}"))?;
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        OVERLEAF_LOGIN_WINDOW,
+        tauri::WebviewUrl::External(url),
+    )
+    .title("Sign in to Overleaf")
+    .inner_size(1040.0, 780.0)
+    .build()
+    .map_err(|error| format!("Could not open the Overleaf sign-in window: {error}"))?;
     Ok(())
 }
 
@@ -806,14 +807,27 @@ async fn overleaf_poll_login(
     let url: tauri::Url = host
         .parse()
         .map_err(|error| format!("Invalid Overleaf host: {error}"))?;
-    let cookies = window.cookies_for_url(url).unwrap_or_default();
-    let session_present = cookies
+    let target_host = url.host_str().unwrap_or_default().to_string();
+    // Read the whole jar and match domains ourselves: wry's `cookies_for_url`
+    // compares cookie domain and URL host for equality, so a `.overleaf.com`
+    // cookie never matches `www.overleaf.com` and sign-in appears to hang.
+    let cookies = window.cookies().unwrap_or_default();
+    let matching = cookies
         .iter()
-        .any(|cookie| cookie.name() == "overleaf_session2" || cookie.name() == "sharelatex.sid");
-    if !session_present {
+        .filter(|cookie| {
+            cookie
+                .domain()
+                .is_some_and(|domain| overleaf::cookie_domain_matches(domain, &target_host))
+        })
+        .collect::<Vec<_>>();
+    let names = matching
+        .iter()
+        .map(|cookie| cookie.name().to_string())
+        .collect::<Vec<_>>();
+    if !overleaf::has_session_cookie(&names) {
         return Ok(overleaf::OverleafLoginPoll::pending());
     }
-    let header = cookies
+    let header = matching
         .iter()
         .map(|cookie| format!("{}={}", cookie.name(), cookie.value()))
         .collect::<Vec<_>>()
@@ -825,9 +839,11 @@ async fn overleaf_poll_login(
     .await
     .map_err(|error| format!("The Overleaf login task stopped unexpectedly: {error}"))?;
     match validated {
-        // The cookie exists before the user finishes signing in (anonymous
-        // sessions get one too), so a failed validation just means "not yet".
-        Err(_) => Ok(overleaf::OverleafLoginPoll::pending()),
+        // A session cookie exists before the user finishes signing in (even
+        // anonymous visitors get one), so a rejected cookie usually just means
+        // "not yet" — keep polling, but hand the reason back so the UI can stop
+        // spinning silently if it never resolves.
+        Err(reason) => Ok(overleaf::OverleafLoginPoll::pending_with(reason)),
         Ok(session) => {
             let _ = window.close();
             Ok(overleaf::OverleafLoginPoll::connected(session))

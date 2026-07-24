@@ -25,6 +25,8 @@ type OverleafLogin = {
   pending: boolean;
   error: string | null;
   notice: string | null;
+  /** Guidance shown when sign-in has been pending long enough to look stuck. */
+  hint: string | null;
   begin: () => void;
   cancel: () => void;
 };
@@ -40,6 +42,8 @@ function useOverleafLogin(onConnected: (session: OverleafStatus) => void): Overl
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
+  const attempts = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const active = useRef(false);
   const connectedRef = useRef(onConnected);
@@ -77,6 +81,18 @@ function useOverleafLogin(onConnected: (session: OverleafStatus) => void): Overl
         setNotice("Sign-in was cancelled. You can try again whenever you’re ready.");
         return;
       }
+      // Signing in takes a few seconds, but it should never take half a minute.
+      // Rather than spin forever, say what to do next (and why, when the
+      // backend got far enough to have a reason).
+      attempts.current += 1;
+      if (attempts.current >= 20) {
+        setHint(
+          result.detail
+            ? `Still not connected: ${result.detail}`
+            : "Still waiting. If you are already signed in to Overleaf in that window, "
+              + "open Advanced options below and paste your session cookie instead.",
+        );
+      }
       timer.current = setTimeout(() => void poll(), 1500);
     } catch (reason) {
       if (!active.current) return;
@@ -89,6 +105,8 @@ function useOverleafLogin(onConnected: (session: OverleafStatus) => void): Overl
     if (active.current) return;
     setError(null);
     setNotice(null);
+    setHint(null);
+    attempts.current = 0;
     void (async () => {
       try {
         await invoke("overleaf_begin_login");
@@ -106,16 +124,19 @@ function useOverleafLogin(onConnected: (session: OverleafStatus) => void): Overl
     setNotice("Sign-in was cancelled. You can try again whenever you’re ready.");
   }, [stop]);
 
-  return { pending, error, notice, begin, cancel };
+  return { pending, error, notice, hint, begin, cancel };
 }
 
-function LoginWaitingRow(props: { onCancel: () => void }) {
+function LoginWaitingRow(props: { onCancel: () => void; hint?: string | null }) {
   return (
-    <div className="overleaf-waiting">
-      <LoaderCircle className="spin" size={15} />
-      <span>Waiting for you to sign in in the Overleaf window…</span>
-      <button type="button" className="text-button" onClick={props.onCancel}>Cancel</button>
-    </div>
+    <>
+      <div className="overleaf-waiting">
+        <LoaderCircle className="spin" size={15} />
+        <span>Waiting for you to sign in in the Overleaf window…</span>
+        <button type="button" className="text-button" onClick={props.onCancel}>Cancel</button>
+      </div>
+      {props.hint && <p className="overleaf-hint">{props.hint}</p>}
+    </>
   );
 }
 
@@ -207,7 +228,7 @@ export function OverleafSettingsSection() {
       )}
       {!loading && !loadError && status && !status.connected && (
         login.pending ? (
-          <LoginWaitingRow onCancel={login.cancel} />
+          <LoginWaitingRow onCancel={login.cancel} hint={login.hint} />
         ) : (
           <div className="overleaf-connect-row">
             <MotionButton className="primary-button" onClick={login.begin}>
@@ -399,7 +420,7 @@ export function OverleafPickerDialog(props: {
               Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice.
             </p>
             {login.pending ? (
-              <LoginWaitingRow onCancel={login.cancel} />
+              <LoginWaitingRow onCancel={login.cancel} hint={login.hint} />
             ) : (
               <MotionButton className="primary-button" onClick={login.begin}>
                 <Cloud size={15} /> Connect to Overleaf

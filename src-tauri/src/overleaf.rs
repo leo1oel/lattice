@@ -121,17 +121,38 @@ pub struct OverleafSyncResult {
 pub struct OverleafLoginPoll {
     pub status: &'static str,
     pub session: Option<OverleafStatus>,
+    /// Why a poll is still pending, when we got far enough to have a reason.
+    pub detail: Option<String>,
 }
 
 impl OverleafLoginPoll {
     pub fn pending() -> Self {
-        Self { status: "pending", session: None }
+        Self {
+            status: "pending",
+            session: None,
+            detail: None,
+        }
+    }
+    pub fn pending_with(detail: String) -> Self {
+        Self {
+            status: "pending",
+            session: None,
+            detail: Some(detail),
+        }
     }
     pub fn cancelled() -> Self {
-        Self { status: "cancelled", session: None }
+        Self {
+            status: "cancelled",
+            session: None,
+            detail: None,
+        }
     }
     pub fn connected(session: OverleafStatus) -> Self {
-        Self { status: "connected", session: Some(session) }
+        Self {
+            status: "connected",
+            session: Some(session),
+            detail: None,
+        }
     }
 }
 
@@ -203,6 +224,33 @@ fn save_state(root: &Path, state: &SyncState) -> Result<(), String> {
     fs::create_dir_all(root.join(STATE_DIR)).map_err(err)?;
     let body = serde_json::to_string_pretty(state).map_err(err)?;
     fs::write(state_path(root), body + "\n").map_err(err)
+}
+
+/// RFC 6265 domain matching: a cookie scoped to `overleaf.com` belongs on
+/// requests to `www.overleaf.com`.
+///
+/// This exists because wry's own `cookies_for_url` filter compares the two
+/// domains for *equality* (and the cookie crate strips the leading dot), so on
+/// macOS it silently drops every `.overleaf.com` cookie and the sign-in window
+/// never appears to log in. We read all cookies and match them ourselves.
+pub fn cookie_domain_matches(cookie_domain: &str, host: &str) -> bool {
+    let cookie_domain = cookie_domain
+        .trim()
+        .trim_start_matches('.')
+        .to_ascii_lowercase();
+    let host = host.trim().trim_start_matches('.').to_ascii_lowercase();
+    if cookie_domain.is_empty() || host.is_empty() {
+        return false;
+    }
+    host == cookie_domain || host.ends_with(&format!(".{cookie_domain}"))
+}
+
+/// Does this cookie jar look like a signed-in session for `host`?
+/// `overleaf_session2` is overleaf.com; `sharelatex.sid` is self-hosted CE.
+pub fn has_session_cookie(names: &[String]) -> bool {
+    names
+        .iter()
+        .any(|name| name == "overleaf_session2" || name == "sharelatex.sid")
 }
 
 pub fn normalize_host(host: &str) -> String {
@@ -706,11 +754,20 @@ pub fn store_session_cookie(
             e
         }
     })?;
-    // A logged-in dashboard always carries the projects blob (or the legacy
-    // ol-projects meta); the login page does not.
-    if meta_content(&html, "ol-prefetchedProjectsBlob").is_none()
-        && meta_content(&html, "ol-projects").is_none()
-    {
+    // `fetch_projects_page` already rejects anything that redirected to the
+    // login page, so reaching here means the cookie works. Accept any
+    // signed-in marker rather than insisting on the projects blob alone: if
+    // Overleaf renames that meta tag, connecting should still succeed and the
+    // project list should be the thing that reports a clear parse error.
+    let signed_in = [
+        "ol-prefetchedProjectsBlob",
+        "ol-projects",
+        "ol-user",
+        "ol-usersEmail",
+    ]
+    .iter()
+    .any(|name| meta_content(&html, name).is_some());
+    if !signed_in {
         return Err(
             "That cookie did not open the Overleaf dashboard. Copy a fresh session cookie from a logged-in browser and try again."
                 .to_string(),
@@ -940,6 +997,45 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     const CSRF: &str = "csrf-fixture-token";
+
+    #[test]
+    fn cookie_domain_matching_covers_overleaf_subdomains() {
+        // The v0.1.88 sign-in hang: Overleaf scopes its session cookie to
+        // `.overleaf.com` while the window URL is `www.overleaf.com`, and an
+        // equality check drops it.
+        assert!(cookie_domain_matches(".overleaf.com", "www.overleaf.com"));
+        assert!(cookie_domain_matches("overleaf.com", "www.overleaf.com"));
+        assert!(cookie_domain_matches(
+            "www.overleaf.com",
+            "www.overleaf.com"
+        ));
+        assert!(cookie_domain_matches("Overleaf.com", "WWW.Overleaf.com"));
+        assert!(cookie_domain_matches(
+            "latex.example.edu",
+            "latex.example.edu"
+        ));
+        // Must not leak cookies across unrelated sites.
+        assert!(!cookie_domain_matches("evil.com", "www.overleaf.com"));
+        assert!(!cookie_domain_matches(
+            "notoverleaf.com",
+            "www.overleaf.com"
+        ));
+        assert!(!cookie_domain_matches("www.overleaf.com", "overleaf.com"));
+        assert!(!cookie_domain_matches("", "www.overleaf.com"));
+    }
+
+    #[test]
+    fn session_cookie_detection_accepts_cloud_and_self_hosted_names() {
+        assert!(has_session_cookie(&[
+            "GCLB".to_string(),
+            "overleaf_session2".to_string()
+        ]));
+        assert!(has_session_cookie(&["sharelatex.sid".to_string()]));
+        assert!(!has_session_cookie(&[
+            "GCLB".to_string(),
+            "_ga".to_string()
+        ]));
+    }
 
     #[derive(Debug, Clone)]
     struct RecordedRequest {
