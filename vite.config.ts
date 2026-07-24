@@ -30,7 +30,14 @@ function pdfjsAssetsPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react(), tailwindcss(), pdfjsAssetsPlugin()],
+  plugins: [
+    // React Compiler auto-memoizes components it can prove safe, and silently
+    // skips the rest (e.g. anything the react-hooks lint still flags), so it is
+    // safe to enable across the app before every warning is cleaned up.
+    react({ babel: { plugins: [["babel-plugin-react-compiler", { target: "19" }]] } }),
+    tailwindcss(),
+    pdfjsAssetsPlugin(),
+  ],
 
   resolve: {
     alias: {
