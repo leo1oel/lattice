@@ -863,6 +863,19 @@ pub struct RealtimeClient {
     shared: Arc<Shared>,
     sid: String,
     heartbeat_secs: u64,
+    /// The project tree as `joinProject` gave it. Kept so the app can read it
+    /// from the connect call itself rather than having to catch the event —
+    /// an event emitted before the app's listener is up is simply lost, and
+    /// without the document ids there is no live editing at all.
+    project: ProjectTree,
+}
+
+/// What `joinProject` told us about the project.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectTree {
+    pub root_folder_id: String,
+    pub docs: Vec<DocEntry>,
 }
 
 // Hand-written because `Shared` holds the app's event callback. Having `Debug`
@@ -967,15 +980,20 @@ impl RealtimeClient {
         .await?;
         let body = ack_body(&ack, "joinProject")?;
         let (root_folder_id, docs) = parse_project(body)?;
-        shared.emit(RealtimeEvent::ProjectJoined {
+        let project = ProjectTree {
             root_folder_id,
             docs,
+        };
+        shared.emit(RealtimeEvent::ProjectJoined {
+            root_folder_id: project.root_folder_id.clone(),
+            docs: project.docs.clone(),
         });
 
         Ok(RealtimeClient {
             shared,
             sid,
             heartbeat_secs,
+            project,
         })
     }
 
@@ -1048,6 +1066,11 @@ impl RealtimeClient {
     }
 
     /// Closes the socket; the read loop exits and reports `Disconnected`.
+    /// The project tree from the join, for callers that connected themselves.
+    pub fn project(&self) -> &ProjectTree {
+        &self.project
+    }
+
     pub fn shutdown(&self) {
         let _ = self.shared.out_tx.try_send(Outgoing::Close);
     }

@@ -75,7 +75,7 @@ describe("Overleaf settings section", () => {
       if (command === "overleaf_poll_login") return { status: "connected", session: connected };
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} />);
+    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} />);
     expect(await screen.findByText(/Connect your Overleaf account to open and sync/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: /Connect to Overleaf/ }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_begin_login"));
@@ -90,7 +90,7 @@ describe("Overleaf settings section", () => {
       if (command === "overleaf_poll_login") return { status: "pending", session: null };
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} />);
+    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} />);
     fireEvent.click(await screen.findByRole("button", { name: /Connect to Overleaf/ }));
     expect(await screen.findByText(/Waiting for you to sign in in the Overleaf window/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -104,7 +104,7 @@ describe("Overleaf settings section", () => {
       if (command === "overleaf_store_cookie") return { ...connected, host: "https://overleaf.example.edu" };
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} />);
+    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} />);
     await screen.findByRole("button", { name: /Connect to Overleaf/ });
     fireEvent.change(screen.getByLabelText("Server address"), {
       target: { value: "https://overleaf.example.edu" },
@@ -120,6 +120,33 @@ describe("Overleaf settings section", () => {
     expect(await screen.findByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
   });
 
+  it("says why live editing is unavailable instead of failing silently", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return connected;
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    const { rerender } = render(
+      <OverleafSettingsSection
+        syncMode="live"
+        onSyncModeChange={() => {}}
+        channel="error"
+        channelDetail="the websocket was refused"
+      />,
+    );
+    expect(
+      await screen.findByText(/Live editing could not start: the websocket was refused/),
+    ).toBeInTheDocument();
+    rerender(
+      <OverleafSettingsSection
+        syncMode="live"
+        onSyncModeChange={() => {}}
+        channel="live"
+        channelDetail={null}
+      />,
+    );
+    expect(screen.getByText(/Connected to Overleaf's editing channel/)).toBeInTheDocument();
+  });
+
   it("surfaces disconnect and lets the user reconnect", async () => {
     let current = connected;
     vi.mocked(invoke).mockImplementation(async (command) => {
@@ -130,7 +157,7 @@ describe("Overleaf settings section", () => {
       }
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} />);
+    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} />);
     expect(await screen.findByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
     expect(await screen.findByRole("button", { name: /Connect to Overleaf/ })).toBeInTheDocument();

@@ -18,6 +18,27 @@ import { motion } from "motion/react";
 import { Tip } from "./components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "./app-types";
 
+/**
+ * What the cloud button says when this file is not live.
+ *
+ * The live channel either carries the open document or it doesn't, and when it
+ * doesn't the reason matters — silently falling back to syncing looks exactly
+ * like the feature being broken.
+ */
+function overleafChannelLabel(
+  channel: "off" | "connecting" | "live" | "error" | undefined,
+  detail: string | null | undefined,
+) {
+  if (channel === "connecting") return "Connecting to Overleaf's live channel…";
+  if (channel === "error") {
+    return `Live editing unavailable${detail ? ` (${detail})` : ""} · syncing instead`;
+  }
+  if (channel === "live") {
+    return detail ? `${detail} · click to sync` : "Connected live · click to sync everything";
+  }
+  return "Sync with Overleaf";
+}
+
 export function CanvasToolbar(props: {
   mode: CanvasMode;
   setMode: (mode: DocumentViewMode) => void;
@@ -45,6 +66,10 @@ export function CanvasToolbar(props: {
   overleafPending?: boolean;
   /** True while this file is being edited through Overleaf's live channel. */
   overleafLiveEditing?: boolean;
+  /** State of that channel, so a failure to start is visible rather than silent. */
+  overleafChannel?: "off" | "connecting" | "live" | "error";
+  /** Why the channel is not carrying this file, when there is a reason. */
+  overleafChannelDetail?: string | null;
   onOverleafSync?: () => void;
   onOverleafOpen?: () => void;
 }) {
@@ -137,7 +162,7 @@ export function CanvasToolbar(props: {
                 ? "New changes on Overleaf — click to bring them in"
                 : props.overleafLiveEditing
                   ? "Editing live with Overleaf · click to sync everything else"
-                  : "Sync with Overleaf")
+                  : overleafChannelLabel(props.overleafChannel, props.overleafChannelDetail))
             : "Open a project from Overleaf"}
           >
             <button

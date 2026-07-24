@@ -937,7 +937,7 @@ fn realtime_client(
 async fn overleaf_rt_connect(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
     let root = current_root(&state)?;
     let (host, cookie, project_id) =
@@ -965,12 +965,21 @@ async fn overleaf_rt_connect(
         },
     )
     .await?;
+    // Answering with the project tree, rather than only emitting it, is what
+    // makes live editing reliable: the app can start the moment this returns
+    // instead of depending on an event that may have been emitted before its
+    // listener was registered.
+    let joined = serde_json::json!({
+        "publicId": client.public_id(),
+        "rootFolderId": client.project().root_folder_id,
+        "docs": client.project().docs,
+    });
     state
         .realtime
         .lock()
         .map_err(|_| "The Overleaf connection is unavailable.".to_string())?
         .replace(Arc::new(client));
-    Ok(())
+    Ok(joined)
 }
 
 #[tauri::command]
@@ -1054,15 +1063,24 @@ async fn overleaf_send_chat_message(
     .map_err(|error| format!("The Overleaf chat task stopped unexpectedly: {error}"))?
 }
 
+/// Paths the realtime channel is editing right now. Syncing skips them: the
+/// channel is already converging both copies, and a REST upload of the same
+/// text would reach collaborators as an out-of-band overwrite.
+fn live_paths(live: Option<Vec<String>>) -> std::collections::BTreeSet<String> {
+    live.unwrap_or_default().into_iter().collect()
+}
+
 /// Dry run: what a sync would change, without writing or uploading anything.
 #[tauri::command]
 async fn overleaf_preview(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    live: Option<Vec<String>>,
 ) -> Result<overleaf::OverleafPreview, String> {
     let config = overleaf_config_dir(&app)?;
     let root = current_root(&state)?;
-    tauri::async_runtime::spawn_blocking(move || overleaf::preview(&config, &root))
+    let live = live_paths(live);
+    tauri::async_runtime::spawn_blocking(move || overleaf::preview(&config, &root, &live))
         .await
         .map_err(|error| format!("The Overleaf comparison stopped unexpectedly: {error}"))?
 }
@@ -1088,10 +1106,12 @@ async fn overleaf_probe(
 async fn overleaf_sync(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    live: Option<Vec<String>>,
 ) -> Result<overleaf::OverleafSyncResult, String> {
     let config = overleaf_config_dir(&app)?;
     let root = current_root(&state)?;
-    tauri::async_runtime::spawn_blocking(move || overleaf::sync(&config, &root))
+    let live = live_paths(live);
+    tauri::async_runtime::spawn_blocking(move || overleaf::sync(&config, &root, &live))
         .await
         .map_err(|error| format!("The Overleaf sync stopped unexpectedly: {error}"))?
 }

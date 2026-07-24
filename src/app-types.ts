@@ -278,6 +278,8 @@ export type OverleafPreview = {
 
 export type OverleafProbe = {
   changed: boolean;
+  /** False when this Overleaf gives no version to compare against. */
+  versionKnown: boolean;
   remoteVersion: number | null;
   lastSync: string | null;
 };

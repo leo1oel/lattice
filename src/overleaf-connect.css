@@ -221,6 +221,28 @@
 .overleaf-mode-option strong { font-size: 12px; font-weight: 600; color: var(--text); }
 .overleaf-mode-option small { font-size: 10px; line-height: 1.5; color: var(--muted); }
 
+/* Whether the live editing channel actually came up. Without this the only
+   sign of failure is a dot that never appears. */
+.overleaf-channel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 10px;
+}
+.overleaf-channel::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+.overleaf-channel-live { color: var(--success, var(--accent)); }
+.overleaf-channel-connecting { color: var(--muted); }
+.overleaf-channel-off { color: var(--muted); }
+.overleaf-channel-error { color: var(--danger, #d2544b); }
+
 /* Steady dot on the toolbar while a document is edited through Overleaf's own
    channel, rather than waiting for the next sync. */
 .overleaf-live-dot { color: var(--success, var(--accent)); }

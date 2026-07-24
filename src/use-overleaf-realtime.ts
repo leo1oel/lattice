@@ -17,9 +17,12 @@ import { listen } from "@tauri-apps/api/event";
 import { OtDesyncError, OtDocument } from "./ot-document";
 import type { OtOp } from "./ot-ops";
 
+type DocEntry = { id: string; path: string };
+type JoinedProject = { publicId: string | null; rootFolderId: string; docs: DocEntry[] };
+
 type RealtimeEvent =
   | { type: "connected"; publicId: string }
-  | { type: "projectJoined"; rootFolderId: string; docs: { id: string; path: string }[] }
+  | { type: "projectJoined"; rootFolderId: string; docs: DocEntry[] }
   | { type: "docUpdate"; docId: string; version: number; ops: OtOp[]; source: string | null }
   | { type: "otError"; docId: string; message: string }
   | { type: "disconnected"; reason: string };
@@ -49,9 +52,12 @@ export function useOverleafRealtime(options: {
   const [status, setStatus] = useState<RealtimeStatus>("off");
   const [detail, setDetail] = useState<string | null>(null);
   const [liveFile, setLiveFile] = useState(false);
+  // State, not a ref: the tree can arrive from the connect call or from an
+  // event, and either way the effect that joins the open document has to run
+  // again once it does.
+  const [docs, setDocs] = useState<Map<string, string>>(new Map());
 
   const publicId = useRef<string | null>(null);
-  const docIds = useRef<Map<string, string>>(new Map());
   const document = useRef<OtDocument | null>(null);
   const docId = useRef<string | null>(null);
   const sendTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,40 +100,9 @@ export function useOverleafRealtime(options: {
     }
   }, [fail]);
 
-  // ---- connection ---------------------------------------------------------
-
-  useEffect(() => {
-    if (!options.enabled || !options.projectRoot) {
-      setStatus("off");
-      setDetail(null);
-      docIds.current = new Map();
-      stopDocument();
-      void invoke("overleaf_rt_disconnect").catch(() => {});
-      return;
-    }
-    let cancelled = false;
-    setStatus("connecting");
-    setDetail(null);
-    void invoke("overleaf_rt_connect")
-      .then(async () => {
-        if (cancelled) return;
-        publicId.current = await invoke<string | null>("overleaf_rt_connected").catch(() => null);
-        setStatus("live");
-      })
-      .catch((reason) => {
-        if (cancelled) return;
-        // Falling back to sync is fine; say so rather than looking broken.
-        setStatus("error");
-        setDetail(String(reason));
-      });
-    return () => {
-      cancelled = true;
-      stopDocument();
-      void invoke("overleaf_rt_disconnect").catch(() => {});
-    };
-  }, [options.enabled, options.projectRoot, stopDocument]);
-
   // ---- events -------------------------------------------------------------
+  // Registered before anything connects, so nothing the backend emits during
+  // the join can be missed.
 
   useEffect(() => {
     let disposed = false;
@@ -139,7 +114,7 @@ export function useOverleafRealtime(options: {
         return;
       }
       if (payload.type === "projectJoined") {
-        docIds.current = new Map(payload.docs.map((doc) => [doc.path, doc.id]));
+        setDocs(new Map(payload.docs.map((doc) => [doc.path, doc.id])));
         return;
       }
       if (payload.type === "disconnected") {
@@ -188,15 +163,58 @@ export function useOverleafRealtime(options: {
     };
   }, [fail, flush, stopDocument]);
 
+  // ---- connection ---------------------------------------------------------
+
+  useEffect(() => {
+    if (!options.enabled || !options.projectRoot) {
+      setStatus("off");
+      setDetail(null);
+      setDocs(new Map());
+      stopDocument();
+      void invoke("overleaf_rt_disconnect").catch(() => {});
+      return;
+    }
+    let cancelled = false;
+    setStatus("connecting");
+    setDetail(null);
+    void invoke<JoinedProject>("overleaf_rt_connect")
+      .then((joined) => {
+        if (cancelled) return;
+        // The join answer carries the document ids, so live editing can start
+        // without waiting on — or racing — the event of the same name.
+        // Overleaf may not have named us yet; the `connected` event fills that
+        // in, and an empty id here would make our own echo look like someone
+        // else's edit and apply it twice.
+        if (joined.publicId) publicId.current = joined.publicId;
+        setDocs(new Map(joined.docs.map((doc) => [doc.path, doc.id])));
+        setStatus("live");
+        setDetail(null);
+      })
+      .catch((reason) => {
+        if (cancelled) return;
+        // Falling back to sync is fine; say so rather than looking broken.
+        setStatus("error");
+        setDetail(String(reason));
+      });
+    return () => {
+      cancelled = true;
+      stopDocument();
+      void invoke("overleaf_rt_disconnect").catch(() => {});
+    };
+  }, [options.enabled, options.projectRoot, stopDocument]);
+
   // ---- the open file ------------------------------------------------------
 
   useEffect(() => {
     stopDocument();
     if (status !== "live" || !options.activeFile) return;
-    const id = docIds.current.get(options.activeFile);
+    const id = docs.get(options.activeFile);
     // Only text documents Overleaf tracks can be edited live; anything else
     // (figures, files added since we joined) keeps going through syncing.
-    if (!id) return;
+    if (!id) {
+      setDetail(`${options.activeFile} is not a document Overleaf tracks, so it syncs instead.`);
+      return;
+    }
     let cancelled = false;
     void invoke<{ text: string; version: number }>("overleaf_rt_join_doc", { docId: id })
       .then((joined) => {
@@ -204,6 +222,7 @@ export function useOverleafRealtime(options: {
         docId.current = id;
         document.current = new OtDocument(joined.text, joined.version);
         setLiveFile(true);
+        setDetail(null);
         // The server's copy is the truth on arrival; show it.
         callbacks.current.onRemoteText(joined.text, callbacks.current.readCaret());
       })
@@ -213,7 +232,7 @@ export function useOverleafRealtime(options: {
     return () => {
       cancelled = true;
     };
-  }, [options.activeFile, status, stopDocument]);
+  }, [options.activeFile, docs, status, stopDocument]);
 
   // ---- local edits --------------------------------------------------------
 

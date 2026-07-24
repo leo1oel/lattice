@@ -405,10 +405,35 @@ function App() {
   const overleafSyncingRef = useRef(false);
   const overleafAutoSyncedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
+  /** Files the realtime channel owns; syncing must not touch them. */
+  const overleafLivePathsRef = useRef<string[]>([]);
+  /** Whether the realtime channel is up, for the poll loop to read. */
+  const overleafChannelLiveRef = useRef(false);
   /** How often live mode asks Overleaf whether anything changed. */
   const OVERLEAF_LIVE_POLL_MS = 3_000;
   /** Quiet time after a save before local work is pushed up. */
   const OVERLEAF_PUSH_DEBOUNCE_MS = 2_500;
+  /** Cadence when Overleaf gives us no cheap way to detect a change. */
+  const OVERLEAF_BLIND_POLL_MS = 120_000;
+  /**
+   * Cadence once the realtime channel is up. Documents arrive as operations
+   * then, so polling only has figures and newly added files left to catch —
+   * and every "yes" costs a full project download, which is what earned a 429.
+   */
+  const OVERLEAF_CHANNEL_POLL_MS = 45_000;
+  /**
+   * Floor between full syncs. Overleaf allows ten project downloads a minute
+   * and answers 429 past that; a collaborator typing steadily moves the
+   * project version on every poll, so without a floor live mode would ask for
+   * the whole project every three seconds and get itself locked out.
+   */
+  const OVERLEAF_MIN_SYNC_GAP_MS = 12_000;
+  /**
+   * The same floor once the channel is up. Documents already travel as
+   * operations then, so this sweep is only carrying figures and files added
+   * outside the editor, and it can afford to be leisurely.
+   */
+  const OVERLEAF_CHANNEL_SYNC_GAP_MS = 30_000;
   const lastAutoSyncRef = useRef(0);
   const lastAutoVersionRef = useRef(0);
   const [collabRole, setCollabRole] = useState<"host" | "guest">("host");
@@ -1461,7 +1486,9 @@ function App() {
     let compiled = false;
     try {
       if (!(await save())) return;
-      const result = await invoke<OverleafSyncResult>("overleaf_sync");
+      const result = await invoke<OverleafSyncResult>("overleaf_sync", {
+        live: overleafLivePathsRef.current,
+      });
       // Merged and conflicted files were rewritten on disk just like pulled
       // ones, so the editor has to reload them too or it would keep showing
       // stale text and save over the incoming edits.
@@ -1558,21 +1585,43 @@ function App() {
     if (!overleafLink || overleafSyncMode !== "live") return;
     let stopped = false;
     let timer: number | null = null;
+    // Backs off when Overleaf pushes back, and stays slow when this instance
+    // cannot tell us a version — polling only earns its keep when a cheap
+    // check can rule a download out.
+    const baseWait = () =>
+      overleafChannelLiveRef.current ? OVERLEAF_CHANNEL_POLL_MS : OVERLEAF_LIVE_POLL_MS;
+    let wait = baseWait();
     const tick = async () => {
       if (stopped) return;
       try {
         if (!overleafSyncingRef.current) {
           const probe = await invoke<OverleafProbe>("overleaf_probe");
-          if (!stopped && probe.changed) {
+          wait = probe.versionKnown ? baseWait() : OVERLEAF_BLIND_POLL_MS;
+          if (!stopped && !probe.versionKnown) {
+            // No change signal: fall back to syncing on a slow clock rather
+            // than downloading the project over and over.
+            if (Date.now() - lastAutoSyncRef.current >= OVERLEAF_BLIND_POLL_MS) {
+              lastAutoSyncRef.current = Date.now();
+              await overleafSyncRef.current({ auto: true });
+            }
+          } else if (
+            !stopped
+            && probe.changed
+            && Date.now() - lastAutoSyncRef.current >= OVERLEAF_MIN_SYNC_GAP_MS
+          ) {
             lastAutoSyncRef.current = Date.now();
             await overleafSyncRef.current({ auto: true });
           }
         }
-      } catch {
-        // Offline or an expired session: the next tick tries again, and a
-        // manual sync surfaces the real error.
+      } catch (reason) {
+        // Rate limiting means we are asking too often; ease off sharply rather
+        // than hammering a server that has already said no.
+        const message = String(reason);
+        wait = /429|Too Many Requests/i.test(message)
+          ? Math.min(wait * 4, 5 * 60_000)
+          : Math.min(Math.max(wait * 2, baseWait()), 60_000);
       }
-      if (!stopped) timer = window.setTimeout(() => void tick(), OVERLEAF_LIVE_POLL_MS);
+      if (!stopped) timer = window.setTimeout(() => void tick(), wait);
     };
     void tick();
     // Coming back from the browser is the moment stale content is most
@@ -1606,6 +1655,10 @@ function App() {
     },
     onNotice: (message) => setNotice(message),
   });
+  // The poll loop and the sync both read these mid-flight, so keep them in
+  // refs rather than restarting either one every time the channel changes.
+  overleafChannelLiveRef.current = overleafRealtime.status === "live";
+  overleafLivePathsRef.current = overleafRealtime.liveFile && activeFile ? [activeFile] : [];
 
   // Everything typed goes to the live channel; it ignores text it already has,
   // so this is safe to call on every change including our own remote applies.
@@ -1613,6 +1666,19 @@ function App() {
     if (!overleafRealtime.liveFile) return;
     overleafRealtime.pushLocal(source);
   }, [overleafRealtime, source]);
+
+  // A live channel that could not start is invisible otherwise: the dot simply
+  // never appears and everything quietly keeps syncing. Say what happened once.
+  const overleafRealtimeNotified = useRef<string | null>(null);
+  useEffect(() => {
+    if (overleafRealtime.status !== "error" || !overleafRealtime.detail) return;
+    if (overleafRealtimeNotified.current === overleafRealtime.detail) return;
+    overleafRealtimeNotified.current = overleafRealtime.detail;
+    setNotice(
+      `Live editing with Overleaf could not start (${overleafRealtime.detail}). `
+      + "Your project still syncs every few seconds.",
+    );
+  }, [overleafRealtime.detail, overleafRealtime.status]);
 
   // Live mode also pushes. This keys off *saves* rather than unsaved edits:
   // autosave clears the dirty flag about a second after typing stops, well
@@ -1627,7 +1693,13 @@ function App() {
       // If a sync ran moments ago, wait out the remainder instead of dropping
       // the push — dropping meant the edit sat here until something else
       // happened to sync, which is what made pushes feel like they never came.
-      const wait = OVERLEAF_PUSH_DEBOUNCE_MS - (Date.now() - lastAutoSyncRef.current);
+      // The gap is a floor, not a delay: autosave fires about a second after
+      // typing stops, and syncing on each of those meant asking Overleaf for
+      // the whole project every couple of seconds, which is over its limit.
+      const gap = overleafChannelLiveRef.current
+        ? OVERLEAF_CHANNEL_SYNC_GAP_MS
+        : OVERLEAF_MIN_SYNC_GAP_MS;
+      const wait = gap - (Date.now() - lastAutoSyncRef.current);
       if (wait > 0) {
         timer = window.setTimeout(attempt, wait);
         return;
@@ -3771,6 +3843,8 @@ function App() {
   const settingsDialog = settingsOpen ? (
     <SettingsDialog
       overleafSyncMode={overleafSyncMode}
+      overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
+      overleafChannelDetail={overleafRealtime.detail}
       onOverleafSyncModeChange={(mode) => {
         setOverleafSyncMode(mode);
         persistOverleafSyncMode(mode);
@@ -4615,6 +4689,8 @@ function App() {
             overleafSyncing={overleafSyncing}
             overleafPending={overleafRemoteChanges}
             overleafLiveEditing={overleafRealtime.liveFile}
+            overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
+            overleafChannelDetail={overleafRealtime.detail}
             onOverleafSync={() => {
               // Manual mode is a review step, not a button that quietly
               // rewrites files: show what would change and let the user decide.

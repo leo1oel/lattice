@@ -146,6 +146,9 @@ function LoginWaitingRow(props: { onCancel: () => void; hint?: string | null }) 
 export function OverleafSettingsSection(props: {
   syncMode: OverleafSyncMode;
   onSyncModeChange: (mode: OverleafSyncMode) => void;
+  /** State of the live editing channel, so a failed start is visible here. */
+  channel: "off" | "connecting" | "live" | "error";
+  channelDetail: string | null;
 }) {
   const [status, setStatus] = useState<OverleafStatus | null>(null);
   const [link, setLink] = useState<OverleafLink | null>(null);
@@ -301,10 +304,19 @@ export function OverleafSettingsSection(props: {
           <span>
             <strong>Live sync</strong>
             <small>
-              Checks Overleaf every few seconds and brings changes in as they happen; your own
-              edits go up shortly after you stop typing. Best when you are writing alongside
-              someone.
+              Edits travel through Overleaf's own editing channel, so you and anyone in the
+              browser see each other's typing as it happens. Figures and new files follow on a
+              slower check in the background.
             </small>
+            {props.syncMode === "live" && (
+              <small className={`overleaf-channel overleaf-channel-${props.channel}`}>
+                {props.channel === "live" && "Connected to Overleaf's editing channel."}
+                {props.channel === "connecting" && "Connecting to Overleaf's editing channel…"}
+                {props.channel === "off" && "Open a linked project to start editing live."}
+                {props.channel === "error"
+                  && `Live editing could not start${props.channelDetail ? `: ${props.channelDetail}` : ""}. Your project still syncs.`}
+              </small>
+            )}
           </span>
         </label>
         <label className="overleaf-mode-option">

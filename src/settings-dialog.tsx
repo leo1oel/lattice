@@ -47,6 +47,8 @@ export function SettingsDialog(props: {
   tab: SettingsTab;
   setTab: (tab: SettingsTab) => void;
   overleafSyncMode: OverleafSyncMode;
+  overleafChannel: "off" | "connecting" | "live" | "error";
+  overleafChannelDetail: string | null;
   onOverleafSyncModeChange: (mode: OverleafSyncMode) => void;
   appearance: AppearanceSettings;
   setAppearance: (appearance: AppearanceSettings) => void;
@@ -406,6 +408,8 @@ export function SettingsDialog(props: {
               <OverleafSettingsSection
                 syncMode={props.overleafSyncMode}
                 onSyncModeChange={props.onOverleafSyncModeChange}
+                channel={props.overleafChannel}
+                channelDetail={props.overleafChannelDetail}
               />
             )}
             {props.tab === "api" && (

@@ -147,6 +147,9 @@ pub struct OverleafPreview {
 pub struct OverleafProbe {
     /// True when Overleaf has moved on since our last sync.
     pub changed: bool,
+    /// False when this instance does not tell us a version, in which case
+    /// `changed` is meaningless and polling cannot be used to drive syncing.
+    pub version_known: bool,
     pub remote_version: Option<i64>,
     pub last_sync: Option<String>,
 }
@@ -1144,12 +1147,15 @@ pub fn probe(config_dir: &Path, root: &Path) -> Result<OverleafProbe, String> {
     let body: serde_json::Value = response.json().map_err(err)?;
     let remote_version = latest_update_version(&body);
     Ok(OverleafProbe {
-        // Without a version to compare (older or self-hosted instances that do
-        // not expose history), report "changed" so a sync still happens.
         changed: match (remote_version, state.remote_version) {
             (Some(remote), Some(known)) => remote != known,
-            _ => true,
+            // First look with a usable version: sync once to set the baseline.
+            (Some(_), None) => true,
+            // No version to compare. Saying "changed" here would download the
+            // whole project on every poll, which is what earned a 429.
+            (None, _) => false,
         },
+        version_known: remote_version.is_some(),
         remote_version,
         last_sync: state.last_sync,
     })
@@ -1175,11 +1181,35 @@ fn fetch_remote_version(
     latest_update_version(&response.json::<serde_json::Value>().ok()?)
 }
 
+/// A number that only moves forward when the project changes.
+///
+/// Overleaf's history has reported this under more than one name, so try each
+/// in turn and fall back to the newest edit's timestamp. Returning `None` here
+/// means we genuinely cannot tell whether anything changed — and the caller
+/// must then not guess "yes", or it would re-download the project on every
+/// poll and get itself rate-limited.
 fn latest_update_version(body: &serde_json::Value) -> Option<i64> {
     let updates = body.get("updates")?.as_array()?;
+    let versions = updates
+        .iter()
+        .filter_map(|update| {
+            update
+                .get("toV")
+                .or_else(|| update.get("v"))
+                .and_then(|value| value.as_i64())
+        })
+        .max();
+    if versions.is_some() {
+        return versions;
+    }
     updates
         .iter()
-        .filter_map(|update| update.get("toV").and_then(|v| v.as_i64()))
+        .filter_map(|update| {
+            update
+                .get("meta")
+                .and_then(|meta| meta.get("end_ts").or_else(|| meta.get("endTs")))
+                .and_then(|value| value.as_i64())
+        })
         .max()
 }
 
@@ -1241,11 +1271,15 @@ struct SyncPlan {
 }
 
 /// Decide what a sync would do. Reads base copies from disk, writes nothing.
+///
+/// `live` holds paths the realtime channel is currently editing. Those are
+/// converging through operations already, so this leaves them alone entirely.
 fn plan_sync(
     root: &Path,
     state: &SyncState,
     remote: &BTreeMap<String, Vec<u8>>,
     local: &BTreeMap<String, Vec<u8>>,
+    live: &BTreeSet<String>,
     stamp: &str,
 ) -> Result<SyncPlan, String> {
     let mut all_paths: BTreeSet<String> = BTreeSet::new();
@@ -1263,6 +1297,18 @@ fn plan_sync(
             (Some(rb), Some(lb)) => {
                 if rb == lb {
                     plan.files.insert(path.clone(), sha256_hex(rb));
+                    continue;
+                }
+                if live.contains(path) {
+                    // The live channel owns this document. Sending our copy up
+                    // over REST would land on Overleaf as an out-of-band
+                    // overwrite — that is what raises "Document Updated
+                    // Externally" for everyone else in the project — and
+                    // writing their copy down would fight the editor buffer.
+                    // Operations reconcile both sides; leave them to it.
+                    if let Some(base) = base_hash {
+                        plan.files.insert(path.clone(), base.clone());
+                    }
                     continue;
                 }
                 let remote_hash = sha256_hex(rb);
@@ -1386,7 +1432,11 @@ fn sync_stamp() -> String {
     chrono::Local::now().format("%Y%m%d-%H%M").to_string()
 }
 
-pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String> {
+pub fn sync(
+    config_dir: &Path,
+    root: &Path,
+    live: &BTreeSet<String>,
+) -> Result<OverleafSyncResult, String> {
     let session = load_session(config_dir)?;
     let mut state = load_state(root)?;
     state.files.retain(|path, _| !is_excluded(path));
@@ -1403,7 +1453,7 @@ pub fn sync(config_dir: &Path, root: &Path) -> Result<OverleafSyncResult, String
     let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
     let local = read_local_files(root)?;
 
-    let plan = plan_sync(root, &state, &remote, &local, &sync_stamp())?;
+    let plan = plan_sync(root, &state, &remote, &local, live, &sync_stamp())?;
 
     let mut result = OverleafSyncResult::default();
     let mut new_files = plan.files;
@@ -1576,7 +1626,11 @@ fn change_kind_rank(kind: &str) -> u8 {
 /// Same fetch and the same classification as `sync`, so what the user approves
 /// is exactly what runs. Nothing here writes to disk or uploads: the CSRF token
 /// a real sync needs for uploads is not even fetched.
-pub fn preview(config_dir: &Path, root: &Path) -> Result<OverleafPreview, String> {
+pub fn preview(
+    config_dir: &Path,
+    root: &Path,
+    live: &BTreeSet<String>,
+) -> Result<OverleafPreview, String> {
     let session = load_session(config_dir)?;
     let mut state = load_state(root)?;
     state.files.retain(|path, _| !is_excluded(path));
@@ -1584,7 +1638,7 @@ pub fn preview(config_dir: &Path, root: &Path) -> Result<OverleafPreview, String
 
     let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
     let local = read_local_files(root)?;
-    let plan = plan_sync(root, &state, &remote, &local, &sync_stamp())?;
+    let plan = plan_sync(root, &state, &remote, &local, live, &sync_stamp())?;
 
     let mut changes: Vec<OverleafChange> = Vec::new();
     for (path, bytes) in &plan.pull {
@@ -1975,7 +2029,7 @@ mod tests {
         let root = temp_dir("project");
         write_session_file(&config, &server.base);
         seed_linked_project(&root, &server.base, local, base);
-        let result = sync(&config, &root).unwrap();
+        let result = sync(&config, &root, &BTreeSet::new()).unwrap();
         (root, result)
     }
 
@@ -1998,7 +2052,7 @@ mod tests {
         base: &[(&str, &[u8])],
     ) -> (PathBuf, OverleafPreview) {
         let (config, root) = seed_preview_project(server, local, base);
-        let result = preview(&config, &root).unwrap();
+        let result = preview(&config, &root, &BTreeSet::new()).unwrap();
         (root, result)
     }
 
@@ -2201,6 +2255,46 @@ mod tests {
             state_files(&root).get("main.tex").unwrap(),
             &sha256_hex(b"locally edited body")
         );
+    }
+
+    #[test]
+    fn overleaf_sync_leaves_live_documents_to_the_realtime_channel() {
+        // Both sides differ, which would normally push or merge. The realtime
+        // channel is already reconciling this file operation by operation, and
+        // a REST upload would reach collaborators as an external overwrite.
+        let base = b"shared body".as_slice();
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[
+                ("main.tex", b"remote body".as_slice()),
+                ("notes.tex", b"remote notes".as_slice()),
+            ]),
+        );
+        let config = temp_dir("live-config");
+        let root = temp_dir("live-project");
+        write_session_file(&config, &server.base);
+        seed_linked_project(
+            &root,
+            &server.base,
+            &[
+                ("main.tex", b"local body".as_slice()),
+                ("notes.tex", base),
+            ],
+            &[("main.tex", base), ("notes.tex", base)],
+        );
+        let live: BTreeSet<String> = ["main.tex".to_string()].into_iter().collect();
+        let result = sync(&config, &root, &live).unwrap();
+
+        assert!(result.pushed.is_empty());
+        assert!(result.merged.is_empty());
+        assert!(result.conflicts.is_empty());
+        assert!(server.uploads().is_empty());
+        // Untouched on disk: the editor buffer owns it while the channel is up.
+        assert_eq!(read_local(&root, "main.tex").unwrap(), b"local body");
+        // Its recorded base survives, so a later sync can still merge it.
+        assert_eq!(state_files(&root).get("main.tex").unwrap(), &sha256_hex(base));
+        // Everything else syncs as usual.
+        assert_eq!(result.pulled, vec!["notes.tex"]);
     }
 
     #[test]
@@ -2539,7 +2633,7 @@ mod tests {
         let state_before = fs::read(state_path(&root)).unwrap();
         let base_copy_before = read_base_copy(&root, "main.tex").unwrap();
 
-        let preview = preview(&config, &root).unwrap();
+        let preview = preview(&config, &root, &BTreeSet::new()).unwrap();
 
         assert_eq!(preview.changes.len(), 1);
         let change = &preview.changes[0];
