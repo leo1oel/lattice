@@ -1006,7 +1006,8 @@ describe("project workspace", () => {
     }));
     expect(await screen.findByText("Saved to /tmp/exported-paper.pdf")).toBeInTheDocument();
     const pdfPage = screen.getByLabelText("PDF page 1");
-    fireEvent.click(pdfPage, { clientX: 110, clientY: 220 });
+    // Double-click (not single click) jumps from the PDF back to the source.
+    fireEvent.doubleClick(pdfPage, { clientX: 110, clientY: 220 });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("synctex_edit", {
       page: 1,
       x: 91.667,

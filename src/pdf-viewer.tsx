@@ -388,8 +388,9 @@ function ContinuousPdfPage({
   };
   const revealSourceFromText = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!onSource) return;
-    // Keep text selection for copy; only jump when the click did not create a selection.
-    if (window.getSelection()?.toString()) return;
+    // Double-click to jump, so single-click and drag stay free for selecting and
+    // copying text. A double-click auto-selects the word under it, so don't treat
+    // that selection as a reason to skip the jump.
     event.preventDefault();
     revealSourceAt(event.clientX, event.clientY);
   };
@@ -406,13 +407,13 @@ function ContinuousPdfPage({
       <canvas
         ref={canvasRef}
         className={onSource ? "synctex-enabled" : ""}
-        onClick={revealSourceFromCanvas}
+        onDoubleClick={revealSourceFromCanvas}
         aria-label={`PDF page ${pageNumber}`}
       />
       <div
         ref={textLayerRef}
         className="textLayer pdf-text-layer"
-        onClick={revealSourceFromText}
+        onDoubleClick={revealSourceFromText}
       />
       <PdfMarkLayer
         marks={marks}
