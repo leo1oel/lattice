@@ -1875,12 +1875,13 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   margin: 0 0 14px;
   padding: 2px;
   border-radius: 8px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 2px;
   background: var(--line);
 }
 .collab-mode-switch button {
+  position: relative;
+  flex: 1 1 0;
   height: 30px;
   border: 0;
   border-radius: 6px;
@@ -1888,12 +1889,19 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   color: var(--faint);
   font-size: 11px;
   font-weight: 600;
+  transition: color 0.25s cubic-bezier(0.65, 0, 0.35, 1);
 }
-.collab-mode-switch button.active {
+.collab-mode-switch button.active { color: var(--accent); }
+/* Sliding pill (Framer Motion layoutId), mirroring the source/split/pdf switch. */
+.collab-mode-pill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 6px;
   background: var(--accent-soft);
-  color: var(--accent);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
+.collab-mode-label { position: relative; z-index: 1; }
 .collab-status-line {
   margin: 12px 0 0;
   min-height: 18px;

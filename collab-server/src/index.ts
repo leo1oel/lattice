@@ -20,6 +20,10 @@ const DOC_CHUNK_PREFIX = "lattice:doc:chunk:";
 const CHUNK_BYTES = 128_000;
 /** Durable Object storage caps get()/put()/delete() at 128 keys per call. */
 const STORAGE_BATCH = 128;
+/** Reclaim a room's storage after this long with no host/guest activity. */
+const ROOM_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** Only rewrite the expiry alarm once it has drifted more than a day from full TTL. */
+const EXPIRY_REFRESH_SLACK_MS = 24 * 60 * 60 * 1000;
 
 /**
  * A single Lattice live-sharing room.
@@ -76,8 +80,29 @@ export class LatticeDoc extends YServer {
           status: 403,
         });
       }
+      await this.#bumpExpiry();
     }
     return super.fetch(request);
+  }
+
+  /**
+   * Push the room's idle-expiry alarm out to now + TTL. Called on every connect
+   * and save; throttled so an active room rewrites the alarm at most once a day.
+   */
+  async #bumpExpiry(): Promise<void> {
+    const now = Date.now();
+    const current = await this.ctx.storage.getAlarm();
+    if (current === null || current < now + ROOM_TTL_MS - EXPIRY_REFRESH_SLACK_MS) {
+      await this.ctx.storage.setAlarm(now + ROOM_TTL_MS);
+    }
+  }
+
+  override async onAlarm(): Promise<void> {
+    // Idle past the TTL — reclaim the whole room (snapshot + token). The room
+    // code becomes unclaimed again, so a fresh host may reuse it later.
+    await this.ctx.storage.deleteAll();
+    this.#roomToken = null;
+    this.#tokenLoaded = true;
   }
 
   async onLoad(): Promise<void> {
@@ -139,6 +164,9 @@ export class LatticeDoc extends YServer {
         await this.ctx.storage.delete(stale.slice(start, start + STORAGE_BATCH));
       }
     }
+
+    // A save is activity too — keep the room alive past the idle TTL.
+    await this.#bumpExpiry();
   }
 
   #authorize(token: string, role: "host" | "guest"): boolean {

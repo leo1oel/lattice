@@ -43,7 +43,11 @@ export type CollabInvite = {
   token: string;
 };
 
-const HOST_STORAGE_KEY = "lattice.collab.host";
+// v2: the old key persisted the built-in host, which pinned users to whatever
+// it was that day and blocked later built-in changes (e.g. the sync-host move)
+// from reaching them. Bumping the key retires those stale values; we now only
+// store a genuine custom override.
+const HOST_STORAGE_KEY = "lattice.collab.host.v2";
 const NAME_STORAGE_KEY = "lattice.collab.name";
 const ROOM_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 /** URL-safe (base64url) alphabet for the room token. */
@@ -165,7 +169,15 @@ export function parseCollabInvite(raw: string): CollabInvite | null {
 
 export function saveCollabHost(host: string): void {
   try {
-    localStorage.setItem(HOST_STORAGE_KEY, host);
+    const normalized = normalizeCollabHost(host);
+    // Only persist a genuine custom override. Storing the built-in host would
+    // pin the user to today's value, so a later change to the built-in (e.g. a
+    // new sync host) could never reach them — exactly the bug v2 retires.
+    if (!normalized || normalized === builtInCollabHost()) {
+      localStorage.removeItem(HOST_STORAGE_KEY);
+    } else {
+      localStorage.setItem(HOST_STORAGE_KEY, normalized);
+    }
   } catch {
     // Ignore.
   }

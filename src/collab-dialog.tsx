@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "motion/react";
 import { Check, Copy, LoaderCircle, Radio } from "lucide-react";
 import { IconSwap, MotionButton, PopIn } from "./motion";
 import { isLocalCollabHost } from "./collab-config";
@@ -85,24 +86,31 @@ export function CollabDialog(props: {
 
         {!live && !props.joinOnly ? (
           <div className="collab-mode-switch" role="tablist" aria-label="Share mode">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "start"}
-              className={mode === "start" ? "active" : ""}
-              onClick={() => props.onModeChange("start")}
-            >
-              Start sharing
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "join"}
-              className={mode === "join" ? "active" : ""}
-              onClick={() => props.onModeChange("join")}
-            >
-              Join
-            </button>
+            {([
+              { id: "start", label: "Start sharing" },
+              { id: "join", label: "Join" },
+            ] as const).map((tab) => {
+              const active = mode === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={active ? "active" : ""}
+                  onClick={() => props.onModeChange(tab.id)}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="collab-mode-pill"
+                      className="collab-mode-pill"
+                      transition={{ type: "tween", ease: [0.65, 0, 0.35, 1], duration: 0.25 }}
+                    />
+                  )}
+                  <span className="collab-mode-label">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         ) : null}
 

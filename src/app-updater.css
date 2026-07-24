@@ -36,7 +36,9 @@
 .app-update-banner.bottom-right { bottom: 16px; right: 16px; }
 .app-update-banner.bottom-left { bottom: 16px; left: 16px; }
 
-.app-update-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+/* Grow to fill the fixed-width banner so the button and dismiss × sit flush at
+   the right edge instead of leaving a gap after them. */
+.app-update-text { flex: 1 1 auto; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .app-update-text strong {
   font-weight: 600;
   white-space: nowrap;
