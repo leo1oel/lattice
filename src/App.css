@@ -1857,7 +1857,17 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   font-size: 10px;
 }
 
-.collab-modal { width: min(440px, calc(100vw - 40px)); }
+.collab-modal {
+  width: min(440px, calc(100vw - 40px));
+  /* Anchor the dialog near the top instead of centering it: switching Start↔Join
+     adds/removes the invite field, and a centered dialog would recenter on that
+     height change, dragging the mode switch (and its sliding pill) up and down.
+     Top-anchored, the switch stays put and the pill only slides horizontally. */
+  align-self: start;
+  margin-top: min(12vh, 88px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
 .collab-modal label + label { margin-top: 10px; }
 .collab-modal textarea {
   min-height: 72px;

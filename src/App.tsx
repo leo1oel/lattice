@@ -504,6 +504,8 @@ const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 const COLUMNS_PDF_RATIO_KEY = "lattice.columns-pdf-ratio.v1";
 const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
+const NAVIGATOR_OPEN_KEY = "lattice.navigator-open.v1";
+const AGENT_OPEN_KEY = "lattice.agent-open.v1";
 const AGENT_SYSTEM_PROMPT_KEY = "lattice.agent-system-prompt.v1";
 const PROJECT_FIGURE_DRAG_TYPE = "application/x-lattice-project-figure";
 
@@ -736,8 +738,11 @@ function App() {
     symbol: string;
     occurrences: SymbolOccurrence[];
   } | null>(null);
-  const [navigatorOpen, setNavigatorOpen] = useState(true);
-  const [agentOpen, setAgentOpen] = useState(true);
+  const [navigatorOpen, setNavigatorOpen] = useState(() => loadPanelOpen(NAVIGATOR_OPEN_KEY));
+  const [agentOpen, setAgentOpen] = useState(() => loadPanelOpen(AGENT_OPEN_KEY));
+  // Remember whether each side panel is collapsed so the layout survives a restart.
+  useEffect(() => persistPanelOpen(NAVIGATOR_OPEN_KEY, navigatorOpen), [navigatorOpen]);
+  useEffect(() => persistPanelOpen(AGENT_OPEN_KEY, agentOpen), [agentOpen]);
   const [panelWidths, setPanelWidths] = useState<PanelWidths>(loadPanelWidths);
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [error, setError] = useState<string | null>(null);
@@ -1244,7 +1249,9 @@ function App() {
   }, [collabHost, collabRoom, collabSession]);
 
   const openCollabDialog = useCallback((mode: CollabDialogMode = "start") => {
-    setCollabMode(mode);
+    // Only an explicit "join" opens Join; guard against a stray event object
+    // (e.g. an onClick handler) landing here and leaving neither tab selected.
+    setCollabMode(mode === "join" ? "join" : "start");
     setCollabHost(resolveCollabHost(collabHost));
     setCollabOpen(true);
   }, [collabHost]);
@@ -4491,7 +4498,7 @@ function App() {
             onNavigateBack={() => void navigateHistory(-1)}
             onNavigateForward={() => void navigateHistory(1)}
             onInsert={() => setInsertOpen(true)}
-            onCollab={openCollabDialog}
+            onCollab={() => openCollabDialog("start")}
             collabLive={collabStatus === "synced" || collabStatus === "connecting"}
             collabPeers={collabPeers}
             onForwardSync={() => void revealSourceInPdf()}
@@ -8359,6 +8366,23 @@ function loadNavigatorSplit(): number {
     return clamp(Number(localStorage.getItem(NAVIGATOR_SPLIT_KEY)) || 0.58, 0.2, 0.78);
   } catch {
     return 0.58;
+  }
+}
+
+/** Panels default open; only an explicit "0" (the user hid it) keeps them hidden. */
+function loadPanelOpen(key: string): boolean {
+  try {
+    return localStorage.getItem(key) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function persistPanelOpen(key: string, open: boolean) {
+  try {
+    localStorage.setItem(key, open ? "1" : "0");
+  } catch {
+    // Layout still toggles this session without storage.
   }
 }
 
