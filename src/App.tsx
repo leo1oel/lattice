@@ -1018,12 +1018,18 @@ function App() {
     const currentRoot = projectRootRef.current;
     if (currentRoot && currentRoot === nextRoot) return;
     if (collabRoleRef.current === "host") {
-      await endHostShareSession("Sharing stopped — you switched projects");
+      // Switching projects only detaches the host locally — like closing the
+      // app — instead of ending the room for everyone. The others keep editing,
+      // the room stays in the recent-shares list, and the host can rejoin it.
+      // Only "Stop sharing" ends the session for all.
+      clearCollabLocalState();
+      setCollabOpen(false);
+      setNotice("Left the share — it keeps running; rejoin it from Live collaboration");
       return;
     }
     // Guest opened a different project: leave quietly; host keeps sharing.
     await leaveGuestShareSession("Left the shared session", false);
-  }, [endHostShareSession, leaveGuestShareSession]);
+  }, [clearCollabLocalState, leaveGuestShareSession]);
 
   const connectCollab = useCallback((
     hostRaw: string,
