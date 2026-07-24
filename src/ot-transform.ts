@@ -142,6 +142,16 @@ export function transformOps(op: OtOp[], other: OtOp[], side: "left" | "right"):
 }
 
 /**
+ * Transform our operation and someone else's against each other, returning
+ * both rewritten. A client needs both halves at once — ours to keep sending,
+ * theirs to apply locally — so computing them together avoids doing the work
+ * twice and guarantees the two halves agree.
+ */
+export function transformBoth(ours: OtOp[], theirs: OtOp[]): [OtOp[], OtOp[]] {
+  return transformPair(ours, theirs);
+}
+
+/**
  * Transform both operations against each other at once, returning each
  * rewritten to apply after the other.
  *

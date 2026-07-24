@@ -1101,6 +1101,15 @@ pub fn send_chat_message(config_dir: &Path, root: &Path, content: &str) -> Resul
     Ok(())
 }
 
+/// What the realtime channel needs to open a connection for this project:
+/// (host, cookie, project id).
+pub fn realtime_config(config_dir: &Path, root: &Path) -> Result<(String, String, String), String> {
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = sync_host(&state, &session);
+    Ok((host, session.cookie, state.project_id))
+}
+
 /// Cheap "did anything change over there?" check.
 ///
 /// Overleaf's history API reports the project's newest version in a small JSON

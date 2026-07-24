@@ -41,6 +41,8 @@ struct AppState {
     agent_runtime: agents::AgentRuntime,
     active_build: latex::ActiveBuild,
     texlab: Arc<Mutex<texlab::TexlabPool>>,
+    /// Live connection to Overleaf's editing channel, when one is open.
+    realtime: Arc<Mutex<Option<Arc<overleaf_rt::RealtimeClient>>>>,
 }
 
 impl AppState {
@@ -54,6 +56,7 @@ impl AppState {
             agent_runtime,
             active_build: latex::new_active_build(),
             texlab: Arc::new(Mutex::new(texlab::TexlabPool::default())),
+            realtime: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -913,6 +916,113 @@ fn overleaf_link(
     overleaf::project_link(&current_root(&state)?)
 }
 
+// ---- Overleaf realtime editing ---------------------------------------------
+
+fn realtime_client(
+    state: &tauri::State<'_, AppState>,
+) -> Result<Arc<overleaf_rt::RealtimeClient>, String> {
+    state
+        .realtime
+        .lock()
+        .map_err(|_| "The Overleaf connection is unavailable.".to_string())?
+        .clone()
+        .ok_or_else(|| "Not connected to Overleaf's live editing channel.".to_string())
+}
+
+/// Open the live editing channel for the current project.
+///
+/// Every event the channel produces is forwarded to the web UI as
+/// `overleaf-realtime`, which is where documents, chat and comments all arrive.
+#[tauri::command]
+async fn overleaf_rt_connect(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    let (host, cookie, project_id) =
+        tauri::async_runtime::spawn_blocking(move || overleaf::realtime_config(&config, &root))
+            .await
+            .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))??;
+
+    // Replace any previous connection so reconnecting never leaves two live.
+    if let Ok(mut slot) = state.realtime.lock() {
+        if let Some(previous) = slot.take() {
+            previous.shutdown();
+        }
+    }
+
+    use tauri::Emitter;
+    let emitter = app.clone();
+    let client = overleaf_rt::RealtimeClient::connect(
+        overleaf_rt::RealtimeConfig {
+            host,
+            cookie,
+            project_id,
+        },
+        move |event| {
+            let _ = emitter.emit("overleaf-realtime", event);
+        },
+    )
+    .await?;
+    state
+        .realtime
+        .lock()
+        .map_err(|_| "The Overleaf connection is unavailable.".to_string())?
+        .replace(Arc::new(client));
+    Ok(())
+}
+
+#[tauri::command]
+fn overleaf_rt_disconnect(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    if let Ok(mut slot) = state.realtime.lock() {
+        if let Some(client) = slot.take() {
+            client.shutdown();
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn overleaf_rt_connected(state: tauri::State<'_, AppState>) -> bool {
+    state
+        .realtime
+        .lock()
+        .map(|slot| slot.is_some())
+        .unwrap_or(false)
+}
+
+/// Subscribe to a document; returns its current text and version.
+#[tauri::command]
+async fn overleaf_rt_join_doc(
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+) -> Result<serde_json::Value, String> {
+    let client = realtime_client(&state)?;
+    let (text, version) = client.join_doc(&doc_id).await?;
+    Ok(serde_json::json!({ "text": text, "version": version }))
+}
+
+#[tauri::command]
+async fn overleaf_rt_leave_doc(
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+) -> Result<(), String> {
+    realtime_client(&state)?.leave_doc(&doc_id).await
+}
+
+#[tauri::command]
+async fn overleaf_rt_send_ops(
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+    version: i64,
+    ops: Vec<overleaf_rt::OtOp>,
+) -> Result<(), String> {
+    realtime_client(&state)?
+        .send_ops(&doc_id, version, ops)
+        .await
+}
+
 #[tauri::command]
 async fn overleaf_chat_messages(
     app: tauri::AppHandle,
@@ -1519,6 +1629,12 @@ pub fn run() {
             overleaf_clone_project,
             overleaf_link,
             overleaf_probe,
+            overleaf_rt_connect,
+            overleaf_rt_disconnect,
+            overleaf_rt_connected,
+            overleaf_rt_join_doc,
+            overleaf_rt_leave_doc,
+            overleaf_rt_send_ops,
             overleaf_chat_messages,
             overleaf_send_chat_message,
             overleaf_preview,
