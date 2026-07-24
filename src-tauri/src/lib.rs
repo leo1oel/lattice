@@ -11,6 +11,7 @@ mod literature;
 mod macos_window;
 mod models;
 mod openalex;
+mod overleaf;
 mod papers;
 mod pdf_fonts;
 mod project;
@@ -757,6 +758,156 @@ fn git_auto_commit(
     git::auto_commit(&current_root(&state)?, &message, author.as_deref())
 }
 
+// ---- Overleaf bridge -------------------------------------------------------
+
+const OVERLEAF_LOGIN_WINDOW: &str = "overleaf-login";
+
+fn overleaf_config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .map_err(|error| format!("Could not resolve the app config folder: {error}"))
+}
+
+#[tauri::command]
+fn overleaf_status(app: tauri::AppHandle) -> Result<overleaf::OverleafStatus, String> {
+    overleaf::session_status(&overleaf_config_dir(&app)?)
+}
+
+/// Open Overleaf's own login page in a dedicated window. The user signs in
+/// exactly as they would in a browser (including SSO); `overleaf_poll_login`
+/// then captures the session cookie — no manual copying for the common case.
+#[tauri::command]
+fn overleaf_begin_login(app: tauri::AppHandle, host: Option<String>) -> Result<(), String> {
+    if let Some(existing) = app.get_webview_window(OVERLEAF_LOGIN_WINDOW) {
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+    let host = overleaf::normalize_host(host.as_deref().unwrap_or(""));
+    let url: tauri::Url = format!("{host}/login")
+        .parse()
+        .map_err(|error| format!("Invalid Overleaf host: {error}"))?;
+    tauri::WebviewWindowBuilder::new(&app, OVERLEAF_LOGIN_WINDOW, tauri::WebviewUrl::External(url))
+        .title("Sign in to Overleaf")
+        .inner_size(1040.0, 780.0)
+        .build()
+        .map_err(|error| format!("Could not open the Overleaf sign-in window: {error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn overleaf_poll_login(
+    app: tauri::AppHandle,
+    host: Option<String>,
+) -> Result<overleaf::OverleafLoginPoll, String> {
+    let Some(window) = app.get_webview_window(OVERLEAF_LOGIN_WINDOW) else {
+        return Ok(overleaf::OverleafLoginPoll::cancelled());
+    };
+    let host = overleaf::normalize_host(host.as_deref().unwrap_or(""));
+    let url: tauri::Url = host
+        .parse()
+        .map_err(|error| format!("Invalid Overleaf host: {error}"))?;
+    let cookies = window.cookies_for_url(url).unwrap_or_default();
+    let session_present = cookies
+        .iter()
+        .any(|cookie| cookie.name() == "overleaf_session2" || cookie.name() == "sharelatex.sid");
+    if !session_present {
+        return Ok(overleaf::OverleafLoginPoll::pending());
+    }
+    let header = cookies
+        .iter()
+        .map(|cookie| format!("{}={}", cookie.name(), cookie.value()))
+        .collect::<Vec<_>>()
+        .join("; ");
+    let config = overleaf_config_dir(&app)?;
+    let validated = tauri::async_runtime::spawn_blocking(move || {
+        overleaf::store_session_cookie(&config, &host, &header)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf login task stopped unexpectedly: {error}"))?;
+    match validated {
+        // The cookie exists before the user finishes signing in (anonymous
+        // sessions get one too), so a failed validation just means "not yet".
+        Err(_) => Ok(overleaf::OverleafLoginPoll::pending()),
+        Ok(session) => {
+            let _ = window.close();
+            Ok(overleaf::OverleafLoginPoll::connected(session))
+        }
+    }
+}
+
+#[tauri::command]
+fn overleaf_store_cookie(
+    app: tauri::AppHandle,
+    host: String,
+    cookie: String,
+) -> Result<overleaf::OverleafStatus, String> {
+    overleaf::store_session_cookie(&overleaf_config_dir(&app)?, &host, &cookie)
+}
+
+#[tauri::command]
+fn overleaf_disconnect(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(OVERLEAF_LOGIN_WINDOW) {
+        let _ = window.close();
+    }
+    overleaf::disconnect(&overleaf_config_dir(&app)?)
+}
+
+#[tauri::command]
+async fn overleaf_list_projects(
+    app: tauri::AppHandle,
+) -> Result<Vec<overleaf::OverleafProject>, String> {
+    let config = overleaf_config_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || overleaf::list_projects(&config))
+        .await
+        .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_clone_project(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    project_id: String,
+    name: String,
+) -> Result<String, String> {
+    let config = overleaf_config_dir(&app)?;
+    let documents = app
+        .path()
+        .document_dir()
+        .map_err(|error| format!("Could not resolve Documents folder: {error}"))?;
+    let parent = documents.join("Overleaf Projects");
+    std::fs::create_dir_all(&parent)
+        .map_err(|error| format!("Could not create the Overleaf Projects folder: {error}"))?;
+    let root = tauri::async_runtime::spawn_blocking(move || {
+        overleaf::clone_project(&config, &project_id, &name, &parent)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf download stopped unexpectedly: {error}"))??;
+    // Cloned projects start version tracking immediately so the Versions
+    // timeline can show what each future sync changed.
+    let _ = git::init(&root);
+    set_root(&state, root.clone())?;
+    Ok(root.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn overleaf_link(
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<overleaf::OverleafLink>, String> {
+    overleaf::project_link(&current_root(&state)?)
+}
+
+#[tauri::command]
+async fn overleaf_sync(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<overleaf::OverleafSyncResult, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || overleaf::sync(&config, &root))
+        .await
+        .map_err(|error| format!("The Overleaf sync stopped unexpectedly: {error}"))?
+}
+
 #[tauri::command]
 fn list_pdf_annotations(state: tauri::State<'_, AppState>) -> Result<Vec<PdfMark>, String> {
     project::read_pdf_marks(&current_root(&state)?)
@@ -1282,6 +1433,15 @@ pub fn run() {
             git_restore_file,
             git_restore_project,
             git_auto_commit,
+            overleaf_status,
+            overleaf_begin_login,
+            overleaf_poll_login,
+            overleaf_store_cookie,
+            overleaf_disconnect,
+            overleaf_list_projects,
+            overleaf_clone_project,
+            overleaf_link,
+            overleaf_sync,
             list_pdf_annotations,
             save_pdf_annotations,
             list_editor_comments,
