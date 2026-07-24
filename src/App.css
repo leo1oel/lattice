@@ -1912,6 +1912,45 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 .collab-mode-label { position: relative; z-index: 1; }
+.collab-recent { margin: 4px 0 2px; }
+.collab-recent-title { margin: 0 0 6px; color: var(--muted); font-size: 10px; font-weight: 650; }
+.collab-recent-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 168px; overflow-y: auto; }
+.collab-recent-row { display: flex; align-items: center; gap: 4px; }
+.collab-recent-item {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 11px;
+  text-align: left;
+}
+.collab-recent-item:hover {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+.collab-recent-role { flex: none; display: inline-flex; color: var(--accent); }
+.collab-recent-role[data-role="guest"] { color: var(--muted); }
+.collab-recent-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.collab-recent-code { flex: none; color: var(--faint); font-size: 10px; font-family: var(--editor-font); }
+.collab-recent-forget {
+  flex: none;
+  width: 26px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--faint);
+}
+.collab-recent-forget:hover { background: var(--line); color: var(--text); }
 .collab-status-line {
   margin: 12px 0 0;
   min-height: 18px;

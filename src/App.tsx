@@ -162,6 +162,12 @@ import {
   type CollabSession,
   type CollabStatus,
 } from "./collab-session";
+import {
+  forgetCollabRoom,
+  loadActiveCollabRooms,
+  rememberCollabRoom,
+  type CollabRoomRecord,
+} from "./collab-rooms";
 const CompileDiagnosticsPanel = lazy(() =>
   import("./compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
 );
@@ -658,6 +664,12 @@ function App() {
   const [collabRoom, setCollabRoom] = useState("");
   const [collabInvite, setCollabInvite] = useState("");
   const [collabName, setCollabName] = useState(loadCollabDisplayName);
+  const [recentRooms, setRecentRooms] = useState<CollabRoomRecord[]>(loadActiveCollabRooms);
+  const refreshRecentRooms = useCallback(() => setRecentRooms(loadActiveCollabRooms()), []);
+  const forgetRecentRoom = useCallback((record: CollabRoomRecord) => {
+    forgetCollabRoom(record.host, record.room);
+    refreshRecentRooms();
+  }, [refreshRecentRooms]);
   const [collabStatus, setCollabStatus] = useState<CollabStatus>("disconnected");
   const [collabStatusDetail, setCollabStatusDetail] = useState<string | null>(null);
   const [collabSession, setCollabSession] = useState<CollabSession | null>(null);
@@ -944,6 +956,9 @@ function App() {
       const session = collabSessionRef.current;
       if (session && collabRoleRef.current === "host") {
         endCollabShare(session.doc);
+        // Stopping ends the room for everyone, so drop it from the rejoin list.
+        forgetCollabRoom(session.host, session.room);
+        refreshRecentRooms();
         // Flush the end signal to peers before tearing down the socket.
         await new Promise((resolve) => window.setTimeout(resolve, 280));
       }
@@ -960,7 +975,7 @@ function App() {
     } finally {
       collabLeavingRef.current = false;
     }
-  }, [clearCollabLocalState, refreshProject]);
+  }, [clearCollabLocalState, refreshProject, refreshRecentRooms]);
 
   const leaveGuestShareSession = useCallback(async (noticeText: string, restorePrior: boolean) => {
     if (collabLeavingRef.current) return;
@@ -1234,10 +1249,19 @@ function App() {
     const host = resolveCollabHost(collabHost);
     setCollabRoom(room);
     connectCollab(host, room, `Starting project share ${room}…`, "host", token);
+    rememberCollabRoom({
+      room,
+      token,
+      host,
+      role: "host",
+      title: project.root.split(/[/\\]/).filter(Boolean).pop() || "Shared project",
+      projectRoot: project.root,
+    });
+    refreshRecentRooms();
     void writeText(formatCollabInviteMessage(host, room, token))
       .then(() => setNotice(`Started share ${room} · invite copied`))
       .catch(() => setNotice(`Started share ${room}`));
-  }, [collabHost, collabName, connectCollab, project]);
+  }, [collabHost, collabName, connectCollab, project, refreshRecentRooms]);
 
   const copyCollabInvite = useCallback(async () => {
     const host = collabSession?.host ?? resolveCollabHost(collabHost);
@@ -1253,8 +1277,9 @@ function App() {
     // (e.g. an onClick handler) landing here and leaving neither tab selected.
     setCollabMode(mode === "join" ? "join" : "start");
     setCollabHost(resolveCollabHost(collabHost));
+    refreshRecentRooms();
     setCollabOpen(true);
-  }, [collabHost]);
+  }, [collabHost, refreshRecentRooms]);
 
   useEffect(() => {
     if (!collabSession) return;
@@ -1904,24 +1929,15 @@ function App() {
     })();
   }, [enterProject, runBuild]);
 
-  const joinCollabShare = useCallback(() => {
+  const joinCollabRoom = useCallback((invite: { host: string; room: string; token: string }) => {
     if (!collabName.trim()) {
       setError("Enter your name before joining a share.");
       setCollabOpen(true);
       return;
     }
-    const parsed = parseCollabInvite(collabInvite) ?? parseCollabInvite(collabRoom);
-    if (!parsed?.room) {
-      setError("Paste the full invite from Copy invite (lattice:host/LT-XXXXXX).");
-      return;
-    }
-    if (!/lattice:\S+\//i.test(collabInvite) && !/lattice:\S+\//i.test(collabRoom)) {
-      setError("Paste the full invite from Copy invite (lattice:host/LT-XXXXXX), not just the room code.");
-      return;
-    }
-    const host = resolveCollabHost(parsed.host || collabHost);
+    const host = resolveCollabHost(invite.host || collabHost);
     setCollabHost(host);
-    setCollabRoom(parsed.room);
+    setCollabRoom(invite.room);
     void (async () => {
       setBusyLabel("Opening a shared workspace…");
       try {
@@ -1936,13 +1952,22 @@ function App() {
           if (!(await save())) return;
         }
         const snapshot = await invoke<ProjectSnapshot>("create_collab_join_workspace", {
-          room: parsed.room,
+          room: invite.room,
         });
         // Guest is entering a new workspace on purpose — do not treat as leave/end.
         // Defer the build: the workspace is an empty scaffold until the shared
         // sources sync, so connectCollab → onSynced compiles once it is populated.
         await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
-        connectCollab(host, parsed.room, `Joining project share ${parsed.room}…`, "guest", parsed.token);
+        connectCollab(host, invite.room, `Joining project share ${invite.room}…`, "guest", invite.token);
+        rememberCollabRoom({
+          room: invite.room,
+          token: invite.token,
+          host,
+          role: "guest",
+          title: invite.room,
+          projectRoot: null,
+        });
+        refreshRecentRooms();
         setNotice(`Opened shared workspace · ${snapshot.root}`);
       } catch (reason) {
         setError(toMessage(reason));
@@ -1953,11 +1978,83 @@ function App() {
   }, [
     collabHost,
     collabName,
-    collabInvite,
-    collabRoom,
     connectCollab,
     enterProject,
     project,
+    refreshRecentRooms,
+    save,
+    savedSource,
+    secondaryFile,
+    secondarySavedSource,
+    secondarySource,
+    source,
+  ]);
+
+  const joinCollabShare = useCallback(() => {
+    const parsed = parseCollabInvite(collabInvite) ?? parseCollabInvite(collabRoom);
+    if (!parsed?.room) {
+      setError("Paste the full invite from Copy invite (lattice:host/LT-XXXXXX).");
+      return;
+    }
+    if (!/lattice:\S+\//i.test(collabInvite) && !/lattice:\S+\//i.test(collabRoom)) {
+      setError("Paste the full invite from Copy invite (lattice:host/LT-XXXXXX), not just the room code.");
+      return;
+    }
+    joinCollabRoom({ host: parsed.host || collabHost, room: parsed.room, token: parsed.token });
+  }, [collabHost, collabInvite, collabRoom, joinCollabRoom]);
+
+  /** Rejoin a remembered room from the list: host reopens its project, guest re-joins. */
+  const reconnectCollabRoom = useCallback((record: CollabRoomRecord) => {
+    if (!collabName.trim()) {
+      setError("Enter your name before reconnecting.");
+      setCollabOpen(true);
+      return;
+    }
+    const host = resolveCollabHost(record.host);
+    if (record.role === "guest") {
+      joinCollabRoom({ host, room: record.room, token: record.token });
+      return;
+    }
+    void (async () => {
+      setBusyLabel("Reopening your shared project…");
+      try {
+        if (record.projectRoot && record.projectRoot !== project?.root) {
+          if (project && (source !== savedSource
+            || (secondaryFile && secondarySource !== secondarySavedSource))) {
+            if (!(await save())) return;
+          }
+          const snapshot = await invoke<ProjectSnapshot>("open_project", { path: record.projectRoot });
+          await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
+        } else if (!project) {
+          setError("Open the project first, then reconnect as host.");
+          return;
+        }
+        connectCollab(host, record.room, `Reconnecting to ${record.room}…`, "host", record.token);
+        rememberCollabRoom({
+          room: record.room,
+          token: record.token,
+          host,
+          role: "host",
+          title: record.title,
+          projectRoot: record.projectRoot,
+        });
+        refreshRecentRooms();
+      } catch (reason) {
+        // Folder moved/deleted or the room is gone — drop the stale entry.
+        forgetCollabRoom(record.host, record.room);
+        refreshRecentRooms();
+        setError(toMessage(reason));
+      } finally {
+        setBusyLabel(null);
+      }
+    })();
+  }, [
+    collabName,
+    connectCollab,
+    enterProject,
+    joinCollabRoom,
+    project,
+    refreshRecentRooms,
     save,
     savedSource,
     secondaryFile,
@@ -4167,6 +4264,9 @@ function App() {
           onInviteChange={setCollabInvite}
           onStartShare={startCollabShare}
           onJoinShare={joinCollabShare}
+          recentRooms={recentRooms}
+          onReconnectRoom={reconnectCollabRoom}
+          onForgetRoom={forgetRecentRoom}
           onDisconnect={disconnectCollab}
           onCopyInvite={copyCollabInvite}
           onInstallTex={openTexSetupWizard}
@@ -4683,6 +4783,9 @@ function App() {
         onInviteChange={setCollabInvite}
         onStartShare={startCollabShare}
         onJoinShare={joinCollabShare}
+        recentRooms={recentRooms}
+        onReconnectRoom={reconnectCollabRoom}
+        onForgetRoom={forgetRecentRoom}
         onDisconnect={disconnectCollab}
         onCopyInvite={copyCollabInvite}
         onInstallTex={openTexSetupWizard}
