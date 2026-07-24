@@ -2365,6 +2365,8 @@ button.checklist-row:hover { border-color: color-mix(in srgb, var(--accent) 35%,
 .connected-label { display: flex; align-items: center; gap: 4px; color: var(--success); font-size: 9px; font-weight: 600; }
 .settings-empty, .settings-notice { color: var(--faint); font-size: 10px; }
 .settings-notice { margin-top: 12px !important; color: var(--accent) !important; }
+/* A failure worth reading, rather than the muted grey of an ordinary note. */
+.settings-error { margin-top: 12px; font-size: 10px; line-height: 1.5; color: var(--danger, #d2544b); }
 .settings-api-actions { margin-top: 24px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
 .modal-actions { margin-top: 22px; display: flex; justify-content: flex-end; gap: 8px; }
 .text-button { padding: 0 10px; background: transparent; color: var(--muted); font-size: 11px; }

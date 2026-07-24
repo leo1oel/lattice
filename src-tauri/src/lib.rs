@@ -13,6 +13,7 @@ mod models;
 mod openalex;
 mod overleaf;
 mod overleaf_rt;
+mod omp_update;
 mod papers;
 mod pdf_fonts;
 mod project;
@@ -1190,6 +1191,52 @@ async fn overleaf_sync(
         .map_err(|error| format!("The Overleaf sync stopped unexpectedly: {error}"))?
 }
 
+/// The models the agent runtime offers for a provider.
+#[tauri::command]
+async fn agent_models(
+    state: tauri::State<'_, AppState>,
+    provider: String,
+) -> Result<Vec<agents::AgentModel>, String> {
+    let runtime = state.agent_runtime.clone();
+    tauri::async_runtime::spawn_blocking(move || agents::list_models(&runtime, &provider))
+        .await
+        .map_err(|error| format!("The model lookup stopped unexpectedly: {error}"))?
+}
+
+/// Which agent runtime is in use, and whether a newer one is published.
+#[tauri::command]
+async fn agent_runtime_status(
+    state: tauri::State<'_, AppState>,
+) -> Result<omp_update::RuntimeStatus, String> {
+    let runtime = state.agent_runtime.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let bundled = runtime
+            .bundled_version()
+            .ok_or_else(|| "The bundled agent runtime has no version.".to_string())?;
+        Ok(omp_update::status(&runtime.config, &bundled))
+    })
+    .await
+    .map_err(|error| format!("The agent update check stopped unexpectedly: {error}"))?
+}
+
+/// Download and install the newest agent runtime beside the bundled one.
+#[tauri::command]
+async fn agent_runtime_update(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    let runtime = state.agent_runtime.clone();
+    tauri::async_runtime::spawn_blocking(move || omp_update::install_latest(&runtime.config))
+        .await
+        .map_err(|error| format!("The agent update stopped unexpectedly: {error}"))?
+}
+
+/// Drop back to the runtime inside the app bundle.
+#[tauri::command]
+async fn agent_runtime_revert(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let runtime = state.agent_runtime.clone();
+    tauri::async_runtime::spawn_blocking(move || omp_update::revert_to_bundled(&runtime.config))
+        .await
+        .map_err(|error| format!("The agent revert stopped unexpectedly: {error}"))?
+}
+
 #[tauri::command]
 fn list_pdf_annotations(state: tauri::State<'_, AppState>) -> Result<Vec<PdfMark>, String> {
     project::read_pdf_marks(&current_root(&state)?)
@@ -1732,6 +1779,10 @@ pub fn run() {
             overleaf_rt_leave_doc,
             overleaf_rt_send_ops,
             overleaf_rt_send_comment,
+            agent_models,
+            agent_runtime_status,
+            agent_runtime_update,
+            agent_runtime_revert,
             overleaf_chat_messages,
             overleaf_send_chat_message,
             overleaf_threads,

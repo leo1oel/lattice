@@ -31,6 +31,8 @@ const CANCEL_GRACE_PERIOD: Duration = Duration::from_millis(100);
 
 #[derive(Clone)]
 pub struct AgentRuntime {
+    /// The copy inside the app bundle. Read-only and code-signed, so it is the
+    /// floor rather than the thing that runs when a newer one is installed.
     pub executable: PathBuf,
     pub assets: PathBuf,
     pub config: PathBuf,
@@ -88,6 +90,28 @@ impl ProcessLifecycle {
 }
 
 impl AgentRuntime {
+    /// The executable to launch: an installed update when one is newer than
+    /// the bundle, otherwise the bundle's own.
+    pub fn active_executable(&self) -> PathBuf {
+        match self.bundled_version() {
+            Some(version) => {
+                crate::omp_update::resolve_executable(&self.executable, &self.config, &version)
+            }
+            None => self.executable.clone(),
+        }
+    }
+
+    /// The version shipped in the app bundle.
+    pub fn bundled_version(&self) -> Option<String> {
+        omp_bundled_version(self)
+    }
+
+    /// The version that will actually run.
+    pub fn running_version(&self) -> Option<String> {
+        let bundled = self.bundled_version()?;
+        Some(crate::omp_update::current_version(&self.config, &bundled))
+    }
+
     pub fn new(executable: PathBuf, assets: PathBuf, config: PathBuf) -> Self {
         Self {
             executable,
@@ -591,15 +615,15 @@ fn omp_command(
         ));
     }
     ensure_omp_native(runtime);
+    let active = runtime.active_executable();
     let auth = prepare_auth(runtime, &settings.provider)?;
     let session_dir = root.join(".research/omp-sessions");
     fs::create_dir_all(&session_dir).map_err(err)?;
     fs::create_dir_all(&runtime.config).map_err(err)?;
     let overlay = prepare_omp_overlay(root, runtime)?;
-    let executable = runtime
-        .executable
+    let executable = active
         .to_str()
-        .ok_or_else(|| "The bundled agent path is not valid UTF-8.".to_string())?;
+        .ok_or_else(|| "The agent runtime path is not valid UTF-8.".to_string())?;
     let mut command = commands::command(executable);
     command
         .current_dir(root)
@@ -703,6 +727,102 @@ fn omp_thinking_level(level: &str) -> &str {
         "ultra" => "max",
         other => other,
     }
+}
+
+/// One model the runtime can actually use, as the app's picker wants it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentModel {
+    pub value: String,
+    pub label: String,
+    pub efforts: Vec<String>,
+}
+
+/// Ask the runtime which models a provider offers.
+///
+/// The runtime is where model support actually lives, and it moves faster than
+/// this app does — a list written down here goes stale the week a model ships.
+/// An empty answer is not an error: it usually means that provider is not
+/// signed in yet, and the caller falls back to its own list.
+pub fn list_models(runtime: &AgentRuntime, provider: &str) -> Result<Vec<AgentModel>, String> {
+    let catalog = match provider {
+        "codex" => "openai-codex",
+        "openai-api" => "openai",
+        "claude" | "anthropic-api" => "anthropic",
+        _ => return Err("Choose Codex, Claude, OpenAI API, or Anthropic API.".to_string()),
+    };
+    let mut command = omp_account_command(runtime)?;
+    command
+        .arg("models")
+        .arg(catalog)
+        .arg("--json")
+        .arg("--no-extensions");
+    let output = command
+        .output()
+        .map_err(|e| format!("Could not ask the agent for its models: {e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "The agent could not list models: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    let parsed: Value = serde_json::from_slice(&output.stdout)
+        .map_err(|e| format!("The agent's model list could not be read: {e}"))?;
+    let models = parsed
+        .get("models")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "The agent's model list had no models.".to_string())?;
+    Ok(models
+        .iter()
+        .filter_map(|model| parse_agent_model(model, catalog))
+        .collect())
+}
+
+fn parse_agent_model(model: &Value, catalog: &str) -> Option<AgentModel> {
+    if model.get("provider").and_then(Value::as_str) != Some(catalog) {
+        return None;
+    }
+    let value = model.get("id").and_then(Value::as_str)?.to_string();
+    // Dated aliases (`claude-opus-4-1-20250805`) are the same model as the
+    // plain id beside them; showing both makes the picker twice as long and
+    // no more useful.
+    if value.rsplit('-').next().is_some_and(|tail| {
+        tail.len() == 8 && tail.chars().all(|c| c.is_ascii_digit())
+    }) {
+        return None;
+    }
+    let label = model
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or(&value)
+        .to_string();
+    // The runtime's levels do not map one to one onto the app's — "minimal"
+    // and "low" both land on "low" — so collapse the repeats rather than
+    // offering the same rung twice.
+    let mut efforts: Vec<String> = Vec::new();
+    if let Some(levels) = model.get("thinking").and_then(Value::as_array) {
+        for level in levels.iter().filter_map(Value::as_str).map(app_effort_level) {
+            if !efforts.contains(&level) {
+                efforts.push(level);
+            }
+        }
+    }
+    Some(AgentModel {
+        value,
+        label,
+        efforts,
+    })
+}
+
+/// The inverse of [`omp_thinking_level`], for reading the runtime's answer.
+fn app_effort_level(level: &str) -> String {
+    match level {
+        "off" => "none",
+        // The app has no separate "minimal"; its lowest rung is "low".
+        "minimal" => "low",
+        other => other,
+    }
+    .to_string()
 }
 
 fn session_map_path(root: &Path, session_id: &str) -> Result<PathBuf, String> {
@@ -1704,7 +1824,10 @@ fn ensure_omp_native(runtime: &AgentRuntime) {
     let Some(filename) = omp_native_filename() else {
         return;
     };
-    let Some(version) = omp_bundled_version(runtime) else {
+    // Keyed on the version that will run: an updated runtime looks for its
+    // own native module, and finding the previous one there would either fail
+    // to load or send it off to download a replacement.
+    let Some(version) = runtime.running_version() else {
         return;
     };
     let Some(home) = std::env::var_os("HOME") else {
@@ -1723,7 +1846,9 @@ fn ensure_omp_native(runtime: &AgentRuntime) {
     {
         return;
     }
-    let source = runtime.assets.join("natives").join(filename);
+    // An installed update carries its own; the bundle's copy is the fallback.
+    let source = crate::omp_update::resolve_native(&runtime.config, &version)
+        .unwrap_or_else(|| runtime.assets.join("natives").join(filename));
     if !source.is_file() {
         return;
     }
@@ -1773,6 +1898,10 @@ fn omp_account_command(runtime: &AgentRuntime) -> Result<Command, String> {
         ));
     }
     ensure_omp_native(runtime);
+    let runtime = &AgentRuntime {
+        executable: runtime.active_executable(),
+        ..runtime.clone()
+    };
     fs::create_dir_all(&runtime.config).map_err(err)?;
     let executable = runtime
         .executable
@@ -1874,6 +2003,43 @@ fn sidecar_error_detail(stderr: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn model_entries_drop_dated_aliases_and_map_thinking_levels() {
+        let opus = parse_agent_model(
+            &serde_json::json!({
+                "provider": "anthropic",
+                "id": "claude-opus-4-1",
+                "name": "Claude Opus 4.1",
+                "thinking": ["minimal", "low", "medium", "high", "xhigh"],
+            }),
+            "anthropic",
+        )
+        .expect("a model");
+        assert_eq!(opus.value, "claude-opus-4-1");
+        assert_eq!(opus.label, "Claude Opus 4.1");
+        // The app has no "minimal"; its lowest rung is "low", and the two
+        // must not both appear or the effort menu shows the same thing twice.
+        assert_eq!(opus.efforts, vec!["low", "medium", "high", "xhigh"]);
+
+        // The dated alias is the same model as the plain id beside it.
+        assert!(parse_agent_model(
+            &serde_json::json!({
+                "provider": "anthropic",
+                "id": "claude-opus-4-1-20250805",
+                "name": "Claude Opus 4.1",
+            }),
+            "anthropic",
+        )
+        .is_none());
+
+        // Another provider's models never leak into this list.
+        assert!(parse_agent_model(
+            &serde_json::json!({"provider": "openai", "id": "gpt-5.6-sol"}),
+            "anthropic",
+        )
+        .is_none());
+    }
 
     #[test]
     fn sidecar_detail_surfaces_the_error_message_not_just_stack_frames() {

@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "./components/ui/select";
 import { useUpdater, type UpdateMode } from "./app-updater";
+import { AgentRuntimeSettings } from "./agent-runtime-settings";
 import {
   type Theme,
   type AutoBuildMode,
@@ -47,6 +48,8 @@ export function SettingsDialog(props: {
   tab: SettingsTab;
   setTab: (tab: SettingsTab) => void;
   overleafSyncMode: OverleafSyncMode;
+  /** Re-ask the runtime for its models after it has been updated. */
+  onAgentRuntimeUpdated: () => void;
   overleafChannel: "off" | "connecting" | "live" | "error";
   overleafChannelDetail: string | null;
   onOverleafSyncModeChange: (mode: OverleafSyncMode) => void;
@@ -402,6 +405,7 @@ export function SettingsDialog(props: {
                   {!props.subscriptions.length && <p className="settings-empty">{props.subscriptionsLoading ? "Checking local subscriptions…" : "Refresh to check local subscriptions."}</p>}
                 </div>
                 {props.subscriptionNotice && <p className="settings-notice">{props.subscriptionNotice}</p>}
+                <AgentRuntimeSettings onUpdated={props.onAgentRuntimeUpdated} />
               </div>
             )}
             {props.tab === "overleaf" && (

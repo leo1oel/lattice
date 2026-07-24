@@ -44,11 +44,11 @@ import type {
   AgentMention,
   MentionState,
   AgentProvider,
+  ModelOption,
   ReasoningEffort,
 } from "./app-types";
 import {
   isConversationWelcome,
-  modelOptions,
   defaultModel,
   modelLabel,
   compactConversationTitle,
@@ -125,6 +125,7 @@ export const MessageRow = memo(function MessageRow(props: {
 });
 
 export function AgentPanel({
+  modelsFor,
   agentCommands,
   katexMacros,
   messages,
@@ -196,8 +197,10 @@ export function AgentPanel({
   mentions: AgentMention[];
   chatEnd: React.RefObject<HTMLDivElement | null>;
   chatListRef: React.RefObject<HTMLDivElement | null>;
+  /** The runtime's model list for a provider, falling back to the built-in one. */
+  modelsFor: (provider: AgentProvider) => ModelOption[];
 }) {
-  const options = modelOptions(provider);
+  const options = modelsFor(provider);
   const efforts = options.find((option) => option.value === model)?.efforts ?? ["high"];
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [sessionSearch, setSessionSearch] = useState("");

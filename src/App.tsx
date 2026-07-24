@@ -79,6 +79,7 @@ import { OverleafReviewDialog } from "./overleaf-review";
 import { ConflictResolverDialog } from "./conflict-resolver";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 import { useOverleafChat } from "./use-overleaf-chat";
+import { useAgentModels } from "./use-agent-models";
 import { useOverleafComments, type OverleafComments } from "./use-overleaf-comments";
 import { OverleafCollabDrawer, type OverleafCollabTab } from "./overleaf-collab";
 import {
@@ -410,6 +411,9 @@ function App() {
   const overleafSyncingRef = useRef(false);
   const overleafAutoSyncedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
+  // Which models exist is the runtime's business, not something written down
+  // in this app; the built-in table is only the fallback.
+  const agentModels = useAgentModels();
   /** Marks a comment that lives on Overleaf rather than in this project. */
   const OVERLEAF_COMMENT_PREFIX = "overleaf:";
   const overleafCommentsRef = useRef<OverleafComments>(null as unknown as OverleafComments);
@@ -3952,6 +3956,7 @@ function App() {
   const settingsDialog = settingsOpen ? (
     <SettingsDialog
       overleafSyncMode={overleafSyncMode}
+      onAgentRuntimeUpdated={agentModels.refresh}
       overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
       overleafChannelDetail={overleafRealtime.detail}
       onOverleafSyncModeChange={(mode) => {
@@ -4716,6 +4721,7 @@ function App() {
         {agentOpen && (
         <>
         <AgentPanel
+          modelsFor={agentModels.options}
           agentCommands={agentCommands}
           katexMacros={katexMacros}
           messages={messages}

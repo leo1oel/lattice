@@ -37,6 +37,7 @@ tauri-plugin-process = "2"
 tauri-plugin-window-state = "2"
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 flate2 = "1"
+tar = "0.4"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 sha2 = "0.11.0"
 html-escape = "0.2.14"

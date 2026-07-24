@@ -222,6 +222,18 @@ export type EditorKeymap = "default" | "vim" | "emacs";
 export type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
 export type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 
+/** What the agent runtime says it can run, and how hard it can think. */
+export type AgentModel = { value: string; label: string; efforts: string[] };
+
+/** Which agent runtime is in use, and whether a newer one is published. */
+export type AgentRuntimeStatus = {
+  current: string;
+  bundled: string;
+  latest: string | null;
+  updateAvailable: boolean;
+  detail: string | null;
+};
+
 // ---- Overleaf bridge ----------------------------------------------------
 // Shapes mirror the Rust `overleaf` module's serde camelCase output exactly.
 
