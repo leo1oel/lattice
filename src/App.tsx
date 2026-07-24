@@ -2190,7 +2190,13 @@ function App() {
   }, [agentOpen]);
 
   useEffect(() => {
-    if (stickToBottomRef.current) chatEnd.current?.scrollIntoView({ behavior: "smooth" });
+    if (!stickToBottomRef.current) return;
+    const list = chatListRef.current;
+    if (!list) return;
+    // Snap instantly rather than smooth-scrolling: a smooth animation restarted
+    // on every streamed token both fights the user trying to scroll up and makes
+    // the text lurch. Instant keeps the newest line pinned without any animation.
+    list.scrollTop = list.scrollHeight;
   }, [messages, agentRunning]);
 
   useEffect(() => {
@@ -3236,6 +3242,15 @@ function App() {
     let session = activeSession;
     let currentMessages = messages;
     const streamedMessageId = crypto.randomUUID();
+    // Declared out here so the completion path and error handlers can cancel a
+    // still-pending streamed render before they commit the final transcript.
+    let publishHandle: number | null = null;
+    const cancelPublish = () => {
+      if (publishHandle !== null) {
+        window.cancelAnimationFrame(publishHandle);
+        publishHandle = null;
+      }
+    };
     try {
       if (!(await save())) throw new Error("Save the current file before running the agent.");
       if (branchSource) {
@@ -3274,7 +3289,8 @@ function App() {
       let parts: ChatPart[] = [];
       let fullText = "";
       let committed = 0;
-      const publish = () => {
+      const flushPublish = () => {
+        publishHandle = null;
         const streamedMessages: ChatMessage[] = [...pendingMessages, {
           id: streamedMessageId,
           role: "agent",
@@ -3283,6 +3299,12 @@ function App() {
         }];
         currentMessages = streamedMessages;
         setMessages(streamedMessages);
+      };
+      // Coalesce bursts of deltas into one render per animation frame. A fast
+      // stream fires many deltas between frames, and re-parsing the growing
+      // markdown on every one is what makes long replies stutter.
+      const publish = () => {
+        if (publishHandle === null) publishHandle = window.requestAnimationFrame(flushPublish);
       };
       const onEvent = new Channel<AgentStreamEvent>((event) => {
         if (event.type === "cancellable") {
@@ -3377,6 +3399,8 @@ function App() {
       currentMessages = completedMessages;
       setAgentStreaming(false);
       setAgentStatus("");
+      // Drop any frame still queued so it can't overwrite the final transcript.
+      cancelPublish();
       setMessages(completedMessages);
       session = await invoke<AgentSession>("save_agent_session", {
         session: { ...session, provider, model: agentModel, reasoningEffort, messages: completedMessages },
@@ -3411,6 +3435,8 @@ function App() {
       await refreshHistory();
       if (result.changedFiles.length) await compile();
     } catch (reason) {
+      // A queued streamed frame must not repaint over the recovery state below.
+      cancelPublish();
       const { text, settingsTab } = agentErrorDetails(toMessage(reason));
       if (settingsTab) {
         // Missing sign-in or API key. Don't strand the user in a half-formed
@@ -3460,6 +3486,7 @@ function App() {
         }
       }
     } finally {
+      cancelPublish();
       runningAgentSession.current = null;
       setAgentRunning(false);
       setAgentStreaming(false);
