@@ -75,6 +75,9 @@ const CONNECT_SLOT: u32 = 0;
 /// Ack slot for "we are in the project". Real ack ids count up from 1, so this
 /// end of the range cannot collide with one.
 const JOIN_SLOT: u32 = u32::MAX;
+/// Said when this account may read the project but not change it.
+pub const READ_ONLY: &str =
+    "You have read-only access to this Overleaf project, so edits stay on this machine.";
 /// Guard against a pathological (or hostile) folder tree.
 const MAX_FOLDER_DEPTH: usize = 64;
 
@@ -112,6 +115,7 @@ pub enum RealtimeEvent {
     ProjectJoined {
         root_folder_id: String,
         docs: Vec<DocEntry>,
+        permission: Permission,
     },
     DocUpdate {
         doc_id: String,
@@ -145,6 +149,14 @@ pub enum RealtimeEvent {
         doc_id: String,
         range: CommentRange,
     },
+    /// Someone in the project moved, or appeared for the first time.
+    ///
+    /// Overleaf announces nothing when a client joins — the only thing that
+    /// makes anyone visible is a position broadcast, so this doubles as
+    /// "someone is here".
+    PresenceUpdated { user: PresenceUser },
+    /// Someone left the project. Carries only their connection id.
+    PresenceLeft { id: String },
     /// A comment thread changed: a reply, an edit, a resolve, a delete.
     ///
     /// This carries no detail on purpose. Overleaf spreads thread state across
@@ -165,6 +177,27 @@ pub enum RealtimeEvent {
     Disconnected {
         reason: String,
     },
+}
+
+/// Someone else in the project, and where they are.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresenceUser {
+    /// Their connection id — the same shape as our own public id. One person
+    /// with two tabs open is two of these.
+    pub id: String,
+    /// Their account. Two tabs share this, which is why colour keys on it.
+    pub user_id: Option<String>,
+    pub name: String,
+    pub email: Option<String>,
+    /// The document they are in, when they have said.
+    pub doc_id: Option<String>,
+    /// Zero-based line and column, as Overleaf counts them.
+    pub row: Option<i64>,
+    pub column: Option<i64>,
+    /// The hue Overleaf's own editor would give them, so the same person is
+    /// the same colour in both apps.
+    pub hue: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -511,6 +544,13 @@ struct CommentUpdate<'a> {
 }
 
 #[derive(Serialize)]
+struct CursorPosition<'a> {
+    doc_id: &'a str,
+    row: i64,
+    column: i64,
+}
+
+#[derive(Serialize)]
 struct JoinDocOptions {
     #[serde(rename = "encodeRanges")]
     encode_ranges: bool,
@@ -754,6 +794,33 @@ fn parse_comment_ranges(ranges: &Value) -> Vec<CommentRange> {
         .unwrap_or_default()
 }
 
+/// Undo the packing Overleaf applies to text on its way into a `joinDoc`
+/// answer.
+///
+/// The server sends `unescape(encodeURIComponent(text))`, which is the UTF-8
+/// bytes of the text reinterpreted one-per-code-point. Left alone, every
+/// document with an accent or a Chinese character in it arrives as mojibake —
+/// and worse, the character offsets our operations are built on would be
+/// counting bytes while Overleaf counts characters.
+///
+/// Text that is not packed this way (a code point above U+00FF, or bytes that
+/// are not valid UTF-8) is returned untouched: some deployments do not encode,
+/// and mangling their text would be the same bug in the other direction.
+fn decode_packed_utf8(text: &str) -> String {
+    if text.is_ascii() {
+        return text.to_string();
+    }
+    let mut bytes = Vec::with_capacity(text.len());
+    for ch in text.chars() {
+        let code = ch as u32;
+        if code > 0xFF {
+            return text.to_string();
+        }
+        bytes.push(code as u8);
+    }
+    String::from_utf8(bytes).unwrap_or_else(|_| text.to_string())
+}
+
 /// `{ p, c, t }`: position, the commented text, and the thread it belongs to.
 fn parse_comment_range(op: &Value) -> Option<CommentRange> {
     Some(CommentRange {
@@ -762,20 +829,28 @@ fn parse_comment_range(op: &Value) -> Option<CommentRange> {
         quote: op
             .get("c")
             .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
+            .map(decode_packed_utf8)
+            .unwrap_or_default(),
     })
 }
 
 /// `joinProject` answers with `[error, project, permissions, protocolVersion]`;
 /// `project.rootFolder` is an array holding the single root folder.
-fn parse_project(body: &[Value]) -> Result<(String, Vec<DocEntry>), String> {
-    let project = body
+fn parse_project(body: &[Value]) -> Result<(String, Vec<DocEntry>, Permission), String> {
+    let first = body
         .first()
         .ok_or_else(|| "Overleaf's joinProject answer carried no project.".to_string())?;
+    // Two shapes again: the plain ack puts the permission level in its own
+    // slot, while `joinProjectResponse` carries it beside the project.
+    let permission = Permission::parse(
+        first
+            .get("permissionsLevel")
+            .and_then(Value::as_str)
+            .or_else(|| body.get(1).and_then(Value::as_str)),
+    );
     // `joinProjectResponse` wraps the project alongside the public id and the
     // permission level; the plain ack is the project itself.
-    let project = project.get("project").unwrap_or(project);
+    let project = first.get("project").unwrap_or(first);
     let root_field = project
         .get("rootFolder")
         .ok_or_else(|| "Overleaf's joinProject answer has no rootFolder.".to_string())?;
@@ -793,7 +868,55 @@ fn parse_project(body: &[Value]) -> Result<(String, Vec<DocEntry>), String> {
         .to_string();
     let mut docs = Vec::new();
     collect_docs(root, "", &mut docs, 0);
-    Ok((root_folder_id, docs))
+    Ok((root_folder_id, docs, permission))
+}
+
+/// What this account may do to the project.
+///
+/// Overleaf enforces this server-side, but finding out by having an edit
+/// rejected is a poor way to learn it: the channel would fail, fall back to
+/// syncing, and syncing would then try to upload the same edit over REST.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Permission {
+    Owner,
+    ReadAndWrite,
+    /// Can comment and suggest, but not change the text directly.
+    Review,
+    ReadOnly,
+    /// Overleaf did not say; assume the project is writable, because refusing
+    /// to write a project the user can in fact edit is the worse mistake.
+    Unknown,
+}
+
+impl Permission {
+    fn parse(value: Option<&str>) -> Self {
+        match value {
+            Some("owner") => Permission::Owner,
+            Some("readAndWrite") => Permission::ReadAndWrite,
+            Some("review") => Permission::Review,
+            Some("readOnly") => Permission::ReadOnly,
+            _ => Permission::Unknown,
+        }
+    }
+
+    /// True when this account may change the text.
+    pub fn can_write(self) -> bool {
+        matches!(
+            self,
+            Permission::Owner | Permission::ReadAndWrite | Permission::Unknown
+        )
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Permission::Owner => "owner",
+            Permission::ReadAndWrite => "readAndWrite",
+            Permission::Review => "review",
+            Permission::ReadOnly => "readOnly",
+            Permission::Unknown => "unknown",
+        }
+    }
 }
 
 /// Depth-first flatten: a folder's own docs first, then its subfolders. The
@@ -993,6 +1116,18 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
         | "delete-thread" => {
             shared.emit(RealtimeEvent::ThreadsChanged);
         }
+        // Overleaf sends this to the whole room, us included; the app drops
+        // its own by comparing ids.
+        "clientTracking.clientUpdated" => {
+            if let Some(user) = args.first().and_then(parse_presence_broadcast) {
+                shared.emit(RealtimeEvent::PresenceUpdated { user });
+            }
+        }
+        "clientTracking.clientDisconnected" => {
+            if let Some(id) = args.first().and_then(Value::as_str) {
+                shared.emit(RealtimeEvent::PresenceLeft { id: id.to_string() });
+            }
+        }
         "new-chat-message" => {
             if let Some(event) = args.first().and_then(chat_event) {
                 shared.emit(event);
@@ -1037,6 +1172,78 @@ fn chat_event(value: &Value) -> Option<RealtimeEvent> {
             .and_then(Value::as_i64)
             .unwrap_or_default(),
     })
+}
+
+/// `clientTracking.clientUpdated`: `{row, column, doc_id, id, user_id, email, name}`.
+///
+/// The broadcast and the roster answer describe the same thing with different
+/// keys — `id` here against `client_id` there, one joined `name` here against
+/// `first_name`/`last_name` there — so they are parsed separately rather than
+/// through one forgiving reader that would quietly accept either.
+fn parse_presence_broadcast(value: &Value) -> Option<PresenceUser> {
+    let id = value.get("id").and_then(Value::as_str)?.to_string();
+    let user_id = json_field(value, &["user_id"]).filter(|id| id != "anonymous-user");
+    let name = json_field(value, &["name"]).unwrap_or_default();
+    Some(PresenceUser {
+        hue: presence_hue(user_id.as_deref()),
+        id,
+        user_id,
+        name,
+        email: json_field(value, &["email"]),
+        doc_id: json_field(value, &["doc_id"]),
+        row: value.get("row").and_then(Value::as_i64),
+        column: value.get("column").and_then(Value::as_i64),
+    })
+}
+
+/// One entry from `clientTracking.getConnectedUsers`.
+///
+/// Redis hands these back as strings, so everything but `cursorData` arrives
+/// quoted even when it is a number.
+fn parse_presence_roster(value: &Value) -> Option<PresenceUser> {
+    let id = value.get("client_id").and_then(Value::as_str)?.to_string();
+    if value.get("connected").and_then(Value::as_bool) == Some(false) {
+        return None;
+    }
+    let user_id = json_field(value, &["user_id"]).filter(|id| id != "anonymous-user");
+    let first = json_field(value, &["first_name"]).unwrap_or_default();
+    let last = json_field(value, &["last_name"]).unwrap_or_default();
+    let cursor = value.get("cursorData");
+    Some(PresenceUser {
+        hue: presence_hue(user_id.as_deref()),
+        id,
+        user_id,
+        name: format!("{first} {last}").trim().to_string(),
+        email: json_field(value, &["email"]),
+        doc_id: cursor.and_then(|c| json_field(c, &["doc_id"])),
+        row: cursor.and_then(|c| c.get("row")).and_then(Value::as_i64),
+        column: cursor.and_then(|c| c.get("column")).and_then(Value::as_i64),
+    })
+}
+
+/// The hue Overleaf's editor gives a user: the first eight hex digits of the
+/// MD5 of their account id, modulo the palette, with a gap left around the
+/// blue that Overleaf reserves for "you".
+///
+/// Reproducing it exactly is the point — the same collaborator should be the
+/// same colour whether you are looking at Lattice or at the browser.
+fn presence_hue(user_id: Option<&str>) -> u32 {
+    const ANONYMOUS_HUE: u32 = 100;
+    const OWN_HUE: u32 = 200;
+    const OWN_HUE_BLOCKED_SIZE: u32 = 20;
+    const TOTAL_HUES: u32 = 360;
+
+    let Some(user_id) = user_id else {
+        return ANONYMOUS_HUE;
+    };
+    let digest = format!("{:x}", md5::compute(user_id.as_bytes()));
+    let prefix = u32::from_str_radix(&digest[..8], 16).unwrap_or(0);
+    let hue = prefix % (TOTAL_HUES - OWN_HUE_BLOCKED_SIZE * 2);
+    if hue > OWN_HUE - OWN_HUE_BLOCKED_SIZE && hue < OWN_HUE + OWN_HUE_BLOCKED_SIZE {
+        hue - OWN_HUE + TOTAL_HUES - OWN_HUE_BLOCKED_SIZE
+    } else {
+        hue
+    }
 }
 
 fn json_field(value: &Value, keys: &[&str]) -> Option<String> {
@@ -1143,6 +1350,8 @@ pub struct RealtimeClient {
 pub struct ProjectTree {
     pub root_folder_id: String,
     pub docs: Vec<DocEntry>,
+    /// What this account may do to the project.
+    pub permission: Permission,
 }
 
 // Hand-written because `Shared` holds the app's event callback. Having `Debug`
@@ -1275,14 +1484,16 @@ impl RealtimeClient {
         }
         let ack = await_slot(&shared, join_slot).await?;
         let body = ack_body(&ack, "joinProject")?;
-        let (root_folder_id, docs) = parse_project(body)?;
+        let (root_folder_id, docs, permission) = parse_project(body)?;
         let project = ProjectTree {
             root_folder_id,
             docs,
+            permission,
         };
         shared.emit(RealtimeEvent::ProjectJoined {
             root_folder_id: project.root_folder_id.clone(),
             docs: project.docs.clone(),
+            permission,
         });
 
         Ok(RealtimeClient {
@@ -1314,7 +1525,7 @@ impl RealtimeClient {
             .ok_or_else(|| format!("Overleaf sent no content for document {doc_id}."))?;
         let text = lines
             .iter()
-            .map(|line| line.as_str().unwrap_or_default())
+            .map(|line| decode_packed_utf8(line.as_str().unwrap_or_default()))
             .collect::<Vec<_>>()
             .join("\n");
         let version = body
@@ -1360,6 +1571,45 @@ impl RealtimeClient {
         Ok(())
     }
 
+    /// Everyone currently in the project, ourselves included.
+    ///
+    /// Overleaf answers no faster than a second: it broadcasts a refresh to
+    /// every instance first and reads the roster back afterwards.
+    pub async fn connected_users(&self) -> Result<Vec<PresenceUser>, String> {
+        // The argument list must be empty. Socket.IO 0.9 appends the ack
+        // callback as the last argument, and the handler takes exactly one —
+        // anything sent binds to it and the call is rejected as malformed.
+        let ack = emit_with_ack(&self.shared, "clientTracking.getConnectedUsers", ()).await?;
+        let body = ack_body(&ack, "clientTracking.getConnectedUsers")?;
+        Ok(body
+            .first()
+            .and_then(Value::as_array)
+            .map(|users| users.iter().filter_map(parse_presence_roster).collect())
+            .unwrap_or_default())
+    }
+
+    /// Say where our caret is.
+    ///
+    /// This is also what makes us visible at all: joining a project announces
+    /// nothing to anyone already connected, and their editors only read the
+    /// roster once. Row and column are zero-based, the way Overleaf counts.
+    pub async fn update_position(&self, doc_id: &str, row: i64, column: i64) -> Result<(), String> {
+        // No ack: Overleaf's own editor sends this and does not wait, and the
+        // server answers nothing on failure either — a position for a document
+        // we have not joined is dropped silently.
+        let payload = encode_event(
+            "clientTracking.updatePosition",
+            (CursorPosition {
+                doc_id,
+                row,
+                column,
+            },),
+        )?;
+        self.shared
+            .send_frame(encode_frame(FRAME_EVENT, "", "", &payload))
+            .await
+    }
+
     pub async fn leave_doc(&self, doc_id: &str) -> Result<(), String> {
         let ack = emit_with_ack(&self.shared, "leaveDoc", (doc_id,)).await?;
         ack_body(&ack, "leaveDoc")?;
@@ -1370,6 +1620,9 @@ impl RealtimeClient {
     pub async fn send_ops(&self, doc_id: &str, version: i64, ops: Vec<OtOp>) -> Result<(), String> {
         if ops.is_empty() {
             return Ok(());
+        }
+        if !self.project.permission.can_write() {
+            return Err(READ_ONLY.to_string());
         }
         let update = OtUpdate {
             doc: doc_id,
@@ -1644,10 +1897,11 @@ mod tests {
                 id: "doc-1".into(),
                 path: "sections/intro.tex".into(),
             }],
+            permission: Permission::ReadAndWrite,
         };
         assert_eq!(
             serde_json::to_string(&joined).unwrap(),
-            r#"{"type":"projectJoined","rootFolderId":"root-1","docs":[{"id":"doc-1","path":"sections/intro.tex"}]}"#
+            r#"{"type":"projectJoined","rootFolderId":"root-1","docs":[{"id":"doc-1","path":"sections/intro.tex"}],"permission":"readAndWrite"}"#
         );
         let update = RealtimeEvent::DocUpdate {
             doc_id: "doc-1".into(),
@@ -1786,7 +2040,7 @@ mod tests {
     fn parse_project_flattens_nested_folders() {
         let ack = vec![Value::Null, project_tree(), json!("owner"), json!(2)];
         let body = ack_body(&ack, "joinProject").expect("no error slot");
-        let (root_folder_id, docs) = parse_project(body).expect("parses");
+        let (root_folder_id, docs, _permission) = parse_project(body).expect("parses");
         assert_eq!(root_folder_id, "root-1");
         assert_eq!(
             docs,
@@ -2159,12 +2413,16 @@ mod tests {
             panic!("Overleaf never acknowledged our update on {doc_id}");
         }
 
+        // Non-ASCII on purpose: Overleaf packs its snapshots as UTF-8 bytes
+        // reinterpreted per code point, and a client that does not unpack them
+        // writes mojibake to disk and counts offsets in bytes.
+        let probe = "café第三节";
         rt::block_on(client.send_ops(
             &doc.id,
             joined.version,
             vec![OtOp {
                 p: 0,
-                i: Some("x".into()),
+                i: Some(probe.into()),
                 d: None,
             }],
         ))
@@ -2172,17 +2430,27 @@ mod tests {
         let after_insert = acked(&events, &doc.id, joined.version);
         println!("insert accepted, now at v{after_insert}");
 
+        // Read it back before removing it: this is the assertion that the
+        // snapshot decoding is right, not just that the round trip completes.
+        rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
+        let midway = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
+        assert!(
+            midway.text.starts_with(probe),
+            "expected {probe:?} at the start, got {:?}",
+            midway.text.chars().take(20).collect::<String>()
+        );
+
         rt::block_on(client.send_ops(
             &doc.id,
-            after_insert,
+            midway.version,
             vec![OtOp {
                 p: 0,
                 i: None,
-                d: Some("x".into()),
+                d: Some(probe.into()),
             }],
         ))
         .expect("send the delete");
-        let after_delete = acked(&events, &doc.id, after_insert);
+        let after_delete = acked(&events, &doc.id, midway.version);
         println!("delete accepted, now at v{after_delete}");
 
         // Read it back from the server rather than trusting our own bookkeeping.
@@ -2274,6 +2542,165 @@ mod tests {
             "the thread should be gone"
         );
         println!("reopened and deleted cleanly");
+        client.shutdown();
+    }
+
+    #[test]
+    fn document_text_is_unpacked_from_overleafs_transport_encoding() {
+        // Overleaf sends `unescape(encodeURIComponent(text))`: the UTF-8 bytes
+        // reinterpreted one per code point. Reading that as-is gives mojibake,
+        // and makes our character offsets count bytes while Overleaf counts
+        // characters — which puts every later operation in the wrong place.
+        let packed = |text: &str| -> String {
+            text.as_bytes().iter().map(|b| *b as char).collect()
+        };
+        for original in [
+            "第三节需要引用",
+            "café — naïve",
+            "\\section{Résultats}",
+            "emoji: \u{1F600}",
+        ] {
+            assert_eq!(decode_packed_utf8(&packed(original)), original);
+        }
+
+        // ASCII is its own packing, and must survive untouched.
+        assert_eq!(decode_packed_utf8("\\documentclass{article}"), "\\documentclass{article}");
+
+        // Text that was never packed is left alone rather than mangled: not
+        // every deployment encodes, and decoding twice is the same bug in
+        // reverse.
+        assert_eq!(decode_packed_utf8("已经是正常文本"), "已经是正常文本");
+        // Bytes that are not valid UTF-8 are not a packing either.
+        assert_eq!(decode_packed_utf8("\u{00ff}\u{00fe}"), "\u{00ff}\u{00fe}");
+    }
+
+    #[test]
+    fn presence_reads_both_shapes_and_colours_by_account() {
+        // The broadcast and the roster describe the same person with different
+        // keys; getting either wrong shows a nameless ghost with no cursor.
+        let broadcast = parse_presence_broadcast(&json!({
+            "row": 42, "column": 36, "doc_id": "doc-1",
+            "id": "P.abc", "user_id": "user-1",
+            "email": "ada@example.edu", "name": "Ada Lovelace",
+        }))
+        .expect("parses");
+        assert_eq!(broadcast.id, "P.abc");
+        assert_eq!(broadcast.name, "Ada Lovelace");
+        assert_eq!(broadcast.doc_id.as_deref(), Some("doc-1"));
+        assert_eq!((broadcast.row, broadcast.column), (Some(42), Some(36)));
+
+        let roster = parse_presence_roster(&json!({
+            "client_id": "P.abc", "connected": true, "client_age": 1.02,
+            "user_id": "user-1", "first_name": "Ada", "last_name": "Lovelace",
+            "email": "ada@example.edu", "last_updated_at": "1753300000000",
+            "cursorData": {"row": 42, "column": 36, "doc_id": "doc-1"},
+        }))
+        .expect("parses");
+        // Same person, same colour, whichever way we heard about them.
+        assert_eq!(roster.id, broadcast.id);
+        assert_eq!(roster.name, broadcast.name);
+        assert_eq!(roster.doc_id, broadcast.doc_id);
+        assert_eq!(roster.hue, broadcast.hue);
+
+        // Someone who has never moved has no cursor at all.
+        let idle = parse_presence_roster(&json!({
+            "client_id": "P.def", "connected": true,
+            "user_id": "user-2", "first_name": "Sam",
+        }))
+        .expect("parses");
+        assert_eq!(idle.name, "Sam");
+        assert_eq!(idle.doc_id, None);
+        assert_eq!(idle.row, None);
+
+        // A hash whose entry has expired is not a person to show.
+        assert!(parse_presence_roster(&json!({
+            "client_id": "P.ghi", "connected": false,
+        }))
+        .is_none());
+
+        // Anonymous users share one hue and carry no account.
+        let anonymous = parse_presence_broadcast(&json!({
+            "id": "P.jkl", "user_id": "anonymous-user", "name": "",
+        }))
+        .expect("parses");
+        assert_eq!(anonymous.user_id, None);
+        assert_eq!(anonymous.hue, 100);
+    }
+
+    #[test]
+    fn presence_hues_match_overleafs_own_palette() {
+        // Reproduces `getHueForUserId`: md5 of the account id, first eight hex
+        // digits, modulo 320, with the band Overleaf keeps for "you" skipped.
+        // Anything else and the same collaborator is two colours across the
+        // two apps.
+        assert_eq!(presence_hue(None), 100);
+        assert_eq!(presence_hue(Some("anonymous-user")), {
+            let digest = format!("{:x}", md5::compute(b"anonymous-user"));
+            u32::from_str_radix(&digest[..8], 16).unwrap() % 320
+        });
+        for id in ["user-1", "5f2c1b3a4d5e6f7a8b9c0d1e", "ada@example.edu"] {
+            let hue = presence_hue(Some(id));
+            assert!(hue < 360, "{id} produced {hue}");
+            // The reserved band is 180..220 exclusive; nothing may land there.
+            assert!(!(180..=219).contains(&hue) || hue == 180, "{id} landed on {hue}");
+        }
+    }
+
+    /// Reads the real project's roster and publishes a position, which is the
+    /// only thing that makes us visible to a browser already looking at it.
+    #[test]
+    #[ignore = "talks to overleaf.com with the signed-in session"]
+    fn appears_present_on_the_real_overleaf() {
+        let root = std::path::PathBuf::from(
+            std::env::var("OVERLEAF_E2E_PROJECT").expect("set OVERLEAF_E2E_PROJECT"),
+        );
+        let target = std::env::var("OVERLEAF_E2E_DOC").expect("set OVERLEAF_E2E_DOC");
+        let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+        let (host, cookie, project_id) =
+            crate::overleaf::realtime_config(&config, &root).expect("a linked project");
+
+        let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let sink = events.clone();
+        let client = rt::block_on(RealtimeClient::connect(
+            RealtimeConfig {
+                host,
+                cookie,
+                project_id,
+            },
+            move |event| lock(&sink).push(event),
+        ))
+        .expect("connect to Overleaf");
+        println!("permission: {:?}", client.project().permission);
+
+        let doc = client
+            .project()
+            .docs
+            .iter()
+            .find(|doc| doc.path == target)
+            .unwrap_or_else(|| panic!("no document named {target}"))
+            .clone();
+        rt::block_on(client.join_doc(&doc.id)).expect("joinDoc");
+
+        // Publishing a position is what puts us on everyone else's screen.
+        rt::block_on(client.update_position(&doc.id, 0, 0)).expect("updatePosition");
+
+        let users = rt::block_on(client.connected_users()).expect("the roster");
+        for user in &users {
+            println!(
+                "  {} {:?} hue {} doc {:?} at {:?}:{:?}",
+                user.id, user.name, user.hue, user.doc_id, user.row, user.column
+            );
+        }
+        let me = client.public_id();
+        let mine = users.iter().find(|user| user.id == me);
+        assert!(mine.is_some(), "we should be in the roster as {me}");
+        // Our own broadcast comes back to us, which is how the app learns to
+        // filter itself out.
+        let echoed = lock(&events).iter().any(|event| {
+            matches!(event, RealtimeEvent::PresenceUpdated { user } if user.id == me)
+        });
+        println!("our own position echoed back: {echoed}");
         client.shutdown();
     }
 
@@ -2461,6 +2888,7 @@ mod tests {
                 RealtimeEvent::ProjectJoined {
                     root_folder_id,
                     docs,
+                    ..
                 } => {
                     assert_eq!(root_folder_id, "root-1");
                     assert_eq!(

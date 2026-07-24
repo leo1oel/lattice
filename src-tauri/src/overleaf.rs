@@ -117,6 +117,10 @@ pub struct OverleafSyncResult {
     pub conflicts: Vec<OverleafConflict>,
     pub deleted_local: Vec<String>,
     pub skipped_remote_deletes: Vec<String>,
+    /// True when local work stayed here because this account cannot write to
+    /// the project. Everything incoming still landed.
+    #[serde(default)]
+    pub read_only: bool,
 }
 
 /// What a pending sync would do to one file, computed without touching disk.
@@ -221,10 +225,21 @@ struct SyncState {
     /// without downloading the project each time.
     #[serde(default)]
     remote_version: Option<i64>,
+    /// What this account may do to the project, as Overleaf last reported it.
+    /// Absent on projects linked before this was recorded, which reads as
+    /// writable — refusing to upload work the user can in fact push is worse
+    /// than trying and being told no.
+    #[serde(default)]
+    permission: Option<String>,
     /// Relative path (forward slashes) → sha256 hex of the content at the
     /// last successful sync.
     #[serde(default)]
     files: BTreeMap<String, String>,
+}
+
+/// True unless Overleaf said this account may only read.
+fn permits_writing(permission: Option<&str>) -> bool {
+    !matches!(permission, Some("readOnly") | Some("review"))
 }
 
 fn err<E: std::fmt::Display>(e: E) -> String {
@@ -964,11 +979,15 @@ pub fn list_projects(config_dir: &Path) -> Result<Vec<OverleafProject>, String> 
     parse_projects_meta(&html)
 }
 
+/// Download a project and link it. `access_level` is what the dashboard said
+/// this account may do, so syncing respects it even before the realtime
+/// channel has a chance to confirm.
 pub fn clone_project(
     config_dir: &Path,
     project_id: &str,
     project_name: &str,
     dest_parent: &Path,
+    access_level: Option<&str>,
 ) -> Result<PathBuf, String> {
     let session = load_session(config_dir)?;
     let folder_name = sanitize_project_name(project_name)?;
@@ -998,6 +1017,7 @@ pub fn clone_project(
         project_name: project_name.to_string(),
         last_sync: Some(now_iso()),
         remote_version,
+        permission: access_level.map(str::to_string),
         files,
     };
     save_state(&root, &state)?;
@@ -1677,6 +1697,17 @@ fn sync_stamp() -> String {
     chrono::Local::now().format("%Y%m%d-%H%M").to_string()
 }
 
+/// Record what Overleaf says this account may do, so syncing can respect it
+/// even when the realtime channel is not connected.
+pub fn set_permission(root: &Path, permission: &str) -> Result<(), String> {
+    let mut state = load_state(root)?;
+    if state.permission.as_deref() == Some(permission) {
+        return Ok(());
+    }
+    state.permission = Some(permission.to_string());
+    save_state(root, &state)
+}
+
 pub fn sync(
     config_dir: &Path,
     root: &Path,
@@ -1735,6 +1766,22 @@ pub fn sync(
     let mut to_push: Vec<String> = plan.push;
     to_push.extend(merged_content.keys().cloned());
     to_push.sort();
+
+    // A reviewer or a viewer may read the project and not change it. Trying
+    // anyway would be rejected file by file and reported as a sync failure,
+    // when in fact everything that could be done has been: incoming work is
+    // already on disk above, and the local edits simply stay here.
+    if !permits_writing(state.permission.as_deref()) {
+        for path in &to_push {
+            new_files.remove(path);
+        }
+        state.files = new_files;
+        state.last_sync = Some(now_iso());
+        state.remote_version = remote_version_before;
+        save_state(root, &state)?;
+        result.read_only = true;
+        return Ok(result);
+    }
 
     // Never hand Overleaf a file whose conflict markers are still unresolved —
     // that would publish the markers to everyone else in the project.
@@ -2259,6 +2306,7 @@ mod tests {
                 project_name: "Test Project".to_string(),
                 last_sync: Some("2026-07-01T00:00:00Z".to_string()),
                 remote_version: None,
+                permission: None,
                 files,
             },
         )
@@ -2400,7 +2448,7 @@ mod tests {
         let parent = temp_dir("clone-parent");
         write_session_file(&config, &server.base);
 
-        let root = clone_project(&config, "proj-1", "Test: Project", &parent).unwrap();
+        let root = clone_project(&config, "proj-1", "Test: Project", &parent, None).unwrap();
         assert_eq!(root, parent.join("Test- Project"));
         assert_eq!(
             read_local(&root, "main.tex").unwrap(),
@@ -2430,7 +2478,7 @@ mod tests {
         assert_eq!(link.project_name, "Test: Project");
 
         // Cloning again into the same non-empty folder fails.
-        let again = clone_project(&config, "proj-1", "Test: Project", &parent);
+        let again = clone_project(&config, "proj-1", "Test: Project", &parent, None);
         assert!(again.unwrap_err().contains("already exists"));
     }
 
@@ -2440,7 +2488,7 @@ mod tests {
         let config = temp_dir("slip-config");
         let parent = temp_dir("slip-parent");
         write_session_file(&config, &server.base);
-        let outcome = clone_project(&config, "proj-1", "Evil", &parent);
+        let outcome = clone_project(&config, "proj-1", "Evil", &parent, None);
         let message = outcome.unwrap_err();
         assert!(message.contains("unsafe path"), "got: {message}");
         assert!(!parent.join("evil.tex").exists());
@@ -3046,6 +3094,48 @@ mod tests {
         // An Overleaf without the review panel answers with nothing at all.
         assert!(parse_threads(&serde_json::json!({}), None).is_empty());
         assert!(parse_threads(&serde_json::json!(null), None).is_empty());
+    }
+
+    #[test]
+    fn overleaf_sync_never_uploads_for_a_read_only_account() {
+        // Incoming work still lands; only the upload half stands down. Trying
+        // anyway would be rejected file by file and read as a broken sync.
+        let base = b"shared body".as_slice();
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[
+                // Untouched over there, so the local edit is a pure upload
+                // candidate rather than something to merge.
+                ("main.tex", base),
+                ("notes.tex", b"new remote notes".as_slice()),
+            ]),
+        );
+        let config = temp_dir("readonly-config");
+        let root = temp_dir("readonly-project");
+        write_session_file(&config, &server.base);
+        seed_linked_project(
+            &root,
+            &server.base,
+            &[("main.tex", b"local body".as_slice()), ("notes.tex", base)],
+            &[("main.tex", base), ("notes.tex", base)],
+        );
+        set_permission(&root, "readOnly").unwrap();
+
+        let result = sync(&config, &root, &BTreeSet::new()).unwrap();
+        assert!(result.read_only);
+        assert!(result.pushed.is_empty());
+        assert!(server.uploads().is_empty());
+        assert_eq!(result.pulled, vec!["notes.tex"]);
+        // The local edit is still here, and still counts as unsent.
+        assert_eq!(read_local(&root, "main.tex").unwrap(), b"local body");
+        assert_eq!(state_files(&root).get("main.tex"), None);
+
+        // A reviewer may comment but not change the text, so the same applies.
+        set_permission(&root, "review").unwrap();
+        assert!(sync(&config, &root, &BTreeSet::new()).unwrap().read_only);
+        // An account that can write is unaffected.
+        set_permission(&root, "readAndWrite").unwrap();
+        assert!(!sync(&config, &root, &BTreeSet::new()).unwrap().read_only);
     }
 
     #[test]

@@ -18,14 +18,21 @@ import { OtDesyncError, OtDocument } from "./ot-document";
 import type { OtOp } from "./ot-ops";
 
 type DocEntry = { id: string; path: string };
-type JoinedProject = { publicId: string | null; rootFolderId: string; docs: DocEntry[] };
+/** What this account may do to the project, as Overleaf reports it. */
+export type OverleafPermission = "owner" | "readAndWrite" | "review" | "readOnly" | "unknown";
+type JoinedProject = {
+  publicId: string | null;
+  rootFolderId: string;
+  docs: DocEntry[];
+  permission: OverleafPermission;
+};
 /** Where a comment thread is anchored in the open document. */
 export type CommentRange = { threadId: string; position: number; quote: string };
 type JoinedDoc = { text: string; version: number; comments: CommentRange[] };
 
 type RealtimeEvent =
   | { type: "connected"; publicId: string }
-  | { type: "projectJoined"; rootFolderId: string; docs: DocEntry[] }
+  | { type: "projectJoined"; rootFolderId: string; docs: DocEntry[]; permission: OverleafPermission }
   | { type: "docUpdate"; docId: string; version: number; ops: OtOp[]; source: string | null }
   | { type: "docAck"; docId: string; version: number }
   | { type: "commentAnchored"; docId: string; range: CommentRange }
@@ -44,6 +51,10 @@ export type OverleafRealtime = {
   liveFile: boolean;
   /** Overleaf's id for the open document, when it has one. */
   docId: string | null;
+  /** What this account may do to the project. */
+  permission: OverleafPermission;
+  /** False for a reviewer or a viewer: their edits stay on this machine. */
+  canWrite: boolean;
   /** Comment anchors in the open document, as Overleaf holds them. */
   comments: CommentRange[];
   /** Feed the editor's current text in; ops go out when it differs. */
@@ -82,6 +93,7 @@ export function useOverleafRealtime(options: {
   // event, and either way the effect that joins the open document has to run
   // again once it does.
   const [docs, setDocs] = useState<Map<string, string>>(new Map());
+  const [permission, setPermission] = useState<OverleafPermission>("unknown");
 
   const publicId = useRef<string | null>(null);
   const document = useRef<OtDocument | null>(null);
@@ -92,6 +104,8 @@ export function useOverleafRealtime(options: {
   // whole session instead of being torn down on every keystroke.
   const callbacks = useRef(options);
   callbacks.current = options;
+  const canWrite = useRef(true);
+  canWrite.current = permission !== "readOnly" && permission !== "review";
 
   const stopDocument = useCallback(() => {
     if (sendTimer.current) {
@@ -142,6 +156,7 @@ export function useOverleafRealtime(options: {
       }
       if (payload.type === "projectJoined") {
         setDocs(new Map(payload.docs.map((doc) => [doc.path, doc.id])));
+        setPermission(payload.permission);
         return;
       }
       if (payload.type === "disconnected") {
@@ -224,6 +239,7 @@ export function useOverleafRealtime(options: {
       setStatus("off");
       setDetail(null);
       setDocs(new Map());
+      setPermission("unknown");
       stopDocument();
       void invoke("overleaf_rt_disconnect").catch(() => {});
       return;
@@ -241,6 +257,7 @@ export function useOverleafRealtime(options: {
         // else's edit and apply it twice.
         if (joined.publicId) publicId.current = joined.publicId;
         setDocs(new Map(joined.docs.map((doc) => [doc.path, doc.id])));
+        setPermission(joined.permission);
         setStatus("live");
         setDetail(null);
       })
@@ -293,7 +310,7 @@ export function useOverleafRealtime(options: {
 
   const pushLocal = useCallback((text: string) => {
     const doc = document.current;
-    if (!doc) return;
+    if (!doc || !canWrite.current) return;
     // Coalesce keystrokes briefly: one operation per short pause keeps the
     // channel quiet without anyone noticing a delay.
     if (sendTimer.current) clearTimeout(sendTimer.current);
@@ -343,6 +360,10 @@ export function useOverleafRealtime(options: {
     detail,
     liveFile,
     docId: openDoc?.id ?? null,
+    permission,
+    // Unknown reads as writable: refusing to send work the user can in fact
+    // push is the worse mistake, and Overleaf enforces this server-side too.
+    canWrite: permission !== "readOnly" && permission !== "review",
     comments: openDoc?.comments ?? EMPTY_COMMENTS,
     pushLocal,
     anchorComment,

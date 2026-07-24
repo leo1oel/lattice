@@ -889,6 +889,7 @@ async fn overleaf_clone_project(
     state: tauri::State<'_, AppState>,
     project_id: String,
     name: String,
+    access_level: Option<String>,
 ) -> Result<String, String> {
     let config = overleaf_config_dir(&app)?;
     let documents = app
@@ -899,7 +900,7 @@ async fn overleaf_clone_project(
     std::fs::create_dir_all(&parent)
         .map_err(|error| format!("Could not create the Overleaf Projects folder: {error}"))?;
     let root = tauri::async_runtime::spawn_blocking(move || {
-        overleaf::clone_project(&config, &project_id, &name, &parent)
+        overleaf::clone_project(&config, &project_id, &name, &parent, access_level.as_deref())
     })
     .await
     .map_err(|error| format!("The Overleaf download stopped unexpectedly: {error}"))??;
@@ -1013,6 +1014,27 @@ async fn overleaf_rt_join_doc(
     realtime_client(&state)?.join_doc(&doc_id).await
 }
 
+/// Everyone currently in the Overleaf project, ourselves included.
+#[tauri::command]
+async fn overleaf_rt_connected_users(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<overleaf_rt::PresenceUser>, String> {
+    realtime_client(&state)?.connected_users().await
+}
+
+/// Publish our caret, which is also what makes us visible to everyone else.
+#[tauri::command]
+async fn overleaf_rt_update_position(
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+    row: i64,
+    column: i64,
+) -> Result<(), String> {
+    realtime_client(&state)?
+        .update_position(&doc_id, row, column)
+        .await
+}
+
 #[tauri::command]
 async fn overleaf_rt_leave_doc(
     state: tauri::State<'_, AppState>,
@@ -1082,6 +1104,15 @@ async fn overleaf_send_chat_message(
 /// text would reach collaborators as an out-of-band overwrite.
 fn live_paths(live: Option<Vec<String>>) -> std::collections::BTreeSet<String> {
     live.unwrap_or_default().into_iter().collect()
+}
+
+/// Record what Overleaf says this account may do to the linked project.
+#[tauri::command]
+fn overleaf_set_permission(
+    state: tauri::State<'_, AppState>,
+    permission: String,
+) -> Result<(), String> {
+    overleaf::set_permission(&current_root(&state)?, &permission)
 }
 
 #[tauri::command]
@@ -1779,12 +1810,15 @@ pub fn run() {
             overleaf_rt_leave_doc,
             overleaf_rt_send_ops,
             overleaf_rt_send_comment,
+            overleaf_rt_connected_users,
+            overleaf_rt_update_position,
             agent_models,
             agent_runtime_status,
             agent_runtime_update,
             agent_runtime_revert,
             overleaf_chat_messages,
             overleaf_send_chat_message,
+            overleaf_set_permission,
             overleaf_threads,
             overleaf_reply_to_thread,
             overleaf_resolve_thread,
