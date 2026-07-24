@@ -279,7 +279,7 @@ import { findAppendixMarker } from "./appendix-pages";
 import { ManuscriptChecklistPanel } from "./manuscript-checklist";
 import { mergeTodosWithBuffer, type TodoHit } from "./todo-scavenger";
 import { TodoScavengerPanel } from "./todo-scavenger-panel";
-import { referenceAssetPreviewDataUrl, type ReferenceAssetPreview } from "./reference-preview";
+import { referenceAssetPreviewDataUrl } from "./reference-preview";
 import { ThinkingOrb, type OrbState } from "./thinking-orbs";
 import {
   DEFAULT_EDITOR_FONT,
@@ -287,141 +287,54 @@ import {
   UI_FONT_OPTIONS,
   availableFontOptions,
 } from "./available-fonts";
+import type {
+  ProjectVenue,
+  ProjectManifest,
+  WordCount,
+  AgentToolStep,
+  UnusedSymbols,
+  ReplaceResult,
+  EditorViewState,
+  NavigationEntry,
+  FileNode,
+  ProjectSnapshot,
+  AssetPreview,
+  FigureDropRequest,
+  FigurePointerDrag,
+  SyncTexTarget,
+  EditorNavigation,
+  EditorPosition,
+  PdfSyncResponse,
+  ProjectSearchResult,
+  BuildResult,
+  AgentResult,
+  AgentStreamEvent,
+  PaperSummary,
+  RenameTarget,
+  RenameSymbolResult,
+  ChatPart,
+  ChatMessage,
+  AgentSession,
+  AgentSessionSummary,
+  AgentSessionSearchResult,
+  AgentSkill,
+  SkillDraft,
+  AgentMention,
+  MentionState,
+  CanvasMode,
+  EditorPaneId,
+  DocumentViewMode,
+  AgentProvider,
+  ReasoningEffort,
+  SettingsTab,
+  CiteCommand,
+  InsertSymbolCommand,
+  DoctorReport,
+  EditorKeymap,
+  SubscriptionStatus,
+  ModelOption,
+} from "./app-types";
 import "./App.css";
-
-type RootDocument = {
-  path: string;
-  name: string;
-  isDefault: boolean;
-};
-
-type ProjectVenue = "neurips" | "icml" | "iclr";
-
-type ProjectManifest = {
-  schemaVersion: number;
-  projectId: string;
-  name: string;
-  rootDocuments: RootDocument[];
-  primaryBibliography: string;
-  trusted: boolean;
-  engine?: string;
-  venue?: ProjectVenue | string;
-  wordBudget?: number | null;
-  pageBudget?: number | null;
-};
-
-type WordCount = {
-  text: number;
-  headers: number;
-  captions: number;
-  total: number;
-  source: string;
-};
-
-type AgentToolStep = {
-  id: string;
-  name: string;
-  detail: string;
-  phase: "start" | "end";
-};
-
-type UnusedSymbols = {
-  labels: string[];
-  citations: string[];
-};
-
-type ReplaceResult = {
-  filesChanged: string[];
-  replacements: number;
-};
-
-type EditorViewState = {
-  cursor: number;
-  scrollTop: number;
-};
-
-type NavigationEntry = {
-  path: string;
-  line: number;
-};
-
-type FileNode = {
-  name: string;
-  path: string;
-  kind: string;
-  children: FileNode[];
-};
-
-type ProjectSnapshot = {
-  root: string;
-  manifest: ProjectManifest;
-  files: FileNode[];
-};
-
-type AssetPreview = ReferenceAssetPreview;
-
-type FigureDropRequest = {
-  id: string;
-  paths: string[];
-  clientX: number;
-  clientY: number;
-};
-
-type FigurePointerDrag = {
-  path: string;
-  label: string;
-  clientX: number;
-  clientY: number;
-  overEditor: boolean;
-};
-
-type SyncTexTarget = {
-  path: string;
-  line: number;
-};
-
-type EditorNavigation = SyncTexTarget & { id: string };
-type EditorPosition = { path: string; line: number; column: number };
-type PdfSyncResponse = Omit<PdfSyncTarget, "id">;
-
-type ProjectSearchResult = {
-  kind: "file" | "paper";
-  path: string;
-  title: string;
-  snippet: string;
-  line?: number | null;
-  arxivId?: string;
-  fileKind?: string;
-};
-
-type BuildResult = {
-  success: boolean;
-  pdfBase64?: string;
-  log: string;
-  durationMs: number;
-  diagnostics: CompileDiagnostic[];
-};
-
-type AgentResult = {
-  summary: string;
-  changedFiles: string[];
-  transactionId?: string;
-  skillsUsed: string[];
-};
-
-type AgentStreamEvent =
-  | { type: "status"; message: string }
-  | { type: "text"; text: string }
-  | { type: "cancellable"; enabled: boolean }
-  | { type: "tool"; name: string; detail: string; phase: string };
-
-type PaperSummary = {
-  arxivId: string;
-  title: string;
-  citationKey?: string;
-  /** False for works that are only cited — there is nothing to open. */
-  hasFullText: boolean;
-};
 
 /** What the second line of a paper row says: where it came from, and its state. */
 function paperSubtitle(paper: PaperSummary, snippet?: string): string {
@@ -443,84 +356,7 @@ function paperKey(paper: PaperSummary): string {
   return paper.arxivId || `cite:${paper.citationKey ?? paper.title}`;
 }
 
-type RenameTarget =
-  | { kind: "entry"; path: string; name: string }
-  | { kind: "paper"; paper: PaperSummary }
-  | { kind: "label"; label: string }
-  | { kind: "citation"; key: string }
-  | { kind: "environment"; name: string }
-  | { kind: "wrap-environment" };
-
-type RenameSymbolResult = {
-  changedFiles: string[];
-  occurrenceCount: number;
-  transactionId: string;
-};
-
-/** One chronological slice of an agent turn: something it said, or something it did. */
-type ChatPart =
-  | { kind: "text"; text: string }
-  | ({ kind: "tool" } & AgentToolStep);
-
-type ChatMessage = {
-  id: string;
-  role: "user" | "agent" | "system";
-  text: string;
-  files?: string[];
-  skills?: string[];
-  /** Absent on user/system turns; the bubble falls back to `text` then. */
-  parts?: ChatPart[];
-};
-
-type AgentSession = {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  provider: AgentProvider;
-  model: string;
-  reasoningEffort: ReasoningEffort;
-  messages: ChatMessage[];
-};
-
-type AgentSessionSummary = {
-  id: string;
-  title: string;
-  updatedAt: string;
-  provider: AgentProvider;
-  model: string;
-  reasoningEffort: ReasoningEffort;
-  messageCount: number;
-};
-
-type AgentSessionSearchResult = AgentSessionSummary & { snippet: string };
-type AgentSkill = {
-  name: string;
-  description: string;
-  scope: "built-in" | "application" | "project";
-  enabled: boolean;
-  editable: boolean;
-  overridden: boolean;
-  content: string;
-};
-type SkillDraft = { originalName?: string; scope: "application" | "project"; content: string };
-type AgentMention = { key: string; label: string; path: string; kind: "file" | "paper" };
-type MentionState = { start: number; end: number; query: string };
-
-type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "paper" | "asset";
-type EditorPaneId = "primary" | "secondary";
-type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
-type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
-type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-type SettingsTab = "appearance" | "editor" | "agent" | "accounts" | "api" | "doctor";
-type CiteCommand = "cite" | "citep" | "citet";
-type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
-type DoctorCheck = { name: string; detail: string; ok: boolean };
-type DoctorReport = { ok: boolean; summary: string; checks: DoctorCheck[] };
-type EditorKeymap = "default" | "vim" | "emacs";
 const CITE_COMMANDS: CiteCommand[] = ["cite", "citep", "citet"];
-type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
-type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
 
 const PROJECT_FIGURE_DRAG_TYPE = "application/x-lattice-project-figure";
 
