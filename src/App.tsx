@@ -1389,10 +1389,13 @@ function App() {
               return nextUrl;
             });
           };
-          // Autosave compiles settle longer than typing pauses so a slow first
-          // pdf.js load is not cancelled by the next rebuild.
-          if (immediatePreview) applyPreview();
-          else pdfPreviewTimerRef.current = window.setTimeout(applyPreview, 2_800);
+          // The wait exists so a slow pdf.js load is not torn down by the next
+          // rebuild while someone is still typing. Once they have stopped —
+          // the buffer matches what is on disk — there is nothing left to wait
+          // for, and waiting anyway is just the PDF lagging behind the editor.
+          const stillTyping = sourceRef.current !== savedSourceRef.current;
+          if (immediatePreview || !stillTyping) applyPreview();
+          else pdfPreviewTimerRef.current = window.setTimeout(applyPreview, 1_200);
         }
         if (!result.success) {
           const firstError = result.diagnostics.find((item) => item.level === "error")

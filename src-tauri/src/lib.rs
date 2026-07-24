@@ -12,6 +12,7 @@ mod macos_window;
 mod models;
 mod openalex;
 mod overleaf;
+mod overleaf_rt;
 mod papers;
 mod pdf_fonts;
 mod project;
