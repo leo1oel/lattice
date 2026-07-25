@@ -1369,6 +1369,78 @@ pub fn delete_thread(
     )
 }
 
+/// Create a document in the project, so a file added here shows up for
+/// everyone rather than waiting for the next upload to invent it.
+pub fn create_doc(
+    config_dir: &Path,
+    root: &Path,
+    parent_folder_id: &str,
+    name: &str,
+) -> Result<String, String> {
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = sync_host(&state, &session);
+    let client = http_client(20)?;
+    let page = fetch_projects_page(&client, &host, &session.cookie)?;
+    let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
+    let response = client
+        .post(format!("{host}/project/{}/doc", state.project_id))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header("X-Csrf-Token", &csrf)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .json(&serde_json::json!({ "name": name, "parent_folder_id": parent_folder_id }))
+        .send()
+        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    check_authenticated(&response)?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Overleaf returned {} when creating {name}.",
+            response.status()
+        ));
+    }
+    let body: serde_json::Value = response.json().map_err(err)?;
+    json_str(&body, &["_id"]).ok_or_else(|| "Overleaf created no document.".to_string())
+}
+
+/// Delete an entity from the project. `kind` is "doc", "file" or "folder".
+///
+/// Syncing has never done this — a file deleted here simply stayed on
+/// Overleaf — which is safe but leaves the two sides permanently different.
+pub fn delete_entity(
+    config_dir: &Path,
+    root: &Path,
+    kind: &str,
+    entity_id: &str,
+) -> Result<(), String> {
+    if !matches!(kind, "doc" | "file" | "folder") {
+        return Err(format!("{kind} is not something Overleaf can delete."));
+    }
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = sync_host(&state, &session);
+    let client = http_client(20)?;
+    let page = fetch_projects_page(&client, &host, &session.cookie)?;
+    let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
+    let response = client
+        .delete(format!(
+            "{host}/project/{}/{kind}/{entity_id}",
+            state.project_id
+        ))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header("X-Csrf-Token", &csrf)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    check_authenticated(&response)?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Overleaf returned {} when deleting the {kind}.",
+            response.status()
+        ));
+    }
+    Ok(())
+}
+
 /// What the realtime channel needs to open a connection for this project:
 /// (host, cookie, project id).
 pub fn realtime_config(config_dir: &Path, root: &Path) -> Result<(String, String, String), String> {

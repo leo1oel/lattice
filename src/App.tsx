@@ -80,6 +80,7 @@ import { ConflictResolverDialog } from "./conflict-resolver";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 import { useOverleafChat } from "./use-overleaf-chat";
 import { useAgentModels } from "./use-agent-models";
+import { useAgentRuntimeUpdates } from "./agent-runtime-settings";
 import { useOverleafComments, type OverleafComments } from "./use-overleaf-comments";
 import { OverleafCollabDrawer, type OverleafCollabTab } from "./overleaf-collab";
 import {
@@ -414,6 +415,9 @@ function App() {
   // Which models exist is the runtime's business, not something written down
   // in this app; the built-in table is only the fallback.
   const agentModels = useAgentModels();
+  // The runtime carries the model list, so letting it fall behind quietly
+  // removes models people can otherwise choose.
+  useAgentRuntimeUpdates({ onUpdated: agentModels.refresh });
   /** Marks a comment that lives on Overleaf rather than in this project. */
   const OVERLEAF_COMMENT_PREFIX = "overleaf:";
   const overleafCommentsRef = useRef<OverleafComments>(null as unknown as OverleafComments);

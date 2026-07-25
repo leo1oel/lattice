@@ -7,17 +7,97 @@
  * newer one installs beside it and is preferred at launch, with the bundled
  * copy still there as the floor.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Check, Download, LoaderCircle, RefreshCw, RotateCcw } from "lucide-react";
 import type { AgentRuntimeStatus } from "./app-types";
 import { toMessage } from "./app-utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select";
+
+export type RuntimeUpdateMode = "auto" | "manual";
+
+const MODE_KEY = "lattice.agent-runtime.update-mode.v1";
+/** Same cadence as the app's own updater, and once on launch. */
+const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Automatic by default, like the app itself.
+ *
+ * A runtime that lags behind is not a neutral state: models the runtime does
+ * not know about cannot be chosen, so leaving it alone quietly costs the
+ * feature people came for.
+ */
+export function getRuntimeUpdateMode(): RuntimeUpdateMode {
+  try {
+    return localStorage.getItem(MODE_KEY) === "manual" ? "manual" : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+function persistRuntimeUpdateMode(mode: RuntimeUpdateMode) {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    // Storage unavailable — the choice still applies for this session.
+  }
+}
+
+/**
+ * Keeps the agent runtime current in the background.
+ *
+ * Mount once, near the top of the app. It checks on launch and every six
+ * hours, and installs without asking when the mode is automatic — the runtime
+ * is an implementation detail of the agent, not something anyone wants to be
+ * consulted about. The download is large, so it never runs twice at once, and
+ * a failure is silent: the previous runtime is still there and still works.
+ */
+export function useAgentRuntimeUpdates(options: { onUpdated: () => void }) {
+  const running = useRef(false);
+  const onUpdated = useRef(options.onUpdated);
+  onUpdated.current = options.onUpdated;
+
+  useEffect(() => {
+    let stopped = false;
+    const tick = () => {
+      if (stopped || running.current || getRuntimeUpdateMode() !== "auto") return;
+      running.current = true;
+      void invoke<AgentRuntimeStatus>("agent_runtime_status")
+        .then((status) => (status.updateAvailable
+          ? invoke<string>("agent_runtime_update").then(() => onUpdated.current())
+          : undefined))
+        .catch(() => {
+          // Offline, or the release could not be verified. The runtime in use
+          // is untouched; the next check tries again.
+        })
+        .finally(() => {
+          running.current = false;
+        });
+    };
+    const timer = window.setInterval(tick, CHECK_INTERVAL_MS);
+    // Not on the first paint: the launch is busy enough without a 260 MB
+    // download starting underneath it.
+    const initial = window.setTimeout(tick, 20_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      window.clearTimeout(initial);
+    };
+  }, []);
+}
 
 export function AgentRuntimeSettings(props: {
   /** Called after an update, so the model list is asked again. */
   onUpdated: () => void;
 }) {
   const [status, setStatus] = useState<AgentRuntimeStatus | null>(null);
+  const [mode, setMode] = useState<RuntimeUpdateMode>(getRuntimeUpdateMode);
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -116,6 +196,23 @@ export function AgentRuntimeSettings(props: {
           )}
         </div>
       </div>
+
+      <label className="settings-inline-select">
+        Runtime updates
+        <Select
+          value={mode}
+          onValueChange={(value) => {
+            setMode(value as RuntimeUpdateMode);
+            persistRuntimeUpdateMode(value as RuntimeUpdateMode);
+          }}
+        >
+          <SelectTrigger aria-label="Runtime updates"><SelectValue /></SelectTrigger>
+          <SelectContent position="popper" align="start">
+            <SelectItem value="auto">Install automatically</SelectItem>
+            <SelectItem value="manual">Only when I ask</SelectItem>
+          </SelectContent>
+        </Select>
+      </label>
 
       {status && status.current !== status.bundled && (
         <button

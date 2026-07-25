@@ -149,6 +149,14 @@ pub enum RealtimeEvent {
         doc_id: String,
         range: CommentRange,
     },
+    /// The project's files changed: something was created, renamed, moved or
+    /// deleted, by anyone.
+    ///
+    /// Carries the whole document list rather than the delta. The events
+    /// Overleaf sends are id-keyed deltas against a tree the client has to
+    /// maintain itself, and having done that work once here there is nothing
+    /// to gain by making every listener repeat it.
+    TreeChanged { docs: Vec<DocEntry> },
     /// Someone in the project moved, or appeared for the first time.
     ///
     /// Overleaf announces nothing when a client joins — the only thing that
@@ -598,6 +606,10 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 struct Shared {
+    /// The project's entities. Rebuilt at join, then kept current from the
+    /// tree events, which is what lets a file created in the browser become
+    /// editable here without re-reading the project.
+    tree: Mutex<Tree>,
     out_tx: rt::Sender<Outgoing>,
     pending: Mutex<HashMap<u32, rt::Sender<AckMsg>>>,
     next_ack: AtomicU32,
@@ -766,6 +778,29 @@ pub struct JoinedDoc {
     pub text: String,
     pub version: i64,
     pub comments: Vec<CommentRange>,
+    pub changes: Vec<TrackedChange>,
+}
+
+/// One tracked change in a document: a suggested insertion or deletion that
+/// nobody has accepted or rejected yet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackedChange {
+    /// Overleaf's id for the change; what accepting one refers to.
+    pub id: String,
+    /// Character offset into the document as it currently reads.
+    pub position: i64,
+    /// The suggested text: inserted when `deletion` is false, removed when it
+    /// is true. A tracked deletion is not in the document text, so it occupies
+    /// no offsets.
+    pub text: String,
+    pub deletion: bool,
+    /// Who suggested it, when Overleaf knows.
+    pub user_id: Option<String>,
+    /// ISO 8601, as Overleaf reports it.
+    pub timestamp: Option<String>,
+    /// Their colour in Overleaf's own palette.
+    pub hue: u32,
 }
 
 /// Where one comment thread is anchored in a document.
@@ -821,6 +856,39 @@ fn decode_packed_utf8(text: &str) -> String {
     String::from_utf8(bytes).unwrap_or_else(|_| text.to_string())
 }
 
+/// `{ changes: [{ id, op: {p, i} | {p, d}, metadata: {user_id, ts} }] }`.
+fn parse_tracked_changes(ranges: &Value) -> Vec<TrackedChange> {
+    ranges
+        .get("changes")
+        .and_then(Value::as_array)
+        .map(|changes| {
+            changes
+                .iter()
+                .filter_map(|change| {
+                    let op = change.get("op")?;
+                    let (text, deletion) = match (op.get("i"), op.get("d")) {
+                        (Some(inserted), _) => (inserted.as_str()?, false),
+                        (_, Some(deleted)) => (deleted.as_str()?, true),
+                        _ => return None,
+                    };
+                    let metadata = change.get("metadata");
+                    let user_id = metadata.and_then(|m| json_field(m, &["user_id"]));
+                    Some(TrackedChange {
+                        id: json_field(change, &["id"])?,
+                        position: op.get("p").and_then(Value::as_i64).unwrap_or(0),
+                        // Packed the same way the document's own lines are.
+                        text: decode_packed_utf8(text),
+                        deletion,
+                        timestamp: metadata.and_then(|m| json_field(m, &["ts"])),
+                        hue: presence_hue(user_id.as_deref()),
+                        user_id,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// `{ p, c, t }`: position, the commented text, and the thread it belongs to.
 fn parse_comment_range(op: &Value) -> Option<CommentRange> {
     Some(CommentRange {
@@ -836,7 +904,7 @@ fn parse_comment_range(op: &Value) -> Option<CommentRange> {
 
 /// `joinProject` answers with `[error, project, permissions, protocolVersion]`;
 /// `project.rootFolder` is an array holding the single root folder.
-fn parse_project(body: &[Value]) -> Result<(String, Vec<DocEntry>, Permission), String> {
+fn parse_project(body: &[Value]) -> Result<(Tree, Permission), String> {
     let first = body
         .first()
         .ok_or_else(|| "Overleaf's joinProject answer carried no project.".to_string())?;
@@ -861,14 +929,10 @@ fn parse_project(body: &[Value]) -> Result<(String, Vec<DocEntry>, Permission), 
         object @ Value::Object(_) => object,
         _ => return Err("Overleaf's project has an unexpected rootFolder.".to_string()),
     };
-    let root_folder_id = root
-        .get("_id")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "Overleaf's root folder has no id.".to_string())?
-        .to_string();
-    let mut docs = Vec::new();
-    collect_docs(root, "", &mut docs, 0);
-    Ok((root_folder_id, docs, permission))
+    if root.get("_id").and_then(Value::as_str).is_none() {
+        return Err("Overleaf's root folder has no id.".to_string());
+    }
+    Ok((Tree::from_root(root), permission))
 }
 
 /// What this account may do to the project.
@@ -919,29 +983,188 @@ impl Permission {
     }
 }
 
-/// Depth-first flatten: a folder's own docs first, then its subfolders. The
-/// root folder's own name is not part of any path.
-fn collect_docs(folder: &Value, prefix: &str, out: &mut Vec<DocEntry>, depth: usize) {
-    if depth > MAX_FOLDER_DEPTH {
-        return;
+// ---- The live file tree ---------------------------------------------------
+//
+// Overleaf's tree events are deltas keyed on entity ids: a rename says only
+// "this id is now called that", a delete says only "this id is gone" — one
+// event for a whole folder, not one per file inside it. Nothing carries a
+// path. So the only way to keep a path→document map current without
+// re-reading the project is to hold the tree itself and resolve paths from it.
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NodeKind {
+    Folder,
+    /// A document Overleaf tracks line by line, and the only kind that can be
+    /// edited through the channel.
+    Doc,
+    /// A binary file: a figure, a PDF. Present so paths resolve, and so a
+    /// delete prunes it, but never joinable.
+    File,
+}
+
+#[derive(Debug, Clone)]
+struct TreeNode {
+    name: String,
+    parent: Option<String>,
+    kind: NodeKind,
+}
+
+/// The project's entities, indexed by id.
+#[derive(Debug, Default, Clone)]
+struct Tree {
+    nodes: HashMap<String, TreeNode>,
+    root: String,
+}
+
+impl Tree {
+    fn from_root(root: &Value) -> Self {
+        let mut tree = Tree {
+            nodes: HashMap::new(),
+            root: root
+                .get("_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+        };
+        tree.absorb(root, None, 0);
+        tree
     }
-    if let Some(docs) = folder.get("docs").and_then(Value::as_array) {
-        for doc in docs {
-            let id = doc.get("_id").and_then(Value::as_str);
-            let name = doc.get("name").and_then(Value::as_str);
-            if let (Some(id), Some(name)) = (id, name) {
-                out.push(DocEntry {
-                    id: id.to_string(),
-                    path: join_path(prefix, name),
-                });
+
+    fn absorb(&mut self, folder: &Value, parent: Option<&str>, depth: usize) {
+        if depth > MAX_FOLDER_DEPTH {
+            return;
+        }
+        let Some(id) = folder.get("_id").and_then(Value::as_str) else {
+            return;
+        };
+        self.nodes.insert(
+            id.to_string(),
+            TreeNode {
+                name: folder
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                parent: parent.map(str::to_string),
+                kind: NodeKind::Folder,
+            },
+        );
+        for (key, kind) in [("docs", NodeKind::Doc), ("fileRefs", NodeKind::File)] {
+            for entity in folder
+                .get(key)
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                self.insert_entity(id, entity, kind);
             }
         }
-    }
-    if let Some(folders) = folder.get("folders").and_then(Value::as_array) {
-        for child in folders {
-            let name = child.get("name").and_then(Value::as_str).unwrap_or("");
-            collect_docs(child, &join_path(prefix, name), out, depth + 1);
+        for child in folder
+            .get("folders")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            self.absorb(child, Some(id), depth + 1);
         }
+    }
+
+    fn insert_entity(&mut self, parent: &str, entity: &Value, kind: NodeKind) {
+        let (Some(id), Some(name)) = (
+            entity.get("_id").and_then(Value::as_str),
+            entity.get("name").and_then(Value::as_str),
+        ) else {
+            return;
+        };
+        self.nodes.insert(
+            id.to_string(),
+            TreeNode {
+                name: name.to_string(),
+                parent: Some(parent.to_string()),
+                kind,
+            },
+        );
+    }
+
+    /// The path of an entity, relative to the project root. The root folder's
+    /// own name is not part of any path.
+    fn path_of(&self, id: &str) -> Option<String> {
+        let mut parts: Vec<&str> = Vec::new();
+        let mut current = id;
+        for _ in 0..=MAX_FOLDER_DEPTH {
+            let node = self.nodes.get(current)?;
+            let Some(parent) = node.parent.as_deref() else {
+                // Reached the root, whose name is not part of the path.
+                parts.reverse();
+                return Some(parts.join("/"));
+            };
+            parts.push(&node.name);
+            current = parent;
+        }
+        // A cycle, which should not happen; refusing to answer beats looping.
+        None
+    }
+
+    /// Every editable document, path and id, in a stable order.
+    fn docs(&self) -> Vec<DocEntry> {
+        let mut docs: Vec<DocEntry> = self
+            .nodes
+            .iter()
+            .filter(|(_, node)| node.kind == NodeKind::Doc)
+            .filter_map(|(id, _)| {
+                Some(DocEntry {
+                    id: id.clone(),
+                    path: self.path_of(id)?,
+                })
+            })
+            .collect();
+        docs.sort_by(|a, b| a.path.cmp(&b.path));
+        docs
+    }
+
+    fn rename(&mut self, id: &str, name: &str) -> bool {
+        match self.nodes.get_mut(id) {
+            Some(node) => {
+                node.name = name.to_string();
+                true
+            }
+            None => false,
+        }
+    }
+
+    fn move_to(&mut self, id: &str, parent: &str) -> bool {
+        if !self.nodes.contains_key(parent) {
+            return false;
+        }
+        match self.nodes.get_mut(id) {
+            Some(node) => {
+                node.parent = Some(parent.to_string());
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Remove an entity and everything under it. Overleaf sends one event for
+    /// a deleted folder, so pruning the subtree is the client's job.
+    fn remove(&mut self, id: &str) -> bool {
+        if self.nodes.remove(id).is_none() {
+            return false;
+        }
+        let mut doomed = vec![id.to_string()];
+        while let Some(parent) = doomed.pop() {
+            let children: Vec<String> = self
+                .nodes
+                .iter()
+                .filter(|(_, node)| node.parent.as_deref() == Some(parent.as_str()))
+                .map(|(id, _)| id.clone())
+                .collect();
+            for child in children {
+                self.nodes.remove(&child);
+                doomed.push(child);
+            }
+        }
+        true
     }
 }
 
@@ -1089,6 +1312,62 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
                 doc_id: doc_id_hint(&args),
                 message,
             });
+        }
+        // Every one of these is a delta against the tree we hold; none of them
+        // carries a path, and a deleted folder arrives as a single event for
+        // the folder alone. `recive` is Overleaf's own spelling.
+        "reciveNewDoc" | "reciveNewFile" | "reciveNewFolder" => {
+            let kind = match name.as_str() {
+                "reciveNewDoc" => NodeKind::Doc,
+                "reciveNewFile" => NodeKind::File,
+                _ => NodeKind::Folder,
+            };
+            if let (Some(parent), Some(entity)) = (
+                args.first().and_then(Value::as_str),
+                args.get(1).filter(|value| value.is_object()),
+            ) {
+                let mut tree = lock(&shared.tree);
+                tree.insert_entity(parent, entity, kind);
+                let docs = tree.docs();
+                drop(tree);
+                shared.emit(RealtimeEvent::TreeChanged { docs });
+            }
+        }
+        "reciveEntityRename" => {
+            if let (Some(id), Some(new_name)) = (
+                args.first().and_then(Value::as_str),
+                args.get(1).and_then(Value::as_str),
+            ) {
+                let mut tree = lock(&shared.tree);
+                if tree.rename(id, new_name) {
+                    let docs = tree.docs();
+                    drop(tree);
+                    shared.emit(RealtimeEvent::TreeChanged { docs });
+                }
+            }
+        }
+        "reciveEntityMove" => {
+            if let (Some(id), Some(folder)) = (
+                args.first().and_then(Value::as_str),
+                args.get(1).and_then(Value::as_str),
+            ) {
+                let mut tree = lock(&shared.tree);
+                if tree.move_to(id, folder) {
+                    let docs = tree.docs();
+                    drop(tree);
+                    shared.emit(RealtimeEvent::TreeChanged { docs });
+                }
+            }
+        }
+        "removeEntity" => {
+            if let Some(id) = args.first().and_then(Value::as_str) {
+                let mut tree = lock(&shared.tree);
+                if tree.remove(id) {
+                    let docs = tree.docs();
+                    drop(tree);
+                    shared.emit(RealtimeEvent::TreeChanged { docs });
+                }
+            }
         }
         // Newer Overleaf joins us from the handshake query and pushes the
         // project down unprompted, instead of waiting to be asked.
@@ -1433,6 +1712,7 @@ impl RealtimeClient {
 
         let (out_tx, out_rx) = rt::channel::<Outgoing>(OUT_QUEUE);
         let shared = Arc::new(Shared {
+            tree: Mutex::new(Tree::default()),
             out_tx,
             pending: Mutex::new(HashMap::new()),
             next_ack: AtomicU32::new(1),
@@ -1484,12 +1764,13 @@ impl RealtimeClient {
         }
         let ack = await_slot(&shared, join_slot).await?;
         let body = ack_body(&ack, "joinProject")?;
-        let (root_folder_id, docs, permission) = parse_project(body)?;
+        let (tree, permission) = parse_project(body)?;
         let project = ProjectTree {
-            root_folder_id,
-            docs,
+            root_folder_id: tree.root.clone(),
+            docs: tree.docs(),
             permission,
         };
+        *lock(&shared.tree) = tree;
         shared.emit(RealtimeEvent::ProjectJoined {
             root_folder_id: project.root_folder_id.clone(),
             docs: project.docs.clone(),
@@ -1535,11 +1816,14 @@ impl RealtimeClient {
         // The fourth slot holds the document's ranges: tracked changes, and
         // the spans that comment threads are anchored to. Only the comments
         // matter here — they are what ties a conversation to a piece of text.
-        let comments = body.get(3).map(parse_comment_ranges).unwrap_or_default();
+        let ranges = body.get(3);
+        let comments = ranges.map(parse_comment_ranges).unwrap_or_default();
+        let changes = ranges.map(parse_tracked_changes).unwrap_or_default();
         Ok(JoinedDoc {
             text,
             version,
             comments,
+            changes,
         })
     }
 
@@ -2040,25 +2324,76 @@ mod tests {
     fn parse_project_flattens_nested_folders() {
         let ack = vec![Value::Null, project_tree(), json!("owner"), json!(2)];
         let body = ack_body(&ack, "joinProject").expect("no error slot");
-        let (root_folder_id, docs, _permission) = parse_project(body).expect("parses");
-        assert_eq!(root_folder_id, "root-1");
+        let (tree, _permission) = parse_project(body).expect("parses");
+        assert_eq!(tree.root, "root-1");
+        // Path order, so the list is stable however the tree is walked.
         assert_eq!(
-            docs,
+            tree.docs(),
             vec![
                 DocEntry {
                     id: "doc-1".into(),
                     path: "main.tex".into()
                 },
                 DocEntry {
-                    id: "doc-2".into(),
-                    path: "sections/intro.tex".into()
-                },
-                DocEntry {
                     id: "doc-3".into(),
                     path: "sections/deep/nested.tex".into()
                 },
+                DocEntry {
+                    id: "doc-2".into(),
+                    path: "sections/intro.tex".into()
+                },
             ]
         );
+    }
+
+    #[test]
+    fn the_tree_follows_renames_moves_and_deletes_by_id_alone() {
+        // Overleaf's tree events carry ids and nothing else: a rename does not
+        // say where the entity is, and a deleted folder arrives as one event
+        // for the folder rather than one per file inside it. Resolving that
+        // against a tree we hold is the whole point of keeping one.
+        let ack = vec![Value::Null, project_tree(), json!("owner"), json!(2)];
+        let body = ack_body(&ack, "joinProject").expect("no error slot");
+        let (mut tree, _) = parse_project(body).expect("parses");
+
+        // A file created in the browser becomes editable here immediately.
+        tree.insert_entity(
+            "folder-1",
+            &json!({"_id": "doc-4", "name": "results.tex"}),
+            NodeKind::Doc,
+        );
+        assert!(tree
+            .docs()
+            .iter()
+            .any(|doc| doc.id == "doc-4" && doc.path == "sections/results.tex"));
+
+        // Renaming a folder reindexes everything beneath it.
+        assert!(tree.rename("folder-1", "chapters"));
+        assert_eq!(tree.path_of("doc-2").as_deref(), Some("chapters/intro.tex"));
+        assert_eq!(
+            tree.path_of("doc-3").as_deref(),
+            Some("chapters/deep/nested.tex")
+        );
+
+        // Moving one does too, and to the root means no folder in the path.
+        assert!(tree.move_to("folder-2", tree.root.clone().as_str()));
+        assert_eq!(tree.path_of("doc-3").as_deref(), Some("deep/nested.tex"));
+
+        // Moving into a folder we have never heard of is refused rather than
+        // silently orphaning the entity.
+        assert!(!tree.move_to("doc-2", "folder-unknown"));
+        assert_eq!(tree.path_of("doc-2").as_deref(), Some("chapters/intro.tex"));
+
+        // Deleting a folder takes its contents with it.
+        assert!(tree.remove("folder-1"));
+        assert_eq!(tree.path_of("doc-2"), None);
+        assert!(tree.docs().iter().all(|doc| doc.id != "doc-4"));
+        // …and the file that had been moved out of it survives.
+        assert_eq!(tree.path_of("doc-3").as_deref(), Some("deep/nested.tex"));
+
+        // Deleting something already gone is not an event worth reporting.
+        assert!(!tree.remove("folder-1"));
+        assert!(!tree.rename("doc-2", "whatever.tex"));
     }
 
     #[test]
@@ -2899,12 +3234,12 @@ mod tests {
                                 path: "main.tex".into()
                             },
                             DocEntry {
-                                id: "doc-2".into(),
-                                path: "sections/intro.tex".into()
-                            },
-                            DocEntry {
                                 id: "doc-3".into(),
                                 path: "sections/deep/nested.tex".into()
+                            },
+                            DocEntry {
+                                id: "doc-2".into(),
+                                path: "sections/intro.tex".into()
                             },
                         ]
                     );

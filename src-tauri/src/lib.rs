@@ -1115,6 +1115,40 @@ fn overleaf_set_permission(
     overleaf::set_permission(&current_root(&state)?, &permission)
 }
 
+/// Create a document on Overleaf, so a file made here exists for everyone.
+#[tauri::command]
+async fn overleaf_create_doc(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    parent_folder_id: String,
+    name: String,
+) -> Result<String, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::create_doc(&config, &root, &parent_folder_id, &name)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))?
+}
+
+/// Delete a document, file or folder on Overleaf.
+#[tauri::command]
+async fn overleaf_delete_entity(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    kind: String,
+    entity_id: String,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::delete_entity(&config, &root, &kind, &entity_id)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))?
+}
+
 #[tauri::command]
 async fn overleaf_threads(
     app: tauri::AppHandle,
@@ -1819,6 +1853,8 @@ pub fn run() {
             overleaf_chat_messages,
             overleaf_send_chat_message,
             overleaf_set_permission,
+            overleaf_create_doc,
+            overleaf_delete_entity,
             overleaf_threads,
             overleaf_reply_to_thread,
             overleaf_resolve_thread,

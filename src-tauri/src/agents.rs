@@ -751,7 +751,7 @@ pub fn list_models(runtime: &AgentRuntime, provider: &str) -> Result<Vec<AgentMo
         "claude" | "anthropic-api" => "anthropic",
         _ => return Err("Choose Codex, Claude, OpenAI API, or Anthropic API.".to_string()),
     };
-    let mut command = omp_account_command(runtime)?;
+    let mut command = omp_cli_command(runtime)?;
     command
         .arg("models")
         .arg(catalog)
@@ -766,7 +766,7 @@ pub fn list_models(runtime: &AgentRuntime, provider: &str) -> Result<Vec<AgentMo
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
-    let parsed: Value = serde_json::from_slice(&output.stdout)
+    let parsed: Value = parse_cli_json(&output.stdout)
         .map_err(|e| format!("The agent's model list could not be read: {e}"))?;
     let models = parsed
         .get("models")
@@ -1890,6 +1890,94 @@ fn omp_bundled_version(runtime: &AgentRuntime) -> Option<String> {
     value.get("version")?.as_str().map(str::to_string)
 }
 
+/// The runtime invoked as a plain command-line tool.
+///
+/// Deliberately not [`omp_account_command`], which builds the long form used
+/// to run the agent itself — `--mode rpc`, a model, no tools. Appending a
+/// subcommand to that produces a command line the runtime does not recognise,
+/// and it answers with a terminal reset instead of the JSON we asked for.
+fn omp_cli_command(runtime: &AgentRuntime) -> Result<Command, String> {
+    if !runtime.executable.is_file() {
+        return Err(format!(
+            "The bundled OMP executable is missing at {}.",
+            runtime.executable.display()
+        ));
+    }
+    ensure_omp_native(runtime);
+    fs::create_dir_all(&runtime.config).map_err(err)?;
+    let executable = runtime.active_executable();
+    let executable = executable
+        .to_str()
+        .ok_or_else(|| "The OMP executable path is not valid UTF-8.".to_string())?;
+    let mut command = commands::command(executable);
+    command
+        .current_dir(&runtime.config)
+        .env("PI_CODING_AGENT_DIR", &runtime.config);
+    Ok(command)
+}
+
+/// Read JSON out of a command's stdout, ignoring any terminal control the
+/// runtime printed around it.
+///
+/// It restores the terminal on the way out, and on some paths that lands ahead
+/// of the payload. Looking for the first brace is not enough — an escape
+/// sequence like `ESC [ ? 2 5 h` contains a bracket of its own — so the escapes
+/// are removed first and the JSON found in what is left.
+fn parse_cli_json(stdout: &[u8]) -> Result<Value, String> {
+    let text = strip_terminal_escapes(&String::from_utf8_lossy(stdout));
+    let start = text
+        .find(['{', '['])
+        .ok_or_else(|| "the runtime printed no JSON".to_string())?;
+    serde_json::from_str(&text[start..]).map_err(|e| e.to_string())
+}
+
+/// Drop ANSI escape sequences.
+///
+/// A control sequence is an escape, `[`, parameter bytes, then a final byte in
+/// `@`..`~`. The introducing `[` is itself in that range, so it has to be
+/// consumed before the search for the end begins — scanning naively ends the
+/// sequence on its own first character and leaves the parameters behind.
+fn strip_terminal_escapes(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '\u{1b}' {
+            out.push(ch);
+            continue;
+        }
+        match chars.peek() {
+            Some('[') => {
+                chars.next();
+                for escaped in chars.by_ref() {
+                    if ('@'..='~').contains(&escaped) {
+                        break;
+                    }
+                }
+            }
+            // An operating-system command runs to a bell or a string
+            // terminator rather than to a single final byte.
+            Some(']') => {
+                chars.next();
+                while let Some(escaped) = chars.next() {
+                    if escaped == '\u{7}' {
+                        break;
+                    }
+                    if escaped == '\u{1b}' && chars.peek() == Some(&'\\') {
+                        chars.next();
+                        break;
+                    }
+                }
+            }
+            // Anything else is a two-character escape.
+            Some(_) => {
+                chars.next();
+            }
+            None => {}
+        }
+    }
+    out
+}
+
 fn omp_account_command(runtime: &AgentRuntime) -> Result<Command, String> {
     if !runtime.executable.is_file() {
         return Err(format!(
@@ -2003,6 +2091,58 @@ fn sidecar_error_detail(stderr: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Asks the real bundled runtime for its models, using the app's own
+    /// config directory — which is where the signed-in accounts live, and so
+    /// the only place the answer is non-empty.
+    #[test]
+    #[ignore = "runs the bundled agent against the signed-in accounts"]
+    fn lists_models_from_the_real_runtime() {
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let runtime = AgentRuntime::new(
+            manifest
+                .join("binaries")
+                .join("lattice-agent-aarch64-apple-darwin"),
+            manifest.join("omp-assets"),
+            PathBuf::from(std::env::var("HOME").unwrap())
+                .join("Library/Application Support/app.leo1oel.researchwriter/omp"),
+        );
+        for provider in ["claude", "codex", "anthropic-api", "openai-api"] {
+            match list_models(&runtime, provider) {
+                Ok(models) => {
+                    println!("{provider}: {} models", models.len());
+                    for model in models.iter().take(6) {
+                        println!("    {} — {} {:?}", model.value, model.label, model.efforts);
+                    }
+                }
+                Err(reason) => println!("{provider}: {reason}"),
+            }
+        }
+        // Whatever else is signed in, the answer must parse.
+        assert!(list_models(&runtime, "claude").is_ok());
+    }
+
+    #[test]
+    fn cli_json_survives_a_terminal_reset_prologue() {
+        // The runtime restores the terminal on its way out; on some paths that
+        // lands ahead of the payload and would otherwise fail the parse.
+        let prologue = "\u{1b}[?25h";
+        assert_eq!(
+            parse_cli_json(format!("{prologue}{{\"models\":[]}}\n").as_bytes()).unwrap(),
+            serde_json::json!({"models": []})
+        );
+        assert_eq!(
+            parse_cli_json(br#"{"models":[]}"#).unwrap(),
+            serde_json::json!({"models": []})
+        );
+        assert!(parse_cli_json(prologue.as_bytes()).is_err());
+        // The bracket inside the escape sequence is not the start of an array.
+        assert_eq!(strip_terminal_escapes("\u{1b}[?25h{}"), "{}");
+        assert_eq!(
+            parse_cli_json(format!("{prologue}[1,2]").as_bytes()).unwrap(),
+            serde_json::json!([1, 2])
+        );
+    }
 
     #[test]
     fn model_entries_drop_dated_aliases_and_map_thinking_levels() {
