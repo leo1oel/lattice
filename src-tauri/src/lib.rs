@@ -1117,6 +1117,132 @@ fn overleaf_set_permission(
     overleaf::set_permission(&current_root(&state)?, &permission)
 }
 
+// ---- Overleaf's own history ----------------------------------------------
+
+#[tauri::command]
+async fn overleaf_history_updates(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    before: Option<i64>,
+    count: Option<u32>,
+) -> Result<serde_json::Value, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    let (updates, next) = tauri::async_runtime::spawn_blocking(move || {
+        overleaf::history_updates(&config, &root, before, count.unwrap_or(20))
+    })
+    .await
+    .map_err(|error| format!("The Overleaf history stopped unexpectedly: {error}"))??;
+    Ok(serde_json::json!({ "updates": updates, "nextBefore": next }))
+}
+
+#[tauri::command]
+async fn overleaf_history_diff(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    path: String,
+    from: i64,
+    to: i64,
+) -> Result<serde_json::Value, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::history_diff(&config, &root, &path, from, to)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf history stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_history_files(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    from: i64,
+    to: i64,
+) -> Result<serde_json::Value, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || overleaf::history_files(&config, &root, from, to))
+        .await
+        .map_err(|error| format!("The Overleaf history stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_history_labels(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<overleaf::OverleafLabel>, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || overleaf::history_labels(&config, &root))
+        .await
+        .map_err(|error| format!("The Overleaf history stopped unexpectedly: {error}"))?
+}
+
+/// Roll one file back, or the whole project when `path` is absent.
+#[tauri::command]
+async fn overleaf_history_revert(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    version: i64,
+    path: Option<String>,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::history_revert(&config, &root, version, path.as_deref())
+    })
+    .await
+    .map_err(|error| format!("The Overleaf history stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_history_restore_file(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    version: i64,
+    path: String,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::history_restore_file(&config, &root, version, &path)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf history stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_history_add_label(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    version: i64,
+    comment: String,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::history_add_label(&config, &root, version, &comment)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf history stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_history_delete_label(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    label_id: String,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::history_delete_label(&config, &root, &label_id)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf history stopped unexpectedly: {error}"))?
+}
+
 /// Accept tracked changes, turning the suggested text into ordinary text.
 #[tauri::command]
 async fn overleaf_accept_changes(
@@ -1927,6 +2053,14 @@ pub fn run() {
             overleaf_chat_messages,
             overleaf_send_chat_message,
             overleaf_set_permission,
+            overleaf_history_updates,
+            overleaf_history_diff,
+            overleaf_history_files,
+            overleaf_history_labels,
+            overleaf_history_revert,
+            overleaf_history_restore_file,
+            overleaf_history_add_label,
+            overleaf_history_delete_label,
             overleaf_accept_changes,
             overleaf_reject_changes,
             overleaf_rt_send_tracked_ops,

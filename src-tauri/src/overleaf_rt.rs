@@ -405,8 +405,8 @@ fn ws_origin(origin: &str) -> String {
 }
 
 /// Percent-encodes anything that is not an unreserved URL character. Project
-/// ids and session ids are opaque strings we splice into a URL.
-fn url_encode(value: &str) -> String {
+/// ids, session ids and file paths are opaque strings we splice into a URL.
+pub fn url_encode(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for byte in value.bytes() {
         match byte {

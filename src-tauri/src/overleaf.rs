@@ -1383,6 +1383,258 @@ pub fn delete_thread(
     )
 }
 
+// ---- Overleaf's own history ----------------------------------------------
+//
+// Separate from Lattice's version timeline, which records what happened on
+// this machine. This is the project's history as Overleaf kept it, including
+// everything done in the browser while this app was closed — so it is the only
+// thing that can answer "put it back the way it was on Tuesday" for work that
+// never passed through here.
+
+/// One entry in the project's history.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafUpdate {
+    /// The version range this entry covers.
+    pub from_version: i64,
+    pub to_version: i64,
+    /// Milliseconds since the epoch.
+    pub start_ts: i64,
+    pub end_ts: i64,
+    /// Who was involved. Overleaf reports nulls for accounts it can no longer
+    /// resolve, and those are dropped rather than shown as blanks.
+    pub authors: Vec<String>,
+    /// The files this entry touched.
+    pub paths: Vec<String>,
+    /// Named versions attached to this entry.
+    pub labels: Vec<OverleafLabel>,
+    /// "dropbox", "git-bridge", "file-restore" … when the work came from
+    /// somewhere other than the editor.
+    pub origin: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafLabel {
+    pub id: String,
+    pub comment: String,
+    pub version: i64,
+    pub created_at: Option<String>,
+    pub author: Option<String>,
+}
+
+fn history_get(
+    config_dir: &Path,
+    root: &Path,
+    path: &str,
+) -> Result<serde_json::Value, String> {
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = sync_host(&state, &session);
+    let client = http_client(30)?;
+    let response = client
+        .get(format!("{host}/project/{}{path}", state.project_id))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    check_authenticated(&response)?;
+    if response.status().as_u16() == 402 {
+        return Err("Overleaf's full history needs a paid plan on this project.".to_string());
+    }
+    if !response.status().is_success() {
+        return Err(format!(
+            "Overleaf returned {} for the project history.",
+            response.status()
+        ));
+    }
+    response.json().map_err(err)
+}
+
+/// A page of history, newest first. `before` continues from a previous page's
+/// `nextBefore` — which is a version number despite Overleaf calling it a
+/// timestamp.
+pub fn history_updates(
+    config_dir: &Path,
+    root: &Path,
+    before: Option<i64>,
+    count: u32,
+) -> Result<(Vec<OverleafUpdate>, Option<i64>), String> {
+    let query = match before {
+        Some(before) => format!("/updates?min_count={count}&before={before}"),
+        None => format!("/updates?min_count={count}"),
+    };
+    let body = history_get(config_dir, root, &query)?;
+    let updates = body
+        .get("updates")
+        .and_then(serde_json::Value::as_array)
+        .map(|items| items.iter().map(parse_history_update).collect())
+        .unwrap_or_default();
+    let next = body
+        .get("nextBeforeTimestamp")
+        .and_then(serde_json::Value::as_i64);
+    Ok((updates, next))
+}
+
+fn parse_history_update(item: &serde_json::Value) -> OverleafUpdate {
+    let meta = item.get("meta");
+    OverleafUpdate {
+        from_version: item.get("fromV").and_then(serde_json::Value::as_i64).unwrap_or(0),
+        to_version: item.get("toV").and_then(serde_json::Value::as_i64).unwrap_or(0),
+        start_ts: meta
+            .and_then(|m| m.get("start_ts"))
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(0),
+        end_ts: meta
+            .and_then(|m| m.get("end_ts"))
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(0),
+        authors: meta
+            .and_then(|m| m.get("users"))
+            .and_then(serde_json::Value::as_array)
+            .map(|users| users.iter().filter_map(person_name).collect())
+            .unwrap_or_default(),
+        paths: item
+            .get("pathnames")
+            .and_then(serde_json::Value::as_array)
+            .map(|paths| {
+                paths
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        labels: item
+            .get("labels")
+            .and_then(serde_json::Value::as_array)
+            .map(|labels| labels.iter().filter_map(parse_label).collect())
+            .unwrap_or_default(),
+        origin: meta
+            .and_then(|m| m.get("origin"))
+            .and_then(|origin| json_str(origin, &["kind"])),
+    }
+}
+
+fn parse_label(item: &serde_json::Value) -> Option<OverleafLabel> {
+    Some(OverleafLabel {
+        id: json_str(item, &["id", "_id"])?,
+        comment: json_str(item, &["comment"]).unwrap_or_default(),
+        version: item.get("version").and_then(serde_json::Value::as_i64)?,
+        created_at: json_str(item, &["created_at", "createdAt"]),
+        author: json_str(item, &["user_display_name", "userDisplayName"]),
+    })
+}
+
+/// How one file read at two versions, as insert/delete/unchanged runs.
+pub fn history_diff(
+    config_dir: &Path,
+    root: &Path,
+    path: &str,
+    from: i64,
+    to: i64,
+) -> Result<serde_json::Value, String> {
+    let query = format!(
+        "/diff?from={from}&to={to}&pathname={}",
+        crate::overleaf_rt::url_encode(path)
+    );
+    history_get(config_dir, root, &query)
+}
+
+/// Every file as it stood across a version range. `from == to` lists the tree
+/// at one version; entries with no operation existed unchanged at both.
+pub fn history_files(
+    config_dir: &Path,
+    root: &Path,
+    from: i64,
+    to: i64,
+) -> Result<serde_json::Value, String> {
+    history_get(config_dir, root, &format!("/filetree/diff?from={from}&to={to}"))
+}
+
+pub fn history_labels(config_dir: &Path, root: &Path) -> Result<Vec<OverleafLabel>, String> {
+    let body = history_get(config_dir, root, "/labels")?;
+    Ok(body
+        .as_array()
+        .map(|labels| labels.iter().filter_map(parse_label).collect())
+        .unwrap_or_default())
+}
+
+/// Roll one file, or the whole project, back to a version.
+///
+/// Reverting is delete-then-add on Overleaf's side, so the entity's id changes
+/// and the file tree events report a removal followed by a creation. That is
+/// expected, not a sign something went wrong.
+pub fn history_revert(
+    config_dir: &Path,
+    root: &Path,
+    version: i64,
+    path: Option<&str>,
+) -> Result<(), String> {
+    let (endpoint, body) = match path {
+        Some(path) => (
+            "/revert_file".to_string(),
+            serde_json::json!({ "version": version, "pathname": path }),
+        ),
+        None => (
+            "/revert-project".to_string(),
+            serde_json::json!({ "version": version }),
+        ),
+    };
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::POST,
+        &endpoint,
+        Some(body),
+        "restoring from history",
+    )
+}
+
+/// Bring back a file that was deleted, using the version it vanished at.
+pub fn history_restore_file(
+    config_dir: &Path,
+    root: &Path,
+    version: i64,
+    path: &str,
+) -> Result<(), String> {
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::POST,
+        "/restore_file",
+        Some(serde_json::json!({ "version": version, "pathname": path })),
+        "restoring the file",
+    )
+}
+
+pub fn history_add_label(
+    config_dir: &Path,
+    root: &Path,
+    version: i64,
+    comment: &str,
+) -> Result<(), String> {
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::POST,
+        "/labels",
+        Some(serde_json::json!({ "version": version, "comment": comment })),
+        "naming this version",
+    )
+}
+
+pub fn history_delete_label(config_dir: &Path, root: &Path, label_id: &str) -> Result<(), String> {
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::DELETE,
+        &format!("/labels/{label_id}"),
+        None,
+        "removing the name",
+    )
+}
+
 /// Accept tracked changes: the suggested text becomes ordinary text.
 ///
 /// Accepting is the one half of reviewing that does not change the document,
@@ -3295,6 +3547,64 @@ mod tests {
         // An account that can write is unaffected.
         set_permission(&root, "readAndWrite").unwrap();
         assert!(!sync(&config, &root, &BTreeSet::new()).unwrap().read_only);
+    }
+
+    /// Reads the real project's Overleaf history. This is the surface that is
+    /// least visible in the open source — several endpoints only exist as
+    /// calls the browser makes — so its shapes are worth confirming.
+    #[test]
+    #[ignore = "reads overleaf.com with the signed-in session"]
+    fn reads_the_real_project_history() {
+        let root = std::path::PathBuf::from(std::env::var("OVERLEAF_E2E_PROJECT").unwrap());
+        let config = std::path::PathBuf::from(std::env::var("HOME").unwrap())
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+
+        let (updates, next) = history_updates(&config, &root, None, 10).expect("updates");
+        println!("{} updates, next page before {next:?}", updates.len());
+        for update in updates.iter().take(5) {
+            println!(
+                "  v{}..{} by {:?} touching {:?}{}",
+                update.from_version,
+                update.to_version,
+                update.authors,
+                update.paths,
+                update
+                    .origin
+                    .as_deref()
+                    .map(|kind| format!(" via {kind}"))
+                    .unwrap_or_default()
+            );
+        }
+        assert!(!updates.is_empty(), "a synced project has history");
+        let newest = &updates[0];
+        assert!(newest.to_version >= newest.from_version);
+        assert!(newest.end_ts > 0, "timestamps should be milliseconds");
+
+        let labels = history_labels(&config, &root).expect("labels");
+        println!("{} labels", labels.len());
+
+        // The file tree as it stood at one version.
+        let files = history_files(&config, &root, newest.from_version, newest.to_version)
+            .expect("filetree diff");
+        let listed = files
+            .get("diff")
+            .and_then(serde_json::Value::as_array)
+            .map(|entries| entries.len())
+            .unwrap_or(0);
+        println!("{listed} entries in the tree across that range");
+        assert!(listed > 0);
+
+        // And the text diff for one file it touched.
+        if let Some(path) = newest.paths.first() {
+            let diff = history_diff(&config, &root, path, newest.from_version, newest.to_version)
+                .expect("diff");
+            let chunks = diff.get("diff").map(|value| match value {
+                serde_json::Value::Array(items) => format!("{} chunks", items.len()),
+                other => format!("{other}"),
+            });
+            println!("diff of {path}: {chunks:?}");
+            assert!(diff.get("diff").is_some());
+        }
     }
 
     #[test]

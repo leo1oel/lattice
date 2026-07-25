@@ -25,10 +25,28 @@ type JoinedProject = {
   rootFolderId: string;
   docs: DocEntry[];
   permission: OverleafPermission;
+  trackChanges: boolean;
 };
 /** Where a comment thread is anchored in the open document. */
 export type CommentRange = { threadId: string; position: number; quote: string };
-type JoinedDoc = { text: string; version: number; comments: CommentRange[] };
+/** A suggestion in the open document: text somebody proposed adding or removing. */
+export type TrackedChange = {
+  id: string;
+  position: number;
+  text: string;
+  /** True when the suggestion is to remove `text`, which is still in the document. */
+  deletion: boolean;
+  userId: string | null;
+  timestamp: string | null;
+  /** The author's colour in Overleaf's own palette. */
+  hue: number;
+};
+type JoinedDoc = {
+  text: string;
+  version: number;
+  comments: CommentRange[];
+  changes: TrackedChange[];
+};
 
 type RealtimeEvent =
   | { type: "connected"; publicId: string }
@@ -36,6 +54,8 @@ type RealtimeEvent =
   | { type: "docUpdate"; docId: string; version: number; ops: OtOp[]; source: string | null }
   | { type: "docAck"; docId: string; version: number }
   | { type: "commentAnchored"; docId: string; range: CommentRange }
+  | { type: "changesAccepted"; docId: string; changeIds: string[] }
+  | { type: "trackChangesToggled"; on: boolean }
   | { type: "otError"; docId: string; message: string }
   | { type: "disconnected"; reason: string };
 
@@ -43,6 +63,7 @@ export type RealtimeStatus = "off" | "connecting" | "live" | "error";
 
 /** Shared empty array, so "no comments" is a stable reference across renders. */
 const EMPTY_COMMENTS: CommentRange[] = [];
+const EMPTY_CHANGES: TrackedChange[] = [];
 
 export type OverleafRealtime = {
   status: RealtimeStatus;
@@ -57,6 +78,14 @@ export type OverleafRealtime = {
   canWrite: boolean;
   /** Comment anchors in the open document, as Overleaf holds them. */
   comments: CommentRange[];
+  /** Suggestions in the open document, oldest position first. */
+  changes: TrackedChange[];
+  /** The document's version, which accepting and rejecting are built on. */
+  version: number | null;
+  /** True when this account's edits are recorded as suggestions. */
+  trackChanges: boolean;
+  /** Re-read the open document, after accepting or rejecting a suggestion. */
+  reload: () => void;
   /** Feed the editor's current text in; ops go out when it differs. */
   pushLocal: (text: string) => void;
   /**
@@ -88,7 +117,17 @@ export function useOverleafRealtime(options: {
   const [status, setStatus] = useState<RealtimeStatus>("off");
   const [detail, setDetail] = useState<string | null>(null);
   const [liveFile, setLiveFile] = useState(false);
-  const [openDoc, setOpenDoc] = useState<{ id: string; comments: CommentRange[] } | null>(null);
+  const [openDoc, setOpenDoc] = useState<{
+    id: string;
+    comments: CommentRange[];
+    changes: TrackedChange[];
+    version: number;
+  } | null>(null);
+  const [trackChanges, setTrackChanges] = useState(false);
+  // Bumped to re-join the open document, which is how the suggestion list is
+  // re-read: accepting one is an endpoint, not an operation, so nothing on the
+  // channel would otherwise tell us the ranges moved.
+  const [reloadNonce, setReloadNonce] = useState(0);
   // State, not a ref: the tree can arrive from the connect call or from an
   // event, and either way the effect that joins the open document has to run
   // again once it does.
@@ -189,6 +228,25 @@ export function useOverleafRealtime(options: {
         }
         return;
       }
+      if (payload.type === "trackChangesToggled") {
+        setTrackChanges(payload.on);
+        return;
+      }
+      if (payload.type === "changesAccepted") {
+        // Accepted suggestions become ordinary text without an operation, so
+        // the only way to learn the new ranges is to ask again.
+        setOpenDoc((current) => (
+          current && current.id === payload.docId
+            ? {
+              ...current,
+              changes: current.changes.filter(
+                (change) => !payload.changeIds.includes(change.id),
+              ),
+            }
+            : current
+        ));
+        return;
+      }
       if (payload.type === "commentAnchored") {
         // Someone commented on the file we have open; show the marker without
         // making them re-open it.
@@ -258,6 +316,7 @@ export function useOverleafRealtime(options: {
         if (joined.publicId) publicId.current = joined.publicId;
         setDocs(new Map(joined.docs.map((doc) => [doc.path, doc.id])));
         setPermission(joined.permission);
+        setTrackChanges(joined.trackChanges);
         setStatus("live");
         setDetail(null);
       })
@@ -293,7 +352,12 @@ export function useOverleafRealtime(options: {
         docId.current = id;
         document.current = new OtDocument(joined.text, joined.version);
         setLiveFile(true);
-        setOpenDoc({ id, comments: joined.comments ?? [] });
+        setOpenDoc({
+          id,
+          comments: joined.comments ?? [],
+          changes: joined.changes ?? [],
+          version: joined.version,
+        });
         setDetail(null);
         // The server's copy is the truth on arrival; show it.
         callbacks.current.onRemoteText(joined.text, callbacks.current.readCaret());
@@ -304,7 +368,7 @@ export function useOverleafRealtime(options: {
     return () => {
       cancelled = true;
     };
-  }, [options.activeFile, options.documents, docs, status, stopDocument]);
+  }, [options.activeFile, options.documents, docs, status, reloadNonce, stopDocument]);
 
   // ---- local edits --------------------------------------------------------
 
@@ -365,6 +429,10 @@ export function useOverleafRealtime(options: {
     // push is the worse mistake, and Overleaf enforces this server-side too.
     canWrite: permission !== "readOnly" && permission !== "review",
     comments: openDoc?.comments ?? EMPTY_COMMENTS,
+    changes: openDoc?.changes ?? EMPTY_CHANGES,
+    version: openDoc?.version ?? null,
+    trackChanges,
+    reload: () => setReloadNonce((nonce) => nonce + 1),
     pushLocal,
     anchorComment,
   };
