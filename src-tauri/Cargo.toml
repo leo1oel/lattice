@@ -1,6 +1,6 @@
 [package]
 name = "research-writer"
-version = "0.1.123"
+version = "0.1.124"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
