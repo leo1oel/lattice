@@ -119,8 +119,11 @@ describe("OverleafHistoryPanel", () => {
     const filesContainer = await filesContainerOf(body);
     fireEvent.click(within(filesContainer).getByRole("button", { name: /main\.tex/ }));
 
-    const diff = await screen.findByLabelText("Diff for main.tex");
-    const rows = [...diff.querySelectorAll(".history-diff-line")];
+    await screen.findByLabelText("Diff for main.tex");
+    // The view is remembered for the session, so every test names the one it
+    // means. Switching remounts the body, so re-read it after the click.
+    fireEvent.click(screen.getByRole("tab", { name: "Only changes" }));
+    const rows = [...screen.getByLabelText("Diff for main.tex").querySelectorAll(".history-diff-line")];
     const removed = rows.find((row) => row.className.includes("removed"));
     const added = rows.find((row) => row.className.includes("added"));
     expect(removed).toHaveTextContent("old claim");

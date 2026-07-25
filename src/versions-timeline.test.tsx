@@ -175,8 +175,11 @@ describe("VersionsTimeline", () => {
     fireEvent.click(within(body).getByRole("button", { name: /main\.tex/ }));
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_show_diff", { rev: "aaa111", path: "main.tex" }));
-    const diff = await screen.findByLabelText("Diff for main.tex");
-    const rows = diff.querySelectorAll(".history-diff-line");
+    await screen.findByLabelText("Diff for main.tex");
+    // The view is remembered for the session, so every test names the one it
+    // means. Switching remounts the body, so re-read it after the click.
+    fireEvent.click(screen.getByRole("tab", { name: "Only changes" }));
+    const rows = screen.getByLabelText("Diff for main.tex").querySelectorAll(".history-diff-line");
     expect(rows).toHaveLength(2);
     const [removed, added] = [rows[0]!, rows[1]!];
     expect(removed.className).toContain("removed");
@@ -190,6 +193,39 @@ describe("VersionsTimeline", () => {
     // One word changed, so only that word is marked rather than the sentence.
     expect(removed.querySelector(".history-diff-word")).toHaveTextContent("old");
     expect(added.querySelector(".history-diff-word")).toHaveTextContent("new");
+  });
+
+  it("shows the whole file with the changes marked in place", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "git_status") return repoStatus;
+      if (command === "git_log") return logEntries;
+      if (command === "git_show_diff") {
+        return {
+          before: "intro stays\nthe old claim holds\nend stays\n",
+          after: "intro stays\nthe new claim holds\nend stays\n",
+          binary: false,
+        };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<VersionsTimeline />);
+
+    const body = await expandFirstEntry();
+    fireEvent.click(within(body).getByRole("button", { name: /main\.tex/ }));
+
+    await screen.findByLabelText("Diff for main.tex");
+    fireEvent.click(screen.getByRole("tab", { name: "In context" }));
+    const rows = [...screen.getByLabelText("Diff for main.tex").querySelectorAll(".history-diff-line")];
+    // The document reads end to end: unchanged lines are there, not elided.
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent("intro stays");
+    expect(rows[2]).toHaveTextContent("end stays");
+    // The rewritten line carries both wordings, marked, on one line.
+    const changed = rows.filter((row) => row.className.includes("changed"));
+    expect(changed).toHaveLength(1);
+    expect(changed[0]!.querySelector(".history-diff-seg.removed")).toHaveTextContent("old");
+    expect(changed[0]!.querySelector(".history-diff-seg.added")).toHaveTextContent("new");
+    expect(screen.getByText("1 changed")).toBeInTheDocument();
   });
 
   it("notes binary files instead of rendering a diff", async () => {

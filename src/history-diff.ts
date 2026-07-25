@@ -185,3 +185,97 @@ export function pairedRewrites(lines: DiffLine[]): Map<number, DiffSegment[]> {
   }
   return marks;
 }
+
+/** One run of text in an in-context view, and what happened to it. */
+export type InlineSegment = { text: string; kind: "same" | "added" | "removed" };
+
+/** One line of the document, with the change marked where it happened. */
+export type InlineDiffLine = {
+  /**
+   * The line's number in the document as it now reads. Null for a line that
+   * was removed outright: it is shown so the removal is visible, but it is no
+   * longer part of the file and numbering it would be a lie.
+   */
+  line: number | null;
+  segments: InlineSegment[];
+  changed: boolean;
+};
+
+/**
+ * The document as it now reads, with what changed marked in place.
+ *
+ * A hunked diff answers "what are the edits" and is the wrong question for
+ * prose: it shows a handful of lines torn out of the paragraph they belong
+ * to, so the reader cannot tell where the change is or what it means. This
+ * answers "what does the document say now, and what moved" — the text is
+ * continuous, insertions are marked where they landed, and deletions stay
+ * visible in the sentence they were cut from rather than silently vanishing.
+ */
+export function inlineDiffLines(
+  before: string | null | undefined,
+  after: string | null | undefined,
+): InlineDiffLine[] {
+  const lines = annotatedDiffLines(before, after);
+  if (lines.length === 1 && lines[0]?.text.startsWith("Diff truncated")) {
+    return [{ line: null, segments: [{ text: lines[0].text, kind: "same" }], changed: false }];
+  }
+  const out: InlineDiffLine[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index]!;
+    if (line.type === "context") {
+      out.push({
+        line: line.afterLine ?? null,
+        segments: [{ text: line.text, kind: "same" }],
+        changed: false,
+      });
+      index += 1;
+      continue;
+    }
+    // A run of removals, then any additions that follow it. Together these are
+    // one edit, whether that is a rewrite, a cut, or an insertion.
+    let removedEnd = index;
+    while (lines[removedEnd]?.type === "removed") removedEnd += 1;
+    let addedEnd = removedEnd;
+    while (lines[addedEnd]?.type === "added") addedEnd += 1;
+    const removed = lines.slice(index, removedEnd);
+    const added = lines.slice(removedEnd, addedEnd);
+
+    if (removed.length === added.length && removed.length > 0) {
+      // Rewritten line for line: merge each pair so the sentence reads
+      // through, with only the words that moved marked.
+      for (let offset = 0; offset < removed.length; offset += 1) {
+        out.push({
+          line: added[offset]!.afterLine ?? null,
+          segments: mergedSegments(removed[offset]!.text, added[offset]!.text),
+          changed: true,
+        });
+      }
+    } else {
+      for (const item of removed) {
+        out.push({
+          line: null,
+          segments: [{ text: item.text, kind: "removed" }],
+          changed: true,
+        });
+      }
+      for (const item of added) {
+        out.push({
+          line: item.afterLine ?? null,
+          segments: [{ text: item.text, kind: "added" }],
+          changed: true,
+        });
+      }
+    }
+    index = addedEnd > index ? addedEnd : index + 1;
+  }
+  return out;
+}
+
+/** One line's worth of before-and-after, in reading order. */
+function mergedSegments(before: string, after: string): InlineSegment[] {
+  return diffWordsWithSpace(before, after).map((part) => ({
+    text: part.value,
+    kind: part.added ? "added" : part.removed ? "removed" : "same",
+  }));
+}

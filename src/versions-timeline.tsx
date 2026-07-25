@@ -33,6 +33,7 @@ import {
   annotatedDiffLines,
   changeKind,
   hunkedDiffLines,
+  inlineDiffLines,
   jumpLineForDiff,
   pairedRewrites,
   type DiffLine,
@@ -72,13 +73,45 @@ function visibleDiffLines(
   return lines;
 }
 
+/**
+ * How a change is shown.
+ *
+ * "context" is the document as it now reads with the change marked where it
+ * happened — what someone asking "what did they change in my paper" wants.
+ * "changes" is the compact hunked form, which answers "what were the edits"
+ * and is the better view once you already know where you are.
+ */
+export type DiffView = "context" | "changes";
+
+/** Remembered for the session, so the choice is not re-made on every file. */
+let lastDiffView: DiffView = "context";
+
 export function HistoryDiff(props: {
   change: DiffFileChange;
   onOpenLine?: (path: string, line: number) => void;
   headerAction?: ReactNode;
 }) {
   const kind = changeKind(props.change.before, props.change.after);
+  const [view, setView] = useState<DiffView>(lastDiffView);
   const [expandedSkips, setExpandedSkips] = useState<Set<number>>(() => new Set());
+  const inline = useMemo(
+    () => inlineDiffLines(props.change.before, props.change.after),
+    [props.change.after, props.change.before],
+  );
+  const changedCount = useMemo(
+    () => inline.filter((line) => line.changed).length,
+    [inline],
+  );
+  const bodyRef = useRef<HTMLPreElement | null>(null);
+  const cursor = useRef(-1);
+  // The whole document is on show, so a change can be anywhere in it. This
+  // walks between them rather than leaving someone to scroll and hunt.
+  const jumpToChange = (direction: 1 | -1) => {
+    const marks = bodyRef.current?.querySelectorAll(".history-diff-line.changed");
+    if (!marks || !marks.length) return;
+    cursor.current = (cursor.current + direction + marks.length) % marks.length;
+    marks[cursor.current]?.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
   const hunks = useMemo(
     () => hunkedDiffLines(props.change.before, props.change.after, 3),
     [props.change.after, props.change.before],
@@ -95,13 +128,72 @@ export function HistoryDiff(props: {
   // removed outright. Computed over what is on screen, so it lines up with it.
   const rewrites = useMemo(() => pairedRewrites(visibleLines), [visibleLines]);
 
+  const selectView = (next: DiffView) => {
+    lastDiffView = next;
+    setView(next);
+  };
+
   return (
     <div className="history-diff">
       <div className="history-diff-meta">
         <strong>{props.change.path}</strong>
         <span>{kind}</span>
+        <div className="history-diff-views" role="tablist" aria-label="Diff view">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "context"}
+            className={view === "context" ? "active" : ""}
+            onClick={() => selectView("context")}
+          >
+            In context
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "changes"}
+            className={view === "changes" ? "active" : ""}
+            onClick={() => selectView("changes")}
+          >
+            Only changes
+          </button>
+        </div>
+        {view === "context" && changedCount > 0 && (
+          <div className="history-diff-steps">
+            <span>{changedCount} changed</span>
+            <button type="button" title="Previous change" onClick={() => jumpToChange(-1)}>↑</button>
+            <button type="button" title="Next change" onClick={() => jumpToChange(1)}>↓</button>
+          </div>
+        )}
         {props.headerAction}
       </div>
+      {view === "context" && (
+        <pre
+          ref={bodyRef}
+          className="history-diff-body in-context"
+          aria-label={`Diff for ${props.change.path}`}
+        >
+          {inline.map((line, index) => {
+            const clickable = Boolean(props.onOpenLine && line.line != null);
+            return (
+              <code
+                key={`${line.line ?? "x"}-${index}`}
+                className={`history-diff-line${line.changed ? " changed" : ""}${clickable ? " clickable" : ""}`}
+                title={clickable ? `Open ${props.change.path}:${line.line}` : undefined}
+                onClick={() => {
+                  if (clickable && line.line != null) props.onOpenLine?.(props.change.path, line.line);
+                }}
+              >
+                <span className="history-diff-lineno" aria-hidden>{line.line ?? ""}</span>
+                {line.segments.map((segment, part) => (
+                  <span key={part} className={`history-diff-seg ${segment.kind}`}>{segment.text}</span>
+                ))}
+              </code>
+            );
+          })}
+        </pre>
+      )}
+      {view === "changes" && (
       <pre className="history-diff-body" aria-label={`Diff for ${props.change.path}`}>
         {visibleLines.map((line, index) => {
           if (line.type === "skip") {
@@ -159,6 +251,7 @@ export function HistoryDiff(props: {
           );
         })}
       </pre>
+      )}
     </div>
   );
 }

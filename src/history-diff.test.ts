@@ -3,6 +3,7 @@ import {
   annotatedDiffLines,
   changeKind,
   hunkedDiffLines,
+  inlineDiffLines,
   jumpLineForDiff,
   pairedRewrites,
   unifiedDiffLines,
@@ -92,5 +93,65 @@ describe("word-level marks inside a rewritten line", () => {
       (segments) => segments.filter((part) => part.changed).map((part) => part.text).join(""),
     );
     expect(changed.sort()).toEqual(["green", "red"]);
+  });
+});
+
+describe("the document with changes marked in place", () => {
+  const kinds = (line: { segments: { text: string; kind: string }[] }) =>
+    line.segments.map((part) => `${part.kind}:${part.text}`);
+
+  it("reads as the document, with only the moved words marked", () => {
+    const lines = inlineDiffLines(
+      "intro\nthe quick brown fox\noutro\n",
+      "intro\nthe slow brown fox\noutro\n",
+    );
+    expect(lines).toHaveLength(3);
+    // Unchanged prose is present and unmarked, so the change has context.
+    expect(lines[0]).toMatchObject({ line: 1, changed: false });
+    expect(kinds(lines[0]!)).toEqual(["same:intro"]);
+    expect(lines[2]).toMatchObject({ line: 3, changed: false });
+
+    // The rewritten line reads through, with both versions of the word in
+    // place: what was cut, then what replaced it.
+    expect(lines[1]!.changed).toBe(true);
+    expect(kinds(lines[1]!)).toEqual([
+      "same:the ",
+      "removed:quick",
+      "added:slow",
+      "same: brown fox",
+    ]);
+    expect(lines[1]!.line).toBe(2);
+  });
+
+  it("keeps a deleted line visible where it was cut from", () => {
+    const lines = inlineDiffLines("one\ntwo\nthree\n", "one\nthree\n");
+    const removed = lines.find((line) => line.segments.some((part) => part.kind === "removed"));
+    expect(removed?.segments).toEqual([{ text: "two", kind: "removed" }]);
+    // It is no longer part of the file, so it carries no line number.
+    expect(removed?.line).toBeNull();
+    // And the lines that remain are numbered as the document now reads.
+    expect(lines.filter((line) => line.line !== null).map((line) => line.line)).toEqual([1, 2]);
+  });
+
+  it("numbers an inserted line as it now reads", () => {
+    const lines = inlineDiffLines("one\ntwo\n", "one\nmiddle\ntwo\n");
+    const added = lines.find((line) => line.segments.some((part) => part.kind === "added"));
+    expect(added).toMatchObject({ line: 2, changed: true });
+    expect(kinds(added!)).toEqual(["added:middle"]);
+  });
+
+  it("marks nothing when nothing changed", () => {
+    const lines = inlineDiffLines("alpha\nbeta\n", "alpha\nbeta\n");
+    expect(lines.every((line) => !line.changed)).toBe(true);
+    expect(lines.map((line) => line.line)).toEqual([1, 2]);
+  });
+
+  it("does not merge lines when a run was replaced by a different number", () => {
+    // One line becoming three is a rewrite of the passage, not of a line;
+    // merging them word by word would pair sentences that have nothing to do
+    // with each other.
+    const lines = inlineDiffLines("one\n", "alpha\nbeta\ngamma\n");
+    expect(lines.filter((line) => line.segments[0]?.kind === "removed")).toHaveLength(1);
+    expect(lines.filter((line) => line.segments[0]?.kind === "added")).toHaveLength(3);
   });
 });

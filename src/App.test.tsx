@@ -1337,8 +1337,10 @@ describe("project workspace", () => {
     // HistoryDrawer is lazy-loaded, so wait for its chunk to resolve.
     fireEvent.click(await screen.findByRole("button", { name: /Edit main\.tex/i }));
     const diff = await screen.findByLabelText("Diff for main.tex");
-    expect(diff).toHaveTextContent("old line");
-    expect(diff).toHaveTextContent("new line");
+    // The default view marks the change in place, so both wordings sit on the
+    // one line rather than on a removed row and an added row.
+    expect(diff.querySelector(".history-diff-seg.removed")).toHaveTextContent("old");
+    expect(diff.querySelector(".history-diff-seg.added")).toHaveTextContent("new");
     fireEvent.click(await screen.findByTitle("Delete this history entry"));
 
     await waitFor(() => expect(screen.queryByText("Edit main.tex")).not.toBeInTheDocument());

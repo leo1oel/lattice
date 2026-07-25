@@ -1285,6 +1285,59 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   user-select: none;
 }
 .history-diff-sign { display: inline-block; width: 1em; user-select: none; }
+/* Reading the document rather than a list of edits: proportional type, more
+   line height, and no +/- column, because the marks themselves say what
+   happened and the prose should read like prose. */
+.history-diff-body.in-context {
+  font-family: var(--ui-font);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+.history-diff-body.in-context .history-diff-line { padding: 0 10px; color: var(--text); }
+.history-diff-body.in-context .history-diff-line.changed {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.history-diff-seg.added {
+  background: color-mix(in srgb, var(--success) 26%, transparent);
+  border-radius: 2px;
+}
+.history-diff-seg.removed {
+  background: color-mix(in srgb, var(--danger) 20%, transparent);
+  border-radius: 2px;
+  text-decoration: line-through;
+  opacity: .75;
+}
+/* Switching between reading the document and reading the edits. */
+.history-diff-views { display: flex; gap: 2px; margin-left: auto; }
+.history-diff-views button {
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.history-diff-views button.active {
+  background: var(--panel-strong);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.history-diff-steps { display: flex; align-items: center; gap: 4px; color: var(--faint); font-size: 10px; }
+.history-diff-steps button {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.history-diff-steps button:hover { color: var(--text); background: var(--line); }
 /* The words that actually moved, inside a line that was rewritten. The line
    tint alone says "this whole sentence changed", which is nearly useless for
    prose when one word did. */
