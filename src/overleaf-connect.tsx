@@ -152,6 +152,12 @@ export function OverleafSettingsSection(props: {
   /** State of the live editing channel, so a failed start is visible here. */
   channel: "off" | "connecting" | "live" | "error";
   channelDetail: string | null;
+  /**
+   * Unlinking here has to reach the rest of the app: the toolbar, the live
+   * channel, chat and collaborators all key off the project link, and without
+   * this they kept running against a project that was no longer linked.
+   */
+  onLinkChanged: () => void;
 }) {
   const [status, setStatus] = useState<OverleafStatus | null>(null);
   const [link, setLink] = useState<OverleafLink | null>(null);
@@ -188,13 +194,17 @@ export function OverleafSettingsSection(props: {
 
   const unlinkProject = async () => {
     if (!window.confirm(
-      "Stop syncing this project with Overleaf?\n\nEvery file stays where it is — only the link is removed, "
-      + "and the copy on Overleaf is left untouched.",
+      "Stop syncing this project with Overleaf?\n\n"
+      + "The project stays open and every file stays where it is, and the copy on Overleaf "
+      + "is left untouched — they just stop following each other. Live editing, chat and "
+      + "collaborators all stop.\n\n"
+      + "You can link it again at any time with Open from Overleaf.",
     )) return;
     setActionError(null);
     try {
       await invoke("overleaf_unlink");
       setLink(null);
+      props.onLinkChanged();
     } catch (reason) {
       setActionError(toMessage(reason));
     }
@@ -209,6 +219,9 @@ export function OverleafSettingsSection(props: {
     try {
       await invoke("overleaf_disconnect");
       await load();
+      // Signing out ends the live channel too, so the rest of the app has to
+      // re-read where it stands.
+      props.onLinkChanged();
     } catch (reason) {
       setActionError(toMessage(reason));
     }
@@ -257,7 +270,7 @@ export function OverleafSettingsSection(props: {
             <strong>Connected as {status.email ?? status.name ?? "your Overleaf account"}</strong>
             <small>{status.host}</small>
           </div>
-          <button type="button" className="secondary-button" onClick={() => void disconnect()}>Disconnect</button>
+          <button type="button" className="secondary-button" onClick={() => void disconnect()}>Sign out</button>
         </div>
       )}
       {!loading && !loadError && status && !status.connected && (

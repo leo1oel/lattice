@@ -75,12 +75,44 @@ describe("Overleaf settings section", () => {
       if (command === "overleaf_poll_login") return { status: "connected", session: connected };
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} />);
+    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
     expect(await screen.findByText(/Connect your Overleaf account to open and sync/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: /Connect to Overleaf/ }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_begin_login"));
     expect(await screen.findByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("overleaf_poll_login");
+  });
+
+  it("tells the app when the project is unlinked, so the toolbar stops showing it as linked", async () => {
+    const onLinkChanged = vi.fn();
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return connected;
+      if (command === "overleaf_link") {
+        return { projectId: "p1", projectName: "Attention Paper", host: "https://www.overleaf.com", lastSync: null };
+      }
+      if (command === "overleaf_unlink") return undefined;
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(
+      <OverleafSettingsSection
+        syncMode="live"
+        onSyncModeChange={() => {}}
+        channel="off"
+        channelDetail={null}
+        remoteDelete="ask"
+        onRemoteDeleteChange={() => {}}
+        onLinkChanged={onLinkChanged}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Stop syncing" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_unlink"));
+    // Without this the cloud button, live channel and chat all kept running
+    // against a project that was no longer linked.
+    await waitFor(() => expect(onLinkChanged).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Stop syncing" })).not.toBeInTheDocument();
+    confirmSpy.mockRestore();
   });
 
   it("shows the waiting state while the login window is open and cancels cleanly", async () => {
@@ -90,7 +122,7 @@ describe("Overleaf settings section", () => {
       if (command === "overleaf_poll_login") return { status: "pending", session: null };
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} />);
+    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
     fireEvent.click(await screen.findByRole("button", { name: /Connect to Overleaf/ }));
     expect(await screen.findByText(/Waiting for you to sign in in the Overleaf window/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -104,7 +136,7 @@ describe("Overleaf settings section", () => {
       if (command === "overleaf_store_cookie") return { ...connected, host: "https://overleaf.example.edu" };
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} />);
+    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
     await screen.findByRole("button", { name: /Connect to Overleaf/ });
     fireEvent.change(screen.getByLabelText("Server address"), {
       target: { value: "https://overleaf.example.edu" },
@@ -133,6 +165,7 @@ describe("Overleaf settings section", () => {
         channelDetail="the websocket was refused"
         remoteDelete="ask"
         onRemoteDeleteChange={() => {}}
+        onLinkChanged={() => {}}
       />,
     );
     expect(
@@ -146,6 +179,7 @@ describe("Overleaf settings section", () => {
         channelDetail={null}
         remoteDelete="ask"
         onRemoteDeleteChange={() => {}}
+        onLinkChanged={() => {}}
       />,
     );
     expect(screen.getByText(/Connected to Overleaf's editing channel/)).toBeInTheDocument();
@@ -161,9 +195,9 @@ describe("Overleaf settings section", () => {
       }
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} />);
+    render(<OverleafSettingsSection syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
     expect(await screen.findByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     expect(await screen.findByRole("button", { name: /Connect to Overleaf/ })).toBeInTheDocument();
   });
 });

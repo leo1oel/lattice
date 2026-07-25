@@ -439,7 +439,10 @@ export function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, on
           <div className="tree-row">
             <button className="tree-main" onClick={() => setOpen((value) => !value)}>
               <ChevronRight className={`tree-chevron ${open ? "open" : ""}`} size={13} />
-              <Folder size={14} /> <span>{node.name}</span>
+              {/* The icon says the same thing the chevron does. A tree can be
+                  hundreds of rows, so this is a swap rather than a crossfade —
+                  per-row AnimatePresence costs more than the effect is worth. */}
+              {open ? <FolderOpen size={14} /> : <Folder size={14} />} <span>{node.name}</span>
             </button>
             {node.path === "figures" && <button className="row-import" title="Import images into figures" disabled={assetImporting} onClick={() => onImportAssets(node.path)}>{assetImporting ? <LoaderCircle className="spin" size={12} /> : <ImagePlus size={12} />}</button>}
             {!protectedEntry && <button className="row-delete" title={`Delete ${node.path}`} onClick={() => onDelete(node.path)}><Trash2 size={12} /></button>}

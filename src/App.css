@@ -2582,3 +2582,22 @@ button.checklist-row:hover { border-color: color-mix(in srgb, var(--accent) 35%,
   color: var(--muted);
 }
 .settings-inline-select > button { min-width: 180px; }
+
+/* A block inside a settings page: same left edge as everything else on the
+   page, set off by a rule rather than by indentation. */
+.settings-subsection {
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.settings-subsection h2 { margin: 0; font-size: 18px; }
+.settings-subsection .settings-section-title p { margin: 6px 0 24px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+/* Buttons that act on the setting above them need air, or the dropdown and
+   the button below it read as one control. */
+.settings-section > .secondary-button,
+.settings-subsection > .secondary-button { margin-top: 16px; }
+
+/* Holds the two icons of a MorphIcon on top of each other, so the swap does
+   not shift the label beside it. */
+.morph-icon { position: relative; display: inline-grid; place-items: center; flex: none; }
+.morph-icon > span { position: absolute; inset: 0; display: grid; place-items: center; }

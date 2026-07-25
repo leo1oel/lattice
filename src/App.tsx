@@ -1519,6 +1519,18 @@ function App() {
   }, [project?.root]);
 
   /**
+   * Re-read the link after Settings changes it. Unlinking has to be felt
+   * everywhere — the toolbar cloud, the live channel, chat, collaborators and
+   * the comment threads all key off this, and they used to keep running
+   * against a project that had just been unlinked.
+   */
+  const refreshOverleafLink = useCallback(() => {
+    void invoke<OverleafLink | null>("overleaf_link")
+      .then((link) => setOverleafLink(link ?? null))
+      .catch(() => setOverleafLink(null));
+  }, []);
+
+  /**
    * Deal with files that are gone here but still on Overleaf.
    *
    * Deleting from a shared project is not something to infer from a missing
@@ -4176,6 +4188,7 @@ function App() {
       onAgentRuntimeUpdated={agentModels.refresh}
       overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
       overleafChannelDetail={overleafRealtime.detail}
+      onOverleafLinkChanged={refreshOverleafLink}
       onOverleafSyncModeChange={(mode) => {
         setOverleafSyncMode(mode);
         persistOverleafSyncMode(mode);

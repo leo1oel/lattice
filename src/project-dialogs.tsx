@@ -12,7 +12,7 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
-import { MotionButton } from "./motion";
+import { MorphIcon, MotionButton } from "./motion";
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -60,9 +60,10 @@ export function Welcome(props: {
           <MotionButton className="primary-button" magnetic onClick={props.onOpenCreate}>
             <Plus size={17} /> New project
           </MotionButton>
-          <button className="secondary-button" onClick={props.onOpen}>
-            <FolderOpen size={17} /> Open folder
-          </button>
+          <MotionButton className="secondary-button" onClick={props.onOpen}>
+            <MorphIcon size={17} idle={<Folder size={17} />} hover={<FolderOpen size={17} />} />
+            Open folder
+          </MotionButton>
           <button className="secondary-button" onClick={props.onImportZip}>
             <FileArchive size={17} /> Import ZIP
           </button>

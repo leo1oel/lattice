@@ -55,6 +55,8 @@ export function SettingsDialog(props: {
   onAgentRuntimeUpdated: () => void;
   overleafChannel: "off" | "connecting" | "live" | "error";
   overleafChannelDetail: string | null;
+  /** Called when this project stops (or starts) being linked to Overleaf. */
+  onOverleafLinkChanged: () => void;
   onOverleafSyncModeChange: (mode: OverleafSyncMode) => void;
   appearance: AppearanceSettings;
   setAppearance: (appearance: AppearanceSettings) => void;
@@ -419,6 +421,7 @@ export function SettingsDialog(props: {
                 onRemoteDeleteChange={props.onOverleafRemoteDeleteChange}
                 channel={props.overleafChannel}
                 channelDetail={props.overleafChannelDetail}
+                onLinkChanged={props.onOverleafLinkChanged}
               />
             )}
             {props.tab === "api" && (

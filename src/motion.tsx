@@ -151,3 +151,37 @@ export function PopIn({ children, ...rest }: HTMLMotionProps<"div">) {
     </motion.div>
   );
 }
+
+/**
+ * Swaps one icon for another while the pointer is over the enclosing control,
+ * springing between them rather than cutting.
+ *
+ * Worth it on a single prominent button, where the change reads as an
+ * invitation — a folder that opens as you reach for it. Not worth it per row
+ * in a list: the mount/unmount cost is paid on every hover, and a dozen icons
+ * springing as the cursor crosses them is noise, not feedback.
+ */
+export function MorphIcon(props: { idle: ReactNode; hover: ReactNode; size?: number }) {
+  const [over, setOver] = useState(false);
+  const size = props.size ?? 16;
+  return (
+    <span
+      className="morph-icon"
+      style={{ width: size, height: size }}
+      onMouseEnter={() => setOver(true)}
+      onMouseLeave={() => setOver(false)}
+    >
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={over ? "hover" : "idle"}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.5, opacity: 0 }}
+          transition={POP_SPRING}
+        >
+          {over ? props.hover : props.idle}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}

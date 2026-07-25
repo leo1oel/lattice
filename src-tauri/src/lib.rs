@@ -866,10 +866,15 @@ fn overleaf_store_cookie(
 }
 
 #[tauri::command]
-fn overleaf_disconnect(app: tauri::AppHandle) -> Result<(), String> {
+fn overleaf_disconnect(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(OVERLEAF_LOGIN_WINDOW) {
         let _ = window.close();
     }
+    // The live channel authenticates with the session being thrown away.
+    shutdown_realtime(&state);
     overleaf::disconnect(&overleaf_config_dir(&app)?)
 }
 
@@ -994,13 +999,18 @@ async fn overleaf_rt_connect(
     Ok(joined)
 }
 
-#[tauri::command]
-fn overleaf_rt_disconnect(state: tauri::State<'_, AppState>) -> Result<(), String> {
+/// Close the live channel if one is open. Safe to call when there is none.
+fn shutdown_realtime(state: &tauri::State<'_, AppState>) {
     if let Ok(mut slot) = state.realtime.lock() {
         if let Some(client) = slot.take() {
             client.shutdown();
         }
     }
+}
+
+#[tauri::command]
+fn overleaf_rt_disconnect(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    shutdown_realtime(&state);
     Ok(())
 }
 
@@ -1502,6 +1512,9 @@ async fn overleaf_preview(
 
 #[tauri::command]
 fn overleaf_unlink(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    // Close the live channel first: a socket left open on a project we no
+    // longer track keeps delivering edits, chat and presence for it.
+    shutdown_realtime(&state);
     overleaf::unlink(&current_root(&state)?)
 }
 

@@ -151,7 +151,11 @@ export function AgentRuntimeSettings(props: {
   };
 
   return (
-    <div className="settings-section">
+    // A block within Subscriptions, not a page of its own: nesting a second
+    // `.settings-section` here indented everything below it by that section's
+    // own padding, so the runtime heading and its controls sat to the right of
+    // every other setting on the page.
+    <div className="settings-subsection">
       <div className="settings-section-title">
         <div>
           <h2>Agent runtime</h2>
