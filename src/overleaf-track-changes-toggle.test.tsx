@@ -11,7 +11,7 @@ describe("OverleafTrackChangesToggle", () => {
 
   it("shows the off state and asks to turn on when clicked", () => {
     const onToggle = vi.fn().mockResolvedValue(undefined);
-    render(<OverleafTrackChangesToggle on={false} disabled={false} pending={false} onToggle={onToggle} />);
+    render(<OverleafTrackChangesToggle on={false} disabled={false} pending={false} onToggle={onToggle} onError={() => undefined} />);
     expect(screen.getByRole("button", { name: /Editing/ })).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(screen.getByRole("button"));
     expect(onToggle).toHaveBeenCalledWith(true);
@@ -19,7 +19,7 @@ describe("OverleafTrackChangesToggle", () => {
 
   it("shows the on state clearly and asks to turn off when clicked", () => {
     const onToggle = vi.fn().mockResolvedValue(undefined);
-    render(<OverleafTrackChangesToggle on disabled={false} pending={false} onToggle={onToggle} />);
+    render(<OverleafTrackChangesToggle on disabled={false} pending={false} onToggle={onToggle} onError={() => undefined} />);
     const button = screen.getByRole("button", { name: /Suggesting/ });
     expect(button).toHaveAttribute("aria-pressed", "true");
     // `active` is the toolbar's own pressed treatment, shared with the other
@@ -36,16 +36,35 @@ describe("OverleafTrackChangesToggle", () => {
     // up outside the button, clipped by the toolbar's edge — which is exactly
     // what this one did.
     render(
-      <OverleafTrackChangesToggle on={false} disabled={false} pending={false} onToggle={vi.fn()} />,
+      <OverleafTrackChangesToggle on={false} disabled={false} pending={false} onToggle={vi.fn()} onError={() => undefined} />,
     );
     const button = screen.getByRole("button");
     expect(button.className).toContain("canvas-text-button");
     expect(button.querySelector("span")?.textContent).toBe("Editing");
   });
 
+  it("reports a refusal instead of looking like a dead button", async () => {
+    // The bug this covers: the toggle refuses when this account's Overleaf id
+    // is not known, the button caught that and discarded it, and clicking
+    // therefore did nothing and said nothing.
+    const onError = vi.fn();
+    const onToggle = vi.fn().mockRejectedValue(new Error("no account id yet"));
+    render(
+      <OverleafTrackChangesToggle
+        on={false}
+        disabled={false}
+        pending={false}
+        onToggle={onToggle}
+        onError={onError}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(onError).toHaveBeenCalledWith("no account id yet"));
+  });
+
   it("disables rather than lets a read-only account try", () => {
     const onToggle = vi.fn();
-    render(<OverleafTrackChangesToggle on={false} disabled pending={false} onToggle={onToggle} />);
+    render(<OverleafTrackChangesToggle on={false} disabled pending={false} onToggle={onToggle} onError={() => undefined} />);
     expect(screen.getByRole("button")).toBeDisabled();
     fireEvent.click(screen.getByRole("button"));
     expect(onToggle).not.toHaveBeenCalled();

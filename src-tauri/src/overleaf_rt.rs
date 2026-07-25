@@ -3361,7 +3361,10 @@ mod tests {
             "the first document's acknowledgement should still reach us after \
              joining the second — holding it open would be pointless otherwise"
         );
-        println!("acknowledged on {} while {} was open", first.path, second.path);
+        println!(
+            "acknowledged on {} while {} was open",
+            first.path, second.path
+        );
 
         rt::block_on(client.send_ops(
             &first.id,

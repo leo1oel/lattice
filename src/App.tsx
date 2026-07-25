@@ -5002,6 +5002,7 @@ function App() {
                 disabled={overleafRealtime.permission === "readOnly"}
                 pending={overleafSuggestMode.pending}
                 onToggle={overleafSuggestMode.setTrackChanges}
+                onError={setNotice}
               />
             ) : null}
             overleafPresence={overleafPresence.peers.length ? (

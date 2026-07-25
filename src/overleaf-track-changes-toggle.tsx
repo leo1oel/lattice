@@ -19,6 +19,8 @@ export function OverleafTrackChangesToggle(props: {
   disabled: boolean;
   pending: boolean;
   onToggle: (on: boolean) => Promise<void>;
+  /** Say why it did not happen; a silent refusal reads as a broken button. */
+  onError: (message: string) => void;
 }) {
   return (
     <button
@@ -38,9 +40,11 @@ export function OverleafTrackChangesToggle(props: {
             ? "Your edits are recorded as suggestions for others to accept or reject. Click to edit normally again."
             : "Your edits apply immediately. Click to record them as suggestions instead."
       }
-      onClick={() => void props.onToggle(!props.on).catch(() => {
-        // The caller surfaces the reason (e.g. through its own error state);
-        // this button only needs to not throw into a click handler.
+      onClick={() => void props.onToggle(!props.on).catch((reason) => {
+        // Swallowing this is what made a refusal look exactly like a dead
+        // button: nothing moved and nothing was said. It is caught rather
+        // than thrown out of a click handler, but it has to be reported.
+        props.onError(reason instanceof Error ? reason.message : String(reason));
       })}
     >
       {props.pending

@@ -2002,10 +2002,36 @@ pub fn realtime_config(
     config_dir: &Path,
     root: &Path,
 ) -> Result<(String, String, String, Option<String>), String> {
-    let session = load_session(config_dir)?;
+    let mut session = load_session(config_dir)?;
     let state = load_state(root)?;
     let host = sync_host(&state, &session);
-    Ok((host, session.cookie, state.project_id, session.user_id))
+    let user_id = ensure_user_id(config_dir, &mut session);
+    Ok((host, session.cookie, state.project_id, user_id))
+}
+
+/// Our own Overleaf account id, fetched once if the session predates our
+/// storing it.
+///
+/// Sessions signed in before this was recorded have no id, and there is no
+/// second chance to read it from the sign-in response. Everything stored per
+/// account then reads as if we were an anonymous guest — and turning
+/// suggestions on, which has to name the account it is for, cannot be done at
+/// all. Backfilling on the project list was not enough: someone who opens a
+/// project they already linked never goes near it.
+fn ensure_user_id(config_dir: &Path, session: &mut SessionFile) -> Option<String> {
+    if session.user_id.is_some() {
+        return session.user_id.clone();
+    }
+    let client = http_client(20).ok()?;
+    let html = fetch_projects_page(&client, &session.host, &session.cookie).ok()?;
+    let user_id = meta_content(&html, "ol-user_id").or_else(|| {
+        serde_json::from_str::<serde_json::Value>(&meta_content(&html, "ol-user")?)
+            .ok()
+            .and_then(|user| json_str(&user, &["_id", "id"]))
+    })?;
+    session.user_id = Some(user_id.clone());
+    let _ = save_session(config_dir, session);
+    Some(user_id)
 }
 
 /// Cheap "did anything change over there?" check.
@@ -2638,6 +2664,36 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     const CSRF: &str = "csrf-fixture-token";
+
+    /// Turning suggestions on for this account, against the real service.
+    ///
+    /// This is the whole path behind the toolbar's Editing/Suggesting button,
+    /// and it had two separate ways of doing nothing at all: a session stored
+    /// before we recorded the account id could not name whose setting to
+    /// change, and the button threw the resulting refusal away.
+    #[test]
+    #[ignore = "changes a project setting on overleaf.com"]
+    fn turns_suggestions_on_for_this_account() {
+        let root = std::path::PathBuf::from(std::env::var("OVERLEAF_E2E_PROJECT").unwrap());
+        let config = std::path::PathBuf::from(std::env::var("HOME").unwrap())
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+
+        // Whatever the session file holds, an account id has to come back.
+        let (_, _, _, user_id) = realtime_config(&config, &root).expect("a linked project");
+        let user_id = user_id.expect("our own Overleaf account id");
+        println!("account id: {user_id}");
+        assert_eq!(
+            user_id.len(),
+            24,
+            "an Overleaf account id is a Mongo ObjectId"
+        );
+
+        for on in [true, false] {
+            set_track_changes(&config, &root, serde_json::json!({ &user_id: on }))
+                .unwrap_or_else(|error| panic!("turning suggestions {on}: {error}"));
+            println!("suggestions set to {on}");
+        }
+    }
 
     /// The real `/ranges` payload, taken verbatim from overleaf.com with one
     /// comment in the project: every document is listed whether or not it has
