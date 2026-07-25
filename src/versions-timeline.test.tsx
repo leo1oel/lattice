@@ -228,6 +228,24 @@ describe("VersionsTimeline", () => {
     expect(screen.getByText("1 changed")).toBeInTheDocument();
   });
 
+  it("closes an open file when its row is clicked again", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "git_status") return repoStatus;
+      if (command === "git_log") return logEntries;
+      if (command === "git_show_diff") return { before: "old line\n", after: "new line\n", binary: false };
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<VersionsTimeline />);
+
+    const body = await expandFirstEntry();
+    const row = within(body).getByRole("button", { name: /main\.tex/ });
+    fireEvent.click(row);
+    expect(await screen.findByLabelText("Diff for main.tex")).toBeInTheDocument();
+
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.queryByLabelText("Diff for main.tex")).not.toBeInTheDocument());
+  });
+
   it("notes binary files instead of rendering a diff", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "git_status") return repoStatus;

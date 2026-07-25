@@ -245,9 +245,18 @@ export function inlineDiffLines(
       // Rewritten line for line: merge each pair so the sentence reads
       // through, with only the words that moved marked.
       for (let offset = 0; offset < removed.length; offset += 1) {
+        const before = removed[offset]!;
+        const after = added[offset]!;
+        const segments = mergedSegments(before.text, after.text);
+        if (segments) {
+          out.push({ line: after.afterLine ?? null, segments, changed: true });
+          continue;
+        }
+        // Too shattered to read in place: the old line, then the new one.
+        out.push({ line: null, segments: [{ text: before.text, kind: "removed" }], changed: true });
         out.push({
-          line: added[offset]!.afterLine ?? null,
-          segments: mergedSegments(removed[offset]!.text, added[offset]!.text),
+          line: after.afterLine ?? null,
+          segments: [{ text: after.text, kind: "added" }],
           changed: true,
         });
       }
@@ -272,10 +281,23 @@ export function inlineDiffLines(
   return out;
 }
 
-/** One line's worth of before-and-after, in reading order. */
-function mergedSegments(before: string, after: string): InlineSegment[] {
-  return diffWordsWithSpace(before, after).map((part) => ({
+/**
+ * How many alternating edits a line can carry before reading it word by word
+ * is harder than reading both versions whole. Two similar-but-different
+ * strings — a timestamp, a URL, a rewritten equation — shatter into a dozen
+ * tiny runs that interleave into nonsense: `2026-07-25T1125T19:0131:41Z46Z`.
+ */
+const MAX_INLINE_EDITS = 4;
+
+/**
+ * One line's worth of before-and-after in reading order, or null when the two
+ * versions differ in so many places that marking them in place is unreadable.
+ */
+function mergedSegments(before: string, after: string): InlineSegment[] | null {
+  const segments: InlineSegment[] = diffWordsWithSpace(before, after).map((part) => ({
     text: part.value,
     kind: part.added ? "added" : part.removed ? "removed" : "same",
   }));
+  const edits = segments.filter((segment) => segment.kind !== "same").length;
+  return edits <= MAX_INLINE_EDITS ? segments : null;
 }

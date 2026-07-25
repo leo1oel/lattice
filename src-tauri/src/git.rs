@@ -12,6 +12,54 @@ use std::process::Command;
 /// try to render their blobs as text diffs.
 const BINARY_EXTENSIONS: &[&str] = &["pdf", "png", "jpg", "jpeg", "gif", "zip"];
 
+/// Lattice's own working directory inside a project: Overleaf sync state, the
+/// search index, agent sessions, caches. None of it is the user's writing, so
+/// it is kept out of the repository and out of the timeline.
+const INTERNAL_DIR: &str = ".research";
+
+fn is_internal_path(path: &str) -> bool {
+    let path = path.trim_start_matches("./");
+    path == INTERNAL_DIR || path.starts_with(&format!("{INTERNAL_DIR}/"))
+}
+
+/// Keep `.research/` out of version history. Without this every sync writes
+/// `.research/overleaf.json`, so `git add -A` records a version whose only
+/// change is a timestamp and a hash table — the timeline fills up with the
+/// app talking to itself instead of with the user's edits.
+///
+/// Best effort throughout: a project that cannot be ignored still commits.
+fn ensure_internal_ignored(root: &Path) {
+    // Nothing to ignore yet: a project Lattice has not written state into
+    // should not gain a .gitignore, and a commit it triggers should stay a
+    // no-op on an otherwise clean tree.
+    if !root.join(INTERNAL_DIR).exists() {
+        return;
+    }
+    let ignore_path = root.join(".gitignore");
+    let existing = fs::read_to_string(&ignore_path).unwrap_or_default();
+    let already = existing
+        .lines()
+        .map(str::trim)
+        .any(|line| line == ".research" || line == ".research/" || line == "/.research/");
+    if !already {
+        let mut next = existing;
+        if !next.is_empty() && !next.ends_with('\n') {
+            next.push('\n');
+        }
+        next.push_str(".research/\n");
+        let _ = fs::write(&ignore_path, next);
+    }
+    // A project that was already committing `.research/` keeps doing so until
+    // the files are dropped from the index; .gitignore alone does not untrack.
+    let tracked = git_output(root, &["ls-files", "-z", "--", INTERNAL_DIR]).unwrap_or_default();
+    if !tracked.trim_matches('\0').is_empty() {
+        let _ = git_run(
+            root,
+            &["rm", "-r", "--cached", "--quiet", "--", INTERNAL_DIR],
+        );
+    }
+}
+
 pub fn status(root: &Path) -> Result<GitStatus, String> {
     if !commands::available("git") {
         return Ok(empty_status(false, false));
@@ -134,6 +182,7 @@ pub fn init(root: &Path) -> Result<GitStatus, String> {
     if !is_repository(root)? {
         git_run(root, &["init"])?;
     }
+    ensure_internal_ignored(root);
     if !has_head(root) {
         // Give the version timeline a starting point. Best effort: a failure
         // here (e.g. a hook) must not undo the successful init.
@@ -355,6 +404,7 @@ pub fn auto_commit(
     if trimmed.is_empty() {
         return Err("Commit message cannot be empty.".to_string());
     }
+    ensure_internal_ignored(root);
     git_run(root, &["add", "-A"])?;
     let porcelain = git_output(root, &["status", "--porcelain"])?;
     if porcelain.trim().is_empty() {
@@ -611,7 +661,20 @@ fn parse_log(raw: &str) -> Vec<GitLogEntry> {
         let author_name = fields.next().unwrap_or("").to_string();
         let timestamp = fields.next().unwrap_or("").to_string();
         let message = fields.next().unwrap_or("").to_string();
-        let files = lines.filter_map(parse_name_status_line).collect();
+        let listed = lines
+            .filter_map(parse_name_status_line)
+            .collect::<Vec<GitLogFile>>();
+        let had_files = !listed.is_empty();
+        let files = listed
+            .into_iter()
+            .filter(|file| !is_internal_path(&file.path))
+            .collect::<Vec<GitLogFile>>();
+        // A version whose every change was Lattice's own state is not a
+        // version of the user's work. Projects from before `.research/` was
+        // ignored have a long run of these, one per Overleaf sync.
+        if had_files && files.is_empty() {
+            continue;
+        }
         entries.push(GitLogEntry {
             hash,
             short_hash,
@@ -1113,6 +1176,59 @@ mod tests {
         let unchanged = restore_project(&root, &first).unwrap();
         assert_eq!(unchanged, restored);
         assert_eq!(capture(&root, &["rev-list", "--count", "HEAD"]), "3");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn auto_commit_keeps_lattices_own_state_out_of_history() {
+        if !commands::available("git") {
+            return;
+        }
+        let root = repo("internal-ignored");
+        fs::create_dir_all(root.join(".research")).unwrap();
+        fs::write(root.join(".research/overleaf.json"), "{\"v\":1}\n").unwrap();
+        fs::write(root.join("paper.tex"), "one\n").unwrap();
+
+        auto_commit(&root, "first", None).unwrap().unwrap();
+        assert!(fs::read_to_string(root.join(".gitignore"))
+            .unwrap()
+            .contains(".research/"));
+        assert_eq!(capture(&root, &["ls-files", "--", ".research"]), "");
+        // Still on disk: ignoring it must not throw the sync state away.
+        assert!(root.join(".research/overleaf.json").exists());
+
+        // A sync that only rewrites Lattice's own state is not a version.
+        fs::write(root.join(".research/overleaf.json"), "{\"v\":2}\n").unwrap();
+        assert!(auto_commit(&root, "sync", None).unwrap().is_none());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn auto_commit_untracks_internal_state_committed_before_it_was_ignored() {
+        if !commands::available("git") {
+            return;
+        }
+        let root = repo("internal-untrack");
+        fs::create_dir_all(root.join(".research")).unwrap();
+        fs::write(root.join(".research/overleaf.json"), "{\"v\":1}\n").unwrap();
+        fs::write(root.join("paper.tex"), "one\n").unwrap();
+        commit_all(&root, "first");
+        assert!(!capture(&root, &["ls-files", "--", ".research"]).is_empty());
+
+        fs::write(root.join("paper.tex"), "two\n").unwrap();
+        auto_commit(&root, "second", None).unwrap().unwrap();
+        assert_eq!(capture(&root, &["ls-files", "--", ".research"]), "");
+        assert!(root.join(".research/overleaf.json").exists());
+
+        // The commit that only dropped internal files is not shown as a
+        // version, but the one that also edited the paper still is.
+        let entries = log(&root, 10).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(kind_of(&entries[0], "paper.tex"), Some("modified"));
+        assert!(entries.iter().all(|entry| entry
+            .files
+            .iter()
+            .all(|file| !file.path.starts_with(".research"))));
         let _ = fs::remove_dir_all(root);
     }
 

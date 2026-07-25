@@ -366,6 +366,14 @@ export function VersionsTimeline(props: {
 
   const openFileDiff = async (hash: string, path: string) => {
     const seq = (diffSeq.current += 1);
+    // The row is a toggle: clicking the open file closes it again, which is
+    // what a row that stays highlighted while open leads you to expect.
+    if (activeFile?.hash === hash && activeFile.path === path) {
+      setActiveFile(null);
+      setDiff(null);
+      setDiffError("");
+      return;
+    }
     setActiveFile({ hash, path });
     setDiff(null);
     setDiffError("");

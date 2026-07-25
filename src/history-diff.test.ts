@@ -154,4 +154,33 @@ describe("the document with changes marked in place", () => {
     expect(lines.filter((line) => line.segments[0]?.kind === "removed")).toHaveLength(1);
     expect(lines.filter((line) => line.segments[0]?.kind === "added")).toHaveLength(3);
   });
+
+  it("shows both versions whole when a line differs in too many places to mark", () => {
+    // Two timestamps differ at every field; marking them word by word
+    // interleaves into `2026-07-25T1125T19:0131:41Z46Z`, which reads as noise.
+    const lines = inlineDiffLines(
+      '  "lastSync": "2026-07-25T11:01:41Z",\n',
+      '  "lastSync": "2026-07-25T19:31:46Z",\n',
+    );
+    expect(lines).toHaveLength(2);
+    expect(lines[0]!.segments).toEqual([
+      { text: '  "lastSync": "2026-07-25T11:01:41Z",', kind: "removed" },
+    ]);
+    expect(lines[1]!.segments).toEqual([
+      { text: '  "lastSync": "2026-07-25T19:31:46Z",', kind: "added" },
+    ]);
+    expect(lines[0]!.line).toBeNull();
+    expect(lines[1]!.line).toBe(1);
+  });
+
+  it("still marks a light edit in place rather than splitting the line", () => {
+    const lines = inlineDiffLines("the old claim holds\n", "the new claim holds\n");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.segments.map((segment) => segment.kind)).toEqual([
+      "same",
+      "removed",
+      "added",
+      "same",
+    ]);
+  });
 });

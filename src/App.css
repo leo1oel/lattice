@@ -1240,10 +1240,12 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .asset-preview-unsupported { color: var(--faint); display: grid; place-items: center; gap: 8px; font-size: 11px; }
 
 .drawer-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .18); display: flex; justify-content: flex-end; }
-.history-drawer { width: min(460px, 100%); height: 100%; background: var(--panel-strong); box-shadow: var(--shadow); padding: 14px; overflow: auto; animation: drawer-in .2s ease-out; }
+.history-drawer { width: min(460px, 100%); height: 100%; background: var(--panel-strong); box-shadow: var(--shadow); padding: 14px; overflow: auto; animation: drawer-in .2s ease-out; transition: width .18s ease; }
 /* Diffs need the room: a rewritten paragraph read in a 460px column wraps so
-   often that spotting what changed is harder than the change itself. */
-.history-drawer.wide { width: min(880px, 100%); }
+   often that spotting what changed is harder than the change itself. Only
+   while one is open, though — a list of versions in an 880px drawer is a
+   narrow column of text with most of the panel left blank. */
+.history-drawer:has(.history-diff) { width: min(880px, 100%); }
 .insert-palette { width: min(640px, 100%); height: 100%; background: var(--panel-strong); box-shadow: var(--shadow); padding: 14px; overflow: auto; animation: drawer-in .2s ease-out; }
 @keyframes drawer-in { from { transform: translateX(24px); opacity: .5; } }
 .drawer-header { height: 34px; display: flex; align-items: center; justify-content: space-between; }

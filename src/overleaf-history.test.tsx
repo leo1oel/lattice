@@ -133,6 +133,31 @@ describe("OverleafHistoryPanel", () => {
     expect(added?.querySelector(".history-diff-word")).toHaveTextContent("new");
   });
 
+  it("closes an open file when its row is clicked again", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_history_labels") return [];
+      if (command === "overleaf_history_updates") return { updates: [update()], nextBefore: null };
+      if (command === "overleaf_history_files") {
+        return { diff: [{ pathname: "main.tex", operation: "edited" }] };
+      }
+      if (command === "overleaf_history_diff") {
+        return { diff: [{ u: "kept\n" }, { d: "old claim\n" }, { i: "new claim\n" }] };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    render(<OverleafHistoryPanel onClose={() => undefined} />);
+    const body = await expandEntry(/Ada Lovelace/);
+    const filesContainer = await filesContainerOf(body);
+    const row = within(filesContainer).getByRole("button", { name: /main\.tex/ });
+
+    fireEvent.click(row);
+    expect(await screen.findByLabelText("Diff for main.tex")).toBeInTheDocument();
+
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.queryByLabelText("Diff for main.tex")).not.toBeInTheDocument());
+  });
+
   it("shows a binary file as a plain notice instead of crashing", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "overleaf_history_labels") return [];

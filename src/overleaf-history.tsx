@@ -166,6 +166,16 @@ export function OverleafHistoryPanel(props: {
   };
 
   const openDiff = (update: OverleafUpdate, path: string) => {
+    // The row is a toggle: clicking the open file closes it again, which is
+    // what a row that stays highlighted while open leads you to expect.
+    if (activePath === path) {
+      setActivePath(null);
+      setDiffChunks(null);
+      setDiffBinary(false);
+      setDiffError("");
+      setDiffLoading(false);
+      return;
+    }
     setActivePath(path);
     setDiffChunks(null);
     setDiffBinary(false);
