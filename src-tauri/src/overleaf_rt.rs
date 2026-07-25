@@ -159,7 +159,10 @@ pub enum RealtimeEvent {
     /// Overleaf sends are id-keyed deltas against a tree the client has to
     /// maintain itself, and having done that work once here there is nothing
     /// to gain by making every listener repeat it.
-    TreeChanged { docs: Vec<DocEntry> },
+    TreeChanged {
+        docs: Vec<DocEntry>,
+        entities: Vec<EntityEntry>,
+    },
     /// Someone in the project moved, or appeared for the first time.
     ///
     /// Overleaf announces nothing when a client joins — the only thing that
@@ -196,6 +199,21 @@ pub enum RealtimeEvent {
     Disconnected {
         reason: String,
     },
+}
+
+/// One entity in the project, with the id Overleaf's own endpoints take.
+///
+/// Deleting a file over there needs its id, not its path, and nothing in the
+/// REST surface hands out ids — the tree the channel gives us is the only
+/// place they exist.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EntityEntry {
+    pub id: String,
+    pub path: String,
+    /// "doc", "file" or "folder", which is also the path segment its
+    /// endpoints use.
+    pub kind: String,
 }
 
 /// Someone else in the project, and where they are.
@@ -1160,6 +1178,31 @@ impl Tree {
         None
     }
 
+    /// Everything in the project, whatever kind, in a stable order.
+    fn entities(&self) -> Vec<EntityEntry> {
+        let mut entries: Vec<EntityEntry> = self
+            .nodes
+            .iter()
+            // The root folder is not something anyone can act on, and it has
+            // no path of its own.
+            .filter(|(id, _)| **id != self.root)
+            .filter_map(|(id, node)| {
+                Some(EntityEntry {
+                    id: id.clone(),
+                    path: self.path_of(id)?,
+                    kind: match node.kind {
+                        NodeKind::Folder => "folder",
+                        NodeKind::Doc => "doc",
+                        NodeKind::File => "file",
+                    }
+                    .to_string(),
+                })
+            })
+            .collect();
+        entries.sort_by(|a, b| a.path.cmp(&b.path));
+        entries
+    }
+
     /// Every editable document, path and id, in a stable order.
     fn docs(&self) -> Vec<DocEntry> {
         let mut docs: Vec<DocEntry> = self
@@ -1383,9 +1426,9 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
             ) {
                 let mut tree = lock(&shared.tree);
                 tree.insert_entity(parent, entity, kind);
-                let docs = tree.docs();
+                let (docs, entities) = (tree.docs(), tree.entities());
                 drop(tree);
-                shared.emit(RealtimeEvent::TreeChanged { docs });
+                shared.emit(RealtimeEvent::TreeChanged { docs, entities });
             }
         }
         "reciveEntityRename" => {
@@ -1395,9 +1438,9 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
             ) {
                 let mut tree = lock(&shared.tree);
                 if tree.rename(id, new_name) {
-                    let docs = tree.docs();
+                    let (docs, entities) = (tree.docs(), tree.entities());
                     drop(tree);
-                    shared.emit(RealtimeEvent::TreeChanged { docs });
+                    shared.emit(RealtimeEvent::TreeChanged { docs, entities });
                 }
             }
         }
@@ -1408,9 +1451,9 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
             ) {
                 let mut tree = lock(&shared.tree);
                 if tree.move_to(id, folder) {
-                    let docs = tree.docs();
+                    let (docs, entities) = (tree.docs(), tree.entities());
                     drop(tree);
-                    shared.emit(RealtimeEvent::TreeChanged { docs });
+                    shared.emit(RealtimeEvent::TreeChanged { docs, entities });
                 }
             }
         }
@@ -1418,9 +1461,9 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
             if let Some(id) = args.first().and_then(Value::as_str) {
                 let mut tree = lock(&shared.tree);
                 if tree.remove(id) {
-                    let docs = tree.docs();
+                    let (docs, entities) = (tree.docs(), tree.entities());
                     drop(tree);
-                    shared.emit(RealtimeEvent::TreeChanged { docs });
+                    shared.emit(RealtimeEvent::TreeChanged { docs, entities });
                 }
             }
         }
@@ -1705,6 +1748,8 @@ pub struct RealtimeClient {
 pub struct ProjectTree {
     pub root_folder_id: String,
     pub docs: Vec<DocEntry>,
+    /// Everything in the project, so a file can be acted on by id.
+    pub entities: Vec<EntityEntry>,
     /// What this account may do to the project.
     pub permission: Permission,
     /// Whether edits should be recorded as suggestions rather than applied
@@ -1865,6 +1910,7 @@ impl RealtimeClient {
         let project = ProjectTree {
             root_folder_id: tree.root.clone(),
             docs: tree.docs(),
+            entities: tree.entities(),
             permission,
             track_changes: track_changes_for(track_changes.as_ref(), config.user_id.as_deref()),
         };
@@ -2511,6 +2557,27 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn entities_carry_the_ids_overleafs_endpoints_take() {
+        // Deleting a file over there needs its id; nothing in the REST surface
+        // hands ids out, so the tree is the only place they exist.
+        let ack = vec![Value::Null, project_tree(), json!("owner"), json!(2)];
+        let body = ack_body(&ack, "joinProject").expect("no error slot");
+        let (tree, _, _) = parse_project(body).expect("parses");
+        let entities = tree.entities();
+
+        // Folders are listed too, because deleting one is its own endpoint.
+        assert!(entities
+            .iter()
+            .any(|entity| entity.path == "sections" && entity.kind == "folder"));
+        assert!(entities
+            .iter()
+            .any(|entity| entity.path == "main.tex" && entity.kind == "doc" && entity.id == "doc-1"));
+        // The root is not something anyone can act on, and has no path.
+        assert!(entities.iter().all(|entity| !entity.path.is_empty()));
+        assert!(entities.iter().all(|entity| entity.id != tree.root));
     }
 
     #[test]

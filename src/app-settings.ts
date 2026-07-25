@@ -316,6 +316,34 @@ export function loadOverleafSyncMode(): OverleafSyncMode {
   }
 }
 
+/**
+ * What happens to a file on Overleaf when it is deleted here.
+ *
+ * Deleting from a shared project is not an edit that can be merged away, so
+ * the default asks. "never" is what the app did before this existed: the file
+ * stays on Overleaf and the two sides quietly differ forever.
+ */
+export type OverleafRemoteDelete = "never" | "ask" | "always";
+
+export const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
+
+export function loadOverleafRemoteDelete(): OverleafRemoteDelete {
+  try {
+    const stored = localStorage.getItem(OVERLEAF_REMOTE_DELETE_KEY);
+    return stored === "never" || stored === "always" ? stored : "ask";
+  } catch {
+    return "ask";
+  }
+}
+
+export function persistOverleafRemoteDelete(mode: OverleafRemoteDelete) {
+  try {
+    localStorage.setItem(OVERLEAF_REMOTE_DELETE_KEY, mode);
+  } catch {
+    // The choice still applies for this session without storage.
+  }
+}
+
 export function persistOverleafSyncMode(mode: OverleafSyncMode) {
   try {
     localStorage.setItem(OVERLEAF_SYNC_MODE_KEY, mode);

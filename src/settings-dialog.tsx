@@ -25,6 +25,7 @@ import {
   type AutoBuildMode,
   type BuildPreferences,
   type AppearanceSettings,
+  type OverleafRemoteDelete,
   type OverleafSyncMode,
 } from "./app-settings";
 import {
@@ -48,6 +49,8 @@ export function SettingsDialog(props: {
   tab: SettingsTab;
   setTab: (tab: SettingsTab) => void;
   overleafSyncMode: OverleafSyncMode;
+  overleafRemoteDelete: OverleafRemoteDelete;
+  onOverleafRemoteDeleteChange: (mode: OverleafRemoteDelete) => void;
   /** Re-ask the runtime for its models after it has been updated. */
   onAgentRuntimeUpdated: () => void;
   overleafChannel: "off" | "connecting" | "live" | "error";
@@ -412,6 +415,8 @@ export function SettingsDialog(props: {
               <OverleafSettingsSection
                 syncMode={props.overleafSyncMode}
                 onSyncModeChange={props.onOverleafSyncModeChange}
+                remoteDelete={props.overleafRemoteDelete}
+                onRemoteDeleteChange={props.onOverleafRemoteDeleteChange}
                 channel={props.overleafChannel}
                 channelDetail={props.overleafChannelDetail}
               />

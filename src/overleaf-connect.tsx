@@ -18,7 +18,7 @@ import {
   type OverleafStatus,
 } from "./app-types";
 import { relativeTime, toMessage } from "./app-utils";
-import { type OverleafSyncMode } from "./app-settings";
+import { type OverleafRemoteDelete, type OverleafSyncMode } from "./app-settings";
 import "./overleaf-connect.css";
 
 const DEFAULT_OVERLEAF_HOST = "https://www.overleaf.com";
@@ -146,6 +146,9 @@ function LoginWaitingRow(props: { onCancel: () => void; hint?: string | null }) 
 export function OverleafSettingsSection(props: {
   syncMode: OverleafSyncMode;
   onSyncModeChange: (mode: OverleafSyncMode) => void;
+  /** What deleting a file here should do to Overleaf's copy. */
+  remoteDelete: OverleafRemoteDelete;
+  onRemoteDeleteChange: (mode: OverleafRemoteDelete) => void;
   /** State of the live editing channel, so a failed start is visible here. */
   channel: "off" | "connecting" | "live" | "error";
   channelDetail: string | null;
@@ -336,6 +339,40 @@ export function OverleafSettingsSection(props: {
           </span>
         </label>
       </div>
+      <div className="overleaf-mode">
+        <h3>When you delete a file here</h3>
+        {([
+          {
+            id: "ask" as const,
+            title: "Ask me",
+            blurb: "A sync that finds a file missing here offers to remove it from Overleaf too.",
+          },
+          {
+            id: "always" as const,
+            title: "Delete it there too",
+            blurb: "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake.",
+          },
+          {
+            id: "never" as const,
+            title: "Leave it on Overleaf",
+            blurb: "Nothing is ever removed from the shared project from here. The two sides stay different.",
+          },
+        ]).map((option) => (
+          <label className="overleaf-mode-option" key={option.id}>
+            <input
+              type="radio"
+              name="overleaf-remote-delete"
+              checked={props.remoteDelete === option.id}
+              onChange={() => props.onRemoteDeleteChange(option.id)}
+            />
+            <span>
+              <strong>{option.title}</strong>
+              <small>{option.blurb}</small>
+            </span>
+          </label>
+        ))}
+      </div>
+
       <details className="overleaf-advanced">
         <summary>Advanced options</summary>
         <p className="overleaf-hint">

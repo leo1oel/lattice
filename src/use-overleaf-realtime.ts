@@ -18,12 +18,15 @@ import { OtDesyncError, OtDocument } from "./ot-document";
 import type { OtOp } from "./ot-ops";
 
 type DocEntry = { id: string; path: string };
+/** One entity in the project, with the id Overleaf's own endpoints take. */
+export type EntityEntry = { id: string; path: string; kind: "doc" | "file" | "folder" };
 /** What this account may do to the project, as Overleaf reports it. */
 export type OverleafPermission = "owner" | "readAndWrite" | "review" | "readOnly" | "unknown";
 type JoinedProject = {
   publicId: string | null;
   rootFolderId: string;
   docs: DocEntry[];
+  entities: EntityEntry[];
   permission: OverleafPermission;
   trackChanges: boolean;
 };
@@ -50,7 +53,14 @@ type JoinedDoc = {
 
 type RealtimeEvent =
   | { type: "connected"; publicId: string }
-  | { type: "projectJoined"; rootFolderId: string; docs: DocEntry[]; permission: OverleafPermission }
+  | {
+    type: "projectJoined";
+    rootFolderId: string;
+    docs: DocEntry[];
+    entities: EntityEntry[];
+    permission: OverleafPermission;
+  }
+  | { type: "treeChanged"; docs: DocEntry[]; entities: EntityEntry[] }
   | { type: "docUpdate"; docId: string; version: number; ops: OtOp[]; source: string | null }
   | { type: "docAck"; docId: string; version: number }
   | { type: "commentAnchored"; docId: string; range: CommentRange }
@@ -65,6 +75,13 @@ export type RealtimeStatus = "off" | "connecting" | "live" | "error";
 const EMPTY_COMMENTS: CommentRange[] = [];
 const EMPTY_CHANGES: TrackedChange[] = [];
 
+function entityMap(entries: EntityEntry[] | undefined) {
+  return new Map((entries ?? []).map((entity) => [
+    entity.path,
+    { id: entity.id, kind: entity.kind },
+  ]));
+}
+
 export type OverleafRealtime = {
   status: RealtimeStatus;
   detail: string | null;
@@ -78,6 +95,11 @@ export type OverleafRealtime = {
   canWrite: boolean;
   /** Comment anchors in the open document, as Overleaf holds them. */
   comments: CommentRange[];
+  /**
+   * Everything in the project by path, with the id its endpoints take.
+   * Deleting a file on Overleaf needs the id, and nothing else hands them out.
+   */
+  entities: Map<string, { id: string; kind: string }>;
   /** Suggestions in the open document, oldest position first. */
   changes: TrackedChange[];
   /** The document's version, which accepting and rejecting are built on. */
@@ -133,6 +155,7 @@ export function useOverleafRealtime(options: {
   // again once it does.
   const [docs, setDocs] = useState<Map<string, string>>(new Map());
   const [permission, setPermission] = useState<OverleafPermission>("unknown");
+  const [entities, setEntities] = useState<Map<string, { id: string; kind: string }>>(new Map());
 
   const publicId = useRef<string | null>(null);
   const document = useRef<OtDocument | null>(null);
@@ -195,7 +218,17 @@ export function useOverleafRealtime(options: {
       }
       if (payload.type === "projectJoined") {
         setDocs(new Map(payload.docs.map((doc) => [doc.path, doc.id])));
+        setEntities(entityMap(payload.entities));
         setPermission(payload.permission);
+        return;
+      }
+      if (payload.type === "treeChanged") {
+        // Somebody created, renamed, moved or deleted something. A file that
+        // appeared this way is joinable straight away, which is the point:
+        // waiting for the next zip poll to notice it is what made new files
+        // read as "not a document Overleaf tracks".
+        setDocs(new Map(payload.docs.map((doc) => [doc.path, doc.id])));
+        setEntities(entityMap(payload.entities));
         return;
       }
       if (payload.type === "disconnected") {
@@ -297,6 +330,7 @@ export function useOverleafRealtime(options: {
       setStatus("off");
       setDetail(null);
       setDocs(new Map());
+      setEntities(new Map());
       setPermission("unknown");
       stopDocument();
       void invoke("overleaf_rt_disconnect").catch(() => {});
@@ -315,6 +349,7 @@ export function useOverleafRealtime(options: {
         // else's edit and apply it twice.
         if (joined.publicId) publicId.current = joined.publicId;
         setDocs(new Map(joined.docs.map((doc) => [doc.path, doc.id])));
+        setEntities(entityMap(joined.entities));
         setPermission(joined.permission);
         setTrackChanges(joined.trackChanges);
         setStatus("live");
@@ -428,6 +463,7 @@ export function useOverleafRealtime(options: {
     // Unknown reads as writable: refusing to send work the user can in fact
     // push is the worse mistake, and Overleaf enforces this server-side too.
     canWrite: permission !== "readOnly" && permission !== "review",
+    entities,
     comments: openDoc?.comments ?? EMPTY_COMMENTS,
     changes: openDoc?.changes ?? EMPTY_CHANGES,
     version: openDoc?.version ?? null,

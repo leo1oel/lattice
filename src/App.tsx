@@ -99,7 +99,10 @@ import {
   loadSystemPrompt,
   loadLastFile,
   persistLastFile,
+  type OverleafRemoteDelete,
   type OverleafSyncMode,
+  loadOverleafRemoteDelete,
+  persistOverleafRemoteDelete,
   loadOverleafSyncMode,
   persistOverleafSyncMode,
 } from "./app-settings";
@@ -410,6 +413,9 @@ function App() {
   const [overleafLink, setOverleafLink] = useState<OverleafLink | null>(null);
   const [overleafSyncing, setOverleafSyncing] = useState(false);
   const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
+  const [overleafRemoteDelete, setOverleafRemoteDelete] = useState<OverleafRemoteDelete>(
+    loadOverleafRemoteDelete,
+  );
   const [overleafRemoteChanges, setOverleafRemoteChanges] = useState(false);
   const [overleafReviewOpen, setOverleafReviewOpen] = useState(false);
   const [overleafCollabOpen, setOverleafCollabOpen] = useState(false);
@@ -433,6 +439,9 @@ function App() {
   const overleafLivePathsRef = useRef<string[]>([]);
   /** Whether the realtime channel is up, for the poll loop to read. */
   const overleafChannelLiveRef = useRef(false);
+  /** Path → Overleaf's id and kind, which is what its endpoints take. */
+  const overleafEntitiesRef = useRef<Map<string, { id: string; kind: string }>>(new Map());
+  const overleafRemoteDeleteRef = useRef<OverleafRemoteDelete>("ask");
   /** How often live mode asks Overleaf whether anything changed. */
   const OVERLEAF_LIVE_POLL_MS = 3_000;
   /** Quiet time after a save before local work is pushed up. */
@@ -1499,6 +1508,46 @@ function App() {
     };
   }, [project?.root]);
 
+  /**
+   * Deal with files that are gone here but still on Overleaf.
+   *
+   * Deleting from a shared project is not something to infer from a missing
+   * file, so this obeys the setting: leave them, remove them, or ask. Removing
+   * needs the entity's Overleaf id, which only the realtime channel knows —
+   * without it there is nothing to name in the request, so the ask is skipped
+   * rather than offered and then failed.
+   */
+  const settleRemoteDeletes = useCallback(async (paths: string[]) => {
+    const policy = overleafRemoteDeleteRef.current;
+    if (policy === "never") return;
+    const known = paths
+      .map((path) => ({ path, entity: overleafEntitiesRef.current.get(path) }))
+      .filter((entry): entry is { path: string; entity: { id: string; kind: string } } => (
+        entry.entity !== undefined
+      ));
+    if (!known.length) return;
+    if (policy === "ask") {
+      const names = known.map((entry) => entry.path).join(", ");
+      const removeThem = window.confirm(
+        `${names} ${known.length === 1 ? "is" : "are"} gone here but still on Overleaf.\n\n`
+        + "Remove them from the Overleaf project too? Overleaf's history keeps them either way.",
+      );
+      if (!removeThem) return;
+    }
+    for (const entry of known) {
+      try {
+        await invoke("overleaf_delete_entity", {
+          kind: entry.entity.kind,
+          entityId: entry.entity.id,
+        });
+      } catch (reason) {
+        setError(`Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}`);
+        return;
+      }
+    }
+    setNotice(`Removed ${known.length} file${known.length === 1 ? "" : "s"} from Overleaf too`);
+  }, []);
+
   const runOverleafSync = useCallback(async (options?: { auto?: boolean }) => {
     if (!project || overleafSyncingRef.current) return;
     overleafSyncingRef.current = true;
@@ -1513,6 +1562,12 @@ function App() {
       const result = await invoke<OverleafSyncResult>("overleaf_sync", {
         live: overleafLivePathsRef.current,
       });
+      // A file gone from here is still on Overleaf, because syncing has never
+      // removed anything from a shared project on its own. What should happen
+      // instead is a decision only the user can make, so it is a setting.
+      if (result.skippedRemoteDeletes.length) {
+        await settleRemoteDeletes(result.skippedRemoteDeletes);
+      }
       // Merged and conflicted files were rewritten on disk just like pulled
       // ones, so the editor has to reload them too or it would keep showing
       // stale text and save over the incoming edits.
@@ -1685,6 +1740,8 @@ function App() {
   // "Carrying documents", not merely "connected": the channel also stays up in
   // manual mode for chat, and slowing the sync down then would leave nothing
   // watching the files.
+  overleafRemoteDeleteRef.current = overleafRemoteDelete;
+  overleafEntitiesRef.current = overleafRealtime.entities;
   overleafChannelLiveRef.current = overleafRealtime.status === "live"
     && overleafSyncMode === "live"
     && !collabSession;
@@ -4057,6 +4114,11 @@ function App() {
   const settingsDialog = settingsOpen ? (
     <SettingsDialog
       overleafSyncMode={overleafSyncMode}
+      overleafRemoteDelete={overleafRemoteDelete}
+      onOverleafRemoteDeleteChange={(mode) => {
+        setOverleafRemoteDelete(mode);
+        persistOverleafRemoteDelete(mode);
+      }}
       onAgentRuntimeUpdated={agentModels.refresh}
       overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
       overleafChannelDetail={overleafRealtime.detail}
