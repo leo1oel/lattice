@@ -242,9 +242,63 @@ describe("Overleaf picker dialog", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", {
       projectId: "p1",
       name: "Attention Paper",
+      adopt: false,
     }));
     await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("offers to link a folder left behind by Stop syncing rather than downloading a second copy", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return connected;
+      if (command === "overleaf_list_projects") return projects;
+      if (command === "overleaf_clone_target") {
+        return { kind: "occupied", path: "/tmp/cloned/Attention Paper", folder: "Attention Paper" };
+      }
+      if (command === "overleaf_clone_project") return "/tmp/cloned/Attention Paper";
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const onCloned = vi.fn();
+    render(
+      <OverleafPickerDialog open onClose={vi.fn()} onCloned={onCloned} onOpenSettings={vi.fn()} />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(confirmSpy.mock.calls[0]![0]).toContain("local conflict");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", {
+      projectId: "p1",
+      name: "Attention Paper",
+      adopt: true,
+    }));
+    confirmSpy.mockRestore();
+  });
+
+  it("downloads a separate copy when the offer to link the existing folder is declined", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return connected;
+      if (command === "overleaf_list_projects") return projects;
+      if (command === "overleaf_clone_target") {
+        return { kind: "occupied", path: "/tmp/cloned/Attention Paper", folder: "Attention Paper" };
+      }
+      if (command === "overleaf_clone_project") return "/tmp/cloned/Attention Paper (2)";
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(
+      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} onOpenSettings={vi.fn()} />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", {
+      projectId: "p1",
+      name: "Attention Paper",
+      adopt: false,
+    }));
+    confirmSpy.mockRestore();
   });
 
   it("opens a project that is already downloaded instead of refusing", async () => {

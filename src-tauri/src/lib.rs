@@ -888,15 +888,8 @@ async fn overleaf_list_projects(
         .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))?
 }
 
-#[tauri::command]
-async fn overleaf_clone_project(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    project_id: String,
-    name: String,
-    access_level: Option<String>,
-) -> Result<String, String> {
-    let config = overleaf_config_dir(&app)?;
+/// Where Overleaf projects are downloaded to.
+fn overleaf_projects_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     let documents = app
         .path()
         .document_dir()
@@ -904,7 +897,46 @@ async fn overleaf_clone_project(
     let parent = documents.join("Overleaf Projects");
     std::fs::create_dir_all(&parent)
         .map_err(|error| format!("Could not create the Overleaf Projects folder: {error}"))?;
+    Ok(parent)
+}
+
+/// What opening this project would do, so the app can ask before it acts.
+#[tauri::command]
+fn overleaf_clone_target(
+    app: tauri::AppHandle,
+    project_id: String,
+    name: String,
+) -> Result<overleaf::CloneTarget, String> {
+    overleaf::clone_target(&project_id, &name, &overleaf_projects_dir(&app)?)
+}
+
+#[tauri::command]
+async fn overleaf_clone_project(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    project_id: String,
+    name: String,
+    access_level: Option<String>,
+    // `adopt`: link the folder already sitting there instead of downloading a
+    // second copy beside it. Only meaningful when `overleaf_clone_target`
+    // reported `occupied`.
+    adopt: Option<bool>,
+) -> Result<String, String> {
+    let config = overleaf_config_dir(&app)?;
+    let parent = overleaf_projects_dir(&app)?;
     let root = tauri::async_runtime::spawn_blocking(move || {
+        if adopt.unwrap_or(false) {
+            let target = overleaf::clone_target(&project_id, &name, &parent)?;
+            if target.kind == "occupied" {
+                return overleaf::adopt_project(
+                    &config,
+                    &project_id,
+                    &name,
+                    std::path::Path::new(&target.path),
+                    access_level.as_deref(),
+                );
+            }
+        }
         overleaf::clone_project(
             &config,
             &project_id,
@@ -2165,6 +2197,7 @@ pub fn run() {
             overleaf_resolve_thread,
             overleaf_delete_thread,
             overleaf_preview,
+            overleaf_clone_target,
             overleaf_unlink,
             overleaf_sync,
             list_pdf_annotations,

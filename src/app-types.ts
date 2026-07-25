@@ -259,6 +259,18 @@ export type OverleafProject = {
   archived: boolean;
   trashed: boolean;
 };
+/** What "Open from Overleaf" would do with a project, before it does it. */
+export type CloneTarget = {
+  /**
+   * `open` — already linked to this folder, so opening it is all that happens.
+   * `fresh` — nothing in the way, it downloads.
+   * `occupied` — a folder of that name holds files but is linked to nothing,
+   * which is exactly what Stop syncing leaves behind.
+   */
+  kind: "open" | "fresh" | "occupied";
+  path: string;
+  folder: string;
+};
 export type OverleafLink = {
   projectId: string;
   projectName: string;

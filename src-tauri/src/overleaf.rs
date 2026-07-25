@@ -820,6 +820,77 @@ fn destination_for(dest_parent: &Path, folder_name: &str, project_id: &str) -> D
     Destination::Fresh(root)
 }
 
+/// What "Open from Overleaf" would do with a project, so the app can ask
+/// before it acts rather than quietly pick.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloneTarget {
+    /// `open` — already linked here, just open it.
+    /// `fresh` — nothing in the way, download it.
+    /// `occupied` — a folder of that name holds files but is not linked to
+    /// any Overleaf project. Unlinking leaves exactly this, so it is the
+    /// state a project is in after Stop syncing.
+    pub kind: String,
+    pub path: String,
+    /// The folder's name, for saying which one is meant.
+    pub folder: String,
+}
+
+/// Describe the destination without touching anything.
+pub fn clone_target(
+    project_id: &str,
+    project_name: &str,
+    dest_parent: &Path,
+) -> Result<CloneTarget, String> {
+    let folder_name = sanitize_project_name(project_name)?;
+    let root = dest_parent.join(&folder_name);
+    let kind = if !root.exists() || is_empty_dir(&root) {
+        "fresh"
+    } else if load_state(&root).is_ok_and(|state| state.project_id == project_id) {
+        "open"
+    } else {
+        "occupied"
+    };
+    Ok(CloneTarget {
+        kind: kind.to_string(),
+        path: root.to_string_lossy().into_owned(),
+        folder: folder_name,
+    })
+}
+
+/// Link a folder that is already on disk to an Overleaf project, without
+/// downloading over it.
+///
+/// No base copies are written, and the file table starts empty, which is the
+/// truth: there is no common ancestor for these two copies. The first sync
+/// therefore treats every file that differs as a conflict — Overleaf's version
+/// takes the path and the local one is kept beside it as
+/// `name (local conflict …)` — and files that are byte-identical stay quiet.
+/// Nothing is overwritten silently and nothing is thrown away.
+pub fn adopt_project(
+    config_dir: &Path,
+    project_id: &str,
+    project_name: &str,
+    root: &Path,
+    access_level: Option<&str>,
+) -> Result<PathBuf, String> {
+    let session = load_session(config_dir)?;
+    if !root.is_dir() {
+        return Err(format!("{} is not a folder.", root.display()));
+    }
+    let state = SyncState {
+        host: session.host,
+        project_id: project_id.to_string(),
+        project_name: project_name.to_string(),
+        last_sync: None,
+        remote_version: None,
+        permission: access_level.map(str::to_string),
+        files: BTreeMap::new(),
+    };
+    save_state(root, &state)?;
+    Ok(root.to_path_buf())
+}
+
 fn is_empty_dir(path: &Path) -> bool {
     fs::read_dir(path).is_ok_and(|mut entries| entries.next().is_none())
 }
@@ -3135,6 +3206,86 @@ mod tests {
         ));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    /// Stop syncing, edit, then open the project from Overleaf again.
+    ///
+    /// Unlinking deletes the state file, so the folder is no longer
+    /// recognisable as that project — before this, opening it again quietly
+    /// downloaded a second copy into `Name (2)` and left the edits in a folder
+    /// nothing pointed at.
+    #[test]
+    fn a_folder_left_by_unlinking_is_offered_for_relinking_not_duplicated() {
+        let parent = temp_dir("adopt");
+        let config = temp_dir("adopt-config");
+        write_session_file(&config, "https://www.overleaf.com");
+        let root = parent.join("Attention Paper");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("main.tex"), b"edited after unlinking\n").unwrap();
+
+        // Files present, no link: the state Stop syncing leaves behind.
+        let target = clone_target("proj-1", "Attention Paper", &parent).unwrap();
+        assert_eq!(target.kind, "occupied");
+        assert_eq!(target.folder, "Attention Paper");
+
+        let adopted = adopt_project(
+            &config,
+            "proj-1",
+            "Attention Paper",
+            &root,
+            Some("readAndWrite"),
+        )
+        .unwrap();
+        assert_eq!(adopted, root);
+        // The edit is untouched — adopting links, it does not download over it.
+        assert_eq!(
+            fs::read_to_string(root.join("main.tex")).unwrap(),
+            "edited after unlinking\n"
+        );
+        // No common ancestor is claimed, which is what makes the first sync
+        // treat a file that differs as a conflict instead of picking a winner.
+        let state = load_state(&root).unwrap();
+        assert_eq!(state.project_id, "proj-1");
+        assert!(state.files.is_empty());
+        assert_eq!(state.remote_version, None);
+        assert_eq!(state.last_sync, None);
+
+        // Now that it is linked, opening it again just opens it.
+        assert_eq!(
+            clone_target("proj-1", "Attention Paper", &parent)
+                .unwrap()
+                .kind,
+            "open"
+        );
+        // A different project of the same name is still a separate folder.
+        assert_eq!(
+            clone_target("proj-2", "Attention Paper", &parent)
+                .unwrap()
+                .kind,
+            "occupied"
+        );
+
+        let _ = fs::remove_dir_all(parent);
+        let _ = fs::remove_dir_all(config);
+    }
+
+    #[test]
+    fn an_empty_or_absent_folder_is_a_plain_download() {
+        let parent = temp_dir("fresh-target");
+        assert_eq!(
+            clone_target("proj-1", "Attention Paper", &parent)
+                .unwrap()
+                .kind,
+            "fresh"
+        );
+        fs::create_dir_all(parent.join("Attention Paper")).unwrap();
+        assert_eq!(
+            clone_target("proj-1", "Attention Paper", &parent)
+                .unwrap()
+                .kind,
+            "fresh"
+        );
+        let _ = fs::remove_dir_all(parent);
     }
 
     fn write_session_file(config_dir: &Path, host: &str) {

@@ -12,6 +12,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Cloud, LoaderCircle, Search, X } from "lucide-react";
 import { MotionButton } from "./motion";
 import {
+  type CloneTarget,
   type OverleafLink,
   type OverleafLoginPoll,
   type OverleafProject,
@@ -502,9 +503,28 @@ export function OverleafPickerDialog(props: {
     setCloning(project);
     setCloneError(null);
     try {
+      // A folder of this name already holding files, with no link to any
+      // Overleaf project, is what Stop syncing leaves behind. Downloading a
+      // second copy beside it strands whatever was written in the meantime in
+      // a folder nothing points at, so this asks rather than choosing.
+      let adopt = false;
+      const target = await invoke<CloneTarget>("overleaf_clone_target", {
+        projectId: project.id,
+        name: project.name,
+      }).catch(() => null);
+      if (target?.kind === "occupied") {
+        adopt = window.confirm(
+          `“${target.folder}” already has files in it and isn’t linked to Overleaf.\n\n`
+          + "OK — link that folder to this Overleaf project. Files that differ are kept "
+          + "both ways: Overleaf’s version takes the filename and yours is saved beside "
+          + "it as “name (local conflict …)”. Nothing is overwritten or thrown away.\n\n"
+          + "Cancel — download a separate copy into a new folder and leave that one alone.",
+        );
+      }
       const root = await invoke<string>("overleaf_clone_project", {
         projectId: project.id,
         name: project.name,
+        adopt,
       });
       setCloning(null);
       props.onCloned(root);
