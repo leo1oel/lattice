@@ -179,12 +179,17 @@ describe("an error in one document", () => {
     expect(result.current.liveFile).toBe(true);
   });
 
-  it("stops live editing when it belongs to a document we are holding", async () => {
+  it("stops that file without taking the connection with it", async () => {
     const { result } = mount("a.tex");
     await waitFor(() => expect(result.current.liveFile).toBe(true));
 
     emit({ type: "otError", docId: DOC_A, message: "rejected" });
-    await waitFor(() => expect(result.current.status).toBe("error"));
+    await waitFor(() => expect(result.current.liveFile).toBe(false));
+    // Chat, presence and the file tree ride this same connection, and one
+    // file's rejection says nothing about any of them.
+    expect(result.current.status).toBe("live");
+    expect(leaves).toContain(DOC_A);
+    expect(result.current.detail).toMatch(/rejected/);
   });
 });
 

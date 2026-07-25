@@ -1,4 +1,13 @@
 import "@testing-library/jest-dom/vitest";
+// Re-exported by the React bindings, which are the direct dependency here.
+import { configure } from "@testing-library/react";
+
+// Much of the app is behind `lazy()`, so the first `findBy…` for one of those
+// components is really waiting on a dynamic import. The default second is
+// comfortable on an idle machine and not on a busy one, which showed up as a
+// different test failing each run — always whichever happened to import a
+// component first. A ceiling for a hang, not the expected duration of anything.
+configure({ asyncUtilTimeout: 5_000 });
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,

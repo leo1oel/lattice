@@ -14,5 +14,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
+    // Room for the slowest test to finish on a loaded machine rather than a
+    // quiet one; the per-assertion wait is set alongside it in test-setup.ts.
+    testTimeout: 20_000,
   },
 });

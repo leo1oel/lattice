@@ -276,6 +276,24 @@ export function useOverleafRealtime(options: {
     void invoke("overleaf_rt_disconnect").catch(() => {});
   }, [stopEverything]);
 
+  /**
+   * Give up on one document without giving up the connection.
+   *
+   * One file failing to send says nothing about the others, and nothing at all
+   * about chat, presence, or the file tree, which ride the same socket. This
+   * file falls back to syncing — which will reconcile it — and everything else
+   * carries on.
+   */
+  const dropDocument = useCallback((id: string, message: string) => {
+    if (docId.current === id) {
+      docId.current = null;
+      setLiveFile(false);
+      setOpenDoc(null);
+      setDetail(message);
+    }
+    release(id);
+  }, [release]);
+
   /** Send whatever a document says is ready, if anything. */
   const flush = useCallback(async (
     id: string | null,
@@ -285,9 +303,15 @@ export function useOverleafRealtime(options: {
     try {
       await invoke("overleaf_rt_send_ops", { docId: id, version: send.version, ops: send.ops });
     } catch (reason) {
-      fail(String(reason));
+      // A send that does not go through is this document's problem. It used to
+      // take the whole connection with it, so one bad moment on one file also
+      // stopped chat, presence and every other file.
+      dropDocument(id, `Overleaf did not take an edit to this file (${reason}), so it syncs instead.`);
+      callbacks.current.onNotice(
+        "Live editing stopped for this file; syncing will carry the change instead.",
+      );
     }
-  }, [fail]);
+  }, [dropDocument]);
 
   // ---- events -------------------------------------------------------------
   // Registered before anything connects, so nothing the backend emits during
@@ -328,7 +352,12 @@ export function useOverleafRealtime(options: {
         // one document failing says nothing about the others — or about chat
         // and presence, which ride the same connection.
         if (payload.docId && !documents.current.has(payload.docId)) return;
-        fail(payload.message);
+        if (payload.docId) {
+          dropDocument(payload.docId, `Overleaf rejected a live update (${payload.message}).`);
+        } else {
+          // No document named: nothing narrower to act on than the connection.
+          fail(payload.message);
+        }
         callbacks.current.onNotice(
           `Overleaf rejected a live update (${payload.message}). Falling back to syncing.`,
         );
@@ -347,7 +376,10 @@ export function useOverleafRealtime(options: {
           void flush(payload.docId, doc.acknowledge(payload.version).send);
           if (doc.settled && draining.current.has(payload.docId)) release(payload.docId);
         } catch (reason) {
-          fail(reason instanceof Error ? reason.message : String(reason));
+          dropDocument(
+            payload.docId,
+            reason instanceof Error ? reason.message : String(reason),
+          );
           callbacks.current.onNotice(
             "This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.",
           );
@@ -403,14 +435,15 @@ export function useOverleafRealtime(options: {
           callbacks.current.onRemoteText(text, OtDocument.caretAfter(caret, applied));
         }
       } catch (reason) {
-        if (reason instanceof OtDesyncError) {
-          fail(reason.message);
-          callbacks.current.onNotice(
-            "This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.",
-          );
-        } else {
-          fail(String(reason));
-        }
+        // One document drifting is that document's problem; the rest of the
+        // project, and the chat and presence beside it, are unaffected.
+        dropDocument(
+          payload.docId,
+          reason instanceof OtDesyncError ? reason.message : String(reason),
+        );
+        callbacks.current.onNotice(
+          "This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.",
+        );
       }
     }).then((dispose) => {
       if (disposed) dispose();
@@ -420,7 +453,7 @@ export function useOverleafRealtime(options: {
       disposed = true;
       unlisten?.();
     };
-  }, [fail, flush, stopDocument]);
+  }, [dropDocument, fail, flush, release, stopEverything]);
 
   // ---- connection ---------------------------------------------------------
 
