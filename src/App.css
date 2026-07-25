@@ -702,7 +702,16 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   font-weight: 600;
   box-shadow: var(--shadow);
 }
-.editor-comment-chip:hover { background: var(--accent-soft); color: var(--accent); }
+/* Tinted, not made translucent. `--accent-soft` is a 10%-alpha purple, which
+   works as a hover for a row inside a solid panel and not at all for a chip
+   that floats over the document: it replaced the chip's own background and
+   the text underneath showed straight through it. Mixing the same accent into
+   the panel colour gives the same tint while staying opaque. */
+.editor-comment-chip:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-strong));
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line-strong));
+  color: var(--accent);
+}
 .editor-comment-popover {
   position: absolute;
   z-index: 7;
