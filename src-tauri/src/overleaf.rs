@@ -2602,7 +2602,7 @@ pub fn sync(
 
     // Record what both sides now agree on: this is the common ancestor the
     // next sync merges against.
-    for (path, _) in new_files.iter() {
+    for path in new_files.keys() {
         let bytes = merged_content
             .get(path)
             .or_else(|| local.get(path))
