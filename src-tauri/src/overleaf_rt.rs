@@ -168,17 +168,26 @@ pub enum RealtimeEvent {
     /// Overleaf announces nothing when a client joins — the only thing that
     /// makes anyone visible is a position broadcast, so this doubles as
     /// "someone is here".
-    PresenceUpdated { user: PresenceUser },
+    PresenceUpdated {
+        user: PresenceUser,
+    },
     /// Someone left the project. Carries only their connection id.
-    PresenceLeft { id: String },
+    PresenceLeft {
+        id: String,
+    },
     /// Someone accepted suggestions: those changes are now ordinary text.
     ///
     /// Accepting needs an event of its own precisely because it does not touch
     /// the document — a rejection arrives as an ordinary update carrying the
     /// undo, and needs nothing extra.
-    ChangesAccepted { doc_id: String, change_ids: Vec<String> },
+    ChangesAccepted {
+        doc_id: String,
+        change_ids: Vec<String>,
+    },
     /// Suggestions were turned on or off for the project.
-    TrackChangesToggled { on: bool },
+    TrackChangesToggled {
+        on: bool,
+    },
     /// A comment thread changed: a reply, an edit, a resolve, a delete.
     ///
     /// This carries no detail on purpose. Overleaf spreads thread state across
@@ -1560,7 +1569,9 @@ fn chat_event(value: &Value) -> Option<RealtimeEvent> {
         id: json_field(value, &["id", "_id"])?,
         content: json_field(value, &["content"]).unwrap_or_default(),
         author_name: if name.is_empty() {
-            author_email.clone().unwrap_or_else(|| "Someone".to_string())
+            author_email
+                .clone()
+                .unwrap_or_else(|| "Someone".to_string())
         } else {
             name
         },
@@ -2372,8 +2383,8 @@ mod tests {
                         p: 5,
                         i: Some("hello".into()),
                         d: None,
-            u: None,
-        }],
+                        u: None,
+                    }],
                     v: 42,
                 },
             ),
@@ -2410,8 +2421,8 @@ mod tests {
                 p: 9,
                 i: Some("!".into()),
                 d: None,
-            u: None,
-        }],
+                u: None,
+            }],
             source: Some("pub-2".into()),
         };
         assert_eq!(
@@ -2576,9 +2587,9 @@ mod tests {
         assert!(entities
             .iter()
             .any(|entity| entity.path == "sections" && entity.kind == "folder"));
-        assert!(entities
-            .iter()
-            .any(|entity| entity.path == "main.tex" && entity.kind == "doc" && entity.id == "doc-1"));
+        assert!(entities.iter().any(|entity| entity.path == "main.tex"
+            && entity.kind == "doc"
+            && entity.id == "doc-1"));
         // The root is not something anyone can act on, and has no path.
         assert!(entities.iter().all(|entity| !entity.path.is_empty()));
         assert!(entities.iter().all(|entity| entity.id != tree.root));
@@ -2999,8 +3010,8 @@ mod tests {
                 p: 0,
                 i: Some(probe.into()),
                 d: None,
-            u: None,
-        }],
+                u: None,
+            }],
         ))
         .expect("send the insert");
         let after_insert = acked(&events, &doc.id, joined.version);
@@ -3023,8 +3034,8 @@ mod tests {
                 p: 0,
                 i: None,
                 d: Some(probe.into()),
-            u: None,
-        }],
+                u: None,
+            }],
         ))
         .expect("send the delete");
         let after_delete = acked(&events, &doc.id, midway.version);
@@ -3033,7 +3044,10 @@ mod tests {
         // Read it back from the server rather than trusting our own bookkeeping.
         rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
         let again = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
-        assert_eq!(again.text, before, "the document did not come back unchanged");
+        assert_eq!(
+            again.text, before,
+            "the document did not come back unchanged"
+        );
         println!("document unchanged at v{}", again.version);
         client.shutdown();
     }
@@ -3080,8 +3094,13 @@ mod tests {
         // the call have to agree on it.
         let thread_id = format!("{:08x}{:016x}", 1_780_000_000u32, 0x5eedc0ffee1234u64);
         let quote: String = joined.text.chars().take(12).collect();
-        crate::overleaf::reply_to_thread(&config, &root, &thread_id, "Lattice check: please ignore")
-            .expect("post the first message");
+        crate::overleaf::reply_to_thread(
+            &config,
+            &root,
+            &thread_id,
+            "Lattice check: please ignore",
+        )
+        .expect("post the first message");
         rt::block_on(client.send_comment(&doc.id, joined.version, 0, &quote, &thread_id))
             .expect("anchor the comment");
         println!("created thread {thread_id} on {:?}", quote);
@@ -3096,8 +3115,7 @@ mod tests {
         assert!(made.messages[0].mine, "our own message should read as ours");
         assert!(!made.resolved);
 
-        crate::overleaf::reply_to_thread(&config, &root, &thread_id, "and a reply")
-            .expect("reply");
+        crate::overleaf::reply_to_thread(&config, &root, &thread_id, "and a reply").expect("reply");
         crate::overleaf::resolve_thread(&config, &root, &doc.id, &thread_id, true)
             .expect("resolve");
         let resolved = crate::overleaf::threads(&config, &root)
@@ -3129,9 +3147,8 @@ mod tests {
         // reinterpreted one per code point. Reading that as-is gives mojibake,
         // and makes our character offsets count bytes while Overleaf counts
         // characters — which puts every later operation in the wrong place.
-        let packed = |text: &str| -> String {
-            text.as_bytes().iter().map(|b| *b as char).collect()
-        };
+        let packed =
+            |text: &str| -> String { text.as_bytes().iter().map(|b| *b as char).collect() };
         for original in [
             "第三节需要引用",
             "café — naïve",
@@ -3142,7 +3159,10 @@ mod tests {
         }
 
         // ASCII is its own packing, and must survive untouched.
-        assert_eq!(decode_packed_utf8("\\documentclass{article}"), "\\documentclass{article}");
+        assert_eq!(
+            decode_packed_utf8("\\documentclass{article}"),
+            "\\documentclass{article}"
+        );
 
         // Text that was never packed is left alone rather than mangled: not
         // every deployment encodes, and decoding twice is the same bug in
@@ -3177,7 +3197,10 @@ mod tests {
             move |_| {},
         ))
         .expect("connect to Overleaf");
-        println!("track changes on for us: {}", client.project().track_changes);
+        println!(
+            "track changes on for us: {}",
+            client.project().track_changes
+        );
 
         let doc = client
             .project()
@@ -3221,7 +3244,10 @@ mod tests {
             mine.id, mine.position, mine.user_id
         );
         assert!(!mine.deletion);
-        assert!(again.text.starts_with(probe), "the text carries it meanwhile");
+        assert!(
+            again.text.starts_with(probe),
+            "the text carries it meanwhile"
+        );
 
         // Rejecting undoes it, and takes the tracked change with it.
         rt::block_on(client.reject_changes(&doc.id, again.version, std::slice::from_ref(mine)))
@@ -3229,7 +3255,10 @@ mod tests {
         std::thread::sleep(Duration::from_secs(2));
         rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
         let settled = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
-        assert_eq!(settled.text, before, "the document should be as we found it");
+        assert_eq!(
+            settled.text, before,
+            "the document should be as we found it"
+        );
         assert!(
             !settled.changes.iter().any(|change| change.id == mine.id),
             "the suggestion should be gone, not merely undone"
@@ -3369,7 +3398,10 @@ mod tests {
             let hue = presence_hue(Some(id));
             assert!(hue < 360, "{id} produced {hue}");
             // The reserved band is 180..220 exclusive; nothing may land there.
-            assert!(!(180..=219).contains(&hue) || hue == 180, "{id} landed on {hue}");
+            assert!(
+                !(180..=219).contains(&hue) || hue == 180,
+                "{id} landed on {hue}"
+            );
         }
     }
 
@@ -3425,9 +3457,9 @@ mod tests {
         assert!(mine.is_some(), "we should be in the roster as {me}");
         // Our own broadcast comes back to us, which is how the app learns to
         // filter itself out.
-        let echoed = lock(&events).iter().any(|event| {
-            matches!(event, RealtimeEvent::PresenceUpdated { user } if user.id == me)
-        });
+        let echoed = lock(&events)
+            .iter()
+            .any(|event| matches!(event, RealtimeEvent::PresenceUpdated { user } if user.id == me));
         println!("our own position echoed back: {echoed}");
         client.shutdown();
     }
@@ -3463,14 +3495,14 @@ mod tests {
                             p: 5,
                             i: Some("hello".into()),
                             d: None,
-            u: None,
-        },
+                            u: None,
+                        },
                         OtOp {
                             p: 20,
                             i: None,
                             d: Some("gone".into()),
-            u: None,
-        },
+                            u: None,
+                        },
                     ]
                 );
             }
@@ -3665,8 +3697,8 @@ mod tests {
                 p: 5,
                 i: Some("hello".into()),
                 d: None,
-            u: None,
-        }],
+                u: None,
+            }],
         ))
         .expect("applyOtUpdate");
         rt::block_on(client.leave_doc("doc-1")).expect("leaveDoc");
@@ -3700,8 +3732,8 @@ mod tests {
                             p: 9,
                             i: Some("!".into()),
                             d: None,
-            u: None,
-        }]
+                            u: None,
+                        }]
                     );
                 }
                 other => panic!("expected DocUpdate, got {other:?}"),

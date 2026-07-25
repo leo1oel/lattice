@@ -265,7 +265,11 @@ pub fn install_latest(config_dir: &Path) -> Result<String, String> {
     fs::create_dir_all(staging.join("natives")).map_err(err)?;
 
     let binary = download(&asset.browser_download_url, "the agent runtime")?;
-    if let Some(expected) = asset.digest.as_deref().and_then(|d| d.strip_prefix("sha256:")) {
+    if let Some(expected) = asset
+        .digest
+        .as_deref()
+        .and_then(|d| d.strip_prefix("sha256:"))
+    {
         let actual = sha256_hex(&binary);
         if !actual.eq_ignore_ascii_case(expected) {
             let _ = fs::remove_dir_all(&staging);

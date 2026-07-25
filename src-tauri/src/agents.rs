@@ -786,9 +786,11 @@ fn parse_agent_model(model: &Value, catalog: &str) -> Option<AgentModel> {
     // Dated aliases (`claude-opus-4-1-20250805`) are the same model as the
     // plain id beside them; showing both makes the picker twice as long and
     // no more useful.
-    if value.rsplit('-').next().is_some_and(|tail| {
-        tail.len() == 8 && tail.chars().all(|c| c.is_ascii_digit())
-    }) {
+    if value
+        .rsplit('-')
+        .next()
+        .is_some_and(|tail| tail.len() == 8 && tail.chars().all(|c| c.is_ascii_digit()))
+    {
         return None;
     }
     let label = model
@@ -801,7 +803,11 @@ fn parse_agent_model(model: &Value, catalog: &str) -> Option<AgentModel> {
     // offering the same rung twice.
     let mut efforts: Vec<String> = Vec::new();
     if let Some(levels) = model.get("thinking").and_then(Value::as_array) {
-        for level in levels.iter().filter_map(Value::as_str).map(app_effort_level) {
+        for level in levels
+            .iter()
+            .filter_map(Value::as_str)
+            .map(app_effort_level)
+        {
             if !efforts.contains(&level) {
                 efforts.push(level);
             }

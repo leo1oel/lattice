@@ -1437,11 +1437,7 @@ pub struct OverleafLabel {
     pub author: Option<String>,
 }
 
-fn history_get(
-    config_dir: &Path,
-    root: &Path,
-    path: &str,
-) -> Result<serde_json::Value, String> {
+fn history_get(config_dir: &Path, root: &Path, path: &str) -> Result<serde_json::Value, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
     let host = sync_host(&state, &session);
@@ -1493,8 +1489,14 @@ pub fn history_updates(
 fn parse_history_update(item: &serde_json::Value) -> OverleafUpdate {
     let meta = item.get("meta");
     OverleafUpdate {
-        from_version: item.get("fromV").and_then(serde_json::Value::as_i64).unwrap_or(0),
-        to_version: item.get("toV").and_then(serde_json::Value::as_i64).unwrap_or(0),
+        from_version: item
+            .get("fromV")
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(0),
+        to_version: item
+            .get("toV")
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(0),
         start_ts: meta
             .and_then(|m| m.get("start_ts"))
             .and_then(serde_json::Value::as_i64)
@@ -1594,7 +1596,11 @@ pub fn history_files(
     from: i64,
     to: i64,
 ) -> Result<serde_json::Value, String> {
-    history_get(config_dir, root, &format!("/filetree/diff?from={from}&to={to}"))
+    history_get(
+        config_dir,
+        root,
+        &format!("/filetree/diff?from={from}&to={to}"),
+    )
 }
 
 pub fn history_labels(config_dir: &Path, root: &Path) -> Result<Vec<OverleafLabel>, String> {
@@ -2467,7 +2473,10 @@ mod tests {
         let doc_edit = serde_json::json!({
             "fromV": 65, "toV": 67, "pathnames": ["neurips_2026.tex"], "labels": [],
         });
-        assert_eq!(update_paths(&doc_edit), vec!["neurips_2026.tex".to_string()]);
+        assert_eq!(
+            update_paths(&doc_edit),
+            vec!["neurips_2026.tex".to_string()]
+        );
 
         let upload = serde_json::json!({
             "fromV": 43, "toV": 45, "pathnames": [], "labels": [],
@@ -2478,7 +2487,10 @@ mod tests {
         });
         assert_eq!(
             update_paths(&upload),
-            vec!["figures/loss.png".to_string(), "figures/old.png".to_string()],
+            vec![
+                "figures/loss.png".to_string(),
+                "figures/old.png".to_string()
+            ],
         );
 
         // A rename is listed under where the file ended up, and a path that
@@ -3063,10 +3075,7 @@ mod tests {
         seed_linked_project(
             &root,
             &server.base,
-            &[
-                ("main.tex", b"local body".as_slice()),
-                ("notes.tex", base),
-            ],
+            &[("main.tex", b"local body".as_slice()), ("notes.tex", base)],
             &[("main.tex", base), ("notes.tex", base)],
         );
         let live: BTreeSet<String> = ["main.tex".to_string()].into_iter().collect();
@@ -3079,7 +3088,10 @@ mod tests {
         // Untouched on disk: the editor buffer owns it while the channel is up.
         assert_eq!(read_local(&root, "main.tex").unwrap(), b"local body");
         // Its recorded base survives, so a later sync can still merge it.
-        assert_eq!(state_files(&root).get("main.tex").unwrap(), &sha256_hex(base));
+        assert_eq!(
+            state_files(&root).get("main.tex").unwrap(),
+            &sha256_hex(base)
+        );
         // Everything else syncs as usual.
         assert_eq!(result.pulled, vec!["notes.tex"]);
     }
@@ -3582,7 +3594,10 @@ mod tests {
         assert_eq!(threads[1].id, "thread-old");
         assert!(threads[1].resolved);
         assert_eq!(threads[1].resolved_by.as_deref(), Some("Leo"));
-        assert_eq!(threads[1].resolved_at.as_deref(), Some("2026-07-01T10:00:00Z"));
+        assert_eq!(
+            threads[1].resolved_at.as_deref(),
+            Some("2026-07-01T10:00:00Z")
+        );
         assert_eq!(threads[1].messages[0].author_name, "Ada Lovelace");
 
         // An Overleaf without the review panel answers with nothing at all.
@@ -3699,8 +3714,8 @@ mod tests {
         assert!(is_excluded("main.aux"));
         assert!(is_excluded("main.synctex.gz"));
         assert!(is_excluded("main.pdf")); // compiled output at root
-        // Real uploads seen on overleaf.com: a sync caught mid-compile picked
-        // up synctex's half-written files and put them in the project history.
+                                          // Real uploads seen on overleaf.com: a sync caught mid-compile picked
+                                          // up synctex's half-written files and put them in the project history.
         assert!(is_excluded("main.synctex(busy)"));
         assert!(is_excluded("main.synctex.gz(busy)"));
         assert!(is_excluded("nested/chapter.synctex"));
@@ -3712,8 +3727,12 @@ mod tests {
         assert!(!is_excluded("main.tex"));
         assert!(!is_excluded("nested/chapter.tex"));
         // Conflict copies are ours to hold locally, never the project's.
-        assert!(is_excluded("neurips_2026 (local conflict 20260724-1308).tex"));
-        assert!(is_excluded("nested/paper (local conflict 20260101-0900).tex"));
+        assert!(is_excluded(
+            "neurips_2026 (local conflict 20260724-1308).tex"
+        ));
+        assert!(is_excluded(
+            "nested/paper (local conflict 20260101-0900).tex"
+        ));
         assert!(is_conflict_copy("paper (local conflict 20260101-0900).tex"));
         assert!(!is_conflict_copy("paper.tex"));
         assert!(!is_conflict_copy("local conflict notes.tex"));

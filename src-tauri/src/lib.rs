@@ -10,10 +10,10 @@ mod literature;
 #[cfg(target_os = "macos")]
 mod macos_window;
 mod models;
+mod omp_update;
 mod openalex;
 mod overleaf;
 mod overleaf_rt;
-mod omp_update;
 mod papers;
 mod pdf_fonts;
 mod project;
@@ -900,7 +900,13 @@ async fn overleaf_clone_project(
     std::fs::create_dir_all(&parent)
         .map_err(|error| format!("Could not create the Overleaf Projects folder: {error}"))?;
     let root = tauri::async_runtime::spawn_blocking(move || {
-        overleaf::clone_project(&config, &project_id, &name, &parent, access_level.as_deref())
+        overleaf::clone_project(
+            &config,
+            &project_id,
+            &name,
+            &parent,
+            access_level.as_deref(),
+        )
     })
     .await
     .map_err(|error| format!("The Overleaf download stopped unexpectedly: {error}"))??;
