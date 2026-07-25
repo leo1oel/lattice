@@ -23,7 +23,12 @@ export function OverleafTrackChangesToggle(props: {
   return (
     <button
       type="button"
-      className={`overleaf-track-changes-toggle${props.on ? " on" : ""}`}
+      // The toolbar owns the geometry: `canvas-text-button` is how a button
+      // there carries a label, and how it gives that label up for an icon
+      // alone when the toolbar runs out of room. Styling the size here instead
+      // loses to the toolbar's own rule and leaves the label hanging outside
+      // the button, clipped by the toolbar's edge.
+      className={`canvas-text-button overleaf-track-changes-toggle${props.on ? " active" : ""}`}
       disabled={props.disabled || props.pending}
       aria-pressed={props.on}
       title={
@@ -41,7 +46,9 @@ export function OverleafTrackChangesToggle(props: {
       {props.pending
         ? <LoaderCircle className="spin" size={13} />
         : props.on ? <Highlighter size={13} /> : <Pencil size={13} />}
-      {props.on ? "Suggesting" : "Editing"}
+      {/* In a span because that is what the toolbar hides when it narrows —
+          the icon and the pressed state still say which mode this is. */}
+      <span>{props.on ? "Suggesting" : "Editing"}</span>
     </button>
   );
 }

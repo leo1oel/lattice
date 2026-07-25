@@ -22,9 +22,25 @@ describe("OverleafTrackChangesToggle", () => {
     render(<OverleafTrackChangesToggle on disabled={false} pending={false} onToggle={onToggle} />);
     const button = screen.getByRole("button", { name: /Suggesting/ });
     expect(button).toHaveAttribute("aria-pressed", "true");
-    expect(button.className).toContain("on");
+    // `active` is the toolbar's own pressed treatment, shared with the other
+    // toggles beside it.
+    expect(button.className).toContain("active");
     fireEvent.click(button);
     expect(onToggle).toHaveBeenCalledWith(false);
+  });
+
+  it("carries its label the way the toolbar can shrink", () => {
+    // The toolbar sizes every button to a 28px square and hides the label of a
+    // `canvas-text-button` when it runs out of room, by hiding the span. A
+    // button that styles its own width loses to that rule and its label ends
+    // up outside the button, clipped by the toolbar's edge — which is exactly
+    // what this one did.
+    render(
+      <OverleafTrackChangesToggle on={false} disabled={false} pending={false} onToggle={vi.fn()} />,
+    );
+    const button = screen.getByRole("button");
+    expect(button.className).toContain("canvas-text-button");
+    expect(button.querySelector("span")?.textContent).toBe("Editing");
   });
 
   it("disables rather than lets a read-only account try", () => {

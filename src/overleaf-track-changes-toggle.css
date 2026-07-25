@@ -1,26 +1,8 @@
-/* A small pill, at home in a toolbar next to overleaf-presence-avatars — its
-   own class names for the same reason: independent of whatever else in the
-   toolbar happens to be live at the same time. */
-.overleaf-track-changes-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--bg);
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.overleaf-track-changes-toggle:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--line-strong);
-}
+/* Only what the toolbar does not already say. Size, shape, hover and the
+   pressed background come from `.canvas-actions .canvas-text-button` and
+   `.canvas-actions button.active` in App.css, so that this button narrows and
+   drops its label in step with the others rather than fighting them. */
+
+/* Not "the button is busy" but "this account cannot suggest at all", which is
+   a property of the project rather than of the moment. */
 .overleaf-track-changes-toggle:disabled { opacity: .45; }
-.overleaf-track-changes-toggle.on {
-  color: var(--accent-contrast, #fff);
-  background: var(--accent);
-  border-color: var(--accent);
-}
