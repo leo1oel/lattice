@@ -911,8 +911,11 @@ function App() {
               setSavedSource(text);
             }
             setCollabFileCount(live.fileCount());
+            // Named, not counted: a collaborator who knows which file is
+            // missing can be sent it another way, and the host is the only
+            // one who can do that.
             const skip = seeded.skippedBlobs.length
-              ? ` · skipped ${seeded.skippedBlobs.length} large figure(s)`
+              ? ` · too large to share: ${seeded.skippedBlobs.join(", ")}`
               : "";
             setNotice(`Sharing project · ${seeded.textCount + seeded.blobCount} files${skip}`);
           } else {
@@ -942,7 +945,7 @@ function App() {
             }
             setCollabFileCount(live.fileCount());
             const skipped = applied.skippedBlobs.length
-              ? ` · ${applied.skippedBlobs.length} figure(s) too large to sync`
+              ? ` · missing, too large to share: ${applied.skippedBlobs.join(", ")}`
               : "";
             setNotice(
               roleNow === "guest"
