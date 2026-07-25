@@ -1399,6 +1399,11 @@ pub fn comment_anchors(
     config_dir: &Path,
     root: &Path,
 ) -> Result<Vec<OverleafCommentAnchor>, String> {
+    Ok(parse_comment_anchors(&project_ranges(config_dir, root)?))
+}
+
+/// The raw ranges of every document in the project.
+fn project_ranges(config_dir: &Path, root: &Path) -> Result<serde_json::Value, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
     let host = sync_host(&state, &session);
@@ -1416,7 +1421,39 @@ pub fn comment_anchors(
             response.status()
         ));
     }
-    Ok(parse_comment_anchors(&response.json().map_err(err)?))
+    response.json().map_err(err)
+}
+
+/// One document's comment and suggestion ranges, read without joining it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocRanges {
+    pub comments: Vec<crate::overleaf_rt::CommentRange>,
+    pub changes: Vec<crate::overleaf_rt::TrackedChange>,
+}
+
+/// What is anchored in one document right now.
+///
+/// The editing channel states this once, when the document is joined, and
+/// never repeats it — and it never echoes our own operation back to us, so
+/// after suggesting an edit there is nothing on the channel to say the
+/// suggestion exists. Re-joining would answer that but replaces the buffer
+/// under whoever is typing; this asks the same question without disturbing
+/// anything.
+pub fn doc_ranges(config_dir: &Path, root: &Path, doc_id: &str) -> Result<DocRanges, String> {
+    let body = project_ranges(config_dir, root)?;
+    let ranges = body
+        .as_array()
+        .and_then(|docs| {
+            docs.iter()
+                .find(|entry| json_str(entry, &["id", "_id"]).as_deref() == Some(doc_id))
+        })
+        .and_then(|entry| entry.get("ranges").cloned())
+        .unwrap_or_default();
+    Ok(DocRanges {
+        comments: crate::overleaf_rt::parse_comment_ranges(&ranges),
+        changes: crate::overleaf_rt::parse_tracked_changes(&ranges),
+    })
 }
 
 fn parse_comment_anchors(body: &serde_json::Value) -> Vec<OverleafCommentAnchor> {

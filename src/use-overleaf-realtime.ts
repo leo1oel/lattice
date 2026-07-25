@@ -202,6 +202,8 @@ export function useOverleafRealtime(options: {
   const sendTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Typed but still inside the send debounce, so not yet in the document. */
   const unsentText = useRef<string | null>(null);
+  /** Pending re-read of a document's anchors after we suggested something. */
+  const rangesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** How long a document that will not settle is allowed to hold the channel. */
   const DRAIN_TIMEOUT_MS = 15_000;
@@ -355,6 +357,39 @@ export function useOverleafRealtime(options: {
     });
   }, []);
 
+  /**
+   * Re-read what is anchored in a document, shortly after we suggested
+   * something in it.
+   *
+   * Overleaf never echoes our own operation back, so a suggestion we just made
+   * is invisible here: the text looks like ordinary text, nothing underlines
+   * it, and the changes list stays empty — which made suggesting look exactly
+   * like editing. This asks for the ranges without re-joining, so the buffer
+   * is not replaced under whoever is still typing. Debounced, because a burst
+   * of typing is one suggestion being written, not many.
+   */
+  const refreshRanges = useCallback((id: string) => {
+    if (rangesTimer.current) clearTimeout(rangesTimer.current);
+    rangesTimer.current = setTimeout(() => {
+      rangesTimer.current = null;
+      void invoke<{ comments: CommentRange[]; changes: TrackedChange[] }>(
+        "overleaf_doc_ranges",
+        { docId: id },
+      )
+        .then((ranges) => {
+          setOpenDoc((current) => (
+            current && current.id === id
+              ? { ...current, comments: ranges.comments, changes: ranges.changes }
+              : current
+          ));
+        })
+        .catch(() => {
+          // The suggestion is on Overleaf either way; only its highlight here
+          // is missing, and the next read will pick it up.
+        });
+    }, 700);
+  }, []);
+
   /** Send whatever a document says is ready, if anything. */
   const flush = useCallback(async (
     id: string | null,
@@ -367,10 +402,12 @@ export function useOverleafRealtime(options: {
       // Sending plain updates while the setting says suggestions made the
       // toolbar's own label untrue — it read "Suggesting" while every
       // keystroke went straight into everyone else's document.
-      const command = asSuggestion.current
-        ? "overleaf_rt_send_tracked_ops"
-        : "overleaf_rt_send_ops";
+      const suggesting = asSuggestion.current;
+      const command = suggesting ? "overleaf_rt_send_tracked_ops" : "overleaf_rt_send_ops";
       await invoke(command, { docId: id, version: send.version, ops: send.ops });
+      // Only suggestions need this: an ordinary edit is just text, and its
+      // effect is already on screen.
+      if (suggesting) refreshRanges(id);
     } catch (reason) {
       // A send that does not go through is this document's problem. It used to
       // take the whole connection with it, so one bad moment on one file also
@@ -380,7 +417,7 @@ export function useOverleafRealtime(options: {
         "Live editing stopped for this file; syncing will carry the change instead.",
       );
     }
-  }, [dropDocument]);
+  }, [dropDocument, refreshRanges]);
 
   // ---- events -------------------------------------------------------------
   // Registered before anything connects, so nothing the backend emits during

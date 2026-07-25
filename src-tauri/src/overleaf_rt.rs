@@ -961,7 +961,7 @@ fn decode_packed_utf8(text: &str) -> String {
 }
 
 /// `{ changes: [{ id, op: {p, i} | {p, d}, metadata: {user_id, ts} }] }`.
-fn parse_tracked_changes(ranges: &Value) -> Vec<TrackedChange> {
+pub(crate) fn parse_tracked_changes(ranges: &Value) -> Vec<TrackedChange> {
     ranges
         .get("changes")
         .and_then(Value::as_array)
@@ -3285,6 +3285,66 @@ mod tests {
         writer.shutdown();
     }
 
+    /// Does turning suggestions on come back to us on the channel?
+    ///
+    /// The toolbar's state is read off `toggle-track-changes`, exactly as
+    /// Overleaf's own editor reads it. If the server does not send that to the
+    /// client that made the change, the button never flips — and since which
+    /// call a keystroke leaves by is decided from the same state, typing would
+    /// go on being ordinary edits with the setting on.
+    #[test]
+    #[ignore = "changes a project setting on overleaf.com"]
+    fn turning_suggestions_on_comes_back_on_the_channel() {
+        let root = std::path::PathBuf::from(
+            std::env::var("OVERLEAF_E2E_PROJECT").expect("set OVERLEAF_E2E_PROJECT"),
+        );
+        let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+        let (host, cookie, project_id, user_id) =
+            crate::overleaf::realtime_config(&config, &root).expect("a linked project");
+        let account = user_id.clone().expect("our own account id");
+
+        let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let sink = events.clone();
+        let client = rt::block_on(RealtimeClient::connect(
+            RealtimeConfig {
+                user_id,
+                host,
+                cookie,
+                project_id,
+            },
+            move |event| lock(&sink).push(event),
+        ))
+        .expect("connect to Overleaf");
+
+        for expected in [true, false] {
+            lock(&events).clear();
+            crate::overleaf::set_track_changes(
+                &config,
+                &root,
+                serde_json::json!({ &account: expected }),
+            )
+            .expect("set the setting");
+
+            let deadline = Instant::now() + Duration::from_secs(15);
+            let mut seen = None;
+            while Instant::now() < deadline && seen.is_none() {
+                seen = lock(&events).iter().find_map(|event| match event {
+                    RealtimeEvent::TrackChangesToggled { on } => Some(*on),
+                    _ => None,
+                });
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            println!("set {expected}, channel reported {seen:?}");
+            assert_eq!(
+                seen,
+                Some(expected),
+                "the client that made the change has to be told about it too"
+            );
+        }
+        client.shutdown();
+    }
+
     /// One connection, two documents, and an answer owed on the first.
     ///
     /// Moving between files keeps a document that still has an operation
@@ -3713,6 +3773,19 @@ mod tests {
         println!(
             "suggestion {} at {} by {:?}",
             mine.id, mine.position, mine.user_id
+        );
+        // The project-wide ranges endpoint has to see it too: that is the
+        // cheap way to learn our own suggestion exists, since the server never
+        // echoes our own operation back to us.
+        let over_rest = crate::overleaf::doc_ranges(&config, &root, &doc.id).expect("doc ranges");
+        println!(
+            "over REST: {} change(s), {} comment(s)",
+            over_rest.changes.len(),
+            over_rest.comments.len()
+        );
+        assert!(
+            over_rest.changes.iter().any(|change| change.id == mine.id),
+            "our suggestion should be visible over REST as well"
         );
         assert!(!mine.deletion);
         assert!(

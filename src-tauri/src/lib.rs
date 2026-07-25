@@ -1376,6 +1376,20 @@ async fn overleaf_threads(
         .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
 }
 
+/// What is anchored in one document right now, without re-joining it.
+#[tauri::command]
+async fn overleaf_doc_ranges(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+) -> Result<overleaf::DocRanges, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || overleaf::doc_ranges(&config, &root, &doc_id))
+        .await
+        .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))?
+}
+
 /// Where every comment in the project is anchored, whatever file it is in.
 #[tauri::command]
 async fn overleaf_comment_anchors(
@@ -2131,6 +2145,7 @@ pub fn run() {
             overleaf_delete_entity,
             overleaf_threads,
             overleaf_comment_anchors,
+            overleaf_doc_ranges,
             overleaf_edit_message,
             overleaf_delete_message,
             overleaf_reply_to_thread,

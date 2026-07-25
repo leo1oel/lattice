@@ -29,6 +29,8 @@ let sends: { docId: string; version: number; ops: unknown[] }[];
 let leaves: string[];
 /** Sends that went out as suggestions rather than as edits. */
 let tracked: { docId: string; version: number; ops: unknown[] }[];
+/** Documents whose anchors were re-read. */
+let rangeReads: string[];
 /** What Overleaf says this account is, for the tests that vary it. */
 let account: { permission: string; trackChanges: boolean };
 
@@ -51,6 +53,7 @@ beforeEach(() => {
   sends = [];
   leaves = [];
   tracked = [];
+  rangeReads = [];
   account = { permission: "readAndWrite", trackChanges: false };
   anchors = { comments: [], changes: [] };
   vi.mocked(listen).mockImplementation(async (_name, handler) => {
@@ -71,6 +74,21 @@ beforeEach(() => {
         permission: account.permission,
         trackChanges: account.trackChanges,
         userId: "user-1",
+      };
+    }
+    if (command === "overleaf_doc_ranges") {
+      rangeReads.push(input.docId as string);
+      return {
+        comments: [],
+        changes: [{
+          id: "made-by-us",
+          position: 0,
+          text: "suggested",
+          deletion: false,
+          userId: "user-1",
+          timestamp: null,
+          hue: 100,
+        }],
       };
     }
     if (command === "overleaf_rt_send_tracked_ops") {
@@ -378,5 +396,49 @@ describe("anchors as the text moves", () => {
     // Nothing left to accept or reject; offering a button that would act on
     // whatever moved into its place is worse than offering none.
     await waitFor(() => expect(result.current.changes).toHaveLength(0));
+  });
+});
+
+/**
+ * Your own suggestion has to become visible where you made it. Overleaf never
+ * echoes an operation back to whoever sent it, so nothing on the channel says
+ * the suggestion exists — which is why suggesting looked exactly like editing
+ * from this side.
+ */
+describe("a suggestion you just made", () => {
+  it("is read back so it shows as a suggestion", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    account.trackChanges = true;
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+    await waitFor(() => expect(result.current.trackChanges).toBe(true));
+
+    await act(async () => {
+      result.current.pushLocal("alpha suggested");
+      vi.advanceTimersByTime(300);
+    });
+    await waitFor(() => expect(tracked).toHaveLength(1));
+
+    // Nothing yet — the read is debounced, because a burst of typing is one
+    // suggestion being written rather than many.
+    expect(rangeReads).toHaveLength(0);
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    await waitFor(() => expect(rangeReads).toEqual([DOC_A]));
+    await waitFor(() => expect(result.current.changes).toHaveLength(1));
+  });
+
+  it("is not read back for an ordinary edit", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+
+    await act(async () => {
+      result.current.pushLocal("alpha edited");
+      vi.advanceTimersByTime(1300);
+    });
+    await waitFor(() => expect(sends).toHaveLength(1));
+    expect(rangeReads).toHaveLength(0);
   });
 });
