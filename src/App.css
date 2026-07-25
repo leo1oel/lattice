@@ -773,6 +773,69 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   -webkit-box-decoration-break: clone;
   cursor: help;
 }
+/* Hover card shown when the pointer rests on a suggestion.
+   CodeMirror's own tooltip chrome is stripped the same way the comment card
+   strips it, because both draw their own. Without a card of its own this had
+   none at all: the default tooltip is see-through, so the document showed
+   straight through the text and the buttons, and it was sized to the bare
+   minimum so Accept and Reject spilled past its edges. */
+.cm-tooltip.cm-tooltip-hover:has(.cm-tracked-change-tooltip) {
+  border: none;
+  background: transparent;
+}
+.cm-tracked-change-tooltip {
+  /* Prose in the UI face, not the editor's monospace, which .cm-editor would
+     otherwise impose on everything inside it. */
+  font-family: var(--ui-font);
+  min-width: 220px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, rgba(0, 0, 0, .12));
+  border-radius: 10px;
+  /* Opaque on purpose. A translucent card over body text is unreadable, and
+     this one sits directly on the line it describes. */
+  background: var(--panel, #fff);
+  color: var(--text, #1a1a1a);
+  box-shadow: var(--shadow, 0 8px 24px rgba(0, 0, 0, .16));
+  font-size: 12px;
+  line-height: 1.45;
+}
+.cm-tracked-change-tooltip-item { display: flex; flex-direction: column; gap: 4px; }
+.cm-tracked-change-tooltip-item + .cm-tracked-change-tooltip-item {
+  padding-top: 8px;
+  border-top: 1px solid var(--line, rgba(0, 0, 0, .08));
+}
+.cm-tracked-change-tooltip-head { display: flex; align-items: center; gap: 6px; }
+.cm-tracked-change-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.cm-tracked-change-tooltip-author { font-weight: 600; }
+.cm-tracked-change-tooltip-time { margin-left: auto; opacity: .6; font-size: 11px; }
+.cm-tracked-change-tooltip-body { white-space: pre-wrap; word-break: break-word; }
+.cm-tracked-change-tooltip-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.cm-tracked-change-tooltip-actions button {
+  flex: 0 0 auto;
+  padding: 3px 12px;
+  border: 1px solid var(--border, rgba(0, 0, 0, .14));
+  border-radius: 6px;
+  background: var(--panel-alt, rgba(0, 0, 0, .04));
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cm-tracked-change-tooltip-actions button:hover:not(:disabled) {
+  background: var(--accent-soft, rgba(59, 130, 246, .12));
+  border-color: var(--accent, #3b82f6);
+}
+.cm-tracked-change-tooltip-actions button:disabled { opacity: .5; cursor: default; }
+
 /* Hover card shown when the pointer rests on a comment mark. */
 .cm-tooltip.cm-tooltip-hover:has(.cm-editor-comment-tooltip) {
   border: none;
@@ -1043,7 +1106,29 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   font-style: normal;
   font-size: 0.92em;
 }
-.source-editor .cm-tooltip-hover { border: 0; border-radius: 9px; background: transparent; box-shadow: var(--shadow); overflow: hidden; }
+/* Readable by default. This host used to be transparent on the grounds that
+   every card inside it brings its own background — which is true right up
+   until one does not, and then its text sits directly on the document with
+   the prose showing through. That has now happened twice (lint diagnostics,
+   then the suggestion card), so the default is the safe one and the cards
+   that genuinely draw their own chrome strip it below. */
+.source-editor .cm-tooltip-hover {
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+/* These four draw their own card, so the host must not draw a second one
+   around it. */
+.source-editor .cm-tooltip-hover:has(.cm-latex-tooltip),
+.source-editor .cm-tooltip-hover:has(.cm-tooltip-lint),
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip),
+.source-editor .cm-tooltip-hover:has(.cm-tracked-change-tooltip) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
 /* A comment card sizes itself to its text — clipping it here is what turned a
    long comment into a scroll box. */
 .source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip) { overflow: visible; box-shadow: none; }

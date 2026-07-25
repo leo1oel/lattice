@@ -130,10 +130,36 @@ export type OverleafRealtime = {
   entities: Map<string, { id: string; kind: string }>;
   /** Suggestions in the open document, oldest position first. */
   changes: TrackedChange[];
-  /** The document's version, which accepting and rejecting are built on. */
+  /**
+   * The version the open document was joined at. Only good for display — it
+   * does not move as the document does, so anything sent to the server must
+   * use `reserveOperation` instead.
+   */
   version: number | null;
+  /**
+   * Take the wire for an operation this hook does not build itself — the
+   * inverse operations that reject a suggestion, say — and answer with the
+   * version to send it at.
+   *
+   * Null when the document is not live, or when one of our own operations is
+   * still unacknowledged: the server numbers versions, so a second operation
+   * built on a version it has not confirmed would be applied against the
+   * wrong history.
+   */
+  reserveOperation: () => number | null;
   /** True when this account's edits are recorded as suggestions. */
   trackChanges: boolean;
+  /**
+   * Record that we just turned suggesting on or off ourselves.
+   *
+   * The setting is changed over REST and normally comes back on the channel,
+   * which is what moves this state — but the REST call succeeds whether or
+   * not the channel is up, and when it is not, nothing ever reflected the
+   * change. The button then read as stuck: it kept saying the old mode, and
+   * since which call a keystroke leaves by is decided from the same state,
+   * the mode really was stuck too.
+   */
+  noteTrackChanges: (on: boolean) => void;
   /** Re-read the open document, after accepting or rejecting a suggestion. */
   reload: () => void;
   /** Feed the editor's current text in; ops go out when it differs. */
@@ -204,6 +230,8 @@ export function useOverleafRealtime(options: {
   const unsentText = useRef<string | null>(null);
   /** Pending re-read of a document's anchors after we suggested something. */
   const rangesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Set by `reload`: take the server's copy instead of resuming from ours. */
+  const forceFullJoin = useRef(false);
 
   /** How long a document that will not settle is allowed to hold the channel. */
   const DRAIN_TIMEOUT_MS = 15_000;
@@ -641,7 +669,9 @@ export function useOverleafRealtime(options: {
     // resume from its version makes the server replay what it did meanwhile
     // instead of only stating where it ended up, which is the difference
     // between keeping work that never reached it and overwriting it.
-    const held = documents.current.get(id);
+    const fullJoin = forceFullJoin.current;
+    forceFullJoin.current = false;
+    const held = fullJoin ? undefined : documents.current.get(id);
     void invoke<JoinedDoc>("overleaf_rt_join_doc", {
       docId: id,
       fromVersion: held?.version ?? null,
@@ -765,7 +795,21 @@ export function useOverleafRealtime(options: {
     changes: openDoc?.changes ?? EMPTY_CHANGES,
     version: openDoc?.version ?? null,
     trackChanges,
-    reload: () => setReloadNonce((nonce) => nonce + 1),
+    noteTrackChanges: setTrackChanges,
+    reserveOperation: () => {
+      const id = docId.current;
+      const doc = id ? documents.current.get(id) : null;
+      return doc?.anchor()?.version ?? null;
+    },
+    reload: () => {
+      // Start over from the server's copy rather than resuming from ours.
+      // Reload is asked for after something changed the document in a way no
+      // operation describes — a suggestion accepted, or rejected by an
+      // operation we sent but never applied here — so our copy is exactly
+      // what cannot be trusted.
+      forceFullJoin.current = true;
+      setReloadNonce((nonce) => nonce + 1);
+    },
     pushLocal,
     anchorComment,
   };

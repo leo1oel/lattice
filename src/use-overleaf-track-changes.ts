@@ -87,8 +87,14 @@ export function useOverleafTrackChanges(options: {
   enabled: boolean;
   /** Overleaf's id for the open document; accept and reject are keyed on it. */
   docId: string | null;
-  /** The document's version, which reject's inverse operation is built on. */
-  version: number | null;
+  /**
+   * Take the wire and answer with the version to build reject's inverse
+   * operation on. Rejecting used to be sent at the version the document was
+   * joined at, which is stale the moment anybody types: the server then
+   * applies the inverse operation against a history it no longer has, and
+   * either mangles it or refuses it outright and stops live editing.
+   */
+  reserveOperation: () => number | null;
   changes: TrackedChange[];
   /** False for a read-only or suggest-only account: Overleaf refuses both calls for them. */
   canAct: boolean;
@@ -99,7 +105,7 @@ export function useOverleafTrackChanges(options: {
   const [error, setError] = useState<string | null>(null);
 
   const docId = useRef(options.docId);
-  const version = useRef(options.version);
+  const reserveOperation = useRef(options.reserveOperation);
   const canAct = useRef(options.canAct);
   const reload = useRef(options.reload);
   // Kept current from an effect rather than assigned during render: refs are
@@ -108,7 +114,7 @@ export function useOverleafTrackChanges(options: {
   // writing them before the commit that would otherwise use them.
   useEffect(() => {
     docId.current = options.docId;
-    version.current = options.version;
+    reserveOperation.current = options.reserveOperation;
     canAct.current = options.canAct;
     reload.current = options.reload;
   });
@@ -179,12 +185,15 @@ export function useOverleafTrackChanges(options: {
     toReject.map((change) => change.id),
     async () => {
       if (!docId.current) throw new Error("Open the document this suggestion is in first.");
-      if (version.current === null) {
-        throw new Error("Still finding out this document's version — try again in a moment.");
+      const version = reserveOperation.current();
+      if (version === null) {
+        throw new Error(
+          "An edit is still on its way to Overleaf. Try rejecting again in a moment.",
+        );
       }
       await invoke("overleaf_reject_changes", {
         docId: docId.current,
-        version: version.current,
+        version,
         changes: toReject,
       });
     },

@@ -442,3 +442,26 @@ describe("a suggestion you just made", () => {
     expect(rangeReads).toHaveLength(0);
   });
 });
+
+describe("turning suggesting on when the channel is not carrying it", () => {
+  it("reflects what we just set, rather than waiting to be told", async () => {
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.trackChanges).toBe(false));
+
+    // The setting is changed over REST and succeeds regardless of the
+    // channel; nothing else would move this.
+    act(() => result.current.noteTrackChanges(true));
+    await waitFor(() => expect(result.current.trackChanges).toBe(true));
+  });
+
+  it("still follows the channel when it does say so", async () => {
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+
+    act(() => result.current.noteTrackChanges(true));
+    await waitFor(() => expect(result.current.trackChanges).toBe(true));
+    // Somebody with permission turned it off for us at the other end.
+    emit({ type: "trackChangesToggled", on: false });
+    await waitFor(() => expect(result.current.trackChanges).toBe(false));
+  });
+});

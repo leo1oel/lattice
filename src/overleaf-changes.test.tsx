@@ -98,7 +98,7 @@ describe("useOverleafTrackChanges", () => {
     const { result } = renderHook(() => useOverleafTrackChanges({
       enabled: true,
       docId: "doc-1",
-      version: 7,
+      reserveOperation: () => 7,
       changes: [change()],
       canAct: true,
       reload,
@@ -111,6 +111,25 @@ describe("useOverleafTrackChanges", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it("refuses to reject while one of our own edits is still unacknowledged", async () => {
+    // Sending a second operation built on a version the server has not
+    // confirmed applies it against the wrong history.
+    vi.mocked(invoke).mockResolvedValue(undefined);
+    const { result } = renderHook(() => useOverleafTrackChanges({
+      enabled: true,
+      docId: "doc-1",
+      reserveOperation: () => null,
+      changes: [change()],
+      canAct: true,
+      reload: vi.fn(),
+    }));
+
+    await act(async () => {
+      await expect(result.current.reject([change()])).rejects.toThrow(/still on its way/);
+    });
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_reject_changes", expect.anything());
+  });
+
   it("rejects by sending the full change objects and the document's version", async () => {
     vi.mocked(invoke).mockResolvedValue(undefined);
     const reload = vi.fn();
@@ -118,7 +137,7 @@ describe("useOverleafTrackChanges", () => {
     const { result } = renderHook(() => useOverleafTrackChanges({
       enabled: true,
       docId: "doc-1",
-      version: 7,
+      reserveOperation: () => 7,
       changes: toReject,
       canAct: true,
       reload,
@@ -143,7 +162,7 @@ describe("useOverleafTrackChanges", () => {
     const { result } = renderHook(() => useOverleafTrackChanges({
       enabled: true,
       docId: "doc-1",
-      version: 7,
+      reserveOperation: () => 7,
       changes: [],
       canAct: false,
       reload,
@@ -170,7 +189,7 @@ describe("useOverleafTrackChanges", () => {
     const { result } = renderHook(() => useOverleafTrackChanges({
       enabled: true,
       docId: "doc-1",
-      version: 7,
+      reserveOperation: () => 7,
       changes: [change({ userId: "user-1" }), change({ id: "c2", userId: "user-2" })],
       canAct: true,
       reload: vi.fn(),

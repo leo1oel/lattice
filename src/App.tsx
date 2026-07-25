@@ -1941,7 +1941,7 @@ function App() {
   const overleafTrackChanges = useOverleafTrackChanges({
     enabled: overleafLink !== null,
     docId: overleafRealtime.docId,
-    version: overleafRealtime.version,
+    reserveOperation: overleafRealtime.reserveOperation,
     changes: overleafRealtime.changes,
     canAct: overleafRealtime.canWrite,
     reload: overleafRealtime.reload,
@@ -5028,7 +5028,14 @@ function App() {
                 on={overleafRealtime.trackChanges}
                 disabled={overleafRealtime.permission === "readOnly"}
                 pending={overleafSuggestMode.pending}
-                onToggle={overleafSuggestMode.setTrackChanges}
+                onToggle={async (on) => {
+                  await overleafSuggestMode.setTrackChanges(on);
+                  // Overleaf normally announces this on the channel, but the
+                  // setting is changed over REST and succeeds even when the
+                  // channel is down — without this the button would keep
+                  // showing the mode it was in before the click.
+                  overleafRealtime.noteTrackChanges(on);
+                }}
                 onError={setNotice}
               />
             ) : null}
