@@ -512,4 +512,102 @@ export function collabPeerCount(session: CollabSession | null): number {
   return Math.max(0, session.provider.awareness.getStates().size - 1);
 }
 
+// ---------------------------------------------------------------------------
+// Project chat
+//
+// Overleaf gives collaborators who stayed in the browser a chat panel; a
+// Lattice Share session only had editor comments anchored to text, so a plain
+// "give me five minutes" had nowhere to go. Messages are plain objects on a
+// Y.Array rather than JSON packed into a Y.Text (the way editor comments are):
+// an array's inserts merge structurally, so two people typing at once each
+// keep their own message instead of one whole-document rewrite clobbering the
+// other's. That also means a guest who joins mid-conversation just receives
+// the array as part of the normal doc sync — there is no separate history
+// fetch, and nothing to do for the "arrived late" case beyond reading it.
+// ---------------------------------------------------------------------------
+
+const COLLAB_CHAT_KEY = "chat";
+/** Keeps a long-running share's doc from growing without bound. */
+export const MAX_COLLAB_CHAT_MESSAGES = 500;
+
+export type CollabChatMessage = {
+  id: string;
+  authorId: string;
+  authorName: string;
+  body: string;
+  /** Milliseconds since the epoch, the sender's clock. */
+  at: number;
+};
+
+function collabChatArray(doc: Y.Doc): Y.Array<CollabChatMessage> {
+  return doc.getArray<CollabChatMessage>(COLLAB_CHAT_KEY);
+}
+
+/** A message ready to send; the id is random so two peers typing at once never collide. */
+export function createCollabChatMessage(authorId: string, authorName: string, body: string): CollabChatMessage {
+  return {
+    id: crypto.randomUUID(),
+    authorId,
+    authorName: authorName.trim() || "Anonymous",
+    body,
+    at: Date.now(),
+  };
+}
+
+/**
+ * Append a message and trim back to the cap in the same transaction. Two
+ * peers can each be over the cap at the same moment — every client only ever
+ * deletes from its own front, so the array settles at `<= cap` on both sides
+ * without a server arbitrating who trims first.
+ */
+export function sendCollabChatMessage(
+  doc: Y.Doc,
+  message: CollabChatMessage,
+  origin = COLLAB_LOCAL_ORIGIN,
+): void {
+  const chat = collabChatArray(doc);
+  doc.transact(() => {
+    chat.push([message]);
+    const overflow = chat.length - MAX_COLLAB_CHAT_MESSAGES;
+    if (overflow > 0) chat.delete(0, overflow);
+  }, origin);
+}
+
+/**
+ * Every entry was written by some peer's client, so — like `readCollabPeers`
+ * treats awareness state — treat each one as untrusted: an entry mid-write or
+ * from a future build must be dropped rather than crash the panel. Sorted by
+ * `at` rather than array order: a guest who reconnects after being offline
+ * merges in a backlog whose CRDT insertion position does not follow wall-
+ * clock order.
+ */
+export function readCollabChatMessages(doc: Y.Doc): CollabChatMessage[] {
+  const out: CollabChatMessage[] = [];
+  for (const entry of collabChatArray(doc).toArray()) {
+    const record = (entry ?? {}) as Partial<CollabChatMessage>;
+    if (
+      typeof record.id !== "string"
+      || typeof record.authorId !== "string"
+      || typeof record.authorName !== "string"
+      || typeof record.body !== "string"
+    ) continue;
+    out.push({
+      id: record.id,
+      authorId: record.authorId,
+      authorName: record.authorName,
+      body: record.body,
+      at: typeof record.at === "number" ? record.at : 0,
+    });
+  }
+  out.sort((left, right) => left.at - right.at);
+  return out;
+}
+
+/** Fires on every chat change; callers re-read with `readCollabChatMessages`. */
+export function observeCollabChatMessages(doc: Y.Doc, onChange: () => void): () => void {
+  const chat = collabChatArray(doc);
+  chat.observe(onChange);
+  return () => chat.unobserve(onChange);
+}
+
 export { COLLAB_LOCAL_ORIGIN };

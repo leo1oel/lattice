@@ -1,0 +1,89 @@
+/* Share-session chat. Bubble shapes and spacing mirror overleaf-chat.css so
+   the two chats — Overleaf's and Lattice's own — read as the same feature.
+   This panel lives inside the Live collaboration modal rather than a
+   full-height side drawer, so the list gets its own fixed height and
+   scrollbar instead of a flex `1` that would need a flex-column ancestor
+   sized to the viewport. */
+.collab-chat-list {
+  height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 2px 10px;
+}
+
+.collab-chat-message {
+  max-width: 85%;
+  align-self: flex-start;
+  padding: 7px 10px;
+  border-radius: 12px 12px 12px 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.collab-chat-message.mine {
+  align-self: flex-end;
+  border-radius: 12px 12px 4px 12px;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+/* A run from the same person reads as one turn, so tighten the spacing. */
+.collab-chat-message.grouped { margin-top: -4px; }
+
+.collab-chat-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 3px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.collab-chat-meta span { font-weight: 600; color: var(--text); }
+
+.collab-chat-message p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.collab-chat-composer {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.collab-chat-composer textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 8px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  /* Height is set from the content; the box grows rather than scrolling. */
+  overflow-x: hidden;
+  overflow-y: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.collab-chat-composer textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.collab-chat-composer button {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}

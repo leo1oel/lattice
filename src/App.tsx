@@ -80,6 +80,7 @@ import { ConflictResolverDialog } from "./conflict-resolver";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 import { useOverleafChat } from "./use-overleaf-chat";
 import { useAgentModels } from "./use-agent-models";
+import { useCollabChat } from "./use-collab-chat";
 import { useAgentRuntimeUpdates } from "./agent-runtime-settings";
 import { useOverleafComments, type OverleafComments } from "./use-overleaf-comments";
 import { OverleafCollabDrawer, type OverleafCollabTab } from "./overleaf-collab";
@@ -1686,6 +1687,17 @@ function App() {
   // to be readable here or half the conversation happens where we cannot see
   // it. It listens on the same channel the editor uses.
   const overleafChat = useOverleafChat({ enabled: overleafLink !== null });
+
+  // The same conversation, for a share that never goes near Overleaf. It rides
+  // the session's own document, so a guest who joins late simply receives the
+  // history as part of the normal sync.
+  const collabChat = useCollabChat({
+    doc: collabSession?.doc ?? null,
+    // The identity editor comments already sign with, rather than inventing a
+    // second one for the same person.
+    selfId: editorCommentAuthorId,
+    displayName: collabName,
+  });
 
   // Comments are the other half of that conversation. The anchors — which span
   // of text each thread sits on — only exist for the document the channel has
@@ -4991,6 +5003,11 @@ function App() {
         mode={collabMode}
         role={collabRole}
         joinOnly={false}
+        chatMessages={collabChat.messages}
+        chatSelfId={editorCommentAuthorId}
+        chatUnread={collabChat.unread}
+        onChatSend={collabChat.send}
+        onChatOpen={collabChat.markRead}
         host={collabHost}
         room={collabRoom}
         displayName={collabName}
