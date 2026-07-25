@@ -334,6 +334,8 @@ export type OverleafSyncResult = {
   conflicts: OverleafConflict[];
   deletedLocal: string[];
   skippedRemoteDeletes: string[];
+  /** Left behind for being bigger than Overleaf will take. */
+  skippedLarge?: string[];
 };
 
 // ---- Git version timeline ------------------------------------------------

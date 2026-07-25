@@ -1575,6 +1575,14 @@ function App() {
       if (result.skippedRemoteDeletes.length) {
         await settleRemoteDeletes(result.skippedRemoteDeletes);
       }
+      // A file too big for Overleaf to accept stays here and is named, because
+      // to the writer it otherwise looks synced like everything else and the
+      // absence is only discovered from the other side.
+      if (result.skippedLarge?.length) {
+        setNotice(
+          `Too large for Overleaf, so left on this machine: ${result.skippedLarge.join(", ")}.`,
+        );
+      }
       // Merged and conflicted files were rewritten on disk just like pulled
       // ones, so the editor has to reload them too or it would keep showing
       // stale text and save over the incoming edits.

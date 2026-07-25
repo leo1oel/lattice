@@ -16,6 +16,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { OtDesyncError, OtDocument } from "./ot-document";
 import type { OtOp } from "./ot-ops";
+import { isCollapsed, transformSpan } from "./ot-ranges";
 
 type DocEntry = { id: string; path: string };
 /** One entity in the project, with the id Overleaf's own endpoints take. */
@@ -113,7 +114,12 @@ export type OverleafRealtime = {
    * naming ourselves in the request.
    */
   userId: string | null;
-  /** False for a reviewer or a viewer: their edits stay on this machine. */
+  /**
+   * Whether this account may change the document directly — false for a
+   * reviewer, who can still type, but only ever as suggestions. This is the
+   * answer to "may they accept someone else's suggestion", not "may they
+   * type at all".
+   */
   canWrite: boolean;
   /** Comment anchors in the open document, as Overleaf holds them. */
   comments: CommentRange[];
@@ -204,8 +210,24 @@ export function useOverleafRealtime(options: {
   // whole session instead of being torn down on every keystroke.
   const callbacks = useRef(options);
   callbacks.current = options;
-  const canWrite = useRef(true);
-  canWrite.current = permission !== "readOnly" && permission !== "review";
+  /**
+   * Whether this account may put anything into the document at all.
+   *
+   * A reviewer can: not as edits, but as suggestions, which is the whole point
+   * of the role. Treating them as read-only locked them out of the one thing
+   * they are there to do. Only a viewer is genuinely unable to contribute.
+   */
+  const canContribute = useRef(true);
+  canContribute.current = permission !== "readOnly";
+  /**
+   * Whether what is typed goes out as a suggestion rather than an edit.
+   *
+   * Two independent reasons: the account asked for it, or the account has no
+   * choice — the server rejects a plain update from a reviewer, and
+   * disconnects them for trying.
+   */
+  const asSuggestion = useRef(false);
+  asSuggestion.current = trackChanges || permission === "review";
 
   /** Let go of a document for good: leave the room and forget it. */
   const release = useCallback((id: string) => {
@@ -242,13 +264,15 @@ export function useOverleafRealtime(options: {
     const doc = documents.current.get(previous);
     if (!doc) return;
 
-    const unsent = typed !== null && canWrite.current ? doc.local(typed).send : null;
+    const unsent = typed !== null && canContribute.current ? doc.local(typed).send : null;
     if (unsent) {
-      void invoke("overleaf_rt_send_ops", {
-        docId: previous,
-        version: unsent.version,
-        ops: unsent.ops,
-      }).catch(() => {});
+      // The last thing typed leaves the same way everything before it did —
+      // as a suggestion when that is the mode, and not as a plain edit that
+      // slips past it on the way out of the file.
+      void invoke(
+        asSuggestion.current ? "overleaf_rt_send_tracked_ops" : "overleaf_rt_send_ops",
+        { docId: previous, version: unsent.version, ops: unsent.ops },
+      ).catch(() => {});
     }
     if (doc.settled) {
       release(previous);
@@ -294,6 +318,43 @@ export function useOverleafRealtime(options: {
     release(id);
   }, [release]);
 
+  /**
+   * Carry the open document's anchored spans across an operation.
+   *
+   * Overleaf states where comments and suggestions sit when the document is
+   * joined and never mentions them again — they are expected to ride along on
+   * the operations that move the text. Without this they drift, and a drifted
+   * suggestion is worse than a misplaced highlight: accepting or rejecting one
+   * applies to a range, so it would rewrite text nobody proposed touching.
+   * Applies to our own typing as much as to anyone else's.
+   */
+  const shiftAnchors = useCallback((id: string, ops: OtOp[]) => {
+    if (!ops.length) return;
+    setOpenDoc((current) => {
+      if (!current || current.id !== id) return current;
+      const comments = current.comments.map((comment) => {
+        const moved = transformSpan(
+          { from: comment.position, length: comment.quote.length },
+          ops,
+        );
+        return moved.from === comment.position
+          ? comment
+          : { ...comment, position: moved.from };
+      });
+      const changes = current.changes
+        .map((change) => {
+          const moved = transformSpan({ from: change.position, length: change.text.length }, ops);
+          // A suggestion whose text was deleted outright has nothing left to
+          // accept or reject; dropping it is better than offering a button
+          // that would act on whatever moved into its place.
+          if (isCollapsed(moved)) return null;
+          return moved.from === change.position ? change : { ...change, position: moved.from };
+        })
+        .filter((change): change is TrackedChange => change !== null);
+      return { ...current, comments, changes };
+    });
+  }, []);
+
   /** Send whatever a document says is ready, if anything. */
   const flush = useCallback(async (
     id: string | null,
@@ -301,7 +362,15 @@ export function useOverleafRealtime(options: {
   ) => {
     if (!send || !id) return;
     try {
-      await invoke("overleaf_rt_send_ops", { docId: id, version: send.version, ops: send.ops });
+      // Suggesting is not a display mode: the difference is which call the
+      // keystrokes leave by, and it is decided here at the moment of sending.
+      // Sending plain updates while the setting says suggestions made the
+      // toolbar's own label untrue — it read "Suggesting" while every
+      // keystroke went straight into everyone else's document.
+      const command = asSuggestion.current
+        ? "overleaf_rt_send_tracked_ops"
+        : "overleaf_rt_send_ops";
+      await invoke(command, { docId: id, version: send.version, ops: send.ops });
     } catch (reason) {
       // A send that does not go through is this document's problem. It used to
       // take the whole connection with it, so one bad moment on one file also
@@ -428,6 +497,7 @@ export function useOverleafRealtime(options: {
         const onScreen = payload.docId === docId.current;
         const caret = onScreen ? callbacks.current.readCaret() : 0;
         const { text, applied } = doc.remote(payload.ops, payload.version);
+        shiftAnchors(payload.docId, applied);
         // A document being drained still has to apply this, or its own
         // outstanding operation is transformed against the wrong history and
         // the server rejects it. Nobody is looking at it, so nothing is drawn.
@@ -453,7 +523,7 @@ export function useOverleafRealtime(options: {
       disposed = true;
       unlisten?.();
     };
-  }, [dropDocument, fail, flush, release, stopEverything]);
+  }, [dropDocument, fail, flush, release, shiftAnchors, stopEverything]);
 
   // ---- connection ---------------------------------------------------------
 
@@ -590,7 +660,7 @@ export function useOverleafRealtime(options: {
 
   const pushLocal = useCallback((text: string) => {
     const id = docId.current;
-    if (!id || !documents.current.has(id) || !canWrite.current) return;
+    if (!id || !documents.current.has(id) || !canContribute.current) return;
     // Coalesce keystrokes briefly: one operation per short pause keeps the
     // channel quiet without anyone noticing a delay. Held where leaving the
     // document can find it, because until the timer fires this text exists
@@ -604,9 +674,11 @@ export function useOverleafRealtime(options: {
       // another file in the meantime, and this text belongs to the old one.
       const current = docId.current === id ? documents.current.get(id) : null;
       if (!current) return;
-      void flush(id, current.local(text).send);
+      const { send } = current.local(text);
+      if (send) shiftAnchors(id, send.ops);
+      void flush(id, send);
     }, 250);
-  }, [flush]);
+  }, [flush, shiftAnchors]);
 
   const anchorComment = useCallback(async (threadId: string, position: number, quote: string) => {
     const id = docId.current;

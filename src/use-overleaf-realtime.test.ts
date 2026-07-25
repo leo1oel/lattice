@@ -27,22 +27,32 @@ let joins: { docId: string; fromVersion: number | null }[];
 /** Every applyOtUpdate. */
 let sends: { docId: string; version: number; ops: unknown[] }[];
 let leaves: string[];
+/** Sends that went out as suggestions rather than as edits. */
+let tracked: { docId: string; version: number; ops: unknown[] }[];
+/** What Overleaf says this account is, for the tests that vary it. */
+let account: { permission: string; trackChanges: boolean };
 
 function joinAnswer(docId: string) {
   return {
     text: docId === DOC_A ? "alpha" : "beta",
     version: 10,
-    comments: [],
-    changes: [],
+    comments: anchors.comments,
+    changes: anchors.changes,
     caughtUp: [],
     resumed: false,
   };
 }
 
+/** Comment and suggestion anchors the server reports on joining. */
+let anchors: { comments: unknown[]; changes: unknown[] };
+
 beforeEach(() => {
   joins = [];
   sends = [];
   leaves = [];
+  tracked = [];
+  account = { permission: "readAndWrite", trackChanges: false };
+  anchors = { comments: [], changes: [] };
   vi.mocked(listen).mockImplementation(async (_name, handler) => {
     emit = (payload) => {
       act(() => {
@@ -58,10 +68,18 @@ beforeEach(() => {
         publicId: "me",
         docs: [{ id: DOC_A, path: "a.tex" }, { id: DOC_B, path: "b.tex" }],
         entities: [],
-        permission: "readAndWrite",
-        trackChanges: false,
+        permission: account.permission,
+        trackChanges: account.trackChanges,
         userId: "user-1",
       };
+    }
+    if (command === "overleaf_rt_send_tracked_ops") {
+      tracked.push({
+        docId: input.docId as string,
+        version: input.version as number,
+        ops: input.ops as unknown[],
+      });
+      return undefined;
     }
     if (command === "overleaf_rt_join_doc") {
       joins.push({
@@ -216,5 +234,149 @@ describe("returning to a document that is still draining", () => {
     });
     expect(leaves).not.toContain(DOC_A);
     expect(result.current.liveFile).toBe(true);
+  });
+});
+
+/**
+ * Suggesting is not a display mode. The toolbar can turn Overleaf's setting
+ * on, but if the keystrokes still leave as ordinary edits then the label is
+ * simply untrue — the text lands in everyone's document immediately while the
+ * button claims it is waiting to be reviewed.
+ */
+describe("what typing goes out as", () => {
+  async function typeInto(result: { current: { pushLocal: (text: string) => void } }) {
+    await act(async () => {
+      result.current.pushLocal("alpha edited");
+      vi.advanceTimersByTime(300);
+    });
+  }
+
+  it("sends ordinary edits when suggesting is off", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+
+    await typeInto(result);
+    await waitFor(() => expect(sends).toHaveLength(1));
+    expect(tracked).toHaveLength(0);
+  });
+
+  it("sends suggestions once the account has turned it on", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    account.trackChanges = true;
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+    await waitFor(() => expect(result.current.trackChanges).toBe(true));
+
+    await typeInto(result);
+    await waitFor(() => expect(tracked).toHaveLength(1));
+    expect(sends).toHaveLength(0);
+  });
+
+  it("follows the setting when it is turned on mid-session", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+
+    emit({ type: "trackChangesToggled", on: true });
+    await waitFor(() => expect(result.current.trackChanges).toBe(true));
+    await typeInto(result);
+    await waitFor(() => expect(tracked).toHaveLength(1));
+    expect(sends).toHaveLength(0);
+  });
+
+  it("lets a reviewer type, but only ever as suggestions", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    account.permission = "review";
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+    // They cannot change the document directly, which is a different question
+    // from whether they may contribute at all.
+    expect(result.current.canWrite).toBe(false);
+
+    await typeInto(result);
+    await waitFor(() => expect(tracked).toHaveLength(1));
+    expect(sends).toHaveLength(0);
+  });
+
+  it("does not let a viewer type at all", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    account.permission = "readOnly";
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+
+    await typeInto(result);
+    expect(sends).toHaveLength(0);
+    expect(tracked).toHaveLength(0);
+  });
+});
+
+/**
+ * Overleaf says where comments and suggestions sit when the document is
+ * joined and never mentions them again. Rejecting a suggestion is built from
+ * its position, so one that has drifted does not merely draw in the wrong
+ * place — it rewrites text nobody proposed touching.
+ */
+describe("anchors as the text moves", () => {
+  beforeEach(() => {
+    anchors = {
+      comments: [{ threadId: "t1", position: 20, quote: "quoted" }],
+      changes: [{
+        id: "c1",
+        position: 10,
+        text: "suggested",
+        deletion: false,
+        userId: "them",
+        timestamp: null,
+        hue: 200,
+      }],
+    };
+  });
+
+  it("moves them along when a collaborator types above", async () => {
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.changes).toHaveLength(1));
+
+    emit({
+      type: "docUpdate",
+      docId: DOC_A,
+      version: 10,
+      ops: [{ p: 0, i: "12345" }],
+      source: "someone-else",
+    });
+
+    await waitFor(() => expect(result.current.changes[0].position).toBe(15));
+    expect(result.current.comments[0].position).toBe(25);
+  });
+
+  it("moves them along when we type above them ourselves", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.changes).toHaveLength(1));
+
+    await act(async () => {
+      result.current.pushLocal("XXalpha");
+      vi.advanceTimersByTime(300);
+    });
+
+    await waitFor(() => expect(result.current.changes[0].position).toBe(12));
+    expect(result.current.comments[0].position).toBe(22);
+  });
+
+  it("drops a suggestion whose text was deleted outright", async () => {
+    const { result } = mount("a.tex");
+    await waitFor(() => expect(result.current.changes).toHaveLength(1));
+
+    emit({
+      type: "docUpdate",
+      docId: DOC_A,
+      version: 10,
+      ops: [{ p: 10, d: "suggested" }],
+      source: "someone-else",
+    });
+
+    // Nothing left to accept or reject; offering a button that would act on
+    // whatever moved into its place is worse than offering none.
+    await waitFor(() => expect(result.current.changes).toHaveLength(0));
   });
 });
