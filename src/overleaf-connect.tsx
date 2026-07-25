@@ -498,10 +498,9 @@ export function OverleafPickerDialog(props: {
       onClose();
     } catch (reason) {
       setCloning(null);
-      const text = toMessage(reason);
-      setCloneError(/already exist/i.test(text)
-        ? `${text} It looks like this project was already downloaded — open that copy with “Open folder” or from your recent projects, or move the existing folder aside to download it again.`
-        : text);
+      // A project that is already downloaded now simply opens, so there is no
+      // longer a "move the folder aside yourself" case to explain.
+      setCloneError(toMessage(reason));
     }
   };
 

@@ -213,13 +213,33 @@ describe("Overleaf picker dialog", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("keeps already-exists clone failures inline with guidance", async () => {
+  it("opens a project that is already downloaded instead of refusing", async () => {
+    // The backend answers with the folder it is already in, so from here this
+    // is an ordinary open. It used to fail and tell the reader to go and find
+    // the folder themselves, for the commonest thing anyone does here.
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "overleaf_status") return connected;
       if (command === "overleaf_list_projects") return projects;
-      if (command === "overleaf_clone_project") {
-        throw new Error("A folder named “Attention Paper” already exists.");
-      }
+      if (command === "overleaf_clone_project") return "/tmp/cloned/Attention Paper";
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    const onClose = vi.fn();
+    const onCloned = vi.fn();
+    render(
+      <OverleafPickerDialog open onClose={onClose} onCloned={onCloned} onOpenSettings={vi.fn()} />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
+    expect(onClose).toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("still shows a real failure inline rather than closing", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return connected;
+      if (command === "overleaf_list_projects") return projects;
+      if (command === "overleaf_clone_project") throw new Error("Could not reach Overleaf.");
       throw new Error(`Unexpected command: ${command}`);
     });
     const onClose = vi.fn();
@@ -228,9 +248,7 @@ describe("Overleaf picker dialog", () => {
     );
     fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(/already exists/);
-    expect(alert).toHaveTextContent(/Open folder/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Could not reach Overleaf/);
     expect(onClose).not.toHaveBeenCalled();
   });
 

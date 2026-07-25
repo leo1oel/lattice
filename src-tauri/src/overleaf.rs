@@ -783,6 +783,47 @@ fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
     Ok(LocalFiles { files, oversized })
 }
 
+/// Where a project being opened from Overleaf should land.
+enum Destination {
+    /// This project is already downloaded here; open it rather than clone it.
+    Existing(PathBuf),
+    /// Nothing in the way, or the name was taken by something else.
+    Fresh(PathBuf),
+}
+
+/// Decide where an Overleaf project should go, given what is already on disk.
+///
+/// Opening a project that was opened before used to be an error telling
+/// someone to go and find the folder themselves, or move it aside — for the
+/// commonest thing anyone does with this dialog. It is the same project, so it
+/// opens. A folder of the same name holding something else does not block the
+/// download either; the copy simply lands beside it under a numbered name,
+/// the way a second download of the same file would.
+fn destination_for(dest_parent: &Path, folder_name: &str, project_id: &str) -> Destination {
+    let root = dest_parent.join(folder_name);
+    if !root.exists() || is_empty_dir(&root) {
+        return Destination::Fresh(root);
+    }
+    if load_state(&root).is_ok_and(|state| state.project_id == project_id) {
+        return Destination::Existing(root);
+    }
+    // Taken by something else: find a name that is not.
+    for suffix in 2..100 {
+        let candidate = dest_parent.join(format!("{folder_name} ({suffix})"));
+        if !candidate.exists() || is_empty_dir(&candidate) {
+            return Destination::Fresh(candidate);
+        }
+        if load_state(&candidate).is_ok_and(|state| state.project_id == project_id) {
+            return Destination::Existing(candidate);
+        }
+    }
+    Destination::Fresh(root)
+}
+
+fn is_empty_dir(path: &Path) -> bool {
+    fs::read_dir(path).is_ok_and(|mut entries| entries.next().is_none())
+}
+
 /// Fold a project name into a safe folder name, mirroring
 /// `project::validate_new_project_name` (no separators) and stripping
 /// characters macOS cannot store.
@@ -1056,10 +1097,21 @@ pub fn clone_project(
 ) -> Result<PathBuf, String> {
     let session = load_session(config_dir)?;
     let folder_name = sanitize_project_name(project_name)?;
-    let root = dest_parent.join(&folder_name);
-    if root.exists() && fs::read_dir(&root).map_err(err)?.next().is_some() {
-        return Err("That folder already exists and is not empty.".to_string());
-    }
+    let root = match destination_for(dest_parent, &folder_name, project_id) {
+        // Already here: opening it is what was wanted. A second copy of a
+        // project that syncs would only be a second thing to keep in step.
+        Destination::Existing(root) => {
+            let mut state = load_state(&root)?;
+            // The one thing that can have changed while it sat there: what
+            // this account is now allowed to do with the project.
+            if access_level.is_some() && state.permission.as_deref() != access_level {
+                state.permission = access_level.map(str::to_string);
+                save_state(&root, &state)?;
+            }
+            return Ok(root);
+        }
+        Destination::Fresh(root) => root,
+    };
     let client = http_client(120)?;
     let zip_bytes = download_project_zip(&client, &session.host, &session.cookie, project_id)?;
     let entries = read_zip_entries(&zip_bytes)?;
@@ -3300,9 +3352,45 @@ mod tests {
         assert_eq!(link.project_id, "proj-1");
         assert_eq!(link.project_name, "Test: Project");
 
-        // Cloning again into the same non-empty folder fails.
-        let again = clone_project(&config, "proj-1", "Test: Project", &parent, None);
-        assert!(again.unwrap_err().contains("already exists"));
+        // Opening the same project again opens the copy that is already
+        // there, rather than refusing and asking someone to go and find it.
+        let again = clone_project(&config, "proj-1", "Test: Project", &parent, None).unwrap();
+        assert_eq!(again, root);
+
+        // A different project that happens to share a name lands beside it
+        // instead of being blocked by it.
+        let other = clone_project(&config, "proj-2", "Test: Project", &parent, None).unwrap();
+        assert_ne!(other, root);
+        assert_eq!(load_state(&other).unwrap().project_id, "proj-2");
+        // And opening *that* one again finds it under its numbered name.
+        let other_again = clone_project(&config, "proj-2", "Test: Project", &parent, None).unwrap();
+        assert_eq!(other_again, other);
+    }
+
+    /// Opening a project that is already downloaded opens it.
+    ///
+    /// The commonest thing anyone does in the Overleaf picker is reach for a
+    /// project they have opened before; that used to be the one case that
+    /// failed, with an instruction to go and find the folder by hand.
+    #[test]
+    #[ignore = "reads overleaf.com with the signed-in session"]
+    fn opening_an_already_downloaded_project_opens_it() {
+        let existing = std::path::PathBuf::from(std::env::var("OVERLEAF_E2E_PROJECT").unwrap());
+        let config = std::path::PathBuf::from(std::env::var("HOME").unwrap())
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+        let state = load_state(&existing).expect("the project is linked");
+        let parent = existing.parent().expect("a parent folder");
+
+        let opened = clone_project(
+            &config,
+            &state.project_id,
+            &state.project_name,
+            parent,
+            Some("readAndWrite"),
+        )
+        .expect("opening an already-downloaded project should succeed");
+        assert_eq!(opened, existing, "it should be the copy already on disk");
+        println!("reopened {}", opened.display());
     }
 
     #[test]
