@@ -75,7 +75,6 @@ import { MathPreview } from "./math-preview";
 import { ChatMarkdown } from "./chat-markdown";
 import { Tip } from "./components/icon-tip";
 import { TableGeneratorDialog } from "./table-generator-dialog";
-import type { PdfMark } from "./pdf-annotations";
 import { PdfPreview, type PdfSyncTarget } from "./pdf-viewer";
 import type {
   WordCount,
@@ -166,11 +165,6 @@ export function DocumentCanvas(props: {
   texlabDiagnostics: CompileDiagnostic[];
   pdfSyncTarget: PdfSyncTarget | null;
   onPdfSource: (page: number, x: number, y: number) => void;
-  pdfMarks: PdfMark[];
-  activePdfMarkId: string | null;
-  onCreatePdfMark?: (mark: PdfMark) => void;
-  onSelectPdfMark?: (mark: PdfMark) => void;
-  onOpenPdfMarks?: () => void;
   editorComments: EditorComment[];
   /** Other people's carets in the document Overleaf is carrying live. */
   overleafPresenceCursors: PresenceCursor[];
@@ -1026,16 +1020,11 @@ export function DocumentCanvas(props: {
       url={props.pdfUrl}
       pdfBase64={props.pdfBase64}
       syncTarget={props.pdfSyncTarget}
-      marks={props.pdfMarks}
-      activeMarkId={props.activePdfMarkId}
       // Reverse-jump to source only when the editor is visible (split/dual/
       // columns). In PDF-only view there's nothing to jump to, so clicks stay
       // inert and the synctex cursor is off.
       onSource={props.mode === "pdf" ? undefined : props.onPdfSource}
       onTextSelect={props.onPdfTextSelect}
-      onCreateMark={props.onCreatePdfMark}
-      onSelectMark={props.onSelectPdfMark}
-      onOpenMarks={props.onOpenPdfMarks}
       onNumPages={props.onPdfPageCount}
     />
   );

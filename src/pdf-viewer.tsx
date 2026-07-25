@@ -23,26 +23,15 @@ import {
   CircleAlert,
   Download,
   FileText,
-  Highlighter,
   LoaderCircle,
   Maximize2,
   RectangleHorizontal,
   Search,
-  StickyNote,
   X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 import { Tip } from "./components/icon-tip";
-import {
-  createPdfMark,
-  pageElementForNode,
-  pdfMarkFill,
-  selectionRectsInPage,
-  type PdfMark,
-  type PdfMarkKind,
-  type PdfSelectionDraft,
-} from "./pdf-annotations";
 import { pdfBase64Fingerprint, pdfBase64ToBytes } from "./pdf-bytes";
 import { MotionButton } from "./motion";
 import {
@@ -152,52 +141,6 @@ function PdfLinkLayer({
   );
 }
 
-function PdfMarkLayer({
-  marks,
-  scale,
-  activeId,
-  onSelect,
-}: {
-  marks: PdfMark[];
-  scale: number;
-  activeId: string | null;
-  onSelect?: (mark: PdfMark) => void;
-}) {
-  if (!marks.length) return null;
-  return (
-    <div className="pdf-mark-layer" aria-label="PDF marks">
-      {marks.flatMap((mark) => mark.rects.map((rect, index) => {
-        const left = Math.min(rect.x1, rect.x2) * scale;
-        const top = Math.min(rect.y1, rect.y2) * scale;
-        const width = Math.abs(rect.x2 - rect.x1) * scale;
-        const height = Math.abs(rect.y2 - rect.y1) * scale;
-        if (width < 1 || height < 1) return [];
-        return [(
-          <button
-            key={`${mark.id}:${index}`}
-            type="button"
-            className={`pdf-user-highlight ${mark.kind}${activeId === mark.id ? " active" : ""}`}
-            style={{
-              left,
-              top,
-              width: Math.max(4, width),
-              height: Math.max(4, height),
-              background: pdfMarkFill(mark.color),
-            }}
-            title={mark.note || mark.text}
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelect?.(mark);
-            }}
-          >
-            {mark.kind === "note" && index === 0 ? <StickyNote size={11} /> : null}
-          </button>
-        )];
-      }))}
-    </div>
-  );
-}
-
 function ContinuousPdfPage({
   documentProxy,
   pageNumber,
@@ -205,9 +148,6 @@ function ContinuousPdfPage({
   searchQuery,
   selectedSearchPage,
   syncTarget,
-  marks,
-  activeMarkId,
-  onSelectMark,
   onSource,
   onDestination,
 }: {
@@ -217,9 +157,6 @@ function ContinuousPdfPage({
   searchQuery: string;
   selectedSearchPage: number | null;
   syncTarget: PdfSyncTarget | null;
-  marks: PdfMark[];
-  activeMarkId: string | null;
-  onSelectMark?: (mark: PdfMark) => void;
   onSource?: (page: number, x: number, y: number) => void;
   onDestination: (destination: string | unknown[]) => void;
 }) {
@@ -416,12 +353,6 @@ function ContinuousPdfPage({
         className="textLayer pdf-text-layer"
         onDoubleClick={revealSourceFromText}
       />
-      <PdfMarkLayer
-        marks={marks}
-        scale={scale}
-        activeId={activeMarkId}
-        onSelect={onSelectMark}
-      />
       <PdfLinkLayer annotations={annotations} onDestination={onDestination} />
       {pageSyncTarget && (
         <div
@@ -447,26 +378,16 @@ export function PdfPreview({
   pdfBase64,
   fileName = "paper.pdf",
   syncTarget = null,
-  marks = [],
-  activeMarkId = null,
   onSource,
   onTextSelect,
-  onCreateMark,
-  onSelectMark,
-  onOpenMarks,
   onNumPages,
 }: {
   url: string | null;
   pdfBase64: string | null;
   fileName?: string;
   syncTarget?: PdfSyncTarget | null;
-  marks?: PdfMark[];
-  activeMarkId?: string | null;
   onSource?: (page: number, x: number, y: number) => void;
   onTextSelect?: (text: string) => void;
-  onCreateMark?: (mark: PdfMark) => void;
-  onSelectMark?: (mark: PdfMark) => void;
-  onOpenMarks?: () => void;
   onNumPages?: (pages: number | null) => void;
 }) {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
@@ -486,9 +407,6 @@ export function PdfPreview({
   const [pageTexts, setPageTexts] = useState<string[]>([]);
   const [searchError, setSearchError] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
-  const [selectionDraft, setSelectionDraft] = useState<PdfSelectionDraft | null>(null);
-  const [noteDraft, setNoteDraft] = useState("");
-  const [markColor, setMarkColor] = useState("yellow");
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
   // Trackpad pinch on macOS (and ctrl+scroll) arrives as a wheel event with
@@ -824,8 +742,6 @@ export function PdfPreview({
           lastReported = "";
           onTextSelectRef.current?.("");
         }
-        setSelectionDraft(null);
-        setNoteDraft("");
         return;
       }
       const anchor = selection.anchorNode;
@@ -834,22 +750,6 @@ export function PdfPreview({
       if (next !== lastReported) {
         lastReported = next;
         onTextSelectRef.current?.(next);
-      }
-      if (!next) {
-        setSelectionDraft(null);
-        return;
-      }
-      const pageElement = pageElementForNode(selection.anchorNode);
-      if (!pageElement) return;
-      const page = Number(pageElement.dataset.pdfPage ?? 0);
-      if (!(page > 0)) return;
-      try {
-        const range = selection.getRangeAt(0);
-        const rects = selectionRectsInPage(range, pageElement, scaleRef.current);
-        if (!rects.length) return;
-        setSelectionDraft({ text: next, page, rects });
-      } catch {
-        // Selection can become invalid while the text layer remounts.
       }
     };
     const onMouseUp = () => {
@@ -864,15 +764,6 @@ export function PdfPreview({
       document.removeEventListener("selectionchange", reportFromSelection);
     };
   }, [onTextSelect, loadedUrl, documentProxy]);
-
-  const commitMark = (kind: PdfMarkKind) => {
-    if (!selectionDraft || !onCreateMark) return;
-    const mark = createPdfMark(selectionDraft, kind, markColor, kind === "note" ? noteDraft.trim() : "");
-    onCreateMark(mark);
-    setSelectionDraft(null);
-    setNoteDraft("");
-    window.getSelection()?.removeAllRanges();
-  };
 
   const matches = useMemo(
     () => findPdfMatches(pageTexts, searchQuery),
@@ -931,12 +822,6 @@ export function PdfPreview({
   useEffect(() => {
     if (syncTarget) scrollToPage(syncTarget.page);
   }, [scrollToPage, syncTarget]);
-
-  useEffect(() => {
-    if (!activeMarkId) return;
-    const mark = marks.find((item) => item.id === activeMarkId);
-    if (mark) scrollToPage(mark.page);
-  }, [activeMarkId, marks, scrollToPage]);
 
   if (!url) {
     return <div className="pdf-preview"><div className="pdf-placeholder"><FileText size={28} /><p>Build the project to preview the paper.</p></div></div>;
@@ -1038,47 +923,12 @@ export function PdfPreview({
           <Tip label="Fit whole page">
             <button disabled={!pageSize} onClick={() => applyFit("page")}><Maximize2 size={14} /></button>
           </Tip>
-          {onOpenMarks && (
-            <Tip label="PDF marks">
-              <button onClick={onOpenMarks}>
-                <Highlighter size={14} />
-                {marks.length ? <em className="pdf-mark-count">{marks.length}</em> : null}
-              </button>
-            </Tip>
-          )}
           <Tip label="Save PDF as…">
             <MotionButton disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}</MotionButton>
           </Tip>
         </div>
       </div>
       {saveNotice && <div className={`pdf-save-notice ${saveNotice.startsWith("Could not") ? "error" : ""}`}>{saveNotice}<button title="Dismiss PDF save notice" onClick={() => setSaveNotice("")}><X size={12} /></button></div>}
-      {selectionDraft && onCreateMark && (
-        <div className="pdf-mark-popover" role="dialog" aria-label="Create PDF mark">
-          <p>{selectionDraft.text}</p>
-          <div className="pdf-mark-colors">
-            {(["yellow", "green", "blue", "pink"] as const).map((color) => (
-              <button
-                key={color}
-                type="button"
-                className={`pdf-mark-color ${color}${markColor === color ? " active" : ""}`}
-                title={color}
-                onClick={() => setMarkColor(color)}
-              />
-            ))}
-          </div>
-          <input
-            value={noteDraft}
-            onChange={(event) => setNoteDraft(event.target.value)}
-            placeholder="Optional note"
-            aria-label="Sticky note text"
-          />
-          <div className="pdf-mark-popover-actions">
-            <button type="button" onClick={() => commitMark("highlight")}><Highlighter size={12} /> Highlight</button>
-            <button type="button" onClick={() => commitMark("note")}><StickyNote size={12} /> Note</button>
-            <button type="button" className="secondary" onClick={() => { setSelectionDraft(null); setNoteDraft(""); }}>Cancel</button>
-          </div>
-        </div>
-      )}
       <div ref={scrollAreaRef} className="pdf-scroll-area" onScroll={updateCurrentPage}>
         {pdfError
           ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div>
@@ -1096,9 +946,6 @@ export function PdfPreview({
               searchQuery={searchQuery}
               selectedSearchPage={selectedMatch?.page ?? null}
               syncTarget={syncTarget}
-              marks={marks.filter((mark) => mark.page === page)}
-              activeMarkId={activeMarkId}
-              onSelectMark={onSelectMark}
               onSource={onSource}
               onDestination={(destination) => void navigateDestination(destination)}
             />

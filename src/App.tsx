@@ -5166,11 +5166,6 @@ function App() {
             texlabDiagnostics={texlabDiagnostics}
             pdfSyncTarget={pdfSyncTarget}
             onPdfSource={revealPdfSource}
-            pdfMarks={[]}
-            activePdfMarkId={null}
-            onCreatePdfMark={undefined}
-            onSelectPdfMark={undefined}
-            onOpenPdfMarks={undefined}
             editorComments={allEditorComments}
             overleafPresenceCursors={overleafActiveCursors}
             overleafChanges={overleafRealtime.changes}

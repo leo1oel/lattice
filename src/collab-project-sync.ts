@@ -64,6 +64,9 @@ export function classifySyncablePath(path: string): SyncableKind | null {
     || normalized.startsWith(".research/omp-")
     || normalized.startsWith(".research/checkpoints/")
     || normalized.startsWith(".research/cache/")
+    // Nothing writes this any more — PDF annotations were removed — but a
+    // project last opened in an older build still has the file, and it should
+    // stay out of the share rather than start syncing now that it is inert.
     || normalized === ".research/pdf-annotations.json"
     // Overleaf bookkeeping is personal to whoever linked the project: sharing
     // the link would point a collaborator's app at someone else's Overleaf
