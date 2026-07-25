@@ -1,10 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import { OverleafHistoryPanel } from "./overleaf-history";
 import type { OverleafFileEntry, OverleafUpdate } from "./overleaf-history-types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
 
 const NOW = Date.now();
 
@@ -25,6 +27,7 @@ function update(overrides: Partial<OverleafUpdate> = {}): OverleafUpdate {
 afterEach(() => {
   cleanup();
   vi.mocked(invoke).mockReset();
+  vi.mocked(confirm).mockReset();
   vi.restoreAllMocks();
 });
 
@@ -186,17 +189,17 @@ describe("OverleafHistoryPanel", () => {
       if (command === "overleaf_history_revert") return undefined;
       throw new Error(`Unexpected command: ${command}`);
     });
-    const confirmSpy = vi.spyOn(window, "confirm");
+    const confirmSpy = vi.mocked(confirm);
     render(<OverleafHistoryPanel onClose={() => undefined} onRestored={onRestored} />);
     const body = await expandEntry(/Ada Lovelace/);
     const restore = within(body).getByRole("button", { name: /Restore whole project to this version/ });
 
-    confirmSpy.mockReturnValueOnce(false);
+    confirmSpy.mockResolvedValueOnce(false);
     fireEvent.click(restore);
     expect(invoke).not.toHaveBeenCalledWith("overleaf_history_revert", { version: 11 });
     expect(onRestored).not.toHaveBeenCalled();
 
-    confirmSpy.mockReturnValueOnce(true);
+    confirmSpy.mockResolvedValueOnce(true);
     fireEvent.click(restore);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", { version: 11 }));
     expect(confirmSpy.mock.calls[confirmSpy.mock.calls.length - 1]?.[0]).toMatch(/deleted/);

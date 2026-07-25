@@ -1,11 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import { HistoryDrawer } from "./history-drawer";
 import { VersionsTimeline } from "./versions-timeline";
 import type { GitLogEntry } from "./app-types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
 
 const repoStatus = { available: true, repository: true, branch: "main", files: [] };
 
@@ -49,6 +51,7 @@ async function expandFirstEntry() {
 afterEach(() => {
   cleanup();
   vi.mocked(invoke).mockReset();
+  vi.mocked(confirm).mockReset();
   vi.restoreAllMocks();
 });
 
@@ -269,22 +272,23 @@ describe("VersionsTimeline", () => {
       if (command === "git_restore_file") return undefined;
       throw new Error(`Unexpected command: ${command}`);
     });
-    const confirmSpy = vi.spyOn(window, "confirm");
+    const confirmSpy = vi.mocked(confirm);
     render(<VersionsTimeline onVersionsChanged={onVersionsChanged} />);
 
     const body = await expandFirstEntry();
     fireEvent.click(within(body).getByRole("button", { name: /main\.tex/ }));
     const restore = await screen.findByRole("button", { name: /Restore this file/ });
 
-    confirmSpy.mockReturnValueOnce(false);
+    confirmSpy.mockResolvedValueOnce(false);
     fireEvent.click(restore);
     expect(invoke).not.toHaveBeenCalledWith("git_restore_file", { rev: "aaa111", path: "main.tex" });
 
-    confirmSpy.mockReturnValueOnce(true);
+    confirmSpy.mockResolvedValueOnce(true);
     fireEvent.click(restore);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_restore_file", { rev: "aaa111", path: "main.tex" }));
     expect(confirmSpy).toHaveBeenCalledWith(
       "Restore main.tex to this version? Your current file will be overwritten.",
+      expect.anything(),
     );
     await waitFor(() => expect(onVersionsChanged).toHaveBeenCalledTimes(1));
   });
@@ -319,7 +323,7 @@ describe("VersionsTimeline", () => {
       if (command === "git_restore_project") return "ddd444";
       throw new Error(`Unexpected command: ${command}`);
     });
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const confirmSpy = vi.mocked(confirm).mockResolvedValue(true);
     render(<VersionsTimeline onVersionsChanged={onVersionsChanged} />);
 
     const body = await expandFirstEntry();

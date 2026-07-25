@@ -1,10 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OverleafPickerDialog, OverleafSettingsSection } from "./overleaf-connect";
 import type { OverleafProject, OverleafStatus } from "./app-types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: vi.fn() }));
 
 const disconnected: OverleafStatus = {
@@ -64,6 +66,7 @@ function mockConnectedPicker() {
 
 afterEach(() => {
   cleanup();
+  vi.mocked(confirm).mockReset();
   vi.clearAllMocks();
 });
 
@@ -103,7 +106,7 @@ describe("Overleaf settings section", () => {
       }
       throw new Error(`Unexpected command: ${command}`);
     });
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const confirmSpy = vi.mocked(confirm).mockResolvedValue(true);
     render(
       <OverleafSettingsSection
         syncMode="live"
@@ -276,7 +279,7 @@ describe("Overleaf picker dialog", () => {
       if (command === "overleaf_clone_project") return "/tmp/cloned/Attention Paper";
       throw new Error(`Unexpected command: ${command}`);
     });
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const confirmSpy = vi.mocked(confirm).mockResolvedValue(true);
     const onCloned = vi.fn();
     render(
       <OverleafPickerDialog open onClose={vi.fn()} onCloned={onCloned} onOpenSettings={vi.fn()} />,
@@ -304,7 +307,7 @@ describe("Overleaf picker dialog", () => {
       if (command === "overleaf_clone_project") return "/tmp/cloned/Attention Paper (2)";
       throw new Error(`Unexpected command: ${command}`);
     });
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const confirmSpy = vi.mocked(confirm).mockResolvedValue(false);
     render(
       <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} onOpenSettings={vi.fn()} />,
     );

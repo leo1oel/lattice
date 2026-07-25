@@ -2,7 +2,10 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OverleafCommentsPanel } from "./overleaf-comments";
 import { anchorsByThreadId, type OverleafCommentAnchor } from "./overleaf-comment-anchors";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import type { OverleafComment, OverleafThread } from "./app-types";
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
 
 function message(overrides: Partial<OverleafComment> = {}): OverleafComment {
   return {
@@ -52,7 +55,10 @@ function panel(overrides: Partial<Parameters<typeof OverleafCommentsPanel>[0]> =
 }
 
 describe("Overleaf comments panel", () => {
-  beforeEach(cleanup);
+  beforeEach(() => {
+    cleanup();
+    vi.mocked(confirm).mockReset();
+  });
 
   it("quotes the commented span and reveals it, opening its file, when clicked", () => {
     const onReveal = vi.fn();
@@ -203,7 +209,7 @@ describe("Overleaf comments panel", () => {
 
   it("deletes a message that is not the only one without warning about the thread", async () => {
     const onDeleteMessage = vi.fn().mockResolvedValue(undefined);
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const confirmSpy = vi.mocked(confirm).mockResolvedValue(true);
     render(panel({
       threads: [thread({
         messages: [
@@ -214,14 +220,14 @@ describe("Overleaf comments panel", () => {
       onDeleteMessage,
     }));
     fireEvent.click(screen.getByRole("button", { name: "Delete message" }));
-    expect(confirmSpy).toHaveBeenCalledWith("Delete this message?");
+    expect(confirmSpy).toHaveBeenCalledWith("Delete this message?", expect.anything());
     await waitFor(() => expect(onDeleteMessage).toHaveBeenCalledWith("t1", "m2"));
     confirmSpy.mockRestore();
   });
 
   it("warns that deleting the only message deletes the whole thread, and does not delete silently", async () => {
     const onDeleteMessage = vi.fn().mockResolvedValue(undefined);
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const confirmSpy = vi.mocked(confirm).mockResolvedValue(false);
     render(panel({
       threads: [thread({ messages: [message({ id: "m1", mine: true, content: "Only message" })] })],
       onDeleteMessage,
@@ -229,6 +235,7 @@ describe("Overleaf comments panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete message" }));
     expect(confirmSpy).toHaveBeenCalledWith(
       "Delete this message? It's the only one in the thread, so this deletes the whole thread.",
+      expect.anything(),
     );
     // Declining the confirm must not call through.
     expect(onDeleteMessage).not.toHaveBeenCalled();

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { EditorView } from "@codemirror/view";
@@ -31,7 +31,7 @@ vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }))
 // Unmocked, every `listen` reaches for Tauri's IPC bridge and rejects, which
 // jsdom reports as an unhandled rejection for each subscription App makes.
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn(), open: vi.fn(), save: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn(), openUrl: vi.fn() }));
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
 vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
@@ -108,7 +108,8 @@ async function withOpenSelect(selectLabel: string, assert: () => void) {
 
 beforeEach(() => {
   localStorage.clear();
-  vi.stubGlobal("confirm", vi.fn(() => true));
+  // The app asks through the dialog plugin, not the global — see confirmAction.
+  vi.mocked(confirm).mockResolvedValue(true);
   vi.mocked(open).mockResolvedValue(null);
   vi.mocked(save).mockResolvedValue(null);
   vi.mocked(revealItemInDir).mockResolvedValue(undefined);

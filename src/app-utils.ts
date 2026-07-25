@@ -8,6 +8,7 @@
  * imported anywhere without pulling in the whole component.
  */
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
 import type { OrbState } from "./thinking-orbs";
 import type { AutoBuildMode } from "./app-settings";
 import type {
@@ -288,14 +289,16 @@ export function dropEditorAt(position: { x: number; y: number }): { x: number; y
 /**
  * Ask before doing something that cannot be taken back, and wait for the answer.
  *
- * Tauri's dialog plugin replaces `window.confirm` with an async function, so in
- * the app it returns a Promise rather than the browser's boolean. That made
- * every `if (!window.confirm(…)) return;` a no-op — a Promise is always truthy,
- * so the guard passed whatever the person clicked, and deletes and restores
- * went ahead regardless. Awaiting works either way: a plain boolean awaits to
- * itself, which is what happens under test.
+ * Not `window.confirm`. Tauri's dialog plugin replaces that global with an
+ * async function that invokes `plugin:dialog|confirm` — a command the plugin
+ * stopped registering, and which no permission grants, so in the app the call
+ * was rejected by the ACL and no dialog ever appeared. Written as
+ * `if (!window.confirm(…)) return;` that failed silently in the worst
+ * direction: a rejected Promise is still truthy, so deletes and restores went
+ * ahead with nothing asked. The plugin's own `confirm` goes through
+ * `plugin:dialog|message`, which is registered and is covered by
+ * `dialog:default`.
  */
 export async function confirmAction(message: string): Promise<boolean> {
-  const answer: boolean | Promise<boolean> = window.confirm(message);
-  return Boolean(await answer);
+  return confirmDialog(message, { title: "Lattice", kind: "warning" });
 }
