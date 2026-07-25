@@ -95,7 +95,14 @@ export function HistoryDrawer(props: {
 
   return (
     <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside className="history-drawer" onMouseDown={(event) => event.stopPropagation()}>
+      {/* Wider whenever a diff is on show. 460px is right for a list of
+          entries and wrong for reading prose side by side with what replaced
+          it — the lines wrap so often that finding the change is the hard
+          part. */}
+      <aside
+        className={`history-drawer${tab === "changes" ? "" : " wide"}`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <style>{versionsTimelineCss}</style>
         <div className="drawer-header">
           <div><History size={16} /><span>Project history</span></div>

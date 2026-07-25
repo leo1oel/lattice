@@ -34,6 +34,7 @@ import {
   changeKind,
   hunkedDiffLines,
   jumpLineForDiff,
+  pairedRewrites,
   type DiffLine,
 } from "./history-diff";
 
@@ -90,6 +91,9 @@ export function HistoryDiff(props: {
     () => visibleDiffLines(hunks, full, expandedSkips),
     [expandedSkips, full, hunks],
   );
+  // Which words moved, for lines that were rewritten rather than added or
+  // removed outright. Computed over what is on screen, so it lines up with it.
+  const rewrites = useMemo(() => pairedRewrites(visibleLines), [visibleLines]);
 
   return (
     <div className="history-diff">
@@ -125,6 +129,7 @@ export function HistoryDiff(props: {
           const prefix = line.type === "added" ? "+" : line.type === "removed" ? "-" : " ";
           const jumpLine = jumpLineForDiff(line);
           const clickable = Boolean(props.onOpenLine && jumpLine != null);
+          const segments = rewrites.get(index);
           return (
             <code
               key={`${line.type}-${line.beforeLine ?? "x"}-${line.afterLine ?? "y"}-${index}`}
@@ -134,7 +139,22 @@ export function HistoryDiff(props: {
                 if (clickable && jumpLine != null) props.onOpenLine?.(props.change.path, jumpLine);
               }}
             >
-              {`${prefix} ${line.text}`}
+              {/* Where the line sits in the file. Without this a diff is a
+                  handful of lines with nothing to say where they came from. */}
+              <span className="history-diff-lineno" aria-hidden>
+                {line.afterLine ?? line.beforeLine ?? ""}
+              </span>
+              <span className="history-diff-sign" aria-hidden>{prefix}</span>
+              {segments
+                ? segments.map((segment, part) => (
+                  <span
+                    key={part}
+                    className={segment.changed ? "history-diff-word" : undefined}
+                  >
+                    {segment.text}
+                  </span>
+                ))
+                : line.text}
             </code>
           );
         })}

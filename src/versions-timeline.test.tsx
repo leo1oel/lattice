@@ -176,8 +176,20 @@ describe("VersionsTimeline", () => {
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_show_diff", { rev: "aaa111", path: "main.tex" }));
     const diff = await screen.findByLabelText("Diff for main.tex");
-    expect(diff).toHaveTextContent("- old line");
-    expect(diff).toHaveTextContent("+ new line");
+    const rows = diff.querySelectorAll(".history-diff-line");
+    expect(rows).toHaveLength(2);
+    const [removed, added] = [rows[0]!, rows[1]!];
+    expect(removed.className).toContain("removed");
+    expect(added.className).toContain("added");
+    expect(removed).toHaveTextContent("old line");
+    expect(added).toHaveTextContent("new line");
+    // Where in the file, which is the whole point of showing a few lines
+    // rather than the document.
+    expect(removed.querySelector(".history-diff-lineno")).toHaveTextContent("1");
+    expect(added.querySelector(".history-diff-lineno")).toHaveTextContent("1");
+    // One word changed, so only that word is marked rather than the sentence.
+    expect(removed.querySelector(".history-diff-word")).toHaveTextContent("old");
+    expect(added.querySelector(".history-diff-word")).toHaveTextContent("new");
   });
 
   it("notes binary files instead of rendering a diff", async () => {

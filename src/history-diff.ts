@@ -1,4 +1,4 @@
-import { diffLines, type Change } from "diff";
+import { diffLines, diffWordsWithSpace, type Change } from "diff";
 
 export type DiffLine = {
   type: "added" | "removed" | "context" | "skip";
@@ -119,4 +119,69 @@ export function jumpLineForDiff(line: DiffLine): number | null {
   if (line.afterLine != null) return line.afterLine;
   if (line.beforeLine != null) return line.beforeLine;
   return null;
+}
+
+/** One run of a line, marked according to whether it is part of the change. */
+export type DiffSegment = { text: string; changed: boolean };
+
+/**
+ * Which words actually differ between a line and the line that replaced it.
+ *
+ * A line-level diff says the whole line changed, which for prose is nearly
+ * useless: correcting one word paints the entire sentence red and green and
+ * leaves the reader to spot the difference themselves. This narrows it to the
+ * words that moved, so the eye lands on them.
+ */
+export function wordSegments(
+  before: string,
+  after: string,
+): { before: DiffSegment[]; after: DiffSegment[] } {
+  const parts = diffWordsWithSpace(before, after);
+  const left: DiffSegment[] = [];
+  const right: DiffSegment[] = [];
+  for (const part of parts) {
+    if (part.added) right.push({ text: part.value, changed: true });
+    else if (part.removed) left.push({ text: part.value, changed: true });
+    else {
+      left.push({ text: part.value, changed: false });
+      right.push({ text: part.value, changed: false });
+    }
+  }
+  return { before: left, after: right };
+}
+
+/**
+ * Pair each replaced line with its replacement, by position within the run.
+ *
+ * Only a removed run and an added run that sit together and are the same
+ * length are treated as rewrites of each other. Runs of different lengths are
+ * a genuine insertion or deletion rather than a rewrite, and guessing at a
+ * pairing there would mark words as changed that nobody touched.
+ */
+export function pairedRewrites(lines: DiffLine[]): Map<number, DiffSegment[]> {
+  const marks = new Map<number, DiffSegment[]>();
+  let index = 0;
+  while (index < lines.length) {
+    if (lines[index]?.type !== "removed") {
+      index += 1;
+      continue;
+    }
+    let removedEnd = index;
+    while (lines[removedEnd]?.type === "removed") removedEnd += 1;
+    let addedEnd = removedEnd;
+    while (lines[addedEnd]?.type === "added") addedEnd += 1;
+    const removedCount = removedEnd - index;
+    const addedCount = addedEnd - removedEnd;
+    if (removedCount > 0 && removedCount === addedCount) {
+      for (let offset = 0; offset < removedCount; offset += 1) {
+        const from = lines[index + offset]!;
+        const to = lines[removedEnd + offset]!;
+        const { before, after } = wordSegments(from.text, to.text);
+        marks.set(index + offset, before);
+        marks.set(removedEnd + offset, after);
+      }
+    }
+    index = addedEnd > index ? addedEnd : index + 1;
+  }
+  return marks;
 }

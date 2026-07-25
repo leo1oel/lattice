@@ -1241,6 +1241,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 
 .drawer-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .18); display: flex; justify-content: flex-end; }
 .history-drawer { width: min(460px, 100%); height: 100%; background: var(--panel-strong); box-shadow: var(--shadow); padding: 14px; overflow: auto; animation: drawer-in .2s ease-out; }
+/* Diffs need the room: a rewritten paragraph read in a 460px column wraps so
+   often that spotting what changed is harder than the change itself. */
+.history-drawer.wide { width: min(880px, 100%); }
 .insert-palette { width: min(640px, 100%); height: 100%; background: var(--panel-strong); box-shadow: var(--shadow); padding: 14px; overflow: auto; animation: drawer-in .2s ease-out; }
 @keyframes drawer-in { from { transform: translateX(24px); opacity: .5; } }
 .drawer-header { height: 34px; display: flex; align-items: center; justify-content: space-between; }
@@ -1267,8 +1270,34 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .history-diff-meta { min-height: 28px; padding: 5px 8px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; }
 .history-diff-meta strong { color: var(--text); }
 .history-diff-meta span { color: var(--faint); text-transform: capitalize; }
-.history-diff-body { margin: 0; max-height: 260px; overflow: auto; padding: 6px 0; font-family: var(--editor-font); font-size: 10px; line-height: 1.45; }
+/* Taller than it was: a change is much easier to place when some of the
+   document around it is visible at the same time. */
+.history-diff-body { margin: 0; max-height: 420px; overflow: auto; padding: 6px 0; font-family: var(--editor-font); font-size: 10px; line-height: 1.45; }
 .history-diff-line { display: block; width: 100%; padding: 0 8px; border: 0; background: transparent; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); font: inherit; }
+/* Line number and +/- sit in fixed columns so the text starts at the same
+   place on every row and the prose stays readable down the page. */
+.history-diff-lineno {
+  display: inline-block;
+  width: 3.5em;
+  margin-right: 6px;
+  text-align: right;
+  color: var(--faint);
+  user-select: none;
+}
+.history-diff-sign { display: inline-block; width: 1em; user-select: none; }
+/* The words that actually moved, inside a line that was rewritten. The line
+   tint alone says "this whole sentence changed", which is nearly useless for
+   prose when one word did. */
+.history-diff-line.added .history-diff-word {
+  background: color-mix(in srgb, var(--success) 30%, transparent);
+  border-radius: 2px;
+  font-weight: 600;
+}
+.history-diff-line.removed .history-diff-word {
+  background: color-mix(in srgb, var(--danger) 26%, transparent);
+  border-radius: 2px;
+  text-decoration: line-through;
+}
 .history-diff-line.added { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success); }
 .history-diff-line.removed { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); }
 .history-diff-line.skip {

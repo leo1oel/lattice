@@ -43,13 +43,18 @@ function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-/** Overleaf gives epoch milliseconds, not the ISO strings `relativeTime` (app-utils.ts) expects. */
-function relativeFromMs(ms: number): string {
-  const elapsed = Date.now() - ms;
-  if (!Number.isFinite(elapsed) || elapsed < 60_000) return "just now";
-  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
-  if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)}h ago`;
-  return new Date(ms).toLocaleDateString();
+/**
+ * The clock time an entry was made, which is what tells two of them apart.
+ *
+ * "3h ago" is fine for the newest thing in a list and useless for a history:
+ * an afternoon's work is a dozen entries that all read "3h ago", and picking
+ * the right one to restore means knowing which is which. The day is already
+ * the heading above, so this is the time within it.
+ */
+function clockTime(ms: number): string {
+  const when = new Date(ms);
+  if (!Number.isFinite(when.getTime())) return "";
+  return when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function dayKey(ms: number): string {
@@ -242,7 +247,7 @@ export function OverleafHistoryPanel(props: {
                         {primaryAuthor}{extraAuthors}
                       </span>
                       <span className="overleaf-history-time" title={new Date(update.endTs).toLocaleString()}>
-                        {relativeFromMs(update.endTs)}
+                        {clockTime(update.endTs)}
                       </span>
                       <span className="overleaf-history-count">
                         {update.paths.length} file{update.paths.length === 1 ? "" : "s"}

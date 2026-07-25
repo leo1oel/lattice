@@ -120,8 +120,14 @@ describe("OverleafHistoryPanel", () => {
     fireEvent.click(within(filesContainer).getByRole("button", { name: /main\.tex/ }));
 
     const diff = await screen.findByLabelText("Diff for main.tex");
-    expect(diff).toHaveTextContent("- old claim");
-    expect(diff).toHaveTextContent("+ new claim");
+    const rows = [...diff.querySelectorAll(".history-diff-line")];
+    const removed = rows.find((row) => row.className.includes("removed"));
+    const added = rows.find((row) => row.className.includes("added"));
+    expect(removed).toHaveTextContent("old claim");
+    expect(added).toHaveTextContent("new claim");
+    // Only the word that moved is marked, not the whole sentence.
+    expect(removed?.querySelector(".history-diff-word")).toHaveTextContent("old");
+    expect(added?.querySelector(".history-diff-word")).toHaveTextContent("new");
   });
 
   it("shows a binary file as a plain notice instead of crashing", async () => {
