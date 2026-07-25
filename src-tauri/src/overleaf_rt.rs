@@ -94,6 +94,9 @@ pub const FRAME_NOOP: u8 = 8;
 // ---- Public shapes --------------------------------------------------------
 
 pub struct RealtimeConfig {
+    /// Our own Overleaf account id, when the app knows it. Only used to read
+    /// the per-user track-changes setting out of the project.
+    pub user_id: Option<String>,
     pub host: String,
     pub cookie: String,
     pub project_id: String,
@@ -165,6 +168,14 @@ pub enum RealtimeEvent {
     PresenceUpdated { user: PresenceUser },
     /// Someone left the project. Carries only their connection id.
     PresenceLeft { id: String },
+    /// Someone accepted suggestions: those changes are now ordinary text.
+    ///
+    /// Accepting needs an event of its own precisely because it does not touch
+    /// the document — a rejection arrives as an ordinary update carrying the
+    /// undo, and needs nothing extra.
+    ChangesAccepted { doc_id: String, change_ids: Vec<String> },
+    /// Suggestions were turned on or off for the project.
+    TrackChangesToggled { on: bool },
     /// A comment thread changed: a reply, an edit, a resolve, a delete.
     ///
     /// This carries no detail on purpose. Overleaf spreads thread state across
@@ -226,6 +237,11 @@ pub struct OtOp {
     /// Deleted text.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub d: Option<String>,
+    /// "This undoes something", which is how a rejected suggestion is
+    /// expressed: Overleaf consumes the tracked change instead of recording
+    /// the undo as a new suggestion of its own.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub u: Option<bool>,
 }
 
 // ---- Frame codec (pure) ---------------------------------------------------
@@ -551,6 +567,24 @@ struct CommentUpdate<'a> {
     v: i64,
 }
 
+/// `applyOtUpdate` carrying a suggestion rather than an edit.
+///
+/// The operations are identical; what makes them tracked is `meta.tc`, and its
+/// value is not a flag but the seed Overleaf mints the change ids from. It has
+/// to be fresh for every update — reusing one means minting duplicate ids.
+#[derive(Serialize)]
+struct TrackedUpdate<'a> {
+    doc: &'a str,
+    op: Vec<OtOp>,
+    v: i64,
+    meta: TrackedMeta<'a>,
+}
+
+#[derive(Serialize)]
+struct TrackedMeta<'a> {
+    tc: &'a str,
+}
+
 #[derive(Serialize)]
 struct CursorPosition<'a> {
     doc_id: &'a str,
@@ -606,6 +640,9 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 struct Shared {
+    /// Our own account id, so the per-account track-changes setting can be
+    /// read when the project announces a change to it.
+    user_id: Mutex<Option<String>>,
     /// The project's entities. Rebuilt at join, then kept current from the
     /// tree events, which is what lets a file created in the browser become
     /// editable here without re-reading the project.
@@ -783,7 +820,7 @@ pub struct JoinedDoc {
 
 /// One tracked change in a document: a suggested insertion or deletion that
 /// nobody has accepted or rejected yet.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackedChange {
     /// Overleaf's id for the change; what accepting one refers to.
@@ -827,6 +864,22 @@ fn parse_comment_ranges(ranges: &Value) -> Vec<CommentRange> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// A fresh seed for the ids Overleaf mints for tracked changes.
+///
+/// Eighteen hex characters: seconds since the epoch, then random "machine" and
+/// "process" halves, which is the shape `RangesTracker.generateIdSeed` uses.
+fn change_id_seed() -> String {
+    let seconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or_default();
+    let random = uuid::Uuid::new_v4();
+    let bytes = random.as_bytes();
+    let machine = u32::from_be_bytes([0, bytes[0], bytes[1], bytes[2]]);
+    let pid = u16::from_be_bytes([bytes[3], bytes[4]]);
+    format!("{:08x}{:06x}{:04x}", seconds as u32, machine, pid)
 }
 
 /// Undo the packing Overleaf applies to text on its way into a `joinDoc`
@@ -904,7 +957,7 @@ fn parse_comment_range(op: &Value) -> Option<CommentRange> {
 
 /// `joinProject` answers with `[error, project, permissions, protocolVersion]`;
 /// `project.rootFolder` is an array holding the single root folder.
-fn parse_project(body: &[Value]) -> Result<(Tree, Permission), String> {
+fn parse_project(body: &[Value]) -> Result<(Tree, Permission, Option<Value>), String> {
     let first = body
         .first()
         .ok_or_else(|| "Overleaf's joinProject answer carried no project.".to_string())?;
@@ -932,7 +985,9 @@ fn parse_project(body: &[Value]) -> Result<(Tree, Permission), String> {
     if root.get("_id").and_then(Value::as_str).is_none() {
         return Err("Overleaf's root folder has no id.".to_string());
     }
-    Ok((Tree::from_root(root), permission))
+    // Whose account we are is not in this answer; the caller knows it.
+    let track_changes = project.get("trackChangesState").cloned();
+    Ok((Tree::from_root(root), permission, track_changes))
 }
 
 /// What this account may do to the project.
@@ -1407,6 +1462,27 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
                 shared.emit(RealtimeEvent::PresenceLeft { id: id.to_string() });
             }
         }
+        "accept-changes" => {
+            if let (Some(doc_id), Some(ids)) = (
+                args.first().and_then(Value::as_str),
+                args.get(1).and_then(Value::as_array),
+            ) {
+                shared.emit(RealtimeEvent::ChangesAccepted {
+                    doc_id: doc_id.to_string(),
+                    change_ids: ids
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect(),
+                });
+            }
+        }
+        "toggle-track-changes" => {
+            let user_id = lock(&shared.user_id).clone();
+            shared.emit(RealtimeEvent::TrackChangesToggled {
+                on: track_changes_for(args.first(), user_id.as_deref()),
+            });
+        }
         "new-chat-message" => {
             if let Some(event) = args.first().and_then(chat_event) {
                 shared.emit(event);
@@ -1631,6 +1707,26 @@ pub struct ProjectTree {
     pub docs: Vec<DocEntry>,
     /// What this account may do to the project.
     pub permission: Permission,
+    /// Whether edits should be recorded as suggestions rather than applied
+    /// outright, for this account.
+    pub track_changes: bool,
+}
+
+/// Read the project-wide track-changes setting as it applies to one account.
+///
+/// Overleaf stores `true` for everyone, `false` for nobody, or a map naming
+/// the accounts it is on for — with the literal key `__guests__` covering
+/// anonymous sessions. The field is absent entirely when the project's owner
+/// does not have the feature, which reads as off.
+fn track_changes_for(state: Option<&Value>, user_id: Option<&str>) -> bool {
+    match state {
+        Some(Value::Bool(on)) => *on,
+        Some(Value::Object(map)) => map
+            .get(user_id.unwrap_or("__guests__"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        _ => false,
+    }
 }
 
 // Hand-written because `Shared` holds the app's event callback. Having `Debug`
@@ -1712,6 +1808,7 @@ impl RealtimeClient {
 
         let (out_tx, out_rx) = rt::channel::<Outgoing>(OUT_QUEUE);
         let shared = Arc::new(Shared {
+            user_id: Mutex::new(config.user_id.clone()),
             tree: Mutex::new(Tree::default()),
             out_tx,
             pending: Mutex::new(HashMap::new()),
@@ -1764,11 +1861,12 @@ impl RealtimeClient {
         }
         let ack = await_slot(&shared, join_slot).await?;
         let body = ack_body(&ack, "joinProject")?;
-        let (tree, permission) = parse_project(body)?;
+        let (tree, permission, track_changes) = parse_project(body)?;
         let project = ProjectTree {
             root_folder_id: tree.root.clone(),
             docs: tree.docs(),
             permission,
+            track_changes: track_changes_for(track_changes.as_ref(), config.user_id.as_deref()),
         };
         *lock(&shared.tree) = tree;
         shared.emit(RealtimeEvent::ProjectJoined {
@@ -1825,6 +1923,71 @@ impl RealtimeClient {
             comments,
             changes,
         })
+    }
+
+    /// Send an edit as a suggestion.
+    ///
+    /// A reviewer has no choice about this — the server checks for `meta.tc`
+    /// and disconnects an account without edit rights that sends a plain
+    /// update — and someone with write access uses it when track changes is on.
+    pub async fn send_tracked_ops(
+        &self,
+        doc_id: &str,
+        version: i64,
+        ops: Vec<OtOp>,
+    ) -> Result<(), String> {
+        if ops.is_empty() {
+            return Ok(());
+        }
+        if matches!(self.project.permission, Permission::ReadOnly) {
+            return Err(READ_ONLY.to_string());
+        }
+        let seed = change_id_seed();
+        let update = TrackedUpdate {
+            doc: doc_id,
+            op: ops,
+            v: version,
+            meta: TrackedMeta { tc: &seed },
+        };
+        let ack = emit_with_ack(&self.shared, "applyOtUpdate", (doc_id, update)).await?;
+        ack_body(&ack, "applyOtUpdate")?;
+        Ok(())
+    }
+
+    /// Reject suggestions by undoing them.
+    ///
+    /// There is no endpoint for this: rejecting a suggested insertion means
+    /// deleting its text and rejecting a suggested deletion means putting the
+    /// text back, both marked `u` so Overleaf consumes the change rather than
+    /// recording the undo as a new suggestion. They travel as one update,
+    /// ordered from the end of the document backwards so that applying one
+    /// does not move the next.
+    pub async fn reject_changes(
+        &self,
+        doc_id: &str,
+        version: i64,
+        changes: &[TrackedChange],
+    ) -> Result<(), String> {
+        if changes.is_empty() {
+            return Ok(());
+        }
+        let mut ordered: Vec<&TrackedChange> = changes.iter().collect();
+        ordered.sort_by_key(|change| std::cmp::Reverse(change.position));
+        let ops: Vec<OtOp> = ordered
+            .iter()
+            .map(|change| OtOp {
+                p: change.position.max(0) as usize,
+                i: change.deletion.then(|| change.text.clone()),
+                d: (!change.deletion).then(|| change.text.clone()),
+                u: Some(true),
+            })
+            .collect();
+        // A reviewer may only ever write suggestions, so their rejection has
+        // to travel as one too; the `u` flag works either way.
+        if self.project.permission == Permission::Review {
+            return self.send_tracked_ops(doc_id, version, ops).await;
+        }
+        self.send_ops(doc_id, version, ops).await
     }
 
     /// Anchor a comment thread to a span of a document.
@@ -2129,6 +2292,7 @@ mod tests {
             p: 5,
             i: Some("hello".into()),
             d: None,
+            u: None,
         };
         assert_eq!(
             serde_json::to_string(&insert).unwrap(),
@@ -2138,6 +2302,7 @@ mod tests {
             p: 0,
             i: None,
             d: Some("x".into()),
+            u: None,
         };
         assert_eq!(
             serde_json::to_string(&delete).unwrap(),
@@ -2157,7 +2322,8 @@ mod tests {
                         p: 5,
                         i: Some("hello".into()),
                         d: None,
-                    }],
+            u: None,
+        }],
                     v: 42,
                 },
             ),
@@ -2194,7 +2360,8 @@ mod tests {
                 p: 9,
                 i: Some("!".into()),
                 d: None,
-            }],
+            u: None,
+        }],
             source: Some("pub-2".into()),
         };
         assert_eq!(
@@ -2324,7 +2491,7 @@ mod tests {
     fn parse_project_flattens_nested_folders() {
         let ack = vec![Value::Null, project_tree(), json!("owner"), json!(2)];
         let body = ack_body(&ack, "joinProject").expect("no error slot");
-        let (tree, _permission) = parse_project(body).expect("parses");
+        let (tree, _permission, _track) = parse_project(body).expect("parses");
         assert_eq!(tree.root, "root-1");
         // Path order, so the list is stable however the tree is walked.
         assert_eq!(
@@ -2354,7 +2521,7 @@ mod tests {
         // against a tree we hold is the whole point of keeping one.
         let ack = vec![Value::Null, project_tree(), json!("owner"), json!(2)];
         let body = ack_body(&ack, "joinProject").expect("no error slot");
-        let (mut tree, _) = parse_project(body).expect("parses");
+        let (mut tree, _, _) = parse_project(body).expect("parses");
 
         // A file created in the browser becomes editable here immediately.
         tree.insert_entity(
@@ -2648,7 +2815,7 @@ mod tests {
                 std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
                     .join("Library/Application Support/app.leo1oel.researchwriter")
             });
-        let (host, cookie, project_id) =
+        let (host, cookie, project_id, user_id) =
             crate::overleaf::realtime_config(&config, &root).expect("a linked project");
         println!("host={host} project={project_id}");
 
@@ -2656,6 +2823,7 @@ mod tests {
         let sink = events.clone();
         let client = rt::block_on(RealtimeClient::connect(
             RealtimeConfig {
+                user_id,
                 host,
                 cookie,
                 project_id,
@@ -2703,13 +2871,14 @@ mod tests {
         let target = std::env::var("OVERLEAF_E2E_DOC").expect("set OVERLEAF_E2E_DOC");
         let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
             .join("Library/Application Support/app.leo1oel.researchwriter");
-        let (host, cookie, project_id) =
+        let (host, cookie, project_id, user_id) =
             crate::overleaf::realtime_config(&config, &root).expect("a linked project");
 
         let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
         let sink = events.clone();
         let client = rt::block_on(RealtimeClient::connect(
             RealtimeConfig {
+                user_id,
                 host,
                 cookie,
                 project_id,
@@ -2759,7 +2928,8 @@ mod tests {
                 p: 0,
                 i: Some(probe.into()),
                 d: None,
-            }],
+            u: None,
+        }],
         ))
         .expect("send the insert");
         let after_insert = acked(&events, &doc.id, joined.version);
@@ -2782,7 +2952,8 @@ mod tests {
                 p: 0,
                 i: None,
                 d: Some(probe.into()),
-            }],
+            u: None,
+        }],
         ))
         .expect("send the delete");
         let after_delete = acked(&events, &doc.id, midway.version);
@@ -2812,11 +2983,12 @@ mod tests {
         let target = std::env::var("OVERLEAF_E2E_DOC").expect("set OVERLEAF_E2E_DOC");
         let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
             .join("Library/Application Support/app.leo1oel.researchwriter");
-        let (host, cookie, project_id) =
+        let (host, cookie, project_id, user_id) =
             crate::overleaf::realtime_config(&config, &root).expect("a linked project");
 
         let client = rt::block_on(RealtimeClient::connect(
             RealtimeConfig {
+                user_id,
                 host,
                 cookie,
                 project_id,
@@ -2909,6 +3081,155 @@ mod tests {
         assert_eq!(decode_packed_utf8("\u{00ff}\u{00fe}"), "\u{00ff}\u{00fe}");
     }
 
+    /// Suggests an edit on a real document, reads it back as a tracked change,
+    /// then rejects it — the whole review loop against the real service.
+    #[test]
+    #[ignore = "suggests and withdraws an edit on overleaf.com"]
+    fn tracks_a_change_on_the_real_overleaf() {
+        let root = std::path::PathBuf::from(
+            std::env::var("OVERLEAF_E2E_PROJECT").expect("set OVERLEAF_E2E_PROJECT"),
+        );
+        let target = std::env::var("OVERLEAF_E2E_DOC").expect("set OVERLEAF_E2E_DOC");
+        let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+        let (host, cookie, project_id, user_id) =
+            crate::overleaf::realtime_config(&config, &root).expect("a linked project");
+        println!("our account: {user_id:?}");
+
+        let client = rt::block_on(RealtimeClient::connect(
+            RealtimeConfig {
+                user_id,
+                host,
+                cookie,
+                project_id,
+            },
+            move |_| {},
+        ))
+        .expect("connect to Overleaf");
+        println!("track changes on for us: {}", client.project().track_changes);
+
+        let doc = client
+            .project()
+            .docs
+            .iter()
+            .find(|doc| doc.path == target)
+            .unwrap_or_else(|| panic!("no document named {target}"))
+            .clone();
+        let joined = rt::block_on(client.join_doc(&doc.id)).expect("joinDoc");
+        let before = joined.text.clone();
+        println!(
+            "{} at v{} with {} existing suggestion(s)",
+            doc.path,
+            joined.version,
+            joined.changes.len()
+        );
+
+        let probe = "SUGGESTED café";
+        rt::block_on(client.send_tracked_ops(
+            &doc.id,
+            joined.version,
+            vec![OtOp {
+                p: 0,
+                i: Some(probe.into()),
+                d: None,
+                u: None,
+            }],
+        ))
+        .expect("suggest an edit");
+        std::thread::sleep(Duration::from_secs(2));
+
+        rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
+        let again = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
+        let mine = again
+            .changes
+            .iter()
+            .find(|change| change.text == probe)
+            .expect("our suggestion should be a tracked change");
+        println!(
+            "suggestion {} at {} by {:?}",
+            mine.id, mine.position, mine.user_id
+        );
+        assert!(!mine.deletion);
+        assert!(again.text.starts_with(probe), "the text carries it meanwhile");
+
+        // Rejecting undoes it, and takes the tracked change with it.
+        rt::block_on(client.reject_changes(&doc.id, again.version, std::slice::from_ref(mine)))
+            .expect("reject");
+        std::thread::sleep(Duration::from_secs(2));
+        rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
+        let settled = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
+        assert_eq!(settled.text, before, "the document should be as we found it");
+        assert!(
+            !settled.changes.iter().any(|change| change.id == mine.id),
+            "the suggestion should be gone, not merely undone"
+        );
+        println!("rejected cleanly; document unchanged");
+        client.shutdown();
+    }
+
+    #[test]
+    fn tracked_changes_are_read_with_their_author_and_direction() {
+        let ranges = json!({
+            "changes": [
+                {"id": "c1", "op": {"p": 12, "i": "café"},
+                 "metadata": {"user_id": "user-1", "ts": "2026-07-01T10:00:00.000Z"}},
+                {"id": "c2", "op": {"p": 40, "d": "cut this"},
+                 "metadata": {"user_id": "user-2", "ts": "2026-07-01T11:00:00.000Z"}},
+                {"id": "c3", "op": {"p": 5}},
+            ],
+            "comments": [],
+        });
+        let changes = parse_tracked_changes(&ranges);
+        assert_eq!(changes.len(), 2, "an op that is neither is not a change");
+
+        assert_eq!(changes[0].id, "c1");
+        assert!(!changes[0].deletion);
+        // Packed the same way the document's own lines are.
+        assert_eq!(changes[0].text, "café");
+        assert_eq!(changes[0].position, 12);
+        assert_eq!(changes[0].user_id.as_deref(), Some("user-1"));
+        assert_eq!(
+            changes[0].timestamp.as_deref(),
+            Some("2026-07-01T10:00:00.000Z")
+        );
+
+        assert!(changes[1].deletion);
+        assert_eq!(changes[1].text, "cut this");
+        // Two authors, two colours.
+        assert_ne!(changes[0].hue, changes[1].hue);
+    }
+
+    #[test]
+    fn track_changes_setting_is_read_per_account() {
+        // Overleaf stores one project-wide field that is either a flag for
+        // everyone or a map naming the accounts it is on for.
+        assert!(track_changes_for(Some(&json!(true)), Some("user-1")));
+        assert!(!track_changes_for(Some(&json!(false)), Some("user-1")));
+        assert!(track_changes_for(
+            Some(&json!({"user-1": true, "user-2": false})),
+            Some("user-1")
+        ));
+        assert!(!track_changes_for(
+            Some(&json!({"user-1": true})),
+            Some("user-2")
+        ));
+        // Anonymous sessions are named by a literal key.
+        assert!(track_changes_for(Some(&json!({"__guests__": true})), None));
+        // Absent entirely — the project owner has no such feature — is off.
+        assert!(!track_changes_for(None, Some("user-1")));
+    }
+
+    #[test]
+    fn change_id_seeds_are_fresh_and_the_right_shape() {
+        // Eighteen hex characters, and never the same twice: reusing a seed
+        // means minting duplicate change ids.
+        let first = change_id_seed();
+        let second = change_id_seed();
+        assert_eq!(first.len(), 18, "{first}");
+        assert!(first.chars().all(|c| c.is_ascii_hexdigit()), "{first}");
+        assert_ne!(first, second);
+    }
+
     #[test]
     fn presence_reads_both_shapes_and_colours_by_account() {
         // The broadcast and the roster describe the same person with different
@@ -2992,13 +3313,14 @@ mod tests {
         let target = std::env::var("OVERLEAF_E2E_DOC").expect("set OVERLEAF_E2E_DOC");
         let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
             .join("Library/Application Support/app.leo1oel.researchwriter");
-        let (host, cookie, project_id) =
+        let (host, cookie, project_id, user_id) =
             crate::overleaf::realtime_config(&config, &root).expect("a linked project");
 
         let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
         let sink = events.clone();
         let client = rt::block_on(RealtimeClient::connect(
             RealtimeConfig {
+                user_id,
                 host,
                 cookie,
                 project_id,
@@ -3069,13 +3391,15 @@ mod tests {
                         OtOp {
                             p: 5,
                             i: Some("hello".into()),
-                            d: None
-                        },
+                            d: None,
+            u: None,
+        },
                         OtOp {
                             p: 20,
                             i: None,
-                            d: Some("gone".into())
-                        },
+                            d: Some("gone".into()),
+            u: None,
+        },
                     ]
                 );
             }
@@ -3145,6 +3469,7 @@ mod tests {
         let sink = events.clone();
         let client = rt::block_on(RealtimeClient::connect(
             RealtimeConfig {
+                user_id: None,
                 host: format!("http://127.0.0.1:{port}"),
                 cookie: "overleaf_session2=test-cookie".to_string(),
                 project_id: "proj-1".to_string(),
@@ -3172,6 +3497,7 @@ mod tests {
         let sink = events.clone();
         let host = format!("http://127.0.0.1:{port}");
         let config = RealtimeConfig {
+            user_id: None,
             host: host.clone(),
             cookie: "overleaf_session2=test-cookie".to_string(),
             project_id: "proj-1".to_string(),
@@ -3268,7 +3594,8 @@ mod tests {
                 p: 5,
                 i: Some("hello".into()),
                 d: None,
-            }],
+            u: None,
+        }],
         ))
         .expect("applyOtUpdate");
         rt::block_on(client.leave_doc("doc-1")).expect("leaveDoc");
@@ -3301,8 +3628,9 @@ mod tests {
                         &vec![OtOp {
                             p: 9,
                             i: Some("!".into()),
-                            d: None
-                        }]
+                            d: None,
+            u: None,
+        }]
                     );
                 }
                 other => panic!("expected DocUpdate, got {other:?}"),
@@ -3358,6 +3686,7 @@ mod tests {
         });
 
         let config = RealtimeConfig {
+            user_id: None,
             host: format!("http://127.0.0.1:{port}"),
             cookie: "overleaf_session2=stale".to_string(),
             project_id: "proj-1".to_string(),
@@ -3370,6 +3699,7 @@ mod tests {
     #[test]
     fn connect_validates_its_configuration() {
         let bad_host = RealtimeConfig {
+            user_id: None,
             host: "overleaf.com".to_string(),
             cookie: "c=1".to_string(),
             project_id: "p".to_string(),
@@ -3379,6 +3709,7 @@ mod tests {
             .contains("http://"));
 
         let no_cookie = RealtimeConfig {
+            user_id: None,
             host: "https://www.overleaf.com".to_string(),
             cookie: "  ".to_string(),
             project_id: "p".to_string(),

@@ -7,6 +7,11 @@ import { emacs } from "@replit/codemirror-emacs";
 import { vim } from "@replit/codemirror-vim";
 import { latex } from "codemirror-lang-latex";
 import {
+  overleafCursorsExtension,
+  setOverleafCursorsEffect,
+  type PresenceCursor,
+} from "./overleaf-cursors";
+import {
   BookOpen,
   Columns2,
   FileCode2,
@@ -162,6 +167,8 @@ export function DocumentCanvas(props: {
   onSelectPdfMark?: (mark: PdfMark) => void;
   onOpenPdfMarks?: () => void;
   editorComments: EditorComment[];
+  /** Other people's carets in the document Overleaf is carrying live. */
+  overleafPresenceCursors: PresenceCursor[];
   activeEditorCommentId: string | null;
   commentAuthorName: string;
   commentAuthorId: string;
@@ -273,6 +280,10 @@ export function DocumentCanvas(props: {
   );
   const commentsForActiveFileRef = useRef(commentsForActiveFile);
   commentsForActiveFileRef.current = commentsForActiveFile;
+  // Read through a ref for the same reason the comments are: the extension is
+  // built once and must not be rebuilt every time someone else moves.
+  const overleafPresenceCursorsRef = useRef(props.overleafPresenceCursors);
+  overleafPresenceCursorsRef.current = props.overleafPresenceCursors;
   const resolveEditorCommentRef = useRef(props.onResolveEditorComment);
   resolveEditorCommentRef.current = props.onResolveEditorComment;
   const replyEditorCommentRef = useRef(props.onReplyEditorComment);
@@ -359,6 +370,14 @@ export function DocumentCanvas(props: {
     if (!view) return;
     view.dispatch({ effects: setEditorCommentsEffect.of(commentsForActiveFile) });
   }, [commentsForActiveFile, collabEditorKey]);
+
+  // Someone else's caret has to repaint when they move it, not when we
+  // happen to type next.
+  useEffect(() => {
+    const view = primaryViewRef.current;
+    if (!view) return;
+    view.dispatch({ effects: setOverleafCursorsEffect.of(props.overleafPresenceCursors) });
+  }, [props.overleafPresenceCursors, collabEditorKey]);
 
   useEffect(() => {
     if (!commentFocusRequest) return;
@@ -464,6 +483,7 @@ export function DocumentCanvas(props: {
         latexLiveRef,
       ),
       ...collabExtensions,
+      overleafCursorsExtension({ getCursors: () => overleafPresenceCursorsRef.current }),
       editorCommentsExtension(activeFile, {
         getComments: () => commentsForActiveFileRef.current,
         currentAuthorId: commentAuthorId,

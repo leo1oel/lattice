@@ -942,7 +942,7 @@ async fn overleaf_rt_connect(
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
     let root = current_root(&state)?;
-    let (host, cookie, project_id) =
+    let (host, cookie, project_id, user_id) =
         tauri::async_runtime::spawn_blocking(move || overleaf::realtime_config(&config, &root))
             .await
             .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))??;
@@ -958,6 +958,7 @@ async fn overleaf_rt_connect(
     let emitter = app.clone();
     let client = overleaf_rt::RealtimeClient::connect(
         overleaf_rt::RealtimeConfig {
+            user_id,
             host,
             cookie,
             project_id,
@@ -975,6 +976,7 @@ async fn overleaf_rt_connect(
         "publicId": client.public_id(),
         "rootFolderId": client.project().root_folder_id,
         "docs": client.project().docs,
+        "trackChanges": client.project().track_changes,
     });
     state
         .realtime
@@ -1113,6 +1115,78 @@ fn overleaf_set_permission(
     permission: String,
 ) -> Result<(), String> {
     overleaf::set_permission(&current_root(&state)?, &permission)
+}
+
+/// Accept tracked changes, turning the suggested text into ordinary text.
+#[tauri::command]
+async fn overleaf_accept_changes(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+    change_ids: Vec<String>,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::accept_changes(&config, &root, &doc_id, &change_ids)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))?
+}
+
+/// Reject tracked changes by undoing them through the editing channel.
+#[tauri::command]
+async fn overleaf_reject_changes(
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+    version: i64,
+    changes: Vec<overleaf_rt::TrackedChange>,
+) -> Result<(), String> {
+    realtime_client(&state)?
+        .reject_changes(&doc_id, version, &changes)
+        .await
+}
+
+/// Send an edit as a suggestion rather than applying it outright.
+#[tauri::command]
+async fn overleaf_rt_send_tracked_ops(
+    state: tauri::State<'_, AppState>,
+    doc_id: String,
+    version: i64,
+    ops: Vec<overleaf_rt::OtOp>,
+) -> Result<(), String> {
+    realtime_client(&state)?
+        .send_tracked_ops(&doc_id, version, ops)
+        .await
+}
+
+/// Who wrote the suggestions in this project.
+#[tauri::command]
+async fn overleaf_change_authors(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || overleaf::change_authors(&config, &root))
+        .await
+        .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))?
+}
+
+/// Turn suggestions on or off for the accounts named in `on_for`.
+#[tauri::command]
+async fn overleaf_set_track_changes(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    on_for: serde_json::Value,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::set_track_changes(&config, &root, on_for)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))?
 }
 
 /// Create a document on Overleaf, so a file made here exists for everyone.
@@ -1853,6 +1927,11 @@ pub fn run() {
             overleaf_chat_messages,
             overleaf_send_chat_message,
             overleaf_set_permission,
+            overleaf_accept_changes,
+            overleaf_reject_changes,
+            overleaf_rt_send_tracked_ops,
+            overleaf_change_authors,
+            overleaf_set_track_changes,
             overleaf_create_doc,
             overleaf_delete_entity,
             overleaf_threads,

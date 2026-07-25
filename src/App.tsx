@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Channel, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -81,6 +82,9 @@ import { useOverleafRealtime } from "./use-overleaf-realtime";
 import { useOverleafChat } from "./use-overleaf-chat";
 import { useAgentModels } from "./use-agent-models";
 import { useCollabChat } from "./use-collab-chat";
+import { useOverleafPresence, type PresenceUser } from "./use-overleaf-presence";
+import { type PresenceCursor } from "./overleaf-cursors";
+import { OverleafPresenceAvatars } from "./overleaf-presence";
 import { useAgentRuntimeUpdates } from "./agent-runtime-settings";
 import { useOverleafComments, type OverleafComments } from "./use-overleaf-comments";
 import { OverleafCollabDrawer, type OverleafCollabTab } from "./overleaf-collab";
@@ -286,6 +290,9 @@ function App() {
   /** Bumped when leaving a project so a late build cannot revive a stale PDF. */
   const previewGenerationRef = useRef(0);
   const [editorPosition, setEditorPosition] = useState<EditorPosition | null>(null);
+  // Read by the presence hook, which must not re-subscribe on every keystroke.
+  const editorPositionRef = useRef<EditorPosition | null>(null);
+  editorPositionRef.current = editorPosition;
   const [pdfSyncTarget, setPdfSyncTarget] = useState<PdfSyncTarget | null>(null);
   const [locatingPdf, setLocatingPdf] = useState(false);
   const [build, setBuild] = useState<BuildResult | null>(null);
@@ -1682,6 +1689,84 @@ function App() {
     && overleafSyncMode === "live"
     && !collabSession;
   overleafLivePathsRef.current = overleafRealtime.liveFile && activeFile ? [activeFile] : [];
+
+  // Who else is in the Overleaf project, and where. Two things the presence
+  // hook cannot get anywhere else ride the same channel: our own connection
+  // id, announced once, and which file each document id is — the second is
+  // what lets a tooltip name the file and a click jump to it.
+  const [overleafSelfId, setOverleafSelfId] = useState<string | null>(null);
+  const [overleafDocPaths, setOverleafDocPaths] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    if (overleafLink === null) {
+      setOverleafSelfId(null);
+      setOverleafDocPaths(new Map());
+      return;
+    }
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+    void listen<{ type: string; publicId?: string; docs?: { id: string; path: string }[] }>(
+      "overleaf-realtime",
+      (event) => {
+        const payload = event.payload;
+        if (payload.type === "connected" && payload.publicId) {
+          setOverleafSelfId(payload.publicId);
+        } else if (payload.type === "projectJoined" && payload.docs) {
+          setOverleafDocPaths(new Map(payload.docs.map((doc) => [doc.id, doc.path])));
+        } else if (payload.type === "disconnected") {
+          setOverleafSelfId(null);
+        }
+      },
+    ).then((dispose) => {
+      if (disposed) dispose();
+      else unlisten = dispose;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [overleafLink]);
+
+  const overleafPresence = useOverleafPresence({
+    docId: overleafRealtime.docId,
+    selfId: overleafSelfId,
+    readCaret: () => ({
+      row: (editorPositionRef.current?.line ?? 1) - 1,
+      column: editorPositionRef.current?.column ?? 0,
+    }),
+  });
+
+  // Publishing a position is the only thing that makes us visible to a browser
+  // that is already open, so every real caret move in the live file has to
+  // reach it.
+  useEffect(() => {
+    if (!editorPosition || editorPosition.path !== activeFile) return;
+    overleafPresence.publish(editorPosition.line - 1, editorPosition.column);
+  }, [editorPosition, activeFile, overleafPresence]);
+
+  const jumpToOverleafPeer = useCallback((peer: PresenceUser) => {
+    const path = peer.docId ? overleafDocPaths.get(peer.docId) : null;
+    if (!path) {
+      setNotice(`${peer.name || "This collaborator"} is not in a file right now.`);
+      return;
+    }
+    void openProjectFile(path, (peer.row ?? 0) + 1);
+  }, [overleafDocPaths, openProjectFile]);
+
+  /** Carets to draw, which is only ever the document being edited live. */
+  const overleafActiveCursors = useMemo<PresenceCursor[]>(() => {
+    const docId = overleafRealtime.docId;
+    if (!docId) return [];
+    return overleafPresence.peers
+      .filter((peer): peer is PresenceUser & { row: number; column: number } => (
+        peer.docId === docId && peer.row !== null && peer.column !== null
+      ))
+      .map((peer) => ({
+        name: peer.name || "Anonymous",
+        hue: peer.hue,
+        row: peer.row,
+        column: peer.column,
+      }));
+  }, [overleafPresence.peers, overleafRealtime.docId]);
 
   // Collaborators who stayed in the browser talk in Overleaf's chat, so it has
   // to be readable here or half the conversation happens where we cannot see
@@ -4822,6 +4907,13 @@ function App() {
             overleafLiveEditing={overleafRealtime.liveFile}
             overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
             overleafChannelDetail={overleafRealtime.detail}
+            overleafPresence={overleafPresence.peers.length ? (
+              <OverleafPresenceAvatars
+                peers={overleafPresence.peers}
+                pathForDoc={(id) => overleafDocPaths.get(id) ?? null}
+                onJump={jumpToOverleafPeer}
+              />
+            ) : null}
             onOverleafSync={() => {
               // Manual mode is a review step, not a button that quietly
               // rewrites files: show what would change and let the user decide.
@@ -4956,6 +5048,7 @@ function App() {
             onSelectPdfMark={undefined}
             onOpenPdfMarks={undefined}
             editorComments={allEditorComments}
+            overleafPresenceCursors={overleafActiveCursors}
             activeEditorCommentId={activeEditorCommentId}
             commentAuthorName={collabName.trim() || "Anonymous"}
             commentAuthorId={editorCommentAuthorId}

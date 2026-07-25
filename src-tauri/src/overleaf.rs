@@ -210,6 +210,10 @@ struct SessionFile {
     email: Option<String>,
     #[serde(default)]
     name: Option<String>,
+    /// Our own Overleaf account id. Track changes is stored per account, so
+    /// reading whether it is on for us needs to know which one we are.
+    #[serde(default)]
+    user_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -954,6 +958,7 @@ pub fn store_session_cookie(
         cookie,
         email: email.clone(),
         name: name.clone(),
+        user_id: meta_content(&html, "ol-user_id"),
     };
     save_session(config_dir, &session)?;
     Ok(OverleafStatus {
@@ -973,9 +978,18 @@ pub fn disconnect(config_dir: &Path) -> Result<(), String> {
 }
 
 pub fn list_projects(config_dir: &Path) -> Result<Vec<OverleafProject>, String> {
-    let session = load_session(config_dir)?;
+    let mut session = load_session(config_dir)?;
     let client = http_client(30)?;
     let html = fetch_projects_page(&client, &session.host, &session.cookie)?;
+    // Backfill the account id for sessions stored before it was recorded.
+    // This page is fetched anyway, and without the id the per-account track
+    // changes setting reads as if we were an anonymous guest.
+    if session.user_id.is_none() {
+        if let Some(user_id) = meta_content(&html, "ol-user_id") {
+            session.user_id = Some(user_id);
+            let _ = save_session(config_dir, &session);
+        }
+    }
     parse_projects_meta(&html)
 }
 
@@ -1369,6 +1383,75 @@ pub fn delete_thread(
     )
 }
 
+/// Accept tracked changes: the suggested text becomes ordinary text.
+///
+/// Accepting is the one half of reviewing that does not change the document,
+/// which is why it has an endpoint of its own rather than travelling as an
+/// operation the way rejecting does.
+pub fn accept_changes(
+    config_dir: &Path,
+    root: &Path,
+    doc_id: &str,
+    change_ids: &[String],
+) -> Result<(), String> {
+    if change_ids.is_empty() {
+        return Ok(());
+    }
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::POST,
+        &format!("/doc/{doc_id}/changes/accept"),
+        Some(serde_json::json!({ "change_ids": change_ids })),
+        "accepting the suggestion",
+    )
+}
+
+/// Who wrote the suggestions in this project.
+///
+/// Kept separate from the project's member list because the author of an old
+/// change may have left the project since, and a suggestion with no name on it
+/// is one nobody can judge.
+pub fn change_authors(config_dir: &Path, root: &Path) -> Result<serde_json::Value, String> {
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = sync_host(&state, &session);
+    let client = http_client(20)?;
+    let response = client
+        .get(format!("{host}/project/{}/changes/users", state.project_id))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    check_authenticated(&response)?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Overleaf returned {} for the suggestion authors.",
+            response.status()
+        ));
+    }
+    response.json().map_err(err)
+}
+
+/// Turn suggestions on or off for this account.
+///
+/// The setting is project-wide but stored per account, so turning it on for
+/// ourselves means sending the whole map back with our own entry changed.
+pub fn set_track_changes(
+    config_dir: &Path,
+    root: &Path,
+    on_for: serde_json::Value,
+) -> Result<(), String> {
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::POST,
+        "/track_changes",
+        Some(serde_json::json!({ "on_for": on_for })),
+        "changing the suggestion setting",
+    )
+}
+
 /// Create a document in the project, so a file added here shows up for
 /// everyone rather than waiting for the next upload to invent it.
 pub fn create_doc(
@@ -1443,11 +1526,14 @@ pub fn delete_entity(
 
 /// What the realtime channel needs to open a connection for this project:
 /// (host, cookie, project id).
-pub fn realtime_config(config_dir: &Path, root: &Path) -> Result<(String, String, String), String> {
+pub fn realtime_config(
+    config_dir: &Path,
+    root: &Path,
+) -> Result<(String, String, String, Option<String>), String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
     let host = sync_host(&state, &session);
-    Ok((host, session.cookie, state.project_id))
+    Ok((host, session.cookie, state.project_id, session.user_id))
 }
 
 /// Cheap "did anything change over there?" check.
@@ -2343,6 +2429,7 @@ mod tests {
                 cookie: "overleaf_session2=fixture-cookie".to_string(),
                 email: Some("ymingliu@uw.edu".to_string()),
                 name: Some("Leo Liu".to_string()),
+                user_id: Some("user-1".to_string()),
             },
         )
         .unwrap();

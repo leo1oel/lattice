@@ -15,6 +15,7 @@ import {
   Redo2,
   Undo2,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { Tip } from "./components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "./app-types";
@@ -76,6 +77,9 @@ export function CanvasToolbar(props: {
   /** Open comments plus unread chat: what is waiting on you in the project. */
   overleafUnreadChat?: number;
   onOverleafChat?: () => void;
+  /** Where the Overleaf presence avatars go; kept as a slot so this file need
+   *  not know anything about who is in the project. */
+  overleafPresence?: ReactNode;
 }) {
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
   const switcherMode = props.mode === "dual" || props.mode === "columns" ? "split" : props.mode;
@@ -202,6 +206,7 @@ export function CanvasToolbar(props: {
             </button>
           </Tip>
         )}
+        {props.overleafPresence}
         <Tip label="Git status and commit">
           <button className="history-button" onClick={props.onGit}>
             <GitBranch size={14} />
