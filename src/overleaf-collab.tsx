@@ -12,8 +12,10 @@ import { motion } from "motion/react";
 import type { OverleafMessage, OverleafThread } from "./app-types";
 import { OverleafChatPanel } from "./overleaf-chat";
 import { OverleafCommentsPanel } from "./overleaf-comments";
+import { OverleafChangesPanel } from "./overleaf-changes";
+import type { TrackedChange } from "./use-overleaf-realtime";
 
-export type OverleafCollabTab = "comments" | "chat";
+export type OverleafCollabTab = "comments" | "chat" | "changes";
 
 export function OverleafCollabDrawer(props: {
   tab: OverleafCollabTab;
@@ -36,6 +38,16 @@ export function OverleafCollabDrawer(props: {
   chatError: string | null;
   onSend: (content: string) => Promise<void>;
   unreadChat: number;
+
+  /** Suggestions in the open document, and what can be done about them. */
+  changes: TrackedChange[];
+  source: string;
+  changeAuthorName: (userId: string | null) => string;
+  canActOnChanges: boolean;
+  changesBusy: string | null;
+  changesError: string | null;
+  onAcceptChanges: (changeIds: string[]) => Promise<void>;
+  onRejectChanges: (changes: TrackedChange[]) => Promise<void>;
 }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -61,6 +73,7 @@ export function OverleafCollabDrawer(props: {
         <div className="view-switcher overleaf-collab-tabs">
           {([
             { id: "comments" as const, label: "comments", count: openThreads },
+            { id: "changes" as const, label: "changes", count: props.changes.length },
             { id: "chat" as const, label: "chat", count: props.unreadChat },
           ]).map((tab) => {
             const active = props.tab === tab.id;
@@ -86,7 +99,20 @@ export function OverleafCollabDrawer(props: {
           })}
         </div>
 
-        {props.tab === "comments" ? (
+        {props.tab === "changes" ? (
+          <OverleafChangesPanel
+            changes={props.changes}
+            source={props.source}
+            authorName={props.changeAuthorName}
+            documentOpen={props.documentOpen}
+            canAct={props.canActOnChanges}
+            busy={props.changesBusy}
+            error={props.changesError}
+            onAccept={props.onAcceptChanges}
+            onReject={props.onRejectChanges}
+            onReveal={props.onReveal}
+          />
+        ) : props.tab === "comments" ? (
           <OverleafCommentsPanel
             threads={props.threads}
             anchors={props.anchors}

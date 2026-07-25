@@ -12,6 +12,11 @@ import {
   type PresenceCursor,
 } from "./overleaf-cursors";
 import {
+  overleafTrackChangesExtension,
+  type TrackedChangeTooltipActions,
+} from "./overleaf-track-changes";
+import type { TrackedChange } from "./use-overleaf-realtime";
+import {
   BookOpen,
   Columns2,
   FileCode2,
@@ -169,6 +174,9 @@ export function DocumentCanvas(props: {
   editorComments: EditorComment[];
   /** Other people's carets in the document Overleaf is carrying live. */
   overleafPresenceCursors: PresenceCursor[];
+  /** Suggestions in that document, and what can be done about one. */
+  overleafChanges: TrackedChange[];
+  overleafTrackChangeActions: TrackedChangeTooltipActions;
   activeEditorCommentId: string | null;
   commentAuthorName: string;
   commentAuthorId: string;
@@ -284,6 +292,10 @@ export function DocumentCanvas(props: {
   // built once and must not be rebuilt every time someone else moves.
   const overleafPresenceCursorsRef = useRef(props.overleafPresenceCursors);
   overleafPresenceCursorsRef.current = props.overleafPresenceCursors;
+  const overleafChangesRef = useRef(props.overleafChanges);
+  overleafChangesRef.current = props.overleafChanges;
+  const overleafTrackChangeActionsRef = useRef(props.overleafTrackChangeActions);
+  overleafTrackChangeActionsRef.current = props.overleafTrackChangeActions;
   const resolveEditorCommentRef = useRef(props.onResolveEditorComment);
   resolveEditorCommentRef.current = props.onResolveEditorComment;
   const replyEditorCommentRef = useRef(props.onReplyEditorComment);
@@ -484,6 +496,13 @@ export function DocumentCanvas(props: {
       ),
       ...collabExtensions,
       overleafCursorsExtension({ getCursors: () => overleafPresenceCursorsRef.current }),
+      overleafTrackChangesExtension({
+        getChanges: () => overleafChangesRef.current,
+        authorName: (userId) => overleafTrackChangeActionsRef.current.authorName(userId),
+        canAct: () => overleafTrackChangeActionsRef.current.canAct(),
+        onAccept: (change) => overleafTrackChangeActionsRef.current.onAccept(change),
+        onReject: (change) => overleafTrackChangeActionsRef.current.onReject(change),
+      }),
       editorCommentsExtension(activeFile, {
         getComments: () => commentsForActiveFileRef.current,
         currentAuthorId: commentAuthorId,

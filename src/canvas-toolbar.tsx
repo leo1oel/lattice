@@ -80,6 +80,8 @@ export function CanvasToolbar(props: {
   /** Where the Overleaf presence avatars go; kept as a slot so this file need
    *  not know anything about who is in the project. */
   overleafPresence?: ReactNode;
+  /** Slot for the suggestion-mode switch, for the same reason. */
+  overleafTrackChangesToggle?: ReactNode;
 }) {
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
   const switcherMode = props.mode === "dual" || props.mode === "columns" ? "split" : props.mode;
@@ -206,6 +208,7 @@ export function CanvasToolbar(props: {
             </button>
           </Tip>
         )}
+        {props.overleafTrackChangesToggle}
         {props.overleafPresence}
         <Tip label="Git status and commit">
           <button className="history-button" onClick={props.onGit}>

@@ -977,6 +977,7 @@ async fn overleaf_rt_connect(
         "rootFolderId": client.project().root_folder_id,
         "docs": client.project().docs,
         "entities": client.project().entities,
+        "userId": client.project().user_id,
         "trackChanges": client.project().track_changes,
     });
     state

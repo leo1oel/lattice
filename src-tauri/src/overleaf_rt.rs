@@ -1750,6 +1750,9 @@ pub struct ProjectTree {
     pub docs: Vec<DocEntry>,
     /// Everything in the project, so a file can be acted on by id.
     pub entities: Vec<EntityEntry>,
+    /// Our own Overleaf account id, echoed back so the app can name itself in
+    /// the per-account settings Overleaf stores.
+    pub user_id: Option<String>,
     /// What this account may do to the project.
     pub permission: Permission,
     /// Whether edits should be recorded as suggestions rather than applied
@@ -1911,6 +1914,7 @@ impl RealtimeClient {
             root_folder_id: tree.root.clone(),
             docs: tree.docs(),
             entities: tree.entities(),
+            user_id: config.user_id.clone(),
             permission,
             track_changes: track_changes_for(track_changes.as_ref(), config.user_id.as_deref()),
         };

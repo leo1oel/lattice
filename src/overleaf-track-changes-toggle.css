@@ -1,0 +1,26 @@
+/* A small pill, at home in a toolbar next to overleaf-presence-avatars — its
+   own class names for the same reason: independent of whatever else in the
+   toolbar happens to be live at the same time. */
+.overleaf-track-changes-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.overleaf-track-changes-toggle:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.overleaf-track-changes-toggle:disabled { opacity: .45; }
+.overleaf-track-changes-toggle.on {
+  color: var(--accent-contrast, #fff);
+  background: var(--accent);
+  border-color: var(--accent);
+}

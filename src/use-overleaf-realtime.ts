@@ -29,6 +29,7 @@ type JoinedProject = {
   entities: EntityEntry[];
   permission: OverleafPermission;
   trackChanges: boolean;
+  userId: string | null;
 };
 /** Where a comment thread is anchored in the open document. */
 export type CommentRange = { threadId: string; position: number; quote: string };
@@ -91,6 +92,12 @@ export type OverleafRealtime = {
   docId: string | null;
   /** What this account may do to the project. */
   permission: OverleafPermission;
+  /**
+   * Our own Overleaf account id. Needed because several of Overleaf's
+   * settings are stored per account, so changing one for ourselves means
+   * naming ourselves in the request.
+   */
+  userId: string | null;
   /** False for a reviewer or a viewer: their edits stay on this machine. */
   canWrite: boolean;
   /** Comment anchors in the open document, as Overleaf holds them. */
@@ -156,6 +163,7 @@ export function useOverleafRealtime(options: {
   const [docs, setDocs] = useState<Map<string, string>>(new Map());
   const [permission, setPermission] = useState<OverleafPermission>("unknown");
   const [entities, setEntities] = useState<Map<string, { id: string; kind: string }>>(new Map());
+  const [userId, setUserId] = useState<string | null>(null);
 
   const publicId = useRef<string | null>(null);
   const document = useRef<OtDocument | null>(null);
@@ -352,6 +360,7 @@ export function useOverleafRealtime(options: {
         setEntities(entityMap(joined.entities));
         setPermission(joined.permission);
         setTrackChanges(joined.trackChanges);
+        setUserId(joined.userId ?? null);
         setStatus("live");
         setDetail(null);
       })
@@ -464,6 +473,7 @@ export function useOverleafRealtime(options: {
     // push is the worse mistake, and Overleaf enforces this server-side too.
     canWrite: permission !== "readOnly" && permission !== "review",
     entities,
+    userId,
     comments: openDoc?.comments ?? EMPTY_COMMENTS,
     changes: openDoc?.changes ?? EMPTY_CHANGES,
     version: openDoc?.version ?? null,

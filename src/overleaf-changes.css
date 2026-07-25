@@ -1,0 +1,93 @@
+/* Overleaf tracked-change suggestions. Structured like overleaf-comments.css's
+   thread cards on purpose, but kept as its own class names — the two panels
+   can be open in the same drawer and must never share styling that one of
+   them changes independently. */
+.overleaf-change-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 2px 10px;
+}
+
+.overleaf-change {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* The suggested span, in context. Clicking it puts the caret there. */
+.overleaf-change-quote {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: none;
+  border-left: 2px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.45;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+.overleaf-change-quote:hover { filter: brightness(1.06); }
+.overleaf-change-context { opacity: .6; }
+.overleaf-change-span { font-weight: 600; }
+.overleaf-change-span.insertion { border-bottom: 2px solid; }
+.overleaf-change-span.deletion { text-decoration: line-through; text-decoration-thickness: 2px; }
+
+.overleaf-change-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: var(--muted);
+}
+.overleaf-change-meta span:first-child { font-weight: 600; color: var(--text); }
+.overleaf-change-kind { flex: 1; }
+
+.overleaf-change-actions,
+.overleaf-change-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.overleaf-change-bulk-actions { flex: none; margin-bottom: 6px; }
+.overleaf-change-actions button,
+.overleaf-change-bulk-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11px;
+}
+.overleaf-change-actions button:hover:not(:disabled),
+.overleaf-change-bulk-actions button:hover:not(:disabled) { color: var(--text); border-color: var(--line-strong); }
+.overleaf-change-actions button:disabled,
+.overleaf-change-bulk-actions button:disabled { opacity: .45; }
+.overleaf-change-actions button.danger:hover:not(:disabled),
+.overleaf-change-bulk-actions button.danger:hover:not(:disabled) { color: var(--danger, #d2544b); }
+
+.overleaf-change-error {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--danger, #d2544b);
+}

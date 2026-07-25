@@ -83,6 +83,9 @@ import { useOverleafChat } from "./use-overleaf-chat";
 import { useAgentModels } from "./use-agent-models";
 import { useCollabChat } from "./use-collab-chat";
 import { useOverleafPresence, type PresenceUser } from "./use-overleaf-presence";
+import { useOverleafTrackChanges } from "./use-overleaf-track-changes";
+import { useOverleafTrackChangesToggle } from "./use-overleaf-track-changes-toggle";
+import { OverleafTrackChangesToggle } from "./overleaf-track-changes-toggle";
 import { type PresenceCursor } from "./overleaf-cursors";
 import { OverleafPresenceAvatars } from "./overleaf-presence";
 import { useAgentRuntimeUpdates } from "./agent-runtime-settings";
@@ -1893,6 +1896,19 @@ function App() {
       }];
     });
   }, [activeFile, overleafAnchors, overleafComments.threads]);
+
+  // Suggestions: reading them is the realtime hook's job, acting on them is
+  // this one's — accepting goes through an endpoint and reports no operation,
+  // so the document has to be re-read afterwards.
+  const overleafTrackChanges = useOverleafTrackChanges({
+    enabled: overleafLink !== null,
+    docId: overleafRealtime.docId,
+    version: overleafRealtime.version,
+    changes: overleafRealtime.changes,
+    canAct: overleafRealtime.canWrite,
+    reload: overleafRealtime.reload,
+  });
+  const overleafSuggestMode = useOverleafTrackChangesToggle(overleafRealtime.userId);
 
   // The comment handlers are declared before this hook runs, so they reach its
   // actions through a ref rather than forcing the whole tree to be reordered.
@@ -4969,6 +4985,14 @@ function App() {
             overleafLiveEditing={overleafRealtime.liveFile}
             overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
             overleafChannelDetail={overleafRealtime.detail}
+            overleafTrackChangesToggle={overleafLink ? (
+              <OverleafTrackChangesToggle
+                on={overleafRealtime.trackChanges}
+                disabled={overleafRealtime.permission === "readOnly"}
+                pending={overleafSuggestMode.pending}
+                onToggle={overleafSuggestMode.setTrackChanges}
+              />
+            ) : null}
             overleafPresence={overleafPresence.peers.length ? (
               <OverleafPresenceAvatars
                 peers={overleafPresence.peers}
@@ -4983,7 +5007,9 @@ function App() {
               else void runOverleafSync();
             }}
             onOverleafOpen={() => setOverleafPickerOpen(true)}
-            overleafUnreadChat={overleafChat.unread + overleafComments.openCount}
+            overleafUnreadChat={
+              overleafChat.unread + overleafComments.openCount + overleafRealtime.changes.length
+            }
             onOverleafChat={() => {
               setOverleafCollabOpen(true);
               void overleafChat.refresh();
@@ -5111,6 +5137,13 @@ function App() {
             onOpenPdfMarks={undefined}
             editorComments={allEditorComments}
             overleafPresenceCursors={overleafActiveCursors}
+            overleafChanges={overleafRealtime.changes}
+            overleafTrackChangeActions={{
+              authorName: overleafTrackChanges.authorName,
+              canAct: () => overleafRealtime.canWrite,
+              onAccept: (change) => void overleafTrackChanges.accept([change.id]),
+              onReject: (change) => void overleafTrackChanges.reject([change]),
+            }}
             activeEditorCommentId={activeEditorCommentId}
             commentAuthorName={collabName.trim() || "Anonymous"}
             commentAuthorId={editorCommentAuthorId}
@@ -5270,6 +5303,14 @@ function App() {
           chatError={overleafChat.error}
           onSend={overleafChat.send}
           unreadChat={overleafChat.unread}
+          changes={overleafRealtime.changes}
+          source={source}
+          changeAuthorName={overleafTrackChanges.authorName}
+          canActOnChanges={overleafRealtime.canWrite}
+          changesBusy={overleafTrackChanges.busy}
+          changesError={overleafTrackChanges.error}
+          onAcceptChanges={overleafTrackChanges.accept}
+          onRejectChanges={overleafTrackChanges.reject}
         />
       )}
       {editorCommentsOpen && (
