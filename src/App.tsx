@@ -1500,6 +1500,16 @@ function App() {
 
   // ---- Overleaf bridge -----------------------------------------------------
 
+  /**
+   * A paused link reads as no link at all here, which is what everything
+   * downstream means by it: the toolbar cloud, auto-sync, the live channel,
+   * chat, collaborators and the comment threads should all be off. Settings
+   * reads the link itself, so it still sees the project and can resume it.
+   */
+  const activeLink = (link: OverleafLink | null | undefined) => (
+    link && !link.paused ? link : null
+  );
+
   // Know whether the open project is linked to an Overleaf project (cloned via
   // "Open from Overleaf"). Drives the toolbar sync button and auto-sync.
   useEffect(() => {
@@ -1508,7 +1518,7 @@ function App() {
     if (!project?.root) return;
     void invoke<OverleafLink | null>("overleaf_link")
       .then((link) => {
-        if (!cancelled) setOverleafLink(link ?? null);
+        if (!cancelled) setOverleafLink(activeLink(link));
       })
       .catch(() => {
         // A project without the state file is simply not linked.
@@ -1526,7 +1536,7 @@ function App() {
    */
   const refreshOverleafLink = useCallback(() => {
     void invoke<OverleafLink | null>("overleaf_link")
-      .then((link) => setOverleafLink(link ?? null))
+      .then((link) => setOverleafLink(link && !link.paused ? link : null))
       .catch(() => setOverleafLink(null));
   }, []);
 
@@ -1681,7 +1691,7 @@ function App() {
         author: collabName.trim() || null,
       }).catch(() => {});
       void invoke<OverleafLink | null>("overleaf_link")
-        .then((link) => setOverleafLink(link ?? null))
+        .then((link) => setOverleafLink(activeLink(link)))
         .catch(() => {});
     } catch (reason) {
       setError(toMessage(reason));

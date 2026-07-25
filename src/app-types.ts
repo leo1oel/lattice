@@ -276,6 +276,8 @@ export type OverleafLink = {
   projectName: string;
   host: string;
   lastSync: string | null;
+  /** Linked, but not syncing until it is resumed. */
+  paused: boolean;
 };
 export type OverleafConflict = {
   path: string;

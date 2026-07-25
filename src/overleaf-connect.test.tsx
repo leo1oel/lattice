@@ -83,14 +83,24 @@ describe("Overleaf settings section", () => {
     expect(invoke).toHaveBeenCalledWith("overleaf_poll_login");
   });
 
-  it("tells the app when the project is unlinked, so the toolbar stops showing it as linked", async () => {
+  it("pauses and resumes syncing, telling the app each time so the toolbar follows", async () => {
     const onLinkChanged = vi.fn();
-    vi.mocked(invoke).mockImplementation(async (command) => {
+    let paused = false;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "overleaf_status") return connected;
       if (command === "overleaf_link") {
-        return { projectId: "p1", projectName: "Attention Paper", host: "https://www.overleaf.com", lastSync: null };
+        return {
+          projectId: "p1",
+          projectName: "Attention Paper",
+          host: "https://www.overleaf.com",
+          lastSync: null,
+          paused,
+        };
       }
-      if (command === "overleaf_unlink") return undefined;
+      if (command === "overleaf_set_paused") {
+        paused = (args as { paused: boolean }).paused;
+        return undefined;
+      }
       throw new Error(`Unexpected command: ${command}`);
     });
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -106,12 +116,20 @@ describe("Overleaf settings section", () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Stop syncing" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_unlink"));
+    fireEvent.click(await screen.findByRole("button", { name: "Pause syncing" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_set_paused", { paused: true }));
     // Without this the cloud button, live channel and chat all kept running
-    // against a project that was no longer linked.
+    // against a project that had just been told to stop.
     await waitFor(() => expect(onLinkChanged).toHaveBeenCalled());
-    expect(screen.queryByRole("button", { name: "Stop syncing" })).not.toBeInTheDocument();
+
+    // The link is still here — that is the whole point, so resuming can merge
+    // rather than start over.
+    const resume = await screen.findByRole("button", { name: "Resume syncing" });
+    expect(screen.getByText(/Syncing with .*Attention Paper.* is paused/)).toBeInTheDocument();
+
+    fireEvent.click(resume);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_set_paused", { paused: false }));
+    expect(await screen.findByRole("button", { name: "Pause syncing" })).toBeInTheDocument();
     confirmSpy.mockRestore();
   });
 

@@ -2570,19 +2570,6 @@ button.checklist-row:hover { border-color: color-mix(in srgb, var(--accent) 35%,
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
 
-/* A labelled dropdown inside a settings section, laid out like the rest of
-   the settings form rather than like a section heading. */
-.settings-inline-select {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
-  font-size: 11px;
-  color: var(--muted);
-}
-.settings-inline-select > button { min-width: 180px; }
-
 /* A block inside a settings page: same left edge as everything else on the
    page, set off by a rule rather than by indentation. */
 .settings-subsection {

@@ -1542,12 +1542,15 @@ async fn overleaf_preview(
         .map_err(|error| format!("The Overleaf comparison stopped unexpectedly: {error}"))?
 }
 
+/// Stop or restart syncing for the open project.
 #[tauri::command]
-fn overleaf_unlink(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    // Close the live channel first: a socket left open on a project we no
-    // longer track keeps delivering edits, chat and presence for it.
-    shutdown_realtime(&state);
-    overleaf::unlink(&current_root(&state)?)
+fn overleaf_set_paused(state: tauri::State<'_, AppState>, paused: bool) -> Result<(), String> {
+    if paused {
+        // A socket left open would keep delivering edits, chat and presence
+        // for a project the user just asked us to leave alone.
+        shutdown_realtime(&state);
+    }
+    overleaf::set_paused(&current_root(&state)?, paused)
 }
 
 #[tauri::command]
@@ -2198,7 +2201,7 @@ pub fn run() {
             overleaf_delete_thread,
             overleaf_preview,
             overleaf_clone_target,
-            overleaf_unlink,
+            overleaf_set_paused,
             overleaf_sync,
             list_pdf_annotations,
             save_pdf_annotations,

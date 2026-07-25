@@ -201,7 +201,10 @@ export function AgentRuntimeSettings(props: {
         </div>
       </div>
 
-      <label className="settings-inline-select">
+      {/* A plain label, like every other setting: caption above, control
+          below, both on the page's left edge. The right-aligned variant this
+          used stood out as the one row that did not line up. */}
+      <label>
         Runtime updates
         <Select
           value={mode}

@@ -114,6 +114,8 @@ pub struct OverleafLink {
     pub project_name: String,
     pub host: String,
     pub last_sync: Option<String>,
+    /// Linked, but not syncing until it is resumed.
+    pub paused: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -268,7 +270,15 @@ struct SyncState {
     /// last successful sync.
     #[serde(default)]
     files: BTreeMap<String, String>,
+    /// Syncing is switched off for this project, but everything needed to
+    /// switch it back on is kept — including `files`, the common ancestor a
+    /// resumed sync merges against. Deleting the link instead would throw that
+    /// away, and reconnecting afterwards could only offer conflict copies.
+    #[serde(default)]
+    paused: bool,
 }
+
+const PAUSED: &str = "Syncing is paused for this project. Resume it in Settings → Overleaf.";
 
 /// True unless Overleaf said this account may only read.
 fn permits_writing(permission: Option<&str>) -> bool {
@@ -886,6 +896,7 @@ pub fn adopt_project(
         remote_version: None,
         permission: access_level.map(str::to_string),
         files: BTreeMap::new(),
+        paused: false,
     };
     save_state(root, &state)?;
     Ok(root.to_path_buf())
@@ -1207,6 +1218,7 @@ pub fn clone_project(
         remote_version,
         permission: access_level.map(str::to_string),
         files,
+        paused: false,
     };
     save_state(&root, &state)?;
     Ok(root)
@@ -2173,6 +2185,9 @@ pub fn realtime_config(
 ) -> Result<(String, String, String, Option<String>), String> {
     let mut session = load_session(config_dir)?;
     let state = load_state(root)?;
+    if state.paused {
+        return Err(PAUSED.to_string());
+    }
     let host = sync_host(&state, &session);
     let user_id = ensure_user_id(config_dir, &mut session);
     Ok((host, session.cookie, state.project_id, user_id))
@@ -2303,14 +2318,18 @@ fn latest_update_version(body: &serde_json::Value) -> Option<i64> {
         .max()
 }
 
-/// Stop syncing this folder with Overleaf, keeping every file in place.
+/// Stop or restart syncing this project, keeping the link either way.
 ///
-/// Only the bookkeeping goes: the project stays a normal local project, and
-/// re-cloning it later starts a fresh link.
-pub fn unlink(root: &Path) -> Result<(), String> {
-    let _ = fs::remove_file(state_path(root));
-    let _ = fs::remove_dir_all(base_dir(root));
-    Ok(())
+/// Pausing is not unlinking: the state file and the base copies stay, so
+/// resuming picks up as an ordinary sync against the last common ancestor —
+/// edits made on either side while it was paused merge line by line, and only
+/// genuinely overlapping ones need a person. Deleting the link would leave
+/// two copies with no shared history, where the best that can be offered is a
+/// conflict copy of every file that differs.
+pub fn set_paused(root: &Path, paused: bool) -> Result<(), String> {
+    let mut state = load_state(root)?;
+    state.paused = paused;
+    save_state(root, &state)
 }
 
 pub fn project_link(root: &Path) -> Result<Option<OverleafLink>, String> {
@@ -2319,6 +2338,7 @@ pub fn project_link(root: &Path) -> Result<Option<OverleafLink>, String> {
     }
     let state = load_state(root)?;
     Ok(Some(OverleafLink {
+        paused: state.paused,
         project_id: state.project_id,
         project_name: state.project_name,
         host: state.host,
@@ -2544,6 +2564,9 @@ pub fn sync(
 ) -> Result<OverleafSyncResult, String> {
     let session = load_session(config_dir)?;
     let mut state = load_state(root)?;
+    if state.paused {
+        return Err(PAUSED.to_string());
+    }
     state.files.retain(|path, _| !is_excluded(path));
     let host = sync_host(&state, &session);
 
@@ -3208,6 +3231,47 @@ mod tests {
         dir
     }
 
+    /// Pausing keeps what a resumed sync needs to merge.
+    ///
+    /// The whole reason to pause rather than unlink: the file table is the
+    /// common ancestor, and without it reconnecting can only offer a conflict
+    /// copy of every file that differs.
+    #[test]
+    fn pausing_keeps_the_link_and_its_common_ancestor() {
+        let root = temp_dir("pause");
+        let state = SyncState {
+            host: "https://www.overleaf.com".to_string(),
+            project_id: "proj-1".to_string(),
+            project_name: "Attention Paper".to_string(),
+            last_sync: Some("2026-07-25T00:00:00Z".to_string()),
+            remote_version: Some(42),
+            permission: Some("readAndWrite".to_string()),
+            files: BTreeMap::from([("main.tex".to_string(), "abc123".to_string())]),
+            paused: false,
+        };
+        save_state(&root, &state).unwrap();
+        write_base_copy(&root, "main.tex", b"the copy from the last sync\n").unwrap();
+
+        set_paused(&root, true).unwrap();
+        let link = project_link(&root).unwrap().expect("still linked");
+        assert!(link.paused);
+        assert_eq!(link.project_id, "proj-1");
+        let paused_state = load_state(&root).unwrap();
+        assert_eq!(
+            paused_state.files.get("main.tex").map(String::as_str),
+            Some("abc123")
+        );
+        assert_eq!(paused_state.remote_version, Some(42));
+        assert_eq!(
+            read_base_copy(&root, "main.tex").as_deref(),
+            Some("the copy from the last sync\n"),
+        );
+
+        set_paused(&root, false).unwrap();
+        assert!(!project_link(&root).unwrap().unwrap().paused);
+        let _ = fs::remove_dir_all(root);
+    }
+
     /// Stop syncing, edit, then open the project from Overleaf again.
     ///
     /// Unlinking deletes the state file, so the folder is no longer
@@ -3334,6 +3398,7 @@ mod tests {
                 remote_version: None,
                 permission: None,
                 files,
+                paused: false,
             },
         )
         .unwrap();

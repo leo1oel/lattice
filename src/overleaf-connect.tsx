@@ -193,18 +193,25 @@ export function OverleafSettingsSection(props: {
     setLoading(false);
   }, []);
 
-  const unlinkProject = async () => {
-    if (!window.confirm(
-      "Stop syncing this project with Overleaf?\n\n"
-      + "The project stays open and every file stays where it is, and the copy on Overleaf "
-      + "is left untouched — they just stop following each other. Live editing, chat and "
-      + "collaborators all stop.\n\n"
-      + "You can link it again at any time with Open from Overleaf.",
+  /**
+   * Pausing keeps the link and everything it needs to start again, so
+   * resuming is an ordinary sync: whatever changed on either side while it was
+   * paused merges against the copy from the last sync. Removing the link
+   * instead would throw that common ancestor away and leave reconnecting able
+   * to offer nothing better than a conflict copy of every file that differs.
+   */
+  const setPaused = async (paused: boolean) => {
+    if (paused && !window.confirm(
+      "Pause syncing with Overleaf?\n\n"
+      + "Nothing is sent or fetched until you resume, and live editing, chat and "
+      + "collaborators stop. Every file stays where it is on both sides.\n\n"
+      + "Resuming picks up where this left off: edits made on either side while it was "
+      + "paused are merged, not overwritten.",
     )) return;
     setActionError(null);
     try {
-      await invoke("overleaf_unlink");
-      setLink(null);
+      await invoke("overleaf_set_paused", { paused });
+      setLink((current) => (current ? { ...current, paused } : current));
       props.onLinkChanged();
     } catch (reason) {
       setActionError(toMessage(reason));
@@ -293,19 +300,25 @@ export function OverleafSettingsSection(props: {
       {actionError && <p className="overleaf-error" role="alert">{actionError}</p>}
       {link && (
         <div className="overleaf-status-row">
-          <span className="overleaf-dot connected" aria-hidden="true" />
+          <span className={`overleaf-dot ${link.paused ? "paused" : "connected"}`} aria-hidden="true" />
           <div className="overleaf-status-text">
-            <strong>This project syncs with “{link.projectName}”</strong>
+            <strong>
+              {link.paused
+                ? `Syncing with “${link.projectName}” is paused`
+                : `This project syncs with “${link.projectName}”`}
+            </strong>
             <small>
-              {link.lastSync ? `Last synced ${relativeTime(link.lastSync)}` : "Not synced yet"}
+              {link.paused
+                ? "Nothing is sent or fetched until you resume."
+                : link.lastSync ? `Last synced ${relativeTime(link.lastSync)}` : "Not synced yet"}
             </small>
           </div>
           <button
             type="button"
             className="secondary-button"
-            onClick={() => void unlinkProject()}
+            onClick={() => void setPaused(!link.paused)}
           >
-            Stop syncing
+            {link.paused ? "Resume syncing" : "Pause syncing"}
           </button>
         </div>
       )}
