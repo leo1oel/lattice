@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Clock3, History, RotateCcw, Trash2, X } from "lucide-react";
 import { HistoryDiff, VersionsTimeline, versionsTimelineCss } from "./versions-timeline";
+import { OverleafHistoryPanel } from "./overleaf-history";
 
 export type HistoryItem = {
   id: string;
@@ -27,7 +28,7 @@ function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-type HistoryTab = "changes" | "versions";
+type HistoryTab = "changes" | "versions" | "overleaf";
 
 // Session-scoped memory of the last-used tab. "Versions" is the default; the
 // choice is intentionally not persisted to localStorage.
@@ -41,8 +42,16 @@ export function HistoryDrawer(props: {
   onDelete: (id: string) => void;
   onOpenFile?: (path: string, line?: number) => void;
   onVersionsChanged?: () => void;
+  /** Overleaf keeps its own history server-side; offer it only when linked. */
+  overleafLinked?: boolean;
+  /** After a restore on Overleaf's side, which leaves the local files untouched. */
+  onOverleafRestored?: () => void;
 }) {
-  const [tab, setTab] = useState<HistoryTab>(lastUsedTab);
+  // A project that was linked last time may not be now, and the remembered tab
+  // would otherwise land on an Overleaf panel with nothing behind it.
+  const [tab, setTab] = useState<HistoryTab>(
+    lastUsedTab === "overleaf" && !props.overleafLinked ? "versions" : lastUsedTab,
+  );
   const userPickedTab = useRef(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [entry, setEntry] = useState<TransactionRecord | null>(null);
@@ -111,7 +120,25 @@ export function HistoryDrawer(props: {
           >
             Versions
           </button>
+          {props.overleafLinked && (
+            <button
+              type="button"
+              role="tab"
+              className={`versions-tab ${tab === "overleaf" ? "active" : ""}`}
+              aria-selected={tab === "overleaf"}
+              onClick={() => selectTab("overleaf")}
+            >
+              Overleaf
+            </button>
+          )}
         </div>
+        {tab === "overleaf" && props.overleafLinked && (
+          <OverleafHistoryPanel
+            onClose={props.onClose}
+            onOpenFile={props.onOpenFile}
+            onRestored={props.onOverleafRestored}
+          />
+        )}
         {tab === "versions" && (
           <VersionsTimeline
             onVersionsChanged={props.onVersionsChanged}

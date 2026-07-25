@@ -681,7 +681,7 @@ function App() {
     }
   }, []);
 
-  const loadFile = useCallback(async (path: string) => {
+  const loadFile = useCallback(async (path: string, options?: { restoreView?: boolean }) => {
     try {
       const content = await invoke<string>("read_project_file", { path });
       setActiveFile(path);
@@ -694,7 +694,11 @@ function App() {
       setCanvasMode((mode) => (mode === "paper" || mode === "asset" ? "split" : mode));
       setError(null);
       await markDiskMtime(path);
-      const saved = viewStateRef.current.get(path);
+      // Where you last were in this file, unless the caller is about to send
+      // you somewhere specific in it. Both land as requests the editor answers
+      // on the next frame, and the restore is applied second, so asking for
+      // both means the remembered position quietly wins and the jump is lost.
+      const saved = options?.restoreView === false ? undefined : viewStateRef.current.get(path);
       if (saved) {
         setViewRestore({ path, cursor: saved.cursor, scrollTop: saved.scrollTop, id: crypto.randomUUID() });
       }
@@ -1295,7 +1299,7 @@ function App() {
       const saved = await save();
       if (!saved) return;
     }
-    await loadFile(path);
+    await loadFile(path, { restoreView: !line });
     setFocusedPane("primary");
     if (line) {
       setEditorNavigation({ path, line, id: crypto.randomUUID() });
@@ -5270,6 +5274,17 @@ function App() {
           }}
           onDelete={deleteHistory}
           onOpenFile={(path, line) => { void openProjectFile(path, line); }}
+          overleafLinked={overleafLink !== null}
+          onOverleafRestored={async () => {
+            // The restore happened on Overleaf's server and left the local
+            // files alone, so pull it down the same way a manual sync does
+            // before anything on this side reloads.
+            await runOverleafSync();
+            await refreshProject();
+            if (activeFile) await loadFile(activeFile);
+            await refreshHistory();
+            await compile();
+          }}
         />
       )}
       {gitOpen && (

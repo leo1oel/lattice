@@ -53,11 +53,19 @@ const NOT_CONNECTED: &str = "Not connected to Overleaf. Connect in Settings → 
 const ARTIFACT_SUFFIXES: &[&str] = &[
     ".aux",
     ".bbl",
+    ".bcf",
     ".blg",
+    ".brf",
+    ".dvi",
     ".fdb_latexmk",
     ".fls",
+    ".idx",
+    ".ilg",
+    ".ind",
     ".log",
     ".out",
+    ".run.xml",
+    ".synctex",
     ".synctex.gz",
     ".toc",
     ".lof",
@@ -65,6 +73,7 @@ const ARTIFACT_SUFFIXES: &[&str] = &[
     ".nav",
     ".snm",
     ".vrb",
+    ".xdv",
 ];
 
 // ---- Public shapes (mirrored in src/app-types.ts) -------------------------
@@ -557,7 +566,12 @@ fn is_excluded(path: &str) -> bool {
     if is_conflict_copy(file_name) {
         return true;
     }
+    // A compile that is still running leaves half-written artifacts named
+    // `main.synctex(busy)` and the like. They vanish on their own, but a sync
+    // that catches one mid-compile uploads it, and it then lives on Overleaf
+    // and in the project's history forever.
     let lower = file_name.to_ascii_lowercase();
+    let lower = lower.strip_suffix("(busy)").unwrap_or(&lower);
     if ARTIFACT_SUFFIXES.iter().any(|s| lower.ends_with(s)) {
         return true;
     }
@@ -1494,17 +1508,7 @@ fn parse_history_update(item: &serde_json::Value) -> OverleafUpdate {
             .and_then(serde_json::Value::as_array)
             .map(|users| users.iter().filter_map(person_name).collect())
             .unwrap_or_default(),
-        paths: item
-            .get("pathnames")
-            .and_then(serde_json::Value::as_array)
-            .map(|paths| {
-                paths
-                    .iter()
-                    .filter_map(serde_json::Value::as_str)
-                    .map(str::to_string)
-                    .collect()
-            })
-            .unwrap_or_default(),
+        paths: update_paths(item),
         labels: item
             .get("labels")
             .and_then(serde_json::Value::as_array)
@@ -1514,6 +1518,47 @@ fn parse_history_update(item: &serde_json::Value) -> OverleafUpdate {
             .and_then(|m| m.get("origin"))
             .and_then(|origin| json_str(origin, &["kind"])),
     }
+}
+
+/// Every file an update touched, from the two places Overleaf keeps them.
+///
+/// `pathnames` only ever lists documents that were edited. Anything done to
+/// the project *tree* — uploading a figure, renaming a file, deleting one —
+/// lands in `project_ops` instead, and an update that did only that has an
+/// empty `pathnames`. Reading just the one field makes real uploads and
+/// deletions show up in the timeline as having changed nothing at all.
+fn update_paths(item: &serde_json::Value) -> Vec<String> {
+    let mut paths: Vec<String> = item
+        .get("pathnames")
+        .and_then(serde_json::Value::as_array)
+        .map(|paths| {
+            paths
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    for op in item
+        .get("project_ops")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        // A rename is named by where the file ended up, which is what the
+        // reader would go looking for now.
+        let path = ["rename", "add", "remove"].into_iter().find_map(|kind| {
+            op.get(kind)
+                .and_then(|body| json_str(body, &["newPathname", "pathname"]))
+        });
+        if let Some(path) = path {
+            if !paths.contains(&path) {
+                paths.push(path);
+            }
+        }
+    }
+    paths
 }
 
 fn parse_label(item: &serde_json::Value) -> Option<OverleafLabel> {
@@ -2412,6 +2457,44 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     const CSRF: &str = "csrf-fixture-token";
+
+    /// Both halves of a real `/updates` entry, taken verbatim from
+    /// overleaf.com: an upload leaves `pathnames` empty and records what it
+    /// did in `project_ops`, so a timeline reading only `pathnames` shows it
+    /// as an update that touched nothing.
+    #[test]
+    fn history_update_paths_include_file_operations() {
+        let doc_edit = serde_json::json!({
+            "fromV": 65, "toV": 67, "pathnames": ["neurips_2026.tex"], "labels": [],
+        });
+        assert_eq!(update_paths(&doc_edit), vec!["neurips_2026.tex".to_string()]);
+
+        let upload = serde_json::json!({
+            "fromV": 43, "toV": 45, "pathnames": [], "labels": [],
+            "project_ops": [
+                { "atV": 44, "add": { "pathname": "figures/loss.png" } },
+                { "atV": 43, "remove": { "pathname": "figures/old.png" } },
+            ],
+        });
+        assert_eq!(
+            update_paths(&upload),
+            vec!["figures/loss.png".to_string(), "figures/old.png".to_string()],
+        );
+
+        // A rename is listed under where the file ended up, and a path that
+        // appears in both fields is only listed once.
+        let mixed = serde_json::json!({
+            "fromV": 1, "toV": 3, "pathnames": ["main.tex"], "labels": [],
+            "project_ops": [
+                { "atV": 2, "rename": { "pathname": "draft.tex", "newPathname": "final.tex" } },
+                { "atV": 3, "add": { "pathname": "main.tex" } },
+            ],
+        });
+        assert_eq!(
+            update_paths(&mixed),
+            vec!["main.tex".to_string(), "final.tex".to_string()],
+        );
+    }
 
     #[test]
     fn cookie_domain_matching_covers_overleaf_subdomains() {
@@ -3616,6 +3699,15 @@ mod tests {
         assert!(is_excluded("main.aux"));
         assert!(is_excluded("main.synctex.gz"));
         assert!(is_excluded("main.pdf")); // compiled output at root
+        // Real uploads seen on overleaf.com: a sync caught mid-compile picked
+        // up synctex's half-written files and put them in the project history.
+        assert!(is_excluded("main.synctex(busy)"));
+        assert!(is_excluded("main.synctex.gz(busy)"));
+        assert!(is_excluded("nested/chapter.synctex"));
+        assert!(is_excluded("main.run.xml"));
+        assert!(is_excluded("main.bcf"));
+        // A source file whose name merely ends in "(busy)" is still source.
+        assert!(!is_excluded("notes(busy).tex"));
         assert!(!is_excluded("figures/fig1.pdf")); // figure pdfs sync
         assert!(!is_excluded("main.tex"));
         assert!(!is_excluded("nested/chapter.tex"));

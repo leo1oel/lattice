@@ -1,0 +1,170 @@
+/* Overleaf's own project history: a day-grouped timeline living as the third
+   tab of the Project history drawer, deliberately styled to echo (not share
+   classes with) the git-backed Versions timeline in versions-timeline.tsx —
+   same visual language, so it reads as a sibling feature rather than an
+   unrelated one. */
+
+.overleaf-history-panel { display: flex; flex-direction: column; min-height: 0; }
+
+.overleaf-history-loading,
+.overleaf-history-empty,
+.overleaf-history-note { margin: 14px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.overleaf-history-error { margin: 8px 0 0; color: var(--danger); font-size: 10px; }
+.overleaf-history-notice { margin: 8px 0 0; color: var(--success); font-size: 10px; }
+
+.overleaf-history-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+
+.overleaf-history-day-label {
+  margin: 10px 0 2px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.overleaf-history-day:first-child .overleaf-history-day-label { margin-top: 0; }
+
+.overleaf-history-entry { border-top: 1px solid var(--line); padding: 8px 0; }
+.overleaf-history-day:first-child .overleaf-history-entry:first-child { border-top: 0; }
+
+.overleaf-history-entry-head { width: 100%; background: transparent; padding: 2px 0; text-align: left; display: grid; gap: 4px; cursor: pointer; }
+.overleaf-history-entry-top { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.overleaf-history-author { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 7px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
+.overleaf-history-time { color: var(--faint); font-size: 10px; }
+.overleaf-history-count { margin-left: auto; color: var(--faint); font-size: 10px; }
+
+.overleaf-history-entry-meta { display: flex; flex-wrap: wrap; gap: 5px; }
+.overleaf-history-origin {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--line);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.overleaf-history-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.overleaf-history-paths { margin: 0; font-size: 10.5px; color: var(--muted); overflow-wrap: anywhere; }
+
+.overleaf-history-entry-body { display: grid; gap: 8px; margin-top: 6px; }
+
+.overleaf-history-labels-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.overleaf-history-labels { display: flex; flex-wrap: wrap; gap: 5px; }
+.overleaf-history-label-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 2px 4px 2px 8px;
+}
+.overleaf-history-label-chip button { display: grid; place-items: center; width: 14px; height: 14px; border-radius: 999px; background: transparent; color: inherit; }
+.overleaf-history-label-chip button:hover:not(:disabled) { background: rgba(0, 0, 0, .08); }
+
+.overleaf-history-name-version,
+.overleaf-history-label-form button {
+  height: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.overleaf-history-name-version:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong)); }
+.overleaf-history-label-form { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 160px; }
+.overleaf-history-label-form input {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 0 7px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 10.5px;
+}
+.overleaf-history-label-form input:focus { border-color: var(--accent); outline: none; }
+
+.overleaf-history-files { display: grid; gap: 2px; }
+.overleaf-history-file-row { display: flex; align-items: center; gap: 4px; }
+.overleaf-history-file { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: 24px; border-radius: 6px; padding: 2px 6px; background: transparent; color: var(--muted); font-size: 10.5px; text-align: left; }
+.overleaf-history-file:hover { background: var(--line); color: var(--text); }
+.overleaf-history-file.active { background: var(--accent-soft); color: var(--accent); }
+.overleaf-history-file > span { overflow-wrap: anywhere; }
+.overleaf-history-kind { flex: none; }
+.overleaf-history-kind.added { color: var(--success); }
+.overleaf-history-kind.removed { color: var(--danger); }
+.overleaf-history-kind.renamed { color: var(--accent); }
+.overleaf-history-kind.edited { color: var(--muted); }
+.overleaf-history-file.active .overleaf-history-kind { color: inherit; }
+
+.overleaf-history-restore-file {
+  flex: none;
+  height: 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 0 7px;
+  background: transparent;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+}
+.overleaf-history-restore-file:hover:not(:disabled) { border-color: color-mix(in srgb, var(--danger) 40%, var(--line-strong)); color: var(--danger); }
+.overleaf-history-restore-file:disabled { opacity: .5; }
+
+.overleaf-history-binary { margin: 0; padding: 8px; font-size: 10.5px; color: var(--muted); }
+
+.overleaf-history-restore-project {
+  justify-self: start;
+  height: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.overleaf-history-restore-project:hover:not(:disabled) { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--line-strong)); }
+.overleaf-history-restore-project:disabled { opacity: .5; }
+
+.overleaf-history-load-more {
+  align-self: center;
+  margin: 10px 0 2px;
+  height: 26px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.overleaf-history-load-more:hover:not(:disabled) { color: var(--text); border-color: var(--line-strong); }
