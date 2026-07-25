@@ -295,3 +295,59 @@ describe("two editors on one document", () => {
     expect(b.doc.text).toBe(server.text);
   });
 });
+
+/**
+ * Coming back to a file we were editing. The server replays what it did while
+ * we were away rather than only saying where it ended up, and the difference
+ * is whether work that never reached it survives the trip.
+ */
+describe("resuming a document from a known version", () => {
+  it("keeps unsent work while replaying what was missed", () => {
+    const doc = new OtDocument("hello", 4);
+    // Typed here, still queued behind nothing — it goes out immediately.
+    const send = doc.local("hello there").send!;
+    expect(send.version).toBe(4);
+    // We leave before the answer arrives. Meanwhile a collaborator edits, and
+    // our own operation lands too.
+    const result = doc.catchUp([
+      { version: 4, ops: send.ops, mine: true },
+      { version: 5, ops: [{ p: 0, i: ">> " }], mine: false },
+    ]);
+    expect(result.text).toBe(">> hello there");
+    expect(doc.version).toBe(6);
+    expect(doc.settled).toBe(true);
+  });
+
+  it("carries work typed after the unanswered operation", () => {
+    const doc = new OtDocument("a", 1);
+    const first = doc.local("ab").send!;
+    // Queued behind the one in flight.
+    expect(doc.local("abc").send).toBeNull();
+
+    const result = doc.catchUp([{ version: 1, ops: first.ops, mine: true }]);
+    // The acknowledgement released the queued work, which is now ready to go.
+    expect(result.send).not.toBeNull();
+    expect(result.send!.version).toBe(2);
+    expect(doc.text).toBe("abc");
+  });
+
+  it("moves the caret past everything replayed", () => {
+    const doc = new OtDocument("one\ntwo", 3);
+    const result = doc.catchUp([
+      { version: 3, ops: [{ p: 0, i: "zero\n" }], mine: false },
+      { version: 4, ops: [{ p: 0, i: "!\n" }], mine: false },
+    ]);
+    // A caret on "two" started at 4 and is now past both insertions.
+    expect(OtDocument.caretAfter(4, result.applied)).toBe(4 + "zero\n".length + "!\n".length);
+    expect(doc.version).toBe(5);
+  });
+
+  it("transforms a collaborator's replayed work against our own unsent work", () => {
+    const doc = new OtDocument("fox", 7);
+    doc.local("quick fox");             // in flight, inserted at 0
+    doc.catchUp([{ version: 7, ops: [{ p: 3, i: " runs" }], mine: false }]);
+    // Their insertion was after "fox", which our text pushed along; both are
+    // present and neither overwrote the other.
+    expect(doc.text).toBe("quick fox runs");
+  });
+});

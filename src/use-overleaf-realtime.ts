@@ -45,11 +45,26 @@ export type TrackedChange = {
   /** The author's colour in Overleaf's own palette. */
   hue: number;
 };
+/** One update replayed by a join that resumed from a version we already had. */
+type CaughtUpUpdate = {
+  /** The version it applied at; the document moves to one past it. */
+  version: number;
+  ops: OtOp[];
+  /** Whose it was. Our own work comes back here and counts as an ack. */
+  source: string | null;
+};
+
 type JoinedDoc = {
   text: string;
   version: number;
   comments: CommentRange[];
   changes: TrackedChange[];
+  caughtUp: CaughtUpUpdate[];
+  /**
+   * Whether the server honoured the version we asked to resume from. False
+   * means it could not reach back that far, and `text` is all there is.
+   */
+  resumed: boolean;
 };
 
 type RealtimeEvent =
@@ -166,11 +181,24 @@ export function useOverleafRealtime(options: {
   const [userId, setUserId] = useState<string | null>(null);
 
   const publicId = useRef<string | null>(null);
-  const document = useRef<OtDocument | null>(null);
+  /**
+   * Every document this connection is holding, which is not the same as the
+   * one on screen. A document that still owes the server an operation stays
+   * here after the writer has moved on, because the answer is addressed to it
+   * and arrives on the channel regardless of what is being looked at — throw
+   * it away at the moment of switching and the last edit made in it goes too.
+   */
+  const documents = useRef<Map<string, OtDocument>>(new Map());
+  /** Documents kept alive only until they settle, then left. */
+  const draining = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  /** The one being edited: local typing goes here, and it drives the editor. */
   const docId = useRef<string | null>(null);
   const sendTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Typed but still inside the send debounce, so not yet in the document. */
   const unsentText = useRef<string | null>(null);
+
+  /** How long a document that will not settle is allowed to hold the channel. */
+  const DRAIN_TIMEOUT_MS = 15_000;
 
   // Read through refs inside the event listener so it can stay mounted for the
   // whole session instead of being torn down on every keystroke.
@@ -179,62 +207,83 @@ export function useOverleafRealtime(options: {
   const canWrite = useRef(true);
   canWrite.current = permission !== "readOnly" && permission !== "review";
 
+  /** Let go of a document for good: leave the room and forget it. */
+  const release = useCallback((id: string) => {
+    const timer = draining.current.get(id);
+    if (timer) clearTimeout(timer);
+    draining.current.delete(id);
+    documents.current.delete(id);
+    void invoke("overleaf_rt_leave_doc", { docId: id }).catch(() => {});
+  }, []);
+
+  /**
+   * Stop editing the open document, without necessarily letting go of it.
+   *
+   * Anything the send debounce was still holding goes in first — typing a
+   * sentence and immediately clicking another file is the ordinary way to use
+   * the app, and cancelling that timer on the way out is how the sentence used
+   * to vanish. If the document still owes the server an operation after that,
+   * it is kept and stays in its room until the answer arrives: leaving first
+   * would put both the acknowledgement and any rejection somewhere we are no
+   * longer listening.
+   */
   const stopDocument = useCallback(() => {
     if (sendTimer.current) {
       clearTimeout(sendTimer.current);
       sendTimer.current = null;
     }
     const previous = docId.current;
-    const doc = document.current;
     const typed = unsentText.current;
     unsentText.current = null;
-    document.current = null;
     docId.current = null;
     setLiveFile(false);
     setOpenDoc(null);
     if (!previous) return;
+    const doc = documents.current.get(previous);
+    if (!doc) return;
 
-    // Whatever the debounce was still holding has to go out before we leave.
-    // Typing a sentence and immediately clicking another file is the ordinary
-    // way to use the app, and cancelling the timer on the way out is how that
-    // sentence used to vanish — it had not reached the document, let alone
-    // Overleaf.
-    const unsent = typed !== null && doc && canWrite.current ? doc.local(typed).send : null;
-    const leave = () => {
-      void invoke("overleaf_rt_leave_doc", { docId: previous }).catch(() => {});
-    };
-    if (!unsent) {
-      leave();
+    const unsent = typed !== null && canWrite.current ? doc.local(typed).send : null;
+    if (unsent) {
+      void invoke("overleaf_rt_send_ops", {
+        docId: previous,
+        version: unsent.version,
+        ops: unsent.ops,
+      }).catch(() => {});
+    }
+    if (doc.settled) {
+      release(previous);
       return;
     }
-    void invoke("overleaf_rt_send_ops", {
-      docId: previous,
-      version: unsent.version,
-      ops: unsent.ops,
-    })
-      .catch(() => {})
-      // Only once it is on its way: leaving first puts the acknowledgement in
-      // a room we are no longer in, and Overleaf reports a rejected operation
-      // to that same room.
-      .finally(leave);
-  }, []);
+    // Held until the server answers, and no longer: a document that will never
+    // settle — the connection died mid-operation — must not keep its room for
+    // the rest of the session.
+    draining.current.set(
+      previous,
+      setTimeout(() => release(previous), DRAIN_TIMEOUT_MS),
+    );
+  }, [release]);
+
+  /** Every document goes, on the way to shutting the connection down. */
+  const stopEverything = useCallback(() => {
+    stopDocument();
+    for (const id of [...documents.current.keys()]) release(id);
+  }, [release, stopDocument]);
 
   const fail = useCallback((message: string) => {
-    stopDocument();
+    stopEverything();
     setStatus("error");
     setDetail(message);
     void invoke("overleaf_rt_disconnect").catch(() => {});
-  }, [stopDocument]);
+  }, [stopEverything]);
 
-  /** Send whatever the document says is ready, if anything. */
-  const flush = useCallback(async (send: { version: number; ops: OtOp[] } | null) => {
-    if (!send || !docId.current) return;
+  /** Send whatever a document says is ready, if anything. */
+  const flush = useCallback(async (
+    id: string | null,
+    send: { version: number; ops: OtOp[] } | null,
+  ) => {
+    if (!send || !id) return;
     try {
-      await invoke("overleaf_rt_send_ops", {
-        docId: docId.current,
-        version: send.version,
-        ops: send.ops,
-      });
+      await invoke("overleaf_rt_send_ops", { docId: id, version: send.version, ops: send.ops });
     } catch (reason) {
       fail(String(reason));
     }
@@ -269,12 +318,16 @@ export function useOverleafRealtime(options: {
         return;
       }
       if (payload.type === "disconnected") {
-        stopDocument();
+        stopEverything();
         setStatus("off");
         setDetail(payload.reason || null);
         return;
       }
       if (payload.type === "otError") {
+        // Overleaf addresses a rejection to the document it happened in, and
+        // one document failing says nothing about the others — or about chat
+        // and presence, which ride the same connection.
+        if (payload.docId && !documents.current.has(payload.docId)) return;
         fail(payload.message);
         callbacks.current.onNotice(
           `Overleaf rejected a live update (${payload.message}). Falling back to syncing.`,
@@ -286,10 +339,13 @@ export function useOverleafRealtime(options: {
         // originating client gets the version alone, and that is the
         // acknowledgement. Without acting on it the operation would stay in
         // flight forever and every later edit would queue behind it unsent.
-        const doc = document.current;
-        if (!doc || payload.docId !== docId.current) return;
+        const doc = documents.current.get(payload.docId);
+        if (!doc) return;
         try {
-          void flush(doc.acknowledge(payload.version).send);
+          // Answers arrive for a document being drained too, and that is the
+          // point of keeping it: this is what finishes its last operation.
+          void flush(payload.docId, doc.acknowledge(payload.version).send);
+          if (doc.settled && draining.current.has(payload.docId)) release(payload.docId);
         } catch (reason) {
           fail(reason instanceof Error ? reason.message : String(reason));
           callbacks.current.onNotice(
@@ -331,15 +387,21 @@ export function useOverleafRealtime(options: {
       }
       if (payload.type !== "docUpdate") return;
 
-      const doc = document.current;
-      if (!doc || payload.docId !== docId.current) return;
+      const doc = documents.current.get(payload.docId);
+      if (!doc) return;
       // Our own work coming back is already in this copy; only the separate
       // acknowledgement moves the state machine on.
       if (payload.source && publicId.current && payload.source === publicId.current) return;
       try {
-        const caret = callbacks.current.readCaret();
+        const onScreen = payload.docId === docId.current;
+        const caret = onScreen ? callbacks.current.readCaret() : 0;
         const { text, applied } = doc.remote(payload.ops, payload.version);
-        callbacks.current.onRemoteText(text, OtDocument.caretAfter(caret, applied));
+        // A document being drained still has to apply this, or its own
+        // outstanding operation is transformed against the wrong history and
+        // the server rejects it. Nobody is looking at it, so nothing is drawn.
+        if (onScreen) {
+          callbacks.current.onRemoteText(text, OtDocument.caretAfter(caret, applied));
+        }
       } catch (reason) {
         if (reason instanceof OtDesyncError) {
           fail(reason.message);
@@ -427,11 +489,52 @@ export function useOverleafRealtime(options: {
       return;
     }
     let cancelled = false;
-    void invoke<JoinedDoc>("overleaf_rt_join_doc", { docId: id })
+    // Coming back to a document that was still draining: it is being edited
+    // again, so the timer that would have given up its room has to go, or it
+    // would fire in the middle of typing.
+    const drainTimer = draining.current.get(id);
+    if (drainTimer) {
+      clearTimeout(drainTimer);
+      draining.current.delete(id);
+    }
+    // A document we still hold is one we were editing a moment ago. Asking to
+    // resume from its version makes the server replay what it did meanwhile
+    // instead of only stating where it ended up, which is the difference
+    // between keeping work that never reached it and overwriting it.
+    const held = documents.current.get(id);
+    void invoke<JoinedDoc>("overleaf_rt_join_doc", {
+      docId: id,
+      fromVersion: held?.version ?? null,
+    })
       .then((joined) => {
-        if (cancelled) return;
+        if (cancelled) {
+          // Joined after the writer moved on. Leave, or the room stays
+          // subscribed for the rest of the session.
+          if (!documents.current.has(id)) {
+            void invoke("overleaf_rt_leave_doc", { docId: id }).catch(() => {});
+          }
+          return;
+        }
+        let text = joined.text;
+        let caret = callbacks.current.readCaret();
+        if (held && joined.resumed) {
+          const result = held.catchUp(joined.caughtUp.map((update) => ({
+            version: update.version,
+            ops: update.ops,
+            mine: !!update.source && update.source === publicId.current,
+          })));
+          text = result.text;
+          caret = OtDocument.caretAfter(caret, result.applied);
+          void flush(id, result.send);
+        } else {
+          // Either the first time here, or the server would not reach back far
+          // enough. Its copy is the only thing both sides agree on.
+          const doc = held ?? new OtDocument(joined.text, joined.version);
+          doc.reset(joined.text, joined.version);
+          documents.current.set(id, doc);
+          caret = callbacks.current.readCaret();
+        }
         docId.current = id;
-        document.current = new OtDocument(joined.text, joined.version);
         setLiveFile(true);
         setOpenDoc({
           id,
@@ -440,8 +543,7 @@ export function useOverleafRealtime(options: {
           version: joined.version,
         });
         setDetail(null);
-        // The server's copy is the truth on arrival; show it.
-        callbacks.current.onRemoteText(joined.text, callbacks.current.readCaret());
+        callbacks.current.onRemoteText(text, caret);
       })
       .catch((reason) => {
         if (!cancelled) setDetail(String(reason));
@@ -449,13 +551,13 @@ export function useOverleafRealtime(options: {
     return () => {
       cancelled = true;
     };
-  }, [options.activeFile, options.documents, activeDocId, status, reloadNonce, stopDocument]);
+  }, [options.activeFile, options.documents, activeDocId, status, reloadNonce, stopDocument, flush]);
 
   // ---- local edits --------------------------------------------------------
 
   const pushLocal = useCallback((text: string) => {
-    const doc = document.current;
-    if (!doc || !canWrite.current) return;
+    const id = docId.current;
+    if (!id || !documents.current.has(id) || !canWrite.current) return;
     // Coalesce keystrokes briefly: one operation per short pause keeps the
     // channel quiet without anyone noticing a delay. Held where leaving the
     // document can find it, because until the timer fires this text exists
@@ -465,15 +567,17 @@ export function useOverleafRealtime(options: {
     sendTimer.current = setTimeout(() => {
       sendTimer.current = null;
       unsentText.current = null;
-      const current = document.current;
+      // Read again rather than closing over it: the writer may have moved to
+      // another file in the meantime, and this text belongs to the old one.
+      const current = docId.current === id ? documents.current.get(id) : null;
       if (!current) return;
-      void flush(current.local(text).send);
+      void flush(id, current.local(text).send);
     }, 250);
   }, [flush]);
 
   const anchorComment = useCallback(async (threadId: string, position: number, quote: string) => {
-    const doc = document.current;
     const id = docId.current;
+    const doc = id ? documents.current.get(id) : null;
     if (!doc || !id) {
       throw new Error("This file is not being edited live with Overleaf yet.");
     }

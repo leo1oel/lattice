@@ -625,6 +625,19 @@ struct JoinDocOptions {
     encode_ranges: bool,
 }
 
+/// One update the server replayed because we asked to join from a version we
+/// already had, rather than from scratch.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatchUpUpdate {
+    /// The version this update applied at; the document moves to `v + 1`.
+    pub version: i64,
+    pub ops: Vec<OtOp>,
+    /// Who sent it. Our own work comes back here too, and has to be counted as
+    /// an acknowledgement rather than applied a second time.
+    pub source: Option<String>,
+}
+
 /// What `applyOtUpdate` carries: the document, the operation, and the version
 /// it applies to.
 ///
@@ -843,6 +856,13 @@ pub struct JoinedDoc {
     pub version: i64,
     pub comments: Vec<CommentRange>,
     pub changes: Vec<TrackedChange>,
+    /// The updates missed while away, when the join asked to resume from a
+    /// version we already had. Empty for a join from scratch, and empty when
+    /// the server could not reach back that far — `text` is authoritative then.
+    pub caught_up: Vec<CatchUpUpdate>,
+    /// False when the server would not replay from the version asked for, so
+    /// the caller must fall back to `text` and drop anything unsent.
+    pub resumed: bool,
 }
 
 /// One tracked change in a document: a suggested insertion or deletion that
@@ -1674,6 +1694,48 @@ fn json_field(value: &Value, keys: &[&str]) -> Option<String> {
 /// text stream matters — transformed as if they were edits they would come
 /// back as empty deletes, and the OT state machine should only ever see real
 /// edits.
+/// The updates the server replayed for a join that resumed from a version.
+///
+/// Each entry is the same `{doc, meta, op, v}` shape a live update arrives in,
+/// so it splits the same way: comment anchors are not edits and never reach
+/// the text stream, and an update that turns out to hold nothing but anchors
+/// still counts, because the version moved either way.
+fn parse_catch_up(value: &Value) -> Vec<CatchUpUpdate> {
+    value
+        .as_array()
+        .map(|updates| {
+            updates
+                .iter()
+                .filter_map(|update| {
+                    Some(CatchUpUpdate {
+                        version: update.get("v").and_then(Value::as_i64)?,
+                        ops: text_ops(update),
+                        source: update
+                            .get("meta")
+                            .and_then(|meta| meta.get("source"))
+                            .and_then(Value::as_str)
+                            .map(str::to_string),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The edits in an update, leaving comment anchors out: transformed as if they
+/// were edits they come back as empty deletes, and the OT state machine should
+/// only ever see real changes to the text.
+fn text_ops(value: &Value) -> Vec<OtOp> {
+    let Some(raw) = value.get("op").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    raw.iter()
+        .filter(|op| op.get("t").and_then(Value::as_str).is_none())
+        .filter_map(|op| serde_json::from_value::<OtOp>(op.clone()).ok())
+        .filter(|op| op.i.is_some() || op.d.is_some())
+        .collect()
+}
+
 fn doc_update_events(value: &Value) -> Vec<RealtimeEvent> {
     let Some(doc_id) = value.get("doc").and_then(Value::as_str).map(str::to_string) else {
         return Vec::new();
@@ -1950,12 +2012,27 @@ impl RealtimeClient {
 
     /// `joinDoc` → the document's current lines joined with `'\n'`, plus its
     /// version.
-    pub async fn join_doc(&self, doc_id: &str) -> Result<JoinedDoc, String> {
+    ///
+    /// `from_version` asks the server to replay what we missed rather than
+    /// only handing back the current text: coming back to a document we were
+    /// editing, that replay is what lets unsent work survive instead of being
+    /// overwritten by the server's copy. `None` — and a version the server can
+    /// no longer reach back to — means starting over from the text.
+    ///
+    /// The version is a positional argument, `joinDoc(docId, fromVersion,
+    /// options)`, and -1 is how the server is told to send the whole document.
+    /// Passing it inside the options object silently gets you a full join.
+    pub async fn join_doc(
+        &self,
+        doc_id: &str,
+        from_version: Option<i64>,
+    ) -> Result<JoinedDoc, String> {
         let ack = emit_with_ack(
             &self.shared,
             "joinDoc",
             (
                 doc_id,
+                from_version.unwrap_or(-1),
                 JoinDocOptions {
                     encode_ranges: true,
                 },
@@ -1976,17 +2053,28 @@ impl RealtimeClient {
             .get(1)
             .and_then(Value::as_i64)
             .ok_or_else(|| format!("Overleaf sent no version for document {doc_id}."))?;
-        // The fourth slot holds the document's ranges: tracked changes, and
-        // the spans that comment threads are anchored to. Only the comments
-        // matter here — they are what ties a conversation to a piece of text.
+        // `callback(null, lines, version, ops, ranges, type)`: the third slot
+        // is what we missed, the fourth the document's ranges — tracked
+        // changes, and the spans comment threads are anchored to.
+        let caught_up = body.get(2).map(parse_catch_up).unwrap_or_default();
         let ranges = body.get(3);
         let comments = ranges.map(parse_comment_ranges).unwrap_or_default();
         let changes = ranges.map(parse_tracked_changes).unwrap_or_default();
+        // Asking to resume and being handed nothing is ambiguous on its own —
+        // it means either "nothing happened while you were away" or "that
+        // version is too far back to replay". The version settles it: an empty
+        // replay is only trustworthy when the document has not moved.
+        let resumed = match from_version {
+            None => false,
+            Some(from) => !caught_up.is_empty() || from == version,
+        };
         Ok(JoinedDoc {
             text,
             version,
             comments,
             changes,
+            caught_up,
+            resumed,
         })
     }
 
@@ -2929,7 +3017,7 @@ mod tests {
         );
 
         let first = client.project().docs[0].clone();
-        let joined = rt::block_on(client.join_doc(&first.id)).expect("joinDoc");
+        let joined = rt::block_on(client.join_doc(&first.id, None)).expect("joinDoc");
         println!(
             "joined {} at v{} ({} chars, {} comments)",
             first.path,
@@ -2980,7 +3068,7 @@ mod tests {
             .find(|doc| doc.path == target)
             .unwrap_or_else(|| panic!("no document named {target}"))
             .clone();
-        let joined = rt::block_on(client.join_doc(&doc.id)).expect("joinDoc");
+        let joined = rt::block_on(client.join_doc(&doc.id, None)).expect("joinDoc");
         let before = joined.text.clone();
         println!("editing {} at v{}", doc.path, joined.version);
 
@@ -3024,7 +3112,7 @@ mod tests {
         // Read it back before removing it: this is the assertion that the
         // snapshot decoding is right, not just that the round trip completes.
         rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
-        let midway = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
+        let midway = rt::block_on(client.join_doc(&doc.id, None)).expect("re-joinDoc");
         assert!(
             midway.text.starts_with(probe),
             "expected {probe:?} at the start, got {:?}",
@@ -3047,7 +3135,7 @@ mod tests {
 
         // Read it back from the server rather than trusting our own bookkeeping.
         rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
-        let again = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
+        let again = rt::block_on(client.join_doc(&doc.id, None)).expect("re-joinDoc");
         assert_eq!(
             again.text, before,
             "the document did not come back unchanged"
@@ -3103,15 +3191,20 @@ mod tests {
             .find(|doc| doc.path == target)
             .unwrap_or_else(|| panic!("no document named {target}"))
             .clone();
-        let joined = rt::block_on(writer.join_doc(&doc.id)).expect("joinDoc as the writer");
-        let watching = rt::block_on(watcher.join_doc(&doc.id)).expect("joinDoc as the watcher");
+        let joined = rt::block_on(writer.join_doc(&doc.id, None)).expect("joinDoc as the writer");
+        let watching =
+            rt::block_on(watcher.join_doc(&doc.id, None)).expect("joinDoc as the watcher");
         assert_eq!(
             joined.version, watching.version,
             "both connections should start from the same version"
         );
         let started_at = joined.version;
 
-        let probe = "\n% lattice version probe\n";
+        // Non-ASCII deliberately: document lines arrive as UTF-8 bytes
+        // reinterpreted one per code point, and whether a collaborator's
+        // operations are packed the same way decides whether their text
+        // arrives as mojibake and at byte offsets instead of character ones.
+        let probe = "\n% lattice probe caf\u{e9}\u{7b2c}\u{4e09}\u{8282}\n";
         rt::block_on(writer.send_ops(
             &doc.id,
             started_at,
@@ -3149,6 +3242,20 @@ mod tests {
         }
         let acked_at = acked_at.expect("the writer's own acknowledgement");
         let broadcast_at = broadcast_at.expect("the update the watcher was sent");
+        let inserted = lock(&watcher_events)
+            .iter()
+            .find_map(|event| match event {
+                RealtimeEvent::DocUpdate { doc_id, ops, .. } if *doc_id == doc.id => {
+                    ops.first().and_then(|op| op.i.clone())
+                }
+                _ => None,
+            })
+            .expect("the text the watcher was sent");
+        println!("watcher received {inserted:?}");
+        assert_eq!(
+            inserted, probe,
+            "a collaborator's text should arrive as it was typed"
+        );
         println!("started at v{started_at}, acked v{acked_at}, broadcast v{broadcast_at}");
 
         assert_eq!(acked_at, started_at, "the ack names the version applied at");
@@ -3173,8 +3280,205 @@ mod tests {
         std::thread::sleep(Duration::from_secs(2));
         watcher.shutdown();
         rt::block_on(writer.leave_doc(&doc.id)).expect("leaveDoc");
-        let again = rt::block_on(writer.join_doc(&doc.id)).expect("re-joinDoc");
+        let again = rt::block_on(writer.join_doc(&doc.id, None)).expect("re-joinDoc");
         assert_eq!(again.text, joined.text, "the document should be unchanged");
+        writer.shutdown();
+    }
+
+    /// One connection, two documents, and an answer owed on the first.
+    ///
+    /// Moving between files keeps a document that still has an operation
+    /// outstanding, rather than leaving its room and losing the reply. That
+    /// only works if the server keeps talking to us about a document after we
+    /// have joined another on the same socket, which nothing documents — so it
+    /// is established here rather than assumed.
+    #[test]
+    #[ignore = "edits a document on overleaf.com"]
+    fn an_answer_still_arrives_after_joining_another_document() {
+        let root = std::path::PathBuf::from(
+            std::env::var("OVERLEAF_E2E_PROJECT").expect("set OVERLEAF_E2E_PROJECT"),
+        );
+        let target = std::env::var("OVERLEAF_E2E_DOC").expect("set OVERLEAF_E2E_DOC");
+        let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+        let (host, cookie, project_id, user_id) =
+            crate::overleaf::realtime_config(&config, &root).expect("a linked project");
+
+        let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let sink = events.clone();
+        let client = rt::block_on(RealtimeClient::connect(
+            RealtimeConfig {
+                user_id,
+                host,
+                cookie,
+                project_id,
+            },
+            move |event| lock(&sink).push(event),
+        ))
+        .expect("connect to Overleaf");
+
+        let docs = client.project().docs.clone();
+        let first = docs
+            .iter()
+            .find(|doc| doc.path == target)
+            .unwrap_or_else(|| panic!("no document named {target}"))
+            .clone();
+        let second = docs
+            .iter()
+            .find(|doc| doc.id != first.id)
+            .expect("a second document in the project")
+            .clone();
+
+        let joined = rt::block_on(client.join_doc(&first.id, None)).expect("joinDoc");
+        let probe = "\n% lattice two-document probe\n";
+        rt::block_on(client.send_ops(
+            &first.id,
+            joined.version,
+            vec![OtOp {
+                p: 0,
+                i: Some(probe.into()),
+                d: None,
+                u: None,
+            }],
+        ))
+        .expect("send on the first document");
+
+        // Straight to the other file, without leaving the first — exactly what
+        // the app does when someone clicks away mid-sentence.
+        rt::block_on(client.join_doc(&second.id, None)).expect("joinDoc the second");
+
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let mut acked = false;
+        while Instant::now() < deadline && !acked {
+            acked = lock(&events).iter().any(|event| {
+                matches!(event, RealtimeEvent::DocAck { doc_id, version }
+                    if *doc_id == first.id && *version == joined.version)
+            });
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(
+            acked,
+            "the first document's acknowledgement should still reach us after \
+             joining the second — holding it open would be pointless otherwise"
+        );
+        println!("acknowledged on {} while {} was open", first.path, second.path);
+
+        rt::block_on(client.send_ops(
+            &first.id,
+            joined.version + 1,
+            vec![OtOp {
+                p: 0,
+                i: None,
+                d: Some(probe.into()),
+                u: None,
+            }],
+        ))
+        .expect("send the undo");
+        std::thread::sleep(Duration::from_secs(2));
+        rt::block_on(client.leave_doc(&second.id)).expect("leaveDoc");
+        rt::block_on(client.leave_doc(&first.id)).expect("leaveDoc");
+        let again = rt::block_on(client.join_doc(&first.id, None)).expect("re-joinDoc");
+        assert_eq!(again.text, joined.text, "the document should be unchanged");
+        client.shutdown();
+    }
+
+    /// Rejoining a document we were editing is only lossless if the server
+    /// hands back what happened while we were away, so this pins down that it
+    /// does — and that asking for it needs the version in the positional slot
+    /// `joinDoc(docId, fromVersion, options)`. Put it in the options object
+    /// instead and the server reads the object as the version, answers with a
+    /// full document and no replay, and nothing anywhere reports a problem.
+    #[test]
+    #[ignore = "edits a document on overleaf.com from two connections"]
+    fn rejoining_a_document_replays_what_was_missed() {
+        let root = std::path::PathBuf::from(
+            std::env::var("OVERLEAF_E2E_PROJECT").expect("set OVERLEAF_E2E_PROJECT"),
+        );
+        let target = std::env::var("OVERLEAF_E2E_DOC").expect("set OVERLEAF_E2E_DOC");
+        let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+        let (host, cookie, project_id, user_id) =
+            crate::overleaf::realtime_config(&config, &root).expect("a linked project");
+        let settings = |_: ()| RealtimeConfig {
+            user_id: user_id.clone(),
+            host: host.clone(),
+            cookie: cookie.clone(),
+            project_id: project_id.clone(),
+        };
+        let quiet = |_: RealtimeEvent| {};
+        let writer = rt::block_on(RealtimeClient::connect(settings(()), quiet)).expect("connect");
+        let returner = rt::block_on(RealtimeClient::connect(settings(()), quiet)).expect("connect");
+
+        let doc = writer
+            .project()
+            .docs
+            .iter()
+            .find(|doc| doc.path == target)
+            .unwrap_or_else(|| panic!("no document named {target}"))
+            .clone();
+        let joined = rt::block_on(returner.join_doc(&doc.id, None)).expect("joinDoc");
+        let known = joined.version;
+        rt::block_on(returner.leave_doc(&doc.id)).expect("leaveDoc");
+
+        // Move the document on while we are away.
+        let ahead = rt::block_on(writer.join_doc(&doc.id, None)).expect("joinDoc");
+        let probe = "\n% lattice rejoin probe\n";
+        rt::block_on(writer.send_ops(
+            &doc.id,
+            ahead.version,
+            vec![OtOp {
+                p: 0,
+                i: Some(probe.into()),
+                d: None,
+                u: None,
+            }],
+        ))
+        .expect("send");
+        std::thread::sleep(Duration::from_secs(2));
+
+        // Joining from scratch says nothing about what we missed, however far
+        // behind we are.
+        let fresh = rt::block_on(returner.join_doc(&doc.id, None)).expect("full joinDoc");
+        assert!(fresh.caught_up.is_empty());
+        assert!(!fresh.resumed);
+        assert!(
+            fresh.version > known,
+            "the document moved while we were away"
+        );
+        rt::block_on(returner.leave_doc(&doc.id)).expect("leaveDoc");
+
+        // Joining from the version we had replays it.
+        let resumed = rt::block_on(returner.join_doc(&doc.id, Some(known))).expect("resumed join");
+        assert!(resumed.resumed);
+        assert_eq!(resumed.caught_up.len(), 1, "one update happened while away");
+        let missed = &resumed.caught_up[0];
+        assert_eq!(missed.version, known, "the version it applied at");
+        assert_eq!(missed.ops.len(), 1);
+        assert_eq!(missed.ops[0].i.as_deref(), Some(probe));
+        assert!(
+            missed.source.is_some(),
+            "who sent it, so our own work is not applied twice"
+        );
+        println!(
+            "resumed from v{known}, replayed {} update(s)",
+            resumed.caught_up.len()
+        );
+        rt::block_on(returner.leave_doc(&doc.id)).expect("leaveDoc");
+
+        // Put it back.
+        rt::block_on(writer.send_ops(
+            &doc.id,
+            ahead.version + 1,
+            vec![OtOp {
+                p: 0,
+                i: None,
+                d: Some(probe.into()),
+                u: None,
+            }],
+        ))
+        .expect("send the undo");
+        std::thread::sleep(Duration::from_secs(1));
+        returner.shutdown();
         writer.shutdown();
     }
 
@@ -3214,7 +3518,7 @@ mod tests {
             .find(|doc| doc.path == target)
             .unwrap_or_else(|| panic!("no document named {target}"))
             .clone();
-        let joined = rt::block_on(client.join_doc(&doc.id)).expect("joinDoc");
+        let joined = rt::block_on(client.join_doc(&doc.id, None)).expect("joinDoc");
 
         // A thread id is minted by the client, not the server; both halves of
         // the call have to agree on it.
@@ -3373,7 +3677,7 @@ mod tests {
             .find(|doc| doc.path == target)
             .unwrap_or_else(|| panic!("no document named {target}"))
             .clone();
-        let joined = rt::block_on(client.join_doc(&doc.id)).expect("joinDoc");
+        let joined = rt::block_on(client.join_doc(&doc.id, None)).expect("joinDoc");
         let before = joined.text.clone();
         println!(
             "{} at v{} with {} existing suggestion(s)",
@@ -3397,7 +3701,7 @@ mod tests {
         std::thread::sleep(Duration::from_secs(2));
 
         rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
-        let again = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
+        let again = rt::block_on(client.join_doc(&doc.id, None)).expect("re-joinDoc");
         let mine = again
             .changes
             .iter()
@@ -3418,7 +3722,7 @@ mod tests {
             .expect("reject");
         std::thread::sleep(Duration::from_secs(2));
         rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
-        let settled = rt::block_on(client.join_doc(&doc.id)).expect("re-joinDoc");
+        let settled = rt::block_on(client.join_doc(&doc.id, None)).expect("re-joinDoc");
         assert_eq!(
             settled.text, before,
             "the document should be as we found it"
@@ -3604,7 +3908,7 @@ mod tests {
             .find(|doc| doc.path == target)
             .unwrap_or_else(|| panic!("no document named {target}"))
             .clone();
-        rt::block_on(client.join_doc(&doc.id)).expect("joinDoc");
+        rt::block_on(client.join_doc(&doc.id, None)).expect("joinDoc");
 
         // Publishing a position is what puts us on everyone else's screen.
         rt::block_on(client.update_position(&doc.id, 0, 0)).expect("updatePosition");
@@ -3841,7 +4145,7 @@ mod tests {
             }
         }
 
-        let joined = rt::block_on(client.join_doc("doc-1")).expect("joinDoc");
+        let joined = rt::block_on(client.join_doc("doc-1", None)).expect("joinDoc");
         assert_eq!(joined.text, "line one\nline two");
         assert_eq!(joined.version, 42);
         // Comment anchors ride in with the document, keyed by thread id.
@@ -3916,7 +4220,11 @@ mod tests {
             events_only,
             vec![
                 &r#"5:1+::{"name":"joinProject","args":[{"project_id":"proj-1"}]}"#.to_string(),
-                &r#"5:2+::{"name":"joinDoc","args":["doc-1",{"encodeRanges":true}]}"#.to_string(),
+                // The -1 is the positional `fromVersion`: the server reads the
+                // version from the second argument and the options from the
+                // third, so passing only the options gets them read as a
+                // version and quietly turns every join into a full one.
+                &r#"5:2+::{"name":"joinDoc","args":["doc-1",-1,{"encodeRanges":true}]}"#.to_string(),
                 &r#"5:3+::{"name":"applyOtUpdate","args":["doc-1",{"doc":"doc-1","op":[{"p":5,"i":"hello"}],"v":42}]}"#.to_string(),
                 &r#"5:4+::{"name":"leaveDoc","args":["doc-1"]}"#.to_string(),
             ]

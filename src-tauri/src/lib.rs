@@ -1016,12 +1016,19 @@ fn overleaf_rt_connected(state: tauri::State<'_, AppState>) -> Option<String> {
 }
 
 /// Subscribe to a document; returns its current text and version.
+///
+/// `fromVersion` asks the server to replay what happened while we were away
+/// instead of only handing back the current text, which is what lets work that
+/// never reached it survive coming back to a file.
 #[tauri::command]
 async fn overleaf_rt_join_doc(
     state: tauri::State<'_, AppState>,
     doc_id: String,
+    from_version: Option<i64>,
 ) -> Result<overleaf_rt::JoinedDoc, String> {
-    realtime_client(&state)?.join_doc(&doc_id).await
+    realtime_client(&state)?
+        .join_doc(&doc_id, from_version)
+        .await
 }
 
 /// Everyone currently in the Overleaf project, ourselves included.

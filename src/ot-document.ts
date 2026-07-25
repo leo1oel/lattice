@@ -161,6 +161,35 @@ export class OtDocument {
     return { text: next, applied: incoming };
   }
 
+  /**
+   * Replay the work the server did while this document was not being watched.
+   *
+   * Coming back to a file, the alternative is taking the server's text as it
+   * stands, which silently throws away anything typed here that never got
+   * that far. Replaying instead keeps it: each update is either someone
+   * else's, which our outstanding work is transformed against, or our own
+   * finally landing, which is an acknowledgement in every respect.
+   *
+   * `send` is whatever became sendable as a result — work that was queued
+   * behind an operation which has now been confirmed.
+   */
+  catchUp(updates: { version: number; ops: OtOp[]; mine: boolean }[]): OtRemoteResult & OtSendResult {
+    let applied: OtOp[] = [];
+    let send: OtSendResult["send"] = null;
+    for (const update of updates) {
+      if (update.mine) {
+        // Ours reached the server after we stopped listening for the answer.
+        const result = this.acknowledge(update.version);
+        if (result.send) send = result.send;
+        continue;
+      }
+      // Each list is in the coordinate space left by the ones before it, so
+      // they concatenate for the purpose of moving a caret.
+      applied = [...applied, ...this.remote(update.ops, update.version).applied];
+    }
+    return { text: this.text, applied, send };
+  }
+
   /** Where a caret sitting at `offset` belongs after `applied` landed. */
   static caretAfter(offset: number, applied: OtOp[]): number {
     return transformCaret(offset, applied);
