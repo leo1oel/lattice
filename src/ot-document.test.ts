@@ -29,9 +29,15 @@ class FakeServer {
     const next = applyOps(this.text, incoming);
     if (next === null) throw new Error("server rejected op");
     this.text = next;
+    // The version reported back is the one the operation applied AT, not the
+    // one the document moved to — measured against overleaf.com, where a
+    // document at v40 answers an accepted operation with v40 to the sender and
+    // broadcasts v40 to everyone else. This modelled it as v41 for a while,
+    // which is why a real off-by-one in `remote` went unnoticed here.
+    const appliedAt = this.history.length;
     this.history.push(incoming);
     this.version = this.history.length;
-    return { ops: incoming, version: this.version };
+    return { ops: incoming, version: appliedAt };
   }
 }
 
@@ -105,22 +111,41 @@ describe("OtDocument", () => {
   it("keeps local work when a remote edit lands first", () => {
     const doc = new OtDocument("hello world", 5);
     doc.local("hello brave world");            // insert at 6, in flight
-    const result = doc.remote([{ p: 0, i: ">> " }], 6);
+    const result = doc.remote([{ p: 0, i: ">> " }], 5);
     // Their text is in, ours is still here, and neither overwrote the other.
     expect(result.text).toBe(">> hello brave world");
     expect(doc.text).toBe(">> hello brave world");
+    // Their operation applied at 5, so the document is now at 6 — the same
+    // step `acknowledge` takes for our own work.
     expect(doc.version).toBe(6);
+  });
+
+  it("ignores a collaborator's update it has already applied", () => {
+    const doc = new OtDocument("hello", 4);
+    doc.remote([{ p: 0, i: "oh " }], 4);
+    expect(doc.version).toBe(5);
+    // Socket.IO can deliver the same frame twice; applying it again would
+    // duplicate their text.
+    const repeat = doc.remote([{ p: 0, i: "oh " }], 4);
+    expect(repeat.applied).toEqual([]);
+    expect(doc.text).toBe("oh hello");
+    expect(doc.version).toBe(5);
+  });
+
+  it("refuses an update from the future rather than applying it out of order", () => {
+    const doc = new OtDocument("hello", 4);
+    expect(() => doc.remote([{ p: 0, i: "x" }], 6)).toThrow(OtDesyncError);
   });
 
   it("moves the caret with the text when someone edits above it", () => {
     const doc = new OtDocument("one\ntwo\nthree", 1);
-    const { applied } = doc.remote([{ p: 0, i: "zero\n" }], 2);
+    const { applied } = doc.remote([{ p: 0, i: "zero\n" }], 1);
     expect(OtDocument.caretAfter(8, applied)).toBe(13);
   });
 
   it("refuses an update that does not fit rather than writing wrong text", () => {
     const doc = new OtDocument("hello", 1);
-    expect(() => doc.remote([{ p: 0, d: "goodbye" }], 2)).toThrow(OtDesyncError);
+    expect(() => doc.remote([{ p: 0, d: "goodbye" }], 1)).toThrow(OtDesyncError);
   });
 
   it("drops unsent work when reset to the server's copy", () => {

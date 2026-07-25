@@ -1774,7 +1774,12 @@ function App() {
         const payload = event.payload;
         if (payload.type === "connected" && payload.publicId) {
           setOverleafSelfId(payload.publicId);
-        } else if (payload.type === "projectJoined" && payload.docs) {
+        } else if ((payload.type === "projectJoined" || payload.type === "treeChanged")
+          && payload.docs) {
+          // Rebuilt on every tree change, not only at join: a file renamed or
+          // added in the browser mid-session would otherwise keep answering
+          // with the name it had when we connected, and this map is what names
+          // the file behind a collaborator's caret or a comment.
           setOverleafDocPaths(new Map(payload.docs.map((doc) => [doc.id, doc.path])));
         } else if (payload.type === "disconnected") {
           setOverleafSelfId(null);
@@ -1848,9 +1853,11 @@ function App() {
     displayName: collabName,
   });
 
-  // Comments are the other half of that conversation. The anchors — which span
-  // of text each thread sits on — only exist for the document the channel has
-  // open, which is why they come from the realtime hook rather than REST.
+  // Where each thread sits in the document being edited right now. Deliberately
+  // the realtime channel's copy and not the project-wide one the comments hook
+  // reads over REST: these positions become highlights in the editor, and the
+  // channel moves them as the text around them is typed, while a REST snapshot
+  // would keep pointing at where the words used to be until the next refresh.
   const overleafAnchors = useMemo(
     () => new Map(overleafRealtime.comments.map((range) => [range.threadId, range])),
     [overleafRealtime.comments],
@@ -5300,13 +5307,26 @@ function App() {
           projectName={overleafLink.projectName}
           onClose={() => setOverleafCollabOpen(false)}
           threads={overleafComments.threads}
-          anchors={overleafAnchors}
+          anchors={overleafComments.anchors}
+          activeDocId={overleafRealtime.docId}
+          pathForDoc={(id) => overleafDocPaths.get(id) ?? null}
           documentOpen={overleafRealtime.docId !== null}
           commentsLoading={overleafComments.loading}
           commentsError={overleafComments.error}
           onReply={overleafComments.reply}
           onResolve={overleafComments.setResolved}
           onDeleteThread={overleafComments.remove}
+          onEditMessage={overleafComments.editMessage}
+          onDeleteMessage={overleafComments.deleteMessage}
+          onRevealComment={(path, position) => {
+            // The comment may be on a file that is not open, so open it first
+            // and place the caret after. A comment's anchor is a character
+            // offset rather than a line, which is what `viewRestore` takes.
+            void openProjectFile(path).then(() => {
+              setViewRestore({ path, cursor: position, scrollTop: 0, id: crypto.randomUUID() });
+              setOverleafCollabOpen(false);
+            });
+          }}
           onReveal={(position) => {
             const path = activeFileRef.current;
             if (!path) return;

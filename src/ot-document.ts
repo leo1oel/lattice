@@ -118,8 +118,22 @@ export class OtDocument {
    * Apply work from someone else. Our outstanding operations are rewritten to
    * account for it, and it is rewritten to account for them, so both sides end
    * up at the same text no matter which order things arrived in.
+   *
+   * `version` means the same thing here as in `acknowledge`: the version the
+   * operation applied at, so the document moves to `version + 1`. Storing it
+   * flat leaves us a version behind for the rest of the session, and nothing
+   * complains — the server quietly transforms our next operation forward a
+   * second time, which lands the text at the wrong offset in everyone else's
+   * copy. An older version is the same operation arriving twice; a newer one
+   * means an operation went missing, which cannot be repaired by guessing.
    */
   remote(ops: OtOp[], version: number): OtRemoteResult {
+    if (version < this.version) return { text: this.text, applied: [] };
+    if (version !== this.version) {
+      throw new OtDesyncError(
+        `Overleaf sent version ${version} while this document is at ${this.version}.`,
+      );
+    }
     let incoming = ops;
     // Order matters: the incoming operation is already in the server's history,
     // so it takes precedence, and ours is transformed as the later one. The
@@ -143,7 +157,7 @@ export class OtDocument {
       );
     }
     this.text = next;
-    this.version = version;
+    this.version = version + 1;
     return { text: next, applied: incoming };
   }
 

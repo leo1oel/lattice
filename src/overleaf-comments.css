@@ -53,6 +53,19 @@
   overflow: hidden;
 }
 .overleaf-thread-quote:hover { filter: brightness(1.06); }
+.overleaf-thread-quote:disabled { cursor: default; opacity: .7; }
+
+/* The note in place of a quote, for a thread whose span was deleted. */
+.overleaf-thread-orphaned {
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+  font-style: italic;
+}
 
 .overleaf-thread-messages { display: flex; flex-direction: column; gap: 7px; }
 .overleaf-thread-message p {
@@ -72,6 +85,25 @@
   color: var(--muted);
 }
 .overleaf-thread-meta span { font-weight: 600; color: var(--text); }
+
+/* Edit/delete for your own message, tucked under it rather than beside the
+   meta line so they never get mistaken for acting on the thread as a whole. */
+.overleaf-thread-message-actions { display: flex; gap: 4px; margin-top: 3px; }
+.overleaf-thread-message-actions button {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 5px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--muted);
+}
+.overleaf-thread-message-actions button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--line);
+}
+.overleaf-thread-message-actions button:disabled { opacity: .45; }
+.overleaf-thread-message-actions button.danger:hover:not(:disabled) { color: var(--danger, #d2544b); }
 
 .overleaf-thread-empty,
 .overleaf-thread-resolved {

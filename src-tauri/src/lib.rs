@@ -1369,6 +1369,52 @@ async fn overleaf_threads(
         .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
 }
 
+/// Where every comment in the project is anchored, whatever file it is in.
+#[tauri::command]
+async fn overleaf_comment_anchors(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<overleaf::OverleafCommentAnchor>, String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || overleaf::comment_anchors(&config, &root))
+        .await
+        .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_edit_message(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    thread_id: String,
+    message_id: String,
+    content: String,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::edit_message(&config, &root, &thread_id, &message_id, &content)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_delete_message(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    thread_id: String,
+    message_id: String,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::delete_message(&config, &root, &thread_id, &message_id)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
+}
+
 #[tauri::command]
 async fn overleaf_reply_to_thread(
     app: tauri::AppHandle,
@@ -2077,6 +2123,9 @@ pub fn run() {
             overleaf_create_doc,
             overleaf_delete_entity,
             overleaf_threads,
+            overleaf_comment_anchors,
+            overleaf_edit_message,
+            overleaf_delete_message,
             overleaf_reply_to_thread,
             overleaf_resolve_thread,
             overleaf_delete_thread,

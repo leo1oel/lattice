@@ -169,6 +169,8 @@ export function useOverleafRealtime(options: {
   const document = useRef<OtDocument | null>(null);
   const docId = useRef<string | null>(null);
   const sendTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Typed but still inside the send debounce, so not yet in the document. */
+  const unsentText = useRef<string | null>(null);
 
   // Read through refs inside the event listener so it can stay mounted for the
   // whole session instead of being torn down on every keystroke.
@@ -183,11 +185,38 @@ export function useOverleafRealtime(options: {
       sendTimer.current = null;
     }
     const previous = docId.current;
+    const doc = document.current;
+    const typed = unsentText.current;
+    unsentText.current = null;
     document.current = null;
     docId.current = null;
     setLiveFile(false);
     setOpenDoc(null);
-    if (previous) void invoke("overleaf_rt_leave_doc", { docId: previous }).catch(() => {});
+    if (!previous) return;
+
+    // Whatever the debounce was still holding has to go out before we leave.
+    // Typing a sentence and immediately clicking another file is the ordinary
+    // way to use the app, and cancelling the timer on the way out is how that
+    // sentence used to vanish — it had not reached the document, let alone
+    // Overleaf.
+    const unsent = typed !== null && doc && canWrite.current ? doc.local(typed).send : null;
+    const leave = () => {
+      void invoke("overleaf_rt_leave_doc", { docId: previous }).catch(() => {});
+    };
+    if (!unsent) {
+      leave();
+      return;
+    }
+    void invoke("overleaf_rt_send_ops", {
+      docId: previous,
+      version: unsent.version,
+      ops: unsent.ops,
+    })
+      .catch(() => {})
+      // Only once it is on its way: leaving first puts the acknowledgement in
+      // a room we are no longer in, and Overleaf reports a rejected operation
+      // to that same room.
+      .finally(leave);
   }, []);
 
   const fail = useCallback((message: string) => {
@@ -379,10 +408,18 @@ export function useOverleafRealtime(options: {
 
   // ---- the open file ------------------------------------------------------
 
+  // Resolved here rather than inside the effect so the effect can depend on
+  // the document id itself. `docs` is replaced wholesale every time anyone in
+  // the project creates, renames, moves or deletes anything, and depending on
+  // the map meant an unrelated file appearing would leave and re-join the
+  // document being typed in — replacing the buffer with the server's copy and
+  // taking every keystroke not yet acknowledged with it.
+  const activeDocId = options.activeFile ? docs.get(options.activeFile) ?? null : null;
+
   useEffect(() => {
     stopDocument();
     if (!options.documents || status !== "live" || !options.activeFile) return;
-    const id = docs.get(options.activeFile);
+    const id = activeDocId;
     // Only text documents Overleaf tracks can be edited live; anything else
     // (figures, files added since we joined) keeps going through syncing.
     if (!id) {
@@ -412,7 +449,7 @@ export function useOverleafRealtime(options: {
     return () => {
       cancelled = true;
     };
-  }, [options.activeFile, options.documents, docs, status, reloadNonce, stopDocument]);
+  }, [options.activeFile, options.documents, activeDocId, status, reloadNonce, stopDocument]);
 
   // ---- local edits --------------------------------------------------------
 
@@ -420,10 +457,14 @@ export function useOverleafRealtime(options: {
     const doc = document.current;
     if (!doc || !canWrite.current) return;
     // Coalesce keystrokes briefly: one operation per short pause keeps the
-    // channel quiet without anyone noticing a delay.
+    // channel quiet without anyone noticing a delay. Held where leaving the
+    // document can find it, because until the timer fires this text exists
+    // nowhere else on this side of the wire.
+    unsentText.current = text;
     if (sendTimer.current) clearTimeout(sendTimer.current);
     sendTimer.current = setTimeout(() => {
       sendTimer.current = null;
+      unsentText.current = null;
       const current = document.current;
       if (!current) return;
       void flush(current.local(text).send);

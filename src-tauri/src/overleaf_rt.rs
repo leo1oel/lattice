@@ -880,7 +880,11 @@ pub struct CommentRange {
 }
 
 /// `{ comments: [{ id, op: { p, c, t } }], changes: [...] }`.
-fn parse_comment_ranges(ranges: &Value) -> Vec<CommentRange> {
+///
+/// Shared with the REST client, which reads the same shape from the
+/// project-wide ranges endpoint to learn where comments in documents nobody
+/// has opened are anchored.
+pub(crate) fn parse_comment_ranges(ranges: &Value) -> Vec<CommentRange> {
     ranges
         .get("comments")
         .and_then(Value::as_array)
@@ -3052,6 +3056,128 @@ mod tests {
         client.shutdown();
     }
 
+    /// Two clients on one document, to pin down what the version in a
+    /// collaborator's update actually means.
+    ///
+    /// The sender and the watcher are told the same number by two different
+    /// events, and the whole of OT bookkeeping rests on reading both the same
+    /// way: the acknowledgement `{doc, v}` and the broadcast `{doc, op, v}`
+    /// both carry the version the operation applied *at*, so both sides move
+    /// to `v + 1`. Getting that wrong on one side leaves the watcher a version
+    /// behind, which the server silently absorbs by transforming their next
+    /// operation a second time — the text lands in the wrong place and nothing
+    /// reports an error.
+    #[test]
+    #[ignore = "edits a document on overleaf.com from two connections"]
+    fn a_collaborators_update_carries_the_version_it_applied_at() {
+        let root = std::path::PathBuf::from(
+            std::env::var("OVERLEAF_E2E_PROJECT").expect("set OVERLEAF_E2E_PROJECT"),
+        );
+        let target = std::env::var("OVERLEAF_E2E_DOC").expect("set OVERLEAF_E2E_DOC");
+        let config = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"))
+            .join("Library/Application Support/app.leo1oel.researchwriter");
+        let (host, cookie, project_id, user_id) =
+            crate::overleaf::realtime_config(&config, &root).expect("a linked project");
+        let config_for = |sink: Arc<Mutex<Vec<RealtimeEvent>>>| {
+            let settings = RealtimeConfig {
+                user_id: user_id.clone(),
+                host: host.clone(),
+                cookie: cookie.clone(),
+                project_id: project_id.clone(),
+            };
+            rt::block_on(RealtimeClient::connect(settings, move |event| {
+                lock(&sink).push(event)
+            }))
+            .expect("connect to Overleaf")
+        };
+
+        let writer_events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let watcher_events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let writer = config_for(writer_events.clone());
+        let watcher = config_for(watcher_events.clone());
+
+        let doc = writer
+            .project()
+            .docs
+            .iter()
+            .find(|doc| doc.path == target)
+            .unwrap_or_else(|| panic!("no document named {target}"))
+            .clone();
+        let joined = rt::block_on(writer.join_doc(&doc.id)).expect("joinDoc as the writer");
+        let watching = rt::block_on(watcher.join_doc(&doc.id)).expect("joinDoc as the watcher");
+        assert_eq!(
+            joined.version, watching.version,
+            "both connections should start from the same version"
+        );
+        let started_at = joined.version;
+
+        let probe = "\n% lattice version probe\n";
+        rt::block_on(writer.send_ops(
+            &doc.id,
+            started_at,
+            vec![OtOp {
+                p: 0,
+                i: Some(probe.into()),
+                d: None,
+                u: None,
+            }],
+        ))
+        .expect("send the insert");
+
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let mut acked_at = None;
+        let mut broadcast_at = None;
+        while Instant::now() < deadline && (acked_at.is_none() || broadcast_at.is_none()) {
+            for event in lock(&writer_events).iter() {
+                if let RealtimeEvent::DocAck { doc_id, version } = event {
+                    if *doc_id == doc.id {
+                        acked_at = Some(*version);
+                    }
+                }
+            }
+            for event in lock(&watcher_events).iter() {
+                if let RealtimeEvent::DocUpdate {
+                    doc_id, version, ..
+                } = event
+                {
+                    if *doc_id == doc.id {
+                        broadcast_at = Some(*version);
+                    }
+                }
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let acked_at = acked_at.expect("the writer's own acknowledgement");
+        let broadcast_at = broadcast_at.expect("the update the watcher was sent");
+        println!("started at v{started_at}, acked v{acked_at}, broadcast v{broadcast_at}");
+
+        assert_eq!(acked_at, started_at, "the ack names the version applied at");
+        assert_eq!(
+            broadcast_at, started_at,
+            "so does the broadcast — a watcher that stores this as its own \
+             version ends up one behind the sender",
+        );
+
+        // Put the document back, from the version the writer is now on.
+        rt::block_on(writer.send_ops(
+            &doc.id,
+            started_at + 1,
+            vec![OtOp {
+                p: 0,
+                i: None,
+                d: Some(probe.into()),
+                u: None,
+            }],
+        ))
+        .expect("send the delete");
+        std::thread::sleep(Duration::from_secs(2));
+        watcher.shutdown();
+        rt::block_on(writer.leave_doc(&doc.id)).expect("leaveDoc");
+        let again = rt::block_on(writer.join_doc(&doc.id)).expect("re-joinDoc");
+        assert_eq!(again.text, joined.text, "the document should be unchanged");
+        writer.shutdown();
+    }
+
     /// Creates a comment thread on a real document, then resolves, reopens and
     /// deletes it — the whole path a reviewer takes, against the real service.
     ///
@@ -3105,6 +3231,19 @@ mod tests {
             .expect("anchor the comment");
         println!("created thread {thread_id} on {:?}", quote);
 
+        // The project-wide ranges endpoint is the only thing that can name the
+        // file a comment lives in without joining every document in turn, and
+        // resolving or deleting a thread needs exactly that.
+        let anchors = crate::overleaf::comment_anchors(&config, &root).expect("comment anchors");
+        let anchor = anchors
+            .iter()
+            .find(|anchor| anchor.thread_id == thread_id)
+            .expect("the comment we just made, from the project-wide endpoint");
+        assert_eq!(anchor.doc_id, doc.id);
+        assert_eq!(anchor.quote, quote);
+        assert_eq!(anchor.position, 0);
+        println!("anchor: {} in {}", anchor.quote, anchor.doc_id);
+
         let found = crate::overleaf::threads(&config, &root).expect("read threads");
         let made = found
             .iter()
@@ -3114,6 +3253,31 @@ mod tests {
         assert_eq!(made.messages[0].content, "Lattice check: please ignore");
         assert!(made.messages[0].mine, "our own message should read as ours");
         assert!(!made.resolved);
+
+        crate::overleaf::reply_to_thread(&config, &root, &thread_id, "and a reply").expect("reply");
+
+        // Editing and deleting a single message, which Overleaf routes
+        // separately from the thread itself.
+        let with_reply = crate::overleaf::threads(&config, &root)
+            .expect("read threads")
+            .into_iter()
+            .find(|thread| thread.id == thread_id)
+            .expect("still there");
+        assert_eq!(with_reply.messages.len(), 2);
+        let first = with_reply.messages[0].id.clone();
+        let reply = with_reply.messages[1].id.clone();
+        crate::overleaf::edit_message(&config, &root, &thread_id, &first, "edited by Lattice")
+            .expect("edit the first message");
+        crate::overleaf::delete_message(&config, &root, &thread_id, &reply)
+            .expect("delete the reply");
+        let after = crate::overleaf::threads(&config, &root)
+            .expect("read threads")
+            .into_iter()
+            .find(|thread| thread.id == thread_id)
+            .expect("still there");
+        assert_eq!(after.messages.len(), 1, "the reply should be gone");
+        assert_eq!(after.messages[0].content, "edited by Lattice");
+        println!("edited and deleted one message");
 
         crate::overleaf::reply_to_thread(&config, &root, &thread_id, "and a reply").expect("reply");
         crate::overleaf::resolve_thread(&config, &root, &doc.id, &thread_id, true)

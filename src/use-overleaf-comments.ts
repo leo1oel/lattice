@@ -18,14 +18,39 @@ import type { OverleafThread } from "./app-types";
 /** How long to wait before re-reading, so a burst costs one request. */
 const REFRESH_DEBOUNCE_MS = 400;
 
+/**
+ * Where one thread is anchored, and in which document.
+ *
+ * The editing channel only reveals this for documents that have been joined,
+ * but Overleaf will also answer for the whole project at once — which is the
+ * only way to learn the document a comment on some other file belongs to.
+ * Resolve, reopen and delete are all keyed by that document, so without this
+ * they were being sent the id of whichever file happened to be open.
+ */
+export type OverleafCommentAnchor = {
+  threadId: string;
+  docId: string;
+  position: number;
+  quote: string;
+};
+
 export type OverleafComments = {
   threads: OverleafThread[];
+  /** Every thread's anchor, keyed by thread id, across the whole project. */
+  anchors: Map<string, OverleafCommentAnchor>;
   loading: boolean;
   error: string | null;
   /** Unresolved threads anchored in the open document. */
   openCount: number;
   refresh: () => Promise<void>;
   reply: (threadId: string, content: string) => Promise<void>;
+  /** Change what one of your own messages says. */
+  editMessage: (threadId: string, messageId: string, content: string) => Promise<void>;
+  /**
+   * Remove one of your own messages. Overleaf deletes the thread with its last
+   * message, so callers must say so before calling this on a lone message.
+   */
+  deleteMessage: (threadId: string, messageId: string) => Promise<void>;
   /**
    * Start a thread on a span of the open document. Overleaf keeps the two
    * halves apart — the conversation behind REST, the anchor on the editing
@@ -64,12 +89,15 @@ export function useOverleafComments(options: {
   anchor: (threadId: string, position: number, quote: string) => Promise<void>;
 }): OverleafComments {
   const [threads, setThreads] = useState<OverleafThread[]>([]);
+  const [anchors, setAnchors] = useState<Map<string, OverleafCommentAnchor>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const docId = useRef(options.docId);
   docId.current = options.docId;
   const anchor = useRef(options.anchor);
   anchor.current = options.anchor;
+  const anchorsRef = useRef(anchors);
+  anchorsRef.current = anchors;
 
   const enabled = options.enabled;
 
@@ -77,7 +105,15 @@ export function useOverleafComments(options: {
     if (!enabled) return;
     setLoading(true);
     try {
-      setThreads(await invoke<OverleafThread[]>("overleaf_threads"));
+      // The conversations and the spans they hang on come from two different
+      // endpoints, and a thread is only usable with both: the messages say
+      // what was said, the anchor says which file it was said about.
+      const [found, anchored] = await Promise.all([
+        invoke<OverleafThread[]>("overleaf_threads"),
+        invoke<OverleafCommentAnchor[]>("overleaf_comment_anchors"),
+      ]);
+      setThreads(found);
+      setAnchors(new Map(anchored.map((item) => [item.threadId, item])));
       setError(null);
     } catch (reason) {
       setError(String(reason));
@@ -91,6 +127,7 @@ export function useOverleafComments(options: {
   useEffect(() => {
     if (!enabled) {
       setThreads([]);
+      setAnchors(new Map());
       setError(null);
       return;
     }
@@ -99,7 +136,11 @@ export function useOverleafComments(options: {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let unlisten: (() => void) | null = null;
     void listen<{ type: string }>("overleaf-realtime", (event) => {
-      if (event.payload.type !== "threadsChanged") return;
+      // A conversation changing and a span being commented are separate
+      // events on separate channels, and either can move a thread's anchor.
+      if (event.payload.type !== "threadsChanged" && event.payload.type !== "commentAnchored") {
+        return;
+      }
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         timer = null;
@@ -148,28 +189,61 @@ export function useOverleafComments(options: {
     }
   }, []);
 
+  /**
+   * The document a thread lives in, which is what Overleaf keys resolve,
+   * reopen and delete on. It comes from the thread's own anchor — using the
+   * open document instead was silently addressing the wrong file whenever
+   * someone acted on a comment from anywhere but the file they were reading.
+   * A thread with no anchor left is orphaned: its span was edited away, and
+   * there is no document to name.
+   */
+  const documentOf = (threadId: string) => {
+    const found = anchorsRef.current.get(threadId)?.docId ?? null;
+    if (found) return found;
+    throw new Error(
+      "This comment is no longer attached to any text, so Overleaf has nowhere to apply this.",
+    );
+  };
+
   const setResolved = useCallback((threadId: string, resolved: boolean) => act(async () => {
-    if (!docId.current) {
-      throw new Error(
-        "Open the file this comment is on first — Overleaf needs to know which document it belongs to.",
-      );
-    }
-    await invoke("overleaf_resolve_thread", { docId: docId.current, threadId, resolved });
+    await invoke("overleaf_resolve_thread", { docId: documentOf(threadId), threadId, resolved });
   }), [act]);
 
   const remove = useCallback((threadId: string) => act(async () => {
-    if (!docId.current) {
-      throw new Error(
-        "Open the file this comment is on first — Overleaf needs to know which document it belongs to.",
-      );
-    }
-    await invoke("overleaf_delete_thread", { docId: docId.current, threadId });
+    await invoke("overleaf_delete_thread", { docId: documentOf(threadId), threadId });
   }), [act]);
+
+  const editMessage = useCallback(
+    (threadId: string, messageId: string, content: string) => act(async () => {
+      await invoke("overleaf_edit_message", { threadId, messageId, content });
+    }),
+    [act],
+  );
+
+  const deleteMessage = useCallback(
+    (threadId: string, messageId: string) => act(async () => {
+      await invoke("overleaf_delete_message", { threadId, messageId });
+    }),
+    [act],
+  );
 
   const anchored = new Set(options.anchored);
   const openCount = threads.filter(
     (thread) => !thread.resolved && anchored.has(thread.id),
   ).length;
 
-  return { threads, loading, error, openCount, refresh, reply, create, setResolved, remove };
+  return {
+    threads,
+    anchors,
+    loading,
+    error,
+    openCount,
+    refresh,
+    reply,
+    editMessage,
+    deleteMessage,
+    create,
+    setResolved,
+    remove,
+  };
 }

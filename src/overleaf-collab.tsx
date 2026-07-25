@@ -13,6 +13,7 @@ import type { OverleafMessage, OverleafThread } from "./app-types";
 import { OverleafChatPanel } from "./overleaf-chat";
 import { OverleafCommentsPanel } from "./overleaf-comments";
 import { OverleafChangesPanel } from "./overleaf-changes";
+import type { OverleafCommentAnchor } from "./overleaf-comment-anchors";
 import type { TrackedChange } from "./use-overleaf-realtime";
 
 export type OverleafCollabTab = "comments" | "chat" | "changes";
@@ -24,13 +25,21 @@ export function OverleafCollabDrawer(props: {
   onClose: () => void;
 
   threads: OverleafThread[];
-  anchors: Map<string, { position: number; quote: string }>;
+  /** Every comment in the project, not only the open document's. */
+  anchors: Map<string, OverleafCommentAnchor>;
+  activeDocId: string | null;
+  pathForDoc: (docId: string) => string | null;
   documentOpen: boolean;
   commentsLoading: boolean;
   commentsError: string | null;
   onReply: (threadId: string, content: string) => Promise<void>;
   onResolve: (threadId: string, resolved: boolean) => Promise<void>;
   onDeleteThread: (threadId: string) => Promise<void>;
+  onEditMessage: (threadId: string, messageId: string, content: string) => Promise<void>;
+  onDeleteMessage: (threadId: string, messageId: string) => Promise<void>;
+  /** Jump to a comment, which may be in a file that is not open. */
+  onRevealComment: (path: string, position: number) => void;
+  /** Jump to a suggestion, which is always in the open document. */
   onReveal: (position: number) => void;
 
   messages: OverleafMessage[];
@@ -116,13 +125,16 @@ export function OverleafCollabDrawer(props: {
           <OverleafCommentsPanel
             threads={props.threads}
             anchors={props.anchors}
-            documentOpen={props.documentOpen}
+            activeDocId={props.activeDocId}
+            pathForDoc={props.pathForDoc}
             loading={props.commentsLoading}
             error={props.commentsError}
             onReply={props.onReply}
             onResolve={props.onResolve}
             onDelete={props.onDeleteThread}
-            onReveal={props.onReveal}
+            onEditMessage={props.onEditMessage}
+            onDeleteMessage={props.onDeleteMessage}
+            onReveal={props.onRevealComment}
           />
         ) : (
           <OverleafChatPanel

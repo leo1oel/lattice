@@ -49,6 +49,13 @@ const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
 const SESSION_EXPIRED: &str = "Overleaf session expired. Reconnect in Settings → Overleaf.";
 const NOT_CONNECTED: &str = "Not connected to Overleaf. Connect in Settings → Overleaf.";
 
+/// Above this, a file is left where it is and reported instead of synced.
+///
+/// Overleaf's own upload limit is 50 MB, and a sync holds every file in memory
+/// at once, so a project someone dropped a dataset into would otherwise fail
+/// slowly and opaquely — or exhaust memory before it got as far as failing.
+const MAX_SYNC_FILE_BYTES: u64 = 45 * 1024 * 1024;
+
 /// LaTeX build artifacts that never sync in either direction.
 const ARTIFACT_SUFFIXES: &[&str] = &[
     ".aux",
@@ -126,6 +133,10 @@ pub struct OverleafSyncResult {
     pub conflicts: Vec<OverleafConflict>,
     pub deleted_local: Vec<String>,
     pub skipped_remote_deletes: Vec<String>,
+    /// Files left alone because they are bigger than Overleaf will take.
+    /// Reported rather than dropped quietly: to the writer they look synced.
+    #[serde(default)]
+    pub skipped_large: Vec<String>,
     /// True when local work stayed here because this account cannot write to
     /// the project. Everything incoming still landed.
     #[serde(default)]
@@ -719,9 +730,18 @@ fn merge_three_way(root: &Path, rel: &str, remote: &[u8], local: &[u8]) -> Merge
     }
 }
 
+/// Every syncable file in the project, and the paths left behind for being
+/// too big to carry — reported so the caller can say so rather than let them
+/// look synced.
+struct LocalFiles {
+    files: BTreeMap<String, Vec<u8>>,
+    oversized: Vec<String>,
+}
+
 /// Walk the project and load every syncable file (path → bytes).
-fn read_local_files(root: &Path) -> Result<BTreeMap<String, Vec<u8>>, String> {
+fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
     let mut files = BTreeMap::new();
+    let mut oversized = Vec::new();
     let walker = walkdir::WalkDir::new(root).into_iter().filter_entry(|e| {
         if e.depth() == 0 {
             return true;
@@ -740,10 +760,18 @@ fn read_local_files(root: &Path) -> Result<BTreeMap<String, Vec<u8>>, String> {
         if is_excluded(&rel) {
             continue;
         }
+        // Checked from the directory entry, before reading: the whole project
+        // is held in memory at once during a sync, and a dataset or a raw
+        // video dropped in the folder would take the app down with it. Overleaf
+        // will not accept one either, so there is nothing to gain by trying.
+        if entry.metadata().map(|meta| meta.len()).unwrap_or(0) > MAX_SYNC_FILE_BYTES {
+            oversized.push(rel);
+            continue;
+        }
         let data = fs::read(entry.path()).map_err(|e| format!("Could not read {rel}: {e}"))?;
         files.insert(rel, data);
     }
-    Ok(files)
+    Ok(LocalFiles { files, oversized })
 }
 
 /// Fold a project name into a safe folder name, mirroring
@@ -1295,15 +1323,15 @@ fn person_name(user: &serde_json::Value) -> Option<String> {
     }
 }
 
-/// POST/DELETE against a thread, with the CSRF token Overleaf insists on.
-fn thread_request(
+/// POST/DELETE against a thread, answering with the status rather than an
+/// error, for the one caller that has a second route to try.
+fn thread_request_status(
     config_dir: &Path,
     root: &Path,
     method: reqwest::Method,
     path: &str,
     body: Option<serde_json::Value>,
-    what: &str,
-) -> Result<(), String> {
+) -> Result<reqwest::StatusCode, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
     let host = sync_host(&state, &session);
@@ -1327,13 +1355,93 @@ fn thread_request(
         .send()
         .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
     check_authenticated(&response)?;
+    Ok(response.status())
+}
+
+/// POST/DELETE against a thread, with the CSRF token Overleaf insists on.
+fn thread_request(
+    config_dir: &Path,
+    root: &Path,
+    method: reqwest::Method,
+    path: &str,
+    body: Option<serde_json::Value>,
+    what: &str,
+) -> Result<(), String> {
+    let status = thread_request_status(config_dir, root, method, path, body)?;
+    if !status.is_success() {
+        return Err(format!("Overleaf returned {status} when {what}."));
+    }
+    Ok(())
+}
+
+/// Where one comment thread is anchored, and in which document.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafCommentAnchor {
+    pub thread_id: String,
+    /// Overleaf's id for the document the comment sits in.
+    pub doc_id: String,
+    pub position: i64,
+    pub quote: String,
+}
+
+/// Where every comment in the project is anchored, in one call.
+///
+/// The editing channel only reveals the ranges of documents that have been
+/// joined, so without this a comment on a file nobody has opened has no
+/// quoted text, cannot be jumped to, and — the part that was an outright bug —
+/// cannot be resolved or deleted, because those endpoints are keyed by the
+/// document the thread lives in and the only id to hand was the open one.
+///
+/// Answers `[{ "id": <docId>, "ranges": { "comments": [...], "changes": [...] } }]`;
+/// a document with nothing in it still appears, with empty ranges.
+pub fn comment_anchors(
+    config_dir: &Path,
+    root: &Path,
+) -> Result<Vec<OverleafCommentAnchor>, String> {
+    let session = load_session(config_dir)?;
+    let state = load_state(root)?;
+    let host = sync_host(&state, &session);
+    let client = http_client(20)?;
+    let response = client
+        .get(format!("{host}/project/{}/ranges", state.project_id))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    check_authenticated(&response)?;
     if !response.status().is_success() {
         return Err(format!(
-            "Overleaf returned {} when {what}.",
+            "Overleaf returned {} for the project's comment anchors.",
             response.status()
         ));
     }
-    Ok(())
+    Ok(parse_comment_anchors(&response.json().map_err(err)?))
+}
+
+fn parse_comment_anchors(body: &serde_json::Value) -> Vec<OverleafCommentAnchor> {
+    body.as_array()
+        .map(|docs| {
+            docs.iter()
+                .flat_map(|entry| {
+                    let doc_id = json_str(entry, &["id", "_id"]).unwrap_or_default();
+                    let ranges = entry.get("ranges").cloned().unwrap_or_default();
+                    // The same `{ p, c, t }` shape the editing channel sends,
+                    // so it goes through the same parser — including the
+                    // transport unpacking the quoted text needs.
+                    crate::overleaf_rt::parse_comment_ranges(&ranges)
+                        .into_iter()
+                        .map(move |range| OverleafCommentAnchor {
+                            thread_id: range.thread_id,
+                            doc_id: doc_id.clone(),
+                            position: range.position,
+                            quote: range.quote,
+                        })
+                })
+                .filter(|anchor| !anchor.doc_id.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Add a message to an existing thread.
@@ -1378,6 +1486,67 @@ pub fn resolve_thread(
         } else {
             "reopening the comment"
         },
+    )
+}
+
+/// Change what one message says. Overleaf only lets the author do this.
+pub fn edit_message(
+    config_dir: &Path,
+    root: &Path,
+    thread_id: &str,
+    message_id: &str,
+    content: &str,
+) -> Result<(), String> {
+    let content = content.trim();
+    if content.is_empty() {
+        return Err("A comment cannot be empty. Delete it instead.".to_string());
+    }
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::POST,
+        &format!("/thread/{thread_id}/messages/{message_id}/edit"),
+        Some(serde_json::json!({ "content": content })),
+        "saving the edit",
+    )
+}
+
+/// Remove one message from a thread.
+///
+/// Overleaf has two routes for this and they are not interchangeable: the
+/// plain one is for owners and editors deleting anyone's message, and
+/// `own-messages` is what everyone else — a reviewer, say — must use for their
+/// own. We only ever offer this on your own message, so the narrower route is
+/// the one that works for every role; the wider one is the fallback for
+/// self-hosted servers old enough not to have it.
+pub fn delete_message(
+    config_dir: &Path,
+    root: &Path,
+    thread_id: &str,
+    message_id: &str,
+) -> Result<(), String> {
+    let status = thread_request_status(
+        config_dir,
+        root,
+        reqwest::Method::DELETE,
+        &format!("/thread/{thread_id}/own-messages/{message_id}"),
+        None,
+    )?;
+    if status.is_success() {
+        return Ok(());
+    }
+    if status != reqwest::StatusCode::NOT_FOUND {
+        return Err(format!(
+            "Overleaf returned {status} when deleting the comment."
+        ));
+    }
+    thread_request(
+        config_dir,
+        root,
+        reqwest::Method::DELETE,
+        &format!("/thread/{thread_id}/messages/{message_id}"),
+        None,
+        "deleting the comment",
     )
 }
 
@@ -2188,11 +2357,17 @@ pub fn sync(
     let remote_version_before =
         fetch_remote_version(&client, &host, &session.cookie, &state.project_id);
     let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
-    let local = read_local_files(root)?;
+    let LocalFiles {
+        files: local,
+        oversized,
+    } = read_local_files(root)?;
 
     let plan = plan_sync(root, &state, &remote, &local, live, &sync_stamp())?;
 
-    let mut result = OverleafSyncResult::default();
+    let mut result = OverleafSyncResult {
+        skipped_large: oversized,
+        ..Default::default()
+    };
     let mut new_files = plan.files;
     // Merged bytes that exist on disk but not in the `local` snapshot taken at
     // the start of this sync; uploads read from here first.
@@ -2390,7 +2565,7 @@ pub fn preview(
     let host = sync_host(&state, &session);
 
     let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
-    let local = read_local_files(root)?;
+    let local = read_local_files(root)?.files;
     let plan = plan_sync(root, &state, &remote, &local, live, &sync_stamp())?;
 
     let mut changes: Vec<OverleafChange> = Vec::new();
@@ -2463,6 +2638,41 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     const CSRF: &str = "csrf-fixture-token";
+
+    /// The real `/ranges` payload, taken verbatim from overleaf.com with one
+    /// comment in the project: every document is listed whether or not it has
+    /// anything in it, and the comment's `op` is the same `{p, c, t}` shape
+    /// the editing channel sends.
+    #[test]
+    fn comment_anchors_name_the_document_each_thread_lives_in() {
+        let body = serde_json::json!([
+            { "id": "6a5acedf2b1182598e0ae369", "ranges": {} },
+            { "id": "6a5acedf2b1182598e0ae36a", "ranges": { "comments": [] } },
+            { "id": "6a5acedf2b1182598e0ae36b", "ranges": { "comments": [{
+                "id": "6a18a500005eedc0ffee1234",
+                "metadata": { "ts": "2026-07-25T01:55:50.719Z", "user_id": "65103fad2765" },
+                "op": { "c": "\\documentcla", "p": 0, "t": "6a18a500005eedc0ffee1234" },
+            }] } },
+        ]);
+        let anchors = parse_comment_anchors(&body);
+        assert_eq!(
+            anchors,
+            vec![OverleafCommentAnchor {
+                thread_id: "6a18a500005eedc0ffee1234".to_string(),
+                doc_id: "6a5acedf2b1182598e0ae36b".to_string(),
+                position: 0,
+                quote: "\\documentcla".to_string(),
+            }]
+        );
+
+        // The quote travels packed the same way document text does, so a
+        // comment on non-ASCII text has to be unpacked or it reads as mojibake.
+        let packed: String = "第三节".as_bytes().iter().map(|b| *b as char).collect();
+        let chinese = serde_json::json!([{ "id": "d1", "ranges": { "comments": [{
+            "op": { "c": packed, "p": 12, "t": "t1" },
+        }] } }]);
+        assert_eq!(parse_comment_anchors(&chinese)[0].quote, "第三节");
+    }
 
     /// Both halves of a real `/updates` entry, taken verbatim from
     /// overleaf.com: an upload leaves `pathnames` empty and records what it
