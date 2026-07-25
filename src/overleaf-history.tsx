@@ -36,6 +36,7 @@ import type {
   OverleafFileEntry,
   OverleafUpdate,
 } from "./overleaf-history-types";
+import { confirmAction } from "./app-utils";
 import { peerColorForName } from "./collab-colors";
 import "./overleaf-history.css";
 
@@ -438,11 +439,11 @@ export function OverleafHistoryPanel(props: {
                         type="button"
                         className="overleaf-history-restore-project"
                         disabled={history.busy}
-                        onClick={() => {
+                        onClick={async () => {
                           const warning = "Restore the whole project to this version? "
                             + "Files added since will be deleted, and everything else will be rewound "
                             + "to match. The only way back from here is another restore.";
-                          if (!window.confirm(warning)) return;
+                          if (!await confirmAction(warning)) return;
                           void run(
                             "Project restored.",
                             () => history.revertProject(update.toVersion).then(() => props.onRestored?.()),

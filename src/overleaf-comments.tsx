@@ -21,6 +21,7 @@ import type { OverleafComment, OverleafThread } from "./app-types";
 import { formatStamp } from "./overleaf-chat";
 import { groupThreadsByFile, type OverleafCommentAnchor } from "./overleaf-comment-anchors";
 import "./overleaf-comments.css";
+import { confirmAction } from "./app-utils";
 
 /** While an input method is composing, Enter is picking a candidate, not sending. */
 function isComposingEnter(event: React.KeyboardEvent) {
@@ -72,12 +73,12 @@ export function OverleafCommentsPanel(props: {
     setBusy(null);
   };
 
-  const deleteMessage = (thread: OverleafThread, message: OverleafComment) => {
+  const deleteMessage = async (thread: OverleafThread, message: OverleafComment) => {
     const onlyMessage = thread.messages.length === 1;
     const warning = onlyMessage
       ? "Delete this message? It's the only one in the thread, so this deletes the whole thread."
       : "Delete this message?";
-    if (!window.confirm(warning)) return;
+    if (!await confirmAction(warning)) return;
     void run(thread.id, () => props.onDeleteMessage(thread.id, message.id));
   };
 

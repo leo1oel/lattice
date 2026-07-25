@@ -284,3 +284,18 @@ export function dropEditorAt(position: { x: number; y: number }): { x: number; y
   const point = { x: position.x / scale, y: position.y / scale };
   return document.elementFromPoint(point.x, point.y)?.closest(".source-editor") ? point : null;
 }
+
+/**
+ * Ask before doing something that cannot be taken back, and wait for the answer.
+ *
+ * Tauri's dialog plugin replaces `window.confirm` with an async function, so in
+ * the app it returns a Promise rather than the browser's boolean. That made
+ * every `if (!window.confirm(…)) return;` a no-op — a Promise is always truthy,
+ * so the guard passed whatever the person clicked, and deletes and restores
+ * went ahead regardless. Awaiting works either way: a plain boolean awaits to
+ * itself, which is what happens under test.
+ */
+export async function confirmAction(message: string): Promise<boolean> {
+  const answer: boolean | Promise<boolean> = window.confirm(message);
+  return Boolean(await answer);
+}

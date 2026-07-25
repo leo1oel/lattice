@@ -28,7 +28,7 @@ import {
 import type { GitFileDiff, GitLogEntry, GitLogFileKind } from "./app-types";
 import type { GitStatus } from "./git-panel";
 import { peerColorForName } from "./collab-colors";
-import { relativeTime } from "./app-utils";
+import { confirmAction, relativeTime } from "./app-utils";
 import {
   annotatedDiffLines,
   changeKind,
@@ -386,7 +386,7 @@ export function VersionsTimeline(props: {
   };
 
   const restoreFile = async (hash: string, path: string) => {
-    if (!window.confirm(`Restore ${path} to this version? Your current file will be overwritten.`)) return;
+    if (!await confirmAction(`Restore ${path} to this version? Your current file will be overwritten.`)) return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -406,7 +406,7 @@ export function VersionsTimeline(props: {
     const warning = "Restore the project to this version? "
       + "All current files will be rewound to that point — nothing is lost, "
       + "and the restore itself is saved as a new version.";
-    if (!window.confirm(warning)) return;
+    if (!await confirmAction(warning)) return;
     setBusy(true);
     setError("");
     setNotice("");

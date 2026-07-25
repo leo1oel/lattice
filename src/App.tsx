@@ -237,25 +237,7 @@ import type {
   OverleafProbe,
   OverleafSyncResult,
 } from "./app-types";
-import {
-  paperKey,
-  toMessage,
-  agentErrorDetails,
-  defaultModel,
-  normalizeModel,
-  normalizeEffort,
-  autoBuildDescription,
-  projectItemPath,
-  dropDirectoryAt,
-  dropEditorAt,
-  beginWindowDrag,
-  toggleWindowFullscreen,
-  buildAgentMentions,
-  isPaperTabKey,
-  paperTabKey,
-  arxivIdFromTabKey,
-  WELCOME_MESSAGE,
-} from "./app-utils";
+import { WELCOME_MESSAGE, agentErrorDetails, arxivIdFromTabKey, autoBuildDescription, beginWindowDrag, buildAgentMentions, confirmAction, defaultModel, dropDirectoryAt, dropEditorAt, isPaperTabKey, normalizeEffort, normalizeModel, paperKey, paperTabKey, projectItemPath, toMessage, toggleWindowFullscreen } from "./app-utils";
 import "./App.css";
 
 const defaultWelcomeMessages: ChatMessage[] = [
@@ -1560,7 +1542,7 @@ function App() {
     if (!known.length) return;
     if (policy === "ask") {
       const names = known.map((entry) => entry.path).join(", ");
-      const removeThem = window.confirm(
+      const removeThem = await confirmAction(
         `${names} ${known.length === 1 ? "is" : "are"} gone here but still on Overleaf.\n\n`
         + "Remove them from the Overleaf project too? Overleaf's history keeps them either way.",
       );
@@ -2091,7 +2073,7 @@ function App() {
 
   const cleanProject = useCallback(async () => {
     if (!project || cleaning || building) return;
-    if (!window.confirm("Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?")) return;
+    if (!await confirmAction("Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?")) return;
     setCleaning(true);
     try {
       await invoke("clean_project");
@@ -2105,7 +2087,7 @@ function App() {
 
   const cleanAndRebuild = useCallback(async () => {
     if (!project || cleaning || building) return;
-    if (!window.confirm("Delete auxiliary files and rebuild the PDF?")) return;
+    if (!await confirmAction("Delete auxiliary files and rebuild the PDF?")) return;
     setCleaning(true);
     try {
       await invoke("clean_project");
@@ -3208,7 +3190,7 @@ function App() {
   }, [activeFile, openProjectAsset, openProjectFile, project, source]);
 
   const deleteProjectEntry = useCallback(async (path: string) => {
-    if (!window.confirm(`Delete “${path}” from this project?`)) return;
+    if (!await confirmAction(`Delete “${path}” from this project?`)) return;
     try {
       await invoke("delete_project_entry", { path });
       if (collabSession) {
@@ -3610,7 +3592,7 @@ function App() {
     const prompt = paper.hasFullText
       ? `Remove “${paper.title}” and its bibliography entry?`
       : `Remove “${paper.title}” from the bibliography?`;
-    if (!window.confirm(prompt)) return;
+    if (!await confirmAction(prompt)) return;
     try {
       // Either identifier is enough: a cited-only work may have no arXiv id, and
       // a paper fetched before its citation landed may have no key.
@@ -3686,7 +3668,7 @@ function App() {
 
   const deleteAgentSession = useCallback(async (id: string) => {
     if (agentRunning) return;
-    if (!window.confirm("Delete this conversation? This cannot be undone.")) return;
+    if (!await confirmAction("Delete this conversation? This cannot be undone.")) return;
     try {
       await invoke("delete_agent_session", { sessionId: id });
       let remaining = await invoke<AgentSessionSummary[]>("list_agent_sessions");
@@ -4031,7 +4013,7 @@ function App() {
 
   const revert = useCallback(
     async (id: string) => {
-      if (!window.confirm("Restore the project to the state before this change?")) return;
+      if (!await confirmAction("Restore the project to the state before this change?")) return;
       try {
         await invoke("revert_transaction", { transactionId: id });
         if (activeFile) await loadFile(activeFile);
@@ -4067,7 +4049,7 @@ function App() {
   }, [refreshAgentSkills]);
 
   const deleteAgentSkill = useCallback(async (skill: AgentSkill) => {
-    if (!window.confirm(`Delete ${skill.name}?`)) return;
+    if (!await confirmAction(`Delete ${skill.name}?`)) return;
     try {
       await invoke("delete_agent_skill", { name: skill.name, scope: skill.scope });
       await refreshAgentSkills();
@@ -4115,7 +4097,7 @@ function App() {
   }, [apiProvider, refreshApiKeys]);
 
   const deleteHistory = useCallback(async (id: string) => {
-    if (!window.confirm("Delete this history entry? This cannot be undone.")) return;
+    if (!await confirmAction("Delete this history entry? This cannot be undone.")) return;
     try {
       await invoke("delete_history_entry", { transactionId: id });
       await refreshHistory();
@@ -5321,7 +5303,7 @@ function App() {
           }}
           onRevert={revert}
           onRevertFile={async (id, path) => {
-            if (!window.confirm(`Restore only “${path}” to the state before this change?`)) return;
+            if (!await confirmAction(`Restore only “${path}” to the state before this change?`)) return;
             try {
               await invoke("revert_history_file", { transactionId: id, path });
               if (activeFile === path || activeFile) await loadFile(activeFile);

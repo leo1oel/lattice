@@ -18,7 +18,7 @@ import {
   type OverleafProject,
   type OverleafStatus,
 } from "./app-types";
-import { relativeTime, toMessage } from "./app-utils";
+import { confirmAction, relativeTime, toMessage } from "./app-utils";
 import { type OverleafRemoteDelete, type OverleafSyncMode } from "./app-settings";
 import "./overleaf-connect.css";
 
@@ -201,7 +201,7 @@ export function OverleafSettingsSection(props: {
    * to offer nothing better than a conflict copy of every file that differs.
    */
   const setPaused = async (paused: boolean) => {
-    if (paused && !window.confirm(
+    if (paused && !await confirmAction(
       "Pause syncing with Overleaf?\n\n"
       + "Nothing is sent or fetched until you resume, and live editing, chat and "
       + "collaborators stop. Every file stays where it is on both sides.\n\n"
@@ -526,7 +526,7 @@ export function OverleafPickerDialog(props: {
         name: project.name,
       }).catch(() => null);
       if (target?.kind === "occupied") {
-        adopt = window.confirm(
+        adopt = await confirmAction(
           `“${target.folder}” already has files in it and isn’t linked to Overleaf.\n\n`
           + "OK — link that folder to this Overleaf project. Files that differ are kept "
           + "both ways: Overleaf’s version takes the filename and yours is saved beside "
