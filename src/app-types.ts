@@ -265,7 +265,16 @@ export type OverleafLink = {
   host: string;
   lastSync: string | null;
 };
-export type OverleafConflict = { path: string; localCopy: string };
+export type OverleafConflict = {
+  path: string;
+  localCopy: string;
+  /**
+   * Whether the file has conflict markers to work through. False for one that
+   * could not be merged line by line at all — a figure, a PDF — where
+   * Overleaf's version takes the path and yours is kept beside it.
+   */
+  markers?: boolean;
+};
 /** What a pending sync would do to one file, before anything is written. */
 export type OverleafChangeKind =
   | "incoming"

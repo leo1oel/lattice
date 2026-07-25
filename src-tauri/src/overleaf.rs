@@ -121,6 +121,15 @@ pub struct OverleafLink {
 pub struct OverleafConflict {
     pub path: String,
     pub local_copy: String,
+    /// Whether the file carries conflict markers to work through.
+    ///
+    /// False for one that could not be merged line by line at all — a figure,
+    /// a PDF — where the remote version simply takes the path and the local
+    /// one is kept beside it. Telling someone to resolve the spots in a file
+    /// that has none, and opening a marker resolver on it, is worse than
+    /// saying plainly that both versions are on disk.
+    #[serde(default)]
+    pub markers: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -2203,6 +2212,8 @@ pub fn project_link(root: &Path) -> Result<Option<OverleafLink>, String> {
 /// One file both sides changed in ways that need a human.
 struct ConflictPlan {
     path: String,
+    /// See `OverleafConflict::markers`.
+    markers: bool,
     /// What lands at `path`: the conflict-marked text, or the remote file when
     /// the two sides cannot be merged line by line.
     resolved: Vec<u8>,
@@ -2297,6 +2308,7 @@ fn plan_sync(
                             // and the untouched local version is kept beside it.
                             plan.conflict.push(ConflictPlan {
                                 path: path.clone(),
+                                markers: true,
                                 resolved: conflicted,
                                 local: lb.clone(),
                                 local_copy: conflict_copy_name(path, stamp),
@@ -2311,6 +2323,7 @@ fn plan_sync(
                             // back to keeping both, remote on the real path.
                             plan.conflict.push(ConflictPlan {
                                 path: path.clone(),
+                                markers: false,
                                 resolved: rb.clone(),
                                 local: lb.clone(),
                                 local_copy: conflict_copy_name(path, stamp),
@@ -2451,6 +2464,7 @@ pub fn sync(
         result.conflicts.push(OverleafConflict {
             path: conflict.path.clone(),
             local_copy: conflict.local_copy.clone(),
+            markers: conflict.markers,
         });
     }
     for path in &plan.delete_local {
@@ -3563,6 +3577,9 @@ mod tests {
             read_local(&root, &result.conflicts[0].local_copy).unwrap(),
             b"%PDF local"
         );
+        // A figure has no spots to work through, so the app must not tell
+        // anyone to resolve them or open a marker resolver on it.
+        assert!(!result.conflicts[0].markers);
     }
 
     #[test]

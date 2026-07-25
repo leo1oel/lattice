@@ -1592,15 +1592,31 @@ function App() {
         ...result.conflicts.map((item) => item.path),
       ]);
       if (result.conflicts.length) {
-        // Offer the resolver straight away rather than leaving someone to hunt
-        // for markers; the first conflicted file is the one to look at.
-        const first = result.conflicts[0]?.path ?? null;
-        setError(
-          `Overleaf sync could not combine: ${result.conflicts.map((item) => item.path).join(", ")}. `
-          + "Both versions are kept — resolve each spot to finish. "
-          + "Your untouched version is also saved beside it in the “(local conflict …)” files, "
-          + "and nothing uploads until the conflicts are settled.",
-        );
+        // A file with markers in it has spots to work through; a figure or a
+        // PDF does not, and saying "resolve each spot" about one — then
+        // opening a marker resolver that finds nothing — is worse than saying
+        // plainly that both versions are sitting on disk.
+        const marked = result.conflicts.filter((item) => item.markers !== false);
+        const whole = result.conflicts.filter((item) => item.markers === false);
+        const parts: string[] = [];
+        if (marked.length) {
+          parts.push(
+            `Overleaf sync could not combine: ${marked.map((item) => item.path).join(", ")}. `
+            + "Both versions are kept — resolve each spot to finish. "
+            + "Your untouched version is also saved beside it in the “(local conflict …)” files, "
+            + "and nothing uploads until the conflicts are settled.",
+          );
+        }
+        if (whole.length) {
+          parts.push(
+            `Changed in both places and impossible to combine: ${whole.map((item) => item.path).join(", ")}. `
+            + "Overleaf's version is now the one in the project, and yours is kept beside it "
+            + "in the “(local conflict …)” files — keep whichever you want and delete the other.",
+          );
+        }
+        setError(parts.join(" "));
+        // Only worth opening for a file that actually has markers in it.
+        const first = marked[0]?.path ?? null;
         if (first) setConflictPath(first);
       }
       if (changedOnDisk.size || result.deletedLocal.length) {
