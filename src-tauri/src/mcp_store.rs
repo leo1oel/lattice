@@ -37,7 +37,8 @@ pub fn list(root: &Path, runtime: &AgentRuntime) -> Result<Vec<McpServer>, Strin
     Ok(effective
         .into_iter()
         .map(|(name, (scope, value))| {
-            let overridden = scope == "project" && application_names.iter().any(|item| item == &name);
+            let overridden =
+                scope == "project" && application_names.iter().any(|item| item == &name);
             to_server(name, scope, value, overridden)
         })
         .collect())
@@ -323,9 +324,7 @@ fn read_string_map(value: Option<&Value>) -> BTreeMap<String, String> {
         .map(|map| {
             map.iter()
                 .filter_map(|(key, value)| {
-                    value
-                        .as_str()
-                        .map(|text| (key.clone(), text.to_string()))
+                    value.as_str().map(|text| (key.clone(), text.to_string()))
                 })
                 .collect()
         })

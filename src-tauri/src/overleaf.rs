@@ -580,10 +580,13 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 /// Paths (forward-slash relative) that never participate in sync.
 fn is_excluded(path: &str) -> bool {
-    if path.starts_with(".research/") || path.starts_with(".git/") {
+    // `.omp/` holds the project's MCP server config, whose `env` is where
+    // someone puts an API key. Uploading it would hand that key to everyone on
+    // the Overleaf project and write it into the project's history.
+    if path.starts_with(".research/") || path.starts_with(".git/") || path.starts_with(".omp/") {
         return true;
     }
-    if path == ".gitignore" || path == ".git" || path == ".research" {
+    if path == ".gitignore" || path == ".git" || path == ".research" || path == ".omp" {
         return true;
     }
     let file_name = path.rsplit('/').next().unwrap_or(path);
@@ -766,7 +769,7 @@ fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
             return true;
         }
         let name = e.file_name().to_string_lossy();
-        !(e.file_type().is_dir() && (name == ".git" || name == ".research"))
+        !(e.file_type().is_dir() && (name == ".git" || name == ".research" || name == ".omp"))
     });
     for entry in walker {
         let entry = entry.map_err(err)?;
@@ -4332,6 +4335,9 @@ mod tests {
     #[test]
     fn overleaf_exclusion_rules() {
         assert!(is_excluded(".research/overleaf.json"));
+        // MCP server config: `env` is where an API key goes.
+        assert!(is_excluded(".omp/mcp.json"));
+        assert!(is_excluded(".omp"));
         assert!(is_excluded(".git/HEAD"));
         assert!(is_excluded(".gitignore"));
         assert!(is_excluded("sub/.DS_Store"));

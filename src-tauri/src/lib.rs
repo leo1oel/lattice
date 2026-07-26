@@ -9,6 +9,7 @@ mod latex;
 mod literature;
 #[cfg(target_os = "macos")]
 mod macos_window;
+mod mcp_store;
 mod models;
 mod omp_update;
 mod openalex;
@@ -18,7 +19,6 @@ mod papers;
 mod pdf_fonts;
 mod project;
 mod sessions;
-mod mcp_store;
 mod skill_store;
 mod tex_setup;
 mod texcount;

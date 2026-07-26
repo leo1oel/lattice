@@ -12,51 +12,67 @@ use std::process::Command;
 /// try to render their blobs as text diffs.
 const BINARY_EXTENSIONS: &[&str] = &["pdf", "png", "jpg", "jpeg", "gif", "zip"];
 
-/// Lattice's own working directory inside a project: Overleaf sync state, the
-/// search index, agent sessions, caches. None of it is the user's writing, so
-/// it is kept out of the repository and out of the timeline.
-const INTERNAL_DIR: &str = ".research";
+/// Directories inside a project that belong to the tools, not to the writing.
+///
+/// `.research/` is Lattice's own: Overleaf sync state, the search index, agent
+/// sessions, caches. `.omp/` is the agent runtime's, and holds the project's
+/// MCP server config — whose `env` is where someone puts an API key, which is
+/// reason enough on its own never to commit it.
+const INTERNAL_DIRS: &[&str] = &[".research", ".omp"];
 
 fn is_internal_path(path: &str) -> bool {
     let path = path.trim_start_matches("./");
-    path == INTERNAL_DIR || path.starts_with(&format!("{INTERNAL_DIR}/"))
+    INTERNAL_DIRS
+        .iter()
+        .any(|dir| path == *dir || path.starts_with(&format!("{dir}/")))
 }
 
-/// Keep `.research/` out of version history. Without this every sync writes
-/// `.research/overleaf.json`, so `git add -A` records a version whose only
-/// change is a timestamp and a hash table — the timeline fills up with the
-/// app talking to itself instead of with the user's edits.
+/// Keep the tools' own directories out of version history.
+///
+/// Without this every Overleaf sync writes `.research/overleaf.json`, so
+/// `git add -A` records a version whose only change is a timestamp and a hash
+/// table — the timeline fills up with the app talking to itself instead of
+/// with the user's edits — and an MCP server's API key lands in the repository.
 ///
 /// Best effort throughout: a project that cannot be ignored still commits.
 fn ensure_internal_ignored(root: &Path) {
-    // Nothing to ignore yet: a project Lattice has not written state into
+    let present: Vec<&str> = INTERNAL_DIRS
+        .iter()
+        .copied()
+        .filter(|dir| root.join(dir).exists())
+        .collect();
+    // Nothing to ignore yet: a project the tools have not written state into
     // should not gain a .gitignore, and a commit it triggers should stay a
     // no-op on an otherwise clean tree.
-    if !root.join(INTERNAL_DIR).exists() {
+    if present.is_empty() {
         return;
     }
     let ignore_path = root.join(".gitignore");
     let existing = fs::read_to_string(&ignore_path).unwrap_or_default();
-    let already = existing
-        .lines()
-        .map(str::trim)
-        .any(|line| line == ".research" || line == ".research/" || line == "/.research/");
-    if !already {
-        let mut next = existing;
+    let mut next = existing.clone();
+    for dir in &present {
+        let covered = next
+            .lines()
+            .map(str::trim)
+            .any(|line| line == *dir || line == format!("{dir}/") || line == format!("/{dir}/"));
+        if covered {
+            continue;
+        }
         if !next.is_empty() && !next.ends_with('\n') {
             next.push('\n');
         }
-        next.push_str(".research/\n");
+        next.push_str(&format!("{dir}/\n"));
+    }
+    if next != existing {
         let _ = fs::write(&ignore_path, next);
     }
-    // A project that was already committing `.research/` keeps doing so until
-    // the files are dropped from the index; .gitignore alone does not untrack.
-    let tracked = git_output(root, &["ls-files", "-z", "--", INTERNAL_DIR]).unwrap_or_default();
-    if !tracked.trim_matches('\0').is_empty() {
-        let _ = git_run(
-            root,
-            &["rm", "-r", "--cached", "--quiet", "--", INTERNAL_DIR],
-        );
+    // A project that was already committing these keeps doing so until the
+    // files are dropped from the index; .gitignore alone does not untrack.
+    for dir in &present {
+        let tracked = git_output(root, &["ls-files", "-z", "--", dir]).unwrap_or_default();
+        if !tracked.trim_matches('\0').is_empty() {
+            let _ = git_run(root, &["rm", "-r", "--cached", "--quiet", "--", dir]);
+        }
     }
 }
 
@@ -1229,6 +1245,36 @@ mod tests {
             .files
             .iter()
             .all(|file| !file.path.starts_with(".research"))));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// The agent runtime's `.omp/mcp.json` carries whatever `env` an MCP
+    /// server needs, which is where an API key goes. Committing it writes that
+    /// key into the repository and into anything the repository is pushed to.
+    #[test]
+    fn auto_commit_keeps_mcp_config_out_of_history() {
+        if !commands::available("git") {
+            return;
+        }
+        let root = repo("internal-omp");
+        fs::create_dir_all(root.join(".omp")).unwrap();
+        fs::write(
+            root.join(".omp/mcp.json"),
+            "{\"mcpServers\":{\"x\":{\"env\":{\"API_KEY\":\"secret\"}}}}\n",
+        )
+        .unwrap();
+        fs::write(root.join("paper.tex"), "one\n").unwrap();
+
+        auto_commit(&root, "first", None).unwrap().unwrap();
+        assert!(fs::read_to_string(root.join(".gitignore"))
+            .unwrap()
+            .contains(".omp/"));
+        assert_eq!(capture(&root, &["ls-files", "--", ".omp"]), "");
+        assert!(root.join(".omp/mcp.json").exists());
+
+        // Changing only the MCP config is not a version of anyone's writing.
+        fs::write(root.join(".omp/mcp.json"), "{\"mcpServers\":{}}\n").unwrap();
+        assert!(auto_commit(&root, "mcp", None).unwrap().is_none());
         let _ = fs::remove_dir_all(root);
     }
 
