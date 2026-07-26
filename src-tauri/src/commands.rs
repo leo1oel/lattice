@@ -15,7 +15,7 @@ pub fn command(name: &str) -> Command {
 ///
 /// Do not resolve from `PATH`: an editable or stale global install would make
 /// the app behave differently on every machine. uvx owns the cached environment
-/// and refreshes it against PyPI before each invocation.
+/// and resolves the explicit `@latest` request against PyPI for each invocation.
 pub struct UvTool {
     /// The PyPI distribution that provides the command.
     pub requirement: &'static str,
@@ -29,14 +29,14 @@ pub struct UvTool {
 /// Resolves arXiv ids, DOIs and titles to verified BibTeX, and owns the
 /// project's `.bib`.
 pub const BIBCITE: UvTool = UvTool {
-    requirement: "bibcite-cli",
+    requirement: "bibcite-cli@latest",
     binary: "bibcite",
     override_env: "LATTICE_BIBCITE_BIN",
 };
 
 /// Converts an arXiv paper to markdown Lattice and the agent can read.
 pub const ARXIV2MD: UvTool = UvTool {
-    requirement: "arxiv2markdown",
+    requirement: "arxiv2markdown@latest",
     binary: "arxiv2md",
     override_env: "LATTICE_ARXIV2MD_BIN",
 };
@@ -52,7 +52,6 @@ impl UvTool {
         let mut command = command("uvx");
         command
             .env("UV_CACHE_DIR", uv_cache_dir())
-            .arg("--upgrade")
             .arg("--from")
             .arg(self.requirement)
             .arg(self.binary);
@@ -64,7 +63,7 @@ impl UvTool {
 ///
 /// Under the user's cache directory rather than `/tmp`, which macOS clears:
 /// from there every reboot re-downloaded both tools before the first paper of
-/// the day. `--upgrade` still refreshes package metadata, while unchanged wheels
+/// the day. `@latest` still refreshes package metadata, while unchanged wheels
 /// and environments continue to come from this cache.
 pub fn uv_cache_dir() -> PathBuf {
     match env::var_os("HOME") {
@@ -219,13 +218,12 @@ mod tests {
     #[test]
     fn python_tools_refresh_unconstrained_latest_releases() {
         for tool in [&BIBCITE, &ARXIV2MD] {
-            assert!(!tool.requirement.contains(['<', '>', '=']));
+            assert!(tool.requirement.ends_with("@latest"));
             let command = tool.command();
             let args: Vec<_> = command
                 .get_args()
                 .map(|arg| arg.to_string_lossy().into_owned())
                 .collect();
-            assert!(args.iter().any(|arg| arg == "--upgrade"));
             assert!(args
                 .windows(2)
                 .any(|pair| pair == ["--from", tool.requirement]));
