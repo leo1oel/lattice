@@ -125,6 +125,12 @@ export type BuildResult = {
 
 export type AgentResult = {
   summary: string;
+  /**
+   * How the run ended, when that was not simply "it finished": stopped by the
+   * user, or failed after it had already changed files. Absent on a normal
+   * run, whose reply the streamed transcript already holds.
+   */
+  notice?: string | null;
   changedFiles: string[];
   transactionId?: string;
   skillsUsed: string[];

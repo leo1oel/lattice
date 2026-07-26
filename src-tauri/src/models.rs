@@ -598,6 +598,16 @@ pub struct McpServerSaveRequest {
 #[serde(rename_all = "camelCase")]
 pub struct AgentResult {
     pub summary: String,
+    /// How the run ended, when that was not simply "it finished": stopped by
+    /// the user, or failed after it had already changed files.
+    ///
+    /// Separate from `summary` because the two are different kinds of thing.
+    /// On a normal run the summary is the model's own reply, which the
+    /// streamed transcript already holds — so the panel renders the transcript
+    /// and never looks at it. Putting "Stopped." or an error in that same
+    /// field therefore hid it completely: a run that failed after editing a
+    /// file was presented as an ordinary success.
+    pub notice: Option<String>,
     pub changed_files: Vec<String>,
     pub transaction_id: Option<String>,
     pub skills_used: Vec<String>,

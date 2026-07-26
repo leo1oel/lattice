@@ -289,29 +289,37 @@ pub fn run(
     match outcome {
         Ok(outcome) => Ok(AgentResult {
             summary: outcome.summary,
+            notice: None,
             changed_files,
             transaction_id: transaction.map(|record| record.id),
             skills_used: outcome.skills_used,
         }),
-        Err(error) if error.starts_with(AGENT_STOPPED_ERROR_PREFIX) => Ok(AgentResult {
-            summary: if transaction.is_some() {
+        Err(error) if error.starts_with(AGENT_STOPPED_ERROR_PREFIX) => {
+            let notice = if transaction.is_some() {
                 "Stopped. File changes made before cancellation were preserved in Project History."
-                    .to_string()
             } else {
-                "Stopped.".to_string()
-            },
-            changed_files,
-            transaction_id: transaction.map(|record| record.id),
-            skills_used: Vec::new(),
-        }),
-        Err(error) if transaction.is_some() => Ok(AgentResult {
-            summary: format!(
+                "Stopped."
+            };
+            Ok(AgentResult {
+                summary: notice.to_string(),
+                notice: Some(notice.to_string()),
+                changed_files,
+                transaction_id: transaction.map(|record| record.id),
+                skills_used: Vec::new(),
+            })
+        }
+        Err(error) if transaction.is_some() => {
+            let notice = format!(
                 "The agent stopped before it could finish its response, but its file changes were preserved in Project History.\n\n{error}"
-            ),
-            changed_files,
-            transaction_id: transaction.map(|record| record.id),
-            skills_used: Vec::new(),
-        }),
+            );
+            Ok(AgentResult {
+                summary: notice.clone(),
+                notice: Some(notice),
+                changed_files,
+                transaction_id: transaction.map(|record| record.id),
+                skills_used: Vec::new(),
+            })
+        }
         Err(error) => Err(error),
     }
 }

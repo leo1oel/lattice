@@ -58,6 +58,21 @@ pub fn save(
         if original != name {
             file.mcp_servers.remove(&original);
         }
+        // Only when editing an existing entry, and only from the file it is
+        // leaving: changing the scope alone used to leave the old entry
+        // configured for every other project, hidden here because a project
+        // entry shadows an application one. Adding a *new* entry that shares a
+        // name is the deliberate override, and must not disturb what it
+        // shadows.
+        for other in [application_path(runtime), project_path(root)] {
+            if other == path {
+                continue;
+            }
+            let mut previous = read_config(&other)?;
+            if previous.mcp_servers.remove(&original).is_some() {
+                write_config(&other, &previous)?;
+            }
+        }
     }
     let entry = server_value(&request)?;
     file.mcp_servers.insert(name.clone(), entry);
@@ -437,6 +452,45 @@ mod tests {
         assert_eq!(remaining[0].transport, "stdio");
 
         fs::remove_dir_all(base).unwrap();
+    }
+
+    /// Moving a server between "All Lattice projects" and "This project only".
+    ///
+    /// The save wrote into the new scope's file and removed the old name only
+    /// from that same file, so a scope change left the old entry configured
+    /// everywhere else — and invisible here, because a project entry shadows
+    /// an application one.
+    #[test]
+    fn changing_a_servers_scope_moves_it_rather_than_copying_it() {
+        let base = std::env::temp_dir().join(format!("lattice-mcp-scope-{}", Uuid::new_v4()));
+        let root = base.join("project");
+        fs::create_dir_all(&root).unwrap();
+        let runtime = runtime_at(&base);
+        let request = |scope: &str| McpServerSaveRequest {
+            original_name: (scope == "project").then(|| "docs".to_string()),
+            name: "docs".to_string(),
+            scope: scope.to_string(),
+            enabled: true,
+            transport: "stdio".to_string(),
+            command: Some("npx".to_string()),
+            args: vec!["-y".to_string(), "demo-mcp".to_string()],
+            env: BTreeMap::new(),
+            cwd: None,
+            url: None,
+            headers: BTreeMap::new(),
+        };
+
+        save(&root, &runtime, request("application")).unwrap();
+        save(&root, &runtime, request("project")).unwrap();
+
+        let servers = list(&root, &runtime).unwrap();
+        assert_eq!(servers.len(), 1, "got: {servers:?}");
+        assert_eq!(servers[0].scope, "project");
+        assert!(
+            !servers[0].overridden,
+            "the application entry is still configured for every other project",
+        );
+        let _ = fs::remove_dir_all(base);
     }
 
     #[test]

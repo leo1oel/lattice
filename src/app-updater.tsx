@@ -183,8 +183,25 @@ export function useAppUpdater(options?: {
     }
   }, []);
 
+  /**
+   * Put the banner away, and let checking resume.
+   *
+   * `check` returns early while `pendingRef` holds an update, which is what
+   * stops a second banner appearing for one already offered. Dismissing left
+   * that ref set, so every later check — the six-hourly one and the button in
+   * Settings alike — returned before doing anything: the app said "you'll be
+   * notified when a new version is ready" and could no longer notice one. An
+   * update dismissed by accident could not be got back for the rest of the
+   * session.
+   *
+   * The failure banner had the same shape from the other side: its × mapped
+   * only "available" to "idle", so on an error it did nothing at all and the
+   * banner stayed in the corner until relaunch.
+   */
   const dismiss = useCallback(() => {
-    setPhase((current) => (current === "available" ? "idle" : current));
+    pendingRef.current = null;
+    setError(null);
+    setPhase("idle");
   }, []);
 
   useEffect(() => {

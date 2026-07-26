@@ -81,6 +81,15 @@ export function LiteratureDiscoveryPanel(props: {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const pageRef = useRef(0);
+  /**
+   * The query and mode the results on screen actually came from.
+   *
+   * "Load more" read the live box instead, so typing a new query without
+   * pressing Search — or toggling precise mode — and then scrolling to the
+   * bottom appended page 2 of the *new* search underneath the old results,
+   * with no separator and nothing said. Two literatures, one list.
+   */
+  const searchedRef = useRef<{ query: string; precise: boolean } | null>(null);
   const seenRef = useRef(new Set<string>());
   const loadingMoreRef = useRef(false);
 
@@ -106,6 +115,7 @@ export function LiteratureDiscoveryPanel(props: {
     setNotice("");
     pageRef.current = 0;
     seenRef.current = new Set();
+    searchedRef.current = { query: trimmed, precise };
     try {
       const page = await invoke<LiteraturePage>("search_literature", {
         query: trimmed,
@@ -133,13 +143,15 @@ export function LiteratureDiscoveryPanel(props: {
       return;
     }
     if (!hasMore || loadingMoreRef.current) return;
+    const searched = searchedRef.current;
+    if (!searched) return;
     loadingMoreRef.current = true;
     setLoadingMore(true);
     const nextPage = pageRef.current + 1;
     try {
       const page = await invoke<LiteraturePage>("search_literature", {
-        query: query.trim(),
-        precise,
+        query: searched.query,
+        precise: searched.precise,
         page: nextPage,
       });
       pageRef.current = nextPage;

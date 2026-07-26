@@ -347,7 +347,18 @@ export function Navigator(props: {
           </div>
         </div>
         <div className="paper-list" role="list" aria-label="Papers">
-          {(searchActive ? paperSearchResults.map((result) => props.papers.find((paper) => paper.arxivId === result.arxivId)).filter((paper): paper is PaperSummary => Boolean(paper)) : props.papers).map((paper) => {
+          {/* Matched on the arXiv id when there is one, on the title when
+              there is not: a cited-only work carries an empty id, so comparing
+              ids alone returned the same first paper for every one of them —
+              the list showed that paper once per match and the others could
+              not be reached while a filter was active. */}
+          {(searchActive
+            ? paperSearchResults
+                .map((result) => props.papers.find((paper) => (
+                  result.arxivId ? paper.arxivId === result.arxivId : paper.title === result.title
+                )))
+                .filter((paper): paper is PaperSummary => Boolean(paper))
+            : props.papers).map((paper) => {
             const row = (
               <div className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}>
               <button

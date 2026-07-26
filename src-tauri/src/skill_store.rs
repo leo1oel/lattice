@@ -67,20 +67,25 @@ pub fn save(
     let directory = scope_directory(root, runtime, &request.scope)?;
     if let Some(original_name) = request.original_name.as_deref() {
         validate_name(original_name)?;
-        if original_name != name {
+        // Wherever it was before, not merely where it is going: an edit that
+        // only changed the scope left the old copy installed — still handed to
+        // the agent in every other project, and invisible in this one because
+        // a project skill shadows an application one.
+        for from in scope_directories(root, runtime) {
+            let old = from.join(original_name);
+            let new = directory.join(&name);
+            if old == new || !old.is_dir() {
+                continue;
+            }
             // A skill is a directory: `references/`, `evals/` and scripts sit
             // beside SKILL.md and the model reads them at run time. Move the
             // whole thing, because deleting it and writing back only SKILL.md
             // destroyed everything else in it without saying so.
-            let old = directory.join(original_name);
-            let new = directory.join(&name);
-            if old.is_dir() {
-                if new.exists() {
-                    fs::remove_dir_all(&new).map_err(err)?;
-                }
-                fs::create_dir_all(&directory).map_err(err)?;
-                fs::rename(&old, &new).map_err(err)?;
+            if new.exists() {
+                fs::remove_dir_all(&new).map_err(err)?;
             }
+            fs::create_dir_all(&directory).map_err(err)?;
+            fs::rename(&old, &new).map_err(err)?;
         }
     }
     let path = directory.join(&name).join("SKILL.md");
@@ -146,6 +151,12 @@ fn read_directory(
         );
     }
     Ok(skills)
+}
+
+/// Every directory a user-owned skill can live in. Built-in skills are not
+/// here: they ship inside the app and are restored rather than moved.
+fn scope_directories(root: &Path, runtime: &AgentRuntime) -> Vec<PathBuf> {
+    vec![runtime.config.join("skills"), root.join(".research/skills")]
 }
 
 fn parse_metadata(content: &str) -> Result<(String, String), String> {
@@ -233,6 +244,51 @@ mod tests {
     /// sit beside SKILL.md and the model reads them at run time. Renaming one
     /// in Settings removed the old directory and wrote back only SKILL.md,
     /// so everything beside it was destroyed with nothing said.
+    /// Moving a skill between "All Lattice projects" and "This project only".
+    ///
+    /// The save resolved its directory from the new scope and only removed the
+    /// old name inside that same directory, so changing scope left the old
+    /// copy where it was — still handed to the agent in every other project,
+    /// and invisible here because a project skill shadows an application one.
+    #[test]
+    fn changing_a_skills_scope_moves_it_rather_than_copying_it() {
+        let base = std::env::temp_dir().join(format!("lattice-skill-scope-{}", Uuid::new_v4()));
+        let root = base.join("project");
+        let runtime = AgentRuntime::new(base.join("pi"), base.join("assets"), base.join("config"));
+        save(
+            &root,
+            &runtime,
+            AgentSkillSaveRequest {
+                original_name: None,
+                scope: "application".to_string(),
+                content: "---\nname: notes\ndescription: Everywhere.\n---\n".to_string(),
+            },
+        )
+        .unwrap();
+        assert!(runtime.config.join("skills/notes/SKILL.md").exists());
+
+        save(
+            &root,
+            &runtime,
+            AgentSkillSaveRequest {
+                original_name: Some("notes".to_string()),
+                scope: "project".to_string(),
+                content: "---\nname: notes\ndescription: Here only.\n---\n".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert!(root.join(".research/skills/notes/SKILL.md").exists());
+        assert!(
+            !runtime.config.join("skills/notes").exists(),
+            "the application copy is still installed for every other project",
+        );
+        let skills = list(&root, &runtime).unwrap();
+        assert_eq!(skills.len(), 1, "got: {skills:?}");
+        assert_eq!(skills[0].scope, "project");
+        let _ = fs::remove_dir_all(base);
+    }
+
     #[test]
     fn renaming_a_skill_keeps_the_files_beside_its_skill_md() {
         let base = std::env::temp_dir().join(format!("lattice-skill-rename-{}", Uuid::new_v4()));

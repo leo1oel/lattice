@@ -3904,13 +3904,29 @@ function App() {
       });
       // Nothing streamed (a short non-streaming reply) leaves no parts to keep,
       // so fall back to the summary as a single spoken part.
-      const completedParts: ChatPart[] = parts.length
+      // The transcript first, then how the run ended if that needs saying.
+      // Only `parts` is rendered once streaming has produced any, so a notice
+      // folded into `summary` — "Stopped.", or an error after the agent had
+      // already edited a file — was never shown at all, and the run read as an
+      // ordinary success.
+      const streamedParts: ChatPart[] = parts.length
         ? parts
         : [{ kind: "text", text: result.summary }];
+      const completedParts: ChatPart[] = result.notice
+        ? [...streamedParts, { kind: "text", text: result.notice }]
+        : streamedParts;
+      // What Copy puts on the clipboard, and what a reopened conversation
+      // falls back to: the text that was actually on screen, rather than a
+      // summary the panel may never have rendered.
+      const completedText = completedParts
+        .filter((part): part is { kind: "text"; text: string } => part.kind === "text")
+        .map((part) => part.text)
+        .join("\n\n")
+        .trim() || result.summary;
       const completedMessages: ChatMessage[] = [...pendingMessages, {
         id: streamedMessageId,
         role: "agent",
-        text: result.summary,
+        text: completedText,
         files: result.changedFiles,
         skills: result.skillsUsed ?? [],
         parts: completedParts,

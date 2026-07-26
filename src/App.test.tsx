@@ -1687,7 +1687,7 @@ describe("project workspace", () => {
       },
       files: [],
     };
-    let finishRun: ((result: { summary: string; changedFiles: string[]; skillsUsed: string[] }) => void) | undefined;
+    let finishRun: ((result: { summary: string; notice?: string; changedFiles: string[]; skillsUsed: string[] }) => void) | undefined;
     let runChannel: { onmessage: (event: unknown) => void } | undefined;
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
@@ -1700,7 +1700,12 @@ describe("project workspace", () => {
         });
       }
       if (command === "abort_agent") {
-        finishRun?.({ summary: "Stopped.", changedFiles: [], skillsUsed: [] });
+        finishRun?.({
+          summary: "Stopped.",
+          notice: "Stopped.",
+          changedFiles: [],
+          skillsUsed: [],
+        });
         return true;
       }
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
@@ -1717,8 +1722,17 @@ describe("project workspace", () => {
     await waitFor(() => expect(stop).toBeEnabled());
     fireEvent.click(stop);
 
+    // Something the agent had already said, so `parts` is non-empty — which
+    // is the case where the panel renders the transcript and nothing else, and
+    // where a notice folded into `summary` used to disappear entirely.
+    runChannel?.onmessage({ type: "text", text: "Rewriting the abstract now" });
+    await screen.findByText(/Rewriting the abstract now/);
+
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("abort_agent", { sessionId: testSession.id }));
     expect(await screen.findByText("Stopped.")).toBeInTheDocument();
+    // Both: the half-finished reply stays, and it is visibly not a reply that
+    // simply ended.
+    expect(screen.getByText(/Rewriting the abstract now/)).toBeInTheDocument();
   });
 
   it("does not send while an input method is composing text", async () => {
