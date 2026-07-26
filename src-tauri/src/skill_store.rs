@@ -68,9 +68,18 @@ pub fn save(
     if let Some(original_name) = request.original_name.as_deref() {
         validate_name(original_name)?;
         if original_name != name {
+            // A skill is a directory: `references/`, `evals/` and scripts sit
+            // beside SKILL.md and the model reads them at run time. Move the
+            // whole thing, because deleting it and writing back only SKILL.md
+            // destroyed everything else in it without saying so.
             let old = directory.join(original_name);
-            if old.exists() {
-                fs::remove_dir_all(old).map_err(err)?;
+            let new = directory.join(&name);
+            if old.is_dir() {
+                if new.exists() {
+                    fs::remove_dir_all(&new).map_err(err)?;
+                }
+                fs::create_dir_all(&directory).map_err(err)?;
+                fs::rename(&old, &new).map_err(err)?;
             }
         }
     }
@@ -219,6 +228,43 @@ fn err(error: impl std::fmt::Display) -> String {
 mod tests {
     use super::*;
     use uuid::Uuid;
+
+    /// A skill is a directory, not a file: `references/`, `evals/` and scripts
+    /// sit beside SKILL.md and the model reads them at run time. Renaming one
+    /// in Settings removed the old directory and wrote back only SKILL.md,
+    /// so everything beside it was destroyed with nothing said.
+    #[test]
+    fn renaming_a_skill_keeps_the_files_beside_its_skill_md() {
+        let base = std::env::temp_dir().join(format!("lattice-skill-rename-{}", Uuid::new_v4()));
+        let root = base.join("project");
+        let runtime = AgentRuntime::new(base.join("pi"), base.join("assets"), base.join("config"));
+        let skills = root.join(".research/skills");
+        fs::create_dir_all(skills.join("old-name/references")).unwrap();
+        fs::write(
+            skills.join("old-name/SKILL.md"),
+            "---\nname: old-name\ndescription: Before.\n---\n",
+        )
+        .unwrap();
+        fs::write(skills.join("old-name/references/notes.md"), "kept\n").unwrap();
+
+        save(
+            &root,
+            &runtime,
+            AgentSkillSaveRequest {
+                original_name: Some("old-name".to_string()),
+                scope: "project".to_string(),
+                content: "---\nname: new-name\ndescription: After.\n---\n".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert!(!skills.join("old-name").exists());
+        assert_eq!(
+            fs::read_to_string(skills.join("new-name/references/notes.md")).unwrap(),
+            "kept\n"
+        );
+        let _ = fs::remove_dir_all(base);
+    }
 
     #[test]
     fn project_skills_override_bundled_skills_and_can_be_disabled() {
