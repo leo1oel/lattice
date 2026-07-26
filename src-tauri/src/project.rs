@@ -898,15 +898,21 @@ pub fn references(root: &Path) -> Result<Vec<ReferenceInfo>, String> {
 const REFERENCE_COMMANDS: &[&str] = &["ref", "eqref", "pageref", "autoref", "cref", "Cref"];
 const CITATION_COMMANDS: &[&str] = &[
     "cite",
+    "nocite",
     "citep",
     "citet",
+    "citeyear",
+    "citeyearpar",
     "citealp",
     "citealt",
     "citeauthor",
+    "supercite",
     "parencite",
+    "smartcite",
     "textcite",
     "autocite",
     "footcite",
+    "fullcite",
 ];
 
 fn iter_tex_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
@@ -1073,7 +1079,7 @@ fn collect_citation_edits(root: &Path, key: &str) -> Result<Vec<ReferenceEdit>, 
     let mut edits = Vec::new();
     for (path, source) in iter_tex_sources(root)? {
         for (from, to, found) in find_command_argument_keys(&source, CITATION_COMMANDS) {
-            if found != key {
+            if !found.eq_ignore_ascii_case(key) {
                 continue;
             }
             edits.push((
@@ -1161,6 +1167,28 @@ pub fn find_citation_occurrences(root: &Path, key: &str) -> Result<Vec<SymbolOcc
         .map(|(path, _, _, line, role, snippet)| SymbolOccurrence {
             kind: "citation".to_string(),
             symbol: key.trim().to_string(),
+            role,
+            path,
+            line,
+            snippet,
+        })
+        .collect())
+}
+
+/// Manuscript uses that make removing a bibliography key unsafe. A wildcard
+/// `\nocite{*}` applies to every key, unlike rename/find operations where `*`
+/// must never be treated as the requested symbol.
+pub fn find_citation_usages(root: &Path, key: &str) -> Result<Vec<SymbolOccurrence>, String> {
+    validate_symbol_name("citation key", key)?;
+    let key = key.trim();
+    let mut edits = collect_citation_edits(root, key)?;
+    edits.extend(collect_citation_edits(root, "*")?);
+    Ok(edits
+        .into_iter()
+        .filter(|(_, _, _, _, role, _)| role == "reference")
+        .map(|(path, _, _, line, role, snippet)| SymbolOccurrence {
+            kind: "citation".to_string(),
+            symbol: key.to_string(),
             role,
             path,
             line,

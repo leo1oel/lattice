@@ -1,7 +1,6 @@
 // The Discover panel's search: alphaXiv full-text first (body-wording matches),
-// OpenAlex second for citation-graph reach. OpenAlex hits without an arXiv id
-// are dropped — you can't fetch or ground them here — while every alphaXiv hit
-// is kept. Results are deduped by versionless arXiv id with alphaXiv winning,
+// OpenAlex second for citation-graph reach. Results are deduped by versionless
+// arXiv id, then DOI/source identity/title, with alphaXiv winning,
 // so a paper both indexes know appears once, on top, as an alphaXiv row.
 
 use crate::alphaxiv::{self, AlphaxivWork};
@@ -33,22 +32,30 @@ fn merge(alpha: Vec<AlphaxivWork>, open: Vec<OpenAlexWork>) -> Vec<LiteratureHit
 
     for work in alpha {
         if let Some(id) = arxiv_shaped(&work.paper_id) {
-            seen.push(arxiv_base_id(id).to_string());
+            seen.push(format!("arxiv:{}", arxiv_base_id(id).to_lowercase()));
+        } else {
+            seen.push(format!("title:{}", work.title.trim().to_lowercase()));
         }
         hits.push(from_alphaxiv(work));
     }
 
     for work in open {
-        // OpenAlex is citation-graph reach; a hit we can't fetch as an arXiv
-        // preprint is noise in this panel, so require an arXiv id.
-        let Some(arxiv_id) = work.arxiv_id.clone() else {
-            continue;
-        };
-        let base = arxiv_base_id(&arxiv_id).to_string();
-        if seen.contains(&base) {
+        let identity = work
+            .arxiv_id
+            .as_deref()
+            .map(|id| format!("arxiv:{}", arxiv_base_id(id).to_lowercase()))
+            .or_else(|| {
+                work.doi
+                    .as_deref()
+                    .map(|doi| format!("doi:{}", doi.trim().to_lowercase()))
+            })
+            .unwrap_or_else(|| format!("openalex:{}", work.id.trim().to_lowercase()));
+        let title_identity = format!("title:{}", work.title.trim().to_lowercase());
+        if seen.contains(&identity) || seen.contains(&title_identity) {
             continue;
         }
-        seen.push(base);
+        seen.push(identity);
+        seen.push(title_identity);
         hits.push(from_openalex(work));
     }
 
@@ -126,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn alphaxiv_leads_and_openalex_arxiv_only_follows() {
+    fn alphaxiv_leads_and_non_arxiv_openalex_follows() {
         let hits = merge(
             vec![alpha("2401.00001", "Alpha One")],
             vec![
@@ -140,7 +147,11 @@ mod tests {
             .collect();
         assert_eq!(
             sources,
-            vec![("alphaxiv", "Alpha One"), ("openalex", "Open Two")]
+            vec![
+                ("alphaxiv", "Alpha One"),
+                ("openalex", "No arXiv here"),
+                ("openalex", "Open Two")
+            ]
         );
     }
 

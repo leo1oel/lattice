@@ -1,12 +1,12 @@
 //! One-click TeX install helpers for macOS (opens a Terminal `.command` script).
 
-use std::fs;
-use std::io::Write;
-use std::process::Command;
+#[cfg(target_os = "macos")]
+use std::{fs, io::Write, process::Command};
 
-#[cfg(unix)]
+#[cfg(target_os = "macos")]
 use std::os::unix::fs::PermissionsExt;
 
+#[cfg(target_os = "macos")]
 const BASIC_SCRIPT: &str = r#"#!/bin/bash
 set -euo pipefail
 echo "=== Lattice: BasicTeX install ==="
@@ -32,8 +32,8 @@ ensure_brew() {
 ensure_brew
 
 # Optional editor/agent helpers the TeX doctor reports: texlab (LaTeX language
-# server), uv (Python research skills + arXiv paper import), node → npx (bibcite
-# .bib formatting). Installed FIRST, before the TeX steps that can abort on a
+# server), uv (literature fetching + bibliography management), and node (agent
+# runtime support). Installed FIRST, before the TeX steps that can abort on a
 # tlmgr/font error, so they land regardless of how the TeX install goes. Each is
 # `|| echo`-guarded so a failure here never aborts the run.
 echo "Installing optional editor/agent tools (texlab, uv, node) — safe to skip if these fail…"
@@ -176,6 +176,7 @@ echo ""
 read -r -p "Press Enter to close this window…"
 "#;
 
+#[cfg(target_os = "macos")]
 const FULL_SCRIPT: &str = r#"#!/bin/bash
 set -euo pipefail
 echo "=== Lattice: MacTeX full install (~4 GB) ==="
@@ -202,8 +203,8 @@ ensure_brew() {
 ensure_brew
 
 # Optional editor/agent helpers the TeX doctor reports (MacTeX already ships
-# biber + texcount): texlab (LaTeX language server), uv (Python research skills +
-# arXiv import), node → npx (bibcite .bib formatting). Installed FIRST so they
+# biber + texcount): texlab (LaTeX language server), uv (literature fetching +
+# bibliography management), and node (agent runtime support). Installed FIRST so they
 # land even if the long MacTeX install hits trouble. `|| echo`-guarded.
 echo "Installing optional editor/agent tools (texlab, uv, node) — safe to skip if these fail…"
 brew install texlab || echo "  (skipped texlab — install later with: brew install texlab)"
@@ -252,7 +253,7 @@ pub fn start_tex_install(kind: &str) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
         let _ = kind;
-        return Err("One-click TeX install is only available on macOS.".into());
+        Err("One-click TeX install is only available on macOS.".into())
     }
 
     #[cfg(target_os = "macos")]

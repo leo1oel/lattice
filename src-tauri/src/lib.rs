@@ -1698,6 +1698,41 @@ async fn import_reference(
 }
 
 #[tauri::command]
+async fn fetch_paper(
+    state: tauri::State<'_, AppState>,
+    arxiv_id: String,
+) -> Result<papers::FetchResult, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || papers::fetch_paper(&root, &arxiv_id))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn upgrade_bibliography(
+    state: tauri::State<'_, AppState>,
+    dry_run: Option<bool>,
+) -> Result<papers::UpgradeResult, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        papers::upgrade_bibliography(&root, dry_run.unwrap_or(false))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn remove_reference(
+    state: tauri::State<'_, AppState>,
+    key: String,
+) -> Result<papers::RemoveResult, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || papers::remove_reference(&root, &key))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 fn list_papers(state: tauri::State<'_, AppState>) -> Result<Vec<PaperSummary>, String> {
     papers::list_papers(&current_root(&state)?)
 }
@@ -1717,28 +1752,6 @@ async fn read_paper_blog(
     tauri::async_runtime::spawn_blocking(move || papers::read_paper_blog(&root, &arxiv_id))
         .await
         .map_err(|error| format!("The paper overview task stopped unexpectedly: {error}"))?
-}
-
-#[tauri::command]
-fn rename_paper(
-    state: tauri::State<'_, AppState>,
-    arxiv_id: String,
-    title: String,
-) -> Result<PaperSummary, String> {
-    papers::rename_paper(&current_root(&state)?, &arxiv_id, &title)
-}
-
-#[tauri::command]
-fn delete_paper(
-    state: tauri::State<'_, AppState>,
-    arxiv_id: Option<String>,
-    citation_key: Option<String>,
-) -> Result<(), String> {
-    papers::delete_paper(
-        &current_root(&state)?,
-        arxiv_id.as_deref(),
-        citation_key.as_deref(),
-    )
 }
 
 #[tauri::command]
@@ -2127,28 +2140,83 @@ fn delete_mcp_server(
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-/// A reference added by the agent, through the same code the Papers box uses.
+/// Literature operations requested by the agent through the same domain code
+/// used by the app's own interface.
 ///
 /// The agent runs in a sidecar process and cannot call into the app, so the
-/// app offers itself: it is handed its own executable path and runs
-/// `lattice cite <query>` in the project directory. Reimplementing the import
-/// in the extension's TypeScript was the alternative, and two implementations
-/// of "add a reference" would have drifted the first time either changed —
-/// which is the whole reason for routing both through one entry point.
+/// app offers a private JSON dispatcher through its own executable. Keeping
+/// search, fetch, cite, upgrade, and removal here avoids a second TypeScript
+/// implementation drifting from the UI.
 ///
 /// Returns true when this was a CLI invocation and the process should exit.
 /// Must run before anything touches Tauri or AppKit.
+#[derive(serde::Deserialize)]
+#[serde(tag = "tool", content = "params", rename_all = "snake_case")]
+enum LiteratureRequest {
+    SearchLiterature {
+        query: String,
+        #[serde(default)]
+        precise: bool,
+        #[serde(default)]
+        page: u32,
+    },
+    FetchPaper {
+        #[serde(rename = "arxivId")]
+        arxiv_id: String,
+    },
+    Cite {
+        query: String,
+    },
+    UpgradeBibliography {
+        #[serde(rename = "dryRun", default)]
+        dry_run: bool,
+    },
+    RemoveReference {
+        key: String,
+    },
+}
+
 fn run_cli() -> bool {
     let mut args = std::env::args().skip(1);
-    if args.next().as_deref() != Some("cite") {
+    if args.next().as_deref() != Some("literature") {
         return false;
     }
     let Some(root) = std::env::var_os("LATTICE_PROJECT_ROOT").filter(|v| !v.is_empty()) else {
         eprintln!("LATTICE_PROJECT_ROOT is not set.");
         std::process::exit(2);
     };
-    let query = args.collect::<Vec<_>>().join(" ");
-    match papers::import_reference(std::path::Path::new(&root), &query) {
+    let raw = args.collect::<Vec<_>>().join(" ");
+    let request: LiteratureRequest = match serde_json::from_str(&raw) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("Invalid literature request: {error}");
+            std::process::exit(2)
+        }
+    };
+    let root = std::path::Path::new(&root);
+    let result = match request {
+        LiteratureRequest::SearchLiterature {
+            query,
+            precise,
+            page,
+        } => literature::search(&query, precise, page)
+            .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string())),
+        LiteratureRequest::FetchPaper { arxiv_id } => papers::fetch_paper(root, &arxiv_id)
+            .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string())),
+        LiteratureRequest::Cite { query } => {
+            papers::import_reference_with_history(root, &query, papers::HistoryMode::Defer)
+                .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string()))
+        }
+        LiteratureRequest::UpgradeBibliography { dry_run } => {
+            papers::upgrade_bibliography_with_history(root, dry_run, papers::HistoryMode::Defer)
+                .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string()))
+        }
+        LiteratureRequest::RemoveReference { key } => {
+            papers::remove_reference_with_history(root, &key, papers::HistoryMode::Defer)
+                .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string()))
+        }
+    };
+    match result {
         Ok(result) => {
             println!(
                 "{}",
@@ -2320,11 +2388,12 @@ pub fn run() {
             synctex_edit,
             synctex_view,
             import_reference,
+            fetch_paper,
+            upgrade_bibliography,
+            remove_reference,
             list_papers,
             read_paper,
             read_paper_blog,
-            rename_paper,
-            delete_paper,
             run_agent,
             abort_agent,
             subscription_status,

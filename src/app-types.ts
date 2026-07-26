@@ -152,7 +152,6 @@ export type PaperSummary = {
 
 export type RenameTarget =
   | { kind: "entry"; path: string; name: string }
-  | { kind: "paper"; paper: PaperSummary }
   | { kind: "label"; label: string }
   | { kind: "citation"; key: string }
   | { kind: "environment"; name: string }

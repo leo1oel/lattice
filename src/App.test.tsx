@@ -644,8 +644,8 @@ describe("project workspace", () => {
         ];
       }
       if (command === "list_history") return [];
-      if (command === "import_reference") {
-        return { paperPath: ".research/papers/1412.6980/paper.md", arxivId: "1412.6980", title: "Adam", citationKey: "kingma2015adam", citationOutput: "", alreadyImported: false };
+      if (command === "fetch_paper") {
+        return { paperPath: ".research/papers/1412.6980/paper.md", arxivId: "1412.6980", reused: false };
       }
       // Importing refreshes the project afterwards.
       if (command === "refresh_project") return snapshot;
@@ -668,7 +668,7 @@ describe("project workspace", () => {
     expect(papers.getByTitle("Attention Is All You Need")).toBeEnabled();
 
     fireEvent.click(citedOnly);
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_reference", { input: "1412.6980" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("fetch_paper", { arxivId: "1412.6980" }));
   });
 
   it("adds a work with no preprint through the same box, and says there is nothing to open", async () => {
@@ -792,7 +792,7 @@ describe("project workspace", () => {
     });
   });
 
-  it("renames project items and paper display titles from their context menus", async () => {
+  it("renames project items but keeps bibliography titles authoritative for papers", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -812,7 +812,6 @@ describe("project workspace", () => {
       if (command === "list_papers") return [paper];
       if (command === "list_history") return [];
       if (command === "rename_project_entry") return "paper.tex";
-      if (command === "rename_paper") return { ...paper, title: "Transformer" };
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
     render(<App />);
@@ -824,10 +823,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("rename_project_entry", { path: "main.tex", newName: "paper" }));
 
     fireEvent.contextMenu(screen.getByTitle("Attention Is All You Need"));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
-    fireEvent.change(screen.getByLabelText("New name"), { target: { value: "Transformer" } });
-    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("rename_paper", { arxivId: "1706.03762", title: "Transformer" }));
+    expect(screen.queryByRole("menuitem", { name: "Rename" })).not.toBeInTheDocument();
   });
 
   it("reveals project files and imported papers in Finder from the context menu", async () => {
@@ -1486,7 +1482,8 @@ describe("project workspace", () => {
       if (command === "list_papers") return [paper];
       if (command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
       if (command === "create_project_entry") return "sections/method.tex";
-      if (command === "delete_project_entry" || command === "delete_paper") return undefined;
+      if (command === "delete_project_entry") return undefined;
+      if (command === "remove_reference") return { removed: true, blockers: [] };
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
 
@@ -1510,7 +1507,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByTitle("Delete notes.tex"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_project_entry", { path: "notes.tex" }));
     fireEvent.click(screen.getByTitle("Remove Attention Is All You Need"));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_paper", { arxivId: "1706.03762", citationKey: "vaswani2017attention" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("remove_reference", { key: "vaswani2017attention" }));
   });
 
   it("interleaves what the agent said with what it did, in order", async () => {

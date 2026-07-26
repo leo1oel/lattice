@@ -183,7 +183,7 @@ export function LiteratureDiscoveryPanel(props: {
           <button type="button" onClick={props.onClose}><X size={16} /></button>
         </div>
         <p className="drawer-copy">
-          alphaXiv full-text first, then OpenAlex citations (arXiv-only). Import an arXiv snapshot only when you intend to cite it; until then these hits stay outside project evidence.
+          Search alphaXiv full text and OpenAlex citations. Results may include arXiv papers, published works, and web sources; adding one resolves it into the bibliography.
         </p>
         <form
           className="literature-search"
@@ -241,7 +241,7 @@ export function LiteratureDiscoveryPanel(props: {
                     <button
                       type="button"
                       disabled={busyId === key}
-                      title="Import arXiv snapshot + bibliography entry"
+                      title="Add bibliography entry and cache the arXiv paper"
                       onClick={() => {
                         setBusyId(key);
                         setError("");
@@ -255,7 +255,7 @@ export function LiteratureDiscoveryPanel(props: {
                       }}
                     >
                       {busyId === key ? <LoaderCircle className="spin" size={13} /> : <BookOpen size={13} />}
-                      Import
+                      Add
                     </button>
                   )
                 ) : null}

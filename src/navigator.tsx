@@ -70,7 +70,6 @@ export function Navigator(props: {
   onAddBibEntry: () => void;
   onDiscoverLiterature: () => void;
   onDeletePaper: (paper: PaperSummary) => void;
-  onRenamePaper: (paper: PaperSummary) => void;
   onEditBibEntry: (paper: PaperSummary) => void;
   importInput: string;
   setImportInput: (value: string) => void;
@@ -188,8 +187,8 @@ export function Navigator(props: {
               <ContextMenuItem onSelect={() => openCreateForm("folder", path, kind)}><FolderPlus size={14} />New folder</ContextMenuItem>
             </>
           )}
-          {(paper || path) && (
-            <ContextMenuItem onSelect={() => (paper ? props.onRenamePaper(paper) : props.onRenameEntry(path, label))}>
+          {path && !paper && (
+            <ContextMenuItem onSelect={() => props.onRenameEntry(path, label)}>
               <Pencil size={14} />Rename
             </ContextMenuItem>
           )}

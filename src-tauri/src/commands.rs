@@ -32,13 +32,9 @@ pub struct UvTool {
 /// Resolves arXiv ids, DOIs and titles to verified BibTeX, and owns the
 /// project's `.bib`.
 ///
-/// No upper bound, at its author's decision: it is written alongside Lattice by
-/// the same person, who keeps the output format stable, and a fix to how a
-/// reference resolves should reach people the day it is published rather than
-/// waiting for a Lattice release. The floor stays, so an old copy cannot
-/// satisfy it.
+/// Keep this within the CLI contract implemented and tested by this release.
 pub const BIBCITE: UvTool = UvTool {
-    requirement: "bibcite-cli>=0.6.1",
+    requirement: "bibcite-cli>=0.6.2,<0.7",
     binary: "bibcite",
     override_env: "LATTICE_BIBCITE_BIN",
 };
@@ -167,7 +163,7 @@ fn discover_texlive_bins(root: PathBuf) -> Vec<PathBuf> {
 fn macos_path_helper_directories() -> Vec<PathBuf> {
     #[cfg(not(target_os = "macos"))]
     {
-        return Vec::new();
+        Vec::new()
     }
 
     #[cfg(target_os = "macos")]

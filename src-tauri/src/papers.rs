@@ -13,30 +13,42 @@ use uuid::Uuid;
 #[serde(rename_all = "camelCase")]
 struct PaperMetadata {
     arxiv_id: String,
-    title: String,
-    citation_key: Option<String>,
-    /// Why the text is on disk.
-    ///
-    /// Papers is the list of works this project cites or is about to, so what
-    /// belongs in it is what someone chose to put there. The agent reading
-    /// thirty papers to survey a field writes thirty `paper.md` files, and
-    /// listing those would bury the handful that matter under everything that
-    /// was merely looked at. Anything already on disk predates the field and
-    /// was added through the panel, so `Library` is the default.
+    requested_arxiv_id: String,
     #[serde(default)]
-    source: PaperSource,
+    title: String,
+    schema_version: u32,
+    complete: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-enum PaperSource {
-    /// Added through the Papers panel: it is in the list whether or not the
-    /// citation has landed yet.
-    #[default]
-    Library,
-    /// Read by the agent while researching. Out of the list until it is cited,
-    /// at which point the `.bib` entry brings it in with its text attached.
-    Reading,
+pub struct FetchResult {
+    pub arxiv_id: String,
+    pub paper_path: String,
+    pub blog_path: Option<String>,
+    pub reused: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpgradeResult {
+    pub dry_run: bool,
+    pub changed: bool,
+    pub report: Value,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoveResult {
+    pub key: String,
+    pub removed: bool,
+    pub blockers: Vec<crate::models::SymbolOccurrence>,
+}
+
+#[derive(Clone, Copy)]
+pub enum HistoryMode {
+    Record,
+    Defer,
 }
 
 /// Add a work to the project's bibliography, with its full text when we can
@@ -51,92 +63,108 @@ enum PaperSource {
 /// A work with no full text is not a lesser citation: it appears in Papers and
 /// in the `.bib` exactly like the rest, just without anything to open.
 pub fn import_reference(root: &Path, input: &str) -> Result<ImportResult, String> {
-    let manifest = project::read_manifest(root)?;
-    let Some(arxiv_id) = parse_arxiv_id(input) else {
-        return import_citation_only(root, &manifest, input);
-    };
-    if let Some(existing) = find_imported_paper(root, &arxiv_id)? {
-        return Ok(ImportResult {
-            paper_path: format!(".research/papers/{}/paper.md", existing.arxiv_id),
-            arxiv_id: existing.arxiv_id,
-            title: existing.title,
-            citation_key: existing.citation_key,
-            citation_output: String::new(),
-            already_imported: true,
-        });
-    }
-    let temp = std::env::temp_dir().join(format!("research-writer-import-{}", Uuid::new_v4()));
-    fs::create_dir_all(&temp).map_err(err)?;
-    let markdown_path = temp.join("paper.md");
-    let arxiv_cache = temp.join(".arxiv2md_cache");
-    let bibliography_path = temp.join("references.bib");
-    fs::create_dir_all(&arxiv_cache).map_err(err)?;
-    let project_bibliography = project::safe_path(root, &manifest.primary_bibliography)?;
-    if project_bibliography.exists() {
-        fs::copy(&project_bibliography, &bibliography_path).map_err(err)?;
-    } else {
-        fs::write(&bibliography_path, "").map_err(err)?;
-    }
-
-    let markdown_output = commands::ARXIV2MD
-        .command()
-        .current_dir(&temp)
-        .env("ARXIV2MD_CACHE_PATH", &arxiv_cache)
-        .arg(&arxiv_id)
-        .arg("--frontmatter")
-        .arg("-o")
-        .arg(&markdown_path)
-        .output()
-        .map_err(|error| uv_tool_spawn_error("arxiv2md", &error))?;
-    ensure_success("arxiv2md", &markdown_output)?;
-    let markdown = fs::read_to_string(&markdown_path).map_err(err)?;
-    let title = parse_title(&markdown).unwrap_or_else(|| format!("arXiv {arxiv_id}"));
-
-    let citation_output = run_bibcite(&bibliography_path, &arxiv_id)?;
-    let bibliography = fs::read_to_string(&bibliography_path).map_err(err)?;
-    let citation_key = parse_citation_key(&citation_output);
-    let paper_relative = format!(".research/papers/{arxiv_id}/paper.md");
-    let metadata_relative = format!(".research/papers/{arxiv_id}/metadata.json");
-    let metadata = serde_json::to_string_pretty(&PaperMetadata {
-        arxiv_id: arxiv_id.clone(),
-        title: title.clone(),
-        citation_key: citation_key.clone(),
-        source: PaperSource::Library,
-    })
-    .map_err(err)?;
-    // The alphaXiv overview is the default reading view. Fetching it is
-    // best-effort: a network failure or a paper with no report must not fail
-    // the import — the reader falls back to the full text.
-    let blog = crate::alphaxiv::fetch_overview(&arxiv_id).unwrap_or(None);
-    let mut edits = vec![
-        (paper_relative.clone(), markdown),
-        (metadata_relative, format!("{metadata}\n")),
-        (manifest.primary_bibliography, bibliography),
-    ];
-    if let Some(blog) = blog {
-        edits.push((format!(".research/papers/{arxiv_id}/blog.md"), blog));
-    }
-    project::apply_transaction(root, &format!("Import arXiv {arxiv_id}"), edits)?;
-    let _ = fs::remove_dir_all(temp);
-
-    Ok(ImportResult {
-        arxiv_id,
-        title,
-        paper_path: paper_relative,
-        citation_key,
-        citation_output,
-        already_imported: false,
-    })
+    import_reference_with_history(root, input, HistoryMode::Record)
 }
 
-fn find_imported_paper(root: &Path, requested_id: &str) -> Result<Option<PaperSummary>, String> {
-    let requested_base = arxiv_base_id(requested_id);
-    // Only a paper that already has full text counts as imported. A cited-only
-    // work (a .bib entry with no paper.md, e.g. one the agent added) must fall
-    // through so "get full text" actually downloads the paper and blog.
-    Ok(list_papers(root)?
-        .into_iter()
-        .find(|paper| paper.has_full_text && arxiv_base_id(&paper.arxiv_id) == requested_base))
+pub(crate) fn import_reference_with_history(
+    root: &Path,
+    input: &str,
+    history: HistoryMode,
+) -> Result<ImportResult, String> {
+    let manifest = project::read_manifest(root)?;
+    import_citation(root, &manifest, input, history)
+}
+
+/// Cache a complete, unfiltered arxiv2md conversion without touching the bibliography.
+pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> {
+    let requested =
+        parse_arxiv_id(requested).ok_or_else(|| "Enter a valid arXiv id or URL.".to_string())?;
+    validate_arxiv_id(&requested)?;
+    let base = arxiv_base_id(&requested).to_string();
+    let dir = project::safe_path(root, &format!(".research/papers/{base}"))?;
+    let metadata_path = dir.join("metadata.json");
+    let valid = fs::read_to_string(&metadata_path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok())
+        .is_some_and(|m| {
+            m.schema_version == 1
+                && m.complete
+                && m.arxiv_id.eq_ignore_ascii_case(&base)
+                && dir.join("paper.md").is_file()
+                && (requested == base || m.requested_arxiv_id.eq_ignore_ascii_case(&requested))
+        });
+    if valid {
+        return Ok(FetchResult {
+            arxiv_id: base.clone(),
+            paper_path: format!(".research/papers/{base}/paper.md"),
+            blog_path: dir
+                .join("blog.md")
+                .is_file()
+                .then(|| format!(".research/papers/{base}/blog.md")),
+            reused: true,
+        });
+    }
+    let papers_root = project::safe_path(root, ".research/papers")?;
+    fs::create_dir_all(&papers_root).map_err(err)?;
+    let temp_root = papers_root.join(format!(".fetch-{}", Uuid::new_v4()));
+    let output_dir = temp_root.join("output");
+    fs::create_dir_all(&output_dir).map_err(err)?;
+    let output_path = output_dir.join("paper.md");
+    let output = commands::ARXIV2MD
+        .command()
+        .current_dir(&output_dir)
+        .arg(&requested)
+        .arg("--frontmatter")
+        .arg("-o")
+        .arg(&output_path)
+        .output()
+        .map_err(|e| uv_tool_spawn_error("arxiv2md", &e))?;
+    ensure_success("arxiv2md", &output)?;
+    if !output_path.is_file() {
+        return Err("arxiv2md did not produce paper.md".to_string());
+    }
+    let title = parse_title(&fs::read_to_string(&output_path).map_err(err)?)
+        .unwrap_or_else(|| format!("arXiv {base}"));
+    let metadata = PaperMetadata {
+        arxiv_id: base.clone(),
+        requested_arxiv_id: requested,
+        title,
+        schema_version: 1,
+        complete: true,
+    };
+    fs::write(
+        output_dir.join("metadata.json"),
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&metadata).map_err(err)?
+        ),
+    )
+    .map_err(err)?;
+    if let Ok(Some(blog)) = crate::alphaxiv::fetch_overview(&base) {
+        fs::write(output_dir.join("blog.md"), blog).map_err(err)?;
+    }
+    fs::create_dir_all(dir.parent().unwrap()).map_err(err)?;
+    let backup = dir.with_extension(format!("old-{}", Uuid::new_v4()));
+    if dir.exists() {
+        fs::rename(&dir, &backup).map_err(err)?;
+    }
+    if let Err(e) = fs::rename(&output_dir, &dir) {
+        if backup.exists() {
+            let _ = fs::rename(&backup, &dir);
+        }
+        return Err(err(e));
+    }
+    let _ = fs::remove_dir_all(backup);
+    let _ = fs::remove_dir_all(temp_root);
+    Ok(FetchResult {
+        arxiv_id: base.clone(),
+        paper_path: format!(".research/papers/{base}/paper.md"),
+        blog_path: dir
+            .join("blog.md")
+            .is_file()
+            .then(|| format!(".research/papers/{base}/blog.md")),
+        reused: false,
+    })
 }
 
 pub(crate) fn arxiv_base_id(arxiv_id: &str) -> &str {
@@ -160,28 +188,28 @@ pub(crate) fn arxiv_base_id(arxiv_id: &str) -> &str {
 pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
     let mut imported = imported_papers(root)?;
     let mut papers = Vec::new();
-    for citation in project::citations(root)? {
+    let manifest = project::read_manifest(root)?;
+    let bibliography =
+        fs::read_to_string(project::safe_path(root, &manifest.primary_bibliography)?)
+            .unwrap_or_default();
+    for citation in project::parse_bibliography(&bibliography) {
         // Join on either identifier. Keying on the citation key alone missed
         // every paper whose metadata.json predates that field or whose key was
         // later rewritten: the fetched text sat right there while the row
         // claimed the work had none and offered to download it again.
         let matched = imported
             .iter()
-            .position(|(id, metadata)| {
-                let by_key = metadata
-                    .citation_key
-                    .as_deref()
-                    .is_some_and(|key| key.eq_ignore_ascii_case(&citation.key));
+            .position(|(id, _metadata)| {
                 let by_arxiv = citation.arxiv_id.as_deref().is_some_and(|cited| {
                     arxiv_base_id(cited).eq_ignore_ascii_case(arxiv_base_id(id))
                 });
-                by_key || by_arxiv
+                by_arxiv
             })
             .map(|index| imported.remove(index));
-        let title = match &matched {
-            Some((_, metadata)) if !metadata.title.trim().is_empty() => metadata.title.clone(),
-            _ if !citation.title.trim().is_empty() => citation.title.clone(),
-            _ => citation.key.clone(),
+        let title = if !citation.title.trim().is_empty() {
+            citation.title.clone()
+        } else {
+            citation.key.clone()
         };
         papers.push(PaperSummary {
             // Keep whichever id can actually fetch the text: the imported one,
@@ -196,25 +224,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             has_full_text: matched.is_some(),
         });
     }
-    // Papers imported before their citation landed, or whose key was rewritten.
-    // Not what the agent merely read: an uncited read is not part of the
-    // project's literature, and once it is cited the loop above has already
-    // claimed it — with its text, joined on the arXiv id.
-    for (arxiv_id, metadata) in imported {
-        if metadata.source == PaperSource::Reading {
-            continue;
-        }
-        papers.push(PaperSummary {
-            title: if metadata.title.trim().is_empty() {
-                format!("arXiv {arxiv_id}")
-            } else {
-                metadata.title
-            },
-            citation_key: metadata.citation_key,
-            arxiv_id,
-            has_full_text: true,
-        });
-    }
+    // The bibliography is strictly authoritative; unclaimed cache entries stay hidden.
     papers.sort_by_key(|paper| paper.title.to_lowercase());
     Ok(papers)
 }
@@ -226,31 +236,55 @@ fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata)>, String> 
         return Ok(Vec::new());
     }
     let mut imported = Vec::new();
-    for entry in fs::read_dir(directory).map_err(err)? {
-        let entry = entry.map_err(err)?;
-        let markdown_path = entry.path().join("paper.md");
-        if !markdown_path.exists() {
-            continue;
-        }
-        let arxiv_id = entry.file_name().to_string_lossy().to_string();
+    for paper_directory in paper_cache_directories(&directory)? {
+        let markdown_path = paper_directory.join("paper.md");
+        let arxiv_id = paper_directory
+            .strip_prefix(&directory)
+            .map_err(err)?
+            .to_string_lossy()
+            .replace(std::path::MAIN_SEPARATOR, "/");
         let markdown = fs::read_to_string(markdown_path).map_err(err)?;
-        // No metadata beside the text means nothing here wrote it: the agent
-        // fetched the paper while reading. That is the whole contract the
-        // find-and-read-papers skill has to keep — drop `paper.md` in the
-        // right directory and nothing else — so the marker is its absence
-        // rather than a JSON file a model has to get right.
-        let metadata = fs::read_to_string(entry.path().join("metadata.json"))
+        // Legacy or externally supplied text may have no metadata. Keep it
+        // readable, but do not treat it as a complete reusable tool cache.
+        let metadata = fs::read_to_string(paper_directory.join("metadata.json"))
             .ok()
             .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok())
             .unwrap_or_else(|| PaperMetadata {
                 arxiv_id: arxiv_id.clone(),
+                requested_arxiv_id: String::new(),
                 title: parse_title(&markdown).unwrap_or_default(),
-                citation_key: None,
-                source: PaperSource::Reading,
+                schema_version: 0,
+                complete: false,
             });
         imported.push((arxiv_id, metadata));
     }
     Ok(imported)
+}
+
+fn paper_cache_directories(directory: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut found = Vec::new();
+    for entry in fs::read_dir(directory).map_err(err)? {
+        let entry = entry.map_err(err)?;
+        if !entry.file_type().map_err(err)?.is_dir() {
+            continue;
+        }
+        let path = entry.path();
+        if path.join("paper.md").is_file() {
+            found.push(path);
+        } else {
+            // Legacy arXiv ids contain one slash (`archive/YYMMNNN`). Inspect
+            // exactly that second level and never follow symlinks.
+            for child in fs::read_dir(&path).map_err(err)? {
+                let child = child.map_err(err)?;
+                if child.file_type().map_err(err)?.is_dir()
+                    && child.path().join("paper.md").is_file()
+                {
+                    found.push(child.path());
+                }
+            }
+        }
+    }
+    Ok(found)
 }
 
 pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
@@ -306,116 +340,113 @@ pub fn read_paper_blog(root: &Path, arxiv_id: &str) -> Result<Option<String>, St
     }
 }
 
-pub fn rename_paper(root: &Path, arxiv_id: &str, title: &str) -> Result<PaperSummary, String> {
-    validate_arxiv_id(arxiv_id)?;
-    let title = title.trim();
-    if title.is_empty() {
-        return Err("Enter a paper title.".to_string());
+/// Remove only the primary bibliography entry, retaining any downloaded cache.
+pub fn remove_reference(root: &Path, key: &str) -> Result<RemoveResult, String> {
+    remove_reference_with_history(root, key, HistoryMode::Record)
+}
+
+pub(crate) fn remove_reference_with_history(
+    root: &Path,
+    key: &str,
+    history: HistoryMode,
+) -> Result<RemoveResult, String> {
+    let key = key.trim();
+    if key.is_empty() {
+        return Err("Enter a citation key to remove.".to_string());
     }
-    if title.chars().count() > 300 {
-        return Err("Keep the paper title under 300 characters.".to_string());
+    let blockers = citation_blockers(root, key)?;
+    if !blockers.is_empty() {
+        return Ok(RemoveResult {
+            key: key.to_string(),
+            removed: false,
+            blockers,
+        });
     }
-    let current = list_papers(root)?
+    let manifest = project::read_manifest(root)?;
+    let path = project::safe_path(root, &manifest.primary_bibliography)?;
+    let before = fs::read_to_string(&path).unwrap_or_default();
+    let exact_key = project::parse_bibliography(&before)
         .into_iter()
-        .find(|paper| paper.arxiv_id == arxiv_id)
-        .ok_or_else(|| "That imported paper no longer exists.".to_string())?;
-    let metadata = PaperMetadata {
-        arxiv_id: arxiv_id.to_string(),
-        title: title.to_string(),
-        citation_key: current.citation_key.clone(),
-        // Renaming happens from the Papers list, so by then it is the user's.
-        source: PaperSource::Library,
-    };
-    let metadata_path = root
-        .join(".research/papers")
-        .join(arxiv_id)
-        .join("metadata.json");
-    fs::write(
-        metadata_path,
-        format!(
-            "{}\n",
-            serde_json::to_string_pretty(&metadata).map_err(err)?
-        ),
-    )
-    .map_err(err)?;
-    Ok(PaperSummary {
-        arxiv_id: arxiv_id.to_string(),
-        title: title.to_string(),
-        citation_key: current.citation_key,
-        // Renaming only ever targets a paper that was fetched.
-        has_full_text: true,
+        .find(|entry| entry.key.eq_ignore_ascii_case(key))
+        .map(|entry| entry.key)
+        .ok_or_else(|| format!("Citation key `{key}` is not in the primary bibliography."))?;
+    let temp = std::env::temp_dir().join(format!("lattice-remove-{}", Uuid::new_v4()));
+    fs::create_dir_all(&temp).map_err(err)?;
+    let copy = temp.join("references.bib");
+    fs::write(&copy, &before).map_err(err)?;
+    run_bibcite_remove(&copy, &exact_key)?;
+    let after = fs::read_to_string(&copy).map_err(err)?;
+    let _ = fs::remove_dir_all(temp);
+    commit_bibliography(
+        root,
+        &manifest.primary_bibliography,
+        &after,
+        &format!("Remove {exact_key}"),
+        history,
+    )?;
+    Ok(RemoveResult {
+        key: exact_key,
+        removed: true,
+        blockers: Vec::new(),
     })
 }
 
-/// Remove a work from the project: its fetched text if there is any, and its
-/// bibliography entry if it has one.
-///
-/// Either half may be absent. A paper added through bibcite has a citation key
-/// and no directory; one imported before its citation landed has the reverse.
-/// Identifying by arXiv id alone used to reject the first case outright with
-/// "Invalid arXiv id", leaving those entries unmanageable from the panel.
-pub fn delete_paper(
+fn citation_blockers(
     root: &Path,
-    arxiv_id: Option<&str>,
-    citation_key: Option<&str>,
-) -> Result<(), String> {
-    let arxiv_id = arxiv_id.map(str::trim).filter(|value| !value.is_empty());
-    let citation_key = citation_key
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-    if arxiv_id.is_none() && citation_key.is_none() {
-        return Err("That paper has neither an arXiv id nor a citation key.".to_string());
-    }
+    key: &str,
+) -> Result<Vec<crate::models::SymbolOccurrence>, String> {
+    project::find_citation_usages(root, key)
+}
 
-    let paper_directory = match arxiv_id {
-        Some(id) => {
-            validate_arxiv_id(id)?;
-            let directory = root.join(".research/papers").join(id);
-            directory.exists().then_some(directory)
-        }
-        None => None,
-    };
+pub fn upgrade_bibliography(root: &Path, dry_run: bool) -> Result<UpgradeResult, String> {
+    upgrade_bibliography_with_history(root, dry_run, HistoryMode::Record)
+}
 
+pub(crate) fn upgrade_bibliography_with_history(
+    root: &Path,
+    dry_run: bool,
+    history: HistoryMode,
+) -> Result<UpgradeResult, String> {
     let manifest = project::read_manifest(root)?;
-    let bibliography_path = project::safe_path(root, &manifest.primary_bibliography)?;
-    let bibliography = fs::read_to_string(&bibliography_path).unwrap_or_default();
-    let citation_key = citation_key.map(str::to_string).or_else(|| {
-        paper_directory
-            .as_ref()
-            .and_then(|directory| fs::read_to_string(directory.join("metadata.json")).ok())
-            .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok())
-            .and_then(|item| item.citation_key)
-            .or_else(|| arxiv_id.and_then(|id| find_citation_key_for_arxiv(&bibliography, id)))
-    });
-
-    if paper_directory.is_none() && citation_key.is_none() {
-        return Err("That paper no longer exists.".to_string());
+    let path = project::safe_path(root, &manifest.primary_bibliography)?;
+    let before = fs::read_to_string(&path).unwrap_or_default();
+    let temp = std::env::temp_dir().join(format!("lattice-upgrade-{}", Uuid::new_v4()));
+    fs::create_dir_all(&temp).map_err(err)?;
+    let copy = temp.join("references.bib");
+    fs::write(&copy, &before).map_err(err)?;
+    let mut command = commands::BIBCITE.command();
+    command.arg("upgrade").arg("--no-tidy").arg(&copy);
+    if dry_run {
+        command.arg("--dry-run");
     }
-
-    if let Some(citation_key) = &citation_key {
-        let temp = std::env::temp_dir().join(format!("research-writer-delete-{}", Uuid::new_v4()));
-        fs::create_dir_all(&temp).map_err(err)?;
-        let temporary_bibliography = temp.join("references.bib");
-        fs::write(&temporary_bibliography, &bibliography).map_err(err)?;
-        let result = run_bibcite_remove(&temporary_bibliography, citation_key)
-            .and_then(|_| fs::read_to_string(&temporary_bibliography).map_err(err));
-        let _ = fs::remove_dir_all(&temp);
-        let updated_bibliography = result?;
-        project::apply_transaction(
+    let output = command
+        .output()
+        .map_err(|e| uv_tool_spawn_error("bibcite", &e))?;
+    ensure_success("bibcite", &output)?;
+    let report = serde_json::from_slice(&output.stdout)
+        .map_err(|error| format!("bibcite returned an invalid JSON report: {error}"))?;
+    let mut after = fs::read_to_string(&copy).map_err(err)?;
+    if !dry_run && after != before {
+        run_bibcite_tidy(&copy)?;
+        after = fs::read_to_string(&copy).map_err(err)?;
+        commit_bibliography(
             root,
-            &format!("Remove {citation_key}"),
-            vec![(manifest.primary_bibliography, updated_bibliography)],
+            &manifest.primary_bibliography,
+            &after,
+            "Upgrade bibliography",
+            history,
         )?;
     }
-
-    match paper_directory {
-        Some(directory) => fs::remove_dir_all(directory).map_err(err),
-        None => Ok(()),
-    }
+    let _ = fs::remove_dir_all(temp);
+    Ok(UpgradeResult {
+        dry_run,
+        changed: after != before,
+        report,
+    })
 }
 
 fn validate_arxiv_id(arxiv_id: &str) -> Result<(), String> {
-    if Regex::new(r"^\d{4}\.\d{4,5}(v\d+)?$|^[a-z-]+/\d{7}(v\d+)?$")
+    if Regex::new(r"(?i)^\d{4}\.\d{4,5}(v\d+)?$|^[a-z-]+(?:\.[a-z]{2})?/\d{7}(v\d+)?$")
         .unwrap()
         .is_match(arxiv_id)
     {
@@ -432,7 +463,9 @@ fn validate_arxiv_id(arxiv_id: &str) -> Result<(), String> {
 /// modern arXiv shape, and the app would go and look for a paper that does not
 /// exist instead of asking bibcite to resolve the DOI.
 fn parse_arxiv_id(input: &str) -> Option<String> {
-    let pattern = Regex::new(r"(?i)\b(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+/\d{7}(?:v\d+)?)\b").unwrap();
+    let pattern =
+        Regex::new(r"(?i)\b(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?/\d{7}(?:v\d+)?)\b")
+            .unwrap();
     pattern
         .captures(input.trim())
         .and_then(|capture| capture.get(1))
@@ -441,10 +474,11 @@ fn parse_arxiv_id(input: &str) -> Option<String> {
 
 /// Everything that is not an arXiv paper: resolve it, write the `.bib` entry,
 /// and stop there. There is no text to fetch and none is pretended.
-fn import_citation_only(
+fn import_citation(
     root: &Path,
     manifest: &crate::models::ProjectManifest,
     query: &str,
+    history: HistoryMode,
 ) -> Result<ImportResult, String> {
     let query = query.trim();
     if query.is_empty() {
@@ -463,40 +497,45 @@ fn import_citation_only(
 
     let citation_output = run_bibcite(&bibliography_path, query)?;
     let bibliography = fs::read_to_string(&bibliography_path).map_err(err)?;
-    let _ = fs::remove_dir_all(&temp);
-    let citation_key = parse_citation_key(&citation_output);
+    let citation_key = parse_citation_key(&citation_output)
+        .ok_or_else(|| "bibcite did not return a citation key.".to_string())?;
     // Whether the work was already cited, asked of the bibliography rather
     // than of the file's bytes: bibcite may tidy an entry it decides to keep,
     // and a reformat is not a new reference.
-    let already_imported = citation_key.as_deref().is_some_and(|key| {
-        project::parse_bibliography(&before)
-            .iter()
-            .any(|entry| entry.key.eq_ignore_ascii_case(key))
-    });
-    let title = citation_key
-        .as_deref()
-        .and_then(|key| {
-            project::parse_bibliography(&bibliography)
-                .into_iter()
-                .find(|entry| entry.key.eq_ignore_ascii_case(key))
-        })
-        .map(|entry| entry.title)
+    let already_imported = project::parse_bibliography(&before)
+        .iter()
+        .any(|entry| entry.key.eq_ignore_ascii_case(&citation_key));
+    let resolved_entry = project::parse_bibliography(&bibliography)
+        .into_iter()
+        .find(|entry| entry.key.eq_ignore_ascii_case(&citation_key))
+        .ok_or_else(|| "bibcite reported a key absent from its bibliography.".to_string())?;
+    let title = Some(resolved_entry.title.clone())
         .filter(|title| !title.trim().is_empty())
-        .or_else(|| citation_key.clone())
+        .or_else(|| Some(citation_key.clone()))
         .unwrap_or_else(|| query.to_string());
-
+    // A DOI/title may resolve to an entry carrying an arXiv eprint. Attach its
+    // cache only after bibcite has told us the identity; fetching never edits
+    // the bibliography itself.
+    let resolved_arxiv = resolved_entry.arxiv_id;
+    let fetched = match resolved_arxiv.as_deref() {
+        Some(id) => Some(fetch_paper(root, id)?),
+        None => None,
+    };
     if bibliography != before {
-        project::apply_transaction(
+        commit_bibliography(
             root,
-            &format!("Cite {}", citation_key.as_deref().unwrap_or(query)),
-            vec![(manifest.primary_bibliography.clone(), bibliography)],
+            &manifest.primary_bibliography,
+            &bibliography,
+            &format!("Cite {citation_key}"),
+            history,
         )?;
     }
+    let _ = fs::remove_dir_all(&temp);
     Ok(ImportResult {
-        arxiv_id: String::new(),
+        arxiv_id: resolved_arxiv.unwrap_or_default(),
         title,
-        paper_path: String::new(),
-        citation_key,
+        paper_path: fetched.map(|item| item.paper_path).unwrap_or_default(),
+        citation_key: Some(citation_key),
         citation_output,
         already_imported,
     })
@@ -506,67 +545,64 @@ fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
     let output = commands::BIBCITE
         .command()
         .arg("add")
+        .arg("--no-tidy")
         .arg(path)
         .arg(query)
         .output()
         .map_err(|error| uv_tool_spawn_error("bibcite", &error))?;
     ensure_success("bibcite", &output)?;
-    Ok(format!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    ))
+    let report = String::from_utf8(output.stdout).map_err(err)?;
+    serde_json::from_str::<Value>(&report)
+        .map_err(|error| format!("bibcite returned an invalid JSON report: {error}"))?;
+    run_bibcite_tidy(path)?;
+    Ok(report)
 }
 
 fn run_bibcite_remove(path: &PathBuf, key: &str) -> Result<(), String> {
     let output = commands::BIBCITE
         .command()
         .arg("remove")
+        .arg("--no-tidy")
         .arg(path)
         .arg(key)
         .output()
         .map_err(|error| uv_tool_spawn_error("bibcite", &error))?;
-    ensure_success("bibcite", &output)
+    ensure_success("bibcite", &output)?;
+    serde_json::from_slice::<Value>(&output.stdout)
+        .map_err(|error| format!("bibcite returned an invalid JSON report: {error}"))?;
+    run_bibcite_tidy(path)
 }
 
-fn find_citation_key_for_arxiv(bibliography: &str, arxiv_id: &str) -> Option<String> {
-    let bytes = bibliography.as_bytes();
-    let mut index = 0;
-    while index < bytes.len() {
-        let Some(at_offset) = bibliography[index..].find('@') else {
-            break;
-        };
-        let at = index + at_offset;
-        let Some(open_offset) = bibliography[at..].find('{') else {
-            break;
-        };
-        let open = at + open_offset;
-        let Some(comma_offset) = bibliography[open + 1..].find(',') else {
-            break;
-        };
-        let comma = open + 1 + comma_offset;
-        let key = bibliography[open + 1..comma].trim();
-        let mut depth = 1i32;
-        let mut end = comma + 1;
-        for (offset, character) in bibliography[open + 1..].char_indices() {
-            match character {
-                '{' => depth += 1,
-                '}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        end = open + 1 + offset + character.len_utf8();
-                        break;
-                    }
-                }
-                _ => {}
-            }
+fn run_bibcite_tidy(path: &Path) -> Result<(), String> {
+    let output = commands::BIBCITE
+        .command()
+        .arg("tidy")
+        .arg(path)
+        .output()
+        .map_err(|error| uv_tool_spawn_error("bibcite", &error))?;
+    ensure_success("bibcite tidy", &output)
+}
+
+fn commit_bibliography(
+    root: &Path,
+    relative: &str,
+    contents: &str,
+    label: &str,
+    history: HistoryMode,
+) -> Result<(), String> {
+    match history {
+        HistoryMode::Record => {
+            project::apply_transaction(
+                root,
+                label,
+                vec![(relative.to_string(), contents.to_string())],
+            )?;
         }
-        if bibliography[at..end].contains(arxiv_id) && !key.is_empty() {
-            return Some(key.to_string());
+        HistoryMode::Defer => {
+            fs::write(project::safe_path(root, relative)?, contents).map_err(err)?;
         }
-        index = end.max(at + 1);
     }
-    None
+    Ok(())
 }
 
 /// The citation key bibcite settled on, out of its report.
@@ -782,15 +818,6 @@ mod tests {
     }
 
     #[test]
-    fn finds_a_legacy_imports_citation_key_by_arxiv_id() {
-        let bibliography = "@article{vaswani2017attention,\n  eprint = {1706.03762},\n  title = {Attention {Is} All You Need}\n}\n";
-        assert_eq!(
-            find_citation_key_for_arxiv(bibliography, "1706.03762"),
-            Some("vaswani2017attention".to_string())
-        );
-    }
-
-    #[test]
     fn lists_cited_works_even_when_only_the_bibliography_knows_them() {
         let parent = std::env::temp_dir().join(format!("lattice-paper-list-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
@@ -837,6 +864,120 @@ mod tests {
     }
 
     #[test]
+    fn lists_only_the_manifest_primary_bibliography() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-primary-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@book{primary, title={Primary source}}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("supplement.bib"),
+            "@book{secondary, title={Completion only}}\n",
+        )
+        .unwrap();
+
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 1);
+        assert_eq!(papers[0].citation_key.as_deref(), Some("primary"));
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn remove_is_blocked_by_nocite_and_preserves_the_cache() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-blocker-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(root.join("main.tex"), "\\nocite{KEEP}\n").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{keep, title={Keep me}, eprint={2401.00001}}\n",
+        )
+        .unwrap();
+        let cache = root.join(".research/papers/2401.00001");
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(cache.join("paper.md"), "cached").unwrap();
+
+        let result = remove_reference(&root, "keep").unwrap();
+        assert!(!result.removed);
+        assert!(!result.blockers.is_empty());
+        assert!(cache.join("paper.md").is_file());
+        assert!(fs::read_to_string(root.join("references.bib"))
+            .unwrap()
+            .contains("keep"));
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn bibliography_definition_alone_does_not_block_removal() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-unused-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{unused, title={Not cited in the manuscript}}\n",
+        )
+        .unwrap();
+
+        assert!(citation_blockers(&root, "unused").unwrap().is_empty());
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn nocite_wildcard_blocks_removing_any_entry() {
+        let parent =
+            std::env::temp_dir().join(format!("lattice-paper-wildcard-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(root.join("main.tex"), "\\nocite{*}\n").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{keep, title={Keep everything}}\n",
+        )
+        .unwrap();
+
+        assert!(!citation_blockers(&root, "keep").unwrap().is_empty());
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cache_discovery_does_not_follow_symlink_loops() {
+        use std::os::unix::fs::symlink;
+
+        let parent = std::env::temp_dir().join(format!("lattice-paper-loop-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let papers = root.join(".research/papers");
+        fs::create_dir_all(papers.join("archive")).unwrap();
+        symlink(&papers, papers.join("archive/loop")).unwrap();
+
+        assert!(imported_papers(&root).unwrap().is_empty());
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn supports_and_discovers_legacy_arxiv_cache_paths() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-legacy-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let directory = root.join(".research/papers/math.GT/0211159");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("paper.md"), "Title: A legacy paper\n").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{legacy, title={A legacy paper}, eprint={math.GT/0211159}}\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            parse_arxiv_id("https://arxiv.org/abs/math.GT/0211159v2").as_deref(),
+            Some("math.GT/0211159v2")
+        );
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 1);
+        assert_eq!(papers[0].arxiv_id, "math.GT/0211159");
+        assert!(papers[0].has_full_text);
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
     fn finds_the_arxiv_id_in_a_conference_entry_that_also_cites_the_preprint() {
         let parent = std::env::temp_dir().join(format!("lattice-paper-eprint-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
@@ -859,45 +1000,6 @@ mod tests {
         assert_eq!(papers.len(), 1, "got: {papers:?}");
         assert_eq!(papers[0].arxiv_id, "2504.10462", "got: {:?}", papers[0]);
         assert!(!papers[0].has_full_text);
-        let _ = fs::remove_dir_all(parent);
-    }
-
-    #[test]
-    fn removes_a_cited_only_work_that_has_no_arxiv_id() {
-        let parent = std::env::temp_dir().join(format!("lattice-paper-del-{}", Uuid::new_v4()));
-        let root = project::create(&parent, "paper").unwrap();
-        fs::write(
-            root.join("references.bib"),
-            "@book{knuth1984texbook,\n  title = {The TeXbook},\n  author = {Knuth, Donald}\n}\n",
-        )
-        .unwrap();
-        // Listed, so it must be removable — this is the case that used to fail
-        // with "Invalid arXiv id" before the identifier was allowed to be a key.
-        let listed = list_papers(&root).unwrap();
-        assert_eq!(listed.len(), 1);
-        assert!(listed[0].arxiv_id.is_empty());
-
-        // bibcite may be absent on the machine running tests; either way the
-        // call must get past identifier validation rather than rejecting outright.
-        match delete_paper(&root, None, Some("knuth1984texbook")) {
-            Ok(()) => assert!(list_papers(&root).unwrap().is_empty()),
-            Err(error) => assert!(
-                !error.contains("Invalid arXiv id") && !error.contains("no longer exists"),
-                "got: {error}"
-            ),
-        }
-        let _ = fs::remove_dir_all(parent);
-    }
-
-    #[test]
-    fn refuses_a_paper_with_no_identifier_at_all() {
-        let parent = std::env::temp_dir().join(format!("lattice-paper-noid-{}", Uuid::new_v4()));
-        let root = project::create(&parent, "paper").unwrap();
-        let error = delete_paper(&root, Some("  "), None).unwrap_err();
-        assert!(
-            error.contains("neither an arXiv id nor a citation key"),
-            "got: {error}"
-        );
         let _ = fs::remove_dir_all(parent);
     }
 
@@ -941,7 +1043,7 @@ mod tests {
         let root = project::create(&parent, "paper").unwrap();
         fs::write(
             root.join("references.bib"),
-            "@article{vaswani2017attention,\n  title = {Attention Is All You Need}\n}\n",
+            "@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  eprint = {1706.03762}\n}\n",
         )
         .unwrap();
         let directory = root.join(".research/papers/1706.03762");
@@ -979,7 +1081,7 @@ mod tests {
         fs::create_dir_all(&read).unwrap();
         fs::write(read.join("paper.md"), "Title: Something I skimmed\n").unwrap();
 
-        // What the Papers panel leaves behind, before its citation lands.
+        // A second uncited cache entry is hidden too, regardless of metadata.
         let library = root.join(".research/papers/1706.03762");
         fs::create_dir_all(&library).unwrap();
         fs::write(
@@ -994,8 +1096,7 @@ mod tests {
         .unwrap();
 
         let papers = list_papers(&root).unwrap();
-        assert_eq!(papers.len(), 1, "got: {papers:?}");
-        assert_eq!(papers[0].title, "Attention Is All You Need");
+        assert!(papers.is_empty(), "got: {papers:?}");
 
         // Citing the one that was only read brings it in, text and all — no
         // file has to move and no metadata has to be rewritten.
@@ -1005,7 +1106,7 @@ mod tests {
         )
         .unwrap();
         let papers = list_papers(&root).unwrap();
-        assert_eq!(papers.len(), 2, "got: {papers:?}");
+        assert_eq!(papers.len(), 1, "got: {papers:?}");
         let cited = papers
             .iter()
             .find(|paper| paper.arxiv_id == "2401.00001")
@@ -1015,7 +1116,7 @@ mod tests {
     }
 
     #[test]
-    fn reuses_an_imported_paper_for_url_and_version_variants() {
+    fn reuses_a_complete_canonical_cache_without_spawning_a_fetch() {
         let parent =
             std::env::temp_dir().join(format!("lattice-paper-duplicate-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
@@ -1028,37 +1129,13 @@ mod tests {
         .unwrap();
         fs::write(
             directory.join("metadata.json"),
-            r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
+            r#"{"arxivId":"1706.03762","requestedArxivId":"1706.03762v7","title":"Attention Is All You Need","schemaVersion":1,"complete":true}"#,
         )
         .unwrap();
 
-        let result = import_reference(&root, "https://arxiv.org/abs/1706.03762v7").unwrap();
-
-        assert!(result.already_imported);
+        let result = fetch_paper(&root, "https://arxiv.org/abs/1706.03762v7").unwrap();
+        assert!(result.reused);
         assert_eq!(result.arxiv_id, "1706.03762");
-        assert_eq!(result.citation_key.as_deref(), Some("vaswani2017attention"));
-        fs::remove_dir_all(parent).unwrap();
-    }
-
-    #[test]
-    fn renames_only_the_paper_display_title() {
-        let parent = std::env::temp_dir().join(format!("lattice-paper-rename-{}", Uuid::new_v4()));
-        let root = project::create(&parent, "paper").unwrap();
-        let directory = root.join(".research/papers/1706.03762");
-        fs::create_dir_all(&directory).unwrap();
-        fs::write(directory.join("paper.md"), "Title: Original title\n").unwrap();
-        fs::write(
-            directory.join("metadata.json"),
-            r#"{"arxivId":"1706.03762","title":"Original title","citationKey":"vaswani2017attention"}"#,
-        )
-        .unwrap();
-        let renamed = rename_paper(&root, "1706.03762", "A clearer title").unwrap();
-        assert_eq!(renamed.title, "A clearer title");
-        assert_eq!(
-            renamed.citation_key.as_deref(),
-            Some("vaswani2017attention")
-        );
-        assert_eq!(list_papers(&root).unwrap()[0].title, "A clearer title");
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -1076,6 +1153,11 @@ mod tests {
         fs::write(
             directory.join("metadata.json"),
             r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{vaswani2017attention, title={Attention Is All You Need}, eprint={1706.03762}}\n",
         )
         .unwrap();
 
@@ -1107,12 +1189,6 @@ mod tests {
         assert!(root.join(".research/papers/1706.03762/blog.md").exists());
         assert!(!fs::read_to_string(root.join("references.bib"))
             .unwrap()
-            .is_empty());
-        delete_paper(&root, Some("1706.03762"), None).unwrap();
-        assert!(!root.join(&result.paper_path).exists());
-        assert!(fs::read_to_string(root.join("references.bib"))
-            .unwrap()
-            .trim()
             .is_empty());
         fs::remove_dir_all(parent).unwrap();
     }

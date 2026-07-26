@@ -28,8 +28,11 @@ pub fn run(root: Option<&Path>, agent_executable: &Path, agent_assets: &Path) ->
         "texcount",
         "TeXcount body word counts (optional status bar)",
     );
-    push_tool(&mut checks, "uv", "Python tooling used by research skills");
-    push_tool(&mut checks, "npx", "Node helper used by bibcite skill");
+    push_tool(
+        &mut checks,
+        "uv",
+        "Python tooling used for literature and bibliography tools",
+    );
 
     let agent_ok = agent_executable.is_file();
     checks.push(check(

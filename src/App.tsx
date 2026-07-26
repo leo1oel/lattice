@@ -2884,6 +2884,36 @@ function App() {
     }
   }, [save, savedSource, source]);
 
+  const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
+    try {
+      const collabBases = collabSession ? readTextsFromDoc(collabSession.doc) : {};
+      const result = await invoke<{ arxivId: string; paperPath: string; blogPath?: string | null }>("fetch_paper", {
+        arxivId: paper.arxivId,
+      });
+      await refreshProject();
+      if (collabSession) {
+        for (const path of [
+          result.paperPath,
+          result.blogPath,
+          `.research/papers/${result.arxivId}/metadata.json`,
+        ].filter(Boolean) as string[]) {
+          try {
+            const content = await invoke<string>("read_project_file", { path });
+            await publishLocalTextToCollab(collabSession.doc, path, collabBases[path] ?? "", content);
+          } catch (reason) {
+            if (reason instanceof CollabTextConflictError) setError(reason.message);
+          }
+        }
+        setCollabFileCount(collabSession.fileCount());
+      }
+      const fetched = (await invoke<PaperSummary[]>("list_papers"))
+        .find((item) => item.arxivId === result.arxivId) ?? { ...paper, hasFullText: true };
+      await openPaper(fetched);
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [collabSession, openPaper, refreshProject]);
+
   const openProjectAsset = useCallback(async (path: string) => {
     try {
       if (source !== savedSource) {
@@ -3276,11 +3306,6 @@ function App() {
     setRenameTarget({ kind: "entry", path, name });
   }, []);
 
-  const renameImportedPaper = useCallback((paper: PaperSummary) => {
-    setRenameError(null);
-    setRenameTarget({ kind: "paper", paper });
-  }, []);
-
   const submitRename = useCallback(async (name: string) => {
     if (!renameTarget) return;
     try {
@@ -3305,13 +3330,6 @@ function App() {
             : null;
         if (renamedActiveFile) await loadFile(renamedActiveFile);
         if (renamedActiveAsset) await openProjectAsset(renamedActiveAsset);
-      } else if (renameTarget.kind === "paper") {
-        const renamedPaper = await invoke<PaperSummary>("rename_paper", {
-          arxivId: renameTarget.paper.arxivId,
-          title: name,
-        });
-        await refreshProject();
-        if (activePaper?.arxivId === renamedPaper.arxivId) setActivePaper(renamedPaper);
       } else if (renameTarget.kind === "label" || renameTarget.kind === "citation") {
         const result = renameTarget.kind === "label"
           ? await invoke<RenameSymbolResult>("rename_label", {
@@ -3653,20 +3671,29 @@ function App() {
   }, [project]);
 
   const deletePaper = useCallback(async (paper: PaperSummary) => {
-    const prompt = paper.hasFullText
-      ? `Remove “${paper.title}” and its bibliography entry?`
-      : `Remove “${paper.title}” from the bibliography?`;
-    if (!await confirmAction(prompt)) return;
+    if (!paper.citationKey) {
+      setError("This bibliography entry has no citation key to remove.");
+      return;
+    }
+    if (!await confirmAction(`Remove “${paper.title}” from the bibliography? Downloaded paper files will be kept.`)) return;
     try {
-      // Either identifier is enough: a cited-only work may have no arXiv id, and
-      // a paper fetched before its citation landed may have no key.
-      await invoke("delete_paper", {
-        arxivId: paper.arxivId || null,
-        citationKey: paper.citationKey ?? null,
+      const bibliographyPath = project?.manifest.primaryBibliography;
+      const collabBase = collabSession && bibliographyPath
+        ? readTextsFromDoc(collabSession.doc)[bibliographyPath] ?? ""
+        : "";
+      const result = await invoke<{ removed: boolean; blockers: SymbolOccurrence[] }>("remove_reference", {
+        key: paper.citationKey,
       });
-      if (collabSession && paper.arxivId) {
-        removeCollabPath(collabSession.doc, `.research/papers/${paper.arxivId}/paper.md`);
-        removeCollabPath(collabSession.doc, `.research/papers/${paper.arxivId}/metadata.json`);
+      if (!result.removed) {
+        const first = result.blockers[0];
+        setError(first
+          ? `Remove citations to \\cite{${paper.citationKey}} first (${first.path}:${first.line}).`
+          : `Could not remove \\cite{${paper.citationKey}}.`);
+        return;
+      }
+      if (collabSession && bibliographyPath) {
+        const content = await invoke<string>("read_project_file", { path: bibliographyPath });
+        await publishLocalTextToCollab(collabSession.doc, bibliographyPath, collabBase, content);
         setCollabFileCount(collabSession.fileCount());
       }
       if (activePaper && paperKey(activePaper) === paperKey(paper)) {
@@ -3679,7 +3706,7 @@ function App() {
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [activePaper, collabSession, refreshHistory, refreshProject]);
+  }, [activePaper, collabSession, project, refreshHistory, refreshProject]);
 
   const changeProvider = useCallback((nextProvider: AgentProvider) => {
     setProvider(nextProvider);
@@ -5054,11 +5081,10 @@ function App() {
               assetImporting={assetImporting}
               onPaper={openPaper}
               onCitePaper={(paper, command) => void insertCitationFromPaper(paper, command)}
-              onFetchFullText={(paper) => void importReferenceInput(paper.arxivId)}
+              onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
               onAddBibEntry={() => openBibEntryDialog()}
               onDiscoverLiterature={() => setLiteratureOpen(true)}
               onDeletePaper={deletePaper}
-              onRenamePaper={renameImportedPaper}
               onEditBibEntry={(paper) => void openEditBibEntry(paper)}
               importInput={importInput}
               setImportInput={setImportInput}

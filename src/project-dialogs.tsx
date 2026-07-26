@@ -168,9 +168,7 @@ export function RenameDialog(props: {
 }) {
   const initialName = props.target.kind === "entry"
     ? props.target.name
-    : props.target.kind === "paper"
-      ? props.target.paper.title
-      : props.target.kind === "label"
+    : props.target.kind === "label"
         ? props.target.label
         : props.target.kind === "environment"
           ? props.target.name
@@ -179,9 +177,7 @@ export function RenameDialog(props: {
             : props.target.key;
   const [name, setName] = useState(initialName);
   const [busy, setBusy] = useState(false);
-  const title = props.target.kind === "paper"
-    ? "Rename paper"
-    : props.target.kind === "label"
+  const title = props.target.kind === "label"
       ? "Rename label"
       : props.target.kind === "citation"
         ? "Rename citation key"
@@ -190,9 +186,7 @@ export function RenameDialog(props: {
           : props.target.kind === "wrap-environment"
             ? "Wrap in environment"
             : "Rename project item";
-  const copy = props.target.kind === "paper"
-    ? "This changes the title shown in Papers. The citation key stays unchanged."
-    : props.target.kind === "label"
+  const copy = props.target.kind === "label"
       ? "Updates every \\label and \\ref/\\cref occurrence across the project."
       : props.target.kind === "citation"
         ? "Updates the bibliography entry and every \\cite occurrence across the project."
