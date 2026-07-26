@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+# Lattice has no local backing services to restart after an orb wakes. Keep this
+# hook fast, but surface an incomplete setup clearly if a snapshot is damaged.
+for path in node_modules collab-server/node_modules "$HOME/.cargo/bin/cargo"; do
+  if [[ ! -e "$path" ]]; then
+    echo "Missing $path; rerun .agents/setup." >&2
+    exit 1
+  fi
+done
+
+echo "Orb dependencies are ready; no services need restarting."

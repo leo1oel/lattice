@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+echo "Installing system packages required by Tauri and LaTeX..."
+packages=(
+  build-essential
+  curl
+  file
+  latexmk
+  libayatana-appindicator3-dev
+  librsvg2-dev
+  libssl-dev
+  libwebkit2gtk-4.1-dev
+  libxdo-dev
+  pkg-config
+  wget
+)
+missing_packages=()
+for package in "${packages[@]}"; do
+  if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -Fq 'install ok installed'; then
+    missing_packages+=("$package")
+  fi
+done
+if ((${#missing_packages[@]})); then
+  sudo apt-get update
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing_packages[@]}"
+fi
+
+echo "Installing Node.js 22 and pnpm 10..."
+case "$(uname -m)" in
+  x86_64) node_arch="x64" ;;
+  aarch64|arm64) node_arch="arm64" ;;
+  *) echo "Unsupported Node.js architecture: $(uname -m)" >&2; exit 1 ;;
+esac
+node_base="$HOME/.local/share"
+node_link="$node_base/node-v22"
+mkdir -p "$node_base"
+node_filename="$(curl -fsSL https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt | awk -v arch="$node_arch" '$2 ~ ("^node-v22[.][0-9]+[.][0-9]+-linux-" arch "[.]tar[.]xz$") { print $2; exit }')"
+if [[ -z "$node_filename" ]]; then
+  echo "Could not determine the latest Node.js 22 release." >&2
+  exit 1
+fi
+node_version="${node_filename%-linux-${node_arch}.tar.xz}"
+node_dir="$node_base/$node_version-linux-$node_arch"
+if [[ ! -x "$node_dir/bin/node" ]]; then
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "$tmp_dir"' EXIT
+  curl -fsSLo "$tmp_dir/$node_filename" "https://nodejs.org/dist/latest-v22.x/$node_filename"
+  curl -fsSLo "$tmp_dir/SHASUMS256.txt" https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt
+  (cd "$tmp_dir" && grep "  $node_filename\$" SHASUMS256.txt | sha256sum --check --status)
+  tar -xJf "$tmp_dir/$node_filename" -C "$node_base"
+  rm -rf "$tmp_dir"
+  trap - EXIT
+fi
+ln -sfn "$node_dir" "$node_link"
+export PATH="$node_link/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+corepack enable
+corepack prepare pnpm@10 --activate
+
+profile_marker="# Lattice orb toolchains"
+if ! grep -Fqx "$profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+  cat >> "$HOME/.bash_profile" <<'EOF'
+
+# Lattice orb toolchains
+export PATH="$HOME/.local/share/node-v22/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+EOF
+fi
+
+echo "Installing the stable Rust toolchain..."
+if [[ ! -x "$HOME/.cargo/bin/rustup" ]]; then
+  curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --no-modify-path
+fi
+rustup toolchain install stable --profile minimal --component clippy,rustfmt
+rustup target add aarch64-apple-darwin --toolchain stable
+
+echo "Installing uv..."
+if ! command -v uv >/dev/null 2>&1; then
+  curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
+fi
+
+echo "Installing locked JavaScript dependencies..."
+pnpm install --frozen-lockfile
+pnpm --dir collab-server install --frozen-lockfile
+
+echo "Preparing Rust build inputs and fetching crates..."
+host_target="$(rustc -vV | awk '/^host:/ { print $2 }')"
+mkdir -p src-tauri/binaries src-tauri/omp-assets
+if [[ ! -e "src-tauri/binaries/lattice-agent-$host_target" ]]; then
+  : > "src-tauri/binaries/lattice-agent-$host_target"
+  chmod +x "src-tauri/binaries/lattice-agent-$host_target"
+fi
+if [[ ! -e src-tauri/omp-assets/placeholder.txt ]]; then
+  printf 'stub\n' > src-tauri/omp-assets/placeholder.txt
+fi
+cargo fetch --manifest-path src-tauri/Cargo.toml
+
+echo "Orb setup complete."
