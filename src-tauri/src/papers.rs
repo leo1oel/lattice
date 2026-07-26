@@ -569,15 +569,64 @@ fn find_citation_key_for_arxiv(bibliography: &str, arxiv_id: &str) -> Option<Str
     None
 }
 
+/// The citation key bibcite settled on, out of its report.
+///
+/// It prints one indented JSON object on stdout and its diagnostics on stderr,
+/// so reading this a line at a time — as this did — never parsed anything: not
+/// one line of `{\n  "key": "he2016deep",\n …}` is valid JSON on its own. Every
+/// import has been recording a null key since, which is why the Papers list
+/// carries a fallback that joins a paper to its citation by arXiv id, and why
+/// a work with no arXiv id could not be joined at all.
+///
+/// Each balanced object is tried, newest first, so a run that reports several
+/// entries still yields the last key.
 fn parse_citation_key(output: &str) -> Option<String> {
-    for line in output.lines().rev() {
-        if let Ok(value) = serde_json::from_str::<Value>(line) {
-            if let Some(key) = value.get("key").and_then(Value::as_str) {
-                return Some(key.to_string());
+    json_objects(output).into_iter().rev().find_map(|chunk| {
+        serde_json::from_str::<Value>(&chunk)
+            .ok()?
+            .get("key")
+            .and_then(Value::as_str)
+            .map(ToString::to_string)
+    })
+}
+
+/// Every brace-balanced `{…}` in the text, in order. Braces inside strings do
+/// not count, or a title containing one would end the object early.
+fn json_objects(text: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in text.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
             }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '{' => {
+                if depth == 0 {
+                    start = index;
+                }
+                depth += 1;
+            }
+            '}' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    found.push(text[start..index + character.len_utf8()].to_string());
+                }
+            }
+            _ => {}
         }
     }
-    None
+    found
 }
 
 fn parse_title(markdown: &str) -> Option<String> {
@@ -645,6 +694,39 @@ Install it from Settings → TeX doctor → Open install guide (or run `brew ins
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// bibcite reports one indented JSON object and its diagnostics around it.
+    /// Read a line at a time this parsed nothing at all, so every import
+    /// recorded a null citation key while bibcite had returned one.
+    #[test]
+    fn reads_the_citation_key_out_of_bibcites_report() {
+        let output = "{\n  \"query\": \"10.1109/CVPR.2016.90\",\n  \"action\": \"added\",\n  \
+             \"key\": \"he2016deep\",\n  \"title\": \"Deep Residual Learning\",\n  \
+             \"published\": true\n}\n[bibcite] query understood as doi: 10.1109/CVPR.2016.90\n";
+        assert_eq!(parse_citation_key(output).as_deref(), Some("he2016deep"));
+    }
+
+    #[test]
+    fn takes_the_last_key_when_several_entries_are_reported() {
+        let output = "{\"key\": \"first2020\"}\nnoise\n{\n  \"key\": \"second2021\"\n}\n";
+        assert_eq!(parse_citation_key(output).as_deref(), Some("second2021"));
+    }
+
+    /// A brace inside a title must not close the object early, or the key
+    /// after it is never seen.
+    #[test]
+    fn is_not_confused_by_braces_inside_strings() {
+        let output = "{\n  \"title\": \"On {NP}-hardness\",\n  \"key\": \"karp1972\"\n}\n";
+        assert_eq!(parse_citation_key(output).as_deref(), Some("karp1972"));
+    }
+
+    #[test]
+    fn reports_no_key_when_bibcite_found_nothing() {
+        assert_eq!(
+            parse_citation_key("[bibcite] No match found anywhere for: x\n"),
+            None
+        );
+    }
 
     #[test]
     fn accepts_urls_and_ids() {
