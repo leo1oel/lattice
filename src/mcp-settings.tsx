@@ -1,5 +1,5 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { MotionButton } from "./motion";
+import { MotionButton, Switch } from "./motion";
 import {
   Select,
   SelectContent,
@@ -256,16 +256,11 @@ export function McpSettingsSection(props: {
         <div className="skill-list">
           {props.servers.map((server) => (
             <div className="skill-card" key={`${server.scope}:${server.name}`}>
-              <button
-                type="button"
-                className={`skill-toggle ${server.enabled ? "enabled" : ""}`}
-                role="switch"
-                aria-checked={server.enabled}
-                aria-label={`Enable ${server.name}`}
-                onClick={() => props.onSetEnabled(server.name, !server.enabled)}
-              >
-                <span />
-              </button>
+              <Switch
+                checked={server.enabled}
+                label={`Enable ${server.name}`}
+                onChange={(next) => props.onSetEnabled(server.name, next)}
+              />
               <div>
                 <strong>{server.name}</strong>
                 <small>

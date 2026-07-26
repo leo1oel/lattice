@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { GitFileDiff, GitLogEntry, GitLogFileKind } from "./app-types";
 import type { GitStatus } from "./git-panel";
+import { SlidingTabs } from "./motion";
 import { peerColorForName } from "./collab-colors";
 import { confirmAction, relativeTime } from "./app-utils";
 import {
@@ -138,26 +139,16 @@ export function HistoryDiff(props: {
       <div className="history-diff-meta">
         <strong>{props.change.path}</strong>
         <span>{kind}</span>
-        <div className="history-diff-views" role="tablist" aria-label="Diff view">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "context"}
-            className={view === "context" ? "active" : ""}
-            onClick={() => selectView("context")}
-          >
-            In context
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "changes"}
-            className={view === "changes" ? "active" : ""}
-            onClick={() => selectView("changes")}
-          >
-            Only changes
-          </button>
-        </div>
+        <SlidingTabs
+          value={view}
+          onChange={(next) => selectView(next as DiffView)}
+          ariaLabel="Diff view"
+          className="history-diff-views"
+          items={[
+            { value: "context", label: "In context" },
+            { value: "changes", label: "Only changes" },
+          ]}
+        />
         {view === "context" && changedCount > 0 && (
           <div className="history-diff-steps">
             <span>{changedCount} changed</span>
@@ -635,7 +626,8 @@ export const versionsTimelineCss = `
 .versions-tabs { display: flex; gap: 2px; margin-top: 8px; border-bottom: 1px solid var(--line); }
 .versions-tab { height: 28px; padding: 0 10px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; }
 .versions-tab:hover { color: var(--text); background: var(--line); }
-.versions-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+/* The accent rule is the sliding indicator, not a static border. */
+.versions-tab.active { color: var(--text); }
 .versions-loading, .versions-note { margin: 14px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .versions-error { margin: 8px 0 0; color: var(--danger); font-size: 10px; }
 .versions-notice { margin: 8px 0 0; color: var(--success); font-size: 10px; }

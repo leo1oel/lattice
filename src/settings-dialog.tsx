@@ -20,6 +20,7 @@ import {
 } from "./components/ui/select";
 import { useUpdater, type UpdateMode } from "./app-updater";
 import { AgentRuntimeSettings } from "./agent-runtime-settings";
+import { Switch } from "./motion";
 import {
   type Theme,
   type AutoBuildMode,
@@ -392,7 +393,7 @@ export function SettingsDialog(props: {
                   <div className="skill-list">
                     {props.skills.map((skill) => (
                       <div className="skill-card" key={skill.name}>
-                        <button className={`skill-toggle ${skill.enabled ? "enabled" : ""}`} role="switch" aria-checked={skill.enabled} aria-label={`Enable ${skill.name}`} onClick={() => props.onSetSkillEnabled(skill.name, !skill.enabled)}><span /></button>
+                        <Switch checked={skill.enabled} label={`Enable ${skill.name}`} onChange={(next) => props.onSetSkillEnabled(skill.name, next)} />
                         <div><strong>{skill.name}</strong><small>{skill.scope === "built-in" ? "Bundled" : skill.scope === "application" ? "All projects" : "This project"}{skill.overridden ? " · overrides bundled" : ""}</small><p>{skill.description}</p></div>
                         <div className="skill-actions">
                           <button title={`Edit ${skill.name}`} onClick={() => props.setSkillDraft({ originalName: skill.name, scope: skill.scope === "project" ? "project" : "application", content: skill.content })}><Pencil size={12} /></button>

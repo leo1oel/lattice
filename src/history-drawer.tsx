@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Clock3, History, RotateCcw, Trash2, X } from "lucide-react";
 import { HistoryDiff, VersionsTimeline, versionsTimelineCss } from "./versions-timeline";
 import { OverleafHistoryPanel } from "./overleaf-history";
+import { SlidingTabs } from "./motion";
 
 export type HistoryItem = {
   id: string;
@@ -106,37 +107,19 @@ export function HistoryDrawer(props: {
           <div><History size={16} /><span>Project history</span></div>
           <button type="button" onClick={props.onClose}><X size={16} /></button>
         </div>
-        <div className="versions-tabs" role="tablist" aria-label="History views">
-          <button
-            type="button"
-            role="tab"
-            className={`versions-tab ${tab === "changes" ? "active" : ""}`}
-            aria-selected={tab === "changes"}
-            onClick={() => selectTab("changes")}
-          >
-            Changes
-          </button>
-          <button
-            type="button"
-            role="tab"
-            className={`versions-tab ${tab === "versions" ? "active" : ""}`}
-            aria-selected={tab === "versions"}
-            onClick={() => selectTab("versions")}
-          >
-            Versions
-          </button>
-          {props.overleafLinked && (
-            <button
-              type="button"
-              role="tab"
-              className={`versions-tab ${tab === "overleaf" ? "active" : ""}`}
-              aria-selected={tab === "overleaf"}
-              onClick={() => selectTab("overleaf")}
-            >
-              Overleaf
-            </button>
-          )}
-        </div>
+        <SlidingTabs
+          value={tab}
+          onChange={(next) => selectTab(next as HistoryTab)}
+          ariaLabel="History views"
+          variant="underline"
+          className="versions-tabs"
+          tabClassName="versions-tab"
+          items={[
+            { value: "changes", label: "Changes" },
+            { value: "versions", label: "Versions" },
+            ...(props.overleafLinked ? [{ value: "overleaf", label: "Overleaf" }] : []),
+          ]}
+        />
         {tab === "overleaf" && props.overleafLinked && (
           <OverleafHistoryPanel
             onClose={props.onClose}

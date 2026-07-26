@@ -15,6 +15,7 @@ import {
   summarizeDiagnostics,
   type CompileDiagnostic,
 } from "./compile-diagnostics";
+import { SlidingTabs } from "./motion";
 
 function SeverityIcon({ level }: { level: string }) {
   const severity = diagnosticSeverity(level);
@@ -65,27 +66,16 @@ export function CompileDiagnosticsPanel(props: {
       {props.expanded && (
         <div className="compile-diagnostics-body">
           {(diagnostics.length > 0 && hasLog) && (
-            <div className="compile-diagnostics-tabs" role="tablist" aria-label="Build output">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === "diagnostics"}
-                className={tab === "diagnostics" ? "active" : ""}
-                onClick={() => setTab("diagnostics")}
-              >
-                Messages
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === "log"}
-                className={tab === "log" ? "active" : ""}
-                onClick={() => setTab("log")}
-              >
-                <ScrollText size={12} />
-                Log
-              </button>
-            </div>
+            <SlidingTabs
+              value={tab}
+              onChange={(next) => setTab(next as "diagnostics" | "log")}
+              ariaLabel="Build output"
+              className="compile-diagnostics-tabs"
+              items={[
+                { value: "diagnostics", label: "Messages" },
+                { value: "log", label: <><ScrollText size={12} /> Log</> },
+              ]}
+            />
           )}
           {(tab === "diagnostics" || !hasLog) && diagnostics.length > 0 && (
             <ul className="compile-diagnostics-list">

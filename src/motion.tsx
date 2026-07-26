@@ -2,11 +2,13 @@
 // spirit of Amicro, tuned to stay light: only transform/opacity animate (GPU
 // composited) and springs are short, so they hold up on weak WebKit (the macOS
 // VM). Reach for these instead of hand-rolling motion props per call site.
-import { forwardRef, useRef, useState, type ReactNode } from "react";
+import { forwardRef, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
+  animate,
   AnimatePresence,
   motion,
   useMotionValue,
+  useReducedMotion,
   useSpring,
   type HTMLMotionProps,
   type Transition,
@@ -18,6 +20,13 @@ export const PRESS_SPRING: Transition = { type: "spring", stiffness: 520, dampin
 const MAGNET_SPRING: Transition = { type: "spring", stiffness: 260, damping: 22, mass: 0.5 };
 /** Entrance spring for popovers/menus/cards — a small, confident pop. */
 export const POP_SPRING: Transition = { type: "spring", stiffness: 460, damping: 34, mass: 0.7 };
+/**
+ * Where something comes to rest after being moved: slower and heavier than a
+ * press, so the eye can follow it from where it was to where it now is. This
+ * is the spring behind the switch thumb and the tab pill, whose whole job is
+ * to make the change of state legible rather than to acknowledge a click.
+ */
+export const SETTLE_SPRING: Transition = { type: "spring", stiffness: 260, damping: 26, mass: 1 };
 
 type MotionButtonProps = HTMLMotionProps<"button"> & {
   /** Gently pull the button toward the cursor while hovering (Amicro-style). */
@@ -183,5 +192,127 @@ export function MorphIcon(props: { idle: ReactNode; hover: ReactNode; size?: num
         </motion.span>
       </AnimatePresence>
     </span>
+  );
+}
+
+/**
+ * A switch whose thumb springs across and squashes as you press it.
+ *
+ * The CSS transition it replaces moved the thumb linearly in 160ms, which
+ * reads as the dot being redrawn somewhere else rather than travelling. A
+ * spring overshoots slightly and settles, so the eye follows the movement and
+ * the new state is legible without reading the colour. The squash on press is
+ * the same idea for the other half of the interaction: the control answers the
+ * finger before the state has changed.
+ */
+export function Switch(props: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  disabled?: boolean;
+  className?: string;
+  /** How far the thumb travels, in px. Matches the CSS track width. */
+  travel?: number;
+}) {
+  const travel = props.travel ?? 10;
+  const reduceMotion = useReducedMotion();
+  const x = useMotionValue(props.checked ? travel : 0);
+  const scaleX = useMotionValue(1);
+  const previous = useRef(props.checked);
+
+  useEffect(() => {
+    if (previous.current === props.checked) return;
+    previous.current = props.checked;
+    const target = props.checked ? travel : 0;
+    if (reduceMotion) x.set(target);
+    else void animate(x, target, SETTLE_SPRING);
+  }, [props.checked, reduceMotion, travel, x]);
+
+  const squash = (to: number) => {
+    if (reduceMotion || props.disabled) return;
+    void animate(scaleX, to, to > 1 ? PRESS_SPRING : SETTLE_SPRING);
+  };
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={props.checked}
+      aria-label={props.label}
+      disabled={props.disabled}
+      className={`motion-switch${props.checked ? " on" : ""}${props.className ? ` ${props.className}` : ""}`}
+      onClick={() => props.onChange(!props.checked)}
+      onPointerDown={() => squash(1.18)}
+      onPointerUp={() => squash(1)}
+      onPointerLeave={() => squash(1)}
+      onPointerCancel={() => squash(1)}
+    >
+      <motion.span className="motion-switch-thumb" style={{ x, scaleX }} />
+    </button>
+  );
+}
+
+export type SlidingTab = { value: string; label: ReactNode; title?: string };
+
+/**
+ * A tab strip where the selected background slides from the old tab to the new
+ * one instead of blinking across.
+ *
+ * One element carries `layoutId`, so it is the *same* element before and after
+ * the selection changes and the library animates it between the two positions.
+ * That is what says "this moved here", which a class swap cannot: with the
+ * highlight simply appearing elsewhere, the eye has to find it again, and in a
+ * strip of five that is a real pause.
+ *
+ * `layoutId` is scoped per instance, or two strips on screen would animate
+ * their pills into each other.
+ */
+export function SlidingTabs(props: {
+  value: string;
+  onChange: (value: string) => void;
+  items: SlidingTab[];
+  ariaLabel: string;
+  /**
+   * What slides. "pill" is a filled background, for strips that sit on a
+   * panel; "underline" is a rule along the bottom, for strips that head a
+   * section. Each place keeps the shape it already had — only the way the
+   * indicator gets from one tab to the next changes.
+   */
+  variant?: "pill" | "underline";
+  /** The strip's own class, so each place keeps its existing styling. */
+  className?: string;
+  /** Class for each tab, for the same reason. */
+  tabClassName?: string;
+}) {
+  const pillId = useId();
+  const reduceMotion = useReducedMotion();
+  return (
+    <div className={`sliding-tabs${props.className ? ` ${props.className}` : ""}`} role="tablist" aria-label={props.ariaLabel}>
+      {props.items.map((item) => {
+        const selected = item.value === props.value;
+        return (
+          <button
+            key={item.value}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            tabIndex={selected ? 0 : -1}
+            title={item.title}
+            className={`sliding-tab${selected ? " active" : ""}${props.tabClassName ? ` ${props.tabClassName}` : ""}`}
+            onClick={() => props.onChange(item.value)}
+          >
+            {selected && (
+              <motion.span
+                aria-hidden
+                className={props.variant === "underline" ? "sliding-tab-underline" : "sliding-tab-pill"}
+                layoutId={reduceMotion ? undefined : `${pillId}-pill`}
+                transition={reduceMotion ? { duration: 0 } : SETTLE_SPRING}
+              />
+            )}
+            <span className="sliding-tab-label">{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
