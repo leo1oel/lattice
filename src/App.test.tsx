@@ -120,6 +120,7 @@ beforeEach(() => {
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "initial_project") return null;
     if (command === "list_agent_skills") return [];
+    if (command === "list_mcp_servers") return [];
     throw new Error(`Unexpected command: ${command}`);
   });
 });
@@ -175,6 +176,7 @@ describe("welcome screen", () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "initial_project") return null;
       if (command === "list_agent_skills") return [];
+      if (command === "list_mcp_servers") return [];
       if (command === "create_project") throw new Error("That folder already exists and is not empty.");
       throw new Error(`Unexpected command: ${command}`);
     });
@@ -202,6 +204,7 @@ describe("welcome screen", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return null;
       if (command === "list_agent_skills") return [];
+      if (command === "list_mcp_servers") return [];
       if (command === "create_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
       if (command === "list_papers" || command === "list_history") return [];
@@ -287,6 +290,7 @@ describe("welcome screen", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return null;
       if (command === "list_agent_skills") return [skill];
+      if (command === "list_mcp_servers") return [];
       if (command === "save_agent_skill") return { ...skill, scope: "application" };
       throw new Error(`Unexpected command: ${command} ${JSON.stringify(args)}`);
     });

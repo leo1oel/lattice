@@ -679,10 +679,14 @@ fn prepare_omp_overlay(root: &Path, runtime: &AgentRuntime) -> Result<PathBuf, S
         .ok_or_else(|| "The OMP skill directory is not valid UTF-8.".to_string())?;
     let quoted_skills_path = serde_json::to_string(skills_path).map_err(err)?;
     let overlay = runtime_root.join("config.yml");
+    // Keep the native provider enabled so OMP can load Lattice-managed
+    // `mcp.json` files (`$PI_CODING_AGENT_DIR/mcp.json` and `.omp/mcp.json`).
+    // Skills still come only from `customDirectories` below; extensions/rules
+    // stay off via CLI flags. Other editors' MCP discovery is disabled so the
+    // agent only sees servers configured in Lattice Settings.
     let contents = format!(
         concat!(
             "disabledProviders:\n",
-            "  - native\n",
             "  - claude\n",
             "  - codex\n",
             "  - gemini\n",
@@ -690,6 +694,14 @@ fn prepare_omp_overlay(root: &Path, runtime: &AgentRuntime) -> Result<PathBuf, S
             "  - github\n",
             "  - agents\n",
             "  - agents-md\n",
+            "  - cursor\n",
+            "  - vscode\n",
+            "  - windsurf\n",
+            "  - mcp-json\n",
+            "  - omp-plugins\n",
+            "  - claude-plugins\n",
+            "mcp:\n",
+            "  enableProjectConfig: true\n",
             "skills:\n",
             "  enabled: true\n",
             "  enableCodexUser: false\n",

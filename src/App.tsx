@@ -223,6 +223,8 @@ import type {
   AgentSessionSummary,
   AgentSkill,
   SkillDraft,
+  McpServer,
+  McpServerDraft,
   CanvasMode,
   EditorPaneId,
   DocumentViewMode,
@@ -238,6 +240,7 @@ import type {
   OverleafSyncResult,
 } from "./app-types";
 import { WELCOME_MESSAGE, agentErrorDetails, arxivIdFromTabKey, autoBuildDescription, beginWindowDrag, buildAgentMentions, confirmAction, defaultModel, dropDirectoryAt, dropEditorAt, isPaperTabKey, normalizeEffort, normalizeModel, paperKey, paperTabKey, projectItemPath, toMessage, toggleWindowFullscreen } from "./app-utils";
+import { mcpDraftToSaveRequest } from "./mcp-settings";
 import "./App.css";
 
 const defaultWelcomeMessages: ChatMessage[] = [
@@ -560,6 +563,8 @@ function App() {
   const [systemPrompt, setSystemPrompt] = useState(loadSystemPrompt);
   const [agentSkills, setAgentSkills] = useState<AgentSkill[]>([]);
   const [skillDraft, setSkillDraft] = useState<SkillDraft | null>(null);
+  const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
+  const [mcpDraft, setMcpDraft] = useState<McpServerDraft | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [subscriptions, setSubscriptions] = useState<SubscriptionStatus[]>([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
@@ -3709,6 +3714,10 @@ function App() {
     setAgentSkills(await invoke<AgentSkill[]>("list_agent_skills"));
   }, []);
 
+  const refreshMcpServers = useCallback(async () => {
+    setMcpServers(await invoke<McpServer[]>("list_mcp_servers"));
+  }, []);
+
   const openSettings = useCallback((tab: SettingsTab = "appearance") => {
     setSettingsTab(tab);
     setSettingsOpen(true);
@@ -3716,7 +3725,8 @@ function App() {
     if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
     if (tab === "accounts") void refreshSubscriptions();
     if (tab === "agent") void refreshAgentSkills().catch((reason) => setError(toMessage(reason)));
-  }, [refreshAgentSkills, refreshApiKeys, refreshSubscriptions]);
+    if (tab === "mcp") void refreshMcpServers().catch((reason) => setError(toMessage(reason)));
+  }, [refreshAgentSkills, refreshApiKeys, refreshMcpServers, refreshSubscriptions]);
 
   const sendToAgent = useCallback(async () => {
     const message = agentInput.trim();
@@ -4058,6 +4068,35 @@ function App() {
     }
   }, [refreshAgentSkills]);
 
+  const saveMcpServer = useCallback(async (draft: McpServerDraft) => {
+    try {
+      await invoke("save_mcp_server", { request: mcpDraftToSaveRequest(draft) });
+      setMcpDraft(null);
+      await refreshMcpServers();
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [refreshMcpServers]);
+
+  const setMcpServerEnabled = useCallback(async (name: string, enabled: boolean) => {
+    try {
+      await invoke("set_mcp_server_enabled", { name, enabled });
+      await refreshMcpServers();
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [refreshMcpServers]);
+
+  const deleteMcpServer = useCallback(async (server: McpServer) => {
+    if (!await confirmAction(`Delete MCP server ${server.name}?`)) return;
+    try {
+      await invoke("delete_mcp_server", { name: server.name, scope: server.scope });
+      await refreshMcpServers();
+    } catch (reason) {
+      setError(toMessage(reason));
+    }
+  }, [refreshMcpServers]);
+
   const beginSubscriptionLogin = useCallback(async (providerName: "codex" | "claude") => {
     setSubscriptionsLoading(true);
     setSubscriptionNotice(`Starting ${providerName === "codex" ? "Codex" : "Claude"} sign-in through OMP…`);
@@ -4191,6 +4230,7 @@ function App() {
         if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
         if (tab === "accounts") void refreshSubscriptions();
         if (tab === "agent") void refreshAgentSkills().catch((reason) => setError(toMessage(reason)));
+        if (tab === "mcp") void refreshMcpServers().catch((reason) => setError(toMessage(reason)));
         if (tab === "doctor") void runDoctor();
       }}
       doctorReport={doctorReport}
@@ -4247,6 +4287,12 @@ function App() {
       onSaveSkill={saveAgentSkill}
       onSetSkillEnabled={setAgentSkillEnabled}
       onDeleteSkill={deleteAgentSkill}
+      mcpServers={mcpServers}
+      mcpDraft={mcpDraft}
+      setMcpDraft={setMcpDraft}
+      onSaveMcpServer={saveMcpServer}
+      onSetMcpServerEnabled={setMcpServerEnabled}
+      onDeleteMcpServer={deleteMcpServer}
       subscriptions={subscriptions}
       subscriptionsLoading={subscriptionsLoading}
       subscriptionNotice={subscriptionNotice}

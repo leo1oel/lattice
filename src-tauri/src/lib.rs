@@ -18,6 +18,7 @@ mod papers;
 mod pdf_fonts;
 mod project;
 mod sessions;
+mod mcp_store;
 mod skill_store;
 mod tex_setup;
 mod texcount;
@@ -27,11 +28,12 @@ use models::{
     AgentCommand, AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult,
     AgentSessionSummary, AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview,
     BuildResult, CitationInfo, DoctorReport, EditorComment, GitDiff, GitRemoteResult, GitStatus,
-    HistoryItem, ImportResult, LiteraturePage, OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget,
-    ProjectManifest, ProjectSearchResult, ProjectSnapshot, ReferenceInfo, RenameSymbolResult,
-    ReplacePreview, ReplaceResult, ResolvedCitation, SubscriptionLoginEvent, SubscriptionStatus,
-    SymbolOccurrence, SyncTexTarget, TexlabCompletionItem, TexlabHover, TexlabLocation, TodoHit,
-    TransactionRecord, UnusedSymbols, WordCount,
+    HistoryItem, ImportResult, LiteraturePage, McpServer, McpServerSaveRequest, OpenAlexWork,
+    PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
+    ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult, ResolvedCitation,
+    SubscriptionLoginEvent, SubscriptionStatus, SymbolOccurrence, SyncTexTarget,
+    TexlabCompletionItem, TexlabHover, TexlabLocation, TodoHit, TransactionRecord, UnusedSymbols,
+    WordCount,
 };
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -2056,6 +2058,69 @@ fn delete_agent_skill(
     skill_store::delete(&root, &state.agent_runtime, &name, &scope)
 }
 
+#[tauri::command]
+fn list_mcp_servers(state: tauri::State<'_, AppState>) -> Result<Vec<McpServer>, String> {
+    let root = state
+        .root
+        .lock()
+        .map_err(|_| "Project state is unavailable.".to_string())?
+        .clone()
+        .unwrap_or_else(|| state.agent_runtime.config.join("no-project"));
+    mcp_store::list(&root, &state.agent_runtime)
+}
+
+#[tauri::command]
+fn save_mcp_server(
+    state: tauri::State<'_, AppState>,
+    request: McpServerSaveRequest,
+) -> Result<McpServer, String> {
+    let root = if request.scope == "project" {
+        current_root(&state)?
+    } else {
+        state
+            .root
+            .lock()
+            .map_err(|_| "Project state is unavailable.".to_string())?
+            .clone()
+            .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
+    };
+    mcp_store::save(&root, &state.agent_runtime, request)
+}
+
+#[tauri::command]
+fn set_mcp_server_enabled(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    enabled: bool,
+) -> Result<(), String> {
+    let root = state
+        .root
+        .lock()
+        .map_err(|_| "Project state is unavailable.".to_string())?
+        .clone()
+        .unwrap_or_else(|| state.agent_runtime.config.join("no-project"));
+    mcp_store::set_enabled(&root, &state.agent_runtime, &name, enabled)
+}
+
+#[tauri::command]
+fn delete_mcp_server(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    scope: String,
+) -> Result<(), String> {
+    let root = if scope == "project" {
+        current_root(&state)?
+    } else {
+        state
+            .root
+            .lock()
+            .map_err(|_| "Project state is unavailable.".to_string())?
+            .clone()
+            .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
+    };
+    mcp_store::delete(&root, &state.agent_runtime, &name, &scope)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -2241,6 +2306,10 @@ pub fn run() {
             save_agent_skill,
             set_agent_skill_enabled,
             delete_agent_skill,
+            list_mcp_servers,
+            save_mcp_server,
+            set_mcp_server_enabled,
+            delete_mcp_server,
             start_tex_install,
             align_traffic_lights,
         ])

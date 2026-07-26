@@ -560,6 +560,42 @@ pub struct AgentSkillSaveRequest {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct McpServer {
+    pub name: String,
+    pub scope: String,
+    pub enabled: bool,
+    pub overridden: bool,
+    pub transport: String,
+    pub command: Option<String>,
+    pub args: Vec<String>,
+    pub env: std::collections::BTreeMap<String, String>,
+    pub cwd: Option<String>,
+    pub url: Option<String>,
+    pub headers: std::collections::BTreeMap<String, String>,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpServerSaveRequest {
+    pub original_name: Option<String>,
+    pub name: String,
+    pub scope: String,
+    pub enabled: bool,
+    pub transport: String,
+    pub command: Option<String>,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: std::collections::BTreeMap<String, String>,
+    pub cwd: Option<String>,
+    pub url: Option<String>,
+    #[serde(default)]
+    pub headers: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentResult {
     pub summary: String,
     pub changed_files: Vec<String>,

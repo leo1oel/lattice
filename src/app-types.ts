@@ -205,6 +205,34 @@ export type AgentSkill = {
   content: string;
 };
 export type SkillDraft = { originalName?: string; scope: "application" | "project"; content: string };
+export type McpTransport = "stdio" | "http" | "sse";
+export type McpServer = {
+  name: string;
+  scope: "application" | "project";
+  enabled: boolean;
+  overridden: boolean;
+  transport: string;
+  command?: string | null;
+  args: string[];
+  env: Record<string, string>;
+  cwd?: string | null;
+  url?: string | null;
+  headers: Record<string, string>;
+  summary: string;
+};
+export type McpServerDraft = {
+  originalName?: string;
+  scope: "application" | "project";
+  name: string;
+  enabled: boolean;
+  transport: McpTransport;
+  command: string;
+  argsText: string;
+  envText: string;
+  cwd: string;
+  url: string;
+  headersText: string;
+};
 export type AgentMention = { key: string; label: string; path: string; kind: "file" | "paper" };
 export type MentionState = { start: number; end: number; query: string };
 
@@ -213,7 +241,7 @@ export type EditorPaneId = "primary" | "secondary";
 export type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
 export type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
 export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-export type SettingsTab = "appearance" | "editor" | "agent" | "accounts" | "overleaf" | "api" | "doctor";
+export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "accounts" | "overleaf" | "api" | "doctor";
 export type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
 export type DoctorCheck = { name: string; detail: string; ok: boolean };

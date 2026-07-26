@@ -32,6 +32,8 @@ import {
   type ProjectSnapshot,
   type AgentSkill,
   type SkillDraft,
+  type McpServer,
+  type McpServerDraft,
   type SettingsTab,
   type DoctorReport,
   type SubscriptionStatus,
@@ -43,6 +45,7 @@ import {
   availableFontOptions,
 } from "./available-fonts";
 import { autoBuildTitle, autoBuildDetail } from "./app-utils";
+import { McpSettingsSection } from "./mcp-settings";
 import { OverleafSettingsSection } from "./overleaf-connect";
 
 export function SettingsDialog(props: {
@@ -82,6 +85,12 @@ export function SettingsDialog(props: {
   onSaveSkill: (draft: SkillDraft) => void;
   onSetSkillEnabled: (name: string, enabled: boolean) => void;
   onDeleteSkill: (skill: AgentSkill) => void;
+  mcpServers: McpServer[];
+  mcpDraft: McpServerDraft | null;
+  setMcpDraft: (draft: McpServerDraft | null) => void;
+  onSaveMcpServer: (draft: McpServerDraft) => void;
+  onSetMcpServerEnabled: (name: string, enabled: boolean) => void;
+  onDeleteMcpServer: (server: McpServer) => void;
   subscriptions: SubscriptionStatus[];
   subscriptionsLoading: boolean;
   subscriptionNotice: string;
@@ -137,6 +146,7 @@ export function SettingsDialog(props: {
             <button className={props.tab === "appearance" ? "active" : ""} onClick={() => props.setTab("appearance")}>Appearance</button>
             <button className={props.tab === "editor" ? "active" : ""} onClick={() => props.setTab("editor")}>Editor & builds</button>
             <button className={props.tab === "agent" ? "active" : ""} onClick={() => props.setTab("agent")}>Agent</button>
+            <button className={props.tab === "mcp" ? "active" : ""} onClick={() => props.setTab("mcp")}>MCP</button>
             <button className={props.tab === "accounts" ? "active" : ""} onClick={() => props.setTab("accounts")}>Subscriptions</button>
             <button className={props.tab === "overleaf" ? "active" : ""} onClick={() => props.setTab("overleaf")}>Overleaf</button>
             <button className={props.tab === "api" ? "active" : ""} onClick={() => props.setTab("api")}>API keys</button>
@@ -394,6 +404,17 @@ export function SettingsDialog(props: {
                   </div>
                 )}
               </div>
+            )}
+            {props.tab === "mcp" && (
+              <McpSettingsSection
+                hasProject={props.hasProject}
+                servers={props.mcpServers}
+                draft={props.mcpDraft}
+                setDraft={props.setMcpDraft}
+                onSave={props.onSaveMcpServer}
+                onSetEnabled={props.onSetMcpServerEnabled}
+                onDelete={props.onDeleteMcpServer}
+              />
             )}
             {props.tab === "accounts" && (
               <div className="settings-section">
