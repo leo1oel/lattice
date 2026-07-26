@@ -12,6 +12,7 @@ import {
   collabSyncedFileCount,
   collabTextsMap,
   ensureCollabText,
+  isLocalCollabTransaction,
 } from "./collab-project-sync";
 
 export { peerColorForName, peerColorForKey } from "./collab-colors";
@@ -322,7 +323,7 @@ export function createCollabSession(options: {
     undoManager.destroy();
     undoManager = new Y.UndoManager(ytext);
     activeObserver = (_event, transaction) => {
-      if (transaction.origin === COLLAB_LOCAL_ORIGIN) return;
+      if (isLocalCollabTransaction(transaction)) return;
       pushActiveText();
     };
     ytext.observe(activeObserver);

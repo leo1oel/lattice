@@ -9,8 +9,10 @@ import {
   collabTextsMap,
   ensureCollabText,
   estimateBase64Bytes,
+  isLocalCollabTransaction,
   listSyncableProjectPaths,
   MAX_COLLAB_BLOB_BYTES,
+  mergeCollabText,
   readCollabMeta,
   setCollabBlob,
   setCollabTextContent,
@@ -169,14 +171,70 @@ export async function materializeCollabDocToProject(doc: Y.Doc): Promise<Materia
   };
 }
 
-export function pushLocalTextToCollab(doc: Y.Doc, path: string, content: string): void {
-  if (classifySyncablePath(path) !== "text") return;
+export function pushLocalTextToCollab(doc: Y.Doc, path: string, base: string, content: string): string | null {
+  if (classifySyncablePath(path) !== "text") return null;
   const ytext = ensureCollabText(doc, path);
   const current = ytext.toString();
-  if (current === content) return;
+  if (current === content) return current;
   // Never replace non-empty shared text with an empty local buffer.
-  if (!content && current.length > 0) return;
-  setCollabTextContent(ytext, content, COLLAB_LOCAL_ORIGIN);
+  if (!content && current.length > 0) return null;
+  const merged = mergeCollabText(base, content, current);
+  if (merged == null) return null;
+  setCollabTextContent(ytext, merged, COLLAB_LOCAL_ORIGIN);
+  return merged;
+}
+
+export class CollabTextConflictError extends Error {}
+
+function collabConflictPath(path: string): string {
+  const slash = path.lastIndexOf("/");
+  const directory = slash >= 0 ? path.slice(0, slash + 1) : "";
+  const file = slash >= 0 ? path.slice(slash + 1) : path;
+  const dot = file.lastIndexOf(".");
+  const digits = new Date().toISOString().replace(/\D/g, "");
+  const stamp = `${digits.slice(0, 8)}-${digits.slice(8, 17)}`;
+  return dot > 0
+    ? `${directory}${file.slice(0, dot)} (local conflict ${stamp})${file.slice(dot)}`
+    : `${directory}${file} (local conflict ${stamp})`;
+}
+
+/** Merge a disk-side edit into Yjs and keep disk equal to the merged result. */
+export async function publishLocalTextToCollab(
+  doc: Y.Doc,
+  path: string,
+  base: string,
+  content: string,
+): Promise<string> {
+  const ytext = ensureCollabText(doc, path);
+  let mergeBase = base;
+  let local = content;
+  const saveConflict = async (localContent: string, sharedContent: string): Promise<never> => {
+    const conflictPath = collabConflictPath(path);
+    await invoke("write_project_file", { path: conflictPath, content: localContent });
+    await invoke("write_project_file", { path, content: sharedContent });
+    throw new CollabTextConflictError(
+      `${path} changed in both editors. The shared version was kept and your version was saved as ${conflictPath}.`,
+    );
+  };
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const shared = ytext.toString();
+    const merged = mergeCollabText(mergeBase, local, shared);
+    if (merged == null || (!local && shared.length > 0)) {
+      return saveConflict(local, shared);
+    }
+    // Disk first: if this fails, no collaboration update escapes this client.
+    await invoke("write_project_file", { path, content: merged });
+    if (ytext.toString() !== shared) {
+      // A peer edited while disk was being written. Treat the just-merged text
+      // as our local side and merge once more against the newly shared state.
+      mergeBase = shared;
+      local = merged;
+      continue;
+    }
+    setCollabTextContent(ytext, merged, COLLAB_LOCAL_ORIGIN);
+    return merged;
+  }
+  return saveConflict(local, ytext.toString());
 }
 
 export async function pushLocalBlobToCollab(doc: Y.Doc, path: string): Promise<void> {
@@ -198,38 +256,40 @@ export function attachCollabProjectObservers(
 ): () => void {
   const texts = collabTextsMap(doc);
   const blobs = collabBlobsMap(doc);
-  const textObservers = new Map<string, () => void>();
+  const textObservers = new Map<string, { ytext: Y.Text; stop: () => void }>();
 
   const watchText = (path: string, ytext: Y.Text) => {
-    if (textObservers.has(path)) return;
+    const existing = textObservers.get(path);
+    if (existing?.ytext === ytext) return;
+    existing?.stop();
     const observer = (_event: Y.YTextEvent, transaction: Y.Transaction) => {
-      if (transaction.origin === COLLAB_LOCAL_ORIGIN) return;
+      if (isLocalCollabTransaction(transaction)) return;
       handlers.onRemoteText(path, ytext.toString());
     };
     ytext.observe(observer);
-    textObservers.set(path, () => ytext.unobserve(observer));
+    textObservers.set(path, { ytext, stop: () => ytext.unobserve(observer) });
   };
 
   texts.forEach((ytext, path) => watchText(path, ytext));
 
   const onTextsMap = (event: Y.YMapEvent<Y.Text>) => {
-    if (event.transaction.origin === COLLAB_LOCAL_ORIGIN) return;
+    const local = isLocalCollabTransaction(event.transaction);
     event.changes.keys.forEach((change, path) => {
       if (change.action === "delete") {
-        textObservers.get(path)?.();
+        textObservers.get(path)?.stop();
         textObservers.delete(path);
-        handlers.onRemoteDelete(path);
+        if (!local) handlers.onRemoteDelete(path);
         return;
       }
       const ytext = texts.get(path);
       if (!ytext) return;
       watchText(path, ytext);
-      handlers.onRemoteText(path, ytext.toString());
+      if (!local) handlers.onRemoteText(path, ytext.toString());
     });
   };
 
   const onBlobsMap = (event: Y.YMapEvent<Y.Map<string>>) => {
-    if (event.transaction.origin === COLLAB_LOCAL_ORIGIN) return;
+    if (isLocalCollabTransaction(event.transaction)) return;
     event.changes.keys.forEach((change, path) => {
       if (change.action === "delete") {
         handlers.onRemoteDelete(path);
@@ -249,7 +309,7 @@ export function attachCollabProjectObservers(
   return () => {
     texts.unobserve(onTextsMap);
     blobs.unobserve(onBlobsMap);
-    for (const stop of textObservers.values()) stop();
+    for (const observer of textObservers.values()) observer.stop();
     textObservers.clear();
   };
 }

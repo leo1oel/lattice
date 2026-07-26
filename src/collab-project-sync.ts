@@ -1,4 +1,5 @@
 import * as Y from "yjs";
+import { diffChars } from "diff";
 
 export const COLLAB_META_KEY = "meta";
 export const COLLAB_TEXTS_KEY = "texts";
@@ -152,10 +153,107 @@ export function ensureCollabText(doc: Y.Doc, path: string): Y.Text {
 }
 
 export function setCollabTextContent(ytext: Y.Text, content: string, origin = COLLAB_LOCAL_ORIGIN): void {
+  const current = ytext.toString();
+  if (current === content) return;
+  const changes = diffChars(current, content);
   ytext.doc?.transact(() => {
-    ytext.delete(0, ytext.length);
-    if (content) ytext.insert(0, content);
+    let index = 0;
+    for (const change of changes) {
+      if (change.removed) {
+        ytext.delete(index, change.value.length);
+      } else if (change.added) {
+        ytext.insert(index, change.value);
+        index += change.value.length;
+      } else {
+        index += change.value.length;
+      }
+    }
   }, origin);
+}
+
+type TextEdit = { start: number; end: number; text: string };
+
+function textEdits(base: string, next: string): TextEdit[] {
+  const edits: TextEdit[] = [];
+  let index = 0;
+  for (const change of diffChars(base, next)) {
+    if (!change.added && !change.removed) {
+      index += change.value.length;
+      continue;
+    }
+    const previous = edits[edits.length - 1];
+    if (previous && previous.end === index) {
+      if (change.removed) {
+        previous.end += change.value.length;
+        index += change.value.length;
+      } else {
+        previous.text += change.value;
+      }
+      continue;
+    }
+    if (change.removed) {
+      edits.push({ start: index, end: index + change.value.length, text: "" });
+      index += change.value.length;
+    } else {
+      edits.push({ start: index, end: index, text: change.value });
+    }
+  }
+  return edits;
+}
+
+function editsOverlap(left: TextEdit, right: TextEdit): boolean {
+  if (left.start === left.end && right.start === right.end) return left.start === right.start;
+  if (left.start === left.end) return left.start > right.start && left.start < right.end;
+  if (right.start === right.end) return right.start > left.start && right.start < left.end;
+  return left.start < right.end && right.start < left.end;
+}
+
+/** Merge independent local and peer edits made from the same saved base. */
+export function mergeCollabText(base: string, local: string, peer: string): string | null {
+  if (local === base) return peer;
+  if (peer === base || local === peer) return local;
+  const localEdits = textEdits(base, local);
+  const peerEdits = textEdits(base, peer);
+  for (const localEdit of localEdits) {
+    for (const peerEdit of peerEdits) {
+      if (!editsOverlap(localEdit, peerEdit)) continue;
+      if (
+        localEdit.start === peerEdit.start
+        && localEdit.end === peerEdit.end
+        && localEdit.text === peerEdit.text
+      ) {
+        continue;
+      }
+      return null;
+    }
+  }
+  const uniqueEdits = new Map<string, TextEdit & { peer: boolean }>();
+  for (const edit of peerEdits) {
+    uniqueEdits.set(JSON.stringify(edit), { ...edit, peer: true });
+  }
+  for (const edit of localEdits) {
+    if (!uniqueEdits.has(JSON.stringify(edit))) {
+      uniqueEdits.set(JSON.stringify(edit), { ...edit, peer: false });
+    }
+  }
+  const edits = [...uniqueEdits.values()]
+    .sort((left, right) => left.start - right.start || left.end - right.end || Number(right.peer) - Number(left.peer));
+  let merged = "";
+  let index = 0;
+  for (const edit of edits) {
+    if (edit.start < index) {
+      // Identical overlapping edits were already applied once.
+      continue;
+    }
+    merged += base.slice(index, edit.start) + edit.text;
+    index = edit.end;
+  }
+  return merged + base.slice(index);
+}
+
+/** Local Yjs work includes both our explicit origin and y-codemirror's private origin. */
+export function isLocalCollabTransaction(transaction: Y.Transaction): boolean {
+  return transaction.local || transaction.origin === COLLAB_LOCAL_ORIGIN;
 }
 
 export function setCollabBlob(

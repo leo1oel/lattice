@@ -21,6 +21,8 @@ const EDITOR_COMMENTS_PATH: &str = ".research/editor-comments.json";
 const RESEARCH_GITIGNORE: &str =
     "history/\nsessions/\nomp-sessions/\nomp-session-map/\nomp-runtime/\ncheckpoints/\ncache/\n";
 const MAX_HISTORY_ENTRIES: usize = 100;
+const MAX_CHECKPOINTS_PER_SESSION: usize = 100;
+const MAX_CHECKPOINT_BYTES: u64 = 256 * 1024 * 1024;
 const EDIT_COALESCE_SECS: i64 = 45;
 const NEURIPS_2026_MAIN: &str = include_str!("../templates/neurips-2026/main.tex");
 const NEURIPS_2026_STYLE: &str = include_str!("../templates/neurips-2026/neurips_2026.sty");
@@ -215,6 +217,15 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     fs::create_dir_all(root.join(".research/sessions")).map_err(err)?;
     fs::create_dir_all(root.join(".research/omp-sessions")).map_err(err)?;
     fs::create_dir_all(root.join(".research/omp-session-map")).map_err(err)?;
+    if let Err(error) = prune_conversation_checkpoints(
+        &root,
+        MAX_CHECKPOINTS_PER_SESSION,
+        MAX_CHECKPOINT_BYTES,
+        None,
+        None,
+    ) {
+        eprintln!("Could not prune old conversation checkpoints: {error}");
+    }
     let research_ignore = root.join(".research/.gitignore");
     if research_ignore.exists() {
         ensure_ignore_line(&research_ignore, "checkpoints/")?;
@@ -2862,16 +2873,132 @@ pub fn save_conversation_checkpoint(
     validate_checkpoint_id(session_id)?;
     validate_checkpoint_id(message_id)?;
     let path = checkpoint_path(root, session_id, message_id);
-    fs::create_dir_all(path.parent().expect("checkpoint path has a parent")).map_err(err)?;
     let snapshot = snapshot_text_files(root)?;
-    fs::write(
-        path,
-        format!(
-            "{}\n",
-            serde_json::to_string_pretty(&snapshot).map_err(err)?
-        ),
+    let raw = format!(
+        "{}\n",
+        serde_json::to_string_pretty(&snapshot).map_err(err)?
+    );
+    if raw.len() as u64 > MAX_CHECKPOINT_BYTES {
+        return Err(format!(
+            "The project is too large to checkpoint ({} MiB; limit is {} MiB).",
+            raw.len().div_ceil(1024 * 1024),
+            MAX_CHECKPOINT_BYTES / (1024 * 1024)
+        ));
+    }
+    // Free the checkpoint's budget before writing it, so cleanup still works
+    // when the volume is already too full to hold one more complete snapshot.
+    prune_conversation_checkpoints(
+        root,
+        MAX_CHECKPOINTS_PER_SESSION,
+        MAX_CHECKPOINT_BYTES.saturating_sub(raw.len() as u64),
+        None,
+        (!path.exists()).then_some(session_id),
+    )?;
+    let parent = path.parent().expect("checkpoint path has a parent");
+    fs::create_dir_all(parent).map_err(err)?;
+    let temporary = path.with_extension("json.tmp");
+    if temporary.exists() {
+        fs::remove_file(&temporary).map_err(err)?;
+    }
+    if let Err(error) = fs::write(&temporary, raw) {
+        let _ = fs::remove_file(&temporary);
+        return Err(err(error));
+    }
+    if let Err(error) = fs::rename(&temporary, &path) {
+        let _ = fs::remove_file(&temporary);
+        return Err(err(error));
+    }
+    prune_conversation_checkpoints(
+        root,
+        MAX_CHECKPOINTS_PER_SESSION,
+        MAX_CHECKPOINT_BYTES,
+        Some(&path),
+        None,
     )
-    .map_err(err)
+}
+
+fn prune_conversation_checkpoints(
+    root: &Path,
+    per_session_limit: usize,
+    total_byte_limit: u64,
+    protected: Option<&Path>,
+    reserved_session: Option<&str>,
+) -> Result<(), String> {
+    let directory = root.join(".research/checkpoints");
+    let directory_metadata = match fs::symlink_metadata(&directory) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(err(error)),
+    };
+    if !directory_metadata.file_type().is_dir() {
+        return Ok(());
+    }
+    let mut entries = Vec::new();
+    let mut session_directories = Vec::new();
+    for session in fs::read_dir(&directory).map_err(err)? {
+        let session = session.map_err(err)?;
+        if !session.file_type().map_err(err)?.is_dir() {
+            continue;
+        }
+        session_directories.push(session.path());
+        for checkpoint in fs::read_dir(session.path()).map_err(err)? {
+            let checkpoint = checkpoint.map_err(err)?;
+            let path = checkpoint.path();
+            if !checkpoint.file_type().map_err(err)?.is_file() {
+                continue;
+            }
+            if path.extension().is_some_and(|extension| extension == "tmp") {
+                fs::remove_file(path).map_err(err)?;
+                continue;
+            }
+            if !path
+                .extension()
+                .is_some_and(|extension| extension == "json")
+            {
+                continue;
+            }
+            let metadata = checkpoint.metadata().map_err(err)?;
+            entries.push((
+                metadata.modified().map_err(err)?,
+                session.file_name(),
+                metadata.len(),
+                path,
+            ));
+        }
+    }
+    entries.sort_by(|left, right| {
+        let left_protected = protected.is_some_and(|path| path == left.3);
+        let right_protected = protected.is_some_and(|path| path == right.3);
+        right_protected
+            .cmp(&left_protected)
+            .then_with(|| right.0.cmp(&left.0))
+            .then_with(|| right.3.cmp(&left.3))
+    });
+    let mut per_session = BTreeMap::new();
+    let mut kept_bytes = 0u64;
+    for (_, session, size, path) in entries {
+        let session_limit = per_session_limit.saturating_sub(usize::from(
+            reserved_session.is_some_and(|reserved| session.to_string_lossy() == reserved),
+        ));
+        let session_count = per_session.entry(session).or_insert(0usize);
+        let fits_count = *session_count < session_limit;
+        let fits_bytes = kept_bytes.saturating_add(size) <= total_byte_limit;
+        if fits_count && fits_bytes {
+            *session_count += 1;
+            kept_bytes = kept_bytes.saturating_add(size);
+        } else {
+            fs::remove_file(path).map_err(err)?;
+        }
+    }
+    for session in session_directories {
+        match fs::remove_dir(session) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::DirectoryNotEmpty => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(err(error)),
+        }
+    }
+    Ok(())
 }
 
 pub fn restore_conversation_checkpoint(
@@ -3752,6 +3879,67 @@ mod tests {
             .unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "before");
         assert_eq!(restored.label, "Restore files for conversation branch");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn conversation_checkpoints_are_pruned_by_session_and_total_size() {
+        let root = temp_root("conversation-checkpoint-limit");
+        let checkpoints = root.join(".research/checkpoints");
+        let first = checkpoints.join(Uuid::new_v4().to_string());
+        let second = checkpoints.join(Uuid::new_v4().to_string());
+        fs::create_dir_all(&first).unwrap();
+        fs::create_dir_all(&second).unwrap();
+        for directory in [&first, &second] {
+            for _ in 0..4 {
+                fs::write(
+                    directory.join(format!("{}.json", Uuid::new_v4())),
+                    "0123456789",
+                )
+                .unwrap();
+            }
+        }
+
+        prune_conversation_checkpoints(&root, 2, 30, None, None).unwrap();
+
+        let remaining = WalkDir::new(&checkpoints)
+            .into_iter()
+            .flatten()
+            .filter(|entry| entry.file_type().is_file())
+            .count();
+        assert_eq!(remaining, 3);
+        assert!(fs::read_dir(first).unwrap().count() <= 2);
+        assert!(fs::read_dir(second).unwrap().count() <= 2);
+
+        let protected = fs::read_dir(&checkpoints)
+            .unwrap()
+            .flatten()
+            .flat_map(|session| fs::read_dir(session.path()).unwrap().flatten())
+            .map(|entry| entry.path())
+            .next()
+            .unwrap();
+        prune_conversation_checkpoints(&root, 0, 0, Some(&protected), None).unwrap();
+        assert!(!protected.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn saving_a_checkpoint_reserves_the_new_session_slot_before_rename() {
+        let root = temp_root("conversation-checkpoint-reserved-slot");
+        fs::write(root.join("main.tex"), "content").unwrap();
+        let session_id = Uuid::new_v4().to_string();
+        let directory = root.join(".research/checkpoints").join(&session_id);
+        fs::create_dir_all(&directory).unwrap();
+        for _ in 0..MAX_CHECKPOINTS_PER_SESSION {
+            fs::write(directory.join(format!("{}.json", Uuid::new_v4())), "{}\n").unwrap();
+        }
+
+        save_conversation_checkpoint(&root, &session_id, &Uuid::new_v4().to_string()).unwrap();
+
+        assert_eq!(
+            fs::read_dir(directory).unwrap().count(),
+            MAX_CHECKPOINTS_PER_SESSION
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -51,9 +51,10 @@ import {
 } from "./tex-setup";
 import {
   attachCollabProjectObservers,
+  CollabTextConflictError,
   materializeCollabDocToProject,
+  publishLocalTextToCollab,
   pushLocalBlobToCollab,
-  pushLocalTextToCollab,
   seedCollabDocFromProject,
 } from "./collab-project-io";
 import {
@@ -62,7 +63,9 @@ import {
   collabDocHasProject,
   collabTextsMap,
   endCollabShare,
+  mergeCollabText,
   observeCollabShareEnded,
+  readTextsFromDoc,
   removeCollabPath,
   renameCollabPath,
   waitForCollabProject,
@@ -971,7 +974,14 @@ function App() {
                 if (path === activeFileRef.current) {
                   setSavedSource(content);
                 } else if (path === secondaryFileRef.current) {
-                  setSecondarySource(content);
+                  const local = secondarySourceRef.current;
+                  const base = secondarySavedRef.current;
+                  const merged = mergeCollabText(base, local, content);
+                  if (merged == null) {
+                    setError(`${path} changed in both editor panes; your unsaved text was kept for manual resolution.`);
+                  } else {
+                    setSecondarySource(merged);
+                  }
                   setSecondarySavedSource(content);
                 }
                 if (path.startsWith(".research/papers/") || path.endsWith(".bib")) {
@@ -1108,9 +1118,19 @@ function App() {
         wroteBib = wroteBib || activeFile === project.manifest.primaryBibliography;
       }
       if (secondaryFile && secondarySource !== secondarySavedSource) {
-        await invoke("write_project_file", { path: secondaryFile, content: secondarySource });
-        if (collabSession) pushLocalTextToCollab(collabSession.doc, secondaryFile, secondarySource);
-        setSecondarySavedSource(secondarySource);
+        const savedSecondary = collabSession
+          ? await publishLocalTextToCollab(
+              collabSession.doc,
+              secondaryFile,
+              secondarySavedSource,
+              secondarySource,
+            )
+          : secondarySource;
+        if (!collabSession) {
+          await invoke("write_project_file", { path: secondaryFile, content: savedSecondary });
+        }
+        setSecondarySource(savedSecondary);
+        setSecondarySavedSource(savedSecondary);
         wroteTex = wroteTex || secondaryFile.endsWith(".tex");
         wroteBib = wroteBib || secondaryFile === project.manifest.primaryBibliography;
       }
@@ -1243,9 +1263,19 @@ function App() {
       }
       if (secondaryFile && secondarySource !== secondarySavedSource) {
         try {
-          await invoke("write_project_file", { path: secondaryFile, content: secondarySource });
-          if (collabSession) pushLocalTextToCollab(collabSession.doc, secondaryFile, secondarySource);
-          setSecondarySavedSource(secondarySource);
+          const savedSecondary = collabSession
+            ? await publishLocalTextToCollab(
+                collabSession.doc,
+                secondaryFile,
+                secondarySavedSource,
+                secondarySource,
+              )
+            : secondarySource;
+          if (!collabSession) {
+            await invoke("write_project_file", { path: secondaryFile, content: savedSecondary });
+          }
+          setSecondarySource(savedSecondary);
+          setSecondarySavedSource(savedSecondary);
         } catch (reason) {
           setError(toMessage(reason));
           return;
@@ -1578,6 +1608,7 @@ function App() {
     let compiled = false;
     try {
       if (!(await save())) return;
+      const collabBases = collabSession ? readTextsFromDoc(collabSession.doc) : {};
       const result = await invoke<OverleafSyncResult>("overleaf_sync", {
         live: overleafLivePathsRef.current,
       });
@@ -1642,15 +1673,17 @@ function App() {
             if (!kind) continue;
             try {
               if (kind === "text") {
-                pushLocalTextToCollab(
+                await publishLocalTextToCollab(
                   collabSession.doc,
                   path,
+                  collabBases[path] ?? "",
                   await invoke<string>("read_project_file", { path }),
                 );
               } else {
                 await pushLocalBlobToCollab(collabSession.doc, path);
               }
-            } catch {
+            } catch (reason) {
+              if (reason instanceof CollabTextConflictError) setError(reason.message);
               // Deleted or oversized files must not stop the rest.
             }
           }
@@ -2727,10 +2760,15 @@ function App() {
     if (!project || !collabSession || !secondaryFile) return;
     if (secondarySource === secondarySavedSource) return;
     const timer = window.setTimeout(() => {
-      void invoke("write_project_file", { path: secondaryFile, content: secondarySource })
-        .then(() => {
-          pushLocalTextToCollab(collabSession.doc, secondaryFile, secondarySource);
-          setSecondarySavedSource(secondarySource);
+      void publishLocalTextToCollab(
+        collabSession.doc,
+        secondaryFile,
+        secondarySavedSource,
+        secondarySource,
+      )
+        .then((merged) => {
+          setSecondarySource(merged);
+          setSecondarySavedSource(merged);
         })
         .catch((reason) => setError(toMessage(reason)));
     }, 450);
@@ -2763,6 +2801,7 @@ function App() {
     if (!trimmed) return;
     setImporting(true);
     try {
+      const collabBases = collabSession ? readTextsFromDoc(collabSession.doc) : {};
       const result = await invoke<{ arxivId: string; title: string; citationKey?: string; alreadyImported: boolean }>("import_reference", {
         input: trimmed,
       });
@@ -2782,8 +2821,9 @@ function App() {
         ].filter(Boolean) as string[]) {
           try {
             const content = await invoke<string>("read_project_file", { path });
-            pushLocalTextToCollab(collabSession.doc, path, content);
-          } catch {
+            await publishLocalTextToCollab(collabSession.doc, path, collabBases[path] ?? "", content);
+          } catch (reason) {
+            if (reason instanceof CollabTextConflictError) setError(reason.message);
             // Optional sidecar / bib may be missing.
           }
         }
@@ -3022,7 +3062,7 @@ function App() {
       if (kind === "file") {
         const content = await invoke<string>("read_project_file", { path: createdPath }).catch(() => "");
         if (collabSession) {
-          pushLocalTextToCollab(collabSession.doc, createdPath, content);
+          await publishLocalTextToCollab(collabSession.doc, createdPath, "", content);
           setCollabFileCount(collabSession.fileCount());
         }
         await loadFile(createdPath);
@@ -3519,6 +3559,9 @@ function App() {
         const saved = await save();
         if (!saved) return;
       }
+      const collabBase = collabSession
+        ? readTextsFromDoc(collabSession.doc)[bibliography] ?? ""
+        : "";
       if (bibEntryMode === "edit") {
         // The key is read-only when editing, so this replaces the entry in place.
         await invoke("save_bib_entry", { key: draft.key, bibtex: formatBibEntry(draft) });
@@ -3529,8 +3572,10 @@ function App() {
         await invoke("write_project_file", { path: bibliography, content: appendBibEntry(existing, formatBibEntry(draft)) });
       }
       // Re-sync the editor buffer and collab peers with what's now on disk.
-      const next = await invoke<string>("read_project_file", { path: bibliography });
-      if (collabSession) pushLocalTextToCollab(collabSession.doc, bibliography, next);
+      let next = await invoke<string>("read_project_file", { path: bibliography });
+      if (collabSession) {
+        next = await publishLocalTextToCollab(collabSession.doc, bibliography, collabBase, next);
+      }
       if (bibliography === activeFile) {
         setSource(next);
         setSavedSource(next);
@@ -3890,6 +3935,8 @@ function App() {
       setActiveSession(session);
       await refreshAgentSessions();
       runningAgentSession.current = session.id;
+      const share = collabSessionRef.current;
+      const collabBases = share ? readTextsFromDoc(share.doc) : {};
       const result = await invoke<AgentResult>("run_agent", {
         onEvent,
         request: {
@@ -3948,22 +3995,23 @@ function App() {
       // The ref, not the state: this callback is rebuilt from its dependencies,
       // and a share started after the last rebuild would be invisible to the
       // closure — the agent's work would reach nobody.
-      const share = collabSessionRef.current;
       if (share && result.changedFiles.length) {
         for (const path of result.changedFiles) {
           const kind = classifySyncablePath(path);
           if (!kind) continue;
           try {
             if (kind === "text") {
-              pushLocalTextToCollab(
+              await publishLocalTextToCollab(
                 share.doc,
                 path,
+                collabBases[path] ?? "",
                 await invoke<string>("read_project_file", { path }),
               );
             } else {
               await pushLocalBlobToCollab(share.doc, path);
             }
-          } catch {
+          } catch (reason) {
+            if (reason instanceof CollabTextConflictError) setError(reason.message);
             // A file the agent deleted, or one too large to share; the rest
             // must still go out.
           }
@@ -4180,18 +4228,24 @@ function App() {
   }, [refreshHistory]);
 
   const persistEditorComments = useCallback(async (next: EditorComment[]) => {
+    const base = serializeEditorComments(editorComments);
     setEditorComments(next);
     const payload = serializeEditorComments(next);
     try {
       await invoke("save_editor_comments", { comments: next });
       // Push the same payload we just saved — avoid a disk re-read race.
       if (collabSession) {
-        pushLocalTextToCollab(collabSession.doc, COLLAB_EDITOR_COMMENTS_PATH, payload);
+        await publishLocalTextToCollab(
+          collabSession.doc,
+          COLLAB_EDITOR_COMMENTS_PATH,
+          base,
+          payload,
+        );
       }
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [collabSession]);
+  }, [collabSession, editorComments]);
 
   /** An Overleaf thread's id, when this comment is one of theirs. */
   const overleafThreadOf = useCallback((commentId: string) => (
