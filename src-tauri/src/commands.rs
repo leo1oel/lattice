@@ -11,16 +11,13 @@ pub fn command(name: &str) -> Command {
     command
 }
 
-/// A Python CLI Lattice drives, at a version Lattice chose.
+/// A Python CLI Lattice drives through uvx.
 ///
-/// These used to be resolved from `PATH` first and only fall back to `uvx`,
-/// which meant the app did something different on every machine: on a
-/// developer's, an editable install pointing at a working tree; on everyone
-/// else's, whatever `uvx` last resolved from PyPI. Neither is a version anyone
-/// picked, and a breaking release of either would change what the app does to
-/// people's bibliographies with no test going red.
+/// Do not resolve from `PATH`: an editable or stale global install would make
+/// the app behave differently on every machine. uvx owns the cached environment
+/// and refreshes it against PyPI before each invocation.
 pub struct UvTool {
-    /// A PEP 508 requirement, not a bare name — this is the pin.
+    /// The PyPI distribution that provides the command.
     pub requirement: &'static str,
     pub binary: &'static str,
     /// Set this to an executable's path to run that instead, for working on
@@ -31,23 +28,21 @@ pub struct UvTool {
 
 /// Resolves arXiv ids, DOIs and titles to verified BibTeX, and owns the
 /// project's `.bib`.
-///
-/// Keep this within the CLI contract implemented and tested by this release.
 pub const BIBCITE: UvTool = UvTool {
-    requirement: "bibcite-cli>=0.6.2,<0.7",
+    requirement: "bibcite-cli",
     binary: "bibcite",
     override_env: "LATTICE_BIBCITE_BIN",
 };
 
 /// Converts an arXiv paper to markdown Lattice and the agent can read.
 pub const ARXIV2MD: UvTool = UvTool {
-    requirement: "arxiv2markdown>=0.1,<0.2",
+    requirement: "arxiv2markdown",
     binary: "arxiv2md",
     override_env: "LATTICE_ARXIV2MD_BIN",
 };
 
 impl UvTool {
-    /// A command that runs this tool at the pinned version.
+    /// A command that refreshes and runs the newest stable tool release.
     pub fn command(&self) -> Command {
         if let Some(path) = env::var_os(self.override_env).filter(|value| !value.is_empty()) {
             let mut command = Command::new(path);
@@ -57,6 +52,7 @@ impl UvTool {
         let mut command = command("uvx");
         command
             .env("UV_CACHE_DIR", uv_cache_dir())
+            .arg("--upgrade")
             .arg("--from")
             .arg(self.requirement)
             .arg(self.binary);
@@ -68,7 +64,8 @@ impl UvTool {
 ///
 /// Under the user's cache directory rather than `/tmp`, which macOS clears:
 /// from there every reboot re-downloaded both tools before the first paper of
-/// the day, and the pin had to be resolved again over the network each time.
+/// the day. `--upgrade` still refreshes package metadata, while unchanged wheels
+/// and environments continue to come from this cache.
 pub fn uv_cache_dir() -> PathBuf {
     match env::var_os("HOME") {
         Some(home) => PathBuf::from(home).join("Library/Caches/app.leo1oel.researchwriter/uv"),
@@ -216,6 +213,22 @@ mod tests {
         if latexmk.is_file() {
             assert_eq!(resolve("latexmk"), latexmk);
             assert!(available("latexmk"));
+        }
+    }
+
+    #[test]
+    fn python_tools_refresh_unconstrained_latest_releases() {
+        for tool in [&BIBCITE, &ARXIV2MD] {
+            assert!(!tool.requirement.contains(['<', '>', '=']));
+            let command = tool.command();
+            let args: Vec<_> = command
+                .get_args()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect();
+            assert!(args.iter().any(|arg| arg == "--upgrade"));
+            assert!(args
+                .windows(2)
+                .any(|pair| pair == ["--from", tool.requirement]));
         }
     }
 }
