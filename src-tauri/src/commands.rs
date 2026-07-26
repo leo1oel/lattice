@@ -11,6 +11,69 @@ pub fn command(name: &str) -> Command {
     command
 }
 
+/// A Python CLI Lattice drives, at a version Lattice chose.
+///
+/// These used to be resolved from `PATH` first and only fall back to `uvx`,
+/// which meant the app did something different on every machine: on a
+/// developer's, an editable install pointing at a working tree; on everyone
+/// else's, whatever `uvx` last resolved from PyPI. Neither is a version anyone
+/// picked, and a breaking release of either would change what the app does to
+/// people's bibliographies with no test going red.
+pub struct UvTool {
+    /// A PEP 508 requirement, not a bare name — this is the pin.
+    pub requirement: &'static str,
+    pub binary: &'static str,
+    /// Set this to an executable's path to run that instead, for working on
+    /// the tool itself. Opt-in, so it cannot happen by accident the way an
+    /// installed copy on `PATH` did.
+    pub override_env: &'static str,
+}
+
+/// Resolves arXiv ids, DOIs and titles to verified BibTeX, and owns the
+/// project's `.bib`. Ranges take patches and stop at the next minor.
+pub const BIBCITE: UvTool = UvTool {
+    requirement: "bibcite-cli>=0.6.1,<0.7",
+    binary: "bibcite",
+    override_env: "LATTICE_BIBCITE_BIN",
+};
+
+/// Converts an arXiv paper to markdown Lattice and the agent can read.
+pub const ARXIV2MD: UvTool = UvTool {
+    requirement: "arxiv2markdown>=0.1,<0.2",
+    binary: "arxiv2md",
+    override_env: "LATTICE_ARXIV2MD_BIN",
+};
+
+impl UvTool {
+    /// A command that runs this tool at the pinned version.
+    pub fn command(&self) -> Command {
+        if let Some(path) = env::var_os(self.override_env).filter(|value| !value.is_empty()) {
+            let mut command = Command::new(path);
+            command.env("PATH", child_path());
+            return command;
+        }
+        let mut command = command("uvx");
+        command
+            .env("UV_CACHE_DIR", uv_cache_dir())
+            .arg("--from")
+            .arg(self.requirement)
+            .arg(self.binary);
+        command
+    }
+}
+
+/// Where `uvx` keeps the environments it builds for the tools above.
+///
+/// Under the user's cache directory rather than `/tmp`, which macOS clears:
+/// from there every reboot re-downloaded both tools before the first paper of
+/// the day, and the pin had to be resolved again over the network each time.
+pub fn uv_cache_dir() -> PathBuf {
+    match env::var_os("HOME") {
+        Some(home) => PathBuf::from(home).join("Library/Caches/app.leo1oel.researchwriter/uv"),
+        None => PathBuf::from("/tmp/research-writer-uv-cache"),
+    }
+}
+
 pub fn resolve(name: &str) -> PathBuf {
     command_directories()
         .into_iter()
