@@ -2380,9 +2380,33 @@ button.checklist-row:hover { border-color: color-mix(in srgb, var(--accent) 35%,
   place-items: center;
 }
 .editor-tab-beside:hover { color: var(--accent); background: var(--accent-soft); }
-.welcome-actions { display: flex; flex-wrap: wrap; gap: 9px; }
-.welcome-tex-setup {
+.welcome-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
+/* The ways into an existing project. Quieter than the two above, and on one
+   line at the width the content column actually has. */
+.welcome-more {
   margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+.welcome-more-action {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.welcome-more-action:hover { background: var(--line); color: var(--text); }
+.welcome-tex-setup {
+  margin-top: 18px;
   padding: 0;
   color: var(--accent);
   font-size: 11px;

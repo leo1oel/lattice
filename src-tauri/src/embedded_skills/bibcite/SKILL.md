@@ -40,7 +40,7 @@ something new, so they need no fetch and no Papers entry.
 ## Choose the command
 
 ```bash
-bibcite add refs.bib <arXiv ID | arXiv URL | arXiv DOI | DOI | title>
+bibcite add refs.bib <arXiv ID | arXiv URL | arXiv DOI | DOI | web page URL | title>
 bibcite add refs.bib --bibtex '<complete BibTeX entry>'
 bibcite add refs.bib --from queries.txt
 bibcite add refs.bib <query> --replace

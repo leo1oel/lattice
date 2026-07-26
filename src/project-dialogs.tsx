@@ -56,6 +56,11 @@ export function Welcome(props: {
         <p className="welcome-copy">
           A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected.
         </p>
+        {/* Two rows because there are two kinds of action here, not because
+            five buttons happen not to fit: start something, or open something
+            that exists. Laid out as one row they were five equal chips that
+            overflowed 620px, dropping the widest onto a line of its own —
+            which read as a mistake rather than as a choice. */}
         <div className="welcome-actions">
           <MotionButton className="primary-button" magnetic onClick={props.onOpenCreate}>
             <Plus size={17} /> New project
@@ -64,17 +69,19 @@ export function Welcome(props: {
             <MorphIcon size={17} idle={<Folder size={17} />} hover={<FolderOpen size={17} />} />
             Open folder
           </MotionButton>
-          <button className="secondary-button" onClick={props.onImportZip}>
-            <FileArchive size={17} /> Import ZIP
-          </button>
-          <button className="secondary-button" onClick={props.onJoinCollab}>
-            <Radio size={17} /> Join share
-          </button>
+        </div>
+        <div className="welcome-more">
           {props.onOpenOverleaf && (
-            <button className="secondary-button" onClick={props.onOpenOverleaf}>
-              <Cloud size={17} /> Open from Overleaf
+            <button className="welcome-more-action" onClick={props.onOpenOverleaf}>
+              <Cloud size={15} /> Open from Overleaf
             </button>
           )}
+          <button className="welcome-more-action" onClick={props.onImportZip}>
+            <FileArchive size={15} /> Import ZIP
+          </button>
+          <button className="welcome-more-action" onClick={props.onJoinCollab}>
+            <Radio size={15} /> Join share
+          </button>
         </div>
         <button type="button" className="text-button welcome-tex-setup" onClick={props.onInstallTex}>
           Install LaTeX tools (needed to compile PDFs)
