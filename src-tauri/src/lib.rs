@@ -1024,6 +1024,11 @@ async fn overleaf_rt_connect(
         "entities": client.project().entities,
         "userId": client.project().user_id,
         "trackChanges": client.project().track_changes,
+        // Without this the app read `undefined` and overwrote whatever the
+        // projectJoined event had already established: a reviewer was treated
+        // as a writer, so their first keystroke went out as a plain edit, the
+        // server refused it, and live editing died on the spot.
+        "permission": client.project().permission,
     });
     state
         .realtime

@@ -611,10 +611,17 @@ fn trim_log(log: &str) -> String {
     // It is not a Lattice warning and crowds the Log tab when something else is wrong.
     let trimmed = strip_latexmk_preamble(log);
     if trimmed.len() <= LIMIT {
-        trimmed
-    } else {
-        format!("…\n{}", &trimmed[trimmed.len() - LIMIT..])
+        return trimmed;
     }
+    // Byte offsets, and a latexmk log is full of accented text and of U+FFFD
+    // from lossy decoding, so the cut has to be moved to a character boundary
+    // — landing inside one panicked after the PDF had already been read,
+    // losing a build that had in fact succeeded.
+    let mut start = trimmed.len() - LIMIT;
+    while start < trimmed.len() && !trimmed.is_char_boundary(start) {
+        start += 1;
+    }
+    format!("…\n{}", &trimmed[start..])
 }
 
 fn strip_latexmk_preamble(log: &str) -> String {

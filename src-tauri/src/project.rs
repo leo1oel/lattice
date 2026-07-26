@@ -1318,6 +1318,18 @@ pub fn latexmk_engine_arg(engine: &str) -> &'static str {
     }
 }
 
+/// First `limit` characters, not bytes.
+///
+/// Slicing a `&str` at a byte offset panics when the offset lands inside a
+/// character, and every one of these strings is a line of someone's writing —
+/// an em dash or an accent anywhere near the cut took the whole command down.
+fn truncate_chars(text: &str, limit: usize) -> String {
+    match text.char_indices().nth(limit) {
+        Some((offset, _)) => format!("{}…", &text[..offset]),
+        None => text.to_string(),
+    }
+}
+
 fn apply_symbol_rename(
     root: &Path,
     label: &str,
@@ -3217,12 +3229,7 @@ pub fn preview_replace_in_project(
         let mut file_hits = 0u32;
         for (line_index, line) in before.lines().enumerate() {
             for (column, _len) in matcher.find_in(line) {
-                let preview = line.trim();
-                let preview = if preview.len() > 120 {
-                    format!("{}…", &preview[..120])
-                } else {
-                    preview.to_string()
-                };
+                let preview = truncate_chars(line.trim(), 120);
                 if matches.len() < 200 {
                     matches.push(ReplaceMatch {
                         path: relative.clone(),
@@ -3353,7 +3360,16 @@ impl ReplaceMatcher {
             if count == 0 {
                 return Ok((source.to_string(), 0));
             }
-            return Ok((regex.replace_all(source, replacement).into_owned(), count));
+            // NoExpand: `$` is a capture reference to the regex crate, so
+            // replacing with `$n$` — ordinary maths — resolved `$n` to an
+            // empty group and left a stray `$` behind in every file it
+            // touched, reported as a success.
+            return Ok((
+                regex
+                    .replace_all(source, regex::NoExpand(replacement))
+                    .into_owned(),
+                count,
+            ));
         }
         if self.match_case {
             let count = source.matches(&self.query).count() as u32;
