@@ -15,11 +15,46 @@ struct PaperMetadata {
     arxiv_id: String,
     title: String,
     citation_key: Option<String>,
+    /// Why the text is on disk.
+    ///
+    /// Papers is the list of works this project cites or is about to, so what
+    /// belongs in it is what someone chose to put there. The agent reading
+    /// thirty papers to survey a field writes thirty `paper.md` files, and
+    /// listing those would bury the handful that matter under everything that
+    /// was merely looked at. Anything already on disk predates the field and
+    /// was added through the panel, so `Library` is the default.
+    #[serde(default)]
+    source: PaperSource,
 }
 
-pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
-    let arxiv_id = parse_arxiv_id(input)?;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum PaperSource {
+    /// Added through the Papers panel: it is in the list whether or not the
+    /// citation has landed yet.
+    #[default]
+    Library,
+    /// Read by the agent while researching. Out of the list until it is cited,
+    /// at which point the `.bib` entry brings it in with its text attached.
+    Reading,
+}
+
+/// Add a work to the project's bibliography, with its full text when we can
+/// get it.
+///
+/// The box this comes from only took arXiv ids, so a DOI, a title, or a web
+/// page had to be added through the bibliography editor instead — a second
+/// place to do the same thing, which nobody would guess at. `bibcite` resolves
+/// all of them, so the input goes to it either way; the arXiv branch exists
+/// only because that is the case where a full text can also be fetched.
+///
+/// A work with no full text is not a lesser citation: it appears in Papers and
+/// in the `.bib` exactly like the rest, just without anything to open.
+pub fn import_reference(root: &Path, input: &str) -> Result<ImportResult, String> {
     let manifest = project::read_manifest(root)?;
+    let Some(arxiv_id) = parse_arxiv_id(input) else {
+        return import_citation_only(root, &manifest, input);
+    };
     if let Some(existing) = find_imported_paper(root, &arxiv_id)? {
         return Ok(ImportResult {
             paper_path: format!(".research/papers/{}/paper.md", existing.arxiv_id),
@@ -43,13 +78,10 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
         fs::write(&bibliography_path, "").map_err(err)?;
     }
 
-    let markdown_output = commands::command("uvx")
+    let markdown_output = commands::ARXIV2MD
+        .command()
         .current_dir(&temp)
-        .env("UV_CACHE_DIR", "/tmp/research-writer-uv-cache")
         .env("ARXIV2MD_CACHE_PATH", &arxiv_cache)
-        .arg("--from")
-        .arg("arxiv2markdown")
-        .arg("arxiv2md")
         .arg(&arxiv_id)
         .arg("--frontmatter")
         .arg("-o")
@@ -69,6 +101,7 @@ pub fn import_arxiv(root: &Path, input: &str) -> Result<ImportResult, String> {
         arxiv_id: arxiv_id.clone(),
         title: title.clone(),
         citation_key: citation_key.clone(),
+        source: PaperSource::Library,
     })
     .map_err(err)?;
     // The alphaXiv overview is the default reading view. Fetching it is
@@ -164,7 +197,13 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
         });
     }
     // Papers imported before their citation landed, or whose key was rewritten.
+    // Not what the agent merely read: an uncited read is not part of the
+    // project's literature, and once it is cited the loop above has already
+    // claimed it — with its text, joined on the arXiv id.
     for (arxiv_id, metadata) in imported {
+        if metadata.source == PaperSource::Reading {
+            continue;
+        }
         papers.push(PaperSummary {
             title: if metadata.title.trim().is_empty() {
                 format!("arXiv {arxiv_id}")
@@ -195,6 +234,11 @@ fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata)>, String> 
         }
         let arxiv_id = entry.file_name().to_string_lossy().to_string();
         let markdown = fs::read_to_string(markdown_path).map_err(err)?;
+        // No metadata beside the text means nothing here wrote it: the agent
+        // fetched the paper while reading. That is the whole contract the
+        // find-and-read-papers skill has to keep — drop `paper.md` in the
+        // right directory and nothing else — so the marker is its absence
+        // rather than a JSON file a model has to get right.
         let metadata = fs::read_to_string(entry.path().join("metadata.json"))
             .ok()
             .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok())
@@ -202,6 +246,7 @@ fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata)>, String> 
                 arxiv_id: arxiv_id.clone(),
                 title: parse_title(&markdown).unwrap_or_default(),
                 citation_key: None,
+                source: PaperSource::Reading,
             });
         imported.push((arxiv_id, metadata));
     }
@@ -278,6 +323,8 @@ pub fn rename_paper(root: &Path, arxiv_id: &str, title: &str) -> Result<PaperSum
         arxiv_id: arxiv_id.to_string(),
         title: title.to_string(),
         citation_key: current.citation_key.clone(),
+        // Renaming happens from the Papers list, so by then it is the user's.
+        source: PaperSource::Library,
     };
     let metadata_path = root
         .join(".research/papers")
@@ -378,34 +425,91 @@ fn validate_arxiv_id(arxiv_id: &str) -> Result<(), String> {
     }
 }
 
-fn parse_arxiv_id(input: &str) -> Result<String, String> {
-    let pattern = Regex::new(r"(?i)(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+/\d{7}(?:v\d+)?)").unwrap();
+/// An arXiv id inside whatever was typed, if there is one.
+///
+/// The word boundaries matter now that anything else is a valid entry: without
+/// them the digits inside a DOI like `10.1145/3292500.3330701` match the
+/// modern arXiv shape, and the app would go and look for a paper that does not
+/// exist instead of asking bibcite to resolve the DOI.
+fn parse_arxiv_id(input: &str) -> Option<String> {
+    let pattern = Regex::new(r"(?i)\b(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+/\d{7}(?:v\d+)?)\b").unwrap();
     pattern
         .captures(input.trim())
         .and_then(|capture| capture.get(1))
         .map(|value| value.as_str().to_string())
-        .ok_or_else(|| "Enter an arXiv URL or id, for example 2401.12345.".to_string())
+}
+
+/// Everything that is not an arXiv paper: resolve it, write the `.bib` entry,
+/// and stop there. There is no text to fetch and none is pretended.
+fn import_citation_only(
+    root: &Path,
+    manifest: &crate::models::ProjectManifest,
+    query: &str,
+) -> Result<ImportResult, String> {
+    let query = query.trim();
+    if query.is_empty() {
+        return Err("Enter an arXiv id, a DOI, a URL, or a paper title.".to_string());
+    }
+    let temp = std::env::temp_dir().join(format!("research-writer-cite-{}", Uuid::new_v4()));
+    fs::create_dir_all(&temp).map_err(err)?;
+    let bibliography_path = temp.join("references.bib");
+    let project_bibliography = project::safe_path(root, &manifest.primary_bibliography)?;
+    let before = if project_bibliography.exists() {
+        fs::read_to_string(&project_bibliography).map_err(err)?
+    } else {
+        String::new()
+    };
+    fs::write(&bibliography_path, &before).map_err(err)?;
+
+    let citation_output = run_bibcite(&bibliography_path, query)?;
+    let bibliography = fs::read_to_string(&bibliography_path).map_err(err)?;
+    let _ = fs::remove_dir_all(&temp);
+    let citation_key = parse_citation_key(&citation_output);
+    // Whether the work was already cited, asked of the bibliography rather
+    // than of the file's bytes: bibcite may tidy an entry it decides to keep,
+    // and a reformat is not a new reference.
+    let already_imported = citation_key.as_deref().is_some_and(|key| {
+        project::parse_bibliography(&before)
+            .iter()
+            .any(|entry| entry.key.eq_ignore_ascii_case(key))
+    });
+    let title = citation_key
+        .as_deref()
+        .and_then(|key| {
+            project::parse_bibliography(&bibliography)
+                .into_iter()
+                .find(|entry| entry.key.eq_ignore_ascii_case(key))
+        })
+        .map(|entry| entry.title)
+        .filter(|title| !title.trim().is_empty())
+        .or_else(|| citation_key.clone())
+        .unwrap_or_else(|| query.to_string());
+
+    if bibliography != before {
+        project::apply_transaction(
+            root,
+            &format!("Cite {}", citation_key.as_deref().unwrap_or(query)),
+            vec![(manifest.primary_bibliography.clone(), bibliography)],
+        )?;
+    }
+    Ok(ImportResult {
+        arxiv_id: String::new(),
+        title,
+        paper_path: String::new(),
+        citation_key,
+        citation_output,
+        already_imported,
+    })
 }
 
 fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
-    let direct = commands::command("bibcite")
+    let output = commands::BIBCITE
+        .command()
         .arg("add")
         .arg(path)
         .arg(query)
-        .output();
-    let output = match direct {
-        Ok(output) => output,
-        Err(_) => commands::command("uvx")
-            .env("UV_CACHE_DIR", "/tmp/research-writer-uv-cache")
-            .arg("--from")
-            .arg("bibcite-cli")
-            .arg("bibcite")
-            .arg("add")
-            .arg(path)
-            .arg(query)
-            .output()
-            .map_err(|error| uv_tool_spawn_error("bibcite", &error))?,
-    };
+        .output()
+        .map_err(|error| uv_tool_spawn_error("bibcite", &error))?;
     ensure_success("bibcite", &output)?;
     Ok(format!(
         "{}{}",
@@ -415,24 +519,13 @@ fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
 }
 
 fn run_bibcite_remove(path: &PathBuf, key: &str) -> Result<(), String> {
-    let direct = commands::command("bibcite")
+    let output = commands::BIBCITE
+        .command()
         .arg("remove")
         .arg(path)
         .arg(key)
-        .output();
-    let output = match direct {
-        Ok(output) => output,
-        Err(_) => commands::command("uvx")
-            .env("UV_CACHE_DIR", "/tmp/research-writer-uv-cache")
-            .arg("--from")
-            .arg("bibcite-cli")
-            .arg("bibcite")
-            .arg("remove")
-            .arg(path)
-            .arg(key)
-            .output()
-            .map_err(|error| uv_tool_spawn_error("bibcite", &error))?,
-    };
+        .output()
+        .map_err(|error| uv_tool_spawn_error("bibcite", &error))?;
     ensure_success("bibcite", &output)
 }
 
@@ -560,7 +653,32 @@ mod tests {
             "2401.12345"
         );
         assert_eq!(parse_arxiv_id("2401.12345v2").unwrap(), "2401.12345v2");
-        assert!(parse_arxiv_id("not a paper").is_err());
+        assert_eq!(parse_arxiv_id("not a paper"), None);
+    }
+
+    /// Anything that is not an arXiv paper has to reach bibcite untouched.
+    /// The digits inside a DOI have the shape of a modern arXiv id, and
+    /// without word boundaries `10.1145/3292500.3330701` matched — so the app
+    /// went looking for a paper that does not exist instead of resolving it.
+    #[test]
+    fn does_not_mistake_a_doi_or_a_title_for_an_arxiv_id() {
+        assert_eq!(parse_arxiv_id("10.1145/3292500.3330701"), None);
+        assert_eq!(
+            parse_arxiv_id("https://doi.org/10.1038/s41586-021-03819-2"),
+            None
+        );
+        assert_eq!(parse_arxiv_id("Attention Is All You Need"), None);
+        assert_eq!(
+            parse_arxiv_id("https://example.edu/blog/2024/some-post"),
+            None
+        );
+        // Longer than any arXiv id, so it is not one with the tail ignored.
+        assert_eq!(parse_arxiv_id("2401.123456789"), None);
+        // Still found inside a real URL, which is what people paste.
+        assert_eq!(
+            parse_arxiv_id("see https://arxiv.org/pdf/2401.12345v3 for details").unwrap(),
+            "2401.12345v3"
+        );
     }
 
     #[test]
@@ -762,6 +880,58 @@ mod tests {
         assert!(papers[0].has_full_text);
     }
 
+    /// Papers is the project's literature, not everything the agent opened.
+    ///
+    /// A survey has the agent reading dozens of papers into
+    /// `.research/papers/`; listing those would bury the handful that are
+    /// actually cited. The line is the bibliography, and the marker for a read
+    /// is simply that nothing wrote a `metadata.json` beside the text.
+    #[test]
+    fn keeps_papers_the_agent_only_read_out_of_the_list_until_they_are_cited() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-reading-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(root.join("references.bib"), "").unwrap();
+
+        // What the skill leaves behind: the text, and nothing else.
+        let read = root.join(".research/papers/2401.00001");
+        fs::create_dir_all(&read).unwrap();
+        fs::write(read.join("paper.md"), "Title: Something I skimmed\n").unwrap();
+
+        // What the Papers panel leaves behind, before its citation lands.
+        let library = root.join(".research/papers/1706.03762");
+        fs::create_dir_all(&library).unwrap();
+        fs::write(
+            library.join("paper.md"),
+            "Title: Attention Is All You Need\n",
+        )
+        .unwrap();
+        fs::write(
+            library.join("metadata.json"),
+            r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":null}"#,
+        )
+        .unwrap();
+
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 1, "got: {papers:?}");
+        assert_eq!(papers[0].title, "Attention Is All You Need");
+
+        // Citing the one that was only read brings it in, text and all — no
+        // file has to move and no metadata has to be rewritten.
+        fs::write(
+            root.join("references.bib"),
+            "@misc{skimmed2024,\n  title = {Something I skimmed},\n  eprint = {2401.00001}\n}\n",
+        )
+        .unwrap();
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 2, "got: {papers:?}");
+        let cited = papers
+            .iter()
+            .find(|paper| paper.arxiv_id == "2401.00001")
+            .expect("the newly cited paper");
+        assert!(cited.has_full_text);
+        let _ = fs::remove_dir_all(parent);
+    }
+
     #[test]
     fn reuses_an_imported_paper_for_url_and_version_variants() {
         let parent =
@@ -780,7 +950,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = import_arxiv(&root, "https://arxiv.org/abs/1706.03762v7").unwrap();
+        let result = import_reference(&root, "https://arxiv.org/abs/1706.03762v7").unwrap();
 
         assert!(result.already_imported);
         assert_eq!(result.arxiv_id, "1706.03762");
@@ -843,7 +1013,7 @@ mod tests {
         let parent = std::env::temp_dir().join(format!("lattice-paper-e2e-{}", Uuid::new_v4()));
         fs::create_dir_all(&parent).unwrap();
         let root = project::create(&parent, "paper").unwrap();
-        let result = import_arxiv(&root, "1706.03762").unwrap();
+        let result = import_reference(&root, "1706.03762").unwrap();
         assert_eq!(result.arxiv_id, "1706.03762");
         assert_eq!(result.title, "Attention Is All You Need");
         assert!(root.join(&result.paper_path).exists());

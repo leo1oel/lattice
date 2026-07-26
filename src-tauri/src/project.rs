@@ -1671,7 +1671,7 @@ fn environment_snippet(source: &str, kind: &str) -> String {
     lines
 }
 
-fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
+pub(crate) fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
     let bytes = bibliography.as_bytes();
     let mut cursor = 0;
     let mut citations = Vec::new();
@@ -2183,17 +2183,11 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
 }
 
 fn run_bibcite_get(query: &str) -> Result<std::process::Output, String> {
-    let direct = commands::command("bibcite")
+    commands::BIBCITE
+        .command()
         .args(["get", "--json", query])
-        .output();
-    match direct {
-        Ok(output) => Ok(output),
-        Err(_) => commands::command("uvx")
-            .env("UV_CACHE_DIR", "/tmp/research-writer-uv-cache")
-            .args(["--from", "bibcite-cli", "bibcite", "get", "--json", query])
-            .output()
-            .map_err(|error| crate::papers::uv_tool_spawn_error("bibcite", &error)),
-    }
+        .output()
+        .map_err(|error| crate::papers::uv_tool_spawn_error("bibcite", &error))
 }
 
 fn citation_from_bibtex(bibtex: &str, fallback_key: &str) -> ResolvedCitation {

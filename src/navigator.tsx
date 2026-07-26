@@ -410,12 +410,12 @@ export function Navigator(props: {
               </Fragment>
             );
           })}
-          {!searchActive && !props.papers.length && <p className="empty-note">Add an arXiv paper to ground the agent in project evidence.</p>}
+          {!searchActive && !props.papers.length && <p className="empty-note">Add a paper to ground the agent in project evidence.</p>}
           {searchActive && !searchPending && !searching && !paperSearchResults.length && <p className="search-empty">No matching papers.</p>}
         </div>
         <div className="import-box">
           <input
-            placeholder="arXiv URL or id"
+            placeholder="arXiv id, DOI, URL, or title"
             value={props.importInput}
             onChange={(event) => props.setImportInput(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && props.onImport()}

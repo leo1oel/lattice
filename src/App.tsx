@@ -2751,21 +2751,26 @@ function App() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [chooseExisting, compile, save]);
 
-  const importArxivInput = useCallback(async (input: string) => {
+  const importReferenceInput = useCallback(async (input: string) => {
     const trimmed = input.trim();
     if (!trimmed) return;
     setImporting(true);
     try {
-      const result = await invoke<{ arxivId: string; title: string; citationKey?: string; alreadyImported: boolean }>("import_arxiv", {
+      const result = await invoke<{ arxivId: string; title: string; citationKey?: string; alreadyImported: boolean }>("import_reference", {
         input: trimmed,
       });
       const snapshot = await refreshProject();
       await refreshHistory();
       if (collabSession && !result.alreadyImported) {
+        // A work with no arXiv id has no text on disk to share — only the
+        // bibliography changed, and sending `.research/papers//paper.md` would
+        // be asking for a file that cannot exist.
         for (const path of [
-          `.research/papers/${result.arxivId}/paper.md`,
-          `.research/papers/${result.arxivId}/blog.md`,
-          `.research/papers/${result.arxivId}/metadata.json`,
+          ...(result.arxivId ? [
+            `.research/papers/${result.arxivId}/paper.md`,
+            `.research/papers/${result.arxivId}/blog.md`,
+            `.research/papers/${result.arxivId}/metadata.json`,
+          ] : []),
           snapshot.manifest.primaryBibliography,
         ].filter(Boolean) as string[]) {
           try {
@@ -2784,7 +2789,9 @@ function App() {
           role: "system",
           text: result.alreadyImported
             ? `“${result.title}” is already in Papers${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
-            : `Imported “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`,
+            : result.arxivId
+              ? `Imported “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
+              : `Cited “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}. There is no full text to open for this one.`,
         },
       ]);
     } catch (reason) {
@@ -2798,12 +2805,12 @@ function App() {
   const importPaper = useCallback(async () => {
     if (!importInput.trim()) return;
     try {
-      await importArxivInput(importInput);
+      await importReferenceInput(importInput);
       setImportInput("");
     } catch {
-      // Error already surfaced by importArxivInput.
+      // Error already surfaced by importReferenceInput.
     }
-  }, [importArxivInput, importInput]);
+  }, [importReferenceInput, importInput]);
 
   const openPaper = useCallback(async (paper: PaperSummary) => {
     try {
@@ -4966,7 +4973,7 @@ function App() {
               assetImporting={assetImporting}
               onPaper={openPaper}
               onCitePaper={(paper, command) => void insertCitationFromPaper(paper, command)}
-              onFetchFullText={(paper) => void importArxivInput(paper.arxivId)}
+              onFetchFullText={(paper) => void importReferenceInput(paper.arxivId)}
               onAddBibEntry={() => openBibEntryDialog()}
               onDiscoverLiterature={() => setLiteratureOpen(true)}
               onDeletePaper={deletePaper}
@@ -5706,7 +5713,7 @@ function App() {
           <LiteratureDiscoveryPanel
             onClose={() => setLiteratureOpen(false)}
             importedIds={importedArxivIds}
-            onImportArxiv={(arxivId) => importArxivInput(arxivId)}
+            onImportArxiv={(arxivId) => importReferenceInput(arxivId)}
             onAddBib={(query) => {
               setLiteratureOpen(false);
               openBibEntryDialog(query);

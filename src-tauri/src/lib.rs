@@ -1682,12 +1682,12 @@ async fn synctex_view(
 }
 
 #[tauri::command]
-async fn import_arxiv(
+async fn import_reference(
     state: tauri::State<'_, AppState>,
     input: String,
 ) -> Result<ImportResult, String> {
     let root = current_root(&state)?;
-    tauri::async_runtime::spawn_blocking(move || papers::import_arxiv(&root, &input))
+    tauri::async_runtime::spawn_blocking(move || papers::import_reference(&root, &input))
         .await
         .map_err(|error| format!("The paper import task stopped unexpectedly: {error}"))?
 }
@@ -2275,7 +2275,7 @@ pub fn run() {
             save_compiled_pdf,
             synctex_edit,
             synctex_view,
-            import_arxiv,
+            import_reference,
             list_papers,
             read_paper,
             read_paper_blog,

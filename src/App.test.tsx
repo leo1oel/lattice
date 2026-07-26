@@ -644,7 +644,7 @@ describe("project workspace", () => {
         ];
       }
       if (command === "list_history") return [];
-      if (command === "import_arxiv") {
+      if (command === "import_reference") {
         return { paperPath: ".research/papers/1412.6980/paper.md", arxivId: "1412.6980", title: "Adam", citationKey: "kingma2015adam", citationOutput: "", alreadyImported: false };
       }
       // Importing refreshes the project afterwards.
@@ -668,7 +668,56 @@ describe("project workspace", () => {
     expect(papers.getByTitle("Attention Is All You Need")).toBeEnabled();
 
     fireEvent.click(citedOnly);
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_arxiv", { input: "1412.6980" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_reference", { input: "1412.6980" }));
+  });
+
+  it("adds a work with no preprint through the same box, and says there is nothing to open", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: true,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "file", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers") return [];
+      if (command === "list_history") return [];
+      // No arXiv id anywhere in the answer: bibcite resolved a DOI and wrote
+      // the entry, and there is no text on disk to point at.
+      if (command === "import_reference") {
+        return {
+          paperPath: "",
+          arxivId: "",
+          title: "Deep Residual Learning for Image Recognition",
+          citationKey: "he2016deep",
+          citationOutput: "",
+          alreadyImported: false,
+        };
+      }
+      if (command === "refresh_project") return snapshot;
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const box = await screen.findByPlaceholderText("arXiv id, DOI, URL, or title");
+    fireEvent.change(box, { target: { value: "10.1109/CVPR.2016.90" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_reference", {
+      input: "10.1109/CVPR.2016.90",
+    }));
+    // The DOI must not be mistaken for an arXiv id, and the message has to
+    // admit there is nothing to open rather than imply a paper was fetched.
+    expect(
+      await screen.findByText(/Cited .Deep Residual Learning.*no full text to open/),
+    ).toBeInTheDocument();
   });
 
   it("shows imported papers by title while keeping the arXiv id", async () => {
