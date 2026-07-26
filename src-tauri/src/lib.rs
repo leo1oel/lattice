@@ -2122,7 +2122,46 @@ fn delete_mcp_server(
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// A reference added by the agent, through the same code the Papers box uses.
+///
+/// The agent runs in a sidecar process and cannot call into the app, so the
+/// app offers itself: it is handed its own executable path and runs
+/// `lattice cite <query>` in the project directory. Reimplementing the import
+/// in the extension's TypeScript was the alternative, and two implementations
+/// of "add a reference" would have drifted the first time either changed —
+/// which is the whole reason for routing both through one entry point.
+///
+/// Returns true when this was a CLI invocation and the process should exit.
+/// Must run before anything touches Tauri or AppKit.
+fn run_cli() -> bool {
+    let mut args = std::env::args().skip(1);
+    if args.next().as_deref() != Some("cite") {
+        return false;
+    }
+    let Some(root) = std::env::var_os("LATTICE_PROJECT_ROOT").filter(|v| !v.is_empty()) else {
+        eprintln!("LATTICE_PROJECT_ROOT is not set.");
+        std::process::exit(2);
+    };
+    let query = args.collect::<Vec<_>>().join(" ");
+    match papers::import_reference(std::path::Path::new(&root), &query) {
+        Ok(result) => {
+            println!(
+                "{}",
+                serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+            );
+            std::process::exit(0);
+        }
+        Err(reason) => {
+            eprintln!("{reason}");
+            std::process::exit(1);
+        }
+    }
+}
+
 pub fn run() {
+    if run_cli() {
+        return;
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())

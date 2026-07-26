@@ -628,6 +628,16 @@ fn omp_command(
     command
         .current_dir(root)
         .env("PI_CODING_AGENT_DIR", &runtime.config)
+        // How the extension's `cite` tool reaches back into Lattice: the app's
+        // own executable, run as `lattice cite <query>` against this project.
+        // Absent when the path cannot be resolved, and the tool then says so
+        // rather than doing half the job by hand.
+        .envs(
+            std::env::current_exe()
+                .ok()
+                .map(|path| ("LATTICE_BIN", path.into_os_string())),
+        )
+        .env("LATTICE_PROJECT_ROOT", root)
         .arg("--mode")
         .arg("rpc")
         .arg("--model")
