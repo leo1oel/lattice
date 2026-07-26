@@ -1771,9 +1771,16 @@ function App() {
       const path = activeFileRef.current;
       if (!path) return;
       setSource(text);
-      setSavedSource(text);
-      // Write it through so a rebuild and any later sync see the same bytes.
-      void invoke("write_project_file", { path, content: text }).catch(() => {});
+      // Write it through so a rebuild and any later sync see the same bytes,
+      // and only call it saved once it is. Marking it saved first and dropping
+      // the failure meant a write that could not happen — a full disk, a
+      // read-only volume — left the editor showing their paragraph while the
+      // file still held the old one: the build compiled the old text, and the
+      // next sync read the old bytes back off disk, called them a local edit,
+      // and pushed them over the top of what they had written.
+      void invoke("write_project_file", { path, content: text })
+        .then(() => setSavedSource(text))
+        .catch((reason) => setError(toMessage(reason)));
       setViewRestore({ path, cursor: caret, scrollTop: 0, id: crypto.randomUUID() });
     },
     onNotice: (message) => setNotice(message),
@@ -3922,26 +3929,30 @@ function App() {
       if (activeFile && result.changedFiles.includes(activeFile)) await loadFile(activeFile);
       // The agent writes straight to disk, so nothing has told the shared doc.
       // Without this a collaborator sees none of the work it just did.
-      if (collabSession && result.changedFiles.length) {
+      // The ref, not the state: this callback is rebuilt from its dependencies,
+      // and a share started after the last rebuild would be invisible to the
+      // closure — the agent's work would reach nobody.
+      const share = collabSessionRef.current;
+      if (share && result.changedFiles.length) {
         for (const path of result.changedFiles) {
           const kind = classifySyncablePath(path);
           if (!kind) continue;
           try {
             if (kind === "text") {
               pushLocalTextToCollab(
-                collabSession.doc,
+                share.doc,
                 path,
                 await invoke<string>("read_project_file", { path }),
               );
             } else {
-              await pushLocalBlobToCollab(collabSession.doc, path);
+              await pushLocalBlobToCollab(share.doc, path);
             }
           } catch {
             // A file the agent deleted, or one too large to share; the rest
             // must still go out.
           }
         }
-        setCollabFileCount(collabSession.fileCount());
+        setCollabFileCount(share.fileCount());
       }
       await refreshProject();
       await refreshHistory();
