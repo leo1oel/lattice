@@ -20,7 +20,7 @@ function OutlineBranch({
             onClick={() => onSelect(node.path || "", node.line)}
             title={node.path ? `${node.path}:${node.line}` : `Go to line ${node.line}`}
           >
-            <span>{node.kind === "input" ? `\\input{${node.title}}` : node.title}</span>
+            <span>{node.title}</span>
             <small>{node.line}</small>
           </button>
           {node.children.length > 0 && (

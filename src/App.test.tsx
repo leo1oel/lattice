@@ -360,12 +360,17 @@ describe("project workspace", () => {
     expect(screen.queryByRole("button", { name: "Add file or folder" })).not.toBeInTheDocument();
     expect(document.querySelector(".source-editor > .code-editor-root")).toBeInTheDocument();
     const titlebar = document.querySelector(".titlebar")!;
+    const titlebarSidebar = titlebar.querySelector<HTMLElement>(".titlebar-sidebar")!;
+    const titlebarMain = titlebar.querySelector(".titlebar-main")!;
     const canvasPanel = document.querySelector(".canvas-panel")!;
     const titlebarTabs = titlebar.querySelector(".editor-tabs")!;
     const titlebarTools = titlebar.querySelector(".canvas-toolbar")!;
+    expect(titlebarSidebar).toHaveStyle({ width: "321px" });
     expect(titlebarTabs).toBeInTheDocument();
     expect(titlebarTools).toBeInTheDocument();
-    expect([...titlebar.children].indexOf(titlebarTabs)).toBeLessThan([...titlebar.children].indexOf(titlebarTools));
+    expect([...titlebarMain.children].indexOf(titlebarTabs)).toBeLessThan([...titlebarMain.children].indexOf(titlebarTools));
+    expect(titlebarTools).toContainElement(screen.getByRole("button", { name: "Project history" }));
+    expect(titlebarTools).toContainElement(screen.getByRole("button", { name: "Git status and commit" }));
     expect(canvasPanel.querySelector(".editor-tabs")).not.toBeInTheDocument();
     expect(canvasPanel.querySelector(".canvas-toolbar")).not.toBeInTheDocument();
     await switchSidebarMode("Agent");
@@ -455,16 +460,24 @@ describe("project workspace", () => {
     expect(screen.queryByRole("separator", { name: "Resize writing agent" })).not.toBeInTheDocument();
     fireEvent.keyDown(divider, { key: "ArrowRight" });
     expect(divider).toHaveAttribute("aria-valuenow", "336");
+    expect(document.querySelector(".titlebar-sidebar")).toHaveStyle({ width: "337px" });
 
     fireEvent.pointerDown(divider, { clientX: 336 });
     fireEvent.pointerMove(window, { clientX: 400 });
     fireEvent.pointerUp(window);
     expect(divider).toHaveAttribute("aria-valuenow", "400");
+    expect(document.querySelector(".titlebar-sidebar")).toHaveStyle({ width: "401px" });
+
+    fireEvent.pointerDown(divider, { clientX: 400 });
+    fireEvent.pointerMove(window, { clientX: 700 });
+    fireEvent.pointerUp(window);
+    expect(divider).toHaveAttribute("aria-valuenow", "560");
+    expect(document.querySelector(".titlebar-sidebar")).toHaveStyle({ width: "561px" });
 
     await switchSidebarMode("Papers");
-    expect(divider).toHaveAttribute("aria-valuenow", "400");
+    expect(divider).toHaveAttribute("aria-valuenow", "560");
     await switchSidebarMode("Agent");
-    expect(divider).toHaveAttribute("aria-valuenow", "400");
+    expect(divider).toHaveAttribute("aria-valuenow", "560");
 
     const splitDivider = screen.getByRole("separator", { name: "Resize source and PDF preview" });
     expect(splitDivider).toHaveAttribute("aria-valuenow", "46");
@@ -1475,12 +1488,20 @@ describe("project workspace", () => {
         primaryBibliography: "references.bib",
         trusted: false,
       },
-      files: [],
+      files: [{
+        name: "sections",
+        path: "sections",
+        kind: "folder",
+        children: [{ name: "introduction.tex", path: "sections/introduction.tex", kind: "tex", children: [] }],
+      }],
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") {
-        return "\\documentclass{article}\n\\begin{document}\n\\section{Intro}\ntext\n\\section{Results}\n\\end{document}\n";
+        if ((args as { path?: string } | undefined)?.path === "sections/introduction.tex") {
+          return "\\subsection{Background}\ntext\n";
+        }
+        return "\\documentclass{article}\n\\begin{document}\n\\section{Intro}\n\\input{sections/introduction}\n\\section{Results}\n\\end{document}\n";
       }
       if (command === "list_papers" || command === "list_history") return [];
       if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 1, diagnostics: [] };
@@ -1491,6 +1512,8 @@ describe("project workspace", () => {
     expect(await screen.findByLabelText("Show document outline")).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Show outline"));
     expect(await screen.findByLabelText("Document outline")).toBeInTheDocument();
+    expect(await screen.findByText("sections/introduction.tex")).toBeInTheDocument();
+    expect(screen.queryByText("\\input{sections/introduction.tex}")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Results/i }));
     await waitFor(() => {
       const editorElement = document.querySelector<HTMLElement>(".cm-editor");

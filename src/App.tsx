@@ -4915,100 +4915,103 @@ function App() {
   return (
     <div className={`app-shell ${isFullscreen ? "fullscreen" : ""}`} ref={shellRef}>
       <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
-        <div className="titlebar-navigator">
-          <div className="traffic-space" />
-          <Tip label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}>
-            <button className="icon-button" onClick={() => setSidebarOpen((value) => !value)}>
-              <span key={sidebarOpen ? "open" : "closed"} className="toggle-icon">
-                {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-              </span>
-            </button>
-          </Tip>
-        </div>
-        <div className="project-switcher">
-          <DropdownMenu open={projectMenuOpen} onOpenChange={setProjectMenuOpen} modal={false}>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="project-title"
-                aria-label="Switch project"
-                disabled={agentRunning || building || importing}
-              >
-                <span>{project.manifest.name}</span>
-                <ChevronDown size={13} />
-              </button>
-            </DropdownMenuTrigger>
-            <ProjectMenu
-              currentPath={project.root}
-              recentProjects={recentProjects}
-              busyLabel={busyLabel}
-              onRecent={chooseRecentProject}
-              onOpen={() => void chooseExisting()}
-              onNew={() => {
-                setCreateError(null);
-                setCreateOpen(true);
-              }}
-              onOpenOverleaf={() => setOverleafPickerOpen(true)}
-              onExportZip={() => void exportProjectZip()}
-              theme={theme}
-              onTheme={setTheme}
-              onSettings={() => openSettings("appearance")}
-            />
-          </DropdownMenu>
-          {(collabStatus === "synced" || collabStatus === "connecting") && (
-            <button
-              type="button"
-              className="collab-title-chip"
-              title="Live collaboration"
-              onClick={() => openCollabDialog(collabRole === "guest" ? "join" : "start")}
-            >
-              <Radio size={12} />
-              <span>
-                {collabStatus === "connecting"
-                  ? "Connecting…"
-                  : collabRole === "guest"
-                    ? (collabPeers > 0 ? `Guest · ${collabPeers} other${collabPeers === 1 ? "" : "s"}` : "Guest · live")
-                    : (collabPeers > 0 ? `Sharing · ${collabPeers} other${collabPeers === 1 ? "" : "s"}` : "Sharing · just you")}
-              </span>
-            </button>
-          )}
-          {collabPeerList.length > 0 && (
-            <div className="collab-peer-avatars" aria-label="People in this session">
-              {collabPeerList.slice(0, 5).map((peer) => (
-                <button
-                  key={peer.clientId}
-                  type="button"
-                  className="collab-peer-avatar"
-                  style={{ background: peer.color }}
-                  title={peer.path ? `${peer.name} · ${peer.path} — click to follow` : peer.name}
-                  onClick={() => void followCollabPeer(peer)}
-                >
-                  {peerInitials(peer.name)}
-                </button>
-              ))}
-              {collabPeerList.length > 5 && (
-                <span className="collab-peer-avatar more" title={collabPeerList.slice(5).map((peer) => peer.name).join(", ")}>
-                  +{collabPeerList.length - 5}
+        <div className="titlebar-sidebar" style={{ width: sidebarOpen ? sidebarWidth + 1 : undefined }}>
+          <div className="titlebar-navigator">
+            <div className="traffic-space" />
+            <Tip label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}>
+              <button className="icon-button" onClick={() => setSidebarOpen((value) => !value)}>
+                <span key={sidebarOpen ? "open" : "closed"} className="toggle-icon">
+                  {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
                 </span>
-              )}
-            </div>
-          )}
-          <div className="titlebar-drag-area" aria-hidden="true" />
+              </button>
+            </Tip>
+          </div>
+          <div className="project-switcher">
+            <DropdownMenu open={projectMenuOpen} onOpenChange={setProjectMenuOpen} modal={false}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="project-title"
+                  aria-label="Switch project"
+                  disabled={agentRunning || building || importing}
+                >
+                  <span>{project.manifest.name}</span>
+                  <ChevronDown size={13} />
+                </button>
+              </DropdownMenuTrigger>
+              <ProjectMenu
+                currentPath={project.root}
+                recentProjects={recentProjects}
+                busyLabel={busyLabel}
+                onRecent={chooseRecentProject}
+                onOpen={() => void chooseExisting()}
+                onNew={() => {
+                  setCreateError(null);
+                  setCreateOpen(true);
+                }}
+                onOpenOverleaf={() => setOverleafPickerOpen(true)}
+                onExportZip={() => void exportProjectZip()}
+                theme={theme}
+                onTheme={setTheme}
+                onSettings={() => openSettings("appearance")}
+              />
+            </DropdownMenu>
+            {(collabStatus === "synced" || collabStatus === "connecting") && (
+              <button
+                type="button"
+                className="collab-title-chip"
+                title="Live collaboration"
+                onClick={() => openCollabDialog(collabRole === "guest" ? "join" : "start")}
+              >
+                <Radio size={12} />
+                <span>
+                  {collabStatus === "connecting"
+                    ? "Connecting…"
+                    : collabRole === "guest"
+                      ? (collabPeers > 0 ? `Guest · ${collabPeers} other${collabPeers === 1 ? "" : "s"}` : "Guest · live")
+                      : (collabPeers > 0 ? `Sharing · ${collabPeers} other${collabPeers === 1 ? "" : "s"}` : "Sharing · just you")}
+                </span>
+              </button>
+            )}
+            {collabPeerList.length > 0 && (
+              <div className="collab-peer-avatars" aria-label="People in this session">
+                {collabPeerList.slice(0, 5).map((peer) => (
+                  <button
+                    key={peer.clientId}
+                    type="button"
+                    className="collab-peer-avatar"
+                    style={{ background: peer.color }}
+                    title={peer.path ? `${peer.name} · ${peer.path} — click to follow` : peer.name}
+                    onClick={() => void followCollabPeer(peer)}
+                  >
+                    {peerInitials(peer.name)}
+                  </button>
+                ))}
+                {collabPeerList.length > 5 && (
+                  <span className="collab-peer-avatar more" title={collabPeerList.slice(5).map((peer) => peer.name).join(", ")}>
+                    +{collabPeerList.length - 5}
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="titlebar-drag-area" aria-hidden="true" />
+          </div>
         </div>
-        <EditorTabs
-          tabs={editorTabItems}
-          activePath={activeTabKey}
-          onSelect={(path) => {
-            if (isPaperTabKey(path)) {
-              const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));
-              if (paper) void openPaper(paper);
-              else void closeEditorTab(path);
-            } else {
-              void openProjectFile(path);
-            }
-          }}
-          onClose={(path) => { void closeEditorTab(path); }}
-          onReorder={(next) => setOpenTabs(next)}
-        />
+        <div className="titlebar-main">
+          <EditorTabs
+            tabs={editorTabItems}
+            activePath={activeTabKey}
+            onSelect={(path) => {
+              if (isPaperTabKey(path)) {
+                const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));
+                if (paper) void openPaper(paper);
+                else void closeEditorTab(path);
+              } else {
+                void openProjectFile(path);
+              }
+            }}
+            onClose={(path) => { void closeEditorTab(path); }}
+            onReorder={(next) => setOpenTabs(next)}
+          />
           <CanvasToolbar
             mode={canvasMode}
             setMode={openDocumentMode}
@@ -5079,44 +5082,45 @@ function App() {
               void overleafChat.refresh();
             }}
           />
-        <div className="title-actions">
-          <Tip label="Clean aux files">
-            <button
-              className="icon-button"
-              disabled={building || cleaning}
-              onClick={() => void cleanProject()}
-            >
-              {cleaning ? <LoaderCircle className="spin" size={15} /> : <Eraser size={15} />}
-            </button>
-          </Tip>
-          {building ? (
-            <Tip label="Stop the current LaTeX build">
+          <div className="title-actions">
+            <Tip label="Clean aux files">
               <button
-                className="build-button stop"
-                onClick={() => void abortBuild()}
-                aria-live="polite"
+                className="icon-button"
+                disabled={building || cleaning}
+                onClick={() => void cleanProject()}
               >
-                <Square size={13} fill="currentColor" />
-                Stop
+                {cleaning ? <LoaderCircle className="spin" size={15} /> : <Eraser size={15} />}
               </button>
             </Tip>
-          ) : (
-            <Tip label={`${autoBuildDescription(buildPreferences.autoBuildMode)}. Shift-click for clean rebuild.`}>
-              <button
-                aria-label="Build"
-                className={`build-button ${build?.success ? "success" : ""}`}
-                onClick={(event) => {
-                  if (event.shiftKey) void cleanAndRebuild();
-                  else void compile();
-                }}
-                disabled={cleaning}
-                aria-live="polite"
-              >
-                {build?.success ? <Check size={15} /> : <Play size={15} />}
-                {build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : "Build"}
-              </button>
-            </Tip>
-          )}
+            {building ? (
+              <Tip label="Stop the current LaTeX build">
+                <button
+                  className="build-button stop"
+                  onClick={() => void abortBuild()}
+                  aria-live="polite"
+                >
+                  <Square size={13} fill="currentColor" />
+                  Stop
+                </button>
+              </Tip>
+            ) : (
+              <Tip label={`${autoBuildDescription(buildPreferences.autoBuildMode)}. Shift-click for clean rebuild.`}>
+                <button
+                  aria-label="Build"
+                  className={`build-button ${build?.success ? "success" : ""}`}
+                  onClick={(event) => {
+                    if (event.shiftKey) void cleanAndRebuild();
+                    else void compile();
+                  }}
+                  disabled={cleaning}
+                  aria-live="polite"
+                >
+                  {build?.success ? <Check size={15} /> : <Play size={15} />}
+                  {build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : "Build"}
+                </button>
+              </Tip>
+            )}
+          </div>
         </div>
       </header>
 

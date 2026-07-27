@@ -169,7 +169,7 @@ export function persistSidebarOpen(open: boolean) {
 
 export function loadSidebarWidth(): number {
   try {
-    return clamp(Number(localStorage.getItem(SIDEBAR_WIDTH_KEY)) || 320, 300, 480);
+    return clamp(Number(localStorage.getItem(SIDEBAR_WIDTH_KEY)) || 320, 300, 560);
   } catch { return 320; }
 }
 
