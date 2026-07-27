@@ -1,13 +1,11 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ChatStatus, UIMessage } from "ai";
 import { invoke } from "@tauri-apps/api/core";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import {
   BookOpen,
   Bot,
-  Check,
   ChevronDown,
   Code2,
-  Copy,
   FileCode2,
   FileText,
   KeyRound,
@@ -15,14 +13,10 @@ import {
   Paperclip,
   Plus,
   Search,
-  Send,
-  Square,
   TerminalSquare,
   Trash2,
   X,
 } from "lucide-react";
-import { IconSwap } from "./motion";
-import { ChatMarkdown } from "./chat-markdown";
 import { applySlashCommand, filterSlashCommands, slashAtCaret, type AgentCommand, type SlashState } from "./slash-commands";
 import { Tip } from "./components/icon-tip";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
@@ -33,8 +27,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
-import { ThinkingOrb } from "./thinking-orbs";
-import { clamp } from "./app-settings";
+import { InputBar } from "./components/agent-elements/input-bar";
+import { MessageList } from "./components/agent-elements/message-list";
+import { UserMessage as AgentElementsUserMessage } from "./components/agent-elements/user-message";
+import { GenericTool } from "./components/agent-elements/tools/generic-tool";
 import type {
   AgentToolStep,
   ChatMessage,
@@ -54,20 +50,8 @@ import {
   modelLabel,
   compactConversationTitle,
   relativeTime,
-  statusToOrbState,
   mentionAtCaret,
 } from "./app-utils";
-
-export function AgentToolRow({ step }: { step: AgentToolStep }) {
-  const detail = toolDetailLabel(step);
-  return (
-    <div className={`agent-tool-step ${step.phase}`} aria-label={`${step.name}${detail ? `: ${detail}` : ""}`}>
-      <i aria-hidden="true" />
-      <strong>{step.name}</strong>
-      {detail && <span>{detail}</span>}
-    </div>
-  );
-}
 
 function toolDetailLabel(step: AgentToolStep): string {
   if (!step.detail) return step.phase === "start" ? "Working…" : "";
@@ -78,73 +62,66 @@ function toolDetailLabel(step: AgentToolStep): string {
     .replace(/…$/, "");
 }
 
-/**
- * One rendered chat turn. Memoized so a streaming reply only re-renders the last
- * row: every prop is stable for the earlier rows (the flags derive per-row from
- * "is this the last message"), so their markdown + KaTeX isn't re-parsed on each
- * streamed frame.
- */
-export const MessageRow = memo(function MessageRow(props: {
-  message: ChatMessage;
-  index: number;
-  streamingTail: boolean;
-  inFlight: boolean;
-  editDisabled: boolean;
-  copied: boolean;
-  macros: Record<string, string>;
-  onCopy: (message: ChatMessage) => void;
-  onEdit: (message: ChatMessage) => void;
-}) {
-  const { message, index, streamingTail, inFlight, editDisabled, copied, macros, onCopy, onEdit } = props;
-  return (
-    <div className={`chat-message ${message.role} ${streamingTail && message.role === "agent" ? "streaming" : ""}`}>
-      <div className="message-column">
-        <div className="message-body">
-          {message.role !== "agent"
-            ? <p>{message.text}</p>
-            : (message.parts?.length
-              ? message.parts.map((part, partIndex) => (part.kind === "text"
-                ? <ChatMarkdown
-                    key={partIndex}
-                    text={part.text}
-                    macros={macros}
-                    // Only the run being written now shows the caret.
-                    className={streamingTail && partIndex === message.parts!.length - 1 ? "streaming-tail" : undefined}
-                  />
-                : <AgentToolRow key={part.id} step={part} />))
-              : <ChatMarkdown text={message.text} macros={macros} />)}
-          {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
-          {message.role === "user" && !!message.attachments?.length && <div className="message-attachments">{message.attachments.map((attachment, attachmentIndex) => <span key={`${attachment.name}-${attachmentIndex}`}><Paperclip size={10} />{attachment.name}<small>{attachment.kind} · {attachmentSize(attachment.size)}</small></span>)}</div>}
-          {message.role === "agent" && (!isConversationWelcome(message, index) || !!message.files?.length) && <div className="agent-message-meta">
-            {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
-            {!isConversationWelcome(message, index) && !inFlight && <button className="agent-message-copy" title="Copy agent response" onClick={() => void onCopy(message)}>
-              <IconSwap swapKey={copied ? "check" : "copy"}>
-                {copied ? <Check size={11} /> : <Copy size={11} />}
-              </IconSwap>
-            </button>}
-          </div>}
-        </div>
-        {message.role === "user" && <div className="message-actions user-message-actions">
-          <button className="message-copy" title="Copy user message" onClick={() => void onCopy(message)}>
-            {copied ? <Check size={11} /> : <Copy size={11} />}
-          </button>
-          <button className="message-edit" title="Edit and branch from this message" disabled={editDisabled} onClick={() => onEdit(message)}><Pencil size={11} /> Edit</button>
-        </div>}
-      </div>
-    </div>
-  );
-});
-
 function attachmentSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+type AgentElementsToolPart = {
+  type: string;
+  toolCallId?: string;
+  toolName?: string;
+  state?: string;
+  input?: unknown;
+};
+
+function AgentElementsTool({ part }: { part: AgentElementsToolPart }) {
+  const input = typeof part.input === "object" && part.input !== null
+    ? part.input as { name?: string; detail?: string }
+    : undefined;
+  const name = part.toolName ?? input?.name ?? part.type.replace(/^tool-/, "");
+  return (
+    <div className={`agent-elements-tool-step agent-tool-step ${part.state === "output-available" ? "end" : "start"}`} data-tool-name={name}>
+      <GenericTool
+        title={name}
+        subtitle={input?.detail}
+        isPending={part.state !== "output-available" && part.state !== "output-error"}
+        isError={part.state === "output-error"}
+      />
+    </div>
+  );
+}
+
+function toAgentElementsMessages(messages: ChatMessage[]): UIMessage[] {
+  return messages
+    .filter((message) => message.role !== "system")
+    .map((message) => ({
+      id: message.id,
+      role: message.role === "agent" ? "assistant" : "user",
+      latticeSkills: message.skills,
+      latticeFiles: message.files,
+      latticeCopyDisabled: message.role === "agent"
+        && isConversationWelcome(message, messages.indexOf(message)),
+      parts: (message.parts?.length ? message.parts : [{ kind: "text" as const, text: message.text }]).map((part) => (
+        part.kind === "text"
+          ? { type: "text" as const, text: part.text }
+          : {
+              type: "dynamic-tool" as const,
+              toolCallId: part.id,
+              toolName: part.name,
+              state: part.phase === "start" ? "input-available" as const : "output-available" as const,
+              input: { name: part.name, detail: toolDetailLabel(part) },
+              output: part.phase === "end" ? { detail: part.detail } : undefined,
+            }
+      )),
+    })) as UIMessage[];
+}
+
 export function AgentPanel({
   modelsFor,
   agentCommands,
-  katexMacros,
+  katexMacros: _katexMacros,
   messages,
   sessions,
   activeSession,
@@ -180,8 +157,8 @@ export function AgentPanel({
   branchSource,
   onCancelBranch,
   mentions,
-  chatEnd,
-  chatListRef,
+  chatEnd: _chatEnd,
+  chatListRef: _chatListRef,
 }: {
   agentCommands: AgentCommand[];
   katexMacros: Record<string, string>;
@@ -225,6 +202,9 @@ export function AgentPanel({
   /** The runtime's model list for a provider, falling back to the built-in one. */
   modelsFor: (provider: AgentProvider) => ModelOption[];
 }) {
+  void _katexMacros;
+  void _chatEnd;
+  void _chatListRef;
   const options = modelsFor(provider);
   const efforts = options.find((option) => option.value === model)?.efforts ?? ["high"];
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -234,30 +214,6 @@ export function AgentPanel({
   const [mentionIndex, setMentionIndex] = useState(0);
   const [slash, setSlash] = useState<SlashState | null>(null);
   const [slashIndex, setSlashIndex] = useState(0);
-  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const copyResetTimer = useRef<number | null>(null);
-  // Stable identity so a memoized MessageRow isn't invalidated every render.
-  const copyMessage = useCallback(async (message: ChatMessage) => {
-    try {
-      await writeText(message.text);
-      setCopiedMessageId(message.id);
-      if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
-      copyResetTimer.current = window.setTimeout(() => setCopiedMessageId(null), 1400);
-    } catch {
-      setCopiedMessageId(null);
-    }
-  }, []);
-  useEffect(() => () => {
-    if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
-  }, []);
-  useLayoutEffect(() => {
-    const composer = composerRef.current;
-    if (!composer) return;
-    composer.style.height = "0px";
-    const height = clamp(composer.scrollHeight, 44, 160);
-    composer.style.height = `${height}px`;
-    composer.style.overflowY = composer.scrollHeight > 160 ? "auto" : "hidden";
-  }, [input]);
   // The conversation history is a Radix Popover now, which handles outside-click
   // and Escape dismissal itself — no manual window listeners needed.
   useEffect(() => {
@@ -279,6 +235,29 @@ export function AgentPanel({
       .slice(0, 8)
     : [];
   const slashSuggestions = slash ? filterSlashCommands(agentCommands, slash.query).slice(0, 8) : [];
+  const agentElementsMessages = useMemo(() => toAgentElementsMessages(messages), [messages]);
+  const messageById = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
+  const AgentElementsUser = useCallback(({ message }: { message: UIMessage; className?: string; enableImagePreview?: boolean }) => {
+    const original = messageById.get(message.id);
+    return (
+      <div className="agent-elements-user-turn chat-message user">
+        <AgentElementsUserMessage message={message} />
+        {!!original?.attachments?.length && (
+          <div className="message-attachments">
+            {original.attachments.map((attachment, index) => (
+              <span key={`${attachment.name}-${index}`}><Paperclip size={10} />{attachment.name}<small>{attachment.kind} · {attachmentSize(attachment.size)}</small></span>
+            ))}
+          </div>
+        )}
+        {original && (
+          <button className="message-edit agent-elements-edit" title="Edit and branch from this message" disabled={running} onClick={() => onEditMessage(original)}>
+            <Pencil size={11} /> Edit
+          </button>
+        )}
+      </div>
+    );
+  }, [messageById, onEditMessage, running]);
+  const chatStatus: ChatStatus = running ? (streaming ? "streaming" : "submitted") : "ready";
   const insertSlashCommand = (command: AgentCommand) => {
     if (!slash) return;
     const { value, caret } = applySlashCommand(input, slash, command);
@@ -336,37 +315,13 @@ export function AgentPanel({
           )}
         </div>
       </div>
-      <div className="chat-list" ref={chatListRef}>
-        {messages.map((message, index) => {
-          const isLast = index === messages.length - 1;
-          return (
-            <MessageRow
-              key={message.id}
-              message={message}
-              index={index}
-              // These derive from "is this the last row", so every earlier row
-              // gets stable props and the memo skips re-rendering it mid-stream.
-              streamingTail={isLast && streaming}
-              inFlight={isLast && running && message.role === "agent"}
-              editDisabled={running}
-              copied={copiedMessageId === message.id}
-              macros={katexMacros}
-              onCopy={copyMessage}
-              onEdit={onEditMessage}
-            />
-          );
-        })}
-        {running && !streaming && (
-          // At the start of a turn the agent is thinking before it has said a
-          // word, so it wears its avatar like any other agent message. Once a
-          // reply is already on screen and it pauses to run a tool, it drops the
-          // avatar and reads as a continuation of that same message instead.
-          <div className="chat-message agent thinking-row">
-            <div className="thinking"><ThinkingOrb state={statusToOrbState(status)} size={20} /><em>{status || (provider === "claude" ? "Claude is writing…" : "Agent is writing…")}</em></div>
-          </div>
-        )}
-        <div ref={chatEnd} />
-      </div>
+      <MessageList
+        messages={agentElementsMessages}
+        status={chatStatus}
+        className="agent-elements-message-list"
+        slots={{ UserMessage: AgentElementsUser, ToolRenderer: AgentElementsTool }}
+        showCopyToolbar
+      />
       <div className="composer-wrap">
         {branchSource && <div className="context-chip branch-chip"><Pencil size={11} /> Editing an earlier message creates a new branch <button title="Cancel conversation branch" onClick={onCancelBranch}><X size={11} /></button></div>}
         {selection && (
@@ -410,84 +365,88 @@ export function AgentPanel({
             ))}
           </div>
         )}
-        <div className="composer">
-          {!!attachments.length && <div className="staged-attachments">{attachments.map((attachment) => <span key={attachment.path} title={attachment.path}><Paperclip size={10} /><b>{attachment.name}</b><small>{attachment.kind} · {attachmentSize(attachment.size)}</small><button aria-label={`Remove ${attachment.name}`} disabled={running} onClick={() => onRemoveAttachment(attachment.path)}><X size={10} /></button></span>)}</div>}
-          <textarea
-            ref={composerRef}
-            rows={1}
-            placeholder="Ask the agent to write, revise, or reason…"
-            value={input}
-            onChange={(event) => {
-              setInput(event.target.value);
+        <InputBar
+          className="agent-elements-input"
+          inputRef={composerRef}
+          value={input}
+          onChange={setInput}
+          placeholder="Ask the agent to write, revise, or reason…"
+          status={chatStatus}
+          disabled={running ? !cancellable || stopping : false}
+          onAttach={onAddAttachments}
+          attachedFiles={attachments.map((attachment) => ({ id: attachment.path, filename: attachment.name, size: attachment.size }))}
+          onRemoveFile={onRemoveAttachment}
+          onSend={() => {
+            setMention(null);
+            setSlash(null);
+            onSend();
+          }}
+          onStop={() => {
+            if (cancellable && !stopping) onStop();
+          }}
+          onTextareaChange={(event) => {
               setMention(mentionAtCaret(event.target.value, event.target.selectionStart));
               setMentionIndex(0);
               setSlash(slashAtCaret(event.target.value, event.target.selectionStart));
               setSlashIndex(0);
-            }}
-            onSelect={(event) => {
+          }}
+          onTextareaSelect={(event) => {
               setMention(mentionAtCaret(event.currentTarget.value, event.currentTarget.selectionStart));
               setSlash(slashAtCaret(event.currentTarget.value, event.currentTarget.selectionStart));
-            }}
-            onBlur={() => { setMention(null); setSlash(null); }}
-            onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing || event.keyCode === 229 || event.key === "Process") return;
+          }}
+          onTextareaBlur={() => { setMention(null); setSlash(null); }}
+          onTextareaKeyDown={(event) => {
+              if (event.nativeEvent.isComposing || event.keyCode === 229 || event.key === "Process") return true;
               if (slash && slashSuggestions.length) {
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
                   setSlashIndex((index) => (index + 1) % slashSuggestions.length);
-                  return;
+                  return true;
                 }
                 if (event.key === "ArrowUp") {
                   event.preventDefault();
                   setSlashIndex((index) => (index - 1 + slashSuggestions.length) % slashSuggestions.length);
-                  return;
+                  return true;
                 }
                 // Enter still sends: a fully typed command should not need a
                 // second keystroke just because the menu is open.
                 if (event.key === "Tab") {
                   event.preventDefault();
                   insertSlashCommand(slashSuggestions[Math.min(slashIndex, slashSuggestions.length - 1)]);
-                  return;
+                  return true;
                 }
               }
               if (event.key === "Escape" && slash) {
                 event.preventDefault();
                 setSlash(null);
-                return;
+                return true;
               }
               if (mention && mentionSuggestions.length) {
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
                   setMentionIndex((index) => (index + 1) % mentionSuggestions.length);
-                  return;
+                  return true;
                 }
                 if (event.key === "ArrowUp") {
                   event.preventDefault();
                   setMentionIndex((index) => (index - 1 + mentionSuggestions.length) % mentionSuggestions.length);
-                  return;
+                  return true;
                 }
                 if (event.key === "Enter" || event.key === "Tab") {
                   event.preventDefault();
                   insertMention(mentionSuggestions[Math.min(mentionIndex, mentionSuggestions.length - 1)]);
-                  return;
+                  return true;
                 }
               }
               if (event.key === "Escape" && mention) {
                 event.preventDefault();
                 setMention(null);
-                return;
+                return true;
               }
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                setMention(null);
-                setSlash(null);
-                onSend();
-              }
-            }}
-          />
-          <div className="composer-footer">
-            <div className="composer-footer-left">
-              <button className="attach-button" title="Add attachments" aria-label="Add attachments" disabled={running} onClick={onAddAttachments}><Paperclip size={13} /></button>
+              return false;
+          }}
+          leftActions={(
+            <div className="composer-footer-left agent-elements-config">
               <div className="footer-selectors">
                 <Select value={provider} disabled={running} onValueChange={(value) => setProvider(value as AgentProvider)}>
                   <SelectTrigger aria-label="Agent provider" className="config-select"><SelectValue /></SelectTrigger>
@@ -506,13 +465,10 @@ export function AgentPanel({
                 <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select"><SelectValue /></SelectTrigger><SelectContent>{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
               </div>
               {(provider === "openai-api" || provider === "anthropic-api") && <button className="attach-button" title="API key settings" aria-label="API key settings" onClick={onApiSettings}><KeyRound size={13} /></button>}
-              {running && <span>{status || "Agent is working…"}</span>}
             </div>
-            {running
-              ? <button className="stop-agent-button" title={stopping ? "Stopping agent" : "Stop agent"} onClick={onStop} disabled={!cancellable || stopping}><Square size={12} fill="currentColor" /></button>
-              : <button title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={!input.trim() && !attachments.length}><Send size={14} /></button>}
-          </div>
-        </div>
+          )}
+          rightActions={running && status ? <span className="agent-elements-status">{status}</span> : undefined}
+        />
       </div>
     </section>
   );

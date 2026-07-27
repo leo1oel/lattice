@@ -1199,6 +1199,8 @@ describe("project workspace", () => {
     expect(diagnosticsPanel.closest(".pdf-column")).toBeInTheDocument();
     expect(diagnosticsPanel.parentElement).not.toHaveClass("workspace");
     expect(screen.getByText("1 error")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copy error message" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("chapters/intro.tex:4 Undefined control sequence."));
     fireEvent.click(screen.getByRole("tab", { name: /Log/i }));
     expect(screen.getByLabelText("Raw build log")).toHaveTextContent("Undefined control sequence.");
     fireEvent.click(screen.getByRole("tab", { name: /Messages/i }));

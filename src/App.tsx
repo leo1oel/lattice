@@ -12,6 +12,7 @@ import {
   Check,
   ChevronDown,
   CircleAlert,
+  Copy,
   FolderTree,
   Image,
   Library,
@@ -5201,6 +5202,7 @@ function App() {
         <div className="error-banner">
           <CircleAlert size={15} />
           <span>{error}</span>
+          <button aria-label="Copy error message" title="Copy error message" onClick={() => void writeText(error)}><Copy size={13} /></button>
           <button onClick={() => setError(null)}><X size={14} /></button>
         </div>
       )}
