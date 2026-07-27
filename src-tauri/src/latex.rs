@@ -328,7 +328,7 @@ pub fn forward_search(
     path: &str,
     line: u32,
     column: u32,
-) -> Result<PdfSyncTarget, String> {
+) -> Result<Option<PdfSyncTarget>, String> {
     if line == 0 {
         return Err("Choose a source line before locating it in the PDF.".to_string());
     }
@@ -363,10 +363,11 @@ pub fn forward_search(
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
-    parse_synctex_view(&String::from_utf8_lossy(&output.stdout))?
-        .into_iter()
-        .next()
-        .ok_or_else(|| "SyncTeX returned no PDF location for this line.".to_string())
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.trim().is_empty() {
+        return Ok(None);
+    }
+    Ok(parse_synctex_view(&stdout)?.into_iter().next())
 }
 
 fn parse_synctex_edit(output: &str) -> Result<(String, u32), String> {
@@ -387,7 +388,9 @@ fn parse_synctex_edit(output: &str) -> Result<(String, u32), String> {
 
 fn parse_synctex_view(output: &str) -> Result<Vec<PdfSyncTarget>, String> {
     let mut targets = Vec::new();
+    let mut saw_result = false;
     for block in output.split("SyncTeX result begin").skip(1) {
+        saw_result = true;
         let body = block.split("SyncTeX result end").next().unwrap_or(block);
         let page = field_u32(body, "Page:")?;
         let x = field_f64(body, "h:").or_else(|_| field_f64(body, "x:"))?;
@@ -405,8 +408,8 @@ fn parse_synctex_view(output: &str) -> Result<Vec<PdfSyncTarget>, String> {
             height,
         });
     }
-    if targets.is_empty() {
-        return Err("No PDF location was found for this source line.".to_string());
+    if !saw_result {
+        return Err("SyncTeX output contained no result block.".to_string());
     }
     Ok(targets)
 }
@@ -700,6 +703,23 @@ mod tests {
     #[test]
     fn rejects_empty_forward_synctex_output() {
         assert!(parse_synctex_view("no results here").is_err());
+    }
+
+    #[test]
+    fn treats_a_zero_page_as_no_forward_synctex_match() {
+        let output = concat!(
+            "SyncTeX result begin\nOutput:main.pdf\nPage:0\n",
+            "h:0.0\nv:0.0\nW:0.0\nH:0.0\nSyncTeX result end\n"
+        );
+        assert!(parse_synctex_view(output).unwrap().is_empty());
+    }
+
+    #[test]
+    fn rejects_malformed_forward_synctex_result() {
+        assert!(
+            parse_synctex_view("SyncTeX result begin\nPage:not-a-page\nSyncTeX result end")
+                .is_err()
+        );
     }
 
     #[test]

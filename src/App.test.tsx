@@ -1512,7 +1512,8 @@ describe("project workspace", () => {
     expect(await screen.findByLabelText("Show document outline")).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Show outline"));
     expect(await screen.findByLabelText("Document outline")).toBeInTheDocument();
-    expect(await screen.findByText("sections/introduction.tex")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Background/i })).toBeInTheDocument();
+    expect(screen.queryByText("sections/introduction.tex")).not.toBeInTheDocument();
     expect(screen.queryByText("\\input{sections/introduction.tex}")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Results/i }));
     await waitFor(() => {

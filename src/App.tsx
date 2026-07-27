@@ -248,6 +248,8 @@ import { WELCOME_MESSAGE, agentErrorDetails, arxivIdFromTabKey, autoBuildDescrip
 import { mcpDraftToSaveRequest } from "./mcp-settings";
 import "./App.css";
 
+const EMPTY_DIAGNOSTICS: CompileDiagnostic[] = [];
+
 const defaultWelcomeMessages: ChatMessage[] = [
   {
     id: "welcome",
@@ -2196,11 +2198,12 @@ function App() {
     try {
       if (!(await save())) return;
       if (source !== savedSource || !pdfUrl) await runBuild();
-      const target = await invoke<PdfSyncResponse>("synctex_view", {
+      const target = await invoke<PdfSyncResponse | null>("synctex_view", {
         path: editorPosition.path,
         line: editorPosition.line,
         column: editorPosition.column,
       });
+      if (!target) return;
       setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
       setCanvasMode((mode) => {
         if (mode === "dual") return "columns";
@@ -4712,13 +4715,13 @@ function App() {
       return;
     }
     let cancelled = false;
-    void invoke<{ page: number }>("synctex_view", {
+    void invoke<{ page: number } | null>("synctex_view", {
       path: marker.path,
       line: marker.line,
       column: 0,
     })
       .then((target) => {
-        if (!cancelled) setMainBodyPages(Math.max(0, target.page - 1));
+        if (!cancelled) setMainBodyPages(target ? Math.max(0, target.page - 1) : null);
       })
       .catch(() => {
         if (!cancelled) setMainBodyPages(null);
@@ -5398,7 +5401,7 @@ function App() {
             onCiteInsertHandled={(id) => setCiteInsertRequest((current) => current?.id === id ? null : current)}
             projectPaths={projectPaths}
             graphicsRoots={graphicsRoots}
-            buildDiagnostics={build?.diagnostics ?? []}
+            buildDiagnostics={build?.diagnostics ?? EMPTY_DIAGNOSTICS}
             texlabDiagnostics={texlabDiagnostics}
             pdfSyncTarget={pdfSyncTarget}
             onPdfSource={revealPdfSource}

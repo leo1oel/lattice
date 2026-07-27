@@ -1143,6 +1143,11 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .source-editor .cm-panel.cm-search input[type="checkbox"] { width: 13px; height: 13px; min-width: 0; margin: 0; accent-color: var(--accent); }
 .source-editor .cm-searchMatch { background: rgba(255, 208, 0, .34); border-radius: 2px; }
 .source-editor .cm-searchMatch-selected { background: rgba(255, 142, 0, .48); }
+.source-editor .cm-foldGutter .cm-gutterElement {
+  display: grid;
+  place-items: center;
+  line-height: inherit;
+}
 .source-editor .cm-tooltip.cm-tooltip-autocomplete { border: 1px solid var(--line-strong); border-radius: 8px; background: var(--panel-strong); box-shadow: var(--shadow); overflow: hidden; max-width: min(420px, 70vw); }
 .source-editor .cm-tooltip-autocomplete > ul { min-width: 230px; max-width: min(420px, 70vw); padding: 4px; font-family: var(--editor-font); font-size: calc(var(--editor-font-size) - 1px); }
 .source-editor .cm-tooltip-autocomplete > ul > li { padding: 5px 8px; border-radius: 5px; color: var(--muted); line-height: 1.35; text-align: left; display: flex; gap: 10px; align-items: baseline; }

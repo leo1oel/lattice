@@ -64,13 +64,9 @@ describe("latex outline", () => {
         title: "Main",
         path: "main.tex",
         children: [{
-          title: "sections/method.tex",
-          kind: "input",
-          children: [{
-            title: "Approach",
-            path: "sections/method.tex",
-            children: [{ title: "Details", path: "sections/method.tex" }],
-          }],
+          title: "Approach",
+          path: "sections/method.tex",
+          children: [{ title: "Details", path: "sections/method.tex" }],
         }],
       },
       { title: "Close", path: "main.tex" },

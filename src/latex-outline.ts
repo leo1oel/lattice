@@ -178,29 +178,20 @@ export function parseProjectOutline(
       }
       const included = resolveIncludePath(event.raw, projectPaths);
       if (!included || !(included in sources)) continue;
-      const marker: OutlineNode = {
-        id: `${path}:input:${event.offset}:${included}`,
-        level: Math.min(5, (stack[stack.length - 1]?.level ?? 2) + 1) as OutlineLevel,
-        title: included,
-        line: lineAt(source, event.offset),
-        path,
-        kind: "input",
-        children: [],
-      };
-      if (!stack.length) roots.push(marker);
-      else stack[stack.length - 1].children.push(marker);
-      // Share children with a level-0 frame so nested sections don't pop the marker.
-      const stackDepth = stack.length;
+      const previousStack = [...stack];
+      // Keep included sections under the current semantic parent without adding
+      // a visible file node. The frame prevents section levels in the included
+      // source from popping that parent.
       stack.push({
-        id: `${marker.id}:frame`,
+        id: `${path}:input-frame:${event.offset}:${included}`,
         level: 0 as OutlineLevel,
         title: "",
         line: 0,
         path: included,
-        children: marker.children,
+        children: stack.length ? stack[stack.length - 1].children : roots,
       });
       walk(included, depth + 1);
-      stack.length = stackDepth;
+      stack.splice(0, stack.length, ...previousStack);
     }
     visiting.delete(path);
   };

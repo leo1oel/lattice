@@ -1679,7 +1679,7 @@ async fn synctex_view(
     path: String,
     line: u32,
     column: u32,
-) -> Result<PdfSyncTarget, String> {
+) -> Result<Option<PdfSyncTarget>, String> {
     let root = current_root(&state)?;
     tauri::async_runtime::spawn_blocking(move || latex::forward_search(&root, &path, line, column))
         .await

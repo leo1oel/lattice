@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { linter, lintGutter } from "@codemirror/lint";
+import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { emacs } from "@replit/codemirror-emacs";
@@ -319,6 +319,12 @@ export function DocumentCanvas(props: {
   const diagnosticsRef = useRef({ build: buildDiagnostics, texlab: texlabDiagnostics });
   diagnosticsRef.current = { build: buildDiagnostics, texlab: texlabDiagnostics };
 
+  useEffect(() => {
+    for (const view of [primaryViewRef.current, secondaryViewRef.current]) {
+      if (view) refreshLint(view);
+    }
+  }, [buildDiagnostics, texlabDiagnostics]);
+
   const focusedPaneRef = useRef(focusedPane);
   focusedPaneRef.current = focusedPane;
   const activeFileRefEditor = useRef(activeFile);
@@ -503,7 +509,6 @@ export function DocumentCanvas(props: {
         onResolve: (id) => resolveEditorCommentRef.current(id),
         onReply: (comment) => replyEditorCommentRef.current(comment.id),
       }),
-      lintGutter(),
       linter((view) => editorDiagnosticsForFile(diagnosticsRef.current.build, activeFile, view.state.doc), {
         delay: 150,
       }),
@@ -544,16 +549,15 @@ export function DocumentCanvas(props: {
           true,
           onTexlabGoto,
         ),
-        lintGutter(),
-        linter((view) => editorDiagnosticsForFile(buildDiagnostics, secondaryFile, view.state.doc), {
+        linter((view) => editorDiagnosticsForFile(diagnosticsRef.current.build, secondaryFile, view.state.doc), {
           delay: 150,
         }),
-        linter((view) => editorTexlabDiagnosticsForFile(texlabDiagnostics, secondaryFile, view.state.doc), {
+        linter((view) => editorTexlabDiagnosticsForFile(diagnosticsRef.current.texlab, secondaryFile, view.state.doc), {
           delay: 200,
         }),
       ];
     },
-    [buildDiagnostics, editorKeymap, editorSpellcheck, graphicsRoots, localMacros, onCreateMissingFile, onFindReferences, onGotoDefinition, onPasteImageFile, onRenameEnvironment, onRenameSymbol, onTexlabGoto, onWrapEnvironment, projectPaths, props.citationKeys, props.citations, props.onLoadReferenceImage, props.references, props.unusedCitations, props.unusedLabels, secondaryFile, texlabDiagnostics],
+    [editorKeymap, editorSpellcheck, graphicsRoots, localMacros, onCreateMissingFile, onFindReferences, onGotoDefinition, onPasteImageFile, onRenameEnvironment, onRenameSymbol, onTexlabGoto, onWrapEnvironment, projectPaths, props.citationKeys, props.citations, props.onLoadReferenceImage, props.references, props.unusedCitations, props.unusedLabels, secondaryFile],
   );
   const insertTextAtCursor = useCallback((insert: string, cursorOffset = insert.length) => {
     const view = editorViewRef.current;
