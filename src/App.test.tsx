@@ -432,8 +432,16 @@ describe("project workspace", () => {
     render(<App />);
     const divider = await screen.findByRole("separator", { name: "Resize project navigator" });
     expect(divider).toHaveAttribute("aria-valuenow", "200");
+    const agentDivider = screen.getByRole("separator", { name: "Resize writing agent" });
+    expect(agentDivider).toHaveAttribute("aria-valuenow", "280");
+    expect(document.querySelector<HTMLElement>(".workspace")?.style.gridTemplateAreas)
+      .toContain("navigator navigator-resizer canvas agent-resizer agent");
+    expect(screen.getByRole("button", { name: "Hide writing agent" }).closest(".title-actions"))
+      .toBeInTheDocument();
     fireEvent.keyDown(divider, { key: "ArrowRight" });
     expect(divider).toHaveAttribute("aria-valuenow", "216");
+    fireEvent.keyDown(agentDivider, { key: "ArrowLeft" });
+    expect(agentDivider).toHaveAttribute("aria-valuenow", "296");
 
     fireEvent.pointerDown(divider, { clientX: 216 });
     fireEvent.pointerMove(window, { clientX: 300 });
@@ -1566,7 +1574,7 @@ describe("project workspace", () => {
     // Successful tool activity recedes instead of adding a redundant green
     // success label to every row.
     expect(body.querySelectorAll(".agent-tool-step.end")).toHaveLength(2);
-    expect(body.querySelector(".agent-tool-step")?.textContent).toBe("read");
+    expect(body.querySelector(".agent-tool-step")?.textContent).toBe("readmain.tex");
   });
 
   it("marks only the run of text being written, not every block in the turn", async () => {

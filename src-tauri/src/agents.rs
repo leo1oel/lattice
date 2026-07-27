@@ -1100,12 +1100,38 @@ fn tool_status(value: &Value) -> String {
         .get("path")
         .or_else(|| args.get("file_path"))
         .and_then(Value::as_str);
+    let command = args.get("command").and_then(Value::as_str);
+    let pattern = args
+        .get("pattern")
+        .or_else(|| args.get("glob"))
+        .or_else(|| args.get("query"))
+        .and_then(Value::as_str);
     match (name.as_str(), target) {
         ("read", Some(path)) => format!("Reading {path}…"),
         ("edit" | "write", Some(path)) => format!("Editing {path}…"),
+        ("bash", _) if command.is_some() => {
+            format!("Running {}…", compact_tool_argument(command.unwrap()))
+        }
+        ("glob", _) if pattern.is_some() => {
+            format!("Matching {}…", compact_tool_argument(pattern.unwrap()))
+        }
+        ("grep", _) if pattern.is_some() => {
+            format!("Searching for {}…", compact_tool_argument(pattern.unwrap()))
+        }
         ("bash", _) => "Running a project command…".to_string(),
         (_, Some(path)) => format!("Using {name} on {path}…"),
         _ => format!("Using {name}…"),
+    }
+}
+
+fn compact_tool_argument(value: &str) -> String {
+    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut chars = compact.chars();
+    let head = chars.by_ref().take(72).collect::<String>();
+    if chars.next().is_some() {
+        format!("{head}…")
+    } else {
+        head
     }
 }
 
@@ -2335,6 +2361,24 @@ If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manual
             Some("research-taste")
         );
         assert_eq!(tool_skill_name(&ordinary_read), None);
+    }
+
+    #[test]
+    fn describes_tool_targets_in_stream_events() {
+        assert_eq!(
+            tool_status(&json!({ "toolName": "read", "args": { "path": "src/main.ts" } })),
+            "Reading src/main.ts…"
+        );
+        assert_eq!(
+            tool_status(&json!({ "toolName": "glob", "args": { "pattern": "src/**/*.tsx" } })),
+            "Matching src/**/*.tsx…"
+        );
+        assert_eq!(
+            tool_status(
+                &json!({ "toolName": "bash", "args": { "command": "pnpm   test\n--run" } })
+            ),
+            "Running pnpm test --run…"
+        );
     }
 
     #[test]

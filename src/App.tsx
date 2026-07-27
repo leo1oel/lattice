@@ -3911,7 +3911,10 @@ function App() {
             for (let index = parts.length - 1; index >= 0; index -= 1) {
               const part = parts[index];
               if (part?.kind === "tool" && part.name === event.name && part.phase === "start") {
-                parts[index] = { ...part, phase: "end", detail: event.detail || "done" };
+                // OMP's end event only says "done"; retain the useful target
+                // (file, glob, or command) from the matching start event.
+                const endDetail = event.detail.trim().toLowerCase() === "done" ? part.detail : event.detail;
+                parts[index] = { ...part, phase: "end", detail: endDetail || part.detail };
                 publish();
                 return;
               }
@@ -4875,15 +4878,6 @@ function App() {
               </span>
             </button>
           </Tip>
-          <Tip label={agentOpen ? "Hide writing agent" : "Show writing agent"}>
-            <button
-              className={`icon-button ${agentOpen ? "active" : ""}`}
-              onClick={() => setAgentOpen((value) => !value)}
-              aria-pressed={agentOpen}
-            >
-              <Bot size={16} />
-            </button>
-          </Tip>
         </div>
         <div className="project-switcher">
           <DropdownMenu open={projectMenuOpen} onOpenChange={setProjectMenuOpen} modal={false}>
@@ -4952,6 +4946,15 @@ function App() {
           <div className="titlebar-drag-area" aria-hidden="true" />
         </div>
         <div className="title-actions">
+          <Tip label={agentOpen ? "Hide writing agent" : "Show writing agent"}>
+            <button
+              className={`icon-button ${agentOpen ? "active" : ""}`}
+              onClick={() => setAgentOpen((value) => !value)}
+              aria-pressed={agentOpen}
+            >
+              <Bot size={16} />
+            </button>
+          </Tip>
           <Tip label={theme === "dark" ? "Light mode" : "Dark mode"}>
             <button className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
               <IconSwap swapKey={theme}>
@@ -5051,9 +5054,14 @@ function App() {
         style={{
           gridTemplateColumns: [
             navigatorOpen ? `${panelWidths.navigator}px 5px` : "",
-            agentOpen ? `${panelWidths.agent}px 5px` : "",
             "minmax(360px, 1fr)",
+            agentOpen ? `5px ${panelWidths.agent}px` : "",
           ].filter(Boolean).join(" "),
+          gridTemplateAreas: `"${[
+            navigatorOpen ? "navigator navigator-resizer" : "",
+            "canvas",
+            agentOpen ? "agent-resizer agent" : "",
+          ].filter(Boolean).join(" ")}"`,
         }}
       >
         {navigatorOpen && (
@@ -5093,66 +5101,12 @@ function App() {
             />
             <PanelResizer
               label="Resize project navigator"
+              side="left"
               value={panelWidths.navigator}
               onPointerDown={(event) => beginPanelResize("navigator", event)}
               onNudge={(delta) => nudgePanel("navigator", delta)}
             />
           </>
-        )}
-
-        {agentOpen && (
-        <>
-        <AgentPanel
-          modelsFor={agentModels.options}
-          agentCommands={agentCommands}
-          katexMacros={katexMacros}
-          messages={messages}
-          sessions={agentSessions}
-          activeSession={activeSession}
-          sessionMenuOpen={sessionMenuOpen}
-          setSessionMenuOpen={setSessionMenuOpen}
-          onNewSession={newAgentSession}
-          onOpenSession={openAgentSession}
-          onDeleteSession={deleteAgentSession}
-          onEditMessage={editAndBranch}
-          input={agentInput}
-          setInput={setAgentInput}
-          provider={provider}
-          setProvider={changeProvider}
-          model={agentModel}
-          setModel={setAgentModel}
-          reasoningEffort={reasoningEffort}
-          setReasoningEffort={setReasoningEffort}
-          running={agentRunning}
-          streaming={agentStreaming}
-          status={agentStatus}
-          cancellable={agentCancellable}
-          stopping={agentStopping}
-          onSend={sendToAgent}
-          onStop={stopAgent}
-          onApiSettings={() => openSettings("api")}
-          selection={selection}
-          selectionSource={selectionSource}
-          onClearSelection={() => {
-            dismissedSelectionRef.current = selection;
-            setSelection("");
-            setSelectionSource(null);
-            selectionSourceRef.current = null;
-          }}
-          branchSource={branchSource}
-          onCancelBranch={() => setBranchSource(null)}
-          mentions={agentMentions}
-          chatEnd={chatEnd}
-          chatListRef={chatListRef}
-        />
-
-        <PanelResizer
-          label="Resize writing agent"
-          value={panelWidths.agent}
-          onPointerDown={(event) => beginPanelResize("agent", event)}
-          onNudge={(delta) => nudgePanel("agent", delta)}
-        />
-        </>
         )}
 
         <section className="canvas-panel">
@@ -5390,6 +5344,61 @@ function App() {
           />
           </div>
         </section>
+
+        {agentOpen && (
+          <>
+            <PanelResizer
+              label="Resize writing agent"
+              side="right"
+              value={panelWidths.agent}
+              onPointerDown={(event) => beginPanelResize("agent", event)}
+              onNudge={(delta) => nudgePanel("agent", delta)}
+            />
+            <AgentPanel
+              modelsFor={agentModels.options}
+              agentCommands={agentCommands}
+              katexMacros={katexMacros}
+              messages={messages}
+              sessions={agentSessions}
+              activeSession={activeSession}
+              sessionMenuOpen={sessionMenuOpen}
+              setSessionMenuOpen={setSessionMenuOpen}
+              onNewSession={newAgentSession}
+              onOpenSession={openAgentSession}
+              onDeleteSession={deleteAgentSession}
+              onEditMessage={editAndBranch}
+              input={agentInput}
+              setInput={setAgentInput}
+              provider={provider}
+              setProvider={changeProvider}
+              model={agentModel}
+              setModel={setAgentModel}
+              reasoningEffort={reasoningEffort}
+              setReasoningEffort={setReasoningEffort}
+              running={agentRunning}
+              streaming={agentStreaming}
+              status={agentStatus}
+              cancellable={agentCancellable}
+              stopping={agentStopping}
+              onSend={sendToAgent}
+              onStop={stopAgent}
+              onApiSettings={() => openSettings("api")}
+              selection={selection}
+              selectionSource={selectionSource}
+              onClearSelection={() => {
+                dismissedSelectionRef.current = selection;
+                setSelection("");
+                setSelectionSource(null);
+                selectionSourceRef.current = null;
+              }}
+              branchSource={branchSource}
+              onCancelBranch={() => setBranchSource(null)}
+              mentions={agentMentions}
+              chatEnd={chatEnd}
+              chatListRef={chatListRef}
+            />
+          </>
+        )}
       </main>
 
       <CollabDialog
@@ -5979,13 +5988,14 @@ function App() {
 
 function PanelResizer(props: {
   label: string;
+  side: "left" | "right";
   value: number;
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
   onNudge: (delta: number) => void;
 }) {
   return (
     <div
-      className="panel-resizer"
+      className={`panel-resizer ${props.side === "left" ? "navigator-resizer" : "agent-resizer"}`}
       role="separator"
       aria-label={props.label}
       aria-orientation="vertical"

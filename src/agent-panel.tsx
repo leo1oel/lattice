@@ -58,9 +58,7 @@ import {
 } from "./app-utils";
 
 export function AgentToolRow({ step }: { step: AgentToolStep }) {
-  const detail = step.phase === "end" && step.detail.trim().toLowerCase() === "done"
-    ? ""
-    : step.detail || (step.phase === "start" ? "Working…" : "");
+  const detail = toolDetailLabel(step);
   return (
     <div className={`agent-tool-step ${step.phase}`} aria-label={`${step.name}${detail ? `: ${detail}` : ""}`}>
       <i aria-hidden="true" />
@@ -68,6 +66,15 @@ export function AgentToolRow({ step }: { step: AgentToolStep }) {
       {detail && <span>{detail}</span>}
     </div>
   );
+}
+
+function toolDetailLabel(step: AgentToolStep): string {
+  if (!step.detail) return step.phase === "start" ? "Working…" : "";
+  if (step.phase === "end" && step.detail.trim().toLowerCase() === "done") return "";
+  return step.detail
+    .replace(/^(Reading|Editing|Matching|Running|Searching for)\s+/, "")
+    .replace(new RegExp(`^Using ${step.name} on\\s+`, "i"), "")
+    .replace(/…$/, "");
 }
 
 /**

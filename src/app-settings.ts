@@ -294,7 +294,8 @@ export function resizePanelWidths(
   }
   const navigatorWidth = navigatorOpen ? start.navigator : 0;
   const maximum = Math.max(260, Math.min(halfWindow, window.innerWidth - navigatorWidth - canvasMinimum - handles));
-  return { ...start, agent: clamp(start.agent + delta, 260, maximum) };
+  // The agent sits on the right, so dragging its left edge to the left grows it.
+  return { ...start, agent: clamp(start.agent - delta, 260, maximum) };
 }
 
 /**
