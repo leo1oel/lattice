@@ -12,11 +12,9 @@ import {
   Check,
   ChevronDown,
   CircleAlert,
-  Eraser,
   FolderTree,
   Image,
   Library,
-  LoaderCircle,
   PanelLeftClose,
   PanelLeftOpen,
   Play,
@@ -4406,6 +4404,9 @@ function App() {
       onRunDoctor={() => { void runDoctor(); }}
       onOpenTexSetup={() => openTexSetupWizard()}
       onCopyDoctorSummary={() => { void copyDoctorSummary(); }}
+      onCleanProject={() => { void cleanProject(); }}
+      cleaning={cleaning}
+      building={building}
       appearance={appearance}
       setAppearance={setAppearance}
       theme={theme}
@@ -4953,8 +4954,6 @@ function App() {
                 }}
                 onOpenOverleaf={() => setOverleafPickerOpen(true)}
                 onExportZip={() => void exportProjectZip()}
-                theme={theme}
-                onTheme={setTheme}
                 onSettings={() => openSettings("appearance")}
               />
             </DropdownMenu>
@@ -5087,15 +5086,6 @@ function App() {
             }}
           />
           <div className="title-actions">
-            <Tip label="Clean aux files">
-              <button
-                className="icon-button"
-                disabled={building || cleaning}
-                onClick={() => void cleanProject()}
-              >
-                {cleaning ? <LoaderCircle className="spin" size={15} /> : <Eraser size={15} />}
-              </button>
-            </Tip>
             {building ? (
               <Tip label="Stop the current LaTeX build">
                 <button

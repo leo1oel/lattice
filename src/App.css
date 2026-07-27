@@ -142,7 +142,7 @@ select:disabled { opacity: 0.45; cursor: default; }
 .bib-entry-form [data-slot="select-trigger"] { width: 100%; height: 34px; }
 
 .app-shell { height: 100%; background: var(--bg); display: flex; flex-direction: column; }
-.titlebar { position: relative; z-index: 5; height: 46px; flex: none; display: flex; align-items: center; background: var(--sidebar); user-select: none; }
+.titlebar { position: relative; z-index: 5; height: 40px; flex: none; display: flex; align-items: center; background: var(--sidebar); user-select: none; }
 .titlebar-sidebar { width: 320px; min-width: 0; height: 100%; flex: none; display: flex; align-items: center; }
 .titlebar-navigator { width: 132px; height: 100%; flex: none; padding: 0 10px 0 0; display: flex; align-items: center; gap: 2px; }
 .traffic-space { width: 86px; height: 100%; flex: none; margin-right: 2px; }
@@ -170,7 +170,7 @@ select:disabled { opacity: 0.45; cursor: default; }
 .titlebar-drag-area { min-width: 12px; height: 100%; flex: 1; }
 .title-actions { flex: none; display: flex; align-items: center; gap: 6px; padding-right: 12px; }
 .titlebar-main { min-width: 0; height: 100%; flex: 1; background: var(--sidebar); display: flex; align-items: center; overflow: hidden; }
-.titlebar-main > .editor-tabs { min-width: 100px; width: auto; height: 34px; margin-left: 5px; flex: 1 1 320px; border: 0; background: transparent; }
+.titlebar-main > .editor-tabs { min-width: 100px; width: auto; height: 34px; flex: 1 1 320px; border: 0; background: transparent; }
 .titlebar-main > .editor-tabs .editor-tabs-scroll { padding: 0 4px; align-items: center; gap: 4px; }
 .titlebar-main > .editor-tabs .editor-tab { height: 30px; border: 1px solid color-mix(in srgb, var(--line) 55%, transparent); border-radius: 7px; background: color-mix(in srgb, var(--panel-strong) 58%, transparent); }
 .titlebar-main > .editor-tabs .editor-tab.active { border-color: var(--line); background: var(--panel-strong); box-shadow: 0 1px 2px rgb(0 0 0 / 4%); }
@@ -273,17 +273,19 @@ select:disabled { opacity: 0.45; cursor: default; }
 /* Hide the horizontal scrollbar so it can't overlap the tab labels; the strip
    still scrolls via trackpad, mouse wheel, and auto-scroll-to-active-tab. */
 .editor-tabs-scroll::-webkit-scrollbar { height: 0; width: 0; display: none; }
-.editor-tab { flex: 0 0 auto; max-width: 180px; display: flex; align-items: stretch; border: 1px solid transparent; border-bottom: 0; border-radius: 7px 7px 0 0; background: transparent; cursor: grab; }
+.editor-tab { flex: 1 1 160px; min-width: 64px; max-width: 180px; display: flex; align-items: stretch; border: 1px solid transparent; border-bottom: 0; border-radius: 7px 7px 0 0; background: transparent; cursor: grab; }
+.editor-tab:not(.active):hover { background: color-mix(in srgb, var(--panel-strong) 42%, transparent); }
 .editor-tab.active { border-color: var(--line); background: var(--editor-bg); }
 .editor-tab.dragging { opacity: 0.8; background: var(--editor-bg); border-color: var(--line-strong); box-shadow: var(--shadow); cursor: grabbing; }
 /* While a tab is being dragged, the whole strip shows the grab cursor and stops
    selecting text under the pointer. */
 body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user-select: none; }
-.editor-tab > button[role="tab"] { height: 100%; min-width: 0; padding: 0 8px; border: 0; background: transparent; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; font-size: 11px; overflow: hidden; }
-.editor-tab > button[role="tab"] span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-tab > button[role="tab"] { height: 100%; min-width: 0; padding: 0 4px 0 8px; border: 0; background: transparent; color: var(--muted); display: inline-flex; flex: 1 1 auto; align-items: center; gap: 6px; font-size: 11px; overflow: hidden; }
+.editor-tab > button[role="tab"] span { min-width: 0; flex: 1 1 auto; overflow: hidden; white-space: nowrap; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent); }
 .editor-tab.active > button[role="tab"] { color: var(--text); font-weight: 600; }
 .editor-tab > button[role="tab"] i { width: 5px; height: 5px; flex: none; border-radius: 50%; background: var(--accent); }
-.editor-tab-close { width: 22px; flex: none; border: 0; background: transparent; color: var(--faint); display: grid; place-items: center; }
+.editor-tab-close { width: 20px; height: 20px; margin: auto 2px auto 0; flex: none; border: 0; border-radius: 50%; background: transparent; color: var(--faint); opacity: 0; pointer-events: none; display: grid; place-items: center; transition: opacity .1s ease, color .1s ease, background-color .1s ease; }
+.editor-tab:hover .editor-tab-close, .editor-tab:focus-within .editor-tab-close, .editor-tab-close:focus-visible { opacity: 1; pointer-events: auto; }
 .editor-tab-close:hover { color: var(--text); background: var(--line); }
 .table-generator, .project-replace, .bib-entry-dialog { width: min(480px, 100%); height: 100%; background: var(--panel-strong); box-shadow: var(--shadow); padding: 14px; overflow: auto; animation: drawer-in .2s ease-out; display: flex; flex-direction: column; gap: 12px; }
 .bib-entry-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -366,7 +368,7 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 .workspace { flex: 1; min-width: 0; min-height: 0; display: grid; overflow: hidden; }
 .workspace > * { min-width: 0; }
 .navigator, .agent-panel { min-width: 0; }
-.shared-sidebar { grid-area: sidebar; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--sidebar); }
+.shared-sidebar { grid-area: sidebar; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--sidebar); container-type: inline-size; }
 .sidebar-pane { min-width: 0; min-height: 0; flex: 1; display: flex; overflow: hidden; }
 .sidebar-pane[hidden] { display: none; }
 .sidebar-pane:not([hidden]) { animation: sidebar-pane-in .18s cubic-bezier(.2, .75, .25, 1); }
@@ -391,6 +393,14 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .sidebar-mode-tabs .sliding-tab-label svg { width: 15px; height: 15px; min-width: 15px; flex: none; margin: 0 7px; }
 .sidebar-mode-tabs .sliding-tab-label span { white-space: nowrap; opacity: 0; transition: opacity .14s ease; }
 .sidebar-mode-tabs .sliding-tab.active .sliding-tab-label span, .sidebar-mode-tabs .sliding-tab:hover .sliding-tab-label span { opacity: 1; }
+@container (max-width: 284px) {
+  .sidebar-mode-tabs .sliding-tab.active, .sidebar-mode-tabs .sliding-tab:hover { width: 29px; }
+  .sidebar-mode-tabs .sliding-tab.active .sliding-tab-label span, .sidebar-mode-tabs .sliding-tab:hover .sliding-tab-label span { opacity: 0; }
+}
+@container (min-width: 360px) {
+  .sidebar-mode-tabs .sliding-tab { width: 84px; }
+  .sidebar-mode-tabs .sliding-tab-label span { opacity: 1; }
+}
 .sidebar-mode-actions { margin-left: auto; flex: none; display: flex; align-items: center; gap: 1px; }
 .sidebar-mode-actions button { width: 26px; height: 26px; border-radius: 6px; background: transparent; color: var(--faint); display: grid; place-items: center; }
 .sidebar-mode-actions button:hover:not(:disabled), .sidebar-mode-actions button[aria-pressed="true"] { background: var(--line); color: var(--text); }

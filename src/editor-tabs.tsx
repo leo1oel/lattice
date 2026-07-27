@@ -174,7 +174,9 @@ export function EditorTabs(props: {
                   <button
                     type="button"
                     className="editor-tab-close"
+                    aria-label={`Close ${tabLabel(tab)}`}
                     title={`Close ${tabLabel(tab)}`}
+                    onPointerDown={(event) => event.stopPropagation()}
                     onClick={(event) => {
                       event.stopPropagation();
                       props.onClose(tab.path);

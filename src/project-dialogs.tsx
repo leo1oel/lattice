@@ -11,8 +11,6 @@ import {
   Radio,
   Settings,
   Sparkles,
-  Sun,
-  Moon,
 } from "lucide-react";
 import { MorphIcon, MotionButton } from "./motion";
 import {
@@ -23,7 +21,7 @@ import {
   DropdownMenuShortcut,
 } from "./components/ui/dropdown-menu";
 import { type ProjectVenue, type RenameTarget } from "./app-types";
-import { type RecentProject, type Theme } from "./app-settings";
+import { type RecentProject } from "./app-settings";
 import { beginWindowDrag, toggleWindowFullscreen } from "./app-utils";
 
 export function Welcome(props: {
@@ -241,8 +239,6 @@ export function ProjectMenu(props: {
   onNew: () => void;
   onExportZip: () => void;
   onOpenOverleaf?: () => void;
-  theme: Theme;
-  onTheme: (theme: Theme) => void;
   onSettings: () => void;
 }) {
   const alternatives = props.recentProjects.filter((item) => item.path !== props.currentPath);
@@ -251,12 +247,9 @@ export function ProjectMenu(props: {
     <DropdownMenuContent align="start" sideOffset={6} className="w-72">
       <DropdownMenuLabel>Recent projects</DropdownMenuLabel>
       {alternatives.map((item) => (
-        <DropdownMenuItem key={item.path} disabled={busy} onSelect={() => props.onRecent(item.path)}>
+        <DropdownMenuItem key={item.path} title={item.path} disabled={busy} onSelect={() => props.onRecent(item.path)}>
           <Folder />
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate font-medium">{item.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{item.path}</span>
-          </span>
+          <span className="truncate font-medium">{item.name}</span>
         </DropdownMenuItem>
       ))}
       {!alternatives.length && (
@@ -274,9 +267,6 @@ export function ProjectMenu(props: {
       )}
       <DropdownMenuItem onSelect={props.onExportZip}><FileArchive /> Export ZIP</DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuLabel>Appearance</DropdownMenuLabel>
-      <DropdownMenuItem onSelect={() => props.onTheme("light")}><Sun /> Light {props.theme === "light" && <span className="ml-auto">✓</span>}</DropdownMenuItem>
-      <DropdownMenuItem onSelect={() => props.onTheme("dark")}><Moon /> Dark {props.theme === "dark" && <span className="ml-auto">✓</span>}</DropdownMenuItem>
       <DropdownMenuItem onSelect={props.onSettings}><Settings /> Settings</DropdownMenuItem>
       {props.busyLabel && (
         <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">

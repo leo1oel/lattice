@@ -73,7 +73,7 @@ pub fn install_magnify_monitor(app: tauri::AppHandle) {
 }
 
 /// Fallback when the web UI has not reported a measured titlebar yet.
-const DEFAULT_TITLEBAR_HEIGHT: f64 = 46.0;
+const DEFAULT_TITLEBAR_HEIGHT: f64 = 40.0;
 const TRAFFIC_LIGHT_X: f64 = 16.0;
 
 #[derive(Clone, Copy)]
@@ -229,7 +229,7 @@ unsafe fn align_traffic_lights(ns_window: *mut std::ffi::c_void) {
 mod tests {
     #[test]
     fn default_titlebar_height_matches_css() {
-        assert_eq!(super::DEFAULT_TITLEBAR_HEIGHT, 46.0);
+        assert_eq!(super::DEFAULT_TITLEBAR_HEIGHT, 40.0);
     }
 
     #[test]

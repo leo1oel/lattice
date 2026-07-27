@@ -111,6 +111,9 @@ export function SettingsDialog(props: {
   onRunDoctor: () => void;
   onOpenTexSetup: () => void;
   onCopyDoctorSummary: () => void;
+  onCleanProject: () => void;
+  cleaning: boolean;
+  building: boolean;
   onClose: () => void;
 }) {
   const updater = useUpdater();
@@ -255,6 +258,16 @@ export function SettingsDialog(props: {
                 <div className="settings-detail">
                   <Play size={14} />
                   <div><strong>{autoBuildTitle(props.buildPreferences.autoBuildMode)}</strong><span>{autoBuildDetail(props.buildPreferences.autoBuildMode)}</span></div>
+                </div>
+                <div className="root-document-actions">
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={!props.hasProject || props.cleaning || props.building}
+                    onClick={props.onCleanProject}
+                  >
+                    {props.cleaning ? "Cleaning auxiliary files…" : "Clean auxiliary files"}
+                  </button>
                 </div>
                 {props.project && (
                   <>

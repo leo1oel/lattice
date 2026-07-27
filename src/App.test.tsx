@@ -352,6 +352,9 @@ describe("project workspace", () => {
     fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
 
     expect(await screen.findByText("Recent projects")).toBeInTheDocument();
+    expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Light" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /open another folder/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize workspace sidebar" })).toBeInTheDocument();

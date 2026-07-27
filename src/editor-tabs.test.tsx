@@ -50,6 +50,27 @@ describe("EditorTabs", () => {
     expect(onSelect).toHaveBeenCalledWith("sections/intro.tex");
   });
 
+  it("closes without selecting or starting a drag", () => {
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <EditorTabs
+        tabs={[{ path: "main.tex" }, { path: "sections/intro.tex" }]}
+        activePath="main.tex"
+        onSelect={onSelect}
+        onClose={onClose}
+        onReorder={vi.fn()}
+      />,
+    );
+    const close = screen.getByRole("button", { name: "Close intro.tex" });
+    expect(close).toHaveClass("editor-tab-close");
+    fireEvent.pointerDown(close, { button: 0, clientX: 150 });
+    fireEvent.click(close);
+    expect(onClose).toHaveBeenCalledWith("sections/intro.tex");
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(document.body).not.toHaveClass("reordering-tabs");
+  });
+
   it("closes from the context menu", async () => {
     const onClose = vi.fn();
     render(

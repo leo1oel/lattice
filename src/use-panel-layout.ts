@@ -18,7 +18,7 @@ export type PanelLayout = {
 };
 
 const resizedWidth = (start: number, delta: number) =>
-  clamp(start + delta, 300, Math.max(300, Math.min(560, window.innerWidth - 365)));
+  clamp(start + delta, 225, Math.max(225, Math.min(560, window.innerWidth - 365)));
 
 /** Owns the single workspace sidebar's visibility and width. */
 export function usePanelLayout(): PanelLayout {
