@@ -364,6 +364,8 @@ pub struct PaperSummary {
     pub citation_key: Option<String>,
     /// False for works that are only cited — the reader has nothing to open.
     pub has_full_text: bool,
+    /// True only when an overview is already present in the local paper cache.
+    pub has_blog: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

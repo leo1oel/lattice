@@ -148,6 +148,8 @@ export type PaperSummary = {
   citationKey?: string;
   /** False for works that are only cited — there is nothing to open. */
   hasFullText: boolean;
+  /** True only when blog.md is already available locally. */
+  hasBlog: boolean;
 };
 
 export type RenameTarget =
@@ -241,7 +243,7 @@ export type McpServerDraft = {
 export type AgentMention = { key: string; label: string; path: string; kind: "file" | "paper" };
 export type MentionState = { start: number; end: number; query: string };
 
-export type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "paper" | "asset";
+export type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "markdown-preview" | "paper" | "asset";
 export type EditorPaneId = "primary" | "secondary";
 export type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
 export type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";

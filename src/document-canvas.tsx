@@ -188,6 +188,8 @@ export function DocumentCanvas(props: {
   onCreateMissingFile: (path: string) => void;
   collabExtensions: Extension[];
   collabEditorKey: string;
+  onOpenCitation: (key: string) => void;
+  canOpenCitation: (key: string) => boolean;
 }) {
   const {
     activeFile,
@@ -305,6 +307,8 @@ export function DocumentCanvas(props: {
     localMacros,
     graphicsRoots,
     projectPaths,
+    onOpenCitation: props.onOpenCitation,
+    canOpenCitation: props.canOpenCitation,
   });
   latexLiveRef.current = {
     citationKeys: props.citationKeys,
@@ -315,6 +319,8 @@ export function DocumentCanvas(props: {
     localMacros,
     graphicsRoots,
     projectPaths,
+    onOpenCitation: props.onOpenCitation,
+    canOpenCitation: props.canOpenCitation,
   };
 
   const diagnosticsRef = useRef({ build: buildDiagnostics, texlab: texlabDiagnostics });
@@ -815,6 +821,9 @@ export function DocumentCanvas(props: {
   }
   if (props.mode === "asset" && props.activeAsset) {
     return <ProjectAssetPreview asset={props.activeAsset} />;
+  }
+  if (props.mode === "markdown-preview") {
+    return <article className="markdown-preview"><ChatMarkdown text={props.source} macros={props.katexMacros} breaks={false} /></article>;
   }
   const showTexChrome = activeFile.endsWith(".tex");
   const editor = (

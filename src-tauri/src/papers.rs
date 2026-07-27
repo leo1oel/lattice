@@ -222,6 +222,12 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             title,
             citation_key: Some(citation.key),
             has_full_text: matched.is_some(),
+            has_blog: matched.as_ref().is_some_and(|(id, _)| {
+                root.join(".research/papers")
+                    .join(id)
+                    .join("blog.md")
+                    .is_file()
+            }),
         });
     }
     // The bibliography is strictly authoritative; unclaimed cache entries stay hidden.
@@ -338,6 +344,17 @@ pub fn read_paper_blog(root: &Path, arxiv_id: &str) -> Result<Option<String>, St
         }
         None => Ok(None),
     }
+}
+
+/// Read an overview only when it is already cached. Unlike `read_paper_blog`,
+/// this is safe for passive UI affordances and never performs network I/O.
+pub fn read_paper_blog_local(root: &Path, arxiv_id: &str) -> Result<Option<String>, String> {
+    validate_arxiv_id(arxiv_id)?;
+    let path = project::safe_path(root, &format!(".research/papers/{arxiv_id}/blog.md"))?;
+    if !path.is_file() {
+        return Ok(None);
+    }
+    fs::read_to_string(path).map(Some).map_err(err)
 }
 
 /// Remove only the primary bibliography entry, retaining any downloaded cache.
@@ -840,6 +857,7 @@ mod tests {
             r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
         )
         .unwrap();
+        fs::write(directory.join("blog.md"), "# Overview\n").unwrap();
 
         let papers = list_papers(&root).unwrap();
         assert_eq!(papers.len(), 2, "got: {papers:?}");
@@ -849,6 +867,7 @@ mod tests {
             .find(|paper| paper.citation_key.as_deref() == Some("kingma2015adam"))
             .expect("a bibliography-only entry should still be listed");
         assert!(!adam.has_full_text);
+        assert!(!adam.has_blog);
         assert_eq!(adam.title, "Adam: A Method for Stochastic Optimization");
         // Its arXiv id came off the bibliography, so the text can be fetched later.
         assert_eq!(adam.arxiv_id, "1412.6980");
@@ -858,6 +877,7 @@ mod tests {
             .find(|paper| paper.citation_key.as_deref() == Some("vaswani2017attention"))
             .expect("the fetched paper should still be listed");
         assert!(attention.has_full_text);
+        assert!(attention.has_blog);
         assert_eq!(attention.arxiv_id, "1706.03762");
 
         let _ = fs::remove_dir_all(parent);

@@ -1251,6 +1251,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .citation-hover-card small, .citation-hover-card strong, .citation-hover-card span, .citation-hover-card em { display: block; }
 .citation-hover-card small { margin-bottom: 5px; color: var(--accent); font-family: var(--editor-font); font-size: 8px; }
 .citation-hover-card strong { font-size: 11px; font-weight: 650; line-height: 1.35; }
+.citation-hover-open { display: block; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: 11px; font-weight: 650; line-height: 1.35; text-align: left; cursor: pointer; }
+.citation-hover-open:hover, .citation-hover-open:focus-visible { color: var(--accent); text-decoration: underline; outline: none; }
 .citation-hover-card span { margin-top: 6px; color: var(--muted); font-size: 9px; line-height: 1.4; }
 .citation-hover-card em { margin-top: 5px; color: var(--faint); font-size: 8.5px; font-style: normal; }
 .reference-hover-card { width: min(360px, calc(100vw - 32px)); padding: 10px 12px 11px; border: 1px solid var(--line-strong); border-radius: 9px; background: color-mix(in srgb, var(--panel-strong) 97%, transparent); color: var(--text); backdrop-filter: blur(14px); }
@@ -1276,6 +1278,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .split-resizer:hover, .split-resizer:focus-visible, .resizing-split .split-resizer { background: var(--line-strong); box-shadow: 0 0 0 .5px var(--line-strong); }
 .resizing-split { cursor: col-resize; user-select: none; }
 .paper-reader { height: 100%; overflow: auto; background: var(--panel-strong); }
+.markdown-preview { height: 100%; overflow: auto; padding: 32px max(24px, calc((100% - 760px) / 2)); background: var(--panel-strong); color: var(--text); }
+.markdown-preview > .chat-markdown { max-width: 760px; margin: 0 auto; }
 .paper-reader-title { position: sticky; top: 0; z-index: 2; height: 38px; padding: 0 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel-strong) 94%, transparent); backdrop-filter: blur(12px); display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
 .paper-reader-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paper-reader-tools { margin-left: auto; flex: none; display: flex; align-items: center; gap: 10px; }

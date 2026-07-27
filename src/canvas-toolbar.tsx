@@ -44,6 +44,8 @@ function overleafChannelLabel(
 export function CanvasToolbar(props: {
   mode: CanvasMode;
   setMode: (mode: DocumentViewMode) => void;
+  markdown: boolean;
+  onMarkdownMode: (preview: boolean) => void;
   activePath: string;
   activeKind: "document" | "paper" | "asset";
   dirty: boolean;
@@ -89,7 +91,10 @@ export function CanvasToolbar(props: {
     <div className="canvas-toolbar">
       <div className="active-document"><ActiveIcon size={14} /><span>{props.activePath}</span>{props.activeKind === "document" && props.dirty && <i />}</div>
       <div className="view-switcher">
-        {([
+        {(props.markdown ? [
+          { id: "source" as const, label: "Edit", title: "Edit Markdown" },
+          { id: "markdown-preview" as const, label: "Preview", title: "Preview Markdown" },
+        ] : [
           { id: "source" as const, label: "source", title: "Source only" },
           { id: "split" as const, label: "split", title: "Source and PDF" },
           { id: "pdf" as const, label: "pdf", title: "PDF only" },
@@ -100,7 +105,7 @@ export function CanvasToolbar(props: {
               key={mode.id}
               className={active ? "active" : ""}
               title={mode.title}
-              onClick={() => props.setMode(mode.id)}
+              onClick={() => mode.id === "markdown-preview" ? props.onMarkdownMode(true) : props.markdown ? props.onMarkdownMode(false) : props.setMode(mode.id)}
             >
               {active && (
                 <motion.span
@@ -127,11 +132,11 @@ export function CanvasToolbar(props: {
                 <Redo2 size={14} />
               </button>
             </Tip>
-            <Tip label="Insert snippet or symbol (⌘⇧I)">
+            {!props.markdown && <Tip label="Insert snippet or symbol (⌘⇧I)">
               <button type="button" onClick={props.onInsert}>
                 <Omega size={14} />
               </button>
-            </Tip>
+            </Tip>}
             <Tip label="Editor comments">
               <button
                 type="button"
@@ -157,11 +162,11 @@ export function CanvasToolbar(props: {
                 {props.collabLive ? <em className="collab-peer-badge">{props.collabPeers}</em> : null}
               </button>
             </Tip>
-            <Tip label="Reveal cursor in PDF (⌘⇧J)">
+            {!props.markdown && <Tip label="Reveal cursor in PDF (⌘⇧J)">
               <button disabled={!props.canForwardSync || props.locatingPdf} onClick={props.onForwardSync}>
                 {props.locatingPdf ? <LoaderCircle className="spin" size={14} /> : <LocateFixed size={14} />}
               </button>
-            </Tip>
+            </Tip>}
           </>
         )}
         {(props.onOverleafSync || props.onOverleafOpen) && (

@@ -727,7 +727,9 @@ function App() {
       setActivePaper(null);
       setActiveAsset(null);
       setPaperMarkdown("");
-      setCanvasMode((mode) => (mode === "paper" || mode === "asset" ? "split" : mode));
+      setCanvasMode((mode) => path.toLocaleLowerCase().endsWith(".md")
+        ? "markdown-preview"
+        : (mode === "paper" || mode === "asset" || mode === "markdown-preview" ? "split" : mode));
       setError(null);
       await markDiskMtime(path);
       // Where you last were in this file, unless the caller is about to send
@@ -2906,7 +2908,7 @@ function App() {
     }
   }, [importReferenceInput, importInput]);
 
-  const openPaper = useCallback(async (paper: PaperSummary) => {
+  const openPaper = useCallback(async (paper: PaperSummary, localBlogOnly = false) => {
     try {
       if (source !== savedSource) {
         const saved = await save();
@@ -2916,7 +2918,7 @@ function App() {
       // is instant. read_paper_blog lazily backfills the blog when missing.
       const [fullText, blog] = await Promise.all([
         invoke<string>("read_paper", { arxivId: paper.arxivId }),
-        invoke<string | null>("read_paper_blog", { arxivId: paper.arxivId }).catch(() => null),
+        invoke<string | null>(localBlogOnly ? "read_paper_blog_local" : "read_paper_blog", { arxivId: paper.arxivId }).catch(() => null),
       ]);
       setPaperMarkdown(fullText);
       setPaperBlog(blog);
@@ -5018,6 +5020,8 @@ function App() {
           <CanvasToolbar
             mode={canvasMode}
             setMode={openDocumentMode}
+            markdown={!activePaper && !activeAsset && activeFile.toLocaleLowerCase().endsWith(".md")}
+            onMarkdownMode={(preview) => setCanvasMode(preview ? "markdown-preview" : "source")}
             activePath={activeAsset?.path ?? activePaper?.title ?? (
               focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile
             )}
@@ -5335,6 +5339,13 @@ function App() {
             onSetPaperView={setPaperView}
             activePaper={activePaper}
             activeAsset={activeAsset}
+            canOpenCitation={(key) => papers.some((item) => item.citationKey?.toLocaleLowerCase() === key.toLocaleLowerCase()
+              && item.hasFullText && item.hasBlog)}
+            onOpenCitation={(key) => {
+              const paper = papers.find((item) => item.citationKey?.toLocaleLowerCase() === key.toLocaleLowerCase()
+                && item.hasFullText && item.hasBlog);
+              if (paper) void openPaper(paper, true);
+            }}
             citationKeys={citationKeys}
             citations={citations}
             references={liveReferences}

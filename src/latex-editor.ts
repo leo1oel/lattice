@@ -1079,12 +1079,14 @@ export function citationTooltipSpace(bounds: Rect): Rect {
   };
 }
 
-function citationTooltips(citations: CitationInfo[]) {
-  const byKey = new Map(citations.map((citation) => [citation.key, citation]));
+function citationTooltips(citations: CitationInfo[], live?: () => LatexEditorLiveData) {
   return hoverTooltip((view, position) => {
     const target = citationHoverTarget(view.state.doc.toString(), position);
     if (!target) return null;
-    const citation = byKey.get(target.key);
+    const data = live?.();
+    const citation = (data?.citations ?? citations).find(
+      (item) => item.key.toLocaleLowerCase() === target.key.toLocaleLowerCase(),
+    );
     if (!citation) return null;
     return {
       pos: target.from,
@@ -1096,8 +1098,13 @@ function citationTooltips(citations: CitationInfo[]) {
         dom.style.maxWidth = `${Math.max(160, view.dom.clientWidth - 16)}px`;
         const key = document.createElement("small");
         key.textContent = citation.key;
-        const title = document.createElement("strong");
+        const title = data?.canOpenCitation?.(citation.key) ? document.createElement("button") : document.createElement("strong");
         title.textContent = citation.title || citation.key;
+        if (title instanceof HTMLButtonElement) {
+          title.type = "button";
+          title.className = "citation-hover-open";
+          title.addEventListener("click", () => data?.onOpenCitation?.(citation.key));
+        }
         dom.append(key, title);
         if (citation.authors) {
           const authors = document.createElement("span");
@@ -1302,6 +1309,8 @@ export type LatexEditorLiveData = {
   localMacros: LocalMacro[];
   graphicsRoots: string[];
   projectPaths: string[];
+  onOpenCitation?: (key: string) => void;
+  canOpenCitation?: (key: string) => boolean;
 };
 
 /**
@@ -1413,7 +1422,7 @@ export function latexEditorExtensions(
     tooltips({
       tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()),
     }),
-    citationTooltips(citations),
+    citationTooltips(citations, live),
     referenceTooltips(references, loadReferenceImage),
     ...(enableTexlabLanguage ? [texlabHoverTooltip(texlabPath)] : []),
     linter((view) => {

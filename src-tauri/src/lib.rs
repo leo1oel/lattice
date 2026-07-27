@@ -1743,6 +1743,14 @@ fn read_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<Str
 }
 
 #[tauri::command]
+fn read_paper_blog_local(
+    state: tauri::State<'_, AppState>,
+    arxiv_id: String,
+) -> Result<Option<String>, String> {
+    papers::read_paper_blog_local(&current_root(&state)?, &arxiv_id)
+}
+
+#[tauri::command]
 async fn read_paper_blog(
     state: tauri::State<'_, AppState>,
     arxiv_id: String,
@@ -2394,6 +2402,7 @@ pub fn run() {
             list_papers,
             read_paper,
             read_paper_blog,
+            read_paper_blog_local,
             run_agent,
             abort_agent,
             subscription_status,
