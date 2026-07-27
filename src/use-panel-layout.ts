@@ -12,6 +12,7 @@ export type PanelLayout = {
   sidebarOpen: boolean;
   setSidebarOpen: Dispatch<SetStateAction<boolean>>;
   sidebarWidth: number;
+  sidebarResizing: boolean;
   beginSidebarResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
   nudgeSidebar: (delta: number) => void;
 };
@@ -23,6 +24,7 @@ const resizedWidth = (start: number, delta: number) =>
 export function usePanelLayout(): PanelLayout {
   const [sidebarOpen, setSidebarOpen] = useState(loadSidebarOpen);
   const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
+  const [sidebarResizing, setSidebarResizing] = useState(false);
   useEffect(() => persistSidebarOpen(sidebarOpen), [sidebarOpen]);
 
   const beginSidebarResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -30,12 +32,14 @@ export function usePanelLayout(): PanelLayout {
     const startX = event.clientX;
     const startWidth = sidebarWidth;
     let latest = sidebarWidth;
+    setSidebarResizing(true);
     document.body.classList.add("resizing-panels");
     const move = (moveEvent: PointerEvent) => {
       latest = resizedWidth(startWidth, moveEvent.clientX - startX);
       setSidebarWidth(latest);
     };
     const up = () => {
+      setSidebarResizing(false);
       document.body.classList.remove("resizing-panels");
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
@@ -53,5 +57,12 @@ export function usePanelLayout(): PanelLayout {
     });
   }, []);
 
-  return { sidebarOpen, setSidebarOpen, sidebarWidth, beginSidebarResize, nudgeSidebar };
+  return {
+    sidebarOpen,
+    setSidebarOpen,
+    sidebarWidth,
+    sidebarResizing,
+    beginSidebarResize,
+    nudgeSidebar,
+  };
 }

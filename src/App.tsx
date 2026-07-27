@@ -22,7 +22,6 @@ import {
   Play,
   Radio,
   Search,
-  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -536,6 +535,7 @@ function App() {
     sidebarOpen,
     setSidebarOpen,
     sidebarWidth,
+    sidebarResizing,
     beginSidebarResize,
     nudgeSidebar,
   } = usePanelLayout();
@@ -5000,6 +5000,7 @@ function App() {
           <EditorTabs
             tabs={editorTabItems}
             activePath={activeTabKey}
+            animateLayout={!sidebarResizing}
             onSelect={(path) => {
               if (isPaperTabKey(path)) {
                 const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));
@@ -5198,7 +5199,7 @@ function App() {
                     <>
                       <Tip label="Discover literature">
                         <button aria-label="Discover literature" onClick={() => setLiteratureOpen(true)}>
-                          <span className="sidebar-discover-icon"><BookOpen size={14} /><Sparkles size={8} /></span>
+                          <BookOpen size={14} />
                         </button>
                       </Tip>
                       <Tip label="Add bibliography entry">

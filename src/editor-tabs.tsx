@@ -29,6 +29,7 @@ function sameOrder(a: string[], b: string[]): boolean {
 export function EditorTabs(props: {
   tabs: EditorTab[];
   activePath: string;
+  animateLayout?: boolean;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
   onReorder: (nextPaths: string[]) => void;
@@ -134,7 +135,7 @@ export function EditorTabs(props: {
             <ContextMenu key={tab.path}>
               <ContextMenuTrigger asChild>
                 <motion.div
-                  layout
+                  layout={props.animateLayout !== false}
                   // Snappy so a dragged tab tracks the cursor closely while the
                   // others slide out of its way instead of jumping.
                   transition={{ layout: { type: "spring", stiffness: 700, damping: 46, mass: 0.5 } }}
