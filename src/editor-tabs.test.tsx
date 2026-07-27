@@ -18,6 +18,20 @@ function mockTabLayout(lefts: Record<string, number>) {
 }
 
 describe("EditorTabs", () => {
+  it("renders the active filename when only one tab is open", () => {
+    render(
+      <EditorTabs
+        tabs={[{ path: "main.tex", dirty: true }]}
+        activePath="main.tex"
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+        onReorder={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("tab", { name: /main\.tex/i })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("Unsaved changes")).toBeInTheDocument();
+  });
+
   it("selects a tab on click", () => {
     const onSelect = vi.fn();
     render(

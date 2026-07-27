@@ -4994,6 +4994,91 @@ function App() {
           )}
           <div className="titlebar-drag-area" aria-hidden="true" />
         </div>
+        <EditorTabs
+          tabs={editorTabItems}
+          activePath={activeTabKey}
+          onSelect={(path) => {
+            if (isPaperTabKey(path)) {
+              const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));
+              if (paper) void openPaper(paper);
+              else void closeEditorTab(path);
+            } else {
+              void openProjectFile(path);
+            }
+          }}
+          onClose={(path) => { void closeEditorTab(path); }}
+          onReorder={(next) => setOpenTabs(next)}
+        />
+          <CanvasToolbar
+            mode={canvasMode}
+            setMode={openDocumentMode}
+            activePath={activeAsset?.path ?? activePaper?.title ?? (
+              focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile
+            )}
+            activeKind={activeAsset ? "asset" : activePaper ? "paper" : "document"}
+            dirty={
+              source !== savedSource
+              || (Boolean(secondaryFile) && secondarySource !== secondarySavedSource)
+            }
+            canForwardSync={Boolean(editorPosition && (pdfUrl || build?.pdfBase64))}
+            locatingPdf={locatingPdf}
+            canNavigateBack={navIndex > 0}
+            canNavigateForward={navIndex >= 0 && navIndex < navStack.length - 1}
+            onNavigateBack={() => void navigateHistory(-1)}
+            onNavigateForward={() => void navigateHistory(1)}
+            onInsert={() => setInsertOpen(true)}
+            onCollab={() => openCollabDialog("start")}
+            collabLive={collabStatus === "synced" || collabStatus === "connecting"}
+            collabPeers={collabPeers}
+            onForwardSync={() => void revealSourceInPdf()}
+            onHistory={() => setHistoryOpen(true)}
+            onGit={() => setGitOpen(true)}
+            commentCount={allEditorComments.filter((comment) => !comment.resolved).length}
+            onComments={() => setEditorCommentsOpen(true)}
+            overleafLinked={overleafLink !== null}
+            overleafSyncing={overleafSyncing}
+            overleafPending={overleafRemoteChanges}
+            overleafLiveEditing={overleafRealtime.liveFile}
+            overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
+            overleafChannelDetail={overleafRealtime.detail}
+            overleafTrackChangesToggle={overleafLink ? (
+              <OverleafTrackChangesToggle
+                on={overleafRealtime.trackChanges}
+                disabled={overleafRealtime.permission === "readOnly"}
+                pending={overleafSuggestMode.pending}
+                onToggle={async (on) => {
+                  await overleafSuggestMode.setTrackChanges(on);
+                  // Overleaf normally announces this on the channel, but the
+                  // setting is changed over REST and succeeds even when the
+                  // channel is down — without this the button would keep
+                  // showing the mode it was in before the click.
+                  overleafRealtime.noteTrackChanges(on);
+                }}
+                onError={setNotice}
+              />
+            ) : null}
+            overleafPresence={overleafPresence.peers.length ? (
+              <OverleafPresenceAvatars
+                peers={overleafPresence.peers}
+                pathForDoc={(id) => overleafDocPaths.get(id) ?? null}
+                onJump={jumpToOverleafPeer}
+              />
+            ) : null}
+            onOverleafSync={() => {
+              // Manual mode is a review step, not a button that quietly
+              // rewrites files: show what would change and let the user decide.
+              if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
+              else void runOverleafSync();
+            }}
+            onOverleafOpen={() => setOverleafPickerOpen(true)}
+            overleafUnreadChat={
+              overleafChat.unread + overleafComments.openCount + overleafRealtime.changes.length
+            }
+            onOverleafChat={() => {
+              setOverleafCollabOpen(true);
+              void overleafChat.refresh();
+            }}
+          />
         <div className="title-actions">
           <Tip label="Clean aux files">
             <button
@@ -5212,92 +5297,7 @@ function App() {
         )}
 
         <section className="canvas-panel">
-          <CanvasToolbar
-            mode={canvasMode}
-            setMode={openDocumentMode}
-            activePath={activeAsset?.path ?? activePaper?.title ?? (
-              focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile
-            )}
-            activeKind={activeAsset ? "asset" : activePaper ? "paper" : "document"}
-            dirty={
-              source !== savedSource
-              || (Boolean(secondaryFile) && secondarySource !== secondarySavedSource)
-            }
-            canForwardSync={Boolean(editorPosition && (pdfUrl || build?.pdfBase64))}
-            locatingPdf={locatingPdf}
-            canNavigateBack={navIndex > 0}
-            canNavigateForward={navIndex >= 0 && navIndex < navStack.length - 1}
-            onNavigateBack={() => void navigateHistory(-1)}
-            onNavigateForward={() => void navigateHistory(1)}
-            onInsert={() => setInsertOpen(true)}
-            onCollab={() => openCollabDialog("start")}
-            collabLive={collabStatus === "synced" || collabStatus === "connecting"}
-            collabPeers={collabPeers}
-            onForwardSync={() => void revealSourceInPdf()}
-            onHistory={() => setHistoryOpen(true)}
-            onGit={() => setGitOpen(true)}
-            commentCount={allEditorComments.filter((comment) => !comment.resolved).length}
-            onComments={() => setEditorCommentsOpen(true)}
-            overleafLinked={overleafLink !== null}
-            overleafSyncing={overleafSyncing}
-            overleafPending={overleafRemoteChanges}
-            overleafLiveEditing={overleafRealtime.liveFile}
-            overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
-            overleafChannelDetail={overleafRealtime.detail}
-            overleafTrackChangesToggle={overleafLink ? (
-              <OverleafTrackChangesToggle
-                on={overleafRealtime.trackChanges}
-                disabled={overleafRealtime.permission === "readOnly"}
-                pending={overleafSuggestMode.pending}
-                onToggle={async (on) => {
-                  await overleafSuggestMode.setTrackChanges(on);
-                  // Overleaf normally announces this on the channel, but the
-                  // setting is changed over REST and succeeds even when the
-                  // channel is down — without this the button would keep
-                  // showing the mode it was in before the click.
-                  overleafRealtime.noteTrackChanges(on);
-                }}
-                onError={setNotice}
-              />
-            ) : null}
-            overleafPresence={overleafPresence.peers.length ? (
-              <OverleafPresenceAvatars
-                peers={overleafPresence.peers}
-                pathForDoc={(id) => overleafDocPaths.get(id) ?? null}
-                onJump={jumpToOverleafPeer}
-              />
-            ) : null}
-            onOverleafSync={() => {
-              // Manual mode is a review step, not a button that quietly
-              // rewrites files: show what would change and let the user decide.
-              if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
-              else void runOverleafSync();
-            }}
-            onOverleafOpen={() => setOverleafPickerOpen(true)}
-            overleafUnreadChat={
-              overleafChat.unread + overleafComments.openCount + overleafRealtime.changes.length
-            }
-            onOverleafChat={() => {
-              setOverleafCollabOpen(true);
-              void overleafChat.refresh();
-            }}
-          />
           <div className="canvas-body">
-          <EditorTabs
-            tabs={editorTabItems}
-            activePath={activeTabKey}
-            onSelect={(path) => {
-              if (isPaperTabKey(path)) {
-                const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));
-                if (paper) void openPaper(paper);
-                else void closeEditorTab(path);
-              } else {
-                void openProjectFile(path);
-              }
-            }}
-            onClose={(path) => { void closeEditorTab(path); }}
-            onReorder={(next) => setOpenTabs(next)}
-          />
           <DocumentCanvas
             mode={canvasMode}
             source={source}

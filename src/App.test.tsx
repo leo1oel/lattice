@@ -359,6 +359,15 @@ describe("project workspace", () => {
     expect(screen.queryByRole("separator", { name: "Resize Project and Papers" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add file or folder" })).not.toBeInTheDocument();
     expect(document.querySelector(".source-editor > .code-editor-root")).toBeInTheDocument();
+    const titlebar = document.querySelector(".titlebar")!;
+    const canvasPanel = document.querySelector(".canvas-panel")!;
+    const titlebarTabs = titlebar.querySelector(".editor-tabs")!;
+    const titlebarTools = titlebar.querySelector(".canvas-toolbar")!;
+    expect(titlebarTabs).toBeInTheDocument();
+    expect(titlebarTools).toBeInTheDocument();
+    expect([...titlebar.children].indexOf(titlebarTabs)).toBeLessThan([...titlebar.children].indexOf(titlebarTools));
+    expect(canvasPanel.querySelector(".editor-tabs")).not.toBeInTheDocument();
+    expect(canvasPanel.querySelector(".canvas-toolbar")).not.toBeInTheDocument();
     await switchSidebarMode("Agent");
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     expect(composer).toHaveAttribute("rows", "1");

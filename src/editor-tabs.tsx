@@ -113,7 +113,7 @@ export function EditorTabs(props: {
     document.body.classList.remove("reordering-tabs");
   }, [onPointerMove, endDrag]);
 
-  if (props.tabs.length <= 1) return null;
+  if (props.tabs.length === 0) return null;
 
   return (
     <div className="editor-tabs">

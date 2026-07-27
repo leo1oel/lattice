@@ -160,14 +160,20 @@ select:disabled { opacity: 0.45; cursor: default; }
 @keyframes canvas-fade-in { from { opacity: 0; } to { opacity: 1; } }
 .source-workspace, .split-canvas, .pdf-preview { animation: canvas-fade-in 0.18s ease; }
 .toggle-icon { display: grid; place-items: center; animation: icon-swap .16s cubic-bezier(.2, .75, .25, 1); }
-.project-switcher { min-width: 0; height: 100%; flex: 1; position: relative; display: flex; align-items: center; }
+.project-switcher { min-width: 120px; max-width: 320px; height: 100%; flex: 1 1 220px; position: relative; display: flex; align-items: center; }
 .project-title { max-width: min(260px, 48%); height: 30px; min-width: 0; flex: none; border-radius: 7px; padding: 0 8px; background: transparent; display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; text-align: left; }
 .project-title:hover, .project-title[aria-expanded="true"] { background: var(--line); }
 .project-title:disabled { opacity: 1; cursor: default; }
 .project-title > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-title > svg { flex: none; color: var(--faint); }
 .titlebar-drag-area { min-width: 12px; height: 100%; flex: 1; }
-.title-actions { display: flex; align-items: center; gap: 6px; padding-right: 12px; }
+.title-actions { flex: none; display: flex; align-items: center; gap: 6px; padding-right: 12px; }
+.titlebar > .editor-tabs { min-width: 100px; width: auto; height: 100%; flex: 1 1 320px; border-bottom: 0; background: transparent; }
+.titlebar > .canvas-toolbar { min-width: 0; width: auto; height: 100%; flex: 0 1 auto; padding: 0 6px; border-bottom: 0; background: transparent; grid-template-columns: auto minmax(0, 1fr); }
+.titlebar > .canvas-toolbar .active-document { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (max-width: 1050px) {
+  .project-switcher { min-width: 90px; flex-basis: 150px; }
+}
 .build-button { height: 28px; border-radius: 7px; padding: 0 10px; display: flex; align-items: center; gap: 6px; background: var(--text); color: var(--bg); font-size: 11px; font-weight: 600; }
 .build-button.success { background: var(--accent-soft); color: var(--success); }
 .build-button.stop { background: color-mix(in srgb, var(--danger) 18%, var(--panel-strong)); color: var(--danger); }
@@ -257,11 +263,8 @@ select:disabled { opacity: 0.45; cursor: default; }
 .cm-latex-tooltip-syntax, .cm-latex-tooltip-example { margin: 0; font-family: var(--editor-font); color: var(--muted); white-space: pre-wrap; }
 .cm-latex-tooltip-package { margin-top: 6px; color: var(--faint); font-size: 10px; }
 .canvas-body { flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
-/* Exactly 36px tall (border-box, border included) so the tab strip's bottom
-   rule lines up with the agent panel's model/effort bar (.agent-config-bar,
-   also 36px) on the same row. The scroll child fills the 35px content box —
-   a fixed 36px child here would overflow by the 1px border and push the rule
-   1px low. */
+/* The titlebar overrides this height to fill its single chrome row. Keeping the
+   strip's own default compact also makes the component usable in isolation. */
 .editor-tabs { flex: 0 0 auto; min-width: 0; width: 100%; max-width: 100%; height: 36px; border-bottom: 1px solid var(--line); background: var(--panel); overflow: hidden; }
 .editor-tabs-scroll { min-width: 0; width: 100%; height: 100%; padding: 0 8px 0 0; display: flex; align-items: stretch; gap: 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
 /* Hide the horizontal scrollbar so it can't overlap the tab labels; the strip
@@ -376,13 +379,16 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 body.resizing-panels { cursor: col-resize; user-select: none; }
 .navigator { display: flex; flex-direction: column; overflow: hidden; }
 .sidebar-mode-header { height: 40px; flex: none; padding: 5px 7px; display: flex; align-items: center; gap: 5px; }
-.sidebar-mode-tabs { width: 180px; flex: none; padding: 2px; display: flex; gap: 2px; border-radius: 7px; background: color-mix(in srgb, var(--line) 65%, transparent); }
-.sidebar-mode-tabs .sliding-tab { position: relative; width: 57px; min-width: 57px; height: 27px; flex: none; border-radius: 5px; background: transparent; color: var(--muted); font-size: 10px; }
+.sidebar-mode-tabs { flex: none; padding: 2px; display: flex; gap: 2px; border-radius: 7px; background: color-mix(in srgb, var(--line) 65%, transparent); }
+.sidebar-mode-tabs .sliding-tab { position: relative; width: 29px; min-width: 29px; height: 29px; padding: 0; flex: none; border-radius: 6px; background: transparent; color: var(--muted); font-size: 10px; overflow: hidden; transition: width .22s cubic-bezier(.2, .75, .25, 1); }
+.sidebar-mode-tabs .sliding-tab.active, .sidebar-mode-tabs .sliding-tab:hover { width: 72px; }
 .sidebar-mode-tabs .sliding-tab.active { color: var(--text); }
+.sidebar-mode-tabs .sliding-tab.active::after { content: ""; position: absolute; z-index: 2; left: 50%; bottom: 2px; width: 2px; height: 2px; border-radius: 50%; background: var(--accent); transform: translateX(-50%); }
 .sidebar-mode-tabs .sliding-tab-pill { position: absolute; inset: 0; border-radius: 6px; background: var(--panel-strong); box-shadow: 0 1px 3px rgb(0 0 0 / 8%); }
-.sidebar-mode-tabs .sliding-tab-label { position: relative; display: flex; align-items: center; justify-content: center; gap: 4px; }
-.sidebar-mode-tabs .sliding-tab-label svg { width: 13px; height: 13px; }
-.sidebar-mode-tabs .sliding-tab:not(.active) .sliding-tab-label span { display: none; }
+.sidebar-mode-tabs .sliding-tab-label { position: relative; height: 100%; display: flex; align-items: center; justify-content: flex-start; }
+.sidebar-mode-tabs .sliding-tab-label svg { width: 15px; height: 15px; min-width: 15px; flex: none; margin: 0 7px; }
+.sidebar-mode-tabs .sliding-tab-label span { white-space: nowrap; opacity: 0; transition: opacity .14s ease; }
+.sidebar-mode-tabs .sliding-tab.active .sliding-tab-label span, .sidebar-mode-tabs .sliding-tab:hover .sliding-tab-label span { opacity: 1; }
 .sidebar-mode-actions { margin-left: auto; flex: none; display: flex; align-items: center; gap: 1px; }
 .sidebar-mode-actions button { width: 26px; height: 26px; border-radius: 6px; background: transparent; color: var(--faint); display: grid; place-items: center; }
 .sidebar-mode-actions button:hover:not(:disabled), .sidebar-mode-actions button[aria-pressed="true"] { background: var(--line); color: var(--text); }
@@ -391,7 +397,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .sidebar-discover-icon svg:last-child { position: absolute; top: -4px; right: -5px; }
 .navigator-section { min-height: 0; padding: 10px; }
 .project-section { flex: 1; padding: 2px 10px 6px; display: flex; flex-direction: column; overflow: hidden; }
-.papers-section { display: flex; flex: 1; flex-direction: column; padding: 2px 10px 10px; overflow: hidden; }
+.papers-section { display: flex; flex: 1; flex-direction: column; padding: 2px 0 10px 10px; overflow: hidden; }
+.papers-section .import-box { margin-right: 10px; }
 .section-heading { height: 28px; padding: 0 5px 0 7px; display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
 .section-action { width: 24px; height: 24px; flex: none; padding: 0; border-radius: 6px; background: transparent; color: var(--faint); display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
 .section-action svg { display: block; }
@@ -448,7 +455,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .tree-chevron { flex: none; transition: transform .16s cubic-bezier(.2, .75, .25, 1); }
 .tree-chevron.open { transform: rotate(90deg); }
 .tree-children { padding-left: 12px; animation: tree-reveal .16s cubic-bezier(.2, .75, .25, 1); transform-origin: top; }
-.paper-list { min-height: 0; flex: 1; overflow: auto; padding-top: 7px; }
+.paper-list { min-height: 0; flex: 1; overflow: auto; padding: 7px 10px 0 0; }
 .paper-row { width: 100%; border-radius: 6px; display: flex; align-items: center; color: var(--muted); }
 .paper-row:hover, .paper-row.active { color: var(--text); background: var(--line); }
 /* Cited but never fetched: nothing to open, so the row reads as a reference. */
