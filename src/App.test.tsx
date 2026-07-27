@@ -106,6 +106,15 @@ async function withOpenSelect(selectLabel: string, assert: () => void) {
   await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
 }
 
+async function switchSidebarMode(mode: "Project" | "Papers" | "Agent") {
+  fireEvent.click(await screen.findByRole("tab", { name: mode }));
+}
+
+async function openProjectSettings() {
+  fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
+}
+
 beforeEach(() => {
   localStorage.clear();
   // The app asks through the dialog plugin, not the global — see confirmAction.
@@ -345,12 +354,12 @@ describe("project workspace", () => {
     expect(await screen.findByText("Recent projects")).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /open another folder/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /new project/i })).toBeInTheDocument();
-    expect(screen.getByRole("separator", { name: "Resize project navigator" })).toBeInTheDocument();
-    expect(screen.getByRole("separator", { name: "Resize writing agent" })).toBeInTheDocument();
-    expect(screen.getByRole("separator", { name: "Resize Project and Papers" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize workspace sidebar" })).toBeInTheDocument();
+    expect(screen.queryByRole("separator", { name: "Resize writing agent" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("separator", { name: "Resize Project and Papers" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add file or folder" }).querySelector(".lucide-folder-plus")).not.toBeNull();
-    expect(document.querySelector(".count-badge")).toHaveTextContent("0");
     expect(document.querySelector(".source-editor > .code-editor-root")).toBeInTheDocument();
+    await switchSidebarMode("Agent");
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     expect(composer).toHaveAttribute("rows", "1");
     expect(composer).toHaveStyle({ height: "44px", overflowY: "hidden" });
@@ -379,7 +388,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    await screen.findByRole("button", { name: "Hide navigator" });
+    await screen.findByRole("button", { name: "Hide sidebar" });
     await waitFor(() => expect(document.querySelector(".app-shell")).toHaveClass("fullscreen"));
   });
 
@@ -430,28 +439,23 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    const divider = await screen.findByRole("separator", { name: "Resize project navigator" });
-    expect(divider).toHaveAttribute("aria-valuenow", "200");
-    const agentDivider = screen.getByRole("separator", { name: "Resize writing agent" });
-    expect(agentDivider).toHaveAttribute("aria-valuenow", "280");
+    const divider = await screen.findByRole("separator", { name: "Resize workspace sidebar" });
+    expect(divider).toHaveAttribute("aria-valuenow", "320");
     expect(document.querySelector<HTMLElement>(".workspace")?.style.gridTemplateAreas)
-      .toContain("navigator navigator-resizer canvas agent-resizer agent");
-    expect(screen.getByRole("button", { name: "Hide writing agent" }).closest(".title-actions"))
-      .toBeInTheDocument();
+      .toContain("sidebar sidebar-resizer canvas");
+    expect(screen.queryByRole("separator", { name: "Resize writing agent" })).not.toBeInTheDocument();
     fireEvent.keyDown(divider, { key: "ArrowRight" });
-    expect(divider).toHaveAttribute("aria-valuenow", "216");
-    fireEvent.keyDown(agentDivider, { key: "ArrowLeft" });
-    expect(agentDivider).toHaveAttribute("aria-valuenow", "296");
+    expect(divider).toHaveAttribute("aria-valuenow", "336");
 
-    fireEvent.pointerDown(divider, { clientX: 216 });
-    fireEvent.pointerMove(window, { clientX: 300 });
+    fireEvent.pointerDown(divider, { clientX: 336 });
+    fireEvent.pointerMove(window, { clientX: 400 });
     fireEvent.pointerUp(window);
-    expect(divider).toHaveAttribute("aria-valuenow", "300");
+    expect(divider).toHaveAttribute("aria-valuenow", "400");
 
-    const navigatorDivider = screen.getByRole("separator", { name: "Resize Project and Papers" });
-    expect(navigatorDivider).toHaveAttribute("aria-valuenow", "58");
-    fireEvent.keyDown(navigatorDivider, { key: "ArrowDown" });
-    expect(navigatorDivider).toHaveAttribute("aria-valuenow", "61");
+    await switchSidebarMode("Papers");
+    expect(divider).toHaveAttribute("aria-valuenow", "400");
+    await switchSidebarMode("Agent");
+    expect(divider).toHaveAttribute("aria-valuenow", "400");
 
     const splitDivider = screen.getByRole("separator", { name: "Resize source and PDF preview" });
     expect(splitDivider).toHaveAttribute("aria-valuenow", "46");
@@ -572,6 +576,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     await chooseOption("Agent provider", "Claude subscription");
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "Revise the abstract." } });
@@ -608,10 +613,11 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     expect(await screen.findByLabelText("Agent provider")).toHaveTextContent("Codex subscription");
     await withOpenSelect("Agent model", () => expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "API key settings" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await openProjectSettings();
     fireEvent.click(screen.getByRole("button", { name: "Subscriptions" }));
     expect(await screen.findAllByText("Connected")).toHaveLength(2);
 
@@ -661,6 +667,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Papers");
     const papers = within(await screen.findByRole("list", { name: "Papers" }));
     // Its preprint is known, so the row offers to fetch rather than going dead.
     const citedOnly = await papers.findByTitle("Fetch the full text of arXiv 1412.6980");
@@ -714,6 +721,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Papers");
     const box = await screen.findByPlaceholderText("arXiv id, DOI, URL, or title");
     fireEvent.change(box, { target: { value: "10.1109/CVPR.2016.90" } });
     fireEvent.keyDown(box, { key: "Enter" });
@@ -751,13 +759,16 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Papers");
     const paper = await screen.findByRole("button", { name: /Attention Is All You Need.*1706\.03762/i });
     fireEvent.click(paper);
     expect(await screen.findByText("Attention Is All You Need", { selector: ".paper-reader-title span" })).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
     expect(paper.closest(".paper-row")).toHaveClass("active");
+    await switchSidebarMode("Project");
     fireEvent.click(screen.getByRole("button", { name: "main.tex" }));
-    await waitFor(() => expect(paper.closest(".paper-row")).not.toHaveClass("active"));
+    await switchSidebarMode("Papers");
+    await waitFor(() => expect(screen.getByTitle("Attention Is All You Need").closest(".paper-row")).not.toHaveClass("active"));
   });
 
   it("searches project files and paper contents from one navigator field", async () => {
@@ -787,6 +798,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Search this project" }));
     fireEvent.change(await screen.findByLabelText("Filter project files and papers"), { target: { value: "alignment" } });
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_project", { query: "alignment" }));
@@ -830,6 +842,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Rename" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("rename_project_entry", { path: "main.tex", newName: "paper" }));
 
+    await switchSidebarMode("Papers");
     fireEvent.contextMenu(screen.getByTitle("Attention Is All You Need"));
     expect(screen.queryByRole("menuitem", { name: "Rename" })).not.toBeInTheDocument();
   });
@@ -860,6 +873,7 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Show in Finder" }));
     await waitFor(() => expect(revealItemInDir).toHaveBeenCalledWith("/tmp/lattice-paper/main.tex"));
 
+    await switchSidebarMode("Papers");
     fireEvent.contextMenu(screen.getByTitle("Attention Is All You Need"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Show in Finder" }));
     await waitFor(() => expect(revealItemInDir).toHaveBeenCalledWith("/tmp/lattice-paper/.research/papers/1706.03762/paper.md"));
@@ -1226,6 +1240,7 @@ describe("project workspace", () => {
 
     render(<App />);
     await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
+    await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByTitle("Insert citation for vaswani2017attention"));
     fireEvent.click(await screen.findByRole("button", { name: "\\cite" }));
     await waitFor(() => {
@@ -1274,6 +1289,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     fireEvent.click(await screen.findByTitle("Conversation history"));
     expect(screen.getByText("Revise the related work")).toBeInTheDocument();
     // Re-clicking the trigger toggles the Popover closed.
@@ -1305,6 +1321,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     fireEvent.click(await screen.findByTitle("Conversation history"));
     fireEvent.change(screen.getByLabelText("Search conversations"), { target: { value: "diffusion" } });
     expect(await screen.findByText("…strongest diffusion baseline…")).toBeInTheDocument();
@@ -1341,6 +1358,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     fireEvent.click(await screen.findByTitle("Edit and branch from this message"));
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     expect(composer).toHaveValue("Draft the old argument.");
@@ -1509,11 +1527,12 @@ describe("project workspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add file or folder" }));
     fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "draft" } });
-    fireEvent.pointerDown(screen.getByText("Project").closest(".navigator-section")!);
+    fireEvent.pointerDown(document.querySelector(".project-section")!);
     expect(screen.queryByLabelText("Project-relative path")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle("Delete notes.tex"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_project_entry", { path: "notes.tex" }));
+    await switchSidebarMode("Papers");
     fireEvent.click(screen.getByTitle("Remove Attention Is All You Need"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("remove_reference", { key: "vaswani2017attention" }));
   });
@@ -1551,6 +1570,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     const composer = await screen.findByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "Tighten the abstract." } });
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
@@ -1606,6 +1626,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     const composer = await screen.findByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "Go." } });
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
@@ -1647,6 +1668,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     await chooseOption("Agent provider", "Claude subscription");
     await chooseOption("Agent model", "Claude Opus 4.8");
     await chooseOption("Reasoning effort", "Extra high");
@@ -1721,6 +1743,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     const composer = await screen.findByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "Rewrite the abstract." } });
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
@@ -1765,6 +1788,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     const composer = await screen.findByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "中文" } });
     fireEvent.keyDown(composer, { key: "Enter", keyCode: 229, isComposing: true });
@@ -1798,6 +1822,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     const composer = await screen.findByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "Update @mai", selectionStart: 11 } });
     expect(screen.getByRole("listbox", { name: "Project references" })).toBeInTheDocument();
@@ -1835,6 +1860,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    await switchSidebarMode("Agent");
     const composer = await screen.findByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "Revise the experiment section and check the baseline." } });
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });

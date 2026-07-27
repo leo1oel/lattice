@@ -6,20 +6,26 @@ import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import {
+  BookMarked,
+  BookOpen,
   Bot,
   Check,
   ChevronDown,
   CircleAlert,
   Eraser,
+  FolderPlus,
+  FolderTree,
   Image,
+  Library,
   LoaderCircle,
   PanelLeftClose,
   PanelLeftOpen,
   Play,
+  Plus,
   Radio,
-  Moon,
-  Settings,
-  Sun,
+  RefreshCw,
+  Search,
+  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -118,7 +124,7 @@ import {
 const EditorCommentsPanel = lazy(() =>
   import("./editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
 );
-import { IconSwap } from "./motion";
+import { SlidingTabs } from "./motion";
 import {
   clearPreCollabProjectRoot,
   rememberPreCollabProjectRoot,
@@ -530,14 +536,33 @@ function App() {
     occurrences: SymbolOccurrence[];
   } | null>(null);
   const {
-    navigatorOpen,
-    setNavigatorOpen,
-    agentOpen,
-    setAgentOpen,
-    panelWidths,
-    beginPanelResize,
-    nudgePanel,
+    sidebarOpen,
+    setSidebarOpen,
+    sidebarWidth,
+    beginSidebarResize,
+    nudgeSidebar,
   } = usePanelLayout();
+  const [sidebarMode, setSidebarMode] = useState<"project" | "papers" | "agent">(() => {
+    try {
+      const saved = localStorage.getItem("lattice.sidebar-mode.v1");
+      return saved === "papers" || saved === "agent" ? saved : "project";
+    } catch {
+      return "project";
+    }
+  });
+  const [projectSearchOpen, setProjectSearchOpen] = useState(false);
+  const [projectCreateRequest, setProjectCreateRequest] = useState(0);
+  const chooseSidebarMode = (mode: "project" | "papers" | "agent") => {
+    setSidebarMode(mode);
+    setSidebarOpen(true);
+  };
+  useEffect(() => {
+    try {
+      localStorage.setItem("lattice.sidebar-mode.v1", sidebarMode);
+    } catch {
+      // Mode still switches for the current session without storage.
+    }
+  }, [sidebarMode]);
   // Remember the file open per project, so reopening it lands on the last page.
   useEffect(() => {
     if (project?.root && activeFile) persistLastFile(project.root, activeFile);
@@ -2727,7 +2752,7 @@ function App() {
     return () => list.removeEventListener("scroll", onScroll);
     // Re-attach when the agent panel mounts/unmounts, since the list element
     // (and chatListRef.current) only exists while the panel is open.
-  }, [agentOpen]);
+  }, [sidebarOpen]);
 
   useEffect(() => {
     if (!stickToBottomRef.current) return;
@@ -4871,10 +4896,10 @@ function App() {
       <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
         <div className="titlebar-navigator">
           <div className="traffic-space" />
-          <Tip label={navigatorOpen ? "Hide navigator" : "Show navigator"}>
-            <button className="icon-button" onClick={() => setNavigatorOpen((value) => !value)}>
-              <span key={navigatorOpen ? "open" : "closed"} className="toggle-icon">
-                {navigatorOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+          <Tip label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}>
+            <button className="icon-button" onClick={() => setSidebarOpen((value) => !value)}>
+              <span key={sidebarOpen ? "open" : "closed"} className="toggle-icon">
+                {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
               </span>
             </button>
           </Tip>
@@ -4903,6 +4928,9 @@ function App() {
               }}
               onOpenOverleaf={() => setOverleafPickerOpen(true)}
               onExportZip={() => void exportProjectZip()}
+              theme={theme}
+              onTheme={setTheme}
+              onSettings={() => openSettings("appearance")}
             />
           </DropdownMenu>
           {(collabStatus === "synced" || collabStatus === "connecting") && (
@@ -4946,27 +4974,6 @@ function App() {
           <div className="titlebar-drag-area" aria-hidden="true" />
         </div>
         <div className="title-actions">
-          <Tip label={agentOpen ? "Hide writing agent" : "Show writing agent"}>
-            <button
-              className={`icon-button ${agentOpen ? "active" : ""}`}
-              onClick={() => setAgentOpen((value) => !value)}
-              aria-pressed={agentOpen}
-            >
-              <Bot size={16} />
-            </button>
-          </Tip>
-          <Tip label={theme === "dark" ? "Light mode" : "Dark mode"}>
-            <button className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              <IconSwap swapKey={theme}>
-                {theme === "dark" ? <Moon size={16} /> : <Sun size={16} />}
-              </IconSwap>
-            </button>
-          </Tip>
-          <Tip label="Settings">
-            <button className="icon-button gear-button" onClick={() => openSettings("appearance")}>
-              <Settings size={16} />
-            </button>
-          </Tip>
           <Tip label="Clean aux files">
             <button
               className="icon-button"
@@ -5050,61 +5057,149 @@ function App() {
       )}
 
       <main
-        className={`workspace ${navigatorOpen ? "" : "navigator-hidden"} ${agentOpen ? "" : "agent-hidden"}`}
+        className={`workspace ${sidebarOpen ? "" : "sidebar-hidden"}`}
         style={{
-          gridTemplateColumns: [
-            navigatorOpen ? `${panelWidths.navigator}px 5px` : "",
-            "minmax(360px, 1fr)",
-            agentOpen ? `5px ${panelWidths.agent}px` : "",
-          ].filter(Boolean).join(" "),
-          gridTemplateAreas: `"${[
-            navigatorOpen ? "navigator navigator-resizer" : "",
-            "canvas",
-            agentOpen ? "agent-resizer agent" : "",
-          ].filter(Boolean).join(" ")}"`,
+          gridTemplateColumns: sidebarOpen ? `${sidebarWidth}px 5px minmax(360px, 1fr)` : "minmax(360px, 1fr)",
+          gridTemplateAreas: sidebarOpen ? '"sidebar sidebar-resizer canvas"' : '"canvas"',
         }}
       >
-        {navigatorOpen && (
+        {sidebarOpen && (
           <>
-            <Navigator
-              files={project.files}
-              activeFile={activeAsset || activePaper ? "" : activeFile}
-              activeAssetPath={activeAsset?.path ?? ""}
-              protectedPaths={[
-                ...project.manifest.rootDocuments.map((document) => document.path),
-                project.manifest.primaryBibliography,
-              ]}
-              papers={papers}
-              activePaper={activePaper}
-              onFile={(path, line) => { void openProjectFile(path, line); }}
-              onAsset={openProjectAssetFromClick}
-              onBeginFigureDrag={beginProjectFigureDrag}
-              onCreateEntry={createProjectEntry}
-              onDeleteEntry={deleteProjectEntry}
-              onRenameEntry={renameProjectEntry}
-              onReveal={revealProjectItem}
-              onRefresh={() => void refreshProject()}
-              onImportAssets={chooseProjectAssets}
-              assetDropTarget={assetDropTarget}
-              assetImporting={assetImporting}
-              onPaper={openPaper}
-              onCitePaper={(paper, command) => void insertCitationFromPaper(paper, command)}
-              onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
-              onAddBibEntry={() => openBibEntryDialog()}
-              onDiscoverLiterature={() => setLiteratureOpen(true)}
-              onDeletePaper={deletePaper}
-              onEditBibEntry={(paper) => void openEditBibEntry(paper)}
-              importInput={importInput}
-              setImportInput={setImportInput}
-              onImport={importPaper}
-              importing={importing}
-            />
+            <section className="shared-sidebar">
+              <div className="sidebar-mode-header">
+                <SlidingTabs
+                  value={sidebarMode}
+                  onChange={(value) => chooseSidebarMode(value as "project" | "papers" | "agent")}
+                  ariaLabel="Sidebar mode"
+                  className="sidebar-mode-tabs"
+                  items={[
+                    { value: "project", title: "Project", label: <><FolderTree size={15} /><span>Project</span></> },
+                    { value: "papers", title: "Papers", label: <><Library size={15} /><span>Papers</span></> },
+                    { value: "agent", title: "Agent", label: <><Bot size={15} /><span>Agent</span></> },
+                  ]}
+                />
+                <div className="sidebar-mode-actions">
+                  {sidebarMode === "project" && (
+                    <>
+                      <Tip label={projectSearchOpen ? "Hide project search" : "Search this project"}>
+                        <button aria-pressed={projectSearchOpen} onClick={() => setProjectSearchOpen((open) => !open)}><Search size={14} /></button>
+                      </Tip>
+                      <Tip label="Refresh project files">
+                        <button onClick={() => void refreshProject()}><RefreshCw size={14} /></button>
+                      </Tip>
+                      <Tip label="Add file or folder">
+                        <button onClick={() => setProjectCreateRequest((request) => request + 1)}><FolderPlus size={14} /></button>
+                      </Tip>
+                    </>
+                  )}
+                  {sidebarMode === "papers" && (
+                    <>
+                      <Tip label="Discover literature">
+                        <button aria-label="Discover literature" onClick={() => setLiteratureOpen(true)}>
+                          <span className="sidebar-discover-icon"><BookOpen size={14} /><Sparkles size={8} /></span>
+                        </button>
+                      </Tip>
+                      <Tip label="Add bibliography entry">
+                        <button onClick={() => openBibEntryDialog()}><BookMarked size={14} /></button>
+                      </Tip>
+                      <span className="count-badge">{papers.length}</span>
+                    </>
+                  )}
+                  {sidebarMode === "agent" && (
+                    <Tip label="New conversation">
+                      <button disabled={agentRunning} onClick={newAgentSession}><Plus size={14} /></button>
+                    </Tip>
+                  )}
+                </div>
+              </div>
+              <div className="sidebar-pane" hidden={sidebarMode === "agent"}>
+                <Navigator
+                  mode={sidebarMode === "papers" ? "papers" : "project"}
+                  searchOpen={projectSearchOpen}
+                  onSearchOpenChange={setProjectSearchOpen}
+                  createRequest={projectCreateRequest}
+                  files={project.files}
+                  activeFile={activeAsset || activePaper ? "" : activeFile}
+                  activeAssetPath={activeAsset?.path ?? ""}
+                  protectedPaths={[
+                    ...project.manifest.rootDocuments.map((document) => document.path),
+                    project.manifest.primaryBibliography,
+                  ]}
+                  papers={papers}
+                  activePaper={activePaper}
+                  onFile={(path, line) => { void openProjectFile(path, line); }}
+                  onAsset={openProjectAssetFromClick}
+                  onBeginFigureDrag={beginProjectFigureDrag}
+                  onCreateEntry={createProjectEntry}
+                  onDeleteEntry={deleteProjectEntry}
+                  onRenameEntry={renameProjectEntry}
+                  onReveal={revealProjectItem}
+                  onImportAssets={chooseProjectAssets}
+                  assetDropTarget={assetDropTarget}
+                  assetImporting={assetImporting}
+                  onPaper={openPaper}
+                  onCitePaper={(paper, command) => void insertCitationFromPaper(paper, command)}
+                  onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
+                  onDeletePaper={deletePaper}
+                  onEditBibEntry={(paper) => void openEditBibEntry(paper)}
+                  importInput={importInput}
+                  setImportInput={setImportInput}
+                  onImport={importPaper}
+                  importing={importing}
+                />
+              </div>
+              <div className="sidebar-pane" hidden={sidebarMode !== "agent"}>
+                <AgentPanel
+                  modelsFor={agentModels.options}
+                  agentCommands={agentCommands}
+                  katexMacros={katexMacros}
+                  messages={messages}
+                  sessions={agentSessions}
+                  activeSession={activeSession}
+                  sessionMenuOpen={sessionMenuOpen}
+                  setSessionMenuOpen={setSessionMenuOpen}
+                  onNewSession={newAgentSession}
+                  showNewButton={false}
+                  onOpenSession={openAgentSession}
+                  onDeleteSession={deleteAgentSession}
+                  onEditMessage={editAndBranch}
+                  input={agentInput}
+                  setInput={setAgentInput}
+                  provider={provider}
+                  setProvider={changeProvider}
+                  model={agentModel}
+                  setModel={setAgentModel}
+                  reasoningEffort={reasoningEffort}
+                  setReasoningEffort={setReasoningEffort}
+                  running={agentRunning}
+                  streaming={agentStreaming}
+                  status={agentStatus}
+                  cancellable={agentCancellable}
+                  stopping={agentStopping}
+                  onSend={sendToAgent}
+                  onStop={stopAgent}
+                  onApiSettings={() => openSettings("api")}
+                  selection={selection}
+                  selectionSource={selectionSource}
+                  onClearSelection={() => {
+                    dismissedSelectionRef.current = selection;
+                    setSelection("");
+                    setSelectionSource(null);
+                    selectionSourceRef.current = null;
+                  }}
+                  branchSource={branchSource}
+                  onCancelBranch={() => setBranchSource(null)}
+                  mentions={agentMentions}
+                  chatEnd={chatEnd}
+                  chatListRef={chatListRef}
+                />
+              </div>
+            </section>
             <PanelResizer
-              label="Resize project navigator"
-              side="left"
-              value={panelWidths.navigator}
-              onPointerDown={(event) => beginPanelResize("navigator", event)}
-              onNudge={(delta) => nudgePanel("navigator", delta)}
+              label="Resize workspace sidebar"
+              value={sidebarWidth}
+              onPointerDown={beginSidebarResize}
+              onNudge={nudgeSidebar}
             />
           </>
         )}
@@ -5345,60 +5440,6 @@ function App() {
           </div>
         </section>
 
-        {agentOpen && (
-          <>
-            <PanelResizer
-              label="Resize writing agent"
-              side="right"
-              value={panelWidths.agent}
-              onPointerDown={(event) => beginPanelResize("agent", event)}
-              onNudge={(delta) => nudgePanel("agent", delta)}
-            />
-            <AgentPanel
-              modelsFor={agentModels.options}
-              agentCommands={agentCommands}
-              katexMacros={katexMacros}
-              messages={messages}
-              sessions={agentSessions}
-              activeSession={activeSession}
-              sessionMenuOpen={sessionMenuOpen}
-              setSessionMenuOpen={setSessionMenuOpen}
-              onNewSession={newAgentSession}
-              onOpenSession={openAgentSession}
-              onDeleteSession={deleteAgentSession}
-              onEditMessage={editAndBranch}
-              input={agentInput}
-              setInput={setAgentInput}
-              provider={provider}
-              setProvider={changeProvider}
-              model={agentModel}
-              setModel={setAgentModel}
-              reasoningEffort={reasoningEffort}
-              setReasoningEffort={setReasoningEffort}
-              running={agentRunning}
-              streaming={agentStreaming}
-              status={agentStatus}
-              cancellable={agentCancellable}
-              stopping={agentStopping}
-              onSend={sendToAgent}
-              onStop={stopAgent}
-              onApiSettings={() => openSettings("api")}
-              selection={selection}
-              selectionSource={selectionSource}
-              onClearSelection={() => {
-                dismissedSelectionRef.current = selection;
-                setSelection("");
-                setSelectionSource(null);
-                selectionSourceRef.current = null;
-              }}
-              branchSource={branchSource}
-              onCancelBranch={() => setBranchSource(null)}
-              mentions={agentMentions}
-              chatEnd={chatEnd}
-              chatListRef={chatListRef}
-            />
-          </>
-        )}
       </main>
 
       <CollabDialog
@@ -5988,14 +6029,13 @@ function App() {
 
 function PanelResizer(props: {
   label: string;
-  side: "left" | "right";
   value: number;
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
   onNudge: (delta: number) => void;
 }) {
   return (
     <div
-      className={`panel-resizer ${props.side === "left" ? "navigator-resizer" : "agent-resizer"}`}
+      className="panel-resizer sidebar-resizer"
       role="separator"
       aria-label={props.label}
       aria-orientation="vertical"

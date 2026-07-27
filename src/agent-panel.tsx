@@ -144,6 +144,7 @@ export function AgentPanel({
   sessionMenuOpen,
   setSessionMenuOpen,
   onNewSession,
+  showNewButton = true,
   onOpenSession,
   onDeleteSession,
   onEditMessage,
@@ -180,6 +181,7 @@ export function AgentPanel({
   sessionMenuOpen: boolean;
   setSessionMenuOpen: (value: boolean) => void;
   onNewSession: () => void;
+  showNewButton?: boolean;
   onOpenSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
   onEditMessage: (message: ChatMessage) => void;
@@ -314,9 +316,11 @@ export function AgentPanel({
               </div>
             </PopoverContent>
           </Popover>
-          <Tip label="New conversation">
-            <button className="new-conversation-button" disabled={running} onClick={onNewSession}><Plus size={14} /></button>
-          </Tip>
+          {showNewButton && (
+            <Tip label="New conversation">
+              <button className="new-conversation-button" disabled={running} onClick={onNewSession}><Plus size={14} /></button>
+            </Tip>
+          )}
         </div>
         <div className="provider-controls">
           <Select value={provider} disabled={running} onValueChange={(value) => setProvider(value as AgentProvider)}>

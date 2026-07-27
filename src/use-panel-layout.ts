@@ -6,83 +6,52 @@ import {
   useEffect,
   useState,
 } from "react";
-
-import {
-  type PanelKind,
-  type PanelWidths,
-  AGENT_OPEN_KEY,
-  NAVIGATOR_OPEN_KEY,
-  loadPanelOpen,
-  loadPanelWidths,
-  persistPanelOpen,
-  persistPanelWidths,
-  resizePanelWidths,
-} from "./app-settings";
+import { clamp, loadSidebarOpen, loadSidebarWidth, persistSidebarOpen, persistSidebarWidth } from "./app-settings";
 
 export type PanelLayout = {
-  navigatorOpen: boolean;
-  setNavigatorOpen: Dispatch<SetStateAction<boolean>>;
-  agentOpen: boolean;
-  setAgentOpen: Dispatch<SetStateAction<boolean>>;
-  panelWidths: PanelWidths;
-  beginPanelResize: (panel: PanelKind, event: ReactPointerEvent<HTMLDivElement>) => void;
-  nudgePanel: (panel: PanelKind, delta: number) => void;
+  sidebarOpen: boolean;
+  setSidebarOpen: Dispatch<SetStateAction<boolean>>;
+  sidebarWidth: number;
+  beginSidebarResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  nudgeSidebar: (delta: number) => void;
 };
 
-/**
- * Owns whether each side panel is collapsed and how wide it is, mirroring both
- * to localStorage. The resize handlers only touch layout state, so this stays
- * independent of project/agent/collab concerns.
- */
+const resizedWidth = (start: number, delta: number) =>
+  clamp(start + delta, 300, Math.max(300, Math.min(480, window.innerWidth - 365)));
+
+/** Owns the single workspace sidebar's visibility and width. */
 export function usePanelLayout(): PanelLayout {
-  const [navigatorOpen, setNavigatorOpen] = useState(() => loadPanelOpen(NAVIGATOR_OPEN_KEY));
-  const [agentOpen, setAgentOpen] = useState(() => loadPanelOpen(AGENT_OPEN_KEY));
-  // Remember whether each side panel is collapsed so the layout survives a restart.
-  useEffect(() => persistPanelOpen(NAVIGATOR_OPEN_KEY, navigatorOpen), [navigatorOpen]);
-  useEffect(() => persistPanelOpen(AGENT_OPEN_KEY, agentOpen), [agentOpen]);
-  const [panelWidths, setPanelWidths] = useState<PanelWidths>(loadPanelWidths);
+  const [sidebarOpen, setSidebarOpen] = useState(loadSidebarOpen);
+  const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
+  useEffect(() => persistSidebarOpen(sidebarOpen), [sidebarOpen]);
 
-  const beginPanelResize = useCallback(
-    (panel: PanelKind, event: ReactPointerEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      const startX = event.clientX;
-      const startWidths = panelWidths;
-      let latest = panelWidths;
-      document.body.classList.add("resizing-panels");
-      const handleMove = (moveEvent: PointerEvent) => {
-        latest = resizePanelWidths(panel, startWidths, moveEvent.clientX - startX, navigatorOpen, agentOpen);
-        setPanelWidths(latest);
-      };
-      const handleUp = () => {
-        document.body.classList.remove("resizing-panels");
-        window.removeEventListener("pointermove", handleMove);
-        window.removeEventListener("pointerup", handleUp);
-        persistPanelWidths(latest);
-      };
-      window.addEventListener("pointermove", handleMove);
-      window.addEventListener("pointerup", handleUp);
-    },
-    [agentOpen, navigatorOpen, panelWidths],
-  );
+  const beginSidebarResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sidebarWidth;
+    let latest = sidebarWidth;
+    document.body.classList.add("resizing-panels");
+    const move = (moveEvent: PointerEvent) => {
+      latest = resizedWidth(startWidth, moveEvent.clientX - startX);
+      setSidebarWidth(latest);
+    };
+    const up = () => {
+      document.body.classList.remove("resizing-panels");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      persistSidebarWidth(latest);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }, [sidebarWidth]);
 
-  const nudgePanel = useCallback(
-    (panel: PanelKind, delta: number) => {
-      setPanelWidths((current) => {
-        const next = resizePanelWidths(panel, current, delta, navigatorOpen, agentOpen);
-        persistPanelWidths(next);
-        return next;
-      });
-    },
-    [agentOpen, navigatorOpen],
-  );
+  const nudgeSidebar = useCallback((delta: number) => {
+    setSidebarWidth((current) => {
+      const next = resizedWidth(current, delta);
+      persistSidebarWidth(next);
+      return next;
+    });
+  }, []);
 
-  return {
-    navigatorOpen,
-    setNavigatorOpen,
-    agentOpen,
-    setAgentOpen,
-    panelWidths,
-    beginPanelResize,
-    nudgePanel,
-  };
+  return { sidebarOpen, setSidebarOpen, sidebarWidth, beginSidebarResize, nudgeSidebar };
 }

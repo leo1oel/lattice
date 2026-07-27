@@ -11,6 +11,8 @@ import {
   Radio,
   Settings,
   Sparkles,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { MorphIcon, MotionButton } from "./motion";
 import {
@@ -21,7 +23,7 @@ import {
   DropdownMenuShortcut,
 } from "./components/ui/dropdown-menu";
 import { type ProjectVenue, type RenameTarget } from "./app-types";
-import { type RecentProject } from "./app-settings";
+import { type RecentProject, type Theme } from "./app-settings";
 import { beginWindowDrag, toggleWindowFullscreen } from "./app-utils";
 
 export function Welcome(props: {
@@ -239,6 +241,9 @@ export function ProjectMenu(props: {
   onNew: () => void;
   onExportZip: () => void;
   onOpenOverleaf?: () => void;
+  theme: Theme;
+  onTheme: (theme: Theme) => void;
+  onSettings: () => void;
 }) {
   const alternatives = props.recentProjects.filter((item) => item.path !== props.currentPath);
   const busy = Boolean(props.busyLabel);
@@ -268,6 +273,11 @@ export function ProjectMenu(props: {
         </DropdownMenuItem>
       )}
       <DropdownMenuItem onSelect={props.onExportZip}><FileArchive /> Export ZIP</DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+      <DropdownMenuItem onSelect={() => props.onTheme("light")}><Sun /> Light {props.theme === "light" && <span className="ml-auto">✓</span>}</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => props.onTheme("dark")}><Moon /> Dark {props.theme === "dark" && <span className="ml-auto">✓</span>}</DropdownMenuItem>
+      <DropdownMenuItem onSelect={props.onSettings}><Settings /> Settings</DropdownMenuItem>
       {props.busyLabel && (
         <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
           <LoaderCircle className="size-3 animate-spin" /> {props.busyLabel}

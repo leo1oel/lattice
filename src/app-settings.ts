@@ -23,9 +23,8 @@ export const THEME_KEY = "lattice.theme.v1";
 export const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 export const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 export const COLUMNS_PDF_RATIO_KEY = "lattice.columns-pdf-ratio.v1";
-export const NAVIGATOR_SPLIT_KEY = "lattice.navigator-split.v1";
-export const NAVIGATOR_OPEN_KEY = "lattice.navigator-open.v1";
-export const AGENT_OPEN_KEY = "lattice.agent-open.v1";
+export const SIDEBAR_OPEN_KEY = "lattice.sidebar-open.v1";
+export const SIDEBAR_WIDTH_KEY = "lattice.sidebar-width.v1";
 export const LAST_FILE_KEY = "lattice.last-file.v1";
 export const LAST_FILE_MAX = 60;
 export const AGENT_SYSTEM_PROMPT_KEY = "lattice.agent-system-prompt.v1";
@@ -128,22 +127,6 @@ export function persistColumnsPdfRatio(ratio: number) {
   }
 }
 
-export function loadNavigatorSplit(): number {
-  try {
-    return clamp(Number(localStorage.getItem(NAVIGATOR_SPLIT_KEY)) || 0.58, 0.2, 0.78);
-  } catch {
-    return 0.58;
-  }
-}
-
-export function persistNavigatorSplit(ratio: number) {
-  try {
-    localStorage.setItem(NAVIGATOR_SPLIT_KEY, String(ratio));
-  } catch {
-    // Navigator resizing remains available for the current session without storage.
-  }
-}
-
 export function loadLastFileMap(): Record<string, string> {
   try {
     const value = JSON.parse(localStorage.getItem(LAST_FILE_KEY) ?? "{}") as unknown;
@@ -174,25 +157,25 @@ export function persistLastFile(root: string, path: string) {
   }
 }
 
-/** Panels default open; only an explicit "0" (the user hid it) keeps them hidden. */
-export function loadPanelOpen(key: string): boolean {
+export function loadSidebarOpen(): boolean {
   try {
-    return localStorage.getItem(key) !== "0";
-  } catch {
-    return true;
-  }
+    return localStorage.getItem(SIDEBAR_OPEN_KEY) !== "0";
+  } catch { return true; }
 }
 
-export function persistPanelOpen(key: string, open: boolean) {
-  try {
-    localStorage.setItem(key, open ? "1" : "0");
-  } catch {
-    // Layout still toggles this session without storage.
-  }
+export function persistSidebarOpen(open: boolean) {
+  try { localStorage.setItem(SIDEBAR_OPEN_KEY, open ? "1" : "0"); } catch { /* session only */ }
 }
 
-export type PanelKind = "navigator" | "agent";
-export type PanelWidths = { navigator: number; agent: number };
+export function loadSidebarWidth(): number {
+  try {
+    return clamp(Number(localStorage.getItem(SIDEBAR_WIDTH_KEY)) || 320, 300, 480);
+  } catch { return 320; }
+}
+
+export function persistSidebarWidth(width: number) {
+  try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width)); } catch { /* session only */ }
+}
 
 type EditorKeymap = "default" | "vim" | "emacs";
 export type AppearanceSettings = {
@@ -205,26 +188,8 @@ export type AppearanceSettings = {
   maxOpenTabs: number;
 };
 
-export const PANEL_WIDTHS_KEY = "lattice.panel-widths.v2";
 export const APPEARANCE_KEY = "lattice.appearance.v4";
 export const LEGACY_APPEARANCE_KEY = "lattice.appearance.v3";
-
-export function loadPanelWidths(): PanelWidths {
-  // Keep navigator/agent narrower so the editor + PDF canvas get more room by default.
-  const defaults = { navigator: 200, agent: 280 };
-  // A panel may have been dragged out to half the window; honour that on reload,
-  // re-clamped to this screen's half so a saved width never dwarfs a smaller one.
-  const half = typeof window !== "undefined" ? window.innerWidth / 2 : 600;
-  try {
-    const value = JSON.parse(localStorage.getItem(PANEL_WIDTHS_KEY) ?? "null") as Partial<PanelWidths> | null;
-    return {
-      navigator: clamp(Number(value?.navigator) || defaults.navigator, 160, Math.max(160, half)),
-      agent: clamp(Number(value?.agent) || defaults.agent, 260, Math.max(260, half)),
-    };
-  } catch {
-    return defaults;
-  }
-}
 
 export function loadAppearance(): AppearanceSettings {
   const defaults: AppearanceSettings = {
@@ -264,38 +229,6 @@ export function loadAppearance(): AppearanceSettings {
   } catch {
     return defaults;
   }
-}
-
-export function persistPanelWidths(widths: PanelWidths) {
-  try {
-    localStorage.setItem(PANEL_WIDTHS_KEY, JSON.stringify(widths));
-  } catch {
-    // Panel resizing remains available for the current session without storage.
-  }
-}
-
-export function resizePanelWidths(
-  panel: PanelKind,
-  start: PanelWidths,
-  delta: number,
-  navigatorOpen: boolean,
-  agentOpen: boolean,
-): PanelWidths {
-  const canvasMinimum = 360;
-  // One 5px handle per visible side panel.
-  const handles = (navigatorOpen ? 5 : 0) + (agentOpen ? 5 : 0);
-  // A side panel may grow to half the window — wide enough for tables, file
-  // trees, and long agent replies — as long as the canvas keeps its minimum.
-  const halfWindow = window.innerWidth / 2;
-  if (panel === "navigator") {
-    const agentWidth = agentOpen ? start.agent : 0;
-    const maximum = Math.max(160, Math.min(halfWindow, window.innerWidth - agentWidth - canvasMinimum - handles));
-    return { ...start, navigator: clamp(start.navigator + delta, 160, maximum) };
-  }
-  const navigatorWidth = navigatorOpen ? start.navigator : 0;
-  const maximum = Math.max(260, Math.min(halfWindow, window.innerWidth - navigatorWidth - canvasMinimum - handles));
-  // The agent sits on the right, so dragging its left edge to the left grows it.
-  return { ...start, agent: clamp(start.agent - delta, 260, maximum) };
 }
 
 /**

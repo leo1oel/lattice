@@ -23,13 +23,10 @@ import {
   Pencil,
   Plus,
   Quote,
-  RefreshCw,
   Search,
   Trash2,
   X,
 } from "lucide-react";
-import { SpinButton } from "./motion";
-import { Tip } from "./components/icon-tip";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -43,11 +40,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
-import { clamp, loadNavigatorSplit, persistNavigatorSplit } from "./app-settings";
 import { paperKey, paperSubtitle, CITE_COMMANDS } from "./app-utils";
 import type { FileNode, PaperSummary, CiteCommand, ProjectSearchResult } from "./app-types";
 
 export function Navigator(props: {
+  mode: "project" | "papers";
+  searchOpen: boolean;
+  onSearchOpenChange: (open: boolean) => void;
+  createRequest: number;
   files: FileNode[];
   activeFile: string;
   activeAssetPath: string;
@@ -61,15 +61,12 @@ export function Navigator(props: {
   onDeleteEntry: (path: string) => void;
   onRenameEntry: (path: string, name: string) => void;
   onReveal: (path: string) => void;
-  onRefresh: () => void;
   onImportAssets: (targetDirectory?: string) => void;
   assetDropTarget: string | null;
   assetImporting: boolean;
   onPaper: (paper: PaperSummary) => void;
   onCitePaper: (paper: PaperSummary, command: CiteCommand) => void;
   onFetchFullText: (paper: PaperSummary) => void;
-  onAddBibEntry: () => void;
-  onDiscoverLiterature: () => void;
   onDeletePaper: (paper: PaperSummary) => void;
   onEditBibEntry: (paper: PaperSummary) => void;
   importInput: string;
@@ -77,8 +74,6 @@ export function Navigator(props: {
   onImport: () => void;
   importing: boolean;
 }) {
-  const navigatorRef = useRef<HTMLElement | null>(null);
-  const [navigatorSplit, setNavigatorSplit] = useState(loadNavigatorSplit);
   const [entryFormOpen, setEntryFormOpen] = useState(false);
   const [entryPath, setEntryPath] = useState("");
   const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
@@ -126,7 +121,6 @@ export function Navigator(props: {
   const visibleSearchResults = searchActive && searchResultQuery === searchQuery.trim() ? searchResults : [];
   const fileSearchResults = visibleSearchResults.filter((result) => result.kind === "file");
   const paperSearchResults = visibleSearchResults.filter((result) => result.kind === "paper");
-  const paperResultCount = searchPending ? "…" : paperSearchResults.length;
   useEffect(() => {
     if (!citeMenuId) return;
     const close = () => setCiteMenuId(null);
@@ -152,6 +146,12 @@ export function Navigator(props: {
     setEntryPath(directory ? `${directory}/` : "");
     setEntryFormOpen(true);
   };
+  useEffect(() => {
+    if (!props.createRequest) return;
+    setEntryKind("file");
+    setEntryPath("");
+    setEntryFormOpen(true);
+  }, [props.createRequest]);
   const closeEntryForm = () => {
     if (entryBusy) return;
     setEntryFormOpen(false);
@@ -204,65 +204,18 @@ export function Navigator(props: {
       </ContextMenu>
     );
   };
-  const setSplitFromPointer = (clientY: number) => {
-    const bounds = navigatorRef.current?.getBoundingClientRect();
-    if (!bounds?.height) return navigatorSplit;
-    const next = clamp((clientY - bounds.top) / bounds.height, 0.2, 0.78);
-    setNavigatorSplit(next);
-    return next;
-  };
-  const beginNavigatorSplitResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    let latest = navigatorSplit;
-    document.body.classList.add("resizing-navigator-split");
-    const handleMove = (moveEvent: PointerEvent) => {
-      latest = setSplitFromPointer(moveEvent.clientY);
-    };
-    const handleUp = () => {
-      document.body.classList.remove("resizing-navigator-split");
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-      persistNavigatorSplit(latest);
-    };
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
-  };
-  const nudgeNavigatorSplit = (delta: number) => {
-    const next = clamp(navigatorSplit + delta, 0.2, 0.78);
-    setNavigatorSplit(next);
-    persistNavigatorSplit(next);
-  };
   return (
-    <aside
-      ref={navigatorRef}
-      className={`navigator ${props.assetDropTarget ? "asset-drag-active" : ""}`}
-      style={{ gridTemplateRows: `minmax(100px, ${navigatorSplit}fr) 5px minmax(140px, ${1 - navigatorSplit}fr)` }}
-    >
-      <div className="navigator-section project-section" onPointerDown={(event) => {
+    <aside className={`navigator ${props.assetDropTarget ? "asset-drag-active" : ""}`}>
+      {props.mode === "project" && <div className="navigator-section project-section" onPointerDown={(event) => {
         const target = event.target as Element;
         if (!target.closest(".project-entry-form") && !target.closest(".section-action")) closeEntryForm();
       }}>
-        {renderItemContextMenu({ path: "", label: "Project folder", kind: "project" }, (
-          <div className="section-heading">
-            <span>Project</span>
-            <div className="section-heading-actions">
-              <Tip label="Refresh files">
-                <SpinButton className="section-action" onClick={props.onRefresh}><RefreshCw size={13} strokeWidth={1.8} /></SpinButton>
-              </Tip>
-              <Tip label="Add file or folder">
-                <button className="section-action" onClick={() => {
-                  if (entryFormOpen) closeEntryForm();
-                  else openCreateForm("file");
-                }}><FolderPlus size={14} strokeWidth={1.8} /></button>
-              </Tip>
-            </div>
-          </div>
-        ))}
-        <label className="navigator-search">
+        {props.searchOpen && <label className="navigator-search">
           <Search size={13} />
           <input aria-label="Filter project files and papers" placeholder="Filter files and papers" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
           {searchPending || searching ? <LoaderCircle className="spin" size={12} /> : searchActive && <button title="Clear search" onClick={() => setSearchQuery("")}><X size={12} /></button>}
-        </label>
+          <button title="Close search" onClick={() => props.onSearchOpenChange(false)}><X size={12} /></button>
+        </label>}
         {entryFormOpen && (
           <div className="project-entry-form" onBlur={(event) => {
             if (entryTypeOpenRef.current) return;
@@ -311,54 +264,22 @@ export function Navigator(props: {
             </button>
           )) : props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} renderContextMenu={renderItemContextMenu} />)}
           {searchActive && !searchPending && !searching && !fileSearchResults.length && <p className="search-empty">No matching project files.</p>}
+          {searchActive && paperSearchResults.map((result, index) => {
+            const paper = props.papers.find((item) => result.arxivId ? item.arxivId === result.arxivId : item.title === result.title);
+            return paper && <button key={`paper:${index}`} className="navigator-search-result" onClick={() => paper.hasFullText ? props.onPaper(paper) : paper.arxivId && props.onFetchFullText(paper)}>
+              <BookOpen size={13} /><span><strong>{paper.title}</strong><small>{result.snippet || "Paper"}</small></span>
+            </button>;
+          })}
         </div>
-      </div>
-      <div
-        className="navigator-split-resizer"
-        role="separator"
-        aria-label="Resize Project and Papers"
-        aria-orientation="horizontal"
-        aria-valuemin={20}
-        aria-valuemax={78}
-        aria-valuenow={Math.round(navigatorSplit * 100)}
-        tabIndex={0}
-        onPointerDown={beginNavigatorSplitResize}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowUp") {
-            event.preventDefault();
-            nudgeNavigatorSplit(-0.03);
-          } else if (event.key === "ArrowDown") {
-            event.preventDefault();
-            nudgeNavigatorSplit(0.03);
-          }
-        }}
-      />
-      <div className="navigator-section papers-section">
-        <div className="section-heading">
-          <span>Papers</span>
-          <div className="section-heading-actions">
-            <button className="section-action" title="Discover literature (OpenAlex)" aria-label="Discover literature" onClick={props.onDiscoverLiterature}>
-              <Search size={14} strokeWidth={1.8} />
-            </button>
-            <button className="section-action" title="Add bibliography entry" aria-label="Add bibliography entry" onClick={props.onAddBibEntry}>
-              <BookMarked size={14} strokeWidth={1.8} />
-            </button>
-            <span className="count-badge">{searchActive ? paperResultCount : props.papers.length}</span>
-          </div>
-        </div>
+      </div>}
+      {props.mode === "papers" && <div className="navigator-section papers-section">
         <div className="paper-list" role="list" aria-label="Papers">
           {/* Matched on the arXiv id when there is one, on the title when
               there is not: a cited-only work carries an empty id, so comparing
               ids alone returned the same first paper for every one of them —
               the list showed that paper once per match and the others could
               not be reached while a filter was active. */}
-          {(searchActive
-            ? paperSearchResults
-                .map((result) => props.papers.find((paper) => (
-                  result.arxivId ? paper.arxivId === result.arxivId : paper.title === result.title
-                )))
-                .filter((paper): paper is PaperSummary => Boolean(paper))
-            : props.papers).map((paper) => {
+          {props.papers.map((paper) => {
             const row = (
               <div className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}>
               <button
@@ -421,8 +342,7 @@ export function Navigator(props: {
               </Fragment>
             );
           })}
-          {!searchActive && !props.papers.length && <p className="empty-note">Add a paper to ground the agent in project evidence.</p>}
-          {searchActive && !searchPending && !searching && !paperSearchResults.length && <p className="search-empty">No matching papers.</p>}
+          {!props.papers.length && <p className="empty-note">Add a paper to ground the agent in project evidence.</p>}
         </div>
         <div className="import-box">
           <input
@@ -435,7 +355,7 @@ export function Navigator(props: {
             {props.importing ? <LoaderCircle className="spin" size={14} /> : <Plus size={14} />}
           </button>
         </div>
-      </div>
+      </div>}
     </aside>
   );
 }
