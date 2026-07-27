@@ -735,35 +735,47 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .math-preview-body { color: var(--text); overflow-x: auto; }
 .math-preview-error { margin: 0; color: var(--danger); font-size: 11px; }
 .source-editor { position: relative; flex: 1 1 0; width: 100%; min-height: 0; background: var(--editor-bg); }
-.editor-comment-chip {
-  position: absolute;
-  z-index: 6;
-  right: max(8px, env(safe-area-inset-right, 0px));
-  bottom: 10px;
-  max-width: calc(100% - 16px);
-  height: 28px;
-  padding: 0 10px;
+.latex-selection-toolbar-anchor {
+  position: fixed;
+  z-index: 80;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+.latex-selection-toolbar-anchor.below { transform: translate(-50%, 0); }
+.latex-selection-toolbar {
+  max-width: 100%;
+  padding: 3px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: 9px;
   background: var(--panel-strong);
-  color: var(--text);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 13%, transparent), 0 1px 3px color-mix(in srgb, #000 8%, transparent);
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+.latex-selection-toolbar::-webkit-scrollbar { display: none; }
+.latex-selection-tool { flex: none; display: inline-flex; }
+.latex-selection-tool.separated {
+  margin-left: 3px;
+  padding-left: 3px;
+  border-left: 1px solid var(--line);
+}
+.latex-selection-tool button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  box-shadow: var(--shadow);
+  justify-content: center;
 }
-/* Tinted, not made translucent. `--accent-soft` is a low-alpha neutral, which
-   works as a hover for a row inside a solid panel and not at all for a chip
-   that floats over the document: it replaced the chip's own background and
-   the text underneath showed straight through it. Mixing the same accent into
-   the panel colour gives the same tint while staying opaque. */
-.editor-comment-chip:hover {
-  background: color-mix(in srgb, var(--accent) 10%, var(--panel-strong));
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--line-strong));
-  color: var(--accent);
-}
+.latex-selection-tool button:hover { background: var(--accent-soft); color: var(--text); }
+.latex-selection-tool button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .editor-comment-popover {
   position: absolute;
   z-index: 7;

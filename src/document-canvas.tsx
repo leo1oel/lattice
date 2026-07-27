@@ -33,12 +33,18 @@ import {
   latexLanguageOptions,
   renameEnvironmentAt,
   textStats,
+  wrapRange,
   wrapEnvironment,
   type CitationInfo,
   type DefinitionTarget,
   type ReferenceInfo,
   type SymbolTarget,
 } from "./latex-editor";
+import {
+  LatexSelectionToolbar,
+  type LatexSelectionAction,
+  type LatexSelectionToolbarPosition,
+} from "./latex-selection-toolbar";
 import { latexFigureInsertion, type FigureInsertOptions } from "./figure-insertion";
 import { FigureInsertDialog } from "./figure-insert-dialog";
 import {
@@ -278,6 +284,8 @@ export function DocumentCanvas(props: {
   const focusedSource = focusedPane === "secondary" && secondaryFile ? secondarySource : editorSource;
   const wordCount = useMemo(() => countWords(focusedSource), [focusedSource]);
   const [selectedText, setSelectedText] = useState("");
+  const [selectionToolbarPosition, setSelectionToolbarPosition] = useState<LatexSelectionToolbarPosition | null>(null);
+  const [selectionToolbarPane, setSelectionToolbarPane] = useState<EditorPaneId | null>(null);
   const selectionStats = useMemo(() => textStats(selectedText), [selectedText]);
   const commentsForActiveFile = useMemo(
     () => editorComments.filter((comment) => comment.path === activeFile),
@@ -345,6 +353,13 @@ export function DocumentCanvas(props: {
   const setSecondarySourceRef = useRef(setSecondarySource);
   setSecondarySourceRef.current = setSecondarySource;
   const reportEditorPositionRef = useRef<(view: EditorView, path: string) => void>(() => {});
+  const updateSelectionToolbarRef = useRef<(view: EditorView, path: string) => void>(() => {});
+  const selectionToolbarOwnerRef = useRef<{
+    pane: EditorPaneId;
+    path: string;
+    from: number;
+    to: number;
+  } | null>(null);
   // reportEditorPosition is assigned below after its useCallback.
 
   const collabLive = collabExtensions.length > 0;
@@ -368,6 +383,7 @@ export function DocumentCanvas(props: {
     setSelectionRef.current(nextSelection);
     setSelectedText(nextSelection);
     if (range.empty) setCommentComposer(null);
+    updateSelectionToolbarRef.current(viewUpdate.view, activeFileRefEditor.current);
     reportEditorPositionRef.current?.(viewUpdate.view, activeFileRefEditor.current);
   }, []);
   const onSecondaryChange = useCallback((value: string) => {
@@ -381,8 +397,97 @@ export function DocumentCanvas(props: {
     setSelectionRef.current(nextSelection);
     setSelectedText(nextSelection);
     const path = secondaryFileRefEditor.current;
-    if (path) reportEditorPositionRef.current?.(viewUpdate.view, path);
+    if (path) {
+      updateSelectionToolbarRef.current(viewUpdate.view, path);
+      reportEditorPositionRef.current?.(viewUpdate.view, path);
+    }
   }, []);
+
+  const updateSelectionToolbar = useCallback((view: EditorView, path: string) => {
+    const range = view.state.selection.main;
+    if (range.empty || !path.endsWith(".tex")) {
+      selectionToolbarOwnerRef.current = null;
+      setSelectionToolbarPane(null);
+      setSelectionToolbarPosition(null);
+      return;
+    }
+    const editorBounds = view.dom.closest(".source-editor")?.getBoundingClientRect();
+    const visibleRange = view.visibleRanges.find(({ from, to }) => range.from <= to && range.to >= from);
+    if (!visibleRange) {
+      selectionToolbarOwnerRef.current = null;
+      setSelectionToolbarPane(null);
+      setSelectionToolbarPosition(null);
+      return;
+    }
+    const visibleFrom = Math.max(range.from, visibleRange.from);
+    const line = view.state.doc.lineAt(visibleFrom);
+    const visibleTo = Math.min(range.to, visibleRange.to, line.to);
+    const start = view.coordsAtPos(visibleFrom);
+    const end = view.coordsAtPos(visibleTo);
+    if (!editorBounds || !start || !end) {
+      selectionToolbarOwnerRef.current = null;
+      setSelectionToolbarPane(null);
+      setSelectionToolbarPosition(null);
+      return;
+    }
+    const estimatedWidth = Math.min(346, Math.max(0, editorBounds.width - 16));
+    const halfWidth = estimatedWidth / 2;
+    const selectionCenter = start.top === end.top
+      ? (start.left + end.right) / 2
+      : start.left + Math.min(72, Math.max(20, editorBounds.width / 5));
+    const left = clamp(selectionCenter, editorBounds.left + halfWidth + 8, editorBounds.right - halfWidth - 8);
+    const selectionTop = Math.min(start.top, end.top);
+    const below = selectionTop - editorBounds.top < 52;
+    selectionToolbarOwnerRef.current = {
+      pane: view === secondaryViewRef.current ? "secondary" : "primary",
+      path,
+      from: range.from,
+      to: range.to,
+    };
+    setSelectionToolbarPane(view === secondaryViewRef.current ? "secondary" : "primary");
+    setSelectionToolbarPosition({
+      left,
+      top: below ? start.bottom + 8 : selectionTop - 8,
+      below,
+      maxWidth: Math.max(0, editorBounds.width - 16),
+    });
+  }, []);
+  updateSelectionToolbarRef.current = updateSelectionToolbar;
+
+  useEffect(() => {
+    const reposition = () => {
+      const owner = selectionToolbarOwnerRef.current;
+      if (!owner) return;
+      const view = owner.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
+      if (view) updateSelectionToolbar(view, owner.path);
+    };
+    const resizeObserver = new ResizeObserver(reposition);
+    for (const view of [primaryViewRef.current, secondaryViewRef.current]) {
+      const editor = view?.dom.closest(".source-editor");
+      if (editor) resizeObserver.observe(editor);
+    }
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  }, [activeFile, focusedPane, secondaryFile, updateSelectionToolbar]);
+
+  useEffect(() => {
+    if (props.mode === "pdf" || props.mode === "paper" || props.mode === "asset" || props.mode === "markdown-preview") {
+      selectionToolbarOwnerRef.current = null;
+      setSelectionToolbarPane(null);
+      setSelectionToolbarPosition(null);
+    }
+  }, [props.mode]);
+
+  useEffect(() => {
+    selectionToolbarOwnerRef.current = null;
+    setSelectionToolbarPane(null);
+    setSelectionToolbarPosition(null);
+  }, [activeFile, secondaryFile]);
 
   useEffect(() => {
     const view = primaryViewRef.current;
@@ -417,8 +522,8 @@ export function DocumentCanvas(props: {
     onCommentFocusHandled(commentFocusRequest.nonce);
   }, [activeFile, commentFocusRequest, editorComments, onCommentFocusHandled]);
 
-  const openCommentComposer = useCallback(() => {
-    const view = editorViewRef.current;
+  const openCommentComposer = useCallback((targetView?: EditorView) => {
+    const view = targetView ?? editorViewRef.current;
     if (!view || !activeFile) return;
     const range = view.state.selection.main;
     if (range.empty) return;
@@ -431,6 +536,53 @@ export function DocumentCanvas(props: {
       body: "",
     });
   }, [activeFile]);
+
+  const applySelectionAction = useCallback((action: LatexSelectionAction) => {
+    const owner = selectionToolbarOwnerRef.current;
+    if (!owner) return;
+    const view = owner.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
+    if (!view || owner.path !== (owner.pane === "secondary" ? secondaryFileRefEditor.current : activeFileRefEditor.current)) return;
+    const range = view.state.selection.main;
+    if (range.empty || range.from !== owner.from || range.to !== owner.to) {
+      selectionToolbarOwnerRef.current = null;
+      setSelectionToolbarPane(null);
+      setSelectionToolbarPosition(null);
+      return;
+    }
+    if (action === "comment") {
+      if (owner.pane !== "primary") return;
+      openCommentComposer(view);
+      selectionToolbarOwnerRef.current = null;
+      setSelectionToolbarPane(null);
+      setSelectionToolbarPosition(null);
+      return;
+    }
+    let before = "";
+    let after = "";
+    switch (action) {
+      case "bold": [before, after] = ["\\textbf{", "}"]; break;
+      case "italic": [before, after] = ["\\textit{", "}"]; break;
+      case "underline": [before, after] = ["\\underline{", "}"]; break;
+      case "strikethrough": [before, after] = ["\\sout{", "}"]; break;
+      case "highlight": [before, after] = ["\\colorbox{yellow}{", "}"]; break;
+      case "heading": [before, after] = ["\\section{", "}"]; break;
+      case "quote": [before, after] = ["\\begin{quote}\n", "\n\\end{quote}"]; break;
+      case "link": {
+        const url = window.prompt("Link URL", "https://");
+        if (!url) return;
+        [before, after] = [`\\href{${url}}{`, "}"];
+        break;
+      }
+    }
+    const edit = wrapRange(view.state.doc.toString(), range.from, range.to, before, after);
+    view.dispatch({
+      changes: { from: edit.from, to: edit.to, insert: edit.insert },
+      selection: { anchor: edit.cursorFrom, head: edit.cursorTo },
+      scrollIntoView: true,
+    });
+    view.focus();
+    updateSelectionToolbar(view, owner.path);
+  }, [openCommentComposer, updateSelectionToolbar]);
 
   const saveCommentComposer = useCallback(() => {
     if (!commentComposer || !activeFile) return;
@@ -842,6 +994,12 @@ export function DocumentCanvas(props: {
           className={`source-editor ${figureDropActive || props.nativeFigureDropActive ? "figure-drop-active" : ""}`}
           onPointerLeave={props.onEditorLeave}
           onFocusCapture={() => {
+            if (selectionToolbarOwnerRef.current?.pane !== "primary") {
+              selectionToolbarOwnerRef.current = null;
+              setSelectionToolbarPane(null);
+              setSelectionToolbarPosition(null);
+            }
+            focusedPaneRef.current = "primary";
             onFocusPane("primary");
             if (primaryViewRef.current) editorViewRef.current = primaryViewRef.current;
           }}
@@ -896,19 +1054,6 @@ export function DocumentCanvas(props: {
             <div className="figure-drop-line" style={{ top: figureDropMarker.top }}>
               <span>Insert above line {figureDropMarker.line}</span>
             </div>
-          )}
-          {selectedText.trim() && !commentComposer && focusedPane === "primary" && (
-            <button
-              type="button"
-              className="editor-comment-chip"
-              title="Add a comment on the selected text"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                openCommentComposer();
-              }}
-            >
-              <MessageSquareText size={13} /> Comment
-            </button>
           )}
           {commentComposer && (
             <div
@@ -1027,6 +1172,13 @@ export function DocumentCanvas(props: {
         onClose={() => setFigureInsertPending(null)}
         onInsert={confirmFigureInsert}
       />
+      {selectionToolbarPosition && selectedText.trim() && !commentComposer && (
+        <LatexSelectionToolbar
+          position={selectionToolbarPosition}
+          canComment={selectionToolbarPane === "primary"}
+          onAction={applySelectionAction}
+        />
+      )}
     </div>
   );
   const preview = (
@@ -1052,6 +1204,12 @@ export function DocumentCanvas(props: {
       <div
         className={`source-main dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
         onFocusCapture={() => {
+          if (selectionToolbarOwnerRef.current?.pane !== "secondary") {
+            selectionToolbarOwnerRef.current = null;
+            setSelectionToolbarPane(null);
+            setSelectionToolbarPosition(null);
+          }
+          focusedPaneRef.current = "secondary";
           onFocusPane("secondary");
           if (secondaryViewRef.current) editorViewRef.current = secondaryViewRef.current;
         }}
