@@ -357,7 +357,7 @@ describe("project workspace", () => {
     expect(screen.getByRole("separator", { name: "Resize workspace sidebar" })).toBeInTheDocument();
     expect(screen.queryByRole("separator", { name: "Resize writing agent" })).not.toBeInTheDocument();
     expect(screen.queryByRole("separator", { name: "Resize Project and Papers" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add file or folder" }).querySelector(".lucide-folder-plus")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Add file or folder" })).not.toBeInTheDocument();
     expect(document.querySelector(".source-editor > .code-editor-root")).toBeInTheDocument();
     await switchSidebarMode("Agent");
     const composer = screen.getByPlaceholderText(/ask the agent/i);
@@ -461,6 +461,36 @@ describe("project workspace", () => {
     expect(splitDivider).toHaveAttribute("aria-valuenow", "46");
     fireEvent.keyDown(splitDivider, { key: "ArrowRight" });
     expect(splitDivider).toHaveAttribute("aria-valuenow", "49");
+  });
+
+  it("automatically refreshes the project tree when files appear on disk", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const refreshed = {
+      ...snapshot,
+      files: [...snapshot.files, { name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "refresh_project") return refreshed;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    expect(screen.queryByRole("button", { name: "notes.md" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "notes.md" }, { timeout: 3500 })).toBeInTheDocument();
   });
 
   it("saves and builds changed source when the pointer leaves the editor", async () => {
@@ -771,7 +801,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByTitle("Attention Is All You Need").closest(".paper-row")).not.toHaveClass("active"));
   });
 
-  it("searches project files and paper contents from one navigator field", async () => {
+  it("searches project file contents without showing paper matches", async () => {
     const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -798,12 +828,12 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.click(await screen.findByRole("button", { name: "Search this project" }));
-    fireEvent.change(await screen.findByLabelText("Filter project files and papers"), { target: { value: "alignment" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Search files" }));
+    fireEvent.change(await screen.findByLabelText("Search project files"), { target: { value: "alignment" } });
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_project", { query: "alignment" }));
     expect(await screen.findByText(/L3 · A latent alignment objective\./)).toBeInTheDocument();
-    expect(screen.getByText("The model relies entirely on self-attention.")).toBeInTheDocument();
+    expect(screen.queryByText("The model relies entirely on self-attention.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText(/L3 · A latent alignment objective\./));
     await waitFor(() => {
       const editorElement = document.querySelector<HTMLElement>(".cm-editor");
@@ -1290,6 +1320,7 @@ describe("project workspace", () => {
 
     render(<App />);
     await switchSidebarMode("Agent");
+    expect(screen.queryByRole("button", { name: "New conversation" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByTitle("Conversation history"));
     expect(screen.getByText("Revise the related work")).toBeInTheDocument();
     // Re-clicking the trigger toggles the Popover closed.
@@ -1298,7 +1329,8 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByTitle("Conversation history"));
     fireEvent.click(await screen.findByText("Revise the related work"));
     expect(await screen.findByText("Compare against the strongest baseline.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+    fireEvent.click(screen.getByTitle("Conversation history"));
+    fireEvent.click(await screen.findByRole("button", { name: "New" }));
     expect(invoke).toHaveBeenCalledWith("create_agent_session", {
       provider: "codex",
       model: "gpt-5.6-sol",
@@ -1514,19 +1546,23 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.click(await screen.findByRole("button", { name: "Add file or folder" }));
+    fireEvent.contextMenu(await screen.findByLabelText("Project sidebar empty space"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "New file" }));
     expect(screen.queryByTitle("Cancel file creation")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "sections/method" } });
+    fireEvent.change(await screen.findByLabelText("Project-relative path"), { target: { value: "sections/method" } });
     fireEvent.click(screen.getByTitle("Create"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "sections/method", kind: "file" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Add file or folder" }));
+    fireEvent.contextMenu(screen.getByLabelText("Project sidebar empty space"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "New folder" }));
+    expect(await screen.findByLabelText("Entry type")).toHaveTextContent("Folder");
     fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "draft" } });
     fireEvent.keyDown(screen.getByLabelText("Project-relative path"), { key: "Escape" });
     expect(screen.queryByLabelText("Project-relative path")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add file or folder" }));
-    fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "draft" } });
+    fireEvent.contextMenu(screen.getByLabelText("Project sidebar empty space"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "New file" }));
+    fireEvent.change(await screen.findByLabelText("Project-relative path"), { target: { value: "draft" } });
     fireEvent.pointerDown(document.querySelector(".project-section")!);
     expect(screen.queryByLabelText("Project-relative path")).not.toBeInTheDocument();
 

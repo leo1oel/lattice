@@ -84,6 +84,11 @@
   --syntax-bracket: #a6a8ad;
 }
 
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+*::-webkit-scrollbar { width: 5px; height: 5px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { border: 1px solid transparent; border-radius: 999px; background: var(--line-strong); background-clip: content-box; }
+
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 button, input, textarea, select { font: inherit; color: inherit; }
@@ -358,31 +363,34 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 .shared-sidebar { grid-area: sidebar; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--sidebar); }
 .sidebar-pane { min-width: 0; min-height: 0; flex: 1; display: flex; overflow: hidden; }
 .sidebar-pane[hidden] { display: none; }
+.sidebar-pane:not([hidden]) { animation: sidebar-pane-in .18s cubic-bezier(.2, .75, .25, 1); }
+@keyframes sidebar-pane-in { from { opacity: .65; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
 .sidebar-pane > .navigator, .sidebar-pane > .agent-panel { width: 100%; min-height: 0; flex: 1; }
 .sidebar-resizer { grid-area: sidebar-resizer; }
 .navigator { background: var(--sidebar); }
 .canvas-panel { grid-area: canvas; }
 .agent-panel { background: var(--sidebar); }
-.panel-resizer { position: relative; z-index: 2; width: 5px; min-width: 5px; height: 100%; cursor: col-resize; outline: none; background: transparent; touch-action: none; }
-.panel-resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 1px; background: var(--line); transition: background .15s, width .15s, left .15s; }
-.panel-resizer:hover::after, .panel-resizer:focus-visible::after, body.resizing-panels .panel-resizer::after { left: 1px; width: 3px; background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.panel-resizer { position: relative; z-index: 2; width: 1px; min-width: 1px; height: 100%; cursor: col-resize; outline: none; background: var(--line); touch-action: none; }
+.panel-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
+.panel-resizer:hover, .panel-resizer:focus-visible, body.resizing-panels .panel-resizer { background: var(--line-strong); }
 body.resizing-panels { cursor: col-resize; user-select: none; }
 .navigator { display: flex; flex-direction: column; overflow: hidden; }
-.sidebar-mode-header { height: 44px; flex: none; padding: 6px 8px; display: flex; align-items: center; gap: 5px; }
-.sidebar-mode-tabs { min-width: 0; flex: 1; padding: 2px; display: flex; gap: 2px; border-radius: 8px; background: color-mix(in srgb, var(--line) 65%, transparent); }
-.sidebar-mode-tabs .sliding-tab { position: relative; min-width: 32px; height: 30px; flex: 0 0 auto; border-radius: 6px; background: transparent; color: var(--muted); }
-.sidebar-mode-tabs .sliding-tab.active { flex: 1 1 auto; color: var(--text); }
+.sidebar-mode-header { height: 40px; flex: none; padding: 5px 7px; display: flex; align-items: center; gap: 5px; }
+.sidebar-mode-tabs { width: 180px; flex: none; padding: 2px; display: flex; gap: 2px; border-radius: 7px; background: color-mix(in srgb, var(--line) 65%, transparent); }
+.sidebar-mode-tabs .sliding-tab { position: relative; width: 57px; min-width: 57px; height: 27px; flex: none; border-radius: 5px; background: transparent; color: var(--muted); font-size: 10px; }
+.sidebar-mode-tabs .sliding-tab.active { color: var(--text); }
 .sidebar-mode-tabs .sliding-tab-pill { position: absolute; inset: 0; border-radius: 6px; background: var(--panel-strong); box-shadow: 0 1px 3px rgb(0 0 0 / 8%); }
-.sidebar-mode-tabs .sliding-tab-label { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.sidebar-mode-tabs .sliding-tab-label { position: relative; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.sidebar-mode-tabs .sliding-tab-label svg { width: 13px; height: 13px; }
 .sidebar-mode-tabs .sliding-tab:not(.active) .sliding-tab-label span { display: none; }
-.sidebar-mode-actions { flex: none; display: flex; align-items: center; gap: 1px; }
+.sidebar-mode-actions { margin-left: auto; flex: none; display: flex; align-items: center; gap: 1px; }
 .sidebar-mode-actions button { width: 26px; height: 26px; border-radius: 6px; background: transparent; color: var(--faint); display: grid; place-items: center; }
 .sidebar-mode-actions button:hover:not(:disabled), .sidebar-mode-actions button[aria-pressed="true"] { background: var(--line); color: var(--text); }
 .sidebar-mode-actions button:disabled { opacity: .4; }
 .sidebar-discover-icon { position: relative; display: grid; place-items: center; }
 .sidebar-discover-icon svg:last-child { position: absolute; top: -4px; right: -5px; }
 .navigator-section { min-height: 0; padding: 10px; }
-.project-section { flex: 1; padding: 2px 10px 10px; overflow: auto; }
+.project-section { flex: 1; padding: 2px 10px 6px; display: flex; flex-direction: column; overflow: hidden; }
 .papers-section { display: flex; flex: 1; flex-direction: column; padding: 2px 10px 10px; overflow: hidden; }
 .section-heading { height: 28px; padding: 0 5px 0 7px; display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
 .section-action { width: 24px; height: 24px; flex: none; padding: 0; border-radius: 6px; background: transparent; color: var(--faint); display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
@@ -418,7 +426,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .project-entry-form [data-slot="select-trigger"] > svg { width: 11px; height: 11px; }
 .project-entry-form input { width: 0; flex: 1; border: 0; outline: 0; background: transparent; padding: 0 7px; font-size: 9.5px; }
 .project-entry-form > button { width: 28px; flex: none; background: transparent; color: var(--accent); display: grid; place-items: center; }
-.file-tree { min-height: 42px; padding-top: 4px; }
+.file-tree { min-height: 42px; flex: 0 1 auto; padding-top: 4px; overflow: auto; }
+.project-context-space { min-height: 24px; flex: 1; }
 .tree-row { width: 100%; height: 29px; border-radius: 6px; padding: 0 6px; background: transparent; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; text-align: left; }
 .tree-row:hover { color: var(--text); background: var(--line); }
 .tree-row.active { color: var(--text); background: var(--accent-soft); }
@@ -439,7 +448,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .tree-chevron { flex: none; transition: transform .16s cubic-bezier(.2, .75, .25, 1); }
 .tree-chevron.open { transform: rotate(90deg); }
 .tree-children { padding-left: 12px; animation: tree-reveal .16s cubic-bezier(.2, .75, .25, 1); transform-origin: top; }
-.paper-list { min-height: 0; flex: 1; overflow: auto; padding-top: 3px; }
+.paper-list { min-height: 0; flex: 1; overflow: auto; padding-top: 7px; }
 .paper-row { width: 100%; border-radius: 6px; display: flex; align-items: center; color: var(--muted); }
 .paper-row:hover, .paper-row.active { color: var(--text); background: var(--line); }
 /* Cited but never fetched: nothing to open, so the row reads as a reference. */
@@ -1237,7 +1246,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .asset-row .tree-main:active { cursor: grabbing; }
 .split-resizer { position: relative; z-index: 2; width: 1px; min-height: 0; cursor: col-resize; background: var(--line-strong); outline: none; touch-action: none; }
 .split-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
-.split-resizer:hover, .split-resizer:focus-visible, .resizing-split .split-resizer { background: var(--accent); }
+.split-resizer:hover, .split-resizer:focus-visible, .resizing-split .split-resizer { background: var(--line-strong); }
 .resizing-split { cursor: col-resize; user-select: none; }
 .paper-reader { height: 100%; overflow: auto; background: var(--panel-strong); }
 .paper-reader-title { position: sticky; top: 0; z-index: 2; height: 38px; padding: 0 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel-strong) 94%, transparent); backdrop-filter: blur(12px); display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }

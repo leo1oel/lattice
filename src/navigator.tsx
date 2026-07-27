@@ -47,7 +47,6 @@ export function Navigator(props: {
   mode: "project" | "papers";
   searchOpen: boolean;
   onSearchOpenChange: (open: boolean) => void;
-  createRequest: number;
   files: FileNode[];
   activeFile: string;
   activeAssetPath: string;
@@ -120,7 +119,6 @@ export function Navigator(props: {
   const searchPending = searchActive && searchResultQuery !== searchQuery.trim();
   const visibleSearchResults = searchActive && searchResultQuery === searchQuery.trim() ? searchResults : [];
   const fileSearchResults = visibleSearchResults.filter((result) => result.kind === "file");
-  const paperSearchResults = visibleSearchResults.filter((result) => result.kind === "paper");
   useEffect(() => {
     if (!citeMenuId) return;
     const close = () => setCiteMenuId(null);
@@ -146,12 +144,6 @@ export function Navigator(props: {
     setEntryPath(directory ? `${directory}/` : "");
     setEntryFormOpen(true);
   };
-  useEffect(() => {
-    if (!props.createRequest) return;
-    setEntryKind("file");
-    setEntryPath("");
-    setEntryFormOpen(true);
-  }, [props.createRequest]);
   const closeEntryForm = () => {
     if (entryBusy) return;
     setEntryFormOpen(false);
@@ -181,11 +173,11 @@ export function Navigator(props: {
     return (
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-        <ContextMenuContent>
+        <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
           {!paper && (
             <>
-              <ContextMenuItem onSelect={() => openCreateForm("file", path, kind)}><FilePlus size={14} />New file</ContextMenuItem>
-              <ContextMenuItem onSelect={() => openCreateForm("folder", path, kind)}><FolderPlus size={14} />New folder</ContextMenuItem>
+              <ContextMenuItem onSelect={() => window.setTimeout(() => openCreateForm("file", path, kind), 0)}><FilePlus size={14} />New file</ContextMenuItem>
+              <ContextMenuItem onSelect={() => window.setTimeout(() => openCreateForm("folder", path, kind), 0)}><FolderPlus size={14} />New folder</ContextMenuItem>
             </>
           )}
           {path && !paper && (
@@ -196,7 +188,7 @@ export function Navigator(props: {
           {path && !paper && (
             <ContextMenuItem onSelect={() => void writeText(path)}><Copy size={14} />Copy path</ContextMenuItem>
           )}
-          <ContextMenuItem onSelect={() => props.onReveal(path)}><FolderOpen size={14} />Show in Finder</ContextMenuItem>
+          {(path || paper) && <ContextMenuItem onSelect={() => props.onReveal(path)}><FolderOpen size={14} />Show in Finder</ContextMenuItem>}
           {path && !paper && !isProtected && (
             <ContextMenuItem variant="destructive" onSelect={() => props.onDeleteEntry(path)}><Trash2 size={14} />Delete</ContextMenuItem>
           )}
@@ -208,11 +200,12 @@ export function Navigator(props: {
     <aside className={`navigator ${props.assetDropTarget ? "asset-drag-active" : ""}`}>
       {props.mode === "project" && <div className="navigator-section project-section" onPointerDown={(event) => {
         const target = event.target as Element;
+        if (target.closest('[data-slot="context-menu-content"]')) return;
         if (!target.closest(".project-entry-form") && !target.closest(".section-action")) closeEntryForm();
       }}>
         {props.searchOpen && <label className="navigator-search">
           <Search size={13} />
-          <input aria-label="Filter project files and papers" placeholder="Filter files and papers" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
+          <input aria-label="Search project files" placeholder="Search files" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
           {searchPending || searching ? <LoaderCircle className="spin" size={12} /> : searchActive && <button title="Clear search" onClick={() => setSearchQuery("")}><X size={12} /></button>}
           <button title="Close search" onClick={() => props.onSearchOpenChange(false)}><X size={12} /></button>
         </label>}
@@ -264,15 +257,21 @@ export function Navigator(props: {
             </button>
           )) : props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} renderContextMenu={renderItemContextMenu} />)}
           {searchActive && !searchPending && !searching && !fileSearchResults.length && <p className="search-empty">No matching project files.</p>}
-          {searchActive && paperSearchResults.map((result, index) => {
-            const paper = props.papers.find((item) => result.arxivId ? item.arxivId === result.arxivId : item.title === result.title);
-            return paper && <button key={`paper:${index}`} className="navigator-search-result" onClick={() => paper.hasFullText ? props.onPaper(paper) : paper.arxivId && props.onFetchFullText(paper)}>
-              <BookOpen size={13} /><span><strong>{paper.title}</strong><small>{result.snippet || "Paper"}</small></span>
-            </button>;
-          })}
         </div>
+        {renderItemContextMenu({ path: "", label: "Project", kind: "project" }, <div className="project-context-space" aria-label="Project sidebar empty space" />)}
       </div>}
       {props.mode === "papers" && <div className="navigator-section papers-section">
+        <div className="import-box">
+          <input
+            placeholder="arXiv id, DOI, URL, or title"
+            value={props.importInput}
+            onChange={(event) => props.setImportInput(event.target.value)}
+            onKeyDown={(event) => event.key === "Enter" && props.onImport()}
+          />
+          <button onClick={props.onImport} disabled={props.importing || !props.importInput.trim()} title="Import paper">
+            {props.importing ? <LoaderCircle className="spin" size={14} /> : <Plus size={14} />}
+          </button>
+        </div>
         <div className="paper-list" role="list" aria-label="Papers">
           {/* Matched on the arXiv id when there is one, on the title when
               there is not: a cited-only work carries an empty id, so comparing
@@ -294,7 +293,7 @@ export function Navigator(props: {
                 onClick={() => paper.hasFullText ? props.onPaper(paper) : props.onFetchFullText(paper)}
               >
                 {paper.hasFullText ? <BookOpen size={14} /> : paper.arxivId ? <Download size={14} /> : <BookMarked size={14} />}
-                <span><strong>{paper.title}</strong><small>{paperSubtitle(paper, searchActive ? paperSearchResults.find((result) => result.arxivId === paper.arxivId)?.snippet : undefined)}</small></span>
+                <span><strong>{paper.title}</strong><small>{paperSubtitle(paper)}</small></span>
               </button>
               {paper.citationKey && (
                 <div className="cite-menu-wrap">
@@ -343,17 +342,6 @@ export function Navigator(props: {
             );
           })}
           {!props.papers.length && <p className="empty-note">Add a paper to ground the agent in project evidence.</p>}
-        </div>
-        <div className="import-box">
-          <input
-            placeholder="arXiv id, DOI, URL, or title"
-            value={props.importInput}
-            onChange={(event) => props.setImportInput(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && props.onImport()}
-          />
-          <button onClick={props.onImport} disabled={props.importing || !props.importInput.trim()} title="Import paper">
-            {props.importing ? <LoaderCircle className="spin" size={14} /> : <Plus size={14} />}
-          </button>
         </div>
       </div>}
     </aside>

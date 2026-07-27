@@ -13,7 +13,6 @@ import {
   ChevronDown,
   CircleAlert,
   Eraser,
-  FolderPlus,
   FolderTree,
   Image,
   Library,
@@ -21,9 +20,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Play,
-  Plus,
   Radio,
-  RefreshCw,
   Search,
   Sparkles,
   Square,
@@ -551,7 +548,6 @@ function App() {
     }
   });
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
-  const [projectCreateRequest, setProjectCreateRequest] = useState(0);
   const chooseSidebarMode = (mode: "project" | "papers" | "agent") => {
     setSidebarMode(mode);
     setSidebarOpen(true);
@@ -563,6 +559,31 @@ function App() {
       // Mode still switches for the current session without storage.
     }
   }, [sidebarMode]);
+
+  useEffect(() => {
+    if (!project || sidebarMode !== "project") return;
+    let stopped = false;
+    let checking = false;
+    const checkForNewFiles = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        const snapshot = await invoke<ProjectSnapshot>("refresh_project");
+        if (!stopped && snapshot.root === project.root && JSON.stringify(snapshot.files) !== JSON.stringify(project.files)) {
+          setProject(snapshot);
+        }
+      } catch {
+        // The next poll retries after transient filesystem races.
+      } finally {
+        checking = false;
+      }
+    };
+    const timer = window.setInterval(() => { void checkForNewFiles(); }, 2000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [project, sidebarMode]);
   // Remember the file open per project, so reopening it lands on the last page.
   useEffect(() => {
     if (project?.root && activeFile) persistLastFile(project.root, activeFile);
@@ -5059,7 +5080,7 @@ function App() {
       <main
         className={`workspace ${sidebarOpen ? "" : "sidebar-hidden"}`}
         style={{
-          gridTemplateColumns: sidebarOpen ? `${sidebarWidth}px 5px minmax(360px, 1fr)` : "minmax(360px, 1fr)",
+          gridTemplateColumns: sidebarOpen ? `${sidebarWidth}px 1px minmax(360px, 1fr)` : "minmax(360px, 1fr)",
           gridTemplateAreas: sidebarOpen ? '"sidebar sidebar-resizer canvas"' : '"canvas"',
         }}
       >
@@ -5080,17 +5101,9 @@ function App() {
                 />
                 <div className="sidebar-mode-actions">
                   {sidebarMode === "project" && (
-                    <>
-                      <Tip label={projectSearchOpen ? "Hide project search" : "Search this project"}>
-                        <button aria-pressed={projectSearchOpen} onClick={() => setProjectSearchOpen((open) => !open)}><Search size={14} /></button>
-                      </Tip>
-                      <Tip label="Refresh project files">
-                        <button onClick={() => void refreshProject()}><RefreshCw size={14} /></button>
-                      </Tip>
-                      <Tip label="Add file or folder">
-                        <button onClick={() => setProjectCreateRequest((request) => request + 1)}><FolderPlus size={14} /></button>
-                      </Tip>
-                    </>
+                    <Tip label={projectSearchOpen ? "Hide file search" : "Search files"}>
+                      <button aria-pressed={projectSearchOpen} onClick={() => setProjectSearchOpen((open) => !open)}><Search size={13} /></button>
+                    </Tip>
                   )}
                   {sidebarMode === "papers" && (
                     <>
@@ -5105,11 +5118,6 @@ function App() {
                       <span className="count-badge">{papers.length}</span>
                     </>
                   )}
-                  {sidebarMode === "agent" && (
-                    <Tip label="New conversation">
-                      <button disabled={agentRunning} onClick={newAgentSession}><Plus size={14} /></button>
-                    </Tip>
-                  )}
                 </div>
               </div>
               <div className="sidebar-pane" hidden={sidebarMode === "agent"}>
@@ -5117,7 +5125,6 @@ function App() {
                   mode={sidebarMode === "papers" ? "papers" : "project"}
                   searchOpen={projectSearchOpen}
                   onSearchOpenChange={setProjectSearchOpen}
-                  createRequest={projectCreateRequest}
                   files={project.files}
                   activeFile={activeAsset || activePaper ? "" : activeFile}
                   activeAssetPath={activeAsset?.path ?? ""}
