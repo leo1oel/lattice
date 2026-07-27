@@ -2,6 +2,9 @@
 .pdf-toolbar { min-height: 38px; flex: none; padding: 4px 5px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel-strong) 94%, transparent); backdrop-filter: blur(12px); display: grid; grid-template-columns: auto minmax(100px, 1fr) auto; gap: 6px; align-items: center; }
 .pdf-toolbar button { width: 24px; height: 27px; border-radius: 6px; padding: 0; background: transparent; color: var(--muted); display: grid; place-items: center; }
 .pdf-toolbar button:hover:not(:disabled) { background: var(--line); color: var(--text); }
+.pdf-find-controls { min-width: 0; display: flex; align-items: center; gap: 4px; }
+.pdf-find-controls .pdf-search { width: 0; flex: 1; }
+.pdf-outline-trigger { flex: none; }
 .pdf-page-controls, .pdf-zoom-controls { display: flex; align-items: center; gap: 1px; color: var(--muted); font-size: 10px; }
 .pdf-page-controls { justify-self: start; }
 .pdf-zoom-controls { justify-self: end; }
@@ -11,6 +14,7 @@
 .pdf-zoom-controls button.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 6px; }
 .pdf-search { min-width: 0; height: 27px; border: 1px solid var(--line); border-radius: 7px; padding-left: 7px; display: flex; align-items: center; gap: 3px; color: var(--faint); background: var(--bg); }
 .pdf-search:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.pdf-search.disabled { opacity: .52; }
 .pdf-search input { min-width: 40px; width: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 10px; }
 .pdf-search small { flex: none; color: var(--faint); font-size: 8px; }
 .pdf-search button { flex: none; width: 20px; height: 22px; }
@@ -43,6 +47,7 @@
 .pdf-page-error { position: absolute; z-index: 5; inset: 0; padding: 24px; display: grid; place-content: center; color: var(--danger); font-size: 11px; text-align: center; }
 .pdf-loading { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-strong); box-shadow: var(--shadow); color: var(--muted); display: flex; align-items: center; gap: 6px; font-size: 10px; z-index: 5; }
 .pdf-loading-quiet { opacity: 0.85; }
+.pdf-toolbar-empty > :first-child, .pdf-toolbar-empty > :last-child { min-width: 74px; }
 @keyframes pdf-page-loading { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @keyframes synctex-highlight { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 .pdf-placeholder { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--faint); font-size: 11px; }

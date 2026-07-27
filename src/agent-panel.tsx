@@ -16,7 +16,6 @@ import {
   Plus,
   Search,
   Send,
-  Sparkles,
   Square,
   TerminalSquare,
   Trash2,
@@ -99,7 +98,6 @@ export const MessageRow = memo(function MessageRow(props: {
   const { message, index, streamingTail, inFlight, editDisabled, copied, macros, onCopy, onEdit } = props;
   return (
     <div className={`chat-message ${message.role} ${streamingTail && message.role === "agent" ? "streaming" : ""}`}>
-      {message.role === "agent" && <div className="message-avatar"><Sparkles size={13} /></div>}
       <div className="message-column">
         <div className="message-body">
           {message.role !== "agent"
@@ -337,22 +335,6 @@ export function AgentPanel({
             </Tip>
           )}
         </div>
-        <div className="provider-controls">
-          <Select value={provider} disabled={running} onValueChange={(value) => setProvider(value as AgentProvider)}>
-            <SelectTrigger aria-label="Agent provider" className="provider-select"><SelectValue /></SelectTrigger>
-            <SelectContent position="popper" align="end" className="agent-select-menu">
-              <SelectItem value="codex">Codex subscription</SelectItem>
-              <SelectItem value="claude">Claude subscription</SelectItem>
-              <SelectItem value="openai-api">OpenAI API</SelectItem>
-              <SelectItem value="anthropic-api">Anthropic API</SelectItem>
-            </SelectContent>
-          </Select>
-          {(provider === "openai-api" || provider === "anthropic-api") && (
-            <Tip label="API key settings">
-              <button onClick={onApiSettings}><KeyRound size={14} /></button>
-            </Tip>
-          )}
-        </div>
       </div>
       <div className="chat-list" ref={chatListRef}>
         {messages.map((message, index) => {
@@ -380,9 +362,6 @@ export function AgentPanel({
           // reply is already on screen and it pauses to run a tool, it drops the
           // avatar and reads as a continuation of that same message instead.
           <div className="chat-message agent thinking-row">
-            {messages[messages.length - 1]?.role === "agent"
-              ? <div className="message-avatar-spacer" aria-hidden="true" />
-              : <div className="message-avatar"><Sparkles size={13} /></div>}
             <div className="thinking"><ThinkingOrb state={statusToOrbState(status)} size={20} /><em>{status || (provider === "claude" ? "Claude is writing…" : "Agent is writing…")}</em></div>
           </div>
         )}
@@ -510,6 +489,15 @@ export function AgentPanel({
             <div className="composer-footer-left">
               <button className="attach-button" title="Add attachments" aria-label="Add attachments" disabled={running} onClick={onAddAttachments}><Paperclip size={13} /></button>
               <div className="footer-selectors">
+                <Select value={provider} disabled={running} onValueChange={(value) => setProvider(value as AgentProvider)}>
+                  <SelectTrigger aria-label="Agent provider" className="config-select"><SelectValue /></SelectTrigger>
+                  <SelectContent position="popper" align="start" className="agent-select-menu">
+                    <SelectItem value="codex">Codex subscription</SelectItem>
+                    <SelectItem value="claude">Claude subscription</SelectItem>
+                    <SelectItem value="openai-api">OpenAI API</SelectItem>
+                    <SelectItem value="anthropic-api">Anthropic API</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={model} disabled={running} onValueChange={(nextModel) => {
                   const nextEfforts = options.find((option) => option.value === nextModel)?.efforts ?? ["high"];
                   setModel(nextModel);
@@ -517,6 +505,7 @@ export function AgentPanel({
                 }}><SelectTrigger aria-label="Agent model" className="config-select"><SelectValue /></SelectTrigger><SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
                 <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select"><SelectValue /></SelectTrigger><SelectContent>{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
               </div>
+              {(provider === "openai-api" || provider === "anthropic-api") && <button className="attach-button" title="API key settings" aria-label="API key settings" onClick={onApiSettings}><KeyRound size={13} /></button>}
               {running && <span>{status || "Agent is working…"}</span>}
             </div>
             {running

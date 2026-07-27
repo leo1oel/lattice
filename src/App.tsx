@@ -294,6 +294,8 @@ function App() {
   const [pdfSyncTarget, setPdfSyncTarget] = useState<PdfSyncTarget | null>(null);
   const [locatingPdf, setLocatingPdf] = useState(false);
   const [build, setBuild] = useState<BuildResult | null>(null);
+  const [diagnosticBuildSource, setDiagnosticBuildSource] = useState("");
+  const [diagnosticBuildSecondarySource, setDiagnosticBuildSecondarySource] = useState("");
   const [diagnosticsExpanded, setDiagnosticsExpanded] = useState(false);
   const [diagnosticsDismissed, setDiagnosticsDismissed] = useState(false);
   const [building, setBuilding] = useState(false);
@@ -1501,8 +1503,12 @@ function App() {
     try {
       do {
         buildQueued.current = false;
+        const compiledSource = sourceRef.current;
+        const compiledSecondarySource = secondarySourceRef.current;
         const result = await invoke<BuildResult>("build_project", { force });
         setBuild(result);
+        setDiagnosticBuildSource(compiledSource);
+        setDiagnosticBuildSecondarySource(compiledSecondarySource);
         setDiagnosticsDismissed(false);
         setDiagnosticsExpanded(!result.success || result.diagnostics.some((item) => item.level === "error"));
         if (result.pdfBase64) {
@@ -1539,8 +1545,9 @@ function App() {
             ?? result.diagnostics[0]
             ?? null;
           if (firstError) void openCompileDiagnosticRef.current(firstError);
-          if (!result.diagnostics.length) setError("LaTeX compilation failed.");
-          else setError(null);
+          setError(firstError?.message
+            ? `LaTeX compilation failed: ${firstError.message}`
+            : "LaTeX compilation failed.");
           const failureText = [
             result.log,
             ...result.diagnostics.map((item) => item.message),
@@ -2221,6 +2228,23 @@ function App() {
     }
   }, [editorPosition, locatingPdf, pdfUrl, runBuild, save, savedSource, source]);
 
+  const navigateOutline = useCallback(async (path: string, line: number) => {
+    setOutlineOpen(false);
+    await openProjectFile(path, line);
+    try {
+      const target = await invoke<PdfSyncResponse | null>("synctex_view", {
+        path,
+        line,
+        column: 0,
+      });
+      if (target) setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
+      setCanvasMode((mode) => mode === "source" ? "split" : mode === "dual" ? "columns" : mode);
+      setError(null);
+    } catch {
+      // The source jump is still useful when this PDF has no SyncTeX map.
+    }
+  }, [openProjectFile]);
+
   const openCompileDiagnostic = useCallback(async (diagnostic: CompileDiagnostic) => {
     if (!project) return;
     const path = resolveDiagnosticPath(
@@ -2883,18 +2907,11 @@ function App() {
         }
         setCollabFileCount(collabSession.fileCount());
       }
-      setMessages((items) => [
-        ...items,
-        {
-          id: crypto.randomUUID(),
-          role: "system",
-          text: result.alreadyImported
-            ? `“${result.title}” is already in Papers${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
-            : result.arxivId
-              ? `Imported “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
-              : `Cited “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}. There is no full text to open for this one.`,
-        },
-      ]);
+      setNotice(result.alreadyImported
+        ? `“${result.title}” is already in Papers${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
+        : result.arxivId
+          ? `Imported “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
+          : `Cited “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}. No full text to open.`);
     } catch (reason) {
       setError(toMessage(reason));
       throw reason instanceof Error ? reason : new Error(toMessage(reason));
@@ -4796,6 +4813,7 @@ function App() {
       setTexlabDiagnostics([]);
       return;
     }
+    setTexlabDiagnostics([]);
     let cancelled = false;
     const timer = window.setTimeout(() => {
       void invoke<CompileDiagnostic[]>("texlab_diagnostics", {
@@ -5478,7 +5496,7 @@ function App() {
             onOutlineOpenChange={setOutlineOpen}
             outlineNodes={outlineNodes}
             activeOutlineId={activeOutlineId}
-            onOutlineNavigate={(path, line) => { void openProjectFile(path, line); }}
+            onOutlineNavigate={(path, line) => { void navigateOutline(path, line); }}
             insertOpen={insertOpen}
             onInsertOpenChange={setInsertOpen}
             tableGeneratorOpen={tableGeneratorOpen}
@@ -5489,7 +5507,11 @@ function App() {
             onCiteInsertHandled={(id) => setCiteInsertRequest((current) => current?.id === id ? null : current)}
             projectPaths={projectPaths}
             graphicsRoots={graphicsRoots}
-            buildDiagnostics={build?.diagnostics ?? EMPTY_DIAGNOSTICS}
+            buildDiagnostics={
+              source === diagnosticBuildSource && secondarySource === diagnosticBuildSecondarySource
+                ? build?.diagnostics ?? EMPTY_DIAGNOSTICS
+                : EMPTY_DIAGNOSTICS
+            }
             texlabDiagnostics={texlabDiagnostics}
             pdfSyncTarget={pdfSyncTarget}
             onPdfSource={revealPdfSource}

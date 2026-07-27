@@ -537,7 +537,7 @@ export function DocumentCanvas(props: {
     });
   }, [activeFile]);
 
-  const applySelectionAction = useCallback((action: LatexSelectionAction) => {
+  const applySelectionAction = useCallback((action: LatexSelectionAction, value?: string) => {
     const owner = selectionToolbarOwnerRef.current;
     if (!owner) return;
     const view = owner.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
@@ -564,13 +564,17 @@ export function DocumentCanvas(props: {
       case "italic": [before, after] = ["\\textit{", "}"]; break;
       case "underline": [before, after] = ["\\underline{", "}"]; break;
       case "strikethrough": [before, after] = ["\\sout{", "}"]; break;
-      case "highlight": [before, after] = ["\\colorbox{yellow}{", "}"]; break;
-      case "heading": [before, after] = ["\\section{", "}"]; break;
+      case "highlight": [before, after] = [`\\colorbox{${value || "yellow"}}{`, "}"]; break;
+      case "heading": [before, after] = [`\\${value || "section"}{`, "}"]; break;
       case "quote": [before, after] = ["\\begin{quote}\n", "\n\\end{quote}"]; break;
       case "link": {
-        const url = window.prompt("Link URL", "https://");
+        const url = value?.trim();
         if (!url) return;
-        [before, after] = [`\\href{${url}}{`, "}"];
+        const safeUrl = url
+          .replace(/\\/g, "%5C")
+          .replace(/\{/g, "%7B")
+          .replace(/\}/g, "%7D");
+        [before, after] = [`\\href{${safeUrl}}{`, "}"];
         break;
       }
     }
@@ -980,15 +984,6 @@ export function DocumentCanvas(props: {
   const showTexChrome = activeFile.endsWith(".tex");
   const editor = (
     <div className="source-workspace">
-      <DocumentOutline
-        nodes={outlineNodes}
-        activeId={activeOutlineId}
-        available={showTexChrome}
-        open={outlineOpen}
-        onSelect={onOutlineNavigate}
-        onClose={() => onOutlineOpenChange(false)}
-        onOpen={() => onOutlineOpenChange(true)}
-      />
       <div className="source-main">
         <div
           className={`source-editor ${figureDropActive || props.nativeFigureDropActive ? "figure-drop-active" : ""}`}
@@ -1194,6 +1189,17 @@ export function DocumentCanvas(props: {
         onSource={props.mode === "pdf" ? undefined : props.onPdfSource}
         onTextSelect={props.onPdfTextSelect}
         onNumPages={props.onPdfPageCount}
+        outline={(
+          <DocumentOutline
+            nodes={outlineNodes}
+            activeId={activeOutlineId}
+            available={showTexChrome}
+            open={outlineOpen}
+            onSelect={onOutlineNavigate}
+            onClose={() => onOutlineOpenChange(false)}
+            onOpen={() => onOutlineOpenChange(true)}
+          />
+        )}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -381,6 +381,7 @@ export function PdfPreview({
   onSource,
   onTextSelect,
   onNumPages,
+  outline,
 }: {
   url: string | null;
   pdfBase64: string | null;
@@ -389,6 +390,7 @@ export function PdfPreview({
   onSource?: (page: number, x: number, y: number) => void;
   onTextSelect?: (text: string) => void;
   onNumPages?: (pages: number | null) => void;
+  outline?: ReactNode;
 }) {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const onTextSelectRef = useRef(onTextSelect);
@@ -824,7 +826,22 @@ export function PdfPreview({
   }, [scrollToPage, syncTarget]);
 
   if (!url) {
-    return <div className="pdf-preview"><div className="pdf-placeholder"><FileText size={28} /><p>Build the project to preview the paper.</p></div></div>;
+    return (
+      <div className="pdf-preview">
+        <div className="pdf-toolbar pdf-toolbar-empty">
+          <div className="pdf-page-controls" />
+          <div className="pdf-find-controls">
+            {outline}
+            <label className="pdf-search disabled">
+              <Search size={12} />
+              <input aria-label="Search PDF" placeholder="Find in PDF" disabled />
+            </label>
+          </div>
+          <div className="pdf-zoom-controls" />
+        </div>
+        <div className="pdf-placeholder"><FileText size={28} /><p>Build the project to preview the paper.</p></div>
+      </div>
+    );
   }
 
   const download = async () => {
@@ -882,9 +899,11 @@ export function PdfPreview({
             <button disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => scrollToPage(Math.min(documentProxy?.numPages ?? pageNumber, pageNumber + 1))}><ChevronRight size={14} /></button>
           </Tip>
         </div>
-        <label className="pdf-search">
-          <Search size={12} />
-          <input
+        <div className="pdf-find-controls">
+          {outline}
+          <label className="pdf-search">
+            <Search size={12} />
+            <input
             aria-label="Search PDF"
             value={searchQuery}
             placeholder="Find in PDF"
@@ -892,8 +911,8 @@ export function PdfPreview({
               setSearchQuery(event.target.value);
               setSearchMatchIndex(0);
             }}
-          />
-          {searchQuery && (
+            />
+            {searchQuery && (
             <>
               <small title={searchError || undefined}>{searchError ? "Unavailable" : searchIndexing ? "Indexing…" : matches.length ? `${selectedMatchIndex + 1}/${matches.length}` : "0/0"}</small>
               <Tip label="Previous search result">
@@ -906,8 +925,9 @@ export function PdfPreview({
                 <button onClick={() => setSearchQuery("")}><X size={12} /></button>
               </Tip>
             </>
-          )}
-        </label>
+            )}
+          </label>
+        </div>
         <div className="pdf-zoom-controls">
           <Tip label="Zoom out">
             <button disabled={scale <= 0.6} onClick={() => setScale((value) => clamp(Number((value - 0.1).toFixed(1)), 0.6, 4))}><ZoomOut size={14} /></button>

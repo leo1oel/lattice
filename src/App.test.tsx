@@ -787,7 +787,7 @@ describe("project workspace", () => {
     // The DOI must not be mistaken for an arXiv id, and the message has to
     // admit there is nothing to open rather than imply a paper was fetched.
     expect(
-      await screen.findByText(/Cited .Deep Residual Learning.*no full text to open/),
+      await screen.findByText(/Cited .Deep Residual Learning.*No full text to open/),
     ).toBeInTheDocument();
   });
 
