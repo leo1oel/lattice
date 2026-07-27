@@ -1563,6 +1563,10 @@ describe("project workspace", () => {
       "tool:edit",
       "text:Done.",
     ]);
+    // Successful tool activity recedes instead of adding a redundant green
+    // success label to every row.
+    expect(body.querySelectorAll(".agent-tool-step.end")).toHaveLength(2);
+    expect(body.querySelector(".agent-tool-step")?.textContent).toBe("read");
   });
 
   it("marks only the run of text being written, not every block in the turn", async () => {

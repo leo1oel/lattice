@@ -2,6 +2,12 @@
   --ui-font: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --editor-font: Menlo, "SF Mono", ui-monospace, monospace;
   --editor-font-size: 13px;
+  --font-ui-xs: 10px;
+  --font-ui-sm: 11px;
+  --font-ui-base: 12px;
+  --font-ui-body: 13px;
+  --font-ui-title: 14px;
+  --font-ui-heading: 18px;
   font-family: var(--ui-font);
   color: #242426;
   background: #f7f7f6;
@@ -15,12 +21,13 @@
   --text: #242426;
   --muted: #77777d;
   --faint: #a4a4aa;
-  --accent: #6855d9;
-  --accent-soft: rgba(104, 85, 217, 0.1);
+  --accent: #303033;
+  --accent-soft: rgba(48, 48, 51, 0.08);
+  --accent-contrast: #ffffff;
   --danger: #c34b48;
   --success: #318566;
-  --shadow: 0 20px 60px rgba(24, 22, 35, 0.12);
-  --shadow-soft: 0 8px 24px rgba(24, 22, 35, 0.08);
+  --shadow: 0 20px 60px rgba(22, 22, 24, 0.12);
+  --shadow-soft: 0 8px 24px rgba(22, 22, 24, 0.08);
   --editor-bg: var(--panel);
   --editor-gutter: var(--panel);
   --syntax-keyword: #f2636a;
@@ -50,8 +57,9 @@
   --text: #e9e9e7;
   --muted: #94949a;
   --faint: #68686f;
-  --accent: #9584f4;
-  --accent-soft: rgba(149, 132, 244, 0.13);
+  --accent: #e7e7e4;
+  --accent-soft: rgba(255, 255, 255, 0.1);
+  --accent-contrast: #171718;
   --danger: #ee7772;
   --success: #66bd99;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
@@ -319,7 +327,7 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 .table-generator-form .settings-checkbox { flex-direction: row; align-items: center; grid-column: 1 / -1; }
 .table-generator-preview { margin: 0; flex: 1; min-height: 160px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--bg); color: var(--muted); font: 11px/1.45 var(--editor-font); white-space: pre-wrap; }
 .table-generator-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.table-generator-actions button, .project-replace .table-generator-actions button { height: 32px; border-radius: 8px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--accent); color: white; font-size: 11px; font-weight: 600; }
+.table-generator-actions button, .project-replace .table-generator-actions button { height: 32px; border-radius: 8px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--accent); color: var(--accent-contrast); font-size: 11px; font-weight: 600; }
 .table-generator-actions button.secondary { background: transparent; color: var(--muted); }
 .table-generator-actions button:disabled { opacity: .55; }
 .project-replace .dialog-error { margin: 0; color: var(--danger); font-size: 11px; }
@@ -708,7 +716,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   font-weight: 600;
   box-shadow: var(--shadow);
 }
-/* Tinted, not made translucent. `--accent-soft` is a 10%-alpha purple, which
+/* Tinted, not made translucent. `--accent-soft` is a low-alpha neutral, which
    works as a hover for a row inside a solid panel and not at all for a chip
    that floats over the document: it replaced the chip's own background and
    the text underneath showed straight through it. Mixing the same accent into
@@ -776,7 +784,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .editor-comment-popover-actions button.primary {
   background: var(--accent);
   border-color: transparent;
-  color: white;
+  color: var(--accent-contrast);
 }
 .editor-comment-popover-actions button.primary:disabled { opacity: .45; }
 .editor-comments-drawer { width: min(420px, 100%); }
@@ -1022,7 +1030,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .source-editor .cm-gutters { background: var(--editor-gutter); color: var(--faint); border-right: 1px solid var(--line); }
 /* Active-line fill sits above CM's selection layer and hides selected text.
-   Keep the soft purple only when the caret is empty; clear it while selecting. */
+   Keep the soft neutral only when the caret is empty; clear it while selecting. */
 .source-editor .cm-activeLine { background: var(--accent-soft); }
 .source-editor .cm-editor.cm-lattice-has-selection .cm-activeLine { background: transparent; }
 .source-editor .cm-activeLineGutter { background: var(--accent-soft); }
@@ -1927,7 +1935,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   padding: 0 3px;
   border-radius: 999px;
   background: var(--accent);
-  color: white;
+  color: var(--accent-contrast);
   font-style: normal;
   font-size: 8px;
   line-height: 12px;
@@ -2191,7 +2199,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   padding: 0 3px;
   border-radius: 999px;
   background: var(--accent);
-  color: white;
+  color: var(--accent-contrast);
   font-style: normal;
   font-size: 8px;
   line-height: 12px;
@@ -2275,41 +2283,63 @@ button.checklist-row:hover { border-color: color-mix(in srgb, var(--accent) 35%,
   font-size: 10px;
   font-weight: 650;
 }
-/* Each step is its own row inside the turn now, sitting between the runs of
-   text it happened between. Width comes from .message-column, so it lines up
-   with the reply rather than spanning the avatar gutter. */
+/* Tool activity is supporting context, not a stack of success cards. The
+   quiet rail keeps chronology legible while completed work recedes. */
 .agent-tool-step {
-  margin: 5px 0;
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--bg) 70%, var(--panel));
+  position: relative;
+  min-height: 26px;
+  margin: 1px 0;
+  padding: 4px 2px 4px 18px;
   display: grid;
-  grid-template-columns: 8px 1fr auto;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: center;
-  font-size: 10px;
+  color: var(--muted);
+  font-size: var(--font-ui-sm);
 }
 .agent-tool-step:first-child { margin-top: 0; }
 .agent-tool-step:last-child { margin-bottom: 0; }
+.agent-tool-step::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: -7px;
+  bottom: -7px;
+  width: 1px;
+  background: var(--line-strong);
+}
 .agent-tool-step i {
+  position: absolute;
+  z-index: 1;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 6px;
   height: 6px;
   border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--panel);
   background: var(--faint);
 }
 .agent-tool-step.start i {
   background: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  animation: tool-pulse 1.4s ease-in-out infinite;
 }
-.agent-tool-step.end i { background: var(--success); }
+.agent-tool-step.end i { background: var(--muted); }
 .agent-tool-step strong {
-  font-weight: 650;
+  color: inherit;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.agent-tool-step span { color: var(--faint); justify-self: end; }
+.agent-tool-step span { color: var(--faint); justify-self: end; font-size: var(--font-ui-xs); }
+@keyframes tool-pulse {
+  0%, 100% { opacity: .45; transform: translateY(-50%) scale(.8); }
+  50% { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-tool-step.start i { animation: none; }
+}
 .empty-history { color: var(--faint); font-size: 11px; }
 .insert-palette-search { height: 32px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; display: flex; align-items: center; gap: 6px; color: var(--faint); background: var(--bg); }
 .insert-palette-search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 11px; }
@@ -2340,7 +2370,7 @@ button.checklist-row:hover { border-color: color-mix(in srgb, var(--accent) 35%,
 .welcome-content { position: relative; z-index: 1; width: min(620px, calc(100% - 48px)); height: 100%; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: 20px; }
 .brand-mark { width: 50px; height: 50px; border: 1px solid var(--line-strong); border-radius: 14px; display: grid; place-items: center; color: var(--accent); background: var(--panel-strong); box-shadow: 0 10px 30px var(--accent-soft); }
 .eyebrow { margin: 17px 0 8px; color: var(--accent); font-size: 10px; font-weight: 600; letter-spacing: .22em; }
-.welcome-content h1 { margin: 0; font-family: "Instrument Serif", Georgia, serif; font-size: clamp(42px, 6vw, 68px); line-height: 1.02; font-weight: 400; letter-spacing: -.025em; }
+.welcome-content h1 { margin: 0; font-family: var(--ui-font); font-size: clamp(38px, 5vw, 58px); line-height: 1.02; font-weight: 600; letter-spacing: -.045em; }
 .welcome-copy { max-width: 470px; margin: 19px 0 26px; color: var(--muted); font-size: 14px; line-height: 1.65; }
 .dual-canvas .dual-primary { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .dual-canvas .dual-primary.focused .source-editor,

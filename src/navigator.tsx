@@ -19,6 +19,7 @@ import {
   ImagePlus,
   Library,
   LoaderCircle,
+  NotepadText,
   Pencil,
   Plus,
   Quote,
@@ -463,7 +464,7 @@ export function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, on
       </div>
     );
   }
-  const Icon = node.kind === "tex" ? FileCode2 : node.kind === "bib" ? Library : File;
+  const Icon = node.kind === "tex" ? FileCode2 : node.kind === "bib" ? Library : node.kind === "markdown" ? NotepadText : File;
   if (node.kind === "figure") {
     return renderContextMenu({ path: node.path, label: node.name, kind: "file" }, (
       <div className={`tree-row asset-row ${activeAssetPath === node.path ? "active" : ""}`}>

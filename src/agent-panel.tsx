@@ -58,11 +58,14 @@ import {
 } from "./app-utils";
 
 export function AgentToolRow({ step }: { step: AgentToolStep }) {
+  const detail = step.phase === "end" && step.detail.trim().toLowerCase() === "done"
+    ? ""
+    : step.detail || (step.phase === "start" ? "Working…" : "");
   return (
-    <div className={`agent-tool-step ${step.phase}`}>
+    <div className={`agent-tool-step ${step.phase}`} aria-label={`${step.name}${detail ? `: ${detail}` : ""}`}>
       <i aria-hidden="true" />
       <strong>{step.name}</strong>
-      <span>{step.detail || (step.phase === "start" ? "running…" : "done")}</span>
+      {detail && <span>{detail}</span>}
     </div>
   );
 }
