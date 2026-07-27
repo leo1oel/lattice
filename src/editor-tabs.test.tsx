@@ -30,6 +30,38 @@ describe("EditorTabs", () => {
     );
     expect(screen.getByRole("tab", { name: /main\.tex/i })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Unsaved changes")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close main.tex" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the tab strip mounted when the PDF has no open tabs", () => {
+    const { container } = render(
+      <EditorTabs
+        tabs={[]}
+        activePath=""
+        canCloseLast
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+        onReorder={vi.fn()}
+      />,
+    );
+    expect(container.querySelector(".editor-tabs")).toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "Open files" })).toBeEmptyDOMElement();
+  });
+
+  it("allows PDF mode to close its last tab", () => {
+    const onClose = vi.fn();
+    render(
+      <EditorTabs
+        tabs={[{ path: "main.tex" }]}
+        activePath="main.tex"
+        canCloseLast
+        onSelect={vi.fn()}
+        onClose={onClose}
+        onReorder={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close main.tex" }));
+    expect(onClose).toHaveBeenCalledWith("main.tex");
   });
 
   it("selects a tab on click", () => {

@@ -42,7 +42,7 @@ export function ToolRowBase({
         canToggle ? "cursor-pointer" : "cursor-default",
       )}
     >
-      <div className="flex items-center gap-2 min-w-0 text-sm text-muted-foreground">
+      <div className="flex items-center gap-1.5 min-w-0 text-[12px] leading-5 text-muted-foreground">
         {icon && (
           <span className="flex items-center justify-center size-3 shrink-0">
             {icon}

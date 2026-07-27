@@ -1435,6 +1435,10 @@ function App() {
 
   const closeEditorTab = useCallback(async (path: string) => {
     const remaining = openTabs.filter((tab) => tab !== path);
+    // Source-backed modes must always retain a document. PDF is the one mode
+    // where an empty tab strip is meaningful because the compiled preview can
+    // stand on its own.
+    if (!remaining.length && canvasMode !== "pdf") return;
     setOpenTabs(remaining);
     tabRecency.current = tabRecency.current.filter((key) => key !== path);
     viewStateRef.current.delete(path);
@@ -3101,6 +3105,11 @@ function App() {
     setActiveAsset(null);
     setActivePaper(null);
     setPaperMarkdown("");
+    // PDF can stand alone without a source tab. Returning to any source-backed
+    // view restores the active document to the strip before rendering it.
+    if (mode !== "pdf" && activeFile) {
+      setOpenTabs((tabs) => (tabs.includes(activeFile) ? tabs : [...tabs, activeFile]));
+    }
     if (mode === "dual" || mode === "columns") {
       void (async () => {
         try {
@@ -3113,7 +3122,7 @@ function App() {
       return;
     }
     setCanvasMode(mode);
-  }, [ensureSecondaryFile]);
+  }, [activeFile, ensureSecondaryFile]);
 
   const swapEditorPanes = useCallback(async () => {
     if (!secondaryFile || !activeFile || secondaryFile === activeFile) return;
@@ -4997,7 +5006,7 @@ function App() {
   return (
     <div className={`app-shell ${isFullscreen ? "fullscreen" : ""}`} ref={shellRef}>
       <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
-        <div className="titlebar-sidebar" style={{ width: sidebarOpen ? sidebarWidth + 1 : undefined }}>
+        <div className={`titlebar-sidebar ${sidebarOpen ? "" : "collapsed"}`} style={{ width: sidebarOpen ? sidebarWidth + 1 : undefined }}>
           <div className="titlebar-navigator">
             <div className="traffic-space" />
             <Tip label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}>
@@ -5081,6 +5090,7 @@ function App() {
             tabs={editorTabItems}
             activePath={activeTabKey}
             animateLayout={!sidebarResizing}
+            canCloseLast={canvasMode === "pdf"}
             onSelect={(path) => {
               if (isPaperTabKey(path)) {
                 const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));

@@ -30,6 +30,7 @@ export function EditorTabs(props: {
   tabs: EditorTab[];
   activePath: string;
   animateLayout?: boolean;
+  canCloseLast?: boolean;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
   onReorder: (nextPaths: string[]) => void;
@@ -114,8 +115,6 @@ export function EditorTabs(props: {
     document.body.classList.remove("reordering-tabs");
   }, [onPointerMove, endDrag]);
 
-  if (props.tabs.length === 0) return null;
-
   return (
     <div className="editor-tabs">
       <div
@@ -131,6 +130,7 @@ export function EditorTabs(props: {
       >
         {props.tabs.map((tab) => {
           const active = tab.path === props.activePath;
+          const canClose = props.tabs.length > 1 || props.canCloseLast;
           return (
             <ContextMenu key={tab.path}>
               <ContextMenuTrigger asChild>
@@ -145,11 +145,11 @@ export function EditorTabs(props: {
                     else tabEls.current.delete(tab.path);
                     if (active) activeTabRef.current = el;
                   }}
-                  className={`editor-tab ${active ? "active" : ""}${tab.beside ? " beside" : ""}${dragPath === tab.path ? " dragging" : ""}`}
+                  className={`editor-tab ${active ? "active" : ""}${canClose ? " closable" : ""}${tab.beside ? " beside" : ""}${dragPath === tab.path ? " dragging" : ""}`}
                   role="presentation"
                   onPointerDown={(event) => startDrag(tab.path, event)}
                   onAuxClick={(event) => {
-                    if (event.button !== 1) return;
+                    if (event.button !== 1 || !canClose) return;
                     event.preventDefault();
                     props.onClose(tab.path);
                   }}
@@ -158,7 +158,7 @@ export function EditorTabs(props: {
                     type="button"
                     role="tab"
                     aria-selected={active}
-                    title={`${tab.label ?? tab.path} · middle-click close · ⌘⇧T reopen`}
+                    title={`${tab.label ?? tab.path}${canClose ? " · middle-click close" : ""} · ⌘⇧T reopen`}
                     onClick={() => {
                       // Swallow the click that ends a drag so it doesn't re-select.
                       if (suppressClick.current) {
@@ -171,24 +171,26 @@ export function EditorTabs(props: {
                     <span>{tabLabel(tab)}</span>
                     {tab.dirty && <i aria-label="Unsaved changes" />}
                   </button>
-                  <button
-                    type="button"
-                    className="editor-tab-close"
-                    aria-label={`Close ${tabLabel(tab)}`}
-                    title={`Close ${tabLabel(tab)}`}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      props.onClose(tab.path);
-                    }}
-                  >
-                    <X size={11} />
-                  </button>
+                  {canClose && (
+                    <button
+                      type="button"
+                      className="editor-tab-close"
+                      aria-label={`Close ${tabLabel(tab)}`}
+                      title={`Close ${tabLabel(tab)}`}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        props.onClose(tab.path);
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
                 </motion.div>
               </ContextMenuTrigger>
               <ContextMenuContent>
                 <ContextMenuItem onSelect={() => props.onSelect(tab.path)}>Open</ContextMenuItem>
-                <ContextMenuItem variant="destructive" onSelect={() => props.onClose(tab.path)}>Close</ContextMenuItem>
+                <ContextMenuItem disabled={!canClose} variant="destructive" onSelect={() => props.onClose(tab.path)}>Close</ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
           );

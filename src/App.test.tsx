@@ -1652,12 +1652,12 @@ describe("project workspace", () => {
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
 
     const bubble = await screen.findByText("Let me look at the abstract.");
-    const body = bubble.closest(".message-body")!;
+    const body = bubble.closest(".agent-elements-assistant-body")!;
     await waitFor(() => expect(body.textContent).toContain("Done."));
 
     // Reading the turn top to bottom must match the order things happened.
-    const sequence = [...body.querySelectorAll(":scope > .chat-markdown, :scope > .agent-tool-step")]
-      .map((child) => child.classList.contains("agent-tool-step")
+    const sequence = [...body.querySelectorAll(":scope > .chat-markdown, :scope > .agent-elements-tool-step")]
+      .map((child) => child.classList.contains("agent-elements-tool-step")
         ? `tool:${child.querySelector("strong")?.textContent}`
         : `text:${child.textContent?.trim()}`);
     expect(sequence).toEqual([
@@ -1669,8 +1669,8 @@ describe("project workspace", () => {
     ]);
     // Successful tool activity recedes instead of adding a redundant green
     // success label to every row.
-    expect(body.querySelectorAll(".agent-tool-step.end")).toHaveLength(2);
-    expect(body.querySelector(".agent-tool-step")?.textContent).toBe("readmain.tex");
+    expect(body.querySelectorAll(".agent-elements-tool-step.end")).toHaveLength(2);
+    expect(body.querySelector(".agent-elements-tool-step")?.textContent).toBe("readmain.tex");
   });
 
   it("marks only the run of text being written, not every block in the turn", async () => {
@@ -1708,7 +1708,7 @@ describe("project workspace", () => {
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
 
     const written = await screen.findByText("Still going");
-    const body = written.closest(".message-body")!;
+    const body = written.closest(".agent-elements-assistant-body")!;
     const blocks = [...body.querySelectorAll(":scope > .chat-markdown")];
     expect(blocks).toHaveLength(2);
     // The caret belongs to the run still growing, not to the settled one above it.
@@ -1748,8 +1748,8 @@ describe("project workspace", () => {
     await chooseOption("Agent provider", "Claude subscription");
     await chooseOption("Agent model", "Claude Opus 4.8");
     await chooseOption("Reasoning effort", "Extra high");
-    expect(screen.getByLabelText("Agent model").closest(".composer")).not.toBeNull();
-    expect(screen.getByLabelText("Reasoning effort").closest(".composer")).not.toBeNull();
+    expect(screen.getByLabelText("Agent model").closest(".agent-elements-composer")).not.toBeNull();
+    expect(screen.getByLabelText("Reasoning effort").closest(".agent-elements-composer")).not.toBeNull();
     expect(screen.queryByText(/Enter sends/i)).not.toBeInTheDocument();
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     const message = `Review the abstract.\n${"longword".repeat(40)}`;
@@ -1757,10 +1757,10 @@ describe("project workspace", () => {
     fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
 
     const sentMessage = await screen.findByText((_, element) => element?.tagName === "P" && element.textContent === message);
-    expect(sentMessage.closest(".chat-message.user")).not.toBeNull();
+    expect(sentMessage.closest(".agent-elements-user-turn")).not.toBeNull();
     expect(sentMessage.textContent).toContain("\n");
     const streamedReply = await screen.findByText("Reviewing the abstract as evidence arrives…");
-    expect(streamedReply.closest(".chat-message.streaming")).not.toBeNull();
+    expect(streamedReply.closest(".agent-elements-assistant-turn.streaming")).not.toBeNull();
     // A reply that is still being written is not offered for copying.
     expect(screen.queryAllByTitle("Copy agent response")).toHaveLength(0);
     fireEvent.click(screen.getByTitle("Copy user message"));

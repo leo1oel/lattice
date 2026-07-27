@@ -448,7 +448,7 @@ export const InputBar = memo(function InputBar({
           {questionBarNode}
           <div
             className={cn(
-              "composer agent-elements-composer relative cursor-text rounded-an-input-border-radius bg-an-input-background shadow-2xs ring-1 ring-foreground/10",
+              "agent-elements-composer relative cursor-text rounded-an-input-border-radius bg-an-input-background ring-1 ring-foreground/10",
               isDragOver && "ring-2 ring-an-primary-color",
             )}
             onClick={handleContainerClick}
@@ -510,7 +510,7 @@ export const InputBar = memo(function InputBar({
             )}
 
             {/* Text input or typing animation text */}
-            <div className="pt-3 pb-0 pr-3 pl-3.5 min-h-[44px]">
+            <div className="pt-2.5 pb-0 px-2.5 min-h-[40px]">
               {isTyping ? (
                 <div className="w-full text-[14px] leading-[1.6] text-an-foreground-muted">
                   <span>{displayedText}</span>
@@ -533,7 +533,7 @@ export const InputBar = memo(function InputBar({
                     disabled={disabled}
                     rows={1}
                     className={cn(
-                      "peer w-full resize-none bg-transparent border-0 outline-none text-[14px] leading-[1.6] text-an-foreground placeholder:text-an-input-placeholder-color",
+                      "peer w-full resize-none bg-transparent border-0 outline-none text-[13px] leading-[1.5] text-an-foreground placeholder:text-an-input-placeholder-color",
                       "overflow-hidden",
                       disabled && "opacity-50 cursor-not-allowed",
                     )}
@@ -544,7 +544,7 @@ export const InputBar = memo(function InputBar({
             </div>
 
             {/* Toolbar */}
-            <div className="flex items-center justify-between gap-3 px-2 pt-1 pb-2">
+            <div className="flex items-center justify-between gap-2 px-1.5 pt-1 pb-1.5">
               <div className="flex items-center gap-1 min-w-0">
                 {!attachRight && showAttach && onAttach && (
                   <AttachmentButton onClick={onAttach} />

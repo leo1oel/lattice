@@ -81,9 +81,20 @@ function AgentElementsTool({ part }: { part: AgentElementsToolPart }) {
     ? part.input as { name?: string; detail?: string }
     : undefined;
   const name = part.toolName ?? input?.name ?? part.type.replace(/^tool-/, "");
+  const normalizedName = name.toLocaleLowerCase();
+  const ToolIcon = normalizedName.includes("edit") || normalizedName.includes("write")
+    ? Pencil
+    : normalizedName.includes("bash") || normalizedName.includes("shell") || normalizedName.includes("command")
+      ? TerminalSquare
+      : normalizedName.includes("search") || normalizedName.includes("find") || normalizedName.includes("grep") || normalizedName.includes("glob")
+        ? Search
+        : normalizedName.includes("read") || normalizedName.includes("file")
+          ? FileText
+          : Bot;
   return (
-    <div className={`agent-elements-tool-step agent-tool-step ${part.state === "output-available" ? "end" : "start"}`} data-tool-name={name}>
+    <div className={`agent-elements-tool-step ${part.state === "output-available" ? "end" : "start"}`} data-tool-name={name}>
       <GenericTool
+        icon={ToolIcon}
         title={name}
         subtitle={input?.detail}
         isPending={part.state !== "output-available" && part.state !== "output-error"}
@@ -240,7 +251,7 @@ export function AgentPanel({
   const AgentElementsUser = useCallback(({ message }: { message: UIMessage; className?: string; enableImagePreview?: boolean }) => {
     const original = messageById.get(message.id);
     return (
-      <div className="agent-elements-user-turn chat-message user">
+      <div className="agent-elements-user-turn">
         <AgentElementsUserMessage message={message} />
         {!!original?.attachments?.length && (
           <div className="message-attachments">

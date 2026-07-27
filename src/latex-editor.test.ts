@@ -1,4 +1,5 @@
 import { completionStatus, currentCompletions } from "@codemirror/autocomplete";
+import { openSearchPanel, search, SearchQuery, setSearchQuery } from "@codemirror/search";
 import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { describe, expect, it, vi } from "vitest";
@@ -38,8 +39,26 @@ import {
   wrapEnvironment,
   wrapRange,
 } from "./latex-editor";
+import { compactSearchPanel } from "./search-panel";
 
 describe("LaTeX citation editing", () => {
+  it("shows the current and total matches in the find panel", () => {
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({
+        doc: "alpha alpha alpha",
+        extensions: [search({ top: true }), compactSearchPanel],
+      }),
+    });
+    openSearchPanel(view);
+    view.dispatch({
+      effects: setSearchQuery.of(new SearchQuery({ search: "alpha" })),
+      selection: { anchor: 6, head: 11 },
+    });
+    expect(view.dom.querySelector(".cm-search-count")).toHaveTextContent("2/3");
+    view.destroy();
+  });
+
   it("soft-wraps long logical lines instead of scrolling horizontally", () => {
     const view = new EditorView({
       state: EditorState.create({

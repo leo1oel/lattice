@@ -1,5 +1,6 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView, ViewPlugin, type PluginValue, type ViewUpdate } from "@codemirror/view";
+import { getSearchQuery, searchPanelOpen } from "@codemirror/search";
 
 /**
  * CodeMirror's search panel spells every control out — "next", "previous",
@@ -44,6 +45,31 @@ function describeSearchControls(view: EditorView): void {
       control.title = description;
       if (!control.getAttribute("aria-label")) control.setAttribute("aria-label", description);
     }
+
+    let count = panel.querySelector<HTMLElement>(".cm-search-count");
+    if (!count) {
+      count = document.createElement("span");
+      count.className = "cm-search-count";
+      count.setAttribute("aria-live", "polite");
+      panel.querySelector<HTMLInputElement>('input[name="search"]')?.insertAdjacentElement("afterend", count);
+    }
+    const query = getSearchQuery(view.state);
+    if (!searchPanelOpen(view.state) || !query.valid) {
+      count.textContent = "0/0";
+      continue;
+    }
+    const matches: Array<{ from: number; to: number }> = [];
+    const cursor = query.getCursor(view.state);
+    for (let next = cursor.next(); !next.done; next = cursor.next()) matches.push(next.value);
+    if (!matches.length) {
+      count.textContent = "0/0";
+      continue;
+    }
+    const selection = view.state.selection.main;
+    const exact = matches.findIndex((match) => match.from === selection.from && match.to === selection.to);
+    const following = matches.findIndex((match) => match.from >= selection.head);
+    const current = exact >= 0 ? exact + 1 : following >= 0 ? following + 1 : matches.length;
+    count.textContent = `${current}/${matches.length}`;
   }
 }
 

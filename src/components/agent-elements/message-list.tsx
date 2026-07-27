@@ -503,14 +503,14 @@ export const MessageList = memo(function MessageList({
         className,
       )}
     >
-      <div ref={contentWrapperRef} className="mx-auto px-4 py-6 max-w-an">
-        <div className="space-y-2">
+      <div ref={contentWrapperRef} className="w-full px-3 py-3">
+        <div className="space-y-3">
           {turns.map((turn, turnIndex) => {
             const isLastTurn = turnIndex === turns.length - 1;
             const turnKey = turn.userMsg?.id ?? `turn-${turnIndex}`;
 
             return (
-              <div key={turnKey} className="relative space-y-2">
+              <div key={turnKey} className="relative space-y-1.5">
                 {turn.userMsg &&
                   (() => {
                     const text = getTextFromParts(
@@ -546,7 +546,7 @@ export const MessageList = memo(function MessageList({
                           <MessageToolbar
                             text={showCopyToolbar ? text : ""}
                             timestamp={userTimestamp}
-                            heightClass="h-[28px]"
+                            heightClass="h-[22px]"
                             hoverClass="group-hover/user-message:opacity-100 group-hover/user-message:pointer-events-auto"
                             isVisible={userCopyVisible}
                             alignClass="justify-end"
@@ -581,8 +581,8 @@ export const MessageList = memo(function MessageList({
                     const toolbarText = showCopyToolbar ? assistantText : "";
 
                     return (
-                      <div className={cn("group/assistant-turn chat-message agent", isTurnStreaming && "streaming")}>
-                        <div className="message-body flex flex-col gap-3">
+                      <div className={cn("group/assistant-turn agent-elements-assistant-turn", isTurnStreaming && "streaming")}>
+                        <div className="agent-elements-assistant-body flex flex-col gap-2">
                           {turn.assistantMsgs.map((msg, i) => {
                             const isLastMsg =
                               isLastTurn && i === turn.assistantMsgs.length - 1;
@@ -602,7 +602,7 @@ export const MessageList = memo(function MessageList({
                         {showToolbar ? (
                           <MessageToolbar
                             text={toolbarText}
-                            heightClass="h-[48px] flex items-start w-full"
+                            heightClass="h-[26px] flex items-start w-full"
                             hoverClass="group-hover/assistant-turn:opacity-100 group-hover/assistant-turn:pointer-events-auto"
                             isVisible={activeCopyId === copyKey}
                             alignClass="justify-start"
@@ -611,7 +611,7 @@ export const MessageList = memo(function MessageList({
                         ) : activeCopyId === copyKey ? (
                           <MessageToolbar
                             text={toolbarText}
-                            heightClass="h-[48px] flex items-start w-full"
+                            heightClass="h-[26px] flex items-start w-full"
                             hoverClass="group-hover/assistant-turn:opacity-100 group-hover/assistant-turn:pointer-events-auto"
                             isVisible={true}
                             alignClass="justify-start"
@@ -637,7 +637,7 @@ export const MessageList = memo(function MessageList({
         {showAssistantBreathingSpace && (
           <div
             aria-hidden="true"
-            className="min-h-[max(140px,24vh)] mx-auto max-w-an w-full"
+            className="min-h-12 w-full"
           />
         )}
       </div>
@@ -709,11 +709,11 @@ function AssistantParts({
           elems.push(
             <div
               key={`${msg.id}-text-${i}`}
-              className={cn("group/assistant-text chat-markdown text-[14px]", isLast && isStreaming && i === lastTextIndex && "streaming-tail")}
+              className={cn("group/assistant-text chat-markdown text-[13px] leading-[1.55]", isLast && isStreaming && i === lastTextIndex && "streaming-tail")}
             >
               <Markdown
                 content={text}
-                className="leading-relaxed [&_p]:leading-relaxed"
+                className="leading-[1.55] [&_p]:leading-[1.55]"
               />
             </div>,
           );

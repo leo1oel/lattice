@@ -94,7 +94,7 @@ export function LatexSelectionToolbar(props: {
         ))}
         <span className="latex-selection-tool separated">
           <Popover open={linkOpen} onOpenChange={setLinkOpen}>
-            <Tip label="Link (requires hyperref)" side="top">
+            <Tip label="Link" side="top">
               <PopoverTrigger asChild><button type="button" aria-label="Link"><Link size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
             <PopoverContent side="top" sideOffset={8} className="latex-tool-menu link-menu">
