@@ -12,7 +12,7 @@ export type EditorTab = {
   path: string;
   dirty?: boolean;
   beside?: boolean;
-  kind?: "file" | "paper";
+  kind?: "file" | "paper" | "asset";
   label?: string;
 };
 

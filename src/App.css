@@ -416,6 +416,12 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   .sidebar-mode-tabs .sliding-tab { width: 84px; }
   .sidebar-mode-tabs .sliding-tab-label span { opacity: 1; }
 }
+.sidebar-provider-select { width: auto; min-width: 0; max-width: 108px; height: 27px; flex: 0 1 auto; padding: 0 5px 0 7px; border-color: transparent; background: transparent; color: var(--muted); gap: 3px; font-size: 9px; box-shadow: none; }
+.sidebar-provider-select:hover, .sidebar-provider-select[data-state="open"] { background: var(--line); color: var(--text); }
+.sidebar-provider-select [data-slot="select-value"] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-provider-select svg { width: 11px; height: 11px; color: var(--faint); }
+.sidebar-provider-settings { width: 26px; height: 26px; flex: none; border-radius: 6px; background: transparent; color: var(--faint); display: grid; place-items: center; }
+.sidebar-provider-settings:hover { background: var(--line); color: var(--text); }
 .sidebar-mode-actions { margin-left: auto; flex: none; display: flex; align-items: center; gap: 1px; }
 .sidebar-mode-actions button { width: 26px; height: 26px; border-radius: 6px; background: transparent; color: var(--faint); display: grid; place-items: center; }
 .sidebar-mode-actions button:hover:not(:disabled), .sidebar-mode-actions button[aria-pressed="true"] { background: var(--line); color: var(--text); }
@@ -540,13 +546,6 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .agent-title svg:last-child { color: var(--faint); }
 .new-conversation-button { width: 25px; height: 25px; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; }
 .new-conversation-button:hover { background: var(--line); color: var(--text); }
-.agent-conversation-controls .provider-select {
-  width: auto; max-width: 122px; height: 26px; flex: none; padding: 0 5px 0 7px;
-  border-color: transparent; background: transparent; color: var(--muted);
-  gap: 3px; font-size: 9px; box-shadow: none;
-}
-.agent-conversation-controls .provider-select:hover, .agent-conversation-controls .provider-select[data-state="open"] { background: var(--line); color: var(--text); }
-.agent-conversation-controls .provider-select svg { width: 11px; height: 11px; color: var(--faint); }
 .provider-controls { min-width: 0; width: 100%; display: flex; align-items: center; gap: 4px; }
 /* The API-key button, not the Radix Select trigger (also a <button>). */
 .provider-controls button:not([data-slot="select-trigger"]) { width: 25px; height: 25px; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; }
@@ -595,12 +594,12 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .chat-list { flex: 1; min-width: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; padding: 20px 14px; }
 .agent-elements-message-list { min-width: 0; overflow-x: hidden; scrollbar-gutter: stable; }
 .agent-elements-message-list > div { padding: 10px 11px 8px; }
-.agent-elements-message-list .an-markdown { color: var(--text); font-size: 12px; line-height: 1.52; }
+.agent-elements-message-list .an-markdown { color: var(--text); font-size: 11.5px; line-height: 1.52; }
 .agent-elements-message-list .an-markdown p { overflow-wrap: anywhere; }
 .agent-elements-user-turn { min-width: 0; }
 .agent-elements-user-bubble {
   border-radius: 12px 12px 3px 12px;
-  padding: 7px 10px;
+  padding: 5px 9px;
   font-size: 12px;
 }
 .agent-elements-assistant-turn { min-width: 0; }
@@ -720,12 +719,15 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .composer:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); box-shadow: 0 4px 18px var(--accent-soft); }
 .composer textarea { width: 100%; min-height: 40px; max-height: 160px; resize: none; border: 0; outline: 0; background: transparent; padding: 8px 11px 3px; display: block; overflow-x: hidden; overflow-y: hidden; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; }
 .composer-footer { min-height: 32px; padding: 4px 6px 6px 11px; display: flex; align-items: center; justify-content: space-between; color: var(--faint); font-size: 9px; }
-.composer-footer-left { min-width: 0; display: flex; flex: 1; align-items: center; flex-wrap: wrap; gap: 4px; }
-.footer-selectors { min-width: 0; display: flex; flex: 1; gap: 3px; }
-.footer-selectors [data-slot="select-trigger"] { min-width: 34px; width: 0; flex: 1; height: 24px; padding: 0 5px; border-color: transparent; background: transparent; font-size: 9px; box-shadow: none; }
+.composer-footer-left { min-width: 0; display: flex; flex: 1; align-items: center; flex-wrap: nowrap; gap: 4px; }
+.footer-selectors { min-width: 0; display: flex; flex: 1; align-items: center; flex-wrap: nowrap; gap: 3px; overflow: hidden; }
+.footer-selectors [data-slot="select-trigger"] { min-width: 0; width: auto; height: 24px; padding: 0 4px 0 5px; border-color: transparent; background: transparent; font-size: 9px; line-height: 1; box-shadow: none; white-space: nowrap; overflow: hidden; }
+.footer-selectors .model-select { flex: 1 1 auto; }
+.footer-selectors .effort-select { width: 67px; flex: none; }
+.footer-selectors [data-slot="select-value"] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .footer-selectors [data-slot="select-trigger"]:hover { background: var(--line); }
 .footer-selectors [data-slot="select-trigger"] { color: var(--muted); }
-.footer-selectors [data-slot="select-trigger"] svg { width: 11px; height: 11px; color: var(--faint); }
+.footer-selectors [data-slot="select-trigger"] svg { width: 10px; height: 10px; min-width: 10px; color: var(--faint); transform: none; }
 .composer-footer button { width: 26px; height: 26px; border-radius: 7px; background: var(--text); color: var(--bg); display: grid; place-items: center; }
 .composer-footer .attach-button { flex: none; background: transparent; color: var(--muted); }
 .staged-attachments, .message-attachments { padding: 7px 8px 1px; display: flex; flex-wrap: wrap; gap: 5px; }

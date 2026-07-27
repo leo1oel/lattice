@@ -999,9 +999,16 @@ describe("project workspace", () => {
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "native-umm.svg" }));
     expect(await screen.findByAltText("Preview of figures/native-umm.svg")).toHaveAttribute("src", "data:image/svg+xml;base64,PHN2Zy8+");
+    const assetTab = screen.getByRole("tab", { name: /native-umm\.svg/ });
+    expect(assetTab).toHaveAttribute("aria-selected", "true");
     expect(screen.getAllByText("figures/native-umm.svg").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("button", { name: "native-umm.svg" }).closest(".tree-row")).toHaveClass("active");
     expect(screen.getByRole("button", { name: "main.tex" }).closest(".tree-row")).not.toHaveClass("active");
+
+    fireEvent.click(screen.getByRole("button", { name: "main.tex" }));
+    await waitFor(() => expect(assetTab).toHaveAttribute("aria-selected", "false"));
+    fireEvent.click(assetTab);
+    expect(await screen.findByAltText("Preview of figures/native-umm.svg")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "source" }));
     const editorElement = await waitFor(() => {

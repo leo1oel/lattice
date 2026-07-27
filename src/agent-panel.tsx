@@ -8,7 +8,6 @@ import {
   Code2,
   FileCode2,
   FileText,
-  KeyRound,
   Pencil,
   Paperclip,
   Plus,
@@ -168,7 +167,6 @@ export function AgentPanel({
   input,
   setInput,
   provider,
-  setProvider,
   model,
   setModel,
   reasoningEffort,
@@ -183,7 +181,6 @@ export function AgentPanel({
   onAddAttachments,
   onRemoveAttachment,
   onStop,
-  onApiSettings,
   selection,
   selectionSource,
   onClearSelection,
@@ -208,7 +205,6 @@ export function AgentPanel({
   input: string;
   setInput: (value: string) => void;
   provider: AgentProvider;
-  setProvider: (value: AgentProvider) => void;
   model: string;
   setModel: (value: string) => void;
   reasoningEffort: ReasoningEffort;
@@ -223,7 +219,6 @@ export function AgentPanel({
   onAddAttachments: () => void;
   onRemoveAttachment: (path: string) => void;
   onStop: () => void;
-  onApiSettings: () => void;
   selection: string;
   selectionSource: "editor" | "pdf" | null;
   onClearSelection: () => void;
@@ -348,18 +343,6 @@ export function AgentPanel({
             <Tip label="New conversation">
               <button className="new-conversation-button" disabled={running} onClick={onNewSession}><Plus size={14} /></button>
             </Tip>
-          )}
-          <Select value={provider} disabled={running} onValueChange={(value) => setProvider(value as AgentProvider)}>
-            <SelectTrigger aria-label="Agent provider" className="provider-select"><SelectValue /></SelectTrigger>
-            <SelectContent position="popper" align="end" className="agent-select-menu">
-              <SelectItem value="codex">Codex subscription</SelectItem>
-              <SelectItem value="claude">Claude subscription</SelectItem>
-              <SelectItem value="openai-api">OpenAI API</SelectItem>
-              <SelectItem value="anthropic-api">Anthropic API</SelectItem>
-            </SelectContent>
-          </Select>
-          {(provider === "openai-api" || provider === "anthropic-api") && (
-            <Tip label="API key settings"><button className="new-conversation-button" aria-label="API key settings" onClick={onApiSettings}><KeyRound size={13} /></button></Tip>
           )}
         </div>
       </div>
@@ -517,8 +500,8 @@ export function AgentPanel({
                   const nextEfforts = options.find((option) => option.value === nextModel)?.efforts ?? ["high"];
                   setModel(nextModel);
                   if (!nextEfforts.includes(reasoningEffort)) setReasoningEffort(nextEfforts.includes("high") ? "high" : nextEfforts[0]);
-                }}><SelectTrigger aria-label="Agent model" className="config-select"><SelectValue /></SelectTrigger><SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
-                <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select"><SelectValue /></SelectTrigger><SelectContent>{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
+                }}><SelectTrigger aria-label="Agent model" className="config-select model-select"><SelectValue /></SelectTrigger><SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
+                <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select effort-select"><SelectValue /></SelectTrigger><SelectContent>{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
               </div>
               {running && <span>{status || "Agent is working…"}</span>}
             </div>

@@ -14,6 +14,7 @@ import {
   CircleAlert,
   FolderTree,
   Image,
+  KeyRound,
   Library,
   PanelLeftClose,
   PanelLeftOpen,
@@ -90,6 +91,13 @@ import { useOverleafTrackChanges } from "./use-overleaf-track-changes";
 import { useOverleafTrackChangesToggle } from "./use-overleaf-track-changes-toggle";
 import { OverleafTrackChangesToggle } from "./overleaf-track-changes-toggle";
 import { CopyButton } from "./components/copy-button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select";
 import { type PresenceCursor } from "./overleaf-cursors";
 import { OverleafPresenceAvatars } from "./overleaf-presence";
 import { useAgentRuntimeUpdates } from "./agent-runtime-settings";
@@ -208,6 +216,7 @@ import type {
   EditorViewState,
   NavigationEntry,
   ProjectSnapshot,
+  FileNode,
   AssetPreview,
   FigureDropRequest,
   FigurePointerDrag,
@@ -250,6 +259,14 @@ import { mcpDraftToSaveRequest } from "./mcp-settings";
 import "./App.css";
 
 const EMPTY_DIAGNOSTICS: CompileDiagnostic[] = [];
+
+function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<string> {
+  for (const node of nodes) {
+    if (node.kind === "figure") paths.add(node.path);
+    if (node.children.length) collectAssetPaths(node.children, paths);
+  }
+  return paths;
+}
 
 const defaultWelcomeMessages: ChatMessage[] = [
   {
@@ -306,6 +323,10 @@ function App() {
   const [references, setReferences] = useState<ReferenceInfo[]>([]);
   const [unusedSymbols, setUnusedSymbols] = useState<UnusedSymbols>({ labels: [], citations: [] });
   const [openTabs, setOpenTabs] = useState<string[]>([]);
+  const projectAssetPaths = useMemo(
+    () => collectAssetPaths(project?.files ?? []),
+    [project],
+  );
   // Most-recently-active tab key first; drives LRU eviction over the max-tabs cap.
   const tabRecency = useRef<string[]>([]);
   const noteTabActive = useCallback((key: string) => {
@@ -1447,7 +1468,7 @@ function App() {
     closedTabsRef.current = [path, ...closedTabsRef.current.filter((item) => item !== path)].slice(0, 20);
     // The most recent still-open text file to fall back to (papers can't load
     // into the editor).
-    const fileFallback = [...remaining].reverse().find((key) => !isPaperTabKey(key));
+    const fileFallback = [...remaining].reverse().find((key) => !isPaperTabKey(key) && !projectAssetPaths.has(key));
     if (isPaperTabKey(path)) {
       // Only the paper currently on screen needs the canvas returned to the editor.
       if (canvasMode === "paper" && activePaper && paperTabKey(activePaper.arxivId) === path) {
@@ -1456,6 +1477,14 @@ function App() {
         setPaperBlog(null);
         if (fileFallback) await openProjectFile(fileFallback);
         else setCanvasMode((mode) => (mode === "paper" ? "split" : mode));
+      }
+      return;
+    }
+    if (projectAssetPaths.has(path)) {
+      if (activeAsset?.path === path) {
+        setActiveAsset(null);
+        if (fileFallback) await openProjectFile(fileFallback);
+        else setCanvasMode((mode) => (mode === "asset" ? "split" : mode));
       }
       return;
     }
@@ -1468,7 +1497,7 @@ function App() {
     }
     if (path !== activeFile) return;
     if (fileFallback) await openProjectFile(fileFallback);
-  }, [activeFile, activePaper, canvasMode, openTabs, openProjectFile, secondaryFile]);
+  }, [activeAsset, activeFile, activePaper, canvasMode, openTabs, openProjectFile, projectAssetPaths, secondaryFile]);
 
   const reopenClosedTab = useCallback(async () => {
     const path = closedTabsRef.current.shift();
@@ -3020,6 +3049,7 @@ function App() {
         if (!saved) return;
       }
       const asset = await invoke<AssetPreview>("read_project_asset", { path });
+      setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
       setActiveAsset(asset);
       setActivePaper(null);
       setPaperMarkdown("");
@@ -4741,6 +4771,9 @@ function App() {
         // Papers are read-only, so never dirty and never a split "beside" pane.
         return { path, kind: "paper" as const, label: papers.find((paper) => paper.arxivId === id)?.title ?? "Paper" };
       }
+      if (projectAssetPaths.has(path)) {
+        return { path, kind: "asset" as const };
+      }
       return {
         path,
         kind: "file" as const,
@@ -4749,13 +4782,15 @@ function App() {
         beside: path === secondaryFile && (canvasMode === "dual" || canvasMode === "columns"),
       };
     }),
-    [activeFile, canvasMode, openTabs, papers, savedSource, secondaryFile, secondarySavedSource, secondarySource, source],
+    [activeFile, canvasMode, openTabs, papers, projectAssetPaths, savedSource, secondaryFile, secondarySavedSource, secondarySource, source],
   );
   // The tab that reads as active: the open paper in paper mode, else the focused
   // editor pane. Also the key eviction must never close.
   const activeTabKey = canvasMode === "paper" && activePaper
     ? paperTabKey(activePaper.arxivId)
-    : (focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile);
+    : canvasMode === "asset" && activeAsset
+      ? activeAsset.path
+      : (focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile);
   // Whatever is on screen is the most-recently-used tab; the split's other pane
   // counts too. Tracking recency here covers every path that opens a tab.
   useEffect(() => {
@@ -5119,6 +5154,8 @@ function App() {
                 const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));
                 if (paper) void openPaper(paper);
                 else void closeEditorTab(path);
+              } else if (projectAssetPaths.has(path)) {
+                void openProjectAsset(path);
               } else {
                 void openProjectFile(path);
               }
@@ -5283,6 +5320,20 @@ function App() {
                     { value: "agent", title: "Agent", label: <><Bot size={15} /><span>Agent</span></> },
                   ]}
                 />
+                <Select value={provider} disabled={agentRunning} onValueChange={(value) => changeProvider(value as AgentProvider)}>
+                  <SelectTrigger aria-label="Agent provider" className="sidebar-provider-select"><SelectValue /></SelectTrigger>
+                  <SelectContent position="popper" align="start" className="agent-select-menu">
+                    <SelectItem value="codex">Codex subscription</SelectItem>
+                    <SelectItem value="claude">Claude subscription</SelectItem>
+                    <SelectItem value="openai-api">OpenAI API</SelectItem>
+                    <SelectItem value="anthropic-api">Anthropic API</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(provider === "openai-api" || provider === "anthropic-api") && (
+                  <Tip label="API key settings">
+                    <button className="sidebar-provider-settings" aria-label="API key settings" onClick={() => openSettings("api")}><KeyRound size={12} /></button>
+                  </Tip>
+                )}
                 <div className="sidebar-mode-actions">
                   {sidebarMode === "project" && (
                     <Tip label={projectSearchOpen ? "Hide file search" : "Search files"}>
@@ -5357,7 +5408,6 @@ function App() {
                   input={agentInput}
                   setInput={setAgentInput}
                   provider={provider}
-                  setProvider={changeProvider}
                   model={agentModel}
                   setModel={setAgentModel}
                   reasoningEffort={reasoningEffort}
@@ -5399,7 +5449,6 @@ function App() {
                   }}
                   onRemoveAttachment={(path) => setAgentAttachments((current) => current.filter((attachment) => attachment.path !== path))}
                   onStop={stopAgent}
-                  onApiSettings={() => openSettings("api")}
                   selection={selection}
                   selectionSource={selectionSource}
                   onClearSelection={() => {
