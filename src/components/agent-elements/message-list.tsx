@@ -8,15 +8,14 @@ import React, {
   useMemo,
 } from "react";
 import type { UIMessage, ChatStatus } from "ai";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { cn } from "./utils/cn";
+import { CopyButton } from "../copy-button";
 
 import { UserMessage } from "./user-message";
 import { Markdown } from "./markdown";
 import { ErrorMessage } from "./error-message";
 import type { CustomToolRendererProps } from "./types";
 import { ToolRowBase } from "./tools/tool-row-base";
-import { IconCopy, IconCheck } from "@tabler/icons-react";
 import { ToolRenderer as DefaultToolRenderer } from "./tools/tool-renderer";
 import { normalizeAssistantToolParts } from "./utils/tool-part-normalizer";
 import { SpiralLoader } from "./spiral-loader";
@@ -50,6 +49,7 @@ export type MessageListProps = {
   classNames?: {
     userMessage?: string;
   };
+  renderUserAction?: (message: UIMessage) => React.ReactNode;
   toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>;
 };
 
@@ -162,64 +162,6 @@ function formatTimestamp(date: Date): string {
   return dateFormatter.format(date);
 }
 
-function CopyButton({
-  text,
-  title,
-  onCopied,
-}: {
-  text: string;
-  title: string;
-  onCopied?: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const copiedTimerRef = useRef<number | null>(null);
-
-  const handleCopy = () => {
-    void writeText(text);
-    setCopied(true);
-    if (copiedTimerRef.current) {
-      window.clearTimeout(copiedTimerRef.current);
-    }
-    copiedTimerRef.current = window.setTimeout(() => {
-      setCopied(false);
-      copiedTimerRef.current = null;
-    }, 2000);
-    onCopied?.();
-  };
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      tabIndex={-1}
-      onClick={handleCopy}
-      onPointerDown={(event) => {
-        event.stopPropagation();
-      }}
-      onMouseDown={(event) => event.stopPropagation()}
-      className={cn(
-        "size-6 flex items-center justify-center rounded-md active:scale-[0.97] transition-[background-color,opacity,transform] duration-150 ease-out",
-        "opacity-50 bg-transparent hover:opacity-100 hover:bg-an-foreground/10",
-      )}
-    >
-      <div className="relative w-3.5 h-3.5">
-        <IconCopy
-          className={cn(
-            "absolute inset-0 w-3.5 h-3.5 text-an-foreground-muted transition-[opacity,transform] duration-150 ease-out",
-            copied ? "opacity-0 scale-50" : "opacity-100 scale-100",
-          )}
-        />
-        <IconCheck
-          className={cn(
-            "absolute inset-0 w-3.5 h-3.5 text-an-foreground-muted transition-[opacity,transform] duration-150 ease-out",
-            copied ? "opacity-100 scale-100" : "opacity-0 scale-50",
-          )}
-        />
-      </div>
-    </button>
-  );
-}
-
 function MessageToolbar({
   text,
   timestamp,
@@ -228,6 +170,7 @@ function MessageToolbar({
   isVisible,
   alignClass,
   onCopied,
+  action,
 }: {
   text?: string;
   timestamp?: string;
@@ -236,6 +179,7 @@ function MessageToolbar({
   isVisible: boolean;
   alignClass: string;
   onCopied?: () => void;
+  action?: React.ReactNode;
 }) {
   return (
     <div
@@ -250,7 +194,18 @@ function MessageToolbar({
       onPointerDown={(event) => event.stopPropagation()}
     >
       {timestamp && <span>{timestamp}</span>}
-      {text && <CopyButton text={text} title={alignClass.includes("end") ? "Copy user message" : "Copy agent response"} onCopied={onCopied} />}
+      {text && (
+        <CopyButton
+          text={text}
+          title={alignClass.includes("end") ? "Copy user message" : "Copy agent response"}
+          tabIndex={-1}
+          className="size-6 flex items-center justify-center rounded-md opacity-50 bg-transparent hover:opacity-100 hover:bg-an-foreground/10"
+          onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onCopied={onCopied}
+        />
+      )}
+      {action}
     </div>
   );
 }
@@ -285,6 +240,7 @@ export const MessageList = memo(function MessageList({
   slots,
   classNames,
   toolRenderers,
+  renderUserAction,
 }: MessageListProps) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const contentWrapperRef = useRef<HTMLDivElement>(null);
@@ -551,6 +507,7 @@ export const MessageList = memo(function MessageList({
                             isVisible={userCopyVisible}
                             alignClass="justify-end"
                             onCopied={() => markCopied(userCopyKey)}
+                            action={renderUserAction?.(turn.userMsg!)}
                           />
                         )}
                       </div>

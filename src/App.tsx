@@ -12,7 +12,6 @@ import {
   Check,
   ChevronDown,
   CircleAlert,
-  Copy,
   FolderTree,
   Image,
   Library,
@@ -90,6 +89,7 @@ import { useOverleafPresence, type PresenceUser } from "./use-overleaf-presence"
 import { useOverleafTrackChanges } from "./use-overleaf-track-changes";
 import { useOverleafTrackChangesToggle } from "./use-overleaf-track-changes-toggle";
 import { OverleafTrackChangesToggle } from "./overleaf-track-changes-toggle";
+import { CopyButton } from "./components/copy-button";
 import { type PresenceCursor } from "./overleaf-cursors";
 import { OverleafPresenceAvatars } from "./overleaf-presence";
 import { useAgentRuntimeUpdates } from "./agent-runtime-settings";
@@ -366,6 +366,8 @@ function App() {
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [importInput, setImportInput] = useState("");
   const [importing, setImporting] = useState(false);
+  const [paperFetchStates, setPaperFetchStates] = useState<Record<string, "loading" | "success">>({});
+  const paperFetchTimers = useRef<Record<string, number>>({});
   const [assetImporting, setAssetImporting] = useState(false);
   const [assetDropTarget, setAssetDropTarget] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -2961,6 +2963,8 @@ function App() {
   }, [save, savedSource, source]);
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
+    const key = paperKey(paper);
+    setPaperFetchStates((current) => ({ ...current, [key]: "loading" }));
     try {
       const collabBases = collabSession ? readTextsFromDoc(collabSession.doc) : {};
       const result = await invoke<{ arxivId: string; paperPath: string; blogPath?: string | null }>("fetch_paper", {
@@ -2984,11 +2988,30 @@ function App() {
       }
       const fetched = (await invoke<PaperSummary[]>("list_papers"))
         .find((item) => item.arxivId === result.arxivId) ?? { ...paper, hasFullText: true };
+      setPaperFetchStates((current) => ({ ...current, [key]: "success" }));
+      if (paperFetchTimers.current[key]) window.clearTimeout(paperFetchTimers.current[key]);
+      paperFetchTimers.current[key] = window.setTimeout(() => {
+        setPaperFetchStates((current) => {
+          const next = { ...current };
+          delete next[key];
+          return next;
+        });
+        delete paperFetchTimers.current[key];
+      }, 1100);
       await openPaper(fetched);
     } catch (reason) {
+      setPaperFetchStates((current) => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
       setError(toMessage(reason));
     }
   }, [collabSession, openPaper, refreshProject]);
+
+  useEffect(() => () => {
+    Object.values(paperFetchTimers.current).forEach((timer) => window.clearTimeout(timer));
+  }, []);
 
   const openProjectAsset = useCallback(async (path: string) => {
     try {
@@ -5212,7 +5235,7 @@ function App() {
         <div className="error-banner">
           <CircleAlert size={15} />
           <span>{error}</span>
-          <button aria-label="Copy error message" title="Copy error message" onClick={() => void writeText(error)}><Copy size={13} /></button>
+          <CopyButton aria-label="Copy error message" title="Copy error message" text={error} />
           <button onClick={() => setError(null)}><X size={14} /></button>
         </div>
       )}
@@ -5276,7 +5299,6 @@ function App() {
                       <Tip label="Add bibliography entry">
                         <button onClick={() => openBibEntryDialog()}><BookMarked size={14} /></button>
                       </Tip>
-                      <span className="count-badge">{papers.length}</span>
                     </>
                   )}
                 </div>
@@ -5308,6 +5330,7 @@ function App() {
                   onPaper={openPaper}
                   onCitePaper={(paper, command) => void insertCitationFromPaper(paper, command)}
                   onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
+                  paperFetchStates={paperFetchStates}
                   onDeletePaper={deletePaper}
                   onEditBibEntry={(paper) => void openEditBibEntry(paper)}
                   importInput={importInput}

@@ -1,16 +1,14 @@
 import { useState } from "react";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import {
   AlertTriangle,
-  Check,
   ChevronDown,
   ChevronUp,
   CircleAlert,
   CircleHelp,
-  Copy,
   ScrollText,
   X,
 } from "lucide-react";
+import { CopyButton } from "./components/copy-button";
 import {
   diagnosticLocationLabel,
   diagnosticSeverity,
@@ -46,7 +44,6 @@ export function CompileDiagnosticsPanel(props: {
   ].filter(Boolean);
   const hasLog = Boolean(props.log.trim());
   const [tab, setTab] = useState<"diagnostics" | "log">(diagnostics.length ? "diagnostics" : "log");
-  const [copiedDiagnostic, setCopiedDiagnostic] = useState<string | null>(null);
   if (props.success && !diagnostics.length) return null;
   if (!diagnostics.length && !hasLog && props.success) return null;
   const title = parts.join(" · ") || (props.success ? "Build notes" : "Build failed");
@@ -100,19 +97,13 @@ export function CompileDiagnosticsPanel(props: {
                       <span className="compile-diagnostic-location">{diagnosticLocationLabel(diagnostic)}</span>
                       <span className="compile-diagnostic-message">{diagnostic.message}</span>
                     </button>
-                    <button
+                    <CopyButton
                       className="compile-diagnostic-copy"
                       aria-label="Copy error message"
                       title="Copy error message"
-                      onClick={() => {
-                        void writeText(copyText).then(() => {
-                          setCopiedDiagnostic(key);
-                          window.setTimeout(() => setCopiedDiagnostic((current) => current === key ? null : current), 1400);
-                        });
-                      }}
-                    >
-                      {copiedDiagnostic === key ? <Check size={12} /> : <Copy size={12} />}
-                    </button>
+                      iconSize={12}
+                      text={copyText}
+                    />
                   </li>
                 );
               })}

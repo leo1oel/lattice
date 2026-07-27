@@ -66,6 +66,7 @@ export function Navigator(props: {
   onPaper: (paper: PaperSummary) => void;
   onCitePaper: (paper: PaperSummary, command: CiteCommand) => void;
   onFetchFullText: (paper: PaperSummary) => void;
+  paperFetchStates: Record<string, "loading" | "success">;
   onDeletePaper: (paper: PaperSummary) => void;
   onEditBibEntry: (paper: PaperSummary) => void;
   importInput: string;
@@ -279,6 +280,7 @@ export function Navigator(props: {
               the list showed that paper once per match and the others could
               not be reached while a filter was active. */}
           {props.papers.map((paper) => {
+            const fetchState = props.paperFetchStates[paperKey(paper)];
             const row = (
               <div className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}>
               <button
@@ -289,10 +291,20 @@ export function Navigator(props: {
                     : `${paper.title} — cited only, no full text available`}
                 className="paper-open"
                 // Knowing the preprint is as good as having it: clicking fetches.
-                disabled={!paper.hasFullText && !paper.arxivId}
+                disabled={fetchState === "loading" || (!paper.hasFullText && !paper.arxivId)}
                 onClick={() => paper.hasFullText ? props.onPaper(paper) : props.onFetchFullText(paper)}
               >
-                {paper.hasFullText ? <BookOpen size={14} /> : paper.arxivId ? <Download size={14} /> : <BookMarked size={14} />}
+                <span className={`paper-state-icon ${fetchState ?? (paper.hasFullText ? "available" : "idle")}`}>
+                  {fetchState === "loading"
+                    ? <LoaderCircle className="spin" size={14} />
+                    : fetchState === "success"
+                      ? <Check size={14} />
+                      : paper.hasFullText
+                        ? <BookOpen size={14} />
+                        : paper.arxivId
+                          ? <Download size={14} />
+                          : <BookMarked size={14} />}
+                </span>
                 <span><strong>{paper.title}</strong><small>{paperSubtitle(paper)}</small></span>
               </button>
               {paper.citationKey && (
@@ -342,6 +354,7 @@ export function Navigator(props: {
             );
           })}
           {!props.papers.length && <p className="empty-note">Add a paper to ground the agent in project evidence.</p>}
+          {!!props.papers.length && <p className="paper-list-end">{props.papers.length} paper{props.papers.length === 1 ? "" : "s"}</p>}
         </div>
       </div>}
     </aside>

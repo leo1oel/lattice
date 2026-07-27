@@ -322,7 +322,7 @@ export function QuestionPrompt({
             <button
               type="button"
               onClick={handleSkip}
-              className="h-6 px-2 rounded-[4px] text-sm text-muted-foreground hover:text-an-tool-color hover:bg-muted/50 active:scale-[0.98] transition-[background-color,color,transform] duration-150"
+              className="h-6 px-2 rounded-[4px] text-sm text-muted-foreground hover:text-an-tool-color hover:bg-muted/50 transition-colors duration-150"
             >
               {skipLabel}
             </button>
@@ -331,7 +331,7 @@ export function QuestionPrompt({
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="h-6 px-2.5 rounded-[4px] text-sm font-medium bg-an-primary-color text-an-send-button-color hover:bg-an-primary-color/90 active:scale-[0.98] transition-[background-color,transform] duration-150 disabled:opacity-60 disabled:hover:bg-an-primary-color disabled:active:scale-100"
+            className="h-6 px-2.5 rounded-[4px] text-sm font-medium bg-an-primary-color text-an-send-button-color hover:bg-an-primary-color/90 transition-colors duration-150 disabled:opacity-60 disabled:hover:bg-an-primary-color"
           >
             {primaryLabel}
           </button>

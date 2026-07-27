@@ -90,7 +90,7 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
             m.schema_version == 1
                 && m.complete
                 && m.arxiv_id.eq_ignore_ascii_case(&base)
-                && dir.join("paper.md").is_file()
+                && cached_paper_has_body(&dir.join("paper.md"))
                 && (requested == base || m.requested_arxiv_id.eq_ignore_ascii_case(&requested))
         });
     if valid {
@@ -250,6 +250,9 @@ fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata)>, String> 
             .to_string_lossy()
             .replace(std::path::MAIN_SEPARATOR, "/");
         let markdown = fs::read_to_string(markdown_path).map_err(err)?;
+        if !markdown_has_body(&markdown) {
+            continue;
+        }
         // Legacy or externally supplied text may have no metadata. Keep it
         // readable, but do not treat it as a complete reusable tool cache.
         let metadata = fs::read_to_string(paper_directory.join("metadata.json"))
@@ -318,7 +321,30 @@ pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult
 
 pub fn read_paper(root: &Path, arxiv_id: &str) -> Result<String, String> {
     validate_arxiv_id(arxiv_id)?;
-    project::read_file(root, &format!(".research/papers/{arxiv_id}/paper.md"))
+    let markdown = project::read_file(root, &format!(".research/papers/{arxiv_id}/paper.md"))?;
+    if !markdown_has_body(&markdown) {
+        return Err("Cached paper has no full-text body.".to_string());
+    }
+    Ok(markdown)
+}
+
+fn cached_paper_has_body(path: &Path) -> bool {
+    fs::read_to_string(path)
+        .ok()
+        .is_some_and(|markdown| markdown_has_body(&markdown))
+}
+
+fn markdown_has_body(markdown: &str) -> bool {
+    let mut lines = markdown.lines();
+    if lines.next().is_some_and(|line| line.trim() == "---") {
+        for line in &mut lines {
+            if line.trim() == "---" {
+                return lines.any(|body_line| !body_line.trim().is_empty());
+            }
+        }
+        return false;
+    }
+    !markdown.trim().is_empty()
 }
 
 /// The alphaXiv overview ("blog") for an imported paper. Returns the stored
@@ -835,6 +861,50 @@ mod tests {
     }
 
     #[test]
+    fn distinguishes_frontmatter_only_cache_from_markdown_with_a_body() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-body-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{empty, title={Empty}, eprint={2501.00001}}\n\
+             @article{full, title={Full}, eprint={2501.00002}}\n",
+        )
+        .unwrap();
+        for (id, markdown) in [
+            ("2501.00001", "---\ntitle: Empty\nsections: 0\n---\n\n"),
+            (
+                "2501.00002",
+                "---\ntitle: Full\n---\n\n# Introduction\nText.\n",
+            ),
+        ] {
+            let directory = root.join(".research/papers").join(id);
+            fs::create_dir_all(&directory).unwrap();
+            fs::write(directory.join("paper.md"), markdown).unwrap();
+        }
+
+        let papers = list_papers(&root).unwrap();
+        assert!(
+            !papers
+                .iter()
+                .find(|paper| paper.arxiv_id == "2501.00001")
+                .unwrap()
+                .has_full_text
+        );
+        assert!(
+            papers
+                .iter()
+                .find(|paper| paper.arxiv_id == "2501.00002")
+                .unwrap()
+                .has_full_text
+        );
+        assert!(read_paper(&root, "2501.00001").is_err());
+        assert!(read_paper(&root, "2501.00002")
+            .unwrap()
+            .contains("Introduction"));
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
     fn lists_cited_works_even_when_only_the_bibliography_knows_them() {
         let parent = std::env::temp_dir().join(format!("lattice-paper-list-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
@@ -1019,6 +1089,23 @@ mod tests {
         let papers = list_papers(&root).unwrap();
         assert_eq!(papers.len(), 1, "got: {papers:?}");
         assert_eq!(papers[0].arxiv_id, "2504.10462", "got: {:?}", papers[0]);
+        assert!(!papers[0].has_full_text);
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn finds_the_arxiv_id_in_a_blip3o_style_journal_field() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-journal-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{blip3o, title={BLIP3o}, journal={arXiv preprint arXiv:2505.09568}}\n",
+        )
+        .unwrap();
+
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 1);
+        assert_eq!(papers[0].arxiv_id, "2505.09568");
         assert!(!papers[0].has_full_text);
         let _ = fs::remove_dir_all(parent);
     }

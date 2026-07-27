@@ -36,8 +36,8 @@ type MotionButtonProps = HTMLMotionProps<"button"> & {
 };
 
 /**
- * Drop-in replacement for `<button>` that adds a spring press (`whileTap`) and a
- * subtle hover lift, plus an optional magnetic pull. Keeps the same className so
+ * Drop-in replacement for `<button>` that adds a subtle hover lift and an
+ * optional magnetic pull. Keeps the same className so
  * existing styles apply unchanged; disabled buttons get no motion.
  */
 export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(
@@ -62,7 +62,6 @@ export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(
         disabled={disabled}
         style={active ? { ...style, x: springX, y: springY } : style}
         whileHover={disabled ? undefined : { scale: 1.03 }}
-        whileTap={disabled ? undefined : { scale: 0.96 }}
         transition={PRESS_SPRING}
         onMouseMove={(event) => {
           if (active && localRef.current) {
@@ -122,7 +121,6 @@ export const SpinButton = forwardRef<HTMLButtonElement, HTMLMotionProps<"button"
     return (
       <motion.button
         ref={ref}
-        whileTap={{ scale: 0.88 }}
         transition={PRESS_SPRING}
         onClick={(event) => {
           setTurns((value) => value + 1);

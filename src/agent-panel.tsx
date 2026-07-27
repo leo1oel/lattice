@@ -31,7 +31,10 @@ import {
 } from "./components/ui/select";
 import { MessageList } from "./components/agent-elements/message-list";
 import { UserMessage as AgentElementsUserMessage } from "./components/agent-elements/user-message";
+import { FileAttachment } from "./components/agent-elements/input/file-attachment";
 import { GenericTool } from "./components/agent-elements/tools/generic-tool";
+import { BashTool } from "./components/agent-elements/tools/bash-tool";
+import { EditTool } from "./components/agent-elements/tools/edit-tool";
 import type {
   AgentToolStep,
   ChatMessage,
@@ -93,6 +96,23 @@ function AgentElementsTool({ part }: { part: AgentElementsToolPart }) {
         : normalizedName.includes("read") || normalizedName.includes("file")
           ? FileText
           : Bot;
+  const state = part.state ?? "input-available";
+  if (normalizedName.includes("bash") || normalizedName.includes("shell") || normalizedName.includes("command")) {
+    return (
+      <div className={`agent-elements-tool-step specialized ${state === "output-available" ? "end" : "start"}`} data-tool-name={name}>
+        <strong className="tool-step-name">{name}</strong>
+        <BashTool part={{ ...part, type: "tool-Bash", state, input: { command: input?.detail ?? "" } }} />
+      </div>
+    );
+  }
+  if (normalizedName.includes("edit") || normalizedName.includes("write")) {
+    return (
+      <div className={`agent-elements-tool-step specialized ${state === "output-available" ? "end" : "start"}`} data-tool-name={name}>
+        <strong className="tool-step-name">{name}</strong>
+        <EditTool part={{ ...part, type: normalizedName.includes("write") ? "tool-Write" : "tool-Edit", state, input: { file_path: input?.detail ?? "" } }} />
+      </div>
+    );
+  }
   return (
     <div className={`agent-elements-tool-step ${part.state === "output-available" ? "end" : "start"}`} data-tool-name={name}>
       <GenericTool
@@ -270,14 +290,9 @@ export function AgentPanel({
             ))}
           </div>
         )}
-        {original && (
-          <button className="message-edit agent-elements-edit" title="Edit and branch from this message" disabled={running} onClick={() => onEditMessage(original)}>
-            <Pencil size={11} /> Edit
-          </button>
-        )}
       </div>
     );
-  }, [messageById, onEditMessage, running]);
+  }, [messageById]);
   const chatStatus: ChatStatus = running ? (streaming ? "streaming" : "submitted") : "ready";
   const insertSlashCommand = (command: AgentCommand) => {
     if (!slash) return;
@@ -334,6 +349,18 @@ export function AgentPanel({
               <button className="new-conversation-button" disabled={running} onClick={onNewSession}><Plus size={14} /></button>
             </Tip>
           )}
+          <Select value={provider} disabled={running} onValueChange={(value) => setProvider(value as AgentProvider)}>
+            <SelectTrigger aria-label="Agent provider" className="provider-select"><SelectValue /></SelectTrigger>
+            <SelectContent position="popper" align="end" className="agent-select-menu">
+              <SelectItem value="codex">Codex subscription</SelectItem>
+              <SelectItem value="claude">Claude subscription</SelectItem>
+              <SelectItem value="openai-api">OpenAI API</SelectItem>
+              <SelectItem value="anthropic-api">Anthropic API</SelectItem>
+            </SelectContent>
+          </Select>
+          {(provider === "openai-api" || provider === "anthropic-api") && (
+            <Tip label="API key settings"><button className="new-conversation-button" aria-label="API key settings" onClick={onApiSettings}><KeyRound size={13} /></button></Tip>
+          )}
         </div>
       </div>
       <MessageList
@@ -341,6 +368,14 @@ export function AgentPanel({
         status={chatStatus}
         className="agent-elements-message-list"
         slots={{ UserMessage: AgentElementsUser, ToolRenderer: AgentElementsTool }}
+        renderUserAction={(message) => {
+          const original = messageById.get(message.id);
+          return original ? (
+            <button className="agent-elements-edit" title="Edit and branch from this message" disabled={running} onClick={() => onEditMessage(original)}>
+              <Pencil size={11} /> Edit
+            </button>
+          ) : null;
+        }}
         showCopyToolbar
       />
       <div className="composer-wrap">
@@ -387,7 +422,20 @@ export function AgentPanel({
           </div>
         )}
         <div className="composer">
-          {!!attachments.length && <div className="staged-attachments">{attachments.map((attachment) => <span key={attachment.path} title={attachment.path}><Paperclip size={10} /><b>{attachment.name}</b><small>{attachment.kind} · {attachmentSize(attachment.size)}</small><button aria-label={`Remove ${attachment.name}`} disabled={running} onClick={() => onRemoveAttachment(attachment.path)}><X size={10} /></button></span>)}</div>}
+          {!!attachments.length && (
+            <div className="staged-attachments">
+              {attachments.map((attachment) => (
+                <FileAttachment
+                  key={attachment.path}
+                  id={attachment.path}
+                  filename={attachment.name}
+                  size={attachment.size}
+                  onRemove={running ? undefined : () => onRemoveAttachment(attachment.path)}
+                  className="staged-attachment-preview"
+                />
+              ))}
+            </div>
+          )}
           <textarea
             ref={composerRef}
             rows={1}
@@ -465,15 +513,6 @@ export function AgentPanel({
             <div className="composer-footer-left">
               <button className="attach-button" title="Add attachments" aria-label="Add attachments" disabled={running} onClick={onAddAttachments}><Paperclip size={13} /></button>
               <div className="footer-selectors">
-                <Select value={provider} disabled={running} onValueChange={(value) => setProvider(value as AgentProvider)}>
-                  <SelectTrigger aria-label="Agent provider" className="config-select"><SelectValue /></SelectTrigger>
-                  <SelectContent position="popper" align="start" className="agent-select-menu">
-                    <SelectItem value="codex">Codex subscription</SelectItem>
-                    <SelectItem value="claude">Claude subscription</SelectItem>
-                    <SelectItem value="openai-api">OpenAI API</SelectItem>
-                    <SelectItem value="anthropic-api">Anthropic API</SelectItem>
-                  </SelectContent>
-                </Select>
                 <Select value={model} disabled={running} onValueChange={(nextModel) => {
                   const nextEfforts = options.find((option) => option.value === nextModel)?.efforts ?? ["high"];
                   setModel(nextModel);
@@ -481,7 +520,6 @@ export function AgentPanel({
                 }}><SelectTrigger aria-label="Agent model" className="config-select"><SelectValue /></SelectTrigger><SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
                 <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select"><SelectValue /></SelectTrigger><SelectContent>{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
               </div>
-              {(provider === "openai-api" || provider === "anthropic-api") && <button className="attach-button" title="API key settings" aria-label="API key settings" onClick={onApiSettings}><KeyRound size={13} /></button>}
               {running && <span>{status || "Agent is working…"}</span>}
             </div>
             {running

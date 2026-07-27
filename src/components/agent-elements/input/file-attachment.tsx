@@ -175,7 +175,7 @@ export function FileAttachment({
             onRemove();
           }}
           className={`absolute -top-1.5 -right-1.5 size-4 rounded-full bg-background border border-border
-                     flex items-center justify-center transition-[opacity,transform] duration-150 ease-out active:scale-[0.97] z-10
+                     flex items-center justify-center transition-opacity duration-150 ease-out z-10
                      text-muted-foreground hover:text-foreground
                      ${isHovered ? "opacity-100" : "opacity-0"}`}
           type="button"

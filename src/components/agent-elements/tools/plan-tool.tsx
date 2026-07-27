@@ -122,7 +122,7 @@ export const PlanTool = memo(function PlanTool({
                       <button
                         type="button"
                         onClick={handleApprove}
-                        className="h-5 px-1.5 rounded-[4px] text-xs font-medium bg-an-primary-color text-an-send-button-color hover:bg-an-primary-color/90 active:scale-[0.98] transition-[background-color,transform] duration-150"
+                        className="h-5 px-1.5 rounded-[4px] text-xs font-medium bg-an-primary-color text-an-send-button-color hover:bg-an-primary-color/90 transition-colors duration-150"
                       >
                         {approveText}
                       </button>
@@ -151,7 +151,7 @@ export const PlanTool = memo(function PlanTool({
               <button
                 type="button"
                 onClick={handleApprove}
-                className="h-5 px-1.5 rounded-[4px] text-xs font-medium bg-an-primary-color text-an-send-button-color hover:bg-an-primary-color/90 active:scale-[0.98] transition-[background-color,transform] duration-150"
+                className="h-5 px-1.5 rounded-[4px] text-xs font-medium bg-an-primary-color text-an-send-button-color hover:bg-an-primary-color/90 transition-colors duration-150"
               >
                 {approveText}
               </button>

@@ -1,6 +1,5 @@
 import {
   Check,
-  Copy,
   Pencil,
   Play,
   Plus,
@@ -10,6 +9,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { CopyButton } from "./components/copy-button";
 import { MotionButton, SpinButton } from "./motion";
 import {
   Select,
@@ -511,9 +511,9 @@ export function SettingsDialog(props: {
                       <button className="secondary-button" type="button" onClick={props.onOpenTexSetup}>
                         Open install guide
                       </button>
-                      <button className="secondary-button" type="button" onClick={props.onCopyDoctorSummary}>
-                        <Copy size={13} /> Copy summary
-                      </button>
+                      <CopyButton className="secondary-button" onCopy={props.onCopyDoctorSummary} title="Copy summary">
+                        Copy summary
+                      </CopyButton>
                     </div>
                   </>
                 )}

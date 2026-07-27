@@ -17,6 +17,7 @@ packages=(
   libxdo-dev
   pkg-config
   wget
+  zip
 )
 missing_packages=()
 for package in "${packages[@]}"; do

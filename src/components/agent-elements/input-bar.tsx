@@ -259,7 +259,7 @@ export const InputBar = memo(function InputBar({
           <button
             type="button"
             onClick={infoBarData.action.onClick}
-            className="h-6 px-2 rounded-[4px] text-xs font-medium bg-an-primary-color text-an-send-button-color hover:bg-an-primary-color/90 active:scale-[0.98] transition-[background-color,transform] duration-150"
+            className="h-6 px-2 rounded-[4px] text-xs font-medium bg-an-primary-color text-an-send-button-color hover:bg-an-primary-color/90 transition-colors duration-150"
           >
             {infoBarData.action.label}
           </button>
