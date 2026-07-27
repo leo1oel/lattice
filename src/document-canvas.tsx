@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
@@ -108,6 +108,7 @@ export function DocumentCanvas(props: {
   onPdfTextSelect: (value: string) => void;
   pdfUrl: string | null;
   pdfBase64: string | null;
+  pdfTop?: ReactNode;
   paperMarkdown: string;
   paperBlog: string | null;
   paperView: "blog" | "fulltext";
@@ -1020,17 +1021,20 @@ export function DocumentCanvas(props: {
     </div>
   );
   const preview = (
-    <PdfPreview
-      url={props.pdfUrl}
-      pdfBase64={props.pdfBase64}
-      syncTarget={props.pdfSyncTarget}
-      // Reverse-jump to source only when the editor is visible (split/dual/
-      // columns). In PDF-only view there's nothing to jump to, so clicks stay
-      // inert and the synctex cursor is off.
-      onSource={props.mode === "pdf" ? undefined : props.onPdfSource}
-      onTextSelect={props.onPdfTextSelect}
-      onNumPages={props.onPdfPageCount}
-    />
+    <div className="pdf-column">
+      {props.pdfTop}
+      <PdfPreview
+        url={props.pdfUrl}
+        pdfBase64={props.pdfBase64}
+        syncTarget={props.pdfSyncTarget}
+        // Reverse-jump to source only when the editor is visible (split/dual/
+        // columns). In PDF-only view there's nothing to jump to, so clicks stay
+        // inert and the synctex cursor is off.
+        onSource={props.mode === "pdf" ? undefined : props.onPdfSource}
+        onTextSelect={props.onPdfTextSelect}
+        onNumPages={props.onPdfPageCount}
+      />
+    </div>
   );
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;

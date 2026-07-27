@@ -1192,7 +1192,9 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    expect(await screen.findByLabelText("Compile diagnostics")).toBeInTheDocument();
+    const diagnosticsPanel = await screen.findByLabelText("Compile diagnostics");
+    expect(diagnosticsPanel.closest(".pdf-column")).toBeInTheDocument();
+    expect(diagnosticsPanel.parentElement).not.toHaveClass("workspace");
     expect(screen.getByText("1 error")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: /Log/i }));
     expect(screen.getByLabelText("Raw build log")).toHaveTextContent("Undefined control sequence.");

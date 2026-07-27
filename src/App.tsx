@@ -5142,19 +5142,6 @@ function App() {
           <button onClick={() => setNotice(null)}><X size={14} /></button>
         </div>
       )}
-      {!diagnosticsDismissed && build && (!build.success || build.diagnostics.length > 0) ? (
-        <Suspense fallback={null}>
-          <CompileDiagnosticsPanel
-            diagnostics={build.diagnostics}
-            log={build.log}
-            success={build.success}
-            expanded={diagnosticsExpanded}
-            onExpandedChange={setDiagnosticsExpanded}
-            onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
-            onDismiss={() => setDiagnosticsDismissed(true)}
-          />
-        </Suspense>
-      ) : null}
       {referenceHits && (
         <ReferencesPanel
           kind={referenceHits.kind}
@@ -5339,6 +5326,19 @@ function App() {
             }}
             pdfUrl={pdfUrl}
             pdfBase64={previewPdfBase64}
+            pdfTop={!diagnosticsDismissed && build && (!build.success || build.diagnostics.length > 0) ? (
+              <Suspense fallback={null}>
+                <CompileDiagnosticsPanel
+                  diagnostics={build.diagnostics}
+                  log={build.log}
+                  success={build.success}
+                  expanded={diagnosticsExpanded}
+                  onExpandedChange={setDiagnosticsExpanded}
+                  onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
+                  onDismiss={() => setDiagnosticsDismissed(true)}
+                />
+              </Suspense>
+            ) : null}
             paperMarkdown={paperMarkdown}
             paperBlog={paperBlog}
             paperView={paperView}
