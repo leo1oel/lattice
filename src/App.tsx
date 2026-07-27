@@ -5320,20 +5320,6 @@ function App() {
                     { value: "agent", title: "Agent", label: <><Bot size={15} /><span>Agent</span></> },
                   ]}
                 />
-                <Select value={provider} disabled={agentRunning} onValueChange={(value) => changeProvider(value as AgentProvider)}>
-                  <SelectTrigger aria-label="Agent provider" className="sidebar-provider-select"><SelectValue /></SelectTrigger>
-                  <SelectContent position="popper" align="start" className="agent-select-menu">
-                    <SelectItem value="codex">Codex subscription</SelectItem>
-                    <SelectItem value="claude">Claude subscription</SelectItem>
-                    <SelectItem value="openai-api">OpenAI API</SelectItem>
-                    <SelectItem value="anthropic-api">Anthropic API</SelectItem>
-                  </SelectContent>
-                </Select>
-                {(provider === "openai-api" || provider === "anthropic-api") && (
-                  <Tip label="API key settings">
-                    <button className="sidebar-provider-settings" aria-label="API key settings" onClick={() => openSettings("api")}><KeyRound size={12} /></button>
-                  </Tip>
-                )}
                 <div className="sidebar-mode-actions">
                   {sidebarMode === "project" && (
                     <Tip label={projectSearchOpen ? "Hide file search" : "Search files"}>
@@ -5350,6 +5336,24 @@ function App() {
                       <Tip label="Add bibliography entry">
                         <button onClick={() => openBibEntryDialog()}><BookMarked size={14} /></button>
                       </Tip>
+                    </>
+                  )}
+                  {sidebarMode === "agent" && (
+                    <>
+                      <Select value={provider} disabled={agentRunning} onValueChange={(value) => changeProvider(value as AgentProvider)}>
+                        <SelectTrigger aria-label="Agent provider" className="sidebar-provider-select"><SelectValue /></SelectTrigger>
+                        <SelectContent position="popper" align="end" className="agent-select-menu">
+                          <SelectItem value="codex">Codex subscription</SelectItem>
+                          <SelectItem value="claude">Claude subscription</SelectItem>
+                          <SelectItem value="openai-api">OpenAI API</SelectItem>
+                          <SelectItem value="anthropic-api">Anthropic API</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {(provider === "openai-api" || provider === "anthropic-api") && (
+                        <Tip label="API key settings">
+                          <button className="sidebar-provider-settings" aria-label="API key settings" onClick={() => openSettings("api")}><KeyRound size={12} /></button>
+                        </Tip>
+                      )}
                     </>
                   )}
                 </div>

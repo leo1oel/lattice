@@ -668,6 +668,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    expect(screen.queryByLabelText("Agent provider")).not.toBeInTheDocument();
     await switchSidebarMode("Agent");
     expect(await screen.findByLabelText("Agent provider")).toHaveTextContent("Codex subscription");
     await withOpenSelect("Agent model", () => expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument());

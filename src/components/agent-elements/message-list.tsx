@@ -502,7 +502,7 @@ export const MessageList = memo(function MessageList({
                           <MessageToolbar
                             text={showCopyToolbar ? text : ""}
                             timestamp={userTimestamp}
-                            heightClass="h-[22px]"
+                            heightClass="h-[18px]"
                             hoverClass="group-hover/user-message:opacity-100 group-hover/user-message:pointer-events-auto"
                             isVisible={userCopyVisible}
                             alignClass="justify-end"
