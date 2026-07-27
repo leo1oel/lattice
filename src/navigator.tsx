@@ -43,8 +43,18 @@ import {
 import { paperKey, paperSubtitle, CITE_COMMANDS } from "./app-utils";
 import type { FileNode, PaperSummary, CiteCommand, ProjectSearchResult } from "./app-types";
 
+function readExpandedDirectories(key: string): Set<string> {
+  try {
+    const stored = JSON.parse(localStorage.getItem(key) ?? "[]") as unknown;
+    return new Set(Array.isArray(stored) ? stored.filter((path): path is string => typeof path === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
 export function Navigator(props: {
   mode: "project" | "papers";
+  projectKey: string;
   searchOpen: boolean;
   onSearchOpenChange: (open: boolean) => void;
   files: FileNode[];
@@ -87,6 +97,24 @@ export function Navigator(props: {
   const [searchResults, setSearchResults] = useState<ProjectSearchResult[]>([]);
   const [searchResultQuery, setSearchResultQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const expansionStorageKey = `lattice:expanded-directories:${props.projectKey}`;
+  const [expandedDirectories, setExpandedDirectories] = useState(() => readExpandedDirectories(expansionStorageKey));
+  useEffect(() => {
+    setExpandedDirectories(readExpandedDirectories(expansionStorageKey));
+  }, [expansionStorageKey]);
+  const toggleDirectory = (path: string) => {
+    setExpandedDirectories((current) => {
+      const next = new Set(current);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      try {
+        localStorage.setItem(expansionStorageKey, JSON.stringify([...next]));
+      } catch {
+        // Keep the in-memory interaction working when storage is unavailable.
+      }
+      return next;
+    });
+  };
   useEffect(() => {
     const query = searchQuery.trim();
     if (!query) return;
@@ -256,7 +284,7 @@ export function Navigator(props: {
                 </small>
               </span>
             </button>
-          )) : props.files.map((node) => <TreeNode key={node.path} node={node} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} renderContextMenu={renderItemContextMenu} />)}
+          )) : props.files.map((node) => <TreeNode key={node.path} node={node} openDirectories={expandedDirectories} onToggleDirectory={toggleDirectory} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} renderContextMenu={renderItemContextMenu} />)}
           {searchActive && !searchPending && !searching && !fileSearchResults.length && <p className="search-empty">No matching project files.</p>}
         </div>
         {renderItemContextMenu({ path: "", label: "Project", kind: "project" }, <div className="project-context-space" aria-label="Project sidebar empty space" />)}
@@ -361,15 +389,15 @@ export function Navigator(props: {
   );
 }
 
-export function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, onFile, onAsset, onBeginFigureDrag, onDelete, onImportAssets, assetDropTarget, assetImporting, renderContextMenu }: { node: FileNode; activeFile: string; activeAssetPath: string; protectedPaths: string[]; onFile: (path: string) => void; onAsset: (path: string) => void; onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; renderContextMenu: (target: { path: string; label: string; kind: "project" | "directory" | "file" }, children: React.ReactElement) => React.ReactElement }) {
-  const [open, setOpen] = useState(true);
+export function TreeNode({ node, openDirectories, onToggleDirectory, activeFile, activeAssetPath, protectedPaths, onFile, onAsset, onBeginFigureDrag, onDelete, onImportAssets, assetDropTarget, assetImporting, renderContextMenu }: { node: FileNode; openDirectories: Set<string>; onToggleDirectory: (path: string) => void; activeFile: string; activeAssetPath: string; protectedPaths: string[]; onFile: (path: string) => void; onAsset: (path: string) => void; onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void; onDelete: (path: string) => void; onImportAssets: (targetDirectory?: string) => void; assetDropTarget: string | null; assetImporting: boolean; renderContextMenu: (target: { path: string; label: string; kind: "project" | "directory" | "file" }, children: React.ReactElement) => React.ReactElement }) {
+  const open = openDirectories.has(node.path);
   const protectedEntry = protectedPaths.some((path) => path === node.path || path.startsWith(`${node.path}/`));
   if (node.kind === "directory") {
     return (
       <div className={`tree-directory ${assetDropTarget === node.path ? "drop-target" : ""}`} data-drop-directory={node.path}>
         {renderContextMenu({ path: node.path, label: node.name, kind: "directory" }, (
           <div className="tree-row">
-            <button className="tree-main" onClick={() => setOpen((value) => !value)}>
+            <button className="tree-main" onClick={() => onToggleDirectory(node.path)}>
               <ChevronRight className={`tree-chevron ${open ? "open" : ""}`} size={13} />
               {/* The icon says the same thing the chevron does. A tree can be
                   hundreds of rows, so this is a swap rather than a crossfade —
@@ -381,7 +409,7 @@ export function TreeNode({ node, activeFile, activeAssetPath, protectedPaths, on
           </div>
         ))}
         {assetDropTarget === node.path && <div className="asset-drop-hint">Drop images into {node.path}</div>}
-        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} activeFile={activeFile} activeAssetPath={activeAssetPath} protectedPaths={protectedPaths} onFile={onFile} onAsset={onAsset} onBeginFigureDrag={onBeginFigureDrag} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} renderContextMenu={renderContextMenu} />)}</div>}
+        {open && <div className="tree-children">{node.children.map((child) => <TreeNode key={child.path} node={child} openDirectories={openDirectories} onToggleDirectory={onToggleDirectory} activeFile={activeFile} activeAssetPath={activeAssetPath} protectedPaths={protectedPaths} onFile={onFile} onAsset={onAsset} onBeginFigureDrag={onBeginFigureDrag} onDelete={onDelete} onImportAssets={onImportAssets} assetDropTarget={assetDropTarget} assetImporting={assetImporting} renderContextMenu={renderContextMenu} />)}</div>}
       </div>
     );
   }

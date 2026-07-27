@@ -998,6 +998,11 @@ describe("project workspace", () => {
     });
 
     render(<App />);
+    expect(screen.queryByRole("button", { name: "native-umm.svg" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "figures" }));
+    expect(await screen.findByRole("button", { name: "native-umm.svg" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
     fireEvent.click(await screen.findByRole("button", { name: "native-umm.svg" }));
     expect(await screen.findByAltText("Preview of figures/native-umm.svg")).toHaveAttribute("src", "data:image/svg+xml;base64,PHN2Zy8+");
     const assetTab = screen.getByRole("tab", { name: /native-umm\.svg/ });

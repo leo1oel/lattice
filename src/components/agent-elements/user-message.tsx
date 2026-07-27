@@ -158,8 +158,8 @@ export const UserMessage = memo(function UserMessage({
       )}
       {text && (
         <div className="max-w-[88%]">
-          <div className="agent-elements-user-bubble px-[11px] py-[9px] text-[12.5px] transition-colors bg-an-user-message-bg text-an-user-message-text">
-            <p className="leading-[1.55] whitespace-pre-wrap wrap-break-word">
+          <div className="agent-elements-user-bubble transition-colors bg-an-user-message-bg text-an-user-message-text">
+            <p className="whitespace-pre-wrap wrap-break-word">
               {text}
             </p>
           </div>

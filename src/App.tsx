@@ -5361,6 +5361,7 @@ function App() {
               <div className="sidebar-pane" hidden={sidebarMode === "agent"}>
                 <Navigator
                   mode={sidebarMode === "papers" ? "papers" : "project"}
+                  projectKey={project.root}
                   searchOpen={projectSearchOpen}
                   onSearchOpenChange={setProjectSearchOpen}
                   files={project.files}

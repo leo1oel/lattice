@@ -500,8 +500,8 @@ export function AgentPanel({
                   const nextEfforts = options.find((option) => option.value === nextModel)?.efforts ?? ["high"];
                   setModel(nextModel);
                   if (!nextEfforts.includes(reasoningEffort)) setReasoningEffort(nextEfforts.includes("high") ? "high" : nextEfforts[0]);
-                }}><SelectTrigger aria-label="Agent model" className="config-select model-select"><SelectValue /></SelectTrigger><SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
-                <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select effort-select"><SelectValue /></SelectTrigger><SelectContent>{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
+                }}><SelectTrigger aria-label="Agent model" className="config-select model-select"><SelectValue /></SelectTrigger><SelectContent position="popper" side="top" sideOffset={6} align="start">{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
+                <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select effort-select"><SelectValue /></SelectTrigger><SelectContent position="popper" side="top" sideOffset={6} align="start">{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
               </div>
               {running && <span>{status || "Agent is working…"}</span>}
             </div>
