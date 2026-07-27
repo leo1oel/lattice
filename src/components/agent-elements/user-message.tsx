@@ -116,7 +116,7 @@ export const UserMessage = memo(function UserMessage({
   }));
 
   return (
-    <div className={cn("flex flex-col items-stretch gap-1", className)}>
+    <div className={cn("flex flex-col items-end gap-1", className)}>
       {images.length > 0 &&
         images.map((url, i) => (
           <div
@@ -145,7 +145,7 @@ export const UserMessage = memo(function UserMessage({
         />
       )}
       {files.length > 0 && (
-        <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-col items-end gap-2">
           {files.map((file, i) => (
             <FileAttachment
               key={`${file.filename}-${i}`}
@@ -157,9 +157,9 @@ export const UserMessage = memo(function UserMessage({
         </div>
       )}
       {text && (
-        <div className="w-full">
-          <div className="agent-elements-user-bubble px-2.5 py-2 text-[13px] transition-colors rounded-an-message bg-an-user-message-bg text-an-user-message-text">
-            <p className="leading-[1.5] whitespace-pre-wrap wrap-break-word">
+        <div className="max-w-[88%]">
+          <div className="agent-elements-user-bubble px-[11px] py-[9px] text-[12.5px] transition-colors bg-an-user-message-bg text-an-user-message-text">
+            <p className="leading-[1.55] whitespace-pre-wrap wrap-break-word">
               {text}
             </p>
           </div>

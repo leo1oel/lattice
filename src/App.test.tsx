@@ -1748,8 +1748,8 @@ describe("project workspace", () => {
     await chooseOption("Agent provider", "Claude subscription");
     await chooseOption("Agent model", "Claude Opus 4.8");
     await chooseOption("Reasoning effort", "Extra high");
-    expect(screen.getByLabelText("Agent model").closest(".agent-elements-composer")).not.toBeNull();
-    expect(screen.getByLabelText("Reasoning effort").closest(".agent-elements-composer")).not.toBeNull();
+    expect(screen.getByLabelText("Agent model").closest(".composer")).not.toBeNull();
+    expect(screen.getByLabelText("Reasoning effort").closest(".composer")).not.toBeNull();
     expect(screen.queryByText(/Enter sends/i)).not.toBeInTheDocument();
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     const message = `Review the abstract.\n${"longword".repeat(40)}`;

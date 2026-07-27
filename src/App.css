@@ -510,7 +510,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   --an-foreground-subtle: var(--faint);
   --an-border-color: var(--line-strong);
   --an-primary-color: var(--accent);
-  --an-user-message-bg: color-mix(in srgb, var(--line) 64%, var(--panel-strong));
+  --an-user-message-bg: var(--accent-soft);
   --an-user-message-text: var(--text);
   --an-input-background: var(--panel-strong);
   --an-input-border-color: var(--line-strong);
@@ -523,9 +523,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   --an-tool-color: var(--text);
   --an-tool-color-muted: var(--muted);
 }
-.agent-header { height: 36px; flex: none; padding: 0 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent); display: flex; align-items: center; }
+.agent-header { height: 40px; flex: none; padding: 0 10px; display: flex; align-items: center; }
 .agent-conversation-controls { width: 100%; min-width: 0; flex: 1; display: flex; align-items: center; gap: 2px; }
-.agent-title { width: 0; min-width: 0; flex: 1; height: 26px; padding: 0 5px; border-radius: 6px; background: transparent; display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; }
+.agent-title { width: 0; min-width: 0; flex: 1; height: 28px; padding: 0 6px; border-radius: 6px; background: transparent; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
 .agent-title:hover, .agent-title[aria-expanded="true"] { background: var(--line); }
 .agent-title span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agent-title svg { flex: none; }
@@ -584,7 +584,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .agent-elements-message-list .an-markdown p { overflow-wrap: anywhere; }
 .agent-elements-user-turn { min-width: 0; }
 .agent-elements-user-bubble {
-  border: 1px solid color-mix(in srgb, var(--line-strong) 58%, transparent);
+  border-radius: 12px 12px 3px 12px;
 }
 .agent-elements-assistant-turn { min-width: 0; }
 .agent-elements-assistant-body { min-width: 0; }
@@ -653,7 +653,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .thinking canvas { flex: none; }
 .thinking em { color: var(--faint); font-size: 9px; font-style: normal; }
 @keyframes stream-cursor { 0%, 48% { opacity: 1; } 49%, 100% { opacity: 0; } }
-.composer-wrap { position: relative; flex: none; padding: 6px 8px 8px; }
+.composer-wrap { position: relative; flex: none; padding: 8px 10px 11px; }
 .agent-elements-input { padding: 0; }
 .agent-elements-input > div { max-width: none; }
 .agent-elements-input textarea { box-sizing: border-box; font-family: var(--ui-font); }

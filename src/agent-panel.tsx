@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ChatStatus, UIMessage } from "ai";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -13,6 +13,8 @@ import {
   Paperclip,
   Plus,
   Search,
+  Send,
+  Square,
   TerminalSquare,
   Trash2,
   X,
@@ -27,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
-import { InputBar } from "./components/agent-elements/input-bar";
 import { MessageList } from "./components/agent-elements/message-list";
 import { UserMessage as AgentElementsUserMessage } from "./components/agent-elements/user-message";
 import { GenericTool } from "./components/agent-elements/tools/generic-tool";
@@ -52,6 +53,7 @@ import {
   relativeTime,
   mentionAtCaret,
 } from "./app-utils";
+import { clamp } from "./app-settings";
 
 function toolDetailLabel(step: AgentToolStep): string {
   if (!step.detail) return step.phase === "start" ? "Working…" : "";
@@ -246,6 +248,14 @@ export function AgentPanel({
       .slice(0, 8)
     : [];
   const slashSuggestions = slash ? filterSlashCommands(agentCommands, slash.query).slice(0, 8) : [];
+  useLayoutEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+    composer.style.height = "0px";
+    const height = clamp(composer.scrollHeight, 44, 160);
+    composer.style.height = `${height}px`;
+    composer.style.overflowY = composer.scrollHeight > 160 ? "auto" : "hidden";
+  }, [input]);
   const agentElementsMessages = useMemo(() => toAgentElementsMessages(messages), [messages]);
   const messageById = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
   const AgentElementsUser = useCallback(({ message }: { message: UIMessage; className?: string; enableImagePreview?: boolean }) => {
@@ -376,88 +386,84 @@ export function AgentPanel({
             ))}
           </div>
         )}
-        <InputBar
-          className="agent-elements-input"
-          inputRef={composerRef}
-          value={input}
-          onChange={setInput}
-          placeholder="Ask the agent to write, revise, or reason…"
-          status={chatStatus}
-          disabled={running ? !cancellable || stopping : false}
-          onAttach={onAddAttachments}
-          attachedFiles={attachments.map((attachment) => ({ id: attachment.path, filename: attachment.name, size: attachment.size }))}
-          onRemoveFile={onRemoveAttachment}
-          onSend={() => {
-            setMention(null);
-            setSlash(null);
-            onSend();
-          }}
-          onStop={() => {
-            if (cancellable && !stopping) onStop();
-          }}
-          onTextareaChange={(event) => {
+        <div className="composer">
+          {!!attachments.length && <div className="staged-attachments">{attachments.map((attachment) => <span key={attachment.path} title={attachment.path}><Paperclip size={10} /><b>{attachment.name}</b><small>{attachment.kind} · {attachmentSize(attachment.size)}</small><button aria-label={`Remove ${attachment.name}`} disabled={running} onClick={() => onRemoveAttachment(attachment.path)}><X size={10} /></button></span>)}</div>}
+          <textarea
+            ref={composerRef}
+            rows={1}
+            placeholder="Ask the agent to write, revise, or reason…"
+            value={input}
+            onChange={(event) => {
+              setInput(event.target.value);
               setMention(mentionAtCaret(event.target.value, event.target.selectionStart));
               setMentionIndex(0);
               setSlash(slashAtCaret(event.target.value, event.target.selectionStart));
               setSlashIndex(0);
-          }}
-          onTextareaSelect={(event) => {
+            }}
+            onSelect={(event) => {
               setMention(mentionAtCaret(event.currentTarget.value, event.currentTarget.selectionStart));
               setSlash(slashAtCaret(event.currentTarget.value, event.currentTarget.selectionStart));
-          }}
-          onTextareaBlur={() => { setMention(null); setSlash(null); }}
-          onTextareaKeyDown={(event) => {
-              if (event.nativeEvent.isComposing || event.keyCode === 229 || event.key === "Process") return true;
+            }}
+            onBlur={() => { setMention(null); setSlash(null); }}
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing || event.keyCode === 229 || event.key === "Process") return;
               if (slash && slashSuggestions.length) {
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
                   setSlashIndex((index) => (index + 1) % slashSuggestions.length);
-                  return true;
+                  return;
                 }
                 if (event.key === "ArrowUp") {
                   event.preventDefault();
                   setSlashIndex((index) => (index - 1 + slashSuggestions.length) % slashSuggestions.length);
-                  return true;
+                  return;
                 }
                 // Enter still sends: a fully typed command should not need a
                 // second keystroke just because the menu is open.
                 if (event.key === "Tab") {
                   event.preventDefault();
                   insertSlashCommand(slashSuggestions[Math.min(slashIndex, slashSuggestions.length - 1)]);
-                  return true;
+                  return;
                 }
               }
               if (event.key === "Escape" && slash) {
                 event.preventDefault();
                 setSlash(null);
-                return true;
+                return;
               }
               if (mention && mentionSuggestions.length) {
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
                   setMentionIndex((index) => (index + 1) % mentionSuggestions.length);
-                  return true;
+                  return;
                 }
                 if (event.key === "ArrowUp") {
                   event.preventDefault();
                   setMentionIndex((index) => (index - 1 + mentionSuggestions.length) % mentionSuggestions.length);
-                  return true;
+                  return;
                 }
                 if (event.key === "Enter" || event.key === "Tab") {
                   event.preventDefault();
                   insertMention(mentionSuggestions[Math.min(mentionIndex, mentionSuggestions.length - 1)]);
-                  return true;
+                  return;
                 }
               }
               if (event.key === "Escape" && mention) {
                 event.preventDefault();
                 setMention(null);
-                return true;
+                return;
               }
-              return false;
-          }}
-          leftActions={(
-            <div className="composer-footer-left agent-elements-config">
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                setMention(null);
+                setSlash(null);
+                onSend();
+              }
+            }}
+          />
+          <div className="composer-footer">
+            <div className="composer-footer-left">
+              <button className="attach-button" title="Add attachments" aria-label="Add attachments" disabled={running} onClick={onAddAttachments}><Paperclip size={13} /></button>
               <div className="footer-selectors">
                 <Select value={provider} disabled={running} onValueChange={(value) => setProvider(value as AgentProvider)}>
                   <SelectTrigger aria-label="Agent provider" className="config-select"><SelectValue /></SelectTrigger>
@@ -476,10 +482,13 @@ export function AgentPanel({
                 <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select"><SelectValue /></SelectTrigger><SelectContent>{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
               </div>
               {(provider === "openai-api" || provider === "anthropic-api") && <button className="attach-button" title="API key settings" aria-label="API key settings" onClick={onApiSettings}><KeyRound size={13} /></button>}
+              {running && <span>{status || "Agent is working…"}</span>}
             </div>
-          )}
-          rightActions={running && status ? <span className="agent-elements-status">{status}</span> : undefined}
-        />
+            {running
+              ? <button className="stop-agent-button" title={stopping ? "Stopping agent" : "Stop agent"} onClick={onStop} disabled={!cancellable || stopping}><Square size={12} fill="currentColor" /></button>
+              : <button title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={!input.trim() && !attachments.length}><Send size={14} /></button>}
+          </div>
+        </div>
       </div>
     </section>
   );
