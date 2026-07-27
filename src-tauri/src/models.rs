@@ -451,12 +451,32 @@ pub struct AgentMessage {
     pub text: String,
     #[serde(default)]
     pub files: Vec<String>,
+    /// User-supplied context. This is deliberately separate from `files`, which
+    /// records files changed by the agent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<AgentAttachmentMetadata>,
     #[serde(default)]
     pub skills: Vec<String>,
     /// Empty for user/system messages and for turns recorded before the field
     /// existed; the renderer falls back to `text` then.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub parts: Vec<MessagePart>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentAttachmentDescriptor {
+    pub path: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentAttachmentMetadata {
+    pub name: String,
+    pub kind: String,
+    pub mime_type: Option<String>,
+    pub size: u64,
 }
 
 /// A slash command offered by the OMP build we ship.
@@ -482,6 +502,8 @@ pub struct AgentSettings {
 pub struct AgentRunRequest {
     pub settings: AgentSettings,
     pub message: String,
+    #[serde(default)]
+    pub attachments: Vec<AgentAttachmentDescriptor>,
     pub active_file: Option<String>,
     pub selection: Option<String>,
     pub session_id: String,
@@ -613,6 +635,9 @@ pub struct AgentResult {
     pub changed_files: Vec<String>,
     pub transaction_id: Option<String>,
     pub skills_used: Vec<String>,
+    /// Metadata from the exact bounded bytes sent to OMP, rather than the
+    /// earlier file-picker preview.
+    pub attachments: Vec<AgentAttachmentMetadata>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -626,6 +651,9 @@ pub enum AgentStreamEvent {
     },
     Cancellable {
         enabled: bool,
+    },
+    Attachments {
+        attachments: Vec<AgentAttachmentMetadata>,
     },
     Tool {
         name: String,

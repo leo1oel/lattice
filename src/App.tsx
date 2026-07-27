@@ -241,6 +241,8 @@ import type {
   OverleafLink,
   OverleafProbe,
   OverleafSyncResult,
+  AgentAttachmentDescriptor,
+  AgentAttachmentMetadata,
 } from "./app-types";
 import { WELCOME_MESSAGE, agentErrorDetails, arxivIdFromTabKey, autoBuildDescription, beginWindowDrag, buildAgentMentions, confirmAction, defaultModel, dropDirectoryAt, dropEditorAt, isPaperTabKey, normalizeEffort, normalizeModel, paperKey, paperTabKey, projectItemPath, toMessage, toggleWindowFullscreen } from "./app-utils";
 import { mcpDraftToSaveRequest } from "./mcp-settings";
@@ -345,6 +347,7 @@ function App() {
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const [branchSource, setBranchSource] = useState<{ sessionId: string; messageId: string } | null>(null);
   const [agentInput, setAgentInput] = useState("");
+  const [agentAttachments, setAgentAttachments] = useState<AgentAttachmentDescriptor[]>([]);
   const [provider, setProvider] = useState<AgentProvider>("codex");
   const [agentModel, setAgentModel] = useState(defaultModel("codex"));
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("high");
@@ -2281,6 +2284,7 @@ function App() {
       setBuild(null);
       setSelection("");
       setSelectionSource(null);
+      setAgentAttachments([]);
       selectionSourceRef.current = null;
       setTexlabDiagnostics([]);
       setEditorComments([]);
@@ -2371,6 +2375,7 @@ function App() {
       setAgentSessions(sessionList);
       setActiveSession(session);
       setMessages(session.messages);
+      setAgentAttachments([]);
       setBranchSource(null);
       setProvider(session.provider);
       setAgentModel(normalizeModel(session.provider, session.model));
@@ -3777,6 +3782,7 @@ function App() {
       });
       setActiveSession(session);
       setMessages(session.messages);
+      setAgentAttachments([]);
       stickToBottomRef.current = true;
       setBranchSource(null);
       setSessionMenuOpen(false);
@@ -3795,6 +3801,7 @@ function App() {
       const session = await invoke<AgentSession>("read_agent_session", { sessionId: id });
       setActiveSession(session);
       setMessages(session.messages);
+      setAgentAttachments([]);
       stickToBottomRef.current = true;
       setBranchSource(null);
       setProvider(session.provider);
@@ -3819,6 +3826,7 @@ function App() {
         if (!remaining.length) remaining = await invoke<AgentSessionSummary[]>("list_agent_sessions");
         setActiveSession(next);
         setMessages(next.messages);
+        setAgentAttachments([]);
         setProvider(next.provider);
         setAgentModel(normalizeModel(next.provider, next.model));
         setReasoningEffort(normalizeEffort(next.reasoningEffort));
@@ -3865,8 +3873,10 @@ function App() {
 
   const sendToAgent = useCallback(async () => {
     const message = agentInput.trim();
-    if (!message || agentRunning) return;
+    if ((!message && !agentAttachments.length) || agentRunning) return;
+    let submittedAttachments = agentAttachments;
     setAgentInput("");
+    setAgentAttachments([]);
     // Sending is an explicit "show me the reply", so re-pin to the bottom even
     // if the user had scrolled up in the previous turn.
     stickToBottomRef.current = true;
@@ -3881,6 +3891,7 @@ function App() {
     const priorMessages = messages;
     let session = activeSession;
     let currentMessages = messages;
+    let backendStarted = false;
     const streamedMessageId = crypto.randomUUID();
     // Declared out here so the completion path and error handlers can cancel a
     // still-pending streamed render before they commit the final transcript.
@@ -3893,6 +3904,11 @@ function App() {
     };
     try {
       if (!(await save())) throw new Error("Save the current file before running the agent.");
+      if (submittedAttachments.length) {
+        const descriptors = submittedAttachments.map(({ path, name }) => ({ path, name }));
+        const metadata = await invoke<AgentAttachmentMetadata[]>("inspect_agent_attachments", { attachments: descriptors });
+        submittedAttachments = descriptors.map((descriptor, index) => ({ ...descriptor, ...metadata[index] }));
+      }
       if (branchSource) {
         session = await invoke<AgentSession>("fork_agent_session", {
           sourceSessionId: branchSource.sessionId,
@@ -3917,7 +3933,12 @@ function App() {
         model: agentModel,
         reasoningEffort,
       });
-      const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", text: message };
+      const userMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        text: message,
+        attachments: submittedAttachments.map(({ name, kind, mimeType, size }) => ({ name, kind, mimeType, size })),
+      };
       await invoke("save_agent_checkpoint", { sessionId: session.id, messageId: userMessage.id });
       const pendingMessages = [...session.messages, userMessage];
       currentMessages = pendingMessages;
@@ -3947,6 +3968,15 @@ function App() {
         if (publishHandle === null) publishHandle = window.requestAnimationFrame(flushPublish);
       };
       const onEvent = new Channel<AgentStreamEvent>((event) => {
+        backendStarted = true;
+        if (event.type === "attachments") {
+          const accepted = pendingMessages.map((pending) => pending.id === userMessage.id
+            ? { ...pending, attachments: event.attachments }
+            : pending);
+          currentMessages = accepted;
+          setMessages(accepted);
+          return;
+        }
         if (event.type === "cancellable") {
           setAgentCancellable(event.enabled);
           return;
@@ -4021,6 +4051,7 @@ function App() {
         request: {
           settings: { provider, model: agentModel, reasoningEffort },
           message,
+          attachments: submittedAttachments,
           activeFile: activeFile || null,
           selection: selection || null,
           sessionId: session.id,
@@ -4028,6 +4059,7 @@ function App() {
           systemPrompt,
         },
       });
+      backendStarted = true;
       // Nothing streamed (a short non-streaming reply) leaves no parts to keep,
       // so fall back to the summary as a single spoken part.
       // The transcript first, then how the run ended if that needs saying.
@@ -4049,7 +4081,11 @@ function App() {
         .map((part) => part.text)
         .join("\n\n")
         .trim() || result.summary;
-      const completedMessages: ChatMessage[] = [...pendingMessages, {
+      const acceptedAttachments = result.attachments ?? userMessage.attachments ?? [];
+      const acceptedPendingMessages = pendingMessages.map((pending) => pending.id === userMessage.id
+        ? { ...pending, attachments: acceptedAttachments }
+        : pending);
+      const completedMessages: ChatMessage[] = [...acceptedPendingMessages, {
         id: streamedMessageId,
         role: "agent",
         text: completedText,
@@ -4113,6 +4149,7 @@ function App() {
         // it, otherwise reverting the un-answered message from an existing one).
         const createdThisTurn = session && session.id !== priorSession?.id;
         setAgentInput((current) => (current.trim() ? current : message));
+        setAgentAttachments((current) => current.length ? current : submittedAttachments);
         setMessages(priorMessages);
         setActiveSession(priorSession);
         if (createdThisTurn && session) {
@@ -4132,6 +4169,25 @@ function App() {
         }
         await refreshAgentSessions();
         openSettings(settingsTab);
+        setError(text);
+      } else if (!backendStarted) {
+        const createdThisTurn = session && session.id !== priorSession?.id;
+        setAgentInput((current) => (current.trim() ? current : message));
+        setAgentAttachments((current) => current.length ? current : submittedAttachments);
+        setMessages(priorMessages);
+        setActiveSession(priorSession);
+        try {
+          if (createdThisTurn && session) {
+            await invoke("delete_agent_session", { sessionId: session.id });
+          } else if (priorSession) {
+            await invoke("save_agent_session", {
+              session: { ...priorSession, provider, model: agentModel, reasoningEffort, messages: priorMessages },
+            });
+          }
+          await refreshAgentSessions();
+        } catch {
+          // The in-memory draft is restored even if disk cleanup fails.
+        }
         setError(text);
       } else {
         const failedMessages: ChatMessage[] = [
@@ -4160,7 +4216,7 @@ function App() {
       setAgentCancellable(false);
       setAgentStatus("");
     }
-  }, [activeFile, activeSession, agentInput, agentModel, agentRunning, branchSource, compile, loadFile, messages, openSettings, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
+  }, [activeFile, activeSession, agentAttachments, agentInput, agentModel, agentRunning, branchSource, compile, loadFile, messages, openSettings, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
 
   const stopAgent = useCallback(async () => {
     const sessionId = runningAgentSession.current;
@@ -4180,6 +4236,7 @@ function App() {
     if (!activeSession || agentRunning || message.role !== "user") return;
     setBranchSource({ sessionId: activeSession.id, messageId: message.id });
     setAgentInput(message.text);
+    setAgentAttachments([]);
   }, [activeSession, agentRunning]);
 
   const revert = useCallback(
@@ -5258,6 +5315,36 @@ function App() {
                   cancellable={agentCancellable}
                   stopping={agentStopping}
                   onSend={sendToAgent}
+                  attachments={agentAttachments}
+                  onAddAttachments={async () => {
+                    const selected = await open({ multiple: true, directory: false, title: "Attach images or UTF-8 text" });
+                    if (!selected) return;
+                    const paths = Array.isArray(selected) ? selected : [selected];
+                    const newPaths = paths.filter((path) => !agentAttachments.some((item) => item.path === path));
+                    if (!newPaths.length) return;
+                    if (agentAttachments.length + newPaths.length > 8) {
+                      setError("Attach at most 8 files per message.");
+                      return;
+                    }
+                    const descriptors = newPaths.map((path) => ({
+                      path,
+                      name: path.split(/[\\/]/).pop() || "attachment",
+                    }));
+                    try {
+                      const metadata = await invoke<AgentAttachmentMetadata[]>("inspect_agent_attachments", {
+                        attachments: descriptors,
+                      });
+                      setAgentAttachments((current) => [
+                        ...current,
+                        ...descriptors.flatMap((descriptor, index) => current.some((item) => item.path === descriptor.path)
+                          ? []
+                          : [{ ...descriptor, ...metadata[index] }]),
+                      ].slice(0, 8));
+                    } catch (reason) {
+                      setError(toMessage(reason));
+                    }
+                  }}
+                  onRemoveAttachment={(path) => setAgentAttachments((current) => current.filter((attachment) => attachment.path !== path))}
                   onStop={stopAgent}
                   onApiSettings={() => openSettings("api")}
                   selection={selection}

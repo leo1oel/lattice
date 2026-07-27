@@ -25,15 +25,15 @@ mod texcount;
 mod texlab;
 
 use models::{
-    AgentCommand, AgentResult, AgentRunRequest, AgentSession, AgentSessionSearchResult,
-    AgentSessionSummary, AgentSkill, AgentSkillSaveRequest, AgentStreamEvent, AssetPreview,
-    BuildResult, CitationInfo, DoctorReport, EditorComment, GitDiff, GitRemoteResult, GitStatus,
-    HistoryItem, ImportResult, LiteraturePage, McpServer, McpServerSaveRequest, OpenAlexWork,
-    PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest, ProjectSearchResult, ProjectSnapshot,
-    ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult, ResolvedCitation,
-    SubscriptionLoginEvent, SubscriptionStatus, SymbolOccurrence, SyncTexTarget,
-    TexlabCompletionItem, TexlabHover, TexlabLocation, TodoHit, TransactionRecord, UnusedSymbols,
-    WordCount,
+    AgentAttachmentDescriptor, AgentAttachmentMetadata, AgentCommand, AgentResult, AgentRunRequest,
+    AgentSession, AgentSessionSearchResult, AgentSessionSummary, AgentSkill, AgentSkillSaveRequest,
+    AgentStreamEvent, AssetPreview, BuildResult, CitationInfo, DoctorReport, EditorComment,
+    GitDiff, GitRemoteResult, GitStatus, HistoryItem, ImportResult, LiteraturePage, McpServer,
+    McpServerSaveRequest, OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest,
+    ProjectSearchResult, ProjectSnapshot, ReferenceInfo, RenameSymbolResult, ReplacePreview,
+    ReplaceResult, ResolvedCitation, SubscriptionLoginEvent, SubscriptionStatus, SymbolOccurrence,
+    SyncTexTarget, TexlabCompletionItem, TexlabHover, TexlabLocation, TodoHit, TransactionRecord,
+    UnusedSymbols, WordCount,
 };
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -1777,6 +1777,7 @@ async fn run_agent(
             agents::AgentRequest {
                 settings: &request.settings,
                 message: &request.message,
+                attachments: &request.attachments,
                 active_file: request.active_file.as_deref(),
                 selection: request.selection.as_deref(),
                 session_id: &request.session_id,
@@ -1790,6 +1791,13 @@ async fn run_agent(
     })
     .await
     .map_err(|error| format!("The writing agent task stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+fn inspect_agent_attachments(
+    attachments: Vec<AgentAttachmentDescriptor>,
+) -> Result<Vec<AgentAttachmentMetadata>, String> {
+    agents::inspect_attachments(&attachments)
 }
 
 #[tauri::command]
@@ -2404,6 +2412,7 @@ pub fn run() {
             read_paper_blog,
             read_paper_blog_local,
             run_agent,
+            inspect_agent_attachments,
             abort_agent,
             subscription_status,
             list_agent_commands,

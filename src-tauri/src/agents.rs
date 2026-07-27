@@ -1,17 +1,18 @@
 use crate::commands;
 use crate::models::{
-    AgentCommand, AgentResult, AgentSettings, AgentStreamEvent, SubscriptionLoginEvent,
-    SubscriptionStatus,
+    AgentAttachmentDescriptor, AgentAttachmentMetadata, AgentCommand, AgentResult, AgentSettings,
+    AgentStreamEvent, SubscriptionLoginEvent, SubscriptionStatus,
 };
 use crate::project;
 use crate::skill_store;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
+use image::{ImageFormat, ImageReader, Limits};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -24,6 +25,9 @@ const AGENT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SUBSCRIPTION_AUTH_ERROR_PREFIX: &str = "LATTICE_AUTH_SUBSCRIPTION:";
 const API_KEY_AUTH_ERROR_PREFIX: &str = "LATTICE_AUTH_API_KEY:";
 const AGENT_STOPPED_ERROR_PREFIX: &str = "LATTICE_AGENT_STOPPED:";
+const MAX_ATTACHMENTS: usize = 8;
+const MAX_ATTACHMENT_BYTES: u64 = 5 * 1024 * 1024;
+const MAX_TOTAL_ATTACHMENT_BYTES: u64 = 12 * 1024 * 1024;
 #[cfg(not(test))]
 const CANCEL_GRACE_PERIOD: Duration = Duration::from_secs(2);
 #[cfg(test)]
@@ -220,6 +224,7 @@ impl Drop for ActiveRunRegistration {
 pub struct AgentRequest<'a> {
     pub settings: &'a AgentSettings,
     pub message: &'a str,
+    pub attachments: &'a [AgentAttachmentDescriptor],
     pub active_file: Option<&'a str>,
     pub selection: Option<&'a str>,
     pub session_id: &'a str,
@@ -249,13 +254,151 @@ struct OmpRunResult {
     skills_used: Vec<String>,
 }
 
+#[derive(Debug)]
+struct LoadedAttachments {
+    text: String,
+    images: Vec<Value>,
+    metadata: Vec<AgentAttachmentMetadata>,
+}
+
+fn load_attachments(
+    descriptors: &[AgentAttachmentDescriptor],
+) -> Result<LoadedAttachments, String> {
+    if descriptors.len() > MAX_ATTACHMENTS {
+        return Err(format!(
+            "Attach at most {MAX_ATTACHMENTS} files per message."
+        ));
+    }
+    let mut total = 0_u64;
+    let mut text = String::new();
+    let mut images = Vec::new();
+    let mut attachment_metadata = Vec::new();
+    for descriptor in descriptors {
+        let path = Path::new(&descriptor.path);
+        let name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or(&descriptor.name);
+        let file = fs::File::open(path).map_err(|_| {
+            format!(
+                "Attachment '{}' no longer exists. Remove it and attach it again.",
+                name
+            )
+        })?;
+        let metadata = file
+            .metadata()
+            .map_err(|error| format!("Could not inspect attachment '{name}': {error}"))?;
+        if !metadata.is_file() {
+            return Err(format!("Attachment '{name}' is not a regular file."));
+        }
+        let mut bytes = Vec::with_capacity(
+            usize::try_from(metadata.len().min(MAX_ATTACHMENT_BYTES) + 1).unwrap_or(0),
+        );
+        file.take(MAX_ATTACHMENT_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|error| format!("Could not read attachment '{name}': {error}"))?;
+        if bytes.len() as u64 > MAX_ATTACHMENT_BYTES {
+            return Err(format!(
+                "Attachment '{}' exceeds the 5 MiB per-file limit.",
+                name
+            ));
+        }
+        total = total.saturating_add(bytes.len() as u64);
+        if total > MAX_TOTAL_ATTACHMENT_BYTES {
+            return Err(
+                "Attachments exceed the 12 MiB total limit. Remove one or more files.".into(),
+            );
+        }
+        let mime = image_mime(&bytes);
+        if let Some(mime_type) = mime {
+            images.push(
+                json!({ "type": "image", "data": STANDARD.encode(&bytes), "mimeType": mime_type }),
+            );
+            attachment_metadata.push(AgentAttachmentMetadata {
+                name: name.to_string(),
+                kind: "image".into(),
+                mime_type: Some(mime_type.into()),
+                size: bytes.len() as u64,
+            });
+            continue;
+        }
+        let content = std::str::from_utf8(&bytes).map_err(|_| unsupported_attachment(name))?;
+        if content.contains('\0') {
+            return Err(format!(
+                "Attachment '{}' contains NUL bytes and is not valid text.",
+                name
+            ));
+        }
+        // Magic signatures win over a coincidentally UTF-8 prefix.
+        if known_binary(&bytes) {
+            return Err(unsupported_attachment(name));
+        }
+        let escaped_name = html_escape::encode_double_quoted_attribute(name);
+        text.push_str(&format!(
+            "\n\n<file name=\"{escaped_name}\">\n{content}\n</file>"
+        ));
+        attachment_metadata.push(AgentAttachmentMetadata {
+            name: name.to_string(),
+            kind: "text".into(),
+            mime_type: Some("text/plain".into()),
+            size: bytes.len() as u64,
+        });
+    }
+    Ok(LoadedAttachments {
+        text,
+        images,
+        metadata: attachment_metadata,
+    })
+}
+
+pub fn inspect_attachments(
+    descriptors: &[AgentAttachmentDescriptor],
+) -> Result<Vec<AgentAttachmentMetadata>, String> {
+    load_attachments(descriptors).map(|attachments| attachments.metadata)
+}
+
+fn image_mime(bytes: &[u8]) -> Option<&'static str> {
+    let format = image::guess_format(bytes).ok()?;
+    let mime = match format {
+        ImageFormat::Png => "image/png",
+        ImageFormat::Jpeg => "image/jpeg",
+        ImageFormat::Gif => "image/gif",
+        ImageFormat::WebP => "image/webp",
+        _ => return None,
+    };
+    let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
+    let mut limits = Limits::default();
+    limits.max_image_width = Some(16_384);
+    limits.max_image_height = Some(16_384);
+    limits.max_alloc = Some(128 * 1024 * 1024);
+    reader.limits(limits);
+    let decoded = reader.decode().ok()?;
+    (decoded.width() > 0 && decoded.height() > 0).then_some(mime)
+}
+
+fn known_binary(bytes: &[u8]) -> bool {
+    let prefix = String::from_utf8_lossy(&bytes[..bytes.len().min(2048)]).to_ascii_lowercase();
+    let trimmed = prefix.trim_start_matches(['\u{feff}', ' ', '\t', '\r', '\n']);
+    let svg =
+        trimmed.starts_with("<svg") || (trimmed.starts_with("<?xml") && trimmed.contains("<svg"));
+    svg || bytes.starts_with(b"%PDF-")
+        || bytes.starts_with(b"PK\x03\x04")
+        || bytes.starts_with(b"\x7fELF")
+        || bytes.starts_with(b"MZ")
+        || bytes.starts_with(b"\xca\xfe\xba\xbe")
+}
+
+fn unsupported_attachment(name: &str) -> String {
+    format!("Attachment '{name}' is not a supported image or UTF-8 text file. Convert documents/archives to plain text, or attach a PNG, JPEG, GIF, or WebP image.")
+}
+
 pub fn run(
     root: &Path,
     runtime: &AgentRuntime,
     request: AgentRequest<'_>,
     on_event: &dyn Fn(AgentStreamEvent),
 ) -> Result<AgentResult, String> {
-    if request.message.trim().is_empty() {
+    if request.message.trim().is_empty() && request.attachments.is_empty() {
         return Err("Write a message first.".to_string());
     }
     if request.settings.model.trim().is_empty()
@@ -263,12 +406,18 @@ pub fn run(
     {
         return Err("Choose a model and reasoning effort.".to_string());
     }
+    // Validate and bound every file before starting OMP. The opened handles are
+    // read exactly once, so a path replacement cannot change what gets sent.
+    let attachments = load_attachments(request.attachments)?;
+    on_event(AgentStreamEvent::Attachments {
+        attachments: attachments.metadata.clone(),
+    });
 
     let before = project::snapshot_text_files(root)?;
     on_event(AgentStreamEvent::Status {
         message: "Starting agent…".to_string(),
     });
-    let outcome = run_omp(root, runtime, &request, on_event)
+    let outcome = run_omp(root, runtime, &request, &attachments, on_event)
         .map_err(|error| rewrite_agent_auth_error(runtime, &request.settings.provider, &error));
     let transaction = project::record_external_changes(
         root,
@@ -293,6 +442,7 @@ pub fn run(
             changed_files,
             transaction_id: transaction.map(|record| record.id),
             skills_used: outcome.skills_used,
+            attachments: attachments.metadata,
         }),
         Err(error) if error.starts_with(AGENT_STOPPED_ERROR_PREFIX) => {
             let notice = if transaction.is_some() {
@@ -306,6 +456,7 @@ pub fn run(
                 changed_files,
                 transaction_id: transaction.map(|record| record.id),
                 skills_used: Vec::new(),
+                attachments: attachments.metadata,
             })
         }
         Err(error) if transaction.is_some() => {
@@ -318,6 +469,7 @@ pub fn run(
                 changed_files,
                 transaction_id: transaction.map(|record| record.id),
                 skills_used: Vec::new(),
+                attachments: attachments.metadata,
             })
         }
         Err(error) => Err(error),
@@ -328,6 +480,7 @@ fn run_omp(
     root: &Path,
     runtime: &AgentRuntime,
     request: &AgentRequest<'_>,
+    attachments: &LoadedAttachments,
     on_event: &dyn Fn(AgentStreamEvent),
 ) -> Result<OmpRunResult, String> {
     let command = omp_command(
@@ -363,12 +516,22 @@ fn run_omp(
     if run_registration.was_cancelled() {
         return Err(agent_stopped_error());
     }
-    let prompt = editor_prompt(request.message, request.active_file, request.selection);
-    run_registration.result_or_cancelled(process.send(&json!({
+    let message = if request.message.trim().is_empty() {
+        "Please review the attached material."
+    } else {
+        request.message
+    };
+    let mut prompt = editor_prompt(message, request.active_file, request.selection);
+    prompt.push_str(&attachments.text);
+    let mut prompt_request = json!({
         "id": "lattice-prompt",
         "type": "prompt",
         "message": prompt
-    })))?;
+    });
+    if !attachments.images.is_empty() {
+        prompt_request["images"] = Value::Array(attachments.images.clone());
+    }
+    run_registration.result_or_cancelled(process.send(&prompt_request))?;
 
     on_event(AgentStreamEvent::Status {
         message: "Thinking…".to_string(),
@@ -2154,6 +2317,89 @@ fn sidecar_error_detail(stderr: &str) -> String {
 mod tests {
     use super::*;
 
+    #[test]
+    fn attachments_validate_content_and_build_omp_images_and_text() {
+        let root =
+            std::env::temp_dir().join(format!("lattice-attachments-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let image = root.join("spoof.txt");
+        let image_bytes = STANDARD
+            .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+            .unwrap();
+        fs::write(&image, &image_bytes).unwrap();
+        let text_path = root.join("notes.md");
+        fs::write(&text_path, "useful notes").unwrap();
+        let descriptors = vec![
+            AgentAttachmentDescriptor {
+                path: image.display().to_string(),
+                name: "spoof.txt".into(),
+            },
+            AgentAttachmentDescriptor {
+                path: text_path.display().to_string(),
+                name: "notes.md".into(),
+            },
+        ];
+        let loaded = load_attachments(&descriptors).unwrap();
+        assert!(loaded
+            .text
+            .contains("<file name=\"notes.md\">\nuseful notes\n</file>"));
+        assert_eq!(loaded.images[0]["type"], "image");
+        assert_eq!(loaded.images[0]["mimeType"], "image/png");
+        assert_eq!(loaded.metadata[0].kind, "image");
+        assert_eq!(loaded.metadata[1].kind, "text");
+        assert_eq!(loaded.images[0]["data"], STANDARD.encode(&image_bytes));
+
+        let malformed_image = root.join("malformed.png");
+        fs::write(&malformed_image, b"\x89PNG\r\n\x1a\ncontent").unwrap();
+        assert!(load_attachments(&[AgentAttachmentDescriptor {
+            path: malformed_image.display().to_string(),
+            name: "malformed.png".into(),
+        }])
+        .unwrap_err()
+        .contains("UTF-8"));
+
+        fs::write(&text_path, b"bad\0text").unwrap();
+        assert!(load_attachments(&descriptors[1..])
+            .unwrap_err()
+            .contains("NUL"));
+        fs::write(&text_path, b"\xff\xfe").unwrap();
+        assert!(load_attachments(&descriptors[1..])
+            .unwrap_err()
+            .contains("UTF-8"));
+        let missing = AgentAttachmentDescriptor {
+            path: root.join("missing").display().to_string(),
+            name: "missing".into(),
+        };
+        assert!(load_attachments(&[missing])
+            .unwrap_err()
+            .contains("no longer exists"));
+        let directory = AgentAttachmentDescriptor {
+            path: root.display().to_string(),
+            name: "folder".into(),
+        };
+        assert!(load_attachments(&[directory])
+            .unwrap_err()
+            .contains("regular file"));
+        let svg = root.join("diagram.txt");
+        fs::write(&svg, "<?xml version=\"1.0\"?><svg></svg>").unwrap();
+        assert!(load_attachments(&[AgentAttachmentDescriptor {
+            path: svg.display().to_string(),
+            name: "diagram.txt".into(),
+        }])
+        .unwrap_err()
+        .contains("not a supported image"));
+        let too_many = (0..=MAX_ATTACHMENTS)
+            .map(|_| AgentAttachmentDescriptor {
+                path: image.display().to_string(),
+                name: "image.png".into(),
+            })
+            .collect::<Vec<_>>();
+        assert!(load_attachments(&too_many)
+            .unwrap_err()
+            .contains("at most 8 files"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
     /// Asks the real bundled runtime for its models, using the app's own
     /// config directory — which is where the signed-in accounts live, and so
     /// the only place the answer is non-empty.
@@ -2603,6 +2849,7 @@ If missing, delete /Users/leo/.omp/natives/17.0.5 and re-run, or download manual
             AgentRequest {
                 settings: &settings,
                 message: "Edit main.tex and replace 'Motivate the problem and state the paper's main contribution.' with 'State the research problem and central hypothesis clearly.' Then briefly report what you changed.",
+                attachments: &[],
                 active_file: Some("main.tex"),
                 selection: None,
                 session_id: &session_id,

@@ -12,6 +12,7 @@ import {
   FileText,
   KeyRound,
   Pencil,
+  Paperclip,
   Plus,
   Search,
   Send,
@@ -46,6 +47,7 @@ import type {
   AgentProvider,
   ModelOption,
   ReasoningEffort,
+  AgentAttachmentDescriptor,
 } from "./app-types";
 import {
   isConversationWelcome,
@@ -114,6 +116,7 @@ export const MessageRow = memo(function MessageRow(props: {
                 : <AgentToolRow key={part.id} step={part} />))
               : <ChatMarkdown text={message.text} macros={macros} />)}
           {!!message.skills?.length && <div className="skills-used"><small>Skills</small>{message.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
+          {message.role === "user" && !!message.attachments?.length && <div className="message-attachments">{message.attachments.map((attachment, attachmentIndex) => <span key={`${attachment.name}-${attachmentIndex}`}><Paperclip size={10} />{attachment.name}<small>{attachment.kind} · {attachmentSize(attachment.size)}</small></span>)}</div>}
           {message.role === "agent" && (!isConversationWelcome(message, index) || !!message.files?.length) && <div className="agent-message-meta">
             {!!message.files?.length && <div className="changed-files">{message.files.map((file) => <span key={file}><FileCode2 size={11} />{file}</span>)}</div>}
             {!isConversationWelcome(message, index) && !inFlight && <button className="agent-message-copy" title="Copy agent response" onClick={() => void onCopy(message)}>
@@ -133,6 +136,12 @@ export const MessageRow = memo(function MessageRow(props: {
     </div>
   );
 });
+
+function attachmentSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export function AgentPanel({
   modelsFor,
@@ -162,6 +171,9 @@ export function AgentPanel({
   cancellable,
   stopping,
   onSend,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
   onStop,
   onApiSettings,
   selection,
@@ -199,6 +211,9 @@ export function AgentPanel({
   cancellable: boolean;
   stopping: boolean;
   onSend: () => void;
+  attachments: AgentAttachmentDescriptor[];
+  onAddAttachments: () => void;
+  onRemoveAttachment: (path: string) => void;
   onStop: () => void;
   onApiSettings: () => void;
   selection: string;
@@ -339,30 +354,6 @@ export function AgentPanel({
           )}
         </div>
       </div>
-      <div className="agent-config-bar">
-        <div className="config-pill">
-          <span>Model</span>
-          <Select value={model} disabled={running} onValueChange={(nextModel) => {
-            const nextEfforts = options.find((option) => option.value === nextModel)?.efforts ?? ["high"];
-            setModel(nextModel);
-            if (!nextEfforts.includes(reasoningEffort)) setReasoningEffort(nextEfforts.includes("high") ? "high" : nextEfforts[0]);
-          }}>
-            <SelectTrigger aria-label="Agent model" className="config-select"><SelectValue /></SelectTrigger>
-            <SelectContent position="popper" align="start" className="agent-select-menu">
-              {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="config-pill">
-          <span>Effort</span>
-          <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}>
-            <SelectTrigger aria-label="Reasoning effort" className="config-select"><SelectValue /></SelectTrigger>
-            <SelectContent position="popper" align="start" className="agent-select-menu">
-              {efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
       <div className="chat-list" ref={chatListRef}>
         {messages.map((message, index) => {
           const isLast = index === messages.length - 1;
@@ -441,6 +432,7 @@ export function AgentPanel({
           </div>
         )}
         <div className="composer">
+          {!!attachments.length && <div className="staged-attachments">{attachments.map((attachment) => <span key={attachment.path} title={attachment.path}><Paperclip size={10} /><b>{attachment.name}</b><small>{attachment.kind} · {attachmentSize(attachment.size)}</small><button aria-label={`Remove ${attachment.name}`} disabled={running} onClick={() => onRemoveAttachment(attachment.path)}><X size={10} /></button></span>)}</div>}
           <textarea
             ref={composerRef}
             rows={1}
@@ -515,10 +507,21 @@ export function AgentPanel({
             }}
           />
           <div className="composer-footer">
-            <span>{running ? status || "Agent is working…" : "Enter sends · Shift+Enter adds a line"}</span>
+            <div className="composer-footer-left">
+              <button className="attach-button" title="Add attachments" aria-label="Add attachments" disabled={running} onClick={onAddAttachments}><Paperclip size={13} /></button>
+              <div className="footer-selectors">
+                <Select value={model} disabled={running} onValueChange={(nextModel) => {
+                  const nextEfforts = options.find((option) => option.value === nextModel)?.efforts ?? ["high"];
+                  setModel(nextModel);
+                  if (!nextEfforts.includes(reasoningEffort)) setReasoningEffort(nextEfforts.includes("high") ? "high" : nextEfforts[0]);
+                }}><SelectTrigger aria-label="Agent model" className="config-select"><SelectValue /></SelectTrigger><SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
+                <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select"><SelectValue /></SelectTrigger><SelectContent>{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
+              </div>
+              {running && <span>{status || "Agent is working…"}</span>}
+            </div>
             {running
               ? <button className="stop-agent-button" title={stopping ? "Stopping agent" : "Stop agent"} onClick={onStop} disabled={!cancellable || stopping}><Square size={12} fill="currentColor" /></button>
-              : <button title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={!input.trim()}><Send size={14} /></button>}
+              : <button title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={!input.trim() && !attachments.length}><Send size={14} /></button>}
           </div>
         </div>
       </div>

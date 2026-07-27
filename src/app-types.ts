@@ -134,12 +134,15 @@ export type AgentResult = {
   changedFiles: string[];
   transactionId?: string;
   skillsUsed: string[];
+  /** Metadata from the exact bytes accepted and sent by the backend. */
+  attachments?: AgentAttachmentMetadata[];
 };
 
 export type AgentStreamEvent =
   | { type: "status"; message: string }
   | { type: "text"; text: string }
   | { type: "cancellable"; enabled: boolean }
+  | { type: "attachments"; attachments: AgentAttachmentMetadata[] }
   | { type: "tool"; name: string; detail: string; phase: string };
 
 export type PaperSummary = {
@@ -175,10 +178,14 @@ export type ChatMessage = {
   role: "user" | "agent" | "system";
   text: string;
   files?: string[];
+  attachments?: AgentAttachmentMetadata[];
   skills?: string[];
   /** Absent on user/system turns; the bubble falls back to `text` then. */
   parts?: ChatPart[];
 };
+
+export type AgentAttachmentMetadata = { name: string; kind: "image" | "text"; mimeType?: string | null; size: number };
+export type AgentAttachmentDescriptor = AgentAttachmentMetadata & { path: string };
 
 export type AgentSession = {
   id: string;

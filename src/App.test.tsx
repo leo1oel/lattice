@@ -1746,6 +1746,9 @@ describe("project workspace", () => {
     await chooseOption("Agent provider", "Claude subscription");
     await chooseOption("Agent model", "Claude Opus 4.8");
     await chooseOption("Reasoning effort", "Extra high");
+    expect(screen.getByLabelText("Agent model").closest(".composer")).not.toBeNull();
+    expect(screen.getByLabelText("Reasoning effort").closest(".composer")).not.toBeNull();
+    expect(screen.queryByText(/Enter sends/i)).not.toBeInTheDocument();
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     const message = `Review the abstract.\n${"longword".repeat(40)}`;
     fireEvent.change(composer, { target: { value: message } });
@@ -1770,6 +1773,7 @@ describe("project workspace", () => {
       request: {
         settings: { provider: "claude", model: "claude-opus-4-8", reasoningEffort: "xhigh" },
         message,
+        attachments: [],
         activeFile: "main.tex",
         selection: null,
         sessionId: testSession.id,

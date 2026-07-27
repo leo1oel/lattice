@@ -29,6 +29,7 @@ pub fn create(
             role: "agent".to_string(),
             text: "What would you like to work on?".to_string(),
             files: Vec::new(),
+            attachments: Vec::new(),
             skills: Vec::new(),
             parts: Vec::new(),
         }],
@@ -49,7 +50,18 @@ pub fn save(root: &Path, mut session: AgentSession) -> Result<AgentSession, Stri
             .messages
             .iter()
             .find(|message| message.role == "user")
-            .map(|message| conversation_title(&message.text))
+            .map(|message| {
+                let title = conversation_title(&message.text);
+                if title.is_empty() {
+                    message
+                        .attachments
+                        .first()
+                        .map(|attachment| format!("Attached {}", attachment.name))
+                        .unwrap_or_default()
+                } else {
+                    title
+                }
+            })
             .filter(|title| !title.is_empty())
             .unwrap_or_else(|| NEW_CONVERSATION.to_string());
     }
@@ -107,13 +119,28 @@ pub fn search(root: &Path, query: &str) -> Result<Vec<AgentSessionSearchResult>,
                     .files
                     .iter()
                     .any(|file| file.to_lowercase().contains(&needle))
+                || message
+                    .attachments
+                    .iter()
+                    .any(|attachment| attachment.name.to_lowercase().contains(&needle))
         });
         if needle.is_empty()
             || session.title.to_lowercase().contains(&needle)
             || matching_message.is_some()
         {
             let snippet = matching_message
-                .map(|message| search_snippet(&message.text, &needle))
+                .map(|message| {
+                    if message.text.is_empty() {
+                        message
+                            .attachments
+                            .iter()
+                            .map(|attachment| attachment.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    } else {
+                        search_snippet(&message.text, &needle)
+                    }
+                })
                 .unwrap_or_default();
             results.push(AgentSessionSearchResult {
                 session: summary,
@@ -320,6 +347,7 @@ mod tests {
         )
         .unwrap();
         assert!(message.skills.is_empty());
+        assert!(message.attachments.is_empty());
     }
 
     #[test]
@@ -333,6 +361,7 @@ mod tests {
             role: "user".to_string(),
             text: "Rewrite the introduction around the central hypothesis".to_string(),
             files: Vec::new(),
+            attachments: Vec::new(),
             skills: Vec::new(),
             parts: Vec::new(),
         });
@@ -366,6 +395,7 @@ mod tests {
             role: "user".to_string(),
             text: "Compare against the strongest diffusion baseline".to_string(),
             files: vec!["sections/related.tex".to_string()],
+            attachments: Vec::new(),
             skills: Vec::new(),
             parts: Vec::new(),
         });
@@ -374,6 +404,7 @@ mod tests {
             role: "agent".to_string(),
             text: "I updated the section.".to_string(),
             files: Vec::new(),
+            attachments: Vec::new(),
             skills: Vec::new(),
             parts: Vec::new(),
         });
@@ -386,6 +417,33 @@ mod tests {
         let branch = create_branch(&root, &original, &branch_id, &message_id).unwrap();
         assert_eq!(branch.messages.len(), 1);
         assert_eq!(read(&root, &original.id).unwrap().messages.len(), 3);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn attachment_only_conversations_are_named_and_searchable() {
+        let root = std::env::temp_dir().join(format!("lattice-session-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let mut session = create(&root, "codex", "gpt-5.6-sol", "high").unwrap();
+        session.messages.push(AgentMessage {
+            id: Uuid::new_v4().to_string(),
+            role: "user".to_string(),
+            text: String::new(),
+            files: Vec::new(),
+            attachments: vec![crate::models::AgentAttachmentMetadata {
+                name: "result-plot.png".to_string(),
+                kind: "image".to_string(),
+                mime_type: Some("image/png".to_string()),
+                size: 128,
+            }],
+            skills: Vec::new(),
+            parts: Vec::new(),
+        });
+        let session = save(&root, session).unwrap();
+        assert_eq!(session.title, "Attached result-plot.png");
+        let results = search(&root, "result-plot").unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].snippet, "result-plot.png");
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -405,6 +463,7 @@ mod tests {
                     role: "user".to_string(),
                     text: "What model are you?".to_string(),
                     files: Vec::new(),
+                    attachments: Vec::new(),
                     skills: Vec::new(),
                     parts: Vec::new(),
                 },
@@ -413,6 +472,7 @@ mod tests {
                     role: "agent".to_string(),
                     text: "What model are you?I am an assistant.".to_string(),
                     files: Vec::new(),
+                    attachments: Vec::new(),
                     skills: Vec::new(),
                     parts: Vec::new(),
                 },

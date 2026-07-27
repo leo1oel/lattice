@@ -45,6 +45,7 @@ html-escape = "0.2.14"
 diffy = "0.5.1"
 tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots", "handshake"] }
 futures-util = { version = "0.3.33", default-features = false, features = ["std", "sink"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
