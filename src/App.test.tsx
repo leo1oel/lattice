@@ -1759,7 +1759,7 @@ describe("project workspace", () => {
     const sentMessage = await screen.findByText((_, element) => element?.tagName === "P" && element.textContent === message);
     expect(sentMessage.closest(".chat-message.user")).not.toBeNull();
     expect(sentMessage.textContent).toContain("\n");
-    const streamedReply = screen.getByText("Reviewing the abstract as evidence arrives…");
+    const streamedReply = await screen.findByText("Reviewing the abstract as evidence arrives…");
     expect(streamedReply.closest(".chat-message.streaming")).not.toBeNull();
     // A reply that is still being written is not offered for copying.
     expect(screen.queryAllByTitle("Copy agent response")).toHaveLength(0);
