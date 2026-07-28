@@ -42,7 +42,6 @@ import type {
   AgentSessionSearchResult,
   AgentMention,
   MentionState,
-  AgentProvider,
   ModelOption,
   ReasoningEffort,
   AgentAttachmentDescriptor,
@@ -151,7 +150,10 @@ function toAgentElementsMessages(messages: ChatMessage[]): UIMessage[] {
 }
 
 export function AgentPanel({
-  modelsFor,
+  modelOptions,
+  modelUnavailable,
+  authMode,
+  onConfigureAuth,
   agentCommands,
   katexMacros: _katexMacros,
   messages,
@@ -166,7 +168,6 @@ export function AgentPanel({
   onEditMessage,
   input,
   setInput,
-  provider,
   model,
   setModel,
   reasoningEffort,
@@ -204,7 +205,6 @@ export function AgentPanel({
   onEditMessage: (message: ChatMessage) => void;
   input: string;
   setInput: (value: string) => void;
-  provider: AgentProvider;
   model: string;
   setModel: (value: string) => void;
   reasoningEffort: ReasoningEffort;
@@ -227,13 +227,15 @@ export function AgentPanel({
   mentions: AgentMention[];
   chatEnd: React.RefObject<HTMLDivElement | null>;
   chatListRef: React.RefObject<HTMLDivElement | null>;
-  /** The runtime's model list for a provider, falling back to the built-in one. */
-  modelsFor: (provider: AgentProvider) => ModelOption[];
+  modelOptions: ModelOption[];
+  modelUnavailable: boolean;
+  authMode: "subscription" | "api";
+  onConfigureAuth: () => void;
 }) {
   void _katexMacros;
   void _chatEnd;
   void _chatListRef;
-  const options = modelsFor(provider);
+  const options = modelOptions;
   const efforts = options.find((option) => option.value === model)?.efforts ?? ["high"];
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [sessionSearch, setSessionSearch] = useState("");
@@ -355,7 +357,7 @@ export function AgentPanel({
           const original = messageById.get(message.id);
           return original ? (
             <button className="agent-elements-edit" title="Edit and branch from this message" disabled={running} onClick={() => onEditMessage(original)}>
-              <Pencil size={11} /> Edit
+              <Pencil size={11} />
             </button>
           ) : null;
         }}
@@ -488,7 +490,7 @@ export function AgentPanel({
                 event.preventDefault();
                 setMention(null);
                 setSlash(null);
-                onSend();
+                if (!modelUnavailable) onSend();
               }
             }}
           />
@@ -496,18 +498,19 @@ export function AgentPanel({
             <div className="composer-footer-left">
               <button className="attach-button" title="Add attachments" aria-label="Add attachments" disabled={running} onClick={onAddAttachments}><Paperclip size={13} /></button>
               <div className="footer-selectors">
-                <Select value={model} disabled={running} onValueChange={(nextModel) => {
+                <Select value={modelUnavailable ? "" : model} disabled={running || modelUnavailable} onValueChange={(nextModel) => {
                   const nextEfforts = options.find((option) => option.value === nextModel)?.efforts ?? ["high"];
                   setModel(nextModel);
                   if (!nextEfforts.includes(reasoningEffort)) setReasoningEffort(nextEfforts.includes("high") ? "high" : nextEfforts[0]);
-                }}><SelectTrigger aria-label="Agent model" className="config-select model-select"><SelectValue /></SelectTrigger><SelectContent position="popper" side="top" sideOffset={6} align="start">{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
-                <Select value={reasoningEffort} disabled={running} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select effort-select"><SelectValue /></SelectTrigger><SelectContent position="popper" side="top" sideOffset={6} align="start">{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
+                }}><SelectTrigger aria-label="Agent model" title={modelUnavailable ? `Connect a ${authMode} account in Settings` : undefined} className="config-select model-select"><SelectValue placeholder="No models" /></SelectTrigger><SelectContent position="popper" side="top" sideOffset={6} align="start">{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
+                <Select value={reasoningEffort} disabled={running || modelUnavailable} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select effort-select"><SelectValue /></SelectTrigger><SelectContent position="popper" side="top" sideOffset={6} align="start">{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
               </div>
+              {modelUnavailable && <button type="button" className="agent-auth-prompt" onClick={onConfigureAuth}>Connect</button>}
               {running && <span>{status || "Agent is working…"}</span>}
             </div>
             {running
               ? <button className="stop-agent-button" title={stopping ? "Stopping agent" : "Stop agent"} onClick={onStop} disabled={!cancellable || stopping}><Square size={12} fill="currentColor" /></button>
-              : <button title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={!input.trim() && !attachments.length}><Send size={14} /></button>}
+              : <button title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={modelUnavailable || (!input.trim() && !attachments.length)}><Send size={14} /></button>}
           </div>
         </div>
       </div>

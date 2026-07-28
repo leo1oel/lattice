@@ -74,6 +74,11 @@ const testSessionSummary = {
 };
 
 function mockSessionCommand(command: string, args?: Record<string, unknown>) {
+  if (command === "subscription_status") return [
+    { provider: "codex", installed: true, loggedIn: true, detail: "Logged in using ChatGPT" },
+    { provider: "claude", installed: true, loggedIn: true, detail: "Max subscription" },
+  ];
+  if (command === "api_key_status") return [["openai", false], ["anthropic", false]];
   if (command === "list_citation_keys") return [];
   if (command === "list_citations") return [];
   if (command === "list_references") return [];
@@ -602,7 +607,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
   });
 
-  it("opens Settings → Subscriptions when Claude subscription auth is missing", async () => {
+  it("disables the model picker and links to Subscriptions when no account is connected", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -627,18 +632,16 @@ describe("project workspace", () => {
         { provider: "codex", installed: true, loggedIn: false, detail: "Sign in through OMP · ChatGPT Codex subscription" },
         { provider: "claude", installed: true, loggedIn: false, detail: "Sign in through OMP · Claude Pro or Max subscription" },
       ];
+      if (command === "api_key_status") return [["openai", false], ["anthropic", false]];
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
 
     render(<App />);
     await switchSidebarMode("Agent");
-    await chooseOption("Agent provider", "Claude subscription");
-    const composer = screen.getByPlaceholderText(/ask the agent/i);
-    fireEvent.change(composer, { target: { value: "Revise the abstract." } });
-    fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
-
-    expect(await screen.findByText("Sign in to Claude in Settings → Subscriptions before using the Claude subscription.")).toBeInTheDocument();
-    expect(screen.queryByText(/LATTICE_AUTH_SUBSCRIPTION/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Agent model")).toBeDisabled());
+    expect(screen.getByLabelText("Agent model")).toHaveTextContent("No models");
+    expect(screen.getByTitle("Send message")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     expect(await screen.findByRole("heading", { name: "Subscriptions" })).toBeInTheDocument();
     expect(await screen.findAllByRole("button", { name: "Sign in with OMP" })).toHaveLength(2);
   });
@@ -664,27 +667,30 @@ describe("project workspace", () => {
         { provider: "codex", installed: true, loggedIn: true, detail: "Logged in using ChatGPT" },
         { provider: "claude", installed: true, loggedIn: true, detail: "Max subscription" },
       ];
+      if (command === "api_key_status") return [["openai", true], ["anthropic", false]];
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
 
     render(<App />);
-    expect(screen.queryByLabelText("Agent provider")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Agent access")).not.toBeInTheDocument();
     await switchSidebarMode("Agent");
-    expect(await screen.findByLabelText("Agent provider")).toHaveTextContent("Codex subscription");
-    await withOpenSelect("Agent model", () => expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument());
+    expect(await screen.findByLabelText("Agent access")).toHaveTextContent("Subscription");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("api_key_status"));
+    await withOpenSelect("Agent model", () => {
+      expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Claude Opus 4.8" })).toBeInTheDocument();
+    });
     expect(screen.queryByRole("button", { name: "API key settings" })).not.toBeInTheDocument();
     await openProjectSettings();
     fireEvent.click(screen.getByRole("button", { name: "Subscriptions" }));
     expect(await screen.findAllByText("Connected")).toHaveLength(2);
 
     fireEvent.click(screen.getByTitle("Close settings"));
-    await chooseOption("Agent provider", "Claude subscription");
+    await chooseOption("Agent access", "API");
     await withOpenSelect("Agent model", () => {
-      expect(screen.getByRole("option", { name: "Claude Opus 4.8" })).toBeInTheDocument();
-      expect(screen.getByRole("option", { name: "Claude Sonnet 5" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: "Claude Opus 4.8" })).not.toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: "API key settings" })).not.toBeInTheDocument();
-    await chooseOption("Agent provider", "OpenAI API");
     expect(screen.getByRole("button", { name: "API key settings" })).toBeInTheDocument();
   });
 
@@ -1132,15 +1138,15 @@ describe("project workspace", () => {
       column: 0,
     }));
     expect(await screen.findByLabelText("Source location in PDF")).toBeInTheDocument();
-    const zoomBefore = Number(screen.getByText(/\d+%/).textContent?.replace("%", ""));
+    const zoomInput = screen.getByLabelText("PDF zoom percentage") as HTMLInputElement;
+    const zoomBefore = Number(zoomInput.value);
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
-    const zoomAfter = `${zoomBefore + 10}%`;
-    expect(screen.getByText(zoomAfter)).toBeInTheDocument();
+    expect(zoomInput).toHaveValue(String(zoomBefore + 10));
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
     // Identical PDF bytes must not thrash pdf.js — keep the same document + zoom.
     expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(zoomAfter)).toBeInTheDocument();
+    expect(zoomInput).toHaveValue(String(zoomBefore + 10));
     fireEvent.click(savePdf);
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: "paper.pdf" })));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("save_compiled_pdf", {
@@ -1426,6 +1432,8 @@ describe("project workspace", () => {
       if (command === "fork_agent_session") return branch;
       if (command === "save_agent_session") return (args as { session: unknown }).session;
       if (command === "save_agent_checkpoint") return undefined;
+      if (command === "subscription_status") return mockSessionCommand(command);
+      if (command === "api_key_status") return mockSessionCommand(command);
       if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 1, diagnostics: [] };
       if (command === "run_agent") return { summary: "New branched answer", changedFiles: [], skillsUsed: [] };
       throw new Error(`Unexpected command: ${command}`);
@@ -1747,6 +1755,11 @@ describe("project workspace", () => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
       if (command === "list_papers" || command === "list_history") return [];
+      if (command === "subscription_status") return [
+        { provider: "codex", installed: true, loggedIn: true, detail: "Logged in using ChatGPT" },
+        { provider: "claude", installed: true, loggedIn: true, detail: "Max subscription" },
+      ];
+      if (command === "api_key_status") return [["openai", false], ["anthropic", false]];
       if (command === "run_agent") {
         const channel = (args as { onEvent: { onmessage: (event: unknown) => void } }).onEvent;
         channel.onmessage({ type: "status", message: "Thinking…" });
@@ -1758,7 +1771,6 @@ describe("project workspace", () => {
 
     render(<App />);
     await switchSidebarMode("Agent");
-    await chooseOption("Agent provider", "Claude subscription");
     await chooseOption("Agent model", "Claude Opus 4.8");
     await chooseOption("Reasoning effort", "Extra high");
     expect(screen.getByLabelText("Agent model").closest(".composer")).not.toBeNull();

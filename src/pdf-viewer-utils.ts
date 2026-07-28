@@ -55,6 +55,16 @@ export function annotationBounds(rect: number[], scale: number) {
 
 export type PdfPageSize = { width: number; height: number };
 
+export const PDF_MIN_SCALE = 0.3;
+export const PDF_MAX_SCALE = 5;
+
+/** Turn a directly entered percentage into the viewer's bounded scale. */
+export function parsePdfZoomPercent(value: string): number | null {
+  const percent = Number(value.trim().replace(/%$/, ""));
+  if (!Number.isFinite(percent) || percent <= 0) return null;
+  return Math.min(PDF_MAX_SCALE, Math.max(PDF_MIN_SCALE, Number((percent / 100).toFixed(3))));
+}
+
 /**
  * Canvas supersampling for pdf.js. Preview.app looks fine with Type1 Times;
  * WKWebView at devicePixelRatio=1 (common in VMs) needs extra scale or glyphs go soft.
@@ -73,7 +83,7 @@ export function fitPdfScale(
   page: PdfPageSize,
   area: { width: number; height: number },
   padding = { x: 48, y: 40 },
-  limits = { min: 0.6, max: 2.2 },
+  limits = { min: PDF_MIN_SCALE, max: PDF_MAX_SCALE },
 ): number {
   if (!(page.width > 0) || !(page.height > 0) || !(area.width > 0) || !(area.height > 0)) {
     return 1;
@@ -85,4 +95,3 @@ export function fitPdfScale(
     : Math.min(availableWidth / page.width, availableHeight / page.height);
   return Math.min(limits.max, Math.max(limits.min, Number(raw.toFixed(2))));
 }
-

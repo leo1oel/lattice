@@ -492,7 +492,7 @@ export const MessageList = memo(function MessageList({
                       (showCopyToolbar && Boolean(text)) ||
                       Boolean(userTimestamp);
                     return (
-                      <div className="group/user-message">
+                      <div className="agent-elements-user-group group/user-message">
                         <CustomUserMessage
                           message={turn.userMsg}
                           className={classNames?.userMessage}

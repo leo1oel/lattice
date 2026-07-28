@@ -39,8 +39,11 @@ import {
   findPdfMatches,
   fitPdfScale,
   normalizePdfSelection,
+  parsePdfZoomPercent,
   pdfRenderPixelRatio,
   PDF_CMAP_URL,
+  PDF_MAX_SCALE,
+  PDF_MIN_SCALE,
   PDF_STANDARD_FONT_DATA_URL,
   type PdfPageSize,
 } from "./pdf-viewer-utils";
@@ -409,6 +412,8 @@ export function PdfPreview({
   const [pageTexts, setPageTexts] = useState<string[]>([]);
   const [searchError, setSearchError] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+  const [zoomEditing, setZoomEditing] = useState(false);
+  const [zoomDraft, setZoomDraft] = useState("");
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
   // Trackpad pinch on macOS (and ctrl+scroll) arrives as a wheel event with
@@ -428,7 +433,7 @@ export function PdfPreview({
       if (!event.ctrlKey) return;
       event.preventDefault();
       const prev = scaleRef.current;
-      const next = clamp(Number((prev * Math.exp(-event.deltaY * 0.01)).toFixed(3)), 0.6, 4);
+      const next = clamp(Number((prev * Math.exp(-event.deltaY * 0.01)).toFixed(3)), PDF_MIN_SCALE, PDF_MAX_SCALE);
       if (next === prev) return;
       const rect = area.getBoundingClientRect();
       pendingZoomAnchorRef.current = {
@@ -471,7 +476,7 @@ export function PdfPreview({
       const committed = scaleRef.current;
       const factor = zoomFactorRef.current * (1 + magnification);
       // Keep the total zoom inside the same bounds the buttons use.
-      const bounded = clamp(committed * factor, 0.6, 4) / committed;
+      const bounded = clamp(committed * factor, PDF_MIN_SCALE, PDF_MAX_SCALE) / committed;
       zoomFactorRef.current = bounded;
       setZoomFactor(bounded);
       // The transform scales content the same way a real re-render will, so
@@ -491,7 +496,7 @@ export function PdfPreview({
         zoomFactorRef.current = 1;
         setZoomFactor(1);
         if (factorNow === 1) return;
-        setScale((current) => clamp(Number((current * factorNow).toFixed(3)), 0.6, 4));
+        setScale((current) => clamp(Number((current * factorNow).toFixed(3)), PDF_MIN_SCALE, PDF_MAX_SCALE));
       }, 160);
     }).then((dispose) => {
       if (disposed) dispose();
@@ -518,7 +523,7 @@ export function PdfPreview({
       const gesture = event as Event & { scale?: number; clientX?: number; clientY?: number };
       if (typeof gesture.scale !== "number") return;
       const prev = scaleRef.current;
-      const next = clamp(Number((startScale * gesture.scale).toFixed(3)), 0.6, 4);
+      const next = clamp(Number((startScale * gesture.scale).toFixed(3)), PDF_MIN_SCALE, PDF_MAX_SCALE);
       if (next === prev) return;
       const rect = area.getBoundingClientRect();
       pendingZoomAnchorRef.current = {
@@ -671,6 +676,13 @@ export function PdfPreview({
       height: area.clientHeight,
     }));
   }, [pageSize]);
+
+  const commitZoomDraft = () => {
+    const next = parsePdfZoomPercent(zoomDraft);
+    if (next !== null) setScale(next);
+    setZoomEditing(false);
+    setZoomDraft("");
+  };
 
   const fittedPageSizeRef = useRef<PdfPageSize | null>(null);
   useEffect(() => {
@@ -930,11 +942,29 @@ export function PdfPreview({
         </div>
         <div className="pdf-zoom-controls">
           <Tip label="Zoom out">
-            <button disabled={scale <= 0.6} onClick={() => setScale((value) => clamp(Number((value - 0.1).toFixed(1)), 0.6, 4))}><ZoomOut size={14} /></button>
+            <button disabled={scale <= PDF_MIN_SCALE} onClick={() => setScale((value) => clamp(Number((value - 0.1).toFixed(1)), PDF_MIN_SCALE, PDF_MAX_SCALE))}><ZoomOut size={14} /></button>
           </Tip>
-          <span>{Math.round(scale * 100)}%</span>
+          <label className="pdf-zoom-value" title="Enter a zoom percentage">
+            <input
+              aria-label="PDF zoom percentage"
+              inputMode="decimal"
+              value={zoomEditing ? zoomDraft : String(Math.round(scale * 100))}
+              onFocus={(event) => {
+                const input = event.currentTarget;
+                setZoomEditing(true);
+                setZoomDraft(String(Math.round(scale * 100)));
+                requestAnimationFrame(() => input.select());
+              }}
+              onChange={(event) => setZoomDraft(event.target.value)}
+              onBlur={commitZoomDraft}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+              }}
+            />
+            <span>%</span>
+          </label>
           <Tip label="Zoom in">
-            <button disabled={scale >= 4} onClick={() => setScale((value) => clamp(Number((value + 0.1).toFixed(1)), 0.6, 4))}><ZoomIn size={14} /></button>
+            <button disabled={scale >= PDF_MAX_SCALE} onClick={() => setScale((value) => clamp(Number((value + 0.1).toFixed(1)), PDF_MIN_SCALE, PDF_MAX_SCALE))}><ZoomIn size={14} /></button>
           </Tip>
           <i className="pdf-fit-divider" aria-hidden="true" />
           <Tip label="Fit page to width">

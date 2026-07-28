@@ -650,6 +650,10 @@ function App() {
   const [apiProvider, setApiProvider] = useState<"openai" | "anthropic">("openai");
   const [apiKey, setApiKey] = useState("");
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
+  const [agentAccessReady, setAgentAccessReady] = useState<Record<"subscription" | "api", boolean>>({
+    subscription: false,
+    api: false,
+  });
   const saveTimer = useRef<number | null>(null);
   const automaticBuildPending = useRef(false);
   const buildingRef = useRef(false);
@@ -665,6 +669,31 @@ function App() {
     () => buildAgentMentions(project?.files ?? [], papers),
     [papers, project?.files],
   );
+  const agentAccessMode: "subscription" | "api" = provider === "openai-api" || provider === "anthropic-api"
+    ? "api"
+    : "subscription";
+  const subscriptionProviders = useMemo<AgentProvider[]>(() => subscriptions
+    .filter((status) => status.loggedIn)
+    .map((status) => status.provider), [subscriptions]);
+  const apiProviders = useMemo<AgentProvider[]>(() => [
+    ...(apiKeyStatus.openai ? ["openai-api" as const] : []),
+    ...(apiKeyStatus.anthropic ? ["anthropic-api" as const] : []),
+  ], [apiKeyStatus]);
+  const agentAccessLoaded = agentAccessReady[agentAccessMode];
+  const availableAgentProviders = agentAccessMode === "subscription" ? subscriptionProviders : apiProviders;
+  const effectiveAgentProviders = useMemo(
+    () => agentAccessLoaded ? availableAgentProviders : [provider],
+    [agentAccessLoaded, availableAgentProviders, provider],
+  );
+  const availableAgentModels = useMemo(() => {
+    const seen = new Set<string>();
+    return effectiveAgentProviders.flatMap((candidate) => agentModels.options(candidate))
+      .filter((option) => {
+        if (seen.has(option.value)) return false;
+        seen.add(option.value);
+        return true;
+      });
+  }, [agentModels, effectiveAgentProviders]);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
     setRecentProjects((items) => {
@@ -3843,10 +3872,39 @@ function App() {
   }, [activePaper, collabSession, project, refreshHistory, refreshProject]);
 
   const changeProvider = useCallback((nextProvider: AgentProvider) => {
+    const options = agentModels.options(nextProvider);
+    const nextOption = options[0];
     setProvider(nextProvider);
-    setAgentModel(defaultModel(nextProvider));
-    setReasoningEffort("high");
-  }, []);
+    setAgentModel(nextOption?.value ?? defaultModel(nextProvider));
+    setReasoningEffort(nextOption?.efforts.includes("high") ? "high" : nextOption?.efforts[0] ?? "high");
+  }, [agentModels]);
+
+  const changeAgentAccessMode = useCallback((mode: "subscription" | "api") => {
+    const candidates = mode === "subscription" ? subscriptionProviders : apiProviders;
+    changeProvider(candidates[0] ?? (mode === "subscription" ? "codex" : "openai-api"));
+  }, [apiProviders, changeProvider, subscriptionProviders]);
+
+  const changeAccessibleAgentModel = useCallback((nextModel: string) => {
+    const candidates = effectiveAgentProviders.includes(provider)
+      ? [provider, ...effectiveAgentProviders.filter((candidate) => candidate !== provider)]
+      : effectiveAgentProviders;
+    const nextProvider = candidates.find((candidate) => agentModels.options(candidate)
+      .some((option) => option.value === nextModel));
+    if (nextProvider) setProvider(nextProvider);
+    setAgentModel(nextModel);
+  }, [agentModels, effectiveAgentProviders, provider]);
+
+  useEffect(() => {
+    if (!agentAccessLoaded || !availableAgentProviders.length) return;
+    const nextProvider = availableAgentProviders.includes(provider) ? provider : availableAgentProviders[0];
+    const options = agentModels.options(nextProvider);
+    const nextOption = options.find((option) => option.value === agentModel) ?? options[0];
+    if (provider !== nextProvider) setProvider(nextProvider);
+    if (nextOption && agentModel !== nextOption.value) setAgentModel(nextOption.value);
+    if (nextOption && !nextOption.efforts.includes(reasoningEffort)) {
+      setReasoningEffort(nextOption.efforts.includes("high") ? "high" : nextOption.efforts[0]);
+    }
+  }, [agentAccessLoaded, agentModel, agentModels, availableAgentProviders, provider, reasoningEffort]);
 
   const refreshAgentSessions = useCallback(async () => {
     setAgentSessions(await invoke<AgentSessionSummary[]>("list_agent_sessions"));
@@ -3933,6 +3991,21 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (sidebarMode !== "agent") return;
+    let active = true;
+    setAgentAccessReady({ subscription: false, api: false });
+    void invoke<SubscriptionStatus[]>("subscription_status")
+      .then((statuses) => { if (active) setSubscriptions(statuses); })
+      .catch(() => { if (active) setSubscriptions([]); })
+      .finally(() => { if (active) setAgentAccessReady((ready) => ({ ...ready, subscription: true })); });
+    void invoke<[string, boolean][]>("api_key_status")
+      .then((statuses) => { if (active) setApiKeyStatus(Object.fromEntries(statuses)); })
+      .catch(() => { if (active) setApiKeyStatus({}); })
+      .finally(() => { if (active) setAgentAccessReady((ready) => ({ ...ready, api: true })); });
+    return () => { active = false; };
+  }, [sidebarMode]);
+
   const refreshAgentSkills = useCallback(async () => {
     setAgentSkills(await invoke<AgentSkill[]>("list_agent_skills"));
   }, []);
@@ -3954,6 +4027,11 @@ function App() {
   const sendToAgent = useCallback(async () => {
     const message = agentInput.trim();
     if ((!message && !agentAttachments.length) || agentRunning) return;
+    if (!agentAccessLoaded) return;
+    if (!availableAgentProviders.length) {
+      openSettings(agentAccessMode === "api" ? "api" : "accounts");
+      return;
+    }
     let submittedAttachments = agentAttachments;
     setAgentInput("");
     setAgentAttachments([]);
@@ -4296,7 +4374,7 @@ function App() {
       setAgentCancellable(false);
       setAgentStatus("");
     }
-  }, [activeFile, activeSession, agentAttachments, agentInput, agentModel, agentRunning, branchSource, compile, loadFile, messages, openSettings, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
+  }, [activeFile, activeSession, agentAccessLoaded, agentAccessMode, agentAttachments, agentInput, agentModel, agentRunning, availableAgentProviders.length, branchSource, compile, loadFile, messages, openSettings, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
 
   const stopAgent = useCallback(async () => {
     const sessionId = runningAgentSession.current;
@@ -5340,18 +5418,16 @@ function App() {
                   )}
                   {sidebarMode === "agent" && (
                     <>
-                      <Select value={provider} disabled={agentRunning} onValueChange={(value) => changeProvider(value as AgentProvider)}>
-                        <SelectTrigger aria-label="Agent provider" className="sidebar-provider-select"><SelectValue /></SelectTrigger>
+                      <Select value={agentAccessMode} disabled={agentRunning} onValueChange={(value) => changeAgentAccessMode(value as "subscription" | "api")}>
+                        <SelectTrigger aria-label="Agent access" className="sidebar-provider-select"><SelectValue /></SelectTrigger>
                         <SelectContent position="popper" align="end" className="agent-select-menu">
-                          <SelectItem value="codex">Codex subscription</SelectItem>
-                          <SelectItem value="claude">Claude subscription</SelectItem>
-                          <SelectItem value="openai-api">OpenAI API</SelectItem>
-                          <SelectItem value="anthropic-api">Anthropic API</SelectItem>
+                          <SelectItem value="subscription">Subscription</SelectItem>
+                          <SelectItem value="api">API</SelectItem>
                         </SelectContent>
                       </Select>
-                      {(provider === "openai-api" || provider === "anthropic-api") && (
-                        <Tip label="API key settings">
-                          <button className="sidebar-provider-settings" aria-label="API key settings" onClick={() => openSettings("api")}><KeyRound size={12} /></button>
+                      {(agentAccessMode === "api" || (agentAccessLoaded && !availableAgentProviders.length)) && (
+                        <Tip label={agentAccessMode === "api" ? "API key settings" : "Connect a subscription"}>
+                          <button className="sidebar-provider-settings" aria-label={agentAccessMode === "api" ? "API key settings" : "Connect a subscription"} onClick={() => openSettings(agentAccessMode === "api" ? "api" : "accounts")}><KeyRound size={12} /></button>
                         </Tip>
                       )}
                     </>
@@ -5397,7 +5473,10 @@ function App() {
               </div>
               <div className="sidebar-pane" hidden={sidebarMode !== "agent"}>
                 <AgentPanel
-                  modelsFor={agentModels.options}
+                  modelOptions={availableAgentModels}
+                  modelUnavailable={!agentAccessLoaded || !availableAgentProviders.length}
+                  authMode={agentAccessMode}
+                  onConfigureAuth={() => openSettings(agentAccessMode === "api" ? "api" : "accounts")}
                   agentCommands={agentCommands}
                   katexMacros={katexMacros}
                   messages={messages}
@@ -5412,9 +5491,8 @@ function App() {
                   onEditMessage={editAndBranch}
                   input={agentInput}
                   setInput={setAgentInput}
-                  provider={provider}
                   model={agentModel}
-                  setModel={setAgentModel}
+                  setModel={changeAccessibleAgentModel}
                   reasoningEffort={reasoningEffort}
                   setReasoningEffort={setReasoningEffort}
                   running={agentRunning}

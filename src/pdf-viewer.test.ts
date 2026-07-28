@@ -4,6 +4,7 @@ import {
   findPdfMatches,
   fitPdfScale,
   normalizePdfSelection,
+  parsePdfZoomPercent,
   pdfRenderPixelRatio,
 } from "./pdf-viewer-utils";
 
@@ -48,8 +49,16 @@ describe("PDF viewer helpers", () => {
     expect(fitPdfScale("page", { width: 600, height: 800 }, { width: 1248, height: 1240 }, { x: 48, y: 40 }))
       .toBe(1.5);
     expect(fitPdfScale("width", { width: 100, height: 100 }, { width: 1000, height: 1000 }))
-      .toBe(2.2);
+      .toBe(5);
     expect(fitPdfScale("page", { width: 600, height: 800 }, { width: 200, height: 200 }))
-      .toBe(0.6);
+      .toBe(0.3);
+  });
+
+  it("accepts directly entered zoom percentages and bounds them", () => {
+    expect(parsePdfZoomPercent("46")).toBe(0.46);
+    expect(parsePdfZoomPercent(" 193% ")).toBe(1.93);
+    expect(parsePdfZoomPercent("5")).toBe(0.3);
+    expect(parsePdfZoomPercent("900")).toBe(5);
+    expect(parsePdfZoomPercent("nope")).toBeNull();
   });
 });

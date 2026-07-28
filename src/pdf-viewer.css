@@ -9,7 +9,10 @@
 .pdf-page-controls { justify-self: start; }
 .pdf-zoom-controls { justify-self: end; }
 .pdf-page-controls span { min-width: 48px; text-align: center; }
-.pdf-zoom-controls span { min-width: 34px; text-align: center; }
+.pdf-zoom-value { min-width: 40px; height: 25px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
+.pdf-zoom-value:focus-within { background: var(--bg); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.pdf-zoom-value input { width: 27px; border: 0; outline: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: right; font-variant-numeric: tabular-nums; }
+.pdf-zoom-value span { min-width: 8px; text-align: left; }
 .pdf-zoom-controls .pdf-fit-divider { width: 1px; height: 16px; margin: 0 3px; background: var(--line-strong); }
 .pdf-zoom-controls button.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 6px; }
 .pdf-search { min-width: 0; height: 27px; border: 1px solid var(--line); border-radius: 7px; padding-left: 7px; display: flex; align-items: center; gap: 3px; color: var(--faint); background: var(--bg); }
@@ -22,7 +25,7 @@
 .pdf-save-notice.error { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); color: var(--danger); }
 .pdf-save-notice button { flex: none; padding: 2px; background: transparent; color: inherit; display: grid; place-items: center; }
 .pdf-scroll-area { position: relative; flex: 1; min-height: 0; overflow: auto; padding: 20px; }
-.pdf-pages { width: max-content; min-width: 100%; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.pdf-pages { width: max-content; min-width: 100%; min-height: 100%; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
 .pdf-page-shell { position: relative; flex: none; background: white; box-shadow: 0 5px 24px rgba(0, 0, 0, .15); overflow: hidden; }
 .pdf-scroll-area canvas.synctex-enabled { cursor: text; }
 .pdf-scroll-area canvas {
