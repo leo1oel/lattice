@@ -1,17 +1,12 @@
 import {
   BookOpen,
   Cloud,
-  CloudUpload,
   FileCode2,
-  GitBranch,
-  History,
   Image,
   LoaderCircle,
   LocateFixed,
-  MessageSquareText,
   MessagesSquare,
   Omega,
-  Radio,
   Redo2,
   Undo2,
 } from "lucide-react";
@@ -19,6 +14,7 @@ import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { Tip } from "./components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "./app-types";
+import { AnimatedProductIcon } from "./animated-icons/product-animated-icon";
 
 /**
  * What the cloud button says when this file is not live.
@@ -143,7 +139,7 @@ export function CanvasToolbar(props: {
                 className={props.commentCount ? "active" : ""}
                 onClick={props.onComments}
               >
-                <MessageSquareText size={14} />
+                <AnimatedProductIcon kind="chat" size={14} converted />
                 {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
               </button>
             </Tip>
@@ -158,7 +154,7 @@ export function CanvasToolbar(props: {
                 className={props.collabLive ? "active collab-toolbar-button" : "collab-toolbar-button"}
                 onClick={props.onCollab}
               >
-                <Radio size={14} />
+                <AnimatedProductIcon source="provided" kind="radio" size={14} />
                 {props.collabLive ? <em className="collab-peer-badge">{props.collabPeers}</em> : null}
               </button>
             </Tip>
@@ -187,7 +183,9 @@ export function CanvasToolbar(props: {
             >
               {props.overleafSyncing
                 ? <LoaderCircle className="spin" size={14} />
-                : props.overleafLinked ? <CloudUpload size={14} /> : <Cloud size={14} />}
+                : props.overleafLinked
+                  ? <AnimatedProductIcon source="provided" kind="cloud-upload-outline" size={14} />
+                  : <Cloud size={14} />}
               {props.overleafLiveEditing && !props.overleafSyncing
                 ? <em className="overleaf-live-dot" title="Editing live with Overleaf" />
                 : props.overleafPending && !props.overleafSyncing
@@ -217,12 +215,12 @@ export function CanvasToolbar(props: {
         {props.overleafPresence}
         <Tip label="Git status and commit">
           <button className="history-button" onClick={props.onGit}>
-            <GitBranch size={14} />
+            <AnimatedProductIcon kind="git-branch" size={14} />
           </button>
         </Tip>
         <Tip label="Project history">
           <button className="history-button" onClick={props.onHistory}>
-            <History size={14} />
+            <AnimatedProductIcon kind="clock-back" size={14} />
           </button>
         </Tip>
       </div>

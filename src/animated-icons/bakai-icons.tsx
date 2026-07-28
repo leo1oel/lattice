@@ -1,21 +1,21 @@
 import type { CSSProperties, ComponentType } from "react";
-import { FadersLive } from "./bakai/faders";
-import { UsersThreeLive } from "./bakai/users-three";
-import { ListChecksLive } from "./bakai/list-checks";
-import { KanbanLive } from "./bakai/kanban";
-import { FolderLive } from "./bakai/folder";
-import { GearLive } from "./bakai/gear";
-import { ChatLive } from "./bakai/chat";
-import { TrashLive } from "./bakai/trash";
-import { CloudArrowUpLive } from "./bakai/cloud-upload";
-import { KeyLive } from "./bakai/api-key";
-import { GitBranchLive } from "./bakai/git-branch";
-import { PlugsLive } from "./bakai/plugs";
-import { ClipboardTextLive } from "./bakai/logs";
-import { RobotLive } from "./bakai/robot";
-import { SparkleLive } from "./bakai/sparkle";
-import { ClockBackLive } from "./bakai/clock-back";
-import "./bakai-icons.css";
+import { FadersLive } from "../icon-lab/bakai/faders";
+import { UsersThreeLive } from "../icon-lab/bakai/users-three";
+import { ListChecksLive } from "../icon-lab/bakai/list-checks";
+import { KanbanLive } from "../icon-lab/bakai/kanban";
+import { FolderLive } from "../icon-lab/bakai/folder";
+import { GearLive } from "../icon-lab/bakai/gear";
+import { ChatLive } from "../icon-lab/bakai/chat";
+import { TrashLive } from "../icon-lab/bakai/trash";
+import { CloudArrowUpLive } from "../icon-lab/bakai/cloud-upload";
+import { KeyLive } from "../icon-lab/bakai/api-key";
+import { GitBranchLive } from "../icon-lab/bakai/git-branch";
+import { PlugsLive } from "../icon-lab/bakai/plugs";
+import { ClipboardTextLive } from "../icon-lab/bakai/logs";
+import { RobotLive } from "../icon-lab/bakai/robot";
+import { SparkleLive } from "../icon-lab/bakai/sparkle";
+import { ClockBackLive } from "../icon-lab/bakai/clock-back";
+import "../icon-lab/bakai-icons.css";
 
 /** Exact components copied from the author-provided bakai.me icon-code.json. */
 export type BakaiIconKind = "faders" | "users" | "list-checks" | "kanban" | "folder" | "gear" | "chat" | "trash" | "cloud-upload" | "api-key" | "git-branch" | "plugs" | "logs" | "robot" | "sparkle" | "clock-back";

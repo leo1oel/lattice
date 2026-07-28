@@ -816,6 +816,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .canvas-actions button { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; background: transparent; color: var(--muted); position: relative; }
 .canvas-actions button:hover:not(:disabled) { background: var(--line); color: var(--text); }
 .canvas-actions button.active { background: var(--accent-soft); color: var(--accent); }
+.animated-product-icon, .animated-product-icon > span, .animated-product-icon > span > div, .animated-product-icon svg { display: block; line-height: 0; }
 .canvas-actions .canvas-text-button { width: auto; min-width: 28px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; }
 .canvas-actions .canvas-text-button span { line-height: 1; }
 @container canvas-toolbar (max-width: 620px) {
@@ -2754,7 +2755,8 @@ button.checklist-row:hover { border-color: color-mix(in srgb, var(--accent) 35%,
 .settings-header > button:hover, .settings-section-title > button:hover { background: var(--line); color: var(--text); }
 .settings-body { height: calc(100% - 50px); display: grid; grid-template-columns: 160px minmax(0, 1fr); }
 .settings-nav { padding: 12px 9px; border-right: 1px solid var(--line); background: var(--panel); }
-.settings-nav button { width: 100%; height: 32px; padding: 0 10px; border-radius: 7px; background: transparent; color: var(--muted); font-size: 11px; text-align: left; }
+.settings-nav button { width: 100%; height: 32px; padding: 0 10px; border-radius: 7px; background: transparent; color: var(--muted); display: flex; align-items: center; gap: 8px; font-size: 11px; text-align: left; }
+.settings-nav button > .animated-product-icon { width: 15px; flex: none; }
 .settings-nav button:hover { background: var(--line); color: var(--text); }
 .settings-nav button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .settings-content { min-width: 0; overflow: auto; }

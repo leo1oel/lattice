@@ -6,7 +6,7 @@ import "@fontsource/dm-sans/500.css";
 import "@fontsource/dm-sans/600.css";
 import "../App.css";
 import "./icon-lab.css";
-import { BakaiAnimatedIcon, type BakaiIconKind } from "./bakai-icons";
+import { BakaiAnimatedIcon, type BakaiIconKind } from "../animated-icons/bakai-icons";
 import { ProvidedAnimatedIcon, type ProvidedIconKind } from "./provided-icons";
 
 type IconStudy = {

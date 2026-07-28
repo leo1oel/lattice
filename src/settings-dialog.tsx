@@ -48,6 +48,18 @@ import {
 import { autoBuildTitle, autoBuildDetail } from "./app-utils";
 import { McpSettingsSection } from "./mcp-settings";
 import { OverleafSettingsSection } from "./overleaf-connect";
+import { AnimatedProductIcon } from "./animated-icons/product-animated-icon";
+
+const SETTINGS_NAV_ITEMS = [
+  { tab: "appearance", label: "Appearance", icon: "faders" },
+  { tab: "editor", label: "Editor & builds", icon: "logs" },
+  { tab: "agent", label: "Agent", icon: "robot" },
+  { tab: "mcp", label: "MCP", icon: "plugs" },
+  { tab: "accounts", label: "Subscriptions", icon: "users" },
+  { tab: "overleaf", label: "Overleaf", icon: "cloud-upload" },
+  { tab: "api", label: "API keys", icon: "api-key" },
+  { tab: "doctor", label: "TeX doctor", icon: "sparkle" },
+] as const;
 
 export function SettingsDialog(props: {
   tab: SettingsTab;
@@ -147,14 +159,16 @@ export function SettingsDialog(props: {
         </div>
         <div className="settings-body">
           <nav className="settings-nav">
-            <button className={props.tab === "appearance" ? "active" : ""} onClick={() => props.setTab("appearance")}>Appearance</button>
-            <button className={props.tab === "editor" ? "active" : ""} onClick={() => props.setTab("editor")}>Editor & builds</button>
-            <button className={props.tab === "agent" ? "active" : ""} onClick={() => props.setTab("agent")}>Agent</button>
-            <button className={props.tab === "mcp" ? "active" : ""} onClick={() => props.setTab("mcp")}>MCP</button>
-            <button className={props.tab === "accounts" ? "active" : ""} onClick={() => props.setTab("accounts")}>Subscriptions</button>
-            <button className={props.tab === "overleaf" ? "active" : ""} onClick={() => props.setTab("overleaf")}>Overleaf</button>
-            <button className={props.tab === "api" ? "active" : ""} onClick={() => props.setTab("api")}>API keys</button>
-            <button className={props.tab === "doctor" ? "active" : ""} onClick={() => props.setTab("doctor")}>TeX doctor</button>
+            {SETTINGS_NAV_ITEMS.map((item) => (
+              <button
+                key={item.tab}
+                className={props.tab === item.tab ? "active" : ""}
+                onClick={() => props.setTab(item.tab)}
+              >
+                <AnimatedProductIcon kind={item.icon} size={15} />
+                <span>{item.label}</span>
+              </button>
+            ))}
           </nav>
           <div className="settings-content">
             {props.tab === "appearance" && (
