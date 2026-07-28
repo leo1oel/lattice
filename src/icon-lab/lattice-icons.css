@@ -1,0 +1,79 @@
+.lattice-animated-icon { display: block; line-height: 0; }
+.lattice-animated-icon svg { display: block; overflow: visible; }
+
+/* MessageSquareText stays fixed while a three-item feed advances one complete
+   period. The incoming rows already exist above the clip, so there is no snap
+   or crossfade: at +12px the visible geometry is exactly the starting glyph. */
+@keyframes li-comment-scroll {
+  0%, 8% { transform: translateY(0); }
+  28%, 36% { transform: translateY(4px); }
+  57%, 65% { transform: translateY(8px); }
+  88%, 100% { transform: translateY(12px); }
+}
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-comment-feed {
+  animation: li-comment-scroll calc(1.18s * var(--li-speed)) cubic-bezier(.32,.72,.28,1) both;
+}
+
+/* One presence ping: the core answers first, then the inner and outer signals
+   breathe out with a tiny opposing tilt. Nothing oscillates continuously. */
+.li-radio-core, .li-radio-inner, .li-radio-outer { transform-box: view-box; transform-origin: 12px 12px; }
+@keyframes li-radio-core-ping {
+  0%, 100% { transform: scale(1); }
+  26% { transform: scale(.72); }
+  52% { transform: scale(1.38); }
+  74% { transform: scale(.94); }
+}
+@keyframes li-radio-inner-left {
+  0%, 12%, 100% { transform: translateX(0) rotate(0); }
+  43% { transform: translateX(-.45px) rotate(-2.4deg); }
+  68% { transform: translateX(.12px) rotate(.7deg); }
+}
+@keyframes li-radio-inner-right {
+  0%, 12%, 100% { transform: translateX(0) rotate(0); }
+  43% { transform: translateX(.45px) rotate(2.4deg); }
+  68% { transform: translateX(-.12px) rotate(-.7deg); }
+}
+@keyframes li-radio-outer-left {
+  0%, 24%, 100% { transform: translateX(0) rotate(0); opacity: 1; }
+  52% { transform: translateX(-.7px) rotate(-1.8deg); opacity: .58; }
+  76% { transform: translateX(.12px) rotate(.4deg); opacity: 1; }
+}
+@keyframes li-radio-outer-right {
+  0%, 24%, 100% { transform: translateX(0) rotate(0); opacity: 1; }
+  52% { transform: translateX(.7px) rotate(1.8deg); opacity: .58; }
+  76% { transform: translateX(-.12px) rotate(-.4deg); opacity: 1; }
+}
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-radio-core { animation: li-radio-core-ping calc(.82s * var(--li-speed)) cubic-bezier(.2,.8,.25,1) both; }
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-radio-inner.li-radio-left { animation: li-radio-inner-left calc(.82s * var(--li-speed)) cubic-bezier(.2,.8,.25,1) both; }
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-radio-inner.li-radio-right { animation: li-radio-inner-right calc(.82s * var(--li-speed)) cubic-bezier(.2,.8,.25,1) both; }
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-radio-outer.li-radio-left { animation: li-radio-outer-left calc(.82s * var(--li-speed)) cubic-bezier(.2,.8,.25,1) both; }
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-radio-outer.li-radio-right { animation: li-radio-outer-right calc(.82s * var(--li-speed)) cubic-bezier(.2,.8,.25,1) both; }
+
+/* The two existing MessagesSquare bubbles make room for a short typing reply.
+   Dots are transient information, not part of the resting glyph. */
+.li-message-back, .li-message-front { transform-box: view-box; transform-origin: 12px 12px; }
+.li-message-dot { transform-box: fill-box; transform-origin: center; opacity: 0; }
+@keyframes li-message-back {
+  0%, 100% { transform: translate(0); }
+  32% { transform: translate(-.65px, -.65px); }
+  72% { transform: translate(-.65px, -.65px); }
+}
+@keyframes li-message-front {
+  0%, 100% { transform: translate(0); }
+  32% { transform: translate(.55px, .55px); }
+  72% { transform: translate(.55px, .55px); }
+}
+@keyframes li-message-dot {
+  0%, 24%, 80%, 100% { opacity: 0; transform: scale(.2); }
+  42%, 68% { opacity: 1; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.28); }
+}
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-message-back { animation: li-message-back calc(1.02s * var(--li-speed)) cubic-bezier(.22,.78,.24,1) both; }
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-message-front { animation: li-message-front calc(1.02s * var(--li-speed)) cubic-bezier(.22,.78,.24,1) both; }
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-message-dot { animation: li-message-dot calc(1.02s * var(--li-speed)) cubic-bezier(.2,.85,.25,1) both; }
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-message-dot-two { animation-delay: calc(.07s * var(--li-speed)); }
+.lattice-animated-icon.is-playing:not(.is-reduced) .li-message-dot-three { animation-delay: calc(.14s * var(--li-speed)); }
+
+.lattice-animated-icon.is-playing.is-reduced { animation: lattice-reduced-feedback calc(.7s * var(--li-speed)) ease both; }
+.lattice-animated-icon.is-playing.is-reduced * { animation: none !important; }
+@keyframes lattice-reduced-feedback { 0%, 100% { opacity: 1; } 45% { opacity: .35; } }

@@ -1056,6 +1056,30 @@
 .bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-mark { animation: lg-sp-mark calc(0.6s * var(--bk-speed)) 0s both; }
 .bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-m2 { animation-delay: calc(0.06s * var(--bk-speed)); }
 
+/* Clock Back: exact author animation, with the lab's replay speed adapter. */
+.lg-clockback .ck-arrow, .lg-clockback .ck-hour, .lg-clockback .ck-min { transform-box: view-box; transform-origin: 128px 128px; }
+@keyframes lg-clockback-arrow {
+  0% { transform: rotate(0deg); animation-timing-function: cubic-bezier(.45,0,.55,1); }
+  29.17%, 100% { transform: rotate(-360deg); }
+}
+@keyframes lg-clockback-min {
+  0% { transform: rotate(0deg); }
+  23.61% { transform: rotate(0deg); animation-timing-function: cubic-bezier(.45,0,.55,1); }
+  65.28% { transform: rotate(-360deg); }
+  70.83% { transform: rotate(-360deg); animation-timing-function: cubic-bezier(.45,0,.55,1); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes lg-clockback-hour {
+  0% { transform: rotate(0deg); }
+  23.61% { transform: rotate(0deg); animation-timing-function: cubic-bezier(.45,0,.55,1); }
+  65.28% { transform: rotate(-30deg); }
+  70.83% { transform: rotate(-30deg); animation-timing-function: cubic-bezier(.45,0,.55,1); }
+  100% { transform: rotate(0deg); }
+}
+.bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-arrow { animation: lg-clockback-arrow calc(1.44s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-min { animation: lg-clockback-min calc(1.44s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-hour { animation: lg-clockback-hour calc(1.44s * var(--bk-speed)) both; }
+
 .bakai-icon { display: block; overflow: visible; }
 .bakai-icon.is-playing.is-reduced { animation: bakai-reduced-feedback calc(.7s * var(--bk-speed)) ease both; }
 .bakai-icon.is-playing.is-reduced * { animation: none !important; }

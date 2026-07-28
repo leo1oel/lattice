@@ -14,10 +14,11 @@ import { PlugsLive } from "./bakai/plugs";
 import { ClipboardTextLive } from "./bakai/logs";
 import { RobotLive } from "./bakai/robot";
 import { SparkleLive } from "./bakai/sparkle";
+import { ClockBackLive } from "./bakai/clock-back";
 import "./bakai-icons.css";
 
 /** Exact components copied from the author-provided bakai.me icon-code.json. */
-export type BakaiIconKind = "faders" | "users" | "list-checks" | "kanban" | "folder" | "gear" | "chat" | "trash" | "cloud-upload" | "api-key" | "git-branch" | "plugs" | "logs" | "robot" | "sparkle";
+export type BakaiIconKind = "faders" | "users" | "list-checks" | "kanban" | "folder" | "gear" | "chat" | "trash" | "cloud-upload" | "api-key" | "git-branch" | "plugs" | "logs" | "robot" | "sparkle" | "clock-back";
 
 type VendorIcon = ComponentType<{ size?: number; className?: string }>;
 
@@ -37,6 +38,7 @@ const icons: Record<BakaiIconKind, { Icon: VendorIcon; sourceClass: string }> = 
   logs: { Icon: ClipboardTextLive, sourceClass: "lg-tail" },
   robot: { Icon: RobotLive, sourceClass: "lg-robot" },
   sparkle: { Icon: SparkleLive, sourceClass: "lg-bloom" },
+  "clock-back": { Icon: ClockBackLive, sourceClass: "lg-clockback" },
 };
 
 export function BakaiAnimatedIcon({ kind, size = 20, playing, reducedMotion, speed = "normal", className }: { kind: BakaiIconKind; size?: number; playing?: boolean; reducedMotion?: boolean; speed?: "normal" | "slow"; playId?: number; className?: string }) {
