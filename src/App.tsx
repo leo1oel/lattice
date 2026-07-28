@@ -591,7 +591,7 @@ function App() {
     beginSidebarResize,
     nudgeSidebar,
   } = usePanelLayout();
-  const sidebarModeTier = sidebarWidth >= 361 ? 4 : sidebarWidth >= 315 ? 3 : sidebarWidth >= 269 ? 2 : 1;
+  const sidebarModeTier = sidebarWidth >= 355 ? 4 : sidebarWidth >= 309 ? 3 : sidebarWidth >= 263 ? 2 : 1;
   const [sidebarMode, setSidebarMode] = useState<"project" | "papers" | "agent">(() => {
     try {
       const saved = localStorage.getItem("lattice.sidebar-mode.v1");
