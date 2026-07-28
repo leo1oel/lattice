@@ -12,7 +12,7 @@
 .pdf-zoom-value { position: relative; width: 44px; min-width: 44px; height: 25px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
 .pdf-zoom-value:focus-within { background: var(--bg); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .pdf-zoom-value input { width: 100%; border: 0; outline: 0; padding: 0 10px 0 2px; background: transparent; color: inherit; font: inherit; text-align: center; font-variant-numeric: tabular-nums; }
-.pdf-zoom-value span { position: absolute; right: 6px; width: 7px; text-align: left; pointer-events: none; }
+.pdf-zoom-value span { position: absolute; right: 8px; width: 7px; text-align: left; pointer-events: none; }
 .pdf-zoom-controls .pdf-fit-divider { width: 1px; height: 16px; margin: 0 3px; background: var(--line-strong); }
 .pdf-zoom-controls button.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 6px; }
 .pdf-search { min-width: 0; height: 27px; border: 1px solid var(--line); border-radius: 7px; padding-left: 7px; display: flex; align-items: center; gap: 3px; color: var(--faint); background: var(--bg); }
