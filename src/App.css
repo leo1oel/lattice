@@ -403,27 +403,27 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .navigator { display: flex; flex-direction: column; overflow: hidden; }
 .sidebar-mode-header { height: 40px; flex: none; padding: 5px 8px; display: grid; grid-template-columns: minmax(0, 1fr) 120px; align-items: center; gap: 4px; }
 .sidebar-mode-tabs { width: 100%; min-width: 0; padding: 0; display: flex; gap: 2px; overflow: hidden; border-radius: 7px; background: transparent; }
-.sidebar-mode-tabs .sliding-tab { position: relative; width: 26px; min-width: 26px; height: 29px; padding: 0; flex: none; border-radius: 6px; background: transparent; color: var(--muted); font-size: 11.5px; font-weight: 600; overflow: hidden; transition: width .22s cubic-bezier(.2, .75,.25,1), background-color .14s ease; }
-.sidebar-mode-tabs .sliding-tab.active, .sidebar-mode-tabs .sliding-tab:hover { width: 84px; }
+.sidebar-mode-tabs .sliding-tab { position: relative; width: 29px; min-width: 29px; height: 29px; padding: 0; flex: none; border-radius: 6px; background: transparent; color: var(--muted); font-size: 11.5px; font-weight: 600; overflow: hidden; transition: width .22s cubic-bezier(.2, .75,.25,1), background-color .14s ease; }
+.sidebar-mode-tabs .sliding-tab.active, .sidebar-mode-tabs .sliding-tab:hover { width: 78px; }
 .sidebar-mode-tabs .sliding-tab:hover { background: color-mix(in srgb, var(--line) 35%, transparent); }
 .sidebar-mode-tabs .sliding-tab.active { color: var(--text); }
 .sidebar-mode-tabs .sliding-tab-pill { position: absolute; inset: 0; border: 0; border-radius: 6px; background: color-mix(in srgb, var(--line) 65%, transparent); }
-.sidebar-mode-tabs .sliding-tab-label { position: relative; height: 100%; display: flex; align-items: center; justify-content: center; }
+.sidebar-mode-tabs .sliding-tab-label { position: relative; height: 100%; padding: 0 7px; display: flex; align-items: center; justify-content: flex-start; box-sizing: border-box; }
 .sidebar-mode-tabs .sliding-tab-label svg { width: 15px; height: 15px; min-width: 15px; flex: none; margin: 0; }
 .sidebar-mode-tabs .sliding-tab-label span { max-width: 0; margin-left: 0; overflow: hidden; white-space: nowrap; opacity: 0; transition: max-width .22s cubic-bezier(.2, .75,.25,1), margin-left .22s cubic-bezier(.2, .75,.25,1), opacity .14s ease; }
 .sidebar-mode-tabs .sliding-tab.active .sliding-tab-label span, .sidebar-mode-tabs .sliding-tab:hover .sliding-tab-label span { max-width: 54px; margin-left: 7px; opacity: 1; }
 @container (max-width: 279px) {
-  .sidebar-mode-tabs .sliding-tab.active, .sidebar-mode-tabs .sliding-tab:hover { width: 26px; }
+  .sidebar-mode-tabs .sliding-tab.active, .sidebar-mode-tabs .sliding-tab:hover { width: 29px; }
   .sidebar-mode-tabs .sliding-tab.active .sliding-tab-label span, .sidebar-mode-tabs .sliding-tab:hover .sliding-tab-label span { max-width: 0; margin-left: 0; opacity: 0; }
 }
 @container (min-width: 280px) and (max-width: 335px) {
-  .sidebar-mode-tabs .sliding-tab.active { width: 84px; }
-  .sidebar-mode-tabs .sliding-tab:not(.active):hover { width: 26px; }
+  .sidebar-mode-tabs .sliding-tab.active { width: 78px; }
+  .sidebar-mode-tabs .sliding-tab:not(.active):hover { width: 29px; }
   .sidebar-mode-tabs .sliding-tab.active .sliding-tab-label span { opacity: 1; }
   .sidebar-mode-tabs .sliding-tab:not(.active):hover .sliding-tab-label span { max-width: 0; margin-left: 0; opacity: 0; }
 }
 @container (min-width: 421px) {
-  .sidebar-mode-tabs .sliding-tab { width: 84px; }
+  .sidebar-mode-tabs .sliding-tab { width: 78px; }
   .sidebar-mode-tabs .sliding-tab-label span { max-width: 54px; margin-left: 7px; opacity: 1; }
 }
 .sidebar-provider-select { width: 90px; min-width: 0; height: 29px; flex: none; padding: 0 5px 0 7px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: flex-start; gap: 5px; font-size: 12px; line-height: 1.4; box-shadow: none; }
