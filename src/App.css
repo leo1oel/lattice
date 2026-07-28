@@ -401,7 +401,7 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 .sidebar-resizer:hover::before, .sidebar-resizer:focus-visible::before, body.resizing-panels .sidebar-resizer::before { background: var(--line-strong); box-shadow: 0 0 0 .5px var(--line-strong); }
 body.resizing-panels { cursor: col-resize; user-select: none; }
 .navigator { display: flex; flex-direction: column; overflow: hidden; }
-.sidebar-mode-header { height: 40px; flex: none; padding: 5px 8px; display: flex; align-items: center; gap: 8px; }
+.sidebar-mode-header { position: relative; height: 40px; flex: none; padding: 5px 8px; display: flex; align-items: center; gap: 8px; }
 .sidebar-mode-tabs { width: 91px; min-width: 91px; padding: 0; display: flex; flex: none; gap: 2px; overflow: visible; border-radius: 7px; background: transparent; }
 .sidebar-mode-tabs .sliding-tab { position: relative; width: 29px; min-width: 29px; height: 29px; padding: 0; flex: none; border-radius: 6px; background: transparent; color: var(--muted); font-size: 11.5px; font-weight: 600; overflow: hidden; transition: width .22s cubic-bezier(.2, .75,.25,1), background-color .14s ease; }
 .sidebar-mode-tabs .sliding-tab.active, .sidebar-mode-tabs .sliding-tab:hover { width: 75px; }
@@ -436,7 +436,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .sidebar-provider-select:hover, .sidebar-provider-select[data-state="open"] { background: var(--line); color: var(--text); }
 .sidebar-provider-select span { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; }
 .sidebar-provider-select svg { width: 13px; height: 13px; flex: none; color: var(--faint); }
-.sidebar-mode-actions { min-width: 0; margin-left: auto; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 1px; }
+.sidebar-mode-actions { position: absolute; top: 5px; right: 8px; min-width: 0; height: 29px; display: flex; align-items: center; justify-content: flex-end; gap: 1px; }
 .sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select) { width: 26px; height: 26px; border-radius: 6px; background: transparent; color: var(--faint); display: grid; place-items: center; }
 .sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select):hover:not(:disabled), .sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select)[aria-pressed="true"] { background: var(--line); color: var(--text); }
 .sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select):disabled { opacity: .4; }
