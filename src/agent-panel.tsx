@@ -215,14 +215,14 @@ function AgentConfigPicker(props: {
           <ChevronDown aria-hidden="true" />
         </button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="start" sideOffset={7} collisionPadding={8} avoidCollisions className="agent-config-menu">
+      <PopoverContent liquid side="top" align="start" sideOffset={7} collisionPadding={8} avoidCollisions className="agent-config-menu">
         <Popover open={modelsOpen} onOpenChange={(nextOpen) => { setModelsOpen(nextOpen); if (nextOpen) setEffortsOpen(false); }}>
           <PopoverTrigger asChild>
             <button type="button" className="agent-config-row" aria-label="Choose model" aria-expanded={modelsOpen}>
               <strong>Model</strong><span>{selectedModel?.label ?? "No models"}</span><ChevronRight aria-hidden="true" />
             </button>
           </PopoverTrigger>
-          <PopoverContent side="right" align="start" sideOffset={7} collisionPadding={8} avoidCollisions className="agent-config-options model-options" role="listbox" aria-label="Models">
+          <PopoverContent liquid side="right" align="start" sideOffset={7} collisionPadding={8} avoidCollisions className="agent-config-options model-options" role="listbox" aria-label="Models">
             {props.modelOptions.map((option) => (
               <button type="button" role="option" aria-selected={option.value === props.model} key={option.value} className={option.value === props.model ? "selected" : ""} onClick={() => chooseModel(option.value)}>
                 <span>{option.label}</span>{option.value === props.model && <Check aria-hidden="true" />}
@@ -236,7 +236,7 @@ function AgentConfigPicker(props: {
               <strong>Reasoning</strong><span>{effortLabel(props.reasoningEffort)}</span><ChevronRight aria-hidden="true" />
             </button>
           </PopoverTrigger>
-          <PopoverContent side="right" align="start" sideOffset={7} collisionPadding={8} avoidCollisions className="agent-config-options effort-options" role="listbox" aria-label="Reasoning efforts">
+          <PopoverContent liquid side="right" align="start" sideOffset={7} collisionPadding={8} avoidCollisions className="agent-config-options effort-options" role="listbox" aria-label="Reasoning efforts">
             {efforts.map((effort) => (
               <button type="button" role="option" aria-selected={effort === props.reasoningEffort} key={effort} className={effort === props.reasoningEffort ? "selected" : ""} onClick={() => chooseEffort(effort)}>
                 <span>{effortLabel(effort)}</span>{effort === props.reasoningEffort && <Check aria-hidden="true" />}

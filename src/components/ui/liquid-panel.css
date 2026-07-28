@@ -1,0 +1,82 @@
+/* Radix Content is only the Presence/layout shell. It must never clip filter bleed. */
+.liquid-panel {
+  --liquid-outline: #dfe2e8;
+  position: relative;
+  overflow: visible;
+  isolation: isolate;
+  animation: liquid-presence-open 190ms cubic-bezier(.23, 1, .32, 1) both;
+}
+
+:root[data-theme="dark"] .liquid-panel { --liquid-outline: #3b414b; }
+
+.liquid-panel[data-state="closed"] {
+  pointer-events: none;
+  animation: liquid-presence-close 150ms cubic-bezier(.25, .46, .45, .94) both;
+}
+
+/* This opaque fallback is also the clipping, scrolling and item-reveal owner. */
+.liquid-panel-viewport {
+  position: relative;
+  z-index: 1;
+  max-height: inherit;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--liquid-outline);
+  border-radius: inherit;
+  background: var(--panel-strong);
+  animation: liquid-body-bottom-open 190ms linear both;
+}
+[data-slot="dropdown-menu-content"] > .liquid-panel-viewport,
+[data-slot="context-menu-content"] > .liquid-panel-viewport { padding: .375rem; }
+[data-slot="popover-content"][data-liquid] > .liquid-panel-viewport { padding: 1rem; }
+
+.liquid-panel-surface {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.liquid-panel-sheet, .liquid-panel-neck, .liquid-panel-shadow-sheet { fill: var(--panel-strong); }
+.liquid-panel-shadow { filter: drop-shadow(0 7px 10px rgb(0 0 0 / .16)); }
+.liquid-panel-neck { display: none; transform-box: fill-box; transform-origin: center; animation: liquid-neck-open 190ms linear both; }
+.liquid-panel[data-side="top"] .liquid-panel-neck-top,
+.liquid-panel[data-side="bottom"] .liquid-panel-neck-bottom,
+.liquid-panel[data-side="left"] .liquid-panel-neck-left,
+.liquid-panel[data-side="right"] .liquid-panel-neck-right { display: block; }
+
+.liquid-panel[data-state="closed"] .liquid-panel-viewport { animation: liquid-body-bottom-close 150ms linear both; }
+.liquid-panel[data-state="closed"] .liquid-panel-neck { animation: liquid-neck-close 150ms linear both; }
+.liquid-panel[data-side="top"] .liquid-panel-viewport { animation-name: liquid-body-top-open; }
+.liquid-panel[data-state="closed"][data-side="top"] .liquid-panel-viewport { animation-name: liquid-body-top-close; }
+.liquid-panel[data-side="left"] .liquid-panel-viewport { animation-name: liquid-body-left-open; }
+.liquid-panel[data-state="closed"][data-side="left"] .liquid-panel-viewport { animation-name: liquid-body-left-close; }
+.liquid-panel[data-side="right"] .liquid-panel-viewport { animation-name: liquid-body-right-open; }
+.liquid-panel[data-state="closed"][data-side="right"] .liquid-panel-viewport { animation-name: liquid-body-right-close; }
+
+/* One normalized timeline: cubic body growth; quadratic peel finishes at p=.45. */
+@keyframes liquid-body-bottom-open { 0% { clip-path: inset(0 0 calc(100% - 12px) 0 round 10px); animation-timing-function: cubic-bezier(.33,1,.68,1); } 100% { clip-path: inset(0 round 10px); } }
+@keyframes liquid-body-bottom-close { 0% { clip-path: inset(0 round 10px); animation-timing-function: cubic-bezier(.33,1,.68,1); } 100% { clip-path: inset(0 0 calc(100% - 12px) 0 round 10px); } }
+@keyframes liquid-body-top-open { 0% { clip-path: inset(calc(100% - 12px) 0 0 round 10px); animation-timing-function: cubic-bezier(.33,1,.68,1); } 100% { clip-path: inset(0 round 10px); } }
+@keyframes liquid-body-top-close { 0% { clip-path: inset(0 round 10px); animation-timing-function: cubic-bezier(.33,1,.68,1); } 100% { clip-path: inset(calc(100% - 12px) 0 0 round 10px); } }
+@keyframes liquid-body-left-open { 0% { clip-path: inset(0 0 0 calc(100% - 12px) round 10px); animation-timing-function: cubic-bezier(.33,1,.68,1); } 100% { clip-path: inset(0 round 10px); } }
+@keyframes liquid-body-left-close { 0% { clip-path: inset(0 round 10px); animation-timing-function: cubic-bezier(.33,1,.68,1); } 100% { clip-path: inset(0 0 0 calc(100% - 12px) round 10px); } }
+@keyframes liquid-body-right-open { 0% { clip-path: inset(0 calc(100% - 12px) 0 0 round 10px); animation-timing-function: cubic-bezier(.33,1,.68,1); } 100% { clip-path: inset(0 round 10px); } }
+@keyframes liquid-body-right-close { 0% { clip-path: inset(0 round 10px); animation-timing-function: cubic-bezier(.33,1,.68,1); } 100% { clip-path: inset(0 calc(100% - 12px) 0 0 round 10px); } }
+@keyframes liquid-neck-open { 0% { transform: scale(.2); animation-timing-function: cubic-bezier(.25,.46,.45,.94); } 45%, 100% { transform: scale(1); } }
+@keyframes liquid-neck-close { 0% { transform: scale(1); animation-timing-function: cubic-bezier(.25,.46,.45,.94); } 55% { transform: scale(1); } 100% { transform: scale(.2); } }
+/* Visually inert animations keep the actual Content mounted for Radix Presence. */
+@keyframes liquid-presence-open { from { opacity: .999; } to { opacity: 1; } }
+@keyframes liquid-presence-close { from { opacity: 1; } to { opacity: .999; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-panel, .liquid-panel[data-state="closed"],
+  .liquid-panel-viewport, .liquid-panel[data-state="closed"] .liquid-panel-viewport,
+  .liquid-panel-neck, .liquid-panel[data-state="closed"] .liquid-panel-neck {
+    animation-duration: 0s;
+    animation-delay: 0s;
+  }
+  .liquid-panel[data-state="closed"] { display: none; }
+}
