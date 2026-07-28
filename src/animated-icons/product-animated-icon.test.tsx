@@ -27,4 +27,12 @@ describe("AnimatedProductIcon", () => {
     fireEvent.focus(container.querySelector("button")!);
     expect(container.querySelector(".bakai-icon.is-playing")).not.toBeNull();
   });
+
+  it("exposes the icon kind for product-specific optical sizing", () => {
+    const { container } = render(
+      <button type="button"><AnimatedProductIcon kind="clock-back" /></button>,
+    );
+
+    expect(container.querySelector(".animated-product-icon--clock-back")).not.toBeNull();
+  });
 });

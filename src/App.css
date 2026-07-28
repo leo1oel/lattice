@@ -820,6 +820,11 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .canvas-actions button:hover:not(:disabled) { background: var(--line); color: var(--text); }
 .canvas-actions button.active { background: var(--accent-soft); color: var(--accent); }
 .animated-product-icon, .animated-product-icon > span, .animated-product-icon > span > div, .animated-product-icon svg { display: block; line-height: 0; }
+.canvas-actions .animated-product-icon--chat .ct-pop > path { stroke-width: 21.333; }
+.canvas-actions .animated-product-icon--git-branch .lg-branch { stroke-width: 20; }
+.canvas-actions .animated-product-icon--clock-back .ck-hour,
+.canvas-actions .animated-product-icon--clock-back .ck-min { stroke-width: 20; }
+.canvas-actions .animated-product-icon--clock-back .ck-arrow { stroke: currentColor; stroke-width: 4; stroke-linejoin: round; paint-order: stroke fill; }
 .canvas-actions .canvas-text-button { width: auto; min-width: 28px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; }
 .canvas-actions .canvas-text-button span { line-height: 1; }
 @container canvas-toolbar (max-width: 620px) {

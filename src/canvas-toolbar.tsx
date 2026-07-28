@@ -215,12 +215,12 @@ export function CanvasToolbar(props: {
         {props.overleafPresence}
         <Tip label="Git status and commit">
           <button className="history-button" onClick={props.onGit}>
-            <AnimatedProductIcon kind="git-branch" size={14} />
+            <AnimatedProductIcon kind="git-branch" size={15} />
           </button>
         </Tip>
         <Tip label="Project history">
           <button className="history-button" onClick={props.onHistory}>
-            <AnimatedProductIcon kind="clock-back" size={14} />
+            <AnimatedProductIcon kind="clock-back" size={15} />
           </button>
         </Tip>
       </div>

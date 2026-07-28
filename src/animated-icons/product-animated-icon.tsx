@@ -38,7 +38,11 @@ export function AnimatedProductIcon({
   }, []);
 
   return (
-    <span ref={hostRef} className="animated-product-icon" aria-hidden="true">
+    <span
+      ref={hostRef}
+      className={`animated-product-icon animated-product-icon--${kind}`}
+      aria-hidden="true"
+    >
       {source === "provided" ? (
         <ProvidedAnimatedIcon
           key={playId}
