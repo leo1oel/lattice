@@ -3526,7 +3526,7 @@ dependencies = [
 
 [[package]]
 name = "research-writer"
-version = "0.1.156"
+version = "0.1.157"
 dependencies = [
  "base64 0.22.1",
  "block2",
