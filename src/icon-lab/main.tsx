@@ -20,11 +20,11 @@ type IconStudy = {
 
 const settingsIcons: IconStudy[] = [
   { id: "appearance", kind: "faders", label: "Appearance", rationale: "Faders cycle through the interface settings." },
-  { id: "editor", kind: "logs", converted: true, label: "Editor & builds", rationale: "Converted Logs keeps its transparent clipboard and advances the build tail three times." },
-  { id: "agent", kind: "robot", converted: true, label: "Agent", rationale: "Converted Robot keeps its transparent shell while the original eyes scan and blink." },
+  { id: "editor", kind: "logs", label: "Editor & builds", rationale: "Bakai’s original Logs advances the build tail three times." },
+  { id: "agent", kind: "robot", label: "Agent", rationale: "Bakai’s original Robot scans and blinks." },
   { id: "mcp", kind: "plugs", label: "MCP", rationale: "The plug halves separate, reconnect, and make contact arcs." },
   { id: "subscriptions", kind: "users", label: "Subscriptions", rationale: "The three linked accounts rotate one place." },
-  { id: "overleaf", kind: "cloud-upload", converted: true, label: "Overleaf", rationale: "Converted Cloud Upload uses a transparent cloud contour while Bakai’s arrow completes the upload stream." },
+  { id: "overleaf", kind: "cloud-upload", label: "Overleaf", rationale: "Bakai’s original Cloud Upload completes the upload stream." },
   { id: "api", kind: "api-key", label: "API keys", rationale: "The key levels, tumbles, and is caught." },
   { id: "doctor", kind: "sparkle", label: "TeX doctor", rationale: "The diagnostic result gathers and blooms cleanly." },
 ];
@@ -64,9 +64,7 @@ const toolbarIcons: IconStudy[] = [
   { id: "toolbar-history", kind: "clock-back", label: "Project history", rationale: "Bakai Clock Back winds one hour into the past and releases back to now." },
 ];
 
-const trashPolicy: IconStudy = { id: "global-trash", kind: "trash", label: "All delete actions", rationale: "Every trash affordance will use the same Bakai Trash gesture: lid opens, item drops, static bin returns." };
-
-const allIcons = [...conversionIcons, ...settingsIcons, ...toolbarIcons, trashPolicy, ...productIcons];
+const allIcons = [...conversionIcons, ...settingsIcons, ...toolbarIcons, ...productIcons];
 
 function LabIcon({ item, ...props }: { item: IconStudy; size?: number; playing?: boolean; reducedMotion?: boolean; speed?: "normal" | "slow"; playId?: number; converted?: boolean }) {
   if (item.source === "provided") return <ProvidedAnimatedIcon kind={item.kind as ProvidedIconKind} {...props} />;
@@ -160,9 +158,9 @@ export function IconLab() {
       {settingsIcons.map((item) => <IconCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
     </section>
 
-    <div className="collection-heading toolbar-heading"><div className="eyebrow">Selected product actions</div><h2>Toolbar and delete policy</h2><p>These are the exact candidates selected for the product toolbar; Trash is a global action rule rather than a toolbar item.</p></div>
+    <div className="collection-heading toolbar-heading"><div className="eyebrow">Selected product actions</div><h2>Toolbar replacements</h2><p>Only the five explicitly selected toolbar tools are in scope; all other product icons remain unchanged.</p></div>
     <section className="lab-grid" aria-label="Selected toolbar icon comparisons">
-      {[...toolbarIcons, trashPolicy].map((item) => <IconCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
+      {toolbarIcons.map((item) => <IconCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
     </section>
 
     <section className="toolbar-context-section">
