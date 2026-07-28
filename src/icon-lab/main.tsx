@@ -7,12 +7,10 @@ import "@fontsource/dm-sans/600.css";
 import "../App.css";
 import "./icon-lab.css";
 import { BakaiAnimatedIcon, type BakaiIconKind } from "./bakai-icons";
-import { LatticeAnimatedIcon, type LatticeIconKind } from "./lattice-icons";
 
 type IconStudy = {
   id: string;
-  kind: BakaiIconKind | LatticeIconKind;
-  source?: "lattice";
+  kind: BakaiIconKind;
   label: string;
   rationale: string;
 };
@@ -46,21 +44,32 @@ const productIcons: IconStudy[] = [
   { id: "sparkle", kind: "sparkle", label: "Sparkle", rationale: "The sparkle gathers and blooms through a half turn." },
 ];
 
-const toolbarIcons: IconStudy[] = [
-  { id: "toolbar-comments", kind: "editor-comments", source: "lattice", label: "Editor comments", rationale: "The current MessageSquareText shell stays still while three comment rows advance through one complete feed cycle." },
-  { id: "toolbar-collaboration", kind: "live-collaboration", source: "lattice", label: "Live collaboration", rationale: "A center presence ping reaches the inner and outer radio signals once; opposing micro-tilts keep the broadcast alive without becoming a shake loop." },
-  { id: "toolbar-overleaf-live", kind: "cloud-upload", label: "Editing live with Overleaf", rationale: "Bakai’s upload arrow exits through the cloud, re-enters from below, and settles exactly in its starting cutout." },
-  { id: "toolbar-overleaf-chat", kind: "overleaf-messages", source: "lattice", label: "Overleaf comments & chat", rationale: "The existing MessagesSquare pair parts slightly to make room for one staggered typing reply, then closes back to the untouched glyph." },
-  { id: "toolbar-git", kind: "git-branch", label: "Git status", rationale: "Bakai’s branch retracts into its head, then redraws trunk, ring, branch, and commit in a truthful graph-writing order." },
-  { id: "toolbar-history", kind: "clock-back", label: "Project history", rationale: "Bakai’s Clock Back winds one hour into the past with true 12:1 hand gearing, pauses, then releases precisely back to now." },
+const conversionIcons: IconStudy[] = [
+  { id: "conversion-users", kind: "users", label: "Subscriptions", rationale: "Solid people become white figures with a dark graphite contour; Bakai’s original one-place rotation is unchanged." },
+  { id: "conversion-checks", kind: "list-checks", label: "Checklist", rationale: "The solid card becomes white with a dark contour, while the former white knockouts become dark checks and rules; Bakai’s list progression is unchanged." },
 ];
 
-const allIcons = [...settingsIcons, ...toolbarIcons, ...productIcons];
+const allIcons = [...conversionIcons, ...settingsIcons, ...productIcons];
 
-function LabIcon({ item, ...props }: { item: IconStudy; size?: number; playing?: boolean; reducedMotion?: boolean; speed?: "normal" | "slow"; playId?: number }) {
-  return item.source === "lattice"
-    ? <LatticeAnimatedIcon kind={item.kind as LatticeIconKind} {...props} />
-    : <BakaiAnimatedIcon kind={item.kind as BakaiIconKind} {...props} />;
+function LabIcon({ item, ...props }: { item: IconStudy; size?: number; playing?: boolean; reducedMotion?: boolean; speed?: "normal" | "slow"; playId?: number; converted?: boolean }) {
+  return <BakaiAnimatedIcon kind={item.kind} {...props} />;
+}
+
+function ConversionCard(props: { item: IconStudy; playId: number; replay: () => void; reducedMotion: boolean; speed: "normal" | "slow" }) {
+  return (
+    <article className="conversion-card" tabIndex={0} onPointerEnter={props.replay} onFocus={(event) => { if (event.currentTarget === event.target) props.replay(); }}>
+      <div className="card-heading">
+        <div><h2>{props.item.label}</h2><span className="reference-badge converted">Converted study</span></div>
+        <button type="button" onClick={props.replay}><RotateCcw size={13} /> Replay</button>
+      </div>
+      <div className="conversion-comparison">
+        <div><span>Bakai original</span><LabIcon item={props.item} size={52} /></div>
+        <div className="converted-surface"><span>Converted still</span><LabIcon item={props.item} size={52} converted /></div>
+        <div className="converted-surface"><span>Converted animation</span><LabIcon key={props.playId} item={props.item} size={52} converted playing playId={props.playId} speed={props.speed} reducedMotion={props.reducedMotion} /></div>
+      </div>
+      <p>{props.item.rationale}</p>
+    </article>
+  );
 }
 
 export function IconCard(props: {
@@ -80,7 +89,7 @@ export function IconCard(props: {
       aria-label={`${item.label} icon comparison`}
     >
       <div className="card-heading">
-        <div><LabIcon item={item} size={18} /><h2>{item.label}</h2><span className={`reference-badge ${item.source === "lattice" ? "lattice" : ""}`}>{item.source === "lattice" ? "Lattice study" : "Bakai original"}</span></div>
+        <div><LabIcon item={item} size={18} /><h2>{item.label}</h2><span className="reference-badge">Bakai original</span></div>
         <button type="button" onClick={props.replay}><RotateCcw size={13} /> Replay</button>
       </div>
       <div className="comparison">
@@ -122,31 +131,14 @@ export function IconLab() {
       </div>
     </header>
 
+    <div className="collection-heading conversion-heading"><div className="eyebrow">Conversion proof · two icons only</div><h2>Outline + white fill</h2><p>The original Bakai component and animation remain the source of truth. Only fill, contour, and knockout rendering are translated.</p></div>
+    <section className="conversion-grid" aria-label="Converted icon proofs">
+      {conversionIcons.map((item) => <ConversionCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
+    </section>
+
     <div className="collection-heading"><div className="eyebrow">Settings navigation</div><h2>First eight</h2></div>
     <section className="lab-grid" aria-label="Settings icon comparisons">
       {settingsIcons.map((item) => <IconCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
-    </section>
-
-    <div className="collection-heading toolbar-heading"><div className="eyebrow">Lattice toolbar · real semantics</div><h2>Six action studies</h2><p>Three exact Bakai originals and three Lattice-specific gestures built on the Lucide glyphs already used by the product.</p></div>
-    <section className="lab-grid" aria-label="Toolbar icon comparisons">
-      {toolbarIcons.map((item) => <IconCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
-    </section>
-
-    <section className="toolbar-context-section">
-      <div className="section-copy"><div className="eyebrow">In context</div><h2>Actual toolbar density</h2><p>14px icons inside the product’s real 28px action target. Hover or focus any tool to replay only that gesture.</p></div>
-      <div className="toolbar-preview">
-        <div className="toolbar-preview-tab"><span>paper.tex</span><i /></div>
-        <div className="toolbar-preview-switcher"><b>source</b><span>split</span><span>pdf</span></div>
-        <div className="toolbar-preview-actions">
-          {toolbarIcons.map((item, index) => (
-            <button key={item.id} type="button" className={index === 1 || index === 2 ? "active" : ""} title={item.label} aria-label={item.label} onPointerEnter={() => replay(item.id)} onFocus={() => replay(item.id)} onClick={() => replay(item.id)}>
-              <LabIcon key={plays[item.id]} item={item} size={14} playing playId={plays[item.id]} speed={speed} reducedMotion={reducedMotion} />
-              {index === 0 || index === 3 ? <em>{index === 0 ? 3 : 2}</em> : null}
-              {index === 2 ? <i /> : null}
-            </button>
-          ))}
-        </div>
-      </div>
     </section>
 
     <div className="collection-heading product-heading"><div className="eyebrow">Existing product language</div><h2>Next fifteen</h2><p>Author-source originals directly ported from Bakai Tolondu uulu’s copy-code gallery.</p></div>
@@ -165,7 +157,7 @@ export function IconLab() {
       </div>
     </section>
 
-    <footer>Bakai-original cards: <a href="https://www.bakai.me/lab/animating-icons" target="_blank" rel="noreferrer">Bakai Tolondu uulu, “Animating icons”</a>, used under the author’s express copy/use permission · Lattice-study cards: Lucide static glyphs under ISC, original animation work · No infinite loops</footer>
+    <footer>Original glyphs and animations: <a href="https://www.bakai.me/lab/animating-icons" target="_blank" rel="noreferrer">Bakai Tolondu uulu, “Animating icons”</a>, used under the author’s express copy/use permission · Converted studies change rendering only · No infinite loops</footer>
   </main>;
 }
 

@@ -20,7 +20,7 @@ import "./bakai-icons.css";
 /** Exact components copied from the author-provided bakai.me icon-code.json. */
 export type BakaiIconKind = "faders" | "users" | "list-checks" | "kanban" | "folder" | "gear" | "chat" | "trash" | "cloud-upload" | "api-key" | "git-branch" | "plugs" | "logs" | "robot" | "sparkle" | "clock-back";
 
-type VendorIcon = ComponentType<{ size?: number; className?: string }>;
+type VendorIcon = ComponentType<{ size?: number; className?: string; converted?: boolean }>;
 
 const icons: Record<BakaiIconKind, { Icon: VendorIcon; sourceClass: string }> = {
   faders: { Icon: FadersLive, sourceClass: "lg-faders" },
@@ -41,10 +41,10 @@ const icons: Record<BakaiIconKind, { Icon: VendorIcon; sourceClass: string }> = 
   "clock-back": { Icon: ClockBackLive, sourceClass: "lg-clockback" },
 };
 
-export function BakaiAnimatedIcon({ kind, size = 20, playing, reducedMotion, speed = "normal", className }: { kind: BakaiIconKind; size?: number; playing?: boolean; reducedMotion?: boolean; speed?: "normal" | "slow"; playId?: number; className?: string }) {
+export function BakaiAnimatedIcon({ kind, size = 20, playing, reducedMotion, speed = "normal", converted, className }: { kind: BakaiIconKind; size?: number; playing?: boolean; reducedMotion?: boolean; speed?: "normal" | "slow"; playId?: number; converted?: boolean; className?: string }) {
   const { Icon, sourceClass } = icons[kind];
   const classes = ["bakai-icon", playing && "is-playing", reducedMotion && "is-reduced", className].filter(Boolean).join(" ");
   const style = { "--bk-speed": speed === "slow" ? 1.9 : 1 } as CSSProperties;
 
-  return <span className={classes} style={style}><Icon size={size} className={sourceClass} /></span>;
+  return <span className={classes} style={style}><Icon size={size} className={sourceClass} converted={converted} /></span>;
 }

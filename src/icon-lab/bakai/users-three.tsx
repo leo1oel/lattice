@@ -85,20 +85,34 @@ const REST: Record<Track, { r: number; d: string }> = {
     c: { r: 40, d: BODY_BACK },
 };
 
-function Figure({ t, sil }: { t: Track; sil?: boolean }) {
+function Figure({ t, sil, converted }: { t: Track; sil?: boolean; converted?: boolean }) {
     const R = REST[t];
+    const geometry = () => (
+        <>
+            <circle className={`u3-${t}-h`} cx={0} cy={0} r={R.r} />
+            <path className={`u3-${t}-b`} d={R.d} />
+        </>
+    );
     return (
         <g
             className={`u3-${t}`}
             {...(sil ? { fill: "#000", stroke: "#000", strokeWidth: GAP2, strokeLinejoin: "round" } : {})}
         >
-            <circle className={`u3-${t}-h`} cx={0} cy={0} r={R.r} />
-            <path className={`u3-${t}-b`} d={R.d} />
+            {converted && !sil ? (
+                <>
+                    <g className="u3-converted-outline" fill="none" stroke="var(--converted-ink)" strokeWidth="14" strokeLinejoin="round">
+                        {geometry()}
+                    </g>
+                    <g className="u3-converted-fill" fill="var(--converted-fill)">
+                        {geometry()}
+                    </g>
+                </>
+            ) : geometry()}
         </g>
     );
 }
 
-export function UsersThreeLive({ size = 16, className }: P) {
+export function UsersThreeLive({ size = 16, className, converted }: P & { converted?: boolean }) {
     const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
     const mA = `u3a-${uid}`;
     const mB = `u3b-${uid}`;
@@ -130,13 +144,13 @@ export function UsersThreeLive({ size = 16, className }: P) {
             </defs>
 
             <g mask={`url(#${mB})`}>
-                <Figure t="b" />
+                <Figure t="b" converted={converted} />
             </g>
             <g mask={`url(#${mA})`}>
-                <Figure t="a" />
+                <Figure t="a" converted={converted} />
             </g>
             <g mask={`url(#${mC})`}>
-                <Figure t="c" />
+                <Figure t="c" converted={converted} />
             </g>
         </svg>
     );

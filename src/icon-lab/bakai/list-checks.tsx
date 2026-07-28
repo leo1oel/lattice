@@ -94,29 +94,44 @@ const ROWS = [
     { n: 3, check: "M64,224L80,240L112,208", line: "M144,224H192" },
 ];
 
-export function ListChecksLive({ size = 16, className }: { size?: number; className?: string }) {
+function CheckRows() {
+    return ROWS.map((r) => (
+        <g key={r.n} className={`lc-r${r.n}`}>
+            <g className={`lc-f${r.n}`}>
+                <path className="lc-ck" pathLength="1" d={r.check} />
+                <path className="lc-ln" pathLength="1" d={r.line} />
+            </g>
+        </g>
+    ));
+}
+
+export function ListChecksLive({ size = 16, className, converted }: { size?: number; className?: string; converted?: boolean }) {
     // url(#id) resolves document-wide, so two of these on one page would share a
     // mask and only the first would ever animate (TECHNIQUE #6)
     const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
     const msk = `lcMask-${uid}`;
+    const clip = `lcClip-${uid}`;
     return (
         <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" className={className}>
-            <mask id={msk} maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
-                <rect x="0" y="0" width="256" height="256" fill="#fff" />
-                <g fill="none" stroke="#000" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round">
-                    {ROWS.map((r) => (
-                        // the slide and the fade want different clocks, so they get
-                        // their own elements rather than sharing one keyframe set
-                        <g key={r.n} className={`lc-r${r.n}`}>
-                            <g className={`lc-f${r.n}`}>
-                                <path className="lc-ck" pathLength="1" d={r.check} />
-                                <path className="lc-ln" pathLength="1" d={r.line} />
-                            </g>
+            {converted ? (
+                <>
+                    <defs><clipPath id={clip}><path d={CARD} /></clipPath></defs>
+                    <path d={CARD} fill="var(--converted-fill)" stroke="var(--converted-ink)" strokeWidth="16" />
+                    <g clipPath={`url(#${clip})`} fill="none" stroke="var(--converted-ink)" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round">
+                        <CheckRows />
+                    </g>
+                </>
+            ) : (
+                <>
+                    <mask id={msk} maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+                        <rect x="0" y="0" width="256" height="256" fill="#fff" />
+                        <g fill="none" stroke="#000" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round">
+                            <CheckRows />
                         </g>
-                    ))}
-                </g>
-            </mask>
-            <path d={CARD} mask={`url(#${msk})`} />
+                    </mask>
+                    <path d={CARD} mask={`url(#${msk})`} />
+                </>
+            )}
         </svg>
     );
 }
