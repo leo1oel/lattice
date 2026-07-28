@@ -5373,18 +5373,18 @@ function App() {
       </header>
 
       {error && (
-        <div className="error-banner">
-          <CircleAlert size={15} />
+        <div className="error-banner" role="alert">
+          <CircleAlert size={15} aria-hidden="true" />
           <span>{error}</span>
           <CopyButton aria-label="Copy error message" title="Copy error message" text={error} />
-          <button onClick={() => setError(null)}><X size={14} /></button>
+          <button aria-label="Dismiss error" title="Dismiss error" onClick={() => setError(null)}><X size={14} aria-hidden="true" /></button>
         </div>
       )}
       {notice && !error && (
-        <div className="notice-banner">
-          <Check size={15} />
+        <div className="notice-banner" role="status">
+          <Check size={15} aria-hidden="true" />
           <span>{notice}</span>
-          <button onClick={() => setNotice(null)}><X size={14} /></button>
+          <button aria-label="Dismiss notice" title="Dismiss notice" onClick={() => setNotice(null)}><X size={14} aria-hidden="true" /></button>
         </div>
       )}
       {referenceHits && (

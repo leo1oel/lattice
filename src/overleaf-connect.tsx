@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Cloud, LoaderCircle, Search, X } from "lucide-react";
 import { MotionButton } from "./motion";
+import { ModalDialog } from "./components/ui/modal-dialog";
 import {
   type CloneTarget,
   type OverleafLink,
@@ -501,16 +502,6 @@ export function OverleafPickerDialog(props: {
     if (props.open && status?.connected) void loadProjects();
   }, [props.open, status?.connected, loadProjects]);
 
-  // Escape closes — unless a download is in flight, where closing would be confusing.
-  useEffect(() => {
-    if (!props.open) return;
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !cloning) onClose();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [props.open, cloning, onClose]);
-
   const clone = async (project: OverleafProject) => {
     if (cloning) return;
     setCloning(project);
@@ -559,8 +550,8 @@ export function OverleafPickerDialog(props: {
       .some((value) => value.toLowerCase().includes(query)));
 
   return (
-    <div className="modal-backdrop" onMouseDown={() => { if (!cloning) onClose(); }}>
-      <div className="modal overleaf-picker-modal" onMouseDown={(event) => event.stopPropagation()}>
+    <ModalDialog label="Open from Overleaf" onClose={onClose} closeDisabled={Boolean(cloning)}>
+      <div className="modal overleaf-picker-modal">
         <div className="overleaf-picker-header">
           <div className="modal-icon"><Cloud size={19} /></div>
           <button
@@ -718,6 +709,6 @@ export function OverleafPickerDialog(props: {
           </>
         )}
       </div>
-    </div>
+    </ModalDialog>
   );
 }

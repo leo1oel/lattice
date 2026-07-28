@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { FileSearch, X } from "lucide-react";
+import { ModalDialog } from "./components/ui/modal-dialog";
 
 function scorePath(path: string, query: string): number {
   const hay = path.toLocaleLowerCase();
@@ -53,11 +54,9 @@ function QuickOpenDialogForm(props: {
   const selected = results[clamp(active, 0, Math.max(0, results.length - 1))] ?? null;
 
   return (
-    <div className="modal-backdrop" onMouseDown={props.onClose}>
+    <ModalDialog label="Quick open file" onClose={props.onClose}>
       <div
         className="modal quick-open-modal"
-        onMouseDown={(event) => event.stopPropagation()}
-        aria-label="Quick open file"
       >
         <div className="quick-open-header">
           <FileSearch size={15} />
@@ -71,7 +70,6 @@ function QuickOpenDialogForm(props: {
               setActive(0);
             }}
             onKeyDown={(event) => {
-              if (event.key === "Escape") props.onClose();
               if (event.key === "ArrowDown") {
                 event.preventDefault();
                 setActive((value) => Math.min(value + 1, Math.max(0, results.length - 1)));
@@ -105,7 +103,7 @@ function QuickOpenDialogForm(props: {
           {!results.length && <p className="quick-open-empty">No matching files.</p>}
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }
 

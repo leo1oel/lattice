@@ -222,8 +222,8 @@ export function OverleafHistoryPanel(props: {
         to bring the result into this app.
       </p>
 
-      {history.error && <p className="overleaf-history-error">{history.error}</p>}
-      {notice && <p className="overleaf-history-notice">{notice}</p>}
+      {history.error && <p className="overleaf-history-error" role="alert">{history.error}</p>}
+      {notice && <p className="overleaf-history-notice" role="status">{notice}</p>}
 
       {history.loading && !history.updates.length && (
         <p className="overleaf-history-loading">Loading Overleaf's history…</p>
@@ -348,7 +348,7 @@ export function OverleafHistoryPanel(props: {
                       {filesLoading && (
                         <p className="git-empty"><LoaderCircle className="spin" size={12} /> Loading files…</p>
                       )}
-                      {filesError && <p className="overleaf-history-error">{filesError}</p>}
+                      {filesError && <p className="overleaf-history-error" role="alert">{filesError}</p>}
                       {files && !files.length && !filesLoading && (
                         <p className="overleaf-history-note">No file changes recorded for this update.</p>
                       )}
@@ -410,7 +410,7 @@ export function OverleafHistoryPanel(props: {
                           {diffLoading && !diffChunks && !diffBinary && (
                             <p className="history-diff-loading">Loading diff…</p>
                           )}
-                          {diffError && <p className="history-diff-error">{diffError}</p>}
+                          {diffError && <p className="history-diff-error" role="alert">{diffError}</p>}
                           {diffBinary && (
                             <div className="history-diff">
                               <div className="history-diff-meta">

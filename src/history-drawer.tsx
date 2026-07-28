@@ -166,7 +166,7 @@ export function HistoryDrawer(props: {
                       {expanded && (
                         <div className="history-entry-preview">
                           {loadingId === item.id && <p className="history-diff-loading">Loading diff…</p>}
-                          {error && expandedId === item.id && <p className="history-diff-error">{error}</p>}
+                          {error && expandedId === item.id && <p className="history-diff-error" role="alert">{error}</p>}
                           {entry && entry.id === item.id && (
                             <>
                               {entry.changes.length > 1 && (

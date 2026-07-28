@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
+import { ModalDialog } from "./components/ui/modal-dialog";
 
 export type SearchPickerItem = {
   id: string;
@@ -69,11 +70,9 @@ function SearchPickerDialogForm(props: {
   const selected = results[clamp(active, 0, Math.max(0, results.length - 1))] ?? null;
 
   return (
-    <div className="modal-backdrop" onMouseDown={props.onClose}>
+    <ModalDialog label={props.title} onClose={props.onClose}>
       <div
         className="modal quick-open-modal"
-        onMouseDown={(event) => event.stopPropagation()}
-        aria-label={props.title}
       >
         <div className="quick-open-header">
           <Search size={15} />
@@ -87,7 +86,6 @@ function SearchPickerDialogForm(props: {
               setActive(0);
             }}
             onKeyDown={(event) => {
-              if (event.key === "Escape") props.onClose();
               if (event.key === "ArrowDown") {
                 event.preventDefault();
                 setActive((value) => Math.min(value + 1, Math.max(0, results.length - 1)));
@@ -125,7 +123,7 @@ function SearchPickerDialogForm(props: {
           {!results.length && <p className="quick-open-empty">No matches.</p>}
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }
 

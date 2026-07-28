@@ -23,6 +23,7 @@ import {
 import { type ProjectVenue, type RenameTarget } from "./app-types";
 import { type RecentProject } from "./app-settings";
 import { beginWindowDrag, toggleWindowFullscreen } from "./app-utils";
+import { ModalDialog } from "./components/ui/modal-dialog";
 
 export function Welcome(props: {
   busyLabel: string | null;
@@ -87,7 +88,7 @@ export function Welcome(props: {
           Install LaTeX tools (needed to compile PDFs)
         </button>
         {props.busyLabel && <p className="busy-label"><LoaderCircle className="spin" size={15} /> {props.busyLabel}</p>}
-        {props.error && <p className="welcome-error">{props.error}</p>}
+        {props.error && <p className="welcome-error" role="alert">{props.error}</p>}
       </div>
       {props.createOpen && (
         <CreateProjectDialog
@@ -121,8 +122,8 @@ export function CreateProjectDialog(props: {
 }) {
   const venue = PROJECT_VENUES.find((item) => item.id === props.projectVenue) ?? PROJECT_VENUES[0];
   return (
-    <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <div className="modal create-project-modal" onMouseDown={(event) => event.stopPropagation()}>
+    <ModalDialog label="Create a research project" onClose={props.onClose}>
+      <div className="modal create-project-modal">
         <div className="modal-icon"><FileText size={20} /></div>
         <h2>Create a research project</h2>
         <p>
@@ -156,7 +157,7 @@ export function CreateProjectDialog(props: {
           <MotionButton className="primary-button" onClick={props.onCreate}>Choose location</MotionButton>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }
 
@@ -202,8 +203,8 @@ export function RenameDialog(props: {
     setBusy(false);
   };
   return (
-    <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <div className="modal rename-modal" onMouseDown={(event) => event.stopPropagation()}>
+    <ModalDialog label={title} onClose={props.onClose} closeDisabled={busy}>
+      <div className="modal rename-modal">
         <div className="modal-icon"><Pencil size={19} /></div>
         <h2>{title}</h2>
         <p>{copy}</p>
@@ -216,17 +217,16 @@ export function RenameDialog(props: {
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") void submit();
-              if (event.key === "Escape") props.onClose();
             }}
           />
         </label>
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">
-          <button className="text-button" onClick={props.onClose}>Cancel</button>
+          <button className="text-button" disabled={busy} onClick={props.onClose}>Cancel</button>
           <MotionButton className="primary-button" disabled={busy || !name.trim()} onClick={() => void submit()}>{busy ? "Renaming…" : "Rename"}</MotionButton>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }
 

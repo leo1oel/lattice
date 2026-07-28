@@ -15,6 +15,7 @@ import {
   type DoctorReportLike,
 } from "./tex-setup";
 import { MotionButton, PopIn } from "./motion";
+import { ModalDialog } from "./components/ui/modal-dialog";
 
 type InstallKind = "basic" | "full";
 
@@ -72,11 +73,9 @@ export function TexSetupWizard(props: {
   };
 
   return (
-    <div className="modal-backdrop tex-setup-backdrop" onMouseDown={props.onClose}>
+    <ModalDialog label="Install LaTeX tools" onClose={props.onClose} closeDisabled={busy} backdropClassName="tex-setup-backdrop">
       <PopIn
         className="modal tex-setup-modal"
-        onMouseDown={(event) => event.stopPropagation()}
-        aria-label="Install LaTeX tools"
       >
         <div className="modal-icon"><Wrench size={18} /></div>
         <h2>Install LaTeX to compile</h2>
@@ -155,11 +154,11 @@ export function TexSetupWizard(props: {
             {props.checking ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
             Recheck
           </button>
-          <MotionButton type="button" className="primary-button" onClick={props.onClose} disabled={installing !== null}>
+          <MotionButton type="button" className="primary-button" onClick={props.onClose} disabled={busy}>
             {ready ? "Done" : "Close"}
           </MotionButton>
         </div>
       </PopIn>
-    </div>
+    </ModalDialog>
   );
 }

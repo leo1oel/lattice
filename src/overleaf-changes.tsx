@@ -110,7 +110,7 @@ export function OverleafChangesPanel(props: {
         suggested text into ordinary text; rejecting undoes it. Both sides see the result at once.
       </p>
 
-      {props.error && <p className="overleaf-change-error">{props.error}</p>}
+      {props.error && <p className="overleaf-change-error" role="alert">{props.error}</p>}
 
       {sorted.length > 1 && (
         <div className="overleaf-change-bulk-actions">

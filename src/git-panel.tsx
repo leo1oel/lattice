@@ -331,8 +331,8 @@ export function GitPanel(props: {
           Stage, commit, and sync with the configured remote. Auth uses your system Git credentials (SSH agent or credential helper).
         </p>
 
-        {error && <p className="history-diff-error">{error}</p>}
-        {notice && <p className="git-notice">{notice}</p>}
+        {error && <p className="history-diff-error" role="alert">{error}</p>}
+        {notice && <p className="git-notice" role="status">{notice}</p>}
 
         {status && !status.available && (
           <p className="empty-history">git is not installed or not on PATH. Install Git to use this panel.</p>

@@ -292,7 +292,7 @@ export function OverleafCommentsPanel(props: {
         show up on both sides straight away.
       </p>
 
-      {props.error && <p className="overleaf-chat-error">{props.error}</p>}
+      {props.error && <p className="overleaf-chat-error" role="alert">{props.error}</p>}
 
       {resolvedCount > 0 && (
         <div className="pdf-marks-kind-filter overleaf-thread-filter">

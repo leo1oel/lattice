@@ -51,7 +51,7 @@ export function MathPreview(props: {
     <div className="math-preview" aria-label="Math preview">
       <small>Math preview</small>
       {rendered.error
-        ? <p className="math-preview-error">{rendered.error}</p>
+        ? <p className="math-preview-error" role="alert">{rendered.error}</p>
         : <div className="math-preview-body" dangerouslySetInnerHTML={{ __html: rendered.html }} />}
     </div>
   );

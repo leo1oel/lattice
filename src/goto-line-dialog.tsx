@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { MotionButton, PopIn } from "./motion";
+import { ModalDialog } from "./components/ui/modal-dialog";
 
 export function GotoLineDialog(props: {
   open: boolean;
@@ -34,8 +35,8 @@ function GotoLineDialogForm(props: {
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <PopIn className="modal goto-line-modal" onMouseDown={(event) => event.stopPropagation()} aria-label="Go to line">
+    <ModalDialog label="Go to line" onClose={props.onClose}>
+      <PopIn className="modal goto-line-modal">
         <h2>Go to line</h2>
         <p>Enter a line between 1 and {props.maxLine}.</p>
         <label>
@@ -47,7 +48,6 @@ function GotoLineDialogForm(props: {
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") submit();
-              if (event.key === "Escape") props.onClose();
             }}
           />
         </label>
@@ -56,6 +56,6 @@ function GotoLineDialogForm(props: {
           <MotionButton type="button" className="primary-button" onClick={submit}>Go</MotionButton>
         </div>
       </PopIn>
-    </div>
+    </ModalDialog>
   );
 }

@@ -17,6 +17,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { MotionButton } from "./motion";
+import { ModalDialog } from "./components/ui/modal-dialog";
 import { HistoryDiff } from "./versions-timeline";
 import {
   type OverleafChangeKind,
@@ -100,15 +101,6 @@ export function OverleafReviewDialog(props: {
     }
   }, [load, props.open]);
 
-  useEffect(() => {
-    if (!props.open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !applying) props.onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [applying, props]);
-
   const grouped = useMemo(() => {
     const changes = preview?.changes ?? [];
     return GROUPS
@@ -142,11 +134,9 @@ export function OverleafReviewDialog(props: {
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={() => { if (!applying) props.onClose(); }}>
+    <ModalDialog label="Review Overleaf changes" onClose={props.onClose} closeDisabled={applying}>
       <div
         className="modal overleaf-review"
-        onMouseDown={(event) => event.stopPropagation()}
-        aria-label="Review Overleaf changes"
       >
         <div className="overleaf-review-head">
           <div>
@@ -239,6 +229,6 @@ export function OverleafReviewDialog(props: {
           </MotionButton>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }

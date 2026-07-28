@@ -426,7 +426,7 @@ export function VersionsTimeline(props: {
   if (phase === "error") {
     return (
       <div className="versions-empty">
-        <p className="versions-error">Version history is unavailable: {error}</p>
+        <p className="versions-error" role="alert">Version history is unavailable: {error}</p>
         <button
           type="button"
           className="versions-save"
@@ -444,7 +444,7 @@ export function VersionsTimeline(props: {
     return (
       <div className="versions-empty">
         <p>Track versions of this project to see who changed what and roll back safely.</p>
-        {error && <p className="versions-error">{error}</p>}
+        {error && <p className="versions-error" role="alert">{error}</p>}
         <button
           type="button"
           className="git-commit-button versions-enable"
@@ -458,7 +458,7 @@ export function VersionsTimeline(props: {
   }
 
   const renderDiff = (target: { hash: string; path: string }) => {
-    if (diffError) return <p className="history-diff-error">{diffError}</p>;
+    if (diffError) return <p className="history-diff-error" role="alert">{diffError}</p>;
     if (!diff) return <p className="history-diff-loading">Loading diff…</p>;
     const restoreButton = (
       <button
@@ -544,8 +544,8 @@ export function VersionsTimeline(props: {
           </>
         )}
       </div>
-      {error && <p className="versions-error">{error}</p>}
-      {notice && <p className="versions-notice">{notice}</p>}
+      {error && <p className="versions-error" role="alert">{error}</p>}
+      {notice && <p className="versions-notice" role="status">{notice}</p>}
       {!entries.length && (
         <p className="versions-note">
           No versions yet. Versions are saved automatically as you work, or press Save version.

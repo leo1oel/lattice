@@ -88,6 +88,7 @@ export function Navigator(props: {
   const [entryPath, setEntryPath] = useState("");
   const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
   const [entryBusy, setEntryBusy] = useState(false);
+  const paperImportRef = useRef<HTMLInputElement | null>(null);
   // The entry form closes when focus leaves it, but opening the type Select
   // moves focus into a portaled listbox; this ref lets the blur handler tell
   // "the dropdown is open" apart from "the user clicked away".
@@ -300,6 +301,8 @@ export function Navigator(props: {
       {props.mode === "papers" && <div className="navigator-section papers-section">
         <div className="import-box">
           <input
+            ref={paperImportRef}
+            aria-label="Import paper"
             placeholder="arXiv id, DOI, URL, or title"
             value={props.importInput}
             onChange={(event) => props.setImportInput(event.target.value)}
@@ -390,7 +393,13 @@ export function Navigator(props: {
               </Fragment>
             );
           })}
-          {!props.papers.length && <p className="empty-note">Add a paper to ground the agent in project evidence.</p>}
+          {!props.papers.length && (
+            <div className="papers-empty-state">
+              <strong>Add your first paper</strong>
+              <p>Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence.</p>
+              <button type="button" onClick={() => paperImportRef.current?.focus()}>Focus search</button>
+            </div>
+          )}
           {!!props.papers.length && <p className="paper-list-end">{props.papers.length} paper{props.papers.length === 1 ? "" : "s"}</p>}
         </div>
       </div>}

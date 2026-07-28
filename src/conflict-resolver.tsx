@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Check, LoaderCircle, TriangleAlert } from "lucide-react";
 import { MotionButton } from "./motion";
+import { ModalDialog } from "./components/ui/modal-dialog";
 import {
   type ConflictChoice,
   conflictHunks,
@@ -68,11 +69,9 @@ export function ConflictResolverDialog(props: {
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={() => { if (!saving) props.onClose(); }}>
+    <ModalDialog label={`Resolve conflicts in ${props.path}`} onClose={props.onClose} closeDisabled={saving}>
       <div
         className="modal conflict-resolver"
-        onMouseDown={(event) => event.stopPropagation()}
-        aria-label={`Resolve conflicts in ${props.path}`}
       >
         <div className="modal-icon"><TriangleAlert size={18} /></div>
         <h2>Resolve “{props.path}”</h2>
@@ -156,6 +155,6 @@ export function ConflictResolverDialog(props: {
           </MotionButton>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }

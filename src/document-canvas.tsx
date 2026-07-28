@@ -70,6 +70,7 @@ import {
 } from "./compile-diagnostics";
 import { editorTexlabDiagnosticsForFile } from "./texlab-diagnostics";
 import { DocumentOutline } from "./document-outline";
+import { Tip } from "./components/icon-tip";
 import {
   sectionBreadcrumbNodes,
   type OutlineNode,
@@ -79,7 +80,6 @@ import type { InsertSnippet } from "./insert-snippets";
 import { expandSnippetPlaceholders, nextSnippetStop, previousSnippetStop } from "./snippet-placeholders";
 import { MathPreview } from "./math-preview";
 import { ChatMarkdown } from "./chat-markdown";
-import { Tip } from "./components/icon-tip";
 import { TableGeneratorDialog } from "./table-generator-dialog";
 import { PdfPreview, type PdfSyncTarget } from "./pdf-viewer";
 import type {
@@ -1117,6 +1117,14 @@ export function DocumentCanvas(props: {
               ? <><kbd>F8</kbd> next · <kbd>⇧F8</kbd> prev</>
               : <><kbd>⌘F</kbd> find · <kbd>⌘/</kbd> comment · <kbd>⌘⇧I</kbd> insert</>}
           </span>
+          <Tip
+            label={buildDiagnostics.length > 0
+              ? "F8 next diagnostic · ⇧F8 previous diagnostic"
+              : "⌘F find · ⌘/ comment · ⌘⇧I insert"}
+            side="top"
+          >
+            <span className="status-shortcuts" tabIndex={0}>Shortcuts</span>
+          </Tip>
           <button
             type="button"
             className={`status-todos${commentsForActiveFile.some((comment) => !comment.resolved) ? " has-todos" : ""}`}

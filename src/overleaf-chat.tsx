@@ -78,7 +78,7 @@ export function OverleafChatPanel(props: {
         Overleaf. Messages appear on both sides as they are sent.
       </p>
 
-      {props.error && <p className="overleaf-chat-error">{props.error}</p>}
+      {props.error && <p className="overleaf-chat-error" role="alert">{props.error}</p>}
 
       <div className="overleaf-chat-list" ref={listRef}>
         {props.loading && !props.messages.length && (

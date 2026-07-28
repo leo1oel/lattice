@@ -49,6 +49,7 @@ import { autoBuildTitle, autoBuildDetail } from "./app-utils";
 import { McpSettingsSection } from "./mcp-settings";
 import { OverleafSettingsSection } from "./overleaf-connect";
 import { AnimatedProductIcon } from "./animated-icons/product-animated-icon";
+import { ModalDialog } from "./components/ui/modal-dialog";
 
 const SETTINGS_NAV_ITEMS = [
   { tab: "appearance", label: "Appearance", icon: "faders" },
@@ -151,8 +152,8 @@ export function SettingsDialog(props: {
       ? "Lattice checks in the background and installs updates on its own."
       : "Lattice checks in the background; you decide when to install.";
   return (
-    <div className="modal-backdrop" onMouseDown={props.onClose}>
-      <div className="settings-modal" onMouseDown={(event) => event.stopPropagation()}>
+    <ModalDialog label="Settings" onClose={props.onClose}>
+      <div className="settings-modal">
         <div className="settings-header">
           <div><Settings size={17} /><span>Settings</span></div>
           <button title="Close settings" onClick={props.onClose}><X size={16} /></button>
@@ -548,6 +549,6 @@ export function SettingsDialog(props: {
           </div>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }

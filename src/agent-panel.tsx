@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ChatStatus, UIMessage } from "ai";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -337,6 +337,7 @@ export function AgentPanel({
   void _katexMacros;
   void _chatEnd;
   void _chatListRef;
+  const suggestionMenuId = useId();
   const options = modelOptions;
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [sessionSearch, setSessionSearch] = useState("");
@@ -474,10 +475,11 @@ export function AgentPanel({
           </div>
         )}
         {slash && (
-          <div className="mention-menu" role="listbox" aria-label="Agent commands">
+          <div id={suggestionMenuId} className="mention-menu" role="listbox" aria-label="Agent commands">
             <div className="mention-heading"><span>Agent commands</span><small>{slashSuggestions.length ? "↑↓ to navigate · Enter to insert" : "No matches"}</small></div>
             {slashSuggestions.map((command, index) => (
               <button
+                id={`${suggestionMenuId}-slash-${index}`}
                 key={command.name}
                 role="option"
                 aria-selected={index === slashIndex}
@@ -491,10 +493,11 @@ export function AgentPanel({
           </div>
         )}
         {mention && (
-          <div className="mention-menu" role="listbox" aria-label="Project references">
+          <div id={suggestionMenuId} className="mention-menu" role="listbox" aria-label="Project references">
             <div className="mention-heading"><span>Reference project context</span><small>{mentionSuggestions.length ? "↑↓ to navigate · Enter to insert" : "No matches"}</small></div>
             {mentionSuggestions.map((item, index) => (
               <button
+                id={`${suggestionMenuId}-mention-${index}`}
                 key={item.key}
                 role="option"
                 aria-selected={index === mentionIndex}
@@ -528,6 +531,16 @@ export function AgentPanel({
           <textarea
             ref={composerRef}
             rows={1}
+            role="combobox"
+            aria-label="Message the writing agent"
+            aria-autocomplete="list"
+            aria-expanded={Boolean(slash || mention)}
+            aria-controls={slash || mention ? suggestionMenuId : undefined}
+            aria-activedescendant={slash && slashSuggestions.length
+              ? `${suggestionMenuId}-slash-${Math.min(slashIndex, slashSuggestions.length - 1)}`
+              : mention && mentionSuggestions.length
+                ? `${suggestionMenuId}-mention-${Math.min(mentionIndex, mentionSuggestions.length - 1)}`
+                : undefined}
             placeholder="Ask the agent to write, revise, or reason…"
             value={input}
             onChange={(event) => {

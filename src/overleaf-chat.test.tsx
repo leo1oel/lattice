@@ -63,7 +63,7 @@ describe("Overleaf chat panel", () => {
         onSend={onSend}
       />,
     );
-    expect(screen.getByText("Could not reach Overleaf")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not reach Overleaf");
     const box = screen.getByLabelText("Message");
     fireEvent.change(box, { target: { value: "still here" } });
     fireEvent.keyDown(box, { key: "Enter" });

@@ -1994,10 +1994,17 @@ describe("project workspace", () => {
     await switchSidebarMode("Agent");
     const composer = await screen.findByPlaceholderText(/ask the agent/i);
     fireEvent.change(composer, { target: { value: "Update @mai", selectionStart: 11 } });
-    expect(screen.getByRole("listbox", { name: "Project references" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /main\.tex/i })).toBeInTheDocument();
+    const suggestions = screen.getByRole("listbox", { name: "Project references" });
+    const suggestion = screen.getByRole("option", { name: /main\.tex/i });
+    expect(suggestions).toBeInTheDocument();
+    expect(suggestion).toBeInTheDocument();
+    expect(composer).toHaveAttribute("role", "combobox");
+    expect(composer).toHaveAttribute("aria-expanded", "true");
+    expect(composer).toHaveAttribute("aria-controls", suggestions.id);
+    expect(composer).toHaveAttribute("aria-activedescendant", suggestion.id);
     fireEvent.keyDown(composer, { key: "Enter" });
     expect(composer).toHaveValue("Update @main.tex ");
+    expect(composer).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("listbox", { name: "Project references" })).not.toBeInTheDocument();
   });
 

@@ -177,7 +177,7 @@ export function AgentRuntimeSettings(props: {
           <div className="account-mark connected">π</div>
           <div>
             <strong>Oh My Pi {status?.current ?? "…"}</strong>
-            <small>
+            <small role={status?.detail ? "alert" : undefined}>
               {!status && "Reading the installed runtime…"}
               {status?.detail && `Could not check for updates: ${status.detail}`}
               {status && !status.detail && status.updateAvailable
@@ -238,8 +238,8 @@ export function AgentRuntimeSettings(props: {
           the agent uses the current one until this finishes.
         </p>
       )}
-      {notice && <p className="settings-notice">{notice}</p>}
-      {error && <p className="settings-error">{error}</p>}
+      {notice && <p className="settings-notice" role="status">{notice}</p>}
+      {error && <p className="settings-error" role="alert">{error}</p>}
     </div>
   );
 }

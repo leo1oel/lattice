@@ -212,8 +212,8 @@ export function LiteratureDiscoveryPanel(props: {
             Search
           </button>
         </form>
-        {error ? <p className="history-diff-error">{error}</p> : null}
-        {notice ? <p className="git-notice">{notice}</p> : null}
+        {error ? <p className="history-diff-error" role="alert">{error}</p> : null}
+        {notice ? <p className="git-notice" role="status">{notice}</p> : null}
         <div className="literature-results">
           {results.slice(0, visible).map((work) => {
             const key = hitKey(work);
