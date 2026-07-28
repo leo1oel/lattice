@@ -591,6 +591,7 @@ function App() {
     beginSidebarResize,
     nudgeSidebar,
   } = usePanelLayout();
+  const sidebarModeTier = sidebarWidth >= 369 ? 4 : sidebarWidth >= 323 ? 3 : sidebarWidth >= 277 ? 2 : 1;
   const [sidebarMode, setSidebarMode] = useState<"project" | "papers" | "agent">(() => {
     try {
       const saved = localStorage.getItem("lattice.sidebar-mode.v1");
@@ -5411,7 +5412,7 @@ function App() {
         {sidebarOpen && (
           <>
             <section className="shared-sidebar">
-              <div className="sidebar-mode-header">
+              <div className="sidebar-mode-header" data-mode-tier={sidebarModeTier}>
                 <SlidingTabs
                   value={sidebarMode}
                   onChange={(value) => chooseSidebarMode(value as "project" | "papers" | "agent")}
