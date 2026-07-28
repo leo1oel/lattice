@@ -102,7 +102,10 @@ async function chooseOption(selectLabel: string, optionName: string | RegExp) {
 }
 
 async function openAgentConfig(section: "Model" | "Reasoning") {
-  fireEvent.click(await screen.findByLabelText("Model and reasoning effort"));
+  await waitFor(() => expect(screen.getByLabelText("Model and reasoning effort")).toBeEnabled());
+  await waitFor(() => expect(screen.getByLabelText("Model and reasoning effort")).not.toHaveTextContent("No models"));
+  const trigger = screen.getByLabelText("Model and reasoning effort");
+  fireEvent.click(trigger);
   fireEvent.click(await screen.findByRole("button", {
     name: section === "Model" ? "Choose model" : "Choose reasoning effort",
   }));
@@ -620,7 +623,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
   });
 
-  it("disables the model picker and links to Subscriptions when no account is connected", async () => {
+  it("links the unavailable model picker to Subscriptions when no account is connected", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -651,10 +654,11 @@ describe("project workspace", () => {
 
     render(<App />);
     await switchSidebarMode("Agent");
-    await waitFor(() => expect(screen.getByLabelText("Model and reasoning effort")).toBeDisabled());
+    await waitFor(() => expect(screen.getByLabelText("Model and reasoning effort")).toBeEnabled());
     expect(screen.getByLabelText("Model and reasoning effort")).toHaveTextContent("No models");
     expect(screen.getByTitle("Send message")).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Model and reasoning effort"));
     expect(await screen.findByRole("heading", { name: "Subscriptions" })).toBeInTheDocument();
     expect(await screen.findAllByRole("button", { name: "Sign in with OMP" })).toHaveLength(2);
   });
@@ -704,7 +708,7 @@ describe("project workspace", () => {
       expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument();
       expect(screen.queryByRole("option", { name: "Claude Opus 4.8" })).not.toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "API key settings" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "API key settings" })).not.toBeInTheDocument();
   });
 
   it("lists a work that is only cited but does not offer to open it", async () => {

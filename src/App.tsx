@@ -14,7 +14,6 @@ import {
   CircleAlert,
   FolderTree,
   Image,
-  KeyRound,
   Library,
   PanelLeftClose,
   PanelLeftOpen,
@@ -5443,14 +5442,7 @@ function App() {
                     </>
                   )}
                   {sidebarMode === "agent" && (
-                    <>
-                      <AgentAccessPicker value={agentAccessMode} disabled={agentRunning} onChange={changeAgentAccessMode} />
-                      {(agentAccessMode === "api" || (agentAccessLoaded && !availableAgentProviders.length)) && (
-                        <Tip label={agentAccessMode === "api" ? "API key settings" : "Connect a subscription"}>
-                          <button className="sidebar-provider-settings" aria-label={agentAccessMode === "api" ? "API key settings" : "Connect a subscription"} onClick={() => openSettings(agentAccessMode === "api" ? "api" : "accounts")}><KeyRound size={12} /></button>
-                        </Tip>
-                      )}
-                    </>
+                    <AgentAccessPicker value={agentAccessMode} disabled={agentRunning} onChange={changeAgentAccessMode} />
                   )}
                 </div>
               </div>

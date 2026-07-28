@@ -15,7 +15,7 @@ import {
   Paperclip,
   Plus,
   Search,
-  Send,
+  ArrowUp,
   Square,
   TerminalSquare,
   Trash2,
@@ -158,6 +158,7 @@ function AgentConfigPicker(props: {
   disabled: boolean;
   unavailable: boolean;
   unavailableTitle: string;
+  onUnavailableClick: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [modelsOpen, setModelsOpen] = useState(false);
@@ -185,6 +186,21 @@ function AgentConfigPicker(props: {
       setEffortsOpen(false);
     }
   };
+  if (props.unavailable) {
+    return (
+      <button
+        type="button"
+        className="agent-config-trigger"
+        aria-label="Model and reasoning effort"
+        disabled={props.disabled}
+        title={props.unavailableTitle}
+        onClick={props.onUnavailableClick}
+      >
+        <span>No models</span>
+        <ChevronDown aria-hidden="true" />
+      </button>
+    );
+  }
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
@@ -192,15 +208,14 @@ function AgentConfigPicker(props: {
           type="button"
           className="agent-config-trigger"
           aria-label="Model and reasoning effort"
-          disabled={props.disabled || props.unavailable}
-          title={props.unavailable ? props.unavailableTitle : undefined}
+          disabled={props.disabled}
         >
           <span>{selectedModel?.label ?? "No models"}</span>
-          {!props.unavailable && <small>{effortLabel(props.reasoningEffort)}</small>}
+          <small>{effortLabel(props.reasoningEffort)}</small>
           <ChevronDown aria-hidden="true" />
         </button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="start" sideOffset={7} className="agent-config-menu">
+      <PopoverContent side="top" align="start" sideOffset={7} collisionPadding={8} avoidCollisions className="agent-config-menu">
         <button type="button" className="agent-config-row" aria-label="Choose model" aria-expanded={modelsOpen} onClick={() => { setModelsOpen((value) => !value); setEffortsOpen(false); }}>
           <strong>Model</strong><span>{selectedModel?.label ?? "No models"}</span><ChevronRight aria-hidden="true" />
         </button>
@@ -594,14 +609,14 @@ export function AgentPanel({
                   disabled={running}
                   unavailable={modelUnavailable}
                   unavailableTitle={`Connect a ${authMode} account in Settings`}
+                  onUnavailableClick={onConfigureAuth}
                 />
               </div>
-              {modelUnavailable && <button type="button" className="agent-auth-prompt" onClick={onConfigureAuth}>Connect</button>}
               {running && <span>{status || "Agent is working…"}</span>}
             </div>
             {running
               ? <button className="stop-agent-button" title={stopping ? "Stopping agent" : "Stop agent"} onClick={onStop} disabled={!cancellable || stopping}><Square size={12} fill="currentColor" /></button>
-              : <button title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={attachmentsInspecting || modelUnavailable || (!input.trim() && !attachments.length)}><Send size={14} /></button>}
+              : <button className="send-agent-button" title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={attachmentsInspecting || modelUnavailable || (!input.trim() && !attachments.length)}><ArrowUp size={15} strokeWidth={2.2} /></button>}
           </div>
         </div>
       </div>

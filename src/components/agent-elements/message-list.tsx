@@ -184,7 +184,7 @@ function MessageToolbar({
   return (
     <div
       className={cn(
-        "flex items-center gap-1 pt-1 text-xs text-an-foreground-muted/70 opacity-0 transition-opacity duration-100 pointer-events-none",
+        "flex items-center gap-1 text-xs text-an-foreground-muted/70 opacity-0 transition-opacity duration-100 pointer-events-none",
         heightClass,
         alignClass,
         hoverClass,
@@ -559,7 +559,7 @@ export const MessageList = memo(function MessageList({
                         {showToolbar ? (
                           <MessageToolbar
                             text={toolbarText}
-                            heightClass="h-[18px] flex items-start w-full"
+                            heightClass="h-[16px] flex items-start w-full"
                             hoverClass="group-hover/assistant-turn:opacity-100 group-hover/assistant-turn:pointer-events-auto"
                             isVisible={activeCopyId === copyKey}
                             alignClass="justify-start"
@@ -568,7 +568,7 @@ export const MessageList = memo(function MessageList({
                         ) : activeCopyId === copyKey ? (
                           <MessageToolbar
                             text={toolbarText}
-                            heightClass="h-[18px] flex items-start w-full"
+                            heightClass="h-[16px] flex items-start w-full"
                             hoverClass="group-hover/assistant-turn:opacity-100 group-hover/assistant-turn:pointer-events-auto"
                             isVisible={true}
                             alignClass="justify-start"
