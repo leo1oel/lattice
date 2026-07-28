@@ -866,6 +866,11 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_project", { query: "alignment" }));
     expect(await screen.findByText(/L3 · A latent alignment objective\./)).toBeInTheDocument();
     expect(screen.queryByText("The model relies entirely on self-attention.")).not.toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByLabelText("Project sidebar empty space"), { button: 0 });
+    expect(screen.queryByLabelText("Search project files")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Search files" }));
+    fireEvent.change(await screen.findByLabelText("Search project files"), { target: { value: "alignment" } });
+    expect(await screen.findByText(/L3 · A latent alignment objective\./)).toBeInTheDocument();
     fireEvent.click(screen.getByText(/L3 · A latent alignment objective\./));
     await waitFor(() => {
       const editorElement = document.querySelector<HTMLElement>(".cm-editor");

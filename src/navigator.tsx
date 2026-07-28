@@ -287,7 +287,15 @@ export function Navigator(props: {
           )) : props.files.map((node) => <TreeNode key={node.path} node={node} openDirectories={expandedDirectories} onToggleDirectory={toggleDirectory} activeFile={props.activeFile} activeAssetPath={props.activeAssetPath} protectedPaths={props.protectedPaths} onFile={props.onFile} onAsset={props.onAsset} onBeginFigureDrag={props.onBeginFigureDrag} onDelete={props.onDeleteEntry} onImportAssets={props.onImportAssets} assetDropTarget={props.assetDropTarget} assetImporting={props.assetImporting} renderContextMenu={renderItemContextMenu} />)}
           {searchActive && !searchPending && !searching && !fileSearchResults.length && <p className="search-empty">No matching project files.</p>}
         </div>
-        {renderItemContextMenu({ path: "", label: "Project", kind: "project" }, <div className="project-context-space" aria-label="Project sidebar empty space" />)}
+        {renderItemContextMenu({ path: "", label: "Project", kind: "project" }, (
+          <div
+            className="project-context-space"
+            aria-label="Project sidebar empty space"
+            onPointerDown={(event) => {
+              if (event.button === 0 && props.searchOpen) props.onSearchOpenChange(false);
+            }}
+          />
+        ))}
       </div>}
       {props.mode === "papers" && <div className="navigator-section papers-section">
         <div className="import-box">
