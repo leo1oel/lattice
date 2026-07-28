@@ -270,7 +270,7 @@ function AgentAccessPicker(props: {
           <span>{props.value === "subscription" ? "Subscription" : "API"}</span><ChevronDown aria-hidden="true" />
         </button>
       </PopoverTrigger>
-      <PopoverContent liquid side="bottom" align="end" sideOffset={6} className="agent-access-menu">
+      <PopoverContent side="bottom" align="end" sideOffset={6} className="agent-access-menu">
         {(["subscription", "api"] as const).map((value) => (
           <button type="button" key={value} className={value === props.value ? "selected" : ""} onClick={() => choose(value)}>
             <span>{value === "subscription" ? "Subscription" : "API"}</span>

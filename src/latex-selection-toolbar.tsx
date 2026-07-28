@@ -113,7 +113,7 @@ export function LatexSelectionToolbar(props: {
             <Tip label="Heading level" side="top">
               <PopoverTrigger asChild><button type="button" aria-label="Heading level"><Heading size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
-            <PopoverContent liquid side="top" sideOffset={8} className="latex-tool-menu heading-menu">
+            <PopoverContent side="top" sideOffset={8} className="latex-tool-menu heading-menu">
               {headingLevels.map(([label, command]) => <button key={command} type="button" onClick={() => props.onAction("heading", command)}><span>{label}</span><code>\{command}</code></button>)}
             </PopoverContent>
           </Popover>
@@ -123,7 +123,7 @@ export function LatexSelectionToolbar(props: {
             <Tip label="Highlight color" side="top">
               <PopoverTrigger asChild><button type="button" aria-label="Highlight color"><Highlighter size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
-            <PopoverContent liquid side="top" sideOffset={8} className="latex-tool-menu color-menu">
+            <PopoverContent side="top" sideOffset={8} className="latex-tool-menu color-menu">
               {highlightColors.map(([color, label]) => <button key={color} type="button" aria-label={`Highlight ${color}`} onClick={() => props.onAction("highlight", color)}><i style={{ background: color }} /><span>{label}</span></button>)}
             </PopoverContent>
           </Popover>

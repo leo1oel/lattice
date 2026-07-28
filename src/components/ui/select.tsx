@@ -3,7 +3,7 @@ import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { LiquidPanelSurface, liquidPanelClassName } from "./liquid-panel"
+import { popupMotionClassName } from "./popup-motion"
 
 function Select({
   ...props
@@ -61,8 +61,8 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          "relative z-50 max-h-(--radix-select-content-available-height) min-w-[6rem] text-popover-foreground",
-          liquidPanelClassName,
+          "relative z-50 max-h-(--radix-select-content-available-height) min-w-[6rem] origin-(--radix-select-content-transform-origin) overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
+          popupMotionClassName,
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
           className
@@ -71,10 +71,9 @@ function SelectContent({
         align={align}
         {...props}
       >
-        <LiquidPanelSurface />
         <SelectPrimitive.Viewport
           className={cn(
-            "liquid-panel-viewport p-1",
+            "p-1",
             position === "popper" && "scroll-my-1"
           )}
         >

@@ -2,7 +2,7 @@ import * as React from "react"
 import { Popover as PopoverPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { LiquidPanelSurface, LiquidPanelViewport, liquidPanelClassName } from "./liquid-panel"
+import { popupMotionClassName } from "./popup-motion"
 
 function Popover({
   ...props
@@ -20,24 +20,21 @@ function PopoverContent({
   className,
   align = "center",
   sideOffset = 4,
-  liquid = false,
-  children,
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content> & { liquid?: boolean }) {
+}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}
         sideOffset={sideOffset}
-        data-liquid={liquid || undefined}
         className={cn(
-          "z-50 w-72 text-popover-foreground outline-hidden",
-          liquid ? liquidPanelClassName : "origin-(--radix-popover-content-transform-origin) border bg-popover shadow-md data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+          "z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-hidden",
+          popupMotionClassName,
           className
         )}
         {...props}
-      >{liquid && <LiquidPanelSurface />}{liquid ? <LiquidPanelViewport>{children}</LiquidPanelViewport> : children}</PopoverPrimitive.Content>
+      />
     </PopoverPrimitive.Portal>
   )
 }
