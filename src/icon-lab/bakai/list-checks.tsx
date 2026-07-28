@@ -116,7 +116,7 @@ export function ListChecksLive({ size = 16, className, converted }: { size?: num
             {converted ? (
                 <>
                     <defs><clipPath id={clip}><path d={CARD} /></clipPath></defs>
-                    <path d={CARD} fill="var(--converted-fill)" stroke="var(--converted-ink)" strokeWidth="16" />
+                    <path d={CARD} fill="none" stroke="var(--converted-ink)" strokeWidth="16" />
                     <g clipPath={`url(#${clip})`} fill="none" stroke="var(--converted-ink)" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round">
                         <CheckRows />
                     </g>

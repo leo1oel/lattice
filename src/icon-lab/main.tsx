@@ -45,8 +45,8 @@ const productIcons: IconStudy[] = [
 ];
 
 const conversionIcons: IconStudy[] = [
-  { id: "conversion-users", kind: "users", label: "Subscriptions", rationale: "Solid people become white figures with a dark graphite contour; Bakai’s original one-place rotation is unchanged." },
-  { id: "conversion-checks", kind: "list-checks", label: "Checklist", rationale: "The solid card becomes white with a dark contour, while the former white knockouts become dark checks and rules; Bakai’s list progression is unchanged." },
+  { id: "conversion-users", kind: "users", label: "Subscriptions", rationale: "Solid people become transparent figures with a uniform dark graphite contour; Bakai’s original one-place rotation is unchanged." },
+  { id: "conversion-checks", kind: "list-checks", label: "Checklist", rationale: "The solid card becomes a transparent field with a dark contour, while the former knockouts become dark checks and rules; Bakai’s list progression is unchanged." },
 ];
 
 const allIcons = [...conversionIcons, ...settingsIcons, ...productIcons];
@@ -63,9 +63,9 @@ function ConversionCard(props: { item: IconStudy; playId: number; replay: () => 
         <button type="button" onClick={props.replay}><RotateCcw size={13} /> Replay</button>
       </div>
       <div className="conversion-comparison">
-        <div><span>Bakai original</span><LabIcon item={props.item} size={52} /></div>
-        <div className="converted-surface"><span>Converted still</span><LabIcon item={props.item} size={52} converted /></div>
-        <div className="converted-surface"><span>Converted animation</span><LabIcon key={props.playId} item={props.item} size={52} converted playing playId={props.playId} speed={props.speed} reducedMotion={props.reducedMotion} /></div>
+        <div><span className="conversion-label">Bakai original</span><LabIcon item={props.item} size={52} /></div>
+        <div className="converted-surface"><span className="conversion-label">Converted still · transparent</span><LabIcon item={props.item} size={52} converted /></div>
+        <div className="converted-surface"><span className="conversion-label">Converted animation · transparent</span><LabIcon key={props.playId} item={props.item} size={52} converted playing playId={props.playId} speed={props.speed} reducedMotion={props.reducedMotion} /></div>
       </div>
       <p>{props.item.rationale}</p>
     </article>
@@ -131,7 +131,7 @@ export function IconLab() {
       </div>
     </header>
 
-    <div className="collection-heading conversion-heading"><div className="eyebrow">Conversion proof · two icons only</div><h2>Outline + white fill</h2><p>The original Bakai component and animation remain the source of truth. Only fill, contour, and knockout rendering are translated.</p></div>
+    <div className="collection-heading conversion-heading"><div className="eyebrow">Conversion proof · two icons only</div><h2>Uniform outline + transparent interior</h2><p>The original Bakai component and animation remain the source of truth. Only fill, contour, and knockout rendering are translated.</p></div>
     <section className="conversion-grid" aria-label="Converted icon proofs">
       {conversionIcons.map((item) => <ConversionCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
     </section>

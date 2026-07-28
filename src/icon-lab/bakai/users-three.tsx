@@ -87,6 +87,7 @@ const REST: Record<Track, { r: number; d: string }> = {
 
 function Figure({ t, sil, converted }: { t: Track; sil?: boolean; converted?: boolean }) {
     const R = REST[t];
+    const outlineMask = `u3-outline-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
     const geometry = () => (
         <>
             <circle className={`u3-${t}-h`} cx={0} cy={0} r={R.r} />
@@ -100,12 +101,20 @@ function Figure({ t, sil, converted }: { t: Track; sil?: boolean; converted?: bo
         >
             {converted && !sil ? (
                 <>
-                    <g className="u3-converted-outline" fill="none" stroke="var(--converted-ink)" strokeWidth="14" strokeLinejoin="round">
-                        {geometry()}
-                    </g>
-                    <g className="u3-converted-fill" fill="var(--converted-fill)">
-                        {geometry()}
-                    </g>
+                    <defs>
+                        {/* Build only the OUTSIDE of the head/body union. A 32u
+                            white stroke followed by the solid union in black
+                            removes the inner half and every overlap seam, leaving
+                            one transparent figure with a consistent 16u contour. */}
+                        <mask id={outlineMask} maskUnits="userSpaceOnUse" x="-96" y="-96" width="192" height="256">
+                            <rect x="-96" y="-96" width="192" height="256" fill="#000" />
+                            <g fill="none" stroke="#fff" strokeWidth="32" strokeLinejoin="round">
+                                {geometry()}
+                            </g>
+                            <g fill="#000">{geometry()}</g>
+                        </mask>
+                    </defs>
+                    <rect x="-96" y="-96" width="192" height="256" fill="var(--converted-ink)" mask={`url(#${outlineMask})`} />
                 </>
             ) : geometry()}
         </g>

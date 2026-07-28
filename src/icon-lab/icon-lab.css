@@ -41,9 +41,9 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .conversion-card:hover, .conversion-card:focus-visible { border-color: var(--line-strong); box-shadow: var(--shadow-soft); }
 .conversion-comparison { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
 .conversion-comparison > div { min-height: 94px; padding: 12px; border-radius: 8px; background: var(--panel); display: flex; align-items: center; justify-content: center; position: relative; }
-.conversion-comparison > div > span { position: absolute; top: 9px; left: 10px; color: var(--faint); font-size: 8px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.conversion-comparison > div > .conversion-label { position: absolute; top: 9px; left: 10px; color: var(--faint); font-size: 8px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .conversion-comparison > div > .bakai-icon { margin-top: 16px; }
-.conversion-comparison .converted-surface { background: #f4f4f2; color: #303238; }
+.conversion-comparison .converted-surface { background: linear-gradient(135deg, #f3eee3 0 50%, #dce7eb 50% 100%); color: #303238; }
 .conversion-card > p { margin: 12px 2px 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .context-section { margin-top: 70px; display: grid; grid-template-columns: minmax(220px, .7fr) minmax(500px, 1.3fr); gap: 64px; align-items: center; }
 .section-copy h2 { margin: 8px 0 0; font-size: 20px; letter-spacing: -.025em; }
