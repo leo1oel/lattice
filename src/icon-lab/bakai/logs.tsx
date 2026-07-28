@@ -41,7 +41,7 @@ const LOG_PITCH = 32;
 const logLine = (y: number, w: number) => `M${96 + w},${y}H96a8,8,0,0,1,0-16h${w}a8,8,0,0,1,0,16Z`;
 const LOG_LINES = [64, 64, 40, 64, 64, 40];
 
-export function ClipboardTextLive({ size = 16, className }: P) {
+export function ClipboardTextLive({ size = 16, className, converted }: P & { converted?: boolean }) {
     /* This glyph is the ONE in the set rendered more than once — Production and
        Staging expand to the same PROJECT_SUBS array, so there are two Logs rows.
        With a hard-coded id both resolve url(#…) to whichever mask came first, so
@@ -55,19 +55,30 @@ export function ClipboardTextLive({ size = 16, className }: P) {
             <clipPath id={win}>
                 <rect x="88" y="100" width="80" height="68" />
             </clipPath>
-            <mask id={msk} maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
-                <rect width="256" height="256" fill="#fff" />
-                <path d={CLIP_TAB} fill="#000" />
-                {/* everything past the first two is still queued below the window */}
-                <g clipPath={`url(#${win})`}>
-                    <g className="lgg-roll">
-                        {LOG_LINES.map((w, i) => (
-                            <path key={i} d={logLine(128 + i * LOG_PITCH, w)} fill="#000" />
-                        ))}
+            {converted ? (
+                <>
+                    <path d={CLIP_BODY} fill="none" stroke="var(--converted-ink)" strokeWidth="16" strokeLinejoin="round" />
+                    <path d={CLIP_TAB} fill="none" stroke="var(--converted-ink)" strokeWidth="16" strokeLinejoin="round" />
+                    <g clipPath={`url(#${win})`} fill="var(--converted-ink)">
+                        <g className="lgg-roll">
+                            {LOG_LINES.map((w, i) => <path key={i} d={logLine(128 + i * LOG_PITCH, w)} />)}
+                        </g>
                     </g>
-                </g>
-            </mask>
-            <path d={CLIP_BODY} mask={`url(#${msk})`} />
+                </>
+            ) : (
+                <>
+                    <mask id={msk} maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+                        <rect width="256" height="256" fill="#fff" />
+                        <path d={CLIP_TAB} fill="#000" />
+                        <g clipPath={`url(#${win})`}>
+                            <g className="lgg-roll">
+                                {LOG_LINES.map((w, i) => <path key={i} d={logLine(128 + i * LOG_PITCH, w)} fill="#000" />)}
+                            </g>
+                        </g>
+                    </mask>
+                    <path d={CLIP_BODY} mask={`url(#${msk})`} />
+                </>
+            )}
         </svg>
     );
 }

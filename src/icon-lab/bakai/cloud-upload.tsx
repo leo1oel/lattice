@@ -22,16 +22,27 @@ const CU_CLOUD =
 const CU_ARROW =
     "M197.66,133.66a8,8,0,0,1-11.32,0L168,115.31V176a8,8,0,0,1-16,0V115.31l-18.34,18.35a8,8,0,0,1-11.32-11.32l32-32a8,8,0,0,1,11.32,0l32,32A8,8,0,0,1,197.66,133.66Z";
 
-export function CloudArrowUpLive({ size = 16, className }: { size?: number; className?: string }) {
+export function CloudArrowUpLive({ size = 16, className, converted }: { size?: number; className?: string; converted?: boolean }) {
     const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
     const m = `cuMask${uid}`;
+    const clip = `cuClip${uid}`;
     return (
         <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" className={className}>
-            <mask id={m} maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
-                <rect x="0" y="0" width="256" height="256" fill="#fff" />
-                <path className="cu-arrow" d={CU_ARROW} fill="#000" />
-            </mask>
-            <path d={CU_CLOUD} mask={`url(#${m})`} />
+            {converted ? (
+                <>
+                    <defs><clipPath id={clip}><path d={CU_CLOUD} /></clipPath></defs>
+                    <path d={CU_CLOUD} fill="none" stroke="var(--converted-ink)" strokeWidth="16" strokeLinejoin="round" />
+                    <g clipPath={`url(#${clip})`}><path className="cu-arrow" d={CU_ARROW} fill="var(--converted-ink)" /></g>
+                </>
+            ) : (
+                <>
+                    <mask id={m} maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+                        <rect x="0" y="0" width="256" height="256" fill="#fff" />
+                        <path className="cu-arrow" d={CU_ARROW} fill="#000" />
+                    </mask>
+                    <path d={CU_CLOUD} mask={`url(#${m})`} />
+                </>
+            )}
         </svg>
     );
 }

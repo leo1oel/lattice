@@ -30,20 +30,31 @@ import { useId } from "react";
 const CT_BUBBLE =
     "M216,48H40A16,16,0,0,0,24,64V224a15.84,15.84,0,0,0,9.25,14.5A16.05,16.05,0,0,0,40,240a15.89,15.89,0,0,0,10.25-3.78l.09-.07L83,208H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48Z";
 
-export function ChatLive({ size = 16, className }: { size?: number; className?: string }) {
+export function ChatLive({ size = 16, className, converted }: { size?: number; className?: string; converted?: boolean }) {
     const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
     const m = `ctMask${uid}`;
     return (
         <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" className={className}>
-            <mask id={m} maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
-                <rect x="0" y="0" width="256" height="256" fill="#fff" />
-                <circle className="ct-d1" cx="84" cy="128" r="12" fill="#000" />
-                <circle className="ct-d2" cx="128" cy="128" r="12" fill="#000" />
-                <circle className="ct-d3" cx="172" cy="128" r="12" fill="#000" />
-            </mask>
-            <g className="ct-pop">
-                <path d={CT_BUBBLE} mask={`url(#${m})`} />
-            </g>
+            {converted ? (
+                <g className="ct-pop" fill="none" stroke="var(--converted-ink)" strokeWidth="16" strokeLinejoin="round">
+                    <path d={CT_BUBBLE} />
+                    <g fill="var(--converted-ink)" stroke="none">
+                        <circle className="ct-d1" cx="84" cy="128" r="12" />
+                        <circle className="ct-d2" cx="128" cy="128" r="12" />
+                        <circle className="ct-d3" cx="172" cy="128" r="12" />
+                    </g>
+                </g>
+            ) : (
+                <>
+                    <mask id={m} maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+                        <rect x="0" y="0" width="256" height="256" fill="#fff" />
+                        <circle className="ct-d1" cx="84" cy="128" r="12" fill="#000" />
+                        <circle className="ct-d2" cx="128" cy="128" r="12" fill="#000" />
+                        <circle className="ct-d3" cx="172" cy="128" r="12" fill="#000" />
+                    </mask>
+                    <g className="ct-pop"><path d={CT_BUBBLE} mask={`url(#${m})`} /></g>
+                </>
+            )}
         </svg>
     );
 }

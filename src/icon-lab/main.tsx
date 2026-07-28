@@ -7,21 +7,24 @@ import "@fontsource/dm-sans/600.css";
 import "../App.css";
 import "./icon-lab.css";
 import { BakaiAnimatedIcon, type BakaiIconKind } from "./bakai-icons";
+import { ProvidedAnimatedIcon, type ProvidedIconKind } from "./provided-icons";
 
 type IconStudy = {
   id: string;
-  kind: BakaiIconKind;
+  kind: BakaiIconKind | ProvidedIconKind;
+  source?: "bakai" | "provided";
+  converted?: boolean;
   label: string;
   rationale: string;
 };
 
 const settingsIcons: IconStudy[] = [
   { id: "appearance", kind: "faders", label: "Appearance", rationale: "Faders cycle through the interface settings." },
-  { id: "editor", kind: "list-checks", label: "Editor & builds", rationale: "A completed row exits and a newly built row writes and ticks." },
-  { id: "agent", kind: "robot", label: "Agent", rationale: "The robot’s eyes scan and blink." },
+  { id: "editor", kind: "logs", converted: true, label: "Editor & builds", rationale: "Converted Logs keeps its transparent clipboard and advances the build tail three times." },
+  { id: "agent", kind: "robot", converted: true, label: "Agent", rationale: "Converted Robot keeps its transparent shell while the original eyes scan and blink." },
   { id: "mcp", kind: "plugs", label: "MCP", rationale: "The plug halves separate, reconnect, and make contact arcs." },
   { id: "subscriptions", kind: "users", label: "Subscriptions", rationale: "The three linked accounts rotate one place." },
-  { id: "overleaf", kind: "cloud-upload", label: "Overleaf", rationale: "The arrow uploads through the cloud." },
+  { id: "overleaf", kind: "cloud-upload", converted: true, label: "Overleaf", rationale: "Converted Cloud Upload uses a transparent cloud contour while Bakai’s arrow completes the upload stream." },
   { id: "api", kind: "api-key", label: "API keys", rationale: "The key levels, tumbles, and is caught." },
   { id: "doctor", kind: "sparkle", label: "TeX doctor", rationale: "The diagnostic result gathers and blooms cleanly." },
 ];
@@ -47,12 +50,28 @@ const productIcons: IconStudy[] = [
 const conversionIcons: IconStudy[] = [
   { id: "conversion-users", kind: "users", label: "Subscriptions", rationale: "Solid people become transparent figures with a uniform dark graphite contour; Bakai’s original one-place rotation is unchanged." },
   { id: "conversion-checks", kind: "list-checks", label: "Checklist", rationale: "The solid card becomes a transparent field with a dark contour, while the former knockouts become dark checks and rules; Bakai’s list progression is unchanged." },
+  { id: "conversion-logs", kind: "logs", label: "Logs", rationale: "The clipboard, tab, and scrolling rows become a transparent 16-unit outline system without changing Bakai’s tail animation." },
+  { id: "conversion-robot", kind: "robot", label: "Robot", rationale: "The robot shell becomes transparent; its former eye and grille knockouts become dark foreground details." },
+  { id: "conversion-cloud", kind: "cloud-upload", label: "Cloud upload", rationale: "The cloud becomes a transparent contour and the knockout arrow becomes a clipped dark upload arrow." },
+  { id: "conversion-chat", kind: "chat", label: "Chat", rationale: "The bubble becomes a transparent contour and its typing knockouts become dark dots, preserving Bakai’s pop sequence." },
 ];
 
-const allIcons = [...conversionIcons, ...settingsIcons, ...productIcons];
+const toolbarIcons: IconStudy[] = [
+  { id: "toolbar-comments", kind: "chat", converted: true, label: "Editor comments", rationale: "Converted Bakai Chat: the transparent bubble pops back while three dark typing dots arrive left to right." },
+  { id: "toolbar-collaboration", source: "provided", kind: "radio", label: "Live collaboration", rationale: "The selected Radio implementation fades both signal bands out, then restores inner and outer bands with staggered springs." },
+  { id: "toolbar-overleaf", source: "provided", kind: "cloud-upload-outline", label: "Editing live with Overleaf", rationale: "The selected Cloud Upload implementation lifts the arrow two pixels, then returns it to the static cloud." },
+  { id: "toolbar-git", kind: "git-branch", label: "Git status", rationale: "Bakai Git Branch retracts into its head and rewrites the graph." },
+  { id: "toolbar-history", kind: "clock-back", label: "Project history", rationale: "Bakai Clock Back winds one hour into the past and releases back to now." },
+];
+
+const trashPolicy: IconStudy = { id: "global-trash", kind: "trash", label: "All delete actions", rationale: "Every trash affordance will use the same Bakai Trash gesture: lid opens, item drops, static bin returns." };
+
+const allIcons = [...conversionIcons, ...settingsIcons, ...toolbarIcons, trashPolicy, ...productIcons];
 
 function LabIcon({ item, ...props }: { item: IconStudy; size?: number; playing?: boolean; reducedMotion?: boolean; speed?: "normal" | "slow"; playId?: number; converted?: boolean }) {
-  return <BakaiAnimatedIcon kind={item.kind} {...props} />;
+  if (item.source === "provided") return <ProvidedAnimatedIcon kind={item.kind as ProvidedIconKind} {...props} />;
+  const converted = props.converted ?? item.converted;
+  return <BakaiAnimatedIcon kind={item.kind as BakaiIconKind} {...props} converted={converted} />;
 }
 
 function ConversionCard(props: { item: IconStudy; playId: number; replay: () => void; reducedMotion: boolean; speed: "normal" | "slow" }) {
@@ -63,7 +82,7 @@ function ConversionCard(props: { item: IconStudy; playId: number; replay: () => 
         <button type="button" onClick={props.replay}><RotateCcw size={13} /> Replay</button>
       </div>
       <div className="conversion-comparison">
-        <div><span className="conversion-label">Bakai original</span><LabIcon item={props.item} size={52} /></div>
+        <div><span className="conversion-label">Bakai original</span><LabIcon item={props.item} size={52} converted={false} /></div>
         <div className="converted-surface"><span className="conversion-label">Converted still · transparent</span><LabIcon item={props.item} size={52} converted /></div>
         <div className="converted-surface"><span className="conversion-label">Converted animation · transparent</span><LabIcon key={props.playId} item={props.item} size={52} converted playing playId={props.playId} speed={props.speed} reducedMotion={props.reducedMotion} /></div>
       </div>
@@ -89,11 +108,11 @@ export function IconCard(props: {
       aria-label={`${item.label} icon comparison`}
     >
       <div className="card-heading">
-        <div><LabIcon item={item} size={18} /><h2>{item.label}</h2><span className="reference-badge">Bakai original</span></div>
+        <div><LabIcon item={item} size={18} /><h2>{item.label}</h2><span className={`reference-badge ${item.converted ? "converted" : ""}`}>{item.source === "provided" ? "Selected implementation" : item.converted ? "Converted Bakai" : "Bakai original"}</span></div>
         <button type="button" onClick={props.replay}><RotateCcw size={13} /> Replay</button>
       </div>
       <div className="comparison">
-        <div><span>Original</span><div className="size-row">{[16, 20, 24].map((size) => <LabIcon key={size} item={item} size={size} />)}</div></div>
+        <div><span>Static</span><div className="size-row">{[16, 20, 24].map((size) => <LabIcon key={size} item={item} size={size} />)}</div></div>
         <div><span>Animated</span><div className="size-row">{[16, 20, 24].map((size) => <LabIcon key={`${props.playId}-${size}`} item={item} size={size} playing reducedMotion={props.reducedMotion} speed={props.speed} playId={props.playId} />)}</div></div>
       </div>
       <p>{item.rationale}</p>
@@ -131,7 +150,7 @@ export function IconLab() {
       </div>
     </header>
 
-    <div className="collection-heading conversion-heading"><div className="eyebrow">Conversion proof · two icons only</div><h2>Uniform outline + transparent interior</h2><p>The original Bakai component and animation remain the source of truth. Only fill, contour, and knockout rendering are translated.</p></div>
+    <div className="collection-heading conversion-heading"><div className="eyebrow">Conversion proofs</div><h2>Uniform outline + transparent interior</h2><p>The original Bakai component and animation remain the source of truth. Only fill, contour, and knockout rendering are translated.</p></div>
     <section className="conversion-grid" aria-label="Converted icon proofs">
       {conversionIcons.map((item) => <ConversionCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
     </section>
@@ -139,6 +158,22 @@ export function IconLab() {
     <div className="collection-heading"><div className="eyebrow">Settings navigation</div><h2>First eight</h2></div>
     <section className="lab-grid" aria-label="Settings icon comparisons">
       {settingsIcons.map((item) => <IconCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
+    </section>
+
+    <div className="collection-heading toolbar-heading"><div className="eyebrow">Selected product actions</div><h2>Toolbar and delete policy</h2><p>These are the exact candidates selected for the product toolbar; Trash is a global action rule rather than a toolbar item.</p></div>
+    <section className="lab-grid" aria-label="Selected toolbar icon comparisons">
+      {[...toolbarIcons, trashPolicy].map((item) => <IconCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
+    </section>
+
+    <section className="toolbar-context-section">
+      <div className="section-copy"><div className="eyebrow">In context</div><h2>Selected toolbar density</h2><p>Five selected tools at the product’s real 14px icon / 28px target density.</p></div>
+      <div className="toolbar-preview">
+        <div className="toolbar-preview-tab"><span>paper.tex</span><i /></div>
+        <div className="toolbar-preview-switcher"><b>source</b><span>split</span><span>pdf</span></div>
+        <div className="toolbar-preview-actions">
+          {toolbarIcons.map((item) => <button key={item.id} type="button" title={item.label} aria-label={item.label} onPointerEnter={() => replay(item.id)} onFocus={() => replay(item.id)} onClick={() => replay(item.id)}><LabIcon key={plays[item.id]} item={item} size={14} playing playId={plays[item.id]} speed={speed} reducedMotion={reducedMotion} /></button>)}
+        </div>
+      </div>
     </section>
 
     <div className="collection-heading product-heading"><div className="eyebrow">Existing product language</div><h2>Next fifteen</h2><p>Author-source originals directly ported from Bakai Tolondu uulu’s copy-code gallery.</p></div>
@@ -157,7 +192,7 @@ export function IconLab() {
       </div>
     </section>
 
-    <footer>Original glyphs and animations: <a href="https://www.bakai.me/lab/animating-icons" target="_blank" rel="noreferrer">Bakai Tolondu uulu, “Animating icons”</a>, used under the author’s express copy/use permission · Converted studies change rendering only · No infinite loops</footer>
+    <footer>Bakai cards: <a href="https://www.bakai.me/lab/animating-icons" target="_blank" rel="noreferrer">Bakai Tolondu uulu, “Animating icons”</a>, used under the author’s express copy/use permission · Radio and outline Cloud Upload: user-selected supplied implementations · Converted studies change rendering only · No infinite loops</footer>
   </main>;
 }
 

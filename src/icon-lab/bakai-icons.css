@@ -1080,7 +1080,7 @@
 .bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-min { animation: lg-clockback-min calc(1.44s * var(--bk-speed)) both; }
 .bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-hour { animation: lg-clockback-hour calc(1.44s * var(--bk-speed)) both; }
 
-.bakai-icon { --converted-ink: #303238; display: block; overflow: visible; }
+.bakai-icon { --converted-ink: currentColor; display: block; overflow: visible; }
 .bakai-icon.is-playing.is-reduced { animation: bakai-reduced-feedback calc(.7s * var(--bk-speed)) ease both; }
 .bakai-icon.is-playing.is-reduced * { animation: none !important; }
 @keyframes bakai-reduced-feedback { 0%, 100% { opacity: 1; } 45% { opacity: .35; } }
