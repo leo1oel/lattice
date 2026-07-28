@@ -1,0 +1,1062 @@
+/* Faders: exact author CSS and adapted copy trigger. */
+
+@keyframes lg-fd-l-knob {
+  0% { transform: translateY(0px); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  19.101% { transform: translateY(-48px); }
+  33.708% { transform: translateY(-48px); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  52.809% { transform: translateY(32px); }
+  67.416% { transform: translateY(32px); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  86.517% { transform: translateY(0px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes lg-fd-l-up {
+  0% { d: path("M56,40L56,112"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  19.101% { d: path("M56,40L56,64"); }
+  33.708% { d: path("M56,40L56,64"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  52.809% { d: path("M56,40L56,144"); }
+  67.416% { d: path("M56,40L56,144"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  86.517% { d: path("M56,40L56,112"); }
+  100% { d: path("M56,40L56,112"); }
+}
+
+@keyframes lg-fd-l-lo {
+  0% { d: path("M56,168L56,216"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  19.101% { d: path("M56,120L56,216"); }
+  33.708% { d: path("M56,120L56,216"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  52.809% { d: path("M56,200L56,216"); }
+  67.416% { d: path("M56,200L56,216"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  86.517% { d: path("M56,168L56,216"); }
+  100% { d: path("M56,168L56,216"); }
+}
+
+@keyframes lg-fd-m-knob {
+  0% { transform: translateY(0px); }
+  6.742% { transform: translateY(0px); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  25.843% { transform: translateY(80px); }
+  40.449% { transform: translateY(80px); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  59.551% { transform: translateY(48px); }
+  74.157% { transform: translateY(48px); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  93.258% { transform: translateY(0px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes lg-fd-m-up {
+  0% { d: path("M128,40L128,64"); }
+  6.742% { d: path("M128,40L128,64"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  25.843% { d: path("M128,40L128,144"); }
+  40.449% { d: path("M128,40L128,144"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  59.551% { d: path("M128,40L128,112"); }
+  74.157% { d: path("M128,40L128,112"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  93.258% { d: path("M128,40L128,64"); }
+  100% { d: path("M128,40L128,64"); }
+}
+
+@keyframes lg-fd-m-lo {
+  0% { d: path("M128,120L128,216"); }
+  6.742% { d: path("M128,120L128,216"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  25.843% { d: path("M128,200L128,216"); }
+  40.449% { d: path("M128,200L128,216"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  59.551% { d: path("M128,168L128,216"); }
+  74.157% { d: path("M128,168L128,216"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  93.258% { d: path("M128,120L128,216"); }
+  100% { d: path("M128,120L128,216"); }
+}
+
+@keyframes lg-fd-r-knob {
+  0% { transform: translateY(0px); }
+  13.483% { transform: translateY(0px); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  32.584% { transform: translateY(-32px); }
+  47.191% { transform: translateY(-32px); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  66.292% { transform: translateY(-80px); }
+  80.899% { transform: translateY(-80px); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes lg-fd-r-up {
+  0% { d: path("M200,40L200,144"); }
+  13.483% { d: path("M200,40L200,144"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  32.584% { d: path("M200,40L200,112"); }
+  47.191% { d: path("M200,40L200,112"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  66.292% { d: path("M200,40L200,64"); }
+  80.899% { d: path("M200,40L200,64"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  100% { d: path("M200,40L200,144"); }
+}
+
+@keyframes lg-fd-r-lo {
+  0% { d: path("M200,200L200,216"); }
+  13.483% { d: path("M200,200L200,216"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  32.584% { d: path("M200,168L200,216"); }
+  47.191% { d: path("M200,168L200,216"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  66.292% { d: path("M200,120L200,216"); }
+  80.899% { d: path("M200,120L200,216"); animation-timing-function: cubic-bezier(0.25,0.7,0.2,1); }
+  100% { d: path("M200,200L200,216"); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-l-knob { animation: lg-fd-l-knob calc(0.89s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-l-up   { animation: lg-fd-l-up   calc(0.89s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-l-lo   { animation: lg-fd-l-lo   calc(0.89s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-m-knob { animation: lg-fd-m-knob calc(0.89s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-m-up   { animation: lg-fd-m-up   calc(0.89s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-m-lo   { animation: lg-fd-m-lo   calc(0.89s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-r-knob { animation: lg-fd-r-knob calc(0.89s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-r-up   { animation: lg-fd-r-up   calc(0.89s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-r-lo   { animation: lg-fd-r-lo   calc(0.89s * var(--bk-speed)) 0s both; }
+
+/* Users Three: exact author CSS and adapted copy trigger. */
+
+.lg-u3 .u3-a { transform: translate(127.935px,143.962px); }
+.lg-u3 .u3-b { transform: translate(63.947px,87.952px); }
+.lg-u3 .u3-c { transform: translate(192.053px,87.952px); }
+.lg-u3 .u3-gate-c { visibility: hidden; }
+.lg-u3 .u3-gate-a { visibility: visible; }
+
+/* ── THE TURNTABLE ────────────────────────────────────────────────────────────
+   The first build hand-picked three bowed paths and the composition visibly
+   narrowed and wobbled (the group's ink collapsed from 112px to 95px mid
+   gesture). Replaced with a real ring, SOLVED from the three resting slots:
+
+     x = 127.935 + 74.04*sin(t)      127.935 + 74.04*sin(120) = 192.053
+     y = 106.620 + 37.34*cos(t)      CY - RY = 143.962 ; CY + RY/2 = 87.952
+     shape u = clamp((cos t + 0.5)/1.5, 0, 1)      1 at the front, 0 at the back
+
+   All three sit at t, t-120, t-240 and sweep 120 deg together, so at every
+   instant the arrangement is the resting arrangement rotated, and the group's
+   width now holds at 232-249 instead of collapsing.
+
+   Sampled at 9 points with the ease baked into the SAMPLE TIMES and joined
+   linearly (the Address Book trick: sampling a real curve beats guessing a
+   bezier). That ease is cubic-bezier(0.08,0.12,0.85,0.95).
+
+   THREE CURVES, and the middle one was a bug of its own. The first pass used
+   (0.45,0,0.55,1): start slope ZERO, ease-in in all but name, which VERIFY.md
+   names as the tell for a gesture that reads sluggish. Bakai called it. The fix
+   over-corrected to (0.22,0.55,0.28,1), start slope 2.5 — but that curve does
+   HALF THE TRAVEL IN THE FIRST 19.5% of the clock and crawls the rest out over
+   the remaining 579ms, so it lurched and then drifted. Bakai called that too.
+   The two requirements pull against each other and have to be solved together:
+   a real start slope needs y1/x1 up, while keeping half-travel near mid-clock
+   needs x2 pushed right. (0.08,0.12,0.85,0.95) gets start slope 1.50, end slope
+   0.33, and half-travel at 44.84%. The endpoint keyframes are pinned to the measured slots so rest is
+   exact rather than 0.13u off. And x is CLAMPED to the figure's own half-width
+   from each edge, because the svg clips at the viewBox: the ring flattens by
+   about 8u between the slots rather than carrying a body's outer edge onto
+   the frame edge.
+
+   THAT CLAMP WAS ITSELF A BUG and Bakai caught it: it PINNED figure A against
+   the edge for 327ms of 720, and C for 130ms — 457ms of dead flat spot between
+   the three, which reads as the sides hitching. Replaced with a third harmonic,
+   x = CX + RX*(sin t + 0.18*sin 3t). sin(3t) is zero at every multiple of 60
+   degrees, so all three slots AND the +/-60 depth crossing keep their exact
+   solved values and only the bulge between them is pulled in. Peak |g| = 0.8669
+   against sin(120) = 0.8660: the ring now never reaches further out than the
+   back slots already do, so nothing clips and nothing stops. */
+@keyframes lg-u3-a-move {
+  0.0% { transform: translate(127.935px,143.962px); animation-timing-function: linear; }
+  12.5% { transform: translate(104.969px,142.118px); animation-timing-function: linear; }
+  25.0% { transform: translate(85.805px,137.326px); animation-timing-function: linear; }
+  37.5% { transform: translate(70.591px,130.240px); animation-timing-function: linear; }
+  50.0% { transform: translate(64.198px,121.571px); animation-timing-function: linear; }
+  62.5% { transform: translate(62.973px,112.103px); animation-timing-function: linear; }
+  75.0% { transform: translate(61.750px,102.660px); animation-timing-function: linear; }
+  87.5% { transform: translate(60.643px,94.104px); animation-timing-function: linear; }
+  100.0% { transform: translate(63.947px,87.952px); }
+}
+@keyframes lg-u3-b-move {
+  0.0% { transform: translate(63.947px,87.952px); animation-timing-function: linear; }
+  12.5% { transform: translate(78.460px,78.840px); animation-timing-function: linear; }
+  25.0% { transform: translate(96.272px,72.867px); animation-timing-function: linear; }
+  37.5% { transform: translate(116.047px,69.764px); animation-timing-function: linear; }
+  50.0% { transform: translate(136.184px,69.512px); animation-timing-function: linear; }
+  62.5% { transform: translate(155.138px,71.892px); animation-timing-function: linear; }
+  75.0% { transform: translate(171.547px,76.445px); animation-timing-function: linear; }
+  87.5% { transform: translate(184.306px,82.411px); animation-timing-function: linear; }
+  100.0% { transform: translate(192.053px,87.952px); }
+}
+@keyframes lg-u3-c-move {
+  0.0% { transform: translate(192.053px,87.952px); animation-timing-function: linear; }
+  12.5% { transform: translate(194.736px,98.901px); animation-timing-function: linear; }
+  25.0% { transform: translate(193.343px,109.668px); animation-timing-function: linear; }
+  37.5% { transform: translate(192.024px,119.855px); animation-timing-function: linear; }
+  50.0% { transform: translate(187.532px,128.777px); animation-timing-function: linear; }
+  62.5% { transform: translate(173.970px,135.865px); animation-timing-function: linear; }
+  75.0% { transform: translate(157.945px,140.755px); animation-timing-function: linear; }
+  87.5% { transform: translate(141.321px,143.345px); animation-timing-function: linear; }
+  100.0% { transform: translate(127.935px,143.962px); }
+}
+@keyframes lg-u3-a-head {
+  0.0% { r: 48.000px; animation-timing-function: linear; }
+  12.5% { r: 47.737px; animation-timing-function: linear; }
+  25.0% { r: 47.052px; animation-timing-function: linear; }
+  37.5% { r: 46.040px; animation-timing-function: linear; }
+  50.0% { r: 44.802px; animation-timing-function: linear; }
+  62.5% { r: 43.450px; animation-timing-function: linear; }
+  75.0% { r: 42.101px; animation-timing-function: linear; }
+  87.5% { r: 40.879px; animation-timing-function: linear; }
+  100.0% { r: 40.000px; }
+}
+@keyframes lg-u3-c-head {
+  0.0% { r: 40.000px; animation-timing-function: linear; }
+  12.5% { r: 41.564px; animation-timing-function: linear; }
+  25.0% { r: 43.102px; animation-timing-function: linear; }
+  37.5% { r: 44.557px; animation-timing-function: linear; }
+  50.0% { r: 45.831px; animation-timing-function: linear; }
+  62.5% { r: 46.844px; animation-timing-function: linear; }
+  75.0% { r: 47.542px; animation-timing-function: linear; }
+  87.5% { r: 47.912px; animation-timing-function: linear; }
+  100.0% { r: 48.000px; }
+}
+@keyframes lg-u3-a-body {
+  0.0% { d: path("M-29.115,38.108C-43.286,44.203 -55.111,54.702 -62.864,68.038C-64.294,70.513 -64.294,73.563 -62.865,76.039C-61.435,78.514 -58.793,80.039 -55.935,80.038C-18.602,80.038 18.732,80.038 56.065,80.038C58.923,80.039 61.565,78.514 62.995,76.039C64.424,73.563 64.424,70.513 62.995,68.038C55.236,54.712 43.411,44.223 29.255,38.108C9.798,38.108 -9.658,38.108 -29.115,38.108Z"); animation-timing-function: linear; }
+  12.5% { d: path("M-29.044,37.827C-43.102,43.875 -54.847,54.271 -62.577,67.476C-63.943,69.95 -63.962,72.983 -62.631,75.442C-61.22,77.954 -58.559,79.513 -55.672,79.512C-18.516,79.512 18.642,79.512 55.798,79.512C58.59,79.394 61.251,77.835 62.757,75.442C64.156,72.967 64.136,69.934 62.703,67.476C54.967,54.28 43.223,43.894 29.179,37.827C9.771,37.827 -9.636,37.827 -29.044,37.827Z"); animation-timing-function: linear; }
+  25.0% { d: path("M-28.858,37.095C-42.625,43.02 -54.158,53.149 -61.829,66.014C-63.028,68.484 -63.098,71.474 -62.022,73.888C-60.661,76.498 -57.949,78.146 -54.989,78.144C-18.292,78.144 18.406,78.144 55.103,78.144C57.724,77.716 60.435,76.069 62.136,73.888C63.458,71.417 63.388,68.427 61.945,66.014C54.269,53.157 42.735,43.038 28.982,37.095C9.701,37.095 -9.578,37.095 -28.858,37.095Z"); animation-timing-function: linear; }
+  37.5% { d: path("M-28.584,36.014C-41.919,41.757 -53.141,51.49 -60.724,63.852C-61.676,66.317 -61.821,69.242 -61.121,71.59C-59.833,74.346 -57.047,76.123 -53.978,76.121C-17.96,76.121 18.058,76.121 54.076,76.121C56.443,75.235 59.229,73.458 61.22,71.59C62.426,69.124 62.281,66.199 60.823,63.852C53.235,51.497 42.013,41.772 28.69,36.014C9.598,36.014 -9.492,36.014 -28.584,36.014Z"); animation-timing-function: linear; }
+  50.0% { d: path("M-28.248,34.69C-41.055,40.212 -51.896,49.46 -59.372,61.207C-60.022,63.666 -60.259,66.513 -60.02,68.779C-58.822,71.712 -55.944,73.649 -52.742,73.646C-17.555,73.646 17.633,73.646 52.82,73.646C54.875,72.2 57.753,70.263 60.098,68.779C61.164,66.319 60.926,63.473 59.45,61.207C51.971,49.466 41.13,40.224 28.332,34.69C9.472,34.69 -9.388,34.69 -28.248,34.69Z"); animation-timing-function: linear; }
+  62.5% { d: path("M-27.882,33.245C-40.111,38.524 -50.537,47.243 -57.895,58.318C-58.215,60.771 -58.553,63.531 -58.817,65.71C-57.716,68.835 -54.739,70.947 -51.392,70.943C-17.112,70.943 17.168,70.943 51.448,70.943C53.164,68.885 56.141,66.774 58.873,65.71C59.785,63.256 59.447,60.496 57.951,58.318C50.591,47.247 40.165,38.532 27.942,33.245C9.334,33.245 -9.274,33.245 -27.882,33.245Z"); animation-timing-function: linear; }
+  75.0% { d: path("M-27.516,31.803C-39.17,36.84 -49.181,45.032 -56.422,55.436C-56.413,57.882 -56.851,60.557 -57.616,62.648C-56.614,65.966 -53.537,68.252 -50.045,68.247C-16.67,68.247 16.704,68.247 50.079,68.247C51.456,65.579 54.533,63.293 57.65,62.648C58.41,60.201 57.972,57.526 56.456,55.436C49.214,45.035 39.203,36.846 27.553,31.803C9.196,31.803 -9.16,31.803 -27.516,31.803Z"); animation-timing-function: linear; }
+  87.5% { d: path("M-27.185,30.497C-38.317,35.315 -47.953,43.029 -55.087,52.826C-54.78,55.266 -55.309,57.863 -56.529,59.873C-55.615,63.367 -52.448,65.81 -48.825,65.805C-16.27,65.805 16.284,65.805 48.839,65.805C49.91,62.584 53.077,60.14 56.543,59.873C57.164,57.433 56.635,54.836 55.101,52.826C47.966,43.03 38.331,35.317 27.201,30.497C9.072,30.497 -9.056,30.497 -27.185,30.497Z"); animation-timing-function: linear; }
+  100.0% { d: path("M-26.947,29.558C-37.704,34.218 -47.069,41.588 -54.127,50.948C-53.606,53.384 -54.2,55.925 -55.747,57.878C-54.897,61.497 -51.665,64.054 -47.947,64.048C-15.982,64.048 15.982,64.048 47.947,64.048C48.797,60.429 52.029,57.872 55.747,57.878C56.268,55.442 55.674,52.901 54.127,50.948C47.069,41.588 37.704,34.218 26.947,29.558C8.982,29.558 -8.982,29.558 -26.947,29.558Z"); }
+}
+@keyframes lg-u3-c-body {
+  0.0% { d: path("M-26.947,29.558C-37.704,34.218 -47.069,41.588 -54.127,50.948C-53.606,53.384 -54.2,55.925 -55.747,57.878C-54.897,61.497 -51.665,64.054 -47.947,64.048C-15.982,64.048 15.982,64.048 47.947,64.048C48.797,60.429 52.029,57.872 55.747,57.878C56.268,55.442 55.674,52.901 54.127,50.948C47.069,41.588 37.704,34.218 26.947,29.558C8.982,29.558 -8.982,29.558 -26.947,29.558Z"); animation-timing-function: linear; }
+  12.5% { d: path("M-27.371,31.23C-38.795,36.17 -48.641,44.152 -55.835,54.289C-55.696,56.733 -56.174,59.374 -57.139,61.429C-56.175,64.824 -53.059,67.179 -49.509,67.174C-16.494,67.174 16.52,67.174 49.534,67.174C50.777,64.263 53.893,61.908 57.164,61.429C57.863,58.985 57.385,56.345 55.861,54.289C48.666,44.154 38.82,36.174 27.398,31.23C9.142,31.23 -9.114,31.23 -27.371,31.23Z"); animation-timing-function: linear; }
+  25.0% { d: path("M-27.788,32.873C-39.868,38.09 -50.187,46.673 -57.515,57.575C-57.75,60.026 -58.114,62.764 -58.507,64.92C-57.432,68.095 -54.429,70.252 -51.044,70.248C-16.998,70.248 17.048,70.248 51.095,70.248C52.723,68.033 55.727,65.876 58.557,64.92C59.43,62.468 59.067,59.73 57.566,57.575C50.236,46.677 39.917,38.097 27.842,32.873C9.298,32.873 -9.244,32.873 -27.788,32.873Z"); animation-timing-function: linear; }
+  37.5% { d: path("M-28.182,34.428C-40.884,39.906 -51.65,49.058 -59.104,60.683C-59.694,63.141 -59.95,65.972 -59.802,68.223C-58.621,71.191 -55.725,73.16 -52.497,73.156C-17.474,73.156 17.549,73.156 52.571,73.156C54.565,71.6 57.461,69.63 59.876,68.223C60.914,65.764 60.658,62.933 59.179,60.683C51.721,49.064 40.955,39.917 28.262,34.428C9.447,34.428 -9.367,34.428 -28.182,34.428Z"); animation-timing-function: linear; }
+  50.0% { d: path("M-28.527,35.79C-41.773,41.496 -52.931,51.147 -60.496,63.405C-61.397,65.87 -61.558,68.782 -60.935,71.116C-59.663,73.901 -56.861,75.706 -53.77,75.703C-17.892,75.703 17.987,75.703 53.864,75.703C56.178,74.723 58.98,72.918 61.03,71.116C62.213,68.651 62.052,65.739 60.591,63.405C53.022,51.154 41.864,41.511 28.629,35.79C9.577,35.79 -9.475,35.79 -28.527,35.79Z"); animation-timing-function: linear; }
+  62.5% { d: path("M-28.802,36.872C-42.479,42.76 -53.949,52.807 -61.601,65.568C-62.749,68.037 -62.835,71.014 -61.836,73.414C-60.49,76.055 -57.763,77.729 -54.781,77.727C-18.223,77.727 18.335,77.727 54.892,77.727C57.46,77.205 60.187,75.531 61.947,73.414C63.245,70.944 63.159,67.968 61.713,65.568C54.056,52.815 42.586,42.777 28.921,36.872C9.68,36.872 -9.56,36.872 -28.802,36.872Z"); animation-timing-function: linear; }
+  75.0% { d: path("M-28.991,37.619C-42.967,43.632 -54.651,53.952 -62.364,67.06C-63.682,69.533 -63.716,72.554 -62.458,75C-61.061,77.54 -58.385,79.124 -55.478,79.123C-18.452,79.123 18.575,79.123 55.601,79.123C58.344,78.917 61.019,77.333 62.58,75C63.957,72.526 63.923,69.505 62.488,67.06C54.769,53.961 43.084,43.651 29.123,37.619C9.751,37.619 -9.619,37.619 -28.991,37.619Z"); animation-timing-function: linear; }
+  87.5% { d: path("M-29.091,38.014C-43.225,44.093 -55.023,54.558 -62.768,67.85C-64.177,70.325 -64.183,73.369 -62.787,75.839C-61.363,78.327 -58.715,79.863 -55.847,79.862C-18.573,79.862 18.702,79.862 55.976,79.862C58.812,79.824 61.46,78.287 62.915,75.839C64.334,73.364 64.328,70.32 62.898,67.85C55.146,54.568 43.348,44.113 29.23,38.014C9.789,38.014 -9.651,38.014 -29.091,38.014Z"); animation-timing-function: linear; }
+  100.0% { d: path("M-29.115,38.108C-43.286,44.203 -55.111,54.702 -62.864,68.038C-64.294,70.513 -64.294,73.563 -62.865,76.039C-61.435,78.514 -58.793,80.039 -55.935,80.038C-18.602,80.038 18.732,80.038 56.065,80.038C58.923,80.039 61.565,78.514 62.995,76.039C64.424,73.563 64.424,70.513 62.995,68.038C55.236,54.712 43.411,44.223 29.255,38.108C9.798,38.108 -9.658,38.108 -29.115,38.108Z"); }
+}
+
+
+/* THE RANK SWAP — and the one number here that is NOT free to choose.
+
+   A and C trade depth when their ring angles satisfy cos(tA) = cos(tC), which
+   happens at HALF THE TRAVEL. That is half the EASED progress, not half the
+   clock, and the two are only the same moment when the easing is symmetric.
+
+   The first pass used cubic-bezier(0.45,0,0.55,1), which is symmetric, so a gate
+   at 50% was correct. Front-loading the curve to fix the
+   sluggish start moved half-travel to 19.53% of the clock — and left the gate
+   219ms late, so the figure on its way BACK stayed drawn over the one arriving
+   in FRONT for a fifth of a second. Bakai spotted it. It is invisible in the
+   code and obvious on screen, and it is a coupling worth remembering: THE GATE
+   IS TIED TO THE EASING. Re-solve it whenever the curve changes.
+
+   Solve: find m with y(m)=0.5, take x(m). For (0.08,0.12,0.85,0.95) that is 44.84%.
+   The swap is still free at that instant — A and C sit at the two BACK slots,
+   x63.8 and x192.1, 9.6u apart and unable to touch. */
+@keyframes lg-u3-gate-c { 0%,44.83% { visibility: hidden; }  44.84%,100% { visibility: visible; } }
+@keyframes lg-u3-gate-a { 0%,44.83% { visibility: visible; } 44.84%,100% { visibility: hidden; } }
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-u3 .u3-a      { animation: lg-u3-a-move calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-u3 .u3-b      { animation: lg-u3-b-move calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-u3 .u3-c      { animation: lg-u3-c-move calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-u3 .u3-a-h    { animation: lg-u3-a-head calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-u3 .u3-c-h    { animation: lg-u3-c-head calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-u3 .u3-a-b    { animation: lg-u3-a-body calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-u3 .u3-c-b    { animation: lg-u3-c-body calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-u3 .u3-gate-c { animation: lg-u3-gate-c calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-u3 .u3-gate-a { animation: lg-u3-gate-a calc(0.72s * var(--bk-speed)) 0s both; }
+
+/* List Checks: exact author CSS and adapted copy trigger. */
+/* Rest, said out loud: rows 1 and 2 in their slots, opaque, both marks fully
+   drawn; row 3 parked one pitch below with opacity 0, which punches nothing at
+   all. At rest no animation is attached, so this has to be a base rule. */
+.lg-checks .lc-ck, .lg-checks .lc-ln { stroke-dasharray: 1 2; stroke-dashoffset: 0; }
+.lg-checks .lc-f1, .lg-checks .lc-f2 { opacity: 1; }
+.lg-checks .lc-f3 { opacity: 0; }
+.lg-checks .lc-r3 .lc-ck, .lg-checks .lc-r3 .lc-ln { stroke-dashoffset: 1.01; }
+
+/* 1.28s = two turns of 640ms. Per turn the whole list scrolls up exactly one
+   pitch (0-210ms): the top row ghosts out as it goes, the new bottom row ghosts
+   in, writes its line, and then its tick is written (300-640ms). The pair of
+   keyframes 0.01% apart at 22.65/22.66% and 72.65/72.66% re-arm a row that has
+   left — from above the card round to below it, marks reset — while it is at
+   opacity 0 and therefore provably punching nothing. */
+
+/* ── row 1: ghosts out ─ re-armed below ─ ghosts back in at the bottom ────── */
+@keyframes lg-checks-r1 {
+  0%      { transform: translateY(0px);     animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  16.41%  { transform: translateY(-64px); }
+  22.65%  { transform: translateY(-64px); }
+  22.66%  { transform: translateY(128px); }
+  50.00%  { transform: translateY(128px);   animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  66.41%  { transform: translateY(64px); }
+  100%    { transform: translateY(64px); }
+}
+@keyframes lg-checks-f1 {
+  0%      { opacity: 1;  animation-timing-function: cubic-bezier(0.32,0.72,0,1); }
+  11.72%  { opacity: 0; }
+  52.34%  { opacity: 0;  animation-timing-function: cubic-bezier(0.33,1,0.68,1); }
+  69.53%  { opacity: 1; }
+  100%    { opacity: 1; }
+}
+@keyframes lg-checks-l1 {
+  0%      { stroke-dashoffset: 0; }
+  22.65%  { stroke-dashoffset: 0; }
+  22.66%  { stroke-dashoffset: 1.01; }
+  54.69%  { stroke-dashoffset: 1.01;  animation-timing-function: cubic-bezier(0.45,0,0.15,1); }
+  71.09%  { stroke-dashoffset: 0; }
+  100%    { stroke-dashoffset: 0; }
+}
+@keyframes lg-checks-k1 {
+  0%      { stroke-dashoffset: 0; }
+  22.65%  { stroke-dashoffset: 0; }
+  22.66%  { stroke-dashoffset: 1.01; }
+  73.44%  { stroke-dashoffset: 1.01;      animation-timing-function: cubic-bezier(0.45,0,0.55,0.85); }
+  84.06%  { stroke-dashoffset: 0.66667;   animation-timing-function: cubic-bezier(0.4,0.1,0.25,1); }
+  100%    { stroke-dashoffset: 0; }
+}
+
+/* ── row 2: closes up to the top ─ then ghosts out ─ re-armed below ───────── */
+@keyframes lg-checks-r2 {
+  0%      { transform: translateY(0px);      animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  16.41%  { transform: translateY(-64px); }
+  50.00%  { transform: translateY(-64px);    animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  66.41%  { transform: translateY(-128px); }
+  72.65%  { transform: translateY(-128px); }
+  72.66%  { transform: translateY(64px); }
+  100%    { transform: translateY(64px); }
+}
+@keyframes lg-checks-f2 {
+  0%      { opacity: 1; }
+  50.00%  { opacity: 1;  animation-timing-function: cubic-bezier(0.32,0.72,0,1); }
+  61.72%  { opacity: 0; }
+  100%    { opacity: 0; }
+}
+@keyframes lg-checks-l2 {
+  0%      { stroke-dashoffset: 0; }
+  72.65%  { stroke-dashoffset: 0; }
+  72.66%  { stroke-dashoffset: 1.01; }
+  100%    { stroke-dashoffset: 1.01; }
+}
+@keyframes lg-checks-k2 {
+  0%      { stroke-dashoffset: 0; }
+  72.65%  { stroke-dashoffset: 0; }
+  72.66%  { stroke-dashoffset: 1.01; }
+  100%    { stroke-dashoffset: 1.01; }
+}
+
+/* ── row 3: ghosts in at the bottom, writes itself, then closes up ────────── */
+@keyframes lg-checks-r3 {
+  0%      { transform: translateY(0px);      animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  16.41%  { transform: translateY(-64px); }
+  50.00%  { transform: translateY(-64px);    animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  66.41%  { transform: translateY(-128px); }
+  100%    { transform: translateY(-128px); }
+}
+@keyframes lg-checks-f3 {
+  0%      { opacity: 0; }
+  2.34%   { opacity: 0;  animation-timing-function: cubic-bezier(0.33,1,0.68,1); }
+  19.53%  { opacity: 1; }
+  100%    { opacity: 1; }
+}
+@keyframes lg-checks-l3 {
+  0%      { stroke-dashoffset: 1.01; }
+  4.69%   { stroke-dashoffset: 1.01;  animation-timing-function: cubic-bezier(0.45,0,0.15,1); }
+  21.09%  { stroke-dashoffset: 0; }
+  100%    { stroke-dashoffset: 0; }
+}
+@keyframes lg-checks-k3 {
+  0%      { stroke-dashoffset: 1.01; }
+  23.44%  { stroke-dashoffset: 1.01;      animation-timing-function: cubic-bezier(0.45,0,0.55,0.85); }
+  34.06%  { stroke-dashoffset: 0.66667;   animation-timing-function: cubic-bezier(0.4,0.1,0.25,1); }
+  50.00%  { stroke-dashoffset: 0; }
+  100%    { stroke-dashoffset: 0; }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-r1 { animation: lg-checks-r1 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-f1 { animation: lg-checks-f1 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-r1 .lc-ln { animation: lg-checks-l1 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-r1 .lc-ck { animation: lg-checks-k1 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-r2 { animation: lg-checks-r2 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-f2 { animation: lg-checks-f2 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-r2 .lc-ln { animation: lg-checks-l2 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-r2 .lc-ck { animation: lg-checks-k2 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-r3 { animation: lg-checks-r3 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-f3 { animation: lg-checks-f3 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-r3 .lc-ln { animation: lg-checks-l3 calc(1.28s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-checks .lc-r3 .lc-ck { animation: lg-checks-k3 calc(1.28s * var(--bk-speed)) 0s both; }
+
+/* Kanban: exact author CSS and adapted copy trigger. */
+.lg-kanban .kb-ax, .lg-kanban .kb-ay, .lg-kanban .kb-dx, .lg-kanban .kb-dy,
+.lg-kanban .kb-push { transform-box: view-box; transform-origin: 0 0; }
+
+/* 1s clock, so every percentage below IS the millisecond count over ten. */
+
+/* card A: two hops right, +72 each (the column pitch). Ends on D's slot and
+   STAYS there — no return leg anywhere in this glyph. */
+@keyframes lg-kanban-ax {
+  0%      { transform: translateX(0px);    animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  5%      { transform: translateX(-8px); }
+  8%      { transform: translateX(-8px);   animation-timing-function: cubic-bezier(0.16,0.9,0.2,1); }
+  26%     { transform: translateX(72px); }
+  62%     { transform: translateX(72px);   animation-timing-function: cubic-bezier(0.16,0.9,0.2,1); }
+  79%     { transform: translateX(144px); }
+  100%    { transform: translateX(144px); }
+}
+
+/* its lift, once per hop, on a separate element so each descent overlaps the tail
+   of its travel and the two compose into an arc rather than a stop-then-drop */
+@keyframes lg-kanban-ay {
+  0%      { transform: translateY(0px);    animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  5%      { transform: translateY(-8px); }
+  21%     { transform: translateY(-8px);   animation-timing-function: cubic-bezier(0.3,0.9,0.25,1); }
+  27%     { transform: translateY(0px); }
+  57%     { transform: translateY(0px);    animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  61%     { transform: translateY(-8px); }
+  74%     { transform: translateY(-8px);   animation-timing-function: cubic-bezier(0.3,0.9,0.25,1); }
+  80%     { transform: translateY(0px); }
+  100%    { transform: translateY(0px); }
+}
+
+/* card D goes round the outside rather than through the board. It leaves past the
+   right edge (+88 puts its near edge at x264, clear of the 256 frame), and on a
+   hundredth-of-a-percent frame — while it is genuinely nowhere on screen — is
+   repositioned to x-72..-16, off the left edge, to come back in. That lap is what
+   lets every move run the SAME direction: sent head-on through the middle it would
+   have to pass through card A, and one row has no second lane for that. */
+@keyframes lg-kanban-dx {
+  0%      { transform: translateX(0px); }
+  30%     { transform: translateX(0px);    animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  32%     { transform: translateX(-8px); }
+  35%     { transform: translateX(-8px);   animation-timing-function: cubic-bezier(0.4,0,0.85,0.4); }
+  44%     { transform: translateX(88px); }
+  44.01%  { transform: translateX(-248px); animation-timing-function: cubic-bezier(0.16,0.9,0.2,1); }
+  48%     { transform: translateX(-248px); animation-timing-function: cubic-bezier(0.16,0.9,0.2,1); }
+  66%     { transform: translateX(-144px); }
+  100%    { transform: translateX(-144px); }
+}
+
+@keyframes lg-kanban-dy {
+  0%      { transform: translateY(0px); }
+  30%     { transform: translateY(0px);    animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  32%     { transform: translateY(-8px); }
+  62%     { transform: translateY(-8px);   animation-timing-function: cubic-bezier(0.3,0.9,0.25,1); }
+  68%     { transform: translateY(0px); }
+  100%    { transform: translateY(0px); }
+}
+
+/* the middle column drops one slot to hold a place for A, and comes back up only
+   after A has cleared its x-range (measured: 753ms) */
+@keyframes lg-kanban-push {
+  0%      { transform: translateY(0px); }
+  2.5%    { transform: translateY(0px);    animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+  16.5%   { transform: translateY(80px); }
+  76%     { transform: translateY(80px);   animation-timing-function: cubic-bezier(0.23,1,0.32,1); }
+  100%    { transform: translateY(0px); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-kanban .kb-ax   { animation: lg-kanban-ax   calc(1s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-kanban .kb-ay   { animation: lg-kanban-ay   calc(1s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-kanban .kb-dx   { animation: lg-kanban-dx   calc(1s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-kanban .kb-dy   { animation: lg-kanban-dy   calc(1s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-kanban .kb-push { animation: lg-kanban-push calc(1s * var(--bk-speed)) 0s both; }
+
+/* Folder: exact author CSS and adapted copy trigger. */
+
+/* REST, declared here and not only at 0%: shut */
+.lg-folder .fd-lid { d: path("M24,72H216A16,16,0,0,1,232,88A16,16,0,0,1,232,88L232,200.89A15.13,15.13,0,0,1,216.89,216H39.39A15.41,15.41,0,0,1,24,200.62V72H24L24,72A16,16,0,0,1,24,72Z"); }
+
+/* The panel travels between the pocket and FolderOpen's slab. 30% goes a little past
+   open and rocks back, because a lid thrown open does not stop dead on the mark; 88%
+   is the bounce off shut. */
+@keyframes lg-folder-open {
+  0%   { d: path("M24,72H216A16,16,0,0,1,232,88A16,16,0,0,1,232,88L232,200.89A15.13,15.13,0,0,1,216.89,216H39.39A15.41,15.41,0,0,1,24,200.62V72H24L24,72A16,16,0,0,1,24,72Z");  animation-timing-function: cubic-bezier(0.3,0.62,0.36,1); }
+  30%  { d: path("M73.43,106.56H233.28A16,16,0,0,1,246.04,112.45A16.05,16.05,0,0,1,248.39,128.02L217.63,211.3A7.43,7.43,0,0,1,210.64,216H31.41A7.41,7.41,0,0,1,24,208.59V165.64H41.28L57.04,118.38A16,16,0,0,1,73.43,106.56Z");   animation-timing-function: cubic-bezier(0.4,0,0.35,1); }
+  42%  { d: path("M69.77,104H232A16,16,0,0,1,245,110.64A16.05,16.05,0,0,1,247.18,125.06L218.69,210.53A8,8,0,0,1,211.1,216H32A8,8,0,0,1,24,208V158.7H40L54.59,114.94A16,16,0,0,1,69.77,104Z"); }
+  46%  { d: path("M69.77,104H232A16,16,0,0,1,245,110.64A16.05,16.05,0,0,1,247.18,125.06L218.69,210.53A8,8,0,0,1,211.1,216H32A8,8,0,0,1,24,208V158.7H40L54.59,114.94A16,16,0,0,1,69.77,104Z");   animation-timing-function: cubic-bezier(0.45,0,0.8,0.5); }
+  78%  { d: path("M24,72H216A16,16,0,0,1,232,88A16,16,0,0,1,232,88L232,200.89A15.13,15.13,0,0,1,216.89,216H39.39A15.41,15.41,0,0,1,24,200.62V72H24L24,72A16,16,0,0,1,24,72Z");  animation-timing-function: cubic-bezier(0.3,0,0.45,1); }
+  87%  { d: path("M27.66,74.56H217.28A16,16,0,0,1,233.04,89.81A16,16,0,0,1,233.21,90.96L230.94,201.66A14.56,14.56,0,0,1,216.43,216H38.8A14.82,14.82,0,0,1,24,201.21V78.94H25.28L26.45,75.44A16,16,0,0,1,27.66,74.56Z"); animation-timing-function: cubic-bezier(0.4,0,0.3,1); }
+  100% { d: path("M24,72H216A16,16,0,0,1,232,88A16,16,0,0,1,232,88L232,200.89A15.13,15.13,0,0,1,216.89,216H39.39A15.41,15.41,0,0,1,24,200.62V72H24L24,72A16,16,0,0,1,24,72Z"); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-folder .fd-lid { animation: lg-folder-open calc(0.72s * var(--bk-speed)) 0s both; }
+
+/* Gear: exact author CSS and adapted copy trigger. */
+/* the axis is the centre of the r40 knockout, a real point in the file */
+.lg-gear .gr-turn { transform-box: view-box; transform-origin: 128px 128px; }
+
+/* Three identical ticks of 341ms: recoil 42, impulse 155, seat 86, hold 87 (the
+   last tick ends on its seat, so the gesture does not finish on dead air). The
+   angles are 60 x tooth, and 3.274 / 4.911 / 0.982 are 1px, 1.5px and 0.2 of
+   1.5px of travel at the tooth tip at ship size. */
+@keyframes lg-gear-turn {
+    0.00% { transform: rotate(0deg);        animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+    4.11% { transform: rotate(-3.274deg);   animation-timing-function: cubic-bezier(0.5,0,0.35,1); }
+   19.26% { transform: rotate(64.911deg);   animation-timing-function: cubic-bezier(0.36,0,0.64,1); }
+   24.14% { transform: rotate(59.018deg);   animation-timing-function: cubic-bezier(0.36,0,0.64,1); }
+   27.66% { transform: rotate(60deg);       animation-timing-function: linear; }
+   36.17% { transform: rotate(60deg);       animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+   40.27% { transform: rotate(56.726deg);   animation-timing-function: cubic-bezier(0.5,0,0.35,1); }
+   55.43% { transform: rotate(124.911deg);  animation-timing-function: cubic-bezier(0.36,0,0.64,1); }
+   60.31% { transform: rotate(119.018deg);  animation-timing-function: cubic-bezier(0.36,0,0.64,1); }
+   63.83% { transform: rotate(120deg);      animation-timing-function: linear; }
+   72.34% { transform: rotate(120deg);      animation-timing-function: cubic-bezier(0.19,1,0.22,1); }
+   76.44% { transform: rotate(116.726deg);  animation-timing-function: cubic-bezier(0.5,0,0.35,1); }
+   91.59% { transform: rotate(184.911deg);  animation-timing-function: cubic-bezier(0.36,0,0.64,1); }
+   96.48% { transform: rotate(179.018deg);  animation-timing-function: cubic-bezier(0.36,0,0.64,1); }
+  100.00% { transform: rotate(180deg); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-gear .gr-turn { animation: lg-gear-turn calc(1.02s * var(--bk-speed)) 0s both; }
+
+/* Chat: exact author CSS and adapted copy trigger. */
+
+.ct-pop { transform-box: view-box; transform-origin: 28.64px 235.2px; }
+.ct-d1 { transform-box: view-box; transform-origin: 84px 128px; }
+.ct-d2 { transform-box: view-box; transform-origin: 128px 128px; }
+.ct-d3 { transform-box: view-box; transform-origin: 172px 128px; }
+
+/* collapse 0–140ms (departure, ease-in), blind 140–220ms, inflate 220–560ms
+   to a 1.05 overshoot, settle by 680ms */
+@keyframes lg-chat-pop {
+  0%   { transform: scale(1); animation-timing-function: cubic-bezier(0.45,0,0.9,0.35); }
+  14%  { transform: scale(0); }
+  22%  { transform: scale(0); animation-timing-function: cubic-bezier(0.32,0.72,0.3,1); }
+  56%  { transform: scale(1.05); animation-timing-function: cubic-bezier(0.33,1,0.68,1); }
+  68%  { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+
+/* dot holes: ride the collapse at scale(1), re-arm to scale(0) at 16% — inside
+   the group's blind window, so the snap is invisible — then pop 0→1.3→1 in
+   180ms each, staggered 90ms left to right */
+@keyframes lg-chat-d1 {
+  0%     { transform: scale(1); }
+  16%    { transform: scale(1); }
+  16.01% { transform: scale(0); }
+  62%    { transform: scale(0); animation-timing-function: cubic-bezier(0.25,0.9,0.3,1); }
+  71%    { transform: scale(1.3); animation-timing-function: cubic-bezier(0.33,1,0.68,1); }
+  80%    { transform: scale(1); }
+  100%   { transform: scale(1); }
+}
+@keyframes lg-chat-d2 {
+  0%     { transform: scale(1); }
+  16%    { transform: scale(1); }
+  16.01% { transform: scale(0); }
+  71%    { transform: scale(0); animation-timing-function: cubic-bezier(0.25,0.9,0.3,1); }
+  80%    { transform: scale(1.3); animation-timing-function: cubic-bezier(0.33,1,0.68,1); }
+  89%    { transform: scale(1); }
+  100%   { transform: scale(1); }
+}
+@keyframes lg-chat-d3 {
+  0%     { transform: scale(1); }
+  16%    { transform: scale(1); }
+  16.01% { transform: scale(0); }
+  80%    { transform: scale(0); animation-timing-function: cubic-bezier(0.25,0.9,0.3,1); }
+  89%    { transform: scale(1.3); animation-timing-function: cubic-bezier(0.33,1,0.68,1); }
+  98%    { transform: scale(1); }
+  100%   { transform: scale(1); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-pop { animation: lg-chat-pop calc(1s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-d1  { animation: lg-chat-d1 calc(1s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-d2  { animation: lg-chat-d2 calc(1s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-d3  { animation: lg-chat-d3 calc(1s * var(--bk-speed)) 0s both; }
+
+/* Trash: exact author CSS and adapted copy trigger. */
+
+/* THE LID SWINGS OFF AND STANDS UP BESIDE THE BIN.
+   (109,77) is not a taste value, it is solved. A lid that still spans the mouth
+   cannot be opened — anything falling straight down hits it — so the lid has to end
+   somewhere the mouth's x-range is clear, and the bar is 72 long in a 96 box, so
+   where it ends decides everything. Asking for a PURE 90° turn that carries the
+   resting bar (58,54)-(130,54) onto a vertical bar beside the bin at x132, y26-98
+   gives one pivot and only one: px+py = 186 and py-px = -32, so (109,77).
+   Rotating about it needs no translate, which is what keeps the arc tight: over the
+   whole sweep the lid reaches 14 above the box and 7 past its right edge, against
+   38 and 35 for the old 128° throw about the bar's end. */
+.tr-lid { transform-box: view-box; transform-origin: 109px 77px; }
+/* each piece tumbles about its own centre; parked at translate 0 (above the chute,
+   clipped) at rest — that IS the hidden state, no opacity needed */
+.tr-i1, .tr-i2, .tr-i3, .tr-i4, .tr-i5 { transform-box: fill-box; transform-origin: center; }
+
+/* THE LID IS LIFTED OFF AND SET ASIDE, NOT THROWN OVERHEAD (v4, per Bakai: "the lid
+   opens too high, outside the frame of the icon… move it a bit to a different place
+   or a bit to the right, not just up like that").
+
+   It used to swing 128° about its right end. The bar is 72 long against a 96 box, so
+   at that angle its free end lands at (174,-3): 35 units above the box and 43 past
+   its right edge, which at ship size is the lid flying 15px clear of the icon.
+
+   The constraint that decides this is not framing, it is that THE RUBBISH HAS TO GET
+   IN. The pieces drop straight down the middle, so any lid still lying across the
+   mouth is something they fall through. Sweeping the numbers: below about 66° the
+   bar still spans the drop, so nothing gentle is available — a lid that stays low
+   enough to look tidy is a lid the rubbish cannot pass.
+   What works is standing it UP beside the bin, which clears the mouth completely and
+   is the shortest way out of the way: 14 above and 7 past the right edge over the
+   whole sweep, against 38 and 35 before. The pivot does all the work (see .tr-lid). */
+@keyframes lg-trash-lid {
+  0%   { transform: rotate(0deg);   animation-timing-function: cubic-bezier(0.3,0.8,0.4,1); }
+  10%  { transform: rotate(90deg);  animation-timing-function: linear; }
+  84%  { transform: rotate(90deg);  animation-timing-function: cubic-bezier(0.5,0,0.8,0.3); }
+  93%  { transform: rotate(-3deg);  animation-timing-function: cubic-bezier(0.3,0,0.4,1); }
+  97%  { transform: rotate(1.2deg); }
+  100% { transform: rotate(0deg); }
+}
+
+/* the five pieces, one after another: each holds parked (clipped) until its beat,
+   then falls under gravity with a tumble and is swallowed at the mouth. The last
+   keyframe holds it inside the can (clipped), so it never reappears; frame 0 and
+   the final frame are both the plain bin. translate distance (70) clears the mouth
+   for every piece. */
+@keyframes lg-trash-i1 {
+  0%   { transform: translate(0,0) rotate(0deg); }
+  8%   { transform: translate(0,0) rotate(0deg); animation-timing-function: cubic-bezier(0.5,0,0.9,0.4); }
+  38%  { transform: translate(0,70px) rotate(-35deg); }
+  100% { transform: translate(0,70px) rotate(-35deg); }
+}
+@keyframes lg-trash-i2 {
+  0%   { transform: translate(0,0) rotate(0deg); }
+  20%  { transform: translate(0,0) rotate(0deg); animation-timing-function: cubic-bezier(0.5,0,0.9,0.4); }
+  50%  { transform: translate(0,70px) rotate(150deg); }
+  100% { transform: translate(0,70px) rotate(150deg); }
+}
+@keyframes lg-trash-i3 {
+  0%   { transform: translate(0,0) rotate(0deg); }
+  32%  { transform: translate(0,0) rotate(0deg); animation-timing-function: cubic-bezier(0.5,0,0.9,0.4); }
+  62%  { transform: translate(0,70px) rotate(-55deg); }
+  100% { transform: translate(0,70px) rotate(-55deg); }
+}
+@keyframes lg-trash-i4 {
+  0%   { transform: translate(0,0) rotate(0deg); }
+  44%  { transform: translate(0,0) rotate(0deg); animation-timing-function: cubic-bezier(0.5,0,0.9,0.4); }
+  74%  { transform: translate(0,70px) rotate(42deg); }
+  100% { transform: translate(0,70px) rotate(42deg); }
+}
+@keyframes lg-trash-i5 {
+  0%   { transform: translate(0,0) rotate(0deg); }
+  56%  { transform: translate(0,0) rotate(0deg); animation-timing-function: cubic-bezier(0.5,0,0.9,0.4); }
+  86%  { transform: translate(0,70px) rotate(95deg); }
+  100% { transform: translate(0,70px) rotate(95deg); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-trash .tr-lid { animation: lg-trash-lid calc(1.4s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-trash .tr-i1  { animation: lg-trash-i1 calc(1.4s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-trash .tr-i2  { animation: lg-trash-i2 calc(1.4s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-trash .tr-i3  { animation: lg-trash-i3 calc(1.4s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-trash .tr-i4  { animation: lg-trash-i4 calc(1.4s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-trash .tr-i5  { animation: lg-trash-i5 calc(1.4s * var(--bk-speed)) 0s both; }
+
+/* Cloud Upload: exact author CSS and adapted copy trigger. */
+
+@keyframes lg-cloudup-arrow {
+  0%    { transform: translateY(0); animation-timing-function: cubic-bezier(0.45,0,0.9,0.35); }
+  26%   { transform: translateY(-150px); }
+  34%   { transform: translateY(-150px); }
+  34.01%{ transform: translateY(150px); animation-timing-function: cubic-bezier(0.25,0.9,0.3,1); }
+  78%   { transform: translateY(0); }
+  100%  { transform: translateY(0); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-cloudup .cu-arrow { animation: lg-cloudup-arrow calc(0.95s * var(--bk-speed)) 0s both; }
+
+/* API Key: exact author CSS and adapted copy trigger. */
+
+/* API keys: the key is flicked up, tumbles, and is caught.
+
+   "Rotating" a key is the actual term for cycling an API credential, so a key
+   that literally rotates is the one gesture here that is a pun a developer reads
+   without being told it is one.
+
+   It is TWO animations on two elements, and that split is the entire point.
+   translateY and rotateX both live in the one transform property, so on a single
+   element CSS forces them to share one timing function — and this gesture needs
+   two opposite ones. So the arc goes on the span and the spin goes on the svg
+   inside it.
+
+   THE ARC is gravity, and gravity is a parabola, not a swing:
+     up    p(t) = 2t - t²   decelerating into the apex
+     down  p(t) = t²        accelerating out of it
+   Those two curves are what the beziers below are fitted to (a bezier's start
+   slope is y1/x1 and its end slope is (1-y2)/(1-x2); the rise wants 2 and 0, the
+   fall wants 0 and 2). Rise and fall get the same 44% so the parabola is
+   symmetric, which is the thing your eye actually checks.
+
+   THE SPIN is linear, and it is the detail that separates a toss from a flip.
+   Once the key leaves your thumb nothing torques it, so its angular velocity is
+   constant. Easing the spin is the single most common tell of a fake coin flip.
+   This is one of the very few places in UI where linear is not a mistake.
+
+   Three full turns, so it lands on the face it left with and the end frame is
+   the start frame. perspective() is what makes it a tumble rather than a
+   vertical squash: the edge swinging toward you grows, the far edge shrinks. */
+/* The transition is not decoration, it is the hover-OUT. Sweep off the row
+   mid-flip and the animation is simply removed, which would snap the key from
+   450deg to 0 in one frame. With a transition here the browser decomposes the
+   two matrices and slerps the shortest way home instead, so an interrupted toss
+   settles rather than teleports. The span gets this for free from .ln-ico; the
+   svg is a separate element and needs its own. */
+.lgk { position: relative; display: block; flex: none; }
+.lgk-l { position: absolute; left: 0; top: 0; }
+/* The transition is not decoration, it is the hover-OUT. Sweep off the row
+   mid-flip and the animation is simply removed, which would snap the key from
+   450deg to 0 in one frame. With a transition here the browser decomposes the
+   two matrices and slerps the shortest way home instead, so an interrupted toss
+   settles rather than teleports. The span gets its own from .ln-ico; this is the
+   spin's. */
+.lgk-tilt { position: absolute; inset: 0; transform-style: preserve-3d; }
+.lgk-spin { position: absolute; inset: 0; transform-style: preserve-3d;
+  transition: transform 0.19s cubic-bezier(0.19,1,0.22,1); }
+
+@keyframes lg-toss-arc {
+  /* the wind-up. 50ms and a pixel and a half, but a throw with no anticipation
+     reads as an object teleporting upward — you need to see it loaded first. */
+  0%   { transform: translateY(0); animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1); }
+  7%   { transform: translateY(1.5px); animation-timing-function: cubic-bezier(0.33, 0.66, 0.67, 1); }
+  /* apex. rise 41%, fall 40% — near enough symmetric that the parabola reads */
+  48%  { transform: translateY(-7px); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.34); }
+  /* caught, and the hand gives a pixel absorbing it */
+  88%  { transform: translateY(0); animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1); }
+  93%  { transform: translateY(1px); animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+  100% { transform: translateY(0); }
+}
+/* The key levels itself, THEN flips. That order is the whole fix.
+
+   Phosphor draws the key on an exact 45 degree diagonal — the shaft leaves the
+   bow at (83.91,120.78) and runs to (28.69,176), which is dx -55.22, dy +55.22.
+   So a plain rotateX was cutting across the key at 45 degrees to its own length,
+   which is why it read as the picture being squashed rather than an object
+   turning. rotate(45deg) is not a taste value, it is exactly that diagonal
+   cancelled out, and it lands the shaft dead horizontal with the bow on the right.
+
+   Once it is level, a vertical flip rolls it about its OWN LENGTH. That is the
+   one view where the extruded stack pays off completely: instead of a hairline,
+   edge-on is the pale edge running the entire length of the key. Levelling first
+   is what turns the thickness from a detail into the point of the shot. */
+@keyframes lg-toss-tilt {
+  0%   { transform: rotate(0deg); animation-timing-function: cubic-bezier(0.25, 0.9, 0.3, 1); }
+  /* level by the time it leaves the hand */
+  11%  { transform: rotate(45deg); }
+  76%  { transform: rotate(45deg); animation-timing-function: cubic-bezier(0.5, 0, 0.3, 1); }
+  /* and back to its resting diagonal as it is caught */
+  90%  { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+/* The flip itself: plain rotateX, now that the tilt has levelled the key for it.
+   1080 is three whole turns, so it lands exactly on identity and the last frame
+   is the resting frame. */
+@keyframes lg-toss-spin {
+  /* held, and compressed slightly, for exactly as long as the wind-up lasts. A
+     key still in your hand is not rotating yet. */
+  0%   { transform: rotateX(0deg) scaleY(1); }
+  7%   { transform: rotateX(0deg) scaleY(0.9); animation-timing-function: linear; }
+  /* released. 66.67deg is not a taste number: it is 1080 x 5/81, i.e. exactly
+     where the linear ramp is at 12%. Stating it keeps the spin rate constant
+     across this keyframe instead of kinking at it. */
+  12%  { transform: rotateX(66.67deg) scaleY(1); animation-timing-function: linear; }
+  /* caught. The spin stops dead here because a caught key does stop dead; the
+     softness belongs in the squash that follows, not in the rotation. */
+  88%  { transform: rotateX(1080deg) scaleY(1);
+         animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1); }
+  93%  { transform: rotateX(1080deg) scaleY(0.84);
+         animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+  100% { transform: rotateX(1080deg) scaleY(1); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-toss { animation: lg-toss-arc calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-toss .lgk-spin { animation: lg-toss-spin calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-toss .lgk-tilt { animation: lg-toss-tilt calc(0.72s * var(--bk-speed)) 0s both; }
+
+/* Git Branch: exact author CSS and adapted copy trigger. */
+
+/* The branch rewrites itself.
+
+   One clock, six parts, and a single sleight of hand in the middle. The glyph's
+   only solid circle is the branch HEAD, so that is the piece that survives: the
+   rest goes out, the head slides across into the root's slot and hollows out
+   into it, and from there the whole branch is written back on with the pen.
+
+   The handoff at 46% is the trick. At that instant the travelling head is
+   sitting exactly where ring A lives and — because a solid node is just
+   ring(r24,w16) with a plug disc inside it, and the plug has scaled to nothing —
+   it is drawing pixel-for-pixel the same shape ring A draws. So ring A switches
+   on and the head switches off ON THE SAME FRAME. Nothing crossfades, nothing
+   moves; you cannot see the swap because there is no visual difference to see.
+   The head then snaps home to the right, invisible, and waits for the pen.
+
+   Same idea as the rocket's off-frame reposition: do the impossible bit where
+   nobody is looking.
+
+   The exit is deliberately cheap — 84ms of flat opacity — because it is not the
+   point. The only exit that gets any craft is the elbow, which drains INTO the
+   head (dashoffset toward -1 erases from the START of the path, so the visible
+   remainder shrinks up toward the node). The one piece physically attached to
+   the survivor is the one piece that looks like it was absorbed.
+
+   Then the writing, in the order a hand would actually draw a git graph:
+   trunk down → loop the bottom ring → back out along the branch → set the dot.
+   Each stroke gets cubic-bezier(0.45,0,0.15,1): a pen leaves fast and eases into
+   its stop, which is what separates writing from a progress bar. */
+/* 1.02, not 1. Each of these carries pathLength="1", so a dash of 1 is exactly
+   one lap — and on ring B, which is closed, that lands the dash's two butt caps
+   on the same point and leaves a hairline seam at 12 o'clock IN THE REST STATE.
+   Two percent of overlap runs the dash past its own start so the caps bury each
+   other. Everything below therefore hides at 1.02, not 1. */
+.gbt, .gbe, .gbrb { stroke-dasharray: 1.02; stroke-dashoffset: 0; }
+.gbrb { transform-box: view-box; transform-origin: 80px 192px; transform: rotate(-90deg); }
+.gbn { transform-box: view-box; transform-origin: 200px 64px; }
+.gbp { transform-box: fill-box; transform-origin: 50% 50%; }
+
+/* ring A: out, then straight back on at the handoff frame */
+@keyframes lg-gb-ringa {
+  0%     { opacity: 1; animation-timing-function: cubic-bezier(0.55,0,1,0.45); }
+  10%    { opacity: 0; }
+  45.99% { opacity: 0; }
+  46%    { opacity: 1; }
+  100%   { opacity: 1; }
+}
+/* trunk and ring B: fade out, get re-armed to hidden while nobody can see it
+   (opacity is 0 at 10%, dashoffset jumps at 10.01%), then draw */
+@keyframes lg-gb-trunk {
+  0%     { opacity: 1; stroke-dashoffset: 0; animation-timing-function: cubic-bezier(0.55,0,1,0.45); }
+  10%    { opacity: 0; stroke-dashoffset: 0; }
+  10.01% { opacity: 1; stroke-dashoffset: 1.02; }
+  46%    { opacity: 1; stroke-dashoffset: 1.02; animation-timing-function: cubic-bezier(0.45,0,0.15,1); }
+  64%    { opacity: 1; stroke-dashoffset: 0; }
+  100%   { opacity: 1; stroke-dashoffset: 0; }
+}
+@keyframes lg-gb-ringb {
+  0%     { opacity: 1; stroke-dashoffset: 0; animation-timing-function: cubic-bezier(0.55,0,1,0.45); }
+  10%    { opacity: 0; stroke-dashoffset: 0; }
+  10.01% { opacity: 1; stroke-dashoffset: 1.02; }
+  62%    { opacity: 1; stroke-dashoffset: 1.02; animation-timing-function: cubic-bezier(0.45,0,0.15,1); }
+  78%    { opacity: 1; stroke-dashoffset: 0; }
+  100%   { opacity: 1; stroke-dashoffset: 0; }
+}
+/* the elbow drains into the head (0 → -1), is re-armed on the far side of the
+   dash pattern one frame later, and is written back on last */
+@keyframes lg-gb-elbow {
+  0%    { stroke-dashoffset: 0; animation-timing-function: cubic-bezier(0.55,0,1,0.45); }
+  9%    { stroke-dashoffset: -1.02; }
+  9.01% { stroke-dashoffset: 1.02; }
+  78%   { stroke-dashoffset: 1.02; animation-timing-function: cubic-bezier(0.45,0,0.15,1); }
+  93%   { stroke-dashoffset: 0; }
+  100%  { stroke-dashoffset: 0; }
+}
+/* the head: slide 120 units left (7.5px at icon size), hold a beat so you can
+   read that it has BECOME the root, hand off, snap home unseen, then get set
+   back down by the pen — the 1.4 in that last curve is the nib pressing */
+@keyframes lg-gb-node {
+  0%     { opacity: 1; transform: translateX(0) scale(1); }
+  10%    { opacity: 1; transform: translateX(0) scale(1); animation-timing-function: cubic-bezier(0.77,0,0.175,1); }
+  34%    { opacity: 1; transform: translateX(-120px) scale(1); }
+  45.99% { opacity: 1; transform: translateX(-120px) scale(1); }
+  46%    { opacity: 0; transform: translateX(-120px) scale(1); }
+  46.01% { opacity: 0; transform: translateX(0) scale(0.5); }
+  91%    { opacity: 0; transform: translateX(0) scale(0.5); animation-timing-function: cubic-bezier(0.34,1.4,0.5,1); }
+  100%   { opacity: 1; transform: translateX(0) scale(1); }
+}
+/* the hole opens. Starts at 30%, four frames before the head lands, so the
+   hollowing and the arrival are one move rather than two. */
+@keyframes lg-gb-plug {
+  0%     { transform: scale(1); }
+  30%    { transform: scale(1); animation-timing-function: cubic-bezier(0.32,0,0.28,1); }
+  45%    { transform: scale(0); }
+  46.01% { transform: scale(1); }
+  100%   { transform: scale(1); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbra { animation: lg-gb-ringa calc(0.84s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbt  { animation: lg-gb-trunk calc(0.84s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbrb { animation: lg-gb-ringb calc(0.84s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbe  { animation: lg-gb-elbow calc(0.84s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbn  { animation: lg-gb-node calc(0.84s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbp  { animation: lg-gb-plug calc(0.84s * var(--bk-speed)) 0s both; }
+
+/* Plugs: exact author CSS and adapted copy trigger. */
+
+/* The plug: unplug, then plug back in.
+
+   Both halves move on the SAME clock in opposite directions along the diagonal
+   their own cords already point down, so the pair reads as one connector coming
+   apart rather than two shapes drifting. 20 units of a 256 box is 1.25px at 16px
+   each, but because they move against each other the GAP that opens is
+   2 × 20 × √2 ≈ 57 units — a clear break at icon size without either half
+   travelling far.
+
+   The shape of it is a yank and a click: fast ease-IN out (you pull a plug, you
+   do not ease it out), a real 90ms dwell disconnected so the break registers,
+   then a hard ease-OUT back in that overshoots 3 units past centre. The
+   overshoot is free — the halves are the same fill, so passing through each
+   other is invisible, and all you read is the impact. */
+@keyframes lg-plug-a {
+  0%   { transform: translate(0, 0); animation-timing-function: cubic-bezier(0.45, 0, 0.9, 0.35); }
+  22%  { transform: translate(20px, -20px); }
+  /* held apart — the beat that makes the return read as plugging IN */
+  36%  { transform: translate(20px, -20px); animation-timing-function: cubic-bezier(0.25, 0.9, 0.3, 1); }
+  58%  { transform: translate(-3px, 3px); animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+  74%  { transform: translate(0, 0); }
+  100% { transform: translate(0, 0); }
+}
+/* the mirror, to the unit — anything else and the seam would drift off centre */
+@keyframes lg-plug-b {
+  0%   { transform: translate(0, 0); animation-timing-function: cubic-bezier(0.45, 0, 0.9, 0.35); }
+  22%  { transform: translate(-20px, 20px); }
+  36%  { transform: translate(-20px, 20px); animation-timing-function: cubic-bezier(0.25, 0.9, 0.3, 1); }
+  58%  { transform: translate(3px, -3px); animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+  74%  { transform: translate(0, 0); }
+  100% { transform: translate(0, 0); }
+}
+
+/* The sparks are the CONTACT, not decoration — Phosphor draws them on the joint
+   line extended, two off each end. So unlike the bolt's burst they are lit at
+   rest, and the gesture is the reverse of a burst: they collapse toward the
+   joint and go out the moment the halves part, and only come back when the
+   halves touch again.
+
+   Scaled about the icon centre, so all four fly out along the joint together.
+   They relight at 62%, four frames AFTER contact at 58% — the electricity is
+   caused by the plug landing, so it cannot be early. */
+.lgp-spark { transform-box: view-box; transform-origin: 128px 128px; }
+@keyframes lg-plug-spark {
+  0%   { opacity: 1; transform: scale(1); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.3); }
+  16%  { opacity: 0; transform: scale(0.5); }
+  /* dark for the whole time it is unplugged */
+  52%  { opacity: 0; transform: scale(0.5); animation-timing-function: cubic-bezier(0.2, 1, 0.4, 1); }
+  62%  { opacity: 1; transform: scale(1.24); animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+  82%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-plug .lgp-a { animation: lg-plug-a calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-plug .lgp-b { animation: lg-plug-b calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-plug .lgp-spark { animation: lg-plug-spark calc(0.72s * var(--bk-speed)) 0s both; }
+
+/* Logs: exact author CSS and adapted copy trigger. */
+
+/* The tail. THREE steps of one line pitch with a hold on each landing. Three,
+   not two, because the line widths run on a period of three — that is what lets
+   every landing differ while the first and last are both Phosphor's two full
+   lines. Each hold is an arrival; without them it is one long slide. */
+.lgg-roll { transform-box: view-box; }
+@keyframes lg-tail {
+  0%, 12%   { transform: translateY(0); animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1); }
+  26%       { transform: translateY(-32px); }
+  46%       { transform: translateY(-32px); animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1); }
+  60%       { transform: translateY(-64px); }
+  78%       { transform: translateY(-64px); animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1); }
+  92%       { transform: translateY(-96px); }
+  100%      { transform: translateY(-96px); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-tail .lgg-roll { animation: lg-tail calc(1.02s * var(--bk-speed)) 0s both; }
+
+/* Robot: exact author CSS and adapted copy trigger. */
+
+.rb-e1 { transform-box: view-box; transform-origin: 84px 108px; }
+.rb-e2 { transform-box: view-box; transform-origin: 172px 108px; }
+
+/* glance left, hold, sweep right, hold, recentre, blink once */
+@keyframes lg-robot-eyes {
+  0%   { transform: translateX(0) scaleY(1); }
+  8%   { transform: translateX(0) scaleY(1); animation-timing-function: cubic-bezier(0.3,0.9,0.35,1); }
+  16%  { transform: translateX(-11px) scaleY(1); }
+  38%  { transform: translateX(-11px) scaleY(1); animation-timing-function: cubic-bezier(0.45,0,0.55,1); }
+  50%  { transform: translateX(11px) scaleY(1); }
+  68%  { transform: translateX(11px) scaleY(1); animation-timing-function: cubic-bezier(0.3,0.9,0.35,1); }
+  78%  { transform: translateX(0) scaleY(1); }
+  84%  { transform: translateX(0) scaleY(1); animation-timing-function: cubic-bezier(0.55,0,0.9,0.45); }
+  88%  { transform: translateX(0) scaleY(0.12); animation-timing-function: cubic-bezier(0.25,0.9,0.3,1); }
+  93%  { transform: translateX(0) scaleY(1); }
+  100% { transform: translateX(0) scaleY(1); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-robot .rb-e1 { animation: lg-robot-eyes calc(1.15s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-robot .rb-e2 { animation: lg-robot-eyes calc(1.15s * var(--bk-speed)) 0s both; }
+
+/* Sparkle: exact author CSS and adapted copy trigger. */
+
+/* Enrichments: the star implodes, blooms back through a half turn, and rings
+   travel out of its core.
+
+   THE TURN IS FREE. The star is 4-fold symmetric, so it holds at 180° while you
+   hover and snaps to 0° when you leave — and 180° and 0° are the same picture,
+   so there is no landing to hide. That is the only reason a rotation this big is
+   allowed on a row hovered this often: it costs nothing to leave.
+
+   Three tracks, all counted off the same wind-up:
+
+   1  the star. Collapses to half size and winds 22° BACKWARDS first — the
+      anticipation, and the one place ease-IN is right, because a thing gathering
+      itself accelerates inward. Then it throws itself out through 200° of turn
+      to 1.07 and settles. 78ms in, 168ms out; the whole read is over in 246ms.
+
+   2  the rings, from 250ms. The core keeps going after the star has stopped —
+      two star-shaped hairlines swelling out of the centre, 80ms apart, each
+      dissolving at 0.94 before it reaches the edge. They stop short on purpose:
+      a ring that reached 1.0 would land exactly on the star's own contour and
+      eat it in one frame, which blinks. Fading them out inside the body is what
+      makes the star read as filling back in solid.
+
+   3  the two small marks. Sucked in on the star's own wind-up curve — same
+      curve, so they read as part of one collapse rather than a second event —
+      and they scale about the STAR's centre, not their own, so they genuinely
+      fall inward rather than shrinking in place. They come back last, 288ms,
+      overshooting 12% along that same radial: an outward pop, not a fade-in. */
+.lgs-star, .lgs-ring, .lgs-mark { transform-box: view-box; transform-origin: 112px 144px; }
+/* THE RING NEEDS ITS OWN RESTING STATE, and leaving this out is what made the
+   star look a different size before and after hover.
+
+   A keyframe's 0% only exists while the animation is attached. At rest nothing
+   is hovered, so there is no animation at all — and with no declaration of its
+   own the ring fell back to opacity 1, transform none. Which is scale 1: both
+   bands parked exactly on the star's outline, permanently dimming its rim by
+   60%. The resting star was quietly thinner and sharper than the hovered one,
+   and the hover appeared to fatten it. Same lesson as .lgz on the bolt, which
+   does declare this. Fill-mode covers the DELAY; only this covers rest. */
+.lgs-ring { opacity: 0; }
+@keyframes lg-sp-bloom {
+  0%   { transform: rotate(0deg) scale(1); animation-timing-function: cubic-bezier(0.5, 0, 0.85, 0.25); }
+  14%  { transform: rotate(-22deg) scale(0.5); animation-timing-function: cubic-bezier(0.14, 0.9, 0.24, 1); }
+  44%  { transform: rotate(174deg) scale(1.07); animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+  62%  { transform: rotate(180deg) scale(1); }
+  100% { transform: rotate(180deg) scale(1); }
+}
+/* 0% is opacity 0, matching the resting rule above, so the backwards fill
+   during the hover-intent delay leaves the icon untouched like every other
+   gesture — and so hovering never changes the star's weight on frame one.
+
+   IT RUNS THE FULL DISTANCE, 0.12 → 1.04, because the band is translucent and
+   removes nothing (see the mask notes in the component above). An opaque version had to stop at 0.66:
+   a star's tips are 96 units from the centre but its armpits only 48, so a HOLE
+   approaching the outline severed the waist and left the corner floating. A
+   band has no such limit — it can cross the contour and leave, which is what
+   "grows big and fills the star" actually wants.
+
+   The tail fade is the honest physics: a ripple loses amplitude as it spreads.
+   Combined with the ease-out on scale, the ring covers most of its ground early
+   and then dissolves slowly at the rim, so the star closes up rather than
+   blinking clear. */
+@keyframes lg-sp-ripple {
+  0%   { opacity: 0; transform: scale(0.12); animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+  16%  { opacity: 1; }
+  55%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+@keyframes lg-sp-mark {
+  0%   { opacity: 1; transform: scale(1); animation-timing-function: cubic-bezier(0.5, 0, 0.85, 0.25); }
+  12%  { opacity: 0; transform: scale(0.4); }
+  /* gone for the whole bloom — they cannot come back before the star lands */
+  48%  { opacity: 0; transform: scale(0.4); animation-timing-function: cubic-bezier(0.2, 1, 0.3, 1); }
+  72%  { opacity: 1; transform: scale(1.12); animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+  90%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-star { animation: lg-sp-bloom calc(0.56s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-ring { animation: lg-sp-ripple calc(0.38s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-r1 { animation-delay: calc(0.25s * var(--bk-speed)); }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-r2 { animation-delay: calc(0.33s * var(--bk-speed)); }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-mark { animation: lg-sp-mark calc(0.6s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-m2 { animation-delay: calc(0.06s * var(--bk-speed)); }
+
+.bakai-icon { display: block; overflow: visible; }
+.bakai-icon.is-playing.is-reduced { animation: bakai-reduced-feedback calc(.7s * var(--bk-speed)) ease both; }
+.bakai-icon.is-playing.is-reduced * { animation: none !important; }
+@keyframes bakai-reduced-feedback { 0%, 100% { opacity: 1; } 45% { opacity: .35; } }

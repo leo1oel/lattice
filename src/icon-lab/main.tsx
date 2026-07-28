@@ -7,8 +7,10 @@ import "@fontsource/dm-sans/600.css";
 import "../App.css";
 import "./icon-lab.css";
 import { AnimatedIcon, type AnimatedIconKind } from "./settings-icon";
+import { BakaiAnimatedIcon, type BakaiIconKind } from "./bakai-icons";
 
 type IconStudy = { id: string; kind: AnimatedIconKind; label: string; rationale: string; reference?: boolean };
+type ProductIconStudy = { id: string; kind: BakaiIconKind; label: string; rationale: string };
 
 const settingsIcons: IconStudy[] = [
   { id: "appearance", kind: "appearance", label: "Appearance", rationale: "The sun brightens once; only its rays turn, then align exactly." },
@@ -21,22 +23,22 @@ const settingsIcons: IconStudy[] = [
   { id: "doctor", kind: "doctor", label: "TeX doctor", rationale: "The stethoscope chestpiece gives one diagnostic pulse; the tubing stays still." },
 ];
 
-const productIcons: IconStudy[] = [
-  { id: "faders", kind: "faders", label: "Faders", rationale: "The three controls take one measured setting, while their tracks remain fixed." },
-  { id: "users", kind: "users", label: "Users three", rationale: "One collaborator steps forward and settles back into the group." },
-  { id: "list-checks", kind: "list-checks", label: "List checks", rationale: "Checks write on in reading order; the list itself does not move." },
-  { id: "kanban", kind: "kanban", label: "Kanban", rationale: "A single intact card crosses columns once—movement, not deformation." },
-  { id: "folder", kind: "folder", label: "Folder", rationale: "One document rises for inspection and returns behind the folder front." },
-  { id: "gear", kind: "gear", label: "Gear", rationale: "The rigid mechanism advances one tooth and returns to its resting alignment." },
-  { id: "chat", kind: "chat", label: "Chat", rationale: "The three message dots speak once in sequence; the bubble stays still.", reference: true },
-  { id: "trash", kind: "trash", label: "Trash", rationale: "Only the hinged lid opens and closes once; the bin remains planted." },
-  { id: "cloud-upload", kind: "cloud-upload", label: "Cloud upload", rationale: "The upload arrow travels into the cloud and returns without fading away." },
-  { id: "product-api", kind: "api", label: "API key", rationale: "A key performs the action it names: one authorization turn.", reference: true },
-  { id: "git-branch", kind: "git-branch", label: "Git branch", rationale: "The branch retracts and draws itself back from root to head.", reference: true },
-  { id: "plugs", kind: "mcp", label: "Plugs", rationale: "The connector seats once and the live mark acknowledges contact." },
-  { id: "logs", kind: "logs", label: "Logs", rationale: "Log rows arrive once from top to bottom while their anchors stay fixed." },
-  { id: "robot", kind: "agent", label: "Robot", rationale: "The robot signals attention with one antenna nod and blink.", reference: true },
-  { id: "sparkle", kind: "sparkle", label: "Sparkle", rationale: "One highlight catches light; the secondary glints answer without spinning." },
+const productIcons: ProductIconStudy[] = [
+  { id: "faders", kind: "faders", label: "Faders", rationale: "The three knobs cycle through settings." },
+  { id: "users", kind: "users", label: "Users three", rationale: "The three people rotate one place." },
+  { id: "list-checks", kind: "list-checks", label: "List checks", rationale: "The done row exits, the list closes, and a new row writes and ticks." },
+  { id: "kanban", kind: "kanban", label: "Kanban", rationale: "Two cards swap and hold their swapped places during the gesture, then the lab replay contract restores the original." },
+  { id: "folder", kind: "folder", label: "Folder", rationale: "The folder opens and shuts." },
+  { id: "gear", kind: "gear", label: "Gear", rationale: "The gear ticks three times." },
+  { id: "chat", kind: "chat", label: "Chat", rationale: "The bubble pops while the dots type." },
+  { id: "trash", kind: "trash", label: "Trash", rationale: "The lid opens and trash tumbles in." },
+  { id: "cloud-upload", kind: "cloud-upload", label: "Cloud upload", rationale: "The arrow uploads through the cloud." },
+  { id: "product-api", kind: "api-key", label: "API key", rationale: "The key levels, tumbles, and is caught." },
+  { id: "git-branch", kind: "git-branch", label: "Git branch", rationale: "The branch erases into its head and rewrites." },
+  { id: "plugs", kind: "plugs", label: "Plugs", rationale: "The plug halves separate, reconnect, and make contact arcs." },
+  { id: "logs", kind: "logs", label: "Logs", rationale: "The log lines step up three times." },
+  { id: "robot", kind: "robot", label: "Robot", rationale: "The robot’s eyes scan and blink." },
+  { id: "sparkle", kind: "sparkle", label: "Sparkle", rationale: "The sparkle gathers and blooms through a half turn." },
 ];
 
 const allIcons = [...settingsIcons, ...productIcons];
@@ -68,6 +70,15 @@ export function IconCard(props: {
       <p>{item.rationale}</p>
     </article>
   );
+}
+
+function ProductIconCard(props: { item: ProductIconStudy; playId: number; replay: () => void; reducedMotion: boolean; speed: "normal" | "slow" }) {
+  const { item } = props;
+  return <article className="lab-card" tabIndex={0} onPointerEnter={props.replay} onFocus={(event) => { if (event.currentTarget === event.target) props.replay(); }} aria-label={`${item.label} icon comparison`}>
+    <div className="card-heading"><div><BakaiAnimatedIcon kind={item.kind} size={18} /><h2>{item.label}</h2><span className="reference-badge">Bakai original</span></div><button type="button" onClick={props.replay}><RotateCcw size={13} /> Replay</button></div>
+    <div className="comparison"><div><span>Original</span><div className="size-row">{[16, 20, 24].map((size) => <BakaiAnimatedIcon key={size} kind={item.kind} size={size} />)}</div></div><div><span>Animated</span><div className="size-row">{[16, 20, 24].map((size) => <BakaiAnimatedIcon key={`${props.playId}-${size}`} kind={item.kind} size={size} playing reducedMotion={props.reducedMotion} speed={props.speed} playId={props.playId} />)}</div></div></div>
+    <p>{item.rationale}</p>
+  </article>;
 }
 
 export function IconLab() {
@@ -105,9 +116,9 @@ export function IconLab() {
       {settingsIcons.map((item) => <IconCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
     </section>
 
-    <div className="collection-heading product-heading"><div className="eyebrow">Existing product language</div><h2>Next fifteen</h2><p>“Bakai gesture” marks gestures explicitly described in the reference article. Static bases remain Lattice’s Lucide-compatible SVGs.</p></div>
+    <div className="collection-heading product-heading"><div className="eyebrow">Existing product language</div><h2>Next fifteen</h2><p>Author-source originals directly ported from Bakai Tolondu uulu’s copy-code gallery.</p></div>
     <section className="lab-grid" aria-label="Product icon comparisons">
-      {productIcons.map((item) => <IconCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
+      {productIcons.map((item) => <ProductIconCard key={item.id} item={item} playId={plays[item.id]} replay={() => replay(item.id)} reducedMotion={reducedMotion} speed={speed} />)}
     </section>
 
     <section className="context-section">
@@ -121,7 +132,7 @@ export function IconLab() {
       </div>
     </section>
 
-    <footer>Static bases: ISC-licensed Lucide · Animation implementation: Lattice · Gesture reference: <a href="https://www.bakai.me/lab/animating-icons" target="_blank" rel="noreferrer">Bakai, “Animating icons”</a> · No infinite loops</footer>
+    <footer>Settings bases: ISC-licensed Lucide · Product glyphs and animations: <a href="https://www.bakai.me/lab/animating-icons" target="_blank" rel="noreferrer">Bakai Tolondu uulu, “Animating icons”</a> · Used under the author’s express copy/use permission · No infinite loops</footer>
   </main>;
 }
 
