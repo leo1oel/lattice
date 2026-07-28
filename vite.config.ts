@@ -51,6 +51,10 @@ export default defineConfig(async () => ({
   clearScreen: false,
   build: {
     rollupOptions: {
+      input: {
+        app: path.resolve("index.html"),
+        "icon-lab": path.resolve("icon-lab.html"),
+      },
       output: {
         manualChunks(id) {
           if (id.includes("node_modules/@lezer")) return "parser";
@@ -69,6 +73,8 @@ export default defineConfig(async () => ({
     port: 1420,
     strictPort: true,
     host: host || false,
+    // Permit Amp's HTTPS portal host when reviewing isolated development pages.
+    allowedHosts: true,
     hmr: host
       ? {
           protocol: "ws",
