@@ -31,68 +31,9 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
 .comparison > div { min-width: 0; padding: 10px; border-radius: 8px; background: var(--panel); }
 .comparison span { display: block; margin-bottom: 12px; color: var(--faint); font-size: 9px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-.size-row { height: 26px; display: flex; align-items: center; justify-content: space-around; color: var(--text); }
+.size-row { height: 30px; display: flex; align-items: center; justify-content: space-around; color: var(--text); }
 .lab-card > p { min-height: 30px; margin: 12px 2px 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
-.settings-lab-icon { display: block; overflow: visible; transform-box: view-box; }
-.settings-lab-icon * { transform-box: fill-box; }
-.is-playing.icon-appearance .icon-rays { transform-origin: center; animation: rays var(--icon-duration) cubic-bezier(.2,.7,.25,1); }
-.is-playing.icon-appearance .icon-core { transform-origin: center; animation: core var(--icon-duration) ease; }
-.is-playing.icon-editor .icon-code { animation: code var(--icon-duration) ease; }
-.is-playing.icon-editor .icon-code path { stroke-dasharray: 12; animation: draw var(--icon-duration) cubic-bezier(.3,.65,.35,1); }
-.is-playing.icon-agent .icon-antenna { transform-origin: 70% 100%; animation: antenna var(--icon-duration) ease; }
-.is-playing.icon-agent .icon-eyes { transform-origin: center; animation: blink var(--icon-duration) ease; }
-.is-playing.icon-mcp .icon-plug { transform-origin: center; animation: connect var(--icon-duration) cubic-bezier(.2,.75,.25,1); }
-.is-playing.icon-mcp .icon-zap { animation: zap var(--icon-duration) ease; }
-.is-playing.icon-subscriptions .icon-stripe { animation: swipe var(--icon-duration) ease; }
-.is-playing.icon-overleaf .icon-leaf { transform-origin: 15% 90%; animation: leaf var(--icon-duration) ease; }
-.is-playing.icon-overleaf .icon-vein { stroke-dasharray: 22; animation: vein var(--icon-duration) ease; }
-.is-playing.icon-api .icon-key { transform-origin: 66% 36%; animation: turn-key var(--icon-duration) cubic-bezier(.2,.75,.25,1); }
-.is-playing.icon-doctor .icon-chestpiece { transform-origin: center; animation: pulse var(--icon-duration) ease; }
-.is-playing.icon-faders .icon-fader-knobs { animation: adjust-faders var(--icon-duration) ease; }
-.is-playing.icon-users .icon-user-secondary { animation: join-group var(--icon-duration) ease; }
-.is-playing.icon-list-checks .icon-checks { stroke-dasharray: 12; animation: write-checks var(--icon-duration) ease; }
-.is-playing.icon-kanban .icon-kanban-card { animation: move-card var(--icon-duration) cubic-bezier(.2,.75,.25,1); }
-.is-playing.icon-folder .icon-folder-paper { animation: inspect-paper var(--icon-duration) ease; }
-.is-playing.icon-gear .icon-gear { transform-origin: center; animation: engage-gear var(--icon-duration) cubic-bezier(.2,.75,.25,1); }
-.is-playing.icon-chat .icon-chat-dots circle { animation: speak-dot var(--icon-duration) ease; }
-.is-playing.icon-chat .icon-chat-dots circle:nth-child(2) { animation-name: speak-dot-middle; }
-.is-playing.icon-chat .icon-chat-dots circle:nth-child(3) { animation-name: speak-dot-last; }
-.is-playing.icon-trash .icon-trash-lid { transform-origin: 25% 80%; animation: open-lid var(--icon-duration) ease; }
-.is-playing.icon-cloud-upload .icon-upload-arrow { animation: upload-arrow var(--icon-duration) cubic-bezier(.3,.7,.3,1); }
-.is-playing.icon-git-branch .icon-branch { stroke-dasharray: 30; animation: redraw-branch var(--icon-duration) ease; }
-.is-playing.icon-logs .icon-log-lines { stroke-dasharray: 10; animation: receive-logs var(--icon-duration) ease; }
-.is-playing.icon-sparkle .icon-sparkle-main { transform-origin: center; animation: catch-light var(--icon-duration) ease; }
-.is-playing.icon-sparkle .icon-sparkle-small { animation: answer-light var(--icon-duration) ease; }
-@keyframes rays { 0%,100% { transform: rotate(0); } 40% { transform: rotate(18deg); } }
-@keyframes core { 0%,100% { transform: scale(1); } 40% { transform: scale(1.1); } }
-@keyframes code { 0%,100% { opacity: 1; } 12% { opacity: .35; } }
-@keyframes draw { 0%,12% { stroke-dashoffset: 12; } 60%,100% { stroke-dashoffset: 0; } }
-@keyframes antenna { 0%,100% { transform: rotate(0); } 30% { transform: rotate(-12deg); } 58% { transform: rotate(5deg); } }
-@keyframes blink { 0%,35%,51%,100% { transform: scaleY(1); } 43% { transform: scaleY(.08); } }
-@keyframes connect { 0%,100% { transform: translate(0); } 32% { transform: translate(1.2px,-1.2px); } }
-@keyframes zap { 0%,20%,72%,100% { opacity: 1; } 38% { opacity: .2; } 52% { opacity: 1; } }
-@keyframes swipe { 0%,100% { transform: translateY(0); opacity: 1; } 35% { transform: translateY(2px); opacity: .25; } 68% { transform: translateY(0); opacity: 1; } }
-@keyframes leaf { 0%,100% { transform: rotate(0); } 38% { transform: rotate(5deg); } 65% { transform: rotate(-1.5deg); } }
-@keyframes vein { 0%,15% { stroke-dashoffset: 22; opacity: .35; } 64%,100% { stroke-dashoffset: 0; opacity: 1; } }
-@keyframes turn-key { 0%,100% { transform: rotate(0); } 38% { transform: rotate(14deg); } 65% { transform: rotate(-2deg); } }
-@keyframes pulse { 0%,24%,60%,100% { transform: scale(1); opacity: 1; } 38% { transform: scale(1.22); opacity: .65; } 48% { transform: scale(.94); opacity: 1; } }
-@keyframes adjust-faders { 0%,100% { transform: translateX(0); } 35% { transform: translateX(1.5px); } 62% { transform: translateX(-.5px); } }
-@keyframes join-group { 0%,100% { transform: translateX(0); } 38% { transform: translateX(-1.5px); } }
-@keyframes write-checks { 0%,12% { stroke-dashoffset: 12; } 65%,100% { stroke-dashoffset: 0; } }
-@keyframes move-card { 0%,100% { transform: translateX(0); } 42% { transform: translateX(-6px); } 65% { transform: translateX(-6px); } }
-@keyframes inspect-paper { 0%,100% { transform: translateY(0); } 38%,58% { transform: translateY(-4px); } }
-@keyframes engage-gear { 0%,100% { transform: rotate(0); } 42%,58% { transform: rotate(30deg); } }
-@keyframes speak-dot { 0%,20%,46%,100% { transform: translateY(0); } 32% { transform: translateY(-1.5px); } }
-@keyframes speak-dot-middle { 0%,34%,60%,100% { transform: translateY(0); } 46% { transform: translateY(-1.5px); } }
-@keyframes speak-dot-last { 0%,48%,74%,100% { transform: translateY(0); } 60% { transform: translateY(-1.5px); } }
-@keyframes open-lid { 0%,100% { transform: translateY(0) rotate(0); } 38%,58% { transform: translateY(-2px) rotate(-8deg); } }
-@keyframes upload-arrow { 0%,100% { transform: translateY(0); } 38%,55% { transform: translateY(-4px); } }
-@keyframes redraw-branch { 0%,12% { stroke-dashoffset: 0; } 42% { stroke-dashoffset: 30; } 82%,100% { stroke-dashoffset: 0; } }
-@keyframes receive-logs { 0%,12% { stroke-dashoffset: 10; } 70%,100% { stroke-dashoffset: 0; } }
-@keyframes catch-light { 0%,100% { transform: scale(1) rotate(0); } 42% { transform: scale(1.08) rotate(4deg); } }
-@keyframes answer-light { 0%,24%,72%,100% { opacity: 1; } 42% { opacity: .25; } 58% { opacity: 1; } }
-.is-playing.is-reduced :is(.icon-rays,.icon-core,.icon-code,.icon-code path,.icon-antenna,.icon-eyes,.icon-plug,.icon-zap,.icon-stripe,.icon-leaf,.icon-vein,.icon-key,.icon-chestpiece,.icon-fader-knobs,.icon-user-secondary,.icon-checks,.icon-kanban-card,.icon-folder-paper,.icon-gear,.icon-chat-dots circle,.icon-trash-lid,.icon-upload-arrow,.icon-branch,.icon-log-lines,.icon-sparkle-main,.icon-sparkle-small) { animation-name: reduced-feedback; }
-@keyframes reduced-feedback { 0%,100% { opacity: 1; } 40% { opacity: .38; } }
+.ink-inverted .bakai-icon { margin: -2px; padding: 2px; border-radius: 5px; background: var(--text); color: var(--bg); }
 .context-section { margin-top: 70px; display: grid; grid-template-columns: minmax(220px, .7fr) minmax(500px, 1.3fr); gap: 64px; align-items: center; }
 .section-copy h2 { margin: 8px 0 0; font-size: 20px; letter-spacing: -.025em; }
 .settings-preview { border: 1px solid var(--line-strong); border-radius: 13px; background: var(--panel-strong); box-shadow: var(--shadow); overflow: hidden; }
