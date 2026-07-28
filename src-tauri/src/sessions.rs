@@ -435,6 +435,7 @@ mod tests {
                 kind: "image".to_string(),
                 mime_type: Some("image/png".to_string()),
                 size: 128,
+                preview_url: None,
             }],
             skills: Vec::new(),
             parts: Vec::new(),

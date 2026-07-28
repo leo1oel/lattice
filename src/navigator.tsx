@@ -317,25 +317,26 @@ export function Navigator(props: {
               not be reached while a filter was active. */}
           {props.papers.map((paper) => {
             const fetchState = props.paperFetchStates[paperKey(paper)];
+            const locallyReadable = paper.hasFullText || paper.hasBlog;
             const row = (
               <div className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}>
               <button
-                title={paper.hasFullText
+                title={locallyReadable
                   ? paper.title
                   : paper.arxivId
-                    ? `Fetch the full text of arXiv ${paper.arxivId}`
-                    : `${paper.title} — cited only, no full text available`}
+                    ? `Download arXiv ${paper.arxivId}`
+                    : `${paper.title} — no local reading available`}
                 className="paper-open"
                 // Knowing the preprint is as good as having it: clicking fetches.
-                disabled={fetchState === "loading" || (!paper.hasFullText && !paper.arxivId)}
-                onClick={() => paper.hasFullText ? props.onPaper(paper) : props.onFetchFullText(paper)}
+                disabled={fetchState === "loading" || (!locallyReadable && !paper.arxivId)}
+                onClick={() => locallyReadable ? props.onPaper(paper) : props.onFetchFullText(paper)}
               >
-                <span className={`paper-state-icon ${fetchState ?? (paper.hasFullText ? "available" : "idle")}`}>
+                <span className={`paper-state-icon ${fetchState ?? (locallyReadable ? "available" : "idle")}`}>
                   {fetchState === "loading"
                     ? <LoaderCircle className="spin" size={14} />
                     : fetchState === "success"
                       ? <Check size={14} />
-                      : paper.hasFullText
+                      : locallyReadable
                         ? <BookOpen size={14} />
                         : paper.arxivId
                           ? <Download size={14} />
@@ -383,8 +384,8 @@ export function Navigator(props: {
             // one with full text gets the same right-click menu as a tree file.
             return (
               <Fragment key={paperKey(paper)}>
-                {paper.hasFullText
-                  ? renderItemContextMenu({ path: `.research/papers/${paper.arxivId}/paper.md`, label: paper.title, kind: "file", paper }, row)
+                {locallyReadable
+                  ? renderItemContextMenu({ path: `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper.md" : "blog.md"}`, label: paper.title, kind: "file", paper }, row)
                   : row}
               </Fragment>
             );

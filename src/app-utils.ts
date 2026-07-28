@@ -32,10 +32,6 @@ export function paperSubtitle(paper: PaperSummary, snippet?: string): string {
   // citations, and it crowds out the arXiv id in a narrow panel.
   if (paper.citationKey) parts.push(paper.citationKey);
   if (paper.arxivId) parts.push(`arXiv ${paper.arxivId}`);
-  if (!paper.hasFullText) {
-    // Say why it cannot be opened, and whether that is fixable from here.
-    parts.push(paper.arxivId ? "get full text" : "cited only");
-  }
   return parts.join(" · ");
 }
 

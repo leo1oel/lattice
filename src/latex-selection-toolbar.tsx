@@ -37,7 +37,7 @@ const actions: { action: LatexSelectionAction; label: string; tooltip?: string; 
   { action: "bold", label: "Bold", icon: Bold },
   { action: "italic", label: "Italic", icon: Italic },
   { action: "underline", label: "Underline", icon: Underline },
-  { action: "strikethrough", label: "Strikethrough", tooltip: "Strikethrough (requires ulem)", icon: Strikethrough },
+  { action: "strikethrough", label: "Strikethrough", icon: Strikethrough },
   { action: "quote", label: "Quote", icon: Quote },
   { action: "comment", label: "Comment", icon: MessageSquareText, separated: true },
 ];
@@ -120,7 +120,7 @@ export function LatexSelectionToolbar(props: {
         </span>
         <span className="latex-selection-tool separated">
           <Popover>
-            <Tip label="Highlight color (requires xcolor)" side="top">
+            <Tip label="Highlight color" side="top">
               <PopoverTrigger asChild><button type="button" aria-label="Highlight color"><Highlighter size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
             <PopoverContent side="top" sideOffset={8} className="latex-tool-menu color-menu">

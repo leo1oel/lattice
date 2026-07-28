@@ -184,7 +184,14 @@ export type ChatMessage = {
   parts?: ChatPart[];
 };
 
-export type AgentAttachmentMetadata = { name: string; kind: "image" | "text"; mimeType?: string | null; size: number };
+export type AgentAttachmentMetadata = {
+  name: string;
+  kind: "image" | "text" | "document";
+  mimeType?: string | null;
+  size: number;
+  /** Lightweight inspection-only thumbnail; never persisted with a sent turn. */
+  previewUrl?: string | null;
+};
 export type AgentAttachmentDescriptor = AgentAttachmentMetadata & { path: string };
 
 export type AgentSession = {

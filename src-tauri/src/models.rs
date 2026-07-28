@@ -477,6 +477,8 @@ pub struct AgentAttachmentMetadata {
     pub kind: String,
     pub mime_type: Option<String>,
     pub size: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview_url: Option<String>,
 }
 
 /// A slash command offered by the OMP build we ship.

@@ -91,13 +91,6 @@ import { useOverleafTrackChanges } from "./use-overleaf-track-changes";
 import { useOverleafTrackChangesToggle } from "./use-overleaf-track-changes-toggle";
 import { OverleafTrackChangesToggle } from "./overleaf-track-changes-toggle";
 import { CopyButton } from "./components/copy-button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./components/ui/select";
 import { type PresenceCursor } from "./overleaf-cursors";
 import { OverleafPresenceAvatars } from "./overleaf-presence";
 import { useAgentRuntimeUpdates } from "./agent-runtime-settings";
@@ -191,6 +184,7 @@ import { Navigator } from "./navigator";
 import { type AgentCommand } from "./slash-commands";
 import { EditorTabs } from "./editor-tabs";
 import { Tip } from "./components/icon-tip";
+import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -259,6 +253,35 @@ import { mcpDraftToSaveRequest } from "./mcp-settings";
 import "./App.css";
 
 const EMPTY_DIAGNOSTICS: CompileDiagnostic[] = [];
+
+function AgentAccessPicker(props: {
+  value: "subscription" | "api";
+  disabled: boolean;
+  onChange: (value: "subscription" | "api") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const choose = (value: "subscription" | "api") => {
+    props.onChange(value);
+    setOpen(false);
+  };
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className="sidebar-provider-select" aria-label="Agent access" disabled={props.disabled}>
+          <span>{props.value === "subscription" ? "Subscription" : "API"}</span><ChevronDown aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" sideOffset={6} className="agent-access-menu">
+        {(["subscription", "api"] as const).map((value) => (
+          <button type="button" key={value} className={value === props.value ? "selected" : ""} onClick={() => choose(value)}>
+            <span>{value === "subscription" ? "Subscription" : "API"}</span>
+            {value === props.value && <Check aria-hidden="true" />}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<string> {
   for (const node of nodes) {
@@ -372,6 +395,7 @@ function App() {
   const [branchSource, setBranchSource] = useState<{ sessionId: string; messageId: string } | null>(null);
   const [agentInput, setAgentInput] = useState("");
   const [agentAttachments, setAgentAttachments] = useState<AgentAttachmentDescriptor[]>([]);
+  const [agentAttachmentsInspecting, setAgentAttachmentsInspecting] = useState(false);
   const [provider, setProvider] = useState<AgentProvider>("codex");
   const [agentModel, setAgentModel] = useState(defaultModel("codex"));
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("high");
@@ -3001,15 +3025,22 @@ function App() {
         const saved = await save();
         if (!saved) return;
       }
-      // Full text and blog are independent files; fetch together so the toggle
-      // is instant. read_paper_blog lazily backfills the blog when missing.
-      const [fullText, blog] = await Promise.all([
+      // Full text and the overview are independent: an arxiv2md conversion can
+      // fail while alphaXiv still supplied a useful blog. Keep either readable
+      // result instead of letting one rejected promise discard the other.
+      const [fullTextResult, blogResult] = await Promise.allSettled([
         invoke<string>("read_paper", { arxivId: paper.arxivId }),
-        invoke<string | null>(localBlogOnly ? "read_paper_blog_local" : "read_paper_blog", { arxivId: paper.arxivId }).catch(() => null),
+        invoke<string | null>(localBlogOnly ? "read_paper_blog_local" : "read_paper_blog", { arxivId: paper.arxivId }),
       ]);
+      const fullText = fullTextResult.status === "fulfilled" ? fullTextResult.value : "";
+      const blog = blogResult.status === "fulfilled" ? blogResult.value : null;
+      if (!fullText && !blog) {
+        throw fullTextResult.status === "rejected" ? fullTextResult.reason : new Error("No readable paper content is available.");
+      }
       setPaperMarkdown(fullText);
       setPaperBlog(blog);
       setPaperView(blog ? "blog" : "fulltext");
+      if (!fullText && blog) setNotice("Full paper text is unavailable; showing the overview instead.");
       setActivePaper(paper);
       setActiveAsset(null);
       setCanvasMode("paper");
@@ -4026,13 +4057,13 @@ function App() {
 
   const sendToAgent = useCallback(async () => {
     const message = agentInput.trim();
-    if ((!message && !agentAttachments.length) || agentRunning) return;
+    if ((!message && !agentAttachments.length) || agentRunning || agentAttachmentsInspecting) return;
     if (!agentAccessLoaded) return;
     if (!availableAgentProviders.length) {
       openSettings(agentAccessMode === "api" ? "api" : "accounts");
       return;
     }
-    let submittedAttachments = agentAttachments;
+    const submittedAttachments = agentAttachments;
     setAgentInput("");
     setAgentAttachments([]);
     // Sending is an explicit "show me the reply", so re-pin to the bottom even
@@ -4062,11 +4093,6 @@ function App() {
     };
     try {
       if (!(await save())) throw new Error("Save the current file before running the agent.");
-      if (submittedAttachments.length) {
-        const descriptors = submittedAttachments.map(({ path, name }) => ({ path, name }));
-        const metadata = await invoke<AgentAttachmentMetadata[]>("inspect_agent_attachments", { attachments: descriptors });
-        submittedAttachments = descriptors.map((descriptor, index) => ({ ...descriptor, ...metadata[index] }));
-      }
       if (branchSource) {
         session = await invoke<AgentSession>("fork_agent_session", {
           sourceSessionId: branchSource.sessionId,
@@ -4374,7 +4400,7 @@ function App() {
       setAgentCancellable(false);
       setAgentStatus("");
     }
-  }, [activeFile, activeSession, agentAccessLoaded, agentAccessMode, agentAttachments, agentInput, agentModel, agentRunning, availableAgentProviders.length, branchSource, compile, loadFile, messages, openSettings, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
+  }, [activeFile, activeSession, agentAccessLoaded, agentAccessMode, agentAttachments, agentAttachmentsInspecting, agentInput, agentModel, agentRunning, availableAgentProviders.length, branchSource, compile, loadFile, messages, openSettings, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
 
   const stopAgent = useCallback(async () => {
     const sessionId = runningAgentSession.current;
@@ -5418,13 +5444,7 @@ function App() {
                   )}
                   {sidebarMode === "agent" && (
                     <>
-                      <Select value={agentAccessMode} disabled={agentRunning} onValueChange={(value) => changeAgentAccessMode(value as "subscription" | "api")}>
-                        <SelectTrigger aria-label="Agent access" className="sidebar-provider-select"><SelectValue /></SelectTrigger>
-                        <SelectContent position="popper" align="end" className="agent-select-menu">
-                          <SelectItem value="subscription">Subscription</SelectItem>
-                          <SelectItem value="api">API</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <AgentAccessPicker value={agentAccessMode} disabled={agentRunning} onChange={changeAgentAccessMode} />
                       {(agentAccessMode === "api" || (agentAccessLoaded && !availableAgentProviders.length)) && (
                         <Tip label={agentAccessMode === "api" ? "API key settings" : "Connect a subscription"}>
                           <button className="sidebar-provider-settings" aria-label={agentAccessMode === "api" ? "API key settings" : "Connect a subscription"} onClick={() => openSettings(agentAccessMode === "api" ? "api" : "accounts")}><KeyRound size={12} /></button>
@@ -5502,8 +5522,9 @@ function App() {
                   stopping={agentStopping}
                   onSend={sendToAgent}
                   attachments={agentAttachments}
+                  attachmentsInspecting={agentAttachmentsInspecting}
                   onAddAttachments={async () => {
-                    const selected = await open({ multiple: true, directory: false, title: "Attach images or UTF-8 text" });
+                    const selected = await open({ multiple: true, directory: false, title: "Attach images, PDFs, or UTF-8 text" });
                     if (!selected) return;
                     const paths = Array.isArray(selected) ? selected : [selected];
                     const newPaths = paths.filter((path) => !agentAttachments.some((item) => item.path === path));
@@ -5516,6 +5537,7 @@ function App() {
                       path,
                       name: path.split(/[\\/]/).pop() || "attachment",
                     }));
+                    setAgentAttachmentsInspecting(true);
                     try {
                       const metadata = await invoke<AgentAttachmentMetadata[]>("inspect_agent_attachments", {
                         attachments: descriptors,
@@ -5528,6 +5550,8 @@ function App() {
                       ].slice(0, 8));
                     } catch (reason) {
                       setError(toMessage(reason));
+                    } finally {
+                      setAgentAttachmentsInspecting(false);
                     }
                   }}
                   onRemoveAttachment={(path) => setAgentAttachments((current) => current.filter((attachment) => attachment.path !== path))}
@@ -5612,10 +5636,10 @@ function App() {
             activePaper={activePaper}
             activeAsset={activeAsset}
             canOpenCitation={(key) => papers.some((item) => item.citationKey?.toLocaleLowerCase() === key.toLocaleLowerCase()
-              && item.hasFullText && item.hasBlog)}
+              && (item.hasFullText || item.hasBlog))}
             onOpenCitation={(key) => {
               const paper = papers.find((item) => item.citationKey?.toLocaleLowerCase() === key.toLocaleLowerCase()
-                && item.hasFullText && item.hasBlog);
+                && (item.hasFullText || item.hasBlog));
               if (paper) void openPaper(paper, true);
             }}
             citationKeys={citationKeys}

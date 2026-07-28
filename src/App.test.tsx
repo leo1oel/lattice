@@ -101,14 +101,27 @@ async function chooseOption(selectLabel: string, optionName: string | RegExp) {
   fireEvent.click(await screen.findByRole("option", { name: optionName }));
 }
 
-// Open a Radix Select, run assertions against its options, then close it so
-// the portal overlay does not swallow later clicks.
-async function withOpenSelect(selectLabel: string, assert: () => void) {
-  openSelect(await screen.findByLabelText(selectLabel));
-  await screen.findByRole("listbox");
+async function openAgentConfig(section: "Model" | "Reasoning") {
+  fireEvent.click(await screen.findByLabelText("Model and reasoning effort"));
+  fireEvent.click(await screen.findByRole("button", {
+    name: section === "Model" ? "Choose model" : "Choose reasoning effort",
+  }));
+}
+
+async function chooseAgentConfig(section: "Model" | "Reasoning", optionName: string | RegExp) {
+  await openAgentConfig(section);
+  fireEvent.click(await screen.findByRole("option", { name: optionName }));
+}
+
+async function withOpenAgentModels(assert: () => void) {
+  await openAgentConfig("Model");
   assert();
-  fireEvent.keyDown(screen.getByLabelText(selectLabel), { key: "Escape" });
-  await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+  fireEvent.keyDown(screen.getByLabelText("Model and reasoning effort"), { key: "Escape" });
+}
+
+async function chooseAgentAccess(optionName: "Subscription" | "API") {
+  fireEvent.click(await screen.findByLabelText("Agent access"));
+  fireEvent.click(await screen.findByRole("button", { name: optionName }));
 }
 
 async function switchSidebarMode(mode: "Project" | "Papers" | "Agent") {
@@ -638,8 +651,8 @@ describe("project workspace", () => {
 
     render(<App />);
     await switchSidebarMode("Agent");
-    await waitFor(() => expect(screen.getByLabelText("Agent model")).toBeDisabled());
-    expect(screen.getByLabelText("Agent model")).toHaveTextContent("No models");
+    await waitFor(() => expect(screen.getByLabelText("Model and reasoning effort")).toBeDisabled());
+    expect(screen.getByLabelText("Model and reasoning effort")).toHaveTextContent("No models");
     expect(screen.getByTitle("Send message")).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     expect(await screen.findByRole("heading", { name: "Subscriptions" })).toBeInTheDocument();
@@ -676,7 +689,7 @@ describe("project workspace", () => {
     await switchSidebarMode("Agent");
     expect(await screen.findByLabelText("Agent access")).toHaveTextContent("Subscription");
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("api_key_status"));
-    await withOpenSelect("Agent model", () => {
+    await withOpenAgentModels(() => {
       expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "Claude Opus 4.8" })).toBeInTheDocument();
     });
@@ -686,8 +699,8 @@ describe("project workspace", () => {
     expect(await screen.findAllByText("Connected")).toHaveLength(2);
 
     fireEvent.click(screen.getByTitle("Close settings"));
-    await chooseOption("Agent access", "API");
-    await withOpenSelect("Agent model", () => {
+    await chooseAgentAccess("API");
+    await withOpenAgentModels(() => {
       expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument();
       expect(screen.queryByRole("option", { name: "Claude Opus 4.8" })).not.toBeInTheDocument();
     });
@@ -732,13 +745,13 @@ describe("project workspace", () => {
     await switchSidebarMode("Papers");
     const papers = within(await screen.findByRole("list", { name: "Papers" }));
     // Its preprint is known, so the row offers to fetch rather than going dead.
-    const citedOnly = await papers.findByTitle("Fetch the full text of arXiv 1412.6980");
+    const citedOnly = await papers.findByTitle("Download arXiv 1412.6980");
     expect(citedOnly).toBeEnabled();
     expect(citedOnly.closest(".paper-row")).toHaveClass("cited-only");
     expect(citedOnly).toHaveTextContent("arXiv 1412.6980");
 
     // A work with no preprint has nothing to fetch, so it stays inert.
-    const noPreprint = papers.getByTitle(/The TeXbook.*no full text available/);
+    const noPreprint = papers.getByTitle(/The TeXbook.*no local reading available/);
     expect(noPreprint).toBeDisabled();
 
     // The fetched one still opens in the reader.
@@ -1742,6 +1755,49 @@ describe("project workspace", () => {
     expect(blocks[1]).toHaveClass("streaming-tail");
   });
 
+  it("previews and removes inspected agent attachments before sending", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    let finishInspection: ((metadata: unknown) => void) | undefined;
+    vi.mocked(open).mockResolvedValue(["/tmp/shot.png", "/tmp/main.pdf"]);
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "inspect_agent_attachments") {
+        return new Promise((resolve) => { finishInspection = resolve; });
+      }
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    await switchSidebarMode("Agent");
+    fireEvent.click(screen.getByLabelText("Add attachments"));
+    await waitFor(() => expect(screen.getByLabelText("Add attachments")).toBeDisabled());
+    expect(screen.getByLabelText("Add attachments")).toHaveAttribute("title", "Inspecting attachments");
+
+    finishInspection?.([
+      { name: "shot.png", kind: "image", mimeType: "image/png", size: 1024, previewUrl: "data:image/jpeg;base64,cHJldmlldw==" },
+      { name: "main.pdf", kind: "document", mimeType: "application/pdf", size: 2048 },
+    ]);
+
+    expect(await screen.findByAltText("shot.png")).toHaveAttribute("src", "data:image/jpeg;base64,cHJldmlldw==");
+    expect(screen.getByText("main.pdf")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Remove shot.png"));
+    expect(screen.queryByAltText("shot.png")).not.toBeInTheDocument();
+    expect(screen.getByText("main.pdf")).toBeInTheDocument();
+  });
+
   it("shows a sent message while Claude is still working", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -1776,10 +1832,9 @@ describe("project workspace", () => {
 
     render(<App />);
     await switchSidebarMode("Agent");
-    await chooseOption("Agent model", "Claude Opus 4.8");
-    await chooseOption("Reasoning effort", "Extra high");
-    expect(screen.getByLabelText("Agent model").closest(".composer")).not.toBeNull();
-    expect(screen.getByLabelText("Reasoning effort").closest(".composer")).not.toBeNull();
+    await chooseAgentConfig("Model", "Claude Opus 4.8");
+    await chooseAgentConfig("Reasoning", "Extra high");
+    expect(screen.getByLabelText("Model and reasoning effort").closest(".composer")).not.toBeNull();
     expect(screen.queryByText(/Enter sends/i)).not.toBeInTheDocument();
     const composer = screen.getByPlaceholderText(/ask the agent/i);
     const message = `Review the abstract.\n${"longword".repeat(40)}`;

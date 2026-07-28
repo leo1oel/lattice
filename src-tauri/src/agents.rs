@@ -7,12 +7,14 @@ use crate::project;
 use crate::skill_store;
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
+use image::codecs::jpeg::JpegEncoder;
 use image::{ImageFormat, ImageReader, Limits};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::io::{BufRead, BufReader, Cursor, Read, Write};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -26,8 +28,12 @@ const SUBSCRIPTION_AUTH_ERROR_PREFIX: &str = "LATTICE_AUTH_SUBSCRIPTION:";
 const API_KEY_AUTH_ERROR_PREFIX: &str = "LATTICE_AUTH_API_KEY:";
 const AGENT_STOPPED_ERROR_PREFIX: &str = "LATTICE_AGENT_STOPPED:";
 const MAX_ATTACHMENTS: usize = 8;
-const MAX_ATTACHMENT_BYTES: u64 = 5 * 1024 * 1024;
-const MAX_TOTAL_ATTACHMENT_BYTES: u64 = 12 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES: u64 = 20 * 1024 * 1024;
+const MAX_TOTAL_ATTACHMENT_BYTES: u64 = 64 * 1024 * 1024;
+const ATTACHMENT_PREVIEW_MAX_DIMENSION: u32 = 512;
+const MAX_PDF_PAGES: usize = 200;
+const MAX_PDF_TEXT_CHARS: usize = 400_000;
+const MAX_TOTAL_PDF_TEXT_CHARS: usize = 600_000;
 #[cfg(not(test))]
 const CANCEL_GRACE_PERIOD: Duration = Duration::from_secs(2);
 #[cfg(test)]
@@ -263,6 +269,7 @@ struct LoadedAttachments {
 
 fn load_attachments(
     descriptors: &[AgentAttachmentDescriptor],
+    include_previews: bool,
 ) -> Result<LoadedAttachments, String> {
     if descriptors.len() > MAX_ATTACHMENTS {
         return Err(format!(
@@ -273,6 +280,7 @@ fn load_attachments(
     let mut text = String::new();
     let mut images = Vec::new();
     let mut attachment_metadata = Vec::new();
+    let mut total_pdf_text_chars = 0_usize;
     for descriptor in descriptors {
         let path = Path::new(&descriptor.path);
         let name = path
@@ -299,14 +307,14 @@ fn load_attachments(
             .map_err(|error| format!("Could not read attachment '{name}': {error}"))?;
         if bytes.len() as u64 > MAX_ATTACHMENT_BYTES {
             return Err(format!(
-                "Attachment '{}' exceeds the 5 MiB per-file limit.",
+                "Attachment '{}' exceeds the 20 MiB per-file limit.",
                 name
             ));
         }
         total = total.saturating_add(bytes.len() as u64);
         if total > MAX_TOTAL_ATTACHMENT_BYTES {
             return Err(
-                "Attachments exceed the 12 MiB total limit. Remove one or more files.".into(),
+                "Attachments exceed the 64 MiB total limit. Remove one or more files.".into(),
             );
         }
         let mime = image_mime(&bytes);
@@ -319,6 +327,33 @@ fn load_attachments(
                 kind: "image".into(),
                 mime_type: Some(mime_type.into()),
                 size: bytes.len() as u64,
+                preview_url: include_previews.then(|| image_preview(&bytes)).flatten(),
+            });
+            continue;
+        }
+        if bytes.starts_with(b"%PDF-") {
+            let content = extract_pdf_text(&bytes, name)?;
+            total_pdf_text_chars = total_pdf_text_chars.saturating_add(content.chars().count());
+            if total_pdf_text_chars > MAX_TOTAL_PDF_TEXT_CHARS {
+                return Err(format!(
+                    "PDF attachments exceed the {MAX_TOTAL_PDF_TEXT_CHARS}-character extracted-text limit. Attach fewer documents."
+                ));
+            }
+            if content.trim().is_empty() {
+                return Err(format!(
+                    "PDF attachment '{name}' contains no extractable text. It may be scanned or image-only; use OCR first."
+                ));
+            }
+            let escaped_name = html_escape::encode_double_quoted_attribute(name);
+            text.push_str(&format!(
+                "\n\n<file name=\"{escaped_name}\">\n{content}\n</file>"
+            ));
+            attachment_metadata.push(AgentAttachmentMetadata {
+                name: name.to_string(),
+                kind: "document".into(),
+                mime_type: Some("application/pdf".into()),
+                size: bytes.len() as u64,
+                preview_url: None,
             });
             continue;
         }
@@ -342,6 +377,7 @@ fn load_attachments(
             kind: "text".into(),
             mime_type: Some("text/plain".into()),
             size: bytes.len() as u64,
+            preview_url: None,
         });
     }
     Ok(LoadedAttachments {
@@ -351,10 +387,57 @@ fn load_attachments(
     })
 }
 
+fn extract_pdf_text(bytes: &[u8], name: &str) -> Result<String, String> {
+    catch_unwind(AssertUnwindSafe(|| {
+        let document = lopdf::Document::load_mem(bytes)
+            .map_err(|error| format!("Could not read PDF '{name}': {error}"))?;
+        let page_count = document.get_pages().len();
+        if page_count > MAX_PDF_PAGES {
+            return Err(format!(
+                "PDF attachment '{name}' has {page_count} pages; the limit is {MAX_PDF_PAGES}. Attach a smaller document."
+            ));
+        }
+        drop(document);
+        let content = pdf_extract::extract_text_from_mem(bytes)
+            .map_err(|error| format!("Could not extract text from PDF '{name}': {error}"))?;
+        let text_chars = content.chars().count();
+        if text_chars > MAX_PDF_TEXT_CHARS {
+            return Err(format!(
+                "PDF attachment '{name}' extracts to {text_chars} characters; the limit is {MAX_PDF_TEXT_CHARS}. Attach a smaller document."
+            ));
+        }
+        Ok(content)
+    }))
+    .map_err(|_| format!("Could not read PDF '{name}': the document is malformed."))?
+}
+
 pub fn inspect_attachments(
     descriptors: &[AgentAttachmentDescriptor],
 ) -> Result<Vec<AgentAttachmentMetadata>, String> {
-    load_attachments(descriptors).map(|attachments| attachments.metadata)
+    load_attachments(descriptors, true).map(|attachments| attachments.metadata)
+}
+
+fn image_preview(bytes: &[u8]) -> Option<String> {
+    let format = image::guess_format(bytes).ok()?;
+    let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
+    let mut limits = Limits::default();
+    limits.max_image_width = Some(16_384);
+    limits.max_image_height = Some(16_384);
+    limits.max_alloc = Some(128 * 1024 * 1024);
+    reader.limits(limits);
+    let image = reader.decode().ok()?;
+    let preview = image.thumbnail(
+        ATTACHMENT_PREVIEW_MAX_DIMENSION,
+        ATTACHMENT_PREVIEW_MAX_DIMENSION,
+    );
+    let mut encoded = Vec::new();
+    JpegEncoder::new_with_quality(&mut encoded, 70)
+        .encode_image(&preview)
+        .ok()?;
+    Some(format!(
+        "data:image/jpeg;base64,{}",
+        STANDARD.encode(encoded)
+    ))
 }
 
 fn image_mime(bytes: &[u8]) -> Option<&'static str> {
@@ -389,7 +472,7 @@ fn known_binary(bytes: &[u8]) -> bool {
 }
 
 fn unsupported_attachment(name: &str) -> String {
-    format!("Attachment '{name}' is not a supported image or UTF-8 text file. Convert documents/archives to plain text, or attach a PNG, JPEG, GIF, or WebP image.")
+    format!("Attachment '{name}' is not a supported PDF, image, or UTF-8 text file. Convert documents/archives to PDF or plain text, or attach a PNG, JPEG, GIF, or WebP image.")
 }
 
 pub fn run(
@@ -408,7 +491,7 @@ pub fn run(
     }
     // Validate and bound every file before starting OMP. The opened handles are
     // read exactly once, so a path replacement cannot change what gets sent.
-    let attachments = load_attachments(request.attachments)?;
+    let attachments = load_attachments(request.attachments, false)?;
     on_event(AgentStreamEvent::Attachments {
         attachments: attachments.metadata.clone(),
     });
@@ -2339,7 +2422,7 @@ mod tests {
                 name: "notes.md".into(),
             },
         ];
-        let loaded = load_attachments(&descriptors).unwrap();
+        let loaded = load_attachments(&descriptors, false).unwrap();
         assert!(loaded
             .text
             .contains("<file name=\"notes.md\">\nuseful notes\n</file>"));
@@ -2348,55 +2431,91 @@ mod tests {
         assert_eq!(loaded.metadata[0].kind, "image");
         assert_eq!(loaded.metadata[1].kind, "text");
         assert_eq!(loaded.images[0]["data"], STANDARD.encode(&image_bytes));
+        assert!(loaded
+            .metadata
+            .iter()
+            .all(|metadata| metadata.preview_url.is_none()));
+
+        let inspected = inspect_attachments(&descriptors[..1]).unwrap();
+        let preview = inspected[0]
+            .preview_url
+            .as_deref()
+            .expect("inspection should produce a bounded image preview");
+        assert!(preview.starts_with("data:image/jpeg;base64,"));
+        assert_ne!(
+            preview,
+            format!("data:image/png;base64,{}", STANDARD.encode(&image_bytes))
+        );
 
         let malformed_image = root.join("malformed.png");
         fs::write(&malformed_image, b"\x89PNG\r\n\x1a\ncontent").unwrap();
-        assert!(load_attachments(&[AgentAttachmentDescriptor {
-            path: malformed_image.display().to_string(),
-            name: "malformed.png".into(),
-        }])
+        assert!(load_attachments(
+            &[AgentAttachmentDescriptor {
+                path: malformed_image.display().to_string(),
+                name: "malformed.png".into(),
+            }],
+            false
+        )
         .unwrap_err()
         .contains("UTF-8"));
 
         fs::write(&text_path, b"bad\0text").unwrap();
-        assert!(load_attachments(&descriptors[1..])
+        assert!(load_attachments(&descriptors[1..], false)
             .unwrap_err()
             .contains("NUL"));
         fs::write(&text_path, b"\xff\xfe").unwrap();
-        assert!(load_attachments(&descriptors[1..])
+        assert!(load_attachments(&descriptors[1..], false)
             .unwrap_err()
             .contains("UTF-8"));
         let missing = AgentAttachmentDescriptor {
             path: root.join("missing").display().to_string(),
             name: "missing".into(),
         };
-        assert!(load_attachments(&[missing])
+        assert!(load_attachments(&[missing], false)
             .unwrap_err()
             .contains("no longer exists"));
         let directory = AgentAttachmentDescriptor {
             path: root.display().to_string(),
             name: "folder".into(),
         };
-        assert!(load_attachments(&[directory])
+        assert!(load_attachments(&[directory], false)
             .unwrap_err()
             .contains("regular file"));
         let svg = root.join("diagram.txt");
         fs::write(&svg, "<?xml version=\"1.0\"?><svg></svg>").unwrap();
-        assert!(load_attachments(&[AgentAttachmentDescriptor {
-            path: svg.display().to_string(),
-            name: "diagram.txt".into(),
-        }])
+        assert!(load_attachments(
+            &[AgentAttachmentDescriptor {
+                path: svg.display().to_string(),
+                name: "diagram.txt".into(),
+            }],
+            false
+        )
         .unwrap_err()
-        .contains("not a supported image"));
+        .contains("not a supported PDF"));
         let too_many = (0..=MAX_ATTACHMENTS)
             .map(|_| AgentAttachmentDescriptor {
                 path: image.display().to_string(),
                 name: "image.png".into(),
             })
             .collect::<Vec<_>>();
-        assert!(load_attachments(&too_many)
+        assert!(load_attachments(&too_many, false)
             .unwrap_err()
             .contains("at most 8 files"));
+
+        let oversized = root.join("oversized.txt");
+        fs::File::create(&oversized)
+            .unwrap()
+            .set_len(MAX_ATTACHMENT_BYTES + 1)
+            .unwrap();
+        let error = load_attachments(
+            &[AgentAttachmentDescriptor {
+                path: oversized.display().to_string(),
+                name: "oversized.txt".into(),
+            }],
+            false,
+        )
+        .unwrap_err();
+        assert!(error.contains("20 MiB per-file limit"), "{error}");
         fs::remove_dir_all(root).unwrap();
     }
 

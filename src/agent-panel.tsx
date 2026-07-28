@@ -4,10 +4,13 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   BookOpen,
   Bot,
+  Check,
   ChevronDown,
+  ChevronRight,
   Code2,
   FileCode2,
   FileText,
+  LoaderCircle,
   Pencil,
   Paperclip,
   Plus,
@@ -21,13 +24,6 @@ import {
 import { applySlashCommand, filterSlashCommands, slashAtCaret, type AgentCommand, type SlashState } from "./slash-commands";
 import { Tip } from "./components/icon-tip";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./components/ui/select";
 import { MessageList } from "./components/agent-elements/message-list";
 import { UserMessage as AgentElementsUserMessage } from "./components/agent-elements/user-message";
 import { FileAttachment } from "./components/agent-elements/input/file-attachment";
@@ -149,6 +145,91 @@ function toAgentElementsMessages(messages: ChatMessage[]): UIMessage[] {
     })) as UIMessage[];
 }
 
+function effortLabel(effort: ReasoningEffort): string {
+  return effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1);
+}
+
+function AgentConfigPicker(props: {
+  modelOptions: ModelOption[];
+  model: string;
+  onModelChange: (value: string) => void;
+  reasoningEffort: ReasoningEffort;
+  onEffortChange: (value: ReasoningEffort) => void;
+  disabled: boolean;
+  unavailable: boolean;
+  unavailableTitle: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [modelsOpen, setModelsOpen] = useState(false);
+  const [effortsOpen, setEffortsOpen] = useState(false);
+  const selectedModel = props.modelOptions.find((option) => option.value === props.model);
+  const efforts = selectedModel?.efforts ?? ["high"];
+  const chooseModel = (value: string) => {
+    const nextEfforts = props.modelOptions.find((option) => option.value === value)?.efforts ?? ["high"];
+    props.onModelChange(value);
+    if (!nextEfforts.includes(props.reasoningEffort)) {
+      props.onEffortChange(nextEfforts.includes("high") ? "high" : nextEfforts[0]);
+    }
+    setModelsOpen(false);
+    setOpen(false);
+  };
+  const chooseEffort = (value: ReasoningEffort) => {
+    props.onEffortChange(value);
+    setEffortsOpen(false);
+    setOpen(false);
+  };
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setModelsOpen(false);
+      setEffortsOpen(false);
+    }
+  };
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="agent-config-trigger"
+          aria-label="Model and reasoning effort"
+          disabled={props.disabled || props.unavailable}
+          title={props.unavailable ? props.unavailableTitle : undefined}
+        >
+          <span>{selectedModel?.label ?? "No models"}</span>
+          {!props.unavailable && <small>{effortLabel(props.reasoningEffort)}</small>}
+          <ChevronDown aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="start" sideOffset={7} className="agent-config-menu">
+        <button type="button" className="agent-config-row" aria-label="Choose model" aria-expanded={modelsOpen} onClick={() => { setModelsOpen((value) => !value); setEffortsOpen(false); }}>
+          <strong>Model</strong><span>{selectedModel?.label ?? "No models"}</span><ChevronRight aria-hidden="true" />
+        </button>
+        {modelsOpen && (
+          <div className="agent-config-options model-options" role="listbox" aria-label="Models">
+            {props.modelOptions.map((option) => (
+              <button type="button" role="option" aria-selected={option.value === props.model} key={option.value} className={option.value === props.model ? "selected" : ""} onClick={() => chooseModel(option.value)}>
+                <span>{option.label}</span>{option.value === props.model && <Check aria-hidden="true" />}
+              </button>
+            ))}
+          </div>
+        )}
+        <button type="button" className="agent-config-row" aria-label="Choose reasoning effort" aria-expanded={effortsOpen} onClick={() => { setEffortsOpen((value) => !value); setModelsOpen(false); }}>
+          <strong>Reasoning</strong><span>{effortLabel(props.reasoningEffort)}</span><ChevronRight aria-hidden="true" />
+        </button>
+        {effortsOpen && (
+          <div className="agent-config-options effort-options" role="listbox" aria-label="Reasoning efforts">
+            {efforts.map((effort) => (
+              <button type="button" role="option" aria-selected={effort === props.reasoningEffort} key={effort} className={effort === props.reasoningEffort ? "selected" : ""} onClick={() => chooseEffort(effort)}>
+                <span>{effortLabel(effort)}</span>{effort === props.reasoningEffort && <Check aria-hidden="true" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function AgentPanel({
   modelOptions,
   modelUnavailable,
@@ -179,6 +260,7 @@ export function AgentPanel({
   stopping,
   onSend,
   attachments,
+  attachmentsInspecting,
   onAddAttachments,
   onRemoveAttachment,
   onStop,
@@ -216,6 +298,7 @@ export function AgentPanel({
   stopping: boolean;
   onSend: () => void;
   attachments: AgentAttachmentDescriptor[];
+  attachmentsInspecting: boolean;
   onAddAttachments: () => void;
   onRemoveAttachment: (path: string) => void;
   onStop: () => void;
@@ -236,7 +319,6 @@ export function AgentPanel({
   void _chatEnd;
   void _chatListRef;
   const options = modelOptions;
-  const efforts = options.find((option) => option.value === model)?.efforts ?? ["high"];
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [sessionSearch, setSessionSearch] = useState("");
   const [searchResults, setSearchResults] = useState<AgentSessionSearchResult[] | null>(null);
@@ -415,6 +497,9 @@ export function AgentPanel({
                   id={attachment.path}
                   filename={attachment.name}
                   size={attachment.size}
+                  isImage={attachment.kind === "image"}
+                  url={attachment.previewUrl ?? undefined}
+                  display={attachment.kind === "image" ? "image-only" : "chip"}
                   onRemove={running ? undefined : () => onRemoveAttachment(attachment.path)}
                   className="staged-attachment-preview"
                 />
@@ -496,21 +581,27 @@ export function AgentPanel({
           />
           <div className="composer-footer">
             <div className="composer-footer-left">
-              <button className="attach-button" title="Add attachments" aria-label="Add attachments" disabled={running} onClick={onAddAttachments}><Paperclip size={13} /></button>
+              <button className="attach-button" title={attachmentsInspecting ? "Inspecting attachments" : "Add attachments"} aria-label="Add attachments" disabled={running || attachmentsInspecting} onClick={onAddAttachments}>
+                {attachmentsInspecting ? <LoaderCircle className="attachment-spinner" size={13} /> : <Paperclip size={13} />}
+              </button>
               <div className="footer-selectors">
-                <Select value={modelUnavailable ? "" : model} disabled={running || modelUnavailable} onValueChange={(nextModel) => {
-                  const nextEfforts = options.find((option) => option.value === nextModel)?.efforts ?? ["high"];
-                  setModel(nextModel);
-                  if (!nextEfforts.includes(reasoningEffort)) setReasoningEffort(nextEfforts.includes("high") ? "high" : nextEfforts[0]);
-                }}><SelectTrigger aria-label="Agent model" title={modelUnavailable ? `Connect a ${authMode} account in Settings` : undefined} className="config-select model-select"><SelectValue placeholder="No models" /></SelectTrigger><SelectContent position="popper" side="top" sideOffset={6} align="start">{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
-                <Select value={reasoningEffort} disabled={running || modelUnavailable} onValueChange={(value) => setReasoningEffort(value as ReasoningEffort)}><SelectTrigger aria-label="Reasoning effort" className="config-select effort-select"><SelectValue /></SelectTrigger><SelectContent position="popper" side="top" sideOffset={6} align="start">{efforts.map((effort) => <SelectItem key={effort} value={effort}>{effort === "xhigh" ? "Extra high" : effort[0].toUpperCase() + effort.slice(1)}</SelectItem>)}</SelectContent></Select>
+                <AgentConfigPicker
+                  modelOptions={options}
+                  model={model}
+                  onModelChange={setModel}
+                  reasoningEffort={reasoningEffort}
+                  onEffortChange={setReasoningEffort}
+                  disabled={running}
+                  unavailable={modelUnavailable}
+                  unavailableTitle={`Connect a ${authMode} account in Settings`}
+                />
               </div>
               {modelUnavailable && <button type="button" className="agent-auth-prompt" onClick={onConfigureAuth}>Connect</button>}
               {running && <span>{status || "Agent is working…"}</span>}
             </div>
             {running
               ? <button className="stop-agent-button" title={stopping ? "Stopping agent" : "Stop agent"} onClick={onStop} disabled={!cancellable || stopping}><Square size={12} fill="currentColor" /></button>
-              : <button title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={modelUnavailable || (!input.trim() && !attachments.length)}><Send size={14} /></button>}
+              : <button title="Send message" onClick={() => { setMention(null); setSlash(null); onSend(); }} disabled={attachmentsInspecting || modelUnavailable || (!input.trim() && !attachments.length)}><Send size={14} /></button>}
           </div>
         </div>
       </div>

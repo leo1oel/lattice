@@ -199,7 +199,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
         // claimed the work had none and offered to download it again.
         let matched = imported
             .iter()
-            .position(|(id, _metadata)| {
+            .position(|(id, _metadata, _has_full_text, _has_blog)| {
                 let by_arxiv = citation.arxiv_id.as_deref().is_some_and(|cited| {
                     arxiv_base_id(cited).eq_ignore_ascii_case(arxiv_base_id(id))
                 });
@@ -216,18 +216,17 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             // else whatever the bibliography entry points at.
             arxiv_id: matched
                 .as_ref()
-                .map(|(id, _)| id.clone())
+                .map(|(id, _, _, _)| id.clone())
                 .or(citation.arxiv_id)
                 .unwrap_or_default(),
             title,
             citation_key: Some(citation.key),
-            has_full_text: matched.is_some(),
-            has_blog: matched.as_ref().is_some_and(|(id, _)| {
-                root.join(".research/papers")
-                    .join(id)
-                    .join("blog.md")
-                    .is_file()
-            }),
+            has_full_text: matched
+                .as_ref()
+                .is_some_and(|(_, _, has_full_text, _)| *has_full_text),
+            has_blog: matched
+                .as_ref()
+                .is_some_and(|(_, _, _, has_blog)| *has_blog),
         });
     }
     // The bibliography is strictly authoritative; unclaimed cache entries stay hidden.
@@ -235,8 +234,8 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
     Ok(papers)
 }
 
-/// Directories under `.research/papers` that hold a fetched `paper.md`.
-fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata)>, String> {
+/// Directories under `.research/papers` that hold full text and/or an overview.
+fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata, bool, bool)>, String> {
     let directory = root.join(".research/papers");
     if !directory.exists() {
         return Ok(Vec::new());
@@ -249,8 +248,12 @@ fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata)>, String> 
             .map_err(err)?
             .to_string_lossy()
             .replace(std::path::MAIN_SEPARATOR, "/");
-        let markdown = fs::read_to_string(markdown_path).map_err(err)?;
-        if !markdown_has_body(&markdown) {
+        let markdown = fs::read_to_string(markdown_path).unwrap_or_default();
+        let has_full_text = markdown_has_body(&markdown);
+        let has_blog = fs::read_to_string(paper_directory.join("blog.md"))
+            .ok()
+            .is_some_and(|blog| markdown_has_body(&blog));
+        if !has_full_text && !has_blog {
             continue;
         }
         // Legacy or externally supplied text may have no metadata. Keep it
@@ -265,7 +268,7 @@ fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata)>, String> 
                 schema_version: 0,
                 complete: false,
             });
-        imported.push((arxiv_id, metadata));
+        imported.push((arxiv_id, metadata, has_full_text, has_blog));
     }
     Ok(imported)
 }
@@ -278,7 +281,7 @@ fn paper_cache_directories(directory: &Path) -> Result<Vec<PathBuf>, String> {
             continue;
         }
         let path = entry.path();
-        if path.join("paper.md").is_file() {
+        if path.join("paper.md").is_file() || path.join("blog.md").is_file() {
             found.push(path);
         } else {
             // Legacy arXiv ids contain one slash (`archive/YYMMNNN`). Inspect
@@ -286,7 +289,8 @@ fn paper_cache_directories(directory: &Path) -> Result<Vec<PathBuf>, String> {
             for child in fs::read_dir(&path).map_err(err)? {
                 let child = child.map_err(err)?;
                 if child.file_type().map_err(err)?.is_dir()
-                    && child.path().join("paper.md").is_file()
+                    && (child.path().join("paper.md").is_file()
+                        || child.path().join("blog.md").is_file())
                 {
                     found.push(child.path());
                 }
@@ -901,6 +905,34 @@ mod tests {
         assert!(read_paper(&root, "2501.00002")
             .unwrap()
             .contains("Introduction"));
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn reports_a_cached_blog_independently_from_full_text() {
+        let parent = std::env::temp_dir().join(format!("lattice-paper-blog-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{overview, title={Overview only}, eprint={2501.00003}}\n",
+        )
+        .unwrap();
+        let directory = root.join(".research/papers/2501.00003");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("paper.md"),
+            "---\ntitle: Overview only\n---\n",
+        )
+        .unwrap();
+        fs::write(directory.join("blog.md"), "# A useful overview\nDetails.\n").unwrap();
+
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 1);
+        assert!(!papers[0].has_full_text);
+        assert!(papers[0].has_blog);
+
+        fs::write(root.join("references.bib"), "").unwrap();
+        assert!(list_papers(&root).unwrap().is_empty());
         let _ = fs::remove_dir_all(parent);
     }
 

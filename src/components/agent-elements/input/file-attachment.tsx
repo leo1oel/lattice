@@ -93,7 +93,6 @@ export function FileAttachment({
   display = "chip",
   enableImagePreview = true,
 }: FileAttachmentProps) {
-  const [isHovered, setIsHovered] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const iconName = getFileIconName(filename, isImage);
   const isImageOnly = display === "image-only" && isImage && !!url;
@@ -107,17 +106,19 @@ export function FileAttachment({
   return (
     <div
       className={cn(
-        "relative bg-muted/50 rounded-[calc(var(--an-input-border-radius)-var(--an-context-padding))]",
+        "file-attachment relative bg-muted/50 rounded-[calc(var(--an-input-border-radius)-var(--an-context-padding))]",
+        isImageOnly && "image-only",
         isImageOnly
           ? "size-10 flex items-center justify-center"
           : "flex items-center gap-2 pl-1 pr-2 py-1 min-w-[120px] max-w-[200px]",
         className,
       )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       {isImageOnly ? (
-        <div
+        <button
+          type="button"
+          aria-label={`Preview ${filename}`}
+          disabled={!canPreview}
           className={cn(
             "size-8 overflow-hidden shrink-0 rounded-[calc(var(--an-input-border-radius)-var(--an-context-padding)-2px)]",
             canPreview && "cursor-pointer",
@@ -129,11 +130,14 @@ export function FileAttachment({
             alt={filename}
             className="w-full h-full object-cover"
           />
-        </div>
+        </button>
       ) : (
         <>
           {isImage && url ? (
-            <div
+            <button
+              type="button"
+              aria-label={`Preview ${filename}`}
+              disabled={!canPreview}
               className={cn(
                 "w-8 self-stretch overflow-hidden shrink-0 rounded-[calc(var(--an-input-border-radius)-var(--an-context-padding)-2px)]",
                 canPreview && "cursor-pointer",
@@ -145,7 +149,7 @@ export function FileAttachment({
                 alt={filename}
                 className="w-full h-full object-cover aspect-square"
               />
-            </div>
+            </button>
           ) : (
             <div className="flex items-center justify-center w-8 self-stretch bg-muted shrink-0 rounded-[calc(var(--an-input-border-radius)-var(--an-context-padding)-2px)]">
               {renderFileIcon(iconName)}
@@ -170,14 +174,12 @@ export function FileAttachment({
 
       {onRemove && (
         <button
+          aria-label={`Remove ${filename}`}
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
           }}
-          className={`absolute -top-1.5 -right-1.5 size-4 rounded-full bg-background border border-border
-                     flex items-center justify-center transition-opacity duration-150 ease-out z-10
-                     text-muted-foreground hover:text-foreground
-                     ${isHovered ? "opacity-100" : "opacity-0"}`}
+          className="file-attachment-remove absolute -top-1.5 -right-1.5 size-4 rounded-full bg-background border border-border flex items-center justify-center transition-opacity duration-150 ease-out z-10 text-muted-foreground hover:text-foreground"
           type="button"
         >
           <X className="size-3" />
