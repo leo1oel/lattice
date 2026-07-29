@@ -143,7 +143,35 @@ if (nativePlatform) {
   const nativesDir = join(assets, "natives");
   mkdirSync(nativesDir, { recursive: true });
   if (nativeSrc && existsSync(nativeSrc)) {
-    cpSync(nativeSrc, join(nativesDir, nativeFile));
+    const nativeOutput = join(nativesDir, nativeFile);
+    cpSync(nativeSrc, nativeOutput);
+
+    // Tauri signs external binaries automatically, but native Node modules
+    // bundled as resources are not among the nested binary types it detects.
+    // Sign this module before Tauri copies it into the app bundle so Apple's
+    // notarization service sees a hardened-runtime signature and timestamp.
+    const signingIdentity = process.env.APPLE_SIGNING_IDENTITY?.trim();
+    if (
+      target.endsWith("-apple-darwin") &&
+      signingIdentity &&
+      signingIdentity !== "-"
+    ) {
+      execFileSync(
+        "codesign",
+        [
+          "--force",
+          "--options",
+          "runtime",
+          "--timestamp",
+          "--sign",
+          signingIdentity,
+          nativeOutput,
+        ],
+        { stdio: "inherit" },
+      );
+      console.log(`Signed OMP native ${nativeFile} for Apple notarization.`);
+    }
+
     console.log(`Bundled OMP native ${nativeFile} (${ompPackage.version}).`);
   } else {
     console.warn(

@@ -38,10 +38,53 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Import Apple Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          certificate_path="$RUNNER_TEMP/apple-developer-certificate.p12"
+          keychain_path="$RUNNER_TEMP/lattice-signing.keychain-db"
+
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+          signing_identity="$(
+            security find-identity -v -p codesigning "$keychain_path" |
+              awk -F '"' '/Developer ID Application/ { print $2; exit }'
+          )"
+          test -n "$signing_identity"
+          echo "APPLE_SIGNING_IDENTITY=$signing_identity" >> "$GITHUB_ENV"
+
+      - name: Prepare App Store Connect API key
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
+          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
+          chmod 600 "$api_key_path"
+          echo "APPLE_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
+
       - name: Build, sign, and publish the release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           # The updater signing key, stored as a repo secret (see setup guide).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -53,15 +96,67 @@ jobs:
 
             Download the **.dmg** below, open it, and drag Lattice to Applications.
 
-            First launch only: right-click the app and choose **Open** (or go to
-            System Settings → Privacy & Security → **Open Anyway**). This is
-            because the app is not notarized with an Apple Developer account.
+            Lattice is signed with an Apple Developer ID and notarized by Apple.
 
             Already running Lattice? It updates itself automatically — no need to
             re-download.
-          releaseDraft: false
+          # Keep the release private until the signed artifacts pass Gatekeeper
+          # and notarization-ticket verification below.
+          releaseDraft: true
           prerelease: false
           # Generate and upload latest.json so the in-app updater can find updates.
           includeUpdaterJson: true
           # Apple Silicon only. This makes the updater platform key darwin-aarch64.
           args: --target aarch64-apple-darwin
+
+      - name: Notarize the distributable disk image
+        env:
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          dmg_path="$(
+            find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg \
+              -maxdepth 1 -name '*.dmg' -print -quit
+          )"
+
+          test -n "$dmg_path"
+          xcrun notarytool submit "$dmg_path" \
+            --key "$APPLE_API_KEY_PATH" \
+            --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait
+          xcrun stapler staple "$dmg_path"
+          echo "DMG_PATH=$dmg_path" >> "$GITHUB_ENV"
+
+      - name: Verify signed and notarized artifacts
+        run: |
+          codesign --verify --strict --verbose=2 "$DMG_PATH"
+          spctl --assess \
+            --type open \
+            --context context:primary-signature \
+            --verbose=4 \
+            "$DMG_PATH"
+          xcrun stapler validate "$DMG_PATH"
+
+          mount_path="$(mktemp -d "$RUNNER_TEMP/lattice-dmg.XXXXXX")"
+          hdiutil attach "$DMG_PATH" \
+            -nobrowse \
+            -readonly \
+            -mountpoint "$mount_path"
+          trap 'hdiutil detach "$mount_path"' EXIT
+
+          app_path="$(find "$mount_path" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          spctl --assess --type execute --verbose=4 "$app_path"
+          xcrun stapler validate "$app_path"
+
+      - name: Upload the stapled disk image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" --clobber
+
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false
