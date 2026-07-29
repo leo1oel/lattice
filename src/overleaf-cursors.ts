@@ -11,7 +11,7 @@
  * transaction.
  */
 import { StateEffect, StateField, type Extension, type Text } from "@codemirror/state";
-import { Decoration, EditorView, WidgetType, type DecorationSet } from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
 
 export type PresenceCursor = {
   name: string;
@@ -19,6 +19,53 @@ export type PresenceCursor = {
   row: number;
   column: number;
 };
+
+const REMOTE_CARET_SELECTOR = ".cm-ySelectionCaret, .cm-overleaf-caret";
+const REMOTE_LABEL_SELECTOR = ".cm-ySelectionInfo, .cm-overleaf-caret-label";
+
+type CursorLabelPlacement = { caret: HTMLElement; below: boolean };
+
+/** Measure without writing so CodeMirror can batch this with its own layout work. */
+export function measureCursorLabelPlacements(view: EditorView): CursorLabelPlacement[] {
+  const scrollerTop = view.scrollDOM.getBoundingClientRect().top;
+  return Array.from(view.dom.querySelectorAll<HTMLElement>(REMOTE_CARET_SELECTOR)).flatMap((caret) => {
+    const label = caret.querySelector<HTMLElement>(REMOTE_LABEL_SELECTOR);
+    if (!label) return [];
+    const caretTop = caret.getBoundingClientRect().top;
+    const labelHeight = label.getBoundingClientRect().height;
+    return [{ caret, below: caretTop - labelHeight < scrollerTop + 2 }];
+  });
+}
+
+class CursorLabelPlacementPlugin {
+  constructor(private readonly view: EditorView) {
+    this.schedule();
+  }
+
+  docViewUpdate() {
+    this.schedule();
+  }
+
+  schedule() {
+    this.view.requestMeasure({
+      key: this,
+      read: measureCursorLabelPlacements,
+      write: (placements) => {
+        for (const { caret, below } of placements) {
+          caret.classList.toggle("cm-caret-label-below", below);
+        }
+      },
+    });
+  }
+}
+
+const cursorLabelPlacementExtension = ViewPlugin.fromClass(CursorLabelPlacementPlugin, {
+  eventObservers: {
+    scroll() {
+      this.schedule();
+    },
+  },
+});
 
 /** Clamp a zero-based (row, column) to a real offset in `doc`. */
 export function posForRowColumn(doc: Text, row: number, column: number): number {
@@ -122,6 +169,7 @@ export function overleafCursorsExtension(options: OverleafCursorsOptions = {}): 
 
   return [
     field,
+    cursorLabelPlacementExtension,
     EditorView.baseTheme({
       ".cm-overleaf-caret": {
         position: "relative",
@@ -149,6 +197,10 @@ export function overleafCursorsExtension(options: OverleafCursorsOptions = {}): 
         whiteSpace: "nowrap",
         zIndex: "6",
         pointerEvents: "none",
+      },
+      ".cm-overleaf-caret.cm-caret-label-below .cm-overleaf-caret-label": {
+        top: "calc(100% + 2px)",
+        borderRadius: "0 4px 4px 4px",
       },
     }),
   ];

@@ -3,6 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 import {
   buildPresenceCursorDecorations,
+  measureCursorLabelPlacements,
   overleafCursorsExtension,
   posForRowColumn,
   setOverleafCursorsEffect,
@@ -85,6 +86,33 @@ describe("overleafCursorsExtension", () => {
     cursors = [];
     view.setState(EditorState.create({ doc: "alpha\nbeta", extensions }));
     expect(view.dom.querySelector(".cm-overleaf-caret")).toBeNull();
+    view.destroy();
+  });
+
+  it("places a top-edge name label below its caret", async () => {
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({
+        doc: "alpha\nbeta",
+        extensions: overleafCursorsExtension({ getCursors: () => [cursor()] }),
+      }),
+    });
+    const caret = view.dom.querySelector<HTMLElement>(".cm-overleaf-caret")!;
+    const label = view.dom.querySelector<HTMLElement>(".cm-overleaf-caret-label")!;
+    view.scrollDOM.getBoundingClientRect = () => ({ top: 40 } as DOMRect);
+    caret.getBoundingClientRect = () => ({ top: 50 } as DOMRect);
+    label.getBoundingClientRect = () => ({ height: 14 } as DOMRect);
+
+    expect(measureCursorLabelPlacements(view)).toEqual([{ caret, below: true }]);
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    expect(caret).toHaveClass("cm-caret-label-below");
+
+    caret.getBoundingClientRect = () => ({ top: 80 } as DOMRect);
+    expect(measureCursorLabelPlacements(view)).toEqual([{ caret, below: false }]);
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    expect(caret).not.toHaveClass("cm-caret-label-below");
     view.destroy();
   });
 });
