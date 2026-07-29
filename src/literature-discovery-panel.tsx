@@ -7,9 +7,12 @@ import {
   LoaderCircle,
   Quote,
   Search,
-  X,
 } from "lucide-react";
 import { baseArxivId } from "./arxiv-id";
+import { CheckboxField } from "./components/ui/checkbox-field";
+import { EmptyState } from "./components/ui/empty-state";
+import { PanelHeader } from "./components/ui/panel-header";
+import { ResizableDrawer } from "./resizable-drawer";
 
 export { baseArxivId };
 
@@ -169,19 +172,20 @@ export function LiteratureDiscoveryPanel(props: {
   };
 
   return (
-    <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside
-        className="history-drawer literature-drawer"
-        onMouseDown={(event) => event.stopPropagation()}
+    <ResizableDrawer
+        className="literature-drawer"
+        onClose={props.onClose}
         onScroll={(event) => {
           const el = event.currentTarget;
           if (el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD_PX) void loadMore();
         }}
       >
-        <div className="drawer-header">
-          <div><Search size={16} /><span>Discover literature</span></div>
-          <button type="button" onClick={props.onClose}><X size={16} /></button>
-        </div>
+        <PanelHeader
+          className="drawer-header"
+          icon={<Search size={16} />}
+          title="Discover literature"
+          onClose={props.onClose}
+        />
         <p className="drawer-copy">
           Search alphaXiv full text and OpenAlex citations. Results may include arXiv papers, published works, and web sources; adding one resolves it into the bibliography.
         </p>
@@ -199,14 +203,12 @@ export function LiteratureDiscoveryPanel(props: {
             onChange={(event) => setQuery(event.target.value)}
             autoFocus
           />
-          <label className="literature-precise">
-            <input
-              type="checkbox"
-              checked={precise}
-              onChange={(event) => setPrecise(event.target.checked)}
-            />
-            Title/abstract only
-          </label>
+          <CheckboxField
+            className="literature-precise"
+            checked={precise}
+            label="Title/abstract only"
+            onChange={(event) => setPrecise(event.target.checked)}
+          />
           <button type="submit" disabled={loading || !query.trim()}>
             {loading ? <LoaderCircle className="spin" size={14} /> : <Search size={14} />}
             Search
@@ -292,10 +294,9 @@ export function LiteratureDiscoveryPanel(props: {
             </button>
           )}
           {!loading && !results.length && !error && !notice && (
-            <p className="empty-history">Search alphaXiv and OpenAlex to find related work before importing evidence.</p>
+            <EmptyState description="Search alphaXiv and OpenAlex to find related work before importing evidence." />
           )}
         </div>
-      </aside>
-    </div>
+    </ResizableDrawer>
   );
 }

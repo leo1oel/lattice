@@ -13,7 +13,7 @@
 .conflict-error {
   margin: 0;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--danger) 12%, transparent);
   color: var(--danger);
   font-size: 11px;
@@ -42,7 +42,7 @@
 
 .conflict-hunk {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -62,7 +62,7 @@
   align-items: center;
   gap: 3px;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-compact);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 10px;
@@ -76,7 +76,7 @@
   gap: 4px;
   padding: 8px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--bg);
   text-align: left;
   cursor: pointer;
@@ -99,7 +99,7 @@
   align-self: flex-start;
   padding: 4px 10px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-icon);
   background: transparent;
   color: var(--muted);
   font-size: 10px;

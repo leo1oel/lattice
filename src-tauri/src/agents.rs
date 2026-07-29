@@ -502,10 +502,11 @@ pub fn run(
     });
     let outcome = run_omp(root, runtime, &request, &attachments, on_event)
         .map_err(|error| rewrite_agent_auth_error(runtime, &request.settings.provider, &error));
-    let transaction = project::record_external_changes(
+    let transaction = project::record_agent_changes(
         root,
         &before,
         &format!("Agent: {}", compact_label(request.message)),
+        request.session_id,
     )?;
     let changed_files = transaction
         .as_ref()

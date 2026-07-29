@@ -1,15 +1,34 @@
 import { useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Clock3, History, RotateCcw, Trash2, X } from "lucide-react";
+import { Clock3, History, RotateCcw, Trash2 } from "lucide-react";
+import { EmptyState } from "./components/ui/empty-state";
+import { PanelHeader } from "./components/ui/panel-header";
 import { HistoryDiff, VersionsTimeline, versionsTimelineCss } from "./versions-timeline";
 import { OverleafHistoryPanel } from "./overleaf-history";
 import { SlidingTabs } from "./motion";
+import { ResizableDrawer } from "./resizable-drawer";
 
 export type HistoryItem = {
   id: string;
   label: string;
   timestamp: string;
   files: string[];
+  actor?: "user" | "agent" | "citation" | "system" | string;
+  kind?: string;
+  source?: string;
+  threadId?: string | null;
+  threadTitle?: string | null;
+  checkpointRef?: string | null;
+  turnCount?: number | null;
+  undoOf?: string | null;
+  fileSummaries?: Array<{
+    path: string;
+    kind: string;
+    additions: number;
+    deletions: number;
+  }>;
+  restoreAvailable?: boolean;
+  restoreUnavailableReason?: string | null;
 };
 
 type FileChange = {
@@ -19,9 +38,16 @@ type FileChange = {
 };
 
 type TransactionRecord = {
+  schemaVersion?: number;
   id: string;
   label: string;
   timestamp: string;
+  actor?: string | null;
+  kind?: string | null;
+  source?: string | null;
+  threadId?: string | null;
+  checkpointRef?: string | null;
+  undoOf?: string | null;
   changes: FileChange[];
 };
 
@@ -30,6 +56,7 @@ function message(reason: unknown): string {
 }
 
 type HistoryTab = "changes" | "versions" | "overleaf";
+type HistoryFilter = "all" | "user" | "agent" | "citation";
 
 // Session-scoped memory of the last-used tab. "Versions" is the default; the
 // choice is intentionally not persisted to localStorage.
@@ -38,7 +65,7 @@ let lastUsedTab: HistoryTab = "versions";
 export function HistoryDrawer(props: {
   history: HistoryItem[];
   onClose: () => void;
-  onRevert: (id: string) => void;
+  onRevert: (item: HistoryItem) => void;
   onRevertFile?: (id: string, path: string) => void;
   onDelete: (id: string) => void;
   onOpenFile?: (path: string, line?: number) => void;
@@ -59,6 +86,7 @@ export function HistoryDrawer(props: {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [activePath, setActivePath] = useState("");
+  const [filter, setFilter] = useState<HistoryFilter>("all");
 
   const selectTab = (next: HistoryTab) => {
     userPickedTab.current = true;
@@ -66,8 +94,8 @@ export function HistoryDrawer(props: {
     setTab(next);
   };
 
-  const toggleEntry = (id: string) => {
-    if (expandedId === id) {
+  const toggleEntry = (item: HistoryItem) => {
+    if (expandedId === item.id) {
       setExpandedId(null);
       setEntry(null);
       setActivePath("");
@@ -75,12 +103,16 @@ export function HistoryDrawer(props: {
       setLoadingId(null);
       return;
     }
-    setExpandedId(id);
+    setExpandedId(item.id);
     setEntry(null);
     setActivePath("");
     setError("");
-    setLoadingId(id);
-    void invoke<TransactionRecord>("get_history_entry", { transactionId: id })
+    if (item.kind === "agent-checkpoint") {
+      setLoadingId(null);
+      return;
+    }
+    setLoadingId(item.id);
+    void invoke<TransactionRecord>("get_history_entry", { transactionId: item.id })
       .then((record) => {
         setEntry(record);
         setActivePath(record.changes[0]?.path ?? "");
@@ -89,24 +121,24 @@ export function HistoryDrawer(props: {
         setEntry(null);
         setError(message(reason));
       })
-      .finally(() => setLoadingId((current) => (current === id ? null : current)));
+      .finally(() => setLoadingId((current) => (current === item.id ? null : current)));
   };
 
   const activeChange = entry?.changes.find((change) => change.path === activePath) ?? entry?.changes[0] ?? null;
+  const visibleHistory = props.history.filter((item) => {
+    if (filter === "all") return true;
+    return (item.actor ?? "user") === filter;
+  });
 
   return (
-    <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      {/* The width follows the content, in CSS: 460px is right for a list of
-          entries, and wrong for reading a document, whose lines wrap so often
-          that finding the change is the hard part. Widening on the tab rather
-          than on a diff being open left the Versions and Overleaf tabs mostly
-          empty space whenever no file was open. */}
-      <aside className="history-drawer" onMouseDown={(event) => event.stopPropagation()}>
+    <ResizableDrawer onClose={props.onClose}>
         <style>{versionsTimelineCss}</style>
-        <div className="drawer-header">
-          <div><History size={16} /><span>Project history</span></div>
-          <button type="button" onClick={props.onClose}><X size={16} /></button>
-        </div>
+        <PanelHeader
+          className="drawer-header"
+          icon={<History size={16} />}
+          title="Project history"
+          onClose={props.onClose}
+        />
         <SlidingTabs
           value={tab}
           onChange={(next) => selectTab(next as HistoryTab)}
@@ -143,30 +175,79 @@ export function HistoryDrawer(props: {
         {tab === "changes" && (
           <>
             <p className="drawer-copy">
-              Every direct edit, paper import, and agent change is stored as a project transaction.
-              Expand an entry to inspect hunked file diffs; click a line to jump into the editor.
+              Changes from you, the Agent, and citation tools share one timeline. Restoring a
+              local change creates a new history entry, so the original record stays available.
             </p>
+            <div className="history-filters" aria-label="Filter project changes">
+              {([
+                ["all", "All"],
+                ["user", "You"],
+                ["agent", "Agent"],
+                ["citation", "Citations"],
+              ] as const).map(([value, label]) => (
+                <button
+                  type="button"
+                  key={value}
+                  className={filter === value ? "active" : ""}
+                  aria-pressed={filter === value}
+                  onClick={() => setFilter(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <div className="history-list">
-              {props.history.map((item) => {
+              {visibleHistory.map((item) => {
                 const expanded = expandedId === item.id;
+                const actor = item.actor === "agent"
+                  ? "Agent"
+                  : item.actor === "citation"
+                    ? "Citation tool"
+                    : item.actor === "system"
+                      ? "Lattice"
+                      : "You";
+                const restoreTitle = item.restoreAvailable === false
+                  ? item.restoreUnavailableReason || "Open this Agent task before restoring its files"
+                  : item.kind === "agent-checkpoint"
+                    ? "Undo this Agent turn's file changes"
+                    : "Restore the state before this change";
                 return (
                   <div className={`history-item ${expanded ? "expanded" : ""}`} key={item.id}>
-                    <div className="history-dot" />
+                    <div className={`history-dot ${item.actor ?? "user"}`} />
                     <div className="history-body">
                       <button
                         type="button"
                         className="history-expand"
                         aria-expanded={expanded}
-                        onClick={() => toggleEntry(item.id)}
+                        onClick={() => toggleEntry(item)}
                       >
                         <strong>{item.label}</strong>
-                        <span><Clock3 size={11} /> {new Date(item.timestamp).toLocaleString()}</span>
+                        <span>
+                          <span className={`history-actor ${item.actor ?? "user"}`}>{actor}</span>
+                          <Clock3 size={11} /> {new Date(item.timestamp).toLocaleString()}
+                        </span>
                         <p>{item.files.join(", ")}</p>
                       </button>
                       {expanded && (
                         <div className="history-entry-preview">
                           {loadingId === item.id && <p className="history-diff-loading">Loading diff…</p>}
                           {error && expandedId === item.id && <p className="history-diff-error" role="alert">{error}</p>}
+                          {item.kind === "agent-checkpoint" && (
+                            <div className="history-checkpoint-summary">
+                              {item.threadTitle && <strong>Agent task: {item.threadTitle}</strong>}
+                              {item.fileSummaries?.map((file) => (
+                                <div key={file.path}>
+                                  <span>{file.path}</span>
+                                  <small>
+                                    {file.kind}
+                                    {file.additions || file.deletions
+                                      ? ` · +${file.additions} −${file.deletions}`
+                                      : ""}
+                                  </small>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {entry && entry.id === item.id && (
                             <>
                               {entry.changes.length > 1 && (
@@ -211,17 +292,27 @@ export function HistoryDrawer(props: {
                       )}
                     </div>
                     <div className="history-actions">
-                      <button type="button" title="Restore the state before this change" onClick={() => props.onRevert(item.id)}><RotateCcw size={14} /></button>
-                      <button type="button" className="history-delete" title="Delete this history entry" onClick={() => props.onDelete(item.id)}><Trash2 size={13} /></button>
+                      <button
+                        type="button"
+                        title={restoreTitle}
+                        disabled={item.restoreAvailable === false}
+                        onClick={() => props.onRevert(item)}
+                      >
+                        <RotateCcw size={14} />
+                      </button>
+                      {item.kind !== "agent-checkpoint" && (
+                        <button type="button" className="history-delete" title="Delete this history entry" onClick={() => props.onDelete(item.id)}><Trash2 size={13} /></button>
+                      )}
                     </div>
                   </div>
                 );
               })}
-              {!props.history.length && <p className="empty-history">No changes recorded yet.</p>}
+              {!visibleHistory.length && (
+                <EmptyState description={props.history.length ? "No changes match this filter." : "No changes recorded yet."} />
+              )}
             </div>
           </>
         )}
-      </aside>
-    </div>
+    </ResizableDrawer>
   );
 }

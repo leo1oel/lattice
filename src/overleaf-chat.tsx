@@ -8,6 +8,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LoaderCircle, SendHorizontal } from "lucide-react";
+import { IconButton } from "./components/ui/icon-button";
 import type { OverleafMessage } from "./app-types";
 import "./overleaf-chat.css";
 
@@ -134,15 +135,15 @@ export function OverleafChatPanel(props: {
             }
           }}
         />
-        <button
-          type="button"
-          className="primary-button"
+        <IconButton
+          label="Send message"
+          tooltip={false}
+          tone="primary"
           disabled={!draft.trim() || sending}
           onClick={() => void submit()}
-          aria-label="Send message"
         >
           {sending ? <LoaderCircle className="spin" size={14} /> : <SendHorizontal size={14} />}
-        </button>
+        </IconButton>
       </div>
     </>
   );

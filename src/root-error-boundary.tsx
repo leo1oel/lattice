@@ -1,4 +1,5 @@
 import { Component, useState, type ErrorInfo, type ReactNode } from "react";
+import { Button } from "./components/ui/button";
 
 type RootErrorFallbackProps = {
   error: Error;
@@ -60,16 +61,12 @@ export function RootErrorFallback({
           if the problem continues.
         </p>
         <div className="root-error-actions">
-          <button className="primary-button" type="button" onClick={() => void restart()}>
+          <Button variant="primary" onClick={() => void restart()}>
             Restart Lattice
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => void copyDetails()}
-          >
+          </Button>
+          <Button onClick={() => void copyDetails()}>
             {copied ? "Error details copied" : "Copy error details"}
-          </button>
+          </Button>
         </div>
         {actionError && <p className="root-error-action-error" role="alert">{actionError}</p>}
         <details className="root-error-details">

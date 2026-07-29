@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { Grid3x3, X } from "lucide-react";
+import { Grid3x3 } from "lucide-react";
+import { Button } from "./components/ui/button";
+import { CheckboxField } from "./components/ui/checkbox-field";
+import { PanelHeader } from "./components/ui/panel-header";
 import { buildTabularSnippet, clampTableSize, type TableGeneratorOptions } from "./table-generator";
 
 export function TableGeneratorDialog(props: {
@@ -29,10 +32,12 @@ export function TableGeneratorDialog(props: {
   return (
     <div className="drawer-backdrop" onMouseDown={props.onClose}>
       <aside className="table-generator" onMouseDown={(event) => event.stopPropagation()} aria-label="Table generator">
-        <div className="drawer-header">
-          <div><Grid3x3 size={16} /><span>Insert table</span></div>
-          <button type="button" onClick={props.onClose}><X size={16} /></button>
-        </div>
+        <PanelHeader
+          className="drawer-header"
+          icon={<Grid3x3 size={16} />}
+          title="Insert table"
+          onClose={props.onClose}
+        />
         <div className="table-generator-form">
           <label>
             Rows
@@ -54,14 +59,16 @@ export function TableGeneratorDialog(props: {
               onChange={(event) => setCols(Number(event.target.value))}
             />
           </label>
-          <label className="settings-checkbox">
-            <input type="checkbox" checked={booktabs} onChange={(event) => setBooktabs(event.target.checked)} />
-            <span>Booktabs rules</span>
-          </label>
-          <label className="settings-checkbox">
-            <input type="checkbox" checked={float} onChange={(event) => setFloat(event.target.checked)} />
-            <span>Wrap in table float</span>
-          </label>
+          <CheckboxField
+            checked={booktabs}
+            label="Booktabs rules"
+            onChange={(event) => setBooktabs(event.target.checked)}
+          />
+          <CheckboxField
+            checked={float}
+            label="Wrap in table float"
+            onChange={(event) => setFloat(event.target.checked)}
+          />
           {float && (
             <>
               <label>
@@ -77,16 +84,16 @@ export function TableGeneratorDialog(props: {
         </div>
         <pre className="table-generator-preview" aria-label="Table preview">{preview.insert}</pre>
         <div className="table-generator-actions">
-          <button type="button" className="secondary" onClick={props.onClose}>Cancel</button>
-          <button
-            type="button"
+          <Button variant="ghost" onClick={props.onClose}>Cancel</Button>
+          <Button
+            variant="primary"
             onClick={() => {
               props.onInsert(preview.insert, preview.cursorOffset);
               props.onClose();
             }}
           >
             Insert table
-          </button>
+          </Button>
         </div>
       </aside>
     </div>

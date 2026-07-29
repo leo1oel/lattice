@@ -12,6 +12,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Check, Download, LoaderCircle, RefreshCw, RotateCcw } from "lucide-react";
 import type { AgentRuntimeStatus } from "./app-types";
 import { toMessage } from "./app-utils";
+import { addAppLog } from "./app-log";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
+import { Field } from "./components/ui/field";
+import { Button } from "./components/ui/button";
+import { IconButton } from "./components/ui/icon-button";
+import { SettingsSectionHeader } from "./components/ui/settings-section-header";
 
 export type RuntimeUpdateMode = "auto" | "manual";
 
@@ -72,9 +77,13 @@ export function useAgentRuntimeUpdates(options: { onUpdated: () => void }) {
         .then((status) => (status.updateAvailable
           ? invoke<string>("agent_runtime_update").then(() => onUpdated.current())
           : undefined))
-        .catch(() => {
-          // Offline, or the release could not be verified. The runtime in use
-          // is untouched; the next check tries again.
+        .catch((reason) => {
+          addAppLog({
+            level: "warning",
+            source: "Agent runtime",
+            title: "Couldn’t update the agent runtime",
+            detail: toMessage(reason),
+          });
         })
         .finally(() => {
           running.current = false;
@@ -110,7 +119,11 @@ export function AgentRuntimeSettings(props: {
       setStatus(next);
       setError(null);
     })
-    .catch((reason) => setError(toMessage(reason))), []);
+    .catch((reason) => {
+      const detail = toMessage(reason);
+      setError(detail);
+      addAppLog({ level: "error", source: "Agent runtime", title: "Couldn’t check the agent runtime", detail });
+    }), []);
 
   const check = useCallback(async () => {
     setChecking(true);
@@ -129,10 +142,13 @@ export function AgentRuntimeSettings(props: {
     try {
       const version = await invoke<string>("agent_runtime_update");
       setNotice(`Agent runtime ${version} installed. It is used from the next message on.`);
+      addAppLog({ level: "success", source: "Agent runtime", title: `Agent runtime ${version} installed` });
       props.onUpdated();
       await check();
     } catch (reason) {
-      setError(toMessage(reason));
+      const detail = toMessage(reason);
+      setError(detail);
+      addAppLog({ level: "error", source: "Agent runtime", title: "Agent runtime update failed", detail });
     }
     setInstalling(false);
   };
@@ -143,10 +159,13 @@ export function AgentRuntimeSettings(props: {
     try {
       await invoke("agent_runtime_revert");
       setNotice("Back on the runtime that ships with Lattice.");
+      addAppLog({ level: "success", source: "Agent runtime", title: "Restored the bundled agent runtime" });
       props.onUpdated();
       await load();
     } catch (reason) {
-      setError(toMessage(reason));
+      const detail = toMessage(reason);
+      setError(detail);
+      addAppLog({ level: "error", source: "Agent runtime", title: "Couldn’t restore the bundled runtime", detail });
     }
   };
 
@@ -156,21 +175,19 @@ export function AgentRuntimeSettings(props: {
     // own padding, so the runtime heading and its controls sat to the right of
     // every other setting on the page.
     <div className="settings-subsection">
-      <div className="settings-section-title">
-        <div>
-          <h2>Agent runtime</h2>
-          <p>Oh My Pi runs the agent and decides which models are available.</p>
-        </div>
-        <button
-          type="button"
-          className="icon-button"
-          title="Check for a newer runtime"
-          disabled={checking || installing}
-          onClick={() => void check()}
-        >
-          {checking ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
-        </button>
-      </div>
+      <SettingsSectionHeader
+        title="Agent runtime"
+        description="Oh My Pi runs the agent and decides which models are available."
+        actions={(
+          <IconButton
+            label="Check for a newer runtime"
+            disabled={checking || installing}
+            onClick={() => void check()}
+          >
+            {checking ? <LoaderCircle className="spin" /> : <RefreshCw />}
+          </IconButton>
+        )}
+      />
 
       <div className="account-list">
         <div className="account-card">
@@ -204,8 +221,7 @@ export function AgentRuntimeSettings(props: {
       {/* A plain label, like every other setting: caption above, control
           below, both on the page's left edge. The right-aligned variant this
           used stood out as the one row that did not line up. */}
-      <label>
-        Runtime updates
+      <Field label="Runtime updates">
         <Select
           value={mode}
           onValueChange={(value) => {
@@ -219,17 +235,16 @@ export function AgentRuntimeSettings(props: {
             <SelectItem value="manual">Only when I ask</SelectItem>
           </SelectContent>
         </Select>
-      </label>
+      </Field>
 
       {status && status.current !== status.bundled && (
-        <button
-          type="button"
-          className="secondary-button"
+        <Button
+          size="compact"
           disabled={installing}
           onClick={() => void revert()}
         >
           <RotateCcw size={12} /> Go back to the bundled {status.bundled}
-        </button>
+        </Button>
       )}
 
       {installing && (

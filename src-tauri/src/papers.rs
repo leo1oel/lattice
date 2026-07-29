@@ -639,7 +639,7 @@ fn commit_bibliography(
 ) -> Result<(), String> {
     match history {
         HistoryMode::Record => {
-            project::apply_transaction(
+            project::apply_citation_transaction(
                 root,
                 label,
                 vec![(relative.to_string(), contents.to_string())],

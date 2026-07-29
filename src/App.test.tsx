@@ -3,11 +3,12 @@ import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { EditorView } from "@codemirror/view";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
+import { usePanelLayout } from "./use-panel-layout";
 
 const windowApi = vi.hoisted(() => ({
   startDragging: vi.fn(),
@@ -131,6 +132,39 @@ async function switchSidebarMode(mode: "Project" | "Papers" | "Agent") {
   fireEvent.click(await screen.findByRole("tab", { name: mode }));
 }
 
+function projectTreeRoot(): ShadowRoot | null {
+  return document.querySelector("file-tree-container.lattice-file-tree")?.shadowRoot ?? null;
+}
+
+function queryProjectTreeItem(path: string): HTMLElement | null {
+  return Array.from(projectTreeRoot()?.querySelectorAll<HTMLElement>("[data-item-path]") ?? [])
+    .find((item) => item.dataset.itemPath === path) ?? null;
+}
+
+async function findProjectTreeItem(path: string, timeout = 1000): Promise<HTMLElement> {
+  return waitFor(() => {
+    const item = queryProjectTreeItem(path);
+    expect(item).not.toBeNull();
+    return item!;
+  }, { timeout });
+}
+
+async function findProjectTreeSearchInput(): Promise<HTMLInputElement> {
+  return waitFor(() => {
+    const input = projectTreeRoot()?.querySelector<HTMLInputElement>("[data-file-tree-search-input]");
+    expect(input).not.toBeNull();
+    return input!;
+  });
+}
+
+async function findProjectTreeRenameInput(): Promise<HTMLInputElement> {
+  return waitFor(() => {
+    const input = projectTreeRoot()?.querySelector<HTMLInputElement>("[data-item-rename-input]");
+    expect(input).not.toBeNull();
+    return input!;
+  });
+}
+
 async function openProjectSettings() {
   fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
   fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
@@ -159,6 +193,38 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe("panel layout", () => {
+  it("applies a newly measured sidebar minimum during an active drag", () => {
+    const { result, rerender } = renderHook(
+      ({ minimum }) => usePanelLayout(minimum),
+      { initialProps: { minimum: 220 } },
+    );
+    const target = document.createElement("div");
+    vi.spyOn(target, "setPointerCapture").mockImplementation(() => undefined);
+    vi.spyOn(target, "hasPointerCapture").mockReturnValue(false);
+    vi.spyOn(target, "releasePointerCapture").mockImplementation(() => undefined);
+
+    act(() => {
+      result.current.beginSidebarResize({
+        preventDefault: vi.fn(),
+        clientX: 320,
+        pointerId: 1,
+        currentTarget: target,
+      } as never);
+    });
+    rerender({ minimum: 300 });
+    const move = new Event("pointermove") as PointerEvent;
+    Object.defineProperties(move, {
+      clientX: { value: 100 },
+      pointerId: { value: 1 },
+    });
+    act(() => window.dispatchEvent(move));
+
+    expect(result.current.sidebarWidth).toBe(300);
+    act(() => window.dispatchEvent(new Event("pointerup")));
+  });
 });
 
 describe("welcome screen", () => {
@@ -255,7 +321,12 @@ describe("welcome screen", () => {
     expect(await screen.findByRole("button", { name: "Switch project" })).toHaveTextContent("New paper");
   });
 
-  it("opens appearance settings and persists font choices", async () => {
+  it("uses the bundled UI font while preserving editor appearance controls", async () => {
+    localStorage.setItem("lattice.appearance.v4", JSON.stringify({
+      uiFont: "-apple-system, BlinkMacSystemFont, sans-serif",
+      editorFont: "Menlo, ui-monospace, monospace",
+      editorFontSize: 14,
+    }));
     render(<App />);
     expect(screen.queryByTitle("Toggle theme")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
@@ -264,9 +335,11 @@ describe("welcome screen", () => {
     await chooseOption("Color theme", "Dark");
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
     expect(localStorage.getItem("lattice.theme.v1")).toBe("dark");
-    await chooseOption("Interface font", "System");
+    expect(screen.queryByLabelText("Interface font")).not.toBeInTheDocument();
     await waitFor(() => {
-      expect(document.documentElement.style.getPropertyValue("--ui-font")).toBe("-apple-system, BlinkMacSystemFont, sans-serif");
+      expect(document.documentElement.style.getPropertyValue("--ui-font")).toBe(
+        '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif',
+      );
     });
     expect(screen.getByRole("slider", { name: /interface size/i })).toHaveValue("110");
     expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("14");
@@ -493,15 +566,29 @@ describe("project workspace", () => {
     expect(document.querySelector(".titlebar-sidebar")).toHaveStyle({ width: "401px" });
 
     fireEvent.pointerDown(divider, { clientX: 400 });
+    fireEvent.pointerMove(window, { clientX: 440 });
+    fireEvent.pointerCancel(window);
+    fireEvent.pointerMove(window, { clientX: 500 });
+    expect(divider).toHaveAttribute("aria-valuenow", "424");
+    expect(document.body).not.toHaveClass("resizing-panels");
+
+    fireEvent.pointerDown(divider, { clientX: 440 });
+    fireEvent.pointerMove(window, { clientX: 400 });
+    fireEvent.blur(window);
+    fireEvent.pointerMove(window, { clientX: 500 });
+    expect(divider).toHaveAttribute("aria-valuenow", "384");
+    expect(document.body).not.toHaveClass("resizing-panels");
+
+    fireEvent.pointerDown(divider, { clientX: 400 });
     fireEvent.pointerMove(window, { clientX: 700 });
     fireEvent.pointerUp(window);
-    expect(divider).toHaveAttribute("aria-valuenow", "560");
-    expect(document.querySelector(".titlebar-sidebar")).toHaveStyle({ width: "561px" });
+    expect(divider).toHaveAttribute("aria-valuenow", "424");
+    expect(document.querySelector(".titlebar-sidebar")).toHaveStyle({ width: "425px" });
 
     await switchSidebarMode("Papers");
-    expect(divider).toHaveAttribute("aria-valuenow", "560");
+    expect(divider).toHaveAttribute("aria-valuenow", "424");
     await switchSidebarMode("Agent");
-    expect(divider).toHaveAttribute("aria-valuenow", "560");
+    expect(divider).toHaveAttribute("aria-valuenow", "424");
 
     const splitDivider = screen.getByRole("separator", { name: "Resize source and PDF preview" });
     expect(splitDivider).toHaveAttribute("aria-valuenow", "46");
@@ -535,8 +622,85 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    expect(screen.queryByRole("button", { name: "notes.md" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "notes.md" }, { timeout: 3500 })).toBeInTheDocument();
+    expect(queryProjectTreeItem("notes.md")).toBeNull();
+    expect(await findProjectTreeItem("notes.md", 3500)).toBeInTheDocument();
+  });
+
+  it("uses Pierre's default density, flattened folders, and Git decorations", async () => {
+    localStorage.setItem(
+      "lattice:expanded-directories:/tmp/lattice-paper",
+      JSON.stringify(["chapters", "chapters/method"]),
+    );
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "chapters/method/main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        {
+          name: "chapters",
+          path: "chapters",
+          kind: "directory",
+          children: [{
+            name: "method",
+            path: "chapters/method",
+            kind: "directory",
+            children: [{
+              name: "main.tex",
+              path: "chapters/method/main.tex",
+              kind: "tex",
+              children: [],
+            }],
+          }],
+        },
+        {
+          name: "component.tsx",
+          path: "component.tsx",
+          kind: "text",
+          children: [],
+        },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "git_status") {
+        return {
+          available: true,
+          repository: true,
+          branch: "main",
+          files: [{
+            path: "chapters/method/main.tex",
+            status: "modified",
+            staged: false,
+            unstaged: true,
+          }],
+        };
+      }
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const file = await findProjectTreeItem("chapters/method/main.tex");
+    await waitFor(() => expect(file).toHaveAttribute("data-item-git-status", "modified"));
+
+    const host = document.querySelector<HTMLElement>("file-tree-container.lattice-file-tree");
+    expect(host?.style.getPropertyValue("--trees-item-height")).toBe("30px");
+    expect(host).toHaveAttribute("data-file-tree-virtualized", "true");
+    expect((await findProjectTreeItem("component.tsx")).querySelector("[data-icon-token='react']"))
+      .not.toBeNull();
+    const folderRows = projectTreeRoot()?.querySelectorAll("[data-item-type='folder']");
+    expect(new Set(Array.from(folderRows ?? [], (row) => (row as HTMLElement).dataset.itemPath)))
+      .toEqual(new Set(["chapters/method/"]));
+    for (const trigger of projectTreeRoot()?.querySelectorAll("[data-type='context-menu-trigger']") ?? []) {
+      expect(trigger).toHaveAttribute("data-visible", "false");
+    }
   });
 
   it("saves and builds changed source when the pointer leaves the editor", async () => {
@@ -702,7 +866,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Subscriptions" }));
     expect(await screen.findAllByText("Connected")).toHaveLength(2);
 
-    fireEvent.click(screen.getByTitle("Close settings"));
+    fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
     await chooseAgentAccess("API");
     await withOpenAgentModels(() => {
       expect(screen.getByRole("option", { name: "GPT-5.5" })).toBeInTheDocument();
@@ -845,12 +1009,12 @@ describe("project workspace", () => {
     expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
     expect(paper.closest(".paper-row")).toHaveClass("active");
     await switchSidebarMode("Project");
-    fireEvent.click(screen.getByRole("button", { name: "main.tex" }));
+    fireEvent.click(await findProjectTreeItem("main.tex"));
     await switchSidebarMode("Papers");
     await waitFor(() => expect(screen.getByTitle("Attention Is All You Need").closest(".paper-row")).not.toHaveClass("active"));
   });
 
-  it("searches project file contents without showing paper matches", async () => {
+  it("uses Pierre path search while keeping indexed full-text search available", async () => {
     const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -878,17 +1042,19 @@ describe("project workspace", () => {
 
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Search files" }));
-    fireEvent.change(await screen.findByLabelText("Search project files"), { target: { value: "alignment" } });
+    const input = await findProjectTreeSearchInput();
+    fireEvent.input(input, { target: { value: "method" } });
+    expect(await findProjectTreeItem("sections/method.tex")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("search_project", expect.anything());
 
+    fireEvent.keyDown(window, { key: "f", metaKey: true, shiftKey: true });
+    fireEvent.change(await screen.findByLabelText("Query"), { target: { value: "alignment" } });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_project", { query: "alignment" }));
-    expect(await screen.findByText(/L3 · A latent alignment objective\./)).toBeInTheDocument();
-    expect(screen.queryByText("The model relies entirely on self-attention.")).not.toBeInTheDocument();
-    fireEvent.pointerDown(screen.getByLabelText("Project sidebar empty space"), { button: 0 });
-    expect(screen.queryByLabelText("Search project files")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Search files" }));
-    fireEvent.change(await screen.findByLabelText("Search project files"), { target: { value: "alignment" } });
-    expect(await screen.findByText(/L3 · A latent alignment objective\./)).toBeInTheDocument();
-    fireEvent.click(screen.getByText(/L3 · A latent alignment objective\./));
+    expect(await screen.findByText("A latent alignment objective.", {
+      selector: ".project-replace-hit-preview",
+    })).toBeInTheDocument();
+    expect(screen.getByText("The model relies entirely on self-attention.")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("sections/method.tex:3"));
     await waitFor(() => {
       const editorElement = document.querySelector<HTMLElement>(".cm-editor");
       const view = editorElement ? EditorView.findFromDOM(editorElement) : null;
@@ -920,15 +1086,438 @@ describe("project workspace", () => {
     });
     render(<App />);
 
-    fireEvent.contextMenu(await screen.findByRole("button", { name: "main.tex" }));
+    fireEvent.contextMenu(await findProjectTreeItem("main.tex"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
-    fireEvent.change(screen.getByLabelText("New name"), { target: { value: "paper" } });
-    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    const renameInput = await findProjectTreeRenameInput();
+    fireEvent.input(renameInput, { target: { value: "paper" } });
+    fireEvent.keyDown(renameInput, { key: "Enter" });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("rename_project_entry", { path: "main.tex", newName: "paper" }));
+    expect(await screen.findByRole("tab", { name: /paper\.tex/ })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument();
+    expect(await findProjectTreeItem("paper.tex")).toBeInTheDocument();
 
     await switchSidebarMode("Papers");
     fireEvent.contextMenu(screen.getByTitle("Attention Is All You Need"));
     expect(screen.queryByRole("menuitem", { name: "Rename" })).not.toBeInTheDocument();
+  });
+
+  it("tracks each pointer row as the drop target and persists the move", async () => {
+    localStorage.setItem(
+      "lattice:expanded-directories:/tmp/lattice-paper",
+      JSON.stringify(["sections"]),
+    );
+    const beforeMove = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "draft.tex", path: "draft.tex", kind: "tex", children: [] },
+        { name: "figures", path: "figures", kind: "directory", children: [] },
+        { name: "notes", path: "notes", kind: "directory", children: [] },
+        { name: "sections", path: "sections", kind: "directory", children: [] },
+      ],
+    };
+    const afterMove = {
+      ...beforeMove,
+      manifest: {
+        ...beforeMove.manifest,
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "figures", path: "figures", kind: "directory", children: [] },
+        { name: "notes", path: "notes", kind: "directory", children: [] },
+        {
+          name: "sections",
+          path: "sections",
+          kind: "directory",
+          children: [{ name: "draft.tex", path: "sections/draft.tex", kind: "tex", children: [] }],
+        },
+      ],
+    };
+    let moved = false;
+    let resolveMove!: (path: string) => void;
+    const moveFinished = new Promise<string>((resolve) => {
+      resolveMove = resolve;
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return beforeMove;
+      if (command === "refresh_project") return moved ? afterMove : beforeMove;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "move_project_entry") {
+        return moveFinished;
+      }
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const source = await findProjectTreeItem("draft.tex");
+    const figures = await findProjectTreeItem("figures/");
+    const notes = await findProjectTreeItem("notes/");
+    const target = await findProjectTreeItem("sections/");
+    const backgroundCallsBeforeMove = vi.mocked(invoke).mock.calls.filter(
+      ([command]) => command === "refresh_project"
+        || command === "list_papers"
+        || command === "list_citation_keys"
+        || command === "list_citations"
+        || command === "list_references"
+        || command === "list_unused_symbols"
+        || command === "list_history",
+    ).length;
+    fireEvent.pointerDown(source, {
+      button: 0,
+      clientX: 1,
+      clientY: 1,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(figures, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    await waitFor(() => {
+      expect(projectTreeRoot()?.host).toHaveAttribute(
+        "data-lattice-pointer-drag-active",
+        "true",
+      );
+      const preview = projectTreeRoot()?.querySelector<HTMLElement>(
+        '[data-lattice-pointer-drag-preview="true"]',
+      );
+      expect(preview).not.toBeNull();
+      expect(preview).toHaveAttribute("aria-hidden", "true");
+      expect(preview?.style.transform).toContain("translate3d");
+      expect(preview?.style.opacity).toBe("0.76");
+      expect(queryProjectTreeItem("figures/")).toHaveAttribute(
+        "data-lattice-pointer-drop-target",
+        "true",
+      );
+    });
+    fireEvent.pointerMove(notes, {
+      clientX: 20,
+      clientY: 35,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    await waitFor(() => {
+      expect(queryProjectTreeItem("notes/")).toHaveAttribute(
+        "data-lattice-pointer-drop-target",
+        "true",
+      );
+    });
+    fireEvent.pointerMove(target, {
+      clientX: 20,
+      clientY: 50,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    await waitFor(() => {
+      expect(queryProjectTreeItem("sections/")).toHaveAttribute(
+        "data-lattice-pointer-drop-target",
+        "true",
+      );
+    });
+    expect(queryProjectTreeItem("figures/")).not.toHaveAttribute(
+      "data-lattice-pointer-drop-target",
+    );
+    expect(queryProjectTreeItem("notes/")).not.toHaveAttribute(
+      "data-lattice-pointer-drop-target",
+    );
+    fireEvent.pointerUp(target, {
+      clientX: 20,
+      clientY: 50,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("move_project_entry", {
+      path: "draft.tex",
+      targetDirectory: "sections",
+    }));
+    // Pierre's local model must move immediately, before filesystem
+    // persistence finishes.
+    expect(await findProjectTreeItem("sections/draft.tex")).toBeInTheDocument();
+    moved = true;
+    resolveMove("sections/draft.tex");
+    await waitFor(() => {
+      expect(projectTreeRoot()?.host).not.toHaveAttribute(
+        "data-lattice-pointer-drag-active",
+      );
+      expect(projectTreeRoot()?.querySelector(
+        '[data-lattice-pointer-drag-preview="true"]',
+      )).toBeNull();
+    });
+    expect(vi.mocked(invoke).mock.calls.filter(
+      ([command]) => command === "refresh_project"
+        || command === "list_papers"
+        || command === "list_citation_keys"
+        || command === "list_citations"
+        || command === "list_references"
+        || command === "list_unused_symbols"
+        || command === "list_history",
+    )).toHaveLength(backgroundCallsBeforeMove);
+  });
+
+  it("treats a same-directory drop as a no-op", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "notes", path: "notes", kind: "directory", children: [] },
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const source = await findProjectTreeItem("main.tex");
+    const target = await findProjectTreeItem("references.bib");
+    fireEvent.pointerDown(source, {
+      button: 0,
+      clientX: 1,
+      clientY: 1,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(target, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    expect(queryProjectTreeItem("references.bib")).not.toHaveAttribute(
+      "data-lattice-pointer-drop-target",
+    );
+    await act(async () => {
+      fireEvent.pointerUp(queryProjectTreeItem("references.bib")!, {
+        clientX: 20,
+        clientY: 20,
+        pointerId: 1,
+        pointerType: "mouse",
+      });
+    });
+    expect(invoke).not.toHaveBeenCalledWith("move_project_entry", expect.anything());
+  });
+
+  it("rolls an optimistic tree move back when persistence fails", async () => {
+    localStorage.setItem(
+      "lattice:expanded-directories:/tmp/lattice-paper",
+      JSON.stringify(["sections"]),
+    );
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "draft.tex", path: "draft.tex", kind: "tex", children: [] },
+        { name: "sections", path: "sections", kind: "directory", children: [] },
+      ],
+    };
+    let rejectMove!: (reason: Error) => void;
+    const moveFinished = new Promise<string>((_resolve, reject) => {
+      rejectMove = reject;
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "move_project_entry") return moveFinished;
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const source = await findProjectTreeItem("draft.tex");
+    const target = await findProjectTreeItem("sections/");
+    fireEvent.pointerDown(source, {
+      button: 0,
+      clientX: 1,
+      clientY: 1,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(target, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerUp(target, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+
+    expect(await findProjectTreeItem("sections/draft.tex")).toBeInTheDocument();
+    rejectMove(new Error("Move failed"));
+    expect(await findProjectTreeItem("draft.tex")).toBeInTheDocument();
+    await waitFor(() => expect(queryProjectTreeItem("sections/draft.tex")).toBeNull());
+  });
+
+  it("moves a nested file to the root when it is dropped on a root file", async () => {
+    localStorage.setItem(
+      "lattice:expanded-directories:/tmp/lattice-paper",
+      JSON.stringify(["sections"]),
+    );
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        {
+          name: "sections",
+          path: "sections",
+          kind: "directory",
+          children: [{
+            name: "draft.tex",
+            path: "sections/draft.tex",
+            kind: "tex",
+            children: [],
+          }],
+        },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "move_project_entry") return "draft.tex";
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const source = await findProjectTreeItem("sections/draft.tex");
+    const rootFile = await findProjectTreeItem("main.tex");
+    fireEvent.pointerDown(source, {
+      button: 0,
+      clientX: 1,
+      clientY: 1,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(rootFile, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerUp(queryProjectTreeItem("main.tex")!, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("move_project_entry", {
+      path: "sections/draft.tex",
+      targetDirectory: "",
+    }));
+  });
+
+  it("drops onto the exact segment of a flattened directory", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "draft.tex", path: "draft.tex", kind: "tex", children: [] },
+        {
+          name: "sections",
+          path: "sections",
+          kind: "directory",
+          children: [{
+            name: "drafts",
+            path: "sections/drafts",
+            kind: "directory",
+            children: [],
+          }],
+        },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "move_project_entry") return "sections/draft.tex";
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const source = await findProjectTreeItem("draft.tex");
+    const flattenedSegment = await waitFor(() => {
+      const element = projectTreeRoot()?.querySelector<HTMLElement>(
+        '[data-item-flattened-subitem="sections/"]',
+      );
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    fireEvent.pointerDown(source, {
+      button: 0,
+      clientX: 1,
+      clientY: 1,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(flattenedSegment, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerUp(flattenedSegment, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("move_project_entry", {
+      path: "draft.tex",
+      targetDirectory: "sections",
+    }));
   });
 
   it("reveals project files and imported papers in Finder from the context menu", async () => {
@@ -953,7 +1542,7 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.contextMenu(await screen.findByRole("button", { name: "main.tex" }));
+    fireEvent.contextMenu(await findProjectTreeItem("main.tex"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Show in Finder" }));
     await waitFor(() => expect(revealItemInDir).toHaveBeenCalledWith("/tmp/lattice-paper/main.tex"));
 
@@ -986,7 +1575,8 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    fireEvent.click(await screen.findByTitle("Import images into figures"));
+    fireEvent.contextMenu(await findProjectTreeItem("figures/"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Import images here" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_assets", {
       paths: ["/tmp/result.png"],
       targetDirectory: "figures",
@@ -1008,43 +1598,84 @@ describe("project workspace", () => {
         name: "figures",
         path: "figures",
         kind: "directory",
-        children: [{ name: "native-umm.svg", path: "figures/native-umm.svg", kind: "figure", children: [] }],
+        children: [
+          { name: "native-umm.svg", path: "figures/native-umm.svg", kind: "figure", children: [] },
+          { name: "result.pdf", path: "figures/result.pdf", kind: "figure", children: [] },
+        ],
       }, { name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}\n\\begin{document}\n\\end{document}";
-      if (command === "read_project_asset") return {
-        path: "figures/native-umm.svg",
-        mimeType: "image/svg+xml",
-        base64: "PHN2Zy8+",
-      };
+      if (command === "read_project_asset") {
+        const path = (args as { path: string }).path;
+        return path.endsWith(".pdf")
+          ? { path, mimeType: "application/pdf", base64: "JVBERi0xLjQ=" }
+          : { path, mimeType: "image/svg+xml", base64: "PHN2Zy8+" };
+      }
       if (command === "prepare_latex_figure") return "figures/native-umm-converted.pdf";
       if (command === "list_papers" || command === "list_history") return [];
       if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
+    vi.mocked(getDocument).mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getPage: vi.fn(async () => ({
+          getViewport: () => ({
+            width: 600,
+            height: 800,
+            convertToViewportPoint: (x: number, y: number) => [x, y],
+          }),
+          render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }),
+          streamTextContent: () => new ReadableStream(),
+          getTextContent: async () => ({ items: [] }),
+          getAnnotations: async () => [],
+        })),
+      }),
+      destroy: vi.fn(),
+    } as never);
 
     render(<App />);
-    expect(screen.queryByRole("button", { name: "native-umm.svg" })).not.toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("button", { name: "figures" }));
-    expect(await screen.findByRole("button", { name: "native-umm.svg" })).toBeInTheDocument();
+    expect(queryProjectTreeItem("figures/native-umm.svg")).toBeNull();
+    fireEvent.click(await findProjectTreeItem("figures/"));
+    expect(await findProjectTreeItem("figures/native-umm.svg")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
     fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
-    fireEvent.click(await screen.findByRole("button", { name: "native-umm.svg" }));
+    const svgRow = await findProjectTreeItem("figures/native-umm.svg");
+    expect(fireEvent.pointerDown(svgRow, {
+      button: 0,
+      pointerId: 1,
+      clientX: 10,
+      clientY: 10,
+    })).toBe(true);
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.click(svgRow);
     expect(await screen.findByAltText("Preview of figures/native-umm.svg")).toHaveAttribute("src", "data:image/svg+xml;base64,PHN2Zy8+");
     const assetTab = screen.getByRole("tab", { name: /native-umm\.svg/ });
     expect(assetTab).toHaveAttribute("aria-selected", "true");
     expect(screen.getAllByText("figures/native-umm.svg").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole("button", { name: "native-umm.svg" }).closest(".tree-row")).toHaveClass("active");
-    expect(screen.getByRole("button", { name: "main.tex" }).closest(".tree-row")).not.toHaveClass("active");
+    expect(await findProjectTreeItem("figures/native-umm.svg")).toHaveAttribute("data-item-selected", "true");
+    expect(await findProjectTreeItem("main.tex")).not.toHaveAttribute("data-item-selected", "true");
 
-    fireEvent.click(screen.getByRole("button", { name: "main.tex" }));
+    fireEvent.click(await findProjectTreeItem("main.tex"));
     await waitFor(() => expect(assetTab).toHaveAttribute("aria-selected", "false"));
     fireEvent.click(assetTab);
     expect(await screen.findByAltText("Preview of figures/native-umm.svg")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "source" }));
+    const pdfRow = await findProjectTreeItem("figures/result.pdf");
+    expect(fireEvent.pointerDown(pdfRow, {
+      button: 0,
+      pointerId: 2,
+      clientX: 10,
+      clientY: 10,
+    })).toBe(true);
+    fireEvent.pointerUp(window, { pointerId: 2, clientX: 10, clientY: 10 });
+    fireEvent.click(pdfRow);
+    expect(await screen.findByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByLabelText("PDF page 1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "source" }));
     const editorElement = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");
       expect(element).not.toBeNull();
@@ -1052,7 +1683,7 @@ describe("project workspace", () => {
     });
     const content = document.querySelector<HTMLElement>(".cm-content")!;
     Object.defineProperty(document, "elementFromPoint", { configurable: true, value: vi.fn(() => content) });
-    fireEvent.pointerDown(screen.getByRole("button", { name: "native-umm.svg" }), { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerDown(await findProjectTreeItem("figures/native-umm.svg"), { button: 0, clientX: 10, clientY: 10 });
     fireEvent.pointerMove(window, { clientX: 100, clientY: 100 });
     expect(document.querySelector(".figure-drag-ghost")).toHaveTextContent("native-umm.svg");
     expect(document.querySelector(".figure-drop-line")).toHaveTextContent(/Insert above line \d+/);
@@ -1147,12 +1778,29 @@ describe("project workspace", () => {
     expect(pdf.getPage).toHaveBeenCalledWith(2);
     expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Fit page to width" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Fit whole page" })).toBeInTheDocument();
+    const fitWidth = screen.getByRole("button", { name: "Fit page to width" });
+    const fitHeight = screen.getByRole("button", { name: "Fit page to height" });
+    fireEvent.click(fitWidth);
+    expect(fitWidth).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(fitHeight);
+    expect(fitWidth).toHaveAttribute("aria-pressed", "false");
+    expect(fitHeight).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(fitHeight);
+    expect(fitHeight).toHaveAttribute("aria-pressed", "false");
+    const pageInput = screen.getByLabelText("PDF page number");
+    fireEvent.focus(pageInput);
+    fireEvent.change(pageInput, { target: { value: "2" } });
+    fireEvent.keyDown(pageInput, { key: "Enter" });
+    expect(pageInput).toHaveValue("2");
     fireEvent.change(screen.getByLabelText("Search PDF"), { target: { value: "attention" } });
-    expect(await screen.findByText("1/2")).toBeInTheDocument();
+    expect(await screen.findByText("1 / 2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next search result" }));
-    expect(await screen.findByText("2/2")).toBeInTheDocument();
+    expect(await screen.findByText("2 / 2")).toBeInTheDocument();
+    await waitFor(() => {
+      const exactHighlights = document.querySelectorAll("mark.pdf-text-match");
+      expect(exactHighlights.length).toBe(2);
+      expect(document.querySelectorAll("mark.pdf-text-match.selected").length).toBe(1);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Reveal cursor in PDF/i }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("synctex_view", {
       path: "main.tex",
@@ -1161,6 +1809,12 @@ describe("project workspace", () => {
     }));
     expect(await screen.findByLabelText("Source location in PDF")).toBeInTheDocument();
     const zoomInput = screen.getByLabelText("PDF zoom percentage") as HTMLInputElement;
+    fireEvent.click(fitWidth);
+    expect(fitWidth).toHaveAttribute("aria-pressed", "true");
+    const fitZoom = Number(zoomInput.value);
+    fireEvent.wheel(zoomInput.parentElement!, { deltaY: -1 });
+    expect(zoomInput).toHaveValue(String(fitZoom + 10));
+    expect(fitWidth).toHaveAttribute("aria-pressed", "false");
     const zoomBefore = Number(zoomInput.value);
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
     expect(zoomInput).toHaveValue(String(zoomBefore + 10));
@@ -1302,7 +1956,7 @@ describe("project workspace", () => {
     if (!view) throw new Error("CodeMirror view was not available");
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nDraft change." } });
     await waitFor(() => expect(document.querySelector(".active-document i")).not.toBeNull());
-    fireEvent.click(await screen.findByRole("button", { name: "intro.tex" }));
+    fireEvent.click(await findProjectTreeItem("intro.tex"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: "\\documentclass{article}\nDraft change.",
@@ -1313,6 +1967,68 @@ describe("project workspace", () => {
       const nextView = next ? EditorView.findFromDOM(next) : null;
       expect(nextView?.state.doc.toString()).toBe("\\section{Intro}");
     });
+  });
+
+  it("does not make file switching wait for post-save project scans", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
+      ],
+    };
+    const files: Record<string, string> = {
+      "main.tex": "\\documentclass{article}",
+      "intro.tex": "\\section{Intro}",
+    };
+    let blockHistory = false;
+    let resolveHistory!: (items: never[]) => void;
+    const delayedHistory = new Promise<never[]>((resolve) => {
+      resolveHistory = resolve;
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") {
+        const path = String((args as { path?: string } | undefined)?.path ?? "");
+        return files[path] ?? "";
+      }
+      if (command === "write_project_file") {
+        const path = String((args as { path?: string } | undefined)?.path ?? "");
+        const content = String((args as { content?: string } | undefined)?.content ?? "");
+        files[path] = content;
+        blockHistory = true;
+        return undefined;
+      }
+      if (command === "list_history") return blockHistory ? delayedHistory : [];
+      if (command === "list_papers") return [];
+      return mockSessionCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const editorElement = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const view = EditorView.findFromDOM(editorElement);
+    if (!view) throw new Error("CodeMirror view was not available");
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nDraft change." } });
+    await waitFor(() => expect(document.querySelector(".active-document i")).not.toBeNull());
+    fireEvent.click(await findProjectTreeItem("intro.tex"));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
+      path: "intro.tex",
+    }));
+    resolveHistory([]);
   });
 
   it("inserts a cite command from the Papers panel", async () => {
@@ -1516,11 +2232,7 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Project history" }));
     // HistoryDrawer is lazy-loaded, so wait for its chunk to resolve.
     fireEvent.click(await screen.findByRole("button", { name: /Edit main\.tex/i }));
-    const diff = await screen.findByLabelText("Diff for main.tex");
-    // The default view marks the change in place, so both wordings sit on the
-    // one line rather than on a removed row and an added row.
-    expect(diff.querySelector(".history-diff-seg.removed")).toHaveTextContent("old");
-    expect(diff.querySelector(".history-diff-seg.added")).toHaveTextContent("new");
+    await screen.findByLabelText("Diff for main.tex");
     fireEvent.click(await screen.findByTitle("Delete this history entry"));
 
     await waitFor(() => expect(screen.queryByText("Edit main.tex")).not.toBeInTheDocument());
@@ -1597,6 +2309,8 @@ describe("project workspace", () => {
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }));
     const palette = await screen.findByLabelText("Insert LaTeX snippets");
+    expect(palette).toHaveClass("resizable-drawer");
+    expect(within(palette).getByRole("separator", { name: "Resize right panel" })).toBeInTheDocument();
     expect(palette).toHaveTextContent("Pick a symbol or snippet");
     expect(within(palette).getByRole("button", { name: /Alpha/i })).toBeInTheDocument();
     fireEvent.click(within(palette).getByRole("tab", { name: "Greek" }));
@@ -1622,34 +2336,59 @@ describe("project workspace", () => {
       if (command === "read_project_file") return "\\section{Notes}";
       if (command === "list_papers") return [paper];
       if (command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
-      if (command === "create_project_entry") return "sections/method.tex";
+      if (command === "create_project_entry") {
+        const entry = args as { path: string; kind: "file" | "folder" };
+        return entry.kind === "file" && !entry.path.includes(".")
+          ? `${entry.path}.tex`
+          : entry.path;
+      }
       if (command === "delete_project_entry") return undefined;
       if (command === "remove_reference") return { removed: true, blockers: [] };
       return mockSessionCommand(command, args as Record<string, unknown> | undefined);
     });
 
     render(<App />);
-    fireEvent.contextMenu(await screen.findByLabelText("Project sidebar empty space"));
+    const projectTreeSurface = await screen.findByLabelText("Project files");
+    fireEvent.contextMenu(projectTreeSurface);
     fireEvent.click(await screen.findByRole("menuitem", { name: "New file" }));
-    expect(screen.queryByTitle("Cancel file creation")).not.toBeInTheDocument();
-    fireEvent.change(await screen.findByLabelText("Project-relative path"), { target: { value: "sections/method" } });
-    fireEvent.click(screen.getByTitle("Create"));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "sections/method", kind: "file" }));
+    const fileNameInput = await findProjectTreeRenameInput();
+    expect(fileNameInput).toHaveValue("untitled");
+    fireEvent.input(fileNameInput, { target: { value: "method" } });
+    fireEvent.keyDown(fileNameInput, { key: "Enter" });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "method", kind: "file" }));
+    expect(await screen.findByRole("tab", { name: /method\.tex/ })).toBeInTheDocument();
 
-    fireEvent.contextMenu(screen.getByLabelText("Project sidebar empty space"));
+    fireEvent.contextMenu(projectTreeSurface);
     fireEvent.click(await screen.findByRole("menuitem", { name: "New folder" }));
-    expect(await screen.findByLabelText("Entry type")).toHaveTextContent("Folder");
-    fireEvent.change(screen.getByLabelText("Project-relative path"), { target: { value: "draft" } });
-    fireEvent.keyDown(screen.getByLabelText("Project-relative path"), { key: "Escape" });
-    expect(screen.queryByLabelText("Project-relative path")).not.toBeInTheDocument();
+    const folderNameInput = await findProjectTreeRenameInput();
+    expect(folderNameInput).toHaveValue("untitled");
+    fireEvent.input(folderNameInput, { target: { value: "draft" } });
+    fireEvent.keyDown(folderNameInput, { key: "Escape" });
+    await waitFor(() => expect(projectTreeRoot()?.querySelector("[data-item-rename-input]")).toBeNull());
+    expect(invoke).not.toHaveBeenCalledWith("create_project_entry", { path: "draft", kind: "folder" });
+    expect(queryProjectTreeItem("draft/")).toBeNull();
 
-    fireEvent.contextMenu(screen.getByLabelText("Project sidebar empty space"));
+    fireEvent.contextMenu(projectTreeSurface);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "New folder" }));
+    const unchangedFolderInput = await findProjectTreeRenameInput();
+    expect(unchangedFolderInput).toHaveValue("untitled");
+    fireEvent.blur(unchangedFolderInput);
+    await waitFor(() => expect(queryProjectTreeItem("untitled/")).toBeNull());
+    expect(invoke).not.toHaveBeenCalledWith("create_project_entry", { path: "untitled", kind: "folder" });
+
+    fireEvent.contextMenu(projectTreeSurface);
     fireEvent.click(await screen.findByRole("menuitem", { name: "New file" }));
-    fireEvent.change(await screen.findByLabelText("Project-relative path"), { target: { value: "draft" } });
-    fireEvent.pointerDown(document.querySelector(".project-section")!);
-    expect(screen.queryByLabelText("Project-relative path")).not.toBeInTheDocument();
+    const nextFileInput = await findProjectTreeRenameInput();
+    expect(nextFileInput).toHaveValue("untitled");
+    fireEvent.keyDown(nextFileInput, { key: "Enter" });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", {
+      path: "untitled",
+      kind: "file",
+    }));
+    expect(await findProjectTreeItem("untitled.tex")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTitle("Delete notes.tex"));
+    fireEvent.contextMenu(await findProjectTreeItem("notes.tex"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_project_entry", { path: "notes.tex" }));
     await switchSidebarMode("Papers");
     fireEvent.click(screen.getByTitle("Remove Attention Is All You Need"));

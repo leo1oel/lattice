@@ -22,6 +22,7 @@ import type {
   AgentProvider,
   ModelOption,
   ReasoningEffort,
+  ProjectSnapshot,
 } from "./app-types";
 
 /** What the second line of a paper row says: where it came from, and its state. */
@@ -268,18 +269,157 @@ export function projectItemPath(root: string, relativePath: string): string {
   return `${root.replace(/[\\/]+$/, "")}${separator}${relativePath.replace(/[\\/]/g, separator)}`;
 }
 
+function deepestElementFromPoint(x: number, y: number): Element | null {
+  let element = document.elementFromPoint(x, y);
+  while (element?.shadowRoot) {
+    const nested = element.shadowRoot.elementFromPoint(x, y);
+    if (!nested || nested === element) break;
+    element = nested;
+  }
+  return element;
+}
+
+function closestAcrossShadow(element: Element | null, selector: string): Element | null {
+  let current = element;
+  while (current) {
+    const match = current.closest(selector);
+    if (match) return match;
+    const root = current.getRootNode();
+    current = root instanceof ShadowRoot ? root.host : null;
+  }
+  return null;
+}
+
 export function dropDirectoryAt(position: { x: number; y: number }): string | null {
   const scale = window.devicePixelRatio || 1;
-  const element = document.elementFromPoint(position.x / scale, position.y / scale);
-  const directory = element?.closest<HTMLElement>("[data-drop-directory]")?.dataset.dropDirectory;
-  if (directory) return directory;
-  return element?.closest(".navigator") ? "figures" : null;
+  const element = deepestElementFromPoint(position.x / scale, position.y / scale);
+  const directory = closestAcrossShadow(
+    element,
+    "[data-drop-directory], [data-item-type='folder'][data-item-path]",
+  ) as HTMLElement | null;
+  const path = directory?.dataset.dropDirectory ?? directory?.dataset.itemPath;
+  if (path) return path.endsWith("/") ? path.slice(0, -1) : path;
+  return closestAcrossShadow(element, ".navigator") ? "figures" : null;
 }
 
 export function dropEditorAt(position: { x: number; y: number }): { x: number; y: number } | null {
   const scale = window.devicePixelRatio || 1;
   const point = { x: position.x / scale, y: position.y / scale };
   return document.elementFromPoint(point.x, point.y)?.closest(".source-editor") ? point : null;
+}
+
+export type ProjectPathChange = {
+  previousPath: string;
+  nextPath: string;
+};
+
+export function remapProjectPath(path: string, changes: readonly ProjectPathChange[]): string {
+  for (const change of changes) {
+    if (path === change.previousPath) return change.nextPath;
+    if (path.startsWith(`${change.previousPath}/`)) {
+      return `${change.nextPath}${path.slice(change.previousPath.length)}`;
+    }
+  }
+  return path;
+}
+
+function sortProjectFiles(nodes: FileNode[]): FileNode[] {
+  return [...nodes].sort((left, right) => {
+    const leftDirectory = left.kind === "directory";
+    const rightDirectory = right.kind === "directory";
+    return Number(rightDirectory) - Number(leftDirectory)
+      || left.name.toLocaleLowerCase().localeCompare(right.name.toLocaleLowerCase());
+  });
+}
+
+function removeProjectFile(
+  nodes: readonly FileNode[],
+  path: string,
+): { nodes: FileNode[]; removed: FileNode | null } {
+  let removed: FileNode | null = null;
+  const next = nodes.flatMap((node): FileNode[] => {
+    if (node.path === path) {
+      removed = node;
+      return [];
+    }
+    if (removed || node.children.length === 0) return [node];
+    const childResult = removeProjectFile(node.children, path);
+    if (!childResult.removed) return [node];
+    removed = childResult.removed;
+    return [{ ...node, children: childResult.nodes }];
+  });
+  return { nodes: next, removed };
+}
+
+function remapProjectFileNode(node: FileNode, change: ProjectPathChange): FileNode {
+  const path = node.path === change.previousPath
+    ? change.nextPath
+    : `${change.nextPath}${node.path.slice(change.previousPath.length)}`;
+  return {
+    ...node,
+    name: path.split("/").at(-1) ?? node.name,
+    path,
+    children: node.children.map((child) => remapProjectFileNode(child, change)),
+  };
+}
+
+function insertProjectFile(
+  nodes: readonly FileNode[],
+  parentPath: string,
+  entry: FileNode,
+): { nodes: FileNode[]; inserted: boolean } {
+  if (!parentPath) {
+    return { nodes: sortProjectFiles([...nodes, entry]), inserted: true };
+  }
+  let inserted = false;
+  const next = nodes.map((node) => {
+    if (node.path === parentPath && node.kind === "directory") {
+      inserted = true;
+      return { ...node, children: sortProjectFiles([...node.children, entry]) };
+    }
+    if (inserted || node.children.length === 0) return node;
+    const childResult = insertProjectFile(node.children, parentPath, entry);
+    if (!childResult.inserted) return node;
+    inserted = true;
+    return { ...node, children: childResult.nodes };
+  });
+  return { nodes: next, inserted };
+}
+
+function applyProjectFilePathChange(
+  nodes: readonly FileNode[],
+  change: ProjectPathChange,
+): FileNode[] {
+  if (change.previousPath === change.nextPath) return [...nodes];
+  const removal = removeProjectFile(nodes, change.previousPath);
+  if (!removal.removed) return [...nodes];
+  const entry = remapProjectFileNode(removal.removed, change);
+  const separator = change.nextPath.lastIndexOf("/");
+  const parentPath = separator < 0 ? "" : change.nextPath.slice(0, separator);
+  const insertion = insertProjectFile(removal.nodes, parentPath, entry);
+  return insertion.inserted ? insertion.nodes : [...nodes];
+}
+
+export function applyProjectPathChanges(
+  snapshot: ProjectSnapshot,
+  changes: readonly ProjectPathChange[],
+): ProjectSnapshot {
+  const files = changes.reduce<FileNode[]>(
+    (current, change) => applyProjectFilePathChange(current, change),
+    snapshot.files,
+  );
+  return {
+    ...snapshot,
+    manifest: {
+      ...snapshot.manifest,
+      rootDocuments: snapshot.manifest.rootDocuments.map((document) => ({
+        ...document,
+        path: remapProjectPath(document.path, changes),
+      })),
+      primaryBibliography: remapProjectPath(snapshot.manifest.primaryBibliography, changes),
+    },
+    files,
+  };
 }
 
 /**

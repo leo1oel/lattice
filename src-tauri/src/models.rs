@@ -330,10 +330,28 @@ pub struct FileChange {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionRecord {
+    #[serde(default = "default_history_schema_version")]
+    pub schema_version: u32,
     pub id: String,
     pub label: String,
     pub timestamp: String,
+    #[serde(default)]
+    pub actor: Option<String>,
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub checkpoint_ref: Option<String>,
+    #[serde(default)]
+    pub undo_of: Option<String>,
     pub changes: Vec<FileChange>,
+}
+
+fn default_history_schema_version() -> u32 {
+    1
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -343,6 +361,12 @@ pub struct HistoryItem {
     pub label: String,
     pub timestamp: String,
     pub files: Vec<String>,
+    pub actor: String,
+    pub kind: String,
+    pub source: String,
+    pub thread_id: Option<String>,
+    pub checkpoint_ref: Option<String>,
+    pub undo_of: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

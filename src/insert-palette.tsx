@@ -1,8 +1,12 @@
 import { useMemo, useState } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { Omega, Search, X } from "lucide-react";
+import { Omega, Search } from "lucide-react";
+import { EmptyState } from "./components/ui/empty-state";
+import { PanelHeader } from "./components/ui/panel-header";
 import { INSERT_GROUPS, INSERT_SNIPPETS, type InsertSnippet } from "./insert-snippets";
+import { SlidingTabs } from "./motion";
+import { ResizableDrawer } from "./resizable-drawer";
 
 function snippetPreview(snippet: InsertSnippet): { kind: "html" | "glyph" | "code"; value: string } {
   if (snippet.mathPreview) {
@@ -75,12 +79,18 @@ export function InsertPalette(props: {
 
   if (!props.open) return null;
   return (
-    <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside className="insert-palette" onMouseDown={(event) => event.stopPropagation()} aria-label="Insert LaTeX snippets">
-        <div className="drawer-header">
-          <div><Omega size={16} /><span>Insert</span></div>
-          <button type="button" onClick={props.onClose} title="Close insert palette"><X size={16} /></button>
-        </div>
+    <ResizableDrawer
+      className="insert-palette"
+      ariaLabel="Insert LaTeX snippets"
+      onClose={props.onClose}
+    >
+        <PanelHeader
+          className="drawer-header"
+          icon={<Omega size={16} />}
+          title="Insert"
+          closeLabel="Close insert palette"
+          onClose={props.onClose}
+        />
         <p className="drawer-copy">Pick a symbol or snippet. Each tile shows what it looks like, a short description, and the LaTeX that will be inserted.</p>
         <label className="insert-palette-search">
           <Search size={12} />
@@ -92,12 +102,18 @@ export function InsertPalette(props: {
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
-        <div className="insert-palette-tabs" role="tablist" aria-label="Insert categories">
-          <button type="button" role="tab" aria-selected={group === "All"} className={group === "All" ? "active" : ""} onClick={() => setGroup("All")}>All</button>
-          {INSERT_GROUPS.map((name) => (
-            <button key={name} type="button" role="tab" aria-selected={group === name} className={group === name ? "active" : ""} onClick={() => setGroup(name)}>{name}</button>
-          ))}
-        </div>
+        <SlidingTabs
+          value={group}
+          onChange={(next) => setGroup(next as (typeof INSERT_GROUPS)[number] | "All")}
+          ariaLabel="Insert categories"
+          variant="underline"
+          className="insert-palette-tabs"
+          tabClassName="insert-palette-tab"
+          items={[
+            { value: "All", label: "All" },
+            ...INSERT_GROUPS.map((name) => ({ value: name, label: name })),
+          ]}
+        />
         <div className="insert-palette-groups">
           {(group === "All" ? INSERT_GROUPS : [group]).map((name) => {
             const items = filtered.filter((snippet) => snippet.group === name);
@@ -121,12 +137,9 @@ export function InsertPalette(props: {
             );
           })}
           {!filtered.length && (
-            <p className="insert-palette-empty">
-              No matching snippets. Try fraction, implies, align*, or eqref.
-            </p>
+            <EmptyState description="No matching snippets. Try fraction, implies, align*, or eqref." />
           )}
         </div>
-      </aside>
-    </div>
+    </ResizableDrawer>
   );
 }

@@ -79,7 +79,7 @@ export function pdfRenderPixelRatio(devicePixelRatio = 1): number {
 
 /** Scale that fits a page into the scroll area (padding deducted). */
 export function fitPdfScale(
-  mode: "width" | "page",
+  mode: "width" | "height",
   page: PdfPageSize,
   area: { width: number; height: number },
   padding = { x: 48, y: 40 },
@@ -92,6 +92,6 @@ export function fitPdfScale(
   const availableHeight = Math.max(1, area.height - padding.y);
   const raw = mode === "width"
     ? availableWidth / page.width
-    : Math.min(availableWidth / page.width, availableHeight / page.height);
+    : availableHeight / page.height;
   return Math.min(limits.max, Math.max(limits.min, Number(raw.toFixed(2))));
 }

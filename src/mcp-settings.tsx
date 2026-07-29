@@ -1,5 +1,12 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { MotionButton, Switch } from "./motion";
+import { MotionButton } from "./motion";
+import { Button } from "./components/ui/button";
+import { buttonClassName } from "./components/ui/button-styles";
+import { EmptyState } from "./components/ui/empty-state";
+import { Field } from "./components/ui/field";
+import { SettingsSectionHeader } from "./components/ui/settings-section-header";
+import { Switch } from "./components/ui/switch";
+import { SwitchField } from "./components/ui/switch-field";
 import {
   Select,
   SelectContent,
@@ -97,27 +104,30 @@ export function McpSettingsSection(props: {
 }) {
   return (
     <div className="settings-section">
-      <h2>MCP</h2>
-      <p>
-        Attach Model Context Protocol servers to Oh My Pi. They become available on the next agent turn.
-        Application servers apply to every Lattice project; project servers live in <code>.omp/mcp.json</code>.
-      </p>
+      <SettingsSectionHeader
+        title="MCP"
+        description={(
+          <>
+            Attach Model Context Protocol servers to Oh My Pi. They become available on the next agent turn.
+            Application servers apply to every Lattice project; project servers live in <code>.omp/mcp.json</code>.
+          </>
+        )}
+      />
       <div className="skill-heading">
         <div>
           <strong>Servers</strong>
           <span>stdio, Streamable HTTP, or SSE. Secrets can use <code>{"${VAR}"}</code> placeholders.</span>
         </div>
-        <button
-          type="button"
+        <Button
+          size="compact"
           onClick={() => props.setDraft(emptyMcpDraft("application"))}
         >
           <Plus size={12} /> Add server
-        </button>
+        </Button>
       </div>
       {props.draft ? (
         <div className="skill-editor mcp-editor">
-          <label>
-            Name
+          <Field label="Name">
             <input
               type="text"
               aria-label="MCP server name"
@@ -125,9 +135,8 @@ export function McpSettingsSection(props: {
               value={props.draft.name}
               onChange={(event) => props.setDraft({ ...props.draft!, name: event.target.value })}
             />
-          </label>
-          <label>
-            Availability
+          </Field>
+          <Field label="Availability">
             <Select
               value={props.draft.scope}
               onValueChange={(value) =>
@@ -147,9 +156,8 @@ export function McpSettingsSection(props: {
                 </SelectItem>
               </SelectContent>
             </Select>
-          </label>
-          <label>
-            Transport
+          </Field>
+          <Field label="Transport">
             <Select
               value={props.draft.transport}
               onValueChange={(value) =>
@@ -168,11 +176,10 @@ export function McpSettingsSection(props: {
                 <SelectItem value="sse">SSE (legacy)</SelectItem>
               </SelectContent>
             </Select>
-          </label>
+          </Field>
           {props.draft.transport === "stdio" ? (
             <>
-              <label>
-                Command
+              <Field label="Command">
                 <input
                   type="text"
                   aria-label="MCP command"
@@ -180,27 +187,24 @@ export function McpSettingsSection(props: {
                   value={props.draft.command}
                   onChange={(event) => props.setDraft({ ...props.draft!, command: event.target.value })}
                 />
-              </label>
-              <label>
-                Arguments
+              </Field>
+              <Field label="Arguments">
                 <textarea
                   aria-label="MCP arguments"
                   placeholder={"-y\n@modelcontextprotocol/server-filesystem\n/absolute/path"}
                   value={props.draft.argsText}
                   onChange={(event) => props.setDraft({ ...props.draft!, argsText: event.target.value })}
                 />
-              </label>
-              <label>
-                Environment
+              </Field>
+              <Field label="Environment">
                 <textarea
                   aria-label="MCP environment"
                   placeholder={"API_KEY=API_KEY\nOTHER=value"}
                   value={props.draft.envText}
                   onChange={(event) => props.setDraft({ ...props.draft!, envText: event.target.value })}
                 />
-              </label>
-              <label>
-                Working directory
+              </Field>
+              <Field label="Working directory">
                 <input
                   type="text"
                   aria-label="MCP working directory"
@@ -208,12 +212,11 @@ export function McpSettingsSection(props: {
                   value={props.draft.cwd}
                   onChange={(event) => props.setDraft({ ...props.draft!, cwd: event.target.value })}
                 />
-              </label>
+              </Field>
             </>
           ) : (
             <>
-              <label>
-                URL
+              <Field label="URL">
                 <input
                   type="text"
                   aria-label="MCP URL"
@@ -221,9 +224,8 @@ export function McpSettingsSection(props: {
                   value={props.draft.url}
                   onChange={(event) => props.setDraft({ ...props.draft!, url: event.target.value })}
                 />
-              </label>
-              <label>
-                Headers
+              </Field>
+              <Field label="Headers">
                 <textarea
                   aria-label="MCP headers"
                   placeholder={"Authorization=Bearer ${TOKEN}"}
@@ -232,22 +234,22 @@ export function McpSettingsSection(props: {
                     props.setDraft({ ...props.draft!, headersText: event.target.value })
                   }
                 />
-              </label>
+              </Field>
             </>
           )}
-          <label className="settings-checkbox">
-            <input
-              type="checkbox"
-              checked={props.draft.enabled}
-              onChange={(event) => props.setDraft({ ...props.draft!, enabled: event.target.checked })}
-            />
-            <span>Enabled</span>
-          </label>
+          <SwitchField
+            label="Enabled"
+            checked={props.draft.enabled}
+            onChange={(enabled) => props.setDraft({ ...props.draft!, enabled })}
+          />
           <div className="skill-editor-actions">
-            <button type="button" onClick={() => props.setDraft(null)}>
+            <Button size="compact" variant="ghost" onClick={() => props.setDraft(null)}>
               Cancel
-            </button>
-            <MotionButton className="primary-button" onClick={() => props.onSave(props.draft!)}>
+            </Button>
+            <MotionButton
+              className={buttonClassName({ variant: "primary", size: "compact" })}
+              onClick={() => props.onSave(props.draft!)}
+            >
               Save server
             </MotionButton>
           </div>
@@ -290,7 +292,11 @@ export function McpSettingsSection(props: {
             </div>
           ))}
           {!props.servers.length && (
-            <p className="settings-empty">No MCP servers are configured in Lattice yet.</p>
+            <EmptyState
+              align="start"
+              density="compact"
+              description="No MCP servers are configured in Lattice yet."
+            />
           )}
         </div>
       )}

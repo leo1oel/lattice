@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { Replace, X } from "lucide-react";
+import { Replace } from "lucide-react";
+import { Button } from "./components/ui/button";
+import { CheckboxField } from "./components/ui/checkbox-field";
+import { PanelHeader } from "./components/ui/panel-header";
 
 export type ReplacePreviewMatch = {
   path: string;
@@ -43,10 +46,12 @@ export function ProjectReplaceDialog(props: {
   return (
     <div className="drawer-backdrop" onMouseDown={props.onClose}>
       <aside className="project-replace" onMouseDown={(event) => event.stopPropagation()} aria-label="Project find and replace">
-        <div className="drawer-header">
-          <div><Replace size={16} /><span>Find & replace in project</span></div>
-          <button type="button" onClick={props.onClose}><X size={16} /></button>
-        </div>
+        <PanelHeader
+          className="drawer-header"
+          icon={<Replace size={16} />}
+          title="Find & replace in project"
+          onClose={props.onClose}
+        />
         <p className="drawer-copy">Preview matches across `.tex`, `.bib`, and other project source files, then confirm replace. Changes are recorded in project history.</p>
         <label>
           Find
@@ -72,22 +77,16 @@ export function ProjectReplaceDialog(props: {
           />
         </label>
         <div className="project-replace-options">
-          <label className="settings-checkbox">
-            <input
-              type="checkbox"
-              checked={matchCase}
-              onChange={(event) => setMatchCase(event.target.checked)}
-            />
-            <span>Match case</span>
-          </label>
-          <label className="settings-checkbox">
-            <input
-              type="checkbox"
-              checked={useRegex}
-              onChange={(event) => setUseRegex(event.target.checked)}
-            />
-            <span>Regex</span>
-          </label>
+          <CheckboxField
+            checked={matchCase}
+            label="Match case"
+            onChange={(event) => setMatchCase(event.target.checked)}
+          />
+          <CheckboxField
+            checked={useRegex}
+            label="Regex"
+            onChange={(event) => setUseRegex(event.target.checked)}
+          />
         </div>
         {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
         {preview && (
@@ -116,22 +115,20 @@ export function ProjectReplaceDialog(props: {
           </div>
         )}
         <div className="table-generator-actions">
-          <button type="button" className="secondary" onClick={props.onClose}>Cancel</button>
-          <button
-            type="button"
-            className="secondary"
+          <Button variant="ghost" onClick={props.onClose}>Cancel</Button>
+          <Button
             disabled={!query.trim() || props.busy}
             onClick={() => props.onPreview(query, options)}
           >
             {props.busy && !preview ? "Searching…" : "Preview"}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
             disabled={!canReplace}
             onClick={() => props.onReplace(query, replacement, options)}
           >
             {props.busy && preview ? "Replacing…" : preview ? `Replace ${preview.replacements}` : "Replace all"}
-          </button>
+          </Button>
         </div>
       </aside>
     </div>

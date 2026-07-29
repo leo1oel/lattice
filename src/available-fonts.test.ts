@@ -8,10 +8,10 @@ import {
 } from "./available-fonts";
 
 describe("available fonts", () => {
-  it("keeps bundled UI fonts even when every face measures like monospace", () => {
+  it("keeps the bundled fixed UI font even when it measures like monospace", () => {
     const measure = () => 100;
     const available = availableFontOptions(UI_FONT_OPTIONS, measure);
-    expect(available.map((option) => option.family)).toEqual(["DM Sans", "-apple-system"]);
+    expect(available.map((option) => option.family)).toEqual(["Inter Variable"]);
   });
 
   it("hides MonoLisa when metrics match the monospace fallback", () => {

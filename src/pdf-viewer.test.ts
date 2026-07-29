@@ -43,14 +43,14 @@ describe("PDF viewer helpers", () => {
     expect(pdfRenderPixelRatio(3)).toBe(2.5);
   });
 
-  it("computes fit-to-width and fit-to-page scales", () => {
+  it("computes fit-to-width and fit-to-height scales", () => {
     expect(fitPdfScale("width", { width: 600, height: 800 }, { width: 648, height: 400 }, { x: 48, y: 40 }))
       .toBe(1);
-    expect(fitPdfScale("page", { width: 600, height: 800 }, { width: 1248, height: 1240 }, { x: 48, y: 40 }))
+    expect(fitPdfScale("height", { width: 600, height: 800 }, { width: 1248, height: 1240 }, { x: 48, y: 40 }))
       .toBe(1.5);
     expect(fitPdfScale("width", { width: 100, height: 100 }, { width: 1000, height: 1000 }))
       .toBe(5);
-    expect(fitPdfScale("page", { width: 600, height: 800 }, { width: 200, height: 200 }))
+    expect(fitPdfScale("height", { width: 600, height: 800 }, { width: 200, height: 200 }))
       .toBe(0.3);
   });
 

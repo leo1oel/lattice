@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { BookMarked, ChevronDown, ChevronUp, X } from "lucide-react";
+import { BookMarked, ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "./components/ui/button";
+import { CheckboxField } from "./components/ui/checkbox-field";
 import {
   BIB_ENTRY_TYPES,
   formatBibEntry,
@@ -15,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
+import { PanelHeader } from "./components/ui/panel-header";
+import { ResizableDrawer } from "./resizable-drawer";
 
 export type ResolvedCitationDraft = {
   key: string;
@@ -132,12 +136,17 @@ export function BibEntryDialog(props: {
   const heading = editing ? "Edit bibliography entry" : "Add bibliography entry";
 
   return (
-    <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside className="bib-entry-dialog" onMouseDown={(event) => event.stopPropagation()} aria-label={heading}>
-        <div className="drawer-header">
-          <div><BookMarked size={16} /><span>{heading}</span></div>
-          <button type="button" onClick={props.onClose}><X size={16} /></button>
-        </div>
+    <ResizableDrawer
+      className="bib-entry-dialog"
+      ariaLabel={heading}
+      onClose={props.onClose}
+    >
+        <PanelHeader
+          className="drawer-header"
+          icon={<BookMarked size={16} />}
+          title={heading}
+          onClose={props.onClose}
+        />
         <p className="drawer-copy">
           {editing
             ? "Pick a venue to set its canonical name and entry type, or edit any field by hand."
@@ -162,9 +171,7 @@ export function BibEntryDialog(props: {
                   }
                 }}
               />
-              <button
-                type="button"
-                className="secondary"
+              <Button
                 disabled={!resolveQuery.trim() || props.resolving || props.busy}
                 onClick={() => {
                   void props.onResolve?.(resolveQuery).then((resolved) => {
@@ -173,7 +180,7 @@ export function BibEntryDialog(props: {
                 }}
               >
                 {props.resolving ? "Resolving…" : "Resolve"}
-              </button>
+              </Button>
             </div>
           </label>
         )}
@@ -262,25 +269,25 @@ export function BibEntryDialog(props: {
             <input value={url} onChange={(event) => setUrl(event.target.value)} />
           </label>
           {!editing && (
-            <label className="settings-checkbox">
-              <input type="checkbox" checked={insertCite} onChange={(event) => setInsertCite(event.target.checked)} />
-              <span>Insert cite at cursor after saving</span>
-            </label>
+            <CheckboxField
+              checked={insertCite}
+              label="Insert cite at cursor after saving"
+              onChange={(event) => setInsertCite(event.target.checked)}
+            />
           )}
         </div>
         <pre className="bib-entry-preview" aria-label="BibTeX preview">{formatBibEntry(draft)}</pre>
         {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
         <div className="table-generator-actions">
-          <button type="button" className="secondary" onClick={props.onClose}>Cancel</button>
-          <button
-            type="button"
+          <Button variant="ghost" onClick={props.onClose}>Cancel</Button>
+          <Button
+            variant="primary"
             disabled={props.busy || props.resolving || !title.trim() || !author.trim() || !year.trim()}
             onClick={() => props.onSave(draft, insertCite)}
           >
             {props.busy ? "Saving…" : editing ? "Save changes" : "Save entry"}
-          </button>
+          </Button>
         </div>
-      </aside>
-    </div>
+    </ResizableDrawer>
   );
 }

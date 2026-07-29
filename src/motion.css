@@ -1,0 +1,55 @@
+/* Shared state movement. Feature styles may size a strip, but the tab
+   relationship and moving indicator stay owned by this primitive. */
+.sliding-tabs {
+  display: flex;
+  align-items: center;
+}
+
+.sliding-tab {
+  position: relative;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.sliding-tab:hover {
+  color: var(--text-primary);
+}
+
+.sliding-tab.active {
+  color: var(--text-primary);
+}
+
+.sliding-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--control-active) 24%, transparent);
+}
+
+.sliding-tab-pill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: inherit;
+  background: var(--panel-strong);
+}
+
+.sliding-tab-underline {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  z-index: 0;
+  height: 2px;
+  background: var(--control-active);
+}
+
+.sliding-tab-label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

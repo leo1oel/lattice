@@ -10,6 +10,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Check, LoaderCircle, TriangleAlert } from "lucide-react";
 import { MotionButton } from "./motion";
+import { Button } from "./components/ui/button";
+import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
 import {
   type ConflictChoice,
@@ -142,11 +144,11 @@ export function ConflictResolverDialog(props: {
           <span className="conflict-progress">
             {hunks.length > 0 ? `${decided} of ${hunks.length} decided` : ""}
           </span>
-          <button type="button" className="secondary-button" disabled={saving} onClick={props.onClose}>
+          <Button disabled={saving} onClick={props.onClose}>
             Cancel
-          </button>
+          </Button>
           <MotionButton
-            className="primary-button"
+            className={buttonClassName({ variant: "primary" })}
             disabled={saving || loading || decided === 0}
             onClick={() => void save()}
           >

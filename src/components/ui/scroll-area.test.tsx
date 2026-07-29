@@ -30,8 +30,22 @@ describe("ScrollArea", () => {
     const viewport = screen.getByLabelText("Results");
     expect(viewportRef.current).toBe(viewport);
     expect(viewport).toHaveAttribute("data-slot", "scroll-area-viewport");
+    expect(viewport).toHaveClass("scroll-fade");
     fireEvent.scroll(viewport);
     expect(onScroll).toHaveBeenCalledOnce();
+  });
+
+  it("allows edge fading to be disabled for exceptional surfaces", () => {
+    render(
+      <ScrollArea
+        fadeEdges={false}
+        viewportProps={{ "aria-label": "Unmasked content" }}
+      >
+        <p>Result</p>
+      </ScrollArea>,
+    );
+
+    expect(screen.getByLabelText("Unmasked content")).not.toHaveClass("scroll-fade");
   });
 
   it("tracks which edges still have content to reveal", async () => {

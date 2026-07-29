@@ -104,7 +104,7 @@ describe("OverleafHistoryPanel", () => {
     expect(within(filesContainer).queryByText("refs.bib")).not.toBeInTheDocument();
   });
 
-  it("renders a text diff through the shared HistoryDiff renderer", async () => {
+  it("renders a text diff through the shared Pierre renderer", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "overleaf_history_labels") return [];
       if (command === "overleaf_history_updates") return { updates: [update()], nextBefore: null };
@@ -122,18 +122,9 @@ describe("OverleafHistoryPanel", () => {
     const filesContainer = await filesContainerOf(body);
     fireEvent.click(within(filesContainer).getByRole("button", { name: /main\.tex/ }));
 
-    await screen.findByLabelText("Diff for main.tex");
-    // The view is remembered for the session, so every test names the one it
-    // means. Switching remounts the body, so re-read it after the click.
-    fireEvent.click(screen.getByRole("tab", { name: "Only changes" }));
-    const rows = [...screen.getByLabelText("Diff for main.tex").querySelectorAll(".history-diff-line")];
-    const removed = rows.find((row) => row.className.includes("removed"));
-    const added = rows.find((row) => row.className.includes("added"));
-    expect(removed).toHaveTextContent("old claim");
-    expect(added).toHaveTextContent("new claim");
-    // Only the word that moved is marked, not the whole sentence.
-    expect(removed?.querySelector(".history-diff-word")).toHaveTextContent("old");
-    expect(added?.querySelector(".history-diff-word")).toHaveTextContent("new");
+    const viewer = await screen.findByLabelText("Diff for main.tex");
+    await waitFor(() => expect(viewer.querySelector("diffs-container")).not.toBeNull());
+    expect(viewer.querySelector("[data-virtualizer]")).toBeNull();
   });
 
   it("closes an open file when its row is clicked again", async () => {

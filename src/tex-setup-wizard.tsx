@@ -15,6 +15,8 @@ import {
   type DoctorReportLike,
 } from "./tex-setup";
 import { MotionButton, PopIn } from "./motion";
+import { Button } from "./components/ui/button";
+import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
 
 type InstallKind = "basic" | "full";
@@ -141,20 +143,23 @@ export function TexSetupWizard(props: {
 
         <div className="modal-actions tex-setup-actions">
           {!ready && (
-            <button type="button" className="text-button" onClick={props.onDismiss} disabled={busy}>
+            <Button variant="ghost" onClick={props.onDismiss} disabled={busy}>
               Skip for now
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="secondary-button"
+          <Button
             onClick={() => { void props.onRecheck(); }}
             disabled={busy}
           >
             {props.checking ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
             Recheck
-          </button>
-          <MotionButton type="button" className="primary-button" onClick={props.onClose} disabled={busy}>
+          </Button>
+          <MotionButton
+            type="button"
+            className={buttonClassName({ variant: "primary" })}
+            onClick={props.onClose}
+            disabled={busy}
+          >
             {ready ? "Done" : "Close"}
           </MotionButton>
         </div>

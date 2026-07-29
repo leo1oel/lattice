@@ -28,13 +28,29 @@
 }
 
 @theme inline {
+  --font-sans: var(--ui-font);
+  --font-mono: var(--editor-font);
+
+  --text-ui-micro: var(--type-micro-size);
+  --text-ui-micro--line-height: var(--type-micro-line-height);
+  --text-ui-caption: var(--type-caption-size);
+  --text-ui-caption--line-height: var(--type-caption-line-height);
+  --text-ui-label: var(--type-label-size);
+  --text-ui-label--line-height: var(--type-label-line-height);
+  --text-ui-body: var(--type-body-size);
+  --text-ui-body--line-height: var(--type-body-line-height);
+  --text-ui-reading: var(--type-reading-size);
+  --text-ui-reading--line-height: var(--type-reading-line-height);
+  --text-ui-title: var(--type-title-size);
+  --text-ui-title--line-height: var(--type-title-line-height);
+
   --color-background: var(--bg);
   --color-foreground: var(--text);
   --color-card: var(--panel-strong);
   --color-card-foreground: var(--text);
   --color-popover: var(--panel-strong);
   --color-popover-foreground: var(--text);
-  --color-primary: var(--accent);
+  --color-primary: var(--control-active);
   --color-primary-foreground: var(--accent-contrast);
   --color-secondary: var(--panel);
   --color-secondary-foreground: var(--text);
@@ -46,7 +62,7 @@
   --color-destructive-foreground: #ffffff;
   --color-border: var(--line-strong);
   --color-input: var(--line-strong);
-  --color-ring: var(--accent);
+  --color-ring: var(--control-active);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

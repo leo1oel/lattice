@@ -20,7 +20,7 @@
 .overleaf-review-error {
   margin: 0;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--danger) 12%, transparent);
   color: var(--danger);
   font-size: 11px;
@@ -73,7 +73,7 @@
   gap: 6px;
   padding: 5px 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-icon);
   background: transparent;
   color: var(--text);
   font: 11px/1.4 var(--ui-font);
@@ -87,7 +87,7 @@
 .overleaf-review-group em {
   flex: none;
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-compact);
   background: var(--line);
   color: var(--faint);
   font-size: 9px;
@@ -98,7 +98,7 @@
   min-height: 0;
   overflow-y: auto;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: var(--bg);
 }
 .overleaf-review-empty {

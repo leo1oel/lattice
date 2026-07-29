@@ -67,7 +67,7 @@ It targets Apple Silicon Macs and ships signed auto-updates.
 - **PDF and math:** `pdfjs-dist` renders the PDF; `katex`, `marked`, and `dompurify` render and sanitize imported paper Markdown.
 - **Collaboration:** Yjs with `y-protocols` and `y-partyserver`, synced through a Cloudflare Worker backed by a SQLite Durable Object (the `collab-server/` package).
 - **Rust backend:** project validation, transactions, subprocess execution, LaTeX compilation, paper import, and the agent bridge, using `serde`, `reqwest`, `rusqlite`, `walkdir`, `chrono`, and `objc2` for native macOS window details.
-- **Agent runtime:** Oh My Pi (`@oh-my-pi/pi-coding-agent`) for model access, streaming, tools, and conversation branching across Codex and Claude.
+- **Agent panel:** a pinned build of the maintained [Synara fork](https://github.com/leo1oel/synara), supervised as an authenticated loopback sidecar by Tauri and shipped inside the application.
 - **Tooling:** Vitest and Testing Library, ESLint with typescript-eslint, and `cargo test` with Clippy.
 
 ## Getting started
@@ -90,9 +90,14 @@ uv tool install bibcite-cli
 Then run the app:
 
 ```bash
+git clone https://github.com/leo1oel/synara.git ../synara-poc
+git -C ../synara-poc switch codex/lattice-embed
 pnpm install
 pnpm tauri dev
 ```
+
+The Synara checkout is needed only to prepare development and release artifacts; installed Lattice
+applications include the built runtime. See [the bundled runtime guide](docs/synara-runtime.md).
 
 Choose **New project** for a NeurIPS 2026 preprint with a bibliography, brief, and private history, or **Open folder** to import an existing LaTeX directory.
 Press `Cmd+S` to save and build, or use the build button in the title bar.
@@ -163,7 +168,8 @@ Writing agent ─┘
 
 Collaboration runs alongside this on a separate CRDT path.
 The desktop app mirrors project files into a Yjs document, syncs it through the Cloudflare Worker, and writes remote changes back to disk, while each peer compiles the PDF locally.
-Oh My Pi is the agent backend, and Lattice keeps the UI, projects, editor, paper library, PDF review, and collaboration as the product-owned layers.
+Lattice supervises a pinned Synara build for the agent panel while keeping the project picker,
+editor, paper library, PDF review, collaboration, and native lifecycle as product-owned layers.
 
 ## Development
 

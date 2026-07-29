@@ -153,6 +153,47 @@
   mask-composite: intersect;
 }
 
+/*
+ * Some containers must remain the native scroll viewport because feature code
+ * observes that exact element (for example, an infinite-loading drawer). Give
+ * those exceptional surfaces the same quiet, hover-revealed scrollbar without
+ * changing their DOM or event target.
+ */
+.native-hover-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.native-hover-scrollbar:hover {
+  scrollbar-color: color-mix(in srgb, var(--text) 12%, transparent) transparent;
+}
+
+.native-hover-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.native-hover-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.native-hover-scrollbar::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  background-clip: padding-box;
+}
+
+.native-hover-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  background-clip: padding-box;
+}
+
+.native-hover-scrollbar::-webkit-scrollbar-thumb:active {
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+  background-clip: padding-box;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lattice-scrollbar,
   .lattice-scrollbar-thumb {

@@ -79,6 +79,25 @@ export type ProjectSnapshot = {
   files: FileNode[];
 };
 
+export type GitFileStatus = {
+  path: string;
+  status: string;
+  staged: boolean;
+  unstaged: boolean;
+};
+
+export type GitStatus = {
+  available: boolean;
+  repository: boolean;
+  branch: string | null;
+  remote?: string | null;
+  remoteUrl?: string | null;
+  upstream?: string | null;
+  ahead?: number;
+  behind?: number;
+  files: GitFileStatus[];
+};
+
 export type AssetPreview = ReferenceAssetPreview;
 
 export type FigureDropRequest = {
@@ -104,16 +123,6 @@ export type SyncTexTarget = {
 export type EditorNavigation = SyncTexTarget & { id: string };
 export type EditorPosition = { path: string; line: number; column: number };
 export type PdfSyncResponse = Omit<PdfSyncTarget, "id">;
-
-export type ProjectSearchResult = {
-  kind: "file" | "paper";
-  path: string;
-  title: string;
-  snippet: string;
-  line?: number | null;
-  arxivId?: string;
-  fileKind?: string;
-};
 
 export type BuildResult = {
   success: boolean;
@@ -156,7 +165,6 @@ export type PaperSummary = {
 };
 
 export type RenameTarget =
-  | { kind: "entry"; path: string; name: string }
   | { kind: "label"; label: string }
   | { kind: "citation"; key: string }
   | { kind: "environment"; name: string }
@@ -262,7 +270,7 @@ export type EditorPaneId = "primary" | "secondary";
 export type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
 export type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
 export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "accounts" | "overleaf" | "api" | "doctor";
+export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "accounts" | "overleaf" | "api" | "doctor" | "logs";
 export type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
 export type DoctorCheck = { name: string; detail: string; ok: boolean };

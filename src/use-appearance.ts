@@ -1,4 +1,5 @@
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 
 import {
   type AppearanceSettings,
@@ -8,6 +9,7 @@ import {
   loadAppearance,
   loadTheme,
 } from "./app-settings";
+import { FIXED_UI_FONT } from "./available-fonts";
 
 export type Appearance = {
   theme: Theme;
@@ -27,6 +29,9 @@ export function useAppearance(): Appearance {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    void invoke("set_window_background", { dark: theme === "dark" }).catch(() => {
+      // Browser-based tests and previews do not expose a native window.
+    });
     try {
       localStorage.setItem(THEME_KEY, theme);
     } catch {
@@ -35,7 +40,7 @@ export function useAppearance(): Appearance {
   }, [theme]);
 
   useEffect(() => {
-    document.documentElement.style.setProperty("--ui-font", appearance.uiFont);
+    document.documentElement.style.setProperty("--ui-font", FIXED_UI_FONT);
     document.documentElement.style.setProperty("--editor-font", appearance.editorFont);
     document.documentElement.style.setProperty("--editor-font-size", `${appearance.editorFontSize}px`);
     try {

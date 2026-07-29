@@ -9,9 +9,18 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Cloud, LoaderCircle, Search, X } from "lucide-react";
+import { Cloud, LoaderCircle, Search } from "lucide-react";
+import { Badge } from "./components/ui/badge";
+import { Button } from "./components/ui/button";
+import { buttonClassName } from "./components/ui/button-styles";
+import { CheckboxField } from "./components/ui/checkbox-field";
+import { EmptyState } from "./components/ui/empty-state";
+import { Field } from "./components/ui/field";
+import { PanelHeader } from "./components/ui/panel-header";
+import { rowClassName } from "./components/ui/row";
+import { SettingsSectionHeader } from "./components/ui/settings-section-header";
 import { MotionButton } from "./motion";
-import { ModalDialog } from "./components/ui/modal-dialog";
+import { ResizableDrawer } from "./resizable-drawer";
 import {
   type CloneTarget,
   type OverleafLink,
@@ -137,7 +146,7 @@ function LoginWaitingRow(props: { onCancel: () => void; hint?: string | null }) 
       <div className="overleaf-waiting">
         <LoaderCircle className="spin" size={15} />
         <span>Waiting for you to sign in in the Overleaf window…</span>
-        <button type="button" className="text-button" onClick={props.onCancel}>Cancel</button>
+        <Button size="compact" variant="ghost" onClick={props.onCancel}>Cancel</Button>
       </div>
       {props.hint && <p className="overleaf-hint">{props.hint}</p>}
     </>
@@ -261,14 +270,22 @@ export function OverleafSettingsSection(props: {
 
   return (
     <div className="settings-section">
-      <h2>Overleaf</h2>
-      <p>Connect your Overleaf account to open and sync your Overleaf projects directly in Lattice.</p>
-      {loading && <p className="settings-empty">Checking your Overleaf connection…</p>}
+      <SettingsSectionHeader
+        title="Overleaf"
+        description="Connect your Overleaf account to open and sync your Overleaf projects directly in Lattice."
+      />
+      {loading && (
+        <EmptyState
+          align="start"
+          density="compact"
+          description="Checking your Overleaf connection…"
+        />
+      )}
       {!loading && loadError && (
         <>
           <p className="overleaf-error" role="alert">{loadError}</p>
           <div className="overleaf-retry-row">
-            <button type="button" className="secondary-button" onClick={() => void load()}>Try again</button>
+            <Button size="compact" onClick={() => void load()}>Try again</Button>
           </div>
         </>
       )}
@@ -279,7 +296,7 @@ export function OverleafSettingsSection(props: {
             <strong>Connected as {status.email ?? status.name ?? "your Overleaf account"}</strong>
             <small>{status.host}</small>
           </div>
-          <button type="button" className="secondary-button" onClick={() => void disconnect()}>Sign out</button>
+          <Button size="compact" onClick={() => void disconnect()}>Sign out</Button>
         </div>
       )}
       {!loading && !loadError && status && !status.connected && (
@@ -287,7 +304,7 @@ export function OverleafSettingsSection(props: {
           <LoginWaitingRow onCancel={login.cancel} hint={login.hint} />
         ) : (
           <div className="overleaf-connect-row">
-            <MotionButton className="primary-button" onClick={login.begin}>
+            <MotionButton className={buttonClassName({ variant: "primary" })} onClick={login.begin}>
               <Cloud size={15} /> Connect to Overleaf
             </MotionButton>
             <p className="overleaf-hint">
@@ -314,13 +331,12 @@ export function OverleafSettingsSection(props: {
                 : link.lastSync ? `Last synced ${relativeTime(link.lastSync)}` : "Not synced yet"}
             </small>
           </div>
-          <button
-            type="button"
-            className="secondary-button"
+          <Button
+            size="compact"
             onClick={() => void setPaused(!link.paused)}
           >
             {link.paused ? "Resume syncing" : "Pause syncing"}
-          </button>
+          </Button>
         </div>
       )}
       <div className="overleaf-mode">
@@ -406,21 +422,23 @@ export function OverleafSettingsSection(props: {
         <p className="overleaf-hint">
           Only needed if your lab runs its own Overleaf server (Community or Server Pro), or if the sign-in window doesn’t work.
         </p>
-        <label>Server address
+        <Field label="Server address" htmlFor="overleaf-server-address">
           <input
+            id="overleaf-server-address"
             type="text"
             value={host}
             placeholder={DEFAULT_OVERLEAF_HOST}
             onChange={(event) => setHost(event.target.value)}
           />
-        </label>
-        <label>Session cookie
+        </Field>
+        <Field label="Session cookie" htmlFor="overleaf-session-cookie">
           <textarea
+            id="overleaf-session-cookie"
             value={cookie}
             placeholder="overleaf_session2=…"
             onChange={(event) => setCookie(event.target.value)}
           />
-        </label>
+        </Field>
         <p className="overleaf-hint">
           Paste the Cookie header value from your browser’s DevTools if automatic sign-in doesn’t work.
         </p>
@@ -428,7 +446,7 @@ export function OverleafSettingsSection(props: {
         {advancedNotice && <p className="settings-notice">{advancedNotice}</p>}
         <div className="overleaf-advanced-actions">
           <MotionButton
-            className="primary-button"
+            className={buttonClassName({ variant: "primary" })}
             disabled={!cookie.trim() || applying}
             onClick={() => void applyCookie()}
           >
@@ -550,22 +568,21 @@ export function OverleafPickerDialog(props: {
       .some((value) => value.toLowerCase().includes(query)));
 
   return (
-    <ModalDialog label="Open from Overleaf" onClose={onClose} closeDisabled={Boolean(cloning)}>
-      <div className="modal overleaf-picker-modal">
-        <div className="overleaf-picker-header">
-          <div className="modal-icon"><Cloud size={19} /></div>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            title={cloning ? "You can close this once the download finishes" : "Close"}
-            disabled={Boolean(cloning)}
-            onClick={onClose}
-          >
-            <X size={16} />
-          </button>
-        </div>
-        <h2>Open from Overleaf</h2>
+    <ResizableDrawer
+      className="overleaf-picker-drawer"
+      ariaLabel="Open from Overleaf"
+      closeDisabled={Boolean(cloning)}
+      onClose={onClose}
+    >
+      <PanelHeader
+        className="drawer-header"
+        icon={<Cloud size={16} />}
+        title="Open from Overleaf"
+        closeDisabled={Boolean(cloning)}
+        closeTooltip={cloning ? "You can close this once the download finishes" : undefined}
+        onClose={onClose}
+      />
+      <div className="modal overleaf-picker-modal overleaf-picker-drawer-content">
         {statusLoading && (
           <div className="overleaf-loading">
             <LoaderCircle className="spin" size={15} />
@@ -576,7 +593,7 @@ export function OverleafPickerDialog(props: {
           <>
             <p className="overleaf-error" role="alert">{statusError}</p>
             <div className="overleaf-retry-row">
-              <button type="button" className="secondary-button" onClick={() => void loadStatus()}>Retry</button>
+              <Button size="compact" onClick={() => void loadStatus()}>Retry</Button>
             </div>
           </>
         )}
@@ -588,19 +605,20 @@ export function OverleafPickerDialog(props: {
             {login.pending ? (
               <LoginWaitingRow onCancel={login.cancel} hint={login.hint} />
             ) : (
-              <MotionButton className="primary-button" onClick={login.begin}>
+              <MotionButton className={buttonClassName({ variant: "primary" })} onClick={login.begin}>
                 <Cloud size={15} /> Connect to Overleaf
               </MotionButton>
             )}
             {login.error && <p className="overleaf-error" role="alert">{login.error}</p>}
             {login.notice && <p className="overleaf-hint">{login.notice}</p>}
-            <button
-              type="button"
-              className="text-button overleaf-advanced-link"
+            <Button
+              size="compact"
+              variant="ghost"
+              className="overleaf-advanced-link"
               onClick={() => { onClose(); props.onOpenSettings(); }}
             >
               Advanced options
-            </button>
+            </Button>
           </>
         )}
         {!statusLoading && !statusError && status?.connected && (
@@ -619,21 +637,19 @@ export function OverleafPickerDialog(props: {
                   onChange={(event) => setSearch(event.target.value)}
                 />
               </div>
-              <label className="overleaf-checkbox">
-                <input
-                  type="checkbox"
-                  checked={showArchived}
-                  disabled={Boolean(cloning)}
-                  onChange={(event) => setShowArchived(event.target.checked)}
-                />
-                <span>Show archived</span>
-              </label>
+              <CheckboxField
+                className="overleaf-checkbox"
+                checked={showArchived}
+                disabled={Boolean(cloning)}
+                label="Show archived"
+                onChange={(event) => setShowArchived(event.target.checked)}
+              />
             </div>
             {projectsError && (
               <>
                 <p className="overleaf-error" role="alert">{projectsError}</p>
                 <div className="overleaf-retry-row">
-                  <button type="button" className="secondary-button" onClick={() => void loadProjects()}>Retry</button>
+                  <Button size="compact" onClick={() => void loadProjects()}>Retry</Button>
                 </div>
               </>
             )}
@@ -657,7 +673,10 @@ export function OverleafPickerDialog(props: {
                 {visible.map((project) => (
                   <li
                     key={project.id}
-                    className={`overleaf-project-row${selected === project.id ? " selected" : ""}`}
+                    className={rowClassName(
+                      "store",
+                      `overleaf-project-row${selected === project.id ? " selected" : ""}`,
+                    )}
                   >
                     <button
                       type="button"
@@ -668,9 +687,9 @@ export function OverleafPickerDialog(props: {
                       <span className="overleaf-project-name">
                         {project.name}
                         {project.trashed
-                          ? <span className="overleaf-badge">Trashed</span>
+                          ? <Badge size="compact">Trashed</Badge>
                           : project.archived
-                            ? <span className="overleaf-badge">Archived</span>
+                            ? <Badge size="compact">Archived</Badge>
                             : null}
                       </span>
                       <span className="overleaf-project-meta">
@@ -684,7 +703,11 @@ export function OverleafPickerDialog(props: {
                         ? <LoaderCircle className="spin overleaf-row-spinner" size={15} />
                         : (
                           <MotionButton
-                            className="primary-button overleaf-open-button"
+                            className={buttonClassName({
+                              variant: "primary",
+                              size: "compact",
+                              className: "overleaf-open-button",
+                            })}
                             disabled={Boolean(cloning)}
                             onClick={() => void clone(project)}
                           >
@@ -709,6 +732,6 @@ export function OverleafPickerDialog(props: {
           </>
         )}
       </div>
-    </ModalDialog>
+    </ResizableDrawer>
   );
 }

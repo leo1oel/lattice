@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
+import { Button } from "./components/ui/button";
+import { PanelHeader } from "./components/ui/panel-header";
 
 export type ProjectFindHit = {
   kind: string;
@@ -66,10 +68,12 @@ export function ProjectFindDialog(props: {
         onMouseDown={(event) => event.stopPropagation()}
         aria-label="Find in project"
       >
-        <div className="drawer-header">
-          <div><Search size={16} /><span>Find in project</span></div>
-          <button type="button" onClick={props.onClose}><X size={16} /></button>
-        </div>
+        <PanelHeader
+          className="drawer-header"
+          icon={<Search size={16} />}
+          title="Find in project"
+          onClose={props.onClose}
+        />
         <p className="drawer-copy">
           Search `.tex`, `.bib`, and other source files with an indexed full-text index. Enter opens the selected hit; F3 / ⇧F3 cycles.
         </p>
@@ -165,14 +169,14 @@ export function ProjectFindDialog(props: {
           )}
         </div>
         <div className="table-generator-actions">
-          <button type="button" className="secondary" onClick={props.onClose}>Close</button>
-          <button
-            type="button"
+          <Button variant="ghost" onClick={props.onClose}>Close</Button>
+          <Button
+            variant="primary"
             disabled={!fileHits.length}
             onClick={openActive}
           >
             Open hit
-          </button>
+          </Button>
         </div>
       </aside>
     </div>

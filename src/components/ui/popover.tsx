@@ -2,6 +2,7 @@ import * as React from "react"
 import { Popover as PopoverPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { floatingSurfaceClassName } from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
 
 function Popover({
@@ -29,7 +30,8 @@ function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-hidden",
+          floatingSurfaceClassName,
+          "w-72 origin-(--radix-popover-content-transform-origin) p-4 shadow-md",
           popupMotionClassName,
           className
         )}

@@ -12,6 +12,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SendHorizontal } from "lucide-react";
+import { IconButton } from "./components/ui/icon-button";
 import type { CollabChatMessage } from "./collab-session";
 import "./collab-chat.css";
 
@@ -133,15 +134,15 @@ export function CollabChatPanel(props: {
             }
           }}
         />
-        <button
-          type="button"
-          className="primary-button"
+        <IconButton
+          label="Send message"
+          tooltip={false}
+          tone="primary"
           disabled={!draft.trim()}
           onClick={submit}
-          aria-label="Send message"
         >
           <SendHorizontal size={14} />
-        </button>
+        </IconButton>
       </div>
     </>
   );

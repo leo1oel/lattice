@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, MessageSquareText, Reply, RotateCcw, Trash2, X } from "lucide-react";
+import { Check, MessageSquareText, Reply, RotateCcw, Trash2 } from "lucide-react";
+import { EmptyState } from "./components/ui/empty-state";
+import { PanelHeader } from "./components/ui/panel-header";
 import { formatCommentTimestamp, type EditorComment } from "./editor-comments";
+import { ResizableDrawer } from "./resizable-drawer";
 
 export function EditorCommentsPanel(props: {
   comments: EditorComment[];
@@ -53,12 +56,13 @@ export function EditorCommentsPanel(props: {
   }, [filter, props.activePath, props.comments, showResolved]);
 
   return (
-    <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside className="history-drawer editor-comments-drawer" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="drawer-header">
-          <div><MessageSquareText size={16} /><span>Editor comments</span></div>
-          <button type="button" onClick={props.onClose}><X size={16} /></button>
-        </div>
+    <ResizableDrawer className="editor-comments-drawer" onClose={props.onClose}>
+        <PanelHeader
+          className="drawer-header"
+          icon={<MessageSquareText size={16} />}
+          title="Editor comments"
+          onClose={props.onClose}
+        />
         <p className="drawer-copy">
           Select text in the source editor, then add a comment. Comments sync with collaborators and stay in the project after you leave.
         </p>
@@ -87,7 +91,13 @@ export function EditorCommentsPanel(props: {
           </div>
         </div>
         <div className="pdf-marks-list">
-          {!visible.length && <p className="git-empty">No comments yet. Select text in the editor and click Comment.</p>}
+          {!visible.length && (
+            <EmptyState
+              align="start"
+              density="compact"
+              description="No comments yet. Select text in the editor and click Comment."
+            />
+          )}
           {visible.map((comment) => {
             const isAuthor = comment.authorId === props.currentAuthorId;
             const focused = comment.id === props.focusCommentId;
@@ -227,7 +237,6 @@ export function EditorCommentsPanel(props: {
             );
           })}
         </div>
-      </aside>
-    </div>
+    </ResizableDrawer>
   );
 }

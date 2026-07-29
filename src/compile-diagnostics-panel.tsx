@@ -6,9 +6,10 @@ import {
   CircleAlert,
   CircleHelp,
   ScrollText,
-  X,
 } from "lucide-react";
 import { CopyButton } from "./components/copy-button";
+import { CloseButton } from "./components/ui/icon-button";
+import { EmptyState } from "./components/ui/empty-state";
 import {
   diagnosticLocationLabel,
   diagnosticSeverity,
@@ -60,9 +61,11 @@ export function CompileDiagnosticsPanel(props: {
           <span>{title}</span>
           {props.expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         </button>
-        <button title="Dismiss diagnostics" onClick={props.onDismiss}>
-          <X size={13} />
-        </button>
+        <CloseButton
+          label="Dismiss diagnostics"
+          size="compact"
+          onClick={props.onDismiss}
+        />
       </div>
       {props.expanded && (
         <div className="compile-diagnostics-body">
@@ -113,7 +116,11 @@ export function CompileDiagnosticsPanel(props: {
             <pre className="compile-log" aria-label="Raw build log">{props.log}</pre>
           )}
           {!diagnostics.length && !hasLog && (
-            <p className="compile-diagnostics-empty">Build failed without a captured log.</p>
+            <EmptyState
+              align="start"
+              density="compact"
+              description="Build failed without a captured log."
+            />
           )}
         </div>
       )}

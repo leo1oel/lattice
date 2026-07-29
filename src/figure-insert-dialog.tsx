@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus } from "lucide-react";
+import { Button } from "./components/ui/button";
+import { buttonClassName } from "./components/ui/button-styles";
+import { PanelHeader } from "./components/ui/panel-header";
 import { MotionButton, PopIn } from "./motion";
 import { DEFAULT_FIGURE_OPTIONS, type FigureInsertOptions } from "./figure-insertion";
 import { ModalDialog } from "./components/ui/modal-dialog";
@@ -21,10 +24,12 @@ export function FigureInsertDialog(props: {
     <ModalDialog label="Insert figure" onClose={props.onClose}>
       <PopIn className="modal figure-insert-modal">
         <div className="modal-icon"><ImagePlus size={19} /></div>
-        <div className="drawer-header" style={{ padding: 0, border: 0, marginBottom: 8 }}>
-          <div><span>Insert figure</span></div>
-          <button type="button" onClick={props.onClose}><X size={16} /></button>
-        </div>
+        <PanelHeader
+          className="drawer-header"
+          style={{ padding: 0, border: 0, marginBottom: 8 }}
+          title="Insert figure"
+          onClose={props.onClose}
+        />
         <p>{props.paths.length === 1 ? props.paths[0] : `${props.paths.length} figures`}</p>
         <label>
           Width
@@ -43,10 +48,10 @@ export function FigureInsertDialog(props: {
           <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="fig:name (optional)" />
         </label>
         <div className="modal-actions">
-          <button type="button" className="text-button" onClick={props.onClose}>Cancel</button>
+          <Button variant="ghost" onClick={props.onClose}>Cancel</Button>
           <MotionButton
             type="button"
-            className="primary-button"
+            className={buttonClassName({ variant: "primary" })}
             onClick={() => props.onInsert({ width, placement, caption, label: label.trim() || undefined })}
           >
             Insert

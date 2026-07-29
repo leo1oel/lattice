@@ -7,8 +7,10 @@
  * answer it in chat, and both come down the same realtime channel.
  */
 import { useEffect } from "react";
-import { MessagesSquare, X } from "lucide-react";
-import { motion } from "motion/react";
+import { MessagesSquare } from "lucide-react";
+import { PanelHeader } from "./components/ui/panel-header";
+import { SegmentedControl } from "./components/ui/segmented-control";
+import { ResizableDrawer } from "./resizable-drawer";
 import type { OverleafMessage, OverleafThread } from "./app-types";
 import { OverleafChatPanel } from "./overleaf-chat";
 import { OverleafCommentsPanel } from "./overleaf-comments";
@@ -69,44 +71,34 @@ export function OverleafCollabDrawer(props: {
   const openThreads = props.threads.filter((thread) => !thread.resolved).length;
 
   return (
-    <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside
-        className="history-drawer overleaf-collab-drawer"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="drawer-header">
-          <div><MessagesSquare size={16} /><span>Overleaf collaboration</span></div>
-          <button type="button" onClick={props.onClose} aria-label="Close"><X size={16} /></button>
-        </div>
+    <ResizableDrawer className="overleaf-collab-drawer" onClose={props.onClose}>
+        <PanelHeader
+          className="drawer-header"
+          icon={<MessagesSquare size={16} />}
+          title="Overleaf collaboration"
+          onClose={props.onClose}
+        />
 
-        <div className="view-switcher overleaf-collab-tabs">
-          {([
-            { id: "comments" as const, label: "comments", count: openThreads },
-            { id: "changes" as const, label: "changes", count: props.changes.length },
-            { id: "chat" as const, label: "chat", count: props.unreadChat },
-          ]).map((tab) => {
-            const active = props.tab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                className={active ? "active" : ""}
-                onClick={() => props.onTab(tab.id)}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="overleaf-collab-pill"
-                    className="view-switcher-pill"
-                    transition={{ type: "tween", ease: [0.65, 0, 0.35, 1], duration: 0.25 }}
-                  />
-                )}
-                <span className="view-switcher-label">
-                  {tab.label}
-                  {tab.count > 0 ? <em>{tab.count}</em> : null}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <SegmentedControl
+          value={props.tab}
+          onChange={props.onTab}
+          ariaLabel="Overleaf collaboration view"
+          className="overleaf-collab-tabs"
+          items={[
+            {
+              value: "comments",
+              label: <>comments{openThreads > 0 ? <em>{openThreads}</em> : null}</>,
+            },
+            {
+              value: "changes",
+              label: <>changes{props.changes.length > 0 ? <em>{props.changes.length}</em> : null}</>,
+            },
+            {
+              value: "chat",
+              label: <>chat{props.unreadChat > 0 ? <em>{props.unreadChat}</em> : null}</>,
+            },
+          ]}
+        />
 
         {props.tab === "changes" ? (
           <OverleafChangesPanel
@@ -145,7 +137,6 @@ export function OverleafCollabDrawer(props: {
             onSend={props.onSend}
           />
         )}
-      </aside>
-    </div>
+    </ResizableDrawer>
   );
 }

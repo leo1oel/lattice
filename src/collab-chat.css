@@ -65,7 +65,7 @@
   font-size: 12px;
   line-height: 1.5;
   padding: 8px 9px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--line);
   background: var(--bg);
   color: var(--text);
@@ -81,8 +81,8 @@
 }
 .collab-chat-composer button {
   flex: none;
-  width: 32px;
-  height: 32px;
+  width: var(--control-height-default);
+  height: var(--control-height-default);
   display: grid;
   place-items: center;
   padding: 0;

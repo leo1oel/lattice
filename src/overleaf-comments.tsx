@@ -116,7 +116,6 @@ export function OverleafCommentsPanel(props: {
               <button type="button" onClick={() => setEditing(null)}>Cancel</button>
               <button
                 type="button"
-                className="primary-button"
                 disabled={!messageDraft.trim() || working}
                 onClick={() => void run(thread.id, async () => {
                   await props.onEditMessage(thread.id, message.id, messageDraft.trim());
@@ -231,7 +230,6 @@ export function OverleafCommentsPanel(props: {
               <button type="button" onClick={() => setReplyingTo(null)}>Cancel</button>
               <button
                 type="button"
-                className="primary-button"
                 disabled={!draft.trim() || working}
                 onClick={() => void run(thread.id, async () => {
                   await props.onReply(thread.id, draft.trim());

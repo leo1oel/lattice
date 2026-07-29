@@ -72,64 +72,202 @@ pub fn install_magnify_monitor(app: tauri::AppHandle) {
     std::mem::forget(handler);
 }
 
-/// Fallback when the web UI has not reported a measured titlebar yet.
-const DEFAULT_TITLEBAR_HEIGHT: f64 = 40.0;
-const TRAFFIC_LIGHT_X: f64 = 16.0;
+const LIGHT_WINDOW_BACKGROUND: (f64, f64, f64) = (247.0, 247.0, 246.0);
+const DARK_WINDOW_BACKGROUND: (f64, f64, f64) = (23.0, 23.0, 24.0);
+const DEFAULT_TRAFFIC_LIGHT_CLOSE_CENTER_X: f64 = 23.0;
+const DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP: f64 = 22.0;
 
 #[derive(Clone, Copy)]
 struct TrafficLightTarget {
-    /// Desired vertical center of the lights, from the top of the window (AppKit points).
-    center_y: f64,
-    /// Titlebar / traffic-light container height (AppKit points).
-    titlebar_height: f64,
+    close_center_x: f64,
+    center_from_top: f64,
 }
 
-static TRAFFIC_LIGHT_TARGET: Mutex<Option<TrafficLightTarget>> = Mutex::new(None);
+static TRAFFIC_LIGHT_TARGET: Mutex<TrafficLightTarget> = Mutex::new(TrafficLightTarget {
+    close_center_x: DEFAULT_TRAFFIC_LIGHT_CLOSE_CENTER_X,
+    center_from_top: DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP,
+});
 
-pub fn apply_traffic_light_position(window: &tauri::WebviewWindow) {
-    schedule_align(window);
+fn window_background(dark: bool) -> (f64, f64, f64) {
+    if dark {
+        DARK_WINDOW_BACKGROUND
+    } else {
+        LIGHT_WINDOW_BACKGROUND
+    }
 }
 
-/// Align native traffic lights to a web-measured titlebar control center.
+/// Align the native traffic-light centers with the 40-point web titlebar.
 ///
-/// `center_y` / `titlebar_height` are in the same coordinate space as the
-/// window's AppKit point size (logical points from the top of the window).
-pub fn align_traffic_lights_to(window: &tauri::WebviewWindow, center_y: f64, titlebar_height: f64) {
-    if !center_y.is_finite() || center_y < 0.0 {
-        return;
-    }
-    if !titlebar_height.is_finite() || titlebar_height < 20.0 {
-        return;
-    }
-    if let Ok(mut guard) = TRAFFIC_LIGHT_TARGET.lock() {
-        *guard = Some(TrafficLightTarget {
-            center_y,
-            titlebar_height,
-        });
-    }
-    schedule_align(window);
+/// AppKit button frames are expressed in their private titlebar superview,
+/// whose origin is not the window's origin. Convert the desired center from
+/// window coordinates before assigning the frame; treating either Tauri's
+/// inset or the private container height as a button center causes the visible
+/// up-and-left offset this function avoids.
+#[cfg(target_os = "macos")]
+pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
+    schedule_traffic_light_alignment(window);
+
+    // AppKit performs one final titlebar layout while the window is first
+    // shown. Reapply the same absolute centers after that pass.
+    let delayed = window.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(120));
+        schedule_traffic_light_alignment(&delayed);
+    });
+
+    // Resizing across displays or leaving fullscreen can recreate or relayout
+    // the native titlebar hierarchy. Movement alone does not change its local
+    // geometry, so deliberately avoid a per-move correction that could jitter.
+    let observed = window.clone();
+    window.on_window_event(move |event| {
+        if matches!(
+            event,
+            tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. }
+        ) {
+            schedule_traffic_light_alignment(&observed);
+        }
+    });
 }
 
-fn schedule_align(window: &tauri::WebviewWindow) {
-    fn align(window: &tauri::WebviewWindow) {
-        if let Ok(ptr) = window.ns_window() {
-            if !ptr.is_null() {
-                unsafe {
-                    align_traffic_lights(ptr);
-                }
-            }
+/// Apply web-measured traffic-light centers in AppKit logical points.
+pub fn align_traffic_lights_to(
+    window: &tauri::WebviewWindow,
+    close_center_x: f64,
+    center_from_top: f64,
+) {
+    if !close_center_x.is_finite()
+        || close_center_x < 0.0
+        || !center_from_top.is_finite()
+        || center_from_top < 0.0
+    {
+        return;
+    }
+    if let Ok(mut target) = TRAFFIC_LIGHT_TARGET.lock() {
+        *target = TrafficLightTarget {
+            close_center_x,
+            center_from_top,
+        };
+    }
+    schedule_traffic_light_alignment(window);
+}
+
+fn schedule_traffic_light_alignment(window: &tauri::WebviewWindow) {
+    let Ok(ptr) = window.ns_window() else {
+        return;
+    };
+    if ptr.is_null() {
+        return;
+    }
+    let ptr = ptr as usize;
+    let _ = window.run_on_main_thread(move || unsafe {
+        align_traffic_lights_on_main(ptr as *mut std::ffi::c_void);
+    });
+}
+
+fn traffic_light_target() -> TrafficLightTarget {
+    TRAFFIC_LIGHT_TARGET
+        .lock()
+        .map(|target| *target)
+        .unwrap_or(TrafficLightTarget {
+            close_center_x: DEFAULT_TRAFFIC_LIGHT_CLOSE_CENTER_X,
+            center_from_top: DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP,
+        })
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn align_traffic_lights_on_main(ns_window: *mut std::ffi::c_void) {
+    use objc2_app_kit::{NSView, NSWindow, NSWindowButton};
+    use objc2_foundation::NSPoint;
+
+    let window = &*(ns_window as *const NSWindow);
+    let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) else {
+        return;
+    };
+    let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) else {
+        return;
+    };
+    let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) else {
+        return;
+    };
+    let Some(button_superview) = close.superview() else {
+        return;
+    };
+
+    let close_frame = NSView::frame(&close);
+    let miniaturize_frame = NSView::frame(&miniaturize);
+    let close_center_x = close_frame.origin.x + close_frame.size.width / 2.0;
+    let miniaturize_center_x = miniaturize_frame.origin.x + miniaturize_frame.size.width / 2.0;
+    let center_spacing = miniaturize_center_x - close_center_x;
+    let target = traffic_light_target();
+    let center_y_in_window = window.frame().size.height - target.center_from_top;
+
+    for (index, button) in [close, miniaturize, zoom].into_iter().enumerate() {
+        let desired_window_center = NSPoint::new(
+            target.close_center_x + index as f64 * center_spacing,
+            center_y_in_window,
+        );
+        let desired_local_center =
+            button_superview.convertPoint_fromView(desired_window_center, None);
+        let mut frame = NSView::frame(&button);
+        frame.origin.x = desired_local_center.x - frame.size.width / 2.0;
+        frame.origin.y = desired_local_center.y - frame.size.height / 2.0;
+        button.setFrameOrigin(frame.origin);
+    }
+}
+
+/// Match the native NSWindow backing surface to the web app. WKWebView can
+/// briefly expose that surface while AppKit performs a live resize; leaving it
+/// at the system default produces white strips along the growing edges.
+pub fn apply_window_background(window: &tauri::WebviewWindow, dark: bool) {
+    let (red, green, blue) = window_background(dark);
+
+    if let Ok(ptr) = window.ns_window() {
+        if !ptr.is_null() {
+            let ptr = ptr as usize;
+            let _ = window.run_on_main_thread(move || unsafe {
+                use objc2_app_kit::{NSColor, NSWindow};
+                let ns_window = &*(ptr as *const NSWindow);
+                let color = NSColor::colorWithSRGBRed_green_blue_alpha(
+                    red / 255.0,
+                    green / 255.0,
+                    blue / 255.0,
+                    1.0,
+                );
+                ns_window.setBackgroundColor(Some(&color));
+                // Let AppKit preserve the last complete frame while the window
+                // server is resizing faster than WebKit can present new tiles.
+                ns_window.setPreservesContentDuringLiveResize(true);
+            });
         }
     }
 
-    let window = window.clone();
-    let immediate = window.clone();
-    let _ = window.clone().run_on_main_thread(move || align(&immediate));
-    // AppKit sometimes creates the buttons a tick later on Sequoia guests.
-    let delayed = window;
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(80));
-        let target = delayed.clone();
-        let _ = delayed.run_on_main_thread(move || align(&target));
+    // NSWindow is only the outer backing surface. During a fast live resize,
+    // WKWebView may expose its own under-page surface before WebKit paints the
+    // newly allocated pixels, so color that layer as well. Keep the most recent
+    // complete WebKit layer scaled to the current bounds between presentations:
+    // unlike holding one WindowServer snapshot for the whole mouse gesture,
+    // Core Animation can update continuously without exposing tiled backing
+    // regions or freezing the page until mouse-up.
+    let _ = window.with_webview(move |webview| unsafe {
+        use objc2::sel;
+        use objc2_app_kit::{
+            NSColor, NSViewLayerContentsPlacement, NSViewLayerContentsRedrawPolicy,
+        };
+        use objc2_foundation::NSObjectProtocol;
+        use objc2_web_kit::WKWebView;
+
+        let view = &*webview.inner().cast::<WKWebView>();
+        view.setLayerContentsRedrawPolicy(NSViewLayerContentsRedrawPolicy::OnSetNeedsDisplay);
+        view.setLayerContentsPlacement(NSViewLayerContentsPlacement::ScaleAxesIndependently);
+        if view.respondsToSelector(sel!(setUnderPageBackgroundColor:)) {
+            let color = NSColor::colorWithSRGBRed_green_blue_alpha(
+                red / 255.0,
+                green / 255.0,
+                blue / 255.0,
+                1.0,
+            );
+            view.setUnderPageBackgroundColor(Some(&color));
+        }
     });
 }
 
@@ -164,87 +302,36 @@ fn clear_quarantine_path(path: &Path) {
     let _ = Command::new("xattr").args(["-cr"]).arg(path).status();
 }
 
-fn traffic_light_target() -> TrafficLightTarget {
-    TRAFFIC_LIGHT_TARGET
-        .lock()
-        .ok()
-        .and_then(|guard| *guard)
-        .unwrap_or(TrafficLightTarget {
-            center_y: DEFAULT_TITLEBAR_HEIGHT / 2.0,
-            titlebar_height: DEFAULT_TITLEBAR_HEIGHT,
-        })
-}
-
-/// Align traffic lights with the web titlebar controls.
-///
-/// Tauri/tao's `trafficLightPosition.y` only grows the titlebar container — it does
-/// **not** move the buttons vertically. We set `origin.y` explicitly from a
-/// measured center (preferred) or a geometric fallback.
-#[cfg(target_os = "macos")]
-unsafe fn align_traffic_lights(ns_window: *mut std::ffi::c_void) {
-    use objc2::msg_send;
-    use objc2_app_kit::{NSView, NSWindow, NSWindowButton};
-
-    let window = &*(ns_window as *const NSWindow);
-    let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) else {
-        return;
-    };
-    let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) else {
-        return;
-    };
-    let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) else {
-        return;
-    };
-
-    let Some(button_superview) = close.superview() else {
-        return;
-    };
-    let Some(title_bar_container_view) = button_superview.superview() else {
-        return;
-    };
-
-    let target = traffic_light_target();
-    let titlebar_height = target.titlebar_height.max(close.frame().size.height + 4.0);
-
-    let close_rect = NSView::frame(&close);
-    let mut title_bar_rect = NSView::frame(&title_bar_container_view);
-    title_bar_rect.size.height = titlebar_height;
-    title_bar_rect.origin.y = window.frame().size.height - titlebar_height;
-    let _: () = msg_send![&title_bar_container_view, setFrame: title_bar_rect];
-
-    let space_between = NSView::frame(&miniaturize).origin.x - close_rect.origin.x;
-    // AppKit origin is bottom-left inside the titlebar container.
-    // Place the button so its vertical center matches the measured web control.
-    let button_y = (titlebar_height - target.center_y - close_rect.size.height / 2.0).max(0.0);
-
-    for (index, button) in [close, miniaturize, zoom].into_iter().enumerate() {
-        let mut rect = NSView::frame(&button);
-        rect.origin.x = TRAFFIC_LIGHT_X + (index as f64 * space_between);
-        rect.origin.y = button_y;
-        button.setFrameOrigin(rect.origin);
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use serde_json::Value;
+
     #[test]
-    fn default_titlebar_height_matches_css() {
-        assert_eq!(super::DEFAULT_TITLEBAR_HEIGHT, 40.0);
+    fn native_window_backgrounds_match_css_themes() {
+        assert_eq!(super::window_background(false), (247.0, 247.0, 246.0));
+        assert_eq!(super::window_background(true), (23.0, 23.0, 24.0));
     }
 
     #[test]
-    fn measured_target_is_stored() {
-        if let Ok(mut guard) = super::TRAFFIC_LIGHT_TARGET.lock() {
-            *guard = Some(super::TrafficLightTarget {
-                center_y: 25.0,
-                titlebar_height: 50.0,
-            });
-        }
-        let target = super::traffic_light_target();
-        assert_eq!(target.center_y, 25.0);
-        assert_eq!(target.titlebar_height, 50.0);
-        if let Ok(mut guard) = super::TRAFFIC_LIGHT_TARGET.lock() {
-            *guard = None;
-        }
+    fn macos_window_config_leaves_center_alignment_to_appkit_coordinates() {
+        let config: Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("valid Tauri config");
+        assert_eq!(config["app"]["macOSPrivateApi"], true);
+        let window = &config["app"]["windows"][0];
+        assert!(
+            window.get("trafficLightPosition").is_none(),
+            "WRY's inset must not compete with the explicit center alignment"
+        );
+        assert_eq!(super::DEFAULT_TRAFFIC_LIGHT_CLOSE_CENTER_X, 23.0);
+        assert_eq!(super::DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP, 22.0);
+        let css = include_str!("../../src/App.css");
+        assert!(css.contains(".titlebar {"));
+        assert!(css.contains("height: 40px"));
+        assert!(css.contains("align-items: center"));
+        assert_eq!(window["backgroundColor"], "#F7F7F6");
+        assert!(
+            include_str!("../Cargo.toml").contains("\"macos-private-api\""),
+            "the macOS WebView must disable its opaque white backing surface"
+        );
     }
 }

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CollabDialog } from "./collab-dialog";
 import type { CollabChatMessage } from "./collab-session";
@@ -49,6 +49,9 @@ describe("CollabDialog chat tab", () => {
 
   it("hides the tab switcher entirely when the caller does not wire chat", () => {
     render(<CollabDialog {...baseProps()} />);
+    const drawer = screen.getByLabelText("Live collaboration");
+    expect(drawer).toHaveClass("resizable-drawer");
+    expect(within(drawer).getByRole("separator", { name: "Resize right panel" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /chat/i })).not.toBeInTheDocument();
     // The live card's own status line still renders unchanged.
     expect(screen.getByText(/Sharing/)).toBeInTheDocument();

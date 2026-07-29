@@ -26,6 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
+import { Button } from "./components/ui/button";
+import { addAppLog } from "./app-log";
 
 export type UpdateMode = "auto" | "manual";
 export type UpdatePhase =
@@ -148,8 +150,10 @@ export function useAppUpdater(options?: {
       await relaunch();
     } catch (reason) {
       installingRef.current = false;
-      setError(reason instanceof Error ? reason.message : String(reason));
+      const detail = reason instanceof Error ? reason.message : String(reason);
+      setError(detail);
       setPhase("error");
+      addAppLog({ level: "error", source: "App updater", title: "Lattice update failed", detail, toast: false });
     }
   }, []);
 
@@ -177,8 +181,10 @@ export function useAppUpdater(options?: {
       // Browser/dev (no Tauri) or a transient network error: stay quiet unless
       // the user explicitly pressed "Check for updates".
       if (!silent) {
-        setError(reason instanceof Error ? reason.message : String(reason));
+        const detail = reason instanceof Error ? reason.message : String(reason);
+        setError(detail);
         setPhase("error");
+        addAppLog({ level: "error", source: "App updater", title: "Couldn’t check for Lattice updates", detail, toast: false });
       }
     }
   }, []);
@@ -269,7 +275,7 @@ export function UpdateBanner(props?: { corner?: BannerCorner }) {
   const stacked = phase === "downloading" || phase === "installing";
 
   return (
-    <div className={`app-update-banner ${corner}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
+    <div className={`app-update-banner ${corner} ${phase}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
       {phase === "available" && (
         <>
           <div className="app-update-text">
@@ -333,14 +339,14 @@ export function UpdateModeSetting() {
           </SelectContent>
         </Select>
       </label>
-      <button
-        type="button"
-        className="text-button"
+      <Button
+        size="compact"
+        variant="ghost"
         disabled={phase === "checking" || phase === "downloading"}
         onClick={() => void check(false)}
       >
         {phase === "checking" ? "Checking…" : phase === "up-to-date" ? "Up to date" : "Check now"}
-      </button>
+      </Button>
     </div>
   );
 }

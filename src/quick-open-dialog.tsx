@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { FileSearch, X } from "lucide-react";
+import { FileSearch } from "lucide-react";
+import { CloseButton } from "./components/ui/icon-button";
+import { EmptyState } from "./components/ui/empty-state";
 import { ModalDialog } from "./components/ui/modal-dialog";
 
 function scorePath(path: string, query: string): number {
@@ -84,7 +86,7 @@ function QuickOpenDialogForm(props: {
               }
             }}
           />
-          <button type="button" onClick={props.onClose}><X size={15} /></button>
+          <CloseButton label="Close quick open" onClick={props.onClose} />
         </div>
         <div className="quick-open-list" role="listbox">
           {results.map((path, index) => (
@@ -100,7 +102,9 @@ function QuickOpenDialogForm(props: {
               {path}
             </button>
           ))}
-          {!results.length && <p className="quick-open-empty">No matching files.</p>}
+          {!results.length && (
+            <EmptyState density="compact" description="No matching files." />
+          )}
         </div>
       </div>
     </ModalDialog>

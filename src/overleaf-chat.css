@@ -70,7 +70,7 @@
   font-size: 12px;
   line-height: 1.5;
   padding: 8px 9px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--line);
   background: var(--bg);
   color: var(--text);
@@ -86,8 +86,8 @@
 }
 .overleaf-chat-composer button {
   flex: none;
-  width: 32px;
-  height: 32px;
+  width: var(--control-height-default);
+  height: var(--control-height-default);
   display: grid;
   place-items: center;
   padding: 0;
@@ -96,7 +96,7 @@
 .overleaf-chat-error {
   margin: 0 0 8px;
   padding: 7px 9px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: 11px;
   line-height: 1.5;
   color: var(--danger, #d2544b);

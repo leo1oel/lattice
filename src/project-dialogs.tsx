@@ -13,12 +13,13 @@ import {
   Sparkles,
 } from "lucide-react";
 import { MorphIcon, MotionButton } from "./motion";
+import { Button } from "./components/ui/button";
+import { buttonClassName } from "./components/ui/button-styles";
 import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
 } from "./components/ui/dropdown-menu";
 import { type ProjectVenue, type RenameTarget } from "./app-types";
 import { type RecentProject } from "./app-settings";
@@ -63,10 +64,17 @@ export function Welcome(props: {
             overflowed 620px, dropping the widest onto a line of its own —
             which read as a mistake rather than as a choice. */}
         <div className="welcome-actions">
-          <MotionButton className="primary-button" magnetic onClick={props.onOpenCreate}>
+          <MotionButton
+            className={buttonClassName({ variant: "primary", size: "form" })}
+            magnetic
+            onClick={props.onOpenCreate}
+          >
             <Plus size={17} /> New project
           </MotionButton>
-          <MotionButton className="secondary-button" onClick={props.onOpen}>
+          <MotionButton
+            className={buttonClassName({ variant: "secondary", size: "form" })}
+            onClick={props.onOpen}
+          >
             <MorphIcon size={17} idle={<Folder size={17} />} hover={<FolderOpen size={17} />} />
             Open folder
           </MotionButton>
@@ -84,9 +92,9 @@ export function Welcome(props: {
             <Radio size={15} /> Join share
           </button>
         </div>
-        <button type="button" className="text-button welcome-tex-setup" onClick={props.onInstallTex}>
+        <Button size="compact" variant="ghost" className="welcome-tex-setup" onClick={props.onInstallTex}>
           Install LaTeX tools (needed to compile PDFs)
-        </button>
+        </Button>
         {props.busyLabel && <p className="busy-label"><LoaderCircle className="spin" size={15} /> {props.busyLabel}</p>}
         {props.error && <p className="welcome-error" role="alert">{props.error}</p>}
       </div>
@@ -153,8 +161,8 @@ export function CreateProjectDialog(props: {
         </fieldset>
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">
-          <button className="text-button" onClick={props.onClose}>Cancel</button>
-          <MotionButton className="primary-button" onClick={props.onCreate}>Choose location</MotionButton>
+          <Button variant="ghost" onClick={props.onClose}>Cancel</Button>
+          <MotionButton className={buttonClassName({ variant: "primary" })} onClick={props.onCreate}>Choose location</MotionButton>
         </div>
       </div>
     </ModalDialog>
@@ -167,15 +175,13 @@ export function RenameDialog(props: {
   onRename: (name: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const initialName = props.target.kind === "entry"
-    ? props.target.name
-    : props.target.kind === "label"
-        ? props.target.label
-        : props.target.kind === "environment"
-          ? props.target.name
-          : props.target.kind === "wrap-environment"
-            ? "equation"
-            : props.target.key;
+  const initialName = props.target.kind === "label"
+    ? props.target.label
+    : props.target.kind === "environment"
+      ? props.target.name
+      : props.target.kind === "wrap-environment"
+        ? "equation"
+        : props.target.key;
   const [name, setName] = useState(initialName);
   const [busy, setBusy] = useState(false);
   const title = props.target.kind === "label"
@@ -184,18 +190,14 @@ export function RenameDialog(props: {
         ? "Rename citation key"
         : props.target.kind === "environment"
           ? "Rename environment"
-          : props.target.kind === "wrap-environment"
-            ? "Wrap in environment"
-            : "Rename project item";
+          : "Wrap in environment";
   const copy = props.target.kind === "label"
       ? "Updates every \\label and \\ref/\\cref occurrence across the project."
       : props.target.kind === "citation"
         ? "Updates the bibliography entry and every \\cite occurrence across the project."
         : props.target.kind === "environment"
           ? "Renames the matching \\begin and \\end pair under the cursor."
-          : props.target.kind === "wrap-environment"
-            ? "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
-            : "Use a simple name. Existing file extensions are kept when omitted.";
+          : "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}.";
   const submit = async () => {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -222,8 +224,14 @@ export function RenameDialog(props: {
         </label>
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">
-          <button className="text-button" disabled={busy} onClick={props.onClose}>Cancel</button>
-          <MotionButton className="primary-button" disabled={busy || !name.trim()} onClick={() => void submit()}>{busy ? "Renaming…" : "Rename"}</MotionButton>
+          <Button variant="ghost" disabled={busy} onClick={props.onClose}>Cancel</Button>
+          <MotionButton
+            className={buttonClassName({ variant: "primary" })}
+            disabled={busy || !name.trim()}
+            onClick={() => void submit()}
+          >
+            {busy ? "Renaming…" : "Rename"}
+          </MotionButton>
         </div>
       </div>
     </ModalDialog>
@@ -244,7 +252,7 @@ export function ProjectMenu(props: {
   const alternatives = props.recentProjects.filter((item) => item.path !== props.currentPath);
   const busy = Boolean(props.busyLabel);
   return (
-    <DropdownMenuContent align="start" sideOffset={6} className="w-72">
+    <DropdownMenuContent align="start" sideOffset={6} className="w-56 bg-[#F9F9FA] dark:bg-popover">
       <DropdownMenuLabel>Recent projects</DropdownMenuLabel>
       {alternatives.map((item) => (
         <DropdownMenuItem key={item.path} title={item.path} disabled={busy} onSelect={() => props.onRecent(item.path)}>
@@ -257,7 +265,7 @@ export function ProjectMenu(props: {
       )}
       <DropdownMenuSeparator />
       <DropdownMenuItem onSelect={props.onOpen}>
-        <FolderOpen /> Open another folder <DropdownMenuShortcut>⌘O</DropdownMenuShortcut>
+        <FolderOpen /> Open another folder
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={props.onNew}><Plus /> New project</DropdownMenuItem>
       {props.onOpenOverleaf && (

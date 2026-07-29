@@ -10,7 +10,7 @@
  * rest of the app.
  */
 
-import { DEFAULT_UI_FONT, DEFAULT_EDITOR_FONT, UI_FONT_OPTIONS, EDITOR_FONT_OPTIONS, resolveFontValue } from "./available-fonts";
+import { DEFAULT_UI_FONT, DEFAULT_EDITOR_FONT, EDITOR_FONT_OPTIONS, resolveFontValue } from "./available-fonts";
 
 export type Theme = "light" | "dark";
 export type RecentProject = { name: string; path: string };
@@ -169,7 +169,7 @@ export function persistSidebarOpen(open: boolean) {
 
 export function loadSidebarWidth(): number {
   try {
-    return clamp(Number(localStorage.getItem(SIDEBAR_WIDTH_KEY)) || 320, 225, 560);
+    return clamp(Number(localStorage.getItem(SIDEBAR_WIDTH_KEY)) || 320, 180, 2400);
   } catch { return 320; }
 }
 
@@ -206,11 +206,9 @@ export function loadAppearance(): AppearanceSettings {
     const legacy = localStorage.getItem(LEGACY_APPEARANCE_KEY);
     const value = JSON.parse(current ?? legacy ?? "null") as Partial<AppearanceSettings> | null;
     return {
-      uiFont: resolveFontValue(
-        typeof value?.uiFont === "string" ? value.uiFont : undefined,
-        UI_FONT_OPTIONS,
-        defaults.uiFont,
-      ),
+      // Keep the field in the persisted shape for backwards compatibility, but
+      // normalize every old preference to the bundled application UI face.
+      uiFont: defaults.uiFont,
       interfaceScale: clamp(Number(value?.interfaceScale) || defaults.interfaceScale, 0.9, 1.35),
       editorFont: resolveFontValue(
         typeof value?.editorFont === "string" ? value.editorFont : undefined,

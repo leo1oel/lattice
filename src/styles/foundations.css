@@ -1,0 +1,101 @@
+:root {
+  /* Typography
+   *
+   * Product chrome stays compact while reading surfaces get a little more air.
+   * Components should consume these semantic roles instead of introducing new
+   * pixel values for the same job.
+   */
+  --type-micro-size: 10px;
+  --type-micro-line-height: 14px;
+  --type-micro-weight: 500;
+  --type-caption-size: 11px;
+  --type-caption-line-height: 16px;
+  --type-caption-weight: 400;
+  --type-label-size: 12px;
+  --type-label-line-height: 16px;
+  --type-label-weight: 500;
+  --type-body-size: 13px;
+  --type-body-line-height: 20px;
+  --type-body-weight: 400;
+  --type-reading-size: 14px;
+  --type-reading-line-height: 22px;
+  --type-reading-weight: 400;
+  --type-title-compact-size: 13px;
+  --type-title-compact-line-height: 16px;
+  --type-title-compact-weight: 600;
+  --type-title-size: 14px;
+  --type-title-line-height: 18px;
+  --type-title-weight: 600;
+  --type-title-large-size: 16px;
+  --type-title-large-line-height: 20px;
+  --type-title-large-weight: 600;
+  --type-heading-size: 18px;
+  --type-heading-line-height: 22px;
+  --type-heading-weight: 600;
+
+  /* Compatibility aliases for the existing hand-written CSS. */
+  --font-ui-xs: var(--type-micro-size);
+  --font-ui-sm: var(--type-caption-size);
+  --font-ui-base: var(--type-label-size);
+  --font-ui-body: var(--type-body-size);
+  --font-ui-title: var(--type-title-size);
+  --font-ui-heading: var(--type-heading-size);
+
+  /* Weight roles keep arbitrary 450/650 values out of feature styles. */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* A compact 2px spacing grid. */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-8: 16px;
+  --space-10: 20px;
+  --space-12: 24px;
+  --space-16: 32px;
+
+  /* Radius roles. Special asymmetric message bubbles remain component-owned. */
+  --radius-compact: 4px;
+  --radius-icon: 6px;
+  --radius-control: 8px;
+  --radius-surface: 10px;
+  --radius-dialog: 14px;
+  --radius-pill: 999px;
+
+  /* Control and row density. */
+  --control-size-icon-compact: 24px;
+  --control-size-icon: 28px;
+  --control-size-icon-large: 30px;
+  --control-height-compact: 28px;
+  --control-height-default: 32px;
+  --control-height-form: 38px;
+  --control-height-segmented-compact: 26px;
+  --control-height-segmented-default: 34px;
+  --control-size-checkbox: 14px;
+  --control-width-switch: 24px;
+  --control-height-switch: 14px;
+  --control-size-switch-thumb: 10px;
+  --badge-height: 20px;
+  --badge-height-compact: 16px;
+  --row-height-compact: 32px;
+  --row-height-default: 40px;
+  --row-height-comfortable: 44px;
+
+  /* Semantic color aliases preserve the neutral accent and follow both themes. */
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
+  --text-tertiary: var(--faint);
+  --control-active: var(--accent);
+  --control-active-soft: var(--accent-soft);
+  --status-success: var(--success);
+  --status-success-soft: color-mix(in srgb, var(--success) 12%, transparent);
+  --status-warning: var(--warning);
+  --status-warning-soft: color-mix(in srgb, var(--warning) 12%, transparent);
+  --status-danger: var(--danger);
+  --status-danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
+}

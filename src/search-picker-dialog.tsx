@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
+import { CloseButton } from "./components/ui/icon-button";
+import { EmptyState } from "./components/ui/empty-state";
 import { ModalDialog } from "./components/ui/modal-dialog";
 
 export type SearchPickerItem = {
@@ -100,7 +102,7 @@ function SearchPickerDialogForm(props: {
               }
             }}
           />
-          <button type="button" onClick={props.onClose}><X size={15} /></button>
+          <CloseButton label={`Close ${props.title}`} onClick={props.onClose} />
         </div>
         <div className="quick-open-list" role="listbox">
           {results.map((item, index) => (
@@ -120,7 +122,7 @@ function SearchPickerDialogForm(props: {
               {item.detail && <em className="picker-detail">{item.detail}</em>}
             </button>
           ))}
-          {!results.length && <p className="quick-open-empty">No matches.</p>}
+          {!results.length && <EmptyState density="compact" description="No matches." />}
         </div>
       </div>
     </ModalDialog>

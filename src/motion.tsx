@@ -2,9 +2,8 @@
 // spirit of Amicro, tuned to stay light: only transform/opacity animate (GPU
 // composited) and springs are short, so they hold up on weak WebKit (the macOS
 // VM). Reach for these instead of hand-rolling motion props per call site.
-import { forwardRef, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { forwardRef, useId, useRef, useState, type ReactNode } from "react";
 import {
-  animate,
   AnimatePresence,
   motion,
   useMotionValue,
@@ -13,6 +12,7 @@ import {
   type HTMLMotionProps,
   type Transition,
 } from "motion/react";
+import "./motion.css";
 
 /** Snappy press/hover feel for buttons — quick settle, no overshoot wobble. */
 export const PRESS_SPRING: Transition = { type: "spring", stiffness: 520, damping: 32, mass: 0.6 };
@@ -23,7 +23,7 @@ export const POP_SPRING: Transition = { type: "spring", stiffness: 460, damping:
 /**
  * Where something comes to rest after being moved: slower and heavier than a
  * press, so the eye can follow it from where it was to where it now is. This
- * is the spring behind the switch thumb and the tab pill, whose whole job is
+ * is the spring behind state indicators such as a tab pill, whose whole job is
  * to make the change of state legible rather than to acknowledge a click.
  */
 export const SETTLE_SPRING: Transition = { type: "spring", stiffness: 260, damping: 26, mass: 1 };
@@ -193,63 +193,6 @@ export function MorphIcon(props: { idle: ReactNode; hover: ReactNode; size?: num
   );
 }
 
-/**
- * A switch whose thumb springs across and squashes as you press it.
- *
- * The CSS transition it replaces moved the thumb linearly in 160ms, which
- * reads as the dot being redrawn somewhere else rather than travelling. A
- * spring overshoots slightly and settles, so the eye follows the movement and
- * the new state is legible without reading the colour. The squash on press is
- * the same idea for the other half of the interaction: the control answers the
- * finger before the state has changed.
- */
-export function Switch(props: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
-  disabled?: boolean;
-  className?: string;
-  /** How far the thumb travels, in px. Matches the CSS track width. */
-  travel?: number;
-}) {
-  const travel = props.travel ?? 10;
-  const reduceMotion = useReducedMotion();
-  const x = useMotionValue(props.checked ? travel : 0);
-  const scaleX = useMotionValue(1);
-  const previous = useRef(props.checked);
-
-  useEffect(() => {
-    if (previous.current === props.checked) return;
-    previous.current = props.checked;
-    const target = props.checked ? travel : 0;
-    if (reduceMotion) x.set(target);
-    else void animate(x, target, SETTLE_SPRING);
-  }, [props.checked, reduceMotion, travel, x]);
-
-  const squash = (to: number) => {
-    if (reduceMotion || props.disabled) return;
-    void animate(scaleX, to, to > 1 ? PRESS_SPRING : SETTLE_SPRING);
-  };
-
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={props.checked}
-      aria-label={props.label}
-      disabled={props.disabled}
-      className={`motion-switch${props.checked ? " on" : ""}${props.className ? ` ${props.className}` : ""}`}
-      onClick={() => props.onChange(!props.checked)}
-      onPointerDown={() => squash(1.18)}
-      onPointerUp={() => squash(1)}
-      onPointerLeave={() => squash(1)}
-      onPointerCancel={() => squash(1)}
-    >
-      <motion.span className="motion-switch-thumb" style={{ x, scaleX }} />
-    </button>
-  );
-}
-
 export type SlidingTab = { value: string; label: ReactNode; title?: string };
 
 /**
@@ -286,7 +229,7 @@ export function SlidingTabs(props: {
   const reduceMotion = useReducedMotion();
   return (
     <div className={`sliding-tabs${props.className ? ` ${props.className}` : ""}`} role="tablist" aria-label={props.ariaLabel}>
-      {props.items.map((item) => {
+      {props.items.map((item, index) => {
         const selected = item.value === props.value;
         return (
           <button
@@ -298,6 +241,20 @@ export function SlidingTabs(props: {
             title={item.title}
             className={`sliding-tab${selected ? " active" : ""}${props.tabClassName ? ` ${props.tabClassName}` : ""}`}
             onClick={() => props.onChange(item.value)}
+            onKeyDown={(event) => {
+              let nextIndex: number | null = null;
+              if (event.key === "ArrowRight") nextIndex = (index + 1) % props.items.length;
+              if (event.key === "ArrowLeft") nextIndex = (index - 1 + props.items.length) % props.items.length;
+              if (event.key === "Home") nextIndex = 0;
+              if (event.key === "End") nextIndex = props.items.length - 1;
+              if (nextIndex == null) return;
+
+              event.preventDefault();
+              props.onChange(props.items[nextIndex].value);
+              const tabs = event.currentTarget.parentElement
+                ?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+              tabs?.[nextIndex]?.focus();
+            }}
           >
             {selected && (
               <motion.span

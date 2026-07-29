@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OverleafPickerDialog, OverleafSettingsSection } from "./overleaf-connect";
 import type { OverleafProject, OverleafStatus } from "./app-types";
@@ -229,6 +229,9 @@ describe("Overleaf picker dialog", () => {
     render(
       <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} onOpenSettings={vi.fn()} />,
     );
+    const drawer = screen.getByLabelText("Open from Overleaf");
+    expect(drawer).toHaveClass("resizable-drawer");
+    expect(within(drawer).getByRole("separator", { name: "Resize right panel" })).toBeInTheDocument();
     expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
     expect(screen.getByText("Thesis Draft")).toBeInTheDocument();
     expect(screen.getByText(/Ada · updated/)).toBeInTheDocument();
@@ -411,7 +414,7 @@ describe("Overleaf picker dialog", () => {
     expect(await screen.findByText(/Downloading Attention Paper from Overleaf/)).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Close Open from Overleaf" })).toBeDisabled();
     resolveClone("/tmp/cloned/Attention Paper");
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });

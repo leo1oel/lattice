@@ -24,6 +24,8 @@ type ViewportProps = Omit<ComponentPropsWithoutRef<"div">, "children">;
 
 interface ScrollAreaProps extends ComponentPropsWithoutRef<"div"> {
   contentClassName?: string;
+  /** Subtle edge mask for content that continues offscreen. Defaults to the active orientation. */
+  fadeEdges?: boolean | Orientation;
   viewportClassName?: string;
   viewportProps?: ViewportProps;
   viewportRef?: Ref<HTMLDivElement>;
@@ -62,6 +64,7 @@ const ScrollArea = forwardRef<
     className,
     children,
     contentClassName,
+    fadeEdges = true,
     viewportClassName,
     viewportProps,
     viewportRef,
@@ -97,11 +100,24 @@ const ScrollArea = forwardRef<
       {children}
     </div>
   );
+  const fadeOrientation = fadeEdges === true ? orientation : fadeEdges;
+  const fadeClassName = fadeOrientation === "vertical"
+    ? "scroll-fade"
+    : fadeOrientation === "horizontal"
+      ? "scroll-fade-x"
+      : fadeOrientation === "both"
+        ? "scroll-fade-both"
+        : undefined;
   const sharedViewportProps = {
     ...viewportProps,
     ref: viewportCallback,
     "data-slot": "scroll-area-viewport",
-    className: cn("size-full rounded-[inherit] outline-none", viewportClassName, viewportProps?.className),
+    className: cn(
+      "size-full rounded-[inherit] outline-none",
+      fadeClassName,
+      viewportClassName,
+      viewportProps?.className,
+    ),
   };
 
   return (

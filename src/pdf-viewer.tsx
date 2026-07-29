@@ -24,8 +24,8 @@ import {
   Download,
   FileText,
   LoaderCircle,
-  Maximize2,
   RectangleHorizontal,
+  RectangleVertical,
   Search,
   X,
   ZoomIn,
@@ -47,6 +47,7 @@ import {
   PDF_MIN_SCALE,
   PDF_STANDARD_FONT_DATA_URL,
   type PdfPageSize,
+  type PdfSearchMatch,
 } from "./pdf-viewer-utils";
 import "./pdf-viewer.css";
 
@@ -87,12 +88,50 @@ function textFromContent(content: Awaited<ReturnType<PDFPageProxy["getTextConten
     .join(" ");
 }
 
-function highlightTextLayer(container: HTMLElement, rawQuery: string, selected: boolean) {
+function highlightTextLayer(
+  container: HTMLElement,
+  rawQuery: string,
+  selectedOccurrence: number | null,
+) {
+  for (const mark of container.querySelectorAll<HTMLElement>("mark.pdf-text-match")) {
+    const parent = mark.parentNode;
+    mark.replaceWith(document.createTextNode(mark.textContent ?? ""));
+    parent?.normalize();
+  }
   const query = rawQuery.trim().toLocaleLowerCase();
-  for (const span of container.querySelectorAll<HTMLElement>("span")) {
-    const matches = Boolean(query) && (span.textContent ?? "").toLocaleLowerCase().includes(query);
-    span.classList.toggle("pdf-text-match", matches);
-    span.classList.toggle("selected", matches && selected);
+  if (!query) return;
+
+  let occurrence = 0;
+  let selectedMark: HTMLElement | null = null;
+  const spans = Array.from(container.querySelectorAll<HTMLElement>("span"))
+    .filter((span) => !span.querySelector("span"));
+  for (const span of spans) {
+    const text = span.textContent ?? "";
+    const normalized = text.toLocaleLowerCase();
+    let from = 0;
+    const parts: Node[] = [];
+    while (from <= normalized.length - query.length) {
+      const index = normalized.indexOf(query, from);
+      if (index < 0) break;
+      if (index > from) parts.push(document.createTextNode(text.slice(from, index)));
+      const mark = document.createElement("mark");
+      mark.className = "pdf-text-match";
+      mark.textContent = text.slice(index, index + query.length);
+      if (occurrence === selectedOccurrence) {
+        mark.classList.add("selected");
+        selectedMark = mark;
+      }
+      parts.push(mark);
+      occurrence += 1;
+      from = index + query.length;
+    }
+    if (parts.length) {
+      if (from < text.length) parts.push(document.createTextNode(text.slice(from)));
+      span.replaceChildren(...parts);
+    }
+  }
+  if (selectedMark && typeof selectedMark.scrollIntoView === "function") {
+    selectedMark.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
   }
 }
 
@@ -150,8 +189,9 @@ function ContinuousPdfPage({
   pageNumber,
   scale,
   searchQuery,
-  selectedSearchPage,
+  selectedSearchMatch,
   syncTarget,
+  onTextLayerText,
   onSource,
   onDestination,
 }: {
@@ -159,8 +199,9 @@ function ContinuousPdfPage({
   pageNumber: number;
   scale: number;
   searchQuery: string;
-  selectedSearchPage: number | null;
+  selectedSearchMatch: PdfSearchMatch | null;
   syncTarget: PdfSyncTarget | null;
+  onTextLayerText: (page: number, text: string) => void;
   onSource?: (page: number, x: number, y: number) => void;
   onDestination: (destination: string | unknown[]) => void;
 }) {
@@ -270,7 +311,10 @@ function ContinuousPdfPage({
       void Promise.all([
         renderTask.promise,
         textLayer.render().then(() => {
-          if (active) setTextLayerVersion((version) => version + 1);
+          if (active) {
+            onTextLayerText(pageNumber, textContainer.textContent ?? "");
+            setTextLayerVersion((version) => version + 1);
+          }
         }),
       ])
         .catch((reason) => {
@@ -303,14 +347,18 @@ function ContinuousPdfPage({
         // Worker may already be gone during PDF rebuilds.
       }
     };
-  }, [page, scale, shouldRender]);
+  }, [onTextLayerText, page, pageNumber, scale, shouldRender]);
 
   useEffect(() => {
     const container = textLayerRef.current;
     if (container) {
-      highlightTextLayer(container, searchQuery, selectedSearchPage === pageNumber);
+      highlightTextLayer(
+        container,
+        searchQuery,
+        selectedSearchMatch?.page === pageNumber ? selectedSearchMatch.occurrence : null,
+      );
     }
-  }, [pageNumber, searchQuery, selectedSearchPage, textLayerVersion]);
+  }, [pageNumber, searchQuery, selectedSearchMatch, textLayerVersion]);
 
   const viewport = page?.getViewport({ scale });
   const width = Math.floor(viewport?.width ?? 612 * scale);
@@ -403,7 +451,11 @@ export function PdfPreview({
   onNumPagesRef.current = onNumPages;
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
+  const [pageEditing, setPageEditing] = useState(false);
+  const [pageDraft, setPageDraft] = useState("");
+  const cancelPageEditRef = useRef(false);
   const [scale, setScale] = useState(1.1);
+  const [fitMode, setFitMode] = useState<"width" | "height" | null>(null);
   const [pageSize, setPageSize] = useState<PdfPageSize | null>(null);
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState("");
@@ -411,12 +463,18 @@ export function PdfPreview({
   const [saveNotice, setSaveNotice] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [pageTexts, setPageTexts] = useState<string[]>([]);
+  const pageTextsRef = useRef<string[]>([]);
+  pageTextsRef.current = pageTexts;
   const [searchError, setSearchError] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [zoomEditing, setZoomEditing] = useState(false);
   const [zoomDraft, setZoomDraft] = useState("");
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
+  const updateManualScale = useCallback((update: (current: number) => number) => {
+    setFitMode(null);
+    setScale(update);
+  }, []);
   // Trackpad pinch on macOS (and ctrl+scroll) arrives as a wheel event with
   // ctrlKey set. Zoom continuously and keep the point under the cursor fixed.
   const pendingZoomAnchorRef = useRef<{ x: number; y: number; prevScale: number } | null>(null);
@@ -436,6 +494,7 @@ export function PdfPreview({
       const prev = scaleRef.current;
       const next = clamp(Number((prev * Math.exp(-event.deltaY * 0.01)).toFixed(3)), PDF_MIN_SCALE, PDF_MAX_SCALE);
       if (next === prev) return;
+      setFitMode(null);
       const rect = area.getBoundingClientRect();
       pendingZoomAnchorRef.current = {
         x: event.clientX - rect.left,
@@ -461,6 +520,7 @@ export function PdfPreview({
       const { magnification, x, y } = event.payload;
       // The monitor is app-wide, so only zoom when the pinch is over the PDF.
       if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return;
+      setFitMode(null);
       // A pinch fires dozens of times a second, and every committed scale
       // change cancels and restarts the page render — that restart loop is
       // what made zooming stutter. Scale the pixels we already have (cheap,
@@ -526,6 +586,7 @@ export function PdfPreview({
       const prev = scaleRef.current;
       const next = clamp(Number((startScale * gesture.scale).toFixed(3)), PDF_MIN_SCALE, PDF_MAX_SCALE);
       if (next === prev) return;
+      setFitMode(null);
       const rect = area.getBoundingClientRect();
       pendingZoomAnchorRef.current = {
         x: (gesture.clientX ?? rect.left + rect.width / 2) - rect.left,
@@ -669,7 +730,7 @@ export function PdfPreview({
     };
   }, [stableLoadKey]);
 
-  const applyFit = useCallback((mode: "width" | "page") => {
+  const applyFit = useCallback((mode: "width" | "height") => {
     const area = scrollAreaRef.current;
     if (!area || !pageSize) return;
     setScale(fitPdfScale(mode, pageSize, {
@@ -678,9 +739,28 @@ export function PdfPreview({
     }));
   }, [pageSize]);
 
+  const toggleFit = useCallback((mode: "width" | "height") => {
+    if (fitMode === mode) {
+      setFitMode(null);
+      return;
+    }
+    setFitMode(mode);
+    applyFit(mode);
+  }, [applyFit, fitMode]);
+
+  useEffect(() => {
+    const area = scrollAreaRef.current;
+    if (!area || !fitMode || typeof ResizeObserver === "undefined") return;
+    const refit = () => applyFit(fitMode);
+    const observer = new ResizeObserver(refit);
+    observer.observe(area);
+    refit();
+    return () => observer.disconnect();
+  }, [applyFit, fitMode]);
+
   const commitZoomDraft = () => {
     const next = parsePdfZoomPercent(zoomDraft);
-    if (next !== null) setScale(next);
+    if (next !== null) updateManualScale(() => next);
     setZoomEditing(false);
     setZoomDraft("");
   };
@@ -723,14 +803,41 @@ export function PdfPreview({
     let active = true;
     // Defer full-text indexing so the first page can paint without worker contention.
     const timer = window.setTimeout(() => {
-      void Promise.all(
-        Array.from({ length: documentProxy.numPages }, async (_, index) => {
-          const page = await documentProxy.getPage(index + 1);
-          return textFromContent(await page.getTextContent());
-        }),
-      )
-        .then((texts) => {
-          if (active) setPageTexts(texts);
+      // Read pages sequentially. Asking one worker to extract every page at
+      // once can reject the whole index while its text layers still render.
+      void (async () => {
+        const results: PromiseSettledResult<string>[] = [];
+        for (let index = 0; index < documentProxy.numPages; index += 1) {
+          try {
+            const page = await documentProxy.getPage(index + 1);
+            results.push({ status: "fulfilled", value: textFromContent(await page.getTextContent()) });
+          } catch (reason) {
+            results.push({ status: "rejected", reason });
+          }
+        }
+        return results;
+      })()
+        .then((results) => {
+          if (!active) return;
+          // A rendered text layer is a valid fallback when direct extraction
+          // failed; this also keeps the counter consistent with visible yellow
+          // highlights instead of incorrectly reporting "Unavailable".
+          const texts = results.map((result, index) => (
+            result.status === "fulfilled" && result.value.trim()
+              ? result.value
+              : (pageTextsRef.current[index] ?? "")
+          ));
+          pageTextsRef.current = texts;
+          setPageTexts(texts);
+          const firstFailure = results.find(
+            (result): result is PromiseRejectedResult => result.status === "rejected",
+          );
+          if (firstFailure && !texts.some((text) => text.trim())) {
+            setSearchError(`Search unavailable: ${message(firstFailure.reason)}`);
+          } else {
+            // A malformed page must not disable search for every other page.
+            setSearchError("");
+          }
         })
         .catch((reason) => {
           if (!active) return;
@@ -744,6 +851,17 @@ export function PdfPreview({
       active = false;
       window.clearTimeout(timer);
     };
+  }, [documentProxy]);
+
+  const storeRenderedPageText = useCallback((page: number, text: string) => {
+    if (!documentProxy || !text.trim()) return;
+    const texts = pageTextsRef.current.length === documentProxy.numPages
+      ? [...pageTextsRef.current]
+      : Array.from({ length: documentProxy.numPages }, (_, index) => pageTextsRef.current[index] ?? "");
+    texts[page - 1] = text;
+    pageTextsRef.current = texts;
+    setPageTexts(texts);
+    setSearchError("");
   }, [documentProxy]);
 
   useEffect(() => {
@@ -824,6 +942,21 @@ export function PdfPreview({
       scrollArea.scrollTop = top;
     }
   }, []);
+
+  const commitPageDraft = () => {
+    if (cancelPageEditRef.current) {
+      cancelPageEditRef.current = false;
+      setPageEditing(false);
+      setPageDraft("");
+      return;
+    }
+    const requested = Number.parseInt(pageDraft, 10);
+    if (documentProxy && Number.isFinite(requested)) {
+      scrollToPage(clamp(requested, 1, documentProxy.numPages));
+    }
+    setPageEditing(false);
+    setPageDraft("");
+  };
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(updateCurrentPage);
@@ -907,7 +1040,35 @@ export function PdfPreview({
           <Tip label="Previous page">
             <button disabled={pageNumber <= 1} onClick={() => scrollToPage(Math.max(1, pageNumber - 1))}><ChevronLeft size={14} /></button>
           </Tip>
-          <span>{pageNumber} / {documentProxy?.numPages ?? "–"}</span>
+          <label className={`pdf-page-value${pageEditing ? " editing" : ""}`} title="Enter a page number">
+            <input
+              aria-label="PDF page number"
+              inputMode="numeric"
+              value={pageEditing ? pageDraft : String(pageNumber)}
+              style={{ width: pageEditing ? `${Math.max(1, pageDraft.length)}ch` : undefined }}
+              onFocus={(event) => {
+                const input = event.currentTarget;
+                cancelPageEditRef.current = false;
+                setPageEditing(true);
+                setPageDraft(String(pageNumber));
+                requestAnimationFrame(() => input.select());
+              }}
+              onChange={(event) => {
+                if (/^\d*$/.test(event.target.value)) setPageDraft(event.target.value);
+              }}
+              onBlur={commitPageDraft}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+                if (event.key === "Escape") {
+                  cancelPageEditRef.current = true;
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+            {pageEditing
+              ? <span className="pdf-page-total">/ {documentProxy?.numPages ?? "–"}</span>
+              : <span className="pdf-page-display" aria-hidden="true">{pageNumber} / {documentProxy?.numPages ?? "–"}</span>}
+          </label>
           <Tip label="Next page">
             <button disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => scrollToPage(Math.min(documentProxy?.numPages ?? pageNumber, pageNumber + 1))}><ChevronRight size={14} /></button>
           </Tip>
@@ -927,7 +1088,7 @@ export function PdfPreview({
             />
             {searchQuery && (
             <>
-              <small title={searchError || undefined}>{searchError ? "Unavailable" : searchIndexing ? "Indexing…" : matches.length ? `${selectedMatchIndex + 1}/${matches.length}` : "0/0"}</small>
+              <small className="pdf-search-position" aria-live="polite" title={searchError || undefined}>{searchError ? "Unavailable" : searchIndexing ? "Indexing…" : matches.length ? `${selectedMatchIndex + 1} / ${matches.length}` : "0 / 0"}</small>
               <Tip label="Previous search result">
                 <button disabled={!matches.length} onClick={() => selectMatch(-1)}><ChevronUp size={12} /></button>
               </Tip>
@@ -943,9 +1104,22 @@ export function PdfPreview({
         </div>
         <div className="pdf-zoom-controls">
           <Tip label="Zoom out">
-            <button disabled={scale <= PDF_MIN_SCALE} onClick={() => setScale((value) => clamp(Number((value - 0.1).toFixed(1)), PDF_MIN_SCALE, PDF_MAX_SCALE))}><ZoomOut size={14} /></button>
+            <button disabled={scale <= PDF_MIN_SCALE} onClick={() => updateManualScale((value) => clamp(Number((value - 0.1).toFixed(1)), PDF_MIN_SCALE, PDF_MAX_SCALE))}><ZoomOut size={14} /></button>
           </Tip>
-          <label className="pdf-zoom-value" title="Enter a zoom percentage">
+          <label
+            className="pdf-zoom-value"
+            title="Enter a zoom percentage or scroll to zoom"
+            onWheel={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (!event.deltaY) return;
+              updateManualScale((value) => clamp(
+                Number((value + (event.deltaY < 0 ? 0.1 : -0.1)).toFixed(1)),
+                PDF_MIN_SCALE,
+                PDF_MAX_SCALE,
+              ));
+            }}
+          >
             <input
               aria-label="PDF zoom percentage"
               inputMode="decimal"
@@ -965,14 +1139,14 @@ export function PdfPreview({
             <span>%</span>
           </label>
           <Tip label="Zoom in">
-            <button disabled={scale >= PDF_MAX_SCALE} onClick={() => setScale((value) => clamp(Number((value + 0.1).toFixed(1)), PDF_MIN_SCALE, PDF_MAX_SCALE))}><ZoomIn size={14} /></button>
+            <button disabled={scale >= PDF_MAX_SCALE} onClick={() => updateManualScale((value) => clamp(Number((value + 0.1).toFixed(1)), PDF_MIN_SCALE, PDF_MAX_SCALE))}><ZoomIn size={14} /></button>
           </Tip>
           <i className="pdf-fit-divider" aria-hidden="true" />
           <Tip label="Fit page to width">
-            <button disabled={!pageSize} onClick={() => applyFit("width")}><RectangleHorizontal size={14} /></button>
+            <button className={fitMode === "width" ? "active" : ""} aria-pressed={fitMode === "width"} disabled={!pageSize} onClick={() => toggleFit("width")}><RectangleHorizontal size={14} /></button>
           </Tip>
-          <Tip label="Fit whole page">
-            <button disabled={!pageSize} onClick={() => applyFit("page")}><Maximize2 size={14} /></button>
+          <Tip label="Fit page to height">
+            <button className={fitMode === "height" ? "active" : ""} aria-pressed={fitMode === "height"} disabled={!pageSize} onClick={() => toggleFit("height")}><RectangleVertical size={14} /></button>
           </Tip>
           <Tip label="Save PDF as…">
             <MotionButton disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}</MotionButton>
@@ -1002,8 +1176,9 @@ export function PdfPreview({
               pageNumber={page}
               scale={scale}
               searchQuery={searchQuery}
-              selectedSearchPage={selectedMatch?.page ?? null}
+              selectedSearchMatch={selectedMatch}
               syncTarget={syncTarget}
+              onTextLayerText={storeRenderedPageText}
               onSource={onSource}
               onDestination={(destination) => void navigateDestination(destination)}
             />

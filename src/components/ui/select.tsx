@@ -3,6 +3,10 @@ import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import {
+  floatingSurfaceClassName,
+  menuItemClassName,
+} from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
 
 function Select({
@@ -61,7 +65,8 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          "relative z-50 max-h-(--radix-select-content-available-height) min-w-[6rem] origin-(--radix-select-content-transform-origin) overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
+          floatingSurfaceClassName,
+          "relative max-h-(--radix-select-content-available-height) min-w-[6rem] origin-(--radix-select-content-transform-origin) overflow-hidden shadow-md",
           popupMotionClassName,
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
@@ -91,7 +96,10 @@ function SelectLabel({
   return (
     <SelectPrimitive.Label
       data-slot="select-label"
-      className={cn("px-2 py-1.5 text-xs text-muted-foreground", className)}
+      className={cn(
+        "px-2 py-1.5 text-[length:var(--type-label-size)] leading-[var(--type-label-line-height)] font-[var(--type-label-weight)] text-muted-foreground",
+        className
+      )}
       {...props}
     />
   )
@@ -106,7 +114,8 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 rounded-md py-1.5 pr-2.5 pl-7 text-xs outline-hidden transition-colors select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        menuItemClassName,
+        "w-full pr-2.5 pl-7 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
       )}
       {...props}

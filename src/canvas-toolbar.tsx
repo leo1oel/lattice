@@ -11,10 +11,10 @@ import {
   Undo2,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { motion } from "motion/react";
 import { Tip } from "./components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "./app-types";
 import { AnimatedProductIcon } from "./animated-icons/product-animated-icon";
+import { SegmentedControl } from "./components/ui/segmented-control";
 
 /**
  * What the cloud button says when this file is not live.
@@ -86,35 +86,24 @@ export function CanvasToolbar(props: {
   return (
     <div className="canvas-toolbar">
       <div className="active-document"><ActiveIcon size={14} /><span>{props.activePath}</span>{props.activeKind === "document" && props.dirty && <i />}</div>
-      <div className="view-switcher">
-        {(props.markdown ? [
-          { id: "source" as const, label: "Edit", title: "Edit Markdown" },
-          { id: "markdown-preview" as const, label: "Preview", title: "Preview Markdown" },
+      <SegmentedControl
+        value={switcherMode}
+        onChange={(mode) => {
+          if (mode === "markdown-preview") props.onMarkdownMode(true);
+          else if (props.markdown) props.onMarkdownMode(false);
+          else if (mode === "source" || mode === "split" || mode === "pdf") props.setMode(mode);
+        }}
+        ariaLabel="Document view"
+        className="canvas-view-switcher"
+        items={props.markdown ? [
+          { value: "source", label: "Edit", title: "Edit Markdown" },
+          { value: "markdown-preview", label: "Preview", title: "Preview Markdown" },
         ] : [
-          { id: "source" as const, label: "source", title: "Source only" },
-          { id: "split" as const, label: "split", title: "Source and PDF" },
-          { id: "pdf" as const, label: "pdf", title: "PDF only" },
-        ]).map((mode) => {
-          const active = switcherMode === mode.id;
-          return (
-            <button
-              key={mode.id}
-              className={active ? "active" : ""}
-              title={mode.title}
-              onClick={() => mode.id === "markdown-preview" ? props.onMarkdownMode(true) : props.markdown ? props.onMarkdownMode(false) : props.setMode(mode.id)}
-            >
-              {active && (
-                <motion.span
-                  layoutId="view-switcher-pill"
-                  className="view-switcher-pill"
-                  transition={{ type: "tween", ease: [0.65, 0, 0.35, 1], duration: 0.25 }}
-                />
-              )}
-              <span className="view-switcher-label">{mode.label}</span>
-            </button>
-          );
-        })}
-      </div>
+          { value: "source", label: "source", title: "Source only" },
+          { value: "split", label: "split", title: "Source and PDF" },
+          { value: "pdf", label: "pdf", title: "PDF only" },
+        ]}
+      />
       <div className="canvas-actions">
         {props.activeKind === "document" && (
           <>

@@ -1,5 +1,7 @@
-import { CircleDot, ListTodo, X } from "lucide-react";
+import { CircleDot, ListTodo } from "lucide-react";
+import { PanelHeader } from "./components/ui/panel-header";
 import type { TodoHit } from "./todo-scavenger";
+import { ResizableDrawer } from "./resizable-drawer";
 
 export function TodoScavengerPanel(props: {
   hits: TodoHit[];
@@ -7,12 +9,13 @@ export function TodoScavengerPanel(props: {
   onOpen: (path: string, line: number) => void;
 }) {
   return (
-    <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside className="history-drawer todo-drawer" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="drawer-header">
-          <div><ListTodo size={16} /><span>Manuscript TODOs</span></div>
-          <button type="button" onClick={props.onClose}><X size={16} /></button>
-        </div>
+    <ResizableDrawer className="todo-drawer" onClose={props.onClose}>
+        <PanelHeader
+          className="drawer-header"
+          icon={<ListTodo size={16} />}
+          title="Manuscript TODOs"
+          onClose={props.onClose}
+        />
         <p className="drawer-copy">
           Scans `.tex` / `.md` for `% TODO`, `% FIXME`, `% XXX`, and `\todo`.
           Click a hit to jump; the active unsaved buffer is included.
@@ -39,7 +42,6 @@ export function TodoScavengerPanel(props: {
             </li>
           ))}
         </ul>
-      </aside>
-    </div>
+    </ResizableDrawer>
   );
 }

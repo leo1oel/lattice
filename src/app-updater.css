@@ -35,6 +35,7 @@
 .app-update-banner.top-left { top: 52px; left: 16px; }
 .app-update-banner.bottom-right { bottom: 16px; right: 16px; }
 .app-update-banner.bottom-left { bottom: 16px; left: 16px; }
+.app-update-banner.error { border-left: 3px solid #d75a5a; }
 
 /* Grow to fill the fixed-width banner so the button and dismiss × sit flush at
    the right edge instead of leaving a gap after them. */
@@ -55,10 +56,10 @@
 
 .app-update-primary {
   flex: 0 0 auto;
-  height: 28px;
+  height: var(--control-height-compact);
   padding: 0 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--accent, #3d7af2);
   color: #fff;
   font-weight: 600;
@@ -72,7 +73,7 @@
   width: 22px;
   height: 22px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-icon);
   background: transparent;
   color: var(--text, #1a1a1a);
   opacity: 0.5;

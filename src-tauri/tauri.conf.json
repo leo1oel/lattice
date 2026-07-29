@@ -4,25 +4,23 @@
   "version": "0.1.174",
   "identifier": "app.leo1oel.researchwriter",
   "build": {
-    "beforeDevCommand": "pnpm prepare:agent && pnpm dev",
+    "beforeDevCommand": "pnpm prepare:runtime:dev && pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm prepare:agent && pnpm build",
+    "beforeBuildCommand": "pnpm prepare:runtime && pnpm build",
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "Lattice",
         "width": 1440,
         "height": 900,
-        "minWidth": 1060,
+        "minWidth": 1242,
         "minHeight": 680,
+        "backgroundColor": "#F7F7F6",
         "center": true,
         "titleBarStyle": "Overlay",
-        "trafficLightPosition": {
-          "x": 16,
-          "y": 16
-        },
         "hiddenTitle": true
       }
     ],
@@ -46,7 +44,8 @@
       "binaries/lattice-agent"
     ],
     "resources": [
-      "omp-assets/**/*"
+      "omp-assets/**/*",
+      "synara-runtime/**/*"
     ],
     "macOS": {
       "minimumSystemVersion": "11.0",

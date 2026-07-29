@@ -20,6 +20,7 @@ mod pdf_fonts;
 mod project;
 mod sessions;
 mod skill_store;
+mod synara;
 mod tex_setup;
 mod texcount;
 mod texlab;
@@ -84,20 +85,34 @@ fn set_root(state: &tauri::State<'_, AppState>, root: PathBuf) -> Result<(), Str
     Ok(())
 }
 
+async fn run_blocking<T, F>(label: &'static str, task: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(|error| format!("{label} stopped unexpectedly: {error}"))?
+}
+
 #[tauri::command]
-fn create_project(
+async fn create_project(
     state: tauri::State<'_, AppState>,
     parent: String,
     name: String,
     venue: Option<String>,
 ) -> Result<ProjectSnapshot, String> {
     let venue = project::Venue::parse(venue.as_deref().unwrap_or("neurips"))?;
-    let root = if venue == project::Venue::Neurips {
-        project::create(Path::new(&parent), &name)?
-    } else {
-        project::create_with_venue(Path::new(&parent), &name, venue)?
-    };
-    let snapshot = project::open(&root)?;
+    let (root, snapshot) = run_blocking("Project creation", move || {
+        let root = if venue == project::Venue::Neurips {
+            project::create(Path::new(&parent), &name)?
+        } else {
+            project::create_with_venue(Path::new(&parent), &name, venue)?
+        };
+        let snapshot = project::open(&root)?;
+        Ok((root, snapshot))
+    })
+    .await?;
     set_root(&state, root)?;
     Ok(snapshot)
 }
@@ -105,7 +120,7 @@ fn create_project(
 /// Fresh blank folder under Documents/Lattice Shares for joining a share.
 /// Does not modify whatever project the guest had open before.
 #[tauri::command]
-fn create_collab_join_workspace(
+async fn create_collab_join_workspace(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     room: String,
@@ -129,16 +144,20 @@ fn create_collab_join_workspace(
         .path()
         .document_dir()
         .map_err(|error| format!("Could not resolve Documents folder: {error}"))?;
-    let parent = documents.join("Lattice Shares");
-    std::fs::create_dir_all(&parent)
-        .map_err(|error| format!("Could not create Lattice Shares folder: {error}"))?;
-    let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-    let name = format!("share-{safe_room}-{stamp}");
-    let root = project::create_blank(&parent, &name)?;
-    // Each join materializes a full local copy here; it's only a convenience
-    // backup, so keep the most-recent handful and delete older ones.
-    prune_old_share_workspaces(&parent, &root, MAX_SHARE_WORKSPACES);
-    let snapshot = project::open(&root)?;
+    let (root, snapshot) = run_blocking("Shared workspace creation", move || {
+        let parent = documents.join("Lattice Shares");
+        std::fs::create_dir_all(&parent)
+            .map_err(|error| format!("Could not create Lattice Shares folder: {error}"))?;
+        let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+        let name = format!("share-{safe_room}-{stamp}");
+        let root = project::create_blank(&parent, &name)?;
+        // Each join materializes a full local copy here; it's only a convenience
+        // backup, so keep the most-recent handful and delete older ones.
+        prune_old_share_workspaces(&parent, &root, MAX_SHARE_WORKSPACES);
+        let snapshot = project::open(&root)?;
+        Ok((root, snapshot))
+    })
+    .await?;
     set_root(&state, root)?;
     Ok(snapshot)
 }
@@ -185,123 +204,175 @@ fn prune_old_share_workspaces(parent: &std::path::Path, current: &std::path::Pat
 }
 
 #[tauri::command]
-fn initial_project(state: tauri::State<'_, AppState>) -> Result<Option<ProjectSnapshot>, String> {
+async fn initial_project(
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<ProjectSnapshot>, String> {
     let root = state
         .root
         .lock()
         .map_err(|_| "Project state is unavailable.".to_string())?
         .clone();
-    root.map(|path| project::open(&path)).transpose()
+    run_blocking("Initial project load", move || {
+        root.map(|path| project::open(&path)).transpose()
+    })
+    .await
 }
 
 #[tauri::command]
-fn open_project(
+async fn open_project(
     state: tauri::State<'_, AppState>,
     path: String,
 ) -> Result<ProjectSnapshot, String> {
-    let snapshot = project::open(Path::new(&path))?;
+    let snapshot = run_blocking("Project opening", move || project::open(Path::new(&path))).await?;
     set_root(&state, PathBuf::from(&snapshot.root))?;
     Ok(snapshot)
 }
 
 #[tauri::command]
-fn import_project_zip(
+async fn import_project_zip(
     state: tauri::State<'_, AppState>,
     zip_path: String,
     parent: String,
 ) -> Result<ProjectSnapshot, String> {
-    let snapshot = project::import_project_zip(Path::new(&zip_path), Path::new(&parent))?;
+    let snapshot = run_blocking("Project import", move || {
+        project::import_project_zip(Path::new(&zip_path), Path::new(&parent))
+    })
+    .await?;
     set_root(&state, PathBuf::from(&snapshot.root))?;
     Ok(snapshot)
 }
 
 #[tauri::command]
-fn export_project_zip(state: tauri::State<'_, AppState>, zip_path: String) -> Result<(), String> {
-    project::export_project_zip(&current_root(&state)?, Path::new(&zip_path))
+async fn export_project_zip(
+    state: tauri::State<'_, AppState>,
+    zip_path: String,
+) -> Result<(), String> {
+    let root = current_root(&state)?;
+    run_blocking("Project export", move || {
+        project::export_project_zip(&root, Path::new(&zip_path))
+    })
+    .await
 }
 
 #[tauri::command]
-fn stat_project_file(
+async fn stat_project_file(
     state: tauri::State<'_, AppState>,
     path: String,
 ) -> Result<project::ProjectFileStat, String> {
-    project::stat_file(&current_root(&state)?, &path)
+    let root = current_root(&state)?;
+    run_blocking("Project file status", move || {
+        project::stat_file(&root, &path)
+    })
+    .await
 }
 
 #[tauri::command]
-fn refresh_project(state: tauri::State<'_, AppState>) -> Result<ProjectSnapshot, String> {
-    project::open(&current_root(&state)?)
+async fn refresh_project(state: tauri::State<'_, AppState>) -> Result<ProjectSnapshot, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || project::open(&root))
+        .await
+        .map_err(|error| format!("Project refresh stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn read_project_file(state: tauri::State<'_, AppState>, path: String) -> Result<String, String> {
-    project::read_file(&current_root(&state)?, &path)
+async fn read_project_file(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<String, String> {
+    let root = current_root(&state)?;
+    run_blocking("Project file read", move || {
+        project::read_file(&root, &path)
+    })
+    .await
 }
 
 #[tauri::command]
-fn write_project_file(
+async fn write_project_file(
     state: tauri::State<'_, AppState>,
     path: String,
     content: String,
 ) -> Result<String, String> {
-    let transaction = project::apply_transaction(
-        &current_root(&state)?,
-        &format!("Edit {path}"),
-        vec![(path, content)],
-    )?;
-    Ok(transaction.id)
+    let root = current_root(&state)?;
+    run_blocking("Project file write", move || {
+        let transaction =
+            project::apply_transaction(&root, &format!("Edit {path}"), vec![(path, content)])?;
+        Ok(transaction.id)
+    })
+    .await
 }
 
 #[tauri::command]
-fn list_citation_keys(state: tauri::State<'_, AppState>) -> Result<Vec<String>, String> {
-    project::citation_keys(&current_root(&state)?)
+async fn list_citation_keys(state: tauri::State<'_, AppState>) -> Result<Vec<String>, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || project::citation_keys(&root))
+        .await
+        .map_err(|error| format!("Citation scan stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn list_citations(state: tauri::State<'_, AppState>) -> Result<Vec<CitationInfo>, String> {
-    project::citations(&current_root(&state)?)
+async fn list_citations(state: tauri::State<'_, AppState>) -> Result<Vec<CitationInfo>, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || project::citations(&root))
+        .await
+        .map_err(|error| format!("Citation scan stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn read_bib_entry(
+async fn read_bib_entry(
     state: tauri::State<'_, AppState>,
     key: String,
 ) -> Result<Option<ResolvedCitation>, String> {
-    project::read_bib_entry(&current_root(&state)?, &key)
+    let root = current_root(&state)?;
+    run_blocking("Bibliography read", move || {
+        project::read_bib_entry(&root, &key)
+    })
+    .await
 }
 
 #[tauri::command]
-fn save_bib_entry(
+async fn save_bib_entry(
     state: tauri::State<'_, AppState>,
     key: String,
     bibtex: String,
 ) -> Result<(), String> {
-    project::save_bib_entry(&current_root(&state)?, &key, &bibtex)
+    let root = current_root(&state)?;
+    run_blocking("Bibliography save", move || {
+        project::save_bib_entry(&root, &key, &bibtex)
+    })
+    .await
 }
 
 #[tauri::command]
-fn list_references(state: tauri::State<'_, AppState>) -> Result<Vec<ReferenceInfo>, String> {
-    project::references(&current_root(&state)?)
+async fn list_references(state: tauri::State<'_, AppState>) -> Result<Vec<ReferenceInfo>, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || project::references(&root))
+        .await
+        .map_err(|error| format!("Reference scan stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn list_unused_symbols(state: tauri::State<'_, AppState>) -> Result<UnusedSymbols, String> {
-    project::unused_symbols(&current_root(&state)?)
+async fn list_unused_symbols(state: tauri::State<'_, AppState>) -> Result<UnusedSymbols, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || project::unused_symbols(&root))
+        .await
+        .map_err(|error| format!("Symbol scan stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn list_todos(state: tauri::State<'_, AppState>) -> Result<Vec<TodoHit>, String> {
-    project::list_todos(&current_root(&state)?)
+async fn list_todos(state: tauri::State<'_, AppState>) -> Result<Vec<TodoHit>, String> {
+    let root = current_root(&state)?;
+    run_blocking("TODO scan", move || project::list_todos(&root)).await
 }
 
 #[tauri::command]
-fn count_project_words(state: tauri::State<'_, AppState>) -> Result<WordCount, String> {
-    texcount::count_project(&current_root(&state)?)
+async fn count_project_words(state: tauri::State<'_, AppState>) -> Result<WordCount, String> {
+    let root = current_root(&state)?;
+    run_blocking("Word count", move || texcount::count_project(&root)).await
 }
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
-fn update_project_manifest(
+async fn update_project_manifest(
     state: tauri::State<'_, AppState>,
     engine: Option<String>,
     default_root: Option<String>,
@@ -321,58 +392,62 @@ fn update_project_manifest(
     } else {
         page_budget.map(Some)
     };
-    project::update_manifest_settings(
-        &current_root(&state)?,
-        engine,
-        default_root,
-        trusted,
-        words,
-        pages,
-    )
+    let root = current_root(&state)?;
+    run_blocking("Project settings update", move || {
+        project::update_manifest_settings(&root, engine, default_root, trusted, words, pages)
+    })
+    .await
 }
 
 #[tauri::command]
-fn add_root_document(
+async fn add_root_document(
     state: tauri::State<'_, AppState>,
     path: String,
     name: Option<String>,
     make_default: Option<bool>,
 ) -> Result<ProjectManifest, String> {
-    project::add_root_document(
-        &current_root(&state)?,
-        &path,
-        name,
-        make_default.unwrap_or(false),
-    )
+    let root = current_root(&state)?;
+    run_blocking("Root document update", move || {
+        project::add_root_document(&root, &path, name, make_default.unwrap_or(false))
+    })
+    .await
 }
 
 #[tauri::command]
-fn remove_root_document(
+async fn remove_root_document(
     state: tauri::State<'_, AppState>,
     path: String,
 ) -> Result<ProjectManifest, String> {
-    project::remove_root_document(&current_root(&state)?, &path)
+    let root = current_root(&state)?;
+    run_blocking("Root document update", move || {
+        project::remove_root_document(&root, &path)
+    })
+    .await
 }
 
 #[tauri::command]
-fn preview_replace_in_project(
+async fn preview_replace_in_project(
     state: tauri::State<'_, AppState>,
     query: String,
     paths: Option<Vec<String>>,
     match_case: Option<bool>,
     use_regex: Option<bool>,
 ) -> Result<ReplacePreview, String> {
-    project::preview_replace_in_project(
-        &current_root(&state)?,
-        &query,
-        paths,
-        match_case.unwrap_or(true),
-        use_regex.unwrap_or(false),
-    )
+    let root = current_root(&state)?;
+    run_blocking("Replace preview", move || {
+        project::preview_replace_in_project(
+            &root,
+            &query,
+            paths,
+            match_case.unwrap_or(true),
+            use_regex.unwrap_or(false),
+        )
+    })
+    .await
 }
 
 #[tauri::command]
-fn replace_in_project(
+async fn replace_in_project(
     state: tauri::State<'_, AppState>,
     query: String,
     replacement: String,
@@ -380,48 +455,68 @@ fn replace_in_project(
     match_case: Option<bool>,
     use_regex: Option<bool>,
 ) -> Result<ReplaceResult, String> {
-    project::replace_in_project(
-        &current_root(&state)?,
-        &query,
-        &replacement,
-        paths,
-        match_case.unwrap_or(true),
-        use_regex.unwrap_or(false),
-    )
+    let root = current_root(&state)?;
+    run_blocking("Project replace", move || {
+        project::replace_in_project(
+            &root,
+            &query,
+            &replacement,
+            paths,
+            match_case.unwrap_or(true),
+            use_regex.unwrap_or(false),
+        )
+    })
+    .await
 }
 
 #[tauri::command]
-fn find_label_occurrences(
+async fn find_label_occurrences(
     state: tauri::State<'_, AppState>,
     label: String,
 ) -> Result<Vec<SymbolOccurrence>, String> {
-    project::find_label_occurrences(&current_root(&state)?, &label)
+    let root = current_root(&state)?;
+    run_blocking("Label search", move || {
+        project::find_label_occurrences(&root, &label)
+    })
+    .await
 }
 
 #[tauri::command]
-fn find_citation_occurrences(
+async fn find_citation_occurrences(
     state: tauri::State<'_, AppState>,
     key: String,
 ) -> Result<Vec<SymbolOccurrence>, String> {
-    project::find_citation_occurrences(&current_root(&state)?, &key)
+    let root = current_root(&state)?;
+    run_blocking("Citation search", move || {
+        project::find_citation_occurrences(&root, &key)
+    })
+    .await
 }
 
 #[tauri::command]
-fn rename_label(
+async fn rename_label(
     state: tauri::State<'_, AppState>,
     old_label: String,
     new_label: String,
 ) -> Result<RenameSymbolResult, String> {
-    project::rename_label(&current_root(&state)?, &old_label, &new_label)
+    let root = current_root(&state)?;
+    run_blocking("Label rename", move || {
+        project::rename_label(&root, &old_label, &new_label)
+    })
+    .await
 }
 
 #[tauri::command]
-fn rename_citation_key(
+async fn rename_citation_key(
     state: tauri::State<'_, AppState>,
     old_key: String,
     new_key: String,
 ) -> Result<RenameSymbolResult, String> {
-    project::rename_citation_key(&current_root(&state)?, &old_key, &new_key)
+    let root = current_root(&state)?;
+    run_blocking("Citation rename", move || {
+        project::rename_citation_key(&root, &old_key, &new_key)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -440,77 +535,126 @@ async fn search_project(
 }
 
 #[tauri::command]
-fn create_project_entry(
+async fn create_project_entry(
     state: tauri::State<'_, AppState>,
     path: String,
     kind: String,
 ) -> Result<String, String> {
-    project::create_entry(&current_root(&state)?, &path, &kind)
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || project::create_entry(&root, &path, &kind))
+        .await
+        .map_err(|error| format!("File creation stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn delete_project_entry(state: tauri::State<'_, AppState>, path: String) -> Result<(), String> {
-    project::delete_entry(&current_root(&state)?, &path)
+async fn delete_project_entry(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || project::delete_entry(&root, &path))
+        .await
+        .map_err(|error| format!("File deletion stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn rename_project_entry(
+async fn rename_project_entry(
     state: tauri::State<'_, AppState>,
     path: String,
     new_name: String,
 ) -> Result<String, String> {
-    project::rename_entry(&current_root(&state)?, &path, &new_name)
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || project::rename_entry(&root, &path, &new_name))
+        .await
+        .map_err(|error| format!("File rename stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn import_project_assets(
+async fn move_project_entry(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    target_directory: String,
+) -> Result<String, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        project::move_entry(&root, &path, &target_directory)
+    })
+    .await
+    .map_err(|error| format!("File move stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn import_project_assets(
     state: tauri::State<'_, AppState>,
     paths: Vec<String>,
     target_directory: String,
 ) -> Result<Vec<String>, String> {
-    project::import_assets(&current_root(&state)?, &paths, &target_directory)
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        project::import_assets(&root, &paths, &target_directory)
+    })
+    .await
+    .map_err(|error| format!("Asset import stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn import_clipboard_image(
+async fn import_clipboard_image(
     state: tauri::State<'_, AppState>,
     target_directory: String,
     file_name: String,
     base64_data: String,
 ) -> Result<String, String> {
-    project::import_image_bytes(
-        &current_root(&state)?,
-        &target_directory,
-        &file_name,
-        &base64_data,
-    )
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        project::import_image_bytes(&root, &target_directory, &file_name, &base64_data)
+    })
+    .await
+    .map_err(|error| format!("Image import stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn resolve_citation_query(query: String) -> Result<ResolvedCitation, String> {
-    project::resolve_citation_query(&query)
+async fn resolve_citation_query(query: String) -> Result<ResolvedCitation, String> {
+    run_blocking("Citation lookup", move || {
+        project::resolve_citation_query(&query)
+    })
+    .await
 }
 
 #[tauri::command]
-fn read_project_asset(
+async fn read_project_asset(
     state: tauri::State<'_, AppState>,
     path: String,
 ) -> Result<AssetPreview, String> {
-    project::read_asset(&current_root(&state)?, &path)
+    let root = current_root(&state)?;
+    run_blocking("Project asset read", move || {
+        project::read_asset(&root, &path)
+    })
+    .await
 }
 
 #[tauri::command]
-fn write_project_bytes(
+async fn write_project_bytes(
     state: tauri::State<'_, AppState>,
     path: String,
     base64_data: String,
 ) -> Result<(), String> {
-    project::write_bytes(&current_root(&state)?, &path, &base64_data)
+    let root = current_root(&state)?;
+    run_blocking("Project asset write", move || {
+        project::write_bytes(&root, &path, &base64_data)
+    })
+    .await
 }
 
 #[tauri::command]
-fn prepare_latex_figure(state: tauri::State<'_, AppState>, path: String) -> Result<String, String> {
-    project::prepare_latex_figure(&current_root(&state)?, &path)
+async fn prepare_latex_figure(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<String, String> {
+    let root = current_root(&state)?;
+    run_blocking("Figure preparation", move || {
+        project::prepare_latex_figure(&root, &path)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -540,13 +684,14 @@ async fn clean_project(state: tauri::State<'_, AppState>) -> Result<String, Stri
 }
 
 #[tauri::command]
-fn run_doctor(state: tauri::State<'_, AppState>) -> DoctorReport {
+async fn run_doctor(state: tauri::State<'_, AppState>) -> Result<DoctorReport, String> {
     let root = state.root.lock().ok().and_then(|guard| guard.clone());
-    doctor::run(
-        root.as_deref(),
-        &state.agent_runtime.executable,
-        &state.agent_runtime.assets,
-    )
+    let executable = state.agent_runtime.executable.clone();
+    let assets = state.agent_runtime.assets.clone();
+    run_blocking("Doctor check", move || {
+        Ok(doctor::run(root.as_deref(), &executable, &assets))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -628,12 +773,16 @@ async fn texlab_definition(
 }
 
 #[tauri::command]
-fn format_latex(
+async fn format_latex(
     state: tauri::State<'_, AppState>,
     path: String,
     text: String,
 ) -> Result<String, String> {
-    format_latex::format_document(&current_root(&state)?, &path, &text)
+    let root = current_root(&state)?;
+    run_blocking("Document formatting", move || {
+        format_latex::format_document(&root, &path, &text)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -661,105 +810,139 @@ async fn search_literature(
 }
 
 #[tauri::command]
-fn git_status(state: tauri::State<'_, AppState>) -> Result<GitStatus, String> {
-    git::status(&current_root(&state)?)
+async fn git_status(state: tauri::State<'_, AppState>) -> Result<GitStatus, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::status(&root))
+        .await
+        .map_err(|error| format!("Git status stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn git_diff(
+async fn git_diff(
     state: tauri::State<'_, AppState>,
     path: String,
     staged: bool,
 ) -> Result<GitDiff, String> {
-    git::diff(&current_root(&state)?, &path, staged)
+    let root = current_root(&state)?;
+    run_blocking("Git diff", move || git::diff(&root, &path, staged)).await
 }
 
 #[tauri::command]
-fn git_stage(state: tauri::State<'_, AppState>, paths: Vec<String>) -> Result<(), String> {
-    git::stage(&current_root(&state)?, &paths)
+async fn git_stage(state: tauri::State<'_, AppState>, paths: Vec<String>) -> Result<(), String> {
+    let root = current_root(&state)?;
+    run_blocking("Git stage", move || git::stage(&root, &paths)).await
 }
 
 #[tauri::command]
-fn git_unstage(state: tauri::State<'_, AppState>, paths: Vec<String>) -> Result<(), String> {
-    git::unstage(&current_root(&state)?, &paths)
+async fn git_unstage(state: tauri::State<'_, AppState>, paths: Vec<String>) -> Result<(), String> {
+    let root = current_root(&state)?;
+    run_blocking("Git unstage", move || git::unstage(&root, &paths)).await
 }
 
 #[tauri::command]
-fn git_commit(state: tauri::State<'_, AppState>, message: String) -> Result<String, String> {
-    git::commit(&current_root(&state)?, &message)
+async fn git_commit(state: tauri::State<'_, AppState>, message: String) -> Result<String, String> {
+    let root = current_root(&state)?;
+    run_blocking("Git commit", move || git::commit(&root, &message)).await
 }
 
 #[tauri::command]
-fn git_init(state: tauri::State<'_, AppState>) -> Result<GitStatus, String> {
-    git::init(&current_root(&state)?)
+async fn git_init(state: tauri::State<'_, AppState>) -> Result<GitStatus, String> {
+    let root = current_root(&state)?;
+    run_blocking("Git initialization", move || git::init(&root)).await
 }
 
 #[tauri::command]
-fn git_set_remote(
+async fn git_set_remote(
     state: tauri::State<'_, AppState>,
     name: Option<String>,
     url: String,
 ) -> Result<GitStatus, String> {
-    git::set_remote(
-        &current_root(&state)?,
-        name.as_deref().unwrap_or("origin"),
-        &url,
-    )
+    let root = current_root(&state)?;
+    run_blocking("Git remote update", move || {
+        git::set_remote(&root, name.as_deref().unwrap_or("origin"), &url)
+    })
+    .await
 }
 
 #[tauri::command]
-fn git_push(state: tauri::State<'_, AppState>) -> Result<GitRemoteResult, String> {
-    git::push(&current_root(&state)?)
+async fn git_push(state: tauri::State<'_, AppState>) -> Result<GitRemoteResult, String> {
+    let root = current_root(&state)?;
+    run_blocking("Git push", move || git::push(&root)).await
 }
 
 #[tauri::command]
-fn git_pull(state: tauri::State<'_, AppState>) -> Result<GitRemoteResult, String> {
-    git::pull(&current_root(&state)?)
+async fn git_pull(state: tauri::State<'_, AppState>) -> Result<GitRemoteResult, String> {
+    let root = current_root(&state)?;
+    run_blocking("Git pull", move || git::pull(&root)).await
 }
 
 #[tauri::command]
-fn git_fetch(state: tauri::State<'_, AppState>) -> Result<GitRemoteResult, String> {
-    git::fetch(&current_root(&state)?)
+async fn git_fetch(state: tauri::State<'_, AppState>) -> Result<GitRemoteResult, String> {
+    let root = current_root(&state)?;
+    run_blocking("Git fetch", move || git::fetch(&root)).await
 }
 
 #[tauri::command]
-fn git_log(
+async fn git_log(
     state: tauri::State<'_, AppState>,
     limit: Option<u32>,
 ) -> Result<Vec<models::GitLogEntry>, String> {
-    git::log(&current_root(&state)?, limit.unwrap_or(200) as usize)
+    let root = current_root(&state)?;
+    run_blocking("Git history", move || {
+        git::log(&root, limit.unwrap_or(200) as usize)
+    })
+    .await
 }
 
 #[tauri::command]
-fn git_show_diff(
+async fn git_show_diff(
     state: tauri::State<'_, AppState>,
     rev: String,
     path: String,
 ) -> Result<models::GitFileDiff, String> {
-    git::show_diff(&current_root(&state)?, &rev, &path)
+    let root = current_root(&state)?;
+    run_blocking("Git revision diff", move || {
+        git::show_diff(&root, &rev, &path)
+    })
+    .await
 }
 
 #[tauri::command]
-fn git_restore_file(
+async fn git_restore_file(
     state: tauri::State<'_, AppState>,
     rev: String,
     path: String,
 ) -> Result<(), String> {
-    git::restore_file(&current_root(&state)?, &rev, &path)
+    let root = current_root(&state)?;
+    run_blocking("Git file restore", move || {
+        git::restore_file(&root, &rev, &path)
+    })
+    .await
 }
 
 #[tauri::command]
-fn git_restore_project(state: tauri::State<'_, AppState>, rev: String) -> Result<String, String> {
-    git::restore_project(&current_root(&state)?, &rev)
+async fn git_restore_project(
+    state: tauri::State<'_, AppState>,
+    rev: String,
+) -> Result<String, String> {
+    let root = current_root(&state)?;
+    run_blocking("Git project restore", move || {
+        git::restore_project(&root, &rev)
+    })
+    .await
 }
 
 #[tauri::command]
-fn git_auto_commit(
+async fn git_auto_commit(
     state: tauri::State<'_, AppState>,
     message: String,
     author: Option<String>,
 ) -> Result<Option<String>, String> {
-    git::auto_commit(&current_root(&state)?, &message, author.as_deref())
+    let root = current_root(&state)?;
+    run_blocking("Git automatic commit", move || {
+        git::auto_commit(&root, &message, author.as_deref())
+    })
+    .await
 }
 
 // ---- Overleaf bridge -------------------------------------------------------
@@ -773,8 +956,9 @@ fn overleaf_config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-fn overleaf_status(app: tauri::AppHandle) -> Result<overleaf::OverleafStatus, String> {
-    overleaf::session_status(&overleaf_config_dir(&app)?)
+async fn overleaf_status(app: tauri::AppHandle) -> Result<overleaf::OverleafStatus, String> {
+    let config = overleaf_config_dir(&app)?;
+    run_blocking("Overleaf status", move || overleaf::session_status(&config)).await
 }
 
 /// Open Overleaf's own login page in a dedicated window. The user signs in
@@ -859,16 +1043,20 @@ async fn overleaf_poll_login(
 }
 
 #[tauri::command]
-fn overleaf_store_cookie(
+async fn overleaf_store_cookie(
     app: tauri::AppHandle,
     host: String,
     cookie: String,
 ) -> Result<overleaf::OverleafStatus, String> {
-    overleaf::store_session_cookie(&overleaf_config_dir(&app)?, &host, &cookie)
+    let config = overleaf_config_dir(&app)?;
+    run_blocking("Overleaf sign-in", move || {
+        overleaf::store_session_cookie(&config, &host, &cookie)
+    })
+    .await
 }
 
 #[tauri::command]
-fn overleaf_disconnect(
+async fn overleaf_disconnect(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -877,7 +1065,8 @@ fn overleaf_disconnect(
     }
     // The live channel authenticates with the session being thrown away.
     shutdown_realtime(&state);
-    overleaf::disconnect(&overleaf_config_dir(&app)?)
+    let config = overleaf_config_dir(&app)?;
+    run_blocking("Overleaf disconnect", move || overleaf::disconnect(&config)).await
 }
 
 #[tauri::command]
@@ -904,12 +1093,16 @@ fn overleaf_projects_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, S
 
 /// What opening this project would do, so the app can ask before it acts.
 #[tauri::command]
-fn overleaf_clone_target(
+async fn overleaf_clone_target(
     app: tauri::AppHandle,
     project_id: String,
     name: String,
 ) -> Result<overleaf::CloneTarget, String> {
-    overleaf::clone_target(&project_id, &name, &overleaf_projects_dir(&app)?)
+    let parent = overleaf_projects_dir(&app)?;
+    run_blocking("Overleaf project location", move || {
+        overleaf::clone_target(&project_id, &name, &parent)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -957,10 +1150,14 @@ async fn overleaf_clone_project(
 }
 
 #[tauri::command]
-fn overleaf_link(
+async fn overleaf_link(
     state: tauri::State<'_, AppState>,
 ) -> Result<Option<overleaf::OverleafLink>, String> {
-    overleaf::project_link(&current_root(&state)?)
+    let root = current_root(&state)?;
+    run_blocking("Overleaf project link", move || {
+        overleaf::project_link(&root)
+    })
+    .await
 }
 
 // ---- Overleaf realtime editing ---------------------------------------------
@@ -1174,11 +1371,15 @@ fn live_paths(live: Option<Vec<String>>) -> std::collections::BTreeSet<String> {
 
 /// Record what Overleaf says this account may do to the linked project.
 #[tauri::command]
-fn overleaf_set_permission(
+async fn overleaf_set_permission(
     state: tauri::State<'_, AppState>,
     permission: String,
 ) -> Result<(), String> {
-    overleaf::set_permission(&current_root(&state)?, &permission)
+    let root = current_root(&state)?;
+    run_blocking("Overleaf permission update", move || {
+        overleaf::set_permission(&root, &permission)
+    })
+    .await
 }
 
 // ---- Overleaf's own history ----------------------------------------------
@@ -1551,13 +1752,20 @@ async fn overleaf_preview(
 
 /// Stop or restart syncing for the open project.
 #[tauri::command]
-fn overleaf_set_paused(state: tauri::State<'_, AppState>, paused: bool) -> Result<(), String> {
+async fn overleaf_set_paused(
+    state: tauri::State<'_, AppState>,
+    paused: bool,
+) -> Result<(), String> {
     if paused {
         // A socket left open would keep delivering edits, chat and presence
         // for a project the user just asked us to leave alone.
         shutdown_realtime(&state);
     }
-    overleaf::set_paused(&current_root(&state)?, paused)
+    let root = current_root(&state)?;
+    run_blocking("Overleaf sync setting", move || {
+        overleaf::set_paused(&root, paused)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1633,44 +1841,69 @@ async fn agent_runtime_revert(state: tauri::State<'_, AppState>) -> Result<(), S
 }
 
 #[tauri::command]
-fn list_pdf_annotations(state: tauri::State<'_, AppState>) -> Result<Vec<PdfMark>, String> {
-    project::read_pdf_marks(&current_root(&state)?)
+async fn list_pdf_annotations(state: tauri::State<'_, AppState>) -> Result<Vec<PdfMark>, String> {
+    let root = current_root(&state)?;
+    run_blocking("PDF annotation read", move || {
+        project::read_pdf_marks(&root)
+    })
+    .await
 }
 
 #[tauri::command]
-fn save_pdf_annotations(
+async fn save_pdf_annotations(
     state: tauri::State<'_, AppState>,
     annotations: Vec<PdfMark>,
 ) -> Result<(), String> {
-    project::write_pdf_marks(&current_root(&state)?, annotations)
+    let root = current_root(&state)?;
+    run_blocking("PDF annotation save", move || {
+        project::write_pdf_marks(&root, annotations)
+    })
+    .await
 }
 
 #[tauri::command]
-fn list_editor_comments(state: tauri::State<'_, AppState>) -> Result<Vec<EditorComment>, String> {
-    project::read_editor_comments(&current_root(&state)?)
+async fn list_editor_comments(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<EditorComment>, String> {
+    let root = current_root(&state)?;
+    run_blocking("Editor comment read", move || {
+        project::read_editor_comments(&root)
+    })
+    .await
 }
 
 #[tauri::command]
-fn save_editor_comments(
+async fn save_editor_comments(
     state: tauri::State<'_, AppState>,
     comments: Vec<EditorComment>,
 ) -> Result<(), String> {
-    project::write_editor_comments(&current_root(&state)?, comments)
+    let root = current_root(&state)?;
+    run_blocking("Editor comment save", move || {
+        project::write_editor_comments(&root, comments)
+    })
+    .await
 }
 
 #[tauri::command]
-fn save_compiled_pdf(path: String, pdf_base64: String) -> Result<String, String> {
-    latex::save_pdf(Path::new(&path), &pdf_base64)
+async fn save_compiled_pdf(path: String, pdf_base64: String) -> Result<String, String> {
+    run_blocking("Compiled PDF save", move || {
+        latex::save_pdf(Path::new(&path), &pdf_base64)
+    })
+    .await
 }
 
 #[tauri::command]
-fn synctex_edit(
+async fn synctex_edit(
     state: tauri::State<'_, AppState>,
     page: u32,
     x: f64,
     y: f64,
 ) -> Result<SyncTexTarget, String> {
-    latex::inverse_search(&current_root(&state)?, page, x, y)
+    let root = current_root(&state)?;
+    run_blocking("SyncTeX lookup", move || {
+        latex::inverse_search(&root, page, x, y)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1733,21 +1966,29 @@ async fn remove_reference(
 }
 
 #[tauri::command]
-fn list_papers(state: tauri::State<'_, AppState>) -> Result<Vec<PaperSummary>, String> {
-    papers::list_papers(&current_root(&state)?)
+async fn list_papers(state: tauri::State<'_, AppState>) -> Result<Vec<PaperSummary>, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || papers::list_papers(&root))
+        .await
+        .map_err(|error| format!("Paper scan stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn read_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<String, String> {
-    papers::read_paper(&current_root(&state)?, &arxiv_id)
+async fn read_paper(state: tauri::State<'_, AppState>, arxiv_id: String) -> Result<String, String> {
+    let root = current_root(&state)?;
+    run_blocking("Paper read", move || papers::read_paper(&root, &arxiv_id)).await
 }
 
 #[tauri::command]
-fn read_paper_blog_local(
+async fn read_paper_blog_local(
     state: tauri::State<'_, AppState>,
     arxiv_id: String,
 ) -> Result<Option<String>, String> {
-    papers::read_paper_blog_local(&current_root(&state)?, &arxiv_id)
+    let root = current_root(&state)?;
+    run_blocking("Paper overview read", move || {
+        papers::read_paper_blog_local(&root, &arxiv_id)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1794,10 +2035,13 @@ async fn run_agent(
 }
 
 #[tauri::command]
-fn inspect_agent_attachments(
+async fn inspect_agent_attachments(
     attachments: Vec<AgentAttachmentDescriptor>,
 ) -> Result<Vec<AgentAttachmentMetadata>, String> {
-    agents::inspect_attachments(&attachments)
+    run_blocking("Attachment inspection", move || {
+        agents::inspect_attachments(&attachments)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1848,116 +2092,163 @@ async fn begin_subscription_login(
 }
 
 #[tauri::command]
-fn save_api_key(provider: String, key: String) -> Result<(), String> {
-    agents::save_api_key(&provider, &key)
+async fn save_api_key(provider: String, key: String) -> Result<(), String> {
+    run_blocking("API key save", move || {
+        agents::save_api_key(&provider, &key)
+    })
+    .await
 }
 
 #[tauri::command]
-fn delete_api_key(provider: String) -> Result<(), String> {
-    agents::delete_api_key(&provider)
+async fn delete_api_key(provider: String) -> Result<(), String> {
+    run_blocking("API key deletion", move || {
+        agents::delete_api_key(&provider)
+    })
+    .await
 }
 
 #[tauri::command]
-fn api_key_status() -> Vec<(String, bool)> {
-    agents::api_key_status()
+async fn api_key_status() -> Result<Vec<(String, bool)>, String> {
+    run_blocking("API key status", move || Ok(agents::api_key_status())).await
 }
 
 #[tauri::command]
-fn list_history(state: tauri::State<'_, AppState>) -> Result<Vec<HistoryItem>, String> {
-    project::history(&current_root(&state)?)
+async fn list_history(state: tauri::State<'_, AppState>) -> Result<Vec<HistoryItem>, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || project::history(&root))
+        .await
+        .map_err(|error| format!("History scan stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
-fn get_history_entry(
+async fn get_history_entry(
     state: tauri::State<'_, AppState>,
     transaction_id: String,
 ) -> Result<TransactionRecord, String> {
-    project::get_history_entry(&current_root(&state)?, &transaction_id)
+    let root = current_root(&state)?;
+    run_blocking("History entry read", move || {
+        project::get_history_entry(&root, &transaction_id)
+    })
+    .await
 }
 
 #[tauri::command]
-fn revert_transaction(
+async fn revert_transaction(
     state: tauri::State<'_, AppState>,
     transaction_id: String,
 ) -> Result<String, String> {
-    let record = project::revert(&current_root(&state)?, &transaction_id)?;
-    Ok(record.id)
+    let root = current_root(&state)?;
+    run_blocking("History revert", move || {
+        let record = project::revert(&root, &transaction_id)?;
+        Ok(record.id)
+    })
+    .await
 }
 
 #[tauri::command]
-fn revert_history_file(
+async fn revert_history_file(
     state: tauri::State<'_, AppState>,
     transaction_id: String,
     path: String,
 ) -> Result<String, String> {
-    let record = project::revert_file(&current_root(&state)?, &transaction_id, &path)?;
-    Ok(record.id)
+    let root = current_root(&state)?;
+    run_blocking("History file revert", move || {
+        let record = project::revert_file(&root, &transaction_id, &path)?;
+        Ok(record.id)
+    })
+    .await
 }
 
 #[tauri::command]
-fn delete_history_entry(
+async fn delete_history_entry(
     state: tauri::State<'_, AppState>,
     transaction_id: String,
 ) -> Result<(), String> {
-    project::delete_history(&current_root(&state)?, &transaction_id)
+    let root = current_root(&state)?;
+    run_blocking("History deletion", move || {
+        project::delete_history(&root, &transaction_id)
+    })
+    .await
 }
 
 #[tauri::command]
-fn create_agent_session(
+async fn create_agent_session(
     state: tauri::State<'_, AppState>,
     provider: String,
     model: String,
     reasoning_effort: String,
 ) -> Result<AgentSession, String> {
-    sessions::create(&current_root(&state)?, &provider, &model, &reasoning_effort)
+    let root = current_root(&state)?;
+    run_blocking("Agent session creation", move || {
+        sessions::create(&root, &provider, &model, &reasoning_effort)
+    })
+    .await
 }
 
 #[tauri::command]
-fn list_agent_sessions(
+async fn list_agent_sessions(
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<AgentSessionSummary>, String> {
-    sessions::list(&current_root(&state)?)
+    let root = current_root(&state)?;
+    run_blocking("Agent session scan", move || sessions::list(&root)).await
 }
 
 #[tauri::command]
-fn search_agent_sessions(
+async fn search_agent_sessions(
     state: tauri::State<'_, AppState>,
     query: String,
 ) -> Result<Vec<AgentSessionSearchResult>, String> {
-    sessions::search(&current_root(&state)?, &query)
+    let root = current_root(&state)?;
+    run_blocking("Agent session search", move || {
+        sessions::search(&root, &query)
+    })
+    .await
 }
 
 #[tauri::command]
-fn read_agent_session(
+async fn read_agent_session(
     state: tauri::State<'_, AppState>,
     session_id: String,
 ) -> Result<AgentSession, String> {
-    sessions::read(&current_root(&state)?, &session_id)
+    let root = current_root(&state)?;
+    run_blocking("Agent session read", move || {
+        sessions::read(&root, &session_id)
+    })
+    .await
 }
 
 #[tauri::command]
-fn save_agent_session(
+async fn save_agent_session(
     state: tauri::State<'_, AppState>,
     session: AgentSession,
 ) -> Result<AgentSession, String> {
-    sessions::save(&current_root(&state)?, session)
+    let root = current_root(&state)?;
+    run_blocking("Agent session save", move || sessions::save(&root, session)).await
 }
 
 #[tauri::command]
-fn save_agent_checkpoint(
+async fn save_agent_checkpoint(
     state: tauri::State<'_, AppState>,
     session_id: String,
     message_id: String,
 ) -> Result<(), String> {
-    project::save_conversation_checkpoint(&current_root(&state)?, &session_id, &message_id)
+    let root = current_root(&state)?;
+    run_blocking("Agent checkpoint save", move || {
+        project::save_conversation_checkpoint(&root, &session_id, &message_id)
+    })
+    .await
 }
 
 #[tauri::command]
-fn delete_agent_session(
+async fn delete_agent_session(
     state: tauri::State<'_, AppState>,
     session_id: String,
 ) -> Result<(), String> {
-    sessions::delete(&current_root(&state)?, &session_id)
+    let root = current_root(&state)?;
+    run_blocking("Agent session deletion", move || {
+        sessions::delete(&root, &session_id)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -2008,16 +2299,37 @@ async fn fork_agent_session(
 }
 
 #[tauri::command]
-fn start_tex_install(kind: String) -> Result<(), String> {
-    tex_setup::start_tex_install(&kind)
+async fn start_tex_install(kind: String) -> Result<(), String> {
+    run_blocking("TeX installer launch", move || {
+        tex_setup::start_tex_install(&kind)
+    })
+    .await
 }
 
-/// Align macOS traffic lights to a web-measured titlebar control center.
+/// Keep native resize backing surfaces in sync with the web app theme.
+#[tauri::command]
+fn set_window_background(app: tauri::AppHandle, dark: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Manager;
+        let window = app
+            .get_webview_window("main")
+            .ok_or_else(|| "Main window is unavailable.".to_string())?;
+        macos_window::apply_window_background(&window, dark);
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, dark);
+        Ok(())
+    }
+}
+
 #[tauri::command]
 fn align_traffic_lights(
     app: tauri::AppHandle,
-    center_y: f64,
-    titlebar_height: f64,
+    close_center_x: f64,
+    center_from_top: f64,
 ) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
@@ -2025,29 +2337,33 @@ fn align_traffic_lights(
         let window = app
             .get_webview_window("main")
             .ok_or_else(|| "Main window is unavailable.".to_string())?;
-        macos_window::align_traffic_lights_to(&window, center_y, titlebar_height);
+        macos_window::align_traffic_lights_to(&window, close_center_x, center_from_top);
         Ok(())
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (app, center_y, titlebar_height);
+        let _ = (app, close_center_x, center_from_top);
         Ok(())
     }
 }
 
 #[tauri::command]
-fn list_agent_skills(state: tauri::State<'_, AppState>) -> Result<Vec<AgentSkill>, String> {
+async fn list_agent_skills(state: tauri::State<'_, AppState>) -> Result<Vec<AgentSkill>, String> {
     let root = state
         .root
         .lock()
         .map_err(|_| "Project state is unavailable.".to_string())?
         .clone()
         .unwrap_or_else(|| state.agent_runtime.config.join("no-project"));
-    skill_store::list(&root, &state.agent_runtime)
+    let runtime = state.agent_runtime.clone();
+    run_blocking("Agent skill scan", move || {
+        skill_store::list(&root, &runtime)
+    })
+    .await
 }
 
 #[tauri::command]
-fn save_agent_skill(
+async fn save_agent_skill(
     state: tauri::State<'_, AppState>,
     request: AgentSkillSaveRequest,
 ) -> Result<AgentSkill, String> {
@@ -2061,20 +2377,28 @@ fn save_agent_skill(
             .clone()
             .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
     };
-    skill_store::save(&root, &state.agent_runtime, request)
+    let runtime = state.agent_runtime.clone();
+    run_blocking("Agent skill save", move || {
+        skill_store::save(&root, &runtime, request)
+    })
+    .await
 }
 
 #[tauri::command]
-fn set_agent_skill_enabled(
+async fn set_agent_skill_enabled(
     state: tauri::State<'_, AppState>,
     name: String,
     enabled: bool,
 ) -> Result<(), String> {
-    skill_store::set_enabled(&state.agent_runtime, &name, enabled)
+    let runtime = state.agent_runtime.clone();
+    run_blocking("Agent skill update", move || {
+        skill_store::set_enabled(&runtime, &name, enabled)
+    })
+    .await
 }
 
 #[tauri::command]
-fn delete_agent_skill(
+async fn delete_agent_skill(
     state: tauri::State<'_, AppState>,
     name: String,
     scope: String,
@@ -2089,22 +2413,27 @@ fn delete_agent_skill(
             .clone()
             .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
     };
-    skill_store::delete(&root, &state.agent_runtime, &name, &scope)
+    let runtime = state.agent_runtime.clone();
+    run_blocking("Agent skill deletion", move || {
+        skill_store::delete(&root, &runtime, &name, &scope)
+    })
+    .await
 }
 
 #[tauri::command]
-fn list_mcp_servers(state: tauri::State<'_, AppState>) -> Result<Vec<McpServer>, String> {
+async fn list_mcp_servers(state: tauri::State<'_, AppState>) -> Result<Vec<McpServer>, String> {
     let root = state
         .root
         .lock()
         .map_err(|_| "Project state is unavailable.".to_string())?
         .clone()
         .unwrap_or_else(|| state.agent_runtime.config.join("no-project"));
-    mcp_store::list(&root, &state.agent_runtime)
+    let runtime = state.agent_runtime.clone();
+    run_blocking("MCP server scan", move || mcp_store::list(&root, &runtime)).await
 }
 
 #[tauri::command]
-fn save_mcp_server(
+async fn save_mcp_server(
     state: tauri::State<'_, AppState>,
     request: McpServerSaveRequest,
 ) -> Result<McpServer, String> {
@@ -2118,11 +2447,15 @@ fn save_mcp_server(
             .clone()
             .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
     };
-    mcp_store::save(&root, &state.agent_runtime, request)
+    let runtime = state.agent_runtime.clone();
+    run_blocking("MCP server save", move || {
+        mcp_store::save(&root, &runtime, request)
+    })
+    .await
 }
 
 #[tauri::command]
-fn set_mcp_server_enabled(
+async fn set_mcp_server_enabled(
     state: tauri::State<'_, AppState>,
     name: String,
     enabled: bool,
@@ -2133,11 +2466,15 @@ fn set_mcp_server_enabled(
         .map_err(|_| "Project state is unavailable.".to_string())?
         .clone()
         .unwrap_or_else(|| state.agent_runtime.config.join("no-project"));
-    mcp_store::set_enabled(&root, &state.agent_runtime, &name, enabled)
+    let runtime = state.agent_runtime.clone();
+    run_blocking("MCP server update", move || {
+        mcp_store::set_enabled(&root, &runtime, &name, enabled)
+    })
+    .await
 }
 
 #[tauri::command]
-fn delete_mcp_server(
+async fn delete_mcp_server(
     state: tauri::State<'_, AppState>,
     name: String,
     scope: String,
@@ -2152,7 +2489,11 @@ fn delete_mcp_server(
             .clone()
             .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
     };
-    mcp_store::delete(&root, &state.agent_runtime, &name, &scope)
+    let runtime = state.agent_runtime.clone();
+    run_blocking("MCP server deletion", move || {
+        mcp_store::delete(&root, &runtime, &name, &scope)
+    })
+    .await
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -2251,7 +2592,7 @@ pub fn run() {
     if run_cli() {
         return;
     }
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
@@ -2270,11 +2611,14 @@ pub fn run() {
             app.manage(AppState::from_environment(agents::AgentRuntime::new(
                 executable, assets, config,
             )));
+            app.manage(synara::SynaraRuntime::new(app)?);
+            synara::prewarm(app.handle().clone());
             #[cfg(target_os = "macos")]
             {
                 macos_window::clear_launch_quarantine();
                 if let Some(window) = app.get_webview_window("main") {
-                    macos_window::apply_traffic_light_position(&window);
+                    macos_window::install_traffic_light_alignment(&window);
+                    macos_window::apply_window_background(&window, false);
                 }
                 macos_window::install_magnify_monitor(app.handle().clone());
             }
@@ -2312,6 +2656,7 @@ pub fn run() {
             create_project_entry,
             delete_project_entry,
             rename_project_entry,
+            move_project_entry,
             import_project_assets,
             import_clipboard_image,
             resolve_citation_query,
@@ -2442,10 +2787,18 @@ pub fn run() {
             set_mcp_server_enabled,
             delete_mcp_server,
             start_tex_install,
+            set_window_background,
             align_traffic_lights,
+            synara::synara_runtime_status,
+            synara::synara_ensure_ready,
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("error while running tauri application");
+    app.run(|app_handle, event| {
+        if matches!(event, tauri::RunEvent::Exit) {
+            app_handle.state::<synara::SynaraRuntime>().shutdown();
+        }
+    });
 }
 
 fn agent_runtime_paths(app: &tauri::App) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {

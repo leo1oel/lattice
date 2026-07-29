@@ -29,13 +29,25 @@ describe("LaTeX selection toolbar", () => {
     expect(onAction).toHaveBeenCalledWith("heading", "subsection");
   });
 
-  it("offers highlight colors", async () => {
+  it("offers arbitrary highlight colors", async () => {
     const onAction = vi.fn();
     render(<LatexSelectionToolbar position={position} canComment onAction={onAction} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Highlight color" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Highlight pink" }));
-    expect(onAction).toHaveBeenCalledWith("highlight", "pink");
+    fireEvent.click(await screen.findByRole("button", { name: "Select #FFCC00" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close color picker" }));
+    expect(onAction).toHaveBeenCalledWith("highlight", "#FFCC00");
+  });
+
+  it("opens the platform color picker when the browser eyedropper API is unavailable", async () => {
+    const nativePicker = vi.spyOn(HTMLInputElement.prototype, "click");
+    render(<LatexSelectionToolbar position={position} canComment onAction={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Highlight color" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Pick color from screen" }));
+
+    expect(nativePicker).toHaveBeenCalledOnce();
+    nativePicker.mockRestore();
   });
 
   it("collects a URL before applying a link", async () => {

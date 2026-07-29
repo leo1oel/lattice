@@ -1,4 +1,6 @@
-import { Link2, Pencil, X } from "lucide-react";
+import { Link2, Pencil } from "lucide-react";
+import { CloseButton } from "./components/ui/icon-button";
+import { EmptyState } from "./components/ui/empty-state";
 
 export type SymbolOccurrence = {
   kind: "label" | "citation" | string;
@@ -40,9 +42,11 @@ export function ReferencesPanel(props: {
           <Pencil size={13} />
           <span>Rename</span>
         </button>
-        <button type="button" title="Dismiss references" onClick={props.onDismiss}>
-          <X size={13} />
-        </button>
+        <CloseButton
+          label="Dismiss references"
+          size="compact"
+          onClick={props.onDismiss}
+        />
       </div>
       {props.occurrences.length ? (
         <ul className="references-panel-list">
@@ -62,7 +66,11 @@ export function ReferencesPanel(props: {
           ))}
         </ul>
       ) : (
-        <p className="references-panel-empty">No occurrences found.</p>
+        <EmptyState
+          align="start"
+          density="compact"
+          description="No occurrences found."
+        />
       )}
     </section>
   );

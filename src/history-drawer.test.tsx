@@ -63,4 +63,55 @@ describe("HistoryDrawer", () => {
     render(<HistoryDrawer {...required} />);
     expect(screen.getByRole("tab", { name: "Versions" })).toHaveAttribute("aria-selected", "true");
   });
+
+  it("filters semantic Agent changes and restores them through their checkpoint", () => {
+    mockBackend();
+    const onRevert = vi.fn();
+    const agentEntry = {
+      id: "agent:thread-1:turn-1",
+      label: "Agent: Revise the introduction",
+      timestamp: "2026-07-29T12:00:00Z",
+      files: ["main.tex"],
+      actor: "agent",
+      kind: "agent-checkpoint",
+      source: "agent-checkpoint",
+      threadId: "thread-1",
+      threadTitle: "Introduction revision",
+      checkpointRef: "refs/lattice/checkpoints/one",
+      turnCount: 1,
+      restoreAvailable: true,
+      fileSummaries: [
+        { path: "main.tex", kind: "modified", additions: 4, deletions: 2 },
+      ],
+    };
+    render(
+      <HistoryDrawer
+        {...required}
+        history={[
+          {
+            id: "local-1",
+            label: "Edit methods.tex",
+            timestamp: "2026-07-29T11:00:00Z",
+            files: ["methods.tex"],
+            actor: "user",
+          },
+          agentEntry,
+        ]}
+        onRevert={onRevert}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Agent" }));
+    expect(screen.getByText("Agent: Revise the introduction")).toBeInTheDocument();
+    expect(screen.queryByText("Edit methods.tex")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Agent: Revise the introduction/ }));
+    expect(screen.getByText("Agent task: Introduction revision")).toBeInTheDocument();
+    expect(screen.getByText("modified · +4 −2")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Undo this Agent turn's file changes"));
+    expect(onRevert).toHaveBeenCalledWith(agentEntry);
+    expect(screen.queryByTitle("Delete this history entry")).not.toBeInTheDocument();
+  });
 });

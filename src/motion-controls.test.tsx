@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
-import { SlidingTabs, Switch } from "./motion";
+import { SlidingTabs } from "./motion";
+import { Switch } from "./components/ui/switch";
 
 afterEach(cleanup);
 
@@ -61,5 +62,21 @@ describe("SlidingTabs", () => {
     );
     expect(container.querySelector(".sliding-tab-underline")).not.toBeNull();
     expect(container.querySelector(".sliding-tab-pill")).toBeNull();
+  });
+
+  it("moves selection and focus with tab-list arrow keys", () => {
+    function Harness() {
+      const [value, setValue] = useState("a");
+      return <SlidingTabs value={value} onChange={setValue} items={items} ariaLabel="Views" />;
+    }
+
+    render(<Harness />);
+    const first = screen.getByRole("tab", { name: "First" });
+    const second = screen.getByRole("tab", { name: "Second" });
+    first.focus();
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+
+    expect(second).toHaveAttribute("aria-selected", "true");
+    expect(second).toHaveFocus();
   });
 });

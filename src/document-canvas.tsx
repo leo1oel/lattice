@@ -101,6 +101,9 @@ import {
   PROJECT_FIGURE_DRAG_TYPE,
 } from "./app-utils";
 
+const SPLIT_SOURCE_MIN_WIDTH = 480;
+const SPLIT_PDF_MIN_WIDTH = 440;
+
 export function DocumentCanvas(props: {
   mode: CanvasMode;
   source: string;
@@ -283,6 +286,31 @@ export function DocumentCanvas(props: {
     quote: string;
     body: string;
   } | null>(null);
+
+  const constrainSplitRatio = useCallback((ratio: number) => {
+    const width = splitRef.current?.getBoundingClientRect().width ?? 0;
+    if (!width) return clamp(ratio, 0.2, 0.8);
+    const tracksWidth = Math.max(1, width - 1);
+    const minimum = Math.min(1, SPLIT_SOURCE_MIN_WIDTH / tracksWidth);
+    const maximum = Math.max(minimum, 1 - SPLIT_PDF_MIN_WIDTH / tracksWidth);
+    return clamp(ratio, minimum, maximum);
+  }, []);
+
+  useEffect(() => {
+    const split = splitRef.current;
+    if (!split || props.mode !== "split" || typeof ResizeObserver === "undefined") return;
+    const fitRatio = () => {
+      setSplitRatio((current) => {
+        const next = constrainSplitRatio(current);
+        if (next !== current) persistSplitRatio(next);
+        return next;
+      });
+    };
+    const observer = new ResizeObserver(fitRatio);
+    observer.observe(split);
+    fitRatio();
+    return () => observer.disconnect();
+  }, [constrainSplitRatio, props.mode]);
   const focusedPath = focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile;
   const focusedSource = focusedPane === "secondary" && secondaryFile ? secondarySource : editorSource;
   const wordCount = useMemo(() => countWords(focusedSource), [focusedSource]);
@@ -567,7 +595,14 @@ export function DocumentCanvas(props: {
       case "italic": [before, after] = ["\\textit{", "}"]; break;
       case "underline": [before, after] = ["\\underline{", "}"]; break;
       case "strikethrough": [before, after] = ["\\sout{", "}"]; break;
-      case "highlight": [before, after] = [`\\colorbox{${value || "yellow"}}{`, "}"]; break;
+      case "highlight": {
+        const color = value?.trim() || "yellow";
+        const hex = color.match(/^#?([0-9a-f]{6})(?:[0-9a-f]{2})?$/i);
+        [before, after] = hex
+          ? [`\\colorbox[HTML]{${hex[1].toUpperCase()}}{`, "}"]
+          : [`\\colorbox{${color}}{`, "}"];
+        break;
+      }
       case "heading": [before, after] = [`\\${value || "section"}{`, "}"]; break;
       case "quote": [before, after] = ["\\begin{quote}\n", "\n\\end{quote}"]; break;
       case "link": {
@@ -958,7 +993,6 @@ export function DocumentCanvas(props: {
       <ScrollArea
         className="paper-reader"
         orientation="both"
-        viewportClassName="scroll-fade-both"
         contentClassName="paper-reader-content"
       >
         <div className="paper-reader-title">
@@ -991,7 +1025,6 @@ export function DocumentCanvas(props: {
       <ScrollArea
         className="markdown-preview"
         orientation="both"
-        viewportClassName="scroll-fade-both"
         contentClassName="markdown-preview-content"
       >
         <ChatMarkdown text={props.source} macros={props.katexMacros} breaks={false} />
@@ -1136,14 +1169,6 @@ export function DocumentCanvas(props: {
               ? <><kbd>F8</kbd> next · <kbd>⇧F8</kbd> prev</>
               : <><kbd>⌘F</kbd> find · <kbd>⌘/</kbd> comment · <kbd>⌘⇧I</kbd> insert</>}
           </span>
-          <Tip
-            label={buildDiagnostics.length > 0
-              ? "F8 next diagnostic · ⇧F8 previous diagnostic"
-              : "⌘F find · ⌘/ comment · ⌘⇧I insert"}
-            side="top"
-          >
-            <span className="status-shortcuts" tabIndex={0}>Shortcuts</span>
-          </Tip>
           <button
             type="button"
             className={`status-todos${commentsForActiveFile.some((comment) => !comment.resolved) ? " has-todos" : ""}`}
@@ -1385,7 +1410,7 @@ export function DocumentCanvas(props: {
   const resizeSplit = (clientX: number) => {
     const bounds = splitRef.current?.getBoundingClientRect();
     if (!bounds?.width) return splitRatio;
-    const next = clamp((clientX - bounds.left) / bounds.width, 0.2, 0.8);
+    const next = constrainSplitRatio((clientX - bounds.left) / bounds.width);
     setSplitRatio(next);
     return next;
   };
@@ -1406,7 +1431,7 @@ export function DocumentCanvas(props: {
     window.addEventListener("pointerup", handleUp);
   };
   const nudgeSplit = (delta: number) => {
-    const next = clamp(splitRatio + delta, 0.2, 0.8);
+    const next = constrainSplitRatio(splitRatio + delta);
     setSplitRatio(next);
     persistSplitRatio(next);
   };
@@ -1414,7 +1439,10 @@ export function DocumentCanvas(props: {
     <div
       ref={splitRef}
       className="split-canvas"
-      style={{ gridTemplateColumns: `minmax(220px, ${splitRatio}fr) 1px minmax(260px, ${1 - splitRatio}fr)` }}
+      data-minimum-workspace-width={SPLIT_SOURCE_MIN_WIDTH + SPLIT_PDF_MIN_WIDTH + 1}
+      style={{
+        gridTemplateColumns: `clamp(${SPLIT_SOURCE_MIN_WIDTH}px, calc(${splitRatio * 100}% - ${splitRatio}px), calc(100% - ${SPLIT_PDF_MIN_WIDTH + 1}px)) 1px minmax(${SPLIT_PDF_MIN_WIDTH}px, 1fr)`,
+      }}
     >
       {editor}
       <div
@@ -1549,7 +1577,6 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
       <ScrollArea
         className="asset-preview-stage"
         orientation="both"
-        viewportClassName="scroll-fade-both"
         contentClassName="asset-preview-stage-content"
       >
         {asset.mimeType.startsWith("image/")

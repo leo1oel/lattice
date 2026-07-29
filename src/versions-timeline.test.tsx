@@ -165,7 +165,7 @@ describe("VersionsTimeline", () => {
     expect(within(body).getByRole("button", { name: /Restore project to this version/ })).toBeInTheDocument();
   });
 
-  it("loads a file diff via git_show_diff and renders added/removed lines", async () => {
+  it("loads a file diff via git_show_diff and renders it with Pierre diffs", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "git_status") return repoStatus;
       if (command === "git_log") return logEntries;
@@ -178,27 +178,12 @@ describe("VersionsTimeline", () => {
     fireEvent.click(within(body).getByRole("button", { name: /main\.tex/ }));
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_show_diff", { rev: "aaa111", path: "main.tex" }));
-    await screen.findByLabelText("Diff for main.tex");
-    // The view is remembered for the session, so every test names the one it
-    // means. Switching remounts the body, so re-read it after the click.
-    fireEvent.click(screen.getByRole("tab", { name: "Only changes" }));
-    const rows = screen.getByLabelText("Diff for main.tex").querySelectorAll(".history-diff-line");
-    expect(rows).toHaveLength(2);
-    const [removed, added] = [rows[0]!, rows[1]!];
-    expect(removed.className).toContain("removed");
-    expect(added.className).toContain("added");
-    expect(removed).toHaveTextContent("old line");
-    expect(added).toHaveTextContent("new line");
-    // Where in the file, which is the whole point of showing a few lines
-    // rather than the document.
-    expect(removed.querySelector(".history-diff-lineno")).toHaveTextContent("1");
-    expect(added.querySelector(".history-diff-lineno")).toHaveTextContent("1");
-    // One word changed, so only that word is marked rather than the sentence.
-    expect(removed.querySelector(".history-diff-word")).toHaveTextContent("old");
-    expect(added.querySelector(".history-diff-word")).toHaveTextContent("new");
+    const viewer = await screen.findByLabelText("Diff for main.tex");
+    await waitFor(() => expect(viewer.querySelector("diffs-container")).not.toBeNull());
+    expect(screen.queryByRole("tab", { name: "Only changes" })).not.toBeInTheDocument();
   });
 
-  it("shows the whole file with the changes marked in place", async () => {
+  it("uses one non-virtualized Pierre surface for a selected file", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "git_status") return repoStatus;
       if (command === "git_log") return logEntries;
@@ -216,19 +201,10 @@ describe("VersionsTimeline", () => {
     const body = await expandFirstEntry();
     fireEvent.click(within(body).getByRole("button", { name: /main\.tex/ }));
 
-    await screen.findByLabelText("Diff for main.tex");
-    fireEvent.click(screen.getByRole("tab", { name: "In context" }));
-    const rows = [...screen.getByLabelText("Diff for main.tex").querySelectorAll(".history-diff-line")];
-    // The document reads end to end: unchanged lines are there, not elided.
-    expect(rows).toHaveLength(3);
-    expect(rows[0]).toHaveTextContent("intro stays");
-    expect(rows[2]).toHaveTextContent("end stays");
-    // The rewritten line carries both wordings, marked, on one line.
-    const changed = rows.filter((row) => row.className.includes("changed"));
-    expect(changed).toHaveLength(1);
-    expect(changed[0]!.querySelector(".history-diff-seg.removed")).toHaveTextContent("old");
-    expect(changed[0]!.querySelector(".history-diff-seg.added")).toHaveTextContent("new");
-    expect(screen.getByText("1 changed")).toBeInTheDocument();
+    const viewer = await screen.findByLabelText("Diff for main.tex");
+    await waitFor(() => expect(viewer.querySelector("diffs-container")).not.toBeNull());
+    expect(viewer.querySelectorAll("diffs-container")).toHaveLength(1);
+    expect(viewer.querySelector("[data-virtualizer]")).toBeNull();
   });
 
   it("closes an open file when its row is clicked again", async () => {

@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { ClipboardCheck, X } from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
+import { PanelHeader } from "./components/ui/panel-header";
+import { ResizableDrawer } from "./resizable-drawer";
 
 export type ManuscriptChecklistData = {
   words: number;
@@ -60,12 +62,13 @@ export function ManuscriptChecklistPanel(props: {
         : undefined;
 
   return (
-    <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside className="history-drawer checklist-drawer" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="drawer-header">
-          <div><ClipboardCheck size={16} /><span>Submission checklist</span></div>
-          <button type="button" onClick={props.onClose}><X size={16} /></button>
-        </div>
+    <ResizableDrawer className="checklist-drawer" onClose={props.onClose}>
+        <PanelHeader
+          className="drawer-header"
+          icon={<ClipboardCheck size={16} />}
+          title="Submission checklist"
+          onClose={props.onClose}
+        />
         <p className="drawer-copy">
           Body words use TeXcount when installed (else a local estimate). Set budgets for your venue page/word limits.
         </p>
@@ -135,7 +138,6 @@ export function ManuscriptChecklistPanel(props: {
             Save budgets
           </button>
         </div>
-      </aside>
-    </div>
+    </ResizableDrawer>
   );
 }

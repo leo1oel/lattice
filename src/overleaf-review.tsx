@@ -17,6 +17,8 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { MotionButton } from "./motion";
+import { Button } from "./components/ui/button";
+import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
 import { HistoryDiff } from "./versions-timeline";
 import {
@@ -151,14 +153,14 @@ export function OverleafReviewDialog(props: {
                     + ". Nothing has been written yet."}
             </p>
           </div>
-          <button
-            type="button"
-            className="text-button"
+          <Button
+            size="compact"
+            variant="ghost"
             disabled={loading || applying}
             onClick={() => void load()}
           >
             Refresh
-          </button>
+          </Button>
         </div>
 
         {error && <p className="overleaf-review-error" role="alert">{error}</p>}
@@ -216,11 +218,11 @@ export function OverleafReviewDialog(props: {
         )}
 
         <div className="overleaf-review-actions">
-          <button type="button" className="secondary-button" disabled={applying} onClick={props.onClose}>
+          <Button disabled={applying} onClick={props.onClose}>
             Cancel
-          </button>
+          </Button>
           <MotionButton
-            className="primary-button"
+            className={buttonClassName({ variant: "primary" })}
             disabled={applying || loading || total === 0}
             onClick={() => void apply()}
           >

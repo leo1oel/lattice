@@ -24,6 +24,7 @@ const MAX_HISTORY_ENTRIES: usize = 100;
 const MAX_CHECKPOINTS_PER_SESSION: usize = 100;
 const MAX_CHECKPOINT_BYTES: u64 = 256 * 1024 * 1024;
 const EDIT_COALESCE_SECS: i64 = 45;
+const HISTORY_SCHEMA_VERSION: u32 = 2;
 const NEURIPS_2026_MAIN: &str = include_str!("../templates/neurips-2026/main.tex");
 const NEURIPS_2026_STYLE: &str = include_str!("../templates/neurips-2026/neurips_2026.sty");
 const ICML_2026_MAIN: &str = include_str!("../templates/icml-2026/main.tex");
@@ -58,6 +59,89 @@ impl Venue {
             Self::Icml => "icml",
             Self::Iclr => "iclr",
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct HistoryContext {
+    actor: &'static str,
+    kind: &'static str,
+    source: &'static str,
+    thread_id: Option<String>,
+    checkpoint_ref: Option<String>,
+    undo_of: Option<String>,
+}
+
+impl HistoryContext {
+    fn user(kind: &'static str, source: &'static str) -> Self {
+        Self {
+            actor: "user",
+            kind,
+            source,
+            thread_id: None,
+            checkpoint_ref: None,
+            undo_of: None,
+        }
+    }
+
+    fn restore(source: &TransactionRecord) -> Self {
+        Self {
+            actor: "user",
+            kind: "restore",
+            source: "history",
+            thread_id: source.thread_id.clone(),
+            checkpoint_ref: source.checkpoint_ref.clone(),
+            undo_of: Some(source.id.clone()),
+        }
+    }
+}
+
+fn new_transaction(
+    label: &str,
+    changes: Vec<FileChange>,
+    context: HistoryContext,
+) -> TransactionRecord {
+    TransactionRecord {
+        schema_version: HISTORY_SCHEMA_VERSION,
+        id: format!(
+            "{}-{}",
+            Utc::now().format("%Y%m%dT%H%M%S%.3fZ"),
+            Uuid::new_v4()
+        ),
+        label: label.to_string(),
+        timestamp: Utc::now().to_rfc3339(),
+        actor: Some(context.actor.to_string()),
+        kind: Some(context.kind.to_string()),
+        source: Some(context.source.to_string()),
+        thread_id: context.thread_id,
+        checkpoint_ref: context.checkpoint_ref,
+        undo_of: context.undo_of,
+        changes,
+    }
+}
+
+fn inferred_history_metadata(record: &TransactionRecord) -> (&str, &str, &str) {
+    if let (Some(actor), Some(kind), Some(source)) = (
+        record.actor.as_deref(),
+        record.kind.as_deref(),
+        record.source.as_deref(),
+    ) {
+        return (actor, kind, source);
+    }
+    let label = record.label.to_ascii_lowercase();
+    if label.starts_with("agent:") || label == "agent edit" {
+        ("agent", "agent", "agent")
+    } else if label.starts_with("cite ")
+        || label.starts_with("remove ")
+        || label == "upgrade bibliography"
+    {
+        ("citation", "citation", "citation")
+    } else if label.starts_with("restore ") {
+        ("user", "restore", "history")
+    } else if label.starts_with("edit ") {
+        ("user", "edit", "editor")
+    } else {
+        ("user", "project", "project")
     }
 }
 
@@ -2114,23 +2198,76 @@ pub fn rename_entry(root: &Path, relative: &str, new_name: &str) -> Result<Strin
         .parent()
         .unwrap_or_else(|| Path::new(""));
     let destination_relative = parent.join(&normalized_name).to_string_lossy().to_string();
-    if destination_relative == relative {
-        return Ok(destination_relative);
+    relocate_entry(root, relative, &destination_relative)
+}
+
+pub fn move_entry(root: &Path, relative: &str, target_directory: &str) -> Result<String, String> {
+    validate_user_entry(relative)?;
+    let source = safe_path(root, relative)?;
+    if !source.exists() {
+        return Err("That file or folder no longer exists.".to_string());
     }
-    let destination = safe_path(root, &destination_relative)?;
+    let file_name = Path::new(relative)
+        .file_name()
+        .ok_or_else(|| "Choose a file or folder to move.".to_string())?;
+    let target_directory = target_directory.trim().trim_end_matches(['/', '\\']);
+    if !target_directory.is_empty() {
+        validate_user_entry(target_directory)?;
+    }
+    let target = if target_directory.is_empty() {
+        root.to_path_buf()
+    } else {
+        safe_path(root, target_directory)?
+    };
+    if !target.is_dir() {
+        return Err("Choose an existing project folder.".to_string());
+    }
+    let destination_relative = if target_directory.is_empty() {
+        file_name.to_string_lossy().to_string()
+    } else {
+        Path::new(target_directory)
+            .join(file_name)
+            .to_string_lossy()
+            .to_string()
+    };
+    relocate_entry(root, relative, &destination_relative)
+}
+
+fn relocate_entry(
+    root: &Path,
+    relative: &str,
+    destination_relative: &str,
+) -> Result<String, String> {
+    if destination_relative == relative {
+        return Ok(destination_relative.to_string());
+    }
+    validate_user_entry(destination_relative)?;
+    let source = safe_path(root, relative)?;
+    if !source.exists() {
+        return Err("That file or folder no longer exists.".to_string());
+    }
+    if source.is_dir() && Path::new(destination_relative).starts_with(Path::new(relative)) {
+        return Err("A folder cannot be moved inside itself.".to_string());
+    }
+    let destination = safe_path(root, destination_relative)?;
     if destination.exists() {
         return Err("A file or folder already exists with that name.".to_string());
     }
+    let moved_tex_file = source.is_file()
+        && source
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("tex"));
 
     let original_manifest = read_manifest(root)?;
     let mut updated_manifest = original_manifest.clone();
     for document in &mut updated_manifest.root_documents {
-        document.path = renamed_relative_path(&document.path, relative, &destination_relative);
+        document.path = renamed_relative_path(&document.path, relative, destination_relative);
     }
     updated_manifest.primary_bibliography = renamed_relative_path(
         &updated_manifest.primary_bibliography,
         relative,
-        &destination_relative,
+        destination_relative,
     );
 
     fs::rename(&source, &destination).map_err(err)?;
@@ -2139,7 +2276,42 @@ pub fn rename_entry(root: &Path, relative: &str, new_name: &str) -> Result<Strin
         let _ = write_manifest(root, &original_manifest);
         return Err(error);
     }
-    Ok(destination_relative)
+    if moved_tex_file {
+        // A compiled PDF stops looking like a build artifact as soon as its
+        // neighboring .tex file moves away, which previously exposed stale
+        // outputs such as root/main.pdf in the project tree. Outputs at both
+        // paths are invalid after a source move, so force the next build to
+        // recreate them in the correct location.
+        for source_path in [relative, destination_relative] {
+            if let Err(error) = remove_tex_build_artifacts(root, source_path) {
+                eprintln!("Could not remove stale build outputs for {source_path}: {error}");
+            }
+        }
+    }
+    Ok(destination_relative.to_string())
+}
+
+fn remove_tex_build_artifacts(root: &Path, relative: &str) -> Result<(), String> {
+    let tex_path = root.join(relative);
+    for extension in [
+        "pdf",
+        "aux",
+        "bbl",
+        "blg",
+        "fdb_latexmk",
+        "fls",
+        "log",
+        "out",
+        "synctex.gz",
+    ] {
+        let artifact = tex_path.with_extension(extension);
+        match fs::remove_file(&artifact) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    Ok(())
 }
 
 fn renamed_relative_path(path: &str, old_path: &str, new_path: &str) -> String {
@@ -2396,7 +2568,7 @@ pub fn save_bib_entry(root: &Path, key: &str, bibtex: &str) -> Result<(), String
             }
         }
     };
-    apply_transaction(
+    apply_citation_transaction(
         root,
         &format!("Edit {relative}"),
         vec![(relative.clone(), next)],
@@ -2704,20 +2876,15 @@ pub fn delete_entry(root: &Path, relative: &str) -> Result<(), String> {
         let before = fs::read_to_string(&path).ok();
         fs::remove_file(path).map_err(err)?;
         if let Some(before) = before {
-            let record = TransactionRecord {
-                id: format!(
-                    "{}-{}",
-                    Utc::now().format("%Y%m%dT%H%M%S%.3fZ"),
-                    Uuid::new_v4()
-                ),
-                label: format!("Delete {relative}"),
-                timestamp: Utc::now().to_rfc3339(),
-                changes: vec![FileChange {
+            let record = new_transaction(
+                &format!("Delete {relative}"),
+                vec![FileChange {
                     path: relative.to_string(),
                     before: Some(before),
                     after: None,
                 }],
-            };
+                HistoryContext::user("delete", "project"),
+            );
             persist_transaction(root, &record)?;
         }
         Ok(())
@@ -2763,6 +2930,40 @@ pub fn apply_transaction(
     label: &str,
     edits: Vec<(String, String)>,
 ) -> Result<TransactionRecord, String> {
+    let context = if label.starts_with("Edit ") {
+        HistoryContext::user("edit", "editor")
+    } else {
+        HistoryContext::user("project", "project")
+    };
+    apply_transaction_with_context(root, label, edits, context)
+}
+
+pub fn apply_citation_transaction(
+    root: &Path,
+    label: &str,
+    edits: Vec<(String, String)>,
+) -> Result<TransactionRecord, String> {
+    apply_transaction_with_context(
+        root,
+        label,
+        edits,
+        HistoryContext {
+            actor: "citation",
+            kind: "citation",
+            source: "citation",
+            thread_id: None,
+            checkpoint_ref: None,
+            undo_of: None,
+        },
+    )
+}
+
+fn apply_transaction_with_context(
+    root: &Path,
+    label: &str,
+    edits: Vec<(String, String)>,
+    context: HistoryContext,
+) -> Result<TransactionRecord, String> {
     if edits.is_empty() {
         return Err("The transaction contains no edits.".to_string());
     }
@@ -2792,20 +2993,11 @@ pub fn apply_transaction(
         }
     }
 
-    if let Some(record) = coalesce_edit_transaction(root, label, &changes)? {
+    if let Some(record) = coalesce_edit_transaction(root, label, &changes, &context)? {
         return Ok(record);
     }
 
-    let record = TransactionRecord {
-        id: format!(
-            "{}-{}",
-            Utc::now().format("%Y%m%dT%H%M%S%.3fZ"),
-            Uuid::new_v4()
-        ),
-        label: label.to_string(),
-        timestamp: Utc::now().to_rfc3339(),
-        changes,
-    };
+    let record = new_transaction(label, changes, context);
     persist_transaction(root, &record)?;
     Ok(record)
 }
@@ -2814,6 +3006,7 @@ fn coalesce_edit_transaction(
     root: &Path,
     label: &str,
     changes: &[FileChange],
+    context: &HistoryContext,
 ) -> Result<Option<TransactionRecord>, String> {
     if !label.starts_with("Edit ") || changes.len() != 1 {
         return Ok(None);
@@ -2825,6 +3018,9 @@ fn coalesce_edit_transaction(
         return Ok(None);
     };
     if previous.label != label || previous.changes.len() != 1 {
+        return Ok(None);
+    }
+    if inferred_history_metadata(&previous) != (context.actor, context.kind, context.source) {
         return Ok(None);
     }
     if previous.changes[0].path != change.path {
@@ -3051,7 +3247,19 @@ pub fn restore_conversation_checkpoint(
                 .to_string(),
         );
     };
-    restore_text_snapshot(root, &target, "Restore files for conversation branch")
+    restore_text_snapshot(
+        root,
+        &target,
+        "Restore files for conversation branch",
+        HistoryContext {
+            actor: "user",
+            kind: "restore",
+            source: "checkpoint",
+            thread_id: Some(session_id.to_string()),
+            checkpoint_ref: Some(message_id.to_string()),
+            undo_of: None,
+        },
+    )
 }
 
 fn reconstruct_snapshot_at(root: &Path, timestamp: &str) -> Result<TextSnapshot, String> {
@@ -3099,6 +3307,7 @@ fn restore_text_snapshot(
     root: &Path,
     target: &TextSnapshot,
     label: &str,
+    context: HistoryContext,
 ) -> Result<Option<TransactionRecord>, String> {
     let current = snapshot_text_files(root)?;
     let paths = current
@@ -3134,16 +3343,7 @@ fn restore_text_snapshot(
             None => {}
         }
     }
-    let record = TransactionRecord {
-        id: format!(
-            "{}-{}",
-            Utc::now().format("%Y%m%dT%H%M%S%.3fZ"),
-            Uuid::new_v4()
-        ),
-        label: label.to_string(),
-        timestamp: Utc::now().to_rfc3339(),
-        changes,
-    };
+    let record = new_transaction(label, changes, context);
     persist_transaction(root, &record)?;
     Ok(Some(record))
 }
@@ -3160,10 +3360,32 @@ fn validate_checkpoint_id(value: &str) -> Result<(), String> {
         .map_err(|_| "Invalid conversation checkpoint id.".to_string())
 }
 
-pub fn record_external_changes(
+pub fn record_agent_changes(
     root: &Path,
     before: &TextSnapshot,
     label: &str,
+    thread_id: &str,
+) -> Result<Option<TransactionRecord>, String> {
+    record_external_changes_with_context(
+        root,
+        before,
+        label,
+        HistoryContext {
+            actor: "agent",
+            kind: "agent",
+            source: "agent",
+            thread_id: Some(thread_id.to_string()),
+            checkpoint_ref: None,
+            undo_of: None,
+        },
+    )
+}
+
+fn record_external_changes_with_context(
+    root: &Path,
+    before: &TextSnapshot,
+    label: &str,
+    context: HistoryContext,
 ) -> Result<Option<TransactionRecord>, String> {
     let after = snapshot_text_files(root)?;
     let paths = before
@@ -3186,16 +3408,7 @@ pub fn record_external_changes(
     if changes.is_empty() {
         return Ok(None);
     }
-    let record = TransactionRecord {
-        id: format!(
-            "{}-{}",
-            Utc::now().format("%Y%m%dT%H%M%S%.3fZ"),
-            Uuid::new_v4()
-        ),
-        label: label.to_string(),
-        timestamp: Utc::now().to_rfc3339(),
-        changes,
-    };
+    let record = new_transaction(label, changes, context);
     persist_transaction(root, &record)?;
     Ok(Some(record))
 }
@@ -3211,15 +3424,22 @@ pub fn history(root: &Path) -> Result<Vec<HistoryItem>, String> {
         if path.extension().is_some_and(|ext| ext == "json") {
             let raw = fs::read_to_string(path).map_err(err)?;
             if let Ok(record) = serde_json::from_str::<TransactionRecord>(&raw) {
+                let (actor, kind, source) = inferred_history_metadata(&record);
                 records.push(HistoryItem {
-                    id: record.id,
-                    label: record.label,
-                    timestamp: record.timestamp,
+                    id: record.id.clone(),
+                    label: record.label.clone(),
+                    timestamp: record.timestamp.clone(),
                     files: record
                         .changes
-                        .into_iter()
-                        .map(|change| change.path)
+                        .iter()
+                        .map(|change| change.path.clone())
                         .collect(),
+                    actor: actor.to_string(),
+                    kind: kind.to_string(),
+                    source: source.to_string(),
+                    thread_id: record.thread_id.clone(),
+                    checkpoint_ref: record.checkpoint_ref.clone(),
+                    undo_of: record.undo_of.clone(),
                 });
             }
         }
@@ -3229,22 +3449,8 @@ pub fn history(root: &Path) -> Result<Vec<HistoryItem>, String> {
 }
 
 pub fn revert(root: &Path, transaction_id: &str) -> Result<TransactionRecord, String> {
-    let history_path = transaction_path(root, transaction_id)?;
-    let raw = fs::read_to_string(&history_path).map_err(err)?;
-    let source: TransactionRecord = serde_json::from_str(&raw).map_err(err)?;
-    for change in &source.changes {
-        let path = safe_path(root, &change.path)?;
-        match &change.before {
-            Some(content) => fs::write(path, content).map_err(err)?,
-            None => {
-                if path.exists() {
-                    fs::remove_file(path).map_err(err)?;
-                }
-            }
-        }
-    }
-    fs::remove_file(history_path).map_err(err)?;
-    Ok(source)
+    let source = get_history_entry(root, transaction_id)?;
+    restore_record_changes(root, &source, None)
 }
 
 pub fn revert_file(
@@ -3252,24 +3458,71 @@ pub fn revert_file(
     transaction_id: &str,
     relative: &str,
 ) -> Result<TransactionRecord, String> {
-    let history_path = transaction_path(root, transaction_id)?;
-    let raw = fs::read_to_string(&history_path).map_err(err)?;
-    let source: TransactionRecord = serde_json::from_str(&raw).map_err(err)?;
-    let change = source
+    let source = get_history_entry(root, transaction_id)?;
+    restore_record_changes(root, &source, Some(relative))
+}
+
+fn restore_record_changes(
+    root: &Path,
+    source: &TransactionRecord,
+    only_path: Option<&str>,
+) -> Result<TransactionRecord, String> {
+    let selected = source
         .changes
         .iter()
-        .find(|change| change.path == relative)
-        .ok_or_else(|| "That file is not part of this history entry.".to_string())?;
-    let path = safe_path(root, &change.path)?;
-    match &change.before {
-        Some(content) => fs::write(path, content).map_err(err)?,
-        None => {
-            if path.exists() {
-                fs::remove_file(path).map_err(err)?;
+        .filter(|change| only_path.is_none_or(|relative| change.path == relative))
+        .collect::<Vec<_>>();
+    if selected.is_empty() {
+        return Err("That file is not part of this history entry.".to_string());
+    }
+
+    let mut inverse = Vec::with_capacity(selected.len());
+    for change in selected {
+        let path = safe_path(root, &change.path)?;
+        let current = if path.exists() {
+            Some(fs::read_to_string(&path).map_err(err)?)
+        } else {
+            None
+        };
+        if current == change.before {
+            continue;
+        }
+        if current != change.after {
+            return Err(format!(
+                "Cannot restore {} because it changed after this history entry. Review the newer changes first.",
+                change.path
+            ));
+        }
+        inverse.push(FileChange {
+            path: change.path.clone(),
+            before: current,
+            after: change.before.clone(),
+        });
+    }
+    if inverse.is_empty() {
+        return Err("The selected files are already at the requested state.".to_string());
+    }
+
+    for change in &inverse {
+        let path = safe_path(root, &change.path)?;
+        match &change.after {
+            Some(content) => {
+                if let Some(parent) = path.parent() {
+                    fs::create_dir_all(parent).map_err(err)?;
+                }
+                fs::write(path, content).map_err(err)?;
             }
+            None if path.exists() => fs::remove_file(path).map_err(err)?,
+            None => {}
         }
     }
-    Ok(source)
+
+    let label = only_path
+        .map(|relative| format!("Restore {relative} from {}", source.label))
+        .unwrap_or_else(|| format!("Restore {}", source.label));
+    let record = new_transaction(&label, inverse, HistoryContext::restore(source));
+    persist_transaction(root, &record)?;
+    Ok(record)
 }
 
 fn replace_targets(root: &Path, paths: Option<Vec<String>>) -> Result<Vec<String>, String> {
@@ -3845,6 +4098,9 @@ mod tests {
         let reread = read_bib_entry(&root, "vaswani2017").unwrap().unwrap();
         assert_eq!(reread.entry_type, "inproceedings");
         assert_eq!(reread.booktitle, "NeurIPS");
+        let history = history(&root).unwrap();
+        assert_eq!(history[0].actor, "citation");
+        assert_eq!(history[0].kind, "citation");
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -3860,9 +4116,13 @@ mod tests {
         )
         .unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "after");
-        revert(&root, &transaction.id).unwrap();
+        let restore = revert(&root, &transaction.id).unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "before");
-        assert!(history(&root).unwrap().is_empty());
+        let items = history(&root).unwrap();
+        assert_eq!(items.len(), 2);
+        assert!(transaction_path(&root, &transaction.id).unwrap().exists());
+        assert_eq!(restore.undo_of.as_deref(), Some(transaction.id.as_str()));
+        assert_eq!(restore.kind.as_deref(), Some("restore"));
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -3877,17 +4137,69 @@ mod tests {
         fs::write(root.join("created.tex"), "new").unwrap();
         fs::remove_file(root.join("removed.tex")).unwrap();
 
-        let transaction = record_external_changes(&root, &before, "Agent edit")
+        let transaction = record_agent_changes(&root, &before, "Agent edit", "thread-1")
             .unwrap()
             .unwrap();
         assert_eq!(transaction.changes.len(), 3);
-        revert(&root, &transaction.id).unwrap();
+        let restore = revert(&root, &transaction.id).unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "before");
         assert_eq!(
             fs::read_to_string(root.join("removed.tex")).unwrap(),
             "remove me"
         );
         assert!(!root.join("created.tex").exists());
+        assert_eq!(restore.undo_of.as_deref(), Some(transaction.id.as_str()));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn history_restore_refuses_to_overwrite_newer_file_changes() {
+        let root = temp_root("history-conflict");
+        fs::create_dir_all(root.join(".research/history")).unwrap();
+        fs::write(root.join("main.tex"), "before").unwrap();
+        let transaction = apply_transaction(
+            &root,
+            "Edit main.tex",
+            vec![("main.tex".to_string(), "after".to_string())],
+        )
+        .unwrap();
+        fs::write(root.join("main.tex"), "newer").unwrap();
+
+        let error = revert(&root, &transaction.id).unwrap_err();
+
+        assert!(error.contains("changed after this history entry"));
+        assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "newer");
+        assert_eq!(history(&root).unwrap().len(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_history_records_receive_semantic_metadata_without_rewriting_them() {
+        let root = temp_root("legacy-history-metadata");
+        let directory = root.join(".research/history");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("legacy.json"),
+            r#"{
+  "id": "legacy",
+  "label": "Agent: revise the abstract",
+  "timestamp": "2026-07-29T12:00:00Z",
+  "changes": [{"path":"main.tex","before":"old","after":"new"}]
+}
+"#,
+        )
+        .unwrap();
+
+        let items = history(&root).unwrap();
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].actor, "agent");
+        assert_eq!(items[0].kind, "agent");
+        assert_eq!(items[0].source, "agent");
+        assert_eq!(
+            get_history_entry(&root, "legacy").unwrap().schema_version,
+            1
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -4276,6 +4588,61 @@ mod tests {
         );
         assert!(root.join("chapters/method.tex").exists());
         assert!(rename_entry(&root, "paper.tex", "references.bib").is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn project_entries_can_move_between_folders_and_manifest_paths_follow_them() {
+        let parent = temp_root("move-project-entries");
+        let root = create(&parent, "paper").unwrap();
+        create_entry(&root, "sections", "folder").unwrap();
+        assert_eq!(
+            move_entry(&root, "main.tex", "sections").unwrap(),
+            "sections/main.tex"
+        );
+        assert_eq!(
+            read_manifest(&root).unwrap().root_documents[0].path,
+            "sections/main.tex"
+        );
+        assert_eq!(
+            move_entry(&root, "sections/main.tex", "").unwrap(),
+            "main.tex"
+        );
+        create_entry(&root, "sections/nested", "folder").unwrap();
+        assert!(move_entry(&root, "sections", "sections/nested").is_err());
+        assert!(move_entry(&root, "main.tex", ".research").is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn moving_a_tex_file_removes_stale_build_outputs_from_both_locations() {
+        let parent = temp_root("move-tex-build-outputs");
+        let root = create(&parent, "paper").unwrap();
+        create_entry(&root, "sections", "folder").unwrap();
+        fs::write(root.join("main.pdf"), b"old root PDF").unwrap();
+        fs::write(root.join("main.aux"), b"old root aux").unwrap();
+        fs::write(root.join("sections/main.pdf"), b"stale destination PDF").unwrap();
+
+        assert_eq!(
+            move_entry(&root, "main.tex", "sections").unwrap(),
+            "sections/main.tex"
+        );
+        assert!(!root.join("main.pdf").exists());
+        assert!(!root.join("main.aux").exists());
+        assert!(!root.join("sections/main.pdf").exists());
+        assert!(!scan_files(&root)
+            .unwrap()
+            .iter()
+            .any(|node| node.path == "main.pdf"));
+
+        fs::write(root.join("sections/main.pdf"), b"compiled nested PDF").unwrap();
+        fs::write(root.join("main.pdf"), b"stale root PDF").unwrap();
+        assert_eq!(
+            move_entry(&root, "sections/main.tex", "").unwrap(),
+            "main.tex"
+        );
+        assert!(!root.join("sections/main.pdf").exists());
+        assert!(!root.join("main.pdf").exists());
         fs::remove_dir_all(parent).unwrap();
     }
 

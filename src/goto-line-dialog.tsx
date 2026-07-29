@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { MotionButton, PopIn } from "./motion";
+import { Button } from "./components/ui/button";
+import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
 
 export function GotoLineDialog(props: {
@@ -52,8 +54,8 @@ function GotoLineDialogForm(props: {
           />
         </label>
         <div className="modal-actions">
-          <button type="button" className="text-button" onClick={props.onClose}>Cancel</button>
-          <MotionButton type="button" className="primary-button" onClick={submit}>Go</MotionButton>
+          <Button variant="ghost" onClick={props.onClose}>Cancel</Button>
+          <MotionButton type="button" className={buttonClassName({ variant: "primary" })} onClick={submit}>Go</MotionButton>
         </div>
       </PopIn>
     </ModalDialog>

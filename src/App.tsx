@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -20,6 +20,9 @@ import {
   Play,
   Radio,
   Search,
+  Shield,
+  ShieldCheck,
+  Hand,
   Square,
   X,
 } from "lucide-react";
@@ -186,9 +189,13 @@ import { Tip } from "./components/icon-tip";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import {
   DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
+import { ResizableDrawer } from "./resizable-drawer";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "./project-replace-dialog";
 const LiteratureDiscoveryPanel = lazy(() =>
   import("./literature-discovery-panel").then((module) => ({ default: module.LiteratureDiscoveryPanel })),
@@ -210,6 +217,8 @@ import type {
   NavigationEntry,
   ProjectSnapshot,
   FileNode,
+  GitFileStatus,
+  GitStatus,
   AssetPreview,
   FigureDropRequest,
   FigurePointerDrag,
@@ -247,11 +256,188 @@ import type {
   AgentAttachmentDescriptor,
   AgentAttachmentMetadata,
 } from "./app-types";
-import { WELCOME_MESSAGE, agentErrorDetails, arxivIdFromTabKey, autoBuildDescription, beginWindowDrag, buildAgentMentions, confirmAction, defaultModel, dropDirectoryAt, dropEditorAt, isPaperTabKey, normalizeEffort, normalizeModel, paperKey, paperTabKey, projectItemPath, toMessage, toggleWindowFullscreen } from "./app-utils";
+import {
+  WELCOME_MESSAGE,
+  agentErrorDetails,
+  applyProjectPathChanges,
+  arxivIdFromTabKey,
+  autoBuildDescription,
+  beginWindowDrag,
+  buildAgentMentions,
+  confirmAction,
+  defaultModel,
+  dropDirectoryAt,
+  dropEditorAt,
+  isPaperTabKey,
+  normalizeEffort,
+  normalizeModel,
+  paperKey,
+  paperTabKey,
+  projectItemPath,
+  remapProjectPath,
+  toMessage,
+  toggleWindowFullscreen,
+  type ProjectPathChange,
+} from "./app-utils";
 import { mcpDraftToSaveRequest } from "./mcp-settings";
+import {
+  LATTICE_RESTORE_AGENT_CHECKPOINT,
+  parseAgentProjectHistorySnapshot,
+  synaraFrameUrl,
+  type AgentCheckpointHistoryEntry,
+  type SynaraRuntimeInfo,
+} from "./synara-runtime";
+import { useSynaraRuntime } from "./use-synara-runtime";
 import "./App.css";
 
 const EMPTY_DIAGNOSTICS: CompileDiagnostic[] = [];
+const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-mode";
+const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
+const SYNARA_AGENT_PERMISSION_MODE_STATUS = "synara:agent-permission-mode";
+const SYNARA_LAYOUT_METRICS = "synara:layout-metrics";
+const SYNARA_EMBED_READY = "synara:embed-ready";
+const SYNARA_SIDEBAR_FALLBACK_MINIMUM = 260;
+const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
+
+type SynaraPermissionMode = "approval-required" | "auto" | "full-access";
+
+const SYNARA_PERMISSION_PRESENTATION: Record<
+  SynaraPermissionMode,
+  { label: string; description: string }
+> = {
+  "full-access": {
+    label: "Full access",
+    description: "Run without asking for approval",
+  },
+  auto: {
+    label: "Approve for me",
+    description: "Ask only for potentially unsafe actions",
+  },
+  "approval-required": {
+    label: "Ask for approval",
+    description: "Ask before external edits and network access",
+  },
+};
+
+function isSynaraPermissionMode(value: unknown): value is SynaraPermissionMode {
+  return value === "approval-required" || value === "auto" || value === "full-access";
+}
+
+function SynaraPermissionIcon({ mode }: { mode: SynaraPermissionMode }) {
+  if (mode === "full-access") return <ShieldCheck size={14} />;
+  if (mode === "auto") return <Shield size={14} />;
+  return <Hand size={14} />;
+}
+
+function SynaraPermissionPicker(props: {
+  value: SynaraPermissionMode;
+  autoModeAvailable: boolean;
+  onChange: (value: SynaraPermissionMode) => void;
+}) {
+  const presentation = SYNARA_PERMISSION_PRESENTATION[props.value];
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="agent-permission-trigger"
+          aria-label={`Agent permissions: ${presentation.label}`}
+          title={`Agent permissions: ${presentation.label}`}
+        >
+          <SynaraPermissionIcon mode={props.value} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={6} className="agent-permission-menu">
+        <DropdownMenuRadioGroup value={props.value} onValueChange={(value) => {
+          if (isSynaraPermissionMode(value)) props.onChange(value);
+        }}>
+          {(["full-access", "auto", "approval-required"] as const).map((mode) => {
+            const option = SYNARA_PERMISSION_PRESENTATION[mode];
+            return (
+              <DropdownMenuRadioItem
+                key={mode}
+                value={mode}
+                disabled={mode === "auto" && !props.autoModeAvailable}
+              >
+                <span className="agent-permission-copy">
+                  <strong>{option.label}</strong>
+                  <small>{option.description}</small>
+                </span>
+              </DropdownMenuRadioItem>
+            );
+          })}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function synaraEmbedUrl(
+  origin: string,
+  authToken: string | null,
+  projectRoot: string,
+  theme: "light" | "dark",
+): string {
+  return synaraFrameUrl({
+    origin,
+    workspaceRoot: projectRoot,
+    theme,
+    hostOrigin: window.location.origin,
+    authToken,
+  });
+}
+
+function synaraSourceControlUrl(
+  origin: string,
+  authToken: string | null,
+  projectRoot: string,
+  theme: "light" | "dark",
+): string {
+  return synaraFrameUrl({
+    origin,
+    path: "/source-control",
+    workspaceRoot: projectRoot,
+    theme,
+    hostOrigin: window.location.origin,
+    authToken,
+  });
+}
+
+function SynaraLoadingSurface(props: {
+  runtime: SynaraRuntimeInfo;
+  preparingWorkspace?: boolean;
+  onRetry: () => void;
+}) {
+  const failed = props.runtime.state === "stopped";
+  return (
+    <div className="synara-loading-surface" role={failed ? "alert" : "status"} aria-live="polite">
+      <span className={failed ? "synara-loading-mark failed" : "synara-loading-mark"} aria-hidden="true">
+        {failed ? <CircleAlert size={17} /> : <Bot size={17} />}
+      </span>
+      <div className="synara-loading-copy">
+        <strong>
+          {failed
+            ? "Agent unavailable"
+            : props.preparingWorkspace
+              ? "Preparing this workspace"
+              : "Starting Agent"}
+        </strong>
+        <span>
+          {failed
+            ? props.runtime.message || "The bundled Agent service could not start."
+            : props.preparingWorkspace
+              ? "Restoring the conversation surface…"
+              : "Warming the local service…"}
+        </span>
+      </div>
+      {failed && (
+        <button type="button" onClick={props.onRetry}>
+          Retry
+        </button>
+      )}
+    </div>
+  );
+}
 
 function AgentAccessPicker(props: {
   value: "subscription" | "api";
@@ -299,7 +485,24 @@ const defaultWelcomeMessages: ChatMessage[] = [
 ];
 
 function App() {
+  const {
+    enabled: synaraRuntimeEnabled,
+    runtime: synaraRuntime,
+    retry: retrySynaraRuntime,
+  } = useSynaraRuntime();
+  const synaraOrigin =
+    synaraRuntime.state === "ready" ? synaraRuntime.origin : null;
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
+  const projectRef = useRef<ProjectSnapshot | null>(project);
+  const projectTreeMutationCountRef = useRef(0);
+  const postSaveRefreshGenerationRef = useRef(0);
+  useLayoutEffect(() => {
+    projectRef.current = project;
+  }, [project]);
+  const [projectGitStatus, setProjectGitStatus] = useState<{
+    projectRoot: string;
+    files: GitFileStatus[];
+  }>({ projectRoot: "", files: [] });
   const [activeFile, setActiveFile] = useState("");
   const [source, setSource] = useState("");
   const [savedSource, setSavedSource] = useState("");
@@ -415,6 +618,10 @@ function App() {
   const [assetImporting, setAssetImporting] = useState(false);
   const [assetDropTarget, setAssetDropTarget] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [agentHistoryByThread, setAgentHistoryByThread] = useState<
+    Record<string, AgentCheckpointHistoryEntry[]>
+  >({});
+  const [activeAgentHistoryThreadId, setActiveAgentHistoryThreadId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
   const [todosOpen, setTodosOpen] = useState(false);
@@ -583,6 +790,9 @@ function App() {
     symbol: string;
     occurrences: SymbolOccurrence[];
   } | null>(null);
+  const [synaraMinimumSidebarWidth, setSynaraMinimumSidebarWidth] = useState(
+    synaraRuntimeEnabled ? SYNARA_SIDEBAR_FALLBACK_MINIMUM : 180,
+  );
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -590,8 +800,8 @@ function App() {
     sidebarResizing,
     beginSidebarResize,
     nudgeSidebar,
-  } = usePanelLayout();
-  const sidebarModeTier = sidebarWidth >= 355 ? 4 : sidebarWidth >= 309 ? 3 : sidebarWidth >= 263 ? 2 : 1;
+    fitSidebarToContent,
+  } = usePanelLayout(synaraMinimumSidebarWidth);
   const [sidebarMode, setSidebarMode] = useState<"project" | "papers" | "agent">(() => {
     try {
       const saved = localStorage.getItem("lattice.sidebar-mode.v1");
@@ -600,8 +810,49 @@ function App() {
       return "project";
     }
   });
+  // Keep the three mode tabs on one shared expansion tier so switching modes
+  // never makes the header jump. Synara has no legacy Subscription/API picker,
+  // so its largest remaining action area is Papers' two icon buttons.
+  const sidebarModeReserve = (synaraRuntimeEnabled ? 53 : 108) + 18;
+  const sidebarModeTier = sidebarWidth >= 229 + sidebarModeReserve
+    ? 4
+    : sidebarWidth >= 183 + sidebarModeReserve
+      ? 3
+      : sidebarWidth >= 137 + sidebarModeReserve
+        ? 2
+        : 1;
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
+  const synaraIframeRef = useRef<HTMLIFrameElement>(null);
+  const synaraSourceControlFrameRef = useRef<HTMLIFrameElement>(null);
+  const synaraReadyFallbackTimerRef = useRef<number | null>(null);
+  const [synaraFrameMounted, setSynaraFrameMounted] = useState(
+    sidebarMode === "agent",
+  );
+  const [readySynaraFrameKey, setReadySynaraFrameKey] = useState<string | null>(null);
+  const synaraFrameKey = synaraOrigin && project
+    ? `${synaraOrigin}\0${project.root}`
+    : null;
+  useEffect(() => {
+    setAgentHistoryByThread({});
+    setActiveAgentHistoryThreadId(null);
+  }, [project?.root]);
+  const synaraFrameReady =
+    synaraFrameKey !== null && readySynaraFrameKey === synaraFrameKey;
+  const [synaraPermissionMode, setSynaraPermissionMode] =
+    useState<SynaraPermissionMode>("full-access");
+  const [synaraAutoModeAvailable, setSynaraAutoModeAvailable] = useState(true);
+  const postSynaraMessage = useCallback((message: object) => {
+    if (!synaraOrigin) return;
+    synaraIframeRef.current?.contentWindow?.postMessage(
+      message,
+      synaraOrigin,
+    );
+  }, [synaraOrigin]);
+  const changeSynaraPermissionMode = useCallback((mode: SynaraPermissionMode) => {
+    postSynaraMessage({ type: LATTICE_AGENT_PERMISSION_MODE_SET, mode });
+  }, [postSynaraMessage]);
   const chooseSidebarMode = (mode: "project" | "papers" | "agent") => {
+    if (mode === "agent" && synaraRuntimeEnabled) setSynaraFrameMounted(true);
     setSidebarMode(mode);
     setSidebarOpen(true);
   };
@@ -612,18 +863,134 @@ function App() {
       // Mode still switches for the current session without storage.
     }
   }, [sidebarMode]);
+  useEffect(() => {
+    if (!synaraOrigin || synaraFrameMounted || sidebarMode === "agent") return;
+    const mount = () => setSynaraFrameMounted(true);
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(mount, { timeout: 1_500 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timer = globalThis.setTimeout(mount, 1_200);
+    return () => globalThis.clearTimeout(timer);
+  }, [sidebarMode, synaraFrameMounted, synaraOrigin]);
+  useEffect(() => {
+    if (synaraReadyFallbackTimerRef.current !== null) {
+      window.clearTimeout(synaraReadyFallbackTimerRef.current);
+      synaraReadyFallbackTimerRef.current = null;
+    }
+  }, [synaraFrameKey]);
+  useEffect(() => {
+    if (!synaraOrigin) return;
+    const receiveSynaraMessage = (event: MessageEvent) => {
+      if (
+        event.source !== synaraIframeRef.current?.contentWindow ||
+        event.origin !== synaraOrigin
+      ) {
+        return;
+      }
+      if (event.data?.type === SYNARA_EMBED_READY) {
+        if (synaraFrameKey) setReadySynaraFrameKey(synaraFrameKey);
+        if (synaraReadyFallbackTimerRef.current !== null) {
+          window.clearTimeout(synaraReadyFallbackTimerRef.current);
+          synaraReadyFallbackTimerRef.current = null;
+        }
+        return;
+      }
+      const historySnapshot = parseAgentProjectHistorySnapshot(event.data);
+      if (historySnapshot) {
+        setAgentHistoryByThread((current) => ({
+          ...current,
+          [historySnapshot.activeThreadId]: historySnapshot.entries,
+        }));
+        setActiveAgentHistoryThreadId(historySnapshot.activeThreadId);
+        return;
+      }
+      if (
+        event.data?.type === SYNARA_AGENT_PERMISSION_MODE_STATUS &&
+        isSynaraPermissionMode(event.data.mode)
+      ) {
+        setSynaraPermissionMode(event.data.mode);
+        setSynaraAutoModeAvailable(event.data.autoModeAvailable !== false);
+        return;
+      }
+      if (
+        event.data?.type === SYNARA_LAYOUT_METRICS &&
+        typeof event.data.minimumSidebarWidth === "number" &&
+        Number.isFinite(event.data.minimumSidebarWidth)
+      ) {
+        const reportedMinimum = Math.round(
+          Math.min(
+            SYNARA_SIDEBAR_MAXIMUM_MINIMUM,
+            Math.max(SYNARA_SIDEBAR_FALLBACK_MINIMUM, event.data.minimumSidebarWidth),
+          ),
+        );
+        // Synara reports an intrinsic control width, not the footer's currently
+        // assigned grid width, so this value may safely decrease after controls
+        // or model labels change.
+        setSynaraMinimumSidebarWidth(reportedMinimum);
+      }
+    };
+    window.addEventListener("message", receiveSynaraMessage);
+    return () => window.removeEventListener("message", receiveSynaraMessage);
+  }, [synaraFrameKey, synaraOrigin]);
+  useEffect(() => {
+    if (!synaraOrigin || !gitOpen) return;
+    const closeSourceControl = (event: MessageEvent) => {
+      if (
+        event.source !== synaraSourceControlFrameRef.current?.contentWindow ||
+        event.origin !== synaraOrigin ||
+        event.data?.type !== "lattice:close-source-control"
+      ) {
+        return;
+      }
+      setGitOpen(false);
+    };
+    window.addEventListener("message", closeSourceControl);
+    return () => window.removeEventListener("message", closeSourceControl);
+  }, [gitOpen, synaraOrigin]);
 
   useEffect(() => {
-    if (!project || sidebarMode !== "project") return;
+    const initialProject = projectRef.current;
+    if (!initialProject || sidebarMode !== "project") return;
     let stopped = false;
     let checking = false;
-    const checkForNewFiles = async () => {
-      if (checking) return;
+    const refreshProjectTreeState = async () => {
+      if (checking || projectTreeMutationCountRef.current > 0) return;
       checking = true;
       try {
-        const snapshot = await invoke<ProjectSnapshot>("refresh_project");
-        if (!stopped && snapshot.root === project.root && JSON.stringify(snapshot.files) !== JSON.stringify(project.files)) {
-          setProject(snapshot);
+        const [snapshotResult, gitStatusResult] = await Promise.allSettled([
+          invoke<ProjectSnapshot>("refresh_project"),
+          invoke<GitStatus>("git_status"),
+        ]);
+        const currentProject = projectRef.current;
+        if (
+          !stopped
+          && currentProject
+          && projectTreeMutationCountRef.current === 0
+          && snapshotResult.status === "fulfilled"
+          && snapshotResult.value.root === currentProject.root
+          && JSON.stringify(snapshotResult.value.files) !== JSON.stringify(currentProject.files)
+        ) {
+          setProject(snapshotResult.value);
+        }
+        if (
+          !stopped
+          && currentProject?.root === initialProject.root
+          && projectTreeMutationCountRef.current === 0
+          && gitStatusResult.status === "fulfilled"
+        ) {
+          const gitStatus = gitStatusResult.value;
+          const files = gitStatus?.repository ? gitStatus.files : [];
+          setProjectGitStatus((current) => {
+            if (
+              currentProject
+              && current.projectRoot === currentProject.root
+              && JSON.stringify(current.files) === JSON.stringify(files)
+            ) {
+              return current;
+            }
+            return { projectRoot: currentProject?.root ?? "", files };
+          });
         }
       } catch {
         // The next poll retries after transient filesystem races.
@@ -631,12 +998,13 @@ function App() {
         checking = false;
       }
     };
-    const timer = window.setInterval(() => { void checkForNewFiles(); }, 2000);
+    void refreshProjectTreeState();
+    const timer = window.setInterval(() => { void refreshProjectTreeState(); }, 2000);
     return () => {
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [project, sidebarMode]);
+  }, [project?.root, sidebarMode]);
   // Remember the file open per project, so reopening it lands on the last page.
   useEffect(() => {
     if (project?.root && activeFile) persistLastFile(project.root, activeFile);
@@ -735,6 +1103,33 @@ function App() {
     setHistory(await invoke<HistoryItem[]>("list_history"));
   }, [project]);
 
+  const projectHistory = useMemo<HistoryItem[]>(() => {
+    const agentItems = Object.values(agentHistoryByThread).flatMap((entries) =>
+      entries.map((entry) => ({
+        id: entry.id,
+        label: entry.label,
+        timestamp: entry.timestamp,
+        files: entry.files.map((file) => file.path),
+        actor: "agent",
+        kind: "agent-checkpoint",
+        source: "agent-checkpoint",
+        threadId: entry.threadId,
+        threadTitle: entry.threadTitle,
+        checkpointRef: entry.checkpointRef,
+        turnCount: entry.turnCount,
+        fileSummaries: entry.files,
+        restoreAvailable: entry.threadId === activeAgentHistoryThreadId,
+        restoreUnavailableReason:
+          entry.threadId === activeAgentHistoryThreadId
+            ? null
+            : "Open this Agent task before restoring its files",
+      })),
+    );
+    return [...history, ...agentItems].sort((left, right) =>
+      right.timestamp.localeCompare(left.timestamp),
+    );
+  }, [activeAgentHistoryThreadId, agentHistoryByThread, history]);
+
   const refreshTodos = useCallback(async () => {
     if (!project) {
       setDiskTodos([]);
@@ -767,6 +1162,58 @@ function App() {
     }
   }, []);
 
+  const refreshAfterSave = useCallback((
+    projectRoot: string,
+    wroteTex: boolean,
+    wroteBib: boolean,
+  ) => {
+    const generation = postSaveRefreshGenerationRef.current + 1;
+    postSaveRefreshGenerationRef.current = generation;
+    const refresh = async () => {
+      const [
+        citationResult,
+        referenceResult,
+        unusedResult,
+        historyResult,
+        todoResult,
+        wordCountResult,
+      ] = await Promise.allSettled([
+        wroteBib
+          ? Promise.all([
+              invoke<string[]>("list_citation_keys"),
+              invoke<CitationInfo[]>("list_citations"),
+            ])
+          : Promise.resolve(null),
+        wroteTex
+          ? invoke<ReferenceInfo[]>("list_references")
+          : Promise.resolve(null),
+        invoke<UnusedSymbols>("list_unused_symbols"),
+        invoke<HistoryItem[]>("list_history"),
+        invoke<TodoHit[]>("list_todos"),
+        invoke<WordCount>("count_project_words"),
+      ] as const);
+      if (
+        generation !== postSaveRefreshGenerationRef.current
+        || projectRef.current?.root !== projectRoot
+      ) {
+        return;
+      }
+      if (citationResult.status === "fulfilled" && citationResult.value) {
+        const [nextCitationKeys, nextCitations] = citationResult.value;
+        setCitationKeys(nextCitationKeys);
+        setCitations(nextCitations);
+      }
+      if (referenceResult.status === "fulfilled" && referenceResult.value) {
+        setReferences(referenceResult.value ?? []);
+      }
+      if (unusedResult.status === "fulfilled") setUnusedSymbols(unusedResult.value);
+      if (historyResult.status === "fulfilled") setHistory(historyResult.value);
+      if (todoResult.status === "fulfilled") setDiskTodos(todoResult.value);
+      if (wordCountResult.status === "fulfilled") setProjectWordCount(wordCountResult.value);
+    };
+    void refresh();
+  }, []);
+
   const refreshProject = useCallback(async () => {
     const snapshot = await invoke<ProjectSnapshot>("refresh_project");
     setProject(snapshot);
@@ -783,6 +1230,12 @@ function App() {
     await refreshUnusedSymbols();
     return snapshot;
   }, [refreshUnusedSymbols]);
+
+  const reconcileProjectTree = useCallback(async () => {
+    const snapshot = await invoke<ProjectSnapshot>("refresh_project");
+    setProject(snapshot);
+    return snapshot;
+  }, []);
 
   const diskMtimeRef = useRef<number | null>(null);
   const sourceRef = useRef(source);
@@ -1268,21 +1721,10 @@ function App() {
         return true;
       }
       setSaveGeneration((generation) => generation + 1);
-      if (wroteBib) {
-        const [nextCitationKeys, nextCitations] = await Promise.all([
-          invoke<string[]>("list_citation_keys"),
-          invoke<CitationInfo[]>("list_citations"),
-        ]);
-        setCitationKeys(nextCitationKeys);
-        setCitations(nextCitations);
-      }
-      if (wroteTex) {
-        setReferences((await invoke<ReferenceInfo[]>("list_references")) ?? []);
-      }
-      await refreshUnusedSymbols();
-      await refreshHistory();
-      await refreshTodos();
-      await refreshWordCount();
+      // Saving must only wait for durable writes. The derived sidebars are
+      // useful, but making file switches and builds wait on six independent
+      // project scans turned every save into a visible pause.
+      refreshAfterSave(project.root, wroteTex, wroteBib);
       return true;
     } catch (reason) {
       setError(toMessage(reason));
@@ -1293,10 +1735,7 @@ function App() {
     collabSession,
     markDiskMtime,
     project,
-    refreshHistory,
-    refreshTodos,
-    refreshUnusedSymbols,
-    refreshWordCount,
+    refreshAfterSave,
     savedSource,
     secondaryFile,
     secondarySavedSource,
@@ -2811,36 +3250,6 @@ function App() {
     };
   }, []);
 
-  // Measure the sidebar toggle and tell AppKit to center traffic lights on it.
-  // No OS-specific nudges — host and VM share the same geometry once zoom is applied.
-  useEffect(() => {
-    let cancelled = false;
-    const align = () => {
-      if (cancelled || isFullscreen) return;
-      const titlebar = shellRef.current?.querySelector<HTMLElement>(".titlebar");
-      const toggle = shellRef.current?.querySelector<HTMLElement>(".titlebar-navigator > .icon-button");
-      if (!titlebar || !toggle) return;
-      const titlebarRect = titlebar.getBoundingClientRect();
-      const toggleRect = toggle.getBoundingClientRect();
-      // WKWebView zoom leaves getBoundingClientRect in CSS pixels; native chrome uses points.
-      const zoom = appearance.interfaceScale;
-      const centerY = (toggleRect.top + toggleRect.height / 2) * zoom;
-      const titlebarHeight = titlebarRect.height * zoom;
-      void invoke("align_traffic_lights", { centerY, titlebarHeight }).catch(() => {
-        // Browser tests / non-macOS builds have no traffic lights.
-      });
-    };
-    const frame = window.requestAnimationFrame(align);
-    const timer = window.setTimeout(align, 120);
-    window.addEventListener("resize", align);
-    return () => {
-      cancelled = true;
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-      window.removeEventListener("resize", align);
-    };
-  }, [appearance.interfaceScale, isFullscreen, project]);
-
   useEffect(() => {
     try {
       localStorage.setItem(BUILD_PREFERENCES_KEY, JSON.stringify(buildPreferences));
@@ -2862,19 +3271,62 @@ function App() {
     if (typeof appWindow.isFullscreen !== "function" || typeof appWindow.onResized !== "function") return;
     let active = true;
     let stopListening: (() => void) | undefined;
-    const refresh = () => {
+    let refreshTimer: number | undefined;
+    const refreshNow = () => {
       void appWindow.isFullscreen().then((value) => active && setIsFullscreen(value));
     };
-    refresh();
-    void appWindow.onResized(refresh).then((unlisten) => {
+    const scheduleRefresh = () => {
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+      // Native resize events can arrive much faster than WebKit presents
+      // frames. A trailing check avoids queueing an IPC round trip per pixel.
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = undefined;
+        refreshNow();
+      }, 80);
+    };
+    refreshNow();
+    void appWindow.onResized(scheduleRefresh).then((unlisten) => {
       if (active) stopListening = unlisten;
       else unlisten();
     });
     return () => {
       active = false;
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
       stopListening?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (isFullscreen) return;
+    let cancelled = false;
+    const align = () => {
+      if (cancelled) return;
+      const toggle = shellRef.current?.querySelector<HTMLElement>(
+        ".titlebar-navigator > .icon-button",
+      );
+      const trafficSpace = shellRef.current?.querySelector<HTMLElement>(".traffic-space");
+      if (!toggle || !trafficSpace) return;
+      const toggleRect = toggle.getBoundingClientRect();
+      const trafficRect = trafficSpace.getBoundingClientRect();
+      const zoom = appearance.interfaceScale;
+      // AppKit consumes logical points, while getBoundingClientRect() remains
+      // in the page's unzoomed CSS pixels. Use the actual sidebar-toggle center
+      // vertically and the traffic-space design center horizontally.
+      void invoke("align_traffic_lights", {
+        closeCenterX: (trafficRect.left + 21) * zoom,
+        centerFromTop: (toggleRect.top + toggleRect.height / 2) * zoom,
+      }).catch(() => {
+        // Browser tests and non-macOS builds have no native traffic lights.
+      });
+    };
+    const frame = window.requestAnimationFrame(align);
+    const timer = window.setTimeout(align, 120);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [appearance.interfaceScale, isFullscreen]);
 
   useEffect(() => {
     const list = chatListRef.current;
@@ -3147,18 +3599,30 @@ function App() {
 
   const beginProjectFigureDrag = useCallback((path: string, label: string, event: React.PointerEvent) => {
     if (event.button !== 0) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
     const startX = event.clientX;
     const startY = event.clientY;
     let dragging = false;
+    const elementAt = (clientX: number, clientY: number) =>
+      document.elementFromPoint(clientX, clientY) as Element | null;
     const editorAt = (clientX: number, clientY: number) =>
-      Boolean((document.elementFromPoint(clientX, clientY) as Element | null)?.closest(".source-editor"));
+      Boolean(elementAt(clientX, clientY)?.closest(".source-editor"));
+    const treeAt = (clientX: number, clientY: number) => {
+      const element = elementAt(clientX, clientY);
+      if (!element) return false;
+      if (element.closest(".project-file-tree-surface, file-tree-container")) return true;
+      const root = element.getRootNode();
+      return root instanceof ShadowRoot
+        && Boolean((root.host as Element).closest(".project-file-tree-surface"));
+    };
     const move = (pointerEvent: PointerEvent) => {
       if (!dragging && Math.hypot(pointerEvent.clientX - startX, pointerEvent.clientY - startY) < 5) return;
       dragging = true;
       const overEditor = editorAt(pointerEvent.clientX, pointerEvent.clientY);
       setNativeEditorDropActive(overEditor);
+      if (!overEditor && treeAt(pointerEvent.clientX, pointerEvent.clientY)) {
+        setFigurePointerDrag(null);
+        return;
+      }
       setFigurePointerDrag({
         path,
         label,
@@ -3291,6 +3755,7 @@ function App() {
         }
         await loadFile(createdPath);
       }
+      return createdPath;
     } catch (reason) {
       setError(toMessage(reason));
       throw reason;
@@ -3495,36 +3960,145 @@ function App() {
     }
   }, [activeAsset, activeFile, collabSession, loadFile, refreshHistory, refreshProject]);
 
-  const renameProjectEntry = useCallback((path: string, name: string) => {
-    setRenameError(null);
-    setRenameTarget({ kind: "entry", path, name });
+  const applyProjectEntryPathChanges = useCallback((changes: readonly ProjectPathChange[]) => {
+    if (changes.length === 0) return;
+    const remapPath = (path: string) => remapProjectPath(path, changes);
+
+    setProject((current) => current ? applyProjectPathChanges(current, changes) : current);
+    setProjectGitStatus((current) => ({
+      ...current,
+      files: current.files.map((file) => ({ ...file, path: remapPath(file.path) })),
+    }));
+    setOpenTabs((tabs) => tabs.map(remapPath));
+    setSecondaryFile((path) => path ? remapPath(path) : path);
+    setActiveFile((path) => remapPath(path));
+    setActiveAsset((asset) => asset ? { ...asset, path: remapPath(asset.path) } : asset);
+    setNavStack((entries) => entries.map((entry) => ({ ...entry, path: remapPath(entry.path) })));
+    setViewRestore((request) => request ? { ...request, path: remapPath(request.path) } : request);
+    setOutlineSources((current) => Object.fromEntries(
+      Object.entries(current).map(([path, content]) => [remapPath(path), content]),
+    ));
+    setTexlabDiagnostics((diagnostics) => diagnostics.map((diagnostic) => diagnostic.file
+      ? { ...diagnostic, file: remapPath(diagnostic.file) }
+      : diagnostic));
+    setBuild((current) => current ? {
+      ...current,
+      diagnostics: current.diagnostics.map((diagnostic) => diagnostic.file
+        ? { ...diagnostic, file: remapPath(diagnostic.file) }
+        : diagnostic),
+    } : current);
+
+    tabRecency.current = tabRecency.current.map(remapPath);
+    viewStateRef.current = new Map(
+      [...viewStateRef.current].map(([path, state]) => [remapPath(path), state]),
+    );
+    activeFileRef.current = remapPath(activeFileRef.current);
+    secondaryFileRef.current = secondaryFileRef.current
+      ? remapPath(secondaryFileRef.current)
+      : null;
   }, []);
+
+  const renameProjectEntry = useCallback(async (path: string, name: string) => {
+    projectTreeMutationCountRef.current += 1;
+    try {
+      const renamedPath = await invoke<string>("rename_project_entry", {
+        path,
+        newName: name,
+      });
+      const changes = [{ previousPath: path, nextPath: renamedPath }];
+      applyProjectEntryPathChanges(changes);
+      if (collabSession) renameCollabPath(collabSession.doc, path, renamedPath);
+      if (activeFileRef.current) void markDiskMtime(activeFileRef.current);
+      setError(null);
+      return renamedPath;
+    } catch (reason) {
+      setError(toMessage(reason));
+      await reconcileProjectTree().catch(() => undefined);
+      throw reason;
+    } finally {
+      projectTreeMutationCountRef.current = Math.max(
+        0,
+        projectTreeMutationCountRef.current - 1,
+      );
+    }
+  }, [applyProjectEntryPathChanges, collabSession, markDiskMtime, reconcileProjectTree]);
+
+  const moveProjectEntries = useCallback(async (
+    paths: string[],
+    targetDirectory: string,
+  ): Promise<string[]> => {
+    const normalizedTarget = targetDirectory.trim().replace(/[\\/]+$/, "");
+    const plannedChanges = paths.map((path): ProjectPathChange => ({
+      previousPath: path,
+      nextPath: normalizedTarget
+        ? `${normalizedTarget}/${path.split("/").at(-1) ?? path}`
+        : (path.split("/").at(-1) ?? path),
+    }));
+    const completedChanges: ProjectPathChange[] = [];
+
+    projectTreeMutationCountRef.current += 1;
+    try {
+      applyProjectEntryPathChanges(plannedChanges);
+      if (collabSession) {
+        for (const planned of plannedChanges) {
+          renameCollabPath(collabSession.doc, planned.previousPath, planned.nextPath);
+        }
+      }
+      for (const planned of plannedChanges) {
+        const movedPath = await invoke<string>("move_project_entry", {
+          path: planned.previousPath,
+          targetDirectory: normalizedTarget,
+        });
+        const completed = { previousPath: planned.previousPath, nextPath: movedPath };
+        completedChanges.push(completed);
+        if (planned.nextPath !== movedPath) {
+          applyProjectEntryPathChanges([{
+            previousPath: planned.nextPath,
+            nextPath: movedPath,
+          }]);
+          if (collabSession) {
+            renameCollabPath(collabSession.doc, planned.nextPath, movedPath);
+          }
+        }
+      }
+      if (activeFileRef.current) void markDiskMtime(activeFileRef.current);
+      setError(null);
+      return completedChanges.map((change) => change.nextPath);
+    } catch (reason) {
+      const completedPaths = new Set(completedChanges.map((change) => change.previousPath));
+      const rollbackChanges = plannedChanges
+        .filter((change) => !completedPaths.has(change.previousPath))
+        .reverse()
+        .map((change) => ({
+          previousPath: change.nextPath,
+          nextPath: change.previousPath,
+        }));
+      applyProjectEntryPathChanges(rollbackChanges);
+      if (collabSession) {
+        for (const rollback of rollbackChanges) {
+          renameCollabPath(collabSession.doc, rollback.previousPath, rollback.nextPath);
+        }
+      }
+      setError(toMessage(reason));
+      await reconcileProjectTree().catch(() => undefined);
+      throw reason;
+    } finally {
+      projectTreeMutationCountRef.current = Math.max(
+        0,
+        projectTreeMutationCountRef.current - 1,
+      );
+    }
+  }, [
+    applyProjectEntryPathChanges,
+    collabSession,
+    markDiskMtime,
+    reconcileProjectTree,
+  ]);
 
   const submitRename = useCallback(async (name: string) => {
     if (!renameTarget) return;
     try {
-      if (renameTarget.kind === "entry") {
-        const renamedPath = await invoke<string>("rename_project_entry", {
-          path: renameTarget.path,
-          newName: name,
-        });
-        if (collabSession) {
-          renameCollabPath(collabSession.doc, renameTarget.path, renamedPath);
-        }
-        await refreshProject();
-        const renamedActiveFile = activeFile === renameTarget.path
-          ? renamedPath
-          : activeFile.startsWith(`${renameTarget.path}/`)
-            ? `${renamedPath}${activeFile.slice(renameTarget.path.length)}`
-            : null;
-        const renamedActiveAsset = activeAsset?.path === renameTarget.path
-          ? renamedPath
-          : activeAsset?.path.startsWith(`${renameTarget.path}/`)
-            ? `${renamedPath}${activeAsset.path.slice(renameTarget.path.length)}`
-            : null;
-        if (renamedActiveFile) await loadFile(renamedActiveFile);
-        if (renamedActiveAsset) await openProjectAsset(renamedActiveAsset);
-      } else if (renameTarget.kind === "label" || renameTarget.kind === "citation") {
+      if (renameTarget.kind === "label" || renameTarget.kind === "citation") {
         const result = renameTarget.kind === "label"
           ? await invoke<RenameSymbolResult>("rename_label", {
             oldLabel: renameTarget.label,
@@ -3568,7 +4142,7 @@ function App() {
     } catch (reason) {
       setRenameError(toMessage(reason));
     }
-  }, [activeAsset, activeFile, activePaper, loadFile, openProjectAsset, refreshHistory, refreshProject, refreshUnusedSymbols, renameTarget, collabSession]);
+  }, [activeFile, loadFile, refreshHistory, refreshUnusedSymbols, renameTarget]);
 
   const findSymbolReferences = useCallback(async (target: SymbolTarget) => {
     try {
@@ -4425,7 +4999,9 @@ function App() {
 
   const revert = useCallback(
     async (id: string) => {
-      if (!await confirmAction("Restore the project to the state before this change?")) return;
+      if (!await confirmAction(
+        "Restore the project to the state before this change? The restore will be added as a new history entry.",
+      )) return;
       try {
         await invoke("revert_transaction", { transactionId: id });
         if (activeFile) await loadFile(activeFile);
@@ -4618,6 +5194,9 @@ function App() {
 
   const settingsDialog = settingsOpen ? (
     <SettingsDialog
+      synaraEmbedUrl={synaraOrigin || undefined}
+      synaraAuthToken={synaraRuntime.authToken || undefined}
+      synaraWorkspaceRoot={project?.root}
       overleafSyncMode={overleafSyncMode}
       overleafRemoteDelete={overleafRemoteDelete}
       onOverleafRemoteDeleteChange={(mode) => {
@@ -4888,6 +5467,9 @@ function App() {
     }),
     [activeFile, canvasMode, openTabs, papers, projectAssetPaths, savedSource, secondaryFile, secondarySavedSource, secondarySource, source],
   );
+  useLayoutEffect(() => {
+    fitSidebarToContent();
+  }, [canvasMode, editorTabItems.length, fitSidebarToContent]);
   // The tab that reads as active: the open paper in paper mode, else the focused
   // editor pane. Also the key eviction must never close.
   const activeTabKey = canvasMode === "paper" && activePaper
@@ -5405,7 +5987,7 @@ function App() {
       <main
         className={`workspace ${sidebarOpen ? "" : "sidebar-hidden"}`}
         style={{
-          gridTemplateColumns: sidebarOpen ? `${sidebarWidth}px 1px minmax(360px, 1fr)` : "minmax(360px, 1fr)",
+          gridTemplateColumns: sidebarOpen ? `${sidebarWidth}px 1px minmax(0, 1fr)` : "minmax(0, 1fr)",
           gridTemplateAreas: sidebarOpen ? '"sidebar sidebar-resizer canvas"' : '"canvas"',
         }}
       >
@@ -5442,8 +6024,15 @@ function App() {
                       </Tip>
                     </>
                   )}
-                  {sidebarMode === "agent" && (
+                  {sidebarMode === "agent" && !synaraRuntimeEnabled && (
                     <AgentAccessPicker value={agentAccessMode} disabled={agentRunning} onChange={changeAgentAccessMode} />
+                  )}
+                  {sidebarMode === "agent" && synaraOrigin && (
+                    <SynaraPermissionPicker
+                      value={synaraPermissionMode}
+                      autoModeAvailable={synaraAutoModeAvailable}
+                      onChange={changeSynaraPermissionMode}
+                    />
                   )}
                 </div>
               </div>
@@ -5454,6 +6043,7 @@ function App() {
                   searchOpen={projectSearchOpen}
                   onSearchOpenChange={setProjectSearchOpen}
                   files={project.files}
+                  gitStatus={projectGitStatus.projectRoot === project.root ? projectGitStatus.files : []}
                   activeFile={activeAsset || activePaper ? "" : activeFile}
                   activeAssetPath={activeAsset?.path ?? ""}
                   protectedPaths={[
@@ -5468,6 +6058,8 @@ function App() {
                   onCreateEntry={createProjectEntry}
                   onDeleteEntry={deleteProjectEntry}
                   onRenameEntry={renameProjectEntry}
+                  onMoveEntries={moveProjectEntries}
+                  onError={setError}
                   onReveal={revealProjectItem}
                   onImportAssets={chooseProjectAssets}
                   assetDropTarget={assetDropTarget}
@@ -5484,8 +6076,51 @@ function App() {
                   importing={importing}
                 />
               </div>
-              <div className="sidebar-pane" hidden={sidebarMode !== "agent"}>
-                <AgentPanel
+              <div
+                className={synaraRuntimeEnabled
+                  ? `sidebar-pane synara-sidebar-pane ${sidebarMode === "agent" ? "active" : ""}`
+                  : "sidebar-pane"}
+                hidden={!synaraRuntimeEnabled && sidebarMode !== "agent"}
+                aria-hidden={synaraRuntimeEnabled ? sidebarMode !== "agent" : undefined}
+              >
+                {synaraRuntimeEnabled ? (
+                  <div className="synara-frame-shell" data-ready={synaraFrameReady || undefined}>
+                    {synaraFrameMounted && synaraOrigin && (
+                      <iframe
+                        ref={synaraIframeRef}
+                        className="synara-poc-frame"
+                        src={synaraEmbedUrl(
+                          synaraOrigin,
+                          synaraRuntime.authToken,
+                          project.root,
+                          theme,
+                        )}
+                        title="Agent"
+                        allow="clipboard-read; clipboard-write; microphone"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
+                        onLoad={() => {
+                          postSynaraMessage({ type: LATTICE_AGENT_PERMISSION_MODE_REQUEST });
+                          if (synaraReadyFallbackTimerRef.current !== null) {
+                            window.clearTimeout(synaraReadyFallbackTimerRef.current);
+                          }
+                          synaraReadyFallbackTimerRef.current = window.setTimeout(
+                            () => {
+                              if (synaraFrameKey) setReadySynaraFrameKey(synaraFrameKey);
+                            },
+                            1_800,
+                          );
+                        }}
+                      />
+                    )}
+                    {!synaraFrameReady && (
+                      <SynaraLoadingSurface
+                        runtime={synaraRuntime}
+                        preparingWorkspace={Boolean(synaraOrigin)}
+                        onRetry={retrySynaraRuntime}
+                      />
+                    )}
+                  </div>
+                ) : <AgentPanel
                   modelOptions={availableAgentModels}
                   modelUnavailable={!agentAccessLoaded || !availableAgentProviders.length}
                   authMode={agentAccessMode}
@@ -5562,7 +6197,7 @@ function App() {
                   mentions={agentMentions}
                   chatEnd={chatEnd}
                   chatListRef={chatListRef}
-                />
+                />}
               </div>
             </section>
             <PanelResizer
@@ -5812,7 +6447,7 @@ function App() {
       <Suspense fallback={null}>
       {historyOpen && (
         <HistoryDrawer
-          history={history}
+          history={projectHistory}
           onClose={() => setHistoryOpen(false)}
           onVersionsChanged={async () => {
             await refreshProject();
@@ -5820,9 +6455,29 @@ function App() {
             await refreshHistory();
             await compile();
           }}
-          onRevert={revert}
+          onRevert={(item) => {
+            if (
+              item.kind === "agent-checkpoint"
+              && item.threadId
+              && typeof item.turnCount === "number"
+              && synaraOrigin
+            ) {
+              synaraIframeRef.current?.contentWindow?.postMessage(
+                {
+                  type: LATTICE_RESTORE_AGENT_CHECKPOINT,
+                  threadId: item.threadId,
+                  turnCount: item.turnCount,
+                },
+                synaraOrigin,
+              );
+              return;
+            }
+            void revert(item.id);
+          }}
           onRevertFile={async (id, path) => {
-            if (!await confirmAction(`Restore only “${path}” to the state before this change?`)) return;
+            if (!await confirmAction(
+              `Restore only “${path}” to the state before this change? The restore will be added as a new history entry.`,
+            )) return;
             try {
               await invoke("revert_history_file", { transactionId: id, path });
               if (activeFile === path || activeFile) await loadFile(activeFile);
@@ -5848,12 +6503,35 @@ function App() {
           }}
         />
       )}
-      {gitOpen && (
+      {gitOpen && synaraRuntimeEnabled && project ? (
+        <ResizableDrawer
+          className="git-drawer synara-source-control-drawer"
+          onClose={() => setGitOpen(false)}
+        >
+            {synaraOrigin ? (
+              <iframe
+                ref={synaraSourceControlFrameRef}
+                className="synara-source-control-frame"
+                src={synaraSourceControlUrl(
+                  synaraOrigin,
+                  synaraRuntime.authToken,
+                  project.root,
+                  theme,
+                )}
+                title="Source Control"
+                allow="clipboard-read; clipboard-write"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
+              />
+            ) : (
+              <SynaraLoadingSurface runtime={synaraRuntime} onRetry={retrySynaraRuntime} />
+            )}
+        </ResizableDrawer>
+      ) : gitOpen ? (
         <GitPanel
           onClose={() => setGitOpen(false)}
           onOpenFile={(path, line) => { void openProjectFile(path, line); }}
         />
-      )}
+      ) : null}
       {overleafCollabOpen && overleafLink && (
         <OverleafCollabDrawer
           tab={overleafCollabTab}

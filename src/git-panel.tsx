@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { ResizableDrawer } from "./resizable-drawer";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -10,28 +11,18 @@ import {
   Minus,
   Plus,
   RefreshCw,
-  X,
 } from "lucide-react";
+import { Badge } from "./components/ui/badge";
+import { Button } from "./components/ui/button";
+import { Checkbox } from "./components/ui/checkbox";
+import { IconButton } from "./components/ui/icon-button";
+import { EmptyState } from "./components/ui/empty-state";
+import { PanelHeader } from "./components/ui/panel-header";
+import { rowClassName } from "./components/ui/row";
 import { changeKind, hunkedDiffLines, jumpLineForDiff } from "./history-diff";
+import type { GitFileStatus, GitStatus } from "./app-types";
 
-export type GitFileStatus = {
-  path: string;
-  status: string;
-  staged: boolean;
-  unstaged: boolean;
-};
-
-export type GitStatus = {
-  available: boolean;
-  repository: boolean;
-  branch: string | null;
-  remote?: string | null;
-  remoteUrl?: string | null;
-  upstream?: string | null;
-  ahead?: number;
-  behind?: number;
-  files: GitFileStatus[];
-};
+export type { GitFileStatus, GitStatus } from "./app-types";
 
 type GitRemoteResult = {
   summary: string;
@@ -255,7 +246,7 @@ export function GitPanel(props: {
 
   const renderFileList = (files: GitFileStatus[], staged: boolean, empty: string) => {
     if (!files.length) {
-      return <p className="git-empty">{empty}</p>;
+      return <EmptyState align="start" density="compact" description={empty} />;
     }
     return (
       <div className="git-file-list">
@@ -263,10 +254,12 @@ export function GitPanel(props: {
           const key = checkKey(file.path, staged);
           const active = selected?.path === file.path && selected.staged === staged;
           return (
-            <div className={`git-file-row ${active ? "active" : ""}`} key={key}>
+            <div
+              className={rowClassName("compact", `git-file-row ${active ? "active" : ""}`)}
+              key={key}
+            >
               <label className="git-file-check">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={checked.has(key)}
                   onChange={() => toggleChecked(key)}
                 />
@@ -312,21 +305,23 @@ export function GitPanel(props: {
   };
 
   return (
-    <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside className="history-drawer git-drawer" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="drawer-header">
-          <div>
-            <GitBranch size={16} />
-            <span>Git</span>
-            {status?.branch && <em className="git-branch-pill">{status.branch}</em>}
-          </div>
-          <div className="git-header-actions">
-            <button type="button" title="Refresh" disabled={loading || busy} onClick={() => void refresh()}>
-              {loading ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
-            </button>
-            <button type="button" onClick={props.onClose}><X size={16} /></button>
-          </div>
-        </div>
+    <ResizableDrawer className="git-drawer" onClose={props.onClose}>
+        <PanelHeader
+          className="drawer-header"
+          icon={<GitBranch size={16} />}
+          title="Git"
+          titleAfter={status?.branch && <Badge tone="accent">{status.branch}</Badge>}
+          actions={(
+            <IconButton
+              label="Refresh Git status"
+              disabled={loading || busy}
+              onClick={() => void refresh()}
+            >
+              {loading ? <LoaderCircle className="spin" /> : <RefreshCw />}
+            </IconButton>
+          )}
+          onClose={props.onClose}
+        />
         <p className="drawer-copy">
           Stage, commit, and sync with the configured remote. Auth uses your system Git credentials (SSH agent or credential helper).
         </p>
@@ -335,11 +330,11 @@ export function GitPanel(props: {
         {notice && <p className="git-notice" role="status">{notice}</p>}
 
         {status && !status.available && (
-          <p className="empty-history">git is not installed or not on PATH. Install Git to use this panel.</p>
+          <EmptyState description="git is not installed or not on PATH. Install Git to use this panel." />
         )}
         {status?.available && !status.repository && (
           <div className="git-init-block">
-            <p className="empty-history">This project folder is not a Git repository.</p>
+            <EmptyState description="This project folder is not a Git repository." />
             <button
               type="button"
               className="git-commit-button"
@@ -373,8 +368,7 @@ export function GitPanel(props: {
                   value={remoteUrl}
                   onChange={(event) => setRemoteUrl(event.target.value)}
                 />
-                <button
-                  type="button"
+                <Button
                   disabled={busy || !remoteUrl.trim()}
                   onClick={() => void runMutation(async () => {
                     const next = await invoke<GitStatus>("git_set_remote", {
@@ -387,7 +381,7 @@ export function GitPanel(props: {
                   })}
                 >
                   Save
-                </button>
+                </Button>
               </div>
               <div className="git-bulk-actions">
                 <button
@@ -430,14 +424,11 @@ export function GitPanel(props: {
             <section className="git-section">
               <div className="git-section-header">
                 <label className="git-section-select">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label="Select all staged files"
                     disabled={!stagedFiles.length || busy}
                     checked={stagedSelection.all}
-                    ref={(node) => {
-                      if (node) node.indeterminate = stagedSelection.some;
-                    }}
+                    indeterminate={stagedSelection.some}
                     onChange={() => setSectionChecked(stagedSelection.keys, !stagedSelection.all)}
                   />
                   <strong>Staged</strong>
@@ -482,14 +473,11 @@ export function GitPanel(props: {
             <section className="git-section">
               <div className="git-section-header">
                 <label className="git-section-select">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label="Select all changes"
                     disabled={!unstagedFiles.length || busy}
                     checked={unstagedSelection.all}
-                    ref={(node) => {
-                      if (node) node.indeterminate = unstagedSelection.some;
-                    }}
+                    indeterminate={unstagedSelection.some}
                     onChange={() => setSectionChecked(unstagedSelection.keys, !unstagedSelection.all)}
                   />
                   <strong>Changes</strong>
@@ -585,7 +573,6 @@ export function GitPanel(props: {
             )}
           </>
         )}
-      </aside>
-    </div>
+    </ResizableDrawer>
   );
 }

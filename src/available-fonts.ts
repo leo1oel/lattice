@@ -7,10 +7,10 @@ export type FontOption = {
   bundled?: boolean;
 };
 
+export const FIXED_UI_FONT = '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif';
+
 export const UI_FONT_OPTIONS: FontOption[] = [
-  { label: "DM Sans", value: '"DM Sans", -apple-system, sans-serif', family: "DM Sans", bundled: true },
-  { label: "System", value: "-apple-system, BlinkMacSystemFont, sans-serif", family: "-apple-system", bundled: true },
-  { label: "Avenir Next", value: '"Avenir Next", sans-serif', family: "Avenir Next" },
+  { label: "Inter", value: FIXED_UI_FONT, family: "Inter Variable", bundled: true },
 ];
 
 export const EDITOR_FONT_OPTIONS: FontOption[] = [
@@ -22,7 +22,7 @@ export const EDITOR_FONT_OPTIONS: FontOption[] = [
 ];
 
 export const DEFAULT_EDITOR_FONT = EDITOR_FONT_OPTIONS[0].value;
-export const DEFAULT_UI_FONT = UI_FONT_OPTIONS[0].value;
+export const DEFAULT_UI_FONT = FIXED_UI_FONT;
 
 /**
  * `document.fonts.check` is unreliable in WKWebView — it often returns true for

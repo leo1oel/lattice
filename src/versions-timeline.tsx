@@ -1,18 +1,10 @@
 /**
  * Overleaf-style git "Versions" timeline for the history drawer, plus the
- * shared hunked-diff renderer (`HistoryDiff`) that both the Changes tab and
+ * shared Pierre diff renderer (`HistoryDiff`) that both the Changes tab and
  * the Versions tab use. The renderer lives here (not in history-drawer.tsx)
  * so the drawer can import it without creating an import cycle.
  */
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   FilePen,
@@ -27,18 +19,10 @@ import {
 } from "lucide-react";
 import type { GitFileDiff, GitLogEntry, GitLogFileKind } from "./app-types";
 import type { GitStatus } from "./git-panel";
-import { SlidingTabs } from "./motion";
 import { peerColorForName } from "./collab-colors";
 import { confirmAction, relativeTime } from "./app-utils";
-import {
-  annotatedDiffLines,
-  changeKind,
-  hunkedDiffLines,
-  inlineDiffLines,
-  jumpLineForDiff,
-  pairedRewrites,
-  type DiffLine,
-} from "./history-diff";
+import { changeKind } from "./history-diff";
+import { FileDiffView } from "./file-diff-view";
 
 export type DiffFileChange = {
   path: string;
@@ -50,199 +34,23 @@ function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-function visibleDiffLines(
-  hunks: DiffLine[],
-  full: DiffLine[],
-  expandedSkips: Set<number>,
-): DiffLine[] {
-  const lines: DiffLine[] = [];
-  let fullCursor = 0;
-  hunks.forEach((hunk, hunkIndex) => {
-    if (hunk.type !== "skip") {
-      lines.push(hunk);
-      fullCursor += 1;
-      return;
-    }
-    const count = hunk.skippedCount ?? 0;
-    if (expandedSkips.has(hunkIndex)) {
-      lines.push(...full.slice(fullCursor, fullCursor + count));
-    } else {
-      lines.push(hunk);
-    }
-    fullCursor += count;
-  });
-  return lines;
-}
-
-/**
- * How a change is shown.
- *
- * "context" is the document as it now reads with the change marked where it
- * happened — what someone asking "what did they change in my paper" wants.
- * "changes" is the compact hunked form, which answers "what were the edits"
- * and is the better view once you already know where you are.
- */
-export type DiffView = "context" | "changes";
-
-/** Remembered for the session, so the choice is not re-made on every file. */
-let lastDiffView: DiffView = "context";
-
 export function HistoryDiff(props: {
   change: DiffFileChange;
   onOpenLine?: (path: string, line: number) => void;
   headerAction?: ReactNode;
 }) {
   const kind = changeKind(props.change.before, props.change.after);
-  const [view, setView] = useState<DiffView>(lastDiffView);
-  const [expandedSkips, setExpandedSkips] = useState<Set<number>>(() => new Set());
-  const inline = useMemo(
-    () => inlineDiffLines(props.change.before, props.change.after),
-    [props.change.after, props.change.before],
-  );
-  const changedCount = useMemo(
-    () => inline.filter((line) => line.changed).length,
-    [inline],
-  );
-  const bodyRef = useRef<HTMLPreElement | null>(null);
-  const cursor = useRef(-1);
-  // The whole document is on show, so a change can be anywhere in it. This
-  // walks between them rather than leaving someone to scroll and hunt.
-  const jumpToChange = (direction: 1 | -1) => {
-    const marks = bodyRef.current?.querySelectorAll(".history-diff-line.changed");
-    if (!marks || !marks.length) return;
-    cursor.current = (cursor.current + direction + marks.length) % marks.length;
-    marks[cursor.current]?.scrollIntoView({ block: "center", behavior: "smooth" });
-  };
-  const hunks = useMemo(
-    () => hunkedDiffLines(props.change.before, props.change.after, 3),
-    [props.change.after, props.change.before],
-  );
-  const full = useMemo(
-    () => annotatedDiffLines(props.change.before, props.change.after),
-    [props.change.after, props.change.before],
-  );
-  const visibleLines = useMemo(
-    () => visibleDiffLines(hunks, full, expandedSkips),
-    [expandedSkips, full, hunks],
-  );
-  // Which words moved, for lines that were rewritten rather than added or
-  // removed outright. Computed over what is on screen, so it lines up with it.
-  const rewrites = useMemo(() => pairedRewrites(visibleLines), [visibleLines]);
-
-  const selectView = (next: DiffView) => {
-    lastDiffView = next;
-    setView(next);
-  };
 
   return (
     <div className="history-diff">
       <div className="history-diff-meta">
         <strong>{props.change.path}</strong>
         <span>{kind}</span>
-        <SlidingTabs
-          value={view}
-          onChange={(next) => selectView(next as DiffView)}
-          ariaLabel="Diff view"
-          className="history-diff-views"
-          items={[
-            { value: "context", label: "In context" },
-            { value: "changes", label: "Only changes" },
-          ]}
-        />
-        {view === "context" && changedCount > 0 && (
-          <div className="history-diff-steps">
-            <span>{changedCount} changed</span>
-            <button type="button" title="Previous change" onClick={() => jumpToChange(-1)}>↑</button>
-            <button type="button" title="Next change" onClick={() => jumpToChange(1)}>↓</button>
-          </div>
-        )}
         {props.headerAction}
       </div>
-      {view === "context" && (
-        <pre
-          ref={bodyRef}
-          className="history-diff-body in-context"
-          aria-label={`Diff for ${props.change.path}`}
-        >
-          {inline.map((line, index) => {
-            const clickable = Boolean(props.onOpenLine && line.line != null);
-            return (
-              <code
-                key={`${line.line ?? "x"}-${index}`}
-                className={`history-diff-line${line.changed ? " changed" : ""}${clickable ? " clickable" : ""}`}
-                title={clickable ? `Open ${props.change.path}:${line.line}` : undefined}
-                onClick={() => {
-                  if (clickable && line.line != null) props.onOpenLine?.(props.change.path, line.line);
-                }}
-              >
-                <span className="history-diff-lineno" aria-hidden>{line.line ?? ""}</span>
-                {line.segments.map((segment, part) => (
-                  <span key={part} className={`history-diff-seg ${segment.kind}`}>{segment.text}</span>
-                ))}
-              </code>
-            );
-          })}
-        </pre>
-      )}
-      {view === "changes" && (
-      <pre className="history-diff-body" aria-label={`Diff for ${props.change.path}`}>
-        {visibleLines.map((line, index) => {
-          if (line.type === "skip") {
-            const hunkIndex = hunks.findIndex((item, itemIndex) => (
-              item.type === "skip"
-              && item.skippedCount === line.skippedCount
-              && item.beforeLine === line.beforeLine
-              && item.afterLine === line.afterLine
-              && !expandedSkips.has(itemIndex)
-            ));
-            return (
-              <button
-                key={`skip-${index}-${line.beforeLine}-${line.afterLine}`}
-                type="button"
-                className="history-diff-line skip"
-                onClick={() => {
-                  if (hunkIndex < 0) return;
-                  setExpandedSkips((current) => new Set(current).add(hunkIndex));
-                }}
-              >
-                ⋯ {line.text} — click to expand
-              </button>
-            );
-          }
-          const prefix = line.type === "added" ? "+" : line.type === "removed" ? "-" : " ";
-          const jumpLine = jumpLineForDiff(line);
-          const clickable = Boolean(props.onOpenLine && jumpLine != null);
-          const segments = rewrites.get(index);
-          return (
-            <code
-              key={`${line.type}-${line.beforeLine ?? "x"}-${line.afterLine ?? "y"}-${index}`}
-              className={`history-diff-line ${line.type}${clickable ? " clickable" : ""}`}
-              title={clickable ? `Open ${props.change.path}:${jumpLine}` : undefined}
-              onClick={() => {
-                if (clickable && jumpLine != null) props.onOpenLine?.(props.change.path, jumpLine);
-              }}
-            >
-              {/* Where the line sits in the file. Without this a diff is a
-                  handful of lines with nothing to say where they came from. */}
-              <span className="history-diff-lineno" aria-hidden>
-                {line.afterLine ?? line.beforeLine ?? ""}
-              </span>
-              <span className="history-diff-sign" aria-hidden>{prefix}</span>
-              {segments
-                ? segments.map((segment, part) => (
-                  <span
-                    key={part}
-                    className={segment.changed ? "history-diff-word" : undefined}
-                  >
-                    {segment.text}
-                  </span>
-                ))
-                : line.text}
-            </code>
-          );
-        })}
-      </pre>
-      )}
+      <div className="lattice-file-diff-body" aria-label={`Diff for ${props.change.path}`}>
+        <FileDiffView change={props.change} onOpenLine={props.onOpenLine} />
+      </div>
     </div>
   );
 }

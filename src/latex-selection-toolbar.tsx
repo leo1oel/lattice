@@ -10,9 +10,10 @@ import {
   Underline,
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PopIn } from "./motion";
 import { Tip } from "./components/icon-tip";
+import { AppleColorPicker } from "./components/ui/apple-color-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 
 export type LatexSelectionAction =
@@ -50,14 +51,6 @@ const headingLevels = [
   ["Subsubsection", "subsubsection"],
 ] as const;
 
-const highlightColors = [
-  ["yellow", "Yellow"],
-  ["lime", "Lime"],
-  ["cyan", "Cyan"],
-  ["pink", "Pink"],
-  ["orange", "Orange"],
-] as const;
-
 export function LatexSelectionToolbar(props: {
   position: LatexSelectionToolbarPosition;
   canComment: boolean;
@@ -65,6 +58,24 @@ export function LatexSelectionToolbar(props: {
 }) {
   const [linkUrl, setLinkUrl] = useState("https://");
   const [linkOpen, setLinkOpen] = useState(false);
+  const [highlightColor, setHighlightColor] = useState("#FFFF00");
+  const [highlightOpacity, setHighlightOpacity] = useState(100);
+  const highlightColorRef = useRef(highlightColor);
+  const highlightOpacityRef = useRef(highlightOpacity);
+  const [highlightOpen, setHighlightOpen] = useState(false);
+  const [highlightDirty, setHighlightDirty] = useState(false);
+  const setHighlightPickerOpen = (open: boolean) => {
+    setHighlightOpen(open);
+    if (!open && highlightDirty) {
+      const opacity = highlightOpacityRef.current / 100;
+      const channels = [1, 3, 5].map((offset) => {
+        const channel = Number.parseInt(highlightColorRef.current.slice(offset, offset + 2), 16);
+        return Math.round(channel * opacity + 255 * (1 - opacity)).toString(16).padStart(2, "0");
+      });
+      props.onAction("highlight", `#${channels.join("")}`.toUpperCase());
+      setHighlightDirty(false);
+    }
+  };
   const visibleActions = props.canComment
     ? actions
     : actions.filter(({ action }) => action !== "comment");
@@ -119,12 +130,26 @@ export function LatexSelectionToolbar(props: {
           </Popover>
         </span>
         <span className="latex-selection-tool separated">
-          <Popover>
+          <Popover open={highlightOpen} onOpenChange={setHighlightPickerOpen}>
             <Tip label="Highlight color" side="top">
               <PopoverTrigger asChild><button type="button" aria-label="Highlight color"><Highlighter size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
-            <PopoverContent side="top" sideOffset={8} className="latex-tool-menu color-menu">
-              {highlightColors.map(([color, label]) => <button key={color} type="button" aria-label={`Highlight ${color}`} onClick={() => props.onAction("highlight", color)}><i style={{ background: color }} /><span>{label}</span></button>)}
+            <PopoverContent side="top" sideOffset={8} className="latex-highlight-picker">
+              <AppleColorPicker
+                value={highlightColor}
+                opacity={highlightOpacity}
+                onValueChange={(color) => {
+                  highlightColorRef.current = color;
+                  setHighlightColor(color);
+                  setHighlightDirty(true);
+                }}
+                onOpacityChange={(opacity) => {
+                  highlightOpacityRef.current = opacity;
+                  setHighlightOpacity(opacity);
+                  setHighlightDirty(true);
+                }}
+                onClose={() => setHighlightPickerOpen(false)}
+              />
             </PopoverContent>
           </Popover>
         </span>
