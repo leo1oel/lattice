@@ -32,6 +32,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { Tip } from "./components/icon-tip";
+import { ScrollArea } from "./components/ui/scroll-area";
 import { pdfBase64Fingerprint, pdfBase64ToBytes } from "./pdf-bytes";
 import { MotionButton } from "./motion";
 import {
@@ -205,7 +206,7 @@ function ContinuousPdfPage({
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) setShouldRender(true);
     }, {
-      root: shell.closest(".pdf-scroll-area"),
+      root: shell.closest(".pdf-scroll-area-viewport"),
       rootMargin: "900px 0px",
     });
     observer.observe(shell);
@@ -979,7 +980,14 @@ export function PdfPreview({
         </div>
       </div>
       {saveNotice && <div className={`pdf-save-notice ${saveNotice.startsWith("Could not") ? "error" : ""}`}>{saveNotice}<button title="Dismiss PDF save notice" onClick={() => setSaveNotice("")}><X size={12} /></button></div>}
-      <div ref={scrollAreaRef} className="pdf-scroll-area" onScroll={updateCurrentPage}>
+      <ScrollArea
+        className="pdf-scroll-area"
+        orientation="both"
+        viewportRef={scrollAreaRef}
+        viewportClassName="pdf-scroll-area-viewport"
+        contentClassName="pdf-scroll-area-content"
+        viewportProps={{ onScroll: updateCurrentPage }}
+      >
         {pdfError
           ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div>
           : <div
@@ -1002,7 +1010,7 @@ export function PdfPreview({
           ))}</div>}
         {showBlockingLoader && <div className="pdf-loading"><LoaderCircle className="spin" size={17} /> Rendering PDF…</div>}
         {loading && documentProxy ? <div className="pdf-loading pdf-loading-quiet"><LoaderCircle className="spin" size={14} /> Updating…</div> : null}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

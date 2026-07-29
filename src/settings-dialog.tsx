@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
+import { ScrollArea } from "./components/ui/scroll-area";
 import { useUpdater, type UpdateMode } from "./app-updater";
 import { AgentRuntimeSettings } from "./agent-runtime-settings";
 import { Switch } from "./motion";
@@ -171,7 +172,7 @@ export function SettingsDialog(props: {
               </button>
             ))}
           </nav>
-          <div className="settings-content">
+          <ScrollArea className="settings-content" viewportClassName="scroll-fade">
             {props.tab === "appearance" && (
               <div className="settings-section">
                 <h2>Appearance</h2>
@@ -546,7 +547,7 @@ export function SettingsDialog(props: {
                 {props.doctorNotice && <p className="settings-notice">{props.doctorNotice}</p>}
               </div>
             )}
-          </div>
+          </ScrollArea>
         </div>
       </div>
     </ModalDialog>

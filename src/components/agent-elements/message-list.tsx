@@ -19,6 +19,7 @@ import { ToolRowBase } from "./tools/tool-row-base";
 import { ToolRenderer as DefaultToolRenderer } from "./tools/tool-renderer";
 import { normalizeAssistantToolParts } from "./utils/tool-part-normalizer";
 import { SpiralLoader } from "./spiral-loader";
+import { ScrollArea } from "../ui/scroll-area";
 
 export type MessageListProps = {
   messages: UIMessage[];
@@ -451,15 +452,14 @@ export const MessageList = memo(function MessageList({
   }, [lastUserMessageId, showPlanning, scrollToBottomSettled]);
 
   return (
-    <div
-      ref={containerRefCallback}
-      onScroll={handleScroll}
-      className={cn(
-        "an-message-list flex-1 min-h-0 overflow-y-auto",
-        className,
-      )}
+    <ScrollArea
+      className="an-message-list-scroll-area flex-1 min-h-0 min-w-0 w-full max-w-full"
+      viewportRef={containerRefCallback}
+      viewportClassName={cn("an-message-list min-h-0 scroll-fade", className)}
+      contentClassName="agent-elements-message-list-content min-w-0 w-full max-w-full"
+      viewportProps={{ onScroll: handleScroll }}
     >
-      <div ref={contentWrapperRef} className="w-full px-3 py-3">
+      <div ref={contentWrapperRef} className="min-w-0 w-full max-w-full px-3 py-3">
         <div className="space-y-3">
           {turns.map((turn, turnIndex) => {
             const isLastTurn = turnIndex === turns.length - 1;
@@ -598,7 +598,7 @@ export const MessageList = memo(function MessageList({
           />
         )}
       </div>
-    </div>
+    </ScrollArea>
   );
 });
 

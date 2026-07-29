@@ -40,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
+import { ScrollArea } from "./components/ui/scroll-area";
 import { paperKey, paperSubtitle, CITE_COMMANDS } from "./app-utils";
 import type { FileNode, PaperSummary, CiteCommand, ProjectSearchResult } from "./app-types";
 
@@ -312,7 +313,13 @@ export function Navigator(props: {
             {props.importing ? <LoaderCircle className="spin" size={14} /> : <Plus size={14} />}
           </button>
         </div>
-        <div className="paper-list" role="list" aria-label="Papers">
+        <ScrollArea
+          className="paper-list"
+          orientation="both"
+          viewportClassName="scroll-fade-both"
+          contentClassName="paper-list-content"
+          viewportProps={{ role: "list", "aria-label": "Papers" }}
+        >
           {/* Matched on the arXiv id when there is one, on the title when
               there is not: a cited-only work carries an empty id, so comparing
               ids alone returned the same first paper for every one of them —
@@ -401,7 +408,7 @@ export function Navigator(props: {
             </div>
           )}
           {!!props.papers.length && <p className="paper-list-end">{props.papers.length} paper{props.papers.length === 1 ? "" : "s"}</p>}
-        </div>
+        </ScrollArea>
       </div>}
     </aside>
   );

@@ -1,0 +1,162 @@
+/*
+ * Scrollbar machinery adapted from Fluid Functionalism and Lina.
+ *
+ * MIT License
+ * Copyright (c) 2026 Micka Touillaud
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+.lattice-scrollbar {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  touch-action: none;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out 160ms;
+}
+
+.lattice-scrollbar[data-hovering],
+.lattice-scrollbar[data-scrolling] {
+  opacity: 1;
+  transition-duration: 160ms;
+  transition-delay: 0ms;
+}
+
+.lattice-scrollbar[data-orientation="vertical"]:not([data-overflow-y-start]):not([data-overflow-y-end]),
+.lattice-scrollbar[data-orientation="horizontal"]:not([data-overflow-x-start]):not([data-overflow-x-end]) {
+  display: none;
+}
+
+[data-slot="scroll-area"]:has(> [data-slot="scroll-area-viewport"][data-has-vertical-overflow="false"]) > .lattice-scrollbar[data-orientation="vertical"],
+[data-slot="scroll-area"]:has(> [data-slot="scroll-area-viewport"][data-has-horizontal-overflow="false"]) > .lattice-scrollbar[data-orientation="horizontal"] {
+  display: none;
+}
+
+.lattice-scrollbar[data-orientation="vertical"] {
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 100%;
+}
+
+.lattice-scrollbar[data-orientation="horizontal"] {
+  bottom: 0;
+  left: 0;
+  flex-direction: column;
+  width: 100%;
+  height: 10px;
+}
+
+.lattice-scrollbar-thumb {
+  position: relative;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  transition: background-color 160ms ease-in-out, width 160ms ease-in-out, height 160ms ease-in-out;
+}
+
+.lattice-scrollbar:hover .lattice-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.lattice-scrollbar-thumb:active {
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.lattice-scrollbar[data-orientation="vertical"] .lattice-scrollbar-thumb {
+  width: 4px;
+  height: var(--scroll-area-thumb-height);
+  margin: 4px auto;
+  transform: translateX(-2px);
+}
+
+.lattice-scrollbar[data-orientation="vertical"]:hover .lattice-scrollbar-thumb {
+  width: 6px;
+}
+
+.lattice-scrollbar[data-orientation="horizontal"] .lattice-scrollbar-thumb {
+  width: var(--scroll-area-thumb-width);
+  height: 4px;
+  margin: auto 4px;
+  transform: translateY(-2px);
+}
+
+.lattice-scrollbar[data-orientation="horizontal"]:hover .lattice-scrollbar-thumb {
+  height: 6px;
+}
+
+.scroll-fade,
+.scroll-fade-x,
+.scroll-fade-both {
+  --scroll-fade-size: 18px;
+  --scroll-fade-top: 0px;
+  --scroll-fade-bottom: 0px;
+  --scroll-fade-left: 0px;
+  --scroll-fade-right: 0px;
+}
+
+.scroll-fade[data-can-scroll-up="true"],
+.scroll-fade-both[data-can-scroll-up="true"] {
+  --scroll-fade-top: var(--scroll-fade-size);
+}
+
+.scroll-fade[data-can-scroll-down="true"],
+.scroll-fade-both[data-can-scroll-down="true"] {
+  --scroll-fade-bottom: var(--scroll-fade-size);
+}
+
+.scroll-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
+}
+
+.scroll-fade-x[data-can-scroll-left="true"],
+.scroll-fade-both[data-can-scroll-left="true"] {
+  --scroll-fade-left: var(--scroll-fade-size);
+}
+
+.scroll-fade-x[data-can-scroll-right="true"],
+.scroll-fade-both[data-can-scroll-right="true"] {
+  --scroll-fade-right: var(--scroll-fade-size);
+}
+
+.scroll-fade-x {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
+}
+
+.scroll-fade-both {
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%),
+    linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%),
+    linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
+  mask-composite: intersect;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lattice-scrollbar,
+  .lattice-scrollbar-thumb {
+    transition-duration: 0ms;
+    transition-delay: 0ms;
+  }
+}

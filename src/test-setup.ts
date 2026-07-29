@@ -41,6 +41,16 @@ Object.defineProperty(Element.prototype, "scrollIntoView", {
   value: () => undefined,
 });
 
+// Base UI waits for viewport animations before refreshing ScrollArea geometry.
+// jsdom does not implement the Web Animations API, so expose the settled state
+// browsers return when no CSS or JS animations are attached.
+if (!("getAnimations" in Element.prototype)) {
+  Object.defineProperty(Element.prototype, "getAnimations", {
+    configurable: true,
+    value: () => [],
+  });
+}
+
 // jsdom has no 2D canvas backend; ThinkingOrb reads getContext("2d") and
 // bails when it is null, so return null here to exercise that path without
 // flooding the run with jsdom "Not implemented" warnings.

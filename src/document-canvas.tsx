@@ -45,6 +45,7 @@ import {
   type LatexSelectionAction,
   type LatexSelectionToolbarPosition,
 } from "./latex-selection-toolbar";
+import { ScrollArea } from "./components/ui/scroll-area";
 import { latexFigureInsertion, type FigureInsertOptions } from "./figure-insertion";
 import { FigureInsertDialog } from "./figure-insert-dialog";
 import {
@@ -261,6 +262,8 @@ export function DocumentCanvas(props: {
   const editorViewRef = useRef<EditorView | null>(null);
   const primaryViewRef = useRef<EditorView | null>(null);
   const secondaryViewRef = useRef<EditorView | null>(null);
+  const [primaryScrollbarView, setPrimaryScrollbarView] = useState<EditorView | null>(null);
+  const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<EditorView | null>(null);
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<number | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
@@ -952,7 +955,12 @@ export function DocumentCanvas(props: {
     const showBlog = props.paperView === "blog" && props.paperBlog != null;
     const content = showBlog ? props.paperBlog! : stripFrontmatter(props.paperMarkdown);
     return (
-      <article className="paper-reader">
+      <ScrollArea
+        className="paper-reader"
+        orientation="both"
+        viewportClassName="scroll-fade-both"
+        contentClassName="paper-reader-content"
+      >
         <div className="paper-reader-title">
           <BookOpen size={15} />
           <span>{props.activePaper?.title ?? "Imported paper"}</span>
@@ -972,14 +980,23 @@ export function DocumentCanvas(props: {
           </div>
         </div>
         <ChatMarkdown text={content} macros={props.katexMacros} className={`paper-content ${paperWidth === "wide" ? "pw-wide" : ""}`} breaks={false} />
-      </article>
+      </ScrollArea>
     );
   }
   if (props.mode === "asset" && props.activeAsset) {
     return <ProjectAssetPreview asset={props.activeAsset} />;
   }
   if (props.mode === "markdown-preview") {
-    return <article className="markdown-preview"><ChatMarkdown text={props.source} macros={props.katexMacros} breaks={false} /></article>;
+    return (
+      <ScrollArea
+        className="markdown-preview"
+        orientation="both"
+        viewportClassName="scroll-fade-both"
+        contentClassName="markdown-preview-content"
+      >
+        <ChatMarkdown text={props.source} macros={props.katexMacros} breaks={false} />
+      </ScrollArea>
+    );
   }
   const showTexChrome = activeFile.endsWith(".tex");
   const editor = (
@@ -1030,6 +1047,7 @@ export function DocumentCanvas(props: {
             extensions={editorExtensions}
             onCreateEditor={(view) => {
               primaryViewRef.current = view;
+              setPrimaryScrollbarView(view);
               if (focusedPaneRef.current === "primary") editorViewRef.current = view;
               lastInsertionPositionRef.current = view.state.selection.main.head;
               reportEditorPositionRef.current(view, activeFile);
@@ -1045,6 +1063,7 @@ export function DocumentCanvas(props: {
               highlightActiveLineGutter: true,
             }}
           />
+          <CodeMirrorScrollbar view={primaryScrollbarView} />
           {figureDropMarker && (
             <div className="figure-drop-line" style={{ top: figureDropMarker.top }}>
               <span>Insert above line {figureDropMarker.line}</span>
@@ -1237,6 +1256,7 @@ export function DocumentCanvas(props: {
             extensions={secondaryEditorExtensions}
             onCreateEditor={(view) => {
               secondaryViewRef.current = view;
+              setSecondaryScrollbarView(view);
               if (focusedPane === "secondary") editorViewRef.current = view;
             }}
             onChange={onSecondaryChange}
@@ -1249,6 +1269,7 @@ export function DocumentCanvas(props: {
               highlightActiveLineGutter: true,
             }}
           />
+          <CodeMirrorScrollbar view={secondaryScrollbarView} />
         </div>
       </div>
     ) : (
@@ -1421,6 +1442,98 @@ export function DocumentCanvas(props: {
   );
 }
 
+function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
+  const thumbRef = useRef<HTMLDivElement | null>(null);
+  const scrollingTimerRef = useRef<number | null>(null);
+  const dragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const [scrolling, setScrolling] = useState(false);
+
+  const updateThumb = useCallback(() => {
+    const scroller = view?.scrollDOM;
+    const thumb = thumbRef.current;
+    if (!scroller || !thumb) return;
+    const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+    const overflow = maxScroll > 1;
+    setHasOverflow((current) => current === overflow ? current : overflow);
+    if (!overflow) return;
+
+    const trackHeight = Math.max(0, scroller.clientHeight - 8);
+    const thumbHeight = Math.max(24, trackHeight * (scroller.clientHeight / scroller.scrollHeight));
+    const travel = Math.max(0, trackHeight - thumbHeight);
+    const top = 4 + travel * (scroller.scrollTop / maxScroll);
+    thumb.style.height = `${thumbHeight}px`;
+    thumb.style.transform = `translateY(${top}px)`;
+  }, [view]);
+
+  useEffect(() => {
+    const scroller = view?.scrollDOM;
+    if (!scroller) return;
+    const handleScroll = () => {
+      updateThumb();
+      setScrolling(true);
+      if (scrollingTimerRef.current) window.clearTimeout(scrollingTimerRef.current);
+      scrollingTimerRef.current = window.setTimeout(() => setScrolling(false), 180);
+    };
+    const resizeObserver = new ResizeObserver(updateThumb);
+    resizeObserver.observe(scroller);
+    resizeObserver.observe(view.contentDOM);
+    scroller.addEventListener("scroll", handleScroll, { passive: true });
+    updateThumb();
+    return () => {
+      resizeObserver.disconnect();
+      scroller.removeEventListener("scroll", handleScroll);
+      if (scrollingTimerRef.current) window.clearTimeout(scrollingTimerRef.current);
+    };
+  }, [updateThumb, view]);
+
+  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setScrolling(false);
+  };
+
+  return (
+    <div
+      className="cm-overlay-scrollbar"
+      data-overflow={hasOverflow || undefined}
+      data-scrolling={scrolling || undefined}
+      aria-hidden="true"
+      onPointerDown={(event) => {
+        const scroller = view?.scrollDOM;
+        if (!scroller || !hasOverflow) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setScrolling(true);
+        if ((event.target as HTMLElement).closest(".cm-overlay-scrollbar-thumb")) {
+          dragRef.current = { pointerY: event.clientY, scrollTop: scroller.scrollTop };
+          return;
+        }
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+        scroller.scrollTop = ratio * (scroller.scrollHeight - scroller.clientHeight);
+      }}
+      onPointerMove={(event) => {
+        const scroller = view?.scrollDOM;
+        const drag = dragRef.current;
+        if (!scroller || !drag) return;
+        const trackHeight = Math.max(0, scroller.clientHeight - 8);
+        const thumbHeight = Math.max(24, trackHeight * (scroller.clientHeight / scroller.scrollHeight));
+        const travel = Math.max(1, trackHeight - thumbHeight);
+        const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+        scroller.scrollTop = drag.scrollTop + (event.clientY - drag.pointerY) * (maxScroll / travel);
+      }}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
+      <div ref={thumbRef} className="cm-overlay-scrollbar-thumb" />
+    </div>
+  );
+}
+
 function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
   const url = `data:${asset.mimeType};base64,${asset.base64}`;
   if (asset.mimeType === "application/pdf") {
@@ -1433,11 +1546,16 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
         <span>{asset.path}</span>
         <small>Drag this file from Project into the LaTeX editor to insert it.</small>
       </div>
-      <div className="asset-preview-stage">
+      <ScrollArea
+        className="asset-preview-stage"
+        orientation="both"
+        viewportClassName="scroll-fade-both"
+        contentClassName="asset-preview-stage-content"
+      >
         {asset.mimeType.startsWith("image/")
           ? <img src={url} alt={`Preview of ${asset.path}`} />
           : <div className="asset-preview-unsupported"><FileText size={28} /><p>This format cannot be rendered in the preview.</p></div>}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

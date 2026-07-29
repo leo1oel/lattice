@@ -24,7 +24,9 @@
 .pdf-save-notice { position: absolute; z-index: 3; top: 48px; right: 10px; max-width: min(420px, calc(100% - 20px)); min-height: 30px; padding: 6px 8px 6px 10px; border: 1px solid color-mix(in srgb, var(--success) 35%, var(--line)); border-radius: 8px; background: var(--panel-strong); box-shadow: var(--shadow); color: var(--success); display: flex; align-items: center; gap: 7px; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pdf-save-notice.error { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); color: var(--danger); }
 .pdf-save-notice button { flex: none; padding: 2px; background: transparent; color: inherit; display: grid; place-items: center; }
-.pdf-scroll-area { position: relative; flex: 1; min-height: 0; overflow: auto; padding: 20px; }
+.pdf-scroll-area { position: relative; flex: 1; min-height: 0; }
+.pdf-scroll-area-viewport { position: relative; padding: 20px; }
+.pdf-scroll-area-content { min-width: 100%; min-height: 100%; }
 .pdf-pages { width: max-content; min-width: 100%; min-height: 100%; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
 .pdf-page-shell { position: relative; flex: none; background: white; box-shadow: 0 5px 24px rgba(0, 0, 0, .15); overflow: hidden; }
 .pdf-scroll-area canvas.synctex-enabled { cursor: text; }
