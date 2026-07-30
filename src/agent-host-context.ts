@@ -56,6 +56,7 @@ export function buildAgentHostContext(input: {
   pdfPageCount: number | null;
   selection: string;
   selectionSource: AgentHostSurface | null;
+  activeSurface: AgentHostSurface;
 }): AgentHostContextSnapshot {
   const selection = boundedSelection(input.selection);
   if (input.activePaper) {
@@ -96,11 +97,7 @@ export function buildAgentHostContext(input: {
   };
 
   const activeSurface: AgentHostSurface =
-    input.selectionSource === "pdf" ||
-    input.canvasMode === "pdf" ||
-    (!editor && input.pdfPageCount)
-      ? "pdf"
-      : "editor";
+    input.activeSurface === "pdf" ? "pdf" : "editor";
   return {
     type: LATTICE_HOST_CONTEXT,
     version: 1,

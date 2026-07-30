@@ -15,6 +15,7 @@ describe("agent host context", () => {
       pdfPageCount: 8,
       selection: "related work",
       selectionSource: "editor",
+      activeSurface: "editor",
     })).toEqual({
       type: LATTICE_HOST_CONTEXT,
       version: 1,
@@ -50,6 +51,7 @@ describe("agent host context", () => {
       pdfPageCount: null,
       selection: "scaled dot-product attention",
       selectionSource: "paper",
+      activeSurface: "paper",
     }).paper).toEqual({
       title: "Attention Is All You Need",
       arxivId: "1706.03762",
@@ -57,6 +59,27 @@ describe("agent host context", () => {
       path: ".research/papers/1706.03762/paper.md",
       view: "fulltext",
       selection: "scaled dot-product attention",
+    });
+  });
+
+  it("uses the actually focused split-view surface", () => {
+    expect(buildAgentHostContext({
+      workspaceRoot: "/tmp/paper",
+      activeFile: "main.tex",
+      secondaryFile: null,
+      editorPosition: { path: "main.tex", line: 12, column: 3 },
+      activePaper: null,
+      canvasMode: "split",
+      paperView: "blog",
+      pdfPage: 6,
+      pdfPageCount: 9,
+      selection: "",
+      selectionSource: null,
+      activeSurface: "pdf",
+    })).toMatchObject({
+      activeSurface: "pdf",
+      editor: { path: "main.tex", line: 12, column: 3 },
+      pdf: { page: 6, pageCount: 9 },
     });
   });
 });

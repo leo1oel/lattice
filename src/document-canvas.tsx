@@ -100,6 +100,7 @@ import {
   stripFrontmatter,
   PROJECT_FIGURE_DRAG_TYPE,
 } from "./app-utils";
+import type { AgentHostSurface } from "./agent-host-context";
 
 const SPLIT_SOURCE_MIN_WIDTH = 480;
 const SPLIT_PDF_MIN_WIDTH = 440;
@@ -117,6 +118,7 @@ export function DocumentCanvas(props: {
   setSelection: (value: string) => void;
   onPdfTextSelect: (value: string) => void;
   onPaperTextSelect: (value: string) => void;
+  onContextSurfaceActivate: (surface: AgentHostSurface) => void;
   pdfUrl: string | null;
   pdfBase64: string | null;
   pdfTop?: ReactNode;
@@ -996,6 +998,8 @@ export function DocumentCanvas(props: {
         className="paper-reader"
         orientation="both"
         contentClassName="paper-reader-content"
+        onPointerDownCapture={() => props.onContextSurfaceActivate("paper")}
+        onFocusCapture={() => props.onContextSurfaceActivate("paper")}
         onMouseUp={(event) => {
           const liveSelection = window.getSelection();
           const anchor = liveSelection?.anchorNode;
@@ -1037,6 +1041,8 @@ export function DocumentCanvas(props: {
         className="markdown-preview"
         orientation="both"
         contentClassName="markdown-preview-content"
+        onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
+        onFocusCapture={() => props.onContextSurfaceActivate("editor")}
       >
         <ChatMarkdown text={props.source} macros={props.katexMacros} breaks={false} />
       </ScrollArea>
@@ -1048,8 +1054,10 @@ export function DocumentCanvas(props: {
       <div className="source-main">
         <div
           className={`source-editor ${figureDropActive || props.nativeFigureDropActive ? "figure-drop-active" : ""}`}
+          onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
           onPointerLeave={props.onEditorLeave}
           onFocusCapture={() => {
+            props.onContextSurfaceActivate("editor");
             if (selectionToolbarOwnerRef.current?.pane !== "primary") {
               selectionToolbarOwnerRef.current = null;
               setSelectionToolbarPane(null);
@@ -1240,7 +1248,11 @@ export function DocumentCanvas(props: {
     </div>
   );
   const preview = (
-    <div className="pdf-column">
+    <div
+      className="pdf-column"
+      onPointerDownCapture={() => props.onContextSurfaceActivate("pdf")}
+      onFocusCapture={() => props.onContextSurfaceActivate("pdf")}
+    >
       {props.pdfTop}
       <PdfPreview
         url={props.pdfUrl}
@@ -1273,7 +1285,9 @@ export function DocumentCanvas(props: {
     const dualSecondary = secondaryFile ? (
       <div
         className={`source-main dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
+        onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
         onFocusCapture={() => {
+          props.onContextSurfaceActivate("editor");
           if (selectionToolbarOwnerRef.current?.pane !== "secondary") {
             selectionToolbarOwnerRef.current = null;
             setSelectionToolbarPane(null);
@@ -1364,7 +1378,9 @@ export function DocumentCanvas(props: {
     const primaryPane = (
       <div
         className={`dual-primary ${focusedPane === "primary" ? "focused" : ""}`}
+        onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
         onFocusCapture={() => {
+          props.onContextSurfaceActivate("editor");
           onFocusPane("primary");
           if (primaryViewRef.current) editorViewRef.current = primaryViewRef.current;
         }}

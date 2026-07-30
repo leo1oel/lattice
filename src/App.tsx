@@ -522,10 +522,15 @@ function App() {
   const [focusedPane, setFocusedPane] = useState<EditorPaneId>("primary");
   const [selection, setSelection] = useState("");
   const [selectionSource, setSelectionSource] = useState<AgentHostSurface | null>(null);
-  // The editor re-reports its live selection on every update, so clearing the
-  // chip isn't enough — remember the text we dismissed and ignore the editor
-  // re-reporting that same text until the selection actually changes.
-  const dismissedSelectionRef = useRef("");
+  const [agentActiveSurface, setAgentActiveSurface] =
+    useState<AgentHostSurface>("editor");
+  // A content surface can re-report its DOM selection after Lattice has cleared
+  // the one-shot Agent context. Scope that suppression to the original surface
+  // so the same text selected in another surface remains valid.
+  const dismissedSelectionRef = useRef<{
+    source: AgentHostSurface;
+    text: string;
+  } | null>(null);
   // In split view the editor and PDF both live behind the one shared selection
   // chip. An empty report from one pane must not wipe a live selection the other
   // pane owns, or the chip flickers as they fight. This tracks the current owner.
@@ -854,6 +859,59 @@ function App() {
   const [synaraPermissionMode, setSynaraPermissionMode] =
     useState<SynaraPermissionMode>("full-access");
   const [synaraAutoModeAvailable, setSynaraAutoModeAvailable] = useState(true);
+  useEffect(() => {
+    setAgentActiveSurface((current) => {
+      if (activePaper || canvasMode === "paper") return "paper";
+      if (canvasMode === "pdf") return "pdf";
+      if (canvasMode === "split" || canvasMode === "columns") {
+        return current === "paper" ? "editor" : current;
+      }
+      return "editor";
+    });
+  }, [activePaper, canvasMode]);
+  const activateAgentHostSurface = useCallback((surface: AgentHostSurface) => {
+    setAgentActiveSurface(surface);
+    const previousSource = selectionSourceRef.current;
+    if (!previousSource) {
+      if (dismissedSelectionRef.current?.source === surface) {
+        dismissedSelectionRef.current = null;
+      }
+      return;
+    }
+    dismissedSelectionRef.current =
+      previousSource !== surface && selection
+        ? { source: previousSource, text: selection }
+        : null;
+    selectionSourceRef.current = null;
+    setSelection("");
+    setSelectionSource(null);
+  }, [selection]);
+  const reportAgentSelection = useCallback((
+    source: AgentHostSurface,
+    value: string,
+  ) => {
+    const dismissed = dismissedSelectionRef.current;
+    if (
+      value &&
+      dismissed?.source === source &&
+      dismissed.text === value
+    ) {
+      return;
+    }
+    if (!value) {
+      if (dismissed?.source === source) dismissedSelectionRef.current = null;
+      if (selectionSourceRef.current !== source) return;
+      selectionSourceRef.current = null;
+      setSelection("");
+      setSelectionSource(null);
+      return;
+    }
+    dismissedSelectionRef.current = null;
+    selectionSourceRef.current = source;
+    setAgentActiveSurface(source);
+    setSelection(value);
+    setSelectionSource(source);
+  }, []);
   const agentHostContext = useMemo<AgentHostContextSnapshot | null>(
     () => project
       ? buildAgentHostContext({
@@ -868,10 +926,12 @@ function App() {
           pdfPageCount,
           selection,
           selectionSource,
+          activeSurface: agentActiveSurface,
         })
       : null,
     [
       activeFile,
+      agentActiveSurface,
       activePaper,
       canvasMode,
       editorPosition,
@@ -958,7 +1018,9 @@ function App() {
         return;
       }
       if (event.data?.type === LATTICE_HOST_CONTEXT_SELECTION_CLEAR) {
-        dismissedSelectionRef.current = selection;
+        const source = selectionSourceRef.current;
+        dismissedSelectionRef.current =
+          source && selection ? { source, text: selection } : null;
         selectionSourceRef.current = null;
         setSelection("");
         setSelectionSource(null);
@@ -2906,6 +2968,7 @@ function App() {
       setSelectionSource(null);
       setAgentAttachments([]);
       selectionSourceRef.current = null;
+      dismissedSelectionRef.current = null;
       setTexlabDiagnostics([]);
       setEditorComments([]);
       setEditorCommentsOpen(false);
@@ -4750,6 +4813,7 @@ function App() {
         setSelection("");
         setSelectionSource(null);
         selectionSourceRef.current = null;
+        dismissedSelectionRef.current = null;
         await refreshProject();
         await refreshHistory();
         if (activeFile) await loadFile(activeFile);
@@ -6257,7 +6321,9 @@ function App() {
                   selection={selection}
                   selectionSource={selectionSource}
                   onClearSelection={() => {
-                    dismissedSelectionRef.current = selection;
+                    const source = selectionSourceRef.current;
+                    dismissedSelectionRef.current =
+                      source && selection ? { source, text: selection } : null;
                     setSelection("");
                     setSelectionSource(null);
                     selectionSourceRef.current = null;
@@ -6291,36 +6357,10 @@ function App() {
             focusedPane={focusedPane}
             onFocusPane={setFocusedPane}
             setSource={setSource}
-            setSelection={(value) => {
-              // The editor keeps re-reporting a dismissed selection; ignore it
-              // until the selection changes to something else (or collapses).
-              if (value && value === dismissedSelectionRef.current) return;
-              // An empty editor report while the PDF owns the selection is just
-              // the editor losing its DOM selection — don't let it wipe the chip.
-              if (!value && selectionSourceRef.current === "pdf") return;
-              dismissedSelectionRef.current = "";
-              selectionSourceRef.current = value ? "editor" : null;
-              setSelection(value);
-              setSelectionSource(value ? "editor" : null);
-            }}
-            onPdfTextSelect={(value) => {
-              if (value && value === dismissedSelectionRef.current) return;
-              // Symmetrically, an empty PDF report must not clear an editor
-              // selection the user just made in the other pane.
-              if (!value && selectionSourceRef.current === "editor") return;
-              dismissedSelectionRef.current = "";
-              selectionSourceRef.current = value ? "pdf" : null;
-              setSelection(value);
-              setSelectionSource(value ? "pdf" : null);
-            }}
-            onPaperTextSelect={(value) => {
-              if (value && value === dismissedSelectionRef.current) return;
-              if (!value && selectionSourceRef.current !== "paper") return;
-              dismissedSelectionRef.current = "";
-              selectionSourceRef.current = value ? "paper" : null;
-              setSelection(value);
-              setSelectionSource(value ? "paper" : null);
-            }}
+            setSelection={(value) => reportAgentSelection("editor", value)}
+            onPdfTextSelect={(value) => reportAgentSelection("pdf", value)}
+            onPaperTextSelect={(value) => reportAgentSelection("paper", value)}
+            onContextSurfaceActivate={activateAgentHostSurface}
             pdfUrl={pdfUrl}
             pdfBase64={previewPdfBase64}
             pdfTop={!diagnosticsDismissed && build && (!build.success || build.diagnostics.length > 0) ? (
