@@ -322,7 +322,7 @@ export function AgentPanel({
   onRemoveAttachment: (path: string) => void;
   onStop: () => void;
   selection: string;
-  selectionSource: "editor" | "pdf" | null;
+  selectionSource: "editor" | "pdf" | "paper" | null;
   onClearSelection: () => void;
   branchSource: { sessionId: string; messageId: string } | null;
   onCancelBranch: () => void;
@@ -469,8 +469,16 @@ export function AgentPanel({
         {branchSource && <div className="context-chip branch-chip"><Pencil size={11} /> Editing an earlier message creates a new branch <button title="Cancel conversation branch" onClick={onCancelBranch}><X size={11} /></button></div>}
         {selection && (
           <div className="context-chip">
-            {selectionSource === "pdf" ? <FileText size={12} /> : <Code2 size={12} />}
-            {selectionSource === "pdf" ? "PDF selection" : "Selection"} · {selection.length} chars
+            {selectionSource === "paper"
+              ? <BookOpen size={12} />
+              : selectionSource === "pdf"
+                ? <FileText size={12} />
+                : <Code2 size={12} />}
+            {selectionSource === "paper"
+              ? "Paper selection"
+              : selectionSource === "pdf"
+                ? "PDF selection"
+                : "Selection"} · {selection.length} chars
             <button type="button" title="Clear selection context" onClick={onClearSelection}><X size={11} /></button>
           </div>
         )}

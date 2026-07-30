@@ -23,6 +23,12 @@ export const EMPTY_SYNARA_RUNTIME: SynaraRuntimeInfo = {
 export const LATTICE_PROJECT_HISTORY = "lattice:project-history";
 export const LATTICE_RESTORE_AGENT_CHECKPOINT = "lattice:restore-agent-checkpoint";
 
+export type AgentGitWorkspaceView = "changes" | "pull-requests";
+
+export function agentGitWorkspacePath(view: AgentGitWorkspaceView): string {
+  return view === "pull-requests" ? "/pull-requests/" : "/source-control";
+}
+
 export interface AgentCheckpointFileSummary {
   path: string;
   kind: string;

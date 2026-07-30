@@ -116,6 +116,7 @@ export function DocumentCanvas(props: {
   setSource: (value: string) => void;
   setSelection: (value: string) => void;
   onPdfTextSelect: (value: string) => void;
+  onPaperTextSelect: (value: string) => void;
   pdfUrl: string | null;
   pdfBase64: string | null;
   pdfTop?: ReactNode;
@@ -195,6 +196,7 @@ export function DocumentCanvas(props: {
   onOpenTodos: () => void;
   projectWordCount: WordCount | null;
   onPdfPageCount: (pages: number | null) => void;
+  onPdfPageChange: (page: number) => void;
   onCreateMissingFile: (path: string) => void;
   collabExtensions: Extension[];
   collabEditorKey: string;
@@ -994,6 +996,15 @@ export function DocumentCanvas(props: {
         className="paper-reader"
         orientation="both"
         contentClassName="paper-reader-content"
+        onMouseUp={(event) => {
+          const liveSelection = window.getSelection();
+          const anchor = liveSelection?.anchorNode;
+          props.onPaperTextSelect(
+            anchor && event.currentTarget.contains(anchor)
+              ? liveSelection?.toString() ?? ""
+              : "",
+          );
+        }}
       >
         <div className="paper-reader-title">
           <BookOpen size={15} />
@@ -1241,6 +1252,7 @@ export function DocumentCanvas(props: {
         onSource={props.mode === "pdf" ? undefined : props.onPdfSource}
         onTextSelect={props.onPdfTextSelect}
         onNumPages={props.onPdfPageCount}
+        onPageChange={props.onPdfPageChange}
         outline={(
           <DocumentOutline
             nodes={outlineNodes}

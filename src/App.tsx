@@ -281,12 +281,20 @@ import {
 } from "./app-utils";
 import { mcpDraftToSaveRequest } from "./mcp-settings";
 import {
+  agentGitWorkspacePath,
   LATTICE_RESTORE_AGENT_CHECKPOINT,
   parseAgentProjectHistorySnapshot,
   synaraFrameUrl,
+  type AgentGitWorkspaceView,
   type AgentCheckpointHistoryEntry,
   type SynaraRuntimeInfo,
 } from "./synara-runtime";
+import {
+  buildAgentHostContext,
+  LATTICE_HOST_CONTEXT_REQUEST,
+  type AgentHostContextSnapshot,
+  type AgentHostSurface,
+} from "./agent-host-context";
 import { useSynaraRuntime } from "./use-synara-runtime";
 import "./App.css";
 
@@ -392,10 +400,11 @@ function synaraSourceControlUrl(
   authToken: string | null,
   projectRoot: string,
   theme: "light" | "dark",
+  view: AgentGitWorkspaceView,
 ): string {
   return synaraFrameUrl({
     origin,
-    path: "/source-control",
+    path: agentGitWorkspacePath(view),
     workspaceRoot: projectRoot,
     theme,
     hostOrigin: window.location.origin,
@@ -511,7 +520,7 @@ function App() {
   const [secondarySavedSource, setSecondarySavedSource] = useState("");
   const [focusedPane, setFocusedPane] = useState<EditorPaneId>("primary");
   const [selection, setSelection] = useState("");
-  const [selectionSource, setSelectionSource] = useState<"editor" | "pdf" | null>(null);
+  const [selectionSource, setSelectionSource] = useState<AgentHostSurface | null>(null);
   // The editor re-reports its live selection on every update, so clearing the
   // chip isn't enough — remember the text we dismissed and ignore the editor
   // re-reporting that same text until the selection actually changes.
@@ -519,7 +528,7 @@ function App() {
   // In split view the editor and PDF both live behind the one shared selection
   // chip. An empty report from one pane must not wipe a live selection the other
   // pane owns, or the chip flickers as they fight. This tracks the current owner.
-  const selectionSourceRef = useRef<"editor" | "pdf" | null>(null);
+  const selectionSourceRef = useRef<AgentHostSurface | null>(null);
   const [texlabDiagnostics, setTexlabDiagnostics] = useState<CompileDiagnostic[]>([]);
   const [canvasMode, setCanvasMode] = useState<CanvasMode>("split");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -609,6 +618,7 @@ function App() {
   const [agentCancellable, setAgentCancellable] = useState(false);
   const [projectWordCount, setProjectWordCount] = useState<WordCount | null>(null);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
+  const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const [mainBodyPages, setMainBodyPages] = useState<number | null>(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [importInput, setImportInput] = useState("");
@@ -624,6 +634,8 @@ function App() {
   const [activeAgentHistoryThreadId, setActiveAgentHistoryThreadId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
+  const [gitWorkspaceView, setGitWorkspaceView] =
+    useState<AgentGitWorkspaceView>("changes");
   const [todosOpen, setTodosOpen] = useState(false);
   const [diskTodos, setDiskTodos] = useState<TodoHit[]>([]);
   const [editorComments, setEditorComments] = useState<EditorComment[]>([]);
@@ -841,6 +853,40 @@ function App() {
   const [synaraPermissionMode, setSynaraPermissionMode] =
     useState<SynaraPermissionMode>("full-access");
   const [synaraAutoModeAvailable, setSynaraAutoModeAvailable] = useState(true);
+  const agentHostContext = useMemo<AgentHostContextSnapshot | null>(
+    () => project
+      ? buildAgentHostContext({
+          workspaceRoot: project.root,
+          activeFile,
+          secondaryFile,
+          editorPosition,
+          activePaper,
+          canvasMode,
+          paperView,
+          pdfPage: pdfPageNumber,
+          pdfPageCount,
+          selection,
+          selectionSource,
+        })
+      : null,
+    [
+      activeFile,
+      activePaper,
+      canvasMode,
+      editorPosition,
+      paperView,
+      pdfPageCount,
+      pdfPageNumber,
+      project,
+      secondaryFile,
+      selection,
+      selectionSource,
+    ],
+  );
+  const latestAgentHostContextRef = useRef(agentHostContext);
+  useLayoutEffect(() => {
+    latestAgentHostContextRef.current = agentHostContext;
+  }, [agentHostContext]);
   const postSynaraMessage = useCallback((message: object) => {
     if (!synaraOrigin) return;
     synaraIframeRef.current?.contentWindow?.postMessage(
@@ -848,6 +894,13 @@ function App() {
       synaraOrigin,
     );
   }, [synaraOrigin]);
+  useEffect(() => {
+    if (!agentHostContext || !synaraOrigin || !synaraFrameMounted) return;
+    const frame = window.requestAnimationFrame(() => {
+      postSynaraMessage(agentHostContext);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [agentHostContext, postSynaraMessage, synaraFrameMounted, synaraOrigin]);
   const changeSynaraPermissionMode = useCallback((mode: SynaraPermissionMode) => {
     postSynaraMessage({ type: LATTICE_AGENT_PERMISSION_MODE_SET, mode });
   }, [postSynaraMessage]);
@@ -890,10 +943,17 @@ function App() {
       }
       if (event.data?.type === SYNARA_EMBED_READY) {
         if (synaraFrameKey) setReadySynaraFrameKey(synaraFrameKey);
+        const hostContext = latestAgentHostContextRef.current;
+        if (hostContext) postSynaraMessage(hostContext);
         if (synaraReadyFallbackTimerRef.current !== null) {
           window.clearTimeout(synaraReadyFallbackTimerRef.current);
           synaraReadyFallbackTimerRef.current = null;
         }
+        return;
+      }
+      if (event.data?.type === LATTICE_HOST_CONTEXT_REQUEST) {
+        const hostContext = latestAgentHostContextRef.current;
+        if (hostContext) postSynaraMessage(hostContext);
         return;
       }
       const historySnapshot = parseAgentProjectHistorySnapshot(event.data);
@@ -932,7 +992,7 @@ function App() {
     };
     window.addEventListener("message", receiveSynaraMessage);
     return () => window.removeEventListener("message", receiveSynaraMessage);
-  }, [synaraFrameKey, synaraOrigin]);
+  }, [postSynaraMessage, synaraFrameKey, synaraOrigin]);
   useEffect(() => {
     if (!synaraOrigin || !gitOpen) return;
     const closeSourceControl = (event: MessageEvent) => {
@@ -6100,6 +6160,8 @@ function App() {
                         sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
                         onLoad={() => {
                           postSynaraMessage({ type: LATTICE_AGENT_PERMISSION_MODE_REQUEST });
+                          const hostContext = latestAgentHostContextRef.current;
+                          if (hostContext) postSynaraMessage(hostContext);
                           if (synaraReadyFallbackTimerRef.current !== null) {
                             window.clearTimeout(synaraReadyFallbackTimerRef.current);
                           }
@@ -6242,6 +6304,13 @@ function App() {
               setSelection(value);
               setSelectionSource(value ? "pdf" : null);
             }}
+            onPaperTextSelect={(value) => {
+              if (!value && selectionSourceRef.current !== "paper") return;
+              dismissedSelectionRef.current = "";
+              selectionSourceRef.current = value ? "paper" : null;
+              setSelection(value);
+              setSelectionSource(value ? "paper" : null);
+            }}
             pdfUrl={pdfUrl}
             pdfBase64={previewPdfBase64}
             pdfTop={!diagnosticsDismissed && build && (!build.success || build.diagnostics.length > 0) ? (
@@ -6373,6 +6442,7 @@ function App() {
             }}
             projectWordCount={projectWordCount}
             onPdfPageCount={setPdfPageCount}
+            onPdfPageChange={setPdfPageNumber}
             onCreateMissingFile={(path) => {
               void createProjectEntry(path, "file");
             }}
@@ -6508,6 +6578,37 @@ function App() {
           className="git-drawer synara-source-control-drawer"
           onClose={() => setGitOpen(false)}
         >
+          <div className="agent-git-workspace-header">
+            <div className="agent-git-workspace-tabs" role="tablist" aria-label="Git workspace">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={gitWorkspaceView === "changes"}
+                className={gitWorkspaceView === "changes" ? "active" : ""}
+                onClick={() => setGitWorkspaceView("changes")}
+              >
+                Changes
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={gitWorkspaceView === "pull-requests"}
+                className={gitWorkspaceView === "pull-requests" ? "active" : ""}
+                onClick={() => setGitWorkspaceView("pull-requests")}
+              >
+                Pull requests
+              </button>
+            </div>
+            <button
+              type="button"
+              className="agent-git-workspace-close"
+              aria-label="Close Git workspace"
+              title="Close"
+              onClick={() => setGitOpen(false)}
+            >
+              <X size={14} />
+            </button>
+          </div>
             {synaraOrigin ? (
               <iframe
                 ref={synaraSourceControlFrameRef}
@@ -6517,8 +6618,9 @@ function App() {
                   synaraRuntime.authToken,
                   project.root,
                   theme,
+                  gitWorkspaceView,
                 )}
-                title="Source Control"
+                title={gitWorkspaceView === "changes" ? "Changes" : "Pull requests"}
                 allow="clipboard-read; clipboard-write"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
               />

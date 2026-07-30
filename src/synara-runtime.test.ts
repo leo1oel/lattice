@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentGitWorkspacePath,
   LATTICE_PROJECT_HISTORY,
   normalizeSynaraOrigin,
   parseAgentProjectHistorySnapshot,
@@ -7,6 +8,11 @@ import {
 } from "./synara-runtime";
 
 describe("Synara runtime URLs", () => {
+  it("maps the native Git workspace tabs to embedded routes", () => {
+    expect(agentGitWorkspacePath("changes")).toBe("/source-control");
+    expect(agentGitWorkspacePath("pull-requests")).toBe("/pull-requests/");
+  });
+
   it("normalizes an origin without retaining paths or credentials", () => {
     expect(normalizeSynaraOrigin("http://127.0.0.1:4567/chat?token=nope")).toBe(
       "http://127.0.0.1:4567",

@@ -433,6 +433,7 @@ export function PdfPreview({
   onSource,
   onTextSelect,
   onNumPages,
+  onPageChange,
   outline,
 }: {
   url: string | null;
@@ -442,6 +443,7 @@ export function PdfPreview({
   onSource?: (page: number, x: number, y: number) => void;
   onTextSelect?: (text: string) => void;
   onNumPages?: (pages: number | null) => void;
+  onPageChange?: (page: number) => void;
   outline?: ReactNode;
 }) {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
@@ -449,8 +451,13 @@ export function PdfPreview({
   onTextSelectRef.current = onTextSelect;
   const onNumPagesRef = useRef(onNumPages);
   onNumPagesRef.current = onNumPages;
+  const onPageChangeRef = useRef(onPageChange);
+  onPageChangeRef.current = onPageChange;
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
+  useEffect(() => {
+    onPageChangeRef.current?.(pageNumber);
+  }, [pageNumber]);
   const [pageEditing, setPageEditing] = useState(false);
   const [pageDraft, setPageDraft] = useState("");
   const cancelPageEditRef = useRef(false);
