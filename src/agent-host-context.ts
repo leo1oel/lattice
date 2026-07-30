@@ -2,6 +2,8 @@ import type { CanvasMode, EditorPosition, PaperSummary } from "./app-types";
 
 export const LATTICE_HOST_CONTEXT = "lattice:host-context";
 export const LATTICE_HOST_CONTEXT_REQUEST = "lattice:request-host-context";
+export const LATTICE_HOST_CONTEXT_SELECTION_CLEAR =
+  "lattice:clear-host-context-selection";
 
 const MAX_SELECTION_LENGTH = 12_000;
 

@@ -292,6 +292,7 @@ import {
 import {
   buildAgentHostContext,
   LATTICE_HOST_CONTEXT_REQUEST,
+  LATTICE_HOST_CONTEXT_SELECTION_CLEAR,
   type AgentHostContextSnapshot,
   type AgentHostSurface,
 } from "./agent-host-context";
@@ -956,6 +957,13 @@ function App() {
         if (hostContext) postSynaraMessage(hostContext);
         return;
       }
+      if (event.data?.type === LATTICE_HOST_CONTEXT_SELECTION_CLEAR) {
+        dismissedSelectionRef.current = selection;
+        selectionSourceRef.current = null;
+        setSelection("");
+        setSelectionSource(null);
+        return;
+      }
       const historySnapshot = parseAgentProjectHistorySnapshot(event.data);
       if (historySnapshot) {
         setAgentHistoryByThread((current) => ({
@@ -992,7 +1000,7 @@ function App() {
     };
     window.addEventListener("message", receiveSynaraMessage);
     return () => window.removeEventListener("message", receiveSynaraMessage);
-  }, [postSynaraMessage, synaraFrameKey, synaraOrigin]);
+  }, [postSynaraMessage, selection, synaraFrameKey, synaraOrigin]);
   useEffect(() => {
     if (!synaraOrigin || !gitOpen) return;
     const closeSourceControl = (event: MessageEvent) => {
@@ -6296,6 +6304,7 @@ function App() {
               setSelectionSource(value ? "editor" : null);
             }}
             onPdfTextSelect={(value) => {
+              if (value && value === dismissedSelectionRef.current) return;
               // Symmetrically, an empty PDF report must not clear an editor
               // selection the user just made in the other pane.
               if (!value && selectionSourceRef.current === "editor") return;
@@ -6305,6 +6314,7 @@ function App() {
               setSelectionSource(value ? "pdf" : null);
             }}
             onPaperTextSelect={(value) => {
+              if (value && value === dismissedSelectionRef.current) return;
               if (!value && selectionSourceRef.current !== "paper") return;
               dismissedSelectionRef.current = "";
               selectionSourceRef.current = value ? "paper" : null;
