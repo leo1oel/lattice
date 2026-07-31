@@ -32,6 +32,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      # Cargo compiles Tauri's resource manifest, but these tests never launch
+      # the bundled service. The release workflow prepares the real pinned
+      # runtime before packaging.
+      - name: Stub the Synara runtime resource for compilation
+        run: |
+          mkdir -p src-tauri/synara-runtime
+          echo stub > src-tauri/synara-runtime/placeholder.txt
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
