@@ -62,6 +62,7 @@ jobs:
             cd "$synara_source"
             bun install --frozen-lockfile
           )
+          echo "BUN_BIN=$(command -v bun)" >> "$GITHUB_ENV"
           echo "SYNARA_SOURCE_DIR=$synara_source" >> "$GITHUB_ENV"
 
       - name: Import Apple Developer ID certificate
