@@ -1996,9 +1996,14 @@ describe("project workspace", () => {
     });
 
     fireEvent.click(await findProjectTreeItem("method.md"));
-    await waitFor(() => expect(screen.getByRole("tab", { name: /method\.md/ }))
-      .toHaveAttribute("aria-selected", "true"));
-    fireEvent.click(await screen.findByRole("tab", { name: "Edit" }));
+    const methodTab = await screen.findByRole("tab", { name: /method\.md/ });
+    await waitFor(() => expect(methodTab).toHaveAttribute("aria-selected", "true"));
+    const documentView = screen.getByRole("tablist", { name: "Document view" });
+    const editTab = await waitFor(
+      () => within(documentView).getByRole("tab", { name: "Edit" }),
+      { timeout: 5_000 },
+    );
+    fireEvent.click(editTab);
     const markdownEditor = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");
       expect(element).not.toBeNull();
