@@ -1936,10 +1936,16 @@ describe("project workspace", () => {
     expect(fireEvent.pointerDown(svgRow, {
       button: 0,
       pointerId: 1,
+      pointerType: "mouse",
       clientX: 10,
       clientY: 10,
     })).toBe(true);
-    fireEvent.pointerUp(window, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(window, {
+      pointerId: 1,
+      pointerType: "mouse",
+      clientX: 10,
+      clientY: 10,
+    });
     fireEvent.click(svgRow);
     expect(await screen.findByAltText("Preview of figures/native-umm.svg")).toHaveAttribute("src", "data:image/svg+xml;base64,PHN2Zy8+");
     const assetTab = screen.getByRole("tab", { name: /native-umm\.svg/ });
@@ -1962,12 +1968,23 @@ describe("project workspace", () => {
     expect(fireEvent.pointerDown(pdfRow, {
       button: 0,
       pointerId: 2,
+      pointerType: "mouse",
       clientX: 10,
       clientY: 10,
     })).toBe(true);
-    fireEvent.pointerMove(window, { pointerId: 2, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(window, {
+      pointerId: 2,
+      pointerType: "mouse",
+      clientX: 100,
+      clientY: 100,
+    });
     expect(document.querySelector(".figure-drag-ghost")).toHaveClass("ready");
-    fireEvent.pointerUp(window, { pointerId: 2, clientX: 100, clientY: 100 });
+    fireEvent.pointerUp(window, {
+      pointerId: 2,
+      pointerType: "mouse",
+      clientX: 100,
+      clientY: 100,
+    });
     expect(await screen.findByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByLabelText("PDF page 1")).toBeInTheDocument();
     expect(screen.getByLabelText("Search PDF").closest(".pdf-find-controls"))
@@ -1981,12 +1998,25 @@ describe("project workspace", () => {
     });
     const content = document.querySelector<HTMLElement>(".cm-content")!;
     Object.defineProperty(document, "elementFromPoint", { configurable: true, value: vi.fn(() => content) });
-    fireEvent.pointerDown(await findProjectTreeItem("figures/native-umm.svg"), { button: 0, clientX: 10, clientY: 10 });
-    fireEvent.pointerMove(window, { clientX: 100, clientY: 100 });
+    fireEvent.pointerDown(await findProjectTreeItem("figures/native-umm.svg"), {
+      button: 0,
+      pointerType: "mouse",
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerMove(window, {
+      pointerType: "mouse",
+      clientX: 100,
+      clientY: 100,
+    });
     expect(document.querySelector(".figure-drag-ghost")).toHaveTextContent("native-umm.svg");
     expect(document.querySelector(".figure-drop-line")).toHaveTextContent(/Insert above line \d+/);
     expect(document.querySelector(".source-editor")).not.toHaveTextContent("Insert figure here");
-    fireEvent.pointerUp(window, { clientX: 100, clientY: 100 });
+    fireEvent.pointerUp(window, {
+      pointerType: "mouse",
+      clientX: 100,
+      clientY: 100,
+    });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("prepare_latex_figure", { path: "figures/native-umm.svg" }));
     const figureDialog = await screen.findByLabelText("Insert figure");
     fireEvent.click(within(figureDialog).getByRole("button", { name: "Insert" }));
@@ -2017,11 +2047,22 @@ describe("project workspace", () => {
     fireEvent.pointerDown(await findProjectTreeItem("figures/native-umm.svg"), {
       button: 0,
       pointerId: 3,
+      pointerType: "mouse",
       clientX: 10,
       clientY: 10,
     });
-    fireEvent.pointerMove(window, { pointerId: 3, clientX: 100, clientY: 100 });
-    fireEvent.pointerUp(window, { pointerId: 3, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(window, {
+      pointerId: 3,
+      pointerType: "mouse",
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(window, {
+      pointerId: 3,
+      pointerType: "mouse",
+      clientX: 100,
+      clientY: 100,
+    });
     await waitFor(() => {
       const view = EditorView.findFromDOM(markdownEditor);
       expect(view?.state.doc.toString()).toContain("![native umm](<figures/native-umm.svg>)");
