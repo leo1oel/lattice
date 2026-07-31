@@ -26,6 +26,7 @@ const required = {
   onClose: () => undefined,
   onRevert: () => undefined,
   onDelete: () => undefined,
+  overleafProjectRoot: "/tmp/project",
 };
 
 afterEach(() => {
@@ -49,7 +50,10 @@ describe("HistoryDrawer", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Overleaf" }));
     expect(await screen.findByText(/Overleaf's own record of this project/)).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith("overleaf_history_updates", { count: 20 });
+    expect(invoke).toHaveBeenCalledWith("overleaf_history_updates", {
+      projectRoot: "/tmp/project",
+      count: 20,
+    });
   });
 
   it("falls back off the remembered Overleaf tab for an unlinked project", () => {

@@ -23,16 +23,17 @@ import {
   CircleAlert,
   Download,
   FileText,
-  LoaderCircle,
+  LocateFixed,
   RectangleHorizontal,
   RectangleVertical,
-  Search,
   X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 import { Tip } from "./components/icon-tip";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { ScrollArea } from "./components/ui/scroll-area";
+import { SearchField } from "./components/ui/search-field";
 import { pdfBase64Fingerprint, pdfBase64ToBytes } from "./pdf-bytes";
 import { MotionButton } from "./motion";
 import {
@@ -280,7 +281,7 @@ function ContinuousPdfPage({
         // High-DPI bitmap is downscaled in CSS; light smoothing keeps Type1 paths clean.
         context.imageSmoothingEnabled = true;
         context.imageSmoothingQuality = "high";
-        context.fillStyle = "#ffffff";
+        context.fillStyle = "#F9F9FA";
         context.fillRect(0, 0, canvas.width, canvas.height);
       }
       renderTask = page.render({
@@ -431,6 +432,9 @@ export function PdfPreview({
   fileName = "paper.pdf",
   syncTarget = null,
   onSource,
+  canForwardSync = false,
+  locatingPdf = false,
+  onForwardSync,
   onTextSelect,
   onNumPages,
   onPageChange,
@@ -441,6 +445,9 @@ export function PdfPreview({
   fileName?: string;
   syncTarget?: PdfSyncTarget | null;
   onSource?: (page: number, x: number, y: number) => void;
+  canForwardSync?: boolean;
+  locatingPdf?: boolean;
+  onForwardSync?: () => void;
   onTextSelect?: (text: string) => void;
   onNumPages?: (pages: number | null) => void;
   onPageChange?: (page: number) => void;
@@ -983,12 +990,15 @@ export function PdfPreview({
       <div className="pdf-preview">
         <div className="pdf-toolbar pdf-toolbar-empty">
           <div className="pdf-page-controls" />
-          <div className="pdf-find-controls">
+          <div className={`pdf-find-controls${outline ? "" : " without-outline"}`}>
             {outline}
-            <label className="pdf-search disabled">
-              <Search size={12} />
-              <input aria-label="Search PDF" placeholder="Find in PDF" disabled />
-            </label>
+            <SearchField
+              aria-label="Search PDF"
+              containerClassName="pdf-search disabled"
+              controlSize="compact"
+              placeholder="Find in PDF"
+              disabled
+            />
           </div>
           <div className="pdf-zoom-controls" />
         </div>
@@ -1080,34 +1090,34 @@ export function PdfPreview({
             <button disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => scrollToPage(Math.min(documentProxy?.numPages ?? pageNumber, pageNumber + 1))}><ChevronRight size={14} /></button>
           </Tip>
         </div>
-        <div className="pdf-find-controls">
+        <div className={`pdf-find-controls${outline ? "" : " without-outline"}`}>
           {outline}
-          <label className="pdf-search">
-            <Search size={12} />
-            <input
+          <SearchField
             aria-label="Search PDF"
+            containerClassName="pdf-search"
+            controlSize="compact"
+            showIcon={!searchQuery}
             value={searchQuery}
             placeholder="Find in PDF"
             onChange={(event) => {
               setSearchQuery(event.target.value);
               setSearchMatchIndex(0);
             }}
-            />
-            {searchQuery && (
-            <>
-              <small className="pdf-search-position" aria-live="polite" title={searchError || undefined}>{searchError ? "Unavailable" : searchIndexing ? "Indexing…" : matches.length ? `${selectedMatchIndex + 1} / ${matches.length}` : "0 / 0"}</small>
-              <Tip label="Previous search result">
-                <button disabled={!matches.length} onClick={() => selectMatch(-1)}><ChevronUp size={12} /></button>
-              </Tip>
-              <Tip label="Next search result">
-                <button disabled={!matches.length} onClick={() => selectMatch(1)}><ChevronDown size={12} /></button>
-              </Tip>
-              <Tip label="Clear PDF search">
-                <button onClick={() => setSearchQuery("")}><X size={12} /></button>
-              </Tip>
-            </>
-            )}
-          </label>
+            trailing={searchQuery ? (
+              <>
+                <small className="pdf-search-position" aria-live="polite" title={searchError || undefined}>{searchError ? "Unavailable" : searchIndexing ? "Indexing…" : matches.length ? `${selectedMatchIndex + 1} / ${matches.length}` : "0 / 0"}</small>
+                <Tip label="Previous search result">
+                  <button type="button" disabled={!matches.length} onClick={() => selectMatch(-1)}><ChevronUp size={12} /></button>
+                </Tip>
+                <Tip label="Next search result">
+                  <button type="button" disabled={!matches.length} onClick={() => selectMatch(1)}><ChevronDown size={12} /></button>
+                </Tip>
+                <Tip label="Clear PDF search">
+                  <button type="button" onClick={() => setSearchQuery("")}><X size={12} /></button>
+                </Tip>
+              </>
+            ) : undefined}
+          />
         </div>
         <div className="pdf-zoom-controls">
           <Tip label="Zoom out">
@@ -1149,6 +1159,20 @@ export function PdfPreview({
             <button disabled={scale >= PDF_MAX_SCALE} onClick={() => updateManualScale((value) => clamp(Number((value + 0.1).toFixed(1)), PDF_MIN_SCALE, PDF_MAX_SCALE))}><ZoomIn size={14} /></button>
           </Tip>
           <i className="pdf-fit-divider" aria-hidden="true" />
+          {onForwardSync && (
+            <Tip label="Reveal cursor in PDF (⌘⇧J)">
+              <button
+                type="button"
+                disabled={!canForwardSync || locatingPdf}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={onForwardSync}
+              >
+                {locatingPdf
+                  ? <InfinityLoader size={14} />
+                  : <LocateFixed size={14} />}
+              </button>
+            </Tip>
+          )}
           <Tip label="Fit page to width">
             <button className={fitMode === "width" ? "active" : ""} aria-pressed={fitMode === "width"} disabled={!pageSize} onClick={() => toggleFit("width")}><RectangleHorizontal size={14} /></button>
           </Tip>
@@ -1156,7 +1180,7 @@ export function PdfPreview({
             <button className={fitMode === "height" ? "active" : ""} aria-pressed={fitMode === "height"} disabled={!pageSize} onClick={() => toggleFit("height")}><RectangleVertical size={14} /></button>
           </Tip>
           <Tip label="Save PDF as…">
-            <MotionButton disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}</MotionButton>
+            <MotionButton disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <InfinityLoader size={14} /> : <Download size={14} />}</MotionButton>
           </Tip>
         </div>
       </div>
@@ -1164,6 +1188,7 @@ export function PdfPreview({
       <ScrollArea
         className="pdf-scroll-area"
         orientation="both"
+        fadeEdges={false}
         viewportRef={scrollAreaRef}
         viewportClassName="pdf-scroll-area-viewport"
         contentClassName="pdf-scroll-area-content"
@@ -1190,8 +1215,8 @@ export function PdfPreview({
               onDestination={(destination) => void navigateDestination(destination)}
             />
           ))}</div>}
-        {showBlockingLoader && <div className="pdf-loading"><LoaderCircle className="spin" size={17} /> Rendering PDF…</div>}
-        {loading && documentProxy ? <div className="pdf-loading pdf-loading-quiet"><LoaderCircle className="spin" size={14} /> Updating…</div> : null}
+        {showBlockingLoader && <div className="pdf-loading"><InfinityLoader size={17} /> Rendering PDF…</div>}
+        {loading && documentProxy ? <div className="pdf-loading pdf-loading-quiet"><InfinityLoader size={14} /> Updating…</div> : null}
       </ScrollArea>
     </div>
   );

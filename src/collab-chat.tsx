@@ -13,6 +13,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SendHorizontal } from "lucide-react";
 import { IconButton } from "./components/ui/icon-button";
+import { Textarea } from "./components/ui/textarea";
 import type { CollabChatMessage } from "./collab-session";
 import "./collab-chat.css";
 
@@ -113,7 +114,7 @@ export function CollabChatPanel(props: {
       </div>
 
       <div className="collab-chat-composer">
-        <textarea
+        <Textarea
           ref={composerRef}
           rows={1}
           value={draft}

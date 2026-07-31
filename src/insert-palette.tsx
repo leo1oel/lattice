@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { Omega, Search } from "lucide-react";
+import { Omega } from "lucide-react";
 import { EmptyState } from "./components/ui/empty-state";
 import { PanelHeader } from "./components/ui/panel-header";
+import { SearchField } from "./components/ui/search-field";
 import { INSERT_GROUPS, INSERT_SNIPPETS, type InsertSnippet } from "./insert-snippets";
 import { SlidingTabs } from "./motion";
 import { ResizableDrawer } from "./resizable-drawer";
@@ -92,16 +93,15 @@ export function InsertPalette(props: {
           onClose={props.onClose}
         />
         <p className="drawer-copy">Pick a symbol or snippet. Each tile shows what it looks like, a short description, and the LaTeX that will be inserted.</p>
-        <label className="insert-palette-search">
-          <Search size={12} />
-          <input
-            autoFocus
-            aria-label="Filter snippets"
-            placeholder="Search by name, meaning, or command (alpha, implies, fraction…)"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
+        <SearchField
+          autoFocus
+          aria-label="Filter snippets"
+          containerClassName="insert-palette-search"
+          placeholder="Search by name, meaning, or command (alpha, implies, fraction…)"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onClear={() => setQuery("")}
+        />
         <SlidingTabs
           value={group}
           onChange={(next) => setGroup(next as (typeof INSERT_GROUPS)[number] | "All")}

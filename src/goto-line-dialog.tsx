@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MotionButton, PopIn } from "./motion";
 import { Button } from "./components/ui/button";
 import { buttonClassName } from "./components/ui/button-styles";
+import { Input } from "./components/ui/input";
 import { ModalDialog } from "./components/ui/modal-dialog";
 
 export function GotoLineDialog(props: {
@@ -43,7 +44,8 @@ function GotoLineDialogForm(props: {
         <p>Enter a line between 1 and {props.maxLine}.</p>
         <label>
           Line
-          <input
+          <Input
+            controlSize="form"
             autoFocus
             aria-label="Line number"
             value={value}

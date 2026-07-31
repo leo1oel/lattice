@@ -116,6 +116,7 @@ export function synaraFrameUrl(input: {
   path?: string;
   workspaceRoot: string;
   theme: "light" | "dark";
+  surface?: "chrome" | "drawer";
   hostOrigin: string;
   authToken?: string | null;
   section?: string | null;
@@ -124,6 +125,7 @@ export function synaraFrameUrl(input: {
   url.searchParams.set("embed", "1");
   url.searchParams.set("workspaceRoot", input.workspaceRoot);
   url.searchParams.set("theme", input.theme);
+  if (input.surface) url.searchParams.set("surface", input.surface);
   url.searchParams.set("hostOrigin", input.hostOrigin);
   if (input.section) url.searchParams.set("section", input.section);
   if (input.authToken) {

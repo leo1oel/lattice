@@ -137,6 +137,7 @@ describe("Overleaf comments panel", () => {
 
   it("deletes a thread anchored in another (unopened) file exactly like one in the open file", async () => {
     const onDelete = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(confirm).mockResolvedValue(true);
     render(panel({
       threads: [thread({ id: "t2" })],
       anchors: anchorsByThreadId([anchor({ threadId: "t2", docId: "doc-other-file" })]),
@@ -147,7 +148,21 @@ describe("Overleaf comments panel", () => {
     const deleteButton = screen.getByRole("button", { name: /Delete/ });
     expect(deleteButton).toBeEnabled();
     fireEvent.click(deleteButton);
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(
+      expect.stringContaining("Delete this discussion?"),
+      expect.anything(),
+    ));
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith("t2"));
+  });
+
+  it("does not delete a discussion when the warning is cancelled", async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(confirm).mockResolvedValue(false);
+    render(panel({ onDelete }));
+
+    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(onDelete).not.toHaveBeenCalled();
   });
 
   it("hides resolved threads until asked to include them", () => {

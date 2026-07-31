@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, MessageSquareText, Reply, RotateCcw, Trash2 } from "lucide-react";
+import { Check, MessageSquareText, Reply, RotateCcw } from "lucide-react";
 import { EmptyState } from "./components/ui/empty-state";
+import { DestructiveButton } from "./components/ui/destructive-button";
 import { PanelHeader } from "./components/ui/panel-header";
+import { SearchField } from "./components/ui/search-field";
+import { Textarea } from "./components/ui/textarea";
 import { formatCommentTimestamp, type EditorComment } from "./editor-comments";
 import { ResizableDrawer } from "./resizable-drawer";
 
@@ -67,11 +70,12 @@ export function EditorCommentsPanel(props: {
           Select text in the source editor, then add a comment. Comments sync with collaborators and stay in the project after you leave.
         </p>
         <div className="pdf-marks-toolbar">
-          <input
-            type="search"
+          <SearchField
+            aria-label="Filter editor comments"
             placeholder="Filter comments…"
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
+            onClear={() => setFilter("")}
           />
           <div className="pdf-marks-kind-filter">
             <button
@@ -134,7 +138,7 @@ export function EditorCommentsPanel(props: {
 
                 {editingId === comment.id ? (
                   <div className="pdf-mark-edit">
-                    <textarea
+                    <Textarea
                       value={draft}
                       rows={3}
                       onChange={(event) => setDraft(event.target.value)}
@@ -157,7 +161,7 @@ export function EditorCommentsPanel(props: {
                   // Sits in the reply thread, so it is indented and sized like
                   // the replies it joins rather than borrowing the PDF-mark shell.
                   <div className="editor-comment-reply-compose">
-                    <textarea
+                    <Textarea
                       value={replyDraft}
                       rows={3}
                       autoFocus
@@ -226,10 +230,13 @@ export function EditorCommentsPanel(props: {
                       </button>
                     )}
                     {isAuthor && (
-                      <button type="button" className="danger" onClick={() => props.onDelete(comment.id)}>
-                        <Trash2 size={13} />
+                      <DestructiveButton
+                        className="danger"
+                        iconSize={13}
+                        onClick={() => props.onDelete(comment.id)}
+                      >
                         <span>Delete</span>
-                      </button>
+                      </DestructiveButton>
                     )}
                   </div>
                 )}

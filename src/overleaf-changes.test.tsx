@@ -97,8 +97,11 @@ describe("useOverleafTrackChanges", () => {
     const reload = vi.fn();
     const { result } = renderHook(() => useOverleafTrackChanges({
       enabled: true,
+      projectRoot: "/tmp/project",
       docId: "doc-1",
-      reserveOperation: () => 7,
+      reserveOperation: () => ({ docId: "doc-1", version: 7 }),
+      noteReservedOperationUnknown: () => undefined,
+      settledVersion: () => 7,
       changes: [change()],
       canAct: true,
       reload,
@@ -107,7 +110,11 @@ describe("useOverleafTrackChanges", () => {
     await act(async () => {
       await result.current.accept(["c1"]);
     });
-    expect(invoke).toHaveBeenCalledWith("overleaf_accept_changes", { docId: "doc-1", changeIds: ["c1"] });
+    expect(invoke).toHaveBeenCalledWith("overleaf_accept_changes", {
+      projectRoot: "/tmp/project",
+      docId: "doc-1",
+      changeIds: ["c1"],
+    });
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
@@ -117,8 +124,11 @@ describe("useOverleafTrackChanges", () => {
     vi.mocked(invoke).mockResolvedValue(undefined);
     const { result } = renderHook(() => useOverleafTrackChanges({
       enabled: true,
+      projectRoot: "/tmp/project",
       docId: "doc-1",
       reserveOperation: () => null,
+      noteReservedOperationUnknown: () => undefined,
+      settledVersion: () => null,
       changes: [change()],
       canAct: true,
       reload: vi.fn(),
@@ -136,8 +146,11 @@ describe("useOverleafTrackChanges", () => {
     const toReject = [change()];
     const { result } = renderHook(() => useOverleafTrackChanges({
       enabled: true,
+      projectRoot: "/tmp/project",
       docId: "doc-1",
-      reserveOperation: () => 7,
+      reserveOperation: () => ({ docId: "doc-1", version: 7 }),
+      noteReservedOperationUnknown: () => undefined,
+      settledVersion: () => 7,
       changes: toReject,
       canAct: true,
       reload,
@@ -147,6 +160,7 @@ describe("useOverleafTrackChanges", () => {
       await result.current.reject(toReject);
     });
     expect(invoke).toHaveBeenCalledWith("overleaf_reject_changes", {
+      projectRoot: "/tmp/project",
       docId: "doc-1",
       version: 7,
       changes: toReject,
@@ -161,8 +175,11 @@ describe("useOverleafTrackChanges", () => {
     // that exist) would otherwise also do and muddy this assertion.
     const { result } = renderHook(() => useOverleafTrackChanges({
       enabled: true,
+      projectRoot: "/tmp/project",
       docId: "doc-1",
-      reserveOperation: () => 7,
+      reserveOperation: () => ({ docId: "doc-1", version: 7 }),
+      noteReservedOperationUnknown: () => undefined,
+      settledVersion: () => 7,
       changes: [],
       canAct: false,
       reload,
@@ -188,8 +205,11 @@ describe("useOverleafTrackChanges", () => {
     });
     const { result } = renderHook(() => useOverleafTrackChanges({
       enabled: true,
+      projectRoot: "/tmp/project",
       docId: "doc-1",
-      reserveOperation: () => 7,
+      reserveOperation: () => ({ docId: "doc-1", version: 7 }),
+      noteReservedOperationUnknown: () => undefined,
+      settledVersion: () => 7,
       changes: [change({ userId: "user-1" }), change({ id: "c2", userId: "user-2" })],
       canAct: true,
       reload: vi.fn(),

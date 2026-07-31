@@ -5,7 +5,11 @@ import { ModalDialog } from "./modal-dialog";
 
 afterEach(cleanup);
 
-function Harness(props: { closeDisabled?: boolean; onClose?: () => void }) {
+function Harness(props: {
+  closeDisabled?: boolean;
+  focusDialogOnOpen?: boolean;
+  onClose?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -14,13 +18,14 @@ function Harness(props: { closeDisabled?: boolean; onClose?: () => void }) {
         <ModalDialog
           label="Example dialog"
           closeDisabled={props.closeDisabled}
+          focusDialogOnOpen={props.focusDialogOnOpen}
           onClose={() => {
             props.onClose?.();
             setOpen(false);
           }}
         >
           <div>
-            <input aria-label="First field" autoFocus />
+            <input aria-label="First field" autoFocus={!props.focusDialogOnOpen} />
             <button type="button">Last action</button>
           </div>
         </ModalDialog>
@@ -61,5 +66,14 @@ describe("ModalDialog", () => {
 
     expect(screen.getByRole("dialog", { name: "Example dialog" })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("can keep initial focus on the dialog surface", async () => {
+    render(<Harness focusDialogOnOpen />);
+    fireEvent.click(screen.getByRole("button", { name: "Open dialog" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Example dialog" });
+    await waitFor(() => expect(dialog).toHaveFocus());
+    expect(screen.getByRole("textbox", { name: "First field" })).not.toHaveFocus();
   });
 });

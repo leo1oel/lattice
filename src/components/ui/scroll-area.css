@@ -40,6 +40,15 @@
   transition-delay: 0ms;
 }
 
+.external-scrollbar {
+  pointer-events: auto;
+}
+
+.external-scrollbar .lattice-scrollbar-thumb {
+  flex: none;
+  will-change: height, transform;
+}
+
 .lattice-scrollbar[data-orientation="vertical"]:not([data-overflow-y-start]):not([data-overflow-y-end]),
 .lattice-scrollbar[data-orientation="horizontal"]:not([data-overflow-x-start]):not([data-overflow-x-end]) {
   display: none;
@@ -100,6 +109,23 @@
 
 .lattice-scrollbar[data-orientation="horizontal"]:hover .lattice-scrollbar-thumb {
   height: 6px;
+}
+
+/*
+ * Base UI keeps the real scroll position on the viewport and mirrors it through
+ * the adjacent Lattice thumb. App.css also styles native scrollbars globally,
+ * so explicitly suppress the viewport's native track to enforce one scrollbar
+ * per surface.
+ */
+[data-slot="scroll-area"]:has(> .lattice-scrollbar) > [data-slot="scroll-area-viewport"] {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+[data-slot="scroll-area"]:has(> .lattice-scrollbar) > [data-slot="scroll-area-viewport"]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .scroll-fade,
@@ -181,12 +207,32 @@
   border: 3px solid transparent;
   border-radius: var(--radius-pill);
   background: transparent;
-  background-clip: padding-box;
+  background-clip: content-box;
+}
+
+.native-hover-scrollbar::-webkit-scrollbar-thumb:vertical {
+  border-right-width: 5px;
+  border-left-width: 1px;
+}
+
+.native-hover-scrollbar::-webkit-scrollbar-thumb:horizontal {
+  border-top-width: 1px;
+  border-bottom-width: 5px;
 }
 
 .native-hover-scrollbar:hover::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--text) 12%, transparent);
-  background-clip: padding-box;
+  background-clip: content-box;
+}
+
+.native-hover-scrollbar:hover::-webkit-scrollbar-thumb:vertical {
+  border-right-width: 4px;
+  border-left-width: 0;
+}
+
+.native-hover-scrollbar:hover::-webkit-scrollbar-thumb:horizontal {
+  border-top-width: 0;
+  border-bottom-width: 4px;
 }
 
 .native-hover-scrollbar::-webkit-scrollbar-thumb:active {

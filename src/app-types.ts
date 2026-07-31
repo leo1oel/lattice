@@ -2,7 +2,7 @@
  * Shared domain type declarations extracted from `App.tsx`.
  *
  * These are the compile-time types that describe the app's core data (projects,
- * editor state, agent sessions, papers, build results, and so on). They live
+ * editor state, papers, build results, and so on). They live
  * here so `App.tsx` and future modules can import them without pulling in the
  * whole component. Types are erased at runtime, so this file has no runtime cost.
  */
@@ -37,13 +37,6 @@ export type WordCount = {
   captions: number;
   total: number;
   source: string;
-};
-
-export type AgentToolStep = {
-  id: string;
-  name: string;
-  detail: string;
-  phase: "start" | "end";
 };
 
 export type UnusedSymbols = {
@@ -105,6 +98,7 @@ export type FigureDropRequest = {
   paths: string[];
   clientX: number;
   clientY: number;
+  pane?: EditorPaneId;
 };
 
 export type FigurePointerDrag = {
@@ -112,7 +106,8 @@ export type FigurePointerDrag = {
   label: string;
   clientX: number;
   clientY: number;
-  overEditor: boolean;
+  overCanvas: boolean;
+  insertAtEditor: boolean;
 };
 
 export type SyncTexTarget = {
@@ -131,28 +126,6 @@ export type BuildResult = {
   durationMs: number;
   diagnostics: CompileDiagnostic[];
 };
-
-export type AgentResult = {
-  summary: string;
-  /**
-   * How the run ended, when that was not simply "it finished": stopped by the
-   * user, or failed after it had already changed files. Absent on a normal
-   * run, whose reply the streamed transcript already holds.
-   */
-  notice?: string | null;
-  changedFiles: string[];
-  transactionId?: string;
-  skillsUsed: string[];
-  /** Metadata from the exact bytes accepted and sent by the backend. */
-  attachments?: AgentAttachmentMetadata[];
-};
-
-export type AgentStreamEvent =
-  | { type: "status"; message: string }
-  | { type: "text"; text: string }
-  | { type: "cancellable"; enabled: boolean }
-  | { type: "attachments"; attachments: AgentAttachmentMetadata[] }
-  | { type: "tool"; name: string; detail: string; phase: string };
 
 export type PaperSummary = {
   arxivId: string;
@@ -176,120 +149,15 @@ export type RenameSymbolResult = {
   transactionId: string;
 };
 
-/** One chronological slice of an agent turn: something it said, or something it did. */
-export type ChatPart =
-  | { kind: "text"; text: string }
-  | ({ kind: "tool" } & AgentToolStep);
-
-export type ChatMessage = {
-  id: string;
-  role: "user" | "agent" | "system";
-  text: string;
-  files?: string[];
-  attachments?: AgentAttachmentMetadata[];
-  skills?: string[];
-  /** Absent on user/system turns; the bubble falls back to `text` then. */
-  parts?: ChatPart[];
-};
-
-export type AgentAttachmentMetadata = {
-  name: string;
-  kind: "image" | "text" | "document";
-  mimeType?: string | null;
-  size: number;
-  /** Lightweight inspection-only thumbnail; never persisted with a sent turn. */
-  previewUrl?: string | null;
-};
-export type AgentAttachmentDescriptor = AgentAttachmentMetadata & { path: string };
-
-export type AgentSession = {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  provider: AgentProvider;
-  model: string;
-  reasoningEffort: ReasoningEffort;
-  messages: ChatMessage[];
-};
-
-export type AgentSessionSummary = {
-  id: string;
-  title: string;
-  updatedAt: string;
-  provider: AgentProvider;
-  model: string;
-  reasoningEffort: ReasoningEffort;
-  messageCount: number;
-};
-
-export type AgentSessionSearchResult = AgentSessionSummary & { snippet: string };
-export type AgentSkill = {
-  name: string;
-  description: string;
-  scope: "built-in" | "application" | "project";
-  enabled: boolean;
-  editable: boolean;
-  overridden: boolean;
-  content: string;
-};
-export type SkillDraft = { originalName?: string; scope: "application" | "project"; content: string };
-export type McpTransport = "stdio" | "http" | "sse";
-export type McpServer = {
-  name: string;
-  scope: "application" | "project";
-  enabled: boolean;
-  overridden: boolean;
-  transport: string;
-  command?: string | null;
-  args: string[];
-  env: Record<string, string>;
-  cwd?: string | null;
-  url?: string | null;
-  headers: Record<string, string>;
-  summary: string;
-};
-export type McpServerDraft = {
-  originalName?: string;
-  scope: "application" | "project";
-  name: string;
-  enabled: boolean;
-  transport: McpTransport;
-  command: string;
-  argsText: string;
-  envText: string;
-  cwd: string;
-  url: string;
-  headersText: string;
-};
-export type AgentMention = { key: string; label: string; path: string; kind: "file" | "paper" };
-export type MentionState = { start: number; end: number; query: string };
-
 export type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "markdown-preview" | "paper" | "asset";
 export type EditorPaneId = "primary" | "secondary";
 export type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
-export type AgentProvider = "codex" | "claude" | "openai-api" | "anthropic-api";
-export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "accounts" | "overleaf" | "api" | "doctor" | "logs";
+export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "overleaf" | "api" | "doctor" | "logs";
 export type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
 export type DoctorCheck = { name: string; detail: string; ok: boolean };
 export type DoctorReport = { ok: boolean; summary: string; checks: DoctorCheck[] };
 export type EditorKeymap = "default" | "vim" | "emacs";
-export type SubscriptionStatus = { provider: "codex" | "claude"; installed: boolean; loggedIn: boolean; detail: string };
-export type ModelOption = { value: string; label: string; efforts: ReasoningEffort[] };
-
-/** What the agent runtime says it can run, and how hard it can think. */
-export type AgentModel = { value: string; label: string; efforts: string[] };
-
-/** Which agent runtime is in use, and whether a newer one is published. */
-export type AgentRuntimeStatus = {
-  current: string;
-  bundled: string;
-  latest: string | null;
-  updateAvailable: boolean;
-  detail: string | null;
-};
 
 // ---- Overleaf bridge ----------------------------------------------------
 // Shapes mirror the Rust `overleaf` module's serde camelCase output exactly.

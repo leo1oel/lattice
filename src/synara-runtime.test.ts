@@ -26,12 +26,14 @@ describe("Synara runtime URLs", () => {
         origin: "http://127.0.0.1:4567",
         workspaceRoot: "/Users/me/Research paper",
         theme: "dark",
+        surface: "drawer",
         hostOrigin: "http://localhost:1420",
         authToken: "secret token",
       }),
     );
     expect(url.searchParams.get("workspaceRoot")).toBe("/Users/me/Research paper");
     expect(url.searchParams.get("embed")).toBe("1");
+    expect(url.searchParams.get("surface")).toBe("drawer");
     expect(url.searchParams.has("token")).toBe(false);
     expect(new URLSearchParams(url.hash.slice(1)).get("lattice-auth")).toBe("secret token");
   });

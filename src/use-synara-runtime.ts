@@ -10,9 +10,6 @@ import {
 const DEVELOPMENT_ORIGIN = normalizeSynaraOrigin(
   import.meta.env.VITE_SYNARA_EMBED_URL?.trim(),
 );
-const TAURI_RUNTIME_AVAILABLE =
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-export const SYNARA_RUNTIME_ENABLED = Boolean(DEVELOPMENT_ORIGIN) || TAURI_RUNTIME_AVAILABLE;
 
 function developmentRuntime(): SynaraRuntimeInfo | null {
   if (!DEVELOPMENT_ORIGIN) return null;
@@ -49,7 +46,6 @@ export function useSynaraRuntime() {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!SYNARA_RUNTIME_ENABLED) return;
     if (DEVELOPMENT_RUNTIME) return;
     let disposed = false;
     const stopListening = listen<SynaraRuntimeInfo>(
@@ -80,5 +76,5 @@ export function useSynaraRuntime() {
     setRuntime((current) => ({ ...current, state: "starting", message: null }));
     setAttempt((value) => value + 1);
   }, []);
-  return { enabled: SYNARA_RUNTIME_ENABLED, runtime, retry };
+  return { runtime, retry };
 }

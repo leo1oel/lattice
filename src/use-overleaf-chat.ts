@@ -36,7 +36,10 @@ export type OverleafChat = {
   markRead: () => void;
 };
 
-export function useOverleafChat(options: { enabled: boolean }): OverleafChat {
+export function useOverleafChat(options: {
+  enabled: boolean;
+  projectRoot: string | null;
+}): OverleafChat {
   const [messages, setMessages] = useState<OverleafMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export function useOverleafChat(options: { enabled: boolean }): OverleafChat {
   const seen = useRef<Set<string>>(new Set());
 
   const enabled = options.enabled;
+  const projectRoot = options.projectRoot;
 
   useEffect(() => {
     if (!enabled) {
@@ -63,14 +67,15 @@ export function useOverleafChat(options: { enabled: boolean }): OverleafChat {
         myEmail.current = status.email;
       })
       .catch(() => {});
-  }, [enabled]);
+  }, [enabled, projectRoot]);
 
   const refresh = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled || !projectRoot) return;
     setLoading(true);
     setError(null);
     try {
       const history = await invoke<OverleafMessage[]>("overleaf_chat_messages", {
+        projectRoot,
         limit: HISTORY_LIMIT,
       });
       // Merge rather than replace: a message can land on the channel while
@@ -85,21 +90,22 @@ export function useOverleafChat(options: { enabled: boolean }): OverleafChat {
       setError(String(reason));
     }
     setLoading(false);
-  }, [enabled]);
+  }, [enabled, projectRoot]);
 
   const send = useCallback(async (content: string) => {
     const trimmed = content.trim();
     if (!trimmed) return;
+    if (!projectRoot) throw new Error("Open the linked Overleaf project first.");
     setError(null);
     try {
-      await invoke("overleaf_send_chat_message", { content: trimmed });
+      await invoke("overleaf_send_chat_message", { projectRoot, content: trimmed });
       // Overleaf echoes the message back over the channel, so there is nothing
       // to append here — doing both would show it twice.
     } catch (reason) {
       setError(String(reason));
       throw reason;
     }
-  }, []);
+  }, [projectRoot]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -132,7 +138,7 @@ export function useOverleafChat(options: { enabled: boolean }): OverleafChat {
       disposed = true;
       unlisten?.();
     };
-  }, [enabled]);
+  }, [enabled, projectRoot]);
 
   const markRead = useCallback(() => setUnread(0), []);
 

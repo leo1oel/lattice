@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { TrackedChange } from "./use-overleaf-realtime";
+import type { ReservedOperation, TrackedChange } from "./use-overleaf-realtime";
 
 /** One entry from `overleaf_change_authors`, once the naming is made safe. */
 type ChangeAuthor = {
@@ -85,6 +85,7 @@ export type OverleafTrackChanges = {
 
 export function useOverleafTrackChanges(options: {
   enabled: boolean;
+  projectRoot: string | null;
   /** Overleaf's id for the open document; accept and reject are keyed on it. */
   docId: string | null;
   /**
@@ -94,7 +95,15 @@ export function useOverleafTrackChanges(options: {
    * applies the inverse operation against a history it no longer has, and
    * either mangles it or refuses it outright and stops live editing.
    */
-  reserveOperation: () => number | null;
+  reserveOperation: () => ReservedOperation | null;
+  /** Reconcile a reserved reject whose send outcome could not be proven. */
+  noteReservedOperationUnknown: (reservation: ReservedOperation, reason: unknown) => void;
+  /**
+   * Read the current version only when the OT document is settled. Accepting
+   * is a REST mutation, so it must check the wire without reserving it: an
+   * empty OT reservation would never receive an acknowledgement.
+   */
+  settledVersion: () => number | null;
   changes: TrackedChange[];
   /** False for a read-only or suggest-only account: Overleaf refuses both calls for them. */
   canAct: boolean;
@@ -105,7 +114,10 @@ export function useOverleafTrackChanges(options: {
   const [error, setError] = useState<string | null>(null);
 
   const docId = useRef(options.docId);
+  const projectRoot = useRef(options.projectRoot);
   const reserveOperation = useRef(options.reserveOperation);
+  const noteReservedOperationUnknown = useRef(options.noteReservedOperationUnknown);
+  const settledVersion = useRef(options.settledVersion);
   const canAct = useRef(options.canAct);
   const reload = useRef(options.reload);
   // Kept current from an effect rather than assigned during render: refs are
@@ -114,7 +126,10 @@ export function useOverleafTrackChanges(options: {
   // writing them before the commit that would otherwise use them.
   useEffect(() => {
     docId.current = options.docId;
+    projectRoot.current = options.projectRoot;
     reserveOperation.current = options.reserveOperation;
+    noteReservedOperationUnknown.current = options.noteReservedOperationUnknown;
+    settledVersion.current = options.settledVersion;
     canAct.current = options.canAct;
     reload.current = options.reload;
   });
@@ -135,7 +150,8 @@ export function useOverleafTrackChanges(options: {
       return;
     }
     let cancelled = false;
-    invoke<unknown>("overleaf_change_authors")
+    if (!options.projectRoot) return;
+    invoke<unknown>("overleaf_change_authors", { projectRoot: options.projectRoot })
       .then((raw) => {
         if (!cancelled) setAuthors(new Map(parseChangeAuthors(raw).map((author) => [author.id, author])));
       })
@@ -146,7 +162,7 @@ export function useOverleafTrackChanges(options: {
     return () => {
       cancelled = true;
     };
-  }, [enabled, changeIdsKey]);
+  }, [enabled, changeIdsKey, options.projectRoot]);
 
   const authorName = useCallback(
     (userId: string | null) => displayName(userId ? authors.get(userId) : undefined),
@@ -156,7 +172,7 @@ export function useOverleafTrackChanges(options: {
   /** One id → busy as itself; several → busy as "all", for a bulk button's spinner. */
   const keyFor = (ids: string[]): string => (ids.length === 1 ? ids[0]! : "all");
 
-  const run = useCallback(async (ids: string[], action: () => Promise<void>) => {
+  const run = useCallback(async (ids: string[], action: () => Promise<string>) => {
     if (!ids.length) return;
     if (!canAct.current) {
       const message = "This account cannot accept or reject suggestions here.";
@@ -166,8 +182,12 @@ export function useOverleafTrackChanges(options: {
     setBusy(keyFor(ids));
     setError(null);
     try {
-      await action();
-      reload.current();
+      const targetDocId = await action();
+      // The mutation belongs to the document captured by the request. If the
+      // writer moved meanwhile, reloading the newly visible document is both
+      // unrelated and potentially disruptive; reopening the target performs a
+      // fresh join and observes the mutation there.
+      if (docId.current === targetDocId) reload.current();
     } catch (reason) {
       setError(String(reason));
       throw reason;
@@ -177,25 +197,47 @@ export function useOverleafTrackChanges(options: {
   }, []);
 
   const accept = useCallback((changeIds: string[]) => run(changeIds, async () => {
-    if (!docId.current) throw new Error("Open the document this suggestion is in first.");
-    await invoke("overleaf_accept_changes", { docId: docId.current, changeIds });
+    const targetDocId = docId.current;
+    if (!targetDocId) throw new Error("Open the document this suggestion is in first.");
+    const targetRoot = projectRoot.current;
+    if (!targetRoot) throw new Error("Open the linked Overleaf project first.");
+    if (settledVersion.current() === null) {
+      throw new Error(
+        "An edit is still on its way to Overleaf. Try accepting again in a moment.",
+      );
+    }
+    await invoke("overleaf_accept_changes", {
+      projectRoot: targetRoot,
+      docId: targetDocId,
+      changeIds,
+    });
+    return targetDocId;
   }), [run]);
 
   const reject = useCallback((toReject: TrackedChange[]) => run(
     toReject.map((change) => change.id),
     async () => {
       if (!docId.current) throw new Error("Open the document this suggestion is in first.");
-      const version = reserveOperation.current();
-      if (version === null) {
+      const targetRoot = projectRoot.current;
+      if (!targetRoot) throw new Error("Open the linked Overleaf project first.");
+      const reservation = reserveOperation.current();
+      if (reservation === null) {
         throw new Error(
           "An edit is still on its way to Overleaf. Try rejecting again in a moment.",
         );
       }
-      await invoke("overleaf_reject_changes", {
-        docId: docId.current,
-        version,
-        changes: toReject,
-      });
+      try {
+        await invoke("overleaf_reject_changes", {
+          projectRoot: targetRoot,
+          docId: reservation.docId,
+          version: reservation.version,
+          changes: toReject,
+        });
+      } catch (reason) {
+        noteReservedOperationUnknown.current(reservation, reason);
+        throw reason;
+      }
+      return reservation.docId;
     },
   ), [run]);
 

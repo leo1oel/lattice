@@ -8,9 +8,10 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Check, LoaderCircle, TriangleAlert } from "lucide-react";
+import { Check, TriangleAlert } from "lucide-react";
 import { MotionButton } from "./motion";
 import { Button } from "./components/ui/button";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
 import {
@@ -85,7 +86,7 @@ export function ConflictResolverDialog(props: {
         {error && <p className="conflict-error" role="alert">{error}</p>}
 
         {loading ? (
-          <div className="conflict-loading"><LoaderCircle className="spin" size={16} /> Reading the file…</div>
+          <div className="conflict-loading"><InfinityLoader size={16} /> Reading the file…</div>
         ) : hunks.length === 0 ? (
           <p className="conflict-empty">
             Nothing left to decide — this file has no conflict markers.
@@ -152,7 +153,7 @@ export function ConflictResolverDialog(props: {
             disabled={saving || loading || decided === 0}
             onClick={() => void save()}
           >
-            {saving ? <LoaderCircle className="spin" size={15} /> : null}
+            {saving ? <InfinityLoader size={15} /> : null}
             {saving ? "Saving…" : "Save file"}
           </MotionButton>
         </div>

@@ -92,7 +92,10 @@ describe("useOverleafChat", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
 
-    const { result } = renderHook(() => useOverleafChat({ enabled: true }));
+    const { result } = renderHook(() => useOverleafChat({
+      enabled: true,
+      projectRoot: "/tmp/project",
+    }));
     await act(async () => {
       await result.current.refresh();
     });

@@ -33,6 +33,23 @@
   --type-heading-line-height: 22px;
   --type-heading-weight: 600;
 
+  /* Specialized compact roles. Project filenames get their own 12px role so
+     Papers metadata and other compact navigation can remain at 11px. Source
+     and diff content use the application-owned TX-02-first editor font role. */
+  --type-tree-size: var(--type-caption-size);
+  --type-tree-line-height: var(--type-caption-line-height);
+  --type-tree-weight: var(--weight-regular);
+  --type-project-tree-size: var(--type-label-size);
+  --type-project-tree-line-height: var(--type-label-line-height);
+  --type-project-tree-weight: var(--weight-regular);
+  --type-project-tree-selected-weight: var(--weight-medium);
+  --type-diff-code-size: var(--type-caption-size);
+  --type-diff-code-line-height: 18px;
+  --type-diff-code-weight: var(--weight-regular);
+  --type-diff-meta-size: var(--type-micro-size);
+  --type-diff-meta-line-height: var(--type-micro-line-height);
+  --type-diff-meta-weight: var(--weight-medium);
+
   /* Compatibility aliases for the existing hand-written CSS. */
   --font-ui-xs: var(--type-micro-size);
   --font-ui-sm: var(--type-caption-size);
@@ -74,6 +91,33 @@
   --control-height-compact: 28px;
   --control-height-default: 32px;
   --control-height-form: 38px;
+
+  /* Text-entry controls share one visual contract even when their behavior
+     differs (forms, search, comments, inline edits, or compact toolbar values). */
+  --field-control-border-width: 1px;
+  --field-control-background: var(--side-surface);
+  --field-control-border-color: color-mix(
+    in srgb,
+    var(--text) 12%,
+    var(--field-control-background)
+  );
+  --field-control-interactive-border-color: color-mix(
+    in srgb,
+    var(--text) 24%,
+    var(--field-control-background)
+  );
+  --field-control-radius: var(--radius-control);
+  --field-control-padding-inline: var(--space-5);
+  --search-control-height: var(--control-height-default);
+  --search-control-height-compact: var(--control-height-compact);
+  --search-control-border-width: var(--field-control-border-width);
+  --search-control-background: var(--field-control-background);
+  --search-control-border-color: var(--field-control-border-color);
+  --search-control-radius: var(--field-control-radius);
+  --search-control-padding-inline: var(--field-control-padding-inline);
+  --search-control-gap: var(--space-3);
+  --search-control-icon-size: 14px;
+  --search-control-interactive-border-color: var(--field-control-interactive-border-color);
   --control-height-segmented-compact: 26px;
   --control-height-segmented-default: 34px;
   --control-size-checkbox: 14px;
@@ -85,6 +129,22 @@
   --row-height-compact: 32px;
   --row-height-default: 40px;
   --row-height-comfortable: 44px;
+  --row-height-tree: var(--row-height-compact);
+
+  /* Settings layout and frame contract. Native Lattice sections and embedded
+     Synara sections mirror these roles so their content columns and outlined
+     controls/cards align exactly. */
+  --settings-content-max-width: 500px;
+  --settings-content-padding-top: 30px;
+  --settings-content-padding-inline: 34px;
+  --settings-content-padding-bottom: 40px;
+  --settings-content-padding-top-compact: 24px;
+  --settings-content-padding-inline-compact: 20px;
+  --settings-content-padding-bottom-compact: 32px;
+  --settings-frame-border-width: 1px;
+  --settings-frame-border-color: var(--line-strong);
+  --settings-control-border-color: var(--line-strong);
+  --settings-frame-radius: var(--radius-control);
 
   /* Semantic color aliases preserve the neutral accent and follow both themes. */
   --text-primary: var(--text);

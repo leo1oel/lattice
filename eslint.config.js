@@ -4,12 +4,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  // src/thinking-orbs is vendored verbatim from a third-party package; hold it
-  // to upstream's conventions, not ours, so it stays a clean drop-in on update.
-  // Agent Elements is installed from its official shadcn registry. Keep the
-  // copied source aligned with upstream instead of rewriting it for local lint
-  // preferences; our adapter in agent-panel.tsx remains fully linted.
-  { ignores: ["dist", "src-tauri/target", "src/thinking-orbs/**", "src/components/agent-elements/**"] },
+  { ignores: ["dist", "src-tauri/target"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

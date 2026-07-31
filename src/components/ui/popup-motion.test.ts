@@ -5,7 +5,6 @@ import context from "./context-menu.tsx?raw"
 import select from "./select.tsx?raw"
 import popover from "./popover.tsx?raw"
 import app from "../../App.tsx?raw"
-import agentPanel from "../../agent-panel.tsx?raw"
 import latexToolbar from "../../latex-selection-toolbar.tsx?raw"
 
 describe("shared popup motion", () => {
@@ -23,7 +22,7 @@ describe("shared popup motion", () => {
   })
 
   it("has no liquid opt-ins or wrappers and preserves Popper spacing", () => {
-    const sources = [dropdown, context, select, popover, app, agentPanel, latexToolbar]
+    const sources = [dropdown, context, select, popover, app, latexToolbar]
     for (const source of sources) expect(source).not.toMatch(/liquid-panel|\bliquid\b/i)
     expect(select).toContain("data-[side=bottom]:translate-y-1")
   })

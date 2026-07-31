@@ -1,5 +1,7 @@
 ---
 name: humanize-writing
+display-name: Humanize Writing
+short-description: Write and revise in your own voice without AI tells.
 description: Write, rewrite, edit, humanize, or post text in the user's own voice without AI tells. Use when the user asks you to write as them, polish their prose, humanize or de-slop text, draft essays, posts, emails, notes, explanations, or research writing, or produce any outward-facing text where their identity, tone, or writing preferences matter.
 ---
 

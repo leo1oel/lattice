@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Replace } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { CheckboxField } from "./components/ui/checkbox-field";
+import { Input } from "./components/ui/input";
 import { PanelHeader } from "./components/ui/panel-header";
+import { SearchField } from "./components/ui/search-field";
 
 export type ReplacePreviewMatch = {
   path: string;
@@ -55,10 +57,12 @@ export function ProjectReplaceDialog(props: {
         <p className="drawer-copy">Preview matches across `.tex`, `.bib`, and other project source files, then confirm replace. Changes are recorded in project history.</p>
         <label>
           Find
-          <input
+          <SearchField
             autoFocus
+            aria-label="Find text to replace"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onClear={() => setQuery("")}
             placeholder={useRegex ? "Regular expression" : "Text to find"}
             onKeyDown={(event) => {
               if (event.key === "Enter" && query.trim() && !props.busy) {
@@ -70,7 +74,7 @@ export function ProjectReplaceDialog(props: {
         </label>
         <label>
           Replace with
-          <input
+          <Input
             value={replacement}
             onChange={(event) => setReplacement(event.target.value)}
             placeholder="Replacement text"

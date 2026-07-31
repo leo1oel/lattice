@@ -51,17 +51,22 @@ describe("useOverleafPresence roster", () => {
 
   it("seeds from connected_users and drops our own entry", async () => {
     const { result } = renderHook(() => useOverleafPresence({
+      projectRoot: "/tmp/project",
       docId: "doc-1",
       selfId: "self-1",
       readCaret: () => ({ row: 0, column: 0 }),
     }));
     await flush();
+    expect(invoke).toHaveBeenCalledWith("overleaf_rt_connected_users", {
+      projectRoot: "/tmp/project",
+    });
     expect(result.current.peers).toHaveLength(1);
     expect(result.current.peers[0].id).toBe("conn-2");
   });
 
   it("removes someone once they leave", async () => {
     const { result } = renderHook(() => useOverleafPresence({
+      projectRoot: "/tmp/project",
       docId: "doc-1",
       selfId: "self-1",
       readCaret: () => ({ row: 0, column: 0 }),
@@ -78,6 +83,7 @@ describe("useOverleafPresence roster", () => {
   it("filters our own presenceUpdated echo", async () => {
     connectedUsers = [];
     const { result } = renderHook(() => useOverleafPresence({
+      projectRoot: "/tmp/project",
       docId: "doc-1",
       selfId: "self-1",
       readCaret: () => ({ row: 0, column: 0 }),
@@ -98,6 +104,7 @@ describe("useOverleafPresence roster", () => {
 
   it("clears the roster once the channel reports disconnected", async () => {
     const { result } = renderHook(() => useOverleafPresence({
+      projectRoot: "/tmp/project",
       docId: "doc-1",
       selfId: "self-1",
       readCaret: () => ({ row: 0, column: 0 }),
@@ -141,6 +148,7 @@ describe("useOverleafPresence publish", () => {
 
   it("publishes once immediately when a document is joined, even before any move", async () => {
     renderHook(() => useOverleafPresence({
+      projectRoot: "/tmp/project",
       docId: "doc-1",
       selfId: "self-1",
       readCaret: () => ({ row: 0, column: 0 }),
@@ -150,11 +158,17 @@ describe("useOverleafPresence publish", () => {
     });
     const calls = updatePositionCalls();
     expect(calls).toHaveLength(1);
-    expect(calls[0][1]).toEqual({ docId: "doc-1", row: 0, column: 0 });
+    expect(calls[0][1]).toEqual({
+      projectRoot: "/tmp/project",
+      docId: "doc-1",
+      row: 0,
+      column: 0,
+    });
   });
 
   it("debounces at 500ms when someone else is present, 5 minutes when alone", async () => {
     const { result } = renderHook(() => useOverleafPresence({
+      projectRoot: "/tmp/project",
       docId: "doc-1",
       selfId: "self-1",
       readCaret: () => ({ row: 0, column: 0 }),
@@ -197,6 +211,7 @@ describe("useOverleafPresence publish", () => {
 
   it("re-publishes on the keepalive interval", async () => {
     renderHook(() => useOverleafPresence({
+      projectRoot: "/tmp/project",
       docId: "doc-1",
       selfId: "self-1",
       readCaret: () => ({ row: 7, column: 3 }),
@@ -210,6 +225,11 @@ describe("useOverleafPresence publish", () => {
     });
     const calls = updatePositionCalls();
     expect(calls.length).toBe(before + 1);
-    expect(calls[calls.length - 1][1]).toEqual({ docId: "doc-1", row: 7, column: 3 });
+    expect(calls[calls.length - 1][1]).toEqual({
+      projectRoot: "/tmp/project",
+      docId: "doc-1",
+      row: 7,
+      column: 3,
+    });
   });
 });

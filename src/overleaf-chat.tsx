@@ -7,8 +7,10 @@
  * arrives on the realtime channel, so there is no refresh button to hunt for.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { LoaderCircle, SendHorizontal } from "lucide-react";
+import { SendHorizontal } from "lucide-react";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { IconButton } from "./components/ui/icon-button";
+import { Textarea } from "./components/ui/textarea";
 import type { OverleafMessage } from "./app-types";
 import "./overleaf-chat.css";
 
@@ -83,7 +85,7 @@ export function OverleafChatPanel(props: {
 
       <div className="overleaf-chat-list" ref={listRef}>
         {props.loading && !props.messages.length && (
-          <p className="git-empty"><LoaderCircle className="spin" size={13} /> Loading the conversation…</p>
+          <p className="git-empty"><InfinityLoader size={13} /> Loading the conversation…</p>
         )}
         {!props.loading && !props.messages.length && !props.error && (
           <p className="git-empty">No messages yet. Say something and everyone in the project sees it.</p>
@@ -114,7 +116,7 @@ export function OverleafChatPanel(props: {
       </div>
 
       <div className="overleaf-chat-composer">
-        <textarea
+        <Textarea
           ref={composerRef}
           rows={1}
           value={draft}
@@ -142,7 +144,7 @@ export function OverleafChatPanel(props: {
           disabled={!draft.trim() || sending}
           onClick={() => void submit()}
         >
-          {sending ? <LoaderCircle className="spin" size={14} /> : <SendHorizontal size={14} />}
+          {sending ? <InfinityLoader size={14} /> : <SendHorizontal size={14} />}
         </IconButton>
       </div>
     </>

@@ -12,10 +12,11 @@ dist
 dist-ssr
 public/pdfjs
 *.local
-src-tauri/binaries/
-src-tauri/omp-assets/
 src-tauri/synara-runtime/
 .agents/artifacts/
+.agents/skills/
+.tmp/
+skills-lock.json
 
 # Editor directories and files
 .vscode/*

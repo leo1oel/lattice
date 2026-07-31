@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, LoaderCircle, Radio, Users, X } from "lucide-react";
+import { Check, Copy, Radio, Users, X } from "lucide-react";
 import { IconSwap, MotionButton } from "./motion";
 import { isLocalCollabHost } from "./collab-config";
 import type { CollabChatMessage, CollabStatus } from "./collab-session";
 import type { CollabRoomRecord } from "./collab-rooms";
 import { CollabChatPanel } from "./collab-chat";
 import { Button } from "./components/ui/button";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { buttonClassName } from "./components/ui/button-styles";
 import { IconButton } from "./components/ui/icon-button";
+import { Input } from "./components/ui/input";
 import { PanelHeader } from "./components/ui/panel-header";
 import { rowClassName } from "./components/ui/row";
 import { SegmentedControl } from "./components/ui/segmented-control";
+import { Textarea } from "./components/ui/textarea";
 import { ResizableDrawer } from "./resizable-drawer";
 
 export type CollabDialogMode = "start" | "join";
@@ -141,7 +144,8 @@ export function CollabDialog(props: {
 
         <label>
           Your name
-          <input
+          <Input
+            controlSize="form"
             aria-label="Collab display name"
             placeholder="Ada"
             value={props.displayName}
@@ -194,7 +198,7 @@ export function CollabDialog(props: {
             {mode === "join" ? (
               <label>
                 Invite link
-                <textarea
+                <Textarea
                   aria-label="Collab invite"
                   placeholder="Paste the full invite: lattice:host/LT-XXXXXX"
                   value={props.inviteText}
@@ -241,7 +245,7 @@ export function CollabDialog(props: {
             ) : (
               <>
                 <div className="collab-status-line" data-status={props.status}>
-                  {props.status === "connecting" && <LoaderCircle className="spin" size={12} />}
+                  {props.status === "connecting" && <InfinityLoader size={12} />}
                   <span>
                     {props.status === "synced"
                       ? `${props.role === "guest" ? "Joined" : "Sharing"} · ${props.fileCount} files · ${othersLabel} · ${props.connectedRoom}`
@@ -305,7 +309,8 @@ export function CollabDialog(props: {
             {advanced ? (
               <label>
                 Sync host
-                <input
+                <Input
+                  controlSize="form"
                   aria-label="Collab host"
                   placeholder="lattice-collab.you.workers.dev"
                   value={props.host}

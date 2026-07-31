@@ -25,7 +25,10 @@ export type OverleafTrackChangesToggle = {
  * wiring notes this shipped with). Until it is known, the toggle refuses
  * rather than sending a map keyed on the wrong account.
  */
-export function useOverleafTrackChangesToggle(myUserId: string | null): OverleafTrackChangesToggle {
+export function useOverleafTrackChangesToggle(
+  myUserId: string | null,
+  projectRoot: string | null,
+): OverleafTrackChangesToggle {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,17 +38,25 @@ export function useOverleafTrackChangesToggle(myUserId: string | null): Overleaf
       setError(message);
       throw new Error(message);
     }
+    if (!projectRoot) {
+      const message = "Open the linked Overleaf project first.";
+      setError(message);
+      throw new Error(message);
+    }
     setPending(true);
     setError(null);
     try {
-      await invoke("overleaf_set_track_changes", { onFor: { [myUserId]: on } });
+      await invoke("overleaf_set_track_changes", {
+        projectRoot,
+        onFor: { [myUserId]: on },
+      });
     } catch (reason) {
       setError(String(reason));
       throw reason;
     } finally {
       setPending(false);
     }
-  }, [myUserId]);
+  }, [myUserId, projectRoot]);
 
   return { pending, error, setTrackChanges };
 }

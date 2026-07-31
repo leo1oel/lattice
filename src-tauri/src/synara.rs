@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager};
+use tauri_plugin_opener::OpenerExt;
 
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(20);
 const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(50);
@@ -95,6 +96,7 @@ struct RuntimeState {
 pub struct SynaraRuntime {
     node_path: PathBuf,
     server_entry: PathBuf,
+    bundled_skills_dir: PathBuf,
     home_dir: PathBuf,
     external_origin: Option<String>,
     version: Option<String>,
@@ -112,10 +114,18 @@ impl SynaraRuntime {
         } else {
             None
         };
-        let runtime_root = if cfg!(debug_assertions) {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("synara-runtime")
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let (runtime_root, bundled_skills_dir) = if cfg!(debug_assertions) {
+            (
+                manifest_dir.join("synara-runtime"),
+                manifest_dir.join("src").join("embedded_skills"),
+            )
         } else {
-            app.path().resource_dir()?.join("synara-runtime")
+            let resource_dir = app.path().resource_dir()?;
+            (
+                resource_dir.join("synara-runtime"),
+                resource_dir.join("src").join("embedded_skills"),
+            )
         };
         let executable_name = if cfg!(target_os = "windows") {
             "node.exe"
@@ -128,6 +138,7 @@ impl SynaraRuntime {
         Ok(Self {
             node_path: runtime_root.join("bin").join(executable_name),
             server_entry: runtime_root.join("server/dist/index.mjs"),
+            bundled_skills_dir,
             home_dir,
             external_origin,
             version: manifest
@@ -243,13 +254,13 @@ impl SynaraRuntime {
     fn spawn(&self) -> Result<RunningSynara, String> {
         if !self.node_path.is_file() {
             return Err(format!(
-                "The bundled agent runtime is missing at {}.",
+                "The bundled Synara runtime is missing at {}.",
                 self.node_path.display()
             ));
         }
         if !self.server_entry.is_file() {
             return Err(format!(
-                "The bundled agent service is missing at {}.",
+                "The bundled Synara service is missing at {}.",
                 self.server_entry.display()
             ));
         }
@@ -283,6 +294,7 @@ impl SynaraRuntime {
             .env("SYNARA_MODE", "desktop")
             .env("SYNARA_HOST", "127.0.0.1")
             .env("SYNARA_HOME", &self.home_dir)
+            .env("SYNARA_BUNDLED_SKILLS_DIR", &self.bundled_skills_dir)
             .env("SYNARA_NO_BROWSER", "true")
             // Keep the fork's upstream runtime intact while selecting Lattice's
             // model-facing prompt, MCP catalog, and bibliography boundary.
@@ -342,6 +354,20 @@ pub fn synara_ensure_ready(
     state: tauri::State<'_, SynaraRuntime>,
 ) -> Result<SynaraRuntimeInfo, String> {
     state.ensure_ready()
+}
+
+#[tauri::command]
+pub fn synara_open_skills_folder(app: tauri::AppHandle) -> Result<(), String> {
+    let skills_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("synara")
+        .join("skills");
+    fs::create_dir_all(&skills_dir).map_err(|error| error.to_string())?;
+    app.opener()
+        .open_path(skills_dir.to_string_lossy().into_owned(), None::<String>)
+        .map_err(|error| error.to_string())
 }
 
 pub fn prewarm(app: tauri::AppHandle) {

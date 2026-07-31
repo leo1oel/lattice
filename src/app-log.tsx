@@ -4,6 +4,7 @@ import { CloseButton } from "./components/ui/icon-button";
 import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
 import { SettingsSectionHeader } from "./components/ui/settings-section-header";
+import { CopyButton } from "./components/copy-button";
 
 export type AppLogLevel = "info" | "success" | "warning" | "error";
 export type AppLogEntry = {
@@ -21,6 +22,21 @@ const EMPTY_TOAST_IDS: string[] = [];
 let entries: AppLogEntry[] = readEntries();
 let visibleToastIds: string[] = [];
 const listeners = new Set<() => void>();
+
+export type AppToastAction = {
+  label: string;
+  onClick: () => void | Promise<void>;
+};
+
+export type AppToastOptions = {
+  copyText?: string;
+  timeoutMs?: number;
+  primaryAction?: AppToastAction;
+  secondaryAction?: AppToastAction;
+  onDismiss?: () => void;
+};
+
+const toastOptionsById = new Map<string, AppToastOptions>();
 
 function readEntries(): AppLogEntry[] {
   try {
@@ -49,6 +65,7 @@ export function addAppLog(input: {
   title: string;
   detail?: string;
   toast?: boolean;
+  toastOptions?: AppToastOptions;
 }): AppLogEntry {
   const entry: AppLogEntry = {
     id: crypto.randomUUID(),
@@ -59,15 +76,35 @@ export function addAppLog(input: {
     detail: input.detail?.trim() ?? "",
   };
   entries = [entry, ...entries].slice(0, MAX_ENTRIES);
-  if (input.toast !== false) visibleToastIds = [entry.id, ...visibleToastIds].slice(0, 4);
+  if (input.toast !== false) {
+    visibleToastIds = [entry.id, ...visibleToastIds].slice(0, 4);
+    if (input.toastOptions) toastOptionsById.set(entry.id, input.toastOptions);
+  }
   persist();
   emit();
   return entry;
 }
 
+export function updateAppLog(
+  id: string,
+  patch: Partial<Pick<AppLogEntry, "level" | "source" | "title" | "detail">>,
+  toastOptions?: AppToastOptions,
+): AppLogEntry | null {
+  const current = entries.find((entry) => entry.id === id);
+  if (!current) return null;
+  const updated = { ...current, ...patch };
+  entries = [updated, ...entries.filter((entry) => entry.id !== id)].slice(0, MAX_ENTRIES);
+  visibleToastIds = [id, ...visibleToastIds.filter((value) => value !== id)].slice(0, 4);
+  if (toastOptions) toastOptionsById.set(id, toastOptions);
+  persist();
+  emit();
+  return updated;
+}
+
 export function clearAppLogs() {
   entries = [];
   visibleToastIds = [];
+  toastOptionsById.clear();
   persist();
   emit();
 }
@@ -79,9 +116,12 @@ export function formatAppLogs(value = entries): string {
   ].filter(Boolean).join("\n")).join("\n\n");
 }
 
-function dismissToast(id: string) {
+export function dismissAppToast(id: string, notify = true) {
+  const options = toastOptionsById.get(id);
   visibleToastIds = visibleToastIds.filter((value) => value !== id);
+  toastOptionsById.delete(id);
   emit();
+  if (notify) options?.onDismiss?.();
 }
 
 function subscribe(listener: () => void) {
@@ -110,18 +150,70 @@ const LOG_ICON = {
 
 function AppToast({ entry }: { entry: AppLogEntry }) {
   const Icon = LOG_ICON[entry.level];
+  const options = toastOptionsById.get(entry.id);
+  const timeoutMs =
+    options?.timeoutMs ?? (entry.level === "error" ? 9_000 : 6_000);
   useEffect(() => {
-    const timer = window.setTimeout(() => dismissToast(entry.id), entry.level === "error" ? 9000 : 6000);
+    if (timeoutMs === 0) return;
+    const timer = window.setTimeout(
+      () => dismissAppToast(entry.id),
+      Math.max(1_000, timeoutMs),
+    );
     return () => window.clearTimeout(timer);
-  }, [entry.id, entry.level]);
+  }, [entry.id, timeoutMs]);
+  const expanded = Boolean(
+    entry.detail.length > 72 ||
+    options?.copyText ||
+    options?.primaryAction ||
+    options?.secondaryAction,
+  );
   return (
-    <div className={`app-toast ${entry.level}`} role={entry.level === "error" ? "alert" : "status"}>
+    <div
+      className={`app-toast ${entry.level}${expanded ? " expanded" : ""}`}
+      role={entry.level === "error" ? "alert" : "status"}
+    >
       <Icon size={15} />
-      <div><strong>{entry.title}</strong>{entry.detail && <span title={entry.detail}>{entry.detail}</span>}</div>
+      <div>
+        <strong>{entry.title}</strong>
+        {entry.detail && <span title={entry.detail}>{entry.detail}</span>}
+        {(options?.copyText ||
+          options?.primaryAction ||
+          options?.secondaryAction) && (
+          <div className="app-toast-actions">
+            {options.copyText && (
+              <CopyButton
+                className="app-toast-action"
+                text={options.copyText}
+                title="Copy notification command"
+              >
+                Copy
+              </CopyButton>
+            )}
+            {options.primaryAction && (
+              <button
+                type="button"
+                className="app-toast-action"
+                onClick={() => void options.primaryAction?.onClick()}
+              >
+                {options.primaryAction.label}
+              </button>
+            )}
+            {options.secondaryAction && (
+              <button
+                type="button"
+                className="app-toast-action"
+                onClick={() => void options.secondaryAction?.onClick()}
+              >
+                {options.secondaryAction.label}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
       <CloseButton
         label="Dismiss notification"
         size="compact"
-        onClick={() => dismissToast(entry.id)}
+        onClick={() => dismissAppToast(entry.id)}
       />
     </div>
   );

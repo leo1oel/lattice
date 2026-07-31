@@ -23,7 +23,11 @@ vi.mock("@pierre/diffs", () => ({
 vi.mock("@pierre/diffs/react", () => ({
   FileDiff: (props: {
     fileDiff: { name: string; type: string; deletionLines: string[]; additionLines: string[] };
-    options: { disableFileHeader?: boolean; onLineClick?: (line: { lineNumber: number }) => void };
+    options: {
+      disableFileHeader?: boolean;
+      onLineClick?: (line: { lineNumber: number }) => void;
+      unsafeCSS?: string;
+    };
   }) => (
     <button
       type="button"
@@ -33,6 +37,7 @@ vi.mock("@pierre/diffs/react", () => ({
       data-old={props.fileDiff.deletionLines.join("\n")}
       data-new={props.fileDiff.additionLines.join("\n")}
       data-header-disabled={String(props.options.disableFileHeader)}
+      data-unsafe-css={props.options.unsafeCSS}
       onClick={() => props.options.onLineClick?.({ lineNumber: 7 })}
     >
       Pierre diff
@@ -49,6 +54,9 @@ describe("FileDiffView", () => {
     );
     expect(screen.getByTestId("pierre-file-diff")).toHaveAttribute("data-change-type", "change");
     expect(screen.getByTestId("pierre-file-diff")).toHaveAttribute("data-header-disabled", "true");
+    expect(screen.getByTestId("pierre-file-diff").getAttribute("data-unsafe-css")).toContain(
+      "--diffs-line-height: var(--type-diff-code-line-height)",
+    );
 
     rerender(<FileDiffView change={{ path: "added.tex", before: null, after: "new" }} />);
     expect(screen.getByTestId("pierre-file-diff")).toHaveAttribute("data-change-type", "new");

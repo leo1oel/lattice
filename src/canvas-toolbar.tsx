@@ -3,8 +3,6 @@ import {
   Cloud,
   FileCode2,
   Image,
-  LoaderCircle,
-  LocateFixed,
   MessagesSquare,
   Omega,
   Redo2,
@@ -14,6 +12,7 @@ import type { ReactNode } from "react";
 import { Tip } from "./components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "./app-types";
 import { AnimatedProductIcon } from "./animated-icons/product-animated-icon";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { SegmentedControl } from "./components/ui/segmented-control";
 
 /**
@@ -27,7 +26,9 @@ function overleafChannelLabel(
   channel: "off" | "connecting" | "live" | "error" | undefined,
   detail: string | null | undefined,
 ) {
-  if (channel === "connecting") return "Connecting to Overleaf's live channel…";
+  if (channel === "connecting") {
+    return detail || "Connecting to Overleaf's live channel…";
+  }
   if (channel === "error") {
     return `Live editing unavailable${detail ? ` (${detail})` : ""} · syncing instead`;
   }
@@ -42,11 +43,13 @@ export function CanvasToolbar(props: {
   setMode: (mode: DocumentViewMode) => void;
   markdown: boolean;
   onMarkdownMode: (preview: boolean) => void;
+  paperView?: "blog" | "fulltext";
+  paperHasBlog?: boolean;
+  paperHasFullText?: boolean;
+  onPaperView?: (view: "blog" | "fulltext") => void;
   activePath: string;
   activeKind: "document" | "paper" | "asset";
   dirty: boolean;
-  canForwardSync: boolean;
-  locatingPdf: boolean;
   canNavigateBack: boolean;
   canNavigateForward: boolean;
   onNavigateBack: () => void;
@@ -55,7 +58,6 @@ export function CanvasToolbar(props: {
   onCollab: () => void;
   collabLive: boolean;
   collabPeers: number;
-  onForwardSync: () => void;
   onHistory: () => void;
   onGit: () => void;
   commentCount: number;
@@ -86,24 +88,42 @@ export function CanvasToolbar(props: {
   return (
     <div className="canvas-toolbar">
       <div className="active-document"><ActiveIcon size={14} /><span>{props.activePath}</span>{props.activeKind === "document" && props.dirty && <i />}</div>
-      <SegmentedControl
-        value={switcherMode}
-        onChange={(mode) => {
-          if (mode === "markdown-preview") props.onMarkdownMode(true);
-          else if (props.markdown) props.onMarkdownMode(false);
-          else if (mode === "source" || mode === "split" || mode === "pdf") props.setMode(mode);
-        }}
-        ariaLabel="Document view"
-        className="canvas-view-switcher"
-        items={props.markdown ? [
-          { value: "source", label: "Edit", title: "Edit Markdown" },
-          { value: "markdown-preview", label: "Preview", title: "Preview Markdown" },
-        ] : [
-          { value: "source", label: "source", title: "Source only" },
-          { value: "split", label: "split", title: "Source and PDF" },
-          { value: "pdf", label: "pdf", title: "PDF only" },
-        ]}
-      />
+      <div className="canvas-mode-controls">
+        <SegmentedControl
+          value={switcherMode}
+          onChange={(mode) => {
+            if (mode === "markdown-preview") props.onMarkdownMode(true);
+            else if (props.markdown) props.onMarkdownMode(false);
+            else if (mode === "source" || mode === "split" || mode === "pdf") props.setMode(mode);
+          }}
+          ariaLabel="Document view"
+          className="canvas-view-switcher"
+          items={props.markdown ? [
+            { value: "source", label: "Edit", title: "Edit Markdown" },
+            { value: "markdown-preview", label: "Preview", title: "Preview Markdown" },
+          ] : [
+            { value: "source", label: "source", title: "Source only" },
+            { value: "split", label: "split", title: "Source and PDF" },
+            { value: "pdf", label: "pdf", title: "PDF only" },
+          ]}
+        />
+        {props.activeKind === "paper"
+          && props.paperView
+          && props.onPaperView
+          && props.paperHasBlog
+          && props.paperHasFullText && (
+          <SegmentedControl
+            value={props.paperView}
+            onChange={props.onPaperView}
+            ariaLabel="Paper content"
+            className="paper-content-switcher"
+            items={[
+              { value: "blog", label: "Blog", title: "Open the paper overview" },
+              { value: "fulltext", label: "Paper", title: "Open the full paper Markdown" },
+            ]}
+          />
+        )}
+      </div>
       <div className="canvas-actions">
         {props.activeKind === "document" && (
           <>
@@ -147,11 +167,6 @@ export function CanvasToolbar(props: {
                 {props.collabLive ? <em className="collab-peer-badge">{props.collabPeers}</em> : null}
               </button>
             </Tip>
-            {!props.markdown && <Tip label="Reveal cursor in PDF (⌘⇧J)">
-              <button disabled={!props.canForwardSync || props.locatingPdf} onClick={props.onForwardSync}>
-                {props.locatingPdf ? <LoaderCircle className="spin" size={14} /> : <LocateFixed size={14} />}
-              </button>
-            </Tip>}
           </>
         )}
         {(props.onOverleafSync || props.onOverleafOpen) && (
@@ -171,7 +186,7 @@ export function CanvasToolbar(props: {
               onClick={props.overleafLinked ? props.onOverleafSync : props.onOverleafOpen}
             >
               {props.overleafSyncing
-                ? <LoaderCircle className="spin" size={14} />
+                ? <InfinityLoader size={14} />
                 : props.overleafLinked
                   ? <AnimatedProductIcon source="provided" kind="cloud-upload-outline" size={14} />
                   : <Cloud size={14} />}

@@ -1,10 +1,12 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import type { Extension } from "@codemirror/state";
 import {
   BookMarked,
   BookOpen,
@@ -24,6 +26,7 @@ import {
   ShieldCheck,
   Hand,
   Square,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import {
@@ -86,7 +89,6 @@ import { OverleafReviewDialog } from "./overleaf-review";
 import { ConflictResolverDialog } from "./conflict-resolver";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 import { useOverleafChat } from "./use-overleaf-chat";
-import { useAgentModels } from "./use-agent-models";
 import { useCollabChat } from "./use-collab-chat";
 import { useOverleafPresence, type PresenceUser } from "./use-overleaf-presence";
 import { useOverleafTrackChanges } from "./use-overleaf-track-changes";
@@ -95,18 +97,15 @@ import { OverleafTrackChangesToggle } from "./overleaf-track-changes-toggle";
 import { CopyButton } from "./components/copy-button";
 import { type PresenceCursor } from "./overleaf-cursors";
 import { OverleafPresenceAvatars } from "./overleaf-presence";
-import { useAgentRuntimeUpdates } from "./agent-runtime-settings";
 import { useOverleafComments, type OverleafComments } from "./use-overleaf-comments";
 import { OverleafCollabDrawer, type OverleafCollabTab } from "./overleaf-collab";
 import {
   type RecentProject,
   type BuildPreferences,
   BUILD_PREFERENCES_KEY,
-  AGENT_SYSTEM_PROMPT_KEY,
   loadRecentProjects,
   persistRecentProjects,
   loadBuildPreferences,
-  loadSystemPrompt,
   loadLastFile,
   persistLastFile,
   type OverleafRemoteDelete,
@@ -173,20 +172,14 @@ import {
   parseProjectOutline,
 } from "./latex-outline";
 import { ReferencesPanel, type SymbolOccurrence } from "./references-panel";
-const GitPanel = lazy(() =>
-  import("./git-panel").then((module) => ({ default: module.GitPanel })),
-);
 const HistoryDrawer = lazy(() =>
   import("./history-drawer").then((module) => ({ default: module.HistoryDrawer })),
 );
 import { type HistoryItem } from "./history-drawer";
 import { katexMacrosFromSources } from "./katex-macros";
-import { AgentPanel } from "./agent-panel";
 import { Navigator } from "./navigator";
-import { type AgentCommand } from "./slash-commands";
 import { EditorTabs } from "./editor-tabs";
 import { Tip } from "./components/icon-tip";
-import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -227,59 +220,42 @@ import type {
   EditorPosition,
   PdfSyncResponse,
   BuildResult,
-  AgentResult,
-  AgentStreamEvent,
   PaperSummary,
   RenameTarget,
   RenameSymbolResult,
-  ChatPart,
-  ChatMessage,
-  AgentSession,
-  AgentSessionSummary,
-  AgentSkill,
-  SkillDraft,
-  McpServer,
-  McpServerDraft,
   CanvasMode,
   EditorPaneId,
   DocumentViewMode,
-  AgentProvider,
-  ReasoningEffort,
   SettingsTab,
   CiteCommand,
   InsertSymbolCommand,
   DoctorReport,
-  SubscriptionStatus,
   OverleafLink,
   OverleafProbe,
   OverleafSyncResult,
-  AgentAttachmentDescriptor,
-  AgentAttachmentMetadata,
 } from "./app-types";
 import {
-  WELCOME_MESSAGE,
-  agentErrorDetails,
   applyProjectPathChanges,
   arxivIdFromTabKey,
   autoBuildDescription,
   beginWindowDrag,
-  buildAgentMentions,
+  canvasContentAt,
   confirmAction,
-  defaultModel,
+  classifyExternalProjectDrop,
+  dropCanvasAt,
   dropDirectoryAt,
   dropEditorAt,
+  editorPaneAt,
   isPaperTabKey,
-  normalizeEffort,
-  normalizeModel,
   paperKey,
   paperTabKey,
   projectItemPath,
   remapProjectPath,
+  stripFrontmatter,
   toMessage,
   toggleWindowFullscreen,
   type ProjectPathChange,
 } from "./app-utils";
-import { mcpDraftToSaveRequest } from "./mcp-settings";
 import {
   agentGitWorkspacePath,
   LATTICE_RESTORE_AGENT_CHECKPOINT,
@@ -287,7 +263,6 @@ import {
   synaraFrameUrl,
   type AgentGitWorkspaceView,
   type AgentCheckpointHistoryEntry,
-  type SynaraRuntimeInfo,
 } from "./synara-runtime";
 import {
   buildAgentHostContext,
@@ -296,16 +271,30 @@ import {
   type AgentHostContextSnapshot,
   type AgentHostSurface,
 } from "./agent-host-context";
+import {
+  buildAgentPaperLibrary,
+  LATTICE_PAPER_LIBRARY_REQUEST,
+  type AgentPaperLibrarySnapshot,
+} from "./agent-paper-library";
 import { useSynaraRuntime } from "./use-synara-runtime";
+import { SynaraLoadingSurface } from "./synara-loading-surface";
+import { useSynaraNotificationBridge } from "./synara-notifications";
+import { useSynaraConfirmationBridge } from "./synara-confirmations";
+import {
+  APP_WINDOW_MIN_HEIGHT,
+  minimumWindowWidth,
+} from "./window-layout";
 import "./App.css";
 
 const EMPTY_DIAGNOSTICS: CompileDiagnostic[] = [];
+const EMPTY_EDITOR_EXTENSIONS: Extension[] = [];
 const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-mode";
 const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
+const LATTICE_AGENT_PANEL_OPENED = "lattice:agent-panel-opened";
 const SYNARA_AGENT_PERMISSION_MODE_STATUS = "synara:agent-permission-mode";
 const SYNARA_LAYOUT_METRICS = "synara:layout-metrics";
 const SYNARA_EMBED_READY = "synara:embed-ready";
-const SYNARA_SIDEBAR_FALLBACK_MINIMUM = 260;
+const SYNARA_SIDEBAR_MINIMUM = 320;
 const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
 
 type SynaraPermissionMode = "approval-required" | "auto" | "full-access";
@@ -391,6 +380,7 @@ function synaraEmbedUrl(
     origin,
     workspaceRoot: projectRoot,
     theme,
+    surface: "chrome",
     hostOrigin: window.location.origin,
     authToken,
   });
@@ -408,74 +398,10 @@ function synaraSourceControlUrl(
     path: agentGitWorkspacePath(view),
     workspaceRoot: projectRoot,
     theme,
+    surface: "drawer",
     hostOrigin: window.location.origin,
     authToken,
   });
-}
-
-function SynaraLoadingSurface(props: {
-  runtime: SynaraRuntimeInfo;
-  preparingWorkspace?: boolean;
-  onRetry: () => void;
-}) {
-  const failed = props.runtime.state === "stopped";
-  return (
-    <div className="synara-loading-surface" role={failed ? "alert" : "status"} aria-live="polite">
-      <span className={failed ? "synara-loading-mark failed" : "synara-loading-mark"} aria-hidden="true">
-        {failed ? <CircleAlert size={17} /> : <Bot size={17} />}
-      </span>
-      <div className="synara-loading-copy">
-        <strong>
-          {failed
-            ? "Agent unavailable"
-            : props.preparingWorkspace
-              ? "Preparing this workspace"
-              : "Starting Agent"}
-        </strong>
-        <span>
-          {failed
-            ? props.runtime.message || "The bundled Agent service could not start."
-            : props.preparingWorkspace
-              ? "Restoring the conversation surface…"
-              : "Warming the local service…"}
-        </span>
-      </div>
-      {failed && (
-        <button type="button" onClick={props.onRetry}>
-          Retry
-        </button>
-      )}
-    </div>
-  );
-}
-
-function AgentAccessPicker(props: {
-  value: "subscription" | "api";
-  disabled: boolean;
-  onChange: (value: "subscription" | "api") => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const choose = (value: "subscription" | "api") => {
-    props.onChange(value);
-    setOpen(false);
-  };
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" className="sidebar-provider-select" aria-label="Agent access" disabled={props.disabled}>
-          <span>{props.value === "subscription" ? "Subscription" : "API"}</span><ChevronDown aria-hidden="true" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent side="bottom" align="end" sideOffset={6} className="agent-access-menu">
-        {(["subscription", "api"] as const).map((value) => (
-          <button type="button" key={value} className={value === props.value ? "selected" : ""} onClick={() => choose(value)}>
-            <span>{value === "subscription" ? "Subscription" : "API"}</span>
-            {value === props.value && <Check aria-hidden="true" />}
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
-  );
 }
 
 function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<string> {
@@ -486,17 +412,8 @@ function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<st
   return paths;
 }
 
-const defaultWelcomeMessages: ChatMessage[] = [
-  {
-    id: "welcome",
-    role: "agent",
-    text: WELCOME_MESSAGE,
-  },
-];
-
 function App() {
   const {
-    enabled: synaraRuntimeEnabled,
     runtime: synaraRuntime,
     retry: retrySynaraRuntime,
   } = useSynaraRuntime();
@@ -504,10 +421,34 @@ function App() {
     synaraRuntime.state === "ready" ? synaraRuntime.origin : null;
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
   const projectRef = useRef<ProjectSnapshot | null>(project);
+  // Incremented before any command that can replace the backend project root.
+  // Long-running work captures this value so results from A cannot update B
+  // during the short gap between the backend switch and React committing B.
+  const projectOperationGenerationRef = useRef(0);
+  const projectBeforeTransitionRef = useRef<ProjectSnapshot | null>(null);
+  const overleafSyncingRef = useRef(false);
+  const beginProjectTransition = useCallback((force = false) => {
+    // Let sync finish its disk refresh before attempting a switch. Cancelling
+    // only its UI phase after a failed switch could leave newly pulled bytes
+    // hidden behind an old editor buffer that later overwrites them.
+    if (overleafSyncingRef.current && !force) return false;
+    if (projectRef.current) projectBeforeTransitionRef.current = projectRef.current;
+    projectOperationGenerationRef.current += 1;
+    // A root-changing backend command may finish before React commits the new
+    // snapshot. Nulling only the imperative identity closes that gap without
+    // flashing the welcome screen or discarding the rendered old project.
+    projectRef.current = null;
+    return true;
+  }, []);
+  const cancelProjectTransition = useCallback(() => {
+    if (!projectRef.current) projectRef.current = projectBeforeTransitionRef.current;
+    projectBeforeTransitionRef.current = null;
+  }, []);
   const projectTreeMutationCountRef = useRef(0);
   const postSaveRefreshGenerationRef = useRef(0);
   useLayoutEffect(() => {
     projectRef.current = project;
+    projectBeforeTransitionRef.current = null;
   }, [project]);
   const [projectGitStatus, setProjectGitStatus] = useState<{
     projectRoot: string;
@@ -595,33 +536,40 @@ function App() {
   const referencePreviewCache = useRef(new Map<string, Promise<string | null>>());
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
+  const [savedPaperMarkdown, setSavedPaperMarkdown] = useState("");
   // The alphaXiv overview ("blog") is the default reading view; null when the
   // paper has no report. `paperView` picks which of blog/full-text is shown.
   const [paperBlog, setPaperBlog] = useState<string | null>(null);
+  const [savedPaperBlog, setSavedPaperBlog] = useState<string | null>(null);
   const [paperView, setPaperView] = useState<"blog" | "fulltext">("blog");
+  const activePaperPath = activePaper
+    ? `.research/papers/${activePaper.arxivId}/${paperView === "blog" ? "blog.md" : "paper.md"}`
+    : null;
+  const activePaperSource = paperView === "blog" ? paperBlog ?? "" : paperMarkdown;
+  const activePaperPreviewSource = paperView === "blog"
+    ? paperBlog ?? ""
+    : stripFrontmatter(paperMarkdown);
+  const activePaperDirty = Boolean(activePaper) && (
+    paperMarkdown !== savedPaperMarkdown || paperBlog !== savedPaperBlog
+  );
+  const setActivePaperSource = useCallback((value: string) => {
+    if (paperView === "blog") setPaperBlog(value);
+    else setPaperMarkdown(value);
+  }, [paperView]);
   const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
   const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
+  const [fileDropTargetPane, setFileDropTargetPane] = useState<EditorPaneId | null>(null);
   const [figureDropRequest, setFigureDropRequest] = useState<FigureDropRequest | null>(null);
   const [figurePointerDrag, setFigurePointerDrag] = useState<FigurePointerDrag | null>(null);
+  const nativeDragPathsRef = useRef<string[]>([]);
   const suppressedFigureClick = useRef<string | null>(null);
+  const suppressedProjectFileClick = useRef<string | null>(null);
+  const openProjectFileRef = useRef<(
+    path: string,
+    line?: number,
+    targetPane?: EditorPaneId,
+  ) => Promise<void>>(async () => undefined);
   const [editorNavigation, setEditorNavigation] = useState<EditorNavigation | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>(defaultWelcomeMessages);
-  const [agentSessions, setAgentSessions] = useState<AgentSessionSummary[]>([]);
-  const [activeSession, setActiveSession] = useState<AgentSession | null>(null);
-  const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
-  const [branchSource, setBranchSource] = useState<{ sessionId: string; messageId: string } | null>(null);
-  const [agentInput, setAgentInput] = useState("");
-  const [agentAttachments, setAgentAttachments] = useState<AgentAttachmentDescriptor[]>([]);
-  const [agentAttachmentsInspecting, setAgentAttachmentsInspecting] = useState(false);
-  const [provider, setProvider] = useState<AgentProvider>("codex");
-  const [agentModel, setAgentModel] = useState(defaultModel("codex"));
-  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("high");
-  const [agentRunning, setAgentRunning] = useState(false);
-  const [agentStreaming, setAgentStreaming] = useState(false);
-  const [agentStatus, setAgentStatus] = useState("");
-  const [agentCommands, setAgentCommands] = useState<AgentCommand[]>([]);
-  const [agentStopping, setAgentStopping] = useState(false);
-  const [agentCancellable, setAgentCancellable] = useState(false);
   const [projectWordCount, setProjectWordCount] = useState<WordCount | null>(null);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
@@ -693,15 +641,8 @@ function App() {
   /** Bumped whenever a save actually writes, so pushes follow real edits. */
   const [saveGeneration, setSaveGeneration] = useState(0);
   const [conflictPath, setConflictPath] = useState<string | null>(null);
-  const overleafSyncingRef = useRef(false);
   const overleafAutoSyncedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
-  // Which models exist is the runtime's business, not something written down
-  // in this app; the built-in table is only the fallback.
-  const agentModels = useAgentModels();
-  // The runtime carries the model list, so letting it fall behind quietly
-  // removes models people can otherwise choose.
-  useAgentRuntimeUpdates({ onUpdated: agentModels.refresh });
   /** Marks a comment that lives on Overleaf rather than in this project. */
   const OVERLEAF_COMMENT_PREFIX = "overleaf:";
   const overleafCommentsRef = useRef<OverleafComments>(null as unknown as OverleafComments);
@@ -776,14 +717,6 @@ function App() {
       void compileRef.current();
     }, 1_500);
   }, []);
-  useEffect(() => {
-    // Asked once: the list is a property of the bundled OMP build, not of the
-    // project or session. Failing leaves the menu empty rather than nagging.
-    void invoke<AgentCommand[]>("list_agent_commands")
-      .then(setAgentCommands)
-      .catch(() => setAgentCommands([]));
-  }, []);
-
   collabSessionRef.current = collabSession;
   projectRootRef.current = project?.root ?? null;
   const [citeInsertRequest, setCiteInsertRequest] = useState<{ key: string; command: InsertSymbolCommand; id: string } | null>(null);
@@ -809,7 +742,7 @@ function App() {
     occurrences: SymbolOccurrence[];
   } | null>(null);
   const [synaraMinimumSidebarWidth, setSynaraMinimumSidebarWidth] = useState(
-    synaraRuntimeEnabled ? SYNARA_SIDEBAR_FALLBACK_MINIMUM : 180,
+    SYNARA_SIDEBAR_MINIMUM,
   );
   const {
     sidebarOpen,
@@ -831,7 +764,7 @@ function App() {
   // Keep the three mode tabs on one shared expansion tier so switching modes
   // never makes the header jump. Synara has no legacy Subscription/API picker,
   // so its largest remaining action area is Papers' two icon buttons.
-  const sidebarModeReserve = (synaraRuntimeEnabled ? 53 : 108) + 18;
+  const sidebarModeReserve = 53 + 18;
   const sidebarModeTier = sidebarWidth >= 229 + sidebarModeReserve
     ? 4
     : sidebarWidth >= 183 + sidebarModeReserve
@@ -842,7 +775,25 @@ function App() {
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const synaraIframeRef = useRef<HTMLIFrameElement>(null);
   const synaraSourceControlFrameRef = useRef<HTMLIFrameElement>(null);
-  const synaraReadyFallbackTimerRef = useRef<number | null>(null);
+  useSynaraNotificationBridge({
+    frameRef: synaraIframeRef,
+    origin: synaraOrigin,
+    source: "Synara agent",
+  });
+  useSynaraConfirmationBridge({
+    frameRef: synaraIframeRef,
+    origin: synaraOrigin,
+  });
+  useSynaraNotificationBridge({
+    frameRef: synaraSourceControlFrameRef,
+    origin: synaraOrigin,
+    source: "Synara source control",
+  });
+  useSynaraConfirmationBridge({
+    frameRef: synaraSourceControlFrameRef,
+    origin: synaraOrigin,
+  });
+  const synaraReadyTimerRef = useRef<number | null>(null);
   const [synaraFrameMounted, setSynaraFrameMounted] = useState(
     sidebarMode === "agent",
   );
@@ -948,6 +899,19 @@ function App() {
   useLayoutEffect(() => {
     latestAgentHostContextRef.current = agentHostContext;
   }, [agentHostContext]);
+  const agentPaperLibrary = useMemo<AgentPaperLibrarySnapshot | null>(
+    () => project
+      ? buildAgentPaperLibrary({
+          workspaceRoot: project.root,
+          papers,
+        })
+      : null,
+    [papers, project],
+  );
+  const latestAgentPaperLibraryRef = useRef(agentPaperLibrary);
+  useLayoutEffect(() => {
+    latestAgentPaperLibraryRef.current = agentPaperLibrary;
+  }, [agentPaperLibrary]);
   const postSynaraMessage = useCallback((message: object) => {
     if (!synaraOrigin) return;
     synaraIframeRef.current?.contentWindow?.postMessage(
@@ -962,11 +926,21 @@ function App() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [agentHostContext, postSynaraMessage, synaraFrameMounted, synaraOrigin]);
+  useEffect(() => {
+    if (!agentPaperLibrary || !synaraOrigin || !synaraFrameMounted) return;
+    const frame = window.requestAnimationFrame(() => {
+      postSynaraMessage(agentPaperLibrary);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [agentPaperLibrary, postSynaraMessage, synaraFrameMounted, synaraOrigin]);
   const changeSynaraPermissionMode = useCallback((mode: SynaraPermissionMode) => {
     postSynaraMessage({ type: LATTICE_AGENT_PERMISSION_MODE_SET, mode });
   }, [postSynaraMessage]);
   const chooseSidebarMode = (mode: "project" | "papers" | "agent") => {
-    if (mode === "agent" && synaraRuntimeEnabled) setSynaraFrameMounted(true);
+    if (mode === "agent") {
+      setSynaraFrameMounted(true);
+      postSynaraMessage({ type: LATTICE_AGENT_PANEL_OPENED });
+    }
     setSidebarMode(mode);
     setSidebarOpen(true);
   };
@@ -988,9 +962,9 @@ function App() {
     return () => globalThis.clearTimeout(timer);
   }, [sidebarMode, synaraFrameMounted, synaraOrigin]);
   useEffect(() => {
-    if (synaraReadyFallbackTimerRef.current !== null) {
-      window.clearTimeout(synaraReadyFallbackTimerRef.current);
-      synaraReadyFallbackTimerRef.current = null;
+    if (synaraReadyTimerRef.current !== null) {
+      window.clearTimeout(synaraReadyTimerRef.current);
+      synaraReadyTimerRef.current = null;
     }
   }, [synaraFrameKey]);
   useEffect(() => {
@@ -1006,15 +980,25 @@ function App() {
         if (synaraFrameKey) setReadySynaraFrameKey(synaraFrameKey);
         const hostContext = latestAgentHostContextRef.current;
         if (hostContext) postSynaraMessage(hostContext);
-        if (synaraReadyFallbackTimerRef.current !== null) {
-          window.clearTimeout(synaraReadyFallbackTimerRef.current);
-          synaraReadyFallbackTimerRef.current = null;
+        const paperLibrary = latestAgentPaperLibraryRef.current;
+        if (paperLibrary) postSynaraMessage(paperLibrary);
+        if (sidebarMode === "agent") {
+          postSynaraMessage({ type: LATTICE_AGENT_PANEL_OPENED });
+        }
+        if (synaraReadyTimerRef.current !== null) {
+          window.clearTimeout(synaraReadyTimerRef.current);
+          synaraReadyTimerRef.current = null;
         }
         return;
       }
       if (event.data?.type === LATTICE_HOST_CONTEXT_REQUEST) {
         const hostContext = latestAgentHostContextRef.current;
         if (hostContext) postSynaraMessage(hostContext);
+        return;
+      }
+      if (event.data?.type === LATTICE_PAPER_LIBRARY_REQUEST) {
+        const paperLibrary = latestAgentPaperLibraryRef.current;
+        if (paperLibrary) postSynaraMessage(paperLibrary);
         return;
       }
       if (event.data?.type === LATTICE_HOST_CONTEXT_SELECTION_CLEAR) {
@@ -1051,7 +1035,7 @@ function App() {
         const reportedMinimum = Math.round(
           Math.min(
             SYNARA_SIDEBAR_MAXIMUM_MINIMUM,
-            Math.max(SYNARA_SIDEBAR_FALLBACK_MINIMUM, event.data.minimumSidebarWidth),
+            Math.max(SYNARA_SIDEBAR_MINIMUM, event.data.minimumSidebarWidth),
           ),
         );
         // Synara reports an intrinsic control width, not the footer's currently
@@ -1062,7 +1046,7 @@ function App() {
     };
     window.addEventListener("message", receiveSynaraMessage);
     return () => window.removeEventListener("message", receiveSynaraMessage);
-  }, [postSynaraMessage, selection, synaraFrameKey, synaraOrigin]);
+  }, [postSynaraMessage, selection, sidebarMode, synaraFrameKey, synaraOrigin]);
   useEffect(() => {
     if (!synaraOrigin || !gitOpen) return;
     const closeSourceControl = (event: MessageEvent) => {
@@ -1140,8 +1124,42 @@ function App() {
     if (project?.root && activeFile) persistLastFile(project.root, activeFile);
   }, [project?.root, activeFile]);
   const { theme, setTheme, appearance, setAppearance } = useAppearance();
+  useLayoutEffect(() => {
+    const appWindow = getCurrentWindow();
+    if (typeof appWindow.setMinSize !== "function") return;
+    const minimumWorkspaceWidth = Number(
+      document.querySelector<HTMLElement>(".split-canvas[data-minimum-workspace-width]")
+        ?.dataset.minimumWorkspaceWidth,
+    ) || 0;
+    const width = minimumWindowWidth({
+      interfaceScale: appearance.interfaceScale,
+      minimumSidebarWidth: synaraMinimumSidebarWidth,
+      minimumWorkspaceWidth,
+      sidebarOpen,
+    });
+    void appWindow.setMinSize(new LogicalSize(width, APP_WINDOW_MIN_HEIGHT)).catch(() => {
+      // Browser previews and older desktop capabilities may not expose this.
+    });
+  }, [
+    appearance.interfaceScale,
+    canvasMode,
+    project?.root,
+    sidebarOpen,
+    synaraMinimumSidebarWidth,
+  ]);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const startProjectTransition = useCallback(() => {
+    if (beginProjectTransition()) return true;
+    setNotice("Overleaf sync is finishing. Try switching projects again in a moment.");
+    return false;
+  }, [beginProjectTransition]);
+  useEffect(() => {
+    if (!warning) return;
+    const timer = window.setTimeout(() => setWarning(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [warning]);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(null), 4500);
@@ -1160,62 +1178,12 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
   const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
-  const [systemPrompt, setSystemPrompt] = useState(loadSystemPrompt);
-  const [agentSkills, setAgentSkills] = useState<AgentSkill[]>([]);
-  const [skillDraft, setSkillDraft] = useState<SkillDraft | null>(null);
-  const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
-  const [mcpDraft, setMcpDraft] = useState<McpServerDraft | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [subscriptions, setSubscriptions] = useState<SubscriptionStatus[]>([]);
-  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
-  const [subscriptionNotice, setSubscriptionNotice] = useState("");
-  const [apiProvider, setApiProvider] = useState<"openai" | "anthropic">("openai");
-  const [apiKey, setApiKey] = useState("");
-  const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
-  const [agentAccessReady, setAgentAccessReady] = useState<Record<"subscription" | "api", boolean>>({
-    subscription: false,
-    api: false,
-  });
   const saveTimer = useRef<number | null>(null);
   const automaticBuildPending = useRef(false);
   const buildingRef = useRef(false);
   const buildQueued = useRef(false);
-  const chatEnd = useRef<HTMLDivElement | null>(null);
-  const chatListRef = useRef<HTMLDivElement | null>(null);
-  // While the agent streams we follow the newest text, but only until the user
-  // scrolls up to read something above — then we let them stay there.
-  const stickToBottomRef = useRef(true);
-  const runningAgentSession = useRef<string | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const agentMentions = useMemo(
-    () => buildAgentMentions(project?.files ?? [], papers),
-    [papers, project?.files],
-  );
-  const agentAccessMode: "subscription" | "api" = provider === "openai-api" || provider === "anthropic-api"
-    ? "api"
-    : "subscription";
-  const subscriptionProviders = useMemo<AgentProvider[]>(() => subscriptions
-    .filter((status) => status.loggedIn)
-    .map((status) => status.provider), [subscriptions]);
-  const apiProviders = useMemo<AgentProvider[]>(() => [
-    ...(apiKeyStatus.openai ? ["openai-api" as const] : []),
-    ...(apiKeyStatus.anthropic ? ["anthropic-api" as const] : []),
-  ], [apiKeyStatus]);
-  const agentAccessLoaded = agentAccessReady[agentAccessMode];
-  const availableAgentProviders = agentAccessMode === "subscription" ? subscriptionProviders : apiProviders;
-  const effectiveAgentProviders = useMemo(
-    () => agentAccessLoaded ? availableAgentProviders : [provider],
-    [agentAccessLoaded, availableAgentProviders, provider],
-  );
-  const availableAgentModels = useMemo(() => {
-    const seen = new Set<string>();
-    return effectiveAgentProviders.flatMap((candidate) => agentModels.options(candidate))
-      .filter((option) => {
-        if (seen.has(option.value)) return false;
-        seen.add(option.value);
-        return true;
-      });
-  }, [agentModels, effectiveAgentProviders]);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
     setRecentProjects((items) => {
@@ -1344,8 +1312,17 @@ function App() {
     void refresh();
   }, []);
 
-  const refreshProject = useCallback(async () => {
+  const refreshProject = useCallback(async (scope?: {
+    expectedRoot: string;
+    generation: number;
+  }) => {
+    const mayApply = (snapshotRoot?: string) => !scope || (
+      projectOperationGenerationRef.current === scope.generation
+      && projectRef.current?.root === scope.expectedRoot
+      && (snapshotRoot === undefined || snapshotRoot === scope.expectedRoot)
+    );
     const snapshot = await invoke<ProjectSnapshot>("refresh_project");
+    if (!mayApply(snapshot.root)) return snapshot;
     setProject(snapshot);
     const [nextPapers, nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
       invoke<PaperSummary[]>("list_papers"),
@@ -1353,6 +1330,7 @@ function App() {
       invoke<CitationInfo[]>("list_citations"),
       invoke<ReferenceInfo[]>("list_references"),
     ]);
+    if (!mayApply(snapshot.root)) return snapshot;
     setPapers(nextPapers);
     setCitationKeys(nextCitationKeys);
     setCitations(nextCitations);
@@ -1382,9 +1360,25 @@ function App() {
     }
   }, []);
 
-  const loadFile = useCallback(async (path: string, options?: { restoreView?: boolean }) => {
+  const loadFile = useCallback(async (
+    path: string,
+    options?: {
+      restoreView?: boolean;
+      expectedProjectRoot?: string;
+      projectGeneration?: number;
+    },
+  ) => {
     try {
       const content = await invoke<string>("read_project_file", { path });
+      if (
+        options?.expectedProjectRoot
+        && (
+          projectRef.current?.root !== options.expectedProjectRoot
+          || projectOperationGenerationRef.current !== options.projectGeneration
+        )
+      ) {
+        return;
+      }
       setActiveFile(path);
       setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
       setSource(content);
@@ -1392,6 +1386,9 @@ function App() {
       setActivePaper(null);
       setActiveAsset(null);
       setPaperMarkdown("");
+      setSavedPaperMarkdown("");
+      setPaperBlog(null);
+      setSavedPaperBlog(null);
       setCanvasMode((mode) => path.toLocaleLowerCase().endsWith(".md")
         ? "markdown-preview"
         : (mode === "paper" || mode === "asset" || mode === "markdown-preview" ? "split" : mode));
@@ -1441,17 +1438,19 @@ function App() {
     setBusyLabel("Returning to your project…");
     try {
       // Skip lifecycle so we do not re-enter leave/end while restoring.
+      if (!startProjectTransition()) return;
       await enterProjectRef.current?.(
         await invoke<ProjectSnapshot>("open_project", { path: prior }),
         { skipCollabLifecycle: true },
       );
       setNotice("Returned to your previous project");
     } catch {
+      cancelProjectTransition();
       setNotice("Share ended. Open one of your projects from the menu.");
     } finally {
       setBusyLabel(null);
     }
-  }, [recentProjects]);
+  }, [cancelProjectTransition, recentProjects, startProjectTransition]);
 
   const endHostShareSession = useCallback(async (noticeText: string) => {
     if (collabLeavingRef.current) return;
@@ -1817,6 +1816,7 @@ function App() {
     try {
       let wroteTex = false;
       let wroteBib = false;
+      let wrotePaper = false;
       if (activeFile && source !== savedSource) {
         await invoke("write_project_file", { path: activeFile, content: source });
         // Do NOT push the active buffer into Yjs here. It is already synced
@@ -1847,7 +1847,47 @@ function App() {
         wroteTex = wroteTex || secondaryFile.endsWith(".tex");
         wroteBib = wroteBib || secondaryFile === project.manifest.primaryBibliography;
       }
-      if (!wroteTex && !wroteBib && source === savedSource && secondarySource === secondarySavedSource) {
+      if (activePaper && paperMarkdown !== savedPaperMarkdown) {
+        const path = `.research/papers/${activePaper.arxivId}/paper.md`;
+        const savedPaper = collabSession
+          ? await publishLocalTextToCollab(
+              collabSession.doc,
+              path,
+              savedPaperMarkdown,
+              paperMarkdown,
+            )
+          : paperMarkdown;
+        if (!collabSession) {
+          await invoke("write_project_file", { path, content: savedPaper });
+        }
+        setPaperMarkdown(savedPaper);
+        setSavedPaperMarkdown(savedPaper);
+        wrotePaper = true;
+      }
+      if (activePaper && paperBlog !== null && paperBlog !== savedPaperBlog) {
+        const path = `.research/papers/${activePaper.arxivId}/blog.md`;
+        const savedBlog = collabSession
+          ? await publishLocalTextToCollab(
+              collabSession.doc,
+              path,
+              savedPaperBlog ?? "",
+              paperBlog,
+            )
+          : paperBlog;
+        if (!collabSession) {
+          await invoke("write_project_file", { path, content: savedBlog });
+        }
+        setPaperBlog(savedBlog);
+        setSavedPaperBlog(savedBlog);
+        wrotePaper = true;
+      }
+      if (
+        !wroteTex
+        && !wroteBib
+        && !wrotePaper
+        && source === savedSource
+        && secondarySource === secondarySavedSource
+      ) {
         return true;
       }
       setSaveGeneration((generation) => generation + 1);
@@ -1862,10 +1902,15 @@ function App() {
     }
   }, [
     activeFile,
+    activePaper,
     collabSession,
     markDiskMtime,
+    paperBlog,
+    paperMarkdown,
     project,
     refreshAfterSave,
+    savedPaperBlog,
+    savedPaperMarkdown,
     savedSource,
     secondaryFile,
     secondarySavedSource,
@@ -1944,16 +1989,22 @@ function App() {
     });
   }, [navIndex]);
 
-  const openProjectFile = useCallback(async (path: string, line?: number) => {
+  const openProjectFile = useCallback(async (
+    path: string,
+    line?: number,
+    targetPane?: EditorPaneId,
+  ) => {
     const keepDocumentMode = (mode: CanvasMode): CanvasMode => (
       mode === "pdf" || mode === "paper" || mode === "asset" ? "split" : mode
     );
+    const requestedPane = targetPane ?? focusedPane;
     const secondaryFocused = (canvasMode === "dual" || canvasMode === "columns")
-      && focusedPane === "secondary"
+      && requestedPane === "secondary"
       && !activePaper
       && !activeAsset;
     if (secondaryFocused) {
       if (path === secondaryFile) {
+        setFocusedPane("secondary");
         if (line) {
           setEditorNavigation({ path, line, id: crypto.randomUUID() });
           pushNavigation(path, line);
@@ -1986,6 +2037,7 @@ function App() {
         setSecondarySource(content);
         setSecondarySavedSource(content);
         setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
+        setFocusedPane("secondary");
         setError(null);
         if (line) {
           setEditorNavigation({ path, line, id: crypto.randomUUID() });
@@ -2000,6 +2052,7 @@ function App() {
     }
     const alreadyOpen = path === activeFile && !activePaper && !activeAsset;
     if (alreadyOpen) {
+      setFocusedPane("primary");
       if (line) {
         setEditorNavigation({ path, line, id: crypto.randomUUID() });
         setCanvasMode(keepDocumentMode);
@@ -2014,7 +2067,11 @@ function App() {
         scrollTop: current?.scrollTop ?? 0,
       });
     }
-    if (source !== savedSource || (secondaryFile && secondarySource !== secondarySavedSource)) {
+    if (
+      activePaperDirty
+      || source !== savedSource
+      || (secondaryFile && secondarySource !== secondarySavedSource)
+    ) {
       const saved = await save();
       if (!saved) return;
     }
@@ -2031,6 +2088,7 @@ function App() {
     activeAsset,
     activeFile,
     activePaper,
+    activePaperDirty,
     canvasMode,
     collabSession,
     focusedPane,
@@ -2043,6 +2101,17 @@ function App() {
     secondarySource,
     source,
   ]);
+  useEffect(() => {
+    openProjectFileRef.current = openProjectFile;
+  }, [openProjectFile]);
+
+  const openProjectFileFromClick = useCallback((path: string, line?: number) => {
+    if (suppressedProjectFileClick.current === path) {
+      suppressedProjectFileClick.current = null;
+      return;
+    }
+    void openProjectFile(path, line);
+  }, [openProjectFile]);
 
   /** Jump to where a collaborator is working, following them into their file. */
   const followCollabPeer = useCallback(async (peer: CollabPeer) => {
@@ -2084,6 +2153,15 @@ function App() {
     // where an empty tab strip is meaningful because the compiled preview can
     // stand on its own.
     if (!remaining.length && canvasMode !== "pdf") return;
+    if (
+      isPaperTabKey(path)
+      && activePaper
+      && paperTabKey(activePaper.arxivId) === path
+      && activePaperDirty
+      && !(await save())
+    ) {
+      return;
+    }
     setOpenTabs(remaining);
     tabRecency.current = tabRecency.current.filter((key) => key !== path);
     viewStateRef.current.delete(path);
@@ -2093,12 +2171,16 @@ function App() {
     const fileFallback = [...remaining].reverse().find((key) => !isPaperTabKey(key) && !projectAssetPaths.has(key));
     if (isPaperTabKey(path)) {
       // Only the paper currently on screen needs the canvas returned to the editor.
-      if (canvasMode === "paper" && activePaper && paperTabKey(activePaper.arxivId) === path) {
+      if (activePaper && paperTabKey(activePaper.arxivId) === path) {
         setActivePaper(null);
         setPaperMarkdown("");
+        setSavedPaperMarkdown("");
         setPaperBlog(null);
+        setSavedPaperBlog(null);
         if (fileFallback) await openProjectFile(fileFallback);
-        else setCanvasMode((mode) => (mode === "paper" ? "split" : mode));
+        else setCanvasMode((mode) => (
+          mode === "paper" || mode === "markdown-preview" ? "split" : mode
+        ));
       }
       return;
     }
@@ -2119,7 +2201,18 @@ function App() {
     }
     if (path !== activeFile) return;
     if (fileFallback) await openProjectFile(fileFallback);
-  }, [activeAsset, activeFile, activePaper, canvasMode, openTabs, openProjectFile, projectAssetPaths, secondaryFile]);
+  }, [
+    activeAsset,
+    activeFile,
+    activePaper,
+    activePaperDirty,
+    canvasMode,
+    openProjectFile,
+    openTabs,
+    projectAssetPaths,
+    save,
+    secondaryFile,
+  ]);
 
   const reopenClosedTab = useCallback(async () => {
     const path = closedTabsRef.current.shift();
@@ -2282,7 +2375,16 @@ function App() {
    * without it there is nothing to name in the request, so the ask is skipped
    * rather than offered and then failed.
    */
-  const settleRemoteDeletes = useCallback(async (paths: string[]) => {
+  const settleRemoteDeletes = useCallback(async (
+    paths: string[],
+    projectRoot: string,
+    generation: number,
+  ) => {
+    const stillCurrent = () => (
+      projectOperationGenerationRef.current === generation
+      && projectRef.current?.root === projectRoot
+    );
+    if (!stillCurrent()) return;
     const policy = overleafRemoteDeleteRef.current;
     if (policy === "never") return;
     const known = paths
@@ -2297,24 +2399,36 @@ function App() {
         `${names} ${known.length === 1 ? "is" : "are"} gone here but still on Overleaf.\n\n`
         + "Remove them from the Overleaf project too? Overleaf's history keeps them either way.",
       );
-      if (!removeThem) return;
+      if (!removeThem || !stillCurrent()) return;
     }
     for (const entry of known) {
+      if (!stillCurrent()) return;
       try {
         await invoke("overleaf_delete_entity", {
+          projectRoot,
           kind: entry.entity.kind,
           entityId: entry.entity.id,
         });
       } catch (reason) {
-        setError(`Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}`);
+        if (stillCurrent()) {
+          setError(`Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}`);
+        }
         return;
       }
     }
-    setNotice(`Removed ${known.length} file${known.length === 1 ? "" : "s"} from Overleaf too`);
+    if (stillCurrent()) {
+      setNotice(`Removed ${known.length} file${known.length === 1 ? "" : "s"} from Overleaf too`);
+    }
   }, []);
 
   const runOverleafSync = useCallback(async (options?: { auto?: boolean }) => {
     if (!project || overleafSyncingRef.current) return;
+    const syncRoot = project.root;
+    const syncGeneration = projectOperationGenerationRef.current;
+    const stillCurrent = () => (
+      projectOperationGenerationRef.current === syncGeneration
+      && projectRef.current?.root === syncRoot
+    );
     overleafSyncingRef.current = true;
     setOverleafSyncing(true);
     // Saving below clears the dirty flag, which cancels the pending autosave
@@ -2324,15 +2438,23 @@ function App() {
     let compiled = false;
     try {
       if (!(await save())) return;
+      if (!stillCurrent()) return;
       const collabBases = collabSession ? readTextsFromDoc(collabSession.doc) : {};
       const result = await invoke<OverleafSyncResult>("overleaf_sync", {
+        projectRoot: syncRoot,
         live: overleafLivePathsRef.current,
       });
+      if (!stillCurrent()) return;
       // A file gone from here is still on Overleaf, because syncing has never
       // removed anything from a shared project on its own. What should happen
       // instead is a decision only the user can make, so it is a setting.
       if (result.skippedRemoteDeletes.length) {
-        await settleRemoteDeletes(result.skippedRemoteDeletes);
+        await settleRemoteDeletes(
+          result.skippedRemoteDeletes,
+          syncRoot,
+          syncGeneration,
+        );
+        if (!stillCurrent()) return;
       }
       // A file too big for Overleaf to accept stays here and is named, because
       // to the writer it otherwise looks synced like everything else and the
@@ -2379,39 +2501,60 @@ function App() {
         if (first) setConflictPath(first);
       }
       if (changedOnDisk.size || result.deletedLocal.length) {
-        await refreshProject();
-        if (activeFile && changedOnDisk.has(activeFile)) await loadFile(activeFile);
+        await refreshProject({ expectedRoot: syncRoot, generation: syncGeneration });
+        if (!stillCurrent()) return;
+        if (activeFile && changedOnDisk.has(activeFile)) {
+          await loadFile(activeFile, {
+            expectedProjectRoot: syncRoot,
+            projectGeneration: syncGeneration,
+          });
+          if (!stillCurrent()) return;
+        }
         // Files arriving from Overleaf haven't touched the live share doc, so a
         // Lattice collaborator would never see them without this push.
         if (collabSession && changedOnDisk.size) {
           for (const path of changedOnDisk) {
+            if (!stillCurrent()) return;
             const kind = classifySyncablePath(path);
             if (!kind) continue;
             try {
               if (kind === "text") {
+                const content = await invoke<string>("read_project_file", { path });
+                if (!stillCurrent()) return;
                 await publishLocalTextToCollab(
                   collabSession.doc,
                   path,
                   collabBases[path] ?? "",
-                  await invoke<string>("read_project_file", { path }),
+                  content,
+                  { projectRoot: syncRoot, isCurrent: stillCurrent },
                 );
               } else {
-                await pushLocalBlobToCollab(collabSession.doc, path);
+                await pushLocalBlobToCollab(
+                  collabSession.doc,
+                  path,
+                  { projectRoot: syncRoot, isCurrent: stillCurrent },
+                );
               }
+              if (!stillCurrent()) return;
             } catch (reason) {
+              if (!stillCurrent()) return;
               if (reason instanceof CollabTextConflictError) setError(reason.message);
               // Deleted or oversized files must not stop the rest.
             }
           }
           setCollabFileCount(collabSession.fileCount());
         }
+        if (!stillCurrent()) return;
         await compile();
+        if (!stillCurrent()) return;
         compiled = true;
       }
       // Nothing arrived, but we flushed the user's own unsaved edits — the
       // autosave compile they were waiting on is gone, so run it here.
       if (!compiled && hadUnsavedEdits) {
+        if (!stillCurrent()) return;
         await compile();
+        if (!stillCurrent()) return;
         compiled = true;
       }
       if (result.pulled.length || result.pushed.length || result.merged.length) {
@@ -2422,15 +2565,19 @@ function App() {
         setNotice("Overleaf: already up to date.");
       }
       // Each sync point becomes a version, so the timeline shows what arrived.
+      if (!stillCurrent()) return;
       void invoke<string | null>("git_auto_commit", {
         message: "Overleaf sync",
         author: collabName.trim() || null,
+        projectRoot: syncRoot,
       }).catch(() => {});
       void invoke<OverleafLink | null>("overleaf_link")
-        .then((link) => setOverleafLink(activeLink(link)))
+        .then((link) => {
+          if (stillCurrent()) setOverleafLink(activeLink(link));
+        })
         .catch(() => {});
     } catch (reason) {
-      setError(toMessage(reason));
+      if (stillCurrent()) setError(toMessage(reason));
     } finally {
       overleafSyncingRef.current = false;
       setOverleafSyncing(false);
@@ -2453,7 +2600,8 @@ function App() {
   // polling the project itself would mean re-downloading it every time.
   overleafSyncRef.current = runOverleafSync;
   useEffect(() => {
-    if (!overleafLink || overleafSyncMode !== "live") return;
+    if (!overleafLink || overleafSyncMode !== "live" || !project?.root) return;
+    const projectRoot = project.root;
     let stopped = false;
     let timer: number | null = null;
     // Backs off when Overleaf pushes back, and stays slow when this instance
@@ -2466,7 +2614,7 @@ function App() {
       if (stopped) return;
       try {
         if (!overleafSyncingRef.current) {
-          const probe = await invoke<OverleafProbe>("overleaf_probe");
+          const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot });
           wait = probe.versionKnown ? baseWait() : OVERLEAF_BLIND_POLL_MS;
           if (!stopped && !probe.versionKnown) {
             // No change signal: fall back to syncing on a slow clock rather
@@ -2504,7 +2652,7 @@ function App() {
       if (timer) window.clearTimeout(timer);
       window.removeEventListener("focus", onFocus);
     };
-  }, [overleafLink, overleafSyncMode]);
+  }, [overleafLink, overleafSyncMode, project?.root]);
 
   // Editing through Overleaf's own channel, when the project is linked and
   // live. It stays off during a Lattice share: two live channels writing the
@@ -2527,7 +2675,11 @@ function App() {
       // file still held the old one: the build compiled the old text, and the
       // next sync read the old bytes back off disk, called them a local edit,
       // and pushed them over the top of what they had written.
-      void invoke("write_project_file", { path, content: text })
+      void invoke("write_project_file", {
+        path,
+        content: text,
+        projectRoot: project?.root ?? null,
+      })
         .then(() => setSavedSource(text))
         .catch((reason) => setError(toMessage(reason)));
       setViewRestore({ path, cursor: caret, scrollTop: 0, id: crypto.randomUUID() });
@@ -2544,7 +2696,7 @@ function App() {
   overleafChannelLiveRef.current = overleafRealtime.status === "live"
     && overleafSyncMode === "live"
     && !collabSession;
-  overleafLivePathsRef.current = overleafRealtime.liveFile && activeFile ? [activeFile] : [];
+  overleafLivePathsRef.current = overleafRealtime.livePaths;
 
   // Who else is in the Overleaf project, and where. Two things the presence
   // hook cannot get anywhere else ride the same channel: our own connection
@@ -2588,6 +2740,7 @@ function App() {
   }, [overleafLink]);
 
   const overleafPresence = useOverleafPresence({
+    projectRoot: project?.root ?? null,
     docId: overleafRealtime.docId,
     selfId: overleafSelfId,
     readCaret: () => ({
@@ -2632,7 +2785,10 @@ function App() {
   // Collaborators who stayed in the browser talk in Overleaf's chat, so it has
   // to be readable here or half the conversation happens where we cannot see
   // it. It listens on the same channel the editor uses.
-  const overleafChat = useOverleafChat({ enabled: overleafLink !== null });
+  const overleafChat = useOverleafChat({
+    enabled: overleafLink !== null,
+    projectRoot: project?.root ?? null,
+  });
 
   // The same conversation, for a share that never goes near Overleaf. It rides
   // the session's own document, so a guest who joins late simply receives the
@@ -2656,6 +2812,7 @@ function App() {
   );
   const overleafComments = useOverleafComments({
     enabled: overleafLink !== null,
+    projectRoot: project?.root ?? null,
     docId: overleafRealtime.docId,
     anchored: useMemo(
       () => overleafRealtime.comments.map((range) => range.threadId),
@@ -2705,13 +2862,19 @@ function App() {
   // so the document has to be re-read afterwards.
   const overleafTrackChanges = useOverleafTrackChanges({
     enabled: overleafLink !== null,
+    projectRoot: project?.root ?? null,
     docId: overleafRealtime.docId,
     reserveOperation: overleafRealtime.reserveOperation,
+    noteReservedOperationUnknown: overleafRealtime.noteReservedOperationUnknown,
+    settledVersion: overleafRealtime.settledVersion,
     changes: overleafRealtime.changes,
     canAct: overleafRealtime.canWrite,
     reload: overleafRealtime.reload,
   });
-  const overleafSuggestMode = useOverleafTrackChangesToggle(overleafRealtime.userId);
+  const overleafSuggestMode = useOverleafTrackChangesToggle(
+    overleafRealtime.userId,
+    project?.root ?? null,
+  );
 
   // The comment handlers are declared before this hook runs, so they reach its
   // actions through a ref rather than forcing the whole tree to be reordered.
@@ -2785,14 +2948,15 @@ function App() {
   // Manual mode never syncs on its own; it just watches for incoming work so
   // the toolbar can offer it, the way a repository shows commits to pull.
   useEffect(() => {
-    if (!overleafLink || overleafSyncMode !== "manual") {
+    if (!overleafLink || overleafSyncMode !== "manual" || !project?.root) {
       setOverleafRemoteChanges(false);
       return;
     }
+    const projectRoot = project.root;
     let stopped = false;
     const check = async () => {
       try {
-        const probe = await invoke<OverleafProbe>("overleaf_probe");
+        const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot });
         if (!stopped) setOverleafRemoteChanges(probe.changed);
       } catch {
         // Leave the badge as-is when the check cannot run.
@@ -2806,7 +2970,7 @@ function App() {
       window.clearInterval(timer);
       window.removeEventListener("focus", check);
     };
-  }, [overleafLink, overleafSyncMode]);
+  }, [overleafLink, overleafSyncMode, project?.root]);
 
   // Auto-save a version after successful builds of Overleaf-linked projects,
   // at most every 2 minutes. Unlinked projects only version on explicit "Save
@@ -2862,16 +3026,24 @@ function App() {
 
   const revealSourceInPdf = useCallback(async () => {
     if (!editorPosition || locatingPdf) return;
+    const position = editorPosition;
+    setWarning(null);
     setLocatingPdf(true);
     try {
       if (!(await save())) return;
       if (source !== savedSource || !pdfUrl) await runBuild();
       const target = await invoke<PdfSyncResponse | null>("synctex_view", {
-        path: editorPosition.path,
-        line: editorPosition.line,
-        column: editorPosition.column,
+        path: position.path,
+        line: position.line,
+        column: position.column,
       });
-      if (!target) return;
+      if (!target) {
+        setError(null);
+        setNotice(null);
+        setWarning("This source line has no matching position in the PDF.");
+        return;
+      }
+      setWarning(null);
       setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
       setCanvasMode((mode) => {
         if (mode === "dual") return "columns";
@@ -2880,7 +3052,15 @@ function App() {
       });
       setError(null);
     } catch (reason) {
-      setError(toMessage(reason));
+      const message = toMessage(reason);
+      if (message === "This bibliography entry is not included in the compiled PDF.") {
+        setError(null);
+        setNotice(null);
+        setWarning(message);
+      } else {
+        setWarning(null);
+        setError(message);
+      }
     } finally {
       setLocatingPdf(false);
     }
@@ -2960,13 +3140,15 @@ function App() {
       if (!options?.skipCollabLifecycle) {
         await settleCollabBeforeProjectSwitch(snapshot.root);
       }
+      beginProjectTransition(true);
+      projectRef.current = snapshot;
+      projectBeforeTransitionRef.current = null;
       setProject(snapshot);
       rememberProject(snapshot);
       setProjectMenuOpen(false);
       setBuild(null);
       setSelection("");
       setSelectionSource(null);
-      setAgentAttachments([]);
       selectionSourceRef.current = null;
       dismissedSelectionRef.current = null;
       setTexlabDiagnostics([]);
@@ -2978,6 +3160,9 @@ function App() {
       setActivePaper(null);
       setActiveAsset(null);
       setPaperMarkdown("");
+      setSavedPaperMarkdown("");
+      setPaperBlog(null);
+      setSavedPaperBlog(null);
       setCanvasMode("split");
       // Invalidate any in-flight preview from the previous project, then clear
       // UI state *before* starting the first build (starting first used to race
@@ -3046,29 +3231,18 @@ function App() {
       }
       setPdfPageCount(null);
       setChecklistOpen(false);
-      let sessionList = await invoke<AgentSessionSummary[]>("list_agent_sessions");
-      const session = sessionList.length
-        ? await invoke<AgentSession>("read_agent_session", { sessionId: sessionList[0].id })
-        : await invoke<AgentSession>("create_agent_session", {
-          provider: "codex",
-          model: defaultModel("codex"),
-          reasoningEffort: "high",
-        });
-      if (!sessionList.length) sessionList = await invoke<AgentSessionSummary[]>("list_agent_sessions");
-      setAgentSessions(sessionList);
-      setActiveSession(session);
-      setMessages(session.messages);
-      setAgentAttachments([]);
-      setBranchSource(null);
-      setProvider(session.provider);
-      setAgentModel(normalizeModel(session.provider, session.model));
-      setReasoningEffort(normalizeEffort(session.reasoningEffort));
-      setSessionMenuOpen(false);
       // Never animate shell opacity from 0 — a cancelled/interrupted tween leaves the
       // whole window blank white with the UI still "mounted".
       if (shellRef.current) shellRef.current.style.opacity = "1";
     },
-    [loadFile, refreshUnusedSymbols, rememberProject, runBuild, settleCollabBeforeProjectSwitch],
+    [
+      beginProjectTransition,
+      loadFile,
+      refreshUnusedSymbols,
+      rememberProject,
+      runBuild,
+      settleCollabBeforeProjectSwitch,
+    ],
   );
   enterProjectRef.current = enterProject;
 
@@ -3082,6 +3256,7 @@ function App() {
     if (!mostRecent) return;
     void (async () => {
       try {
+        if (!startProjectTransition()) return;
         const snapshot = await invoke<ProjectSnapshot>("open_project", { path: mostRecent });
         // Defer enterProject's own initial build (it races cold-start init and
         // the PDF never appears), then kick one explicitly once the project is
@@ -3089,23 +3264,26 @@ function App() {
         await enterProject(snapshot, { deferInitialBuild: true });
         void runBuild(false, { immediatePreview: true });
       } catch {
+        cancelProjectTransition();
         // Folder gone — stay on the welcome screen.
       }
     })();
-  }, [enterProject, runBuild]);
+  }, [cancelProjectTransition, enterProject, runBuild, startProjectTransition]);
 
   const openClonedOverleafProject = useCallback(async (root: string) => {
     setBusyLabel("Opening the Overleaf project…");
     try {
+      if (!startProjectTransition()) return;
       const snapshot = await invoke<ProjectSnapshot>("open_project", { path: root });
       await enterProject(snapshot);
       setError(null);
     } catch (reason) {
+      cancelProjectTransition();
       setError(toMessage(reason));
     } finally {
       setBusyLabel(null);
     }
-  }, [enterProject]);
+  }, [cancelProjectTransition, enterProject, startProjectTransition]);
 
   const joinCollabRoom = useCallback((invite: { host: string; room: string; token: string }) => {
     if (!collabName.trim()) {
@@ -3129,6 +3307,7 @@ function App() {
           || (secondaryFile && secondarySource !== secondarySavedSource))) {
           if (!(await save())) return;
         }
+        if (!startProjectTransition()) return;
         const snapshot = await invoke<ProjectSnapshot>("create_collab_join_workspace", {
           room: invite.room,
         });
@@ -3148,12 +3327,14 @@ function App() {
         refreshRecentRooms();
         setNotice(`Opened shared workspace · ${snapshot.root}`);
       } catch (reason) {
+        cancelProjectTransition();
         setError(toMessage(reason));
       } finally {
         setBusyLabel(null);
       }
     })();
   }, [
+    cancelProjectTransition,
     collabHost,
     collabName,
     connectCollab,
@@ -3166,6 +3347,7 @@ function App() {
     secondarySavedSource,
     secondarySource,
     source,
+    startProjectTransition,
   ]);
 
   const joinCollabShare = useCallback(() => {
@@ -3201,6 +3383,7 @@ function App() {
             || (secondaryFile && secondarySource !== secondarySavedSource))) {
             if (!(await save())) return;
           }
+          if (!startProjectTransition()) return;
           const snapshot = await invoke<ProjectSnapshot>("open_project", { path: record.projectRoot });
           await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
         } else if (!project) {
@@ -3218,6 +3401,7 @@ function App() {
         });
         refreshRecentRooms();
       } catch (reason) {
+        cancelProjectTransition();
         // Folder moved/deleted or the room is gone — drop the stale entry.
         forgetCollabRoom(record.host, record.room);
         refreshRecentRooms();
@@ -3227,6 +3411,7 @@ function App() {
       }
     })();
   }, [
+    cancelProjectTransition,
     collabName,
     connectCollab,
     enterProject,
@@ -3239,6 +3424,7 @@ function App() {
     secondarySavedSource,
     secondarySource,
     source,
+    startProjectTransition,
   ]);
 
   const chooseExisting = useCallback(async () => {
@@ -3247,13 +3433,15 @@ function App() {
     setBusyLabel("Opening project…");
     try {
       if (!(await save())) return;
+      if (!startProjectTransition()) return;
       await enterProject(await invoke<ProjectSnapshot>("open_project", { path: selected }));
     } catch (reason) {
+      cancelProjectTransition();
       setError(toMessage(reason));
     } finally {
       setBusyLabel(null);
     }
-  }, [enterProject, save]);
+  }, [cancelProjectTransition, enterProject, save, startProjectTransition]);
 
   const createProject = useCallback(async () => {
     if (!projectName.trim()) {
@@ -3265,6 +3453,7 @@ function App() {
     setBusyLabel("Creating project…");
     try {
       if (!(await save())) return;
+      if (!startProjectTransition()) return;
       const snapshot = await invoke<ProjectSnapshot>("create_project", {
         parent,
         name: projectName,
@@ -3274,11 +3463,19 @@ function App() {
       setCreateOpen(false);
       await enterProject(snapshot);
     } catch (reason) {
+      cancelProjectTransition();
       setCreateError(toMessage(reason));
     } finally {
       setBusyLabel(null);
     }
-  }, [enterProject, projectName, projectVenue, save]);
+  }, [
+    cancelProjectTransition,
+    enterProject,
+    projectName,
+    projectVenue,
+    save,
+    startProjectTransition,
+  ]);
 
   const importOverleafZip = useCallback(async () => {
     const zipPath = await open({
@@ -3296,16 +3493,18 @@ function App() {
     setBusyLabel("Importing ZIP…");
     try {
       if (!(await save())) return;
+      if (!startProjectTransition()) return;
       await enterProject(await invoke<ProjectSnapshot>("import_project_zip", {
         zipPath,
         parent,
       }));
     } catch (reason) {
+      cancelProjectTransition();
       setError(toMessage(reason));
     } finally {
       setBusyLabel(null);
     }
-  }, [enterProject, save]);
+  }, [cancelProjectTransition, enterProject, save, startProjectTransition]);
 
   const exportProjectZip = useCallback(async () => {
     if (!project) return;
@@ -3335,8 +3534,10 @@ function App() {
     if (!(await save())) return;
     setBusyLabel("Switching project…");
     try {
+      if (!startProjectTransition()) return;
       await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
     } catch (reason) {
+      cancelProjectTransition();
       setRecentProjects((items) => {
         const next = items.filter((item) => item.path !== path);
         persistRecentProjects(next);
@@ -3346,7 +3547,13 @@ function App() {
     } finally {
       setBusyLabel(null);
     }
-  }, [enterProject, project?.root, save]);
+  }, [
+    cancelProjectTransition,
+    enterProject,
+    project?.root,
+    save,
+    startProjectTransition,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -3388,14 +3595,6 @@ function App() {
       // Build preferences still apply for the current session without storage.
     }
   }, [buildPreferences]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(AGENT_SYSTEM_PROMPT_KEY, systemPrompt);
-    } catch {
-      // The prompt still applies for the current session without storage.
-    }
-  }, [systemPrompt]);
 
   useEffect(() => {
     const appWindow = getCurrentWindow();
@@ -3460,39 +3659,10 @@ function App() {
   }, [appearance.interfaceScale, isFullscreen]);
 
   useEffect(() => {
-    const list = chatListRef.current;
-    if (!list) return;
-    const onScroll = () => {
-      // Pin to the bottom only while the user is actually near it, measured by
-      // absolute distance rather than scroll direction. This is what makes it
-      // hold during a fast stream: the auto-scroll's own per-frame jump to the
-      // bottom lands within the threshold and stays pinned, while a real scroll
-      // up past it unpins and stays unpinned. A direction-based check missed the
-      // user's drag because the per-frame auto-scroll kept moving the reference
-      // point to the growing bottom, so the drag never read as a net decrease.
-      const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
-      stickToBottomRef.current = distanceFromBottom < 80;
-    };
-    list.addEventListener("scroll", onScroll, { passive: true });
-    return () => list.removeEventListener("scroll", onScroll);
-    // Re-attach when the agent panel mounts/unmounts, since the list element
-    // (and chatListRef.current) only exists while the panel is open.
-  }, [sidebarOpen]);
-
-  useEffect(() => {
-    if (!stickToBottomRef.current) return;
-    const list = chatListRef.current;
-    if (!list) return;
-    // Snap instantly rather than smooth-scrolling: a smooth animation restarted
-    // on every streamed token both fights the user trying to scroll up and makes
-    // the text lurch. Instant keeps the newest line pinned without any animation.
-    list.scrollTop = list.scrollHeight;
-  }, [messages, agentRunning]);
-
-  useEffect(() => {
-    if (!project || !activeFile || source === savedSource) return;
+    const documentDirty = Boolean(!activePaper && activeFile && source !== savedSource);
+    if (!project || (!documentDirty && !activePaperDirty)) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    const automatic = buildPreferences.autoBuildMode === "automatic";
+    const automatic = !activePaper && buildPreferences.autoBuildMode === "automatic";
     const delay = automatic ? 1_200 : 900;
     // Call through refs so enterProject / build state updates do not keep
     // resetting the idle timer (that starved autosave and left PDF stuck reloading).
@@ -3503,7 +3673,19 @@ function App() {
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
-  }, [activeFile, buildPreferences.autoBuildMode, project, savedSource, source]);
+  }, [
+    activeFile,
+    activePaper,
+    activePaperDirty,
+    buildPreferences.autoBuildMode,
+    paperBlog,
+    paperMarkdown,
+    project,
+    savedPaperBlog,
+    savedPaperMarkdown,
+    savedSource,
+    source,
+  ]);
 
   // Dual-pane secondary buffer is not yCollab-bound; push + save while sharing.
   useEffect(() => {
@@ -3526,16 +3708,28 @@ function App() {
   }, [collabSession, project, secondaryFile, secondarySavedSource, secondarySource]);
 
   const buildWhenLeavingEditor = useCallback(() => {
+    if (activePaper) {
+      if (activePaperDirty) void save();
+      return;
+    }
     if (buildPreferences.autoBuildMode !== "automatic" || source === savedSource) return;
     void saveAndCompileAutomatically();
-  }, [buildPreferences.autoBuildMode, saveAndCompileAutomatically, savedSource, source]);
+  }, [
+    activePaper,
+    activePaperDirty,
+    buildPreferences.autoBuildMode,
+    save,
+    saveAndCompileAutomatically,
+    savedSource,
+    source,
+  ]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void save().then((saved) => {
-          if (saved) void compile();
+          if (saved && !activePaper) void compile();
         });
       } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
         event.preventDefault();
@@ -3544,7 +3738,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [chooseExisting, compile, save]);
+  }, [activePaper, chooseExisting, compile, save]);
 
   const importReferenceInput = useCallback(async (input: string) => {
     const trimmed = input.trim();
@@ -3604,10 +3798,7 @@ function App() {
 
   const openPaper = useCallback(async (paper: PaperSummary, localBlogOnly = false) => {
     try {
-      if (source !== savedSource) {
-        const saved = await save();
-        if (!saved) return;
-      }
+      if (!(await save())) return;
       // Full text and the overview are independent: an arxiv2md conversion can
       // fail while alphaXiv still supplied a useful blog. Keep either readable
       // result instead of letting one rejected promise discard the other.
@@ -3621,18 +3812,21 @@ function App() {
         throw fullTextResult.status === "rejected" ? fullTextResult.reason : new Error("No readable paper content is available.");
       }
       setPaperMarkdown(fullText);
+      setSavedPaperMarkdown(fullText);
       setPaperBlog(blog);
+      setSavedPaperBlog(blog);
       setPaperView(blog ? "blog" : "fulltext");
       if (!fullText && blog) setNotice("Full paper text is unavailable; showing the overview instead.");
       setActivePaper(paper);
       setActiveAsset(null);
-      setCanvasMode("paper");
+      setFocusedPane("primary");
+      setCanvasMode("markdown-preview");
       const key = paperTabKey(paper.arxivId);
       setOpenTabs((tabs) => (tabs.includes(key) ? tabs : [...tabs, key]));
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [save, savedSource, source]);
+  }, [save]);
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
     const key = paperKey(paper);
@@ -3687,21 +3881,21 @@ function App() {
 
   const openProjectAsset = useCallback(async (path: string) => {
     try {
-      if (source !== savedSource) {
-        const saved = await save();
-        if (!saved) return;
-      }
+      if (!(await save())) return;
       const asset = await invoke<AssetPreview>("read_project_asset", { path });
       setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
       setActiveAsset(asset);
       setActivePaper(null);
       setPaperMarkdown("");
+      setSavedPaperMarkdown("");
+      setPaperBlog(null);
+      setSavedPaperBlog(null);
       setCanvasMode("asset");
       setError(null);
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [save, savedSource, source]);
+  }, [save]);
 
   useEffect(() => {
     referencePreviewCache.current.clear();
@@ -3735,8 +3929,11 @@ function App() {
     let dragging = false;
     const elementAt = (clientX: number, clientY: number) =>
       document.elementFromPoint(clientX, clientY) as Element | null;
-    const editorAt = (clientX: number, clientY: number) =>
-      Boolean(elementAt(clientX, clientY)?.closest(".source-editor"));
+    const insertionTargetAt = (clientX: number, clientY: number) => {
+      const pane = editorPaneAt({ x: clientX, y: clientY });
+      const targetPath = pane === "secondary" ? secondaryFileRef.current : activeFileRef.current;
+      return pane && /\.(?:tex|md)$/i.test(targetPath ?? "") ? pane : null;
+    };
     const treeAt = (clientX: number, clientY: number) => {
       const element = elementAt(clientX, clientY);
       if (!element) return false;
@@ -3748,9 +3945,13 @@ function App() {
     const move = (pointerEvent: PointerEvent) => {
       if (!dragging && Math.hypot(pointerEvent.clientX - startX, pointerEvent.clientY - startY) < 5) return;
       dragging = true;
-      const overEditor = editorAt(pointerEvent.clientX, pointerEvent.clientY);
-      setNativeEditorDropActive(overEditor);
-      if (!overEditor && treeAt(pointerEvent.clientX, pointerEvent.clientY)) {
+      const insertAtEditor = Boolean(insertionTargetAt(pointerEvent.clientX, pointerEvent.clientY));
+      const overCanvas = canvasContentAt({
+        x: pointerEvent.clientX,
+        y: pointerEvent.clientY,
+      });
+      setNativeEditorDropActive(insertAtEditor);
+      if (!overCanvas && treeAt(pointerEvent.clientX, pointerEvent.clientY)) {
         setFigurePointerDrag(null);
         return;
       }
@@ -3759,7 +3960,8 @@ function App() {
         label,
         clientX: pointerEvent.clientX,
         clientY: pointerEvent.clientY,
-        overEditor,
+        overCanvas,
+        insertAtEditor,
       });
     };
     const finish = (pointerEvent: PointerEvent) => {
@@ -3773,13 +3975,18 @@ function App() {
       window.setTimeout(() => {
         if (suppressedFigureClick.current === path) suppressedFigureClick.current = null;
       }, 0);
-      if (!editorAt(pointerEvent.clientX, pointerEvent.clientY)) return;
-      setFigureDropRequest({
-        id: crypto.randomUUID(),
-        paths: [path],
-        clientX: pointerEvent.clientX,
-        clientY: pointerEvent.clientY,
-      });
+      const insertionPane = insertionTargetAt(pointerEvent.clientX, pointerEvent.clientY);
+      if (insertionPane) {
+        setFigureDropRequest({
+          id: crypto.randomUUID(),
+          paths: [path],
+          clientX: pointerEvent.clientX,
+          clientY: pointerEvent.clientY,
+          pane: insertionPane,
+        });
+      } else if (canvasContentAt({ x: pointerEvent.clientX, y: pointerEvent.clientY })) {
+        void openProjectAsset(path);
+      }
     };
     const cancel = () => {
       window.removeEventListener("pointermove", move);
@@ -3791,6 +3998,55 @@ function App() {
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", finish);
     window.addEventListener("pointercancel", cancel);
+  }, [openProjectAsset]);
+
+  const beginProjectFileDrag = useCallback((path: string, _label: string, event: React.PointerEvent) => {
+    if (event.button !== 0) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const pointerId = event.pointerId;
+    let dragging = false;
+    const move = (pointerEvent: PointerEvent) => {
+      if (pointerEvent.pointerId !== pointerId) return;
+      if (!dragging && Math.hypot(pointerEvent.clientX - startX, pointerEvent.clientY - startY) < 5) {
+        return;
+      }
+      dragging = true;
+      const pane = editorPaneAt({ x: pointerEvent.clientX, y: pointerEvent.clientY });
+      setFileDropTargetPane(pane);
+    };
+    const clear = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", cancel);
+      setFileDropTargetPane(null);
+    };
+    const finish = (pointerEvent: PointerEvent) => {
+      if (pointerEvent.pointerId !== pointerId) return;
+      const pane = dragging
+        ? editorPaneAt({ x: pointerEvent.clientX, y: pointerEvent.clientY })
+        : null;
+      const overCanvas = dragging && canvasContentAt({
+        x: pointerEvent.clientX,
+        y: pointerEvent.clientY,
+      });
+      clear();
+      if (!dragging) return;
+      suppressedProjectFileClick.current = path;
+      window.setTimeout(() => {
+        if (suppressedProjectFileClick.current === path) {
+          suppressedProjectFileClick.current = null;
+        }
+      }, 0);
+      if (pane) void openProjectFileRef.current(path, undefined, pane);
+      else if (overCanvas) void openProjectFileRef.current(path, undefined, "primary");
+    };
+    const cancel = () => clear();
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
   }, []);
 
   const ensureSecondaryFile = useCallback(async (preferred?: string | null) => {
@@ -3810,27 +4066,31 @@ function App() {
   }, [activeFile, openTabs, secondaryFile]);
 
   const openDocumentMode = useCallback((mode: DocumentViewMode) => {
-    setActiveAsset(null);
-    setActivePaper(null);
-    setPaperMarkdown("");
-    // PDF can stand alone without a source tab. Returning to any source-backed
-    // view restores the active document to the strip before rendering it.
-    if (mode !== "pdf" && activeFile) {
-      setOpenTabs((tabs) => (tabs.includes(activeFile) ? tabs : [...tabs, activeFile]));
-    }
-    if (mode === "dual" || mode === "columns") {
-      void (async () => {
+    void (async () => {
+      if (activePaperDirty && !(await save())) return;
+      setActiveAsset(null);
+      setActivePaper(null);
+      setPaperMarkdown("");
+      setSavedPaperMarkdown("");
+      setPaperBlog(null);
+      setSavedPaperBlog(null);
+      // PDF can stand alone without a source tab. Returning to any source-backed
+      // view restores the active document to the strip before rendering it.
+      if (mode !== "pdf" && activeFile) {
+        setOpenTabs((tabs) => (tabs.includes(activeFile) ? tabs : [...tabs, activeFile]));
+      }
+      if (mode === "dual" || mode === "columns") {
         try {
           await ensureSecondaryFile();
           setCanvasMode(mode);
         } catch (reason) {
           setError(toMessage(reason));
         }
-      })();
-      return;
-    }
-    setCanvasMode(mode);
-  }, [activeFile, ensureSecondaryFile]);
+        return;
+      }
+      setCanvasMode(mode);
+    })();
+  }, [activeFile, activePaperDirty, ensureSecondaryFile, save]);
 
   const swapEditorPanes = useCallback(async () => {
     if (!secondaryFile || !activeFile || secondaryFile === activeFile) return;
@@ -3909,15 +4169,7 @@ function App() {
         }
         setCollabFileCount(collabSession.fileCount());
       }
-      setMessages((items) => [
-        ...items,
-        {
-          id: crypto.randomUUID(),
-          role: "system",
-          text: `Imported ${imported.length} figure${imported.length === 1 ? "" : "s"} into ${targetDirectory}.`,
-          files: imported,
-        },
-      ]);
+      setNotice(`Imported ${imported.length} figure${imported.length === 1 ? "" : "s"} into ${targetDirectory}.`);
       setError(null);
       return imported;
     } catch (reason) {
@@ -3928,6 +4180,34 @@ function App() {
       setAssetDropTarget(null);
     }
   }, [assetImporting, collabSession, refreshProject]);
+
+  const importProjectSources = useCallback(async (
+    paths: string[],
+    targetDirectory = "",
+  ): Promise<string[]> => {
+    if (!paths.length || assetImporting) return [];
+    setAssetImporting(true);
+    try {
+      const imported = await invoke<string[]>("import_project_sources", { paths, targetDirectory });
+      await reconcileProjectTree();
+      await refreshHistory();
+      if (collabSession) {
+        for (const path of imported) {
+          const content = await invoke<string>("read_project_file", { path });
+          await publishLocalTextToCollab(collabSession.doc, path, "", content);
+        }
+        setCollabFileCount(collabSession.fileCount());
+      }
+      setError(null);
+      return imported;
+    } catch (reason) {
+      setError(toMessage(reason));
+      return [];
+    } finally {
+      setAssetImporting(false);
+      setAssetDropTarget(null);
+    }
+  }, [assetImporting, collabSession, reconcileProjectTree, refreshHistory]);
 
   const chooseProjectAssets = useCallback(async (targetDirectory = "figures") => {
     const selected = await open({
@@ -3947,19 +4227,63 @@ function App() {
       .then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent((event) => {
         if (!active) return;
         if (event.payload.type === "leave") {
+          nativeDragPathsRef.current = [];
           setAssetDropTarget(null);
           setNativeEditorDropActive(false);
+          setFileDropTargetPane(null);
           return;
         }
+        if (event.payload.type === "enter") {
+          nativeDragPathsRef.current = event.payload.paths;
+        }
+        const dragPaths = event.payload.type === "over"
+          ? nativeDragPathsRef.current
+          : event.payload.paths;
         const editorPosition = dropEditorAt(event.payload.position);
+        const canvasTarget = dropCanvasAt(event.payload.position);
         const targetDirectory = dropDirectoryAt(event.payload.position);
-        setAssetDropTarget(targetDirectory);
-        setNativeEditorDropActive(Boolean(editorPosition));
+        const dropKind = classifyExternalProjectDrop(dragPaths);
+        const editorPath = editorPosition?.pane === "secondary"
+          ? secondaryFileRef.current
+          : activeFileRef.current;
+        const insertsIntoEditor = Boolean(
+          editorPosition
+          && dropKind === "asset"
+          && /\.(?:tex|md)$/i.test(editorPath ?? ""),
+        );
+        setAssetDropTarget(dropKind === "asset" ? targetDirectory : null);
+        setNativeEditorDropActive(insertsIntoEditor);
+        setFileDropTargetPane(
+          editorPosition && (
+            dropKind === "source"
+            || (dropKind === "asset" && !insertsIntoEditor)
+          )
+            ? editorPosition.pane
+            : null,
+        );
         if (event.payload.type === "drop") {
           setAssetDropTarget(null);
           setNativeEditorDropActive(false);
+          setFileDropTargetPane(null);
+          nativeDragPathsRef.current = [];
           if (!event.payload.paths.length) return;
-          if (editorPosition) {
+          if (dropKind === "source" && (editorPosition || canvasTarget)) {
+            void importProjectSources(event.payload.paths).then(async (paths) => {
+              for (const path of paths) {
+                await openProjectFileRef.current(
+                  path,
+                  undefined,
+                  editorPosition?.pane ?? "primary",
+                );
+              }
+            });
+          } else if (dropKind === "source") {
+            setError("Drop source files onto an editor to import and open them.");
+          } else if (dropKind === "mixed") {
+            setError("Drop source files and figures separately so Lattice knows whether to open or insert them.");
+          } else if (dropKind === "unsupported") {
+            setError("Lattice can open TeX, bibliography, Markdown, style, class, and text files dropped onto an editor.");
+          } else if (editorPosition && insertsIntoEditor) {
             void importProjectAssets(event.payload.paths, "figures").then((paths) => {
               if (paths.length) {
                 setFigureDropRequest({
@@ -3967,11 +4291,18 @@ function App() {
                   paths,
                   clientX: editorPosition.x,
                   clientY: editorPosition.y,
+                  pane: editorPosition.pane,
                 });
               }
             });
           } else if (targetDirectory) void importProjectAssets(event.payload.paths, targetDirectory);
-          else setError("Drop image files onto a project folder or anywhere in the Project pane to add them to figures.");
+          else if (canvasTarget) {
+            void importProjectAssets(event.payload.paths, "figures").then(async (paths) => {
+              for (const path of paths) await openProjectAsset(path);
+            });
+          } else {
+            setError("Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them.");
+          }
         }
       }))
       .then((unlisten) => {
@@ -3985,7 +4316,7 @@ function App() {
       active = false;
       dispose?.();
     };
-  }, [importProjectAssets, project]);
+  }, [importProjectAssets, importProjectSources, openProjectAsset, project]);
 
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
     try {
@@ -4598,6 +4929,9 @@ function App() {
       if (activePaper && paperKey(activePaper) === paperKey(paper)) {
         setActivePaper(null);
         setPaperMarkdown("");
+        setSavedPaperMarkdown("");
+        setPaperBlog(null);
+        setSavedPaperBlog(null);
         setCanvasMode("split");
       }
       await refreshProject();
@@ -4607,527 +4941,10 @@ function App() {
     }
   }, [activePaper, collabSession, project, refreshHistory, refreshProject]);
 
-  const changeProvider = useCallback((nextProvider: AgentProvider) => {
-    const options = agentModels.options(nextProvider);
-    const nextOption = options[0];
-    setProvider(nextProvider);
-    setAgentModel(nextOption?.value ?? defaultModel(nextProvider));
-    setReasoningEffort(nextOption?.efforts.includes("high") ? "high" : nextOption?.efforts[0] ?? "high");
-  }, [agentModels]);
-
-  const changeAgentAccessMode = useCallback((mode: "subscription" | "api") => {
-    const candidates = mode === "subscription" ? subscriptionProviders : apiProviders;
-    changeProvider(candidates[0] ?? (mode === "subscription" ? "codex" : "openai-api"));
-  }, [apiProviders, changeProvider, subscriptionProviders]);
-
-  const changeAccessibleAgentModel = useCallback((nextModel: string) => {
-    const candidates = effectiveAgentProviders.includes(provider)
-      ? [provider, ...effectiveAgentProviders.filter((candidate) => candidate !== provider)]
-      : effectiveAgentProviders;
-    const nextProvider = candidates.find((candidate) => agentModels.options(candidate)
-      .some((option) => option.value === nextModel));
-    if (nextProvider) setProvider(nextProvider);
-    setAgentModel(nextModel);
-  }, [agentModels, effectiveAgentProviders, provider]);
-
-  useEffect(() => {
-    if (!agentAccessLoaded || !availableAgentProviders.length) return;
-    const nextProvider = availableAgentProviders.includes(provider) ? provider : availableAgentProviders[0];
-    const options = agentModels.options(nextProvider);
-    const nextOption = options.find((option) => option.value === agentModel) ?? options[0];
-    if (provider !== nextProvider) setProvider(nextProvider);
-    if (nextOption && agentModel !== nextOption.value) setAgentModel(nextOption.value);
-    if (nextOption && !nextOption.efforts.includes(reasoningEffort)) {
-      setReasoningEffort(nextOption.efforts.includes("high") ? "high" : nextOption.efforts[0]);
-    }
-  }, [agentAccessLoaded, agentModel, agentModels, availableAgentProviders, provider, reasoningEffort]);
-
-  const refreshAgentSessions = useCallback(async () => {
-    setAgentSessions(await invoke<AgentSessionSummary[]>("list_agent_sessions"));
-  }, []);
-
-  const newAgentSession = useCallback(async () => {
-    if (agentRunning) return;
-    try {
-      const session = await invoke<AgentSession>("create_agent_session", {
-        provider,
-        model: agentModel,
-        reasoningEffort,
-      });
-      setActiveSession(session);
-      setMessages(session.messages);
-      setAgentAttachments([]);
-      stickToBottomRef.current = true;
-      setBranchSource(null);
-      setSessionMenuOpen(false);
-      await refreshAgentSessions();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [agentModel, agentRunning, provider, reasoningEffort, refreshAgentSessions]);
-
-  const openAgentSession = useCallback(async (id: string) => {
-    if (agentRunning || id === activeSession?.id) {
-      setSessionMenuOpen(false);
-      return;
-    }
-    try {
-      const session = await invoke<AgentSession>("read_agent_session", { sessionId: id });
-      setActiveSession(session);
-      setMessages(session.messages);
-      setAgentAttachments([]);
-      stickToBottomRef.current = true;
-      setBranchSource(null);
-      setProvider(session.provider);
-      setAgentModel(normalizeModel(session.provider, session.model));
-      setReasoningEffort(normalizeEffort(session.reasoningEffort));
-      setSessionMenuOpen(false);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [activeSession?.id, agentRunning]);
-
-  const deleteAgentSession = useCallback(async (id: string) => {
-    if (agentRunning) return;
-    if (!await confirmAction("Delete this conversation? This cannot be undone.")) return;
-    try {
-      await invoke("delete_agent_session", { sessionId: id });
-      let remaining = await invoke<AgentSessionSummary[]>("list_agent_sessions");
-      if (id === activeSession?.id) {
-        const next = remaining.length
-          ? await invoke<AgentSession>("read_agent_session", { sessionId: remaining[0].id })
-          : await invoke<AgentSession>("create_agent_session", { provider, model: agentModel, reasoningEffort });
-        if (!remaining.length) remaining = await invoke<AgentSessionSummary[]>("list_agent_sessions");
-        setActiveSession(next);
-        setMessages(next.messages);
-        setAgentAttachments([]);
-        setProvider(next.provider);
-        setAgentModel(normalizeModel(next.provider, next.model));
-        setReasoningEffort(normalizeEffort(next.reasoningEffort));
-      }
-      setAgentSessions(remaining);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [activeSession, agentModel, agentRunning, provider, reasoningEffort]);
-
-  const refreshApiKeys = useCallback(async () => {
-    const statuses = await invoke<[string, boolean][]>("api_key_status");
-    setApiKeyStatus(Object.fromEntries(statuses));
-  }, []);
-
-  const refreshSubscriptions = useCallback(async () => {
-    setSubscriptionsLoading(true);
-    try {
-      setSubscriptions(await invoke<SubscriptionStatus[]>("subscription_status"));
-    } catch (reason) {
-      setError(toMessage(reason));
-    } finally {
-      setSubscriptionsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (sidebarMode !== "agent") return;
-    let active = true;
-    setAgentAccessReady({ subscription: false, api: false });
-    void invoke<SubscriptionStatus[]>("subscription_status")
-      .then((statuses) => { if (active) setSubscriptions(statuses); })
-      .catch(() => { if (active) setSubscriptions([]); })
-      .finally(() => { if (active) setAgentAccessReady((ready) => ({ ...ready, subscription: true })); });
-    void invoke<[string, boolean][]>("api_key_status")
-      .then((statuses) => { if (active) setApiKeyStatus(Object.fromEntries(statuses)); })
-      .catch(() => { if (active) setApiKeyStatus({}); })
-      .finally(() => { if (active) setAgentAccessReady((ready) => ({ ...ready, api: true })); });
-    return () => { active = false; };
-  }, [sidebarMode]);
-
-  const refreshAgentSkills = useCallback(async () => {
-    setAgentSkills(await invoke<AgentSkill[]>("list_agent_skills"));
-  }, []);
-
-  const refreshMcpServers = useCallback(async () => {
-    setMcpServers(await invoke<McpServer[]>("list_mcp_servers"));
-  }, []);
-
   const openSettings = useCallback((tab: SettingsTab = "appearance") => {
     setSettingsTab(tab);
     setSettingsOpen(true);
-    setSubscriptionNotice("");
-    if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
-    if (tab === "accounts") void refreshSubscriptions();
-    if (tab === "agent") void refreshAgentSkills().catch((reason) => setError(toMessage(reason)));
-    if (tab === "mcp") void refreshMcpServers().catch((reason) => setError(toMessage(reason)));
-  }, [refreshAgentSkills, refreshApiKeys, refreshMcpServers, refreshSubscriptions]);
-
-  const sendToAgent = useCallback(async () => {
-    const message = agentInput.trim();
-    if ((!message && !agentAttachments.length) || agentRunning || agentAttachmentsInspecting) return;
-    if (!agentAccessLoaded) return;
-    if (!availableAgentProviders.length) {
-      openSettings(agentAccessMode === "api" ? "api" : "accounts");
-      return;
-    }
-    const submittedAttachments = agentAttachments;
-    setAgentInput("");
-    setAgentAttachments([]);
-    // Sending is an explicit "show me the reply", so re-pin to the bottom even
-    // if the user had scrolled up in the previous turn.
-    stickToBottomRef.current = true;
-    setAgentRunning(true);
-    setAgentStreaming(false);
-    setAgentStopping(false);
-    setAgentCancellable(false);
-    setAgentStatus(branchSource ? "Creating conversation branch…" : "Reading project context…");
-    // Where the conversation stood before this turn, so an auth failure can put
-    // everything back instead of leaving a broken, half-formed chat behind.
-    const priorSession = activeSession;
-    const priorMessages = messages;
-    let session = activeSession;
-    let currentMessages = messages;
-    let backendStarted = false;
-    const streamedMessageId = crypto.randomUUID();
-    // Declared out here so the completion path and error handlers can cancel a
-    // still-pending streamed render before they commit the final transcript.
-    let publishHandle: number | null = null;
-    const cancelPublish = () => {
-      if (publishHandle !== null) {
-        window.cancelAnimationFrame(publishHandle);
-        publishHandle = null;
-      }
-    };
-    try {
-      if (!(await save())) throw new Error("Save the current file before running the agent.");
-      if (branchSource) {
-        session = await invoke<AgentSession>("fork_agent_session", {
-          sourceSessionId: branchSource.sessionId,
-          messageId: branchSource.messageId,
-          systemPrompt,
-        });
-        setBranchSource(null);
-        setProvider(session.provider);
-        setAgentModel(normalizeModel(session.provider, session.model));
-        setReasoningEffort(normalizeEffort(session.reasoningEffort));
-        currentMessages = session.messages;
-        setMessages(session.messages);
-        setSelection("");
-        setSelectionSource(null);
-        selectionSourceRef.current = null;
-        dismissedSelectionRef.current = null;
-        await refreshProject();
-        await refreshHistory();
-        if (activeFile) await loadFile(activeFile);
-        await compile();
-      } else if (!session) session = await invoke<AgentSession>("create_agent_session", {
-        provider,
-        model: agentModel,
-        reasoningEffort,
-      });
-      const userMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "user",
-        text: message,
-        attachments: submittedAttachments.map(({ name, kind, mimeType, size }) => ({ name, kind, mimeType, size })),
-      };
-      await invoke("save_agent_checkpoint", { sessionId: session.id, messageId: userMessage.id });
-      const pendingMessages = [...session.messages, userMessage];
-      currentMessages = pendingMessages;
-      setMessages(pendingMessages);
-      // The turn is assembled in order as it happens. Rust re-sends the whole
-      // transcript on every delta, so the length already committed to closed
-      // text parts is exactly where the next spoken run begins — that offset is
-      // all the interleaving needs.
-      let parts: ChatPart[] = [];
-      let fullText = "";
-      let committed = 0;
-      const flushPublish = () => {
-        publishHandle = null;
-        const streamedMessages: ChatMessage[] = [...pendingMessages, {
-          id: streamedMessageId,
-          role: "agent",
-          text: fullText,
-          parts: [...parts],
-        }];
-        currentMessages = streamedMessages;
-        setMessages(streamedMessages);
-      };
-      // Coalesce bursts of deltas into one render per animation frame. A fast
-      // stream fires many deltas between frames, and re-parsing the growing
-      // markdown on every one is what makes long replies stutter.
-      const publish = () => {
-        if (publishHandle === null) publishHandle = window.requestAnimationFrame(flushPublish);
-      };
-      const onEvent = new Channel<AgentStreamEvent>((event) => {
-        backendStarted = true;
-        if (event.type === "attachments") {
-          const accepted = pendingMessages.map((pending) => pending.id === userMessage.id
-            ? { ...pending, attachments: event.attachments }
-            : pending);
-          currentMessages = accepted;
-          setMessages(accepted);
-          return;
-        }
-        if (event.type === "cancellable") {
-          setAgentCancellable(event.enabled);
-          return;
-        }
-        if (event.type === "status") {
-          setAgentStatus(event.message);
-          return;
-        }
-        if (event.type === "tool") {
-          if (event.phase === "end") {
-            for (let index = parts.length - 1; index >= 0; index -= 1) {
-              const part = parts[index];
-              if (part?.kind === "tool" && part.name === event.name && part.phase === "start") {
-                // OMP's end event only says "done"; retain the useful target
-                // (file, glob, or command) from the matching start event.
-                const endDetail = event.detail.trim().toLowerCase() === "done" ? part.detail : event.detail;
-                parts[index] = { ...part, phase: "end", detail: endDetail || part.detail };
-                publish();
-                return;
-              }
-            }
-            parts = [...parts, {
-              kind: "tool",
-              id: crypto.randomUUID(),
-              name: event.name,
-              detail: event.detail || "done",
-              phase: "end",
-            }];
-            publish();
-            return;
-          }
-          // A blinking caret with no text arriving reads as "stuck". Hand the
-          // floor back to the status row ("Editing main.tex…") for the duration
-          // of the tool call; the next text delta re-raises the caret.
-          setAgentStreaming(false);
-          // Seal whatever has been said so far so the next run of text lands
-          // after this tool rather than growing the paragraph above it.
-          committed = fullText.length;
-          parts = [...parts, {
-            kind: "tool",
-            id: crypto.randomUUID(),
-            name: event.name,
-            detail: event.detail,
-            phase: "start",
-          }];
-          publish();
-          return;
-        }
-        if (!event.text) return;
-        fullText = event.text;
-        const spoken = fullText.slice(committed);
-        const last = parts[parts.length - 1];
-        if (last?.kind === "text") {
-          parts = [...parts.slice(0, -1), { kind: "text", text: spoken }];
-        } else if (spoken) {
-          parts = [...parts, { kind: "text", text: spoken }];
-        }
-        setAgentStreaming(true);
-        setAgentStatus("");
-        publish();
-      });
-      session = await invoke<AgentSession>("save_agent_session", {
-        session: { ...session, provider, model: agentModel, reasoningEffort, messages: pendingMessages },
-      });
-      setActiveSession(session);
-      await refreshAgentSessions();
-      runningAgentSession.current = session.id;
-      const share = collabSessionRef.current;
-      const collabBases = share ? readTextsFromDoc(share.doc) : {};
-      const result = await invoke<AgentResult>("run_agent", {
-        onEvent,
-        request: {
-          settings: { provider, model: agentModel, reasoningEffort },
-          message,
-          attachments: submittedAttachments,
-          activeFile: activeFile || null,
-          selection: selection || null,
-          sessionId: session.id,
-          sessionTitle: session.title,
-          systemPrompt,
-        },
-      });
-      backendStarted = true;
-      // Nothing streamed (a short non-streaming reply) leaves no parts to keep,
-      // so fall back to the summary as a single spoken part.
-      // The transcript first, then how the run ended if that needs saying.
-      // Only `parts` is rendered once streaming has produced any, so a notice
-      // folded into `summary` — "Stopped.", or an error after the agent had
-      // already edited a file — was never shown at all, and the run read as an
-      // ordinary success.
-      const streamedParts: ChatPart[] = parts.length
-        ? parts
-        : [{ kind: "text", text: result.summary }];
-      const completedParts: ChatPart[] = result.notice
-        ? [...streamedParts, { kind: "text", text: result.notice }]
-        : streamedParts;
-      // What Copy puts on the clipboard, and what a reopened conversation
-      // falls back to: the text that was actually on screen, rather than a
-      // summary the panel may never have rendered.
-      const completedText = completedParts
-        .filter((part): part is { kind: "text"; text: string } => part.kind === "text")
-        .map((part) => part.text)
-        .join("\n\n")
-        .trim() || result.summary;
-      const acceptedAttachments = result.attachments ?? userMessage.attachments ?? [];
-      const acceptedPendingMessages = pendingMessages.map((pending) => pending.id === userMessage.id
-        ? { ...pending, attachments: acceptedAttachments }
-        : pending);
-      const completedMessages: ChatMessage[] = [...acceptedPendingMessages, {
-        id: streamedMessageId,
-        role: "agent",
-        text: completedText,
-        files: result.changedFiles,
-        skills: result.skillsUsed ?? [],
-        parts: completedParts,
-      }];
-      currentMessages = completedMessages;
-      setAgentStreaming(false);
-      setAgentStatus("");
-      // Drop any frame still queued so it can't overwrite the final transcript.
-      cancelPublish();
-      setMessages(completedMessages);
-      session = await invoke<AgentSession>("save_agent_session", {
-        session: { ...session, provider, model: agentModel, reasoningEffort, messages: completedMessages },
-      });
-      setActiveSession(session);
-      await refreshAgentSessions();
-      if (activeFile && result.changedFiles.includes(activeFile)) await loadFile(activeFile);
-      // The agent writes straight to disk, so nothing has told the shared doc.
-      // Without this a collaborator sees none of the work it just did.
-      // The ref, not the state: this callback is rebuilt from its dependencies,
-      // and a share started after the last rebuild would be invisible to the
-      // closure — the agent's work would reach nobody.
-      if (share && result.changedFiles.length) {
-        for (const path of result.changedFiles) {
-          const kind = classifySyncablePath(path);
-          if (!kind) continue;
-          try {
-            if (kind === "text") {
-              await publishLocalTextToCollab(
-                share.doc,
-                path,
-                collabBases[path] ?? "",
-                await invoke<string>("read_project_file", { path }),
-              );
-            } else {
-              await pushLocalBlobToCollab(share.doc, path);
-            }
-          } catch (reason) {
-            if (reason instanceof CollabTextConflictError) setError(reason.message);
-            // A file the agent deleted, or one too large to share; the rest
-            // must still go out.
-          }
-        }
-        setCollabFileCount(share.fileCount());
-      }
-      await refreshProject();
-      await refreshHistory();
-      if (result.changedFiles.length) await compile();
-    } catch (reason) {
-      // A queued streamed frame must not repaint over the recovery state below.
-      cancelPublish();
-      const { text, settingsTab } = agentErrorDetails(toMessage(reason));
-      if (settingsTab) {
-        // Missing sign-in or API key. Don't strand the user in a half-formed
-        // conversation whose transcript now carries an error line — that reads
-        // as "this chat is broken, start a new one." Put their message back in
-        // the composer so they can sign in and send again, and undo the
-        // throwaway turn (deleting the session when this send is what created
-        // it, otherwise reverting the un-answered message from an existing one).
-        const createdThisTurn = session && session.id !== priorSession?.id;
-        setAgentInput((current) => (current.trim() ? current : message));
-        setAgentAttachments((current) => current.length ? current : submittedAttachments);
-        setMessages(priorMessages);
-        setActiveSession(priorSession);
-        if (createdThisTurn && session) {
-          try {
-            await invoke("delete_agent_session", { sessionId: session.id });
-          } catch {
-            // A session we cannot delete is harmless; the panel has moved on.
-          }
-        } else if (priorSession) {
-          try {
-            await invoke<AgentSession>("save_agent_session", {
-              session: { ...priorSession, provider, model: agentModel, reasoningEffort, messages: priorMessages },
-            });
-          } catch {
-            // Reverting the un-answered turn on disk is best-effort.
-          }
-        }
-        await refreshAgentSessions();
-        openSettings(settingsTab);
-        setError(text);
-      } else if (!backendStarted) {
-        const createdThisTurn = session && session.id !== priorSession?.id;
-        setAgentInput((current) => (current.trim() ? current : message));
-        setAgentAttachments((current) => current.length ? current : submittedAttachments);
-        setMessages(priorMessages);
-        setActiveSession(priorSession);
-        try {
-          if (createdThisTurn && session) {
-            await invoke("delete_agent_session", { sessionId: session.id });
-          } else if (priorSession) {
-            await invoke("save_agent_session", {
-              session: { ...priorSession, provider, model: agentModel, reasoningEffort, messages: priorMessages },
-            });
-          }
-          await refreshAgentSessions();
-        } catch {
-          // The in-memory draft is restored even if disk cleanup fails.
-        }
-        setError(text);
-      } else {
-        const failedMessages: ChatMessage[] = [
-          ...currentMessages,
-          { id: crypto.randomUUID(), role: "system", text },
-        ];
-        setMessages(failedMessages);
-        if (session) {
-          try {
-            const saved = await invoke<AgentSession>("save_agent_session", {
-              session: { ...session, provider, model: agentModel, reasoningEffort, messages: failedMessages },
-            });
-            setActiveSession(saved);
-            await refreshAgentSessions();
-          } catch {
-            // Keep the visible error when persistence also fails.
-          }
-        }
-      }
-    } finally {
-      cancelPublish();
-      runningAgentSession.current = null;
-      setAgentRunning(false);
-      setAgentStreaming(false);
-      setAgentStopping(false);
-      setAgentCancellable(false);
-      setAgentStatus("");
-    }
-  }, [activeFile, activeSession, agentAccessLoaded, agentAccessMode, agentAttachments, agentAttachmentsInspecting, agentInput, agentModel, agentRunning, availableAgentProviders.length, branchSource, compile, loadFile, messages, openSettings, provider, reasoningEffort, refreshAgentSessions, refreshHistory, refreshProject, save, selection, systemPrompt]);
-
-  const stopAgent = useCallback(async () => {
-    const sessionId = runningAgentSession.current;
-    if (!sessionId || agentStopping) return;
-    setAgentStopping(true);
-    setAgentStatus("Stopping agent…");
-    try {
-      const stopped = await invoke<boolean>("abort_agent", { sessionId });
-      if (!stopped) setAgentStatus("Agent is already finishing…");
-    } catch (reason) {
-      setAgentStopping(false);
-      setError(toMessage(reason));
-    }
-  }, [agentStopping]);
-
-  const editAndBranch = useCallback((message: ChatMessage) => {
-    if (!activeSession || agentRunning || message.role !== "user") return;
-    setBranchSource({ sessionId: activeSession.id, messageId: message.id });
-    setAgentInput(message.text);
-    setAgentAttachments([]);
-  }, [activeSession, agentRunning]);
+  }, []);
 
   const revert = useCallback(
     async (id: string) => {
@@ -5146,104 +4963,6 @@ function App() {
     },
     [activeFile, compile, loadFile, refreshHistory, refreshProject],
   );
-
-  const saveAgentSkill = useCallback(async (draft: SkillDraft) => {
-    try {
-      await invoke("save_agent_skill", {
-        request: { originalName: draft.originalName ?? null, scope: draft.scope, content: draft.content },
-      });
-      setSkillDraft(null);
-      await refreshAgentSkills();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [refreshAgentSkills]);
-
-  const setAgentSkillEnabled = useCallback(async (name: string, enabled: boolean) => {
-    try {
-      await invoke("set_agent_skill_enabled", { name, enabled });
-      await refreshAgentSkills();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [refreshAgentSkills]);
-
-  const deleteAgentSkill = useCallback(async (skill: AgentSkill) => {
-    if (!await confirmAction(`Delete ${skill.name}?`)) return;
-    try {
-      await invoke("delete_agent_skill", { name: skill.name, scope: skill.scope });
-      await refreshAgentSkills();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [refreshAgentSkills]);
-
-  const saveMcpServer = useCallback(async (draft: McpServerDraft) => {
-    try {
-      await invoke("save_mcp_server", { request: mcpDraftToSaveRequest(draft) });
-      setMcpDraft(null);
-      await refreshMcpServers();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [refreshMcpServers]);
-
-  const setMcpServerEnabled = useCallback(async (name: string, enabled: boolean) => {
-    try {
-      await invoke("set_mcp_server_enabled", { name, enabled });
-      await refreshMcpServers();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [refreshMcpServers]);
-
-  const deleteMcpServer = useCallback(async (server: McpServer) => {
-    if (!await confirmAction(`Delete MCP server ${server.name}?`)) return;
-    try {
-      await invoke("delete_mcp_server", { name: server.name, scope: server.scope });
-      await refreshMcpServers();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [refreshMcpServers]);
-
-  const beginSubscriptionLogin = useCallback(async (providerName: "codex" | "claude") => {
-    setSubscriptionsLoading(true);
-    setSubscriptionNotice(`Starting ${providerName === "codex" ? "Codex" : "Claude"} sign-in through OMP…`);
-    try {
-      const onEvent = new Channel<{ message: string }>();
-      onEvent.onmessage = (event) => setSubscriptionNotice(event.message);
-      await invoke("begin_subscription_login", { provider: providerName, onEvent });
-      setSubscriptionNotice(`${providerName === "codex" ? "Codex" : "Claude"} is connected through OMP.`);
-      setSubscriptions(await invoke<SubscriptionStatus[]>("subscription_status"));
-    } catch (reason) {
-      setError(toMessage(reason));
-    } finally {
-      setSubscriptionsLoading(false);
-    }
-  }, []);
-
-  const saveApiKey = useCallback(async () => {
-    try {
-      await invoke("save_api_key", { provider: apiProvider, key: apiKey });
-      setApiKey("");
-      await refreshApiKeys();
-      changeProvider(apiProvider === "openai" ? "openai-api" : "anthropic-api");
-      setSettingsOpen(false);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [apiKey, apiProvider, changeProvider, refreshApiKeys]);
-
-  const deleteApiKey = useCallback(async () => {
-    try {
-      await invoke("delete_api_key", { provider: apiProvider });
-      setApiKey("");
-      await refreshApiKeys();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [apiProvider, refreshApiKeys]);
 
   const deleteHistory = useCallback(async (id: string) => {
     if (!await confirmAction("Delete this history entry? This cannot be undone.")) return;
@@ -5326,16 +5045,15 @@ function App() {
 
   const settingsDialog = settingsOpen ? (
     <SettingsDialog
-      synaraEmbedUrl={synaraOrigin || undefined}
-      synaraAuthToken={synaraRuntime.authToken || undefined}
+      synaraRuntime={synaraRuntime}
       synaraWorkspaceRoot={project?.root}
+      onRetrySynaraRuntime={retrySynaraRuntime}
       overleafSyncMode={overleafSyncMode}
       overleafRemoteDelete={overleafRemoteDelete}
       onOverleafRemoteDeleteChange={(mode) => {
         setOverleafRemoteDelete(mode);
         persistOverleafRemoteDelete(mode);
       }}
-      onAgentRuntimeUpdated={agentModels.refresh}
       overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
       overleafChannelDetail={overleafRealtime.detail}
       onOverleafLinkChanged={refreshOverleafLink}
@@ -5346,10 +5064,6 @@ function App() {
       tab={settingsTab}
       setTab={(tab) => {
         setSettingsTab(tab);
-        if (tab === "api") void refreshApiKeys().catch((reason) => setError(toMessage(reason)));
-        if (tab === "accounts") void refreshSubscriptions();
-        if (tab === "agent") void refreshAgentSkills().catch((reason) => setError(toMessage(reason)));
-        if (tab === "mcp") void refreshMcpServers().catch((reason) => setError(toMessage(reason)));
         if (tab === "doctor") void runDoctor();
       }}
       doctorReport={doctorReport}
@@ -5367,8 +5081,6 @@ function App() {
       setTheme={setTheme}
       buildPreferences={buildPreferences}
       setBuildPreferences={setBuildPreferences}
-      systemPrompt={systemPrompt}
-      setSystemPrompt={setSystemPrompt}
       hasProject={Boolean(project)}
       project={project}
       onUpdateManifest={async (patch) => {
@@ -5403,34 +5115,7 @@ function App() {
           setError(toMessage(reason));
         }
       }}
-      skills={agentSkills}
-      skillDraft={skillDraft}
-      setSkillDraft={setSkillDraft}
-      onSaveSkill={saveAgentSkill}
-      onSetSkillEnabled={setAgentSkillEnabled}
-      onDeleteSkill={deleteAgentSkill}
-      mcpServers={mcpServers}
-      mcpDraft={mcpDraft}
-      setMcpDraft={setMcpDraft}
-      onSaveMcpServer={saveMcpServer}
-      onSetMcpServerEnabled={setMcpServerEnabled}
-      onDeleteMcpServer={deleteMcpServer}
-      subscriptions={subscriptions}
-      subscriptionsLoading={subscriptionsLoading}
-      subscriptionNotice={subscriptionNotice}
-      onRefreshSubscriptions={refreshSubscriptions}
-      onSubscriptionLogin={beginSubscriptionLogin}
-      apiProvider={apiProvider}
-      setApiProvider={setApiProvider}
-      apiKey={apiKey}
-      setApiKey={setApiKey}
-      apiConfigured={Boolean(apiKeyStatus[apiProvider])}
-      onSaveApiKey={saveApiKey}
-      onDeleteApiKey={deleteApiKey}
-      onClose={() => {
-        setSettingsOpen(false);
-        setApiKey("");
-      }}
+      onClose={() => setSettingsOpen(false)}
     />
   ) : null;
 
@@ -5438,6 +5123,8 @@ function App() {
     <OverleafPickerDialog
       open={overleafPickerOpen}
       onClose={() => setOverleafPickerOpen(false)}
+      onBeforeClone={startProjectTransition}
+      onCloneCancelled={cancelProjectTransition}
       onCloned={(root) => {
         setOverleafPickerOpen(false);
         void openClonedOverleafProject(root);
@@ -5450,6 +5137,7 @@ function App() {
     <>
       <OverleafReviewDialog
         open={overleafReviewOpen}
+        projectRoot={project?.root ?? null}
         onClose={() => setOverleafReviewOpen(false)}
         onApply={async () => {
           await runOverleafSync();
@@ -5583,8 +5271,12 @@ function App() {
     () => openTabs.map((path) => {
       if (isPaperTabKey(path)) {
         const id = arxivIdFromTabKey(path);
-        // Papers are read-only, so never dirty and never a split "beside" pane.
-        return { path, kind: "paper" as const, label: papers.find((paper) => paper.arxivId === id)?.title ?? "Paper" };
+        return {
+          path,
+          kind: "paper" as const,
+          label: papers.find((paper) => paper.arxivId === id)?.title ?? "Paper",
+          dirty: activePaper?.arxivId === id && activePaperDirty,
+        };
       }
       if (projectAssetPaths.has(path)) {
         return { path, kind: "asset" as const };
@@ -5597,14 +5289,27 @@ function App() {
         beside: path === secondaryFile && (canvasMode === "dual" || canvasMode === "columns"),
       };
     }),
-    [activeFile, canvasMode, openTabs, papers, projectAssetPaths, savedSource, secondaryFile, secondarySavedSource, secondarySource, source],
+    [
+      activeFile,
+      activePaper?.arxivId,
+      activePaperDirty,
+      canvasMode,
+      openTabs,
+      papers,
+      projectAssetPaths,
+      savedSource,
+      secondaryFile,
+      secondarySavedSource,
+      secondarySource,
+      source,
+    ],
   );
   useLayoutEffect(() => {
     fitSidebarToContent();
   }, [canvasMode, editorTabItems.length, fitSidebarToContent]);
   // The tab that reads as active: the open paper in paper mode, else the focused
   // editor pane. Also the key eviction must never close.
-  const activeTabKey = canvasMode === "paper" && activePaper
+  const activeTabKey = activePaper
     ? paperTabKey(activePaper.arxivId)
     : canvasMode === "asset" && activeAsset
       ? activeAsset.path
@@ -5899,7 +5604,7 @@ function App() {
                 <button
                   className="project-title"
                   aria-label="Switch project"
-                  disabled={agentRunning || building || importing}
+                  disabled={building || importing}
                 >
                   <span>{project.manifest.name}</span>
                   <ChevronDown size={13} />
@@ -5984,18 +5689,21 @@ function App() {
           <CanvasToolbar
             mode={canvasMode}
             setMode={openDocumentMode}
-            markdown={!activePaper && !activeAsset && activeFile.toLocaleLowerCase().endsWith(".md")}
+            markdown={Boolean(activePaper)
+              || (!activeAsset && activeFile.toLocaleLowerCase().endsWith(".md"))}
             onMarkdownMode={(preview) => setCanvasMode(preview ? "markdown-preview" : "source")}
+            paperView={activePaper ? paperView : undefined}
+            paperHasBlog={paperBlog !== null}
+            paperHasFullText={Boolean(paperMarkdown)}
+            onPaperView={activePaper ? setPaperView : undefined}
             activePath={activeAsset?.path ?? activePaper?.title ?? (
               focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile
             )}
             activeKind={activeAsset ? "asset" : activePaper ? "paper" : "document"}
-            dirty={
-              source !== savedSource
-              || (Boolean(secondaryFile) && secondarySource !== secondarySavedSource)
-            }
-            canForwardSync={Boolean(editorPosition && (pdfUrl || build?.pdfBase64))}
-            locatingPdf={locatingPdf}
+            dirty={activePaper
+              ? activePaperDirty
+              : source !== savedSource
+                || (Boolean(secondaryFile) && secondarySource !== secondarySavedSource)}
             canNavigateBack={navIndex > 0}
             canNavigateForward={navIndex >= 0 && navIndex < navStack.length - 1}
             onNavigateBack={() => void navigateHistory(-1)}
@@ -6004,7 +5712,6 @@ function App() {
             onCollab={() => openCollabDialog("start")}
             collabLive={collabStatus === "synced" || collabStatus === "connecting"}
             collabPeers={collabPeers}
-            onForwardSync={() => void revealSourceInPdf()}
             onHistory={() => setHistoryOpen(true)}
             onGit={() => setGitOpen(true)}
             commentCount={allEditorComments.filter((comment) => !comment.resolved).length}
@@ -6091,14 +5798,42 @@ function App() {
           <CircleAlert size={15} aria-hidden="true" />
           <span>{error}</span>
           <CopyButton aria-label="Copy error message" title="Copy error message" text={error} />
-          <button aria-label="Dismiss error" title="Dismiss error" onClick={() => setError(null)}><X size={14} aria-hidden="true" /></button>
+          <button
+            aria-label="Dismiss error"
+            title="Dismiss error"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setError(null)}
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
         </div>
       )}
-      {notice && !error && (
+      {warning && !error && (
+        <div className="warning-banner" role="status">
+          <TriangleAlert size={15} aria-hidden="true" />
+          <span>{warning}</span>
+          <button
+            aria-label="Dismiss warning"
+            title="Dismiss warning"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setWarning(null)}
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      {notice && !error && !warning && (
         <div className="notice-banner" role="status">
           <Check size={15} aria-hidden="true" />
           <span>{notice}</span>
-          <button aria-label="Dismiss notice" title="Dismiss notice" onClick={() => setNotice(null)}><X size={14} aria-hidden="true" /></button>
+          <button
+            aria-label="Dismiss notice"
+            title="Dismiss notice"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setNotice(null)}
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
         </div>
       )}
       {referenceHits && (
@@ -6141,7 +5876,15 @@ function App() {
                 <div className="sidebar-mode-actions">
                   {sidebarMode === "project" && (
                     <Tip label={projectSearchOpen ? "Hide file search" : "Search files"}>
-                      <button aria-pressed={projectSearchOpen} onClick={() => setProjectSearchOpen((open) => !open)}><Search size={13} /></button>
+                      <button
+                        aria-pressed={projectSearchOpen}
+                        onPointerDown={(event) => {
+                          if (projectSearchOpen) event.preventDefault();
+                        }}
+                        onClick={() => setProjectSearchOpen((open) => !open)}
+                      >
+                        <Search size={13} />
+                      </button>
                     </Tip>
                   )}
                   {sidebarMode === "papers" && (
@@ -6155,9 +5898,6 @@ function App() {
                         <button onClick={() => openBibEntryDialog()}><BookMarked size={14} /></button>
                       </Tip>
                     </>
-                  )}
-                  {sidebarMode === "agent" && !synaraRuntimeEnabled && (
-                    <AgentAccessPicker value={agentAccessMode} disabled={agentRunning} onChange={changeAgentAccessMode} />
                   )}
                   {sidebarMode === "agent" && synaraOrigin && (
                     <SynaraPermissionPicker
@@ -6184,9 +5924,10 @@ function App() {
                   ]}
                   papers={papers}
                   activePaper={activePaper}
-                  onFile={(path, line) => { void openProjectFile(path, line); }}
+                  onFile={openProjectFileFromClick}
                   onAsset={openProjectAssetFromClick}
                   onBeginFigureDrag={beginProjectFigureDrag}
+                  onBeginFileDrag={beginProjectFileDrag}
                   onCreateEntry={createProjectEntry}
                   onDeleteEntry={deleteProjectEntry}
                   onRenameEntry={renameProjectEntry}
@@ -6209,131 +5950,49 @@ function App() {
                 />
               </div>
               <div
-                className={synaraRuntimeEnabled
-                  ? `sidebar-pane synara-sidebar-pane ${sidebarMode === "agent" ? "active" : ""}`
-                  : "sidebar-pane"}
-                hidden={!synaraRuntimeEnabled && sidebarMode !== "agent"}
-                aria-hidden={synaraRuntimeEnabled ? sidebarMode !== "agent" : undefined}
+                className={`sidebar-pane synara-sidebar-pane ${sidebarMode === "agent" ? "active" : ""}`}
+                aria-hidden={sidebarMode !== "agent"}
               >
-                {synaraRuntimeEnabled ? (
-                  <div className="synara-frame-shell" data-ready={synaraFrameReady || undefined}>
-                    {synaraFrameMounted && synaraOrigin && (
-                      <iframe
-                        ref={synaraIframeRef}
-                        className="synara-poc-frame"
-                        src={synaraEmbedUrl(
-                          synaraOrigin,
-                          synaraRuntime.authToken,
-                          project.root,
-                          theme,
-                        )}
-                        title="Agent"
-                        allow="clipboard-read; clipboard-write; microphone"
-                        sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
-                        onLoad={() => {
-                          postSynaraMessage({ type: LATTICE_AGENT_PERMISSION_MODE_REQUEST });
-                          const hostContext = latestAgentHostContextRef.current;
-                          if (hostContext) postSynaraMessage(hostContext);
-                          if (synaraReadyFallbackTimerRef.current !== null) {
-                            window.clearTimeout(synaraReadyFallbackTimerRef.current);
-                          }
-                          synaraReadyFallbackTimerRef.current = window.setTimeout(
-                            () => {
-                              if (synaraFrameKey) setReadySynaraFrameKey(synaraFrameKey);
-                            },
-                            1_800,
-                          );
-                        }}
-                      />
-                    )}
-                    {!synaraFrameReady && (
-                      <SynaraLoadingSurface
-                        runtime={synaraRuntime}
-                        preparingWorkspace={Boolean(synaraOrigin)}
-                        onRetry={retrySynaraRuntime}
-                      />
-                    )}
-                  </div>
-                ) : <AgentPanel
-                  modelOptions={availableAgentModels}
-                  modelUnavailable={!agentAccessLoaded || !availableAgentProviders.length}
-                  authMode={agentAccessMode}
-                  onConfigureAuth={() => openSettings(agentAccessMode === "api" ? "api" : "accounts")}
-                  agentCommands={agentCommands}
-                  katexMacros={katexMacros}
-                  messages={messages}
-                  sessions={agentSessions}
-                  activeSession={activeSession}
-                  sessionMenuOpen={sessionMenuOpen}
-                  setSessionMenuOpen={setSessionMenuOpen}
-                  onNewSession={newAgentSession}
-                  showNewButton={false}
-                  onOpenSession={openAgentSession}
-                  onDeleteSession={deleteAgentSession}
-                  onEditMessage={editAndBranch}
-                  input={agentInput}
-                  setInput={setAgentInput}
-                  model={agentModel}
-                  setModel={changeAccessibleAgentModel}
-                  reasoningEffort={reasoningEffort}
-                  setReasoningEffort={setReasoningEffort}
-                  running={agentRunning}
-                  streaming={agentStreaming}
-                  status={agentStatus}
-                  cancellable={agentCancellable}
-                  stopping={agentStopping}
-                  onSend={sendToAgent}
-                  attachments={agentAttachments}
-                  attachmentsInspecting={agentAttachmentsInspecting}
-                  onAddAttachments={async () => {
-                    const selected = await open({ multiple: true, directory: false, title: "Attach images, PDFs, or UTF-8 text" });
-                    if (!selected) return;
-                    const paths = Array.isArray(selected) ? selected : [selected];
-                    const newPaths = paths.filter((path) => !agentAttachments.some((item) => item.path === path));
-                    if (!newPaths.length) return;
-                    if (agentAttachments.length + newPaths.length > 8) {
-                      setError("Attach at most 8 files per message.");
-                      return;
-                    }
-                    const descriptors = newPaths.map((path) => ({
-                      path,
-                      name: path.split(/[\\/]/).pop() || "attachment",
-                    }));
-                    setAgentAttachmentsInspecting(true);
-                    try {
-                      const metadata = await invoke<AgentAttachmentMetadata[]>("inspect_agent_attachments", {
-                        attachments: descriptors,
-                      });
-                      setAgentAttachments((current) => [
-                        ...current,
-                        ...descriptors.flatMap((descriptor, index) => current.some((item) => item.path === descriptor.path)
-                          ? []
-                          : [{ ...descriptor, ...metadata[index] }]),
-                      ].slice(0, 8));
-                    } catch (reason) {
-                      setError(toMessage(reason));
-                    } finally {
-                      setAgentAttachmentsInspecting(false);
-                    }
-                  }}
-                  onRemoveAttachment={(path) => setAgentAttachments((current) => current.filter((attachment) => attachment.path !== path))}
-                  onStop={stopAgent}
-                  selection={selection}
-                  selectionSource={selectionSource}
-                  onClearSelection={() => {
-                    const source = selectionSourceRef.current;
-                    dismissedSelectionRef.current =
-                      source && selection ? { source, text: selection } : null;
-                    setSelection("");
-                    setSelectionSource(null);
-                    selectionSourceRef.current = null;
-                  }}
-                  branchSource={branchSource}
-                  onCancelBranch={() => setBranchSource(null)}
-                  mentions={agentMentions}
-                  chatEnd={chatEnd}
-                  chatListRef={chatListRef}
-                />}
+                <div className="synara-frame-shell" data-ready={synaraFrameReady || undefined}>
+                  {synaraFrameMounted && synaraOrigin && (
+                    <iframe
+                      ref={synaraIframeRef}
+                      className="synara-poc-frame"
+                      src={synaraEmbedUrl(
+                        synaraOrigin,
+                        synaraRuntime.authToken,
+                        project.root,
+                        theme,
+                      )}
+                      title="Agent"
+                      allow="clipboard-read; clipboard-write; microphone"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
+                      onLoad={() => {
+                        postSynaraMessage({ type: LATTICE_AGENT_PERMISSION_MODE_REQUEST });
+                        const hostContext = latestAgentHostContextRef.current;
+                        if (hostContext) postSynaraMessage(hostContext);
+                        const paperLibrary = latestAgentPaperLibraryRef.current;
+                        if (paperLibrary) postSynaraMessage(paperLibrary);
+                        if (synaraReadyTimerRef.current !== null) {
+                          window.clearTimeout(synaraReadyTimerRef.current);
+                        }
+                        synaraReadyTimerRef.current = window.setTimeout(
+                          () => {
+                            if (synaraFrameKey) setReadySynaraFrameKey(synaraFrameKey);
+                          },
+                          1_800,
+                        );
+                      }}
+                    />
+                  )}
+                  {!synaraFrameReady && (
+                    <SynaraLoadingSurface
+                      runtime={synaraRuntime}
+                      preparingWorkspace={Boolean(synaraOrigin)}
+                      onRetry={retrySynaraRuntime}
+                    />
+                  )}
+                </div>
               </div>
             </section>
             <PanelResizer
@@ -6349,15 +6008,16 @@ function App() {
           <div className="canvas-body">
           <DocumentCanvas
             mode={canvasMode}
-            source={source}
-            activeFile={activeFile}
+            source={activePaper ? activePaperSource : source}
+            markdownPreviewSource={activePaper ? activePaperPreviewSource : undefined}
+            activeFile={activePaperPath ?? activeFile}
             secondaryFile={secondaryFile}
             secondarySource={secondarySource}
             setSecondarySource={setSecondarySource}
             focusedPane={focusedPane}
             onFocusPane={setFocusedPane}
-            setSource={setSource}
-            setSelection={(value) => reportAgentSelection("editor", value)}
+            setSource={activePaper ? setActivePaperSource : setSource}
+            setSelection={(value) => reportAgentSelection(activePaper ? "paper" : "editor", value)}
             onPdfTextSelect={(value) => reportAgentSelection("pdf", value)}
             onPaperTextSelect={(value) => reportAgentSelection("paper", value)}
             onContextSurfaceActivate={activateAgentHostSurface}
@@ -6376,10 +6036,6 @@ function App() {
                 />
               </Suspense>
             ) : null}
-            paperMarkdown={paperMarkdown}
-            paperBlog={paperBlog}
-            paperView={paperView}
-            onSetPaperView={setPaperView}
             activePaper={activePaper}
             activeAsset={activeAsset}
             canOpenCitation={(key) => papers.some((item) => item.citationKey?.toLocaleLowerCase() === key.toLocaleLowerCase()
@@ -6399,7 +6055,8 @@ function App() {
             onPrepareFigure={prepareLatexFigure}
             onPasteImageFile={handlePasteImageFile}
             nativeFigureDropActive={nativeEditorDropActive}
-            figurePointerPosition={figurePointerDrag?.overEditor ? {
+            fileDropTargetPane={fileDropTargetPane}
+            figurePointerPosition={figurePointerDrag?.insertAtEditor ? {
               x: figurePointerDrag.clientX,
               y: figurePointerDrag.clientY,
             } : null}
@@ -6452,6 +6109,9 @@ function App() {
             }
             texlabDiagnostics={texlabDiagnostics}
             pdfSyncTarget={pdfSyncTarget}
+            canForwardSync={Boolean(editorPosition && (pdfUrl || build?.pdfBase64))}
+            locatingPdf={locatingPdf}
+            onForwardSync={() => void revealSourceInPdf()}
             onPdfSource={revealPdfSource}
             editorComments={allEditorComments}
             overleafPresenceCursors={overleafActiveCursors}
@@ -6496,10 +6156,12 @@ function App() {
             onCreateMissingFile={(path) => {
               void createProjectEntry(path, "file");
             }}
-            collabExtensions={collabEditorExtensionsMemo}
-            collabEditorKey={collabSession
-              ? `collab:${collabSession.room}:${activeFile}:${collabReady ? "live" : "wait"}`
-              : `local:${activeFile}`}
+            collabExtensions={activePaper ? EMPTY_EDITOR_EXTENSIONS : collabEditorExtensionsMemo}
+            collabEditorKey={activePaper
+              ? `paper:${activePaperPath}`
+              : collabSession
+                ? `collab:${collabSession.room}:${activeFile}:${collabReady ? "live" : "wait"}`
+                : `local:${activeFile}`}
           />
           </div>
         </section>
@@ -6556,7 +6218,7 @@ function App() {
 
       {figurePointerDrag && (
         <div
-          className={`figure-drag-ghost ${figurePointerDrag.overEditor ? "ready" : ""}`}
+          className={`figure-drag-ghost ${figurePointerDrag.overCanvas ? "ready" : ""}`}
           style={{ left: figurePointerDrag.clientX + 12, top: figurePointerDrag.clientY + 12 }}
         >
           <Image size={13} />
@@ -6611,6 +6273,7 @@ function App() {
           onDelete={deleteHistory}
           onOpenFile={(path, line) => { void openProjectFile(path, line); }}
           overleafLinked={overleafLink !== null}
+          overleafProjectRoot={project.root}
           onOverleafRestored={async () => {
             // The restore happened on Overleaf's server and left the local
             // files alone, so pull it down the same way a manual sync does
@@ -6623,7 +6286,7 @@ function App() {
           }}
         />
       )}
-      {gitOpen && synaraRuntimeEnabled && project ? (
+      {gitOpen && project ? (
         <ResizableDrawer
           className="git-drawer synara-source-control-drawer"
           onClose={() => setGitOpen(false)}
@@ -6678,11 +6341,6 @@ function App() {
               <SynaraLoadingSurface runtime={synaraRuntime} onRetry={retrySynaraRuntime} />
             )}
         </ResizableDrawer>
-      ) : gitOpen ? (
-        <GitPanel
-          onClose={() => setGitOpen(false)}
-          onOpenFile={(path, line) => { void openProjectFile(path, line); }}
-        />
       ) : null}
       {overleafCollabOpen && overleafLink && (
         <OverleafCollabDrawer
@@ -6751,13 +6409,20 @@ function App() {
             });
           }}
           onDelete={(id) => {
-            const threadId = overleafThreadOf(id);
-            if (threadId) {
-              void overleafComments.remove(threadId).catch((reason) => setError(toMessage(reason)));
-              return;
-            }
-            void persistEditorComments(editorComments.filter((comment) => comment.id !== id));
-            setActiveEditorCommentId((current) => (current === id ? null : current));
+            void (async () => {
+              if (!await confirmAction(
+                "Delete this comment? Its replies will be removed too. This cannot be undone.",
+              )) {
+                return;
+              }
+              const threadId = overleafThreadOf(id);
+              if (threadId) {
+                await overleafComments.remove(threadId).catch((reason) => setError(toMessage(reason)));
+                return;
+              }
+              await persistEditorComments(editorComments.filter((comment) => comment.id !== id));
+              setActiveEditorCommentId((current) => (current === id ? null : current));
+            })();
           }}
           onToggleResolved={(comment) => toggleEditorCommentResolved(comment.id)}
           onUpdateBody={(comment, body) => {

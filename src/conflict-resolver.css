@@ -84,7 +84,7 @@
 }
 .conflict-side:hover { border-color: var(--line-strong); }
 .conflict-side.chosen { border-color: var(--accent); background: var(--accent-soft); }
-.conflict-side-label { color: var(--muted); font-size: 10px; font-weight: 650; }
+.conflict-side-label { color: var(--muted); font-size: 10px; font-weight: var(--weight-semibold); }
 .conflict-side pre {
   margin: 0;
   max-height: 160px;
@@ -92,7 +92,7 @@
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text);
-  font: 11px/1.5 var(--editor-font, monospace);
+  font: var(--type-diff-code-weight) var(--type-diff-code-size)/var(--type-diff-code-line-height) var(--editor-font, monospace);
 }
 
 .conflict-both {

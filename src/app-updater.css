@@ -15,7 +15,7 @@
   padding: 10px 12px;
   border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
   border-radius: 12px;
-  background: var(--panel, #ffffff);
+  background: var(--panel, #F9F9FA);
   color: var(--text, #1a1a1a);
   box-shadow: var(--shadow, 0 10px 30px rgba(0, 0, 0, 0.18));
   font-size: 12px;
@@ -46,6 +46,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.app-update-active-title { display: flex; align-items: center; gap: 6px; }
 .app-update-text span {
   opacity: 0.65;
   font-size: 11px;

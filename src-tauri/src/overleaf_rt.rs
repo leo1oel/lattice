@@ -1054,8 +1054,7 @@ pub enum Permission {
     /// Can comment and suggest, but not change the text directly.
     Review,
     ReadOnly,
-    /// Overleaf did not say; assume the project is writable, because refusing
-    /// to write a project the user can in fact edit is the worse mistake.
+    /// Overleaf did not say. Mutations fail closed until a fresh role arrives.
     Unknown,
 }
 
@@ -1072,9 +1071,13 @@ impl Permission {
 
     /// True when this account may change the text.
     pub fn can_write(self) -> bool {
+        matches!(self, Permission::Owner | Permission::ReadAndWrite)
+    }
+
+    fn can_suggest(self) -> bool {
         matches!(
             self,
-            Permission::Owner | Permission::ReadAndWrite | Permission::Unknown
+            Permission::Owner | Permission::ReadAndWrite | Permission::Review
         )
     }
 
@@ -2092,7 +2095,7 @@ impl RealtimeClient {
         if ops.is_empty() {
             return Ok(());
         }
-        if matches!(self.project.permission, Permission::ReadOnly) {
+        if !self.project.permission.can_suggest() {
             return Err(READ_ONLY.to_string());
         }
         let seed = change_id_seed();
@@ -2269,6 +2272,20 @@ mod tests {
     use std::net::{TcpListener, TcpStream};
     use tokio_tungstenite::tungstenite::handshake::derive_accept_key;
     use tokio_tungstenite::tungstenite::protocol::{Role, WebSocket};
+
+    #[test]
+    fn unknown_permission_fails_closed_for_direct_edits() {
+        assert!(Permission::Owner.can_write());
+        assert!(Permission::ReadAndWrite.can_write());
+        assert!(!Permission::Review.can_write());
+        assert!(!Permission::ReadOnly.can_write());
+        assert!(!Permission::Unknown.can_write());
+        assert!(Permission::Owner.can_suggest());
+        assert!(Permission::ReadAndWrite.can_suggest());
+        assert!(Permission::Review.can_suggest());
+        assert!(!Permission::ReadOnly.can_suggest());
+        assert!(!Permission::Unknown.can_suggest());
+    }
 
     // -- frame codec --------------------------------------------------------
 

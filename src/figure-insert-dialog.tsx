@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ImagePlus } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { buttonClassName } from "./components/ui/button-styles";
+import { Input } from "./components/ui/input";
 import { PanelHeader } from "./components/ui/panel-header";
 import { MotionButton, PopIn } from "./motion";
 import { DEFAULT_FIGURE_OPTIONS, type FigureInsertOptions } from "./figure-insertion";
@@ -33,19 +34,19 @@ export function FigureInsertDialog(props: {
         <p>{props.paths.length === 1 ? props.paths[0] : `${props.paths.length} figures`}</p>
         <label>
           Width
-          <input value={width} onChange={(event) => setWidth(event.target.value)} placeholder="0.8\linewidth" />
+          <Input controlSize="form" value={width} onChange={(event) => setWidth(event.target.value)} placeholder="0.8\linewidth" />
         </label>
         <label>
           Placement
-          <input value={placement} onChange={(event) => setPlacement(event.target.value)} placeholder="t" />
+          <Input controlSize="form" value={placement} onChange={(event) => setPlacement(event.target.value)} placeholder="t" />
         </label>
         <label>
           Caption
-          <input value={caption} onChange={(event) => setCaption(event.target.value)} />
+          <Input controlSize="form" value={caption} onChange={(event) => setCaption(event.target.value)} />
         </label>
         <label>
           Label
-          <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="fig:name (optional)" />
+          <Input controlSize="form" value={label} onChange={(event) => setLabel(event.target.value)} placeholder="fig:name (optional)" />
         </label>
         <div className="modal-actions">
           <Button variant="ghost" onClick={props.onClose}>Cancel</Button>

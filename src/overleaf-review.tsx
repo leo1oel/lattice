@@ -12,12 +12,12 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   GitMerge,
-  LoaderCircle,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
 import { MotionButton } from "./motion";
 import { Button } from "./components/ui/button";
+import { InfinityLoader, ReloadButton } from "./components/ui/activity-icons";
 import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
 import { HistoryDiff } from "./versions-timeline";
@@ -71,6 +71,7 @@ function iconFor(kind: OverleafChangeKind) {
 
 export function OverleafReviewDialog(props: {
   open: boolean;
+  projectRoot: string | null;
   onClose: () => void;
   /** Runs the real sync; resolves once it has finished. */
   onApply: () => Promise<void>;
@@ -82,17 +83,20 @@ export function OverleafReviewDialog(props: {
   const [selected, setSelected] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!props.projectRoot) return;
     setLoading(true);
     setError(null);
     try {
-      const result = await invoke<OverleafPreview>("overleaf_preview");
+      const result = await invoke<OverleafPreview>("overleaf_preview", {
+        projectRoot: props.projectRoot,
+      });
       setPreview(result);
       setSelected(result.changes.find((change) => !change.binary)?.path ?? null);
     } catch (reason) {
       setError(toMessage(reason));
     }
     setLoading(false);
-  }, []);
+  }, [props.projectRoot]);
 
   useEffect(() => {
     if (props.open) void load();
@@ -153,21 +157,22 @@ export function OverleafReviewDialog(props: {
                     + ". Nothing has been written yet."}
             </p>
           </div>
-          <Button
+          <ReloadButton
             size="compact"
             variant="ghost"
+            busy={loading}
             disabled={loading || applying}
             onClick={() => void load()}
           >
             Refresh
-          </Button>
+          </ReloadButton>
         </div>
 
         {error && <p className="overleaf-review-error" role="alert">{error}</p>}
 
         {loading ? (
           <div className="overleaf-review-loading">
-            <LoaderCircle className="spin" size={16} />
+            <InfinityLoader size={16} />
             <span>Fetching the Overleaf copy…</span>
           </div>
         ) : (
@@ -226,7 +231,7 @@ export function OverleafReviewDialog(props: {
             disabled={applying || loading || total === 0}
             onClick={() => void apply()}
           >
-            {applying ? <LoaderCircle className="spin" size={15} /> : null}
+            {applying ? <InfinityLoader size={15} /> : null}
             {applying ? "Applying…" : "Apply and sync"}
           </MotionButton>
         </div>

@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { applyProjectPathChanges, dropDirectoryAt, remapProjectPath } from "./app-utils";
+import {
+  applyProjectPathChanges,
+  canvasContentAt,
+  classifyExternalProjectDrop,
+  dropCanvasAt,
+  dropDirectoryAt,
+  dropEditorAt,
+  remapProjectPath,
+} from "./app-utils";
 import type { ProjectSnapshot } from "./app-types";
 
 afterEach(() => {
@@ -31,6 +39,52 @@ describe("dropDirectoryAt", () => {
     });
 
     expect(dropDirectoryAt({ x: 24, y: 40 })).toBe("figures/results");
+  });
+});
+
+describe("editor file drops", () => {
+  it("classifies source files separately from figures and rejects mixed drops", () => {
+    expect(classifyExternalProjectDrop(["/tmp/main.tex", "C:\\paper\\references.bib"]))
+      .toBe("source");
+    expect(classifyExternalProjectDrop(["/tmp/result.svg", "/tmp/plot.pdf"]))
+      .toBe("asset");
+    expect(classifyExternalProjectDrop(["/tmp/main.tex", "/tmp/result.png"]))
+      .toBe("mixed");
+    expect(classifyExternalProjectDrop(["/tmp/archive.zip"]))
+      .toBe("unsupported");
+  });
+
+  it("identifies the editor pane under a native drop position", () => {
+    const editor = document.createElement("div");
+    editor.className = "source-editor";
+    editor.dataset.editorPane = "secondary";
+    document.body.append(editor);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => editor),
+    });
+
+    expect(dropEditorAt({ x: 24, y: 40 })).toEqual({
+      x: 24,
+      y: 40,
+      pane: "secondary",
+    });
+  });
+
+  it("identifies the document canvas for pointer and native drop coordinates", () => {
+    const canvas = document.createElement("div");
+    canvas.className = "canvas-body";
+    const preview = document.createElement("div");
+    preview.className = "asset-preview";
+    canvas.append(preview);
+    document.body.append(canvas);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => preview),
+    });
+
+    expect(canvasContentAt({ x: 24, y: 40 })).toBe(true);
+    expect(dropCanvasAt({ x: 24, y: 40 })).toBe(true);
   });
 });
 

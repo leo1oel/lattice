@@ -8,7 +8,8 @@
  * is allowed; `props.canAct` (and the per-button disabling it drives) comes
  * from the caller, which already knows the account's Overleaf permission.
  */
-import { Check, LoaderCircle, X } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { trackedChangeContext } from "./overleaf-track-changes";
 import type { TrackedChange } from "./use-overleaf-realtime";
 import { formatCommentTimestamp } from "./editor-comments";
@@ -85,7 +86,7 @@ export function OverleafChangesPanel(props: {
             title={disabledTitle}
             onClick={() => void run(() => props.onAccept([change.id]))}
           >
-            {working ? <LoaderCircle className="spin" size={12} /> : <Check size={12} />}
+            {working ? <InfinityLoader size={12} /> : <Check size={12} />}
             Accept
           </button>
           <button
@@ -95,7 +96,7 @@ export function OverleafChangesPanel(props: {
             title={disabledTitle}
             onClick={() => void run(() => props.onReject([change]))}
           >
-            {working ? <LoaderCircle className="spin" size={12} /> : <X size={12} />}
+            {working ? <InfinityLoader size={12} /> : <X size={12} />}
             Reject
           </button>
         </div>
@@ -120,7 +121,7 @@ export function OverleafChangesPanel(props: {
             title={disabledTitle}
             onClick={() => void run(() => props.onAccept(sorted.map((change) => change.id)))}
           >
-            {props.busy === "all" ? <LoaderCircle className="spin" size={12} /> : <Check size={12} />}
+            {props.busy === "all" ? <InfinityLoader size={12} /> : <Check size={12} />}
             Accept all ({sorted.length})
           </button>
           <button
@@ -130,7 +131,7 @@ export function OverleafChangesPanel(props: {
             title={disabledTitle}
             onClick={() => void run(() => props.onReject(sorted))}
           >
-            {props.busy === "all" ? <LoaderCircle className="spin" size={12} /> : <X size={12} />}
+            {props.busy === "all" ? <InfinityLoader size={12} /> : <X size={12} />}
             Reject all
           </button>
         </div>

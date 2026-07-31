@@ -3,9 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   Check,
   CircleAlert,
-  LoaderCircle,
   Package,
-  RefreshCw,
   Wrench,
 } from "lucide-react";
 import {
@@ -16,6 +14,7 @@ import {
 } from "./tex-setup";
 import { MotionButton, PopIn } from "./motion";
 import { Button } from "./components/ui/button";
+import { InfinityLoader, ReloadButton } from "./components/ui/activity-icons";
 import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
 
@@ -114,7 +113,7 @@ export function TexSetupWizard(props: {
                 Safe to click again if something is still missing.
               </span>
             </span>
-            {installing === "basic" && <LoaderCircle className="spin" size={16} />}
+            {installing === "basic" && <InfinityLoader size={16} />}
           </button>
           <button
             type="button"
@@ -127,7 +126,7 @@ export function TexSetupWizard(props: {
               <strong>Install MacTeX (full)</strong>
               <span>About {TEX_INSTALL_SIZE_HINT.full}. Full TeX Live install.</span>
             </span>
-            {installing === "full" && <LoaderCircle className="spin" size={16} />}
+            {installing === "full" && <InfinityLoader size={16} />}
           </button>
         </div>
 
@@ -147,13 +146,13 @@ export function TexSetupWizard(props: {
               Skip for now
             </Button>
           )}
-          <Button
+          <ReloadButton
             onClick={() => { void props.onRecheck(); }}
+            busy={props.checking}
             disabled={busy}
           >
-            {props.checking ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
             Recheck
-          </Button>
+          </ReloadButton>
           <MotionButton
             type="button"
             className={buttonClassName({ variant: "primary" })}

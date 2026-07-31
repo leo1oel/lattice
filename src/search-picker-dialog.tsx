@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
 import { CloseButton } from "./components/ui/icon-button";
 import { EmptyState } from "./components/ui/empty-state";
 import { ModalDialog } from "./components/ui/modal-dialog";
+import { SearchField } from "./components/ui/search-field";
 
 export type SearchPickerItem = {
   id: string;
@@ -77,14 +77,17 @@ function SearchPickerDialogForm(props: {
         className="modal quick-open-modal"
       >
         <div className="quick-open-header">
-          <Search size={15} />
-          <input
+          <SearchField
             autoFocus
             aria-label={props.title}
             placeholder={props.placeholder}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
+              setActive(0);
+            }}
+            onClear={() => {
+              setQuery("");
               setActive(0);
             }}
             onKeyDown={(event) => {
@@ -101,8 +104,10 @@ function SearchPickerDialogForm(props: {
                 props.onSelect(selected);
               }
             }}
+            trailing={
+              <CloseButton label={`Close ${props.title}`} onClick={props.onClose} />
+            }
           />
-          <CloseButton label={`Close ${props.title}`} onClick={props.onClose} />
         </div>
         <div className="quick-open-list" role="listbox">
           {results.map((item, index) => (

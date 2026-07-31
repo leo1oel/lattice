@@ -1,0 +1,113 @@
+.ui-search-field {
+  width: 100%;
+  min-width: 0;
+  height: var(--search-control-height);
+  border: var(--search-control-border-width) solid var(--search-control-border-color);
+  border-radius: var(--search-control-radius);
+  background: var(--search-control-background);
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--search-control-gap);
+  padding: 0 var(--search-control-padding-inline);
+  transition:
+    border-color 120ms ease,
+    opacity 120ms ease;
+}
+
+.ui-search-field[data-control-size="compact"] {
+  height: var(--search-control-height-compact);
+}
+
+.ui-search-field:hover:not(:focus-within):not([data-disabled="true"]) {
+  border-color: var(--search-control-interactive-border-color);
+}
+
+.ui-search-field:focus-within {
+  border-color: var(--search-control-interactive-border-color);
+  box-shadow: none;
+}
+
+.ui-search-field[data-disabled="true"] {
+  opacity: 0.45;
+}
+
+.ui-search-field-icon {
+  width: var(--search-control-icon-size);
+  height: var(--search-control-icon-size);
+  flex: none;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.ui-search-field-input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--ui-font);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line-height);
+  font-weight: var(--type-body-weight);
+  overflow-x: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-search-field-input::-webkit-search-cancel-button,
+.ui-search-field-input::-webkit-search-decoration,
+.ui-search-field-input::-webkit-search-results-button,
+.ui-search-field-input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.ui-search-field[data-control-size="compact"] .ui-search-field-input {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+
+.ui-search-field-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.ui-search-field .ui-search-field-input:focus,
+.ui-search-field .ui-search-field-input:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.ui-search-field-clear {
+  width: 20px;
+  height: 22px;
+  padding: 0;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.ui-search-field-clear:hover {
+  background: var(--line);
+  color: var(--text-primary);
+}
+
+.ui-search-field-clear:focus-visible {
+  outline: none;
+  background: var(--line);
+  color: var(--text-primary);
+}
+
+.ui-search-field-trailing {
+  min-width: 0;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}

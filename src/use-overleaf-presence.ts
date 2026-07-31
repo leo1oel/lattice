@@ -48,6 +48,8 @@ export type OverleafPresence = {
 };
 
 export function useOverleafPresence(options: {
+  /** Local project that owns the live connection. */
+  projectRoot: string | null;
   /** Overleaf's id for the document being edited live, or null when none is. */
   docId: string | null;
   /** Our own connection id, so we never show ourselves as a collaborator. */
@@ -120,10 +122,11 @@ export function useOverleafPresence(options: {
   // `selfId` only becomes non-null once the channel has told us so, which
   // makes it exactly the "on connect" moment the roster needs to be seeded.
   useEffect(() => {
-    if (!options.selfId) return;
+    if (!options.selfId || !options.projectRoot) return;
     const selfId = options.selfId;
+    const projectRoot = options.projectRoot;
     let cancelled = false;
-    void invoke<PresenceUser[]>("overleaf_rt_connected_users")
+    void invoke<PresenceUser[]>("overleaf_rt_connected_users", { projectRoot })
       .then((users) => {
         if (cancelled) return;
         setRoster(new Map(
@@ -138,17 +141,23 @@ export function useOverleafPresence(options: {
     return () => {
       cancelled = true;
     };
-  }, [options.selfId]);
+  }, [options.projectRoot, options.selfId]);
 
   // ---- announce ourselves the moment a document is joined ---------------
   // Joining announces nothing on its own — only a position broadcast makes us
   // visible to a browser that is already open — so this fires once immediately
   // rather than waiting for the first debounced move, even at row 0 column 0.
   useEffect(() => {
-    if (!options.docId) return;
+    if (!options.docId || !options.projectRoot) return;
     const docId = options.docId;
+    const projectRoot = options.projectRoot;
     const caret = readCaretRef.current();
-    void invoke("overleaf_rt_update_position", { docId, row: caret.row, column: caret.column }).catch(() => {});
+    void invoke("overleaf_rt_update_position", {
+      projectRoot,
+      docId,
+      row: caret.row,
+      column: caret.column,
+    }).catch(() => {});
     return () => {
       // A stale debounce aimed at the document we are leaving must never fire
       // against whatever document replaces it.
@@ -157,34 +166,46 @@ export function useOverleafPresence(options: {
         debounceTimer.current = null;
       }
     };
-  }, [options.docId]);
+  }, [options.docId, options.projectRoot]);
 
   // ---- keepalive ---------------------------------------------------------
   // The server expires a presence entry after 15 minutes of silence, which
   // would make us vanish even with a healthy socket; re-publishing well inside
   // that window keeps us listed through a long stretch of not touching the caret.
   useEffect(() => {
-    if (!options.docId) return;
+    if (!options.docId || !options.projectRoot) return;
     const docId = options.docId;
+    const projectRoot = options.projectRoot;
     const timer = setInterval(() => {
       const caret = readCaretRef.current();
-      void invoke("overleaf_rt_update_position", { docId, row: caret.row, column: caret.column }).catch(() => {});
+      void invoke("overleaf_rt_update_position", {
+        projectRoot,
+        docId,
+        row: caret.row,
+        column: caret.column,
+      }).catch(() => {});
     }, KEEPALIVE_MS);
     return () => clearInterval(timer);
-  }, [options.docId]);
+  }, [options.docId, options.projectRoot]);
 
   // ---- publish -------------------------------------------------------------
   const publish = useCallback((row: number, column: number) => {
-    if (!options.docId) return;
+    if (!options.docId || !options.projectRoot) return;
+    const projectRoot = options.projectRoot;
     const alone = roster.size === 0;
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       debounceTimer.current = null;
       const docId = docIdRef.current;
       if (!docId) return;
-      void invoke("overleaf_rt_update_position", { docId, row, column }).catch(() => {});
+      void invoke("overleaf_rt_update_position", {
+        projectRoot,
+        docId,
+        row,
+        column,
+      }).catch(() => {});
     }, alone ? DEBOUNCE_ALONE_MS : DEBOUNCE_WITH_OTHERS_MS);
-  }, [options.docId, roster]);
+  }, [options.docId, options.projectRoot, roster]);
 
   const peers = Array.from(roster.values()).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 

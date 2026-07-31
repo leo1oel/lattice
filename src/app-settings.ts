@@ -2,9 +2,9 @@
  * Settings and layout persistence for the app.
  *
  * This module owns the localStorage-backed preferences and layout state that
- * survive between sessions — recent projects, theme, build preferences, the
- * agent system prompt, split/panel ratios, remembered last-open files, panel
- * open state, and the paper reading width — along with the storage keys and the
+ * survive between sessions — recent projects, theme, build preferences,
+ * split/panel ratios, remembered last-open files, panel open state, and the
+ * paper reading width — along with the storage keys and the
  * small `clamp` helper they share. Everything here is pure and free of React or
  * font/panel dependencies, so it can be imported anywhere without pulling in the
  * rest of the app.
@@ -27,7 +27,6 @@ export const SIDEBAR_OPEN_KEY = "lattice.sidebar-open.v1";
 export const SIDEBAR_WIDTH_KEY = "lattice.sidebar-width.v1";
 export const LAST_FILE_KEY = "lattice.last-file.v1";
 export const LAST_FILE_MAX = 60;
-export const AGENT_SYSTEM_PROMPT_KEY = "lattice.agent-system-prompt.v1";
 export const PAPER_READING_WIDTH_KEY = "lattice.paper-reading-width";
 
 export function clamp(value: number, minimum: number, maximum: number): number {
@@ -84,14 +83,6 @@ export function loadBuildPreferences(): BuildPreferences {
     };
   } catch {
     return { autoBuildMode: "automatic" };
-  }
-}
-
-export function loadSystemPrompt(): string {
-  try {
-    return localStorage.getItem(AGENT_SYSTEM_PROMPT_KEY) ?? "";
-  } catch {
-    return "";
   }
 }
 
@@ -188,13 +179,14 @@ export type AppearanceSettings = {
   maxOpenTabs: number;
 };
 
-export const APPEARANCE_KEY = "lattice.appearance.v4";
-export const LEGACY_APPEARANCE_KEY = "lattice.appearance.v3";
+export const APPEARANCE_KEY = "lattice.appearance.v5";
+export const LEGACY_APPEARANCE_KEY = "lattice.appearance.v4";
+const OLDER_APPEARANCE_KEY = "lattice.appearance.v3";
 
 export function loadAppearance(): AppearanceSettings {
   const defaults: AppearanceSettings = {
     uiFont: DEFAULT_UI_FONT,
-    interfaceScale: 1.1,
+    interfaceScale: 1,
     editorFont: DEFAULT_EDITOR_FONT,
     editorFontSize: 14,
     editorKeymap: "default",
@@ -203,13 +195,23 @@ export function loadAppearance(): AppearanceSettings {
   };
   try {
     const current = localStorage.getItem(APPEARANCE_KEY);
-    const legacy = localStorage.getItem(LEGACY_APPEARANCE_KEY);
+    const legacy = localStorage.getItem(LEGACY_APPEARANCE_KEY)
+      ?? localStorage.getItem(OLDER_APPEARANCE_KEY);
     const value = JSON.parse(current ?? legacy ?? "null") as Partial<AppearanceSettings> | null;
+    const storedInterfaceScale = clamp(
+      Number(value?.interfaceScale) || defaults.interfaceScale,
+      0.9,
+      1.35,
+    );
     return {
       // Keep the field in the persisted shape for backwards compatibility, but
       // normalize every old preference to the bundled application UI face.
       uiFont: defaults.uiFont,
-      interfaceScale: clamp(Number(value?.interfaceScale) || defaults.interfaceScale, 0.9, 1.35),
+      // v4 shipped with 110% as its implicit default. Migrate that value once,
+      // while preserving every other legacy choice and all future v5 choices.
+      interfaceScale: current === null && storedInterfaceScale === 1.1
+        ? defaults.interfaceScale
+        : storedInterfaceScale,
       editorFont: resolveFontValue(
         typeof value?.editorFont === "string" ? value.editorFont : undefined,
         EDITOR_FONT_OPTIONS,

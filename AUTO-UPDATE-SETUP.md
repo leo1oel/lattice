@@ -96,4 +96,4 @@ pnpm tauri build
 
 ## 备注
 - 我没法在这边替你跑 `pnpm tauri build`（编译 macOS 应用必须在 macOS 上，我这边是 Linux 云沙箱）。上面的命令都在你 Mac 上执行。
-- CI 的 `beforeBuildCommand` 会跑 `pnpm prepare:agent`（准备内置 agent 二进制）。如果这一步在 CI 里因为拿不到 `binaries/lattice-agent` 而失败，最稳妥是先用**方式 B 本地发版**，等 agent 二进制的获取方式在 CI 里配好后再切到方式 A。
+- CI 的 `beforeBuildCommand` 会跑 `pnpm prepare:synara`，构建并准备内嵌的 Synara 运行时。

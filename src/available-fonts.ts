@@ -3,22 +3,26 @@ export type FontOption = {
   value: string;
   /** Primary family name used for availability checks. */
   family: string;
-  /** Bundled via @fontsource / always present in the app. */
-  bundled?: boolean;
+  /** Always present in a supported application environment. */
+  alwaysAvailable?: boolean;
 };
 
 export const FIXED_UI_FONT = '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif';
+export const FIXED_EDITOR_FONT =
+  '"TX-02 Variable", "TX-02", "Berkeley Mono Variable", "Berkeley Mono", ' +
+  '"JetBrains Mono Variable", "JetBrains Mono", Menlo, "SF Mono", ui-monospace, monospace';
 
 export const UI_FONT_OPTIONS: FontOption[] = [
-  { label: "Inter", value: FIXED_UI_FONT, family: "Inter Variable", bundled: true },
+  { label: "Inter", value: FIXED_UI_FONT, family: "Inter Variable", alwaysAvailable: true },
 ];
 
 export const EDITOR_FONT_OPTIONS: FontOption[] = [
-  { label: "Menlo", value: "Menlo, ui-monospace, monospace", family: "Menlo", bundled: true },
-  { label: "JetBrains Mono", value: '"JetBrains Mono", Menlo, monospace', family: "JetBrains Mono", bundled: true },
-  { label: "SF Mono", value: '"SF Mono", "SFMono-Regular", Menlo, monospace', family: "SF Mono" },
-  { label: "Fira Code", value: '"Fira Code", Menlo, monospace', family: "Fira Code" },
-  { label: "MonoLisa", value: '"MonoLisa", Menlo, monospace', family: "MonoLisa" },
+  {
+    label: "TX-02 / JetBrains Mono",
+    value: FIXED_EDITOR_FONT,
+    family: "JetBrains Mono Variable",
+    alwaysAvailable: true,
+  },
 ];
 
 export const DEFAULT_EDITOR_FONT = EDITOR_FONT_OPTIONS[0].value;
@@ -43,7 +47,7 @@ export function availableFontOptions(
   options: FontOption[],
   measure: (font: string) => number = measureTextWidth,
 ): FontOption[] {
-  return options.filter((option) => option.bundled || isFontAvailable(option.family, measure));
+  return options.filter((option) => option.alwaysAvailable || isFontAvailable(option.family, measure));
 }
 
 export function resolveFontValue(
@@ -55,9 +59,6 @@ export function resolveFontValue(
   const available = availableFontOptions(options, measure);
   if (preferred && available.some((option) => option.value === preferred)) {
     return preferred;
-  }
-  if (preferred?.includes("MonoLisa") && !available.some((option) => option.family === "MonoLisa")) {
-    return fallback;
   }
   if (preferred) {
     const match = available.find((option) => preferred.includes(option.family));

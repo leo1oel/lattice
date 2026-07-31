@@ -5,9 +5,11 @@ export function ModalDialog(props: {
   label: string;
   onClose: () => void;
   closeDisabled?: boolean;
+  focusDialogOnOpen?: boolean;
   backdropClassName?: string;
   children: ReactNode;
 }) {
+  const contentRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
     typeof document !== "undefined" && document.activeElement instanceof HTMLElement
       ? document.activeElement
@@ -15,14 +17,15 @@ export function ModalDialog(props: {
   );
   const mountedRef = useRef(false);
   useEffect(() => {
+    const returnFocus = returnFocusRef.current;
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       // Controlled dialogs can unmount before Radix runs onCloseAutoFocus.
       // A microtask also avoids restoring focus during StrictMode's effect replay.
       queueMicrotask(() => {
-        if (!mountedRef.current && returnFocusRef.current?.isConnected) {
-          returnFocusRef.current.focus();
+        if (!mountedRef.current && returnFocus?.isConnected) {
+          returnFocus.focus();
         }
       });
     };
@@ -41,8 +44,15 @@ export function ModalDialog(props: {
       <Dialog.Portal>
         <Dialog.Overlay className={`modal-backdrop${props.backdropClassName ? ` ${props.backdropClassName}` : ""}`} />
         <Dialog.Content
+          ref={contentRef}
           className="modal-dialog-content"
           aria-label={props.label}
+          tabIndex={props.focusDialogOnOpen ? -1 : undefined}
+          onOpenAutoFocus={(event) => {
+            if (!props.focusDialogOnOpen) return;
+            event.preventDefault();
+            contentRef.current?.focus({ preventScroll: true });
+          }}
           onEscapeKeyDown={preventWhenDisabled}
           onPointerDownOutside={preventWhenDisabled}
           onCloseAutoFocus={(event) => {

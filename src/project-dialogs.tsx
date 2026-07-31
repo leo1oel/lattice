@@ -5,7 +5,6 @@ import {
   FileText,
   Folder,
   FolderOpen,
-  LoaderCircle,
   Pencil,
   Plus,
   Radio,
@@ -13,8 +12,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import { MorphIcon, MotionButton } from "./motion";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { Button } from "./components/ui/button";
 import { buttonClassName } from "./components/ui/button-styles";
+import { Input } from "./components/ui/input";
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -95,7 +96,7 @@ export function Welcome(props: {
         <Button size="compact" variant="ghost" className="welcome-tex-setup" onClick={props.onInstallTex}>
           Install LaTeX tools (needed to compile PDFs)
         </Button>
-        {props.busyLabel && <p className="busy-label"><LoaderCircle className="spin" size={15} /> {props.busyLabel}</p>}
+        {props.busyLabel && <p className="busy-label"><InfinityLoader size={15} /> {props.busyLabel}</p>}
         {props.error && <p className="welcome-error" role="alert">{props.error}</p>}
       </div>
       {props.createOpen && (
@@ -139,7 +140,7 @@ export function CreateProjectDialog(props: {
         </p>
         <label>
           Project name
-          <input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
+          <Input controlSize="form" autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
         </label>
         <fieldset className="venue-picker" aria-label="Venue template">
           <legend>Venue template</legend>
@@ -212,7 +213,8 @@ export function RenameDialog(props: {
         <p>{copy}</p>
         <label>
           Name
-          <input
+          <Input
+            controlSize="form"
             autoFocus
             aria-label="New name"
             value={name}
@@ -278,7 +280,7 @@ export function ProjectMenu(props: {
       <DropdownMenuItem onSelect={props.onSettings}><Settings /> Settings</DropdownMenuItem>
       {props.busyLabel && (
         <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
-          <LoaderCircle className="size-3 animate-spin" /> {props.busyLabel}
+          <InfinityLoader size={12} /> {props.busyLabel}
         </p>
       )}
     </DropdownMenuContent>

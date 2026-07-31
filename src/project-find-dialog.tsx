@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { PanelHeader } from "./components/ui/panel-header";
+import { SearchField } from "./components/ui/search-field";
 
 export type ProjectFindHit = {
   kind: string;
@@ -79,10 +80,12 @@ export function ProjectFindDialog(props: {
         </p>
         <label>
           Query
-          <input
+          <SearchField
             autoFocus
+            aria-label="Find in project"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onClear={() => setQuery("")}
             placeholder="Phrase or tokens"
             onKeyDown={(event) => {
               if (event.key === "Escape") {

@@ -36,7 +36,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::io::Read;
+use std::fs::OpenOptions;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -280,9 +281,16 @@ struct SyncState {
 
 const PAUSED: &str = "Syncing is paused for this project. Resume it in Settings → Overleaf.";
 
-/// True unless Overleaf said this account may only read.
+/// True only when Overleaf explicitly said this account may change project
+/// contents.
+///
+/// Older links did not persist a permission. Treating that unknown state as
+/// writable lets an automatic sync attempt mutations before the realtime
+/// channel has refreshed the account's current role. Incoming work may still
+/// be pulled; outgoing work stays local until a fresh owner/editor permission
+/// is recorded.
 fn permits_writing(permission: Option<&str>) -> bool {
-    !matches!(permission, Some("readOnly") | Some("review"))
+    matches!(permission, Some("owner") | Some("readAndWrite"))
 }
 
 fn err<E: std::fmt::Display>(e: E) -> String {
@@ -312,7 +320,37 @@ fn load_session(config_dir: &Path) -> Result<SessionFile, String> {
 fn save_session(config_dir: &Path, session: &SessionFile) -> Result<(), String> {
     fs::create_dir_all(config_dir).map_err(err)?;
     let body = serde_json::to_string_pretty(session).map_err(err)?;
-    fs::write(session_path(config_dir), body + "\n").map_err(err)
+    let path = session_path(config_dir);
+    let temporary = config_dir.join(format!(".{SESSION_FILE}.tmp"));
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    // The cookie is equivalent to an active browser login. Keep the fallback
+    // file private even before it moves into the macOS Keychain, and set the
+    // mode both at creation and afterward so an older, permissive file is
+    // repaired during the next successful sign-in.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let write_result = (|| {
+        let mut file = options.open(&temporary).map_err(err)?;
+        file.write_all(body.as_bytes()).map_err(err)?;
+        file.write_all(b"\n").map_err(err)?;
+        file.sync_all().map_err(err)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(fs::Permissions::from_mode(0o600))
+                .map_err(err)?;
+        }
+        fs::rename(&temporary, &path).map_err(err)?;
+        Ok(())
+    })();
+    if write_result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    write_result
 }
 
 fn load_state(root: &Path) -> Result<SyncState, String> {
@@ -580,7 +618,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 /// Paths (forward-slash relative) that never participate in sync.
 fn is_excluded(path: &str) -> bool {
-    // `.omp/` holds the project's MCP server config, whose `env` is where
+    // Legacy `.omp/` folders may hold MCP server config, whose `env` is where
     // someone puts an API key. Uploading it would hand that key to everyone on
     // the Overleaf project and write it into the project's history.
     if path.starts_with(".research/") || path.starts_with(".git/") || path.starts_with(".omp/") {
@@ -1188,8 +1226,10 @@ pub fn clone_project(
         Destination::Existing(root) => {
             let mut state = load_state(&root)?;
             // The one thing that can have changed while it sat there: what
-            // this account is now allowed to do with the project.
-            if access_level.is_some() && state.permission.as_deref() != access_level {
+            // this account is now allowed to do with the project. A missing
+            // dashboard role clears an old writable role: unknown must fail
+            // closed until realtime supplies fresh evidence.
+            if state.permission.as_deref() != access_level {
                 state.permission = access_level.map(str::to_string);
                 save_state(&root, &state)?;
             }
@@ -1198,6 +1238,10 @@ pub fn clone_project(
         Destination::Fresh(root) => root,
     };
     let client = http_client(120)?;
+    // This version was observed before the downloaded snapshot. Recording a
+    // newer version fetched afterwards could claim that edits made while the
+    // zip was in flight are already present on disk.
+    let remote_version = fetch_remote_version(&client, &session.host, &session.cookie, project_id);
     let zip_bytes = download_project_zip(&client, &session.host, &session.cookie, project_id)?;
     let entries = read_zip_entries(&zip_bytes)?;
 
@@ -1212,7 +1256,6 @@ pub fn clone_project(
             write_base_copy(&root, rel, data)?;
         }
     }
-    let remote_version = fetch_remote_version(&client, &session.host, &session.cookie, project_id);
     let state = SyncState {
         host: session.host,
         project_id: project_id.to_string(),
@@ -2560,6 +2603,46 @@ pub fn set_permission(root: &Path, permission: &str) -> Result<(), String> {
     save_state(root, &state)
 }
 
+/// Keep the merge-base tree aligned with the hashes that will be persisted.
+///
+/// Most successful paths now match the bytes on disk. A conflicted path is
+/// the exception: the disk copy has markers while its recorded common
+/// ancestor is Overleaf's snapshot. Live-held paths may match neither and
+/// deliberately keep their previous base.
+fn finalize_base_copies(
+    root: &Path,
+    previous_files: &BTreeMap<String, String>,
+    next_files: &BTreeMap<String, String>,
+    remote: &BTreeMap<String, Vec<u8>>,
+) -> Result<(), String> {
+    for (path, expected_hash) in next_files {
+        let disk = fs::read(local_disk_path(root, path)).ok();
+        let agreed = disk
+            .as_ref()
+            .filter(|bytes| sha256_hex(bytes) == *expected_hash)
+            .or_else(|| {
+                remote
+                    .get(path)
+                    .filter(|bytes| sha256_hex(bytes) == *expected_hash)
+            });
+        if let Some(bytes) = agreed {
+            write_base_copy(root, path, bytes)?;
+        }
+    }
+    // Retain an old base while either side still has the file. A local edit
+    // held back by read-only/unknown permission still needs that ancestor when
+    // write access returns.
+    for path in previous_files.keys() {
+        if !next_files.contains_key(path)
+            && !local_disk_path(root, path).exists()
+            && !remote.contains_key(path)
+        {
+            remove_base_copy(root, path);
+        }
+    }
+    Ok(())
+}
+
 pub fn sync(
     config_dir: &Path,
     root: &Path,
@@ -2637,6 +2720,7 @@ pub fn sync(
         for path in &to_push {
             new_files.remove(path);
         }
+        finalize_base_copies(root, &state.files, &new_files, &remote)?;
         state.files = new_files;
         state.last_sync = Some(now_iso());
         state.remote_version = remote_version_before;
@@ -2699,30 +2783,26 @@ pub fn sync(
 
     // Record what both sides now agree on: this is the common ancestor the
     // next sync merges against.
-    for path in new_files.keys() {
-        let bytes = merged_content
-            .get(path)
-            .or_else(|| local.get(path))
-            .or_else(|| remote.get(path))
-            .cloned();
-        // Re-read anything we wrote to disk this round so the base matches the
-        // file exactly (pulled files, merged files).
-        let bytes = fs::read(local_disk_path(root, path)).ok().or(bytes);
-        if let Some(bytes) = bytes {
-            write_base_copy(root, path, &bytes)?;
-        }
-    }
-    for path in state.files.keys() {
-        if !new_files.contains_key(path) {
-            remove_base_copy(root, path);
-        }
-    }
+    finalize_base_copies(root, &state.files, &new_files, &remote)?;
 
     state.files = new_files;
     state.last_sync = Some(now_iso());
     // Remember where Overleaf's history stood, so the next probe can tell
     // "nothing changed" without downloading the project.
-    state.remote_version = fetch_remote_version(&client, &host, &session.cookie, &state.project_id);
+    // `remote_version_before` is the only history position known to precede
+    // the downloaded snapshot. Never replace it with a newer value fetched at
+    // the end: that newer value may include a collaborator's edit which is not
+    // in the zip we materialized as the new base.
+    //
+    // Uploads advance history themselves, but Overleaf does not return the
+    // resulting project version. Leave it unknown so the next probe performs
+    // one verification sync instead of attributing an unverified latest
+    // version to our upload.
+    state.remote_version = if result.pushed.is_empty() {
+        remote_version_before
+    } else {
+        None
+    };
     save_state(root, &state)?;
 
     result.pulled.sort();
@@ -3061,6 +3141,15 @@ mod tests {
     /// `versions` is served one per `/updates` request (the last value repeats).
     /// An empty list answers 404, matching an instance without history.
     fn start_server_versioned(html: String, zip_bytes: Vec<u8>, versions: Vec<i64>) -> MockServer {
+        start_server_versioned_with_upload_failure(html, zip_bytes, versions, None)
+    }
+
+    fn start_server_versioned_with_upload_failure(
+        html: String,
+        zip_bytes: Vec<u8>,
+        versions: Vec<i64>,
+        fail_upload_at: Option<usize>,
+    ) -> MockServer {
         let server = tiny_http::Server::http("127.0.0.1:0").expect("bind mock server");
         let port = match server.server_addr() {
             tiny_http::ListenAddr::IP(addr) => addr.port(),
@@ -3071,6 +3160,7 @@ mod tests {
         let version_queue: Arc<Mutex<std::collections::VecDeque<i64>>> =
             Arc::new(Mutex::new(versions.into_iter().collect()));
         std::thread::spawn(move || {
+            let mut upload_count = 0usize;
             for mut request in server.incoming_requests() {
                 let mut body = Vec::new();
                 let _ = request.as_reader().read_to_end(&mut body);
@@ -3112,12 +3202,19 @@ mod tests {
                 } else if method == "GET" && path.ends_with("/download/zip") {
                     request.respond(tiny_http::Response::from_data(zip_bytes.clone()))
                 } else if method == "POST" && path.ends_with("/upload") {
-                    request.respond(
-                        tiny_http::Response::from_string(
-                            "{\"success\":true,\"entity_id\":\"e1\",\"entity_type\":\"file\"}",
+                    upload_count += 1;
+                    if fail_upload_at == Some(upload_count) {
+                        request.respond(
+                            tiny_http::Response::from_string("upload failed").with_status_code(500),
                         )
-                        .with_header(json_header),
-                    )
+                    } else {
+                        request.respond(
+                            tiny_http::Response::from_string(
+                                "{\"success\":true,\"entity_id\":\"e1\",\"entity_type\":\"file\"}",
+                            )
+                            .with_header(json_header),
+                        )
+                    }
                 } else if method == "POST" && path.ends_with("/folder") {
                     request.respond(
                         tiny_http::Response::from_string(
@@ -3399,7 +3496,7 @@ mod tests {
                 project_name: "Test Project".to_string(),
                 last_sync: Some("2026-07-01T00:00:00Z".to_string()),
                 remote_version: None,
-                permission: None,
+                permission: Some("readAndWrite".to_string()),
                 files,
                 paused: false,
             },
@@ -3459,6 +3556,54 @@ mod tests {
         load_state(root).unwrap().files
     }
 
+    fn state_remote_version(root: &Path) -> Option<i64> {
+        load_state(root).unwrap().remote_version
+    }
+
+    #[test]
+    fn base_copy_finalization_uses_the_hash_agreement_and_retains_held_ancestors() {
+        let root = temp_dir("base-finalization");
+        fs::write(local_disk_path(&root, "pulled.tex"), b"new remote").unwrap();
+        fs::write(
+            local_disk_path(&root, "conflict.tex"),
+            format!("{CONFLICT_MARKER} local\n=======\nremote\n>>>>>>> remote\n"),
+        )
+        .unwrap();
+        fs::write(local_disk_path(&root, "held.tex"), b"local edit").unwrap();
+        write_base_copy(&root, "pulled.tex", b"old").unwrap();
+        write_base_copy(&root, "conflict.tex", b"old").unwrap();
+        write_base_copy(&root, "held.tex", b"old ancestor").unwrap();
+        let previous = BTreeMap::from([
+            ("pulled.tex".to_string(), sha256_hex(b"old")),
+            ("conflict.tex".to_string(), sha256_hex(b"old")),
+            ("held.tex".to_string(), sha256_hex(b"old ancestor")),
+        ]);
+        let next = BTreeMap::from([
+            ("pulled.tex".to_string(), sha256_hex(b"new remote")),
+            ("conflict.tex".to_string(), sha256_hex(b"remote side")),
+        ]);
+        let remote = BTreeMap::from([
+            ("pulled.tex".to_string(), b"new remote".to_vec()),
+            ("conflict.tex".to_string(), b"remote side".to_vec()),
+            ("held.tex".to_string(), b"old ancestor".to_vec()),
+        ]);
+
+        finalize_base_copies(&root, &previous, &next, &remote).unwrap();
+
+        assert_eq!(
+            read_base_copy(&root, "pulled.tex").as_deref(),
+            Some("new remote")
+        );
+        assert_eq!(
+            read_base_copy(&root, "conflict.tex").as_deref(),
+            Some("remote side")
+        );
+        assert_eq!(
+            read_base_copy(&root, "held.tex").as_deref(),
+            Some("old ancestor")
+        );
+    }
+
     // ---- session + project list ------------------------------------------
 
     #[test]
@@ -3468,6 +3613,31 @@ mod tests {
         assert!(!status.connected);
         assert_eq!(status.host, DEFAULT_HOST);
         assert!(status.email.is_none());
+    }
+
+    #[test]
+    fn session_file_is_private_and_round_trips_without_a_partial_file() {
+        let config = temp_dir("private-session");
+        write_session_file(&config, "https://www.overleaf.com");
+
+        let restored = load_session(&config).unwrap();
+        assert_eq!(restored.cookie, "overleaf_session2=fixture-cookie");
+        assert!(!config.join(format!(".{SESSION_FILE}.tmp")).exists());
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(session_path(&config))
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o600,
+            );
+        }
+
+        let _ = fs::remove_dir_all(config);
     }
 
     #[test]
@@ -3497,6 +3667,19 @@ mod tests {
             recorded[0].cookie_header.as_deref(),
             Some("overleaf_session2=abc123; GCLB=balancer")
         );
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(session_path(&config))
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o600,
+            );
+        }
 
         disconnect(&config).unwrap();
         assert!(!session_status(&config).unwrap().connected);
@@ -3584,6 +3767,28 @@ mod tests {
         // And opening *that* one again finds it under its numbered name.
         let other_again = clone_project(&config, "proj-2", "Test: Project", &parent, None).unwrap();
         assert_eq!(other_again, other);
+    }
+
+    #[test]
+    fn reopening_a_clone_clears_a_stale_writable_permission_when_role_is_unknown() {
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[("main.tex", b"body".as_slice())]),
+        );
+        let config = temp_dir("clone-permission-config");
+        let parent = temp_dir("clone-permission-parent");
+        write_session_file(&config, &server.base);
+        let root =
+            clone_project(&config, "proj-1", "Permission Test", &parent, Some("owner")).unwrap();
+        assert_eq!(
+            load_state(&root).unwrap().permission.as_deref(),
+            Some("owner")
+        );
+
+        let reopened = clone_project(&config, "proj-1", "Permission Test", &parent, None).unwrap();
+
+        assert_eq!(reopened, root);
+        assert_eq!(load_state(&root).unwrap().permission, None);
     }
 
     /// Opening a project that is already downloaded opens it.
@@ -3817,6 +4022,106 @@ mod tests {
         // and sends it merged with whatever they wrote.
         assert!(!state_files(&root).contains_key("main.tex"));
         assert_eq!(read_local(&root, "main.tex").unwrap(), b"locally edited");
+    }
+
+    #[test]
+    fn overleaf_sync_records_the_downloaded_snapshot_not_a_later_remote_version() {
+        // The zip contains version 11. A collaborator reaches version 12 while
+        // this pull-only sync is finishing. Recording 12 would make the next
+        // probe say the stale local copy is current.
+        let base = b"old body".as_slice();
+        let remote = b"version eleven".as_slice();
+        let server = start_server_versioned(
+            projects_page_html(),
+            build_zip(&[("main.tex", remote)]),
+            vec![11, 12],
+        );
+        let config = temp_dir("snapshot-version-config");
+        let root = temp_dir("snapshot-version-project");
+        write_session_file(&config, &server.base);
+        seed_linked_project(
+            &root,
+            &server.base,
+            &[("main.tex", base)],
+            &[("main.tex", base)],
+        );
+
+        let result = sync(&config, &root, &BTreeSet::new()).unwrap();
+
+        assert_eq!(result.pulled, vec!["main.tex"]);
+        assert_eq!(read_local(&root, "main.tex").unwrap(), remote);
+        assert_eq!(state_remote_version(&root), Some(11));
+        let next = probe(&config, &root).unwrap();
+        assert!(next.changed);
+        assert_eq!(next.remote_version, Some(12));
+    }
+
+    #[test]
+    fn overleaf_sync_leaves_an_uploaded_version_unverified() {
+        // The first two reads prove the remote stayed at 11 until upload. The
+        // server does not tell us which history version belongs to that upload,
+        // so a later 12 must be verified rather than silently claimed.
+        let base = b"base body".as_slice();
+        let server = start_server_versioned(
+            projects_page_html(),
+            build_zip(&[("main.tex", base)]),
+            vec![11, 11, 12],
+        );
+        let (root, result) = run_sync(
+            &server,
+            &[("main.tex", b"locally edited".as_slice())],
+            &[("main.tex", base)],
+        );
+
+        assert_eq!(result.pushed, vec!["main.tex"]);
+        assert_eq!(state_remote_version(&root), None);
+        let config = temp_dir("uploaded-version-config");
+        write_session_file(&config, &server.base);
+        // `run_sync` owns a different config directory; probing only needs a
+        // valid session and the linked root.
+        let next = probe(&config, &root).unwrap();
+        assert!(next.changed);
+        assert_eq!(next.remote_version, Some(12));
+    }
+
+    #[test]
+    fn overleaf_sync_does_not_commit_local_state_after_a_partial_upload_failure() {
+        // Overleaf's file API is not transactional: the first upload may have
+        // succeeded before a later one fails. In that case the local sync state
+        // must remain at the old common ancestor. Claiming the edited hashes
+        // here would hide the ambiguous partial remote result on the next run.
+        let base_a = b"base a".as_slice();
+        let base_b = b"base b".as_slice();
+        let server = start_server_versioned_with_upload_failure(
+            projects_page_html(),
+            build_zip(&[("a.tex", base_a), ("b.tex", base_b)]),
+            vec![11],
+            Some(2),
+        );
+        let config = temp_dir("partial-upload-config");
+        let root = temp_dir("partial-upload-project");
+        write_session_file(&config, &server.base);
+        seed_linked_project(
+            &root,
+            &server.base,
+            &[
+                ("a.tex", b"edited a".as_slice()),
+                ("b.tex", b"edited b".as_slice()),
+            ],
+            &[("a.tex", base_a), ("b.tex", base_b)],
+        );
+
+        let outcome = sync(&config, &root, &BTreeSet::new());
+
+        assert!(outcome.is_err());
+        assert_eq!(server.uploads().len(), 2);
+        assert_eq!(read_local(&root, "a.tex").unwrap(), b"edited a");
+        assert_eq!(read_local(&root, "b.tex").unwrap(), b"edited b");
+        assert_eq!(read_base_copy(&root, "a.tex").unwrap(), "base a");
+        assert_eq!(read_base_copy(&root, "b.tex").unwrap(), "base b");
+        let files = state_files(&root);
+        assert_eq!(files.get("a.tex"), Some(&sha256_hex(base_a)));
+        assert_eq!(files.get("b.tex"), Some(&sha256_hex(base_b)));
     }
 
     #[test]
@@ -4272,6 +4577,91 @@ mod tests {
         // An account that can write is unaffected.
         set_permission(&root, "readAndWrite").unwrap();
         assert!(!sync(&config, &root, &BTreeSet::new()).unwrap().read_only);
+    }
+
+    #[test]
+    fn overleaf_sync_never_uploads_when_permission_is_unknown() {
+        let base = b"shared body".as_slice();
+        let server = start_server(projects_page_html(), build_zip(&[("main.tex", base)]));
+        let config = temp_dir("unknown-permission-config");
+        let root = temp_dir("unknown-permission-project");
+        write_session_file(&config, &server.base);
+        seed_linked_project(
+            &root,
+            &server.base,
+            &[("main.tex", b"local edit".as_slice())],
+            &[("main.tex", base)],
+        );
+        let mut state = load_state(&root).unwrap();
+        state.permission = None;
+        save_state(&root, &state).unwrap();
+
+        let result = sync(&config, &root, &BTreeSet::new()).unwrap();
+
+        assert!(result.read_only);
+        assert!(result.pushed.is_empty());
+        assert!(server.uploads().is_empty());
+        assert_eq!(read_local(&root, "main.tex").unwrap(), b"local edit");
+        assert!(!state_files(&root).contains_key("main.tex"));
+    }
+
+    #[test]
+    fn read_only_pull_refreshes_the_base_before_write_access_returns() {
+        let original = b"alpha\nshared middle\nbeta\n".as_slice();
+        let first_remote = b"alpha from Overleaf\nshared middle\nbeta\n".as_slice();
+        let first_server = start_server(
+            projects_page_html(),
+            build_zip(&[("main.tex", first_remote)]),
+        );
+        let config = temp_dir("permission-base-config");
+        let root = temp_dir("permission-base-project");
+        write_session_file(&config, &first_server.base);
+        seed_linked_project(
+            &root,
+            &first_server.base,
+            &[("main.tex", original)],
+            &[("main.tex", original)],
+        );
+        let mut state = load_state(&root).unwrap();
+        state.permission = None;
+        save_state(&root, &state).unwrap();
+
+        let pulled = sync(&config, &root, &BTreeSet::new()).unwrap();
+
+        assert!(pulled.read_only);
+        assert_eq!(
+            read_base_copy(&root, "main.tex").as_deref(),
+            Some("alpha from Overleaf\nshared middle\nbeta\n")
+        );
+
+        // Once write access returns, edits to different lines must merge
+        // against the pulled snapshot, not the stale pre-permission base.
+        fs::write(
+            local_disk_path(&root, "main.tex"),
+            b"alpha from Overleaf\nshared middle\nbeta locally\n",
+        )
+        .unwrap();
+        let second_server = start_server(
+            projects_page_html(),
+            build_zip(&[(
+                "main.tex",
+                b"alpha revised remotely\nshared middle\nbeta\n".as_slice(),
+            )]),
+        );
+        let mut state = load_state(&root).unwrap();
+        state.host = second_server.base.clone();
+        state.permission = Some("readAndWrite".to_string());
+        save_state(&root, &state).unwrap();
+
+        let merged = sync(&config, &root, &BTreeSet::new()).unwrap();
+
+        assert_eq!(merged.merged, vec!["main.tex"]);
+        assert!(merged.conflicts.is_empty());
+        assert_eq!(
+            read_local(&root, "main.tex").unwrap(),
+            b"alpha revised remotely\nshared middle\nbeta locally\n"
+        );
+        assert_eq!(second_server.uploads().len(), 1);
     }
 
     /// Reads the real project's Overleaf history. This is the surface that is

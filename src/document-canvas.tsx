@@ -17,15 +17,12 @@ import {
 } from "./overleaf-track-changes";
 import type { TrackedChange } from "./use-overleaf-realtime";
 import {
-  BookOpen,
   Columns2,
   FileCode2,
   FileText,
-  FoldHorizontal,
   Image,
   ListTodo,
   MessageSquareText,
-  UnfoldHorizontal,
 } from "lucide-react";
 import {
   countWords,
@@ -46,7 +43,12 @@ import {
   type LatexSelectionToolbarPosition,
 } from "./latex-selection-toolbar";
 import { ScrollArea } from "./components/ui/scroll-area";
-import { latexFigureInsertion, type FigureInsertOptions } from "./figure-insertion";
+import { Textarea } from "./components/ui/textarea";
+import {
+  latexFigureInsertion,
+  markdownAssetInsertion,
+  type FigureInsertOptions,
+} from "./figure-insertion";
 import { FigureInsertDialog } from "./figure-insert-dialog";
 import {
   createEditorComment,
@@ -56,14 +58,11 @@ import {
   type EditorComment,
 } from "./editor-comments";
 import {
-  type PaperReadingWidth,
-  PAPER_READING_WIDTH_KEY,
   clamp,
   loadSplitRatio,
   persistSplitRatio,
   loadColumnsPdfRatio,
   persistColumnsPdfRatio,
-  loadPaperReadingWidth,
 } from "./app-settings";
 import {
   editorDiagnosticsForFile,
@@ -71,7 +70,6 @@ import {
 } from "./compile-diagnostics";
 import { editorTexlabDiagnosticsForFile } from "./texlab-diagnostics";
 import { DocumentOutline } from "./document-outline";
-import { Tip } from "./components/icon-tip";
 import {
   sectionBreadcrumbNodes,
   type OutlineNode,
@@ -96,18 +94,23 @@ import type {
   InsertSymbolCommand,
   EditorKeymap,
 } from "./app-types";
-import {
-  stripFrontmatter,
-  PROJECT_FIGURE_DRAG_TYPE,
-} from "./app-utils";
+import { PROJECT_FIGURE_DRAG_TYPE } from "./app-utils";
 import type { AgentHostSurface } from "./agent-host-context";
 
 const SPLIT_SOURCE_MIN_WIDTH = 480;
-const SPLIT_PDF_MIN_WIDTH = 440;
+const SPLIT_PDF_MIN_WIDTH = 500;
+const EDITOR_BASIC_SETUP = {
+  autocompletion: false,
+  lineNumbers: true,
+  foldGutter: true,
+  highlightActiveLine: true,
+  highlightActiveLineGutter: true,
+};
 
 export function DocumentCanvas(props: {
   mode: CanvasMode;
   source: string;
+  markdownPreviewSource?: string;
   activeFile: string;
   secondaryFile: string | null;
   secondarySource: string;
@@ -122,10 +125,6 @@ export function DocumentCanvas(props: {
   pdfUrl: string | null;
   pdfBase64: string | null;
   pdfTop?: ReactNode;
-  paperMarkdown: string;
-  paperBlog: string | null;
-  paperView: "blog" | "fulltext";
-  onSetPaperView: (view: "blog" | "fulltext") => void;
   activePaper: PaperSummary | null;
   activeAsset: AssetPreview | null;
   citationKeys: string[];
@@ -138,6 +137,7 @@ export function DocumentCanvas(props: {
   onPrepareFigure: (path: string) => Promise<string | null>;
   onPasteImageFile: (file: File) => boolean | void;
   nativeFigureDropActive: boolean;
+  fileDropTargetPane: EditorPaneId | null;
   figurePointerPosition: { x: number; y: number } | null;
   figureDropRequest: FigureDropRequest | null;
   onFigureDropHandled: (id: string) => void;
@@ -178,6 +178,9 @@ export function DocumentCanvas(props: {
   buildDiagnostics: CompileDiagnostic[];
   texlabDiagnostics: CompileDiagnostic[];
   pdfSyncTarget: PdfSyncTarget | null;
+  canForwardSync: boolean;
+  locatingPdf: boolean;
+  onForwardSync: () => void;
   onPdfSource: (page: number, x: number, y: number) => void;
   editorComments: EditorComment[];
   /** Other people's carets in the document Overleaf is carrying live. */
@@ -265,6 +268,7 @@ export function DocumentCanvas(props: {
     commentFocusRequest,
     onCommentFocusHandled,
   } = props;
+  const primarySurface: AgentHostSurface = props.activePaper ? "paper" : "editor";
   const splitRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const primaryViewRef = useRef<EditorView | null>(null);
@@ -272,7 +276,7 @@ export function DocumentCanvas(props: {
   const [primaryScrollbarView, setPrimaryScrollbarView] = useState<EditorView | null>(null);
   const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<EditorView | null>(null);
   const lastInsertionPositionRef = useRef(0);
-  const pendingFigureCursorRef = useRef<number | null>(null);
+  const pendingFigureCursorRef = useRef<{ pane: EditorPaneId; cursor: number } | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
   const [columnsPdfRatio, setColumnsPdfRatio] = useState(loadColumnsPdfRatio);
   const [figureDropActive, setFigureDropActive] = useState(false);
@@ -283,6 +287,7 @@ export function DocumentCanvas(props: {
   const [figureInsertPending, setFigureInsertPending] = useState<{
     paths: string[];
     position: number;
+    pane: EditorPaneId;
   } | null>(null);
   const [commentComposer, setCommentComposer] = useState<{
     from: number;
@@ -787,45 +792,78 @@ export function DocumentCanvas(props: {
   const insertSnippet = useCallback((snippet: InsertSnippet) => {
     insertTextAtCursor(snippet.insert, snippet.cursorOffset ?? snippet.insert.length);
   }, [insertTextAtCursor]);
-  const insertFigures = useCallback(async (paths: string[], coordinates?: { x: number; y: number }) => {
-    const view = editorViewRef.current;
+  const insertFigures = useCallback(async (
+    paths: string[],
+    coordinates?: { x: number; y: number },
+    pane: EditorPaneId = focusedPane,
+  ) => {
+    const view = pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
     if (!view || !paths.length) return;
+    const targetPath = pane === "secondary" && secondaryFile ? secondaryFile : activeFile;
+    let coordinatePosition: number | null = null;
+    if (coordinates && coordinates.x >= 0 && coordinates.y >= 0) {
+      try {
+        coordinatePosition = view.posAtCoords(coordinates);
+      } catch {
+        // CodeMirror may not have layout coordinates yet; use the current cursor instead.
+      }
+    }
+    const cursor = coordinatePosition ?? view.state.selection.main.head;
+    const position = view.state.doc.lineAt(clamp(cursor, 0, view.state.doc.length)).from;
+    if (targetPath.toLocaleLowerCase().endsWith(".md")) {
+      const edit = markdownAssetInsertion(view.state.doc.toString(), position, paths, targetPath);
+      view.dispatch({
+        changes: { from: position, insert: edit.text },
+        selection: { anchor: position + edit.cursorOffset },
+        scrollIntoView: true,
+      });
+      editorViewRef.current = view;
+      onFocusPane(pane);
+      view.focus();
+      return;
+    }
+    if (!targetPath.toLocaleLowerCase().endsWith(".tex")) return;
     const prepared: string[] = [];
     for (const path of paths) {
       const latexPath = await onPrepareFigure(path);
       if (latexPath) prepared.push(latexPath);
     }
-    if (!prepared.length || !editorViewRef.current) return;
-    const currentView = editorViewRef.current;
-    let coordinatePosition: number | null = null;
-    if (coordinates && coordinates.x >= 0 && coordinates.y >= 0) {
-      try {
-        coordinatePosition = currentView.posAtCoords(coordinates);
-      } catch {
-        // CodeMirror may not have layout coordinates yet; use the current cursor instead.
-      }
-    }
-    const cursor = coordinatePosition ?? lastInsertionPositionRef.current;
-    const position = currentView.state.doc.lineAt(clamp(cursor, 0, currentView.state.doc.length)).from;
-    setFigureInsertPending({ paths: prepared, position });
-  }, [onPrepareFigure, setFigureInsertPending]);
+    if (!prepared.length) return;
+    setFigureInsertPending({ paths: prepared, position, pane });
+  }, [activeFile, focusedPane, onFocusPane, onPrepareFigure, secondaryFile]);
   const confirmFigureInsert = useCallback((options: FigureInsertOptions) => {
     const pending = figureInsertPending;
     if (!pending) return;
-    const source = editorSource;
+    const source = pending.pane === "secondary" ? secondarySource : editorSource;
     const edit = latexFigureInsertion(source, pending.position, pending.paths, options);
-    pendingFigureCursorRef.current = pending.position + edit.cursorOffset;
-    setSource(`${source.slice(0, pending.position)}${edit.text}${source.slice(pending.position)}`);
+    pendingFigureCursorRef.current = {
+      pane: pending.pane,
+      cursor: pending.position + edit.cursorOffset,
+    };
+    const nextSource = `${source.slice(0, pending.position)}${edit.text}${source.slice(pending.position)}`;
+    if (pending.pane === "secondary") setSecondarySource(nextSource);
+    else setSource(nextSource);
     setFigureInsertPending(null);
-  }, [editorSource, figureInsertPending, setFigureInsertPending, setSource]);
+  }, [
+    editorSource,
+    figureInsertPending,
+    secondarySource,
+    setFigureInsertPending,
+    setSecondarySource,
+    setSource,
+  ]);
   useEffect(() => {
-    const view = editorViewRef.current;
-    const cursor = pendingFigureCursorRef.current;
-    if (!view || cursor === null || view.state.doc.toString() !== editorSource) return;
+    const pendingCursor = pendingFigureCursorRef.current;
+    if (!pendingCursor) return;
+    const view = pendingCursor.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
+    const currentSource = pendingCursor.pane === "secondary" ? secondarySource : editorSource;
+    if (!view || view.state.doc.toString() !== currentSource) return;
     pendingFigureCursorRef.current = null;
-    view.dispatch({ selection: { anchor: cursor }, scrollIntoView: true });
+    editorViewRef.current = view;
+    onFocusPane(pendingCursor.pane);
+    view.dispatch({ selection: { anchor: pendingCursor.cursor }, scrollIntoView: true });
     view.focus();
-  }, [editorSource]);
+  }, [editorSource, onFocusPane, secondarySource]);
   useEffect(() => {
     const request = editorNavigation;
     if (!request) return;
@@ -880,7 +918,11 @@ export function DocumentCanvas(props: {
   useEffect(() => {
     if (!figureDropRequest) return;
     const request = figureDropRequest;
-    void insertFigures(request.paths, { x: request.clientX, y: request.clientY })
+    void insertFigures(
+      request.paths,
+      { x: request.clientX, y: request.clientY },
+      request.pane,
+    )
       .finally(() => onFigureDropHandled(request.id));
   }, [figureDropRequest, insertFigures, onFigureDropHandled]);
   useEffect(() => {
@@ -980,27 +1022,18 @@ export function DocumentCanvas(props: {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [snippetStops]);
-  const [paperWidth, setPaperWidth] = useState<PaperReadingWidth>(loadPaperReadingWidth);
-  const togglePaperWidth = () => setPaperWidth((current) => {
-    const next: PaperReadingWidth = current === "wide" ? "comfortable" : "wide";
-    try {
-      localStorage.setItem(PAPER_READING_WIDTH_KEY, next);
-    } catch {
-      // Preference persistence is best-effort.
-    }
-    return next;
-  });
-  if (props.mode === "paper") {
-    const showBlog = props.paperView === "blog" && props.paperBlog != null;
-    const content = showBlog ? props.paperBlog! : stripFrontmatter(props.paperMarkdown);
+  if (props.mode === "asset" && props.activeAsset) {
+    return <ProjectAssetPreview asset={props.activeAsset} />;
+  }
+  if (props.mode === "paper" || props.mode === "markdown-preview") {
     return (
       <ScrollArea
-        className="paper-reader"
+        className="markdown-preview"
         orientation="both"
-        contentClassName="paper-reader-content"
-        onPointerDownCapture={() => props.onContextSurfaceActivate("paper")}
-        onFocusCapture={() => props.onContextSurfaceActivate("paper")}
-        onMouseUp={(event) => {
+        contentClassName="markdown-preview-content"
+        onPointerDownCapture={() => props.onContextSurfaceActivate(primarySurface)}
+        onFocusCapture={() => props.onContextSurfaceActivate(primarySurface)}
+        onMouseUp={props.activePaper ? (event) => {
           const liveSelection = window.getSelection();
           const anchor = liveSelection?.anchorNode;
           props.onPaperTextSelect(
@@ -1008,43 +1041,13 @@ export function DocumentCanvas(props: {
               ? liveSelection?.toString() ?? ""
               : "",
           );
-        }}
+        } : undefined}
       >
-        <div className="paper-reader-title">
-          <BookOpen size={15} />
-          <span>{props.activePaper?.title ?? "Imported paper"}</span>
-          <div className="paper-reader-tools">
-            {props.paperBlog != null && (
-              <div className="paper-view-toggle" role="group" aria-label="Reading view">
-                <button type="button" className={showBlog ? "active" : ""} onClick={() => props.onSetPaperView("blog")}>Blog</button>
-                <button type="button" className={!showBlog ? "active" : ""} onClick={() => props.onSetPaperView("fulltext")}>Paper</button>
-              </div>
-            )}
-            <Tip label={paperWidth === "wide" ? "Comfortable width" : "Full width — fits wide tables"}>
-              <button type="button" className="paper-width-toggle" onClick={togglePaperWidth} aria-label="Toggle reading width">
-                {paperWidth === "wide" ? <FoldHorizontal size={13} /> : <UnfoldHorizontal size={13} />}
-              </button>
-            </Tip>
-            {props.activePaper && <small>arXiv {props.activePaper.arxivId}</small>}
-          </div>
-        </div>
-        <ChatMarkdown text={content} macros={props.katexMacros} className={`paper-content ${paperWidth === "wide" ? "pw-wide" : ""}`} breaks={false} />
-      </ScrollArea>
-    );
-  }
-  if (props.mode === "asset" && props.activeAsset) {
-    return <ProjectAssetPreview asset={props.activeAsset} />;
-  }
-  if (props.mode === "markdown-preview") {
-    return (
-      <ScrollArea
-        className="markdown-preview"
-        orientation="both"
-        contentClassName="markdown-preview-content"
-        onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
-        onFocusCapture={() => props.onContextSurfaceActivate("editor")}
-      >
-        <ChatMarkdown text={props.source} macros={props.katexMacros} breaks={false} />
+        <ChatMarkdown
+          text={props.markdownPreviewSource ?? props.source}
+          macros={props.katexMacros}
+          breaks={false}
+        />
       </ScrollArea>
     );
   }
@@ -1053,11 +1056,14 @@ export function DocumentCanvas(props: {
     <div className="source-workspace">
       <div className="source-main">
         <div
-          className={`source-editor ${figureDropActive || props.nativeFigureDropActive ? "figure-drop-active" : ""}`}
-          onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
+          className={`source-editor ${
+            figureDropActive || props.nativeFigureDropActive ? "figure-drop-active" : ""
+          } ${props.fileDropTargetPane === "primary" ? "file-drop-active" : ""}`}
+          data-editor-pane="primary"
+          onPointerDownCapture={() => props.onContextSurfaceActivate(primarySurface)}
           onPointerLeave={props.onEditorLeave}
           onFocusCapture={() => {
-            props.onContextSurfaceActivate("editor");
+            props.onContextSurfaceActivate(primarySurface);
             if (selectionToolbarOwnerRef.current?.pane !== "primary") {
               selectionToolbarOwnerRef.current = null;
               setSelectionToolbarPane(null);
@@ -1088,7 +1094,7 @@ export function DocumentCanvas(props: {
             event.preventDefault();
             event.stopPropagation();
             setFigureDropActive(false);
-            void insertFigures([path], { x: event.clientX, y: event.clientY });
+            void insertFigures([path], { x: event.clientX, y: event.clientY }, "primary");
           }}
         >
           <CodeMirror
@@ -1107,13 +1113,7 @@ export function DocumentCanvas(props: {
             }}
             onChange={onPrimaryChange}
             onUpdate={onPrimaryUpdate}
-            basicSetup={{
-              autocompletion: false,
-              lineNumbers: true,
-              foldGutter: true,
-              highlightActiveLine: true,
-              highlightActiveLineGutter: true,
-            }}
+            basicSetup={EDITOR_BASIC_SETUP}
           />
           <CodeMirrorScrollbar view={primaryScrollbarView} />
           {figureDropMarker && (
@@ -1127,7 +1127,7 @@ export function DocumentCanvas(props: {
               onMouseDown={(event) => event.stopPropagation()}
             >
               <p className="editor-comment-quote">{commentComposer.quote}</p>
-              <textarea
+              <Textarea
                 autoFocus
                 rows={3}
                 placeholder="Leave a comment for collaborators…"
@@ -1258,6 +1258,9 @@ export function DocumentCanvas(props: {
         url={props.pdfUrl}
         pdfBase64={props.pdfBase64}
         syncTarget={props.pdfSyncTarget}
+        canForwardSync={props.canForwardSync}
+        locatingPdf={props.locatingPdf}
+        onForwardSync={props.onForwardSync}
         // Reverse-jump to source only when the editor is visible (split/dual/
         // columns). In PDF-only view there's nothing to jump to, so clicks stay
         // inert and the synctex cursor is off.
@@ -1299,7 +1302,10 @@ export function DocumentCanvas(props: {
         }}
       >
         <div className="dual-pane-label"><FileCode2 size={12} /><span>{secondaryFile}</span></div>
-        <div className="source-editor">
+        <div
+          className={`source-editor ${props.fileDropTargetPane === "secondary" ? "file-drop-active" : ""}`}
+          data-editor-pane="secondary"
+        >
           <CodeMirror
             className="code-editor-root"
             value={secondarySource}
@@ -1312,13 +1318,7 @@ export function DocumentCanvas(props: {
             }}
             onChange={onSecondaryChange}
             onUpdate={onSecondaryUpdate}
-            basicSetup={{
-              autocompletion: false,
-              lineNumbers: true,
-              foldGutter: true,
-              highlightActiveLine: true,
-              highlightActiveLineGutter: true,
-            }}
+            basicSetup={EDITOR_BASIC_SETUP}
           />
           <CodeMirrorScrollbar view={secondaryScrollbarView} />
         </div>
@@ -1404,7 +1404,7 @@ export function DocumentCanvas(props: {
           ref={splitRef}
           className="split-canvas dual-canvas columns-canvas"
           style={{
-            gridTemplateColumns: `minmax(160px, ${splitRatio * editorsShare}fr) 1px minmax(160px, ${(1 - splitRatio) * editorsShare}fr) 1px minmax(220px, ${columnsPdfRatio}fr)`,
+            gridTemplateColumns: `minmax(160px, ${splitRatio * editorsShare}fr) 1px minmax(160px, ${(1 - splitRatio) * editorsShare}fr) 1px minmax(${SPLIT_PDF_MIN_WIDTH}px, ${columnsPdfRatio}fr)`,
           }}
         >
           {primaryPane}
@@ -1436,10 +1436,21 @@ export function DocumentCanvas(props: {
     );
   }
   const resizeSplit = (clientX: number) => {
-    const bounds = splitRef.current?.getBoundingClientRect();
-    if (!bounds?.width) return splitRatio;
-    const next = constrainSplitRatio((clientX - bounds.left) / bounds.width);
-    setSplitRatio(next);
+    const split = splitRef.current;
+    const bounds = split?.getBoundingClientRect();
+    if (!split || !bounds?.width) return splitRatio;
+    const tracksWidth = Math.max(1, bounds.width - 1);
+    const minimum = Math.min(Math.ceil(tracksWidth), SPLIT_SOURCE_MIN_WIDTH);
+    const maximum = Math.max(minimum, Math.floor(tracksWidth - SPLIT_PDF_MIN_WIDTH));
+    const sourceWidth = clamp(Math.round(clientX - bounds.left), minimum, maximum);
+    const next = constrainSplitRatio(sourceWidth / tracksWidth);
+
+    // Keep the hot drag path outside React. Re-rendering the PDF viewer for
+    // every pointer event made WebKit repeatedly lay out and repaint the
+    // toolbar, which showed up as tiny icon shifts. The committed ratio is
+    // still sent through React on pointer-up.
+    split.style.gridTemplateColumns =
+      `${sourceWidth}px 1px minmax(${SPLIT_PDF_MIN_WIDTH}px, 1fr)`;
     return next;
   };
   const beginSplitResize = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -1453,6 +1464,7 @@ export function DocumentCanvas(props: {
       document.body.classList.remove("resizing-split");
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
+      setSplitRatio(latest);
       persistSplitRatio(latest);
     };
     window.addEventListener("pointermove", handleMove);
@@ -1600,7 +1612,7 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
       <div className="asset-preview-heading">
         <Image size={14} />
         <span>{asset.path}</span>
-        <small>Drag this file from Project into the LaTeX editor to insert it.</small>
+        <small>Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it.</small>
       </div>
       <ScrollArea
         className="asset-preview-stage"

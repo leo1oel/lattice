@@ -88,7 +88,7 @@ function SegmentedControl(props: {
         <button
           key={option}
           type="button"
-          className={`relative h-6 flex-1 appearance-none border-0 p-0 text-[11px] font-medium leading-6 transition ${props.selected === option ? "rounded-md bg-white text-black shadow-[0_1px_3px_rgba(0,0,0,0.14)] dark:bg-white/90" : "bg-transparent text-[#707789] hover:text-gray-700 dark:text-white/55 dark:hover:text-white/80"}`}
+          className={`relative h-6 flex-1 appearance-none border-0 p-0 text-[11px] font-medium leading-6 transition ${props.selected === option ? "rounded-md bg-[#F9F9FA] text-black shadow-[0_1px_3px_rgba(0,0,0,0.14)] dark:bg-white/90" : "bg-transparent text-[#707789] hover:text-gray-700 dark:text-white/55 dark:hover:text-white/80"}`}
           onClick={() => props.onChange(option)}
         >
           {option === "Sliders" ? "Slider" : option}
@@ -100,7 +100,7 @@ function SegmentedControl(props: {
 
 function ColorGrid(props: { value: string; onChange: (color: string) => void }) {
   return (
-    <div className="grid h-40 grid-cols-12 gap-px overflow-hidden rounded-lg bg-white p-0 dark:bg-white/10">
+    <div className="grid h-40 grid-cols-12 gap-px overflow-hidden rounded-lg bg-[#F9F9FA] p-0 dark:bg-white/10">
       {APPLE_GRID_COLORS.map((color, index) => (
         <button
           key={`${color}-${index}`}
@@ -132,7 +132,7 @@ function SpectrumPicker(props: { hsv: Hsv; onChange: (hsv: Hsv) => void }) {
       role="application"
       aria-label="Color spectrum"
       className="relative h-40 w-full touch-none cursor-crosshair overflow-hidden rounded-lg shadow-inner"
-      style={{ background: "linear-gradient(to bottom, transparent, #000), linear-gradient(to right, #fff, transparent), linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)" }}
+      style={{ background: "linear-gradient(to bottom, transparent, #000), linear-gradient(to right, #F9F9FA, transparent), linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)" }}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);
         update(event);
@@ -177,7 +177,7 @@ function SliderPicker(props: {
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
               onChange={(event) => props.onRgbChange({ ...props.rgb, [channel.key]: Number(event.target.value) })}
             />
-            <span className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gray-200 bg-white shadow-md" style={{ left: `${props.rgb[channel.key] / 2.55}%` }} />
+            <span className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gray-200 bg-[#F9F9FA] shadow-md" style={{ left: `${props.rgb[channel.key] / 2.55}%` }} />
           </div>
           <input
             type="number"
@@ -222,7 +222,7 @@ function OpacitySlider(props: {
         <div
           className="relative h-5 min-w-0 flex-1 overflow-visible rounded-full shadow-inner"
           style={{
-            backgroundColor: "#fff",
+            backgroundColor: "#F9F9FA",
             backgroundImage:
               `linear-gradient(to right, transparent, ${props.color}), linear-gradient(45deg, #c8ced8 25%, transparent 25%), linear-gradient(135deg, #c8ced8 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #c8ced8 75%), linear-gradient(135deg, transparent 75%, #c8ced8 75%)`,
             backgroundSize: "100% 100%, 8px 8px, 8px 8px, 8px 8px, 8px 8px",
@@ -239,7 +239,7 @@ function OpacitySlider(props: {
             onChange={(event) => props.onChange(Number(event.target.value))}
           />
           <span
-            className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/10 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.22)]"
+            className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/10 bg-[#F9F9FA] shadow-[0_1px_4px_rgba(0,0,0,0.22)]"
             style={{ left: `clamp(8px, ${props.value}%, calc(100% - 8px))` }}
           >
             <span className="absolute inset-0.5 rounded-full" style={{ backgroundColor: props.color, opacity: props.value / 100 }} />

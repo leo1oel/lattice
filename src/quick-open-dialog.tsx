@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { FileSearch } from "lucide-react";
 import { CloseButton } from "./components/ui/icon-button";
 import { EmptyState } from "./components/ui/empty-state";
 import { ModalDialog } from "./components/ui/modal-dialog";
+import { SearchField } from "./components/ui/search-field";
 
 function scorePath(path: string, query: string): number {
   const hay = path.toLocaleLowerCase();
@@ -61,14 +61,17 @@ function QuickOpenDialogForm(props: {
         className="modal quick-open-modal"
       >
         <div className="quick-open-header">
-          <FileSearch size={15} />
-          <input
+          <SearchField
             autoFocus
             aria-label="Quick open search"
             placeholder="Open file…"
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
+              setActive(0);
+            }}
+            onClear={() => {
+              setQuery("");
               setActive(0);
             }}
             onKeyDown={(event) => {
@@ -85,8 +88,10 @@ function QuickOpenDialogForm(props: {
                 props.onOpen(selected);
               }
             }}
+            trailing={
+              <CloseButton label="Close quick open" onClick={props.onClose} />
+            }
           />
-          <CloseButton label="Close quick open" onClick={props.onClose} />
         </div>
         <div className="quick-open-list" role="listbox">
           {results.map((path, index) => (

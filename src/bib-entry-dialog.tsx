@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { BookMarked, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { CheckboxField } from "./components/ui/checkbox-field";
+import { Input } from "./components/ui/input";
 import {
   BIB_ENTRY_TYPES,
   formatBibEntry,
@@ -18,6 +19,7 @@ import {
   SelectValue,
 } from "./components/ui/select";
 import { PanelHeader } from "./components/ui/panel-header";
+import { SearchField } from "./components/ui/search-field";
 import { ResizableDrawer } from "./resizable-drawer";
 
 export type ResolvedCitationDraft = {
@@ -157,10 +159,11 @@ export function BibEntryDialog(props: {
           <label className="bib-resolve-field">
             Resolve from DOI / arXiv / title
             <div className="bib-resolve-row">
-              <input
+              <SearchField
                 aria-label="Citation resolve query"
                 value={resolveQuery}
                 onChange={(event) => setResolveQuery(event.target.value)}
+                onClear={() => setResolveQuery("")}
                 placeholder="10.1038/… or arXiv:1706.03762 or paper title"
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && resolveQuery.trim() && !props.resolving && !props.busy) {
@@ -170,6 +173,7 @@ export function BibEntryDialog(props: {
                     });
                   }
                 }}
+                showIcon={false}
               />
               <Button
                 disabled={!resolveQuery.trim() || props.resolving || props.busy}
@@ -197,7 +201,7 @@ export function BibEntryDialog(props: {
           </label>
           <label>
             Citation key
-            <input
+            <Input
               aria-label="Citation key"
               value={key}
               readOnly={editing}
@@ -207,16 +211,16 @@ export function BibEntryDialog(props: {
           </label>
           <label>
             Title
-            <input aria-label="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
+            <Input aria-label="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
           </label>
           <label>
             Author
-            <input aria-label="Author" value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="Last, First and Last, First" />
+            <Input aria-label="Author" value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="Last, First and Last, First" />
           </label>
           <label>
             Year
             <div className="year-stepper">
-              <input aria-label="Year" value={year} onChange={(event) => setYear(event.target.value)} inputMode="numeric" />
+              <Input aria-label="Year" value={year} onChange={(event) => setYear(event.target.value)} inputMode="numeric" />
               <div className="year-stepper-buttons">
                 <button type="button" aria-label="Increment year" onClick={() => stepYear(1)}><ChevronUp size={12} /></button>
                 <button type="button" aria-label="Decrement year" onClick={() => stepYear(-1)}><ChevronDown size={12} /></button>
@@ -227,11 +231,12 @@ export function BibEntryDialog(props: {
             <label>
               Venue
               <div className="venue-combobox">
-                <input
+                <SearchField
                   aria-label="Venue"
                   value={venue}
                   placeholder="NeurIPS, CVPR, Nature, …"
                   onChange={(event) => { setVenueText(event.target.value); setVenueOpen(true); }}
+                  onClear={() => { setVenueText(""); setVenueOpen(true); }}
                   onFocus={() => setVenueOpen(true)}
                   onBlur={() => setVenueOpen(false)}
                 />
@@ -257,16 +262,16 @@ export function BibEntryDialog(props: {
           {type === "book" && (
             <label>
               Publisher
-              <input value={publisher} onChange={(event) => setPublisher(event.target.value)} />
+              <Input value={publisher} onChange={(event) => setPublisher(event.target.value)} />
             </label>
           )}
           <label>
             DOI
-            <input aria-label="DOI" value={doi} onChange={(event) => setDoi(event.target.value)} placeholder="10.…" />
+            <Input aria-label="DOI" value={doi} onChange={(event) => setDoi(event.target.value)} placeholder="10.…" />
           </label>
           <label>
             URL
-            <input value={url} onChange={(event) => setUrl(event.target.value)} />
+            <Input value={url} onChange={(event) => setUrl(event.target.value)} />
           </label>
           {!editing && (
             <CheckboxField

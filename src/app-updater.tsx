@@ -26,7 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
-import { Button } from "./components/ui/button";
+import {
+  InfinityLoader,
+  ReloadButton,
+} from "./components/ui/activity-icons";
 import { addAppLog } from "./app-log";
 
 export type UpdateMode = "auto" | "manual";
@@ -294,7 +297,10 @@ export function UpdateBanner(props?: { corner?: BannerCorner }) {
       {(phase === "downloading" || phase === "installing") && (
         <>
           <div className="app-update-text">
-            <strong>{phase === "installing" ? "Installing…" : "Downloading update…"}</strong>
+            <strong className="app-update-active-title">
+              <InfinityLoader size={14} />
+              {phase === "installing" ? "Installing…" : "Downloading update…"}
+            </strong>
             <span>{phase === "downloading" ? `${pct}%` : "Almost done"}</span>
           </div>
           <div className="app-update-progress">
@@ -305,7 +311,7 @@ export function UpdateBanner(props?: { corner?: BannerCorner }) {
 
       {phase === "ready" && (
         <div className="app-update-text">
-          <strong>Restarting…</strong>
+          <strong className="app-update-active-title"><InfinityLoader size={14} /> Restarting…</strong>
         </div>
       )}
 
@@ -332,21 +338,22 @@ export function UpdateModeSetting() {
       <label>
         Updates
         <Select value={mode} onValueChange={(value) => setMode(value as UpdateMode)}>
-          <SelectTrigger aria-label="Updates"><SelectValue /></SelectTrigger>
+          <SelectTrigger size="form" aria-label="Updates"><SelectValue /></SelectTrigger>
           <SelectContent position="popper" align="start">
             <SelectItem value="manual">Notify me (manual)</SelectItem>
             <SelectItem value="auto">Install automatically</SelectItem>
           </SelectContent>
         </Select>
       </label>
-      <Button
+      <ReloadButton
         size="compact"
         variant="ghost"
+        busy={phase === "checking"}
         disabled={phase === "checking" || phase === "downloading"}
         onClick={() => void check(false)}
       >
         {phase === "checking" ? "Checking…" : phase === "up-to-date" ? "Up to date" : "Check now"}
-      </Button>
+      </ReloadButton>
     </div>
   );
 }

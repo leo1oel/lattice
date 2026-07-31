@@ -16,7 +16,7 @@
         "title": "Lattice",
         "width": 1440,
         "height": 900,
-        "minWidth": 1242,
+        "minWidth": 1302,
         "minHeight": 680,
         "backgroundColor": "#F7F7F6",
         "center": true,
@@ -40,12 +40,9 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
-    "externalBin": [
-      "binaries/lattice-agent"
-    ],
     "resources": [
-      "omp-assets/**/*",
-      "synara-runtime/**/*"
+      "synara-runtime/**/*",
+      "src/embedded_skills/"
     ],
     "macOS": {
       "minimumSystemVersion": "11.0",

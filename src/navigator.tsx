@@ -18,11 +18,9 @@ import {
   FolderOpen,
   FolderPlus,
   ImagePlus,
-  LoaderCircle,
   Pencil,
   Plus,
   Quote,
-  Trash2,
 } from "lucide-react";
 import {
   ContextMenu,
@@ -31,9 +29,17 @@ import {
   ContextMenuTrigger,
 } from "./components/ui/context-menu";
 import { ScrollArea } from "./components/ui/scroll-area";
+import { DestructiveButton } from "./components/ui/destructive-button";
+import { InfinityLoader } from "./components/ui/activity-icons";
+import { ExternalScrollbar } from "./components/ui/external-scrollbar";
+import { SearchField } from "./components/ui/search-field";
 import { paperKey, paperSubtitle, CITE_COMMANDS } from "./app-utils";
 import type { FileNode, GitFileStatus, PaperSummary, CiteCommand } from "./app-types";
 import { toPierreGitStatus } from "./project-tree-git";
+
+// @pierre/trees virtualizes by a numeric item height, so this mirrors the
+// design-system `--row-height-tree` / compact 32px row role.
+const PROJECT_TREE_ITEM_HEIGHT = 32;
 
 function readExpandedDirectories(key: string): Set<string> {
   try {
@@ -96,6 +102,23 @@ const PIERRE_TREE_CSS = `
   display: block;
   min-height: 0;
   height: 100%;
+}
+
+/* Pierre must retain this scroll owner for virtualization, keyboard focus, and
+   scroll-to-selection. Hide both of its native scrollbar paths; the outer
+   ExternalScrollbar paints the same single Lattice scrollbar as ScrollArea. */
+[data-file-tree-virtualized-scroll="true"],
+[data-file-tree-scrollbar-measure="true"] {
+  -ms-overflow-style: none;
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+
+[data-file-tree-virtualized-scroll="true"]::-webkit-scrollbar,
+[data-file-tree-scrollbar-measure="true"]::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 button[data-type="item"] {
@@ -166,7 +189,7 @@ button[data-type="item"][data-lattice-pointer-drag-preview="true"] {
   box-shadow: 0 2px 6px color-mix(in srgb, #000 18%, transparent);
   color: var(--accent-contrast);
   font-size: 9px;
-  font-weight: 650;
+  font-weight: var(--weight-semibold);
   line-height: 1;
 }
 
@@ -177,7 +200,7 @@ button[data-type="item"][data-item-context-hover="true"]:not([data-item-selected
 
 button[data-type="item"][data-item-selected="true"] {
   background: var(--trees-selected-bg);
-  font-weight: 500;
+  font-weight: var(--type-project-tree-selected-weight);
 }
 
 button[data-type="item"][data-item-focused="true"]::before {
@@ -297,41 +320,59 @@ button[data-type="item"][data-lattice-pointer-drop-target="true"] {
 
 [data-file-tree-search-input] {
   box-sizing: border-box;
-  height: 28px;
-  padding: 0 9px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--text) 5%, transparent);
-  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--text) 5%, transparent);
+  height: var(--search-control-height-compact);
+  padding: 0 var(--search-control-padding-inline);
+  border: var(--search-control-border-width) solid var(--search-control-border-color);
+  border-radius: var(--search-control-radius);
+  outline: none !important;
+  background: var(--search-control-background);
   color: var(--text);
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 28px;
+  font-size: var(--type-project-tree-size);
+  font-weight: var(--type-project-tree-weight);
+  line-height: var(--search-control-height-compact);
   transition:
     background-color 120ms ease,
-    border-color 120ms ease,
-    box-shadow 120ms ease;
+    border-color 120ms ease;
 }
 
 [data-file-tree-search-input]::placeholder {
   color: var(--faint);
 }
 
+[data-file-tree-search-input]::-webkit-search-cancel-button,
+[data-file-tree-search-input]::-webkit-search-decoration,
+[data-file-tree-search-input]::-webkit-search-results-button,
+[data-file-tree-search-input]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+[data-file-tree-search-input]:hover:not(:focus-visible):not(
+  [data-file-tree-search-input-fake-focus="true"]
+) {
+  border-color: var(--search-control-interactive-border-color);
+}
+
+[data-file-tree-search-input]:focus,
 [data-file-tree-search-input]:focus-visible,
 [data-file-tree-search-input][data-file-tree-search-input-fake-focus="true"] {
-  border-color: color-mix(in srgb, var(--text) 14%, transparent);
-  outline: none;
-  background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 5%, transparent);
+  border-color: var(--search-control-interactive-border-color);
+  outline: none !important;
+  background: var(--search-control-background);
+  box-shadow: none;
 }
 
 [data-item-rename-input] {
   height: 20px;
   padding: 0 5px;
-  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
-  border-radius: 5px;
-  background: var(--panel-strong);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 5%, transparent);
+  border: var(--field-control-border-width) solid var(--field-control-interactive-border-color);
+  border-radius: var(--radius-compact);
+  outline: none;
+  background: var(--field-control-background);
+  box-shadow: none;
+  overflow-x: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 `;
 
@@ -347,6 +388,7 @@ type ProjectFileTreeProps = {
   onFile: (path: string) => void;
   onAsset: (path: string) => void;
   onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void;
+  onBeginFileDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onCreateEntry: (path: string, kind: "file" | "folder") => Promise<string>;
   onDeleteEntry: (path: string) => void;
   onRenameEntry: (path: string, name: string) => Promise<string>;
@@ -712,6 +754,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
       },
     },
     density: "default",
+    itemHeight: PROJECT_TREE_ITEM_HEIGHT,
     fileTreeSearchMode: "hide-non-matches",
     flattenEmptyDirectories: true,
     gitStatus,
@@ -787,6 +830,14 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
       onDropError: (message) => propsRef.current.onError(message),
     },
   });
+  const getTreeScrollViewport = useCallback(
+    () => model
+      .getFileTreeContainer()
+      ?.shadowRoot
+      ?.querySelector<HTMLElement>('[data-file-tree-virtualized-scroll="true"]')
+      ?? null,
+    [model],
+  );
   useLayoutEffect(() => {
     propsRef.current = props;
     treeRef.current = tree;
@@ -1176,15 +1227,16 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
           </button>
         )}
         {!protectedEntry && (
-          <button
+          <DestructiveButton
             className="destructive"
             role="menuitem"
+            iconSize={14}
             onClick={() => closeThen(context, () => {
               if (!clearPendingCreation(path)) props.onDeleteEntry(path);
             })}
           >
-            <Trash2 size={14} />{pendingCreation ? "Cancel creation" : "Delete"}
-          </button>
+            {pendingCreation ? "Cancel creation" : "Delete"}
+          </DestructiveButton>
         )}
       </div>
     );
@@ -1220,6 +1272,8 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
               const node = tree.nodes.get(path);
               if (node?.kind === "figure") {
                 props.onBeginFigureDrag(node.path, node.name, event);
+              } else if (node && !isDirectoryNode(node)) {
+                props.onBeginFileDrag(node.path, node.name, event);
               }
             }}
             onDragStartCapture={(event) => {
@@ -1233,6 +1287,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
               event.stopPropagation();
             }}
           />
+          <ExternalScrollbar getViewport={getTreeScrollViewport} />
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
@@ -1262,6 +1317,7 @@ export function Navigator(props: {
   onFile: (path: string, line?: number) => void;
   onAsset: (path: string) => void;
   onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void;
+  onBeginFileDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onCreateEntry: (path: string, kind: "file" | "folder") => Promise<string>;
   onDeleteEntry: (path: string) => void;
   onRenameEntry: (path: string, name: string) => Promise<string>;
@@ -1326,6 +1382,7 @@ export function Navigator(props: {
           onFile={props.onFile}
           onAsset={props.onAsset}
           onBeginFigureDrag={props.onBeginFigureDrag}
+          onBeginFileDrag={props.onBeginFileDrag}
           onCreateEntry={props.onCreateEntry}
           onDeleteEntry={props.onDeleteEntry}
           onRenameEntry={props.onRenameEntry}
@@ -1338,19 +1395,22 @@ export function Navigator(props: {
         />
       </div>}
       {props.mode === "papers" && <div className="navigator-section papers-section">
-        <div className="import-box">
-          <input
-            ref={paperImportRef}
-            aria-label="Import paper"
-            placeholder="arXiv id, DOI, URL, or title"
-            value={props.importInput}
-            onChange={(event) => props.setImportInput(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && props.onImport()}
-          />
-          <button onClick={props.onImport} disabled={props.importing || !props.importInput.trim()} title="Import paper">
-            {props.importing ? <LoaderCircle className="spin" size={14} /> : <Plus size={14} />}
-          </button>
-        </div>
+        <SearchField
+          ref={paperImportRef}
+          aria-label="Import paper"
+          containerClassName="import-box"
+          placeholder="arXiv id, DOI, URL, or title"
+          value={props.importInput}
+          onChange={(event) => props.setImportInput(event.target.value)}
+          onClear={() => props.setImportInput("")}
+          onKeyDown={(event) => event.key === "Enter" && props.onImport()}
+          showIcon={false}
+          trailing={(
+            <button onClick={props.onImport} disabled={props.importing || !props.importInput.trim()} title="Import paper">
+              {props.importing ? <InfinityLoader size={14} /> : <Plus size={14} />}
+            </button>
+          )}
+        />
         <ScrollArea
           className="paper-list"
           orientation="both"
@@ -1380,7 +1440,7 @@ export function Navigator(props: {
               >
                 <span className={`paper-state-icon ${fetchState ?? (locallyReadable ? "available" : "idle")}`}>
                   {fetchState === "loading"
-                    ? <LoaderCircle className="spin" size={14} />
+                    ? <InfinityLoader size={14} />
                     : fetchState === "success"
                       ? <Check size={14} />
                       : locallyReadable
@@ -1424,7 +1484,12 @@ export function Navigator(props: {
               {paper.citationKey && (
                 <button className="row-edit-bib" title="Edit bibliography entry" onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
               )}
-              <button className="row-delete" title={`Remove ${paper.title}`} onClick={() => props.onDeletePaper(paper)}><Trash2 size={12} /></button>
+              <DestructiveButton
+                className="row-delete"
+                title={`Remove ${paper.title}`}
+                iconSize={12}
+                onClick={() => props.onDeletePaper(paper)}
+              />
               </div>
             );
             // A cited-only paper has no local file to act on, so it stays bare;

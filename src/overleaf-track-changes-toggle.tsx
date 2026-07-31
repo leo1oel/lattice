@@ -10,7 +10,8 @@
  * suggestion decorations already key off, so this button can never disagree
  * with what typing actually does.
  */
-import { Highlighter, LoaderCircle, Pencil } from "lucide-react";
+import { Highlighter, Pencil } from "lucide-react";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import "./overleaf-track-changes-toggle.css";
 
 export function OverleafTrackChangesToggle(props: {
@@ -48,7 +49,7 @@ export function OverleafTrackChangesToggle(props: {
       })}
     >
       {props.pending
-        ? <LoaderCircle className="spin" size={13} />
+        ? <InfinityLoader size={13} />
         : props.on ? <Highlighter size={13} /> : <Pencil size={13} />}
       {/* In a span because that is what the toolbar hides when it narrows —
           the icon and the pressed state still say which mode this is. */}

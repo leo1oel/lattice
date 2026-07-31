@@ -18,8 +18,7 @@ use walkdir::WalkDir;
 const MANIFEST_PATH: &str = ".research/project.json";
 const PDF_MARKS_PATH: &str = ".research/pdf-annotations.json";
 const EDITOR_COMMENTS_PATH: &str = ".research/editor-comments.json";
-const RESEARCH_GITIGNORE: &str =
-    "history/\nsessions/\nomp-sessions/\nomp-session-map/\nomp-runtime/\ncheckpoints/\ncache/\n";
+const RESEARCH_GITIGNORE: &str = "history/\nsessions/\ncheckpoints/\ncache/\n";
 const MAX_HISTORY_ENTRIES: usize = 100;
 const MAX_CHECKPOINTS_PER_SESSION: usize = 100;
 const MAX_CHECKPOINT_BYTES: u64 = 256 * 1024 * 1024;
@@ -202,14 +201,12 @@ fn prepare_project_skeleton(root: &Path) -> Result<(), String> {
     fs::create_dir_all(root.join(".research/papers")).map_err(err)?;
     fs::create_dir_all(root.join(".research/history")).map_err(err)?;
     fs::create_dir_all(root.join(".research/sessions")).map_err(err)?;
-    fs::create_dir_all(root.join(".research/omp-sessions")).map_err(err)?;
-    fs::create_dir_all(root.join(".research/omp-session-map")).map_err(err)?;
     fs::create_dir_all(root.join(".research/licenses")).map_err(err)?;
     fs::create_dir_all(root.join("figures")).map_err(err)?;
     fs::write(root.join(".research/.gitignore"), RESEARCH_GITIGNORE).map_err(err)?;
     fs::write(
         root.join(".gitignore"),
-        ".research/history/\n.research/sessions/\n.research/omp-sessions/\n.research/omp-session-map/\n.research/omp-runtime/\n.research/checkpoints/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n",
+        ".research/history/\n.research/sessions/\n.research/checkpoints/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n",
     )
     .map_err(err)?;
     Ok(())
@@ -299,8 +296,6 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     fs::create_dir_all(root.join(".research/history")).map_err(err)?;
     fs::create_dir_all(root.join(".research/papers")).map_err(err)?;
     fs::create_dir_all(root.join(".research/sessions")).map_err(err)?;
-    fs::create_dir_all(root.join(".research/omp-sessions")).map_err(err)?;
-    fs::create_dir_all(root.join(".research/omp-session-map")).map_err(err)?;
     if let Err(error) = prune_conversation_checkpoints(
         &root,
         MAX_CHECKPOINTS_PER_SESSION,
@@ -313,16 +308,10 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     let research_ignore = root.join(".research/.gitignore");
     if research_ignore.exists() {
         ensure_ignore_line(&research_ignore, "checkpoints/")?;
-        ensure_ignore_line(&research_ignore, "omp-sessions/")?;
-        ensure_ignore_line(&research_ignore, "omp-session-map/")?;
-        ensure_ignore_line(&research_ignore, "omp-runtime/")?;
     } else {
         fs::write(&research_ignore, RESEARCH_GITIGNORE).map_err(err)?;
     }
     ensure_ignore_line(&root.join(".gitignore"), ".research/checkpoints/")?;
-    ensure_ignore_line(&root.join(".gitignore"), ".research/omp-sessions/")?;
-    ensure_ignore_line(&root.join(".gitignore"), ".research/omp-session-map/")?;
-    ensure_ignore_line(&root.join(".gitignore"), ".research/omp-runtime/")?;
     ensure_ignore_line(&root.join(".gitignore"), ".research/cache/")?;
     ensure_ignore_line(&root.join(".research/.gitignore"), "cache/")?;
 
@@ -871,21 +860,35 @@ pub fn bib_target_for_bbl(
     Ok(None)
 }
 
-/// The citation key of the `\bibitem` that governs `line` (1-based) in a `.bbl`.
-fn bibitem_key_at(contents: &str, line: u32) -> Option<String> {
-    // Byte offset just past the end of the target line, so a click on the
-    // `\bibitem` line itself still finds it.
-    let mut offset = 0usize;
-    let mut boundary = contents.len();
-    for (index, text) in contents.lines().enumerate() {
-        offset += text.len() + 1;
-        if index as u32 + 1 == line {
-            boundary = offset.min(contents.len());
-            break;
-        }
+/// A forward SyncTeX lookup cannot start from a `.bib` source because TeX reads
+/// the generated `.bbl` instead. Resolve the entry under the cursor to its
+/// `\bibitem` and return that generated source position.
+pub fn bbl_target_for_bib(
+    root: &Path,
+    bib_relative: &Path,
+    bbl_relative: &Path,
+    line: u32,
+) -> Result<Option<SyncTexTarget>, String> {
+    let bibliography = fs::read_to_string(root.join(bib_relative)).map_err(err)?;
+    let Some(key) = bib_entry_key_at(&bibliography, line) else {
+        return Ok(None);
+    };
+    let bbl_path = root.join(bbl_relative);
+    if !bbl_path.is_file() {
+        return Ok(None);
     }
-    let item_start = contents[..boundary].rfind("\\bibitem")?;
-    let after = contents[item_start + "\\bibitem".len()..].trim_start();
+    let bbl = fs::read_to_string(bbl_path).map_err(err)?;
+    let Some(item_line) = bibitem_line(&bbl, &key) else {
+        return Ok(None);
+    };
+    Ok(Some(SyncTexTarget {
+        path: bbl_relative.to_string_lossy().replace('\\', "/"),
+        line: item_line,
+    }))
+}
+
+fn parse_bibitem_key(after_bibitem: &str) -> Option<String> {
+    let after = after_bibitem.trim_start();
     // Skip natbib's optional [label] argument.
     let after = if let Some(rest) = after.strip_prefix('[') {
         let close = rest.find(']')?;
@@ -903,28 +906,79 @@ fn bibitem_key_at(contents: &str, line: u32) -> Option<String> {
     }
 }
 
-/// The 1-based line where `@type{key,` is defined in a `.bib` source.
-fn bib_entry_line(contents: &str, key: &str) -> Option<u32> {
-    for (index, line) in contents.lines().enumerate() {
-        let trimmed = line.trim_start();
-        if !trimmed.starts_with('@') {
-            continue;
-        }
-        let Some(brace) = trimmed.find('{') else {
-            continue;
-        };
-        let entry_key = trimmed[brace + 1..]
-            .split(|character: char| {
-                character == ',' || character == '}' || character.is_whitespace()
-            })
-            .next()
-            .unwrap_or("")
-            .trim();
-        if entry_key.eq_ignore_ascii_case(key) {
-            return Some(index as u32 + 1);
+/// The citation key of the `\bibitem` that governs `line` (1-based) in a `.bbl`.
+fn bibitem_key_at(contents: &str, line: u32) -> Option<String> {
+    // Byte offset just past the end of the target line, so a click on the
+    // `\bibitem` line itself still finds it.
+    let mut offset = 0usize;
+    let mut boundary = contents.len();
+    for (index, text) in contents.lines().enumerate() {
+        offset += text.len() + 1;
+        if index as u32 + 1 == line {
+            boundary = offset.min(contents.len());
+            break;
         }
     }
+    let item_start = contents[..boundary].rfind("\\bibitem")?;
+    parse_bibitem_key(&contents[item_start + "\\bibitem".len()..])
+}
+
+/// The 1-based line containing the generated `\bibitem` for `key`.
+fn bibitem_line(contents: &str, key: &str) -> Option<u32> {
+    let mut cursor = 0usize;
+    while let Some(relative) = contents[cursor..].find("\\bibitem") {
+        let start = cursor + relative;
+        if parse_bibitem_key(&contents[start + "\\bibitem".len()..])
+            .is_some_and(|candidate| candidate.eq_ignore_ascii_case(key))
+        {
+            return Some(
+                contents[..start]
+                    .bytes()
+                    .filter(|byte| *byte == b'\n')
+                    .count() as u32
+                    + 1,
+            );
+        }
+        cursor = start + "\\bibitem".len();
+    }
     None
+}
+
+/// The citation key of the `.bib` entry containing `line` (1-based).
+fn bib_entry_key_at(contents: &str, line: u32) -> Option<String> {
+    if line == 0 {
+        return None;
+    }
+    let mut target_start = 0usize;
+    let mut target_end = 0usize;
+    let mut found_line = false;
+    for (index, text) in contents.lines().enumerate() {
+        if index as u32 + 1 == line {
+            target_end = (target_start + text.len()).min(contents.len());
+            found_line = true;
+            break;
+        }
+        target_start = (target_start + text.len() + 1).min(contents.len());
+    }
+    if !found_line {
+        return None;
+    }
+    bibliography_entry_spans(contents)
+        .into_iter()
+        .find(|(_, start, end)| target_end >= *start && target_start < *end)
+        .map(|(key, _, _)| key)
+}
+
+/// The 1-based line where `@type{key,` is defined in a `.bib` source.
+fn bib_entry_line(contents: &str, key: &str) -> Option<u32> {
+    let (start, _) = bib_entry_span(contents, key)?;
+    Some(
+        contents[..start]
+            .bytes()
+            .filter(|byte| *byte == b'\n')
+            .count() as u32
+            + 1,
+    )
 }
 
 fn iter_bibliography_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
@@ -2465,11 +2519,22 @@ fn citation_from_bibtex(bibtex: &str, fallback_key: &str) -> ResolvedCitation {
 /// (case-insensitive), from the `@` through its closing brace. Mirrors the scan
 /// in `parse_bibliography` so an entry can be read or replaced in place.
 fn bib_entry_span(bibliography: &str, target_key: &str) -> Option<(usize, usize)> {
+    let target = target_key.trim();
+    bibliography_entry_spans(bibliography)
+        .into_iter()
+        .find(|(key, _, _)| key.eq_ignore_ascii_case(target))
+        .map(|(_, start, end)| (start, end))
+}
+
+/// Parsed citation key and byte range for every editable BibTeX entry.
+fn bibliography_entry_spans(bibliography: &str) -> Vec<(String, usize, usize)> {
     let bytes = bibliography.as_bytes();
-    let target = target_key.trim().to_ascii_lowercase();
     let mut cursor = 0;
+    let mut entries = Vec::new();
     while cursor < bytes.len() {
-        let relative_start = bibliography[cursor..].find('@')?;
+        let Some(relative_start) = bibliography[cursor..].find('@') else {
+            break;
+        };
         let at = cursor + relative_start;
         let mut position = at + 1;
         let entry_type_start = position;
@@ -2500,9 +2565,7 @@ fn bib_entry_span(bibliography: &str, target_key: &str) -> Option<(usize, usize)
             cursor = position.saturating_add(1);
             continue;
         }
-        let key = bibliography[key_start..position]
-            .trim()
-            .to_ascii_lowercase();
+        let key = bibliography[key_start..position].trim().to_string();
         position += 1;
         let mut depth = 1usize;
         let mut quoted = false;
@@ -2525,11 +2588,11 @@ fn bib_entry_span(bibliography: &str, target_key: &str) -> Option<(usize, usize)
         if matches!(entry_type.as_str(), "comment" | "preamble" | "string") {
             continue;
         }
-        if key == target {
-            return Some((at, entry_end));
+        if !key.is_empty() {
+            entries.push((key, at, entry_end));
         }
     }
-    None
+    entries
 }
 
 /// The full field set of a single existing entry (by citation key) from the
@@ -2623,6 +2686,93 @@ pub fn import_assets(
                 .to_string_lossy()
                 .to_string(),
         );
+    }
+    Ok(imported)
+}
+
+pub fn import_sources(
+    root: &Path,
+    sources: &[String],
+    target_directory: &str,
+) -> Result<Vec<String>, String> {
+    if sources.is_empty() {
+        return Err("Drop one or more source files first.".to_string());
+    }
+    let target_directory = target_directory.trim().trim_end_matches(['/', '\\']);
+    if !target_directory.is_empty() {
+        validate_user_entry(target_directory)?;
+    }
+    let target = if target_directory.is_empty() {
+        root.to_path_buf()
+    } else {
+        safe_path(root, target_directory)?
+    };
+    if !target.is_dir() {
+        return Err("Choose an existing project folder.".to_string());
+    }
+
+    let canonical_root = root.canonicalize().map_err(err)?;
+    let mut imported = Vec::with_capacity(sources.len());
+    let mut edits = Vec::new();
+    let mut reserved = BTreeSet::new();
+    for source in sources {
+        let requested_source = Path::new(source);
+        if !requested_source.is_file() || !is_supported_source(requested_source) {
+            return Err(format!(
+                "{} is not a supported source file.",
+                requested_source
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("That item")
+            ));
+        }
+        if requested_source.metadata().map_err(err)?.len() > 10 * 1024 * 1024 {
+            return Err(format!(
+                "{} is larger than the 10 MB source-file limit.",
+                requested_source
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("That item")
+            ));
+        }
+        let canonical_source = requested_source.canonicalize().map_err(err)?;
+        if let Ok(relative) = canonical_source.strip_prefix(&canonical_root) {
+            let relative = relative.to_string_lossy().replace('\\', "/");
+            validate_user_entry(&relative)?;
+            imported.push(relative);
+            continue;
+        }
+
+        let file_name = requested_source
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| "An imported source has an invalid file name.".to_string())?;
+        validate_entry_name(file_name)?;
+        let content = fs::read_to_string(&canonical_source).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::InvalidData {
+                format!("{file_name} is not a UTF-8 text file.")
+            } else {
+                error.to_string()
+            }
+        })?;
+        let destination = available_import_path(&target, file_name, &reserved);
+        reserved.insert(destination.clone());
+        let relative = destination
+            .strip_prefix(root)
+            .map_err(err)?
+            .to_string_lossy()
+            .replace('\\', "/");
+        edits.push((relative.clone(), content));
+        imported.push(relative);
+    }
+
+    if !edits.is_empty() {
+        let label = if edits.len() == 1 {
+            format!("Import {}", edits[0].0)
+        } else {
+            format!("Import {} source files", edits.len())
+        };
+        apply_transaction(root, &label, edits)?;
     }
     Ok(imported)
 }
@@ -2787,8 +2937,16 @@ fn asset_mime_type(path: &Path) -> Option<&'static str> {
 }
 
 fn available_asset_path(directory: &Path, file_name: &str) -> PathBuf {
+    available_import_path(directory, file_name, &BTreeSet::new())
+}
+
+fn available_import_path(
+    directory: &Path,
+    file_name: &str,
+    reserved: &BTreeSet<PathBuf>,
+) -> PathBuf {
     let requested = directory.join(file_name);
-    if !requested.exists() {
+    if !requested.exists() && !reserved.contains(&requested) {
         return requested;
     }
     let path = Path::new(file_name);
@@ -2802,7 +2960,7 @@ fn available_asset_path(directory: &Path, file_name: &str) -> PathBuf {
             Some(extension) => directory.join(format!("{stem}-{suffix}.{extension}")),
             None => directory.join(format!("{stem}-{suffix}")),
         };
-        if !candidate.exists() {
+        if !candidate.exists() && !reserved.contains(&candidate) {
             return candidate;
         }
     }
@@ -2816,6 +2974,16 @@ fn is_supported_asset(path: &Path) -> bool {
             .map(str::to_ascii_lowercase)
             .as_deref(),
         Some("png" | "jpg" | "jpeg" | "pdf" | "svg" | "eps" | "webp")
+    )
+}
+
+fn is_supported_source(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .map(str::to_ascii_lowercase)
+            .as_deref(),
+        Some("tex" | "bib" | "md" | "txt" | "sty" | "cls" | "bst")
     )
 }
 
@@ -3068,8 +3236,10 @@ fn latest_history_record(root: &Path) -> Result<Option<TransactionRecord>, Strin
     Ok(newest.map(|(_, record)| record))
 }
 
+#[cfg(test)]
 pub type TextSnapshot = BTreeMap<String, String>;
 
+#[cfg(test)]
 pub fn snapshot_text_files(root: &Path) -> Result<TextSnapshot, String> {
     let mut snapshot = BTreeMap::new();
     for entry in WalkDir::new(root).follow_links(false) {
@@ -3091,6 +3261,7 @@ pub fn snapshot_text_files(root: &Path) -> Result<TextSnapshot, String> {
     Ok(snapshot)
 }
 
+#[cfg(test)]
 pub fn save_conversation_checkpoint(
     root: &Path,
     session_id: &str,
@@ -3227,6 +3398,7 @@ fn prune_conversation_checkpoints(
     Ok(())
 }
 
+#[cfg(test)]
 pub fn restore_conversation_checkpoint(
     root: &Path,
     session_id: &str,
@@ -3262,6 +3434,7 @@ pub fn restore_conversation_checkpoint(
     )
 }
 
+#[cfg(test)]
 fn reconstruct_snapshot_at(root: &Path, timestamp: &str) -> Result<TextSnapshot, String> {
     let target_time = chrono::DateTime::parse_from_rfc3339(timestamp).map_err(err)?;
     let mut snapshot = snapshot_text_files(root)?;
@@ -3303,6 +3476,7 @@ fn reconstruct_snapshot_at(root: &Path, timestamp: &str) -> Result<TextSnapshot,
     Ok(snapshot)
 }
 
+#[cfg(test)]
 fn restore_text_snapshot(
     root: &Path,
     target: &TextSnapshot,
@@ -3348,18 +3522,21 @@ fn restore_text_snapshot(
     Ok(Some(record))
 }
 
+#[cfg(test)]
 fn checkpoint_path(root: &Path, session_id: &str, message_id: &str) -> PathBuf {
     root.join(".research/checkpoints")
         .join(session_id)
         .join(format!("{message_id}.json"))
 }
 
+#[cfg(test)]
 fn validate_checkpoint_id(value: &str) -> Result<(), String> {
     Uuid::parse_str(value)
         .map(|_| ())
         .map_err(|_| "Invalid conversation checkpoint id.".to_string())
 }
 
+#[cfg(test)]
 pub fn record_agent_changes(
     root: &Path,
     before: &TextSnapshot,
@@ -3381,6 +3558,7 @@ pub fn record_agent_changes(
     )
 }
 
+#[cfg(test)]
 fn record_external_changes_with_context(
     root: &Path,
     before: &TextSnapshot,
@@ -4066,6 +4244,43 @@ mod tests {
     }
 
     #[test]
+    fn finds_the_bib_key_governing_a_cursor_line() {
+        let bib = "% a comment\n\
+                   @article{smith2020,\n  title = {A},\n  year = {2020},\n}\n\n\
+                   @inproceedings(\n  Jones2021,\n  title = \"Another paper\",\n)\n";
+        assert_eq!(bib_entry_key_at(bib, 3).as_deref(), Some("smith2020"));
+        assert_eq!(bib_entry_key_at(bib, 8).as_deref(), Some("Jones2021"));
+        assert_eq!(bib_entry_key_at(bib, 6), None);
+    }
+
+    #[test]
+    fn resolves_a_bib_cursor_to_its_generated_bibitem() {
+        let parent = temp_root("bib-forward-sync-parent");
+        let root = create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{smith2020,\n  title = {A},\n  year = {2020},\n}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("main.bbl"),
+            "\\begin{thebibliography}{1}\n\
+             \\bibitem[Smith(2020)]{smith2020}\n\
+             J. Smith. A. 2020.\n\
+             \\end{thebibliography}\n",
+        )
+        .unwrap();
+
+        let target =
+            bbl_target_for_bib(&root, Path::new("references.bib"), Path::new("main.bbl"), 3)
+                .unwrap()
+                .unwrap();
+        assert_eq!(target.path, "main.bbl");
+        assert_eq!(target.line, 2);
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
     fn reads_and_replaces_one_entry_in_place() {
         let parent = temp_root("bib-edit-parent");
         let root = create(&parent, "paper").unwrap();
@@ -4673,6 +4888,45 @@ mod tests {
     }
 
     #[test]
+    fn imported_sources_are_transactional_and_renamed_on_collision() {
+        let parent = temp_root("import-sources");
+        let root = create(&parent, "paper").unwrap();
+        let source = parent.join("notes.tex");
+        fs::write(&source, "\\section{Imported}\n").unwrap();
+        let paths = vec![source.to_string_lossy().to_string()];
+
+        assert_eq!(
+            import_sources(&root, &paths, "").unwrap(),
+            vec!["notes.tex"]
+        );
+        assert_eq!(
+            import_sources(&root, &paths, "").unwrap(),
+            vec!["notes-2.tex"]
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("notes.tex")).unwrap(),
+            "\\section{Imported}\n"
+        );
+        assert_eq!(
+            import_sources(
+                &root,
+                &[root.join("notes.tex").to_string_lossy().to_string()],
+                "",
+            )
+            .unwrap(),
+            vec!["notes.tex"]
+        );
+
+        let unsupported = parent.join("result.png");
+        fs::write(&unsupported, b"png").unwrap();
+        assert!(import_sources(&root, &[unsupported.to_string_lossy().to_string()], "",).is_err());
+        let invalid_utf8 = parent.join("invalid.bib");
+        fs::write(&invalid_utf8, [0xff, 0xfe]).unwrap();
+        assert!(import_sources(&root, &[invalid_utf8.to_string_lossy().to_string()], "",).is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
     fn project_figures_can_be_previewed_and_prepared_for_latex() {
         let parent = temp_root("preview-assets");
         let root = create(&parent, "paper").unwrap();
@@ -4787,6 +5041,12 @@ mod tests {
         assert!(root.join("neurips.sty").exists());
         assert!(!root.join("neurips_2026.sty").exists());
         assert!(!root.join("arxiv.sty").exists());
+        assert!(!root.join(".research/omp-sessions").exists());
+        assert!(!root.join(".research/omp-session-map").exists());
+        let root_ignore = fs::read_to_string(root.join(".gitignore")).unwrap();
+        let research_ignore = fs::read_to_string(root.join(".research/.gitignore")).unwrap();
+        assert!(!root_ignore.contains("omp-"));
+        assert!(!research_ignore.contains("omp-"));
         fs::remove_dir_all(parent).unwrap();
     }
 

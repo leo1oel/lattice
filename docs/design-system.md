@@ -12,6 +12,27 @@ not to force every surface into one density.
 - Agent body copy, user messages, and the composer use 13px type on a 20px line
   height at regular weight.
 - Long-form reading surfaces may use 14px type on a 22px line height.
+- Code and diffs use one fixed editor font stack. It prefers a locally installed
+  TX-02 / Berkeley Mono family, then falls back to the bundled JetBrains Mono
+  Variable face. Berkeley Mono itself is not distributed with Lattice. Local
+  and embedded code surfaces share this stack; editor font size remains
+  adjustable.
+- Project filenames and folders use Inter at 12/16px. Project rows use the
+  compact 32px row role; selected items move from regular to medium weight.
+- Papers titles use Inter at 12/16px regular weight. Author, year, venue, and
+  other Papers metadata remain at 11/16px regular weight.
+- Diff code uses the editor font at 11/18px. Diff paths, headers, and line
+  numbers remain Inter; compact metadata uses the 10/14px role.
+- Embedded Agent thread titles retain the compact Inter 11/16px navigation
+  role at regular weight; Project filenames use their independent 12/16px role.
+- The top toolbar and left Project, Papers, and Agent navigation form the app
+  chrome. They use `#EFEFF0` in the light theme and `#141416` in the dark theme.
+- Default navigation text on the light chrome uses `#59595B`; selected and
+  emphasized items use the primary text color.
+- Right-side feature drawers are a separate surface: `#F9F9FA` in the light
+  theme and `#1B1B1D` in the dark theme. Feature drawers must not introduce
+  their own white or gray outer background. Embedded routes receive their
+  surface role explicitly rather than inferring it from feature-specific CSS.
 - New component styles use semantic tokens from
   `src/styles/foundations.css`. Raw values are reserved for genuinely unique
   geometry, such as an asymmetric message bubble.
@@ -31,12 +52,19 @@ not to force every surface into one density.
 | Title | 14 / 18 | 600 | content headings |
 | Large title | 16 / 20 | 600 | dialogs and major surfaces |
 | Heading | 18 / 22 | 600 | settings and top-level sections |
+| Compact navigation | 11 / 16 | 400 | Papers metadata and Agent thread titles |
+| Project tree | 12 / 16 | 400; selected 500 | project filenames and folders |
+| Papers title | 12 / 16 | 400 | paper titles in the Papers navigation |
+| Diff code | 11 / 18 | 400 | source changes and conflict previews |
+| Diff metadata | 10 / 14 | 500 | line numbers and compact change statistics |
 
 ## Geometry
 
 - Spacing follows the 2px scale defined by `--space-*`.
 - Icon controls use the 24px compact, 28px default, or 30px large role.
-- Controls use 28px compact, 32px default, or 38px form height.
+- Search fields, inputs, and select triggers with the same semantic size must
+  have the same exact height: 28px compact, 32px default, or 38px form, through
+  the shared `controlSize` / `size` contract. Width remains layout-owned.
 - Text buttons use 32px by default and an 8px control radius; 28px compact
   buttons are reserved for dense desktop chrome.
 - Switches use a 24 × 14px track and a 10px thumb.
@@ -60,9 +88,9 @@ A feature may consume a shared primitive or pattern. A primitive must not know
 about a feature, and one feature must not borrow another feature's class name.
 For example, a general empty state must not be styled through `git-empty`.
 
-Agent Elements under `src/components/agent-elements` are vendored upstream
-source. Keep them upgradeable and place Lattice-specific integration in the
-theme bridge or the Agent adapter rather than rewriting the vendored files.
+Synara owns the Agent, source-control, provider, MCP, and skill surfaces.
+Lattice only owns the surrounding host chrome and the context bridge between
+the research workspace and those embedded surfaces.
 
 ### Shared component contracts
 
@@ -73,6 +101,10 @@ theme bridge or the Agent adapter rather than rewriting the vendored files.
 | Inline metadata or status | `Badge` | copy and semantic tone |
 | Binary setting | `Switch`; use `SwitchField` when it has settings copy | state, callback, label |
 | Immediate form choice | `Checkbox`; use `CheckboxField` for ordinary labelled choices | state, callback, label, optional description |
+| Single-line form value | `Input` | type, value, callbacks, semantic control size, invalid state |
+| Search or filter value | `SearchField` | query, callbacks, default or compact size, optional trailing result controls |
+| Multi-line form value | `Textarea` | value, callbacks, UI or monospace font, invalid state |
+| Form selection | `Select` with `SelectTrigger` | options, value, callback, semantic control size |
 | Compact mutually exclusive views | `SegmentedControl` | item labels, selected value, callback |
 | Section-level views | `SlidingTabs`; use the underline variant when appropriate | item labels, selected value, callback |
 | Repeated list row | `rowClassName` | semantic element, contents, selection behavior |
@@ -106,6 +138,12 @@ the primitive standardizes density without changing those semantics.
   persistent setting that takes effect independently. CodeMirror controls,
   embedded content, and vendored Agent Elements may retain their native
   implementation when integration requires it.
+- Pair ordinary text controls with `Field` when they need a visible label, hint,
+  or error. Pass the invalid state to `Input` or `Textarea` so visual state and
+  `aria-invalid` stay aligned. Use `SearchField` for search and filtering; its
+  trailing slot keeps result navigation or clear actions inside the same visual
+  contract. Range controls, color pickers, and editor inputs remain feature-owned
+  when their interaction model is specialized.
 - Ordinary scrollable surfaces use `ScrollArea`, which applies the appropriate
   edge fade for its orientation by default and only reveals its scrollbar while
   hovering or scrolling. Set `fadeEdges={false}` only when masking would damage
@@ -114,6 +152,8 @@ the primitive standardizes density without changing those semantics.
   A container whose exact native viewport is observed by feature code uses
   `native-hover-scrollbar`; this is an explicit compatibility path, not a second
   general scrollbar implementation.
+- Embedded Settings routes delegate scrolling to the Lattice `ScrollArea`; the
+  embedded document must not expose a second viewport scrollbar.
 
 ## Migration rule
 

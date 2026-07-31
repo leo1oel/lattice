@@ -9,6 +9,7 @@
 .overleaf-history-loading,
 .overleaf-history-empty,
 .overleaf-history-note { margin: 14px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.overleaf-history-loading { display: flex; align-items: center; gap: 6px; }
 .overleaf-history-error { margin: 8px 0 0; color: var(--danger); font-size: 10px; }
 .overleaf-history-notice { margin: 8px 0 0; color: var(--success); font-size: 10px; }
 
@@ -77,8 +78,8 @@
 .overleaf-history-name-version,
 .overleaf-history-label-form button {
   height: 22px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
+  border-color: var(--field-control-border-color);
+  border-radius: var(--field-control-radius);
   padding: 0 8px;
   background: transparent;
   color: var(--muted);
@@ -97,11 +98,11 @@
   border: 1px solid var(--line-strong);
   border-radius: 7px;
   padding: 0 7px;
-  background: var(--bg);
+  background: var(--field-control-background);
   color: var(--text);
   font-size: 10.5px;
 }
-.overleaf-history-label-form input:focus { border-color: var(--accent); outline: none; }
+.overleaf-history-label-form input:focus { border-color: var(--field-control-interactive-border-color); outline: none; box-shadow: none; }
 
 .overleaf-history-files { display: grid; gap: 2px; }
 .overleaf-history-file-row { display: flex; align-items: center; gap: 4px; }

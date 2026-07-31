@@ -15,9 +15,9 @@ const BINARY_EXTENSIONS: &[&str] = &["pdf", "png", "jpg", "jpeg", "gif", "zip"];
 /// Directories inside a project that belong to the tools, not to the writing.
 ///
 /// `.research/` is Lattice's own: Overleaf sync state, the search index, agent
-/// sessions, caches. `.omp/` is the agent runtime's, and holds the project's
-/// MCP server config — whose `env` is where someone puts an API key, which is
-/// reason enough on its own never to commit it.
+/// sessions and caches. Legacy `.omp/` folders may hold old MCP server config
+/// — whose `env` is where someone puts an API key, which is reason enough on
+/// its own never to commit it.
 const INTERNAL_DIRS: &[&str] = &[".research", ".omp"];
 
 fn is_internal_path(path: &str) -> bool {
@@ -1248,9 +1248,9 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
-    /// The agent runtime's `.omp/mcp.json` carries whatever `env` an MCP
-    /// server needs, which is where an API key goes. Committing it writes that
-    /// key into the repository and into anything the repository is pushed to.
+    /// A legacy `.omp/mcp.json` may carry whatever `env` an MCP server needs,
+    /// which is where an API key goes. Committing it writes that key into the
+    /// repository and into anything the repository is pushed to.
     #[test]
     fn auto_commit_keeps_mcp_config_out_of_history() {
         if !commands::available("git") {

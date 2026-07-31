@@ -1,4 +1,3 @@
-mod agents;
 mod alphaxiv;
 mod commands;
 mod doctor;
@@ -9,30 +8,23 @@ mod latex;
 mod literature;
 #[cfg(target_os = "macos")]
 mod macos_window;
-mod mcp_store;
 mod models;
-mod omp_update;
 mod openalex;
 mod overleaf;
 mod overleaf_rt;
 mod papers;
 mod pdf_fonts;
 mod project;
-mod sessions;
-mod skill_store;
 mod synara;
 mod tex_setup;
 mod texcount;
 mod texlab;
 
 use models::{
-    AgentAttachmentDescriptor, AgentAttachmentMetadata, AgentCommand, AgentResult, AgentRunRequest,
-    AgentSession, AgentSessionSearchResult, AgentSessionSummary, AgentSkill, AgentSkillSaveRequest,
-    AgentStreamEvent, AssetPreview, BuildResult, CitationInfo, DoctorReport, EditorComment,
-    GitDiff, GitRemoteResult, GitStatus, HistoryItem, ImportResult, LiteraturePage, McpServer,
-    McpServerSaveRequest, OpenAlexWork, PaperSummary, PdfMark, PdfSyncTarget, ProjectManifest,
-    ProjectSearchResult, ProjectSnapshot, ReferenceInfo, RenameSymbolResult, ReplacePreview,
-    ReplaceResult, ResolvedCitation, SubscriptionLoginEvent, SubscriptionStatus, SymbolOccurrence,
+    AssetPreview, BuildResult, CitationInfo, DoctorReport, EditorComment, GitDiff, GitRemoteResult,
+    GitStatus, HistoryItem, ImportResult, LiteraturePage, OpenAlexWork, PaperSummary, PdfMark,
+    PdfSyncTarget, ProjectManifest, ProjectSearchResult, ProjectSnapshot, ReferenceInfo,
+    RenameSymbolResult, ReplacePreview, ReplaceResult, ResolvedCitation, SymbolOccurrence,
     SyncTexTarget, TexlabCompletionItem, TexlabHover, TexlabLocation, TodoHit, TransactionRecord,
     UnusedSymbols, WordCount,
 };
@@ -40,27 +32,135 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
+#[derive(Default)]
+struct OverleafRealtimeState {
+    /// Advances whenever a connection is replaced or cancelled. A client that
+    /// finishes connecting under an older generation must never become active.
+    generation: u64,
+    /// Project that owns both an in-progress and an established connection.
+    root: Option<PathBuf>,
+    client: Option<Arc<overleaf_rt::RealtimeClient>>,
+    /// Documents currently joined on the socket. Sync snapshots this under
+    /// the same lease that prevents a new join until the sync finishes.
+    joined_paths: std::collections::BTreeMap<String, String>,
+}
+
+impl OverleafRealtimeState {
+    fn begin(&mut self, root: PathBuf) -> (u64, Option<Arc<overleaf_rt::RealtimeClient>>) {
+        self.generation = self.generation.wrapping_add(1);
+        self.root = Some(root);
+        self.joined_paths.clear();
+        (self.generation, self.client.take())
+    }
+
+    fn owns(&self, generation: u64, root: &Path) -> bool {
+        self.generation == generation && self.root.as_deref() == Some(root)
+    }
+
+    fn extend_joined_paths(&self, root: &Path, paths: &mut std::collections::BTreeSet<String>) {
+        if self.root.as_deref() == Some(root) {
+            paths.extend(self.joined_paths.values().cloned());
+        }
+    }
+
+    /// Cancel everything when `root` is `None`, or only the matching project's
+    /// request when a stale React cleanup names its former root.
+    fn cancel(&mut self, root: Option<&Path>) -> Option<Arc<overleaf_rt::RealtimeClient>> {
+        if root.is_some() && self.root.as_deref() != root {
+            return None;
+        }
+        self.generation = self.generation.wrapping_add(1);
+        self.root = None;
+        self.joined_paths.clear();
+        self.client.take()
+    }
+}
+
+#[cfg(test)]
+mod realtime_generation_tests {
+    use super::{ensure_expected_project_root, OverleafRealtimeState};
+    use std::collections::BTreeSet;
+    use std::path::PathBuf;
+
+    #[test]
+    fn a_late_connect_and_stale_cleanup_cannot_replace_the_new_project() {
+        let mut state = OverleafRealtimeState::default();
+        let root_a = PathBuf::from("/project/a");
+        let root_b = PathBuf::from("/project/b");
+        let (generation_a, _) = state.begin(root_a.clone());
+        let (generation_b, _) = state.begin(root_b.clone());
+
+        assert!(!state.owns(generation_a, &root_a));
+        assert!(state.owns(generation_b, &root_b));
+        assert!(state.cancel(Some(&root_a)).is_none());
+        assert!(state.owns(generation_b, &root_b));
+    }
+
+    #[test]
+    fn a_new_backend_join_is_protected_even_when_the_ui_snapshot_is_stale() {
+        let mut state = OverleafRealtimeState::default();
+        let root = PathBuf::from("/project/a");
+        state.begin(root.clone());
+        state
+            .joined_paths
+            .insert("doc-1".to_string(), "newly-joined.tex".to_string());
+        let mut paths = BTreeSet::new();
+
+        state.extend_joined_paths(&root, &mut paths);
+
+        assert_eq!(paths, BTreeSet::from(["newly-joined.tex".to_string()]));
+    }
+
+    #[test]
+    fn changing_the_app_root_invalidates_events_from_the_old_generation() {
+        let mut state = OverleafRealtimeState::default();
+        let root = PathBuf::from("/project/a");
+        let (generation, _) = state.begin(root.clone());
+
+        state.cancel(None);
+
+        assert!(!state.owns(generation, &root));
+        assert!(state.root.is_none());
+    }
+
+    #[test]
+    fn a_delayed_overleaf_action_cannot_move_to_the_new_project() {
+        let root_a = PathBuf::from("/project/a");
+
+        assert_eq!(
+            ensure_expected_project_root(root_a.clone(), "/project/a"),
+            Ok(root_a.clone())
+        );
+        assert_eq!(
+            ensure_expected_project_root(root_a, "/project/b"),
+            Err("The project changed before the Overleaf action could start.".to_string())
+        );
+    }
+}
+
 struct AppState {
     root: Mutex<Option<PathBuf>>,
-    agent_runtime: agents::AgentRuntime,
     active_build: latex::ActiveBuild,
     texlab: Arc<Mutex<texlab::TexlabPool>>,
     /// Live connection to Overleaf's editing channel, when one is open.
-    realtime: Arc<Mutex<Option<Arc<overleaf_rt::RealtimeClient>>>>,
+    realtime: Arc<Mutex<OverleafRealtimeState>>,
+    /// Serializes a whole ZIP sync against document join/leave and outgoing
+    /// realtime mutations, closing the ownership-snapshot race.
+    overleaf_sync_lease: Arc<tokio::sync::RwLock<()>>,
 }
 
 impl AppState {
-    fn from_environment(agent_runtime: agents::AgentRuntime) -> Self {
+    fn from_environment() -> Self {
         let root = std::env::var_os("LATTICE_PROJECT")
             .map(PathBuf::from)
             .filter(|path| path.is_dir())
             .and_then(|path| path.canonicalize().ok());
         Self {
             root: Mutex::new(root),
-            agent_runtime,
             active_build: latex::new_active_build(),
             texlab: Arc::new(Mutex::new(texlab::TexlabPool::default())),
-            realtime: Arc::new(Mutex::new(None)),
+            realtime: Arc::new(Mutex::new(OverleafRealtimeState::default())),
+            overleaf_sync_lease: Arc::new(tokio::sync::RwLock::new(())),
         }
     }
 }
@@ -74,14 +174,49 @@ fn current_root(state: &tauri::State<'_, AppState>) -> Result<PathBuf, String> {
         .ok_or_else(|| "Open a project first.".to_string())
 }
 
-fn set_root(state: &tauri::State<'_, AppState>, root: PathBuf) -> Result<(), String> {
+fn ensure_expected_project_root(root: PathBuf, project_root: &str) -> Result<PathBuf, String> {
+    if root != Path::new(project_root) {
+        return Err("The project changed before the Overleaf action could start.".to_string());
+    }
+    Ok(root)
+}
+
+/// Resolve a request against the project the UI captured when it started.
+///
+/// Tauri commands can be scheduled after the writer has already switched
+/// projects. Reading `current_root` alone would reinterpret a delayed action
+/// for A as an action on B. Every Overleaf mutation that does not already
+/// carry a realtime generation uses this guard before touching the network.
+fn scoped_root(state: &tauri::State<'_, AppState>, project_root: &str) -> Result<PathBuf, String> {
+    ensure_expected_project_root(current_root(state)?, project_root)
+}
+
+async fn set_root(state: &tauri::State<'_, AppState>, root: PathBuf) -> Result<(), String> {
+    // A root switch must wait for a ZIP sync or a root-scoped Overleaf
+    // mutation to finish. The UI invalidates its old generation immediately,
+    // while this lease ensures the backend cannot reinterpret a request for A
+    // against B halfway through it.
+    let _lease = state.overleaf_sync_lease.write().await;
     if let Ok(mut pool) = state.texlab.lock() {
         pool.reset();
     }
-    *state
+    // Hold the project root while invalidating realtime under the same lock
+    // order used by connect. This makes "claim generation for A" and "switch
+    // to B" mutually exclusive rather than two checks with a gap between.
+    let mut current = state
         .root
         .lock()
-        .map_err(|_| "Project state is unavailable.".to_string())? = Some(root);
+        .map_err(|_| "Project state is unavailable.".to_string())?;
+    let previous = state
+        .realtime
+        .lock()
+        .map_err(|_| "The Overleaf connection is unavailable.".to_string())?
+        .cancel(None);
+    *current = Some(root);
+    drop(current);
+    if let Some(previous) = previous {
+        previous.shutdown();
+    }
     Ok(())
 }
 
@@ -113,7 +248,7 @@ async fn create_project(
         Ok((root, snapshot))
     })
     .await?;
-    set_root(&state, root)?;
+    set_root(&state, root).await?;
     Ok(snapshot)
 }
 
@@ -158,7 +293,7 @@ async fn create_collab_join_workspace(
         Ok((root, snapshot))
     })
     .await?;
-    set_root(&state, root)?;
+    set_root(&state, root).await?;
     Ok(snapshot)
 }
 
@@ -224,7 +359,7 @@ async fn open_project(
     path: String,
 ) -> Result<ProjectSnapshot, String> {
     let snapshot = run_blocking("Project opening", move || project::open(Path::new(&path))).await?;
-    set_root(&state, PathBuf::from(&snapshot.root))?;
+    set_root(&state, PathBuf::from(&snapshot.root)).await?;
     Ok(snapshot)
 }
 
@@ -238,7 +373,7 @@ async fn import_project_zip(
         project::import_project_zip(Path::new(&zip_path), Path::new(&parent))
     })
     .await?;
-    set_root(&state, PathBuf::from(&snapshot.root))?;
+    set_root(&state, PathBuf::from(&snapshot.root)).await?;
     Ok(snapshot)
 }
 
@@ -291,8 +426,20 @@ async fn write_project_file(
     state: tauri::State<'_, AppState>,
     path: String,
     content: String,
+    project_root: Option<String>,
 ) -> Result<String, String> {
+    let _lease = if project_root.is_some() {
+        Some(state.overleaf_sync_lease.read().await)
+    } else {
+        None
+    };
     let root = current_root(&state)?;
+    if project_root
+        .as_deref()
+        .is_some_and(|expected| root != Path::new(expected))
+    {
+        return Err("The project changed before the file could be written.".to_string());
+    }
     run_blocking("Project file write", move || {
         let transaction =
             project::apply_transaction(&root, &format!("Edit {path}"), vec![(path, content)])?;
@@ -598,6 +745,20 @@ async fn import_project_assets(
 }
 
 #[tauri::command]
+async fn import_project_sources(
+    state: tauri::State<'_, AppState>,
+    paths: Vec<String>,
+    target_directory: String,
+) -> Result<Vec<String>, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        project::import_sources(&root, &paths, &target_directory)
+    })
+    .await
+    .map_err(|error| format!("Source import stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
 async fn import_clipboard_image(
     state: tauri::State<'_, AppState>,
     target_directory: String,
@@ -624,8 +785,20 @@ async fn resolve_citation_query(query: String) -> Result<ResolvedCitation, Strin
 async fn read_project_asset(
     state: tauri::State<'_, AppState>,
     path: String,
+    project_root: Option<String>,
 ) -> Result<AssetPreview, String> {
+    let _lease = if project_root.is_some() {
+        Some(state.overleaf_sync_lease.read().await)
+    } else {
+        None
+    };
     let root = current_root(&state)?;
+    if project_root
+        .as_deref()
+        .is_some_and(|expected| root != Path::new(expected))
+    {
+        return Err("The project changed before the asset could be read.".to_string());
+    }
     run_blocking("Project asset read", move || {
         project::read_asset(&root, &path)
     })
@@ -686,12 +859,7 @@ async fn clean_project(state: tauri::State<'_, AppState>) -> Result<String, Stri
 #[tauri::command]
 async fn run_doctor(state: tauri::State<'_, AppState>) -> Result<DoctorReport, String> {
     let root = state.root.lock().ok().and_then(|guard| guard.clone());
-    let executable = state.agent_runtime.executable.clone();
-    let assets = state.agent_runtime.assets.clone();
-    run_blocking("Doctor check", move || {
-        Ok(doctor::run(root.as_deref(), &executable, &assets))
-    })
-    .await
+    run_blocking("Doctor check", move || Ok(doctor::run(root.as_deref()))).await
 }
 
 #[tauri::command]
@@ -937,8 +1105,20 @@ async fn git_auto_commit(
     state: tauri::State<'_, AppState>,
     message: String,
     author: Option<String>,
+    project_root: Option<String>,
 ) -> Result<Option<String>, String> {
+    let _lease = if project_root.is_some() {
+        Some(state.overleaf_sync_lease.read().await)
+    } else {
+        None
+    };
     let root = current_root(&state)?;
+    if project_root
+        .as_deref()
+        .is_some_and(|expected| root != Path::new(expected))
+    {
+        return Err("The project changed before the version could be recorded.".to_string());
+    }
     run_blocking("Git automatic commit", move || {
         git::auto_commit(&root, &message, author.as_deref())
     })
@@ -1108,7 +1288,6 @@ async fn overleaf_clone_target(
 #[tauri::command]
 async fn overleaf_clone_project(
     app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
     project_id: String,
     name: String,
     access_level: Option<String>,
@@ -1145,7 +1324,9 @@ async fn overleaf_clone_project(
     // Cloned projects start version tracking immediately so the Versions
     // timeline can show what each future sync changed.
     let _ = git::init(&root);
-    set_root(&state, root.clone())?;
+    // Downloading and opening are separate phases. The picker opens this root
+    // through `open_project` only after the download succeeds, so a failed
+    // open can never leave the backend on B while the UI restores A.
     Ok(root.to_string_lossy().to_string())
 }
 
@@ -1165,10 +1346,16 @@ async fn overleaf_link(
 fn realtime_client(
     state: &tauri::State<'_, AppState>,
 ) -> Result<Arc<overleaf_rt::RealtimeClient>, String> {
-    state
+    let root = current_root(state)?;
+    let realtime = state
         .realtime
         .lock()
-        .map_err(|_| "The Overleaf connection is unavailable.".to_string())?
+        .map_err(|_| "The Overleaf connection is unavailable.".to_string())?;
+    if realtime.root.as_ref() != Some(&root) {
+        return Err("The Overleaf live connection belongs to a different project.".to_string());
+    }
+    realtime
+        .client
         .clone()
         .ok_or_else(|| "Not connected to Overleaf's live editing channel.".to_string())
 }
@@ -1181,24 +1368,54 @@ fn realtime_client(
 async fn overleaf_rt_connect(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
     let root = current_root(&state)?;
-    let (host, cookie, project_id, user_id) =
-        tauri::async_runtime::spawn_blocking(move || overleaf::realtime_config(&config, &root))
-            .await
-            .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))??;
+    if root != Path::new(&project_root) {
+        return Err("The project changed before Overleaf could connect.".to_string());
+    }
+    let config_root = root.clone();
+    let (host, cookie, project_id, user_id) = tauri::async_runtime::spawn_blocking(move || {
+        overleaf::realtime_config(&config, &config_root)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))??;
 
-    // Replace any previous connection so reconnecting never leaves two live.
-    if let Ok(mut slot) = state.realtime.lock() {
-        if let Some(previous) = slot.take() {
-            previous.shutdown();
+    // Project loading and credential reads are asynchronous. A connection
+    // requested for A must not become the newest request after the UI has
+    // already opened B.
+    if current_root(&state)? != root {
+        return Err("The project changed before Overleaf could connect.".to_string());
+    }
+
+    // Claim a generation before the network await. Compare the root while
+    // still holding its guard, then take realtime in the same root→realtime
+    // order as `set_root`. Otherwise a switch to B can land in the gap after a
+    // successful check for A and let A become the newest live connection.
+    let (generation, previous) = {
+        let current = state
+            .root
+            .lock()
+            .map_err(|_| "Project state is unavailable.".to_string())?;
+        if current.as_ref() != Some(&root) {
+            return Err("The project changed before Overleaf could connect.".to_string());
         }
+        let mut realtime = state
+            .realtime
+            .lock()
+            .map_err(|_| "The Overleaf connection is unavailable.".to_string())?;
+        realtime.begin(root.clone())
+    };
+    if let Some(previous) = previous {
+        previous.shutdown();
     }
 
     use tauri::Emitter;
     let emitter = app.clone();
-    let client = overleaf_rt::RealtimeClient::connect(
+    let event_state = Arc::clone(&state.realtime);
+    let event_root = root.clone();
+    let connecting = overleaf_rt::RealtimeClient::connect(
         overleaf_rt::RealtimeConfig {
             user_id,
             host,
@@ -1206,10 +1423,26 @@ async fn overleaf_rt_connect(
             project_id,
         },
         move |event| {
-            let _ = emitter.emit("overleaf-realtime", event);
+            let current = event_state
+                .lock()
+                .is_ok_and(|realtime| realtime.owns(generation, &event_root));
+            if current {
+                let _ = emitter.emit("overleaf-realtime", event);
+            }
         },
     )
-    .await?;
+    .await;
+    let client = match connecting {
+        Ok(client) => client,
+        Err(error) => {
+            if let Ok(mut realtime) = state.realtime.lock() {
+                if realtime.owns(generation, &root) {
+                    realtime.cancel(Some(&root));
+                }
+            }
+            return Err(error);
+        }
+    };
     // Answering with the project tree, rather than only emitting it, is what
     // makes live editing reliable: the app can start the moment this returns
     // instead of depending on an event that may have been emitted before its
@@ -1227,26 +1460,56 @@ async fn overleaf_rt_connect(
         // server refused it, and live editing died on the spot.
         "permission": client.project().permission,
     });
-    state
-        .realtime
-        .lock()
-        .map_err(|_| "The Overleaf connection is unavailable.".to_string())?
-        .replace(Arc::new(client));
+    let client = Arc::new(client);
+    let still_current = current_root(&state).is_ok_and(|current| current == root);
+    let installed = if still_current {
+        let mut realtime = state
+            .realtime
+            .lock()
+            .map_err(|_| "The Overleaf connection is unavailable.".to_string())?;
+        if realtime.owns(generation, &root) {
+            realtime.client = Some(Arc::clone(&client));
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    if !installed {
+        client.shutdown();
+        return Err("A newer Overleaf connection replaced this one.".to_string());
+    }
     Ok(joined)
 }
 
 /// Close the live channel if one is open. Safe to call when there is none.
 fn shutdown_realtime(state: &tauri::State<'_, AppState>) {
-    if let Ok(mut slot) = state.realtime.lock() {
-        if let Some(client) = slot.take() {
-            client.shutdown();
-        }
+    let previous = state
+        .realtime
+        .lock()
+        .ok()
+        .and_then(|mut realtime| realtime.cancel(None));
+    if let Some(previous) = previous {
+        previous.shutdown();
     }
 }
 
 #[tauri::command]
-fn overleaf_rt_disconnect(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    shutdown_realtime(&state);
+fn overleaf_rt_disconnect(
+    state: tauri::State<'_, AppState>,
+    project_root: Option<String>,
+) -> Result<(), String> {
+    let previous = {
+        let mut realtime = state
+            .realtime
+            .lock()
+            .map_err(|_| "The Overleaf connection is unavailable.".to_string())?;
+        realtime.cancel(project_root.as_deref().map(Path::new))
+    };
+    if let Some(previous) = previous {
+        previous.shutdown();
+    }
     Ok(())
 }
 
@@ -1254,11 +1517,9 @@ fn overleaf_rt_disconnect(state: tauri::State<'_, AppState>) -> Result<(), Strin
 /// our updates back, and this is how the app tells them from someone else's.
 #[tauri::command]
 fn overleaf_rt_connected(state: tauri::State<'_, AppState>) -> Option<String> {
-    state
-        .realtime
-        .lock()
+    realtime_client(&state)
         .ok()
-        .and_then(|slot| slot.as_ref().map(|client| client.public_id()))
+        .map(|client| client.public_id())
 }
 
 /// Subscribe to a document; returns its current text and version.
@@ -1269,19 +1530,64 @@ fn overleaf_rt_connected(state: tauri::State<'_, AppState>) -> Option<String> {
 #[tauri::command]
 async fn overleaf_rt_join_doc(
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
     from_version: Option<i64>,
 ) -> Result<overleaf_rt::JoinedDoc, String> {
-    realtime_client(&state)?
-        .join_doc(&doc_id, from_version)
-        .await
+    let _lease = state.overleaf_sync_lease.write().await;
+    let root = scoped_root(&state, &project_root)?;
+    let client = realtime_client(&state)?;
+    let path = client
+        .project()
+        .docs
+        .iter()
+        .find(|doc| doc.id == doc_id)
+        .map(|doc| doc.path.clone())
+        .ok_or_else(|| "Overleaf did not report that document in this project.".to_string())?;
+    let previous_path = {
+        let mut realtime = state
+            .realtime
+            .lock()
+            .map_err(|_| "The Overleaf connection is unavailable.".to_string())?;
+        if realtime.root.as_ref() != Some(&root)
+            || !realtime
+                .client
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, &client))
+        {
+            return Err("The Overleaf project changed before the document joined.".to_string());
+        }
+        realtime.joined_paths.insert(doc_id.clone(), path)
+    };
+    match client.join_doc(&doc_id, from_version).await {
+        Ok(joined) => Ok(joined),
+        Err(error) => {
+            if let Ok(mut realtime) = state.realtime.lock() {
+                if realtime
+                    .client
+                    .as_ref()
+                    .is_some_and(|current| Arc::ptr_eq(current, &client))
+                {
+                    if let Some(previous_path) = previous_path {
+                        realtime.joined_paths.insert(doc_id.clone(), previous_path);
+                    } else {
+                        realtime.joined_paths.remove(&doc_id);
+                    }
+                }
+            }
+            Err(error)
+        }
+    }
 }
 
 /// Everyone currently in the Overleaf project, ourselves included.
 #[tauri::command]
 async fn overleaf_rt_connected_users(
     state: tauri::State<'_, AppState>,
+    project_root: String,
 ) -> Result<Vec<overleaf_rt::PresenceUser>, String> {
+    let _lease = state.overleaf_sync_lease.read().await;
+    scoped_root(&state, &project_root)?;
     realtime_client(&state)?.connected_users().await
 }
 
@@ -1289,10 +1595,13 @@ async fn overleaf_rt_connected_users(
 #[tauri::command]
 async fn overleaf_rt_update_position(
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
     row: i64,
     column: i64,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
+    scoped_root(&state, &project_root)?;
     realtime_client(&state)?
         .update_position(&doc_id, row, column)
         .await
@@ -1301,18 +1610,35 @@ async fn overleaf_rt_update_position(
 #[tauri::command]
 async fn overleaf_rt_leave_doc(
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
 ) -> Result<(), String> {
-    realtime_client(&state)?.leave_doc(&doc_id).await
+    let _lease = state.overleaf_sync_lease.write().await;
+    scoped_root(&state, &project_root)?;
+    let client = realtime_client(&state)?;
+    client.leave_doc(&doc_id).await?;
+    if let Ok(mut realtime) = state.realtime.lock() {
+        if realtime
+            .client
+            .as_ref()
+            .is_some_and(|current| Arc::ptr_eq(current, &client))
+        {
+            realtime.joined_paths.remove(&doc_id);
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
 async fn overleaf_rt_send_ops(
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
     version: i64,
     ops: Vec<overleaf_rt::OtOp>,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
+    scoped_root(&state, &project_root)?;
     realtime_client(&state)?
         .send_ops(&doc_id, version, ops)
         .await
@@ -1322,12 +1648,15 @@ async fn overleaf_rt_send_ops(
 #[tauri::command]
 async fn overleaf_rt_send_comment(
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
     version: i64,
     position: i64,
     quote: String,
     thread_id: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
+    scoped_root(&state, &project_root)?;
     realtime_client(&state)?
         .send_comment(&doc_id, version, position, &quote, &thread_id)
         .await
@@ -1337,10 +1666,11 @@ async fn overleaf_rt_send_comment(
 async fn overleaf_chat_messages(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     limit: Option<u32>,
 ) -> Result<Vec<overleaf::OverleafMessage>, String> {
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     let limit = limit.unwrap_or(80);
     tauri::async_runtime::spawn_blocking(move || overleaf::chat_messages(&config, &root, limit))
         .await
@@ -1351,10 +1681,12 @@ async fn overleaf_chat_messages(
 async fn overleaf_send_chat_message(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     content: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::send_chat_message(&config, &root, &content)
     })
@@ -1373,9 +1705,17 @@ fn live_paths(live: Option<Vec<String>>) -> std::collections::BTreeSet<String> {
 #[tauri::command]
 async fn overleaf_set_permission(
     state: tauri::State<'_, AppState>,
+    project_root: String,
     permission: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let root = current_root(&state)?;
+    // The realtime result is scoped to the project that was connected. An
+    // invoke can cross a UI project switch before this handler is scheduled;
+    // never write the previous project's role into the newly active project.
+    if root != Path::new(&project_root) {
+        return Ok(());
+    }
     run_blocking("Overleaf permission update", move || {
         overleaf::set_permission(&root, &permission)
     })
@@ -1388,11 +1728,12 @@ async fn overleaf_set_permission(
 async fn overleaf_history_updates(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     before: Option<i64>,
     count: Option<u32>,
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     let (updates, next) = tauri::async_runtime::spawn_blocking(move || {
         overleaf::history_updates(&config, &root, before, count.unwrap_or(20))
     })
@@ -1405,12 +1746,13 @@ async fn overleaf_history_updates(
 async fn overleaf_history_diff(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     path: String,
     from: i64,
     to: i64,
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::history_diff(&config, &root, &path, from, to)
     })
@@ -1422,11 +1764,12 @@ async fn overleaf_history_diff(
 async fn overleaf_history_files(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     from: i64,
     to: i64,
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || overleaf::history_files(&config, &root, from, to))
         .await
         .map_err(|error| format!("The Overleaf history stopped unexpectedly: {error}"))?
@@ -1436,9 +1779,10 @@ async fn overleaf_history_files(
 async fn overleaf_history_labels(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
 ) -> Result<Vec<overleaf::OverleafLabel>, String> {
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || overleaf::history_labels(&config, &root))
         .await
         .map_err(|error| format!("The Overleaf history stopped unexpectedly: {error}"))?
@@ -1449,11 +1793,13 @@ async fn overleaf_history_labels(
 async fn overleaf_history_revert(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     version: i64,
     path: Option<String>,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::history_revert(&config, &root, version, path.as_deref())
     })
@@ -1465,11 +1811,13 @@ async fn overleaf_history_revert(
 async fn overleaf_history_restore_file(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     version: i64,
     path: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::history_restore_file(&config, &root, version, &path)
     })
@@ -1481,11 +1829,13 @@ async fn overleaf_history_restore_file(
 async fn overleaf_history_add_label(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     version: i64,
     comment: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::history_add_label(&config, &root, version, &comment)
     })
@@ -1497,10 +1847,12 @@ async fn overleaf_history_add_label(
 async fn overleaf_history_delete_label(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     label_id: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::history_delete_label(&config, &root, &label_id)
     })
@@ -1513,11 +1865,13 @@ async fn overleaf_history_delete_label(
 async fn overleaf_accept_changes(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
     change_ids: Vec<String>,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::accept_changes(&config, &root, &doc_id, &change_ids)
     })
@@ -1529,10 +1883,13 @@ async fn overleaf_accept_changes(
 #[tauri::command]
 async fn overleaf_reject_changes(
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
     version: i64,
     changes: Vec<overleaf_rt::TrackedChange>,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
+    scoped_root(&state, &project_root)?;
     realtime_client(&state)?
         .reject_changes(&doc_id, version, &changes)
         .await
@@ -1542,10 +1899,13 @@ async fn overleaf_reject_changes(
 #[tauri::command]
 async fn overleaf_rt_send_tracked_ops(
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
     version: i64,
     ops: Vec<overleaf_rt::OtOp>,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
+    scoped_root(&state, &project_root)?;
     realtime_client(&state)?
         .send_tracked_ops(&doc_id, version, ops)
         .await
@@ -1556,9 +1916,10 @@ async fn overleaf_rt_send_tracked_ops(
 async fn overleaf_change_authors(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || overleaf::change_authors(&config, &root))
         .await
         .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))?
@@ -1569,10 +1930,12 @@ async fn overleaf_change_authors(
 async fn overleaf_set_track_changes(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     on_for: serde_json::Value,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::set_track_changes(&config, &root, on_for)
     })
@@ -1585,11 +1948,13 @@ async fn overleaf_set_track_changes(
 async fn overleaf_create_doc(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     parent_folder_id: String,
     name: String,
 ) -> Result<String, String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::create_doc(&config, &root, &parent_folder_id, &name)
     })
@@ -1602,11 +1967,16 @@ async fn overleaf_create_doc(
 async fn overleaf_delete_entity(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     kind: String,
     entity_id: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
     let root = current_root(&state)?;
+    if root != Path::new(&project_root) {
+        return Err("The project changed before the Overleaf item could be removed.".to_string());
+    }
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::delete_entity(&config, &root, &kind, &entity_id)
     })
@@ -1618,9 +1988,10 @@ async fn overleaf_delete_entity(
 async fn overleaf_threads(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
 ) -> Result<Vec<overleaf::OverleafThread>, String> {
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || overleaf::threads(&config, &root))
         .await
         .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
@@ -1631,10 +2002,11 @@ async fn overleaf_threads(
 async fn overleaf_doc_ranges(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
 ) -> Result<overleaf::DocRanges, String> {
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || overleaf::doc_ranges(&config, &root, &doc_id))
         .await
         .map_err(|error| format!("The Overleaf task stopped unexpectedly: {error}"))?
@@ -1645,9 +2017,10 @@ async fn overleaf_doc_ranges(
 async fn overleaf_comment_anchors(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
 ) -> Result<Vec<overleaf::OverleafCommentAnchor>, String> {
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || overleaf::comment_anchors(&config, &root))
         .await
         .map_err(|error| format!("The Overleaf comment task stopped unexpectedly: {error}"))?
@@ -1657,12 +2030,14 @@ async fn overleaf_comment_anchors(
 async fn overleaf_edit_message(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     thread_id: String,
     message_id: String,
     content: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::edit_message(&config, &root, &thread_id, &message_id, &content)
     })
@@ -1674,11 +2049,13 @@ async fn overleaf_edit_message(
 async fn overleaf_delete_message(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     thread_id: String,
     message_id: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::delete_message(&config, &root, &thread_id, &message_id)
     })
@@ -1690,11 +2067,13 @@ async fn overleaf_delete_message(
 async fn overleaf_reply_to_thread(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     thread_id: String,
     content: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::reply_to_thread(&config, &root, &thread_id, &content)
     })
@@ -1706,12 +2085,14 @@ async fn overleaf_reply_to_thread(
 async fn overleaf_resolve_thread(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
     thread_id: String,
     resolved: bool,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::resolve_thread(&config, &root, &doc_id, &thread_id, resolved)
     })
@@ -1723,11 +2104,13 @@ async fn overleaf_resolve_thread(
 async fn overleaf_delete_thread(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     doc_id: String,
     thread_id: String,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         overleaf::delete_thread(&config, &root, &doc_id, &thread_id)
     })
@@ -1740,10 +2123,12 @@ async fn overleaf_delete_thread(
 async fn overleaf_preview(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     live: Option<Vec<String>>,
 ) -> Result<overleaf::OverleafPreview, String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     let live = live_paths(live);
     tauri::async_runtime::spawn_blocking(move || overleaf::preview(&config, &root, &live))
         .await
@@ -1754,14 +2139,16 @@ async fn overleaf_preview(
 #[tauri::command]
 async fn overleaf_set_paused(
     state: tauri::State<'_, AppState>,
+    project_root: String,
     paused: bool,
 ) -> Result<(), String> {
+    let _lease = state.overleaf_sync_lease.write().await;
+    let root = scoped_root(&state, &project_root)?;
     if paused {
         // A socket left open would keep delivering edits, chat and presence
         // for a project the user just asked us to leave alone.
         shutdown_realtime(&state);
     }
-    let root = current_root(&state)?;
     run_blocking("Overleaf sync setting", move || {
         overleaf::set_paused(&root, paused)
     })
@@ -1772,9 +2159,11 @@ async fn overleaf_set_paused(
 async fn overleaf_probe(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
 ) -> Result<overleaf::OverleafProbe, String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || overleaf::probe(&config, &root))
         .await
         .map_err(|error| format!("The Overleaf check stopped unexpectedly: {error}"))?
@@ -1784,60 +2173,22 @@ async fn overleaf_probe(
 async fn overleaf_sync(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
+    project_root: String,
     live: Option<Vec<String>>,
 ) -> Result<overleaf::OverleafSyncResult, String> {
+    let _lease = state.overleaf_sync_lease.write().await;
     let config = overleaf_config_dir(&app)?;
     let root = current_root(&state)?;
-    let live = live_paths(live);
+    if root != Path::new(&project_root) {
+        return Err("The project changed before Overleaf sync could start.".to_string());
+    }
+    let mut live = live_paths(live);
+    if let Ok(realtime) = state.realtime.lock() {
+        realtime.extend_joined_paths(&root, &mut live);
+    }
     tauri::async_runtime::spawn_blocking(move || overleaf::sync(&config, &root, &live))
         .await
         .map_err(|error| format!("The Overleaf sync stopped unexpectedly: {error}"))?
-}
-
-/// The models the agent runtime offers for a provider.
-#[tauri::command]
-async fn agent_models(
-    state: tauri::State<'_, AppState>,
-    provider: String,
-) -> Result<Vec<agents::AgentModel>, String> {
-    let runtime = state.agent_runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || agents::list_models(&runtime, &provider))
-        .await
-        .map_err(|error| format!("The model lookup stopped unexpectedly: {error}"))?
-}
-
-/// Which agent runtime is in use, and whether a newer one is published.
-#[tauri::command]
-async fn agent_runtime_status(
-    state: tauri::State<'_, AppState>,
-) -> Result<omp_update::RuntimeStatus, String> {
-    let runtime = state.agent_runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let bundled = runtime
-            .bundled_version()
-            .ok_or_else(|| "The bundled agent runtime has no version.".to_string())?;
-        Ok(omp_update::status(&runtime.config, &bundled))
-    })
-    .await
-    .map_err(|error| format!("The agent update check stopped unexpectedly: {error}"))?
-}
-
-/// Download and install the newest agent runtime beside the bundled one.
-#[tauri::command]
-async fn agent_runtime_update(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let runtime = state.agent_runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || omp_update::install_latest(&runtime.config))
-        .await
-        .map_err(|error| format!("The agent update stopped unexpectedly: {error}"))?
-}
-
-/// Drop back to the runtime inside the app bundle.
-#[tauri::command]
-async fn agent_runtime_revert(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let runtime = state.agent_runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || omp_update::revert_to_bundled(&runtime.config))
-        .await
-        .map_err(|error| format!("The agent revert stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
@@ -2004,115 +2355,6 @@ async fn read_paper_blog(
 }
 
 #[tauri::command]
-async fn run_agent(
-    state: tauri::State<'_, AppState>,
-    on_event: tauri::ipc::Channel<AgentStreamEvent>,
-    request: AgentRunRequest,
-) -> Result<AgentResult, String> {
-    let root = current_root(&state)?;
-    let runtime = state.agent_runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        agents::run(
-            &root,
-            &runtime,
-            agents::AgentRequest {
-                settings: &request.settings,
-                message: &request.message,
-                attachments: &request.attachments,
-                active_file: request.active_file.as_deref(),
-                selection: request.selection.as_deref(),
-                session_id: &request.session_id,
-                session_title: &request.session_title,
-                system_prompt: &request.system_prompt,
-            },
-            &|event| {
-                let _ = on_event.send(event);
-            },
-        )
-    })
-    .await
-    .map_err(|error| format!("The writing agent task stopped unexpectedly: {error}"))?
-}
-
-#[tauri::command]
-async fn inspect_agent_attachments(
-    attachments: Vec<AgentAttachmentDescriptor>,
-) -> Result<Vec<AgentAttachmentMetadata>, String> {
-    run_blocking("Attachment inspection", move || {
-        agents::inspect_attachments(&attachments)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn abort_agent(
-    state: tauri::State<'_, AppState>,
-    session_id: String,
-) -> Result<bool, String> {
-    let runtime = state.agent_runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || runtime.abort_run(&session_id))
-        .await
-        .map_err(|error| format!("Could not stop the writing agent: {error}"))?
-}
-
-#[tauri::command]
-async fn subscription_status(
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<SubscriptionStatus>, String> {
-    let runtime = state.agent_runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || agents::subscription_status(&runtime))
-        .await
-        .map_err(|error| format!("Could not check subscription status: {error}"))?
-}
-
-#[tauri::command]
-async fn list_agent_commands(
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<AgentCommand>, String> {
-    let runtime = state.agent_runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || agents::list_agent_commands(&runtime))
-        .await
-        .map_err(|error| format!("Could not list agent commands: {error}"))?
-}
-
-#[tauri::command]
-async fn begin_subscription_login(
-    state: tauri::State<'_, AppState>,
-    provider: String,
-    on_event: tauri::ipc::Channel<SubscriptionLoginEvent>,
-) -> Result<(), String> {
-    let runtime = state.agent_runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        agents::begin_subscription_login(&runtime, &provider, &|event| {
-            let _ = on_event.send(event);
-        })
-    })
-    .await
-    .map_err(|error| format!("Could not complete OMP sign-in: {error}"))?
-}
-
-#[tauri::command]
-async fn save_api_key(provider: String, key: String) -> Result<(), String> {
-    run_blocking("API key save", move || {
-        agents::save_api_key(&provider, &key)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn delete_api_key(provider: String) -> Result<(), String> {
-    run_blocking("API key deletion", move || {
-        agents::delete_api_key(&provider)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn api_key_status() -> Result<Vec<(String, bool)>, String> {
-    run_blocking("API key status", move || Ok(agents::api_key_status())).await
-}
-
-#[tauri::command]
 async fn list_history(state: tauri::State<'_, AppState>) -> Result<Vec<HistoryItem>, String> {
     let root = current_root(&state)?;
     tauri::async_runtime::spawn_blocking(move || project::history(&root))
@@ -2172,133 +2414,6 @@ async fn delete_history_entry(
 }
 
 #[tauri::command]
-async fn create_agent_session(
-    state: tauri::State<'_, AppState>,
-    provider: String,
-    model: String,
-    reasoning_effort: String,
-) -> Result<AgentSession, String> {
-    let root = current_root(&state)?;
-    run_blocking("Agent session creation", move || {
-        sessions::create(&root, &provider, &model, &reasoning_effort)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn list_agent_sessions(
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<AgentSessionSummary>, String> {
-    let root = current_root(&state)?;
-    run_blocking("Agent session scan", move || sessions::list(&root)).await
-}
-
-#[tauri::command]
-async fn search_agent_sessions(
-    state: tauri::State<'_, AppState>,
-    query: String,
-) -> Result<Vec<AgentSessionSearchResult>, String> {
-    let root = current_root(&state)?;
-    run_blocking("Agent session search", move || {
-        sessions::search(&root, &query)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn read_agent_session(
-    state: tauri::State<'_, AppState>,
-    session_id: String,
-) -> Result<AgentSession, String> {
-    let root = current_root(&state)?;
-    run_blocking("Agent session read", move || {
-        sessions::read(&root, &session_id)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn save_agent_session(
-    state: tauri::State<'_, AppState>,
-    session: AgentSession,
-) -> Result<AgentSession, String> {
-    let root = current_root(&state)?;
-    run_blocking("Agent session save", move || sessions::save(&root, session)).await
-}
-
-#[tauri::command]
-async fn save_agent_checkpoint(
-    state: tauri::State<'_, AppState>,
-    session_id: String,
-    message_id: String,
-) -> Result<(), String> {
-    let root = current_root(&state)?;
-    run_blocking("Agent checkpoint save", move || {
-        project::save_conversation_checkpoint(&root, &session_id, &message_id)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn delete_agent_session(
-    state: tauri::State<'_, AppState>,
-    session_id: String,
-) -> Result<(), String> {
-    let root = current_root(&state)?;
-    run_blocking("Agent session deletion", move || {
-        sessions::delete(&root, &session_id)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn fork_agent_session(
-    state: tauri::State<'_, AppState>,
-    source_session_id: String,
-    message_id: String,
-    system_prompt: String,
-) -> Result<AgentSession, String> {
-    let root = current_root(&state)?;
-    let runtime = state.agent_runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let source = sessions::read(&root, &source_session_id)?;
-        let target_index = source
-            .messages
-            .iter()
-            .position(|message| message.id == message_id && message.role == "user")
-            .ok_or_else(|| "The message to branch from is no longer available.".to_string())?;
-        let user_message_index = source.messages[..target_index]
-            .iter()
-            .filter(|message| message.role == "user")
-            .count();
-        let settings = models::AgentSettings {
-            provider: source.provider.clone(),
-            model: source.model.clone(),
-            reasoning_effort: source.reasoning_effort.clone(),
-        };
-        let branch = agents::fork_session(
-            &root,
-            &runtime,
-            &settings,
-            &source.id,
-            &source.title,
-            user_message_index,
-            &system_prompt,
-        )?;
-        let session = sessions::create_branch(&root, &source, &branch.session_id, &message_id)?;
-        project::restore_conversation_checkpoint(
-            &root,
-            &source.id,
-            &message_id,
-            branch.source_timestamp.as_deref(),
-        )?;
-        Ok(session)
-    })
-    .await
-    .map_err(|error| format!("Could not create the conversation branch: {error}"))?
-}
-
-#[tauri::command]
 async fn start_tex_install(kind: String) -> Result<(), String> {
     run_blocking("TeX installer launch", move || {
         tex_setup::start_tex_install(&kind)
@@ -2345,155 +2460,6 @@ fn align_traffic_lights(
         let _ = (app, close_center_x, center_from_top);
         Ok(())
     }
-}
-
-#[tauri::command]
-async fn list_agent_skills(state: tauri::State<'_, AppState>) -> Result<Vec<AgentSkill>, String> {
-    let root = state
-        .root
-        .lock()
-        .map_err(|_| "Project state is unavailable.".to_string())?
-        .clone()
-        .unwrap_or_else(|| state.agent_runtime.config.join("no-project"));
-    let runtime = state.agent_runtime.clone();
-    run_blocking("Agent skill scan", move || {
-        skill_store::list(&root, &runtime)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn save_agent_skill(
-    state: tauri::State<'_, AppState>,
-    request: AgentSkillSaveRequest,
-) -> Result<AgentSkill, String> {
-    let root = if request.scope == "project" {
-        current_root(&state)?
-    } else {
-        state
-            .root
-            .lock()
-            .map_err(|_| "Project state is unavailable.".to_string())?
-            .clone()
-            .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
-    };
-    let runtime = state.agent_runtime.clone();
-    run_blocking("Agent skill save", move || {
-        skill_store::save(&root, &runtime, request)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn set_agent_skill_enabled(
-    state: tauri::State<'_, AppState>,
-    name: String,
-    enabled: bool,
-) -> Result<(), String> {
-    let runtime = state.agent_runtime.clone();
-    run_blocking("Agent skill update", move || {
-        skill_store::set_enabled(&runtime, &name, enabled)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn delete_agent_skill(
-    state: tauri::State<'_, AppState>,
-    name: String,
-    scope: String,
-) -> Result<(), String> {
-    let root = if scope == "project" {
-        current_root(&state)?
-    } else {
-        state
-            .root
-            .lock()
-            .map_err(|_| "Project state is unavailable.".to_string())?
-            .clone()
-            .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
-    };
-    let runtime = state.agent_runtime.clone();
-    run_blocking("Agent skill deletion", move || {
-        skill_store::delete(&root, &runtime, &name, &scope)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn list_mcp_servers(state: tauri::State<'_, AppState>) -> Result<Vec<McpServer>, String> {
-    let root = state
-        .root
-        .lock()
-        .map_err(|_| "Project state is unavailable.".to_string())?
-        .clone()
-        .unwrap_or_else(|| state.agent_runtime.config.join("no-project"));
-    let runtime = state.agent_runtime.clone();
-    run_blocking("MCP server scan", move || mcp_store::list(&root, &runtime)).await
-}
-
-#[tauri::command]
-async fn save_mcp_server(
-    state: tauri::State<'_, AppState>,
-    request: McpServerSaveRequest,
-) -> Result<McpServer, String> {
-    let root = if request.scope == "project" {
-        current_root(&state)?
-    } else {
-        state
-            .root
-            .lock()
-            .map_err(|_| "Project state is unavailable.".to_string())?
-            .clone()
-            .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
-    };
-    let runtime = state.agent_runtime.clone();
-    run_blocking("MCP server save", move || {
-        mcp_store::save(&root, &runtime, request)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn set_mcp_server_enabled(
-    state: tauri::State<'_, AppState>,
-    name: String,
-    enabled: bool,
-) -> Result<(), String> {
-    let root = state
-        .root
-        .lock()
-        .map_err(|_| "Project state is unavailable.".to_string())?
-        .clone()
-        .unwrap_or_else(|| state.agent_runtime.config.join("no-project"));
-    let runtime = state.agent_runtime.clone();
-    run_blocking("MCP server update", move || {
-        mcp_store::set_enabled(&root, &runtime, &name, enabled)
-    })
-    .await
-}
-
-#[tauri::command]
-async fn delete_mcp_server(
-    state: tauri::State<'_, AppState>,
-    name: String,
-    scope: String,
-) -> Result<(), String> {
-    let root = if scope == "project" {
-        current_root(&state)?
-    } else {
-        state
-            .root
-            .lock()
-            .map_err(|_| "Project state is unavailable.".to_string())?
-            .clone()
-            .unwrap_or_else(|| state.agent_runtime.config.join("no-project"))
-    };
-    let runtime = state.agent_runtime.clone();
-    run_blocking("MCP server deletion", move || {
-        mcp_store::delete(&root, &runtime, &name, &scope)
-    })
-    .await
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -2602,15 +2568,7 @@ pub fn run() {
         // Remember the window's size + position across launches.
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
-            let config = app
-                .path()
-                .app_config_dir()
-                .map_err(|error| error.to_string())?
-                .join("omp");
-            let (executable, assets) = agent_runtime_paths(app)?;
-            app.manage(AppState::from_environment(agents::AgentRuntime::new(
-                executable, assets, config,
-            )));
+            app.manage(AppState::from_environment());
             app.manage(synara::SynaraRuntime::new(app)?);
             synara::prewarm(app.handle().clone());
             #[cfg(target_os = "macos")]
@@ -2658,6 +2616,7 @@ pub fn run() {
             rename_project_entry,
             move_project_entry,
             import_project_assets,
+            import_project_sources,
             import_clipboard_image,
             resolve_citation_query,
             read_project_asset,
@@ -2707,10 +2666,6 @@ pub fn run() {
             overleaf_rt_send_comment,
             overleaf_rt_connected_users,
             overleaf_rt_update_position,
-            agent_models,
-            agent_runtime_status,
-            agent_runtime_update,
-            agent_runtime_revert,
             overleaf_chat_messages,
             overleaf_send_chat_message,
             overleaf_set_permission,
@@ -2756,41 +2711,17 @@ pub fn run() {
             read_paper,
             read_paper_blog,
             read_paper_blog_local,
-            run_agent,
-            inspect_agent_attachments,
-            abort_agent,
-            subscription_status,
-            list_agent_commands,
-            begin_subscription_login,
-            save_api_key,
-            delete_api_key,
-            api_key_status,
             list_history,
             get_history_entry,
             revert_transaction,
             revert_history_file,
             delete_history_entry,
-            create_agent_session,
-            list_agent_sessions,
-            search_agent_sessions,
-            read_agent_session,
-            save_agent_session,
-            save_agent_checkpoint,
-            delete_agent_session,
-            fork_agent_session,
-            list_agent_skills,
-            save_agent_skill,
-            set_agent_skill_enabled,
-            delete_agent_skill,
-            list_mcp_servers,
-            save_mcp_server,
-            set_mcp_server_enabled,
-            delete_mcp_server,
             start_tex_install,
             set_window_background,
             align_traffic_lights,
             synara::synara_runtime_status,
             synara::synara_ensure_ready,
+            synara::synara_open_skills_folder,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -2799,43 +2730,4 @@ pub fn run() {
             app_handle.state::<synara::SynaraRuntime>().shutdown();
         }
     });
-}
-
-fn agent_runtime_paths(app: &tauri::App) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
-    if cfg!(debug_assertions) {
-        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let target = if cfg!(all(target_arch = "aarch64", target_os = "macos")) {
-            "aarch64-apple-darwin"
-        } else if cfg!(all(target_arch = "x86_64", target_os = "macos")) {
-            "x86_64-apple-darwin"
-        } else if cfg!(all(target_arch = "x86_64", target_os = "windows")) {
-            "x86_64-pc-windows-msvc"
-        } else if cfg!(all(target_arch = "x86_64", target_os = "linux")) {
-            "x86_64-unknown-linux-gnu"
-        } else {
-            return Err("This development target is not configured for the OMP sidecar.".into());
-        };
-        let suffix = if cfg!(target_os = "windows") {
-            ".exe"
-        } else {
-            ""
-        };
-        return Ok((
-            manifest
-                .join("binaries")
-                .join(format!("lattice-agent-{target}{suffix}")),
-            manifest.join("omp-assets"),
-        ));
-    }
-
-    let executable_name = if cfg!(target_os = "windows") {
-        "lattice-agent.exe"
-    } else {
-        "lattice-agent"
-    };
-    let executable = std::env::current_exe()?
-        .parent()
-        .ok_or("The application executable has no parent folder.")?
-        .join(executable_name);
-    Ok((executable, app.path().resource_dir()?.join("omp-assets")))
 }

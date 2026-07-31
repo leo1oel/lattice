@@ -23,7 +23,6 @@ describe("tex setup wizard helpers", () => {
       checks: [
         { name: "latexmk", detail: "missing", ok: false },
         { name: "pdflatex", detail: "missing", ok: false },
-        { name: "lattice-agent", detail: "ok", ok: true },
       ],
     })).toBe(true);
     expect(isTexToolchainMissing({
@@ -36,7 +35,6 @@ describe("tex setup wizard helpers", () => {
         { name: "bibtex", detail: "ok", ok: true },
         { name: "xelatex", detail: "missing", ok: false },
         { name: "lualatex", detail: "missing", ok: false },
-        { name: "lattice-agent", detail: "missing", ok: false },
       ],
     })).toBe(false);
     expect(missingTexToolNames({

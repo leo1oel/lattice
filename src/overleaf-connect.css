@@ -53,19 +53,8 @@
 .overleaf-advanced { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); }
 .overleaf-advanced summary { cursor: pointer; color: var(--muted); font-size: 11px; font-weight: 600; }
 .overleaf-advanced summary:hover { color: var(--text); }
-.overleaf-advanced input[type="text"] {
-  height: var(--control-height-form);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-control);
-  outline: none;
-  background: var(--bg);
-  padding: 0 10px;
-  color: var(--text);
-  font-size: 12px;
-}
-.overleaf-advanced input[type="text"]:focus { border-color: var(--accent); }
 /* A cookie is one long line, not a system prompt: keep the field compact. */
-.settings-section .overleaf-advanced textarea { min-height: 74px; }
+.overleaf-advanced .ui-textarea { min-height: 74px; }
 .overleaf-advanced-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
 
 /* ---- Picker dialog -------------------------------------------------------- */
@@ -90,39 +79,21 @@
 }
 
 .overleaf-picker-controls { display: flex; align-items: center; gap: 12px; }
-.overleaf-search { position: relative; flex: 1 1 auto; }
-.overleaf-search svg {
-  position: absolute;
-  top: 50%;
-  left: 10px;
-  transform: translateY(-50%);
-  color: var(--faint);
-  pointer-events: none;
-}
-.overleaf-picker-modal .overleaf-search input {
-  width: 100%;
-  height: var(--control-height-default);
-  padding: 0 10px 0 29px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-control);
-  outline: none;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 12px;
-}
-.overleaf-picker-modal .overleaf-search input:focus { border-color: var(--accent); }
+.overleaf-search { flex: 1 1 auto; }
 /* Keep the shared inline checkbox beside the search field. */
 .overleaf-picker-controls .overleaf-checkbox { flex: none; }
 
-.overleaf-project-list {
+.overleaf-project-list-scroll {
   margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-surface);
+}
+.overleaf-project-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .overleaf-project-row {
   display: flex;

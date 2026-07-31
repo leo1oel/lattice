@@ -204,14 +204,29 @@ export async function publishLocalTextToCollab(
   path: string,
   base: string,
   content: string,
+  scope?: { projectRoot: string; isCurrent: () => boolean },
 ): Promise<string> {
+  const assertCurrent = () => {
+    if (scope && !scope.isCurrent()) {
+      throw new Error("The project changed before the shared text could be published.");
+    }
+  };
+  const write = async (writePath: string, writeContent: string) => {
+    assertCurrent();
+    await invoke("write_project_file", {
+      path: writePath,
+      content: writeContent,
+      ...(scope ? { projectRoot: scope.projectRoot } : {}),
+    });
+    assertCurrent();
+  };
   const ytext = ensureCollabText(doc, path);
   let mergeBase = base;
   let local = content;
   const saveConflict = async (localContent: string, sharedContent: string): Promise<never> => {
     const conflictPath = collabConflictPath(path);
-    await invoke("write_project_file", { path: conflictPath, content: localContent });
-    await invoke("write_project_file", { path, content: sharedContent });
+    await write(conflictPath, localContent);
+    await write(path, sharedContent);
     throw new CollabTextConflictError(
       `${path} changed in both editors. The shared version was kept and your version was saved as ${conflictPath}.`,
     );
@@ -223,7 +238,7 @@ export async function publishLocalTextToCollab(
       return saveConflict(local, shared);
     }
     // Disk first: if this fails, no collaboration update escapes this client.
-    await invoke("write_project_file", { path, content: merged });
+    await write(path, merged);
     if (ytext.toString() !== shared) {
       // A peer edited while disk was being written. Treat the just-merged text
       // as our local side and merge once more against the newly shared state.
@@ -237,9 +252,22 @@ export async function publishLocalTextToCollab(
   return saveConflict(local, ytext.toString());
 }
 
-export async function pushLocalBlobToCollab(doc: Y.Doc, path: string): Promise<void> {
+export async function pushLocalBlobToCollab(
+  doc: Y.Doc,
+  path: string,
+  scope?: { projectRoot: string; isCurrent: () => boolean },
+): Promise<void> {
   if (classifySyncablePath(path) !== "blob") return;
-  const asset = await invoke<AssetPreview>("read_project_asset", { path });
+  if (scope && !scope.isCurrent()) {
+    throw new Error("The project changed before the shared asset could be published.");
+  }
+  const asset = await invoke<AssetPreview>("read_project_asset", {
+    path,
+    ...(scope ? { projectRoot: scope.projectRoot } : {}),
+  });
+  if (scope && !scope.isCurrent()) {
+    throw new Error("The project changed before the shared asset could be published.");
+  }
   if (estimateBase64Bytes(asset.base64) > MAX_COLLAB_BLOB_BYTES) {
     throw new Error(`${path} is larger than 15 MB and cannot sync.`);
   }

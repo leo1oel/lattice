@@ -9,16 +9,21 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Cloud, LoaderCircle, Search } from "lucide-react";
+import { Cloud } from "lucide-react";
 import { Badge } from "./components/ui/badge";
+import { InfinityLoader, ReloadButton } from "./components/ui/activity-icons";
 import { Button } from "./components/ui/button";
 import { buttonClassName } from "./components/ui/button-styles";
 import { CheckboxField } from "./components/ui/checkbox-field";
 import { EmptyState } from "./components/ui/empty-state";
 import { Field } from "./components/ui/field";
+import { Input } from "./components/ui/input";
 import { PanelHeader } from "./components/ui/panel-header";
+import { ScrollArea } from "./components/ui/scroll-area";
+import { SearchField } from "./components/ui/search-field";
 import { rowClassName } from "./components/ui/row";
 import { SettingsSectionHeader } from "./components/ui/settings-section-header";
+import { Textarea } from "./components/ui/textarea";
 import { MotionButton } from "./motion";
 import { ResizableDrawer } from "./resizable-drawer";
 import {
@@ -144,7 +149,7 @@ function LoginWaitingRow(props: { onCancel: () => void; hint?: string | null }) 
   return (
     <>
       <div className="overleaf-waiting">
-        <LoaderCircle className="spin" size={15} />
+        <InfinityLoader size={15} />
         <span>Waiting for you to sign in in the Overleaf window…</span>
         <Button size="compact" variant="ghost" onClick={props.onCancel}>Cancel</Button>
       </div>
@@ -155,6 +160,7 @@ function LoginWaitingRow(props: { onCancel: () => void; hint?: string | null }) 
 
 /** Settings → Overleaf tab: connection status, sign-in, and the manual fallback. */
 export function OverleafSettingsSection(props: {
+  projectRoot: string | null;
   syncMode: OverleafSyncMode;
   onSyncModeChange: (mode: OverleafSyncMode) => void;
   /** What deleting a file here should do to Overleaf's copy. */
@@ -184,10 +190,10 @@ export function OverleafSettingsSection(props: {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setLoadError(null);
     try {
       const result = await invoke<OverleafStatus>("overleaf_status");
       setStatus(result);
+      setLoadError(null);
       if (result.host) setHost(result.host);
     } catch (reason) {
       setLoadError(toMessage(reason));
@@ -211,6 +217,10 @@ export function OverleafSettingsSection(props: {
    * to offer nothing better than a conflict copy of every file that differs.
    */
   const setPaused = async (paused: boolean) => {
+    if (!props.projectRoot) {
+      setActionError("Open the linked Overleaf project before changing its sync setting.");
+      return;
+    }
     if (paused && !await confirmAction(
       "Pause syncing with Overleaf?\n\n"
       + "Nothing is sent or fetched until you resume, and live editing, chat and "
@@ -220,7 +230,10 @@ export function OverleafSettingsSection(props: {
     )) return;
     setActionError(null);
     try {
-      await invoke("overleaf_set_paused", { paused });
+      await invoke("overleaf_set_paused", {
+        projectRoot: props.projectRoot,
+        paused,
+      });
       setLink((current) => (current ? { ...current, paused } : current));
       props.onLinkChanged();
     } catch (reason) {
@@ -274,18 +287,26 @@ export function OverleafSettingsSection(props: {
         title="Overleaf"
         description="Connect your Overleaf account to open and sync your Overleaf projects directly in Lattice."
       />
-      {loading && (
+      {loading && !loadError && (
         <EmptyState
           align="start"
           density="compact"
+          icon={<InfinityLoader size={15} />}
           description="Checking your Overleaf connection…"
         />
       )}
-      {!loading && loadError && (
+      {loadError && (
         <>
           <p className="overleaf-error" role="alert">{loadError}</p>
           <div className="overleaf-retry-row">
-            <Button size="compact" onClick={() => void load()}>Try again</Button>
+            <ReloadButton
+              size="compact"
+              busy={loading}
+              disabled={loading}
+              onClick={() => void load()}
+            >
+              Try again
+            </ReloadButton>
           </div>
         </>
       )}
@@ -358,7 +379,8 @@ export function OverleafSettingsSection(props: {
             {props.syncMode === "live" && (
               <small className={`overleaf-channel overleaf-channel-${props.channel}`}>
                 {props.channel === "live" && "Connected to Overleaf's editing channel."}
-                {props.channel === "connecting" && "Connecting to Overleaf's editing channel…"}
+                {props.channel === "connecting"
+                  && (props.channelDetail || "Connecting to Overleaf's editing channel…")}
                 {props.channel === "off" && "Open a linked project to start editing live."}
                 {props.channel === "error"
                   && `Live editing could not start${props.channelDetail ? `: ${props.channelDetail}` : ""}. Your project still syncs.`}
@@ -423,7 +445,8 @@ export function OverleafSettingsSection(props: {
           Only needed if your lab runs its own Overleaf server (Community or Server Pro), or if the sign-in window doesn’t work.
         </p>
         <Field label="Server address" htmlFor="overleaf-server-address">
-          <input
+          <Input
+            controlSize="form"
             id="overleaf-server-address"
             type="text"
             value={host}
@@ -432,7 +455,8 @@ export function OverleafSettingsSection(props: {
           />
         </Field>
         <Field label="Session cookie" htmlFor="overleaf-session-cookie">
-          <textarea
+          <Textarea
+            font="mono"
             id="overleaf-session-cookie"
             value={cookie}
             placeholder="overleaf_session2=…"
@@ -465,6 +489,10 @@ export function OverleafSettingsSection(props: {
 export function OverleafPickerDialog(props: {
   open: boolean;
   onClose: () => void;
+  /** Invalidate work scoped to the currently open project before root changes. */
+  onBeforeClone?: () => boolean;
+  /** Restore the old project identity when the root-changing request fails. */
+  onCloneCancelled?: () => void;
   onCloned: (root: string) => void;
   onOpenSettings: () => void;
 }) {
@@ -472,6 +500,7 @@ export function OverleafPickerDialog(props: {
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [projects, setProjects] = useState<OverleafProject[] | null>(null);
+  const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -483,9 +512,9 @@ export function OverleafPickerDialog(props: {
 
   const loadStatus = useCallback(async () => {
     setStatusLoading(true);
-    setStatusError(null);
     try {
       setStatus(await invoke<OverleafStatus>("overleaf_status"));
+      setStatusError(null);
     } catch (reason) {
       setStatusError(toMessage(reason));
     }
@@ -493,12 +522,15 @@ export function OverleafPickerDialog(props: {
   }, []);
 
   const loadProjects = useCallback(async () => {
+    setProjectsLoading(true);
     setProjects(null);
-    setProjectsError(null);
     try {
       setProjects(await invoke<OverleafProject[]>("overleaf_list_projects"));
+      setProjectsError(null);
     } catch (reason) {
       setProjectsError(toMessage(reason));
+    } finally {
+      setProjectsLoading(false);
     }
   }, []);
 
@@ -511,6 +543,7 @@ export function OverleafPickerDialog(props: {
     setCloning(null);
     setCloneError(null);
     setProjects(null);
+    setProjectsLoading(false);
     setProjectsError(null);
     void loadStatus();
   }, [props.open, loadStatus]);
@@ -543,9 +576,14 @@ export function OverleafPickerDialog(props: {
           + "Cancel — download a separate copy into a new folder and leave that one alone.",
         );
       }
+      if (props.onBeforeClone?.() === false) {
+        setCloning(null);
+        return;
+      }
       const root = await invoke<string>("overleaf_clone_project", {
         projectId: project.id,
         name: project.name,
+        accessLevel: project.accessLevel,
         adopt,
       });
       setCloning(null);
@@ -553,6 +591,7 @@ export function OverleafPickerDialog(props: {
       onClose();
     } catch (reason) {
       setCloning(null);
+      props.onCloneCancelled?.();
       // A project that is already downloaded now simply opens, so there is no
       // longer a "move the folder aside yourself" case to explain.
       setCloneError(toMessage(reason));
@@ -583,17 +622,24 @@ export function OverleafPickerDialog(props: {
         onClose={onClose}
       />
       <div className="modal overleaf-picker-modal overleaf-picker-drawer-content">
-        {statusLoading && (
+        {statusLoading && !statusError && (
           <div className="overleaf-loading">
-            <LoaderCircle className="spin" size={15} />
+            <InfinityLoader size={15} />
             <span>Checking your Overleaf connection…</span>
           </div>
         )}
-        {!statusLoading && statusError && (
+        {statusError && (
           <>
             <p className="overleaf-error" role="alert">{statusError}</p>
             <div className="overleaf-retry-row">
-              <Button size="compact" onClick={() => void loadStatus()}>Retry</Button>
+              <ReloadButton
+                size="compact"
+                busy={statusLoading}
+                disabled={statusLoading}
+                onClick={() => void loadStatus()}
+              >
+                Retry
+              </ReloadButton>
             </div>
           </>
         )}
@@ -625,18 +671,16 @@ export function OverleafPickerDialog(props: {
           <>
             <p>Pick a project to download. Lattice keeps a local copy you can edit offline and sync back to Overleaf later.</p>
             <div className="overleaf-picker-controls">
-              <div className="overleaf-search">
-                <Search size={13} />
-                <input
-                  type="text"
-                  aria-label="Search Overleaf projects"
-                  placeholder="Search by project or owner…"
-                  autoFocus
-                  value={search}
-                  disabled={Boolean(cloning)}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </div>
+              <SearchField
+                aria-label="Search Overleaf projects"
+                containerClassName="overleaf-search"
+                placeholder="Search by project or owner…"
+                autoFocus
+                value={search}
+                disabled={Boolean(cloning)}
+                onChange={(event) => setSearch(event.target.value)}
+                onClear={() => setSearch("")}
+              />
               <CheckboxField
                 className="overleaf-checkbox"
                 checked={showArchived}
@@ -649,13 +693,20 @@ export function OverleafPickerDialog(props: {
               <>
                 <p className="overleaf-error" role="alert">{projectsError}</p>
                 <div className="overleaf-retry-row">
-                  <Button size="compact" onClick={() => void loadProjects()}>Retry</Button>
+                  <ReloadButton
+                    size="compact"
+                    busy={projectsLoading}
+                    disabled={projectsLoading}
+                    onClick={() => void loadProjects()}
+                  >
+                    Retry
+                  </ReloadButton>
                 </div>
               </>
             )}
             {!projectsError && projects === null && (
               <div className="overleaf-loading">
-                <LoaderCircle className="spin" size={15} />
+                <InfinityLoader size={15} />
                 <span>Loading your Overleaf projects…</span>
               </div>
             )}
@@ -669,59 +720,65 @@ export function OverleafPickerDialog(props: {
               </p>
             )}
             {!projectsError && projects !== null && visible.length > 0 && (
-              <ul className="overleaf-project-list" aria-label="Overleaf projects">
-                {visible.map((project) => (
-                  <li
-                    key={project.id}
-                    className={rowClassName(
-                      "store",
-                      `overleaf-project-row${selected === project.id ? " selected" : ""}`,
-                    )}
-                  >
-                    <button
-                      type="button"
-                      className="overleaf-project-main"
-                      disabled={Boolean(cloning)}
-                      onClick={() => { setSelected(project.id); setCloneError(null); }}
+              <ScrollArea
+                className="overleaf-project-list-scroll"
+                orientation="vertical"
+                viewportProps={{ "aria-label": "Overleaf projects" }}
+              >
+                <ul className="overleaf-project-list">
+                  {visible.map((project) => (
+                    <li
+                      key={project.id}
+                      className={rowClassName(
+                        "store",
+                        `overleaf-project-row${selected === project.id ? " selected" : ""}`,
+                      )}
                     >
-                      <span className="overleaf-project-name">
-                        {project.name}
-                        {project.trashed
-                          ? <Badge size="compact">Trashed</Badge>
-                          : project.archived
-                            ? <Badge size="compact">Archived</Badge>
-                            : null}
-                      </span>
-                      <span className="overleaf-project-meta">
-                        {project.ownerName || project.ownerEmail || "Unknown owner"}
-                        {" · "}
-                        {project.lastUpdated ? `updated ${relativeTime(project.lastUpdated)}` : "last update unknown"}
-                      </span>
-                    </button>
-                    {selected === project.id && (
-                      cloning?.id === project.id
-                        ? <LoaderCircle className="spin overleaf-row-spinner" size={15} />
-                        : (
-                          <MotionButton
-                            className={buttonClassName({
-                              variant: "primary",
-                              size: "compact",
-                              className: "overleaf-open-button",
-                            })}
-                            disabled={Boolean(cloning)}
-                            onClick={() => void clone(project)}
-                          >
-                            Open
-                          </MotionButton>
-                        )
-                    )}
-                  </li>
-                ))}
-              </ul>
+                      <button
+                        type="button"
+                        className="overleaf-project-main"
+                        disabled={Boolean(cloning)}
+                        onClick={() => { setSelected(project.id); setCloneError(null); }}
+                      >
+                        <span className="overleaf-project-name">
+                          {project.name}
+                          {project.trashed
+                            ? <Badge size="compact">Trashed</Badge>
+                            : project.archived
+                              ? <Badge size="compact">Archived</Badge>
+                              : null}
+                        </span>
+                        <span className="overleaf-project-meta">
+                          {project.ownerName || project.ownerEmail || "Unknown owner"}
+                          {" · "}
+                          {project.lastUpdated ? `updated ${relativeTime(project.lastUpdated)}` : "last update unknown"}
+                        </span>
+                      </button>
+                      {selected === project.id && (
+                        cloning?.id === project.id
+                          ? <InfinityLoader className="overleaf-row-spinner" size={15} />
+                          : (
+                            <MotionButton
+                              className={buttonClassName({
+                                variant: "primary",
+                                size: "compact",
+                                className: "overleaf-open-button",
+                              })}
+                              disabled={Boolean(cloning)}
+                              onClick={() => void clone(project)}
+                            >
+                              Open
+                            </MotionButton>
+                          )
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
             )}
             {cloning && (
               <div className="overleaf-progress">
-                <LoaderCircle className="spin" size={15} />
+                <InfinityLoader size={15} />
                 <span>Downloading {cloning.name} from Overleaf… this can take a minute for large projects.</span>
               </div>
             )}

@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Clock3, History, RotateCcw, Trash2 } from "lucide-react";
+import { Clock3, History, RotateCcw } from "lucide-react";
 import { EmptyState } from "./components/ui/empty-state";
+import { DestructiveButton } from "./components/ui/destructive-button";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { PanelHeader } from "./components/ui/panel-header";
 import { HistoryDiff, VersionsTimeline, versionsTimelineCss } from "./versions-timeline";
 import { OverleafHistoryPanel } from "./overleaf-history";
@@ -72,6 +74,8 @@ export function HistoryDrawer(props: {
   onVersionsChanged?: () => void;
   /** Overleaf keeps its own history server-side; offer it only when linked. */
   overleafLinked?: boolean;
+  /** Root captured with the Overleaf link, used to scope every history action. */
+  overleafProjectRoot?: string;
   /** After a restore on Overleaf's side, which leaves the local files untouched. */
   onOverleafRestored?: () => void;
 }) {
@@ -154,6 +158,7 @@ export function HistoryDrawer(props: {
         />
         {tab === "overleaf" && props.overleafLinked && (
           <OverleafHistoryPanel
+            projectRoot={props.overleafProjectRoot ?? ""}
             onClose={props.onClose}
             onOpenFile={props.onOpenFile}
             onRestored={props.onOverleafRestored}
@@ -230,7 +235,7 @@ export function HistoryDrawer(props: {
                       </button>
                       {expanded && (
                         <div className="history-entry-preview">
-                          {loadingId === item.id && <p className="history-diff-loading">Loading diff…</p>}
+                          {loadingId === item.id && <p className="history-diff-loading"><InfinityLoader size={12} /> Loading diff…</p>}
                           {error && expandedId === item.id && <p className="history-diff-error" role="alert">{error}</p>}
                           {item.kind === "agent-checkpoint" && (
                             <div className="history-checkpoint-summary">
@@ -301,7 +306,12 @@ export function HistoryDrawer(props: {
                         <RotateCcw size={14} />
                       </button>
                       {item.kind !== "agent-checkpoint" && (
-                        <button type="button" className="history-delete" title="Delete this history entry" onClick={() => props.onDelete(item.id)}><Trash2 size={13} /></button>
+                        <DestructiveButton
+                          className="history-delete"
+                          title="Delete this history entry"
+                          iconSize={13}
+                          onClick={() => props.onDelete(item.id)}
+                        />
                       )}
                     </div>
                   </div>

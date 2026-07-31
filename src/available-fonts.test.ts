@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EDITOR_FONT_OPTIONS,
+  FIXED_EDITOR_FONT,
   UI_FONT_OPTIONS,
   availableFontOptions,
   isFontAvailable,
@@ -8,31 +9,32 @@ import {
 } from "./available-fonts";
 
 describe("available fonts", () => {
-  it("keeps the bundled fixed UI font even when it measures like monospace", () => {
+  it("keeps fixed application fonts even when they measure like monospace", () => {
     const measure = () => 100;
-    const available = availableFontOptions(UI_FONT_OPTIONS, measure);
-    expect(available.map((option) => option.family)).toEqual(["Inter Variable"]);
+    expect(availableFontOptions(UI_FONT_OPTIONS, measure).map((option) => option.family))
+      .toEqual(["Inter Variable"]);
+    expect(availableFontOptions(EDITOR_FONT_OPTIONS, measure).map((option) => option.family))
+      .toEqual(["JetBrains Mono Variable"]);
   });
 
-  it("hides MonoLisa when metrics match the monospace fallback", () => {
-    const measure = (font: string) => (font.includes("SF Mono") ? 130 : 100);
-    const available = availableFontOptions(EDITOR_FONT_OPTIONS, measure);
-    expect(available.map((option) => option.family)).toEqual(["Menlo", "JetBrains Mono", "SF Mono"]);
-    expect(available.some((option) => option.family === "MonoLisa")).toBe(false);
-  });
-
-  it("falls back from a stored MonoLisa preference when missing", () => {
+  it("normalizes a stored alternate editor font to the fixed code stack", () => {
     const measure = () => 100;
     expect(
       resolveFontValue('"MonoLisa", Menlo, monospace', EDITOR_FONT_OPTIONS, "Menlo, ui-monospace, monospace", measure),
-    ).toBe("Menlo, ui-monospace, monospace");
+    ).toBe(FIXED_EDITOR_FONT);
   });
 
-  it("keeps a stored Menlo preference when available", () => {
+  it("keeps the fixed code stack when it is already stored", () => {
     const measure = () => 100;
     expect(
-      resolveFontValue("Menlo, ui-monospace, monospace", EDITOR_FONT_OPTIONS, "Menlo, ui-monospace, monospace", measure),
-    ).toBe("Menlo, ui-monospace, monospace");
+      resolveFontValue(FIXED_EDITOR_FONT, EDITOR_FONT_OPTIONS, "Menlo, ui-monospace, monospace", measure),
+    ).toBe(FIXED_EDITOR_FONT);
+  });
+
+  it("prefers TX-02 before the bundled JetBrains Mono fallback", () => {
+    expect(FIXED_EDITOR_FONT.indexOf('"TX-02 Variable"')).toBeLessThan(
+      FIXED_EDITOR_FONT.indexOf('"JetBrains Mono Variable"'),
+    );
   });
 
   it("treats the system UI stack as always available", () => {

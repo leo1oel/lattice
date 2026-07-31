@@ -110,40 +110,6 @@ export function IconSwap({ swapKey, children }: { swapKey: string; children: Rea
   );
 }
 
-/**
- * Icon button that spins its contents one full turn on each click (a satisfying
- * refresh gesture) and spins continuously while `busy`. Falls back to the same
- * className so existing button styles apply.
- */
-export const SpinButton = forwardRef<HTMLButtonElement, HTMLMotionProps<"button"> & { busy?: boolean }>(
-  function SpinButton({ busy = false, onClick, children, ...rest }, ref) {
-    const [turns, setTurns] = useState(0);
-    return (
-      <motion.button
-        ref={ref}
-        transition={PRESS_SPRING}
-        onClick={(event) => {
-          setTurns((value) => value + 1);
-          onClick?.(event);
-        }}
-        {...rest}
-      >
-        <motion.span
-          style={{ display: "inline-flex" }}
-          animate={busy ? { rotate: 360 } : { rotate: turns * 360 }}
-          transition={
-            busy
-              ? { repeat: Infinity, duration: 0.8, ease: "linear" }
-              : { type: "spring", stiffness: 240, damping: 22, mass: 0.7 }
-          }
-        >
-          {children}
-        </motion.span>
-      </motion.button>
-    );
-  },
-);
-
 /** Spring pop-in wrapper for overlays (dialogs, menus, cards). */
 export function PopIn({ children, ...rest }: HTMLMotionProps<"div">) {
   return (

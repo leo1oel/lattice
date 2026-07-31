@@ -130,16 +130,17 @@
 
 .overleaf-thread-reply { display: flex; flex-direction: column; gap: 6px; }
 .overleaf-thread-reply textarea {
+  min-height: 56px;
   resize: vertical;
   font-size: 12px;
   line-height: 1.5;
   padding: 6px 8px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--line);
-  background: var(--bg);
+  border-radius: var(--field-control-radius);
+  border: var(--field-control-border-width) solid var(--field-control-border-color);
+  background: var(--field-control-background);
   color: var(--text);
 }
-.overleaf-thread-reply textarea:focus { outline: none; border-color: var(--accent); }
+.overleaf-thread-reply textarea:focus { outline: none; border-color: var(--field-control-interactive-border-color); box-shadow: none; }
 
 .overleaf-thread-filter { flex: none; margin-bottom: 6px; }
 

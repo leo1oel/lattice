@@ -12,17 +12,21 @@ import {
   FileX2,
   GitBranch,
   MoveRight,
-  RefreshCw,
   RotateCcw,
   Save,
   X,
 } from "lucide-react";
-import type { GitFileDiff, GitLogEntry, GitLogFileKind } from "./app-types";
-import type { GitStatus } from "./git-panel";
+import type { GitFileDiff, GitLogEntry, GitLogFileKind, GitStatus } from "./app-types";
 import { peerColorForName } from "./collab-colors";
 import { confirmAction, relativeTime } from "./app-utils";
 import { changeKind } from "./history-diff";
 import { FileDiffView } from "./file-diff-view";
+import {
+  InfinityLoader,
+  ReloadButton,
+  ReloadIconButton,
+} from "./components/ui/activity-icons";
+import { Input } from "./components/ui/input";
 
 export type DiffFileChange = {
   path: string;
@@ -75,6 +79,7 @@ export function VersionsTimeline(props: {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedHash, setExpandedHash] = useState<string | null>(null);
   const [activeFile, setActiveFile] = useState<{ hash: string; path: string } | null>(null);
   const [diff, setDiff] = useState<GitFileDiff | null>(null);
@@ -89,6 +94,7 @@ export function VersionsTimeline(props: {
   const diffSeq = useRef(0);
 
   const load = useCallback(async () => {
+    setRefreshing(true);
     setError("");
     try {
       const status = await invoke<GitStatus>("git_status");
@@ -113,6 +119,8 @@ export function VersionsTimeline(props: {
       setError(message(reason));
       setPhase("error");
       callbacksRef.current.onGitUnreachable?.();
+    } finally {
+      setRefreshing(false);
     }
   }, []);
 
@@ -222,7 +230,7 @@ export function VersionsTimeline(props: {
   };
 
   if (phase === "loading") {
-    return <p className="versions-loading">Loading versions…</p>;
+    return <p className="versions-loading"><InfinityLoader size={13} /> Loading versions…</p>;
   }
   if (phase === "unavailable") {
     return (
@@ -235,16 +243,14 @@ export function VersionsTimeline(props: {
     return (
       <div className="versions-empty">
         <p className="versions-error" role="alert">Version history is unavailable: {error}</p>
-        <button
-          type="button"
+        <ReloadButton
           className="versions-save"
-          onClick={() => {
-            setPhase("loading");
-            void load();
-          }}
+          busy={refreshing}
+          disabled={refreshing}
+          onClick={() => void load()}
         >
-          <RefreshCw size={12} /> Try again
-        </button>
+          Try again
+        </ReloadButton>
       </div>
     );
   }
@@ -267,7 +273,7 @@ export function VersionsTimeline(props: {
 
   const renderDiff = (target: { hash: string; path: string }) => {
     if (diffError) return <p className="history-diff-error" role="alert">{diffError}</p>;
-    if (!diff) return <p className="history-diff-loading">Loading diff…</p>;
+    if (!diff) return <p className="history-diff-loading"><InfinityLoader size={12} /> Loading diff…</p>;
     const restoreButton = (
       <button
         type="button"
@@ -305,8 +311,9 @@ export function VersionsTimeline(props: {
       <div className="versions-header">
         {saveOpen ? (
           <form className="versions-save-form" onSubmit={(event) => void submitSave(event)}>
-            <input
+            <Input
               className="versions-save-input"
+              controlSize="compact"
               autoFocus
               placeholder="Label this version (optional)"
               aria-label="Version label"
@@ -341,14 +348,15 @@ export function VersionsTimeline(props: {
             >
               <Save size={12} /> Save version
             </button>
-            <button
-              type="button"
+            <ReloadIconButton
               className="versions-refresh"
-              title="Refresh versions"
+              label="Refresh versions"
+              tooltip="Refresh versions"
+              busy={refreshing}
+              disabled={refreshing || busy}
               onClick={() => void load()}
-            >
-              <RefreshCw size={13} />
-            </button>
+              iconSize={13}
+            />
           </>
         )}
       </div>
@@ -437,6 +445,7 @@ export const versionsTimelineCss = `
 /* The accent rule is the sliding indicator, not a static border. */
 .versions-tab.active { color: var(--text); }
 .versions-loading, .versions-note { margin: 14px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.versions-loading { display: flex; align-items: center; gap: 6px; }
 .versions-error { margin: 8px 0 0; color: var(--danger); font-size: 10px; }
 .versions-notice { margin: 8px 0 0; color: var(--success); font-size: 10px; }
 .versions-empty { margin-top: 14px; display: grid; gap: 10px; justify-items: start; }
@@ -446,8 +455,8 @@ export const versionsTimelineCss = `
 .versions-save { height: 25px; border: 1px solid var(--line-strong); border-radius: 7px; padding: 0 9px; background: transparent; color: var(--text); display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 600; }
 .versions-save:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong)); }
 .versions-save-form { display: flex; flex: 1; align-items: center; gap: 6px; }
-.versions-save-input { flex: 1; min-width: 0; height: 25px; border: 1px solid var(--line-strong); border-radius: 7px; padding: 0 8px; background: var(--bg); color: var(--text); font-size: 11px; }
-.versions-save-input:focus { border-color: var(--accent); outline: none; }
+.versions-save-input { flex: 1; min-width: 0; height: 25px; border-color: var(--field-control-border-color); border-radius: var(--field-control-radius); padding: 0 var(--field-control-padding-inline); background: var(--field-control-background); color: var(--text); font-size: 11px; }
+.versions-save-input:focus { border-color: var(--field-control-interactive-border-color); outline: none; box-shadow: none; }
 .versions-refresh { width: 26px; height: 26px; margin-left: auto; border-radius: 7px; background: transparent; display: grid; place-items: center; color: var(--muted); }
 .versions-refresh:hover { background: var(--line); color: var(--text); }
 .versions-save-form .versions-refresh { margin-left: 0; }

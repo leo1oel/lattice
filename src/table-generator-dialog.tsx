@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Grid3x3 } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { CheckboxField } from "./components/ui/checkbox-field";
+import { Input } from "./components/ui/input";
 import { PanelHeader } from "./components/ui/panel-header";
 import { buildTabularSnippet, clampTableSize, type TableGeneratorOptions } from "./table-generator";
 
@@ -41,7 +42,7 @@ export function TableGeneratorDialog(props: {
         <div className="table-generator-form">
           <label>
             Rows
-            <input
+            <Input
               type="number"
               min={1}
               max={20}
@@ -51,7 +52,7 @@ export function TableGeneratorDialog(props: {
           </label>
           <label>
             Columns
-            <input
+            <Input
               type="number"
               min={1}
               max={20}
@@ -73,11 +74,11 @@ export function TableGeneratorDialog(props: {
             <>
               <label>
                 Caption
-                <input value={caption} onChange={(event) => setCaption(event.target.value)} />
+                <Input value={caption} onChange={(event) => setCaption(event.target.value)} />
               </label>
               <label>
                 Label
-                <input value={label} onChange={(event) => setLabel(event.target.value)} />
+                <Input value={label} onChange={(event) => setLabel(event.target.value)} />
               </label>
             </>
           )}

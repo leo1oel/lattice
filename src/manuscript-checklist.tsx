@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ClipboardCheck } from "lucide-react";
 import { PanelHeader } from "./components/ui/panel-header";
+import { Input } from "./components/ui/input";
 import { ResizableDrawer } from "./resizable-drawer";
 
 export type ManuscriptChecklistData = {
@@ -108,7 +109,8 @@ export function ManuscriptChecklistPanel(props: {
         <div className="checklist-budgets">
           <label>
             Word budget
-            <input
+            <Input
+              controlSize="compact"
               inputMode="numeric"
               value={wordBudget}
               placeholder="e.g. 5500"
@@ -117,7 +119,8 @@ export function ManuscriptChecklistPanel(props: {
           </label>
           <label>
             Page budget
-            <input
+            <Input
+              controlSize="compact"
               inputMode="numeric"
               value={pageBudget}
               placeholder="e.g. 9"

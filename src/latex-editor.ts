@@ -20,6 +20,7 @@ import {
   texlabHoverTooltip,
 } from "./texlab-language";
 import { compactSearchPanel } from "./search-panel";
+import infinityLoaderUrl from "../infinity-loader.svg";
 
 const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite";
 const REFERENCE_COMMANDS = "ref|eqref|pageref|autoref|cref|Cref";
@@ -1145,7 +1146,14 @@ function referenceTooltips(
         if (reference.imagePath && loadImage) {
           const media = document.createElement("div");
           media.className = "reference-hover-media loading";
-          media.textContent = "Loading figure preview…";
+          media.setAttribute("role", "status");
+          const loader = document.createElement("img");
+          loader.src = infinityLoaderUrl;
+          loader.alt = "";
+          loader.className = "reference-hover-loader";
+          const loadingLabel = document.createElement("span");
+          loadingLabel.textContent = "Loading figure preview…";
+          media.replaceChildren(loader, loadingLabel);
           dom.append(media);
           void loadImage(reference.imagePath).then((source) => {
             if (destroyed) return;

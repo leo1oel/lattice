@@ -48,9 +48,9 @@ It targets Apple Silicon Macs and ships signed auto-updates.
 
 - Ask a local Codex or Claude Code session to make evidence-aware edits while its response streams into the conversation.
 - Switch between Codex and Claude between messages, with current model names and model-specific reasoning-effort controls.
-- Sign in through Oh My Pi from Settings, or use your own OpenAI or Anthropic API key stored in the macOS Keychain.
-- Manage bundled, all-project, and project-only skills from Settings without installing anything into a global agent directory.
-- Create, search, restore, and delete project-local conversations, copy any message, or edit an earlier message to branch a new attempt while restoring the project files to that turn.
+- Configure provider accounts, models, skills, and MCP servers from the embedded Synara Settings.
+- Pi support is included in the packaged Synara runtime; Codex, Claude, and other CLI-backed providers use the compatible tools detected on the user's machine.
+- Create, search, restore, and delete conversations, copy any message, or edit an earlier message to branch a new attempt.
 
 ### History and layout
 
@@ -79,7 +79,7 @@ Install these first:
 - Rust and Cargo.
 - MacTeX or TeX Live with `latexmk`.
 - `uv`, which runs `arxiv2md` and provides the `bibcite` fallback.
-- A Codex or Claude subscription signed in through Oh My Pi, or an OpenAI or Anthropic API key.
+- Credentials or subscriptions for whichever Synara providers you plan to use.
 
 Installing `bibcite` as a persistent tool avoids its one-time fallback startup cost:
 
@@ -134,9 +134,7 @@ paper-project/
     ├── brief.md
     ├── papers/<arxiv-id>/paper.md
     ├── history/<transaction-id>.json
-    ├── sessions/<conversation-id>.json
-    ├── omp-sessions/<omp-session>.jsonl
-    └── omp-session-map/<conversation-id>.json
+    └── sessions/<conversation-id>.json
 ```
 
 The manuscript still builds if `.research` is removed.

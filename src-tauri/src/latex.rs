@@ -343,16 +343,33 @@ pub fn forward_search(
     if !root.join(&pdf_path).is_file() {
         return Err("Build the project before locating source in the PDF.".to_string());
     }
-    let column = if column == 0 {
+    let mut lookup_path = relative.clone();
+    let mut lookup_line = line;
+    let mut lookup_column = if column == 0 {
         0
     } else {
         column.saturating_sub(1)
     };
+    if Path::new(&relative)
+        .extension()
+        .and_then(|value| value.to_str())
+        == Some("bib")
+    {
+        let bbl_path = Path::new(&document.path).with_extension("bbl");
+        let Some(target) =
+            project::bbl_target_for_bib(root, Path::new(&relative), &bbl_path, line)?
+        else {
+            return Err("This bibliography entry is not included in the compiled PDF.".to_string());
+        };
+        lookup_path = target.path;
+        lookup_line = target.line;
+        lookup_column = 0;
+    }
     let output = commands::command("synctex")
         .current_dir(root)
         .arg("view")
         .arg("-i")
-        .arg(format!("{line}:{column}:{relative}"))
+        .arg(format!("{lookup_line}:{lookup_column}:{lookup_path}"))
         .arg("-o")
         .arg(pdf_path.display().to_string())
         .output()
@@ -364,10 +381,7 @@ pub fn forward_search(
         ));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    if stdout.trim().is_empty() {
-        return Ok(None);
-    }
-    Ok(parse_synctex_view(&stdout)?.into_iter().next())
+    first_synctex_view_target(&stdout)
 }
 
 fn parse_synctex_edit(output: &str) -> Result<(String, u32), String> {
@@ -412,6 +426,16 @@ fn parse_synctex_view(output: &str) -> Result<Vec<PdfSyncTarget>, String> {
         return Err("SyncTeX output contained no result block.".to_string());
     }
     Ok(targets)
+}
+
+fn first_synctex_view_target(output: &str) -> Result<Option<PdfSyncTarget>, String> {
+    // A successful `synctex view` prints only its version banner when the
+    // source line has no PDF node (common for declarations in .sty files).
+    // That is a valid no-match, not malformed SyncTeX data.
+    if !output.contains("SyncTeX result begin") {
+        return Ok(None);
+    }
+    Ok(parse_synctex_view(output)?.into_iter().next())
 }
 
 fn field_u32(block: &str, prefix: &str) -> Result<u32, String> {
@@ -706,6 +730,12 @@ mod tests {
     }
 
     #[test]
+    fn treats_a_successful_synctex_banner_as_no_forward_match() {
+        let output = "This is SyncTeX command line utility, version 1.5\n";
+        assert!(first_synctex_view_target(output).unwrap().is_none());
+    }
+
+    #[test]
     fn treats_a_zero_page_as_no_forward_synctex_match() {
         let output = concat!(
             "SyncTeX result begin\nOutput:main.pdf\nPage:0\n",
@@ -731,6 +761,42 @@ mod tests {
         let result = build(&root, false, &new_active_build()).unwrap();
         assert!(result.success, "{}", result.log);
         assert!(result.pdf_base64.is_some());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    #[ignore = "requires a local latexmk and bibtex installation"]
+    fn forward_searches_from_a_bib_entry_through_the_generated_bbl() {
+        let parent = temp_root();
+        fs::create_dir_all(&parent).unwrap();
+        let root = project::create(&parent, "Bibliography sync").unwrap();
+        fs::write(
+            root.join("main.tex"),
+            "\\documentclass{article}\n\
+             \\begin{document}\n\
+             See \\cite{smith2020}.\n\
+             \\bibliographystyle{plain}\n\
+             \\bibliography{references}\n\
+             \\end{document}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{smith2020,\n\
+             title = {A Useful Paper},\n\
+             author = {Smith, Jane},\n\
+             year = {2020}\n\
+             }\n",
+        )
+        .unwrap();
+
+        let result = build(&root, true, &new_active_build()).unwrap();
+        assert!(result.success, "{}", result.log);
+        let target = forward_search(&root, "references.bib", 3, 0)
+            .unwrap()
+            .expect("the generated bibliography item should have a PDF position");
+        assert_eq!(target.page, 1);
+        assert!(target.x.is_finite() && target.y.is_finite());
         fs::remove_dir_all(parent).unwrap();
     }
 

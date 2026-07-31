@@ -91,6 +91,32 @@ describe("pushLocalTextToCollab", () => {
     expect(text.toString()).toBe("abc");
   });
 
+  it("scopes disk writes and does not publish after the project changes", async () => {
+    const doc = new Y.Doc();
+    const text = ensureCollabText(doc, "main.tex");
+    setCollabTextContent(text, "abc");
+    let current = true;
+    vi.mocked(invoke).mockImplementationOnce(async () => {
+      current = false;
+      return null;
+    });
+
+    await expect(publishLocalTextToCollab(
+      doc,
+      "main.tex",
+      "abc",
+      "aXbc",
+      { projectRoot: "/tmp/project-a", isCurrent: () => current },
+    )).rejects.toThrow(/project changed/i);
+
+    expect(invoke).toHaveBeenCalledWith("write_project_file", {
+      path: "main.tex",
+      content: "aXbc",
+      projectRoot: "/tmp/project-a",
+    });
+    expect(text.toString()).toBe("abc");
+  });
+
   it("re-merges when a peer edits while the disk write is in flight", async () => {
     const host = new Y.Doc();
     const hostText = ensureCollabText(host, "main.tex");

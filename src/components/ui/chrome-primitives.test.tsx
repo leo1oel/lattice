@@ -5,10 +5,19 @@ import { Button } from "./button";
 import { buttonClassName } from "./button-styles";
 import { Checkbox } from "./checkbox";
 import { CheckboxField } from "./checkbox-field";
+import { Input } from "./input";
 import { rowClassName } from "./row";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./select";
 import { SegmentedControl } from "./segmented-control";
 import { Switch } from "./switch";
 import { SwitchField } from "./switch-field";
+import { Textarea } from "./textarea";
 
 afterEach(cleanup);
 
@@ -57,6 +66,42 @@ describe("shared chrome primitives", () => {
     const mixed = screen.getByRole("checkbox", { name: "Select all files" });
     expect(mixed).toHaveAttribute("aria-checked", "mixed");
     expect((mixed as HTMLInputElement).indeterminate).toBe(true);
+  });
+
+  it("exposes shared form sizing and validation state on text controls", () => {
+    render(
+      <>
+        <Input
+          aria-label="Project name"
+          controlSize="form"
+          invalid
+        />
+        <Textarea aria-label="System prompt" font="mono" />
+      </>,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Project name" }))
+      .toHaveAttribute("data-control-size", "form");
+    expect(screen.getByRole("textbox", { name: "Project name" }))
+      .toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("textbox", { name: "System prompt" }))
+      .toHaveAttribute("data-font", "mono");
+  });
+
+  it("uses the same semantic form size for select triggers", () => {
+    render(
+      <Select defaultValue="local">
+        <SelectTrigger aria-label="Runtime" size="form">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="local">Local</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Runtime" }))
+      .toHaveAttribute("data-control-size", "form");
   });
 
   it("uses the shared segmented contract for compact tab switches", () => {

@@ -4,7 +4,7 @@ use crate::pdf_fonts;
 use crate::project;
 use std::path::Path;
 
-pub fn run(root: Option<&Path>, agent_executable: &Path, agent_assets: &Path) -> DoctorReport {
+pub fn run(root: Option<&Path>) -> DoctorReport {
     let mut checks = Vec::new();
     push_tool(&mut checks, "latexmk", "LaTeX build driver");
     push_tool(&mut checks, "pdflatex", "pdfLaTeX engine");
@@ -33,30 +33,6 @@ pub fn run(root: Option<&Path>, agent_executable: &Path, agent_assets: &Path) ->
         "uv",
         "Python tooling used for literature and bibliography tools",
     );
-
-    let agent_ok = agent_executable.is_file();
-    checks.push(check(
-        "lattice-agent",
-        if agent_ok {
-            format!("Bundled agent runtime at {}", agent_executable.display())
-        } else {
-            format!(
-                "Missing bundled agent runtime at {}",
-                agent_executable.display()
-            )
-        },
-        agent_ok,
-    ));
-    let assets_ok = agent_assets.is_dir();
-    checks.push(check(
-        "omp-assets",
-        if assets_ok {
-            format!("OMP assets at {}", agent_assets.display())
-        } else {
-            format!("Missing OMP assets at {}", agent_assets.display())
-        },
-        assets_ok,
-    ));
 
     if let Some(root) = root {
         match project::read_manifest(root) {
@@ -130,15 +106,9 @@ pub fn run(root: Option<&Path>, agent_executable: &Path, agent_assets: &Path) ->
     push_conference_fonts(&mut checks);
     push_project_pdf_fonts(&mut checks, root);
 
-    let required_ok = [
-        "latexmk",
-        "synctex",
-        "bibtex",
-        "lattice-agent",
-        "omp-assets",
-    ]
-    .into_iter()
-    .all(|name| checks.iter().any(|item| item.name == name && item.ok))
+    let required_ok = ["latexmk", "synctex", "bibtex"]
+        .into_iter()
+        .all(|name| checks.iter().any(|item| item.name == name && item.ok))
         && checks.iter().any(|item| {
             matches!(item.name.as_str(), "pdflatex" | "xelatex" | "lualatex") && item.ok
         });
@@ -345,17 +315,10 @@ fn format_summary(checks: &[DoctorCheck], required_ok: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env::temp_dir;
-    use uuid::Uuid;
 
     #[test]
-    fn doctor_reports_missing_agent_runtime() {
-        let missing = temp_dir().join(format!("missing-agent-{}", Uuid::new_v4()));
-        let report = run(None, &missing, &missing);
-        assert!(report
-            .checks
-            .iter()
-            .any(|item| item.name == "lattice-agent" && !item.ok));
+    fn doctor_reports_tex_environment() {
+        let report = run(None);
         assert!(report.summary.contains("Lattice TeX doctor"));
     }
 }

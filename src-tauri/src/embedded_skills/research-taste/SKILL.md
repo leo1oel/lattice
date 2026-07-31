@@ -1,5 +1,7 @@
 ---
 name: research-taste
+display-name: Research Taste
+short-description: Apply your research priorities and critique style to technical work.
 description: Apply the user's research taste, priors, and critique style to research ideation, paper analysis, experiment design, evaluation planning, strategy, and technical research judgment. Use when the task is about choosing research directions, judging research ideas, designing studies, interpreting results, or deciding what work is worth doing.
 ---
 

@@ -4,14 +4,15 @@ import {
   BookOpen,
   Check,
   ExternalLink,
-  LoaderCircle,
   Quote,
   Search,
 } from "lucide-react";
 import { baseArxivId } from "./arxiv-id";
 import { CheckboxField } from "./components/ui/checkbox-field";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { EmptyState } from "./components/ui/empty-state";
 import { PanelHeader } from "./components/ui/panel-header";
+import { SearchField } from "./components/ui/search-field";
 import { ResizableDrawer } from "./resizable-drawer";
 
 export { baseArxivId };
@@ -196,12 +197,14 @@ export function LiteratureDiscoveryPanel(props: {
             void search();
           }}
         >
-          <input
-            type="search"
+          <SearchField
+            aria-label="Search literature"
             placeholder="Attention Is All You Need, diffusion, …"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onClear={() => setQuery("")}
             autoFocus
+            showIcon={false}
           />
           <CheckboxField
             className="literature-precise"
@@ -210,7 +213,7 @@ export function LiteratureDiscoveryPanel(props: {
             onChange={(event) => setPrecise(event.target.checked)}
           />
           <button type="submit" disabled={loading || !query.trim()}>
-            {loading ? <LoaderCircle className="spin" size={14} /> : <Search size={14} />}
+            {loading ? <InfinityLoader size={14} /> : <Search size={14} />}
             Search
           </button>
         </form>
@@ -256,7 +259,7 @@ export function LiteratureDiscoveryPanel(props: {
                           .finally(() => setBusyId(null));
                       }}
                     >
-                      {busyId === key ? <LoaderCircle className="spin" size={13} /> : <BookOpen size={13} />}
+                      {busyId === key ? <InfinityLoader size={13} /> : <BookOpen size={13} />}
                       Add
                     </button>
                   )
@@ -289,7 +292,7 @@ export function LiteratureDiscoveryPanel(props: {
               disabled={loadingMore}
               onClick={() => void loadMore()}
             >
-              {loadingMore ? <LoaderCircle className="spin" size={13} /> : null}
+              {loadingMore ? <InfinityLoader size={13} /> : null}
               {loadingMore ? "Loading…" : "Load more"}
             </button>
           )}

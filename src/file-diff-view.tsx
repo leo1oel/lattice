@@ -8,6 +8,7 @@ import {
 } from "@pierre/diffs";
 import { FileDiff, type FileDiffMetadata } from "@pierre/diffs/react";
 import { useEffect, useMemo, useState } from "react";
+import { InfinityLoader } from "./components/ui/activity-icons";
 
 export type FileDiffChange = {
   path: string;
@@ -24,7 +25,8 @@ const unsafeCss = `
 :host {
   --diffs-font-family: var(--editor-font);
   --diffs-header-font-family: var(--ui-font);
-  --diffs-font-size: 10px;
+  --diffs-font-size: var(--type-diff-code-size);
+  --diffs-line-height: var(--type-diff-code-line-height);
   --diffs-overflow-override: auto;
   --diffs-bg: var(--bg) !important;
   --diffs-light-bg: var(--bg) !important;
@@ -40,7 +42,8 @@ const unsafeCss = `
   --diffs-bg-deletion-number-override: color-mix(in srgb, var(--bg) 85%, var(--danger)) !important;
   background: var(--bg) !important;
   font-family: var(--editor-font) !important;
-  font-size: 10px !important;
+  font-size: var(--type-diff-code-size) !important;
+  line-height: var(--type-diff-code-line-height) !important;
 }
 
 [data-diff],
@@ -52,13 +55,17 @@ const unsafeCss = `
   --diffs-dark-bg: var(--bg) !important;
   background: var(--bg) !important;
   font-family: var(--editor-font) !important;
-  font-size: 10px !important;
+  font-size: var(--type-diff-code-size) !important;
+  line-height: var(--type-diff-code-line-height) !important;
 }
 
 [data-line-number-content],
 [data-column-number],
 [data-unmodified-lines] {
   font-family: var(--ui-font) !important;
+  font-size: var(--type-diff-meta-size) !important;
+  line-height: var(--type-diff-code-line-height) !important;
+  font-weight: var(--type-diff-meta-weight) !important;
   font-variant-numeric: tabular-nums !important;
 }
 
@@ -80,6 +87,9 @@ const unsafeCss = `
   *::-webkit-scrollbar-thumb:vertical { border-right-width: 5px; border-left-width: 1px; }
   *::-webkit-scrollbar-thumb:horizontal { border-top-width: 1px; border-bottom-width: 5px; }
   *::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--text) 12%, transparent); }
+  *::-webkit-scrollbar-thumb:vertical:hover { border-right-width: 4px; border-left-width: 0; }
+  *::-webkit-scrollbar-thumb:horizontal:hover { border-top-width: 0; border-bottom-width: 4px; }
+  *::-webkit-scrollbar-thumb:active { background-color: color-mix(in srgb, var(--text) 16%, transparent); }
 }
 `;
 
@@ -163,7 +173,7 @@ export function FileDiffView(props: {
     return <p className="lattice-file-diff-error" role="alert">Could not render this diff: {loadResult.error.message}</p>;
   }
   if (!resourcesReady) {
-    return <p className="lattice-file-diff-loading" role="status">Rendering diff…</p>;
+    return <p className="lattice-file-diff-loading" role="status"><InfinityLoader size={12} /> Rendering diff…</p>;
   }
 
   return (

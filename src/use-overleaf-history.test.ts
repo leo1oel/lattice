@@ -40,7 +40,7 @@ describe("useOverleafHistory pagination", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
 
-    const { result } = renderHook(() => useOverleafHistory());
+    const { result } = renderHook(() => useOverleafHistory("/tmp/project"));
     await waitFor(() => expect(result.current.updates).toHaveLength(1));
     expect(result.current.hasMore).toBe(true);
 
@@ -67,7 +67,7 @@ describe("useOverleafHistory pagination", () => {
       }
       throw new Error(`Unexpected command: ${command}`);
     });
-    const { result } = renderHook(() => useOverleafHistory());
+    const { result } = renderHook(() => useOverleafHistory("/tmp/project"));
     await waitFor(() => expect(result.current.error).toMatch(/paid plan/));
     expect(result.current.updates).toEqual([]);
   });
@@ -87,14 +87,18 @@ describe("useOverleafHistory actions", () => {
       if (command === "overleaf_history_revert") return undefined;
       throw new Error(`Unexpected command: ${command}`);
     });
-    const { result } = renderHook(() => useOverleafHistory());
+    const { result } = renderHook(() => useOverleafHistory("/tmp/project"));
     await waitFor(() => expect(result.current.updates).toHaveLength(1));
 
     const callsBefore = vi.mocked(invoke).mock.calls.length;
     await act(async () => {
       await result.current.revertFile(2, "main.tex");
     });
-    expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", { version: 2, path: "main.tex" });
+    expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", {
+      projectRoot: "/tmp/project",
+      version: 2,
+      path: "main.tex",
+    });
     // The restore itself, then a fresh read of updates and labels.
     expect(vi.mocked(invoke).mock.calls.length).toBeGreaterThan(callsBefore + 1);
   });
@@ -104,14 +108,17 @@ describe("useOverleafHistory actions", () => {
       if (command === "overleaf_history_revert") return undefined;
       throw new Error(`Unexpected command: ${command}`);
     });
-    const { result } = renderHook(() => useOverleafHistory());
+    const { result } = renderHook(() => useOverleafHistory("/tmp/project"));
     await waitFor(() => expect(result.current.updates).toHaveLength(1));
 
     await act(async () => {
       await result.current.revertProject(2);
     });
     // No `path`: that is what tells the backend to restore the whole project.
-    expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", { version: 2 });
+    expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", {
+      projectRoot: "/tmp/project",
+      version: 2,
+    });
   });
 
   it("restores a deleted file using the version passed in, not the update's own version", async () => {
@@ -119,13 +126,17 @@ describe("useOverleafHistory actions", () => {
       if (command === "overleaf_history_restore_file") return undefined;
       throw new Error(`Unexpected command: ${command}`);
     });
-    const { result } = renderHook(() => useOverleafHistory());
+    const { result } = renderHook(() => useOverleafHistory("/tmp/project"));
     await waitFor(() => expect(result.current.updates).toHaveLength(1));
 
     await act(async () => {
       await result.current.restoreDeletedFile(7, "old/appendix.tex");
     });
-    expect(invoke).toHaveBeenCalledWith("overleaf_history_restore_file", { version: 7, path: "old/appendix.tex" });
+    expect(invoke).toHaveBeenCalledWith("overleaf_history_restore_file", {
+      projectRoot: "/tmp/project",
+      version: 7,
+      path: "old/appendix.tex",
+    });
   });
 
   it("adds and removes labels, and surfaces a failure without crashing", async () => {
@@ -138,18 +149,25 @@ describe("useOverleafHistory actions", () => {
       if (command === "overleaf_history_delete_label") return undefined;
       throw new Error(`Unexpected command: ${command} ${JSON.stringify(args)}`);
     });
-    const { result } = renderHook(() => useOverleafHistory());
+    const { result } = renderHook(() => useOverleafHistory("/tmp/project"));
     await waitFor(() => expect(result.current.updates).toHaveLength(1));
 
     await act(async () => {
       await result.current.addLabel(2, "Submitted draft");
     });
-    expect(invoke).toHaveBeenCalledWith("overleaf_history_add_label", { version: 2, comment: "Submitted draft" });
+    expect(invoke).toHaveBeenCalledWith("overleaf_history_add_label", {
+      projectRoot: "/tmp/project",
+      version: 2,
+      comment: "Submitted draft",
+    });
 
     await act(async () => {
       await result.current.deleteLabel("lbl-1");
     });
-    expect(invoke).toHaveBeenCalledWith("overleaf_history_delete_label", { labelId: "lbl-1" });
+    expect(invoke).toHaveBeenCalledWith("overleaf_history_delete_label", {
+      projectRoot: "/tmp/project",
+      labelId: "lbl-1",
+    });
 
     shouldFail = true;
     await act(async () => {

@@ -81,6 +81,7 @@ function newThreadId(): string {
 
 export function useOverleafComments(options: {
   enabled: boolean;
+  projectRoot: string | null;
   /** Overleaf's id for the open document; resolve and delete are keyed on it. */
   docId: string | null;
   /** Thread ids anchored in the open document. */
@@ -100,17 +101,18 @@ export function useOverleafComments(options: {
   anchorsRef.current = anchors;
 
   const enabled = options.enabled;
+  const projectRoot = options.projectRoot;
 
   const refresh = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled || !projectRoot) return;
     setLoading(true);
     try {
       // The conversations and the spans they hang on come from two different
       // endpoints, and a thread is only usable with both: the messages say
       // what was said, the anchor says which file it was said about.
       const [found, anchored] = await Promise.all([
-        invoke<OverleafThread[]>("overleaf_threads"),
-        invoke<OverleafCommentAnchor[]>("overleaf_comment_anchors"),
+        invoke<OverleafThread[]>("overleaf_threads", { projectRoot }),
+        invoke<OverleafCommentAnchor[]>("overleaf_comment_anchors", { projectRoot }),
       ]);
       setThreads(found);
       setAnchors(new Map(anchored.map((item) => [item.threadId, item])));
@@ -119,7 +121,7 @@ export function useOverleafComments(options: {
       setError(String(reason));
     }
     setLoading(false);
-  }, [enabled]);
+  }, [enabled, projectRoot]);
 
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
@@ -155,7 +157,7 @@ export function useOverleafComments(options: {
       if (timer) clearTimeout(timer);
       unlisten?.();
     };
-  }, [enabled]);
+  }, [enabled, projectRoot]);
 
   /** Run an action, then re-read: the server is the authority on the result. */
   const act = useCallback(async (run: () => Promise<void>) => {
@@ -170,8 +172,8 @@ export function useOverleafComments(options: {
   }, []);
 
   const reply = useCallback((threadId: string, content: string) => act(async () => {
-    await invoke("overleaf_reply_to_thread", { threadId, content });
-  }), [act]);
+    await invoke("overleaf_reply_to_thread", { projectRoot, threadId, content });
+  }), [act, projectRoot]);
 
   const create = useCallback(async (position: number, quote: string, content: string) => {
     const threadId = newThreadId();
@@ -179,7 +181,7 @@ export function useOverleafComments(options: {
     try {
       // The message first, the anchor second — the order Overleaf's own editor
       // uses, so a thread never exists on the page with nothing in it.
-      await invoke("overleaf_reply_to_thread", { threadId, content });
+      await invoke("overleaf_reply_to_thread", { projectRoot, threadId, content });
       await anchor.current(threadId, position, quote);
       await refreshRef.current();
       return threadId;
@@ -187,7 +189,7 @@ export function useOverleafComments(options: {
       setError(String(reason));
       throw reason;
     }
-  }, []);
+  }, [projectRoot]);
 
   /**
    * The document a thread lives in, which is what Overleaf keys resolve,
@@ -206,25 +208,34 @@ export function useOverleafComments(options: {
   };
 
   const setResolved = useCallback((threadId: string, resolved: boolean) => act(async () => {
-    await invoke("overleaf_resolve_thread", { docId: documentOf(threadId), threadId, resolved });
-  }), [act]);
+    await invoke("overleaf_resolve_thread", {
+      projectRoot,
+      docId: documentOf(threadId),
+      threadId,
+      resolved,
+    });
+  }), [act, projectRoot]);
 
   const remove = useCallback((threadId: string) => act(async () => {
-    await invoke("overleaf_delete_thread", { docId: documentOf(threadId), threadId });
-  }), [act]);
+    await invoke("overleaf_delete_thread", {
+      projectRoot,
+      docId: documentOf(threadId),
+      threadId,
+    });
+  }), [act, projectRoot]);
 
   const editMessage = useCallback(
     (threadId: string, messageId: string, content: string) => act(async () => {
-      await invoke("overleaf_edit_message", { threadId, messageId, content });
+      await invoke("overleaf_edit_message", { projectRoot, threadId, messageId, content });
     }),
-    [act],
+    [act, projectRoot],
   );
 
   const deleteMessage = useCallback(
     (threadId: string, messageId: string) => act(async () => {
-      await invoke("overleaf_delete_message", { threadId, messageId });
+      await invoke("overleaf_delete_message", { projectRoot, threadId, messageId });
     }),
-    [act],
+    [act, projectRoot],
   );
 
   const anchored = new Set(options.anchored);

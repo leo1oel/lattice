@@ -70,7 +70,7 @@ describe("OverleafHistoryPanel", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
 
-    render(<OverleafHistoryPanel onClose={() => undefined} />);
+    render(<OverleafHistoryPanel projectRoot="/tmp/project" onClose={() => undefined} />);
 
     expect(await screen.findByText("Today")).toBeInTheDocument();
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
@@ -83,7 +83,11 @@ describe("OverleafHistoryPanel", () => {
       if (command === "overleaf_history_labels") return [];
       if (command === "overleaf_history_updates") return { updates: [update()], nextBefore: null };
       if (command === "overleaf_history_files") {
-        expect(args).toEqual({ from: 10, to: 11 });
+        expect(args).toEqual({
+          projectRoot: "/tmp/project",
+          from: 10,
+          to: 11,
+        });
         const entries: OverleafFileEntry[] = [
           { pathname: "main.tex", operation: "edited" },
           // No `operation`: unchanged across the range, must not show as a change.
@@ -95,7 +99,7 @@ describe("OverleafHistoryPanel", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
 
-    render(<OverleafHistoryPanel onClose={() => undefined} />);
+    render(<OverleafHistoryPanel projectRoot="/tmp/project" onClose={() => undefined} />);
     const body = await expandEntry(/Ada Lovelace/);
     const filesContainer = await filesContainerOf(body);
 
@@ -117,7 +121,7 @@ describe("OverleafHistoryPanel", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
 
-    render(<OverleafHistoryPanel onClose={() => undefined} />);
+    render(<OverleafHistoryPanel projectRoot="/tmp/project" onClose={() => undefined} />);
     const body = await expandEntry(/Ada Lovelace/);
     const filesContainer = await filesContainerOf(body);
     fireEvent.click(within(filesContainer).getByRole("button", { name: /main\.tex/ }));
@@ -140,7 +144,7 @@ describe("OverleafHistoryPanel", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
 
-    render(<OverleafHistoryPanel onClose={() => undefined} />);
+    render(<OverleafHistoryPanel projectRoot="/tmp/project" onClose={() => undefined} />);
     const body = await expandEntry(/Ada Lovelace/);
     const filesContainer = await filesContainerOf(body);
     const row = within(filesContainer).getByRole("button", { name: /main\.tex/ });
@@ -163,7 +167,7 @@ describe("OverleafHistoryPanel", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
 
-    render(<OverleafHistoryPanel onClose={() => undefined} />);
+    render(<OverleafHistoryPanel projectRoot="/tmp/project" onClose={() => undefined} />);
     const body = await expandEntry(/Ada Lovelace/);
     const filesContainer = await filesContainerOf(body);
     fireEvent.click(within(filesContainer).getByRole("button", { name: /figs\/loss\.png/ }));
@@ -181,18 +185,30 @@ describe("OverleafHistoryPanel", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
     const confirmSpy = vi.mocked(confirm);
-    render(<OverleafHistoryPanel onClose={() => undefined} onRestored={onRestored} />);
+    render(
+      <OverleafHistoryPanel
+        projectRoot="/tmp/project"
+        onClose={() => undefined}
+        onRestored={onRestored}
+      />,
+    );
     const body = await expandEntry(/Ada Lovelace/);
     const restore = within(body).getByRole("button", { name: /Restore whole project to this version/ });
 
     confirmSpy.mockResolvedValueOnce(false);
     fireEvent.click(restore);
-    expect(invoke).not.toHaveBeenCalledWith("overleaf_history_revert", { version: 11 });
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_history_revert", {
+      projectRoot: "/tmp/project",
+      version: 11,
+    });
     expect(onRestored).not.toHaveBeenCalled();
 
     confirmSpy.mockResolvedValueOnce(true);
     fireEvent.click(restore);
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", { version: 11 }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", {
+      projectRoot: "/tmp/project",
+      version: 11,
+    }));
     expect(confirmSpy.mock.calls[confirmSpy.mock.calls.length - 1]?.[0]).toMatch(/deleted/);
     await waitFor(() => expect(onRestored).toHaveBeenCalledTimes(1));
   });
@@ -214,18 +230,27 @@ describe("OverleafHistoryPanel", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
 
-    render(<OverleafHistoryPanel onClose={() => undefined} />);
+    render(<OverleafHistoryPanel projectRoot="/tmp/project" onClose={() => undefined} />);
     const body = await expandEntry(/Ada Lovelace/);
     const filesContainer = await filesContainerOf(body);
 
     fireEvent.click(within(filesContainer).getByRole("button", { name: /Restore this file/ }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", { version: 11, path: "main.tex" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", {
+      projectRoot: "/tmp/project",
+      version: 11,
+      path: "main.tex",
+    }));
 
     fireEvent.click(within(filesContainer).getByRole("button", { name: /^Restore$/ }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_restore_file", { version: 4, path: "old.tex" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_restore_file", {
+      projectRoot: "/tmp/project",
+      version: 4,
+      path: "old.tex",
+    }));
   });
 
   it("names a version and removes a label", async () => {
+    vi.mocked(confirm).mockResolvedValue(true);
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "overleaf_history_labels") return [];
       if (command === "overleaf_history_updates") {
@@ -240,15 +265,26 @@ describe("OverleafHistoryPanel", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
 
-    render(<OverleafHistoryPanel onClose={() => undefined} />);
+    render(<OverleafHistoryPanel projectRoot="/tmp/project" onClose={() => undefined} />);
     const body = await expandEntry(/Ada Lovelace/);
 
     fireEvent.click(within(body).getByRole("button", { name: /Name this version/ }));
     fireEvent.change(within(body).getByLabelText("Version label"), { target: { value: "Camera ready" } });
     fireEvent.click(within(body).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_add_label", { version: 11, comment: "Camera ready" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_add_label", {
+      projectRoot: "/tmp/project",
+      version: 11,
+      comment: "Camera ready",
+    }));
 
     fireEvent.click(within(body).getByTitle('Remove the "Draft 1" label'));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_delete_label", { labelId: "l1" }));
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(
+      expect.stringContaining("Remove the “Draft 1” label"),
+      expect.anything(),
+    ));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_delete_label", {
+      projectRoot: "/tmp/project",
+      labelId: "l1",
+    }));
   });
 });

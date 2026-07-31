@@ -31,15 +31,14 @@ ensure_brew() {
 
 ensure_brew
 
-# Optional editor/agent helpers the TeX doctor reports: texlab (LaTeX language
-# server), uv (literature fetching + bibliography management), and node (agent
-# runtime support). Installed FIRST, before the TeX steps that can abort on a
-# tlmgr/font error, so they land regardless of how the TeX install goes. Each is
-# `|| echo`-guarded so a failure here never aborts the run.
-echo "Installing optional editor/agent tools (texlab, uv, node) — safe to skip if these fail…"
+# Optional editor/research helpers the TeX doctor reports: texlab (LaTeX
+# language server) and uv (literature fetching + bibliography management).
+# Installed FIRST, before the TeX steps that can abort on a tlmgr/font error,
+# so they land regardless of how the TeX install goes. Each is `|| echo`-guarded
+# so a failure here never aborts the run.
+echo "Installing optional editor/research tools (texlab, uv) — safe to skip if these fail…"
 brew install texlab || echo "  (skipped texlab — install later with: brew install texlab)"
 brew install uv || echo "  (skipped uv — install later with: brew install uv)"
-brew install node || echo "  (skipped node/npx — install later with: brew install node)"
 
 echo ""
 echo "Installing / repairing BasicTeX (safe if already installed)…"
@@ -202,14 +201,13 @@ ensure_brew() {
 
 ensure_brew
 
-# Optional editor/agent helpers the TeX doctor reports (MacTeX already ships
-# biber + texcount): texlab (LaTeX language server), uv (literature fetching +
-# bibliography management), and node (agent runtime support). Installed FIRST so they
-# land even if the long MacTeX install hits trouble. `|| echo`-guarded.
-echo "Installing optional editor/agent tools (texlab, uv, node) — safe to skip if these fail…"
+# Optional editor/research helpers the TeX doctor reports (MacTeX already ships
+# biber + texcount): texlab (LaTeX language server) and uv (literature fetching
+# + bibliography management). Installed FIRST so they land even if the long
+# MacTeX install hits trouble. `|| echo`-guarded.
+echo "Installing optional editor/research tools (texlab, uv) — safe to skip if these fail…"
 brew install texlab || echo "  (skipped texlab — install later with: brew install texlab)"
 brew install uv || echo "  (skipped uv — install later with: brew install uv)"
-brew install node || echo "  (skipped node/npx — install later with: brew install node)"
 
 echo ""
 echo "Installing MacTeX…"

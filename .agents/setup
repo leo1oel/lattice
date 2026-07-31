@@ -86,16 +86,7 @@ echo "Installing locked JavaScript dependencies..."
 pnpm install --frozen-lockfile
 pnpm --dir collab-server install --frozen-lockfile
 
-echo "Preparing Rust build inputs and fetching crates..."
-host_target="$(rustc -vV | awk '/^host:/ { print $2 }')"
-mkdir -p src-tauri/binaries src-tauri/omp-assets
-if [[ ! -e "src-tauri/binaries/lattice-agent-$host_target" ]]; then
-  : > "src-tauri/binaries/lattice-agent-$host_target"
-  chmod +x "src-tauri/binaries/lattice-agent-$host_target"
-fi
-if [[ ! -e src-tauri/omp-assets/placeholder.txt ]]; then
-  printf 'stub\n' > src-tauri/omp-assets/placeholder.txt
-fi
+echo "Fetching Rust crates..."
 cargo fetch --manifest-path src-tauri/Cargo.toml
 
 echo "Orb setup complete."

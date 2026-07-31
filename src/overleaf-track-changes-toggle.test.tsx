@@ -78,16 +78,25 @@ describe("useOverleafTrackChangesToggle", () => {
 
   it("sends a map with only this account's id", async () => {
     vi.mocked(invoke).mockResolvedValue(undefined);
-    const { result } = renderHook(() => useOverleafTrackChangesToggle("user-1"));
+    const { result } = renderHook(() => useOverleafTrackChangesToggle(
+      "user-1",
+      "/tmp/project",
+    ));
 
     await act(async () => {
       await result.current.setTrackChanges(true);
     });
-    expect(invoke).toHaveBeenCalledWith("overleaf_set_track_changes", { onFor: { "user-1": true } });
+    expect(invoke).toHaveBeenCalledWith("overleaf_set_track_changes", {
+      projectRoot: "/tmp/project",
+      onFor: { "user-1": true },
+    });
   });
 
   it("refuses rather than guessing an id when this account's is not yet known", async () => {
-    const { result } = renderHook(() => useOverleafTrackChangesToggle(null));
+    const { result } = renderHook(() => useOverleafTrackChangesToggle(
+      null,
+      "/tmp/project",
+    ));
 
     await act(async () => {
       await expect(result.current.setTrackChanges(true)).rejects.toThrow(/Overleaf id/);

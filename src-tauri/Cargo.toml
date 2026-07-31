@@ -27,7 +27,6 @@ base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "multipart"] }
-keyring = { version = "3", features = ["apple-native"] }
 uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
 walkdir = "2"
@@ -37,7 +36,6 @@ tauri-plugin-process = "2"
 tauri-plugin-window-state = "2"
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 flate2 = "1"
-tar = "0.4"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 sha2 = "0.11.0"
 md5 = "0.7"
@@ -45,6 +43,7 @@ html-escape = "0.2.14"
 diffy = "0.5.1"
 tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots", "handshake"] }
 futures-util = { version = "0.3.33", default-features = false, features = ["std", "sink"] }
+tokio = { version = "1", features = ["sync"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 pdf-extract = "0.12"
 lopdf = { version = "0.42", default-features = false }

@@ -55,7 +55,7 @@ export type UseOverleafHistory = {
   deleteLabel: (labelId: string) => Promise<void>;
 };
 
-export function useOverleafHistory(): UseOverleafHistory {
+export function useOverleafHistory(projectRoot: string): UseOverleafHistory {
   const [updates, setUpdates] = useState<OverleafUpdate[]>([]);
   const [labels, setLabels] = useState<OverleafLabel[]>([]);
   const [nextBefore, setNextBefore] = useState<number | null>(null);
@@ -66,18 +66,21 @@ export function useOverleafHistory(): UseOverleafHistory {
 
   const refreshLabels = useCallback(async () => {
     try {
-      setLabels(await invoke<OverleafLabel[]>("overleaf_history_labels"));
+      setLabels(await invoke<OverleafLabel[]>("overleaf_history_labels", { projectRoot }));
     } catch {
       // Labels are a supplement to the timeline — each update already carries
       // its own — so a failure here does not need its own error surface.
     }
-  }, []);
+  }, [projectRoot]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const page = await invoke<OverleafUpdatesPage>("overleaf_history_updates", { count: PAGE_SIZE });
+      const page = await invoke<OverleafUpdatesPage>("overleaf_history_updates", {
+        projectRoot,
+        count: PAGE_SIZE,
+      });
       setUpdates(page.updates);
       setNextBefore(page.nextBefore);
     } catch (reason) {
@@ -85,7 +88,7 @@ export function useOverleafHistory(): UseOverleafHistory {
     }
     setLoading(false);
     void refreshLabels();
-  }, [refreshLabels]);
+  }, [projectRoot, refreshLabels]);
 
   // Mount fires `refresh` through a ref rather than calling it directly, so
   // the effect body never contains a traceable synchronous setState call.
@@ -97,7 +100,7 @@ export function useOverleafHistory(): UseOverleafHistory {
   });
   useEffect(() => {
     void refreshRef.current();
-  }, []);
+  }, [projectRoot]);
 
   const loadMore = useCallback(async () => {
     if (nextBefore == null || loadingMore) return;
@@ -105,6 +108,7 @@ export function useOverleafHistory(): UseOverleafHistory {
     setError(null);
     try {
       const page = await invoke<OverleafUpdatesPage>("overleaf_history_updates", {
+        projectRoot,
         before: nextBefore,
         count: PAGE_SIZE,
       });
@@ -114,7 +118,7 @@ export function useOverleafHistory(): UseOverleafHistory {
       setError(message(reason));
     }
     setLoadingMore(false);
-  }, [nextBefore, loadingMore]);
+  }, [projectRoot, nextBefore, loadingMore]);
 
   /** Run a mutation, then re-read: Overleaf's server is the only authority on the result. */
   const act = useCallback(async (run: () => Promise<void>) => {
@@ -132,24 +136,24 @@ export function useOverleafHistory(): UseOverleafHistory {
   }, []);
 
   const revertFile = useCallback((version: number, path: string) => act(async () => {
-    await invoke("overleaf_history_revert", { version, path });
-  }), [act]);
+    await invoke("overleaf_history_revert", { projectRoot, version, path });
+  }), [act, projectRoot]);
 
   const revertProject = useCallback((version: number) => act(async () => {
-    await invoke("overleaf_history_revert", { version });
-  }), [act]);
+    await invoke("overleaf_history_revert", { projectRoot, version });
+  }), [act, projectRoot]);
 
   const restoreDeletedFile = useCallback((version: number, path: string) => act(async () => {
-    await invoke("overleaf_history_restore_file", { version, path });
-  }), [act]);
+    await invoke("overleaf_history_restore_file", { projectRoot, version, path });
+  }), [act, projectRoot]);
 
   const addLabel = useCallback((version: number, comment: string) => act(async () => {
-    await invoke("overleaf_history_add_label", { version, comment });
-  }), [act]);
+    await invoke("overleaf_history_add_label", { projectRoot, version, comment });
+  }), [act, projectRoot]);
 
   const deleteLabel = useCallback((labelId: string) => act(async () => {
-    await invoke("overleaf_history_delete_label", { labelId });
-  }), [act]);
+    await invoke("overleaf_history_delete_label", { projectRoot, labelId });
+  }), [act, projectRoot]);
 
   return {
     updates,

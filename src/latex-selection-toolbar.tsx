@@ -14,6 +14,7 @@ import { useRef, useState } from "react";
 import { PopIn } from "./motion";
 import { Tip } from "./components/icon-tip";
 import { AppleColorPicker } from "./components/ui/apple-color-picker";
+import { Input } from "./components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 
 export type LatexSelectionAction =
@@ -109,7 +110,7 @@ export function LatexSelectionToolbar(props: {
               <PopoverTrigger asChild><button type="button" aria-label="Link"><Link size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
             <PopoverContent side="top" sideOffset={8} className="latex-tool-menu link-menu">
-              <label>Link URL<input autoFocus value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => {
+              <label>Link URL<Input controlSize="compact" autoFocus value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => {
                 if (event.key === "Enter" && linkUrl.trim()) {
                   props.onAction("link", linkUrl.trim());
                   setLinkOpen(false);

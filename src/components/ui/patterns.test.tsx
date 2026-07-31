@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { EmptyState } from "./empty-state";
 import { Field } from "./field";
+import { Input } from "./input";
 import { SettingsSectionHeader } from "./settings-section-header";
 
 afterEach(cleanup);
@@ -23,7 +24,7 @@ describe("shared UI patterns", () => {
   it("associates a shared Field label with its control", () => {
     render(
       <Field label="Project name" htmlFor="project-name" hint="Shown in the title bar.">
-        <input id="project-name" />
+        <Input id="project-name" controlSize="form" />
       </Field>,
     );
 

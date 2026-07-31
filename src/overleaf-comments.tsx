@@ -16,12 +16,15 @@
  * can still be replied to here, just not resolved or deleted.
  */
 import { useState } from "react";
-import { Check, LoaderCircle, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Check, Pencil, RotateCcw } from "lucide-react";
 import type { OverleafComment, OverleafThread } from "./app-types";
 import { formatStamp } from "./overleaf-chat";
 import { groupThreadsByFile, type OverleafCommentAnchor } from "./overleaf-comment-anchors";
 import "./overleaf-comments.css";
 import { confirmAction } from "./app-utils";
+import { DestructiveButton } from "./components/ui/destructive-button";
+import { InfinityLoader } from "./components/ui/activity-icons";
+import { Textarea } from "./components/ui/textarea";
 
 /** While an input method is composing, Enter is picking a candidate, not sending. */
 function isComposingEnter(event: React.KeyboardEvent) {
@@ -82,6 +85,15 @@ export function OverleafCommentsPanel(props: {
     void run(thread.id, () => props.onDeleteMessage(thread.id, message.id));
   };
 
+  const deleteThread = async (threadId: string) => {
+    if (!await confirmAction(
+      "Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone.",
+    )) {
+      return;
+    }
+    void run(threadId, () => props.onDelete(threadId));
+  };
+
   const renderMessage = (thread: OverleafThread, message: OverleafComment, working: boolean) => {
     const isEditing = editing?.threadId === thread.id && editing.messageId === message.id;
     return (
@@ -92,7 +104,7 @@ export function OverleafCommentsPanel(props: {
         </div>
         {isEditing ? (
           <div className="overleaf-thread-reply">
-            <textarea
+            <Textarea
               rows={2}
               autoFocus
               value={messageDraft}
@@ -122,7 +134,7 @@ export function OverleafCommentsPanel(props: {
                   setEditing(null);
                 })}
               >
-                {working ? <LoaderCircle className="spin" size={12} /> : "Save"}
+                {working ? <InfinityLoader size={12} /> : "Save"}
               </button>
             </div>
           </div>
@@ -143,16 +155,15 @@ export function OverleafCommentsPanel(props: {
                 >
                   <Pencil size={11} />
                 </button>
-                <button
+                <DestructiveButton
                   type="button"
                   className="danger"
                   aria-label="Delete message"
                   title="Delete this message"
                   disabled={working}
+                  iconSize={11}
                   onClick={() => deleteMessage(thread, message)}
-                >
-                  <Trash2 size={11} />
-                </button>
+                />
               </div>
             )}
           </>
@@ -204,7 +215,7 @@ export function OverleafCommentsPanel(props: {
 
         {replyingTo === thread.id ? (
           <div className="overleaf-thread-reply">
-            <textarea
+            <Textarea
               rows={2}
               autoFocus
               value={draft}
@@ -237,7 +248,7 @@ export function OverleafCommentsPanel(props: {
                   setReplyingTo(null);
                 })}
               >
-                {working ? <LoaderCircle className="spin" size={12} /> : "Reply"}
+                {working ? <InfinityLoader size={12} /> : "Reply"}
               </button>
             </div>
           </div>
@@ -264,19 +275,19 @@ export function OverleafCommentsPanel(props: {
               {thread.resolved ? <RotateCcw size={12} /> : <Check size={12} />}
               {thread.resolved ? "Reopen" : "Resolve"}
             </button>
-            <button
+            <DestructiveButton
               type="button"
               className="danger"
               disabled={working || !anchor}
               title={anchor ? undefined : orphanTitle}
+              iconSize={12}
               onClick={() => {
                 if (!anchor) return;
-                void run(thread.id, () => props.onDelete(thread.id));
+                void deleteThread(thread.id);
               }}
             >
-              <Trash2 size={12} />
               Delete
-            </button>
+            </DestructiveButton>
           </div>
         )}
       </article>
@@ -313,7 +324,7 @@ export function OverleafCommentsPanel(props: {
 
       <div className="overleaf-thread-list">
         {props.loading && !props.threads.length && (
-          <p className="git-empty"><LoaderCircle className="spin" size={13} /> Loading comments…</p>
+          <p className="git-empty"><InfinityLoader size={13} /> Loading comments…</p>
         )}
         {!props.loading && !visible.length && !props.error && (
           <p className="git-empty">

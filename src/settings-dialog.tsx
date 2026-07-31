@@ -1,22 +1,27 @@
 import {
-  Check,
-  Pencil,
+  Download,
   Play,
-  Plus,
-  RefreshCw,
-  RotateCcw,
   Settings,
-  Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CopyButton } from "./components/copy-button";
-import { MotionButton } from "./motion";
 import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
+import {
+  InfinityLoader,
+  ReloadButton,
+  ReloadIconButton,
+} from "./components/ui/activity-icons";
 import { buttonClassName } from "./components/ui/button-styles";
 import { Field } from "./components/ui/field";
-import { IconButton } from "./components/ui/icon-button";
 import {
   Select,
   SelectContent,
@@ -27,10 +32,8 @@ import {
 import { ScrollArea } from "./components/ui/scroll-area";
 import { PanelHeader } from "./components/ui/panel-header";
 import { SettingsSectionHeader } from "./components/ui/settings-section-header";
-import { Switch } from "./components/ui/switch";
 import { SwitchField } from "./components/ui/switch-field";
 import { useUpdater, type UpdateMode } from "./app-updater";
-import { AgentRuntimeSettings } from "./agent-runtime-settings";
 import {
   type Theme,
   type AutoBuildMode,
@@ -41,49 +44,44 @@ import {
 } from "./app-settings";
 import {
   type ProjectSnapshot,
-  type AgentSkill,
-  type SkillDraft,
-  type McpServer,
-  type McpServerDraft,
   type SettingsTab,
   type DoctorReport,
-  type SubscriptionStatus,
 } from "./app-types";
-import {
-  DEFAULT_EDITOR_FONT,
-  EDITOR_FONT_OPTIONS,
-  availableFontOptions,
-} from "./available-fonts";
 import { autoBuildTitle, autoBuildDetail } from "./app-utils";
-import { McpSettingsSection } from "./mcp-settings";
 import { OverleafSettingsSection } from "./overleaf-connect";
 import { AnimatedProductIcon } from "./animated-icons/product-animated-icon";
 import { ModalDialog } from "./components/ui/modal-dialog";
 import { AppLogsSettings } from "./app-log";
-import { synaraFrameUrl } from "./synara-runtime";
+import { synaraFrameUrl, type SynaraRuntimeInfo } from "./synara-runtime";
+import { useSynaraNotificationBridge } from "./synara-notifications";
+import { useSynaraConfirmationBridge } from "./synara-confirmations";
+import { SynaraLoadingSurface } from "./synara-loading-surface";
+import {
+  applySynaraSettingsHeight,
+  isSettingsViewportNearBottom,
+  normalizeSynaraSettingsHeight,
+  scrollSynaraSettingsViewportBy,
+} from "./synara-settings-layout";
 
 const SETTINGS_NAV_ITEMS = [
   { tab: "appearance", label: "Appearance", icon: "faders" },
   { tab: "editor", label: "Editor & builds", icon: "logs" },
-  { tab: "agent", label: "Agent", icon: "robot" },
+  { tab: "agent", label: "Providers", icon: "robot" },
   { tab: "mcp", label: "MCP", icon: "plugs" },
-  { tab: "accounts", label: "Subscriptions", icon: "users" },
   { tab: "overleaf", label: "Overleaf", icon: "cloud-upload" },
-  { tab: "api", label: "API keys", icon: "api-key" },
+  { tab: "api", label: "Skills", icon: "api-key" },
   { tab: "doctor", label: "TeX doctor", icon: "sparkle" },
   { tab: "logs", label: "Logs", icon: "logs" },
 ] as const;
 
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = {
   agent: "providers",
-  accounts: "models",
   api: "skills",
   mcp: "integrations",
 };
 
 const SYNARA_SETTINGS_LABELS: Partial<Record<SettingsTab, string>> = {
   agent: "Providers",
-  accounts: "Models",
   api: "Skills",
   mcp: "MCP",
 };
@@ -92,18 +90,22 @@ const LATTICE_SETTINGS_SECTION_SET = "lattice:set-settings-section";
 const SYNARA_SETTINGS_CONTENT_HEIGHT = "synara:settings-content-height";
 const SYNARA_SETTINGS_WHEEL = "synara:settings-wheel";
 const SYNARA_OPEN_EXTERNAL = "synara:open-external";
+const SYNARA_SHOW_IN_FOLDER = "synara:show-in-folder";
+const SYNARA_EMBED_READY = "synara:embed-ready";
+
+async function openTrustedSynaraSkillsFolder(): Promise<void> {
+  await invoke("synara_open_skills_folder");
+}
 
 export function SettingsDialog(props: {
-  synaraEmbedUrl?: string;
-  synaraAuthToken?: string;
+  synaraRuntime: SynaraRuntimeInfo;
   synaraWorkspaceRoot?: string;
+  onRetrySynaraRuntime: () => void;
   tab: SettingsTab;
   setTab: (tab: SettingsTab) => void;
   overleafSyncMode: OverleafSyncMode;
   overleafRemoteDelete: OverleafRemoteDelete;
   onOverleafRemoteDeleteChange: (mode: OverleafRemoteDelete) => void;
-  /** Re-ask the runtime for its models after it has been updated. */
-  onAgentRuntimeUpdated: () => void;
   overleafChannel: "off" | "connecting" | "live" | "error";
   overleafChannelDetail: string | null;
   /** Called when this project stops (or starts) being linked to Overleaf. */
@@ -115,8 +117,6 @@ export function SettingsDialog(props: {
   setTheme: (theme: Theme) => void;
   buildPreferences: BuildPreferences;
   setBuildPreferences: (preferences: BuildPreferences) => void;
-  systemPrompt: string;
-  setSystemPrompt: (prompt: string) => void;
   hasProject: boolean;
   project: ProjectSnapshot | null;
   activeFile: string | null;
@@ -127,31 +127,6 @@ export function SettingsDialog(props: {
   }) => void;
   onAddRootDocument: (path: string, makeDefault: boolean) => void;
   onRemoveRootDocument: (path: string) => void;
-  skills: AgentSkill[];
-  skillDraft: SkillDraft | null;
-  setSkillDraft: (draft: SkillDraft | null) => void;
-  onSaveSkill: (draft: SkillDraft) => void;
-  onSetSkillEnabled: (name: string, enabled: boolean) => void;
-  onDeleteSkill: (skill: AgentSkill) => void;
-  mcpServers: McpServer[];
-  mcpDraft: McpServerDraft | null;
-  setMcpDraft: (draft: McpServerDraft | null) => void;
-  onSaveMcpServer: (draft: McpServerDraft) => void;
-  onSetMcpServerEnabled: (name: string, enabled: boolean) => void;
-  onDeleteMcpServer: (server: McpServer) => void;
-  subscriptions: SubscriptionStatus[];
-  subscriptionsLoading: boolean;
-  subscriptionNotice: string;
-  // (updater state is read from context via useUpdater, not passed as a prop)
-  onRefreshSubscriptions: () => void;
-  onSubscriptionLogin: (provider: "codex" | "claude") => void;
-  apiProvider: "openai" | "anthropic";
-  setApiProvider: (provider: "openai" | "anthropic") => void;
-  apiKey: string;
-  setApiKey: (key: string) => void;
-  apiConfigured: boolean;
-  onSaveApiKey: () => void;
-  onDeleteApiKey: () => void;
   doctorReport: DoctorReport | null;
   doctorBusy: boolean;
   doctorNotice: string;
@@ -164,37 +139,111 @@ export function SettingsDialog(props: {
   onClose: () => void;
 }) {
   const updater = useUpdater();
+  const synaraSettingsEmbedRef = useRef<HTMLDivElement>(null);
   const synaraSettingsFrameRef = useRef<HTMLIFrameElement>(null);
   const settingsViewportRef = useRef<HTMLDivElement>(null);
+  const synaraSettingsHeightsRef = useRef<Record<string, number>>({});
+  const synaraSettingsFrameHeightRef = useRef(470);
+  const settingsBottomPinFrameRef = useRef<number | null>(null);
+  const settingsTopResetFrameRef = useRef<number | null>(null);
   const [synaraSettingsFrameHeight, setSynaraSettingsFrameHeight] = useState(470);
-  const synaraSettingsSection = props.synaraEmbedUrl
-    ? SYNARA_SETTINGS_SECTIONS[props.tab]
-    : undefined;
+  const [readySynaraSettingsUrl, setReadySynaraSettingsUrl] = useState<string | null>(null);
+  const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
+  const synaraEmbedUrl = props.synaraRuntime.state === "ready"
+    ? props.synaraRuntime.origin
+    : null;
   const synaraSettingsUrl = (() => {
-    if (!props.synaraEmbedUrl || !props.synaraWorkspaceRoot) return null;
+    if (!synaraEmbedUrl || !props.synaraWorkspaceRoot) return null;
     return synaraFrameUrl({
-      origin: props.synaraEmbedUrl,
+      origin: synaraEmbedUrl,
       path: "/settings",
       workspaceRoot: props.synaraWorkspaceRoot,
       theme: props.theme,
+      surface: "drawer",
       hostOrigin: window.location.origin,
-      authToken: props.synaraAuthToken,
+      authToken: props.synaraRuntime.authToken,
       section: "providers",
     });
   })();
+  const synaraSettingsOrigin = synaraEmbedUrl
+    ? new URL(synaraEmbedUrl).origin
+    : null;
+  useSynaraNotificationBridge({
+    frameRef: synaraSettingsFrameRef,
+    origin: synaraSettingsOrigin,
+    source: "Synara settings",
+  });
+  useSynaraConfirmationBridge({
+    frameRef: synaraSettingsFrameRef,
+    origin: synaraSettingsOrigin,
+  });
+  const synaraSettingsReady = Boolean(
+    synaraSettingsUrl && readySynaraSettingsUrl === synaraSettingsUrl,
+  );
+  const synaraSettingsHeightKey = synaraSettingsUrl && synaraSettingsSection
+    ? `${synaraSettingsUrl}#${synaraSettingsSection}`
+    : null;
   const postSynaraSettingsSection = useCallback(() => {
-    if (!props.synaraEmbedUrl || !synaraSettingsSection) return;
+    if (!synaraEmbedUrl || !synaraSettingsSection) return;
     synaraSettingsFrameRef.current?.contentWindow?.postMessage(
       { type: LATTICE_SETTINGS_SECTION_SET, section: synaraSettingsSection },
-      new URL(props.synaraEmbedUrl).origin,
+      new URL(synaraEmbedUrl).origin,
     );
-  }, [props.synaraEmbedUrl, synaraSettingsSection]);
-  useEffect(() => {
+  }, [synaraEmbedUrl, synaraSettingsSection]);
+  useLayoutEffect(() => {
+    const nextHeight = synaraSettingsHeightKey
+      ? (synaraSettingsHeightsRef.current[synaraSettingsHeightKey] ?? 470)
+      : 470;
+    synaraSettingsFrameHeightRef.current = nextHeight;
+    applySynaraSettingsHeight({
+      container: synaraSettingsEmbedRef.current,
+      frame: synaraSettingsFrameRef.current,
+      height: nextHeight,
+      active: Boolean(synaraSettingsSection),
+    });
+    setSynaraSettingsFrameHeight(nextHeight);
+    const viewport = settingsViewportRef.current;
+    if (viewport) {
+      viewport.scrollTop = 0;
+      viewport.scrollLeft = 0;
+    }
+    if (settingsTopResetFrameRef.current !== null) {
+      window.cancelAnimationFrame(settingsTopResetFrameRef.current);
+    }
+    settingsTopResetFrameRef.current = window.requestAnimationFrame(() => {
+      settingsTopResetFrameRef.current = null;
+      const currentViewport = settingsViewportRef.current;
+      if (currentViewport) {
+        currentViewport.scrollTop = 0;
+        currentViewport.scrollLeft = 0;
+      }
+    });
     postSynaraSettingsSection();
-  }, [postSynaraSettingsSection, synaraSettingsUrl]);
+    return () => {
+      if (settingsTopResetFrameRef.current !== null) {
+        window.cancelAnimationFrame(settingsTopResetFrameRef.current);
+        settingsTopResetFrameRef.current = null;
+      }
+    };
+  }, [
+    postSynaraSettingsSection,
+    synaraSettingsHeightKey,
+    synaraSettingsSection,
+  ]);
+  useEffect(
+    () => () => {
+      if (settingsBottomPinFrameRef.current !== null) {
+        window.cancelAnimationFrame(settingsBottomPinFrameRef.current);
+      }
+      if (settingsTopResetFrameRef.current !== null) {
+        window.cancelAnimationFrame(settingsTopResetFrameRef.current);
+      }
+    },
+    [],
+  );
   useEffect(() => {
-    if (!props.synaraEmbedUrl) return;
-    const synaraOrigin = new URL(props.synaraEmbedUrl).origin;
+    if (!synaraEmbedUrl || !synaraSettingsUrl) return;
+    const synaraOrigin = new URL(synaraEmbedUrl).origin;
     const receiveSynaraSettingsMessage = (event: MessageEvent) => {
       if (
         event.source !== synaraSettingsFrameRef.current?.contentWindow ||
@@ -205,9 +254,48 @@ export function SettingsDialog(props: {
       if (
         event.data?.type === SYNARA_SETTINGS_CONTENT_HEIGHT &&
         typeof event.data.height === "number" &&
-        Number.isFinite(event.data.height)
+        Number.isFinite(event.data.height) &&
+        typeof event.data.section === "string"
       ) {
-        setSynaraSettingsFrameHeight(Math.min(4000, Math.max(470, Math.ceil(event.data.height))));
+        const height = normalizeSynaraSettingsHeight(event.data.height);
+        const heightKey = `${synaraSettingsUrl}#${event.data.section}`;
+        synaraSettingsHeightsRef.current[heightKey] = height;
+        if (heightKey === synaraSettingsHeightKey) {
+          const previousHeight = synaraSettingsFrameHeightRef.current;
+          const viewport = settingsViewportRef.current;
+          const keepPinnedToBottom = Boolean(
+            viewport &&
+            height > previousHeight &&
+            isSettingsViewportNearBottom(viewport),
+          );
+          synaraSettingsFrameHeightRef.current = height;
+          // Height and wheel messages from the iframe are ordered, but a React
+          // state update is not committed before the following wheel message.
+          // Apply the geometry now so that the first wheel uses the real range.
+          applySynaraSettingsHeight({
+            container: synaraSettingsEmbedRef.current,
+            frame: synaraSettingsFrameRef.current,
+            height,
+            active: true,
+          });
+          setSynaraSettingsFrameHeight(height);
+          if (keepPinnedToBottom) {
+            if (settingsBottomPinFrameRef.current !== null) {
+              window.cancelAnimationFrame(settingsBottomPinFrameRef.current);
+            }
+            settingsBottomPinFrameRef.current = window.requestAnimationFrame(() => {
+              settingsBottomPinFrameRef.current = null;
+              const currentViewport = settingsViewportRef.current;
+              if (currentViewport) {
+                currentViewport.scrollTop = currentViewport.scrollHeight;
+              }
+            });
+          }
+        }
+        return;
+      }
+      if (event.data?.type === SYNARA_EMBED_READY) {
+        setReadySynaraSettingsUrl(synaraSettingsUrl);
         return;
       }
       if (
@@ -217,15 +305,33 @@ export function SettingsDialog(props: {
       ) {
         const viewport = settingsViewportRef.current;
         if (!viewport) return;
+        if (
+          typeof event.data.contentHeight === "number" &&
+          Number.isFinite(event.data.contentHeight) &&
+          event.data.section === synaraSettingsSection &&
+          synaraSettingsHeightKey
+        ) {
+          const height = normalizeSynaraSettingsHeight(event.data.contentHeight);
+          synaraSettingsHeightsRef.current[synaraSettingsHeightKey] = height;
+          synaraSettingsFrameHeightRef.current = height;
+          applySynaraSettingsHeight({
+            container: synaraSettingsEmbedRef.current,
+            frame: synaraSettingsFrameRef.current,
+            height,
+            active: true,
+          });
+          setSynaraSettingsFrameHeight(height);
+        }
         const scale = event.data.deltaMode === WheelEvent.DOM_DELTA_LINE
           ? 16
           : event.data.deltaMode === WheelEvent.DOM_DELTA_PAGE
             ? viewport.clientHeight
             : 1;
-        viewport.scrollBy({
-          top: event.data.deltaY * scale,
-          left: typeof event.data.deltaX === "number" ? event.data.deltaX * scale : 0,
-        });
+        scrollSynaraSettingsViewportBy(
+          viewport,
+          event.data.deltaY * scale,
+          typeof event.data.deltaX === "number" ? event.data.deltaX * scale : 0,
+        );
         return;
       }
       if (
@@ -234,11 +340,24 @@ export function SettingsDialog(props: {
         /^https?:\/\//i.test(event.data.url)
       ) {
         void openUrl(event.data.url);
+        return;
+      }
+      if (
+        event.data?.type === SYNARA_SHOW_IN_FOLDER
+      ) {
+        // The exact iframe window and origin were verified above. Ignore the
+        // child-provided path and reveal only Lattice's own shared-skill folder.
+        void openTrustedSynaraSkillsFolder();
       }
     };
     window.addEventListener("message", receiveSynaraSettingsMessage);
     return () => window.removeEventListener("message", receiveSynaraSettingsMessage);
-  }, [props.synaraEmbedUrl]);
+  }, [
+    synaraEmbedUrl,
+    synaraSettingsHeightKey,
+    synaraSettingsSection,
+    synaraSettingsUrl,
+  ]);
   const updateBusy = updater.phase === "checking"
     || updater.phase === "downloading"
     || updater.phase === "installing";
@@ -261,7 +380,7 @@ export function SettingsDialog(props: {
       ? "Lattice checks in the background and installs updates on its own."
       : "Lattice checks in the background; you decide when to install.";
   return (
-    <ModalDialog label="Settings" onClose={props.onClose}>
+    <ModalDialog label="Settings" focusDialogOnOpen onClose={props.onClose}>
       <div className="settings-modal">
         <PanelHeader
           className="settings-header"
@@ -279,26 +398,56 @@ export function SettingsDialog(props: {
                 onClick={() => props.setTab(item.tab)}
               >
                 <AnimatedProductIcon kind={item.icon} size={15} />
-                <span>{props.synaraEmbedUrl ? (SYNARA_SETTINGS_LABELS[item.tab] ?? item.label) : item.label}</span>
+                <span>{item.label}</span>
               </button>
             ))}
           </nav>
           <ScrollArea
             className="settings-content"
             viewportRef={settingsViewportRef}
+            fadeEdges={false}
           >
             {synaraSettingsUrl && (
-              <iframe
-                ref={synaraSettingsFrameRef}
-                className="synara-settings-frame"
-                src={synaraSettingsUrl}
-                title={`Synara ${SYNARA_SETTINGS_LABELS[props.tab] ?? "agent"} settings`}
-                allow="clipboard-read; clipboard-write"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
-                hidden={!synaraSettingsSection}
-                style={{ height: synaraSettingsFrameHeight }}
-                onLoad={postSynaraSettingsSection}
-              />
+              <div
+                ref={synaraSettingsEmbedRef}
+                className="synara-settings-embed"
+                data-active={Boolean(synaraSettingsSection)}
+                data-ready={synaraSettingsReady}
+                aria-busy={Boolean(synaraSettingsSection) && !synaraSettingsReady}
+                aria-hidden={!synaraSettingsSection}
+                style={{ height: synaraSettingsSection ? synaraSettingsFrameHeight : 0 }}
+              >
+                <iframe
+                  ref={synaraSettingsFrameRef}
+                  className="synara-settings-frame"
+                  src={synaraSettingsUrl}
+                  title={`Synara ${SYNARA_SETTINGS_LABELS[props.tab] ?? "agent"} settings`}
+                  allow="clipboard-read; clipboard-write"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
+                  scrolling="no"
+                  style={{ height: synaraSettingsFrameHeight }}
+                  onLoad={postSynaraSettingsSection}
+                />
+                {synaraSettingsSection && !synaraSettingsReady && (
+                  <div className="synara-settings-loading" role="status">
+                    <InfinityLoader size={14} /> Loading settings…
+                  </div>
+                )}
+              </div>
+            )}
+            {synaraSettingsSection && !synaraSettingsUrl && (
+              <div className="synara-settings-state">
+                {props.synaraRuntime.state === "ready" ? (
+                  <EmptyState
+                    description="Open a project to manage Agent settings."
+                  />
+                ) : (
+                  <SynaraLoadingSurface
+                    runtime={props.synaraRuntime}
+                    onRetry={props.onRetrySynaraRuntime}
+                  />
+                )}
+              </div>
             )}
             {props.tab === "appearance" && (
               <div className="settings-section">
@@ -308,7 +457,7 @@ export function SettingsDialog(props: {
                 />
                 <Field label="Color theme">
                   <Select value={props.theme} onValueChange={(value) => props.setTheme(value as Theme)}>
-                    <SelectTrigger aria-label="Color theme"><SelectValue /></SelectTrigger>
+                    <SelectTrigger size="form" aria-label="Color theme"><SelectValue /></SelectTrigger>
                     <SelectContent position="popper" align="start">
                       <SelectItem value="light">Light</SelectItem>
                       <SelectItem value="dark">Dark</SelectItem>
@@ -319,23 +468,6 @@ export function SettingsDialog(props: {
                   <div><label htmlFor="interface-size">Interface size</label><output>{Math.round(props.appearance.interfaceScale * 100)}%</output></div>
                   <input id="interface-size" type="range" min="90" max="135" step="5" value={Math.round(props.appearance.interfaceScale * 100)} onChange={(event) => props.setAppearance({ ...props.appearance, interfaceScale: Number(event.target.value) / 100 })} />
                 </div>
-                <Field label="LaTeX editor font">
-                  <Select
-                    value={
-                      availableFontOptions(EDITOR_FONT_OPTIONS).some((option) => option.value === props.appearance.editorFont)
-                        ? props.appearance.editorFont
-                        : DEFAULT_EDITOR_FONT
-                    }
-                    onValueChange={(value) => props.setAppearance({ ...props.appearance, editorFont: value })}
-                  >
-                    <SelectTrigger aria-label="LaTeX editor font"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                      {availableFontOptions(EDITOR_FONT_OPTIONS).map((option) => (
-                        <SelectItem key={option.family} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
                 <div className="settings-range">
                   <div><label htmlFor="editor-font-size">Editor font size</label><output>{props.appearance.editorFontSize}px</output></div>
                   <input id="editor-font-size" type="range" min="10" max="24" step="1" value={props.appearance.editorFontSize} onChange={(event) => props.setAppearance({ ...props.appearance, editorFontSize: Number(event.target.value) })} />
@@ -360,7 +492,7 @@ export function SettingsDialog(props: {
                           : "default",
                     })}
                   >
-                    <SelectTrigger aria-label="Editor keymap"><SelectValue /></SelectTrigger>
+                    <SelectTrigger size="form" aria-label="Editor keymap"><SelectValue /></SelectTrigger>
                     <SelectContent position="popper" align="start">
                       <SelectItem value="default">Default</SelectItem>
                       <SelectItem value="vim">Vim</SelectItem>
@@ -382,7 +514,7 @@ export function SettingsDialog(props: {
                 </div>
                 <Field label="Automatic build">
                   <Select value={props.buildPreferences.autoBuildMode} onValueChange={(value) => props.setBuildPreferences({ autoBuildMode: value as AutoBuildMode })}>
-                    <SelectTrigger aria-label="Automatic build"><SelectValue /></SelectTrigger>
+                    <SelectTrigger size="form" aria-label="Automatic build"><SelectValue /></SelectTrigger>
                     <SelectContent position="popper" align="start">
                       <SelectItem value="manual">Manual only</SelectItem>
                       <SelectItem value="automatic">Automatic</SelectItem>
@@ -409,7 +541,7 @@ export function SettingsDialog(props: {
                         value={props.project.manifest.engine ?? "pdf"}
                         onValueChange={(value) => props.onUpdateManifest({ engine: value })}
                       >
-                        <SelectTrigger aria-label="Compile engine"><SelectValue /></SelectTrigger>
+                        <SelectTrigger size="form" aria-label="Compile engine"><SelectValue /></SelectTrigger>
                         <SelectContent position="popper" align="start">
                           <SelectItem value="pdf">pdfLaTeX</SelectItem>
                           <SelectItem value="xelatex">XeLaTeX</SelectItem>
@@ -426,7 +558,7 @@ export function SettingsDialog(props: {
                         }
                         onValueChange={(value) => props.onUpdateManifest({ defaultRoot: value })}
                       >
-                        <SelectTrigger aria-label="Root document"><SelectValue /></SelectTrigger>
+                        <SelectTrigger size="form" aria-label="Root document"><SelectValue /></SelectTrigger>
                         <SelectContent position="popper" align="start">
                           {props.project.manifest.rootDocuments.map((document) => (
                             <SelectItem key={document.path} value={document.path}>{document.name} ({document.path})</SelectItem>
@@ -473,7 +605,7 @@ export function SettingsDialog(props: {
                   <p>Choose whether Lattice installs new versions automatically or just tells you.</p>
                   <Field label="Automatic updates">
                     <Select value={updater.mode} onValueChange={(value) => updater.setMode(value as UpdateMode)}>
-                      <SelectTrigger aria-label="Automatic updates"><SelectValue /></SelectTrigger>
+                      <SelectTrigger size="form" aria-label="Automatic updates"><SelectValue /></SelectTrigger>
                       <SelectContent position="popper" align="start">
                         <SelectItem value="manual">Notify me (manual)</SelectItem>
                         <SelectItem value="auto">Install automatically</SelectItem>
@@ -481,148 +613,26 @@ export function SettingsDialog(props: {
                     </Select>
                   </Field>
                   <div className="settings-detail">
-                    <RefreshCw size={14} />
+                    <Download size={14} />
                     <div><strong>{updateTitle}</strong><span>{updateDetail}</span></div>
                   </div>
                   <div className="root-document-actions">
-                    <Button
+                    <ReloadButton
                       size="compact"
+                      busy={updateBusy}
                       disabled={updateBusy}
                       onClick={() => void updater.check(false)}
                     >
                       {updater.phase === "checking" ? "Checking…" : "Check for updates"}
-                    </Button>
+                    </ReloadButton>
                   </div>
                 </div>
               </div>
             )}
             {props.tab === "logs" && <AppLogsSettings />}
-            {!props.synaraEmbedUrl && props.tab === "agent" && (
-              <div className="settings-section">
-                <SettingsSectionHeader
-                  title="Agent"
-                  description="Lattice uses Oh My Pi as its agent backend. The prompt and skills below stay inside Lattice and never change your global agent setup."
-                />
-                <Field label="System prompt" htmlFor="agent-system-prompt">
-                  <textarea
-                    id="agent-system-prompt"
-                    aria-label="Agent system prompt"
-                    placeholder="Write the system prompt you want OMP to use…"
-                    value={props.systemPrompt}
-                    onChange={(event) => props.setSystemPrompt(event.target.value)}
-                  />
-                </Field>
-                <div className="skill-heading">
-                  <div><strong>Skills</strong><span>Enabled skills are given to OMP on its next turn.</span></div>
-                  <Button size="compact" onClick={() => props.setSkillDraft({ scope: "application", content: "---\nname: new-skill\ndescription: Describe when OMP should use this skill.\n---\n\n# New skill\n\nWrite the instructions here.\n" })}><Plus size={12} /> Add skill</Button>
-                </div>
-                {props.skillDraft ? (
-                  <div className="skill-editor">
-                    <Field label="Availability">
-                      <Select value={props.skillDraft.scope} onValueChange={(value) => props.setSkillDraft({ ...props.skillDraft!, scope: value as "application" | "project" })}>
-                        <SelectTrigger aria-label="Availability"><SelectValue /></SelectTrigger>
-                        <SelectContent position="popper" align="start">
-                          <SelectItem value="application">All Lattice projects</SelectItem>
-                          <SelectItem value="project" disabled={!props.hasProject}>This project only</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field label="SKILL.md">
-                      <textarea aria-label="Skill instructions" value={props.skillDraft.content} onChange={(event) => props.setSkillDraft({ ...props.skillDraft!, content: event.target.value })} />
-                    </Field>
-                    <div className="skill-editor-actions">
-                      <Button size="compact" variant="ghost" onClick={() => props.setSkillDraft(null)}>Cancel</Button>
-                      <MotionButton
-                        className={buttonClassName({ variant: "primary", size: "compact" })}
-                        onClick={() => props.onSaveSkill(props.skillDraft!)}
-                      >
-                        Save skill
-                      </MotionButton>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="skill-list">
-                    {props.skills.map((skill) => (
-                      <div className="skill-card" key={skill.name}>
-                        <Switch checked={skill.enabled} label={`Enable ${skill.name}`} onChange={(next) => props.onSetSkillEnabled(skill.name, next)} />
-                        <div><strong>{skill.name}</strong><small>{skill.scope === "built-in" ? "Bundled" : skill.scope === "application" ? "All projects" : "This project"}{skill.overridden ? " · overrides bundled" : ""}</small><p>{skill.description}</p></div>
-                        <div className="skill-actions">
-                          <button title={`Edit ${skill.name}`} onClick={() => props.setSkillDraft({ originalName: skill.name, scope: skill.scope === "project" ? "project" : "application", content: skill.content })}><Pencil size={12} /></button>
-                          {skill.scope !== "built-in" && <button title={skill.overridden ? `Restore bundled ${skill.name}` : `Delete ${skill.name}`} onClick={() => props.onDeleteSkill(skill)}>{skill.overridden ? <RotateCcw size={12} /> : <Trash2 size={12} />}</button>}
-                        </div>
-                      </div>
-                    ))}
-                    {!props.skills.length && (
-                      <EmptyState
-                        align="start"
-                        density="compact"
-                        description="No skills are installed in Lattice."
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            {!props.synaraEmbedUrl && props.tab === "mcp" && (
-              <McpSettingsSection
-                hasProject={props.hasProject}
-                servers={props.mcpServers}
-                draft={props.mcpDraft}
-                setDraft={props.setMcpDraft}
-                onSave={props.onSaveMcpServer}
-                onSetEnabled={props.onSetMcpServerEnabled}
-                onDelete={props.onDeleteMcpServer}
-              />
-            )}
-            {!props.synaraEmbedUrl && props.tab === "accounts" && (
-              <div className="settings-section">
-                <SettingsSectionHeader
-                  title="Subscriptions"
-                  description="OMP manages sign-in and token refresh for Lattice."
-                  actions={(
-                    <IconButton
-                      label="Refresh subscription status"
-                      disabled={props.subscriptionsLoading}
-                      onClick={props.onRefreshSubscriptions}
-                    >
-                      <RefreshCw className={props.subscriptionsLoading ? "spin" : undefined} />
-                    </IconButton>
-                  )}
-                />
-                <div className="account-list">
-                  {props.subscriptions.map((account) => (
-                    <div className="account-card" key={account.provider}>
-                      <div className={`account-mark ${account.loggedIn ? "connected" : ""}`}>{account.provider === "codex" ? "O" : "C"}</div>
-                      <div><strong>{account.provider === "codex" ? "Codex subscription" : "Claude subscription"}</strong><small>{account.detail}</small></div>
-                      {!account.loggedIn && (
-                        <Button
-                          size="compact"
-                          variant="primary"
-                          disabled={!account.installed || props.subscriptionsLoading}
-                          onClick={() => props.onSubscriptionLogin(account.provider)}
-                        >
-                          Sign in with OMP
-                        </Button>
-                      )}
-                      {account.loggedIn && <span className="connected-label"><Check size={12} /> Connected</span>}
-                    </div>
-                  ))}
-                  {!props.subscriptions.length && (
-                    <EmptyState
-                      align="start"
-                      density="compact"
-                      description={props.subscriptionsLoading
-                        ? "Checking local subscriptions…"
-                        : "Refresh to check local subscriptions."}
-                    />
-                  )}
-                </div>
-                {props.subscriptionNotice && <p className="settings-notice">{props.subscriptionNotice}</p>}
-                <AgentRuntimeSettings onUpdated={props.onAgentRuntimeUpdated} />
-              </div>
-            )}
             {props.tab === "overleaf" && (
               <OverleafSettingsSection
+                projectRoot={props.project?.root ?? null}
                 syncMode={props.overleafSyncMode}
                 onSyncModeChange={props.onOverleafSyncModeChange}
                 remoteDelete={props.overleafRemoteDelete}
@@ -632,62 +642,18 @@ export function SettingsDialog(props: {
                 onLinkChanged={props.onOverleafLinkChanged}
               />
             )}
-            {!props.synaraEmbedUrl && props.tab === "api" && (
-              <div className="settings-section">
-                <SettingsSectionHeader
-                  title="API keys"
-                  description="API keys are optional and only used by the API providers. OMP authenticates subscription providers separately."
-                />
-                <Field label="Provider">
-                  <Select value={props.apiProvider} onValueChange={(value) => props.setApiProvider(value as "openai" | "anthropic")}>
-                    <SelectTrigger aria-label="Provider"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                      <SelectItem value="openai">OpenAI API</SelectItem>
-                      <SelectItem value="anthropic">Anthropic API</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field
-                  htmlFor="settings-api-key"
-                  label={(
-                    <span className="key-label">
-                      API key
-                      {props.apiConfigured && <span className="configured-label"><Check size={11} /> Configured</span>}
-                    </span>
-                  )}
-                >
-                  <input id="settings-api-key" type="password" autoComplete="off" placeholder={props.apiConfigured ? "Enter a replacement key" : "Paste API key"} value={props.apiKey} onChange={(event) => props.setApiKey(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.apiKey.trim() && props.onSaveApiKey()} />
-                </Field>
-                <div className="settings-api-actions">
-                  {props.apiConfigured && (
-                    <Button size="compact" variant="danger" onClick={props.onDeleteApiKey}>
-                      <Trash2 size={13} /> Remove
-                    </Button>
-                  )}
-                  <span />
-                  <MotionButton
-                    className={buttonClassName({ variant: "primary" })}
-                    onClick={props.onSaveApiKey}
-                    disabled={!props.apiKey.trim()}
-                  >
-                    Save key
-                  </MotionButton>
-                </div>
-              </div>
-            )}
             {props.tab === "doctor" && (
               <div className="settings-section">
                 <SettingsSectionHeader
                   title="TeX doctor"
-                  description="Checks local LaTeX tools, SyncTeX, bibliography processors, and the bundled agent runtime."
+                  description="Checks local LaTeX tools, SyncTeX, bibliography processors, editor helpers, and conference fonts."
                   actions={(
-                    <IconButton
+                    <ReloadIconButton
                       label="Run TeX doctor"
+                      busy={props.doctorBusy}
                       disabled={props.doctorBusy}
                       onClick={props.onRunDoctor}
-                    >
-                      <RefreshCw className={props.doctorBusy ? "spin" : undefined} />
-                    </IconButton>
+                    />
                   )}
                 />
                 {props.doctorReport && (
@@ -728,7 +694,12 @@ export function SettingsDialog(props: {
                   </>
                 )}
                 {props.doctorBusy && (
-                  <EmptyState align="start" density="compact" description="Checking local tools…" />
+                  <EmptyState
+                    align="start"
+                    density="compact"
+                    icon={<InfinityLoader size={15} />}
+                    description="Checking local tools…"
+                  />
                 )}
                 {props.doctorNotice && <p className="settings-notice">{props.doctorNotice}</p>}
               </div>

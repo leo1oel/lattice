@@ -50,6 +50,7 @@ function mockProject(options: { anchors?: unknown[] } = {}) {
 function mount() {
   return renderHook(() => useOverleafComments({
     enabled: true,
+    projectRoot: "/tmp/project",
     docId: HERE,
     anchored: ["t-here"],
     anchor: async () => undefined,
@@ -68,6 +69,7 @@ describe("useOverleafComments", () => {
 
     await act(() => result.current.setResolved("t-elsewhere", true));
     expect(invoke).toHaveBeenCalledWith("overleaf_resolve_thread", {
+      projectRoot: "/tmp/project",
       docId: ELSEWHERE,
       threadId: "t-elsewhere",
       resolved: true,
@@ -75,6 +77,7 @@ describe("useOverleafComments", () => {
 
     await act(() => result.current.remove("t-elsewhere"));
     expect(invoke).toHaveBeenCalledWith("overleaf_delete_thread", {
+      projectRoot: "/tmp/project",
       docId: ELSEWHERE,
       threadId: "t-elsewhere",
     });
@@ -120,6 +123,7 @@ describe("useOverleafComments", () => {
 
     await act(() => result.current.editMessage("t-here", "t-here-m1", "reworded"));
     expect(invoke).toHaveBeenCalledWith("overleaf_edit_message", {
+      projectRoot: "/tmp/project",
       threadId: "t-here",
       messageId: "t-here-m1",
       content: "reworded",
@@ -127,6 +131,7 @@ describe("useOverleafComments", () => {
 
     await act(() => result.current.deleteMessage("t-here", "t-here-m1"));
     expect(invoke).toHaveBeenCalledWith("overleaf_delete_message", {
+      projectRoot: "/tmp/project",
       threadId: "t-here",
       messageId: "t-here-m1",
     });

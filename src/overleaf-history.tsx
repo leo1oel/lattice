@@ -22,13 +22,12 @@ import {
   FilePen,
   FilePlus2,
   FileX2,
-  LoaderCircle,
   MoveRight,
   RotateCcw,
   Tag,
-  X,
 } from "lucide-react";
 import { HistoryDiff } from "./versions-timeline";
+import { Input } from "./components/ui/input";
 import { useOverleafHistory } from "./use-overleaf-history";
 import { changedFiles, isBinaryDiff, textFromDiffChunks } from "./overleaf-history-diff";
 import type {
@@ -38,6 +37,8 @@ import type {
 } from "./overleaf-history-types";
 import { confirmAction } from "./app-utils";
 import { peerColorForName } from "./collab-colors";
+import { DestructiveButton } from "./components/ui/destructive-button";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import "./overleaf-history.css";
 
 function message(reason: unknown): string {
@@ -93,6 +94,8 @@ function FileOpIcon(props: { op: OverleafFileEntry["operation"] }) {
 }
 
 export function OverleafHistoryPanel(props: {
+  /** The project this drawer was opened for; every request is scoped to it. */
+  projectRoot: string;
   /** Close the whole drawer — jumping to a line from a diff gets out of the way. */
   onClose: () => void;
   /** Put the caret on a line from a rendered diff, the way the Changes/Versions tabs do. */
@@ -104,7 +107,7 @@ export function OverleafHistoryPanel(props: {
    */
   onRestored?: () => void;
 }) {
-  const history = useOverleafHistory();
+  const history = useOverleafHistory(props.projectRoot);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [files, setFiles] = useState<OverleafFileEntry[] | null>(null);
   const [filesError, setFilesError] = useState("");
@@ -150,6 +153,7 @@ export function OverleafHistoryPanel(props: {
     setFilesLoading(true);
     const seq = (filesSeq.current += 1);
     void invoke<{ diff: OverleafFileEntry[] }>("overleaf_history_files", {
+      projectRoot: props.projectRoot,
       from: update.fromVersion,
       to: update.toVersion,
     })
@@ -184,6 +188,7 @@ export function OverleafHistoryPanel(props: {
     setDiffLoading(true);
     const seq = (diffSeq.current += 1);
     void invoke<{ diff: OverleafDiffChunk[] | { binary: true } }>("overleaf_history_diff", {
+      projectRoot: props.projectRoot,
       path,
       from: update.fromVersion,
       to: update.toVersion,
@@ -226,7 +231,7 @@ export function OverleafHistoryPanel(props: {
       {notice && <p className="overleaf-history-notice" role="status">{notice}</p>}
 
       {history.loading && !history.updates.length && (
-        <p className="overleaf-history-loading">Loading Overleaf's history…</p>
+        <p className="overleaf-history-loading"><InfinityLoader size={13} /> Loading Overleaf's history…</p>
       )}
       {!history.loading && !history.updates.length && !history.error && (
         <p className="overleaf-history-empty">No history yet.</p>
@@ -287,14 +292,20 @@ export function OverleafHistoryPanel(props: {
                             {update.labels.map((label) => (
                               <span className="overleaf-history-label-chip" key={label.id}>
                                 <Tag size={10} aria-hidden /> {label.comment}
-                                <button
+                                <DestructiveButton
                                   type="button"
                                   title={`Remove the "${label.comment}" label`}
                                   disabled={history.busy}
-                                  onClick={() => void run("Label removed.", () => history.deleteLabel(label.id))}
-                                >
-                                  <X size={10} />
-                                </button>
+                                  iconSize={10}
+                                  onClick={async () => {
+                                    if (!await confirmAction(
+                                      `Remove the “${label.comment}” label from this Overleaf version?`,
+                                    )) {
+                                      return;
+                                    }
+                                    void run("Label removed.", () => history.deleteLabel(label.id));
+                                  }}
+                                />
                               </span>
                             ))}
                           </div>
@@ -313,7 +324,8 @@ export function OverleafHistoryPanel(props: {
                                 });
                             }}
                           >
-                            <input
+                            <Input
+                              controlSize="compact"
                               autoFocus
                               value={labelDraft}
                               placeholder="Name this version…"
@@ -346,7 +358,7 @@ export function OverleafHistoryPanel(props: {
                       </div>
 
                       {filesLoading && (
-                        <p className="git-empty"><LoaderCircle className="spin" size={12} /> Loading files…</p>
+                        <p className="git-empty"><InfinityLoader size={12} /> Loading files…</p>
                       )}
                       {filesError && <p className="overleaf-history-error" role="alert">{filesError}</p>}
                       {files && !files.length && !filesLoading && (
@@ -408,7 +420,7 @@ export function OverleafHistoryPanel(props: {
                       {activePath && (
                         <>
                           {diffLoading && !diffChunks && !diffBinary && (
-                            <p className="history-diff-loading">Loading diff…</p>
+                            <p className="history-diff-loading"><InfinityLoader size={12} /> Loading diff…</p>
                           )}
                           {diffError && <p className="history-diff-error" role="alert">{diffError}</p>}
                           {diffBinary && (
@@ -468,7 +480,7 @@ export function OverleafHistoryPanel(props: {
           disabled={history.loadingMore}
           onClick={() => void history.loadMore()}
         >
-          {history.loadingMore && <LoaderCircle className="spin" size={12} />} Load more
+          {history.loadingMore && <InfinityLoader size={12} />} Load more
         </button>
       )}
     </div>

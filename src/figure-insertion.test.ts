@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { latexFigureInsertion } from "./figure-insertion";
+import { latexFigureInsertion, markdownAssetInsertion } from "./figure-insertion";
 
 describe("LaTeX figure insertion", () => {
   it("creates editable figure blocks with stable labels", () => {
@@ -21,5 +21,22 @@ describe("LaTeX figure insertion", () => {
     expect(edit.text).toContain("width=0.5\\linewidth");
     expect(edit.text).toContain("\\caption{A plot}");
     expect(edit.text).toContain("\\label{fig:plot}");
+  });
+});
+
+describe("Markdown asset insertion", () => {
+  it("uses a relative image link for renderable figures", () => {
+    const edit = markdownAssetInsertion(
+      "# Notes\nNext",
+      8,
+      ["figures/Native UMM.svg"],
+      "notes/method.md",
+    );
+    expect(edit.text).toBe("\n![Native UMM](<../figures/Native UMM.svg>)\n\n");
+  });
+
+  it("uses a regular link for PDF files", () => {
+    const edit = markdownAssetInsertion("", 0, ["figures/result.pdf"], "notes/method.md");
+    expect(edit.text).toBe("[result.pdf](<../figures/result.pdf>)\n");
   });
 });
