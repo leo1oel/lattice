@@ -28,6 +28,10 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin
@@ -56,7 +60,7 @@ jobs:
 
           (
             cd "$synara_source"
-            "$GITHUB_WORKSPACE/node_modules/.bin/bun" install --frozen-lockfile
+            bun install --frozen-lockfile
           )
           echo "SYNARA_SOURCE_DIR=$synara_source" >> "$GITHUB_ENV"
 
