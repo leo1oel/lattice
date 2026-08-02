@@ -286,7 +286,7 @@ export function overleafTrackChangesExtension(options: TrackedChangesExtensionOp
         flexDirection: "column",
         gap: "8px",
         maxWidth: "320px",
-        font: "12px/1.4 var(--ui-font, sans-serif)",
+        font: "var(--type-label-size)/1.4 var(--ui-font, sans-serif)",
       },
       ".cm-tracked-change-tooltip-item": { display: "flex", flexDirection: "column", gap: "4px" },
       ".cm-tracked-change-tooltip-item + .cm-tracked-change-tooltip-item": {

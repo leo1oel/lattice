@@ -23,6 +23,7 @@ import { ScrollArea } from "./components/ui/scroll-area";
 import { SearchField } from "./components/ui/search-field";
 import { rowClassName } from "./components/ui/row";
 import { SettingsSectionHeader } from "./components/ui/settings-section-header";
+import { SettingsGroup } from "./components/ui/settings-row";
 import { Textarea } from "./components/ui/textarea";
 import { MotionButton } from "./motion";
 import { ResizableDrawer } from "./resizable-drawer";
@@ -287,15 +288,16 @@ export function OverleafSettingsSection(props: {
         title="Overleaf"
         description="Connect your Overleaf account to open and sync your Overleaf projects directly in Lattice."
       />
-      {loading && !loadError && (
+      <SettingsGroup title="Connection">
+        {loading && !loadError && (
         <EmptyState
           align="start"
           density="compact"
           icon={<InfinityLoader size={15} />}
           description="Checking your Overleaf connection…"
         />
-      )}
-      {loadError && (
+        )}
+        {loadError && (
         <>
           <p className="overleaf-error" role="alert">{loadError}</p>
           <div className="overleaf-retry-row">
@@ -309,8 +311,8 @@ export function OverleafSettingsSection(props: {
             </ReloadButton>
           </div>
         </>
-      )}
-      {!loading && !loadError && status?.connected && (
+        )}
+        {!loading && !loadError && status?.connected && (
         <div className="overleaf-status-row">
           <span className="overleaf-dot connected" aria-hidden="true" />
           <div className="overleaf-status-text">
@@ -319,8 +321,8 @@ export function OverleafSettingsSection(props: {
           </div>
           <Button size="compact" onClick={() => void disconnect()}>Sign out</Button>
         </div>
-      )}
-      {!loading && !loadError && status && !status.connected && (
+        )}
+        {!loading && !loadError && status && !status.connected && (
         login.pending ? (
           <LoginWaitingRow onCancel={login.cancel} hint={login.hint} />
         ) : (
@@ -333,11 +335,11 @@ export function OverleafSettingsSection(props: {
             </p>
           </div>
         )
-      )}
-      {login.error && <p className="overleaf-error" role="alert">{login.error}</p>}
-      {login.notice && <p className="overleaf-hint">{login.notice}</p>}
-      {actionError && <p className="overleaf-error" role="alert">{actionError}</p>}
-      {link && (
+        )}
+        {login.error && <p className="overleaf-error" role="alert">{login.error}</p>}
+        {login.notice && <p className="overleaf-hint">{login.notice}</p>}
+        {actionError && <p className="overleaf-error" role="alert">{actionError}</p>}
+        {link && (
         <div className="overleaf-status-row">
           <span className={`overleaf-dot ${link.paused ? "paused" : "connected"}`} aria-hidden="true" />
           <div className="overleaf-status-text">
@@ -359,87 +361,98 @@ export function OverleafSettingsSection(props: {
             {link.paused ? "Resume syncing" : "Pause syncing"}
           </Button>
         </div>
-      )}
-      <div className="overleaf-mode">
-        <h3>Keeping in step</h3>
-        <label className="overleaf-mode-option">
-          <input
-            type="radio"
-            name="overleaf-sync-mode"
-            checked={props.syncMode === "live"}
-            onChange={() => props.onSyncModeChange("live")}
-          />
-          <span>
-            <strong>Live sync</strong>
-            <small>
-              Edits travel through Overleaf's own editing channel, so you and anyone in the
-              browser see each other's typing as it happens. Figures and new files follow on a
-              slower check in the background.
-            </small>
-            {props.syncMode === "live" && (
-              <small className={`overleaf-channel overleaf-channel-${props.channel}`}>
-                {props.channel === "live" && "Connected to Overleaf's editing channel."}
-                {props.channel === "connecting"
-                  && (props.channelDetail || "Connecting to Overleaf's editing channel…")}
-                {props.channel === "off" && "Open a linked project to start editing live."}
-                {props.channel === "error"
-                  && `Live editing could not start${props.channelDetail ? `: ${props.channelDetail}` : ""}. Your project still syncs.`}
-              </small>
-            )}
-          </span>
-        </label>
-        <label className="overleaf-mode-option">
-          <input
-            type="radio"
-            name="overleaf-sync-mode"
-            checked={props.syncMode === "manual"}
-            onChange={() => props.onSyncModeChange("manual")}
-          />
-          <span>
-            <strong>Manual</strong>
-            <small>
-              Nothing moves until you press the sync button. A dot appears on it when Overleaf
-              has changes waiting, and every sync is recorded in Versions so you can read the
-              diff and roll back.
-            </small>
-          </span>
-        </label>
-      </div>
-      <div className="overleaf-mode">
-        <h3>When you delete a file here</h3>
-        {([
-          {
-            id: "ask" as const,
-            title: "Ask me",
-            blurb: "A sync that finds a file missing here offers to remove it from Overleaf too.",
-          },
-          {
-            id: "always" as const,
-            title: "Delete it there too",
-            blurb: "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake.",
-          },
-          {
-            id: "never" as const,
-            title: "Leave it on Overleaf",
-            blurb: "Nothing is ever removed from the shared project from here. The two sides stay different.",
-          },
-        ]).map((option) => (
-          <label className="overleaf-mode-option" key={option.id}>
-            <input
-              type="radio"
-              name="overleaf-remote-delete"
-              checked={props.remoteDelete === option.id}
-              onChange={() => props.onRemoteDeleteChange(option.id)}
-            />
-            <span>
-              <strong>{option.title}</strong>
-              <small>{option.blurb}</small>
-            </span>
-          </label>
-        ))}
-      </div>
+        )}
+      </SettingsGroup>
+      <SettingsGroup title="Sync behavior">
+        <fieldset className="overleaf-preference-group">
+          <legend>Sync mode</legend>
+          <div className="overleaf-mode">
+            <label className="overleaf-mode-option ui-radio-choice">
+              <input
+                type="radio"
+                name="overleaf-sync-mode"
+                checked={props.syncMode === "live"}
+                onChange={() => props.onSyncModeChange("live")}
+              />
+              <span className="ui-radio-dot" aria-hidden="true" />
+              <span>
+                <strong>Live sync</strong>
+                <small>
+                  Edits travel through Overleaf's own editing channel, so you and anyone in the
+                  browser see each other's typing as it happens. Figures and new files follow on a
+                  slower check in the background.
+                </small>
+                {props.syncMode === "live" && (
+                  <small className={`overleaf-channel overleaf-channel-${props.channel}`}>
+                    {props.channel === "live" && "Connected to Overleaf's editing channel."}
+                    {props.channel === "connecting"
+                      && (props.channelDetail || "Connecting to Overleaf's editing channel…")}
+                    {props.channel === "off" && "Open a linked project to start editing live."}
+                    {props.channel === "error"
+                      && `Live editing could not start${props.channelDetail ? `: ${props.channelDetail}` : ""}. Your project still syncs.`}
+                  </small>
+                )}
+              </span>
+            </label>
+            <label className="overleaf-mode-option ui-radio-choice">
+              <input
+                type="radio"
+                name="overleaf-sync-mode"
+                checked={props.syncMode === "manual"}
+                onChange={() => props.onSyncModeChange("manual")}
+              />
+              <span className="ui-radio-dot" aria-hidden="true" />
+              <span>
+                <strong>Manual</strong>
+                <small>
+                  Nothing moves until you press the sync button. A dot appears on it when Overleaf
+                  has changes waiting, and every sync is recorded in Versions so you can read the
+                  diff and roll back.
+                </small>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+        <fieldset className="overleaf-preference-group">
+          <legend>When you delete a file here</legend>
+          <div className="overleaf-mode">
+            {([
+              {
+                id: "ask" as const,
+                title: "Ask before deleting",
+                blurb: "A sync that finds a file missing here offers to remove it from Overleaf too.",
+              },
+              {
+                id: "always" as const,
+                title: "Delete on Overleaf too",
+                blurb: "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake.",
+              },
+              {
+                id: "never" as const,
+                title: "Keep it on Overleaf",
+                blurb: "Nothing is ever removed from the shared project from here. The two sides stay different.",
+              },
+            ]).map((option) => (
+              <label className="overleaf-mode-option ui-radio-choice" key={option.id}>
+                <input
+                  type="radio"
+                  name="overleaf-remote-delete"
+                  checked={props.remoteDelete === option.id}
+                  onChange={() => props.onRemoteDeleteChange(option.id)}
+                />
+                <span className="ui-radio-dot" aria-hidden="true" />
+                <span>
+                  <strong>{option.title}</strong>
+                  <small>{option.blurb}</small>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </SettingsGroup>
 
-      <details className="overleaf-advanced">
+      <SettingsGroup title="Advanced connection settings">
+        <details className="overleaf-advanced">
         <summary>Advanced options</summary>
         <p className="overleaf-hint">
           Only needed if your lab runs its own Overleaf server (Community or Server Pro), or if the sign-in window doesn’t work.
@@ -477,7 +490,8 @@ export function OverleafSettingsSection(props: {
             {applying ? "Applying…" : "Apply"}
           </MotionButton>
         </div>
-      </details>
+        </details>
+      </SettingsGroup>
     </div>
   );
 }

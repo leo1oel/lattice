@@ -71,6 +71,25 @@ afterEach(() => {
 });
 
 describe("Overleaf settings section", () => {
+  it("presents sync mode and deletion behavior as separate option groups", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return connected;
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
+
+    const syncMode = screen.getByRole("group", { name: "Sync mode" });
+    const deletionBehavior = screen.getByRole("group", { name: "When you delete a file here" });
+
+    expect(within(syncMode).getAllByRole("radio")).toHaveLength(2);
+    expect(syncMode.querySelectorAll(".ui-radio-dot")).toHaveLength(2);
+    expect(within(syncMode).getByRole("radio", { name: /Live sync/ })).toBeChecked();
+    expect(within(deletionBehavior).getAllByRole("radio")).toHaveLength(3);
+    expect(deletionBehavior.querySelectorAll(".ui-radio-dot")).toHaveLength(3);
+    expect(within(deletionBehavior).getByRole("radio", { name: /Ask before deleting/ })).toBeChecked();
+    expect(await screen.findByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
+  });
+
   it("renders disconnected guidance and connects through begin_login + polling", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "overleaf_status") return disconnected;

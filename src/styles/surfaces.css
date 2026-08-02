@@ -1,0 +1,142 @@
+/*
+ * Shared surface contracts.
+ *
+ * Feature CSS should add layout, sizing, and state — not restate the same
+ * border / fill / shadow triple on every floating panel. Keep the chrome here
+ * so a future elevation change lands once.
+ */
+
+/* Floating cards and dialogs that sit above the page. */
+.modal,
+.settings-modal,
+.root-error-card,
+.settings-preview,
+.cm-latex-tooltip,
+.editor-comment-popover,
+.source-editor .cm-tooltip-lint,
+.source-editor .cm-tooltip.cm-tooltip-autocomplete,
+.source-editor .cm-tooltip-hover,
+.file-tree-context-menu,
+.venue-menu,
+.cite-command-menu,
+.error-banner,
+.warning-banner,
+.notice-banner,
+.compile-diagnostics,
+.latex-selection-toolbar,
+.figure-drag-ghost,
+.brand-mark,
+.app-toast {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-panel-raised);
+  box-shadow: var(--shadow);
+}
+
+/* Frosted cards that hover over document text. They stay translucent so the
+ * underlying page remains readable, and they share the same blur strength. */
+.texlab-hover-card,
+.citation-hover-card,
+.reference-hover-card {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--surface-panel-raised) 97%, transparent);
+  backdrop-filter: blur(14px);
+  color: var(--text-primary);
+}
+
+/* Right-edge drawers share one shell; width and overflow stay feature-owned. */
+.resizable-drawer,
+.table-generator,
+.project-replace {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  max-width: 100%;
+  background: var(--surface-input);
+  box-shadow: var(--shadow);
+  padding: 14px;
+  overflow: auto;
+  animation: drawer-in var(--duration-reveal) var(--ease-out);
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0.5;
+  }
+}
+
+/*
+ * Minimum pointer target.
+ *
+ * Some controls are painted small on purpose: a 14px chip dismiss, a 22px tab
+ * close. The painted box is a visual decision; the pointer target is not, and it
+ * has a floor of `--hit-area-min`. Add `data-hit-area` to such a control and it
+ * gets a centered, invisible target of at least that size without changing a
+ * single visible dimension.
+ */
+[data-hit-area] {
+  position: relative;
+}
+
+[data-hit-area]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: max(100%, var(--hit-area-min));
+  height: max(100%, var(--hit-area-min));
+}
+
+/*
+ * Concentric nesting.
+ *
+ * When a surface holds another one flush inside its padding, the two curves have
+ * to stay parallel or the inner corner reads as pinched. That is one relation,
+ * not two independent numbers:
+ *
+ *   inner radius = outer radius - inset
+ *
+ * A container declares the pair it nests by, `--surface-radius` and
+ * `--surface-inset`, and the rule below derives `--nested-radius` from them.
+ * Children then use `border-radius: var(--nested-radius)` and never restate a
+ * value that has to be kept in sync by hand.
+ *
+ * `--surface-radius` is the radius the child is nested *inside*. For a menu that
+ * is its own rounded surface, that is its own radius. For a list flush inside a
+ * dialog, it is the dialog's radius.
+ *
+ * This applies to tight nesting: menu items, segmented tabs, chips. A card with
+ * generous padding is not concentric nesting, and its inner elements keep an
+ * independently chosen radius.
+ */
+:where(
+  .ui-segmented,
+  .venue-menu,
+  .cite-command-menu,
+  .file-tree-context-menu,
+  .agent-permission-menu,
+  .quick-open-list
+) {
+  --nested-radius: calc(var(--surface-radius) - var(--surface-inset));
+}
+
+/* Compact menus that open in place (not Radix portaled surfaces). */
+.venue-menu,
+.cite-command-menu {
+  --surface-radius: var(--radius-control);
+  --surface-inset: var(--space-2);
+  padding: var(--surface-inset);
+  border-radius: var(--surface-radius);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.file-tree-context-menu {
+  /* Slightly roomier than the combobox menus so action labels breathe. */
+  --surface-radius: var(--radius-panel);
+  --surface-inset: 5px;
+  padding: var(--surface-inset);
+  border-radius: var(--surface-radius);
+}

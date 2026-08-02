@@ -28,19 +28,19 @@ const unsafeCss = `
   --diffs-font-size: var(--type-diff-code-size);
   --diffs-line-height: var(--type-diff-code-line-height);
   --diffs-overflow-override: auto;
-  --diffs-bg: var(--bg) !important;
-  --diffs-light-bg: var(--bg) !important;
-  --diffs-dark-bg: var(--bg) !important;
-  --diffs-bg-context-override: var(--bg) !important;
-  --diffs-bg-context-number-override: var(--bg) !important;
-  --diffs-bg-hover-override: color-mix(in srgb, var(--bg) 96%, var(--text)) !important;
-  --diffs-bg-separator-override: color-mix(in srgb, var(--bg) 95%, var(--text)) !important;
-  --diffs-bg-buffer-override: color-mix(in srgb, var(--bg) 93%, var(--text)) !important;
-  --diffs-bg-addition-override: color-mix(in srgb, var(--bg) 88%, var(--success)) !important;
-  --diffs-bg-addition-number-override: color-mix(in srgb, var(--bg) 84%, var(--success)) !important;
-  --diffs-bg-deletion-override: color-mix(in srgb, var(--bg) 89%, var(--danger)) !important;
-  --diffs-bg-deletion-number-override: color-mix(in srgb, var(--bg) 85%, var(--danger)) !important;
-  background: var(--bg) !important;
+  --diffs-bg: var(--surface-app) !important;
+  --diffs-light-bg: var(--surface-app) !important;
+  --diffs-dark-bg: var(--surface-app) !important;
+  --diffs-bg-context-override: var(--surface-app) !important;
+  --diffs-bg-context-number-override: var(--surface-app) !important;
+  --diffs-bg-hover-override: color-mix(in srgb, var(--surface-app) 96%, var(--text-primary)) !important;
+  --diffs-bg-separator-override: color-mix(in srgb, var(--surface-app) 95%, var(--text-primary)) !important;
+  --diffs-bg-buffer-override: color-mix(in srgb, var(--surface-app) 93%, var(--text-primary)) !important;
+  --diffs-bg-addition-override: color-mix(in srgb, var(--surface-app) 88%, var(--status-success)) !important;
+  --diffs-bg-addition-number-override: color-mix(in srgb, var(--surface-app) 84%, var(--status-success)) !important;
+  --diffs-bg-deletion-override: color-mix(in srgb, var(--surface-app) 89%, var(--status-danger)) !important;
+  --diffs-bg-deletion-number-override: color-mix(in srgb, var(--surface-app) 85%, var(--status-danger)) !important;
+  background: var(--surface-app) !important;
   font-family: var(--editor-font) !important;
   font-size: var(--type-diff-code-size) !important;
   line-height: var(--type-diff-code-line-height) !important;
@@ -50,10 +50,10 @@ const unsafeCss = `
 [data-file],
 [data-error-wrapper],
 [data-virtualizer-buffer] {
-  --diffs-bg: var(--bg) !important;
-  --diffs-light-bg: var(--bg) !important;
-  --diffs-dark-bg: var(--bg) !important;
-  background: var(--bg) !important;
+  --diffs-bg: var(--surface-app) !important;
+  --diffs-light-bg: var(--surface-app) !important;
+  --diffs-dark-bg: var(--surface-app) !important;
+  background: var(--surface-app) !important;
   font-family: var(--editor-font) !important;
   font-size: var(--type-diff-code-size) !important;
   line-height: var(--type-diff-code-line-height) !important;
@@ -72,7 +72,7 @@ const unsafeCss = `
 @media (pointer: fine) {
   * {
     scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--text) 8%, transparent) transparent;
+    scrollbar-color: color-mix(in srgb, var(--text-primary) 8%, transparent) transparent;
   }
 
   *::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -81,15 +81,15 @@ const unsafeCss = `
   *::-webkit-scrollbar-thumb {
     border: 3px solid transparent;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--text) 8%, transparent);
+    background: color-mix(in srgb, var(--text-primary) 8%, transparent);
     background-clip: content-box;
   }
   *::-webkit-scrollbar-thumb:vertical { border-right-width: 5px; border-left-width: 1px; }
   *::-webkit-scrollbar-thumb:horizontal { border-top-width: 1px; border-bottom-width: 5px; }
-  *::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--text) 12%, transparent); }
+  *::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--text-primary) 12%, transparent); }
   *::-webkit-scrollbar-thumb:vertical:hover { border-right-width: 4px; border-left-width: 0; }
   *::-webkit-scrollbar-thumb:horizontal:hover { border-top-width: 0; border-bottom-width: 4px; }
-  *::-webkit-scrollbar-thumb:active { background-color: color-mix(in srgb, var(--text) 16%, transparent); }
+  *::-webkit-scrollbar-thumb:active { background-color: color-mix(in srgb, var(--text-primary) 16%, transparent); }
 }
 `;
 

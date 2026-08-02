@@ -605,7 +605,7 @@ fn last_typeset_pass(log: &str) -> &str {
     &log[start..]
 }
 
-fn is_pass_noise_warning(message: &str) -> bool {
+pub(crate) fn is_pass_noise_warning(message: &str) -> bool {
     let lower = message.to_ascii_lowercase();
     lower.contains("rerun to get")
         || lower.contains("may have changed")

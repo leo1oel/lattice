@@ -33,6 +33,8 @@ pub struct ProjectManifest {
     pub word_budget: Option<u32>,
     #[serde(default)]
     pub page_budget: Option<u32>,
+    #[serde(default)]
+    pub spelling_words: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

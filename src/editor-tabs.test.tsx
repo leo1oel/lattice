@@ -45,7 +45,28 @@ describe("EditorTabs", () => {
       />,
     );
     expect(container.querySelector(".editor-tabs")).toBeInTheDocument();
-    expect(screen.getByRole("tablist", { name: "Open files" })).toBeEmptyDOMElement();
+    expect(screen.getByRole("tablist", { name: "Open files" })
+      .querySelector(".editor-tabs-content")).toBeEmptyDOMElement();
+  });
+
+  it("uses the shared horizontal scroll area and maps a plain wheel vertically", () => {
+    const { container } = render(
+      <EditorTabs
+        tabs={[{ path: "a.tex" }, { path: "b.tex" }]}
+        activePath="a.tex"
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+        onReorder={vi.fn()}
+      />,
+    );
+    const root = container.querySelector(".editor-tabs-scroll");
+    const viewport = screen.getByRole("tablist", { name: "Open files" });
+    expect(root).toHaveAttribute("data-slot", "scroll-area");
+    expect(viewport).toHaveAttribute("data-slot", "scroll-area-viewport");
+    expect(viewport.querySelector(".editor-tabs-content")).toBeInTheDocument();
+    Object.defineProperty(viewport, "scrollLeft", { configurable: true, writable: true, value: 0 });
+    fireEvent.wheel(viewport, { deltaX: 0, deltaY: 64 });
+    expect(viewport.scrollLeft).toBe(64);
   });
 
   it("allows PDF mode to close its last tab", () => {

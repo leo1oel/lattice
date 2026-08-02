@@ -6,6 +6,7 @@ import {
   dropCanvasAt,
   dropDirectoryAt,
   dropEditorAt,
+  isWindowDragExcluded,
   remapProjectPath,
 } from "./app-utils";
 import type { ProjectSnapshot } from "./app-types";
@@ -39,6 +40,21 @@ describe("dropDirectoryAt", () => {
     });
 
     expect(dropDirectoryAt({ x: 24, y: 40 })).toBe("figures/results");
+  });
+});
+
+describe("window dragging", () => {
+  it("excludes interactive controls and marked tab-strip descendants", () => {
+    const tabStrip = document.createElement("div");
+    tabStrip.dataset.windowDragExclude = "";
+    const scrollbarThumb = document.createElement("div");
+    tabStrip.append(scrollbarThumb);
+    const button = document.createElement("button");
+    const emptyChrome = document.createElement("div");
+
+    expect(isWindowDragExcluded(scrollbarThumb)).toBe(true);
+    expect(isWindowDragExcluded(button)).toBe(true);
+    expect(isWindowDragExcluded(emptyChrome)).toBe(false);
   });
 });
 

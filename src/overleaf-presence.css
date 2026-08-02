@@ -5,24 +5,24 @@
 .overleaf-presence-avatars {
   display: flex;
   align-items: center;
-  padding-left: 4px;
+  padding-left: var(--space-2);
 }
 .overleaf-presence-avatar {
   width: 20px;
   height: 20px;
   margin-left: -5px;
   padding: 0;
-  border: 1.5px solid var(--panel);
+  border: 1.5px solid var(--surface-panel);
   border-radius: 50%;
   display: grid;
   place-items: center;
   color: #fff;
-  font: 600 9px/1 var(--ui-font);
+  font: 600 var(--type-nano-size)/1 var(--ui-font);
   letter-spacing: .02em;
   cursor: pointer;
-  transition: transform .12s ease;
+  transition: transform var(--duration-quick) var(--ease-default);
 }
 .overleaf-presence-avatar:first-child { margin-left: 0; }
 .overleaf-presence-avatar:hover { transform: translateY(-1px) scale(1.08); z-index: 1; }
-.overleaf-presence-avatar.more { background: var(--line); color: var(--muted); cursor: default; }
+.overleaf-presence-avatar.more { background: var(--border-subtle); color: var(--text-secondary); cursor: default; }
 .overleaf-presence-avatar.more:hover { transform: none; }

@@ -1,11 +1,12 @@
 import * as React from "react"
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import {
   floatingSurfaceClassName,
   menuItemClassName,
+  menuViewportClassName,
 } from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
 import "./form-controls.css"
@@ -80,7 +81,7 @@ function SelectContent({
       >
         <SelectPrimitive.Viewport
           className={cn(
-            "p-1",
+            menuViewportClassName,
             position === "popper" && "scroll-my-1"
           )}
         >
@@ -124,9 +125,11 @@ function SelectItem({
     >
       <span
         data-slot="select-item-indicator"
-        className="pointer-events-none absolute top-1/2 left-1.5 flex w-4 -translate-y-1/2 items-center justify-center text-[13px] leading-none text-primary"
+        className="pointer-events-none absolute top-1/2 left-1.5 flex w-4 -translate-y-1/2 items-center justify-center text-[length:var(--type-body-size)] leading-none text-primary"
       >
-        <SelectPrimitive.ItemIndicator>✓</SelectPrimitive.ItemIndicator>
+        <SelectPrimitive.ItemIndicator>
+          <CheckIcon aria-hidden="true" className="size-3.5" />
+        </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>

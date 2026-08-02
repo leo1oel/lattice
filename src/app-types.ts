@@ -29,6 +29,7 @@ export type ProjectManifest = {
   venue?: ProjectVenue | string;
   wordBudget?: number | null;
   pageBudget?: number | null;
+  spellingWords?: string[];
 };
 
 export type WordCount = {

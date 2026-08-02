@@ -17,14 +17,14 @@ not to force every surface into one density.
   Variable face. Berkeley Mono itself is not distributed with Lattice. Local
   and embedded code surfaces share this stack; editor font size remains
   adjustable.
-- Project filenames and folders use Inter at 12/16px. Project rows use the
+- Project filenames and folders use Inter at 13/16px. Project rows use the
   compact 32px row role; selected items move from regular to medium weight.
 - Papers titles use Inter at 12/16px regular weight. Author, year, venue, and
   other Papers metadata remain at 11/16px regular weight.
 - Diff code uses the editor font at 11/18px. Diff paths, headers, and line
   numbers remain Inter; compact metadata uses the 10/14px role.
 - Embedded Agent thread titles retain the compact Inter 11/16px navigation
-  role at regular weight; Project filenames use their independent 12/16px role.
+  role at regular weight; Project filenames use their independent 13/16px role.
 - The top toolbar and left Project, Papers, and Agent navigation form the app
   chrome. They use `#EFEFF0` in the light theme and `#141416` in the dark theme.
 - Default navigation text on the light chrome uses `#59595B`; selected and
@@ -38,6 +38,68 @@ not to force every surface into one density.
   geometry, such as an asymmetric message bubble.
 - Light and dark colors come from semantic theme variables. Do not introduce a
   fixed light-theme hex value into a reusable component.
+
+## Token layers
+
+Three layers, one direction of dependency. A layer may read the one above it and
+never the one below.
+
+| Layer | Lives in | Holds | Example |
+| --- | --- | --- | --- |
+| Palette | `src/styles/theme.css` `:root` and `[data-theme="dark"]` | the only raw colors in the product | `--line: rgba(28, 28, 31, 0.09)` |
+| Semantic roles | `src/styles/foundations.css` | what a value means, per theme | `--border-subtle: var(--line)` |
+| Component contracts | `foundations.css`, grouped per family | the geometry and states one family shares | `--navigation-action-size`, `--tab-selected-surface` |
+
+Rules that follow from this:
+
+- Feature CSS consumes semantic roles or component contracts. It does not read
+  the palette. `var(--line)`, `var(--muted)`, `var(--accent)`, and their siblings
+  are palette names and are treated as legacy in feature code.
+- A raw value belongs in feature CSS only when it is genuinely one-off geometry.
+  A second use of the same number is a missing token.
+- A new color goes into the palette for both themes first, then gets a semantic
+  name. A component never receives a fixed hex value.
+- Status surfaces derive their borders and washes from their own `color` with the
+  `--tone-*` roles instead of repeating one `color-mix` per severity.
+
+## Focus
+
+Keyboard focus is one ring for the whole product. Its selector lives in
+`src/styles/app-shell.css`; `--focus-ring`, `--focus-ring-width`, and
+`--focus-ring-offset` live in `src/styles/foundations.css`.
+Components do not add a second ring. The native `:focus` halo stays suppressed,
+and text entry is deliberately excluded from the ring because a field already
+answers with the border treatment in its `--field-control-*` contract.
+
+## Interactive states
+
+| State | Selector | Meaning |
+| --- | --- | --- |
+| hover | `:hover:not(:disabled)` | pointer is over the control |
+| pressed | `:active:not(:disabled)` | pointer is held down |
+| focus | `:focus-visible` | keyboard focus |
+| open | `[data-state="open"]` | this control owns an open menu, popover, or select |
+| active | `.active` | the view this control leads to is the current one |
+| selected | `[aria-selected="true"]`, `.selected` | one of several rows the user picked |
+| checked | `[aria-checked="true"]`, `:checked`, `[data-state="checked"]` | a toggle is on |
+| disabled | `:disabled`, `[data-disabled]` | not operable |
+
+Surface strength runs in one direction so two states never read the same:
+hover < pressed, and hover < selected < active.
+
+## Embed and third-party boundaries
+
+| Surface | Owned by | Host may | Host must not |
+| --- | --- | --- | --- |
+| Synara runtime (Agent, providers, MCP, skills) | Synara, isolated in an iframe | set frame size, loading and failure surfaces, theme and settings context over the bridge | reach into the embedded document with CSS or DOM selectors |
+| Pierre file tree | Pierre component | map every visual through the `--trees-*-override` tokens in `src/styles/app-shell.css` | restyle Pierre internals by class name |
+| Radix primitives (menu, select, popover) | Radix behavior, Lattice appearance | style through `menu-surface.ts` and `data-slot` hooks | fork the primitive to change appearance |
+| Tailwind / shadcn utilities | `src/index.css` `@theme inline` | map utilities onto the palette | enable preflight or introduce a parallel color scale |
+| CodeMirror, PDF.js, KaTeX | the library | theme through the documented extension points and `cm-*` / `pdf-*` classes it exposes | assume internal DOM structure beyond those hooks |
+| Motion / Framer Motion | the library | own shared durations and easings in `foundations.css`, with the global reduced-motion clamp in `adaptive-feedback.css` | animate a property the reduced-motion path cannot disable |
+
+The bridge, not CSS, carries state across the Synara boundary: theme, settings
+section, frame height, confirmations, and notifications.
 
 ## Typography roles
 
@@ -60,7 +122,20 @@ not to force every surface into one density.
 
 ## Geometry
 
-- Spacing follows the 2px scale defined by `--space-*`.
+- Spacing follows the 2px scale defined by `--space-*`. Distances inside a
+  control that the grid cannot express are named roles rather than literals:
+  `--gap-hairline`, `--gap-tight`, `--gap-inline-tight`, `--gap-inline`,
+  `--pad-inline-control`, `--pad-inline-control-tight`.
+- A surface nested flush inside another does not choose its own radius. The
+  container declares `--surface-radius` and `--surface-inset`, and the child uses
+  `border-radius: var(--nested-radius)`, which resolves to
+  `outer - inset` so the two curves stay parallel. This covers segmented tabs,
+  menu items, and dialog list rows. Cards with generous padding are not nesting
+  in this sense and keep an independent radius.
+- A control may be painted smaller than `--hit-area-min` (24px), but its pointer
+  target may not be. Add `data-hit-area` and it gets a centered, invisible
+  target of at least that size with no change to any visible dimension. Steppers
+  are exempt where the adjacent text field is an equivalent control.
 - Icon controls use the 24px compact, 28px default, or 30px large role.
 - Search fields, inputs, and select triggers with the same semantic size must
   have the same exact height: 28px compact, 32px default, or 38px form, through
@@ -72,8 +147,12 @@ not to force every surface into one density.
   and disabled states.
 - Badges use a 20px height and 6px radius; compact badges use a 16px height.
 - Rows use 32px compact, 40px data, or 44px store height.
-- Radius roles are 4px compact, 6px icon/item, 8px control, 10px surface,
-  14px dialog, and pill.
+- Radius roles are 4px compact, 6px icon/item, 7px chrome, 8px control,
+  9px panel, 10px surface, 14px dialog, and pill.
+- The titlebar is 40px and hosts the traffic lights, project switcher, and the
+  compact tab variant; the sidebar navigation header matches that height.
+- Editor tabs are 36px in the standalone strip and 28px inside the titlebar,
+  through the shared `--tab-*` contract.
 
 ## Component boundaries
 

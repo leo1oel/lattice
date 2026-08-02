@@ -1,7 +1,7 @@
 "use client";
 
 import { Pipette, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 type Rgb = { r: number; g: number; b: number };
 type Hsv = { h: number; s: number; v: number };
@@ -88,7 +88,7 @@ function SegmentedControl(props: {
         <button
           key={option}
           type="button"
-          className={`relative h-6 flex-1 appearance-none border-0 p-0 text-[11px] font-medium leading-6 transition ${props.selected === option ? "rounded-md bg-[#F9F9FA] text-black shadow-[0_1px_3px_rgba(0,0,0,0.14)] dark:bg-white/90" : "bg-transparent text-[#707789] hover:text-gray-700 dark:text-white/55 dark:hover:text-white/80"}`}
+          className={`relative h-6 flex-1 appearance-none border-0 p-0 text-[length:var(--type-caption-size)] font-medium leading-6 transition ${props.selected === option ? "rounded-md bg-[#F9F9FA] text-black shadow-[0_1px_3px_rgba(0,0,0,0.14)] dark:bg-white/90" : "bg-transparent text-[#707789] hover:text-gray-700 dark:text-white/55 dark:hover:text-white/80"}`}
           onClick={() => props.onChange(option)}
         >
           {option === "Sliders" ? "Slider" : option}
@@ -155,8 +155,13 @@ function SliderPicker(props: {
   onRgbChange: (rgb: Rgb) => void;
   onHexChange: (hex: string) => void;
 }) {
-  const [hexDraft, setHexDraft] = useState(props.value.slice(1));
-  useEffect(() => setHexDraft(props.value.slice(1)), [props.value]);
+  const [hexDraft, setHexDraft] = useState(() => ({
+    source: props.value,
+    text: props.value.slice(1),
+  }));
+  const resolvedHexDraft = hexDraft.source === props.value
+    ? hexDraft.text
+    : props.value.slice(1);
   const channels = [
     { label: "Red", key: "r" as const, color: "#FF3B30" },
     { label: "Green", key: "g" as const, color: "#34C759" },
@@ -166,7 +171,7 @@ function SliderPicker(props: {
     <div className="flex h-40 flex-col justify-between py-1">
       {channels.map((channel) => (
         <div key={channel.key} className="flex items-center gap-2">
-          <span className="w-8 text-[8px] font-semibold uppercase text-gray-500 dark:text-white/50">{channel.label}</span>
+          <span className="w-8 text-[length:var(--type-nano-size)] font-semibold uppercase text-gray-500 dark:text-white/50">{channel.label}</span>
           <div className="relative h-5 flex-1 rounded-full shadow-inner" style={{ background: `linear-gradient(to right, #000, ${channel.color})` }}>
             <input
               type="range"
@@ -185,21 +190,21 @@ function SliderPicker(props: {
             max="255"
             aria-label={`${channel.label} value`}
             value={props.rgb[channel.key]}
-            className="h-6 w-10 rounded-md border border-black/10 bg-white/80 px-1 text-center text-[9px] text-black outline-none dark:border-white/10"
+            className="h-6 w-10 rounded-md border border-black/10 bg-white/80 px-1 text-center text-[length:var(--type-nano-size)] text-black outline-none dark:border-white/10"
             onChange={(event) => props.onRgbChange({ ...props.rgb, [channel.key]: Math.max(0, Math.min(255, Number(event.target.value))) })}
           />
         </div>
       ))}
-      <label className="flex items-center justify-between text-[9px] text-[#007AFF]">
+      <label className="flex items-center justify-between text-[length:var(--type-nano-size)] text-[#007AFF]">
         Hex Color #
         <input
-          value={hexDraft}
+          value={resolvedHexDraft}
           aria-label="Hex color"
-          className="h-6 w-20 rounded-md border border-black/10 bg-white/80 px-2 text-right text-[10px] font-medium uppercase text-black outline-none focus:border-[#007AFF] dark:border-white/10"
+          className="h-6 w-20 rounded-md border border-black/10 bg-white/80 px-2 text-right text-[length:var(--type-micro-size)] font-medium uppercase text-black outline-none focus:border-[#007AFF] dark:border-white/10"
           onChange={(event) => {
             const next = event.target.value;
             if (!/^[0-9a-f]{0,6}$/i.test(next)) return;
-            setHexDraft(next);
+            setHexDraft({ source: props.value, text: next });
             if (next.length === 6) props.onHexChange(`#${next}`);
           }}
         />
@@ -215,7 +220,7 @@ function OpacitySlider(props: {
 }) {
   return (
     <section className="border-t border-black/[0.07] pt-3 dark:border-white/10">
-      <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.03em] text-[#6E7788] dark:text-white/55">
+      <div className="mb-2 text-[length:var(--type-micro-size)] font-semibold uppercase tracking-[0.03em] text-[#6E7788] dark:text-white/55">
         Opacity
       </div>
       <div className="flex items-center gap-3">
@@ -251,7 +256,7 @@ function OpacitySlider(props: {
             inputMode="numeric"
             aria-label="Opacity value"
             value={`${props.value}%`}
-            className="h-full w-full rounded-md border border-black/[0.07] bg-white/45 px-1 text-center text-[9px] font-medium text-black outline-none focus:border-[#007AFF]/60 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="h-full w-full rounded-md border border-black/[0.07] bg-white/45 px-1 text-center text-[length:var(--type-nano-size)] font-medium text-black outline-none focus:border-[#007AFF]/60 dark:border-white/10 dark:bg-white/5 dark:text-white"
             onChange={(event) => {
               const value = Number.parseInt(event.target.value.replace("%", ""), 10);
               if (!Number.isNaN(value)) props.onChange(Math.max(0, Math.min(100, value)));
@@ -333,7 +338,7 @@ export function AppleColorPicker(props: {
         <button type="button" aria-label="Pick color from screen" className="appearance-none rounded-full border-0 bg-transparent p-1.5 text-[#007AFF] transition-colors hover:bg-black/5 dark:hover:bg-white/10" onClick={() => void pickFromScreen()}>
           <Pipette size={16} />
         </button>
-        <h2 className="m-0 text-[11px] font-semibold leading-none">Colors</h2>
+        <h2 className="m-0 text-[length:var(--type-caption-size)] font-semibold leading-none">Colors</h2>
         <button type="button" aria-label="Close color picker" className="appearance-none rounded-full border-0 bg-transparent p-1.5 text-gray-500 transition-colors hover:bg-black/5 dark:text-white/55 dark:hover:bg-white/10" onClick={props.onClose}>
           <X size={16} />
         </button>
@@ -342,7 +347,14 @@ export function AppleColorPicker(props: {
       <div className="mt-3 h-40">
         {activeTab === "Grid" && <ColorGrid value={normalizedValue} onChange={setColor} />}
         {activeTab === "Spectrum" && <SpectrumPicker hsv={hsv} onChange={(next) => setColor(rgbToHex(hsvToRgb(next)))} />}
-        {activeTab === "Sliders" && <SliderPicker rgb={rgb} value={normalizedValue} onRgbChange={(next) => setColor(rgbToHex(next))} onHexChange={setColor} />}
+        {activeTab === "Sliders" && (
+          <SliderPicker
+            rgb={rgb}
+            value={normalizedValue}
+            onRgbChange={(next) => setColor(rgbToHex(next))}
+            onHexChange={setColor}
+          />
+        )}
       </div>
       <div className="mt-3">
         <OpacitySlider

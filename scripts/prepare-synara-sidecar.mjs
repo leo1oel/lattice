@@ -247,6 +247,57 @@ function installServerRuntime(stageRoot) {
   return serverPackage.version;
 }
 
+function runtimePlatformDirectory(target) {
+  return {
+    "aarch64-apple-darwin": "darwin-arm64",
+    "x86_64-apple-darwin": "darwin-x64",
+    "aarch64-unknown-linux-gnu": "linux-arm64",
+    "x86_64-unknown-linux-gnu": "linux-x64",
+    "x86_64-pc-windows-msvc": "win32-x64",
+  }[target];
+}
+
+/**
+ * npm packages often publish source maps, Windows debug symbols, and native
+ * binaries for every supported platform. They are useful to package authors,
+ * but never loaded by the staged production runtime and previously inflated
+ * the installed app by hundreds of megabytes.
+ */
+function pruneServerRuntime(stageRoot, target) {
+  const serverRoot = join(stageRoot, "server");
+  let removedBytes = 0;
+  for (const path of walkFiles(serverRoot)) {
+    if (!path.endsWith(".map") && !path.endsWith(".pdb")) continue;
+    removedBytes += statSync(path).size;
+    rmSync(path, { force: true });
+  }
+
+  const platformDirectory = runtimePlatformDirectory(target);
+  const nodePtyPrebuilds = join(serverRoot, "node_modules/node-pty/prebuilds");
+  if (platformDirectory && existsSync(nodePtyPrebuilds)) {
+    for (const entry of readdirSync(nodePtyPrebuilds)) {
+      if (entry === platformDirectory) continue;
+      const path = join(nodePtyPrebuilds, entry);
+      removedBytes += walkFiles(path).reduce((total, file) => total + statSync(file).size, 0);
+      rmSync(path, { recursive: true, force: true });
+    }
+  }
+
+  const clipboardPackages = join(
+    serverRoot,
+    "node_modules/@earendil-works/pi-coding-agent/node_modules/@mariozechner",
+  );
+  if (platformDirectory && existsSync(clipboardPackages)) {
+    for (const entry of readdirSync(clipboardPackages)) {
+      if (!entry.startsWith("clipboard-") || entry === `clipboard-${platformDirectory}`) continue;
+      const path = join(clipboardPackages, entry);
+      removedBytes += walkFiles(path).reduce((total, file) => total + statSync(file).size, 0);
+      rmSync(path, { recursive: true, force: true });
+    }
+  }
+  return removedBytes;
+}
+
 function signMacRuntime(stageRoot, target) {
   if (!target.endsWith("-apple-darwin")) return;
   const signingIdentity = process.env.APPLE_SIGNING_IDENTITY?.trim();
@@ -310,6 +361,7 @@ const buildKey = createHash("sha256")
   .update(JSON.stringify(runtimeConfig))
   .update(target)
   .update(fingerprint)
+  .update(readFileSync(fileURLToPath(import.meta.url)))
   .digest("hex");
 const existingManifestPath = join(runtimeRoot, "manifest.json");
 if (existsSync(existingManifestPath)) {
@@ -348,6 +400,7 @@ const stageRoot = mkdtempSync(join(dirname(runtimeRoot), ".synara-runtime-"));
 try {
   await prepareNodeRuntime(stageRoot, target, release);
   const synaraVersion = installServerRuntime(stageRoot);
+  const prunedBytes = pruneServerRuntime(stageRoot, target);
   signMacRuntime(stageRoot, target);
   writeFileSync(
     join(stageRoot, "manifest.json"),
@@ -367,6 +420,7 @@ try {
   );
   rmSync(runtimeRoot, { recursive: true, force: true });
   renameSync(stageRoot, runtimeRoot);
+  console.log(`Pruned ${(prunedBytes / 1024 / 1024).toFixed(1)} MB of unused runtime artifacts.`);
 } catch (error) {
   rmSync(stageRoot, { recursive: true, force: true });
   throw error;

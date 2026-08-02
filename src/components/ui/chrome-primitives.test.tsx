@@ -1,8 +1,15 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+// @ts-expect-error no Node types in this project
+import { readFileSync } from "node:fs";
 import { Badge } from "./badge";
 import { Button } from "./button";
 import { buttonClassName } from "./button-styles";
+import {
+  floatingSurfaceClassName,
+  menuItemClassName,
+  menuViewportClassName,
+} from "./menu-surface";
 import { Checkbox } from "./checkbox";
 import { CheckboxField } from "./checkbox-field";
 import { Input } from "./input";
@@ -15,6 +22,7 @@ import {
   SelectValue,
 } from "./select";
 import { SegmentedControl } from "./segmented-control";
+import { SettingsGroup, SettingsRow } from "./settings-row";
 import { Switch } from "./switch";
 import { SwitchField } from "./switch-field";
 import { Textarea } from "./textarea";
@@ -31,6 +39,20 @@ describe("shared chrome primitives", () => {
     expect(button).toHaveClass("ui-button--primary", "ui-button--default");
     expect(buttonClassName({ variant: "ghost", size: "compact" }))
       .toContain("ui-button--ghost");
+  });
+
+  it("gives primary buttons press feedback and keeps menu items concentric", () => {
+    const chrome = String(readFileSync("src/components/ui/chrome.css", "utf8"));
+    expect(chrome).toContain(".ui-button--primary:active:not(:disabled)");
+    expect(chrome).toContain("scale: 0.96");
+    // The portaled surface declares both inputs to the same derived radius
+    // contract used by hand-written menus. Regular labels take a 1.5 stroke.
+    expect(floatingSurfaceClassName).toContain("[--nested-radius:calc(var(--surface-radius)-var(--surface-inset))]");
+    expect(menuViewportClassName).toContain("p-[var(--surface-inset)]");
+    expect(menuItemClassName).toContain("rounded-[var(--nested-radius,var(--radius-icon))]");
+    expect(menuItemClassName).toContain("duration-[var(--duration-quick)]");
+    expect(menuItemClassName).toContain("ease-out");
+    expect(menuItemClassName).toContain("[&_svg]:[stroke-width:1.5]");
   });
 
   it("renders a semantic badge without feature-owned geometry", () => {
@@ -104,6 +126,36 @@ describe("shared chrome primitives", () => {
       .toHaveAttribute("data-control-size", "form");
   });
 
+  it("opens selects from the keyboard and restores focus on Escape", async () => {
+    render(
+      <Select defaultValue="local">
+        <SelectTrigger aria-label="Runtime">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="local">Local</SelectItem>
+          <SelectItem value="remote">Remote</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+
+    const trigger = screen.getByRole("combobox", { name: "Runtime" });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+
+    const listbox = await screen.findByRole("listbox");
+    const selectedOption = screen.getByRole("option", { name: "Local" });
+    expect(selectedOption).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(selectedOption.querySelector('[data-slot="select-item-indicator"] svg'))
+      .toBeInTheDocument();
+    fireEvent.keyDown(listbox, { key: "Escape" });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
   it("uses the shared segmented contract for compact tab switches", () => {
     const onChange = vi.fn();
     render(
@@ -137,5 +189,34 @@ describe("shared chrome primitives", () => {
       .toHaveClass("ui-row--data");
     expect(rowClassName("store", "project-row"))
       .toContain("ui-row--store");
+  });
+
+  it("gives settings rows the same row contract as a switch field", () => {
+    render(
+      <SettingsGroup title="Display">
+        <SettingsRow
+          htmlFor="interface-size"
+          label="Interface size"
+          description="Scales every panel."
+        >
+          <input id="interface-size" type="range" />
+        </SettingsRow>
+      </SettingsGroup>,
+    );
+
+    const row = screen.getByText("Interface size").closest("[data-slot='settings-row']");
+    expect(row).toHaveClass("ui-settings-row", "ui-row--data");
+    expect(screen.getByText("Interface size").tagName).toBe("LABEL");
+    expect(screen.getByRole("heading", { name: "Display", level: 3 }))
+      .toHaveClass("ui-settings-group-title");
+    expect(row?.querySelector(".ui-settings-row-control")?.firstElementChild)
+      .toHaveAttribute("id", "interface-size");
+  });
+
+  it("omits the control slot for a settings row that has no control", () => {
+    render(<SettingsRow label="Version" description="You’re on the latest version" />);
+
+    expect(screen.getByText("Version").closest("[data-slot='settings-row']")
+      ?.querySelector(".ui-settings-row-control")).toBeNull();
   });
 });

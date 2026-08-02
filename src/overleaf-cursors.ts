@@ -192,7 +192,7 @@ export function overleafCursorsExtension(options: OverleafCursorsOptions = {}): 
         left: "-1px",
         padding: "1px 5px",
         borderRadius: "4px 4px 4px 0",
-        font: "600 10px/1.2 var(--ui-font, sans-serif)",
+        font: "600 var(--type-micro-size)/1.2 var(--ui-font, sans-serif)",
         color: "#fff",
         whiteSpace: "nowrap",
         zIndex: "6",

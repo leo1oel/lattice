@@ -10,23 +10,14 @@ import {
   useReducedMotion,
   useSpring,
   type HTMLMotionProps,
-  type Transition,
 } from "motion/react";
+import {
+  MAGNET_SPRING,
+  POP_SPRING,
+  PRESS_SPRING,
+  SETTLE_SPRING,
+} from "./motion-values";
 import "./motion.css";
-
-/** Snappy press/hover feel for buttons — quick settle, no overshoot wobble. */
-export const PRESS_SPRING: Transition = { type: "spring", stiffness: 520, damping: 32, mass: 0.6 };
-/** Softer spring for the magnetic pull, so it trails the cursor smoothly. */
-const MAGNET_SPRING: Transition = { type: "spring", stiffness: 260, damping: 22, mass: 0.5 };
-/** Entrance spring for popovers/menus/cards — a small, confident pop. */
-export const POP_SPRING: Transition = { type: "spring", stiffness: 460, damping: 34, mass: 0.7 };
-/**
- * Where something comes to rest after being moved: slower and heavier than a
- * press, so the eye can follow it from where it was to where it now is. This
- * is the spring behind state indicators such as a tab pill, whose whole job is
- * to make the change of state legible rather than to acknowledge a click.
- */
-export const SETTLE_SPRING: Transition = { type: "spring", stiffness: 260, damping: 26, mass: 1 };
 
 type MotionButtonProps = HTMLMotionProps<"button"> & {
   /** Gently pull the button toward the cursor while hovering (Amicro-style). */

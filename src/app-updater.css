@@ -2,27 +2,27 @@
    safe fallbacks so it also renders correctly outside the app shell. */
 .app-update-banner {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-app-updater, 9999);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-5);
   /* An explicit width, not just a max: a fixed-position flex box is otherwise
      shrink-to-fit, so the banner resized per phase and "Installing…" ended up
      narrower than its own label. */
   box-sizing: border-box;
   width: 320px;
   max-width: calc(100vw - 32px);
-  padding: 10px 12px;
-  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  background: var(--panel, #F9F9FA);
-  color: var(--text, #1a1a1a);
+  background: var(--surface-panel);
+  color: var(--text-primary);
   box-shadow: var(--shadow, 0 10px 30px rgba(0, 0, 0, 0.18));
-  font-size: 12px;
-  animation: app-update-in 0.18s ease-out;
+  font-size: var(--type-label-size);
+  animation: app-update-in var(--duration-base) var(--ease-out);
 }
 /* Progress phases: title on its own full-width row, bar stacked below it. */
-.app-update-banner.stacked { flex-direction: column; align-items: stretch; gap: 6px; }
+.app-update-banner.stacked { flex-direction: column; align-items: stretch; gap: var(--space-3); }
 /* Nothing competes for width here, so let the title wrap instead of clipping —
    an ellipsis on a two-word status is pure loss. */
 .app-update-banner.stacked .app-update-text strong {
@@ -35,21 +35,22 @@
 .app-update-banner.top-left { top: 52px; left: 16px; }
 .app-update-banner.bottom-right { bottom: 16px; right: 16px; }
 .app-update-banner.bottom-left { bottom: 16px; left: 16px; }
-.app-update-banner.error { border-left: 3px solid #d75a5a; }
+.app-update-banner.error { border-left: 3px solid var(--status-danger); }
 
 /* Grow to fill the fixed-width banner so the button and dismiss × sit flush at
    the right edge instead of leaving a gap after them. */
-.app-update-text { flex: 1 1 auto; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.app-update-text { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--gap-hairline); min-width: 0; }
 .app-update-text strong {
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.app-update-active-title { display: flex; align-items: center; gap: 6px; }
+.app-update-active-title { display: flex; align-items: center; gap: var(--space-3); }
 .app-update-text span {
   opacity: 0.65;
-  font-size: 11px;
+  font-size: var(--type-caption-size);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -58,16 +59,18 @@
 .app-update-primary {
   flex: 0 0 auto;
   height: var(--control-height-compact);
-  padding: 0 12px;
+  padding: 0 var(--space-6);
   border: none;
   border-radius: var(--radius-control);
-  background: var(--accent, #3d7af2);
+  background: var(--control-active);
   color: #fff;
   font-weight: 600;
-  font-size: 12px;
+  font-size: var(--type-label-size);
   cursor: pointer;
+  transition: filter var(--duration-quick) var(--ease-default), scale var(--duration-quick) var(--ease-default);
 }
 .app-update-primary:hover { filter: brightness(1.05); }
+.app-update-primary:active { scale: 0.96; }
 
 .app-update-dismiss {
   flex: 0 0 auto;
@@ -76,9 +79,9 @@
   border: none;
   border-radius: var(--radius-icon);
   background: transparent;
-  color: var(--text, #1a1a1a);
+  color: var(--text-primary);
   opacity: 0.5;
-  font-size: 15px;
+  font-size: var(--type-reading-size);
   line-height: 1;
   cursor: pointer;
 }
@@ -95,17 +98,17 @@
   width: 100%;
   height: 5px;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--text, #1a1a1a) 12%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
   overflow: hidden;
 }
 .app-update-progress-fill {
   height: 100%;
-  background: var(--accent, #3d7af2);
-  transition: width 0.15s ease;
+  background: var(--control-active);
+  transition: width var(--duration-base) var(--ease-default);
 }
 
-.app-update-setting { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.app-update-setting label { display: flex; align-items: center; gap: 8px; }
+.app-update-setting { display: flex; align-items: center; gap: var(--space-6); flex-wrap: wrap; }
+.app-update-setting label { display: flex; align-items: center; gap: var(--space-4); }
 
 @keyframes app-update-in {
   from { opacity: 0; transform: translateY(-6px); }

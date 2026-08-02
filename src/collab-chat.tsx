@@ -14,6 +14,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SendHorizontal } from "lucide-react";
 import { IconButton } from "./components/ui/icon-button";
 import { Textarea } from "./components/ui/textarea";
+import { resizeTextareaToContent } from "./components/ui/auto-resize-textarea";
 import type { CollabChatMessage } from "./collab-session";
 import "./collab-chat.css";
 
@@ -48,10 +49,7 @@ export function CollabChatPanel(props: {
   useEffect(() => {
     const composer = composerRef.current;
     if (!composer) return;
-    composer.style.height = "0px";
-    const height = Math.min(Math.max(composer.scrollHeight, 38), 160);
-    composer.style.height = `${height}px`;
-    composer.style.overflowY = composer.scrollHeight > 160 ? "auto" : "hidden";
+    resizeTextareaToContent(composer);
   }, [draft]);
 
   // Anchor to the newest message the way every chat does, before paint so it

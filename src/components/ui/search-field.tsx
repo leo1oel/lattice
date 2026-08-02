@@ -58,6 +58,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(
           <button
             type="button"
             className="ui-search-field-clear"
+            data-hit-area
             aria-label={clearLabel}
             title={clearLabel}
             onMouseDown={(event) => event.preventDefault()}

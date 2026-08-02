@@ -1,4 +1,9 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  type MouseEventHandler,
+  type ReactNode,
+} from "react";
 import { Dialog } from "radix-ui";
 
 export function ModalDialog(props: {
@@ -7,6 +12,10 @@ export function ModalDialog(props: {
   closeDisabled?: boolean;
   focusDialogOnOpen?: boolean;
   backdropClassName?: string;
+  windowDragTop?: {
+    onMouseDown: MouseEventHandler<HTMLDivElement>;
+    onDoubleClick: MouseEventHandler<HTMLDivElement>;
+  };
   children: ReactNode;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -33,6 +42,17 @@ export function ModalDialog(props: {
   const preventWhenDisabled = (event: Event) => {
     if (props.closeDisabled) event.preventDefault();
   };
+  const preventWindowDragDismissal = (event: Event) => {
+    const originalTarget = (event as CustomEvent<{ originalEvent?: Event }>)
+      .detail?.originalEvent?.target;
+    if (
+      props.closeDisabled
+      || (originalTarget instanceof Element
+        && originalTarget.closest("[data-modal-window-drag]"))
+    ) {
+      event.preventDefault();
+    }
+  };
 
   return (
     <Dialog.Root
@@ -43,6 +63,15 @@ export function ModalDialog(props: {
     >
       <Dialog.Portal>
         <Dialog.Overlay className={`modal-backdrop${props.backdropClassName ? ` ${props.backdropClassName}` : ""}`} />
+        {props.windowDragTop && (
+          <div
+            className="modal-window-drag-strip"
+            data-modal-window-drag
+            aria-hidden="true"
+            onMouseDown={props.windowDragTop.onMouseDown}
+            onDoubleClick={props.windowDragTop.onDoubleClick}
+          />
+        )}
         <Dialog.Content
           ref={contentRef}
           className="modal-dialog-content"
@@ -54,7 +83,7 @@ export function ModalDialog(props: {
             contentRef.current?.focus({ preventScroll: true });
           }}
           onEscapeKeyDown={preventWhenDisabled}
-          onPointerDownOutside={preventWhenDisabled}
+          onPointerDownOutside={preventWindowDragDismissal}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();

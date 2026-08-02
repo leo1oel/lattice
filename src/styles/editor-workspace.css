@@ -1,0 +1,724 @@
+.split-canvas { min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+.split-canvas > .source-workspace, .split-canvas > .pdf-column { min-width: 0; min-height: 0; overflow: hidden; }
+.source-workspace, .source-editor, .pdf-preview, .pdf-column { min-width: 0; min-height: 0; overflow: hidden; }
+.canvas-panel > .source-workspace, .canvas-panel > .source-editor, .canvas-panel > .pdf-preview, .canvas-panel > .pdf-column, .canvas-panel > .split-canvas, .canvas-panel > .markdown-preview, .canvas-panel > .asset-preview,
+.canvas-body > .source-workspace, .canvas-body > .source-editor, .canvas-body > .pdf-preview, .canvas-body > .pdf-column, .canvas-body > .split-canvas, .canvas-body > .markdown-preview, .canvas-body > .asset-preview { flex: 1 1 0; width: 100%; max-width: 100%; min-width: 0; height: 0; }
+.pdf-column { position: relative; display: flex; flex-direction: column; }
+.pdf-column > .compile-diagnostics { flex: none; }
+.pdf-column > .pdf-preview { flex: 1 1 0; width: 100%; min-height: 0; }
+.source-workspace { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); width: 100%; max-width: 100%; height: 100%; background: var(--editor-bg); }
+.source-workspace > .document-outline,
+.source-workspace > .document-outline-rail { grid-column: 1; grid-row: 1; min-width: 0; min-height: 0; }
+.source-workspace > .source-main { grid-column: 1; grid-row: 1; min-width: 0; min-height: 0; }
+.source-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.document-outline-popover { width: 190px; max-height: min(420px, 65vh); padding: var(--space-2); overflow: hidden; }
+.document-outline-header { flex: none; height: 30px; padding: 0 var(--pad-inline-control-tight); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 650; }
+.document-outline-close { width: 26px; height: 26px; border: 0; border-radius: var(--radius-compact); padding: 0; background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; }
+.document-outline-close span { display: none; }
+.document-outline-close:hover { background: var(--control-active-soft); color: var(--control-active); }
+.document-outline-list { list-style: none; margin: 0; padding: var(--space-2) 0; max-height: min(372px, 57vh); overflow: auto; }
+.document-outline-list ul { list-style: none; margin: 0; padding: 0 0 0 var(--space-3); }
+.document-outline-list button { width: 100%; min-height: 26px; border: 0; border-radius: var(--radius-compact); padding: var(--space-2) 7px; background: transparent; color: var(--text-primary); display: flex; align-items: center; gap: var(--space-3); text-align: left; font-size: var(--type-micro-size); }
+.document-outline-list button:hover, .document-outline-list button.active { background: var(--control-active-soft); color: var(--control-active); }
+.document-outline-list button.active { font-weight: 650; }
+.document-outline-list button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.document-outline-list li[data-level="4"] > button, .document-outline-list li[data-level="5"] > button { color: var(--text-secondary); }
+.document-outline-list li[data-kind="input"] > button { color: var(--control-active); font-family: var(--editor-font); }
+.document-outline-empty { margin: var(--space-6) var(--space-5); color: var(--text-tertiary); font-size: var(--type-micro-size); }
+.references-panel { flex: none; border-bottom: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--control-active-soft) 55%, var(--surface-panel)); color: var(--text-primary); }
+.references-panel-bar { min-height: 34px; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-5) var(--space-2) var(--space-5); }
+.references-panel-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--gap-inline); color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: 650; }
+.references-panel-title code { color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-caption-size); }
+.references-panel-title small { color: var(--text-tertiary); font-weight: 600; }
+.references-panel-bar > button { height: 24px; border: 0; border-radius: var(--radius-icon); padding: 0 var(--pad-inline-control-tight); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--type-micro-size); font-weight: 600; }
+.references-panel-bar > button:hover { background: var(--control-active-soft); color: var(--control-active); }
+.references-panel-bar > button:last-child { width: 24px; padding: 0; justify-content: center; }
+.references-panel-list { list-style: none; margin: 0; padding: 0 var(--space-4) var(--space-4); max-height: 168px; overflow: auto; display: grid; gap: var(--space-2); }
+.references-panel-item { width: 100%; min-height: 30px; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); padding: 5px var(--space-4); background: color-mix(in srgb, var(--surface-panel-raised) 88%, transparent); color: var(--text-primary); display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: var(--gap-inline); align-items: start; text-align: left; font-size: var(--type-caption-size); }
+.references-panel-item:hover { border-color: var(--control-active-border); background: var(--surface-panel-raised); }
+.references-role { text-transform: capitalize; color: var(--control-active); font-weight: 650; font-size: var(--type-micro-size); }
+.references-role.definition { color: var(--status-success); }
+.references-location { color: var(--text-secondary); font-weight: 650; white-space: nowrap; }
+.references-snippet { min-width: 0; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.document-outline-list button:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
+.math-preview { flex: none; max-height: 140px; border-top: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-panel) 70%, var(--editor-bg)); padding: var(--space-4) var(--space-6); overflow: auto; }
+.math-preview > small { display: block; margin-bottom: var(--space-3); color: var(--text-tertiary); font-size: var(--type-nano-size); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+.math-preview-body { color: var(--text-primary); overflow-x: auto; }
+.math-preview-error { margin: 0; color: var(--status-danger); font-size: var(--type-caption-size); }
+.source-editor { position: relative; flex: 1 1 0; width: 100%; min-height: 0; background: var(--editor-bg); }
+.latex-selection-toolbar-anchor {
+  position: fixed;
+  z-index: var(--z-selection-toolbar);
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+.latex-selection-toolbar-anchor.below { transform: translate(-50%, 0); }
+.latex-selection-toolbar {
+  max-width: 100%;
+  padding: 3px;
+  border-radius: var(--radius-panel);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 13%, transparent), 0 1px 3px color-mix(in srgb, #000 8%, transparent);
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+.latex-selection-toolbar::-webkit-scrollbar { display: none; }
+.latex-selection-tool { flex: none; display: inline-flex; }
+.latex-selection-tool.separated {
+  margin-left: 3px;
+  padding-left: 3px;
+  border-left: 1px solid var(--border-subtle);
+}
+.latex-selection-tool button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-icon);
+  background: transparent;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.latex-selection-tool button:hover { background: var(--control-active-soft); color: var(--text-primary); }
+.latex-selection-tool button:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
+.latex-tool-menu { width: 180px; padding: 5px; }
+.latex-tool-menu button { width: 100%; min-height: 28px; border-radius: var(--radius-icon); padding: 0 var(--pad-inline-control-tight); background: transparent; color: var(--text-secondary); display: flex; align-items: center; gap: var(--gap-inline); text-align: left; font-size: var(--type-micro-size); }
+.latex-tool-menu button:hover { background: var(--control-active-soft); color: var(--text-primary); }
+.heading-menu button { justify-content: space-between; }
+.heading-menu code { color: var(--text-tertiary); font-size: var(--type-nano-size); }
+.latex-highlight-picker { width: auto; padding: 0; border: 0; border-radius: 24px; background: transparent; box-shadow: none; }
+.apple-color-picker,
+.apple-color-picker button,
+.apple-color-picker input { font-family: var(--ui-font); }
+.link-menu { width: 250px; display: flex; align-items: end; gap: var(--gap-inline-tight); }
+.link-menu label { min-width: 0; flex: 1; color: var(--text-tertiary); font-size: var(--type-nano-size); }
+.link-menu input { width: 100%; height: 28px; margin-top: var(--space-2); border-color: var(--field-control-border-color); border-radius: var(--field-control-radius); padding: 0 var(--field-control-padding-inline); background: var(--field-control-background); color: var(--text-primary); font-size: var(--type-micro-size); outline: none; }
+.link-menu input:focus { border-color: var(--field-control-interactive-border-color); box-shadow: none; }
+.link-menu > button { width: auto; flex: none; padding: 0 var(--pad-inline-control); background: var(--text-primary); color: var(--surface-app); }
+.editor-comment-popover {
+  position: absolute;
+  z-index: var(--z-editor-popover);
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  width: auto;
+  max-width: none;
+  max-height: min(280px, calc(100% - 16px));
+  padding: var(--space-5);
+  border-radius: var(--radius-surface);
+  display: grid;
+  gap: var(--space-4);
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.editor-comment-quote {
+  margin: 0;
+  max-height: 3.6em;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.editor-comment-popover textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 72px;
+  resize: vertical;
+  border: var(--field-control-border-width) solid var(--field-control-border-color);
+  border-radius: var(--field-control-radius);
+  padding: var(--space-4);
+  background: var(--field-control-background);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--type-label-size);
+  line-height: 1.4;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.editor-comment-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+.editor-comment-popover-actions button {
+  height: 28px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-chrome);
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  font-weight: 600;
+}
+.editor-comment-popover-actions button.primary {
+  background: var(--control-active);
+  border-color: transparent;
+  color: var(--control-active-contrast);
+}
+.editor-comment-popover-actions button.primary:disabled { opacity: .45; }
+.editor-comments-drawer { width: min(420px, 100%); }
+.pdf-mark-item.resolved { opacity: .72; }
+/* Unresolved editor comments — per-author colors come from inline styles. */
+.source-editor .cm-editor-comment {
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  cursor: help;
+}
+/* Hover card shown when the pointer rests on a suggestion.
+   CodeMirror's own tooltip chrome is stripped the same way the comment card
+   strips it, because both draw their own. Without a card of its own this had
+   none at all: the default tooltip is see-through, so the document showed
+   straight through the text and the buttons, and it was sized to the bare
+   minimum so Accept and Reject spilled past its edges. */
+.cm-tooltip.cm-tooltip-hover:has(.cm-tracked-change-tooltip) {
+  border: none;
+  background: transparent;
+}
+.cm-tracked-change-tooltip {
+  /* Prose in the UI face, not the editor's monospace, which .cm-editor would
+     otherwise impose on everything inside it. */
+  font-family: var(--ui-font);
+  min-width: 220px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  /* Opaque on purpose. A translucent card over body text is unreadable, and
+     this one sits directly on the line it describes. */
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  box-shadow: var(--shadow, 0 8px 24px rgba(0, 0, 0, .16));
+  font-size: var(--type-label-size);
+  line-height: 1.45;
+}
+.cm-tracked-change-tooltip-item { display: flex; flex-direction: column; gap: var(--space-2); }
+.cm-tracked-change-tooltip-item + .cm-tracked-change-tooltip-item {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.cm-tracked-change-tooltip-head { display: flex; align-items: center; gap: var(--space-3); }
+.cm-tracked-change-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.cm-tracked-change-tooltip-author { font-weight: 600; }
+.cm-tracked-change-tooltip-time { margin-left: auto; opacity: .6; font-size: var(--type-caption-size); }
+.cm-tracked-change-tooltip-body { white-space: pre-wrap; word-break: break-word; }
+.cm-tracked-change-tooltip-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-1); }
+.cm-tracked-change-tooltip-actions button {
+  flex: 0 0 auto;
+  padding: 3px var(--space-6);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-icon);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  color: inherit;
+  font-size: var(--type-caption-size);
+  font-weight: 600;
+  cursor: pointer;
+}
+.cm-tracked-change-tooltip-actions button:hover:not(:disabled) {
+  background: var(--control-active-soft);
+  border-color: var(--control-active);
+}
+.cm-tracked-change-tooltip-actions button:disabled { opacity: .5; cursor: default; }
+
+/* Hover card shown when the pointer rests on a comment mark. */
+.cm-tooltip.cm-tooltip-hover:has(.cm-editor-comment-tooltip) {
+  border: none;
+  background: transparent;
+}
+.cm-editor-comment-tooltip {
+  /* The card lives inside .cm-editor, which forces the monospace editor face
+     on everything under it; comments are prose and belong in the UI face. */
+  font-family: var(--ui-font);
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  box-shadow: var(--shadow, 0 8px 24px rgba(0, 0, 0, .16));
+  font-size: var(--type-label-size);
+  line-height: 1.45;
+}
+.cm-editor-comment-tooltip-item { display: flex; flex-direction: column; gap: var(--gap-tight); }
+.cm-editor-comment-tooltip-item + .cm-editor-comment-tooltip-item {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.cm-editor-comment-tooltip-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.cm-editor-comment-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.cm-editor-comment-tooltip-author { font-weight: 600; }
+.cm-editor-comment-tooltip-time { margin-left: auto; opacity: .6; font-size: var(--type-caption-size); }
+.cm-editor-comment-tooltip-body { white-space: pre-wrap; word-break: break-word; }
+.cm-editor-comment-tooltip-main { display: flex; flex-direction: column; gap: var(--gap-tight); }
+.cm-editor-comment-tooltip-reply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-tight);
+  margin-top: var(--space-3);
+  padding-left: var(--space-5);
+  border-left: 2px solid var(--border-subtle);
+}
+.cm-editor-comment-tooltip-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+.cm-editor-comment-tooltip-actions button {
+  flex: 0 0 auto;
+  padding: 3px var(--space-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-icon);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  color: inherit;
+  font-size: var(--type-caption-size);
+  font-weight: 600;
+  cursor: pointer;
+}
+.cm-editor-comment-tooltip-actions button:hover {
+  background: var(--control-active-soft);
+  border-color: var(--control-active);
+}
+/* Reply thread inside the comments panel. */
+.editor-comment-replies {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: var(--space-1) var(--space-2) var(--space-3);
+  padding-left: var(--space-5);
+  border-left: 2px solid var(--border-subtle);
+}
+.editor-comment-reply { display: flex; flex-direction: column; gap: var(--space-1); }
+.editor-comment-reply-meta {
+  display: flex;
+  gap: var(--space-4);
+  font-size: var(--type-micro-size);
+  opacity: .7;
+}
+.editor-comment-reply-meta span:first-child { font-weight: 600; }
+/* Sized to the comment body above it (.pdf-mark-body p), which a reply
+   continues — it used to render larger than the comment it answered. */
+.editor-comment-reply p {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Reply composer: part of the thread, styled like it. */
+.editor-comment-reply-compose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-1) var(--space-2) var(--space-3);
+  padding-left: var(--space-5);
+  border-left: 2px solid var(--control-active);
+}
+.editor-comment-reply-compose textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: var(--field-control-border-width) solid var(--field-control-border-color);
+  border-radius: var(--field-control-radius);
+  background: var(--field-control-background);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--type-caption-size);
+  line-height: 1.5;
+  resize: vertical;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.editor-comment-reply-compose textarea:focus {
+  outline: none;
+  border-color: var(--field-control-interactive-border-color);
+  box-shadow: none;
+}
+.editor-comment-reply-actions { display: flex; gap: var(--space-3); }
+.editor-comment-reply-actions button {
+  height: 24px;
+  padding: 0 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-icon);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--type-caption-size);
+  font-weight: 600;
+  cursor: pointer;
+}
+.editor-comment-reply-actions button:hover:not(:disabled) { background: var(--border-subtle); }
+.editor-comment-reply-actions button.primary {
+  border-color: transparent;
+  background: var(--control-active);
+  color: #fff;
+}
+.editor-comment-reply-actions button.primary:hover:not(:disabled) { filter: brightness(1.06); }
+.editor-comment-reply-actions button:disabled { opacity: .5; cursor: default; }
+.pdf-mark-item.focused {
+  outline: 2px solid var(--control-active);
+  outline-offset: -1px;
+  border-radius: var(--radius-control);
+}
+.source-editor > .code-editor-root { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
+.source-editor .cm-editor, .source-editor .cm-scroller { width: 100%; height: 100%; min-height: 0; }
+.source-editor .cm-scroller { overflow-x: hidden !important; overflow-y: auto !important; scrollbar-width: none; }
+.source-editor .cm-scroller::-webkit-scrollbar { display: none; }
+.cm-overlay-scrollbar {
+  position: absolute;
+  z-index: var(--z-editor-scrollbar);
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+  transition: opacity var(--duration-quick) var(--ease-out) var(--duration-base);
+}
+.cm-overlay-scrollbar[data-overflow] { pointer-events: auto; }
+.cm-overlay-scrollbar[data-overflow]:hover,
+.cm-overlay-scrollbar[data-scrolling] { opacity: 1; transition-duration: var(--duration-base); transition-delay: 0ms; }
+.cm-overlay-scrollbar-thumb {
+  width: 4px;
+  min-height: 24px;
+  margin: 0 auto;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  transition: background-color var(--duration-base) var(--ease-in-out), width var(--duration-base) var(--ease-in-out);
+}
+.cm-overlay-scrollbar:hover .cm-overlay-scrollbar-thumb { width: 6px; background: color-mix(in srgb, var(--text-primary) 12%, transparent); }
+.cm-overlay-scrollbar-thumb:active { background: color-mix(in srgb, var(--text-primary) 16%, transparent); }
+.source-editor .cm-content, .source-editor .cm-gutter { min-height: 100%; }
+.source-editor .cm-content { min-width: 0; font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; caret-color: var(--control-active); }
+/* CodeMirror's base theme sets `.cm-scroller { font-family: monospace }`, which
+   overrides inheritance from `.cm-editor`. Set the face on scroller + content. */
+.source-editor .cm-editor,
+.source-editor .cm-scroller {
+  background: var(--editor-bg);
+  color: var(--text-primary);
+  font-family: var(--editor-font) !important;
+  font-size: var(--editor-font-size) !important;
+}
+/* Keep content transparent so CM's selection layer stays visible under collab. */
+.source-editor .cm-content {
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--editor-font) !important;
+  font-size: var(--editor-font-size) !important;
+}
+.source-editor .cm-gutters { background: var(--editor-gutter); color: var(--text-tertiary); border-right: 1px solid var(--border-subtle); }
+/* CodeMirror sizes the gutter to the widest line number, so the text column
+   shifts when a document crosses 9 -> 10 or 99 -> 100 lines. Reserve three
+   digits up front, and use tabular figures so digit shapes don't add jitter. */
+.source-editor .cm-lineNumbers .cm-gutterElement {
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+}
+/* Active-line fill sits above CM's selection layer and hides selected text.
+   Keep the soft neutral only when the caret is empty; clear it while selecting. */
+.source-editor .cm-activeLine { background: var(--control-active-soft); }
+.source-editor .cm-editor.cm-lattice-has-selection .cm-activeLine { background: transparent; }
+.source-editor .cm-activeLineGutter { background: var(--control-active-soft); }
+.source-editor .cm-focused { outline: none; }
+.source-editor .cm-panels { background: var(--surface-panel-raised); border-color: var(--border-subtle); color: var(--text-secondary); }
+.source-editor .cm-panels.cm-panels-top { border-bottom: 1px solid var(--border-subtle); }
+.source-editor .cm-panels.cm-panels-bottom { border-top: 1px solid var(--border-subtle); }
+/* Fixed find row + replace row; ignore CodeMirror's opportunistic wrapping. */
+.source-editor .cm-panel.cm-search {
+  position: relative;
+  padding: 7px 42px 7px var(--space-5);
+  /* Wraps rather than scrolls: a fixed grid let the controls squeeze the query
+     field to nothing in a narrow editor. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--type-caption-size);
+}
+.source-editor .cm-panel.cm-search > br { display: none; }
+.source-editor .cm-panel.cm-search input.cm-textfield {
+  height: var(--search-control-height-compact);
+  min-width: 0;
+  width: 100%;
+  border: var(--search-control-border-width) solid var(--search-control-border-color);
+  border-radius: var(--search-control-radius);
+  outline: none;
+  background: var(--search-control-background);
+  padding: 0 var(--search-control-padding-inline);
+  color: var(--text-primary);
+  font: var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
+  overflow-x: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Keeps a usable field, and takes a whole row of its own when space is tight. */
+  flex: 1 1 150px;
+  min-width: 120px;
+  width: auto;
+}
+.source-editor .cm-panel.cm-search input.cm-textfield:hover:not(:focus) {
+  border-color: var(--search-control-interactive-border-color);
+}
+.source-editor .cm-panel.cm-search input.cm-textfield:focus {
+  border-color: var(--search-control-interactive-border-color);
+  box-shadow: none;
+}
+.source-editor .cm-panel.cm-search .cm-search-count {
+  flex: 0 0 auto;
+  min-width: 36px;
+  color: var(--text-tertiary);
+  font: 500 var(--type-micro-size)/1 var(--ui-font);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.source-editor .cm-panel.cm-search button {
+  flex: 0 0 auto;
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-chrome);
+  background: var(--surface-panel);
+  color: var(--text-secondary);
+  padding: 0 var(--pad-inline-control);
+  font-size: var(--type-caption-size);
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+}
+.source-editor .cm-panel.cm-search button:hover { background: var(--control-active-soft); color: var(--control-active); border-color: var(--control-active-border); }
+.source-editor .cm-panel.cm-search button[name="close"] {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0 0 var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-chrome);
+  background: var(--surface-panel);
+  color: var(--text-secondary);
+  font: 400 var(--type-heading-size)/1 var(--ui-font);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.source-editor .cm-panel.cm-search label {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--type-micro-size);
+  white-space: nowrap;
+}
+.source-editor .cm-panel.cm-search input[type="checkbox"] { width: 13px; height: 13px; min-width: 0; margin: 0; accent-color: var(--control-active); }
+.source-editor .cm-searchMatch { background: var(--highlight-match-surface); border-radius: 2px; }
+.source-editor .cm-searchMatch-selected { background: var(--highlight-match-current-surface); }
+.source-editor .cm-foldGutter .cm-gutterElement {
+  display: grid;
+  place-items: center;
+  line-height: inherit;
+}
+.source-editor .cm-tooltip.cm-tooltip-autocomplete { border-radius: var(--radius-control); overflow: hidden; max-width: min(420px, 70vw); }
+.source-editor .cm-tooltip-autocomplete > ul { min-width: 230px; max-width: min(420px, 70vw); padding: var(--space-2); font-family: var(--editor-font); font-size: calc(var(--editor-font-size) - 1px); }
+.source-editor .cm-tooltip-autocomplete > ul > li { padding: 5px var(--space-4); border-radius: var(--radius-compact); color: var(--text-secondary); line-height: 1.35; text-align: left; display: flex; gap: var(--space-5); align-items: baseline; }
+.source-editor .cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--control-active-soft); color: var(--text-primary); }
+.source-editor .cm-completionLabel { display: inline-block; min-width: 0; flex: none; text-align: left; }
+.source-editor .cm-completionDetail {
+  margin-left: auto;
+  min-width: 0;
+  max-width: 58%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+  font-style: normal;
+  font-size: 0.92em;
+}
+/* Readable by default. This host used to be transparent on the grounds that
+   every card inside it brings its own background — which is true right up
+   until one does not, and then its text sits directly on the document with
+   the prose showing through. That has now happened twice (lint diagnostics,
+   then the suggestion card), so the default is the safe one and the cards
+   that genuinely draw their own chrome strip it below. */
+.source-editor .cm-tooltip-hover {
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+}
+/* These four draw their own card, so the host must not draw a second one
+   around it. */
+.source-editor .cm-tooltip-hover:has(.cm-latex-tooltip),
+.source-editor .cm-tooltip-hover:has(.cm-tooltip-lint),
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip),
+.source-editor .cm-tooltip-hover:has(.cm-tracked-change-tooltip) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+/* A comment card sizes itself to its text — clipping it here is what turned a
+   long comment into a scroll box. */
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip) { overflow: visible; box-shadow: none; }
+/* Lint diagnostics (e.g. "Unused label …") hover in a tooltip that also carries
+   .cm-tooltip-lint. The shared .cm-tooltip-hover above is transparent because
+   the comment/texlab cards bring their own background — but a lint diagnostic
+   has none, so without this its text sits on nothing and is unreadable.
+   Match .cm-tooltip-lint on its own (not only combined with .cm-tooltip-hover):
+   hovering the gutter marker puts both classes on one element, but hovering the
+   underline nests the lint tooltip as a *child* of the shared hover host (next
+   to the texlab card), where it carries only .cm-tooltip-lint. */
+.source-editor .cm-tooltip-lint {
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  max-width: min(440px, 72vw);
+}
+.source-editor .cm-tooltip-lint .cm-diagnostic {
+  color: var(--text-primary);
+  font-family: var(--editor-font);
+  font-size: calc(var(--editor-font-size) - 1px);
+  line-height: 1.45;
+  white-space: normal;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: var(--space-2);
+  row-gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+.source-editor .cm-tooltip-lint .cm-diagnosticText {
+  flex: 1 0 100%;
+}
+.source-editor .cm-tooltip-lint .cm-diagnosticAction {
+  min-height: 24px;
+  margin: 0;
+  padding: 3px var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-compact);
+  background: var(--surface-panel-raised);
+  color: var(--text-secondary);
+  font: inherit;
+  line-height: 1.25;
+  cursor: pointer;
+}
+.source-editor .cm-tooltip-lint .cm-diagnosticAction:hover {
+  background: var(--control-hover-surface);
+  color: var(--text-primary);
+}
+.source-editor .cm-tooltip-lint .cm-diagnostic-error { border-left-color: var(--status-danger); }
+.source-editor .cm-tooltip-lint .cm-diagnostic-warning { border-left-color: var(--syntax-attribute); }
+.source-editor .cm-tooltip-lint .cm-diagnostic-info { border-left-color: var(--control-active); }
+.source-editor .cm-tooltip-lint .cm-diagnosticSource { flex: 1 0 100%; color: var(--text-tertiary); font-size: 0.9em; }
+.texlab-hover-card {
+  width: min(380px, calc(100vw - 32px));
+  max-height: 240px;
+  overflow: auto;
+  padding: var(--space-5) var(--space-6);
+  color: var(--text-secondary);
+  font-family: var(--editor-font);
+  font-size: var(--type-caption-size);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.citation-hover-card { width: min(340px, calc(100vw - 32px)); padding: var(--space-5) var(--space-6) 11px; }
+.citation-hover-card small, .citation-hover-card strong, .citation-hover-card span, .citation-hover-card em { display: block; }
+.citation-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-nano-size); }
+.citation-hover-card strong { font-size: var(--type-caption-size); font-weight: 650; line-height: 1.35; }
+.citation-hover-open { display: block; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: var(--type-caption-size); font-weight: 650; line-height: 1.35; text-align: left; cursor: pointer; }
+.citation-hover-open:hover, .citation-hover-open:focus-visible { color: var(--control-active); text-decoration: underline; }
+.citation-hover-card span { margin-top: var(--space-3); color: var(--text-secondary); font-size: var(--type-nano-size); line-height: 1.4; }
+.citation-hover-card em { margin-top: 5px; color: var(--text-tertiary); font-size: var(--type-nano-size); font-style: normal; }
+.reference-hover-card { width: min(360px, calc(100vw - 32px)); padding: var(--space-5) var(--space-6) 11px; }
+.reference-hover-card small, .reference-hover-card strong, .reference-hover-card em { display: block; }
+.reference-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-nano-size); text-transform: capitalize; }
+.reference-hover-card strong { font-size: var(--type-caption-size); font-weight: 650; line-height: 1.35; }
+.reference-hover-card pre { max-height: 132px; margin: 7px 0 0; overflow: hidden; color: var(--text-secondary); font-family: var(--editor-font); font-size: var(--type-nano-size); line-height: 1.45; white-space: pre-wrap; }
+.reference-hover-card em { margin-top: var(--space-3); color: var(--text-tertiary); font-size: var(--type-nano-size); font-style: normal; }
+.reference-hover-media { max-height: 190px; margin: -2px -3px 9px; overflow: hidden; border-radius: var(--radius-icon); background: var(--editor-bg); color: var(--text-tertiary); display: grid; place-items: center; font-size: var(--type-nano-size); }
+.reference-hover-media.loading { min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--gap-inline-tight); }
+.reference-hover-media img {
+  display: block;
+  max-width: 100%;
+  max-height: 190px;
+  object-fit: contain;
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
+:root[data-theme="dark"] .reference-hover-media img {
+  outline-color: oklch(1 0 0 / 0.1);
+}
+.reference-hover-media > .reference-hover-loader { width: 18px; height: 18px; opacity: .72; }
+:root[data-theme="dark"] .reference-hover-media > .reference-hover-loader { filter: invert(1); }
+.source-editor.figure-drop-active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--control-active) 24%, transparent); }
+.source-editor.file-drop-active {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--control-active) 30%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--control-active) 4%, transparent);
+}
+.figure-drop-line { position: absolute; z-index: var(--z-editor-overlay); left: 48px; right: 10px; height: 1px; background: color-mix(in srgb, var(--control-active) 78%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--editor-bg) 65%, transparent); pointer-events: none; }
+.figure-drop-line::before { content: ""; position: absolute; left: -3px; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--control-active); }
+.figure-drop-line span { position: absolute; right: 0; bottom: 5px; padding: 3px var(--space-3); border: 1px solid var(--control-active-border); border-radius: var(--radius-compact); background: color-mix(in srgb, var(--surface-panel-raised) 94%, transparent); color: var(--control-active); box-shadow: var(--shadow-soft); font-size: var(--type-micro-size); font-weight: 600; line-height: 1; white-space: nowrap; }
+.figure-drag-ghost { position: fixed; z-index: var(--z-drag-ghost); max-width: 220px; height: 28px; padding: 0 var(--pad-inline-control); display: flex; align-items: center; gap: var(--space-3); border-radius: var(--radius-chrome); background: color-mix(in srgb, var(--surface-panel-raised) 94%, transparent); color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: 600; pointer-events: none; transform: translateZ(0); }
+.figure-drag-ghost.ready { border-color: var(--control-active-border-strong); background: color-mix(in srgb, var(--control-active-soft) 70%, var(--surface-panel-raised)); color: var(--control-active); }
+.figure-drag-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-resizer { position: relative; z-index: 2; width: 1px; min-height: 0; cursor: col-resize; background: var(--border-subtle); outline: none; touch-action: none; transition: background var(--duration-quick), box-shadow var(--duration-quick); }
+.split-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
+.split-resizer:hover, .split-resizer:focus-visible, .resizing-split .split-resizer { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
+.resizing-split { cursor: col-resize; user-select: none; }
+.markdown-preview { height: 100%; background: var(--editor-bg); color: var(--text-primary); }
+.markdown-preview-content { min-width: 100%; min-height: 100%; padding: var(--space-16) max(var(--space-12), calc((100% - 760px) / 2)); }
+.markdown-preview-content > .chat-markdown { max-width: 760px; margin: 0 auto; }
+.asset-preview { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface-panel); }
+.asset-preview-heading { height: 38px; flex: none; padding: 0 13px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: var(--gap-inline); color: var(--text-secondary); font-size: var(--type-micro-size); }
+.asset-preview-heading span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-preview-heading small { margin-left: auto; flex: none; color: var(--text-tertiary); font-size: var(--type-nano-size); }
+.asset-preview-stage { min-height: 0; flex: 1; background-color: color-mix(in srgb, var(--surface-panel) 88%, var(--border-subtle)); background-image: linear-gradient(45deg, color-mix(in srgb, var(--border-subtle) 42%, transparent) 25%, transparent 25%), linear-gradient(-45deg, color-mix(in srgb, var(--border-subtle) 42%, transparent) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--border-subtle) 42%, transparent) 75%), linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--border-subtle) 42%, transparent) 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0; }
+.asset-preview-stage-content { min-width: 100%; min-height: 100%; padding: 28px; display: grid; place-items: center; }
+.asset-preview-stage img {
+  display: block;
+  max-width: min(100%, 1100px);
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 3px;
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, .11));
+}
+:root[data-theme="dark"] .asset-preview-stage img {
+  outline-color: oklch(1 0 0 / 0.1);
+}
+.asset-preview-unsupported { color: var(--text-tertiary); display: grid; place-items: center; gap: var(--space-4); font-size: var(--type-caption-size); }

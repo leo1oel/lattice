@@ -165,6 +165,7 @@ fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
         venue: venue.as_str().to_string(),
         word_budget,
         page_budget,
+        spelling_words: Vec::new(),
     }
 }
 
@@ -1372,6 +1373,7 @@ pub fn update_manifest_settings(
     trusted: Option<bool>,
     word_budget: Option<Option<u32>>,
     page_budget: Option<Option<u32>>,
+    spelling_words: Option<Vec<String>>,
 ) -> Result<ProjectManifest, String> {
     let mut manifest = read_manifest(root)?;
     if let Some(engine) = engine {
@@ -1402,6 +1404,29 @@ pub fn update_manifest_settings(
     }
     if let Some(page_budget) = page_budget {
         manifest.page_budget = page_budget;
+    }
+    if let Some(spelling_words) = spelling_words {
+        let mut normalized = Vec::new();
+        for word in spelling_words {
+            let word = word.trim();
+            if word.is_empty() {
+                continue;
+            }
+            if word.chars().count() > 80 || word.chars().any(char::is_whitespace) {
+                return Err(
+                    "Project dictionary terms must be single words of at most 80 characters."
+                        .to_string(),
+                );
+            }
+            if !normalized
+                .iter()
+                .any(|existing: &String| existing.eq_ignore_ascii_case(word))
+            {
+                normalized.push(word.to_string());
+            }
+        }
+        normalized.sort_by_key(|word| word.to_ascii_lowercase());
+        manifest.spelling_words = normalized;
     }
     write_manifest(root, &manifest)?;
     Ok(manifest)
@@ -5287,12 +5312,18 @@ mod tests {
             Some(true),
             Some(Some(5000)),
             Some(Some(9)),
+            Some(vec![
+                "TexLab".to_string(),
+                "VLM".to_string(),
+                "texlab".to_string(),
+            ]),
         )
         .unwrap();
         assert_eq!(updated.engine, "xelatex");
         assert!(updated.trusted);
         assert_eq!(updated.word_budget, Some(5000));
         assert_eq!(updated.page_budget, Some(9));
+        assert_eq!(updated.spelling_words, vec!["TexLab", "VLM"]);
         assert!(updated
             .root_documents
             .iter()

@@ -84,6 +84,7 @@ import {
 } from "./editor-comments";
 import { useAppearance } from "./use-appearance";
 import { usePanelLayout } from "./use-panel-layout";
+import { resolveSidebarModeTier, type SidebarModeTier } from "./sidebar-mode-layout";
 import { OverleafPickerDialog } from "./overleaf-connect";
 import { OverleafReviewDialog } from "./overleaf-review";
 import { ConflictResolverDialog } from "./conflict-resolver";
@@ -108,6 +109,8 @@ import {
   loadBuildPreferences,
   loadLastFile,
   persistLastFile,
+  loadWorkspaceLayout,
+  persistWorkspaceLayout,
   type OverleafRemoteDelete,
   type OverleafSyncMode,
   loadOverleafRemoteDelete,
@@ -227,7 +230,6 @@ import type {
   EditorPaneId,
   DocumentViewMode,
   SettingsTab,
-  CiteCommand,
   InsertSymbolCommand,
   DoctorReport,
   OverleafLink,
@@ -246,6 +248,7 @@ import {
   dropDirectoryAt,
   dropEditorAt,
   editorPaneAt,
+  isProjectSourceFilePath,
   isPaperTabKey,
   paperKey,
   paperTabKey,
@@ -296,6 +299,8 @@ const SYNARA_LAYOUT_METRICS = "synara:layout-metrics";
 const SYNARA_EMBED_READY = "synara:embed-ready";
 const SYNARA_SIDEBAR_MINIMUM = 320;
 const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
+const TRAFFIC_LIGHT_CLOSE_CENTER_X_CSS_PX = 21;
+const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
 
 type SynaraPermissionMode = "approval-required" | "auto" | "full-access";
 
@@ -356,7 +361,9 @@ function SynaraPermissionPicker(props: {
                 key={mode}
                 value={mode}
                 disabled={mode === "auto" && !props.autoModeAvailable}
+                className="ui-radio-choice"
               >
+                <span className="ui-radio-dot" aria-hidden="true" />
                 <span className="agent-permission-copy">
                   <strong>{option.label}</strong>
                   <small>{option.description}</small>
@@ -410,6 +417,16 @@ function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<st
     if (node.children.length) collectAssetPaths(node.children, paths);
   }
   return paths;
+}
+
+function getCurrentWindowSafely() {
+  try {
+    return getCurrentWindow();
+  } catch {
+    // Browser previews, recovery pages, and a briefly unavailable Tauri
+    // bridge should not replace the entire application with a white screen.
+    return null;
+  }
 }
 
 function App() {
@@ -504,6 +521,13 @@ function App() {
   const [references, setReferences] = useState<ReferenceInfo[]>([]);
   const [unusedSymbols, setUnusedSymbols] = useState<UnusedSymbols>({ labels: [], citations: [] });
   const [openTabs, setOpenTabs] = useState<string[]>([]);
+  const [workspacePersistenceReadyRoot, setWorkspacePersistenceReadyRoot] = useState<string | null>(null);
+  const pendingWorkspaceSurfaceRef = useRef<{
+    root: string;
+    activeTab: string;
+    canvasMode: CanvasMode;
+    paperView: "blog" | "fulltext";
+  } | null>(null);
   const projectAssetPaths = useMemo(
     () => collectAssetPaths(project?.files ?? []),
     [project],
@@ -512,6 +536,26 @@ function App() {
   const tabRecency = useRef<string[]>([]);
   const noteTabActive = useCallback((key: string) => {
     tabRecency.current = [key, ...tabRecency.current.filter((existing) => existing !== key)];
+  }, []);
+  const addProjectSpellingWord = useCallback(async (word: string) => {
+    const current = projectRef.current;
+    const normalized = word.trim();
+    if (!current || !normalized) return false;
+    const words = current.manifest.spellingWords ?? [];
+    if (words.some((existing) => existing.toLocaleLowerCase() === normalized.toLocaleLowerCase())) return true;
+    try {
+      const manifest = await invoke<ProjectManifest>("set_project_spelling_words", {
+        words: [...words, normalized],
+      });
+      if (projectRef.current?.root === current.root) {
+        setProject((snapshot) => snapshot ? { ...snapshot, manifest } : snapshot);
+      }
+      setError(null);
+      return true;
+    } catch (reason) {
+      setError(toMessage(reason));
+      return false;
+    }
   }, []);
   const [navStack, setNavStack] = useState<NavigationEntry[]>([]);
   const [navIndex, setNavIndex] = useState(-1);
@@ -761,17 +805,63 @@ function App() {
       return "project";
     }
   });
-  // Keep the three mode tabs on one shared expansion tier so switching modes
-  // never makes the header jump. Synara has no legacy Subscription/API picker,
-  // so its largest remaining action area is Papers' two icon buttons.
-  const sidebarModeReserve = 53 + 18;
-  const sidebarModeTier = sidebarWidth >= 229 + sidebarModeReserve
-    ? 4
-    : sidebarWidth >= 183 + sidebarModeReserve
-      ? 3
-      : sidebarWidth >= 137 + sidebarModeReserve
-        ? 2
-        : 1;
+  const sidebarModeHeaderRef = useRef<HTMLDivElement>(null);
+  const sidebarModeActionsRef = useRef<HTMLDivElement>(null);
+  const [sidebarModeTier, setSidebarModeTier] = useState<SidebarModeTier>(4);
+  useEffect(() => {
+    const header = sidebarModeHeaderRef.current;
+    const actions = sidebarModeActionsRef.current;
+    const tabs = header?.querySelector<HTMLElement>(".sidebar-mode-tabs");
+    if (!header || !actions || !tabs) return;
+
+    let frameId: number | null = null;
+    const measure = () => {
+      frameId = null;
+      const styles = getComputedStyle(header);
+      const collapsedWidth = Number.parseFloat(
+        styles.getPropertyValue("--navigation-control-height"),
+      );
+      const expandedWidth = Number.parseFloat(
+        styles.getPropertyValue("--navigation-tab-expanded-width"),
+      );
+      const tabGap = Number.parseFloat(styles.getPropertyValue("--navigation-tab-gap"));
+      const actionsGap = Number.parseFloat(
+        styles.getPropertyValue("--navigation-mode-actions-gap"),
+      );
+      if (![collapsedWidth, expandedWidth, tabGap, actionsGap].every(Number.isFinite)) return;
+
+      const tabCount = tabs.querySelectorAll<HTMLElement>("[role=tab]").length;
+      if (tabCount === 0) return;
+      const tabsLeft = tabs.getBoundingClientRect().left;
+      const actionsLeft = actions.getBoundingClientRect().left;
+      const availableWidth = Math.max(0, actionsLeft - tabsLeft - actionsGap);
+      const nextTier = resolveSidebarModeTier({
+        availableWidth,
+        collapsedWidth,
+        expandedWidth,
+        tabCount,
+        tabGap,
+      });
+      setSidebarModeTier((current) => current === nextTier ? current : nextTier);
+    };
+    const scheduleMeasure = () => {
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+    const observer = typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(scheduleMeasure);
+    observer?.observe(header);
+    observer?.observe(actions);
+    window.addEventListener("resize", scheduleMeasure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", scheduleMeasure);
+      if (frameId !== null) cancelAnimationFrame(frameId);
+    };
+  }, [project?.root, sidebarMode, sidebarOpen]);
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const synaraIframeRef = useRef<HTMLIFrameElement>(null);
   const synaraSourceControlFrameRef = useRef<HTMLIFrameElement>(null);
@@ -1125,7 +1215,8 @@ function App() {
   }, [project?.root, activeFile]);
   const { theme, setTheme, appearance, setAppearance } = useAppearance();
   useLayoutEffect(() => {
-    const appWindow = getCurrentWindow();
+    const appWindow = getCurrentWindowSafely();
+    if (!appWindow) return;
     if (typeof appWindow.setMinSize !== "function") return;
     const minimumWorkspaceWidth = Number(
       document.querySelector<HTMLElement>(".split-canvas[data-minimum-workspace-width]")
@@ -1751,6 +1842,7 @@ function App() {
     papers,
     project,
     refreshProject,
+    scheduleCollabRebuild,
   ]);
 
   const startCollabShare = useCallback(() => {
@@ -2582,7 +2674,17 @@ function App() {
       overleafSyncingRef.current = false;
       setOverleafSyncing(false);
     }
-  }, [activeFile, collabName, collabSession, compile, loadFile, project, refreshProject, save]);
+  }, [
+    activeFile,
+    collabName,
+    collabSession,
+    compile,
+    loadFile,
+    project,
+    refreshProject,
+    save,
+    settleRemoteDeletes,
+  ]);
 
   // First open after launch pulls collaborators' Overleaf edits automatically.
   useEffect(() => {
@@ -3141,6 +3243,8 @@ function App() {
         await settleCollabBeforeProjectSwitch(snapshot.root);
       }
       beginProjectTransition(true);
+      setWorkspacePersistenceReadyRoot(null);
+      pendingWorkspaceSurfaceRef.current = null;
       projectRef.current = snapshot;
       projectBeforeTransitionRef.current = null;
       setProject(snapshot);
@@ -3163,6 +3267,11 @@ function App() {
       setSavedPaperMarkdown("");
       setPaperBlog(null);
       setSavedPaperBlog(null);
+      setSecondaryFile(null);
+      setSecondarySource("");
+      setSecondarySavedSource("");
+      setFocusedPane("primary");
+      setOpenTabs([]);
       setCanvasMode("split");
       // Invalidate any in-flight preview from the previous project, then clear
       // UI state *before* starting the first build (starting first used to race
@@ -3190,27 +3299,92 @@ function App() {
         snapshot.manifest.rootDocuments.find((document) => document.path === "main.tex")
         ?? snapshot.manifest.rootDocuments.find((document) => document.isDefault)
         ?? snapshot.manifest.rootDocuments[0];
-      // Reopen the file the user last had open here, when it still exists;
-      // otherwise fall back to the project's root document.
-      const remembered = loadLastFile(snapshot.root);
-      const openTarget = remembered && flattenProjectPaths(snapshot.files).includes(remembered)
-        ? remembered
-        : rootDocument?.path;
-      if (openTarget) await loadFile(openTarget);
       const [nextPapers, nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
         invoke<PaperSummary[]>("list_papers"),
         invoke<string[]>("list_citation_keys"),
         invoke<CitationInfo[]>("list_citations"),
         invoke<ReferenceInfo[]>("list_references"),
       ]);
+      const allPaths = flattenProjectPaths(snapshot.files);
+      const assetPaths = collectAssetPaths(snapshot.files);
+      const sourcePaths = new Set(allPaths.filter((path) => (
+        !isPaperTabKey(path)
+        && !assetPaths.has(path)
+        && isProjectSourceFilePath(path)
+      )));
+      // Root documents are authoritative even while a collaboration snapshot
+      // is still materializing its file tree (or a lightweight test fixture
+      // omits the duplicate tree node).
+      for (const document of snapshot.manifest.rootDocuments) {
+        if (isProjectSourceFilePath(document.path)) sourcePaths.add(document.path);
+      }
+      const paperKeys = new Set(nextPapers.map((paper) => paperTabKey(paper.arxivId)));
+      const validTab = (path: string) => sourcePaths.has(path) || assetPaths.has(path) || paperKeys.has(path);
+      const restored = loadWorkspaceLayout(snapshot.root);
+      // Reopen the complete per-project workspace when possible. Older releases
+      // only remembered one file, so that value remains the migration fallback.
+      const remembered = loadLastFile(snapshot.root);
+      const primaryFile = restored?.activeFile && sourcePaths.has(restored.activeFile)
+        ? restored.activeFile
+        : remembered && sourcePaths.has(remembered)
+          ? remembered
+          : rootDocument?.path && sourcePaths.has(rootDocument.path)
+            ? rootDocument.path
+            : [...sourcePaths][0];
+      if (primaryFile) await loadFile(primaryFile);
+      const secondaryFile = restored?.secondaryFile
+        && restored.secondaryFile !== primaryFile
+        && sourcePaths.has(restored.secondaryFile)
+        ? restored.secondaryFile
+        : null;
+      if (secondaryFile) {
+        try {
+          const content = await invoke<string>("read_project_file", { path: secondaryFile });
+          setSecondaryFile(secondaryFile);
+          setSecondarySource(content);
+          setSecondarySavedSource(content);
+        } catch {
+          setSecondaryFile(null);
+          setSecondarySource("");
+          setSecondarySavedSource("");
+        }
+      }
+      const restoredTabs = restored
+        ? restored.openTabs.filter(validTab)
+        : primaryFile
+          ? [primaryFile]
+          : [];
+      const activeTab = restored?.activeTab && validTab(restored.activeTab)
+        ? restored.activeTab
+        : primaryFile ?? restoredTabs[0] ?? "";
+      if (activeTab && !restoredTabs.includes(activeTab)) restoredTabs.push(activeTab);
+      const restoredMode: CanvasMode = paperKeys.has(activeTab)
+        ? restored?.canvasMode === "paper" ? "paper" : "markdown-preview"
+        : assetPaths.has(activeTab)
+          ? "asset"
+          : (restored?.canvasMode === "dual" || restored?.canvasMode === "columns") && !secondaryFile
+            ? "split"
+            : restored?.canvasMode ?? "split";
       setPapers(nextPapers);
       setCitationKeys(nextCitationKeys);
       setCitations(nextCitations);
       setReferences(nextReferences ?? []);
-      setOpenTabs(rootDocument ? [rootDocument.path] : []);
-      tabRecency.current = rootDocument ? [rootDocument.path] : [];
-      setNavStack(rootDocument ? [{ path: rootDocument.path, line: 1 }] : []);
-      setNavIndex(rootDocument ? 0 : -1);
+      setOpenTabs(restoredTabs);
+      tabRecency.current = restored?.tabRecency.filter((path) => restoredTabs.includes(path)) ?? [];
+      for (const path of restoredTabs) {
+        if (!tabRecency.current.includes(path)) tabRecency.current.push(path);
+      }
+      setFocusedPane(
+        secondaryFile
+        && (restoredMode === "dual" || restoredMode === "columns")
+        && restored?.focusedPane === "secondary"
+          ? "secondary"
+          : "primary",
+      );
+      setCanvasMode(restoredMode);
+      setPaperView(restored?.paperView ?? "blog");
+      setNavStack(primaryFile ? [{ path: primaryFile, line: 1 }] : []);
+      setNavIndex(primaryFile ? 0 : -1);
       viewStateRef.current.clear();
       await refreshUnusedSymbols();
       setHistory(await invoke<HistoryItem[]>("list_history"));
@@ -3231,6 +3405,16 @@ function App() {
       }
       setPdfPageCount(null);
       setChecklistOpen(false);
+      if (paperKeys.has(activeTab) || assetPaths.has(activeTab)) {
+        pendingWorkspaceSurfaceRef.current = {
+          root: snapshot.root,
+          activeTab,
+          canvasMode: restoredMode,
+          paperView: restored?.paperView ?? "blog",
+        };
+      } else {
+        setWorkspacePersistenceReadyRoot(snapshot.root);
+      }
       // Never animate shell opacity from 0 — a cancelled/interrupted tween leaves the
       // whole window blank white with the UI still "mounted".
       if (shellRef.current) shellRef.current.style.opacity = "1";
@@ -3597,7 +3781,8 @@ function App() {
   }, [buildPreferences]);
 
   useEffect(() => {
-    const appWindow = getCurrentWindow();
+    const appWindow = getCurrentWindowSafely();
+    if (!appWindow) return;
     if (typeof appWindow.isFullscreen !== "function" || typeof appWindow.onResized !== "function") return;
     let active = true;
     let stopListening: (() => void) | undefined;
@@ -3641,10 +3826,14 @@ function App() {
       const zoom = appearance.interfaceScale;
       // AppKit consumes logical points, while getBoundingClientRect() remains
       // in the page's unzoomed CSS pixels. Use the actual sidebar-toggle center
-      // vertically and the traffic-space design center horizontally.
+      // vertically and the traffic-space design center horizontally. The
+      // native circles read only slightly low next to the stroked sidebar glyph,
+      // so keep the horizontal design center unchanged and apply just a
+      // quarter-pixel optical correction after measuring the real center.
       void invoke("align_traffic_lights", {
-        closeCenterX: (trafficRect.left + 21) * zoom,
-        centerFromTop: (toggleRect.top + toggleRect.height / 2) * zoom,
+        closeCenterX: (trafficRect.left + TRAFFIC_LIGHT_CLOSE_CENTER_X_CSS_PX) * zoom,
+        centerFromTop:
+          (toggleRect.top + toggleRect.height / 2 - TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX) * zoom,
       }).catch(() => {
         // Browser tests and non-macOS builds have no native traffic lights.
       });
@@ -3896,6 +4085,33 @@ function App() {
       setError(toMessage(reason));
     }
   }, [save]);
+
+  // Paper and asset tabs need their content loaded through their specialized
+  // readers after the base project state exists. File tabs are restored inside
+  // enterProject; this finishes the active surface without changing tab order.
+  useEffect(() => {
+    const pending = pendingWorkspaceSurfaceRef.current;
+    if (!pending || pending.root !== project?.root) return;
+    pendingWorkspaceSurfaceRef.current = null;
+    void (async () => {
+      if (isPaperTabKey(pending.activeTab)) {
+        const arxivId = arxivIdFromTabKey(pending.activeTab);
+        const paper = papers.find((item) => item.arxivId === arxivId);
+        if (paper) {
+          await openPaper(paper, true);
+          if (projectRef.current?.root === pending.root) {
+            setPaperView(pending.paperView);
+            setCanvasMode(pending.canvasMode === "paper" ? "paper" : "markdown-preview");
+          }
+        }
+      } else {
+        await openProjectAsset(pending.activeTab);
+      }
+      if (projectRef.current?.root === pending.root) {
+        setWorkspacePersistenceReadyRoot(pending.root);
+      }
+    })();
+  }, [openPaper, openProjectAsset, papers, project?.root]);
 
   useEffect(() => {
     referencePreviewCache.current.clear();
@@ -4637,29 +4853,6 @@ function App() {
     }
   }, [openProjectFile]);
 
-  const insertCitationFromPaper = useCallback(async (
-    paper: PaperSummary,
-    command: CiteCommand = "cite",
-  ) => {
-    if (!paper.citationKey) {
-      setError(`“${paper.title}” has no citation key yet.`);
-      return;
-    }
-    if (source !== savedSource) {
-      const saved = await save();
-      if (!saved) return;
-    }
-    if (activePaper || activeAsset || !activeFile.endsWith(".tex")) {
-      const root = project?.manifest.rootDocuments.find((document) => document.isDefault)?.path
-        ?? project?.manifest.rootDocuments[0]?.path
-        ?? activeFile;
-      if (root) await openProjectFile(root);
-    }
-    setCiteInsertRequest({ key: paper.citationKey, command, id: crypto.randomUUID() });
-    setCanvasMode((mode) => (mode === "pdf" || mode === "paper" || mode === "asset" ? "split" : mode));
-    setError(null);
-  }, [activeAsset, activeFile, activePaper, openProjectFile, project, save, savedSource, source]);
-
   const openBibEntryDialog = useCallback((resolveSeed = "") => {
     setBibEntryError(null);
     setBibEntryMode("add");
@@ -5085,7 +5278,9 @@ function App() {
       project={project}
       onUpdateManifest={async (patch) => {
         try {
-          const manifest = await invoke<ProjectManifest>("update_project_manifest", patch);
+          const manifest = patch.spellingWords != null
+            ? await invoke<ProjectManifest>("set_project_spelling_words", { words: patch.spellingWords })
+            : await invoke<ProjectManifest>("update_project_manifest", patch);
           setProject((current) => current ? { ...current, manifest } : current);
           setError(null);
         } catch (reason) {
@@ -5338,6 +5533,29 @@ function App() {
     setOpenTabs((tabs) => tabs.filter((key) => key !== victim));
     tabRecency.current = tabRecency.current.filter((key) => key !== victim);
   }, [openTabs, appearance.maxOpenTabs, activeTabKey, activeFile, secondaryFile]);
+  useEffect(() => {
+    if (!project?.root || workspacePersistenceReadyRoot !== project.root) return;
+    persistWorkspaceLayout(project.root, {
+      openTabs,
+      activeFile,
+      activeTab: activeTabKey,
+      secondaryFile,
+      focusedPane,
+      canvasMode,
+      paperView,
+      tabRecency: tabRecency.current.filter((path) => openTabs.includes(path)),
+    });
+  }, [
+    activeFile,
+    activeTabKey,
+    canvasMode,
+    focusedPane,
+    openTabs,
+    paperView,
+    project?.root,
+    secondaryFile,
+    workspacePersistenceReadyRoot,
+  ]);
   // Versionless arXiv ids whose full text is already in the library — the
   // Discover panel shows these hits as done instead of importable.
   const importedArxivIds = useMemo(
@@ -5861,7 +6079,7 @@ function App() {
         {sidebarOpen && (
           <>
             <section className="shared-sidebar">
-              <div className="sidebar-mode-header" data-mode-tier={sidebarModeTier}>
+              <div ref={sidebarModeHeaderRef} className="sidebar-mode-header" data-mode-tier={sidebarModeTier}>
                 <SlidingTabs
                   value={sidebarMode}
                   onChange={(value) => chooseSidebarMode(value as "project" | "papers" | "agent")}
@@ -5873,7 +6091,7 @@ function App() {
                     { value: "agent", title: "Agent", label: <><Bot size={15} /><span>Agent</span></> },
                   ]}
                 />
-                <div className="sidebar-mode-actions">
+                <div ref={sidebarModeActionsRef} className="sidebar-mode-actions">
                   {sidebarMode === "project" && (
                     <Tip label={projectSearchOpen ? "Hide file search" : "Search files"}>
                       <button
@@ -5938,7 +6156,6 @@ function App() {
                   assetDropTarget={assetDropTarget}
                   assetImporting={assetImporting}
                   onPaper={openPaper}
-                  onCitePaper={(paper, command) => void insertCitationFromPaper(paper, command)}
                   onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
                   paperFetchStates={paperFetchStates}
                   onDeletePaper={deletePaper}
@@ -6098,6 +6315,8 @@ function App() {
             onTableGeneratorOpenChange={setTableGeneratorOpen}
             editorKeymap={appearance.editorKeymap}
             editorSpellcheck={appearance.editorSpellcheck}
+            spellingWords={project.manifest.spellingWords ?? []}
+            onAddSpellingWord={addProjectSpellingWord}
             citeInsertRequest={citeInsertRequest}
             onCiteInsertHandled={(id) => setCiteInsertRequest((current) => current?.id === id ? null : current)}
             projectPaths={projectPaths}

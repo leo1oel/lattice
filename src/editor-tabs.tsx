@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { motion } from "motion/react";
 import {
@@ -7,6 +7,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export type EditorTab = {
   path: string;
@@ -37,6 +38,7 @@ export function EditorTabs(props: {
 }) {
   const [dragPath, setDragPath] = useState<string | null>(null);
   const activeTabRef = useRef<HTMLDivElement | null>(null);
+  const tabsViewportRef = useRef<HTMLDivElement | null>(null);
 
   // Refs so the window-level pointer handlers always see the latest props even
   // though the drag reorders the list (and re-renders) many times mid-gesture.
@@ -48,10 +50,22 @@ export function EditorTabs(props: {
   const dragRef = useRef<{ path: string; startX: number; active: boolean } | null>(null);
   const suppressClick = useRef(false);
 
-  // Keep the active tab visible when the bar overflows (the scrollbar is hidden).
-  useEffect(() => {
-    activeTabRef.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
-  }, [props.activePath]);
+  // Keep the active tab visible when the bar overflows.
+  useLayoutEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const activeTab = activeTabRef.current;
+      const viewport = tabsViewportRef.current;
+      if (!activeTab || !viewport) return;
+      const tabRect = activeTab.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      if (tabRect.left < viewportRect.left) {
+        viewport.scrollLeft -= viewportRect.left - tabRect.left;
+      } else if (tabRect.right > viewportRect.right) {
+        viewport.scrollLeft += tabRect.right - viewportRect.right;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [props.activePath, props.tabs.length]);
 
   // The insertion gap (0..len) for the cursor: how many tabs sit left of it,
   // measured against each tab's horizontal midpoint in the current order.
@@ -116,16 +130,23 @@ export function EditorTabs(props: {
   }, [onPointerMove, endDrag]);
 
   return (
-    <div className="editor-tabs">
-      <div
+    <div className="editor-tabs" data-window-drag-exclude>
+      <ScrollArea
         className="editor-tabs-scroll"
-        role="tablist"
-        aria-label="Open files"
-        onWheel={(event) => {
-          // A plain mouse wheel (deltaY only) still scrolls the tab strip.
-          if (event.deltaX === 0 && event.deltaY !== 0) {
-            event.currentTarget.scrollLeft += event.deltaY;
-          }
+        orientation="horizontal"
+        fadeEdges={false}
+        viewportRef={tabsViewportRef}
+        viewportClassName="editor-tabs-viewport"
+        contentClassName="editor-tabs-content"
+        viewportProps={{
+          role: "tablist",
+          "aria-label": "Open files",
+          onWheel: (event) => {
+            // A plain mouse wheel (deltaY only) still scrolls the tab strip.
+            if (event.deltaX === 0 && event.deltaY !== 0) {
+              event.currentTarget.scrollLeft += event.deltaY;
+            }
+          },
         }}
       >
         {props.tabs.map((tab) => {
@@ -175,6 +196,7 @@ export function EditorTabs(props: {
                     <button
                       type="button"
                       className="editor-tab-close"
+                      data-hit-area
                       aria-label={`Close ${tabLabel(tab)}`}
                       title={`Close ${tabLabel(tab)}`}
                       onPointerDown={(event) => event.stopPropagation()}
@@ -195,7 +217,7 @@ export function EditorTabs(props: {
             </ContextMenu>
           );
         })}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppToastStack, clearAppLogs } from "./app-log";
+import { AppToastStack } from "./app-log";
+import { clearAppLogs } from "./app-log-store";
 import {
   parseSynaraNotificationMessage,
   SYNARA_EMBEDDED_NOTIFICATION,

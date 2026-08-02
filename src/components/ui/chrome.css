@@ -13,10 +13,9 @@
   place-items: center;
   line-height: 0;
   cursor: default;
-  transition:
-    color 120ms ease,
-    background-color 120ms ease,
-    opacity 120ms ease;
+  transition: color var(--duration-quick) var(--ease-default),
+    background-color var(--duration-quick) var(--ease-default),
+    opacity var(--duration-quick) var(--ease-default);
 }
 
 .ui-icon-button[data-size="compact"] {
@@ -42,20 +41,16 @@
 
 .ui-icon-button:hover:not(:disabled),
 .ui-icon-button[data-state="open"] {
-  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  background: var(--control-hover-surface);
   color: var(--text-primary);
 }
 
 .ui-icon-button:active:not(:disabled) {
-  background: color-mix(in srgb, var(--text-primary) 11%, transparent);
-}
-
-.ui-icon-button:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--control-active) 24%, transparent);
+  background: var(--control-pressed-surface);
 }
 
 .ui-icon-button:disabled {
-  opacity: 0.42;
+  opacity: var(--control-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -66,12 +61,12 @@
 
 .ui-icon-button[data-tone="primary"] {
   background: var(--text-primary);
-  color: var(--bg);
+  color: var(--surface-app);
 }
 
 .ui-icon-button[data-tone="primary"]:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--text-primary) 88%, var(--bg));
-  color: var(--bg);
+  background: color-mix(in srgb, var(--text-primary) 88%, var(--surface-app));
+  color: var(--surface-app);
 }
 
 .ui-button {
@@ -92,11 +87,11 @@
   font-weight: var(--type-label-weight);
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    color 120ms ease,
-    border-color 120ms ease,
-    background-color 120ms ease,
-    opacity 120ms ease;
+  transition: color var(--duration-quick) var(--ease-default),
+    border-color var(--duration-quick) var(--ease-default),
+    background-color var(--duration-quick) var(--ease-default),
+    opacity var(--duration-quick) var(--ease-default),
+    scale var(--duration-quick) var(--ease-default);
 }
 
 .ui-button--compact {
@@ -112,12 +107,12 @@
 
 .ui-button--primary {
   background: var(--text-primary);
-  color: var(--bg);
+  color: var(--surface-app);
 }
 
 .ui-button--secondary {
-  border-color: var(--line-strong);
-  background: var(--panel-strong);
+  border-color: var(--border-strong);
+  background: var(--surface-panel-raised);
 }
 
 .ui-button--ghost {
@@ -131,12 +126,18 @@
 }
 
 .ui-button--primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--text-primary) 88%, var(--bg));
+  background: color-mix(in srgb, var(--text-primary) 88%, var(--surface-app));
+}
+
+/* Press feedback only on the primary variant — dense toolbar icons would
+ * move less than a pixel and pay motion cost on every click. */
+.ui-button--primary:active:not(:disabled) {
+  scale: 0.96;
 }
 
 .ui-button--secondary:hover:not(:disabled),
 .ui-button--ghost:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  background: var(--control-hover-surface);
   color: var(--text-primary);
 }
 
@@ -144,12 +145,8 @@
   background: var(--status-danger-soft);
 }
 
-.ui-button:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--control-active) 24%, transparent);
-}
-
 .ui-button:disabled {
-  opacity: 0.42;
+  opacity: var(--control-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -162,7 +159,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  background: var(--line);
+  background: var(--border-subtle);
   color: var(--text-secondary);
   font-size: var(--type-micro-size);
   line-height: var(--type-micro-line-height);
@@ -204,24 +201,19 @@
   border: 0;
   border-radius: var(--radius-pill);
   outline: none;
-  background: var(--line-strong);
+  background: var(--control-off-surface);
   flex: none;
   cursor: pointer;
-  transition:
-    background-color 160ms ease,
-    opacity 120ms ease;
+  transition: background-color var(--duration-base) var(--ease-default),
+    opacity var(--duration-quick) var(--ease-default);
 }
 
 .ui-switch[aria-checked="true"] {
-  background: var(--control-active);
-}
-
-.ui-switch:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--control-active) 24%, transparent);
+  background: var(--control-on-surface);
 }
 
 .ui-switch:disabled {
-  opacity: 0.42;
+  opacity: var(--control-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -229,12 +221,15 @@
   width: var(--control-size-switch-thumb);
   height: var(--control-size-switch-thumb);
   border-radius: var(--radius-pill);
-  background: var(--panel-strong);
+  background: var(--control-thumb-surface);
   display: block;
   transform-origin: center;
 }
 
-.ui-switch-field {
+/* A switch field is one instance of the settings row, so both share the same
+   metrics rather than drifting apart. */
+.ui-switch-field,
+.ui-settings-row {
   min-width: 0;
   padding: var(--space-2) 0;
   display: flex;
@@ -243,11 +238,13 @@
   gap: var(--space-8);
 }
 
-.ui-switch-field-copy {
+.ui-switch-field-copy,
+.ui-settings-row-copy {
   min-width: 0;
 }
 
-.ui-switch-field-label {
+.ui-switch-field-label,
+.ui-settings-row-label {
   display: block;
   color: var(--text-primary);
   font-size: var(--type-label-size);
@@ -255,12 +252,48 @@
   font-weight: var(--type-label-weight);
 }
 
-.ui-switch-field-description {
+.ui-switch-field-description,
+.ui-settings-row-description {
   margin: var(--space-1) 0 0;
   color: var(--text-tertiary);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
   font-weight: var(--type-caption-weight);
+}
+
+.ui-settings-row-control {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+}
+
+/* One control per row, so the shared width keeps every control on a tab
+   flush against the same right edge. */
+.ui-settings-row-control > :only-child:where(
+  [data-slot="select-trigger"],
+  [data-slot="input"],
+  [data-slot="textarea"],
+  [data-slot="input-control"],
+  [data-slot="button"]
+) {
+  width: var(--settings-control-width);
+  min-width: var(--settings-control-width);
+}
+
+.ui-settings-group + .ui-settings-group {
+  margin-top: var(--settings-group-gap);
+}
+
+.ui-settings-group-title {
+  margin: 0 0 var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: var(--settings-group-title-size);
+  line-height: var(--settings-group-title-line-height);
+  font-weight: var(--weight-semibold);
 }
 
 .ui-row {
@@ -408,9 +441,9 @@
 }
 
 .ui-empty-state[data-variant="outlined"] {
-  border: 1px dashed var(--line-strong);
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius-surface);
-  background: color-mix(in srgb, var(--panel) 55%, transparent);
+  background: color-mix(in srgb, var(--surface-panel) 55%, transparent);
 }
 
 .ui-empty-state-icon {
@@ -449,29 +482,28 @@
   height: var(--control-size-checkbox);
   min-width: var(--control-size-checkbox);
   margin: 0;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-compact);
   outline: none;
-  background: var(--bg);
-  color: var(--bg);
+  background: var(--surface-app);
+  color: var(--surface-app);
   display: inline-grid;
   place-content: center;
   flex: none;
   cursor: pointer;
-  transition:
-    border-color 120ms ease,
-    background-color 120ms ease,
-    opacity 120ms ease;
+  transition: border-color var(--duration-quick) var(--ease-default),
+    background-color var(--duration-quick) var(--ease-default),
+    opacity var(--duration-quick) var(--ease-default);
 }
 
 .ui-checkbox:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--control-active) 44%, var(--line-strong));
+  border-color: var(--control-hover-border);
 }
 
 .ui-checkbox:checked,
 .ui-checkbox[data-state="indeterminate"] {
-  border-color: var(--control-active);
-  background: var(--control-active);
+  border-color: var(--control-on-surface);
+  background: var(--control-on-surface);
 }
 
 .ui-checkbox:checked::before {
@@ -491,12 +523,15 @@
   background: currentColor;
 }
 
+/* Checkboxes are inputs, which the global rule leaves to the field contract, so
+   the shared ring is applied here explicitly. */
 .ui-checkbox:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--control-active) 24%, transparent);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .ui-checkbox:disabled {
-  opacity: 0.42;
+  opacity: var(--control-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -536,10 +571,14 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
 }
 
 .ui-segmented {
+  /* Tabs sit flush inside the track, so their radius follows from these two.
+     See the concentric nesting note in styles/surfaces.css. */
+  --surface-radius: var(--radius-control);
+  --surface-inset: var(--space-1);
   height: var(--control-height-segmented-compact);
-  padding: var(--space-1);
-  border-radius: var(--radius-control);
-  background: var(--line);
+  padding: var(--surface-inset);
+  border-radius: var(--surface-radius);
+  background: var(--segmented-surface);
   display: flex;
   align-items: stretch;
   flex: none;
@@ -552,8 +591,8 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
 .ui-segmented-tab {
   min-width: 0;
   height: 100%;
-  padding: 0 var(--space-5);
-  border-radius: var(--radius-icon);
+  padding: 0 var(--segmented-tab-padding-inline);
+  border-radius: var(--nested-radius);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -573,8 +612,8 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
 
 .ui-segmented .sliding-tab-pill {
   border: 0;
-  background: var(--editor-bg);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 8%);
+  background: var(--segmented-selected-surface);
+  box-shadow: var(--segmented-selected-shadow);
 }
 
 .ui-segmented--accent .sliding-tab.active {
@@ -583,14 +622,4 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
 
 .ui-segmented--accent .sliding-tab-pill {
   background: var(--control-active-soft);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ui-button,
-  .ui-checkbox,
-  .ui-icon-button,
-  .ui-switch,
-  .ui-segmented-tab {
-    transition-duration: 0ms;
-  }
 }

@@ -27,10 +27,11 @@ const minimumTabStripWidth = () => {
   if (!strip) return MIN_TAB_STRIP_WIDTH;
   const tabs = Array.from(strip.querySelectorAll<HTMLElement>(".editor-tab"));
   if (!tabs.length) return MIN_TAB_STRIP_WIDTH;
-  const stripStyle = window.getComputedStyle(strip);
-  const gap = Number.parseFloat(stripStyle.columnGap || stripStyle.gap) || 4;
-  const horizontalPadding = (Number.parseFloat(stripStyle.paddingLeft) || 0)
-    + (Number.parseFloat(stripStyle.paddingRight) || 0);
+  const content = strip.querySelector<HTMLElement>(".editor-tabs-content") ?? strip;
+  const contentStyle = window.getComputedStyle(content);
+  const gap = Number.parseFloat(contentStyle.columnGap || contentStyle.gap) || 4;
+  const horizontalPadding = (Number.parseFloat(contentStyle.paddingLeft) || 0)
+    + (Number.parseFloat(contentStyle.paddingRight) || 0);
   const tabsWidth = tabs.reduce((width, tab) => {
     const minWidth = Number.parseFloat(window.getComputedStyle(tab).minWidth) || 104;
     return width + minWidth;

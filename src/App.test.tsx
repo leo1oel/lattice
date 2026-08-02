@@ -8,6 +8,7 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } 
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { persistWorkspaceLayout } from "./app-settings";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 import { usePanelLayout } from "./use-panel-layout";
 import type { SynaraRuntimeInfo } from "./synara-runtime";
@@ -304,6 +305,11 @@ describe("welcome screen", () => {
     render(<App />);
     expect(screen.queryByTitle("Toggle theme")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const settingsNavigation = screen.getByRole("navigation", {
+      name: "Settings sections",
+    });
+    expect(within(settingsNavigation).getByRole("button", { name: "Appearance" }))
+      .toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
     expect(screen.queryByLabelText(/latex editor font/i)).not.toBeInTheDocument();
     await chooseOption("Color theme", "Dark");
@@ -318,11 +324,13 @@ describe("welcome screen", () => {
         '"TX-02 Variable", "TX-02", "Berkeley Mono Variable", "Berkeley Mono", "JetBrains Mono Variable", "JetBrains Mono", Menlo, "SF Mono", ui-monospace, monospace',
       );
     });
-    expect(screen.getByRole("slider", { name: /interface size/i })).toHaveValue("100");
     expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("14");
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+    expect(within(settingsNavigation).getByRole("button", { name: "Appearance" }))
+      .not.toHaveAttribute("aria-current");
+    expect(within(settingsNavigation).getByRole("button", { name: "Editor & builds" }))
+      .toHaveAttribute("aria-current", "page");
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
-    expect(screen.getByText("Build automatically")).toBeInTheDocument();
     expect(screen.getByText(/leave the editor or after 1.2 seconds/i)).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v2")).toContain("automatic"));
     fireEvent.click(screen.getByRole("button", { name: "Providers" }));
@@ -330,11 +338,28 @@ describe("welcome screen", () => {
     expect(screen.queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
   });
 
+  it("keeps Settings draggable from its header and the top window strip", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const dialog = screen.getByRole("dialog", { name: "Settings" });
+    const header = dialog.querySelector<HTMLElement>(".settings-header")!;
+
+    fireEvent.mouseDown(header, { button: 0, buttons: 1, detail: 1 });
+    await waitFor(() => expect(windowApi.startDragging).toHaveBeenCalledOnce());
+
+    windowApi.startDragging.mockClear();
+    const topStrip = document.querySelector<HTMLElement>("[data-modal-window-drag]")!;
+    fireEvent.pointerDown(topStrip, { button: 0, buttons: 1, pointerType: "mouse" });
+    fireEvent.mouseDown(topStrip, { button: 0, buttons: 1, detail: 1 });
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    await waitFor(() => expect(windowApi.startDragging).toHaveBeenCalledOnce());
+  });
+
   it("persists the opt-in editor spellcheck setting", async () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
-    const spellcheck = screen.getByLabelText("Spellcheck prose in the editor");
+    const spellcheck = screen.getByLabelText("Check spelling in prose");
     expect(spellcheck).not.toBeChecked();
     fireEvent.click(spellcheck);
     await waitFor(() => expect(localStorage.getItem("lattice.appearance.v5")).toContain('"editorSpellcheck":true'));
@@ -359,6 +384,98 @@ describe("welcome screen", () => {
 });
 
 describe("project workspace", () => {
+  it("restores tab order, active pane, and column layout after relaunch", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
+        { name: "method.tex", path: "method.tex", kind: "tex", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["intro.tex", "main.tex", "method.tex"],
+      activeFile: "main.tex",
+      activeTab: "method.tex",
+      secondaryFile: "method.tex",
+      focusedPane: "secondary",
+      canvasMode: "columns",
+      paperView: "blog",
+      tabRecency: ["method.tex", "main.tex", "intro.tex"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        return `content:${(args as { path: string }).path}`;
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(document.querySelector(".columns-canvas")).toBeInTheDocument());
+    expect(Array.from(document.querySelectorAll<HTMLElement>(".editor-tab"))
+      .map((tab) => tab.dataset.tabPath)).toEqual(["intro.tex", "main.tex", "method.tex"]);
+    expect(screen.getByRole("tab", { name: /method\.tex/ })).toHaveAttribute("aria-selected", "true");
+    expect(document.querySelector(".dual-pane-label")).toHaveTextContent("method.tex");
+    expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "main.tex" });
+    expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "method.tex" });
+  });
+
+  it("adds and removes project dictionary terms from Editor settings", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+        spellingWords: ["VLM"],
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "set_project_spelling_words") {
+        snapshot.manifest.spellingWords = (args as { words: string[] }).words;
+        return snapshot.manifest;
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+
+    expect(screen.getByRole("list", { name: "Project dictionary terms" })).toHaveTextContent("VLM");
+    fireEvent.change(screen.getByLabelText("Add project term"), { target: { value: "TexLab" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_project_spelling_words", {
+      words: ["VLM", "TexLab"],
+    }));
+    expect(await screen.findByText("TexLab")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove VLM from project dictionary" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_project_spelling_words", {
+      words: ["TexLab"],
+    }));
+    expect(screen.queryByText("VLM")).not.toBeInTheDocument();
+  });
+
   it("shows Synara failure states without rendering the retired Agent settings or composer", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -434,6 +551,7 @@ describe("project workspace", () => {
     fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
 
     expect(await screen.findByText("Recent projects")).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="dropdown-menu-content"]')).toHaveClass("w-52");
     expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Light" })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Settings" })).toBeInTheDocument();
@@ -2468,7 +2586,7 @@ describe("project workspace", () => {
     resolveHistory([]);
   });
 
-  it("inserts a cite command from the Papers panel", async () => {
+  it("shows only edit and delete actions on a Papers row", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
     const snapshot = {
@@ -2494,13 +2612,9 @@ describe("project workspace", () => {
     render(<App />);
     await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
     await switchSidebarMode("Papers");
-    fireEvent.click(await screen.findByTitle("Insert citation for vaswani2017attention"));
-    fireEvent.click(await screen.findByRole("button", { name: "\\cite" }));
-    await waitFor(() => {
-      const editorElement = document.querySelector<HTMLElement>(".cm-editor");
-      const view = editorElement ? EditorView.findFromDOM(editorElement) : null;
-      expect(view?.state.doc.toString()).toContain("\\cite{vaswani2017attention}");
-    });
+    expect(screen.queryByTitle("Insert citation for vaswani2017attention")).not.toBeInTheDocument();
+    expect(await screen.findByTitle("Edit bibliography entry")).toBeInTheDocument();
+    expect(await screen.findByTitle("Remove Attention Is All You Need")).toBeInTheDocument();
   });
 
   it("deletes a history entry without creating another one", async () => {

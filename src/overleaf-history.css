@@ -8,164 +8,164 @@
 
 .overleaf-history-loading,
 .overleaf-history-empty,
-.overleaf-history-note { margin: 14px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
-.overleaf-history-loading { display: flex; align-items: center; gap: 6px; }
-.overleaf-history-error { margin: 8px 0 0; color: var(--danger); font-size: 10px; }
-.overleaf-history-notice { margin: 8px 0 0; color: var(--success); font-size: 10px; }
+.overleaf-history-note { margin: 14px 0 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
+.overleaf-history-loading { display: flex; align-items: center; gap: var(--space-3); }
+.overleaf-history-error { margin: var(--space-4) 0 0; color: var(--status-danger); font-size: var(--type-micro-size); }
+.overleaf-history-notice { margin: var(--space-4) 0 0; color: var(--status-success); font-size: var(--type-micro-size); }
 
-.overleaf-history-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+.overleaf-history-list { margin-top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); overflow-y: auto; }
 
 .overleaf-history-day-label {
-  margin: 10px 0 2px;
-  font-size: 10px;
+  margin: var(--space-5) 0 var(--space-1);
+  font-size: var(--type-micro-size);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 .overleaf-history-day:first-child .overleaf-history-day-label { margin-top: 0; }
 
-.overleaf-history-entry { border-top: 1px solid var(--line); padding: 8px 0; }
+.overleaf-history-entry { border-top: 1px solid var(--border-subtle); padding: var(--space-4) 0; }
 .overleaf-history-day:first-child .overleaf-history-entry:first-child { border-top: 0; }
 
-.overleaf-history-entry-head { width: 100%; background: transparent; padding: 2px 0; text-align: left; display: grid; gap: 4px; cursor: pointer; }
-.overleaf-history-entry-top { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.overleaf-history-author { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 7px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
-.overleaf-history-time { color: var(--faint); font-size: 10px; }
-.overleaf-history-count { margin-left: auto; color: var(--faint); font-size: 10px; }
+.overleaf-history-entry-head { width: 100%; background: transparent; padding: var(--space-1) 0; text-align: left; display: grid; gap: var(--space-2); cursor: pointer; }
+.overleaf-history-entry-top { display: flex; align-items: center; gap: var(--gap-inline); min-width: 0; }
+.overleaf-history-author { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 7px; border-radius: var(--radius-pill); font-size: var(--type-micro-size); font-weight: 700; }
+.overleaf-history-time { color: var(--text-tertiary); font-size: var(--type-micro-size); }
+.overleaf-history-count { margin-left: auto; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 
-.overleaf-history-entry-meta { display: flex; flex-wrap: wrap; gap: 5px; }
+.overleaf-history-entry-meta { display: flex; flex-wrap: wrap; gap: var(--gap-inline-tight); }
 .overleaf-history-origin {
-  font-size: 9.5px;
+  font-size: var(--type-micro-size);
   font-weight: 600;
-  color: var(--muted);
-  background: var(--line);
-  border-radius: 999px;
+  color: var(--text-secondary);
+  background: var(--border-subtle);
+  border-radius: var(--radius-pill);
   padding: 1px 7px;
 }
 .overleaf-history-label {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 9.5px;
+  gap: var(--gap-tight);
+  font-size: var(--type-micro-size);
   font-weight: 600;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 999px;
+  color: var(--control-active);
+  background: var(--control-active-soft);
+  border-radius: var(--radius-pill);
   padding: 1px 7px;
 }
 
-.overleaf-history-paths { margin: 0; font-size: 10.5px; color: var(--muted); overflow-wrap: anywhere; }
+.overleaf-history-paths { margin: 0; font-size: var(--type-caption-size); color: var(--text-secondary); overflow-wrap: anywhere; }
 
-.overleaf-history-entry-body { display: grid; gap: 8px; margin-top: 6px; }
+.overleaf-history-entry-body { display: grid; gap: var(--space-4); margin-top: var(--space-3); }
 
-.overleaf-history-labels-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.overleaf-history-labels { display: flex; flex-wrap: wrap; gap: 5px; }
+.overleaf-history-labels-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.overleaf-history-labels { display: flex; flex-wrap: wrap; gap: var(--gap-inline-tight); }
 .overleaf-history-label-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
+  gap: var(--space-2);
+  font-size: var(--type-micro-size);
   font-weight: 600;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 999px;
-  padding: 2px 4px 2px 8px;
+  color: var(--control-active);
+  background: var(--control-active-soft);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-4);
 }
-.overleaf-history-label-chip button { display: grid; place-items: center; width: 14px; height: 14px; border-radius: 999px; background: transparent; color: inherit; }
-.overleaf-history-label-chip button:hover:not(:disabled) { background: rgba(0, 0, 0, .08); }
+.overleaf-history-label-chip button { display: grid; place-items: center; width: 14px; height: 14px; border-radius: var(--radius-pill); background: transparent; color: inherit; }
+.overleaf-history-label-chip button:hover:not(:disabled) { background: var(--control-hover-surface); }
 
 .overleaf-history-name-version,
 .overleaf-history-label-form button {
   height: 22px;
   border-color: var(--field-control-border-color);
   border-radius: var(--field-control-radius);
-  padding: 0 8px;
+  padding: 0 var(--space-4);
   background: transparent;
-  color: var(--muted);
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
+  gap: var(--space-2);
+  font-size: var(--type-micro-size);
   font-weight: 600;
 }
-.overleaf-history-name-version:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong)); }
-.overleaf-history-label-form { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 160px; }
+.overleaf-history-name-version:hover { color: var(--text-primary); border-color: var(--control-active-border); }
+.overleaf-history-label-form { display: flex; align-items: center; gap: var(--gap-inline-tight); flex: 1; min-width: 160px; }
 .overleaf-history-label-form input {
   flex: 1;
   min-width: 0;
   height: 22px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-chrome);
+  padding: 0 var(--pad-inline-control-tight);
   background: var(--field-control-background);
-  color: var(--text);
-  font-size: 10.5px;
+  color: var(--text-primary);
+  font-size: var(--type-caption-size);
 }
 .overleaf-history-label-form input:focus { border-color: var(--field-control-interactive-border-color); outline: none; box-shadow: none; }
 
-.overleaf-history-files { display: grid; gap: 2px; }
-.overleaf-history-file-row { display: flex; align-items: center; gap: 4px; }
-.overleaf-history-file { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: 24px; border-radius: 6px; padding: 2px 6px; background: transparent; color: var(--muted); font-size: 10.5px; text-align: left; }
-.overleaf-history-file:hover { background: var(--line); color: var(--text); }
-.overleaf-history-file.active { background: var(--accent-soft); color: var(--accent); }
+.overleaf-history-files { display: grid; gap: var(--space-1); }
+.overleaf-history-file-row { display: flex; align-items: center; gap: var(--space-2); }
+.overleaf-history-file { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-3); min-height: 24px; border-radius: var(--radius-icon); padding: var(--space-1) var(--space-3); background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); text-align: left; }
+.overleaf-history-file:hover { background: var(--border-subtle); color: var(--text-primary); }
+.overleaf-history-file.active { background: var(--control-active-soft); color: var(--control-active); }
 .overleaf-history-file > span { overflow-wrap: anywhere; }
 .overleaf-history-kind { flex: none; }
-.overleaf-history-kind.added { color: var(--success); }
-.overleaf-history-kind.removed { color: var(--danger); }
-.overleaf-history-kind.renamed { color: var(--accent); }
-.overleaf-history-kind.edited { color: var(--muted); }
+.overleaf-history-kind.added { color: var(--status-success); }
+.overleaf-history-kind.removed { color: var(--status-danger); }
+.overleaf-history-kind.renamed { color: var(--control-active); }
+.overleaf-history-kind.edited { color: var(--text-secondary); }
 .overleaf-history-file.active .overleaf-history-kind { color: inherit; }
 
 .overleaf-history-restore-file {
   flex: none;
   height: 20px;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-icon);
+  padding: 0 var(--pad-inline-control-tight);
   background: transparent;
-  color: var(--text);
+  color: var(--text-primary);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 9.5px;
+  gap: var(--space-2);
+  font-size: var(--type-micro-size);
   font-weight: 600;
 }
-.overleaf-history-restore-file:hover:not(:disabled) { border-color: color-mix(in srgb, var(--danger) 40%, var(--line-strong)); color: var(--danger); }
+.overleaf-history-restore-file:hover:not(:disabled) { border-color: color-mix(in srgb, var(--status-danger) 40%, var(--border-strong)); color: var(--status-danger); }
 .overleaf-history-restore-file:disabled { opacity: .5; }
 
-.overleaf-history-binary { margin: 0; padding: 8px; font-size: 10.5px; color: var(--muted); }
+.overleaf-history-binary { margin: 0; padding: var(--space-4); font-size: var(--type-caption-size); color: var(--text-secondary); }
 
 .overleaf-history-restore-project {
   justify-self: start;
   height: 24px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-chrome);
+  padding: 0 var(--pad-inline-control);
   background: transparent;
-  color: var(--muted);
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 10px;
+  gap: var(--gap-inline-tight);
+  font-size: var(--type-micro-size);
   font-weight: 600;
 }
-.overleaf-history-restore-project:hover:not(:disabled) { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--line-strong)); }
+.overleaf-history-restore-project:hover:not(:disabled) { color: var(--status-danger); border-color: color-mix(in srgb, var(--status-danger) 40%, var(--border-strong)); }
 .overleaf-history-restore-project:disabled { opacity: .5; }
 
 .overleaf-history-load-more {
   align-self: center;
-  margin: 10px 0 2px;
+  margin: var(--space-5) 0 var(--space-1);
   height: 26px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-chrome);
+  padding: 0 var(--space-6);
   background: transparent;
-  color: var(--muted);
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
+  gap: var(--space-3);
+  font-size: var(--type-caption-size);
   font-weight: 600;
 }
-.overleaf-history-load-more:hover:not(:disabled) { color: var(--text); border-color: var(--line-strong); }
+.overleaf-history-load-more:hover:not(:disabled) { color: var(--text-primary); border-color: var(--border-strong); }

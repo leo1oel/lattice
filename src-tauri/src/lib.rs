@@ -541,7 +541,19 @@ async fn update_project_manifest(
     };
     let root = current_root(&state)?;
     run_blocking("Project settings update", move || {
-        project::update_manifest_settings(&root, engine, default_root, trusted, words, pages)
+        project::update_manifest_settings(&root, engine, default_root, trusted, words, pages, None)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn set_project_spelling_words(
+    state: tauri::State<'_, AppState>,
+    words: Vec<String>,
+) -> Result<ProjectManifest, String> {
+    let root = current_root(&state)?;
+    run_blocking("Project dictionary update", move || {
+        project::update_manifest_settings(&root, None, None, None, None, None, Some(words))
     })
     .await
 }
@@ -2602,6 +2614,7 @@ pub fn run() {
             list_todos,
             count_project_words,
             update_project_manifest,
+            set_project_spelling_words,
             add_root_document,
             remove_root_document,
             preview_replace_in_project,

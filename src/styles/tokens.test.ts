@@ -1,0 +1,285 @@
+// Vitest empties CSS imports, so read the stylesheets off disk.
+// @ts-expect-error no Node types in this project
+import { readdirSync, readFileSync, statSync } from "node:fs"
+import { describe, expect, it } from "vitest"
+
+const read = (file: string) => String(readFileSync(file, "utf8"))
+
+const foundations = read("src/styles/foundations.css")
+const dialogs = read("src/styles/dialogs.css")
+const settingsDialog = read("src/settings-dialog.tsx")
+const APP_CSS_FILES = new Set([
+  "src/App.css",
+  "src/styles/theme.css",
+  "src/styles/app-shell.css",
+  "src/styles/editor-workspace.css",
+  "src/styles/workspace-panels.css",
+  "src/styles/dialogs.css",
+  "src/styles/adaptive-feedback.css",
+])
+const appCss = [...APP_CSS_FILES].map(read).join("\n")
+const tailwindTheme = read("src/index.css")
+
+/** Every stylesheet and every component that declares CSS in a template literal. */
+function collectSources(dir: string, files: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    const full = `${dir}/${entry}`
+    if (statSync(full).isDirectory()) {
+      collectSources(full, files)
+      continue
+    }
+    if (/\.(css|tsx|ts)$/.test(entry) && !/\.test\.(tsx|ts)$/.test(entry)) files.push(full)
+  }
+  return files
+}
+
+/** Comments describe the contract; only declarations are evidence of it. */
+const stripComments = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, "")
+
+const sources = collectSources("src").map((file) => ({
+  file,
+  text: read(file),
+  rules: stripComments(read(file)),
+}))
+
+/** Palette names are raw theme values; only the app theme and foundations may name them. */
+const PALETTE = [
+  "bg",
+  "panel",
+  "panel-strong",
+  "chrome-surface",
+  "sidebar",
+  "side-surface",
+  "line",
+  "line-strong",
+  "text",
+  "muted",
+  "faint",
+  "chrome-text",
+  "accent",
+  "accent-soft",
+  "accent-contrast",
+  "danger",
+  "success",
+  "warning",
+]
+
+/**
+ * Custom properties a library or our own runtime sets, so no stylesheet declares
+ * them: Radix and Tailwind internals, Pierre's own tree variables, PDF.js page
+ * scaling, and values written as inline style from TypeScript.
+ */
+const EXTERNAL_PREFIXES = [
+  "--radix-",
+  "--tw-",
+  "--cm-",
+  "--color-",
+  "--trees-",
+  "--total-scale-factor",
+  "--scroll-area-thumb-",
+  "--bk-speed",
+]
+
+describe("design token contract", () => {
+  it("keeps the palette out of feature code", () => {
+    const pattern = new RegExp(`var\\(--(${PALETTE.join("|")})[,)]`)
+    const offenders = sources
+      .filter(({ file }) => !APP_CSS_FILES.has(file) && file !== "src/styles/foundations.css")
+      .filter(({ file }) => file !== "src/index.css")
+      .filter(({ text }) => pattern.test(text))
+      .map(({ file }) => file)
+    expect(offenders).toEqual([])
+  })
+
+  it("maps every semantic role onto the palette in one place", () => {
+    // The palette is declared in theme.css; foundations is the only translator.
+    for (const role of ["--surface-app", "--border-subtle", "--text-primary", "--control-active"]) {
+      expect(foundations).toContain(`${role}:`)
+      expect(appCss).not.toContain(`${role}:`)
+    }
+  })
+
+  it("resolves every referenced custom property", () => {
+    const declared = new Set<string>()
+    for (const { text } of sources) {
+      for (const match of text.matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
+    }
+    for (const match of tailwindTheme.matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
+
+    const missing = new Map<string, string>()
+    for (const { file, text } of sources) {
+      for (const match of text.matchAll(/var\((--[a-z0-9-]+)/gi)) {
+        const name = match[1]
+        if (declared.has(name)) continue
+        if (EXTERNAL_PREFIXES.some((prefix) => name.startsWith(prefix))) continue
+        if (!missing.has(name)) missing.set(name, file)
+      }
+    }
+    expect(Object.fromEntries(missing)).toEqual({})
+  })
+
+  it("shares one height across the navigation controls", () => {
+    expect(foundations).toMatch(/--navigation-action-size: var\(--navigation-control-height\)/)
+    expect(foundations).toMatch(/--navigation-header-height: 40px/)
+    expect(foundations).toMatch(/--titlebar-height: 40px/)
+  })
+
+  it("keeps single-line controls on the 28px compact and 30px default scale", () => {
+    expect(foundations).toMatch(/--control-height-compact: 28px/)
+    expect(foundations).toMatch(/--control-height-default: 30px/)
+    expect(foundations).toMatch(/--control-height-form: var\(--control-height-default\)/)
+    expect(foundations).toMatch(/--form-control-height-form: var\(--control-height-form\)/)
+    expect(foundations).toMatch(/--settings-control-height: var\(--control-height-default\)/)
+  })
+
+  it("gives every Settings control one typography contract", () => {
+    expect(foundations).toMatch(/--settings-control-font-family: var\(--ui-font\)/)
+    expect(foundations).toMatch(/--settings-control-font-size: var\(--type-label-size\)/)
+    expect(foundations).toMatch(/--settings-control-line-height: var\(--type-label-line-height\)/)
+    expect(foundations).toMatch(/--settings-control-font-weight: var\(--type-body-weight\)/)
+    expect(dialogs).toContain('[data-slot="select-content"][data-settings-control="true"]')
+    expect(settingsDialog.match(/data-settings-control="true"/g)).toHaveLength(6)
+  })
+
+  it("draws keyboard focus exactly once", () => {
+    const globalRing =
+      /:where\(button, a, select, \[role="button"\], \[tabindex\]\):focus-visible \{\s*outline: var\(--focus-ring-width\) solid var\(--focus-ring\);\s*outline-offset: var\(--focus-ring-offset\);/
+    expect(appCss).toMatch(globalRing)
+
+    // No control may cancel the ring or re-implement it as a shadow. Text entry
+    // is the one exception: it is excluded from the ring by design, so a field
+    // may still suppress the native halo on its own selector.
+    const cancelled = sources.filter(({ rules }) =>
+      [...rules.matchAll(/([^{}]*):focus-visible[^{]*\{[^}]*outline:\s*none/g)].some(
+        (match) => !/input|textarea|search/i.test(match[1]),
+      ),
+    )
+    expect(cancelled.map(({ file }) => file)).toEqual([])
+
+    const shadowRing = sources.filter(
+      ({ file, rules }) =>
+        !APP_CSS_FILES.has(file) && /:focus-visible[^{]*\{[^}]*box-shadow:\s*0 0 0/.test(rules),
+    )
+    expect(shadowRing.map(({ file }) => file)).toEqual([])
+  })
+
+  it("spends spacing through the scale, not through literals", () => {
+    const SCALE = [2, 4, 6, 8, 10, 12, 16, 20, 24, 32]
+    const SPACING =
+      /\b(?:padding|margin|gap|row-gap|column-gap)(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?:\s*([^;{}]+);/g
+
+    const offenders: string[] = []
+    for (const { file, rules } of sources) {
+      // The scale itself, and the dev-only icon playground, own raw values.
+      if (file.endsWith("foundations.css") || file.includes("icon-lab")) continue
+      for (const match of rules.matchAll(SPACING)) {
+        const value = match[1]
+        // Negative values are optical nudges rather than scale steps.
+        if (/-\d/.test(value)) continue
+        for (const raw of value.matchAll(/(\d+)px/g)) {
+          if (SCALE.includes(Number(raw[1]))) offenders.push(`${file}: ${match[0].trim()}`)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it("times motion off the shared scale", () => {
+    const MOTION =
+      /\b(?:transition|animation)(?:-duration|-timing-function)?:\s*([^;{}"']+);/g
+
+    const offenders: string[] = []
+    for (const { file, rules } of sources) {
+      if (file.endsWith("foundations.css") || file.includes("icon-lab")) continue
+      for (const match of rules.matchAll(MOTION)) {
+        const value = match[1]
+        for (const time of value.matchAll(/(\d*\.?\d+)(ms|s)\b/g)) {
+          const ms = Number(time[1]) * (time[2] === "s" ? 1000 : 1)
+          // Ambient loops and the reduced-motion clamp are outside the UI scale.
+          if (ms >= 10 && ms <= 400) offenders.push(`${file}: ${match[0].trim()}`)
+        }
+        if (/cubic-bezier/.test(value)) offenders.push(`${file}: ${match[0].trim()}`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it("sizes interface text through the shared type scale", () => {
+    const RAW_SIZE =
+      /(?:font-size:\s*|font:\s*["'`]?(?:\d+\s+)?|text-\[)(\d*\.?\d+)px/g
+
+    const offenders: string[] = []
+    for (const { file, rules } of sources) {
+      if (file.endsWith("foundations.css") || file.includes("icon-lab")) continue
+      for (const match of rules.matchAll(RAW_SIZE)) {
+        offenders.push(`${file}: ${match[0]}`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it("derives nested radii instead of restating them", () => {
+    const surfaces = read("src/styles/surfaces.css")
+    expect(surfaces).toMatch(
+      /--nested-radius: calc\(var\(--surface-radius\) - var\(--surface-inset\)\)/,
+    )
+
+    // A container that declares one half of the pair must declare the other,
+    // or the derived radius silently resolves to nothing.
+    for (const { file, rules } of sources) {
+      const radiusScopes = [...rules.matchAll(/--surface-radius:/g)].length
+      const insetScopes = [...rules.matchAll(/--surface-inset:/g)].length
+      expect({ file, radiusScopes, insetScopes }).toEqual({
+        file,
+        radiusScopes: insetScopes,
+        insetScopes,
+      })
+    }
+
+    // Every consumer sits in a declared scope, or carries a fallback.
+    const scopes = [
+      ...read("src/styles/surfaces.css").matchAll(/^\s{2}\.([a-z-]+),?$/gm),
+    ].map((match) => match[1])
+    expect(scopes).toContain("ui-segmented")
+    expect(scopes).toContain("quick-open-list")
+  })
+
+  it("reserves !important for surfaces the app does not own", () => {
+    // `!important` is a statement that something outside this codebase is
+    // competing: CodeMirror, Radix, the Pierre tree and diff, a shadow root, or
+    // the reduced-motion clamp that has to beat every animation there is.
+    // Between two rules the app owns, the answer is specificity, not force.
+    // `split-canvas` and the tree search input are the inline-style cases: the
+    // resizer and the vendor component write the property on the element, and an
+    // inline value beats every selector there is.
+    const FOREIGN =
+      /cm-|data-slot|data-type=|data-lattice|data-virtualizer|data-unmodified|trees-|diffs-|katex|:host|prefers-reduced-motion|reordering-tabs|split-canvas|data-file-tree|\brow-(?:cite|delete|edit-bib)\b/
+
+    const offenders: string[] = []
+    for (const { file, rules } of sources) {
+      if (file.includes("icon-lab")) continue
+      for (const block of rules.split("}")) {
+        if (!block.includes("!important")) continue
+        if (FOREIGN.test(block)) continue
+        offenders.push(`${file}: ${block.trim().split("\n")[0].slice(0, 80)}`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it("keeps host CSS out of the embedded Synara document", () => {
+    // The iframe is a hard boundary: the host may size and frame it, never style
+    // through it. Anything past the frame travels over the bridge instead.
+    expect(appCss).not.toMatch(/iframe\s+(?:[.#a-z]|\[)/)
+    expect(appCss).not.toMatch(/\.synara-[a-z-]*\s+\.(?!synara)/)
+  })
+
+  it("routes the third-party file tree through override tokens", () => {
+    expect(appCss).toMatch(/--trees-[a-z-]+-override:/)
+    // Pierre's own class names stay out of host stylesheets.
+    const pierreInternals = sources.filter(
+      ({ file, text }) => file.endsWith(".css") && /\.pierre-|\.trees-/.test(text),
+    )
+    expect(pierreInternals.map(({ file }) => file)).toEqual([])
+  })
+})

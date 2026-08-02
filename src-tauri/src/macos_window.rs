@@ -324,10 +324,17 @@ mod tests {
         );
         assert_eq!(super::DEFAULT_TRAFFIC_LIGHT_CLOSE_CENTER_X, 23.0);
         assert_eq!(super::DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP, 22.0);
-        let css = include_str!("../../src/App.css");
+        let app = include_str!("../../src/App.tsx");
+        assert!(app.contains("const TRAFFIC_LIGHT_CLOSE_CENTER_X_CSS_PX = 21;"));
+        assert!(app.contains("const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;"));
+        let css_entry = include_str!("../../src/App.css");
+        assert!(css_entry.contains("./styles/app-shell.css"));
+        let css = include_str!("../../src/styles/app-shell.css");
         assert!(css.contains(".titlebar {"));
-        assert!(css.contains("height: 40px"));
+        assert!(css.contains("height: var(--titlebar-height)"));
         assert!(css.contains("align-items: center"));
+        let foundations = include_str!("../../src/styles/foundations.css");
+        assert!(foundations.contains("--titlebar-height: 40px"));
         assert_eq!(window["backgroundColor"], "#F7F7F6");
         assert!(
             include_str!("../Cargo.toml").contains("\"macos-private-api\""),

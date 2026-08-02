@@ -6,28 +6,28 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 4px 2px 10px;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-1) var(--space-5);
 }
 
 .overleaf-thread-group {
-  margin: 6px 0 0;
-  font-size: 10px;
+  margin: var(--space-3) 0 0;
+  font-size: var(--type-micro-size);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 .overleaf-thread-group:first-child { margin-top: 0; }
 
 .overleaf-thread {
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
-  background: var(--panel);
-  padding: 9px 10px;
+  background: var(--surface-panel);
+  padding: 9px var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--gap-inline);
 }
 .overleaf-thread.resolved { opacity: .62; }
 
@@ -36,13 +36,13 @@
   display: block;
   width: 100%;
   text-align: left;
-  padding: 5px 8px;
+  padding: 5px var(--space-4);
   border-radius: var(--radius-icon);
   border: none;
-  border-left: 2px solid var(--accent);
-  background: var(--accent-soft);
-  color: var(--text);
-  font-size: 11px;
+  border-left: 2px solid var(--control-active);
+  background: var(--control-active-soft);
+  color: var(--text-primary);
+  font-size: var(--type-caption-size);
   line-height: 1.45;
   font-style: italic;
   cursor: pointer;
@@ -58,21 +58,21 @@
 /* The note in place of a quote, for a thread whose span was deleted. */
 .overleaf-thread-orphaned {
   margin: 0;
-  padding: 5px 8px;
+  padding: 5px var(--space-4);
   border-radius: var(--radius-icon);
-  background: var(--bg);
-  color: var(--muted);
-  font-size: 11px;
+  background: var(--surface-app);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
   line-height: 1.45;
   font-style: italic;
 }
 
-.overleaf-thread-messages { display: flex; flex-direction: column; gap: 7px; }
+.overleaf-thread-messages { display: flex; flex-direction: column; gap: var(--gap-inline); }
 .overleaf-thread-message p {
-  margin: 2px 0 0;
-  font-size: 12px;
+  margin: var(--space-1) 0 0;
+  font-size: var(--type-label-size);
   line-height: 1.5;
-  color: var(--text);
+  color: var(--text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -80,69 +80,69 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
-  font-size: 10px;
-  color: var(--muted);
+  gap: var(--space-5);
+  font-size: var(--type-micro-size);
+  color: var(--text-secondary);
 }
-.overleaf-thread-meta span { font-weight: 600; color: var(--text); }
+.overleaf-thread-meta span { font-weight: 600; color: var(--text-primary); }
 
 /* Edit/delete for your own message, tucked under it rather than beside the
    meta line so they never get mistaken for acting on the thread as a whole. */
-.overleaf-thread-message-actions { display: flex; gap: 4px; margin-top: 3px; }
+.overleaf-thread-message-actions { display: flex; gap: var(--space-2); margin-top: 3px; }
 .overleaf-thread-message-actions button {
   display: inline-flex;
   align-items: center;
-  padding: 2px 5px;
-  border-radius: 5px;
+  padding: var(--space-1) 5px;
+  border-radius: var(--radius-compact);
   border: 1px solid transparent;
   background: none;
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 .overleaf-thread-message-actions button:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--line);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
 }
 .overleaf-thread-message-actions button:disabled { opacity: .45; }
-.overleaf-thread-message-actions button.danger:hover:not(:disabled) { color: var(--danger, #d2544b); }
+.overleaf-thread-message-actions button.danger:hover:not(:disabled) { color: var(--status-danger); }
 
 .overleaf-thread-empty,
 .overleaf-thread-resolved {
   margin: 0;
-  font-size: 10px;
-  color: var(--muted);
+  font-size: var(--type-micro-size);
+  color: var(--text-secondary);
 }
 
-.overleaf-thread-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.overleaf-thread-actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .overleaf-thread-actions button {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: var(--space-2);
+  padding: 3px var(--space-4);
   border-radius: var(--radius-icon);
-  border: 1px solid var(--line);
-  background: var(--bg);
-  color: var(--muted);
-  font-size: 11px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-app);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
 }
-.overleaf-thread-actions button:hover:not(:disabled) { color: var(--text); border-color: var(--line-strong); }
+.overleaf-thread-actions button:hover:not(:disabled) { color: var(--text-primary); border-color: var(--border-strong); }
 .overleaf-thread-actions button:disabled { opacity: .45; }
-.overleaf-thread-actions button.danger:hover:not(:disabled) { color: var(--danger, #d2544b); }
+.overleaf-thread-actions button.danger:hover:not(:disabled) { color: var(--status-danger); }
 
-.overleaf-thread-reply { display: flex; flex-direction: column; gap: 6px; }
+.overleaf-thread-reply { display: flex; flex-direction: column; gap: var(--space-3); }
 .overleaf-thread-reply textarea {
   min-height: 56px;
   resize: vertical;
-  font-size: 12px;
+  font-size: var(--type-label-size);
   line-height: 1.5;
-  padding: 6px 8px;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--field-control-radius);
   border: var(--field-control-border-width) solid var(--field-control-border-color);
   background: var(--field-control-background);
-  color: var(--text);
+  color: var(--text-primary);
 }
 .overleaf-thread-reply textarea:focus { outline: none; border-color: var(--field-control-interactive-border-color); box-shadow: none; }
 
-.overleaf-thread-filter { flex: none; margin-bottom: 6px; }
+.overleaf-thread-filter { flex: none; margin-bottom: var(--space-3); }
 
 /* The drawer hosting comments and chat: a column, so whichever panel is shown
    can scroll inside it while the tabs and header stay put. */
@@ -152,14 +152,14 @@
   flex-direction: column;
   overflow: hidden;
 }
-.overleaf-collab-tabs { flex: none; margin: 6px 0 2px; }
+.overleaf-collab-tabs { flex: none; margin: var(--space-3) 0 var(--space-1); }
 .overleaf-collab-tabs em {
   font-style: normal;
-  font-size: 9px;
+  font-size: var(--type-nano-size);
   font-weight: 600;
   line-height: 1;
-  padding: 2px 4px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-contrast, #fff);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--control-active);
+  color: var(--control-active-contrast);
 }

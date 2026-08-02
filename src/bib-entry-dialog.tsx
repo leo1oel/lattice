@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "./components/ui/select";
 import { PanelHeader } from "./components/ui/panel-header";
+import { popupMotionClassName } from "./components/ui/popup-motion";
 import { SearchField } from "./components/ui/search-field";
 import { ResizableDrawer } from "./resizable-drawer";
 
@@ -241,7 +242,7 @@ export function BibEntryDialog(props: {
                   onBlur={() => setVenueOpen(false)}
                 />
                 {venueOpen && venueMatches.length > 0 && (
-                  <div className="venue-menu" role="listbox">
+                  <div className={`venue-menu ${popupMotionClassName}`} role="listbox">
                     {venueMatches.map((item) => (
                       <button
                         key={item.name}

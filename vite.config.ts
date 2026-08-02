@@ -45,6 +45,13 @@ export default defineConfig(async () => ({
     },
   },
 
+  // Harper resolves its WASM URL relative to its own ESM module. Prebundling
+  // that module moves it into .vite/deps, where the relative WASM request falls
+  // through to index.html in development and WebAssembly receives HTML bytes.
+  optimizeDeps: {
+    exclude: ["harper.js", "harper.js/binary"],
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

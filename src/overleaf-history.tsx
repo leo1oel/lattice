@@ -294,6 +294,7 @@ export function OverleafHistoryPanel(props: {
                                 <Tag size={10} aria-hidden /> {label.comment}
                                 <DestructiveButton
                                   type="button"
+                                  data-hit-area
                                   title={`Remove the "${label.comment}" label`}
                                   disabled={history.busy}
                                   iconSize={10}

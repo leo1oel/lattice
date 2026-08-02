@@ -11,6 +11,7 @@ import { SendHorizontal } from "lucide-react";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { IconButton } from "./components/ui/icon-button";
 import { Textarea } from "./components/ui/textarea";
+import { resizeTextareaToContent } from "./components/ui/auto-resize-textarea";
 import type { OverleafMessage } from "./app-types";
 import "./overleaf-chat.css";
 
@@ -43,10 +44,7 @@ export function OverleafChatPanel(props: {
   useEffect(() => {
     const composer = composerRef.current;
     if (!composer) return;
-    composer.style.height = "0px";
-    const height = Math.min(Math.max(composer.scrollHeight, 38), 160);
-    composer.style.height = `${height}px`;
-    composer.style.overflowY = composer.scrollHeight > 160 ? "auto" : "hidden";
+    resizeTextareaToContent(composer);
   }, [draft]);
 
   // Anchor to the newest message the way every chat does, before paint so it

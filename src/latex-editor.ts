@@ -20,6 +20,7 @@ import {
   texlabHoverTooltip,
 } from "./texlab-language";
 import { compactSearchPanel } from "./search-panel";
+import { harperDiagnostics, harperDictionaryChanged } from "./harper-spellcheck";
 import infinityLoaderUrl from "../infinity-loader.svg";
 
 const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite";
@@ -1039,7 +1040,6 @@ export function citationHoverTarget(text: string, position: number): { from: num
     }
     const hovered = keys.find((key) => position >= key.from && position <= key.to);
     if (hovered) return hovered;
-    if (keys.length === 1) return keys[0];
   }
   return null;
 }
@@ -1065,7 +1065,6 @@ export function referenceHoverTarget(text: string, position: number): { from: nu
     });
     const hovered = labels.find((label) => position >= label.from && position <= label.to);
     if (hovered) return hovered;
-    if (labels.length === 1) return labels[0];
   }
   return null;
 }
@@ -1319,6 +1318,8 @@ export type LatexEditorLiveData = {
   projectPaths: string[];
   onOpenCitation?: (key: string) => void;
   canOpenCitation?: (key: string) => boolean;
+  spellingWords: string[];
+  onAddSpellingWord?: (word: string) => boolean | Promise<boolean>;
 };
 
 /**
@@ -1377,6 +1378,7 @@ export function latexEditorExtensions(
     localMacros,
     graphicsRoots,
     projectPaths,
+    spellingWords: [],
   };
   const citationSource = () => {
     const data = live();
@@ -1419,8 +1421,10 @@ export function latexEditorExtensions(
     EditorView.lineWrapping,
     selectionVisibilityExtension(),
     EditorView.contentAttributes.of({
-      spellcheck: spellcheck ? "true" : "false",
-      autocorrect: spellcheck ? "on" : "off",
+      // Harper owns prose diagnostics. Keeping WebKit spellcheck enabled here
+      // duplicates underlines and causes it to inspect raw LaTeX commands.
+      spellcheck: "false",
+      autocorrect: "off",
       autocapitalize: "off",
     }),
     syntaxHighlighting(luxLatexHighlightStyle),
@@ -1433,6 +1437,27 @@ export function latexEditorExtensions(
     citationTooltips(citations, live),
     referenceTooltips(references, loadReferenceImage),
     ...(enableTexlabLanguage ? [texlabHoverTooltip(texlabPath)] : []),
+    ...(spellcheck ? [linter((view) => {
+      const data = live();
+      return harperDiagnostics(view.state.doc.toString(), {
+        projectWords: data.spellingWords,
+        onAddProjectWord: data.onAddSpellingWord
+          ? async (word) => {
+              const accepted = await data.onAddSpellingWord?.(word);
+              if (accepted === false) return false;
+              const current = live();
+              if (!current.spellingWords.some((existing) => existing.toLocaleLowerCase() === word.toLocaleLowerCase())) {
+                current.spellingWords = [...current.spellingWords, word];
+              }
+              return true;
+            }
+          : undefined,
+      });
+    }, {
+      delay: 350,
+      needsRefresh: (update) => update.transactions.some((transaction) =>
+        transaction.effects.some((effect) => effect.is(harperDictionaryChanged))),
+    })] : []),
     linter((view) => {
       const data = live();
       return indexDiagnostics(

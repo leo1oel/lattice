@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import CodeMirror from "@uiw/react-codemirror";
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { EditorView, ViewPlugin } from "@codemirror/view";
 import { emacs } from "@replit/codemirror-emacs";
-import { vim } from "@replit/codemirror-vim";
+import { getCM, vim } from "@replit/codemirror-vim";
 import { latex } from "codemirror-lang-latex";
 import {
   overleafCursorsExtension,
@@ -37,6 +37,7 @@ import {
   type ReferenceInfo,
   type SymbolTarget,
 } from "./latex-editor";
+import { harperDictionaryChanged } from "./harper-spellcheck";
 import {
   LatexSelectionToolbar,
   type LatexSelectionAction,
@@ -107,6 +108,29 @@ const EDITOR_BASIC_SETUP = {
   highlightActiveLineGutter: true,
 };
 
+function readVimMode(cm: ReturnType<typeof getCM>): string {
+  const state = cm?.state.vim;
+  if (state?.insertMode) return "insert";
+  return state?.mode ?? "normal";
+}
+
+function vimModeExtension(onModeChange: (mode: string) => void): Extension {
+  return ViewPlugin.fromClass(class {
+    private readonly cm: ReturnType<typeof getCM>;
+    private readonly handleModeChange = () => onModeChange(readVimMode(this.cm));
+
+    constructor(view: EditorView) {
+      this.cm = getCM(view);
+      this.cm?.on("vim-mode-change", this.handleModeChange);
+      this.handleModeChange();
+    }
+
+    destroy() {
+      this.cm?.off("vim-mode-change", this.handleModeChange);
+    }
+  });
+}
+
 export function DocumentCanvas(props: {
   mode: CanvasMode;
   source: string;
@@ -171,6 +195,8 @@ export function DocumentCanvas(props: {
   onTableGeneratorOpenChange: (open: boolean) => void;
   editorKeymap: EditorKeymap;
   editorSpellcheck: boolean;
+  spellingWords: string[];
+  onAddSpellingWord: (word: string) => boolean | Promise<boolean>;
   citeInsertRequest: { key: string; command: InsertSymbolCommand; id: string } | null;
   onCiteInsertHandled: (id: string) => void;
   projectPaths: string[];
@@ -283,6 +309,10 @@ export function DocumentCanvas(props: {
   const [figureDropMarker, setFigureDropMarker] = useState<{ top: number; line: number } | null>(null);
   const [cursorOffset, setCursorOffset] = useState(0);
   const [statusPosition, setStatusPosition] = useState({ line: 1, column: 0 });
+  const [vimModes, setVimModes] = useState<{ primary: string; secondary: string }>({
+    primary: "normal",
+    secondary: "normal",
+  });
   const [snippetStops, setSnippetStops] = useState<{ base: number; stops: { from: number; to: number }[] } | null>(null);
   const [figureInsertPending, setFigureInsertPending] = useState<{
     paths: string[];
@@ -357,6 +387,8 @@ export function DocumentCanvas(props: {
     projectPaths,
     onOpenCitation: props.onOpenCitation,
     canOpenCitation: props.canOpenCitation,
+    spellingWords: props.spellingWords,
+    onAddSpellingWord: props.onAddSpellingWord,
   });
   latexLiveRef.current = {
     citationKeys: props.citationKeys,
@@ -369,6 +401,8 @@ export function DocumentCanvas(props: {
     projectPaths,
     onOpenCitation: props.onOpenCitation,
     canOpenCitation: props.canOpenCitation,
+    spellingWords: props.spellingWords,
+    onAddSpellingWord: props.onAddSpellingWord,
   };
 
   const diagnosticsRef = useRef({ build: buildDiagnostics, texlab: texlabDiagnostics });
@@ -379,6 +413,14 @@ export function DocumentCanvas(props: {
       if (view) refreshLint(view);
     }
   }, [buildDiagnostics, texlabDiagnostics]);
+
+  useEffect(() => {
+    for (const view of [primaryViewRef.current, secondaryViewRef.current]) {
+      if (!view) continue;
+      view.dispatch({ effects: harperDictionaryChanged.of(null) });
+      refreshLint(view);
+    }
+  }, [props.spellingWords]);
 
   const focusedPaneRef = useRef(focusedPane);
   focusedPaneRef.current = focusedPane;
@@ -676,10 +718,18 @@ export function DocumentCanvas(props: {
       scrollTop: view.scrollDOM.scrollTop,
     });
   }, [onEditorPosition, onViewState]);
+  const reportVimMode = useCallback((pane: EditorPaneId, mode: string) => {
+    setVimModes((current) => current[pane] === mode ? current : { ...current, [pane]: mode });
+  }, []);
+  const reportPrimaryVimMode = useCallback((mode: string) => reportVimMode("primary", mode), [reportVimMode]);
+  const reportSecondaryVimMode = useCallback((mode: string) => reportVimMode("secondary", mode), [reportVimMode]);
+  const focusedVimMode = focusedPane === "secondary" && secondaryFile
+    ? vimModes.secondary
+    : vimModes.primary;
   reportEditorPositionRef.current = reportEditorPosition;
   const editorExtensions = useMemo(
     () => [
-      ...(editorKeymap === "vim" ? [vim({ status: true })] : editorKeymap === "emacs" ? [emacs()] : []),
+      ...(editorKeymap === "vim" ? [vim({ status: false }), vimModeExtension(reportPrimaryVimMode)] : editorKeymap === "emacs" ? [emacs()] : []),
       latex(latexLanguageOptions),
       ...latexEditorExtensions(
         props.citationKeys,
@@ -729,13 +779,13 @@ export function DocumentCanvas(props: {
     // Volatile macros/diagnostics/comments are read via refs so this array stays
     // stable across keystrokes — otherwise reconfigure kills yCollab carets.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
-    [activeFile, collabExtensions, editorKeymap, editorSpellcheck],
+    [activeFile, collabExtensions, editorKeymap, editorSpellcheck, reportPrimaryVimMode],
   );
   const secondaryEditorExtensions = useMemo(
     () => {
       if (!secondaryFile) return [];
       return [
-        ...(editorKeymap === "vim" ? [vim({ status: true })] : editorKeymap === "emacs" ? [emacs()] : []),
+        ...(editorKeymap === "vim" ? [vim({ status: false }), vimModeExtension(reportSecondaryVimMode)] : editorKeymap === "emacs" ? [emacs()] : []),
         latex(latexLanguageOptions),
         ...latexEditorExtensions(
           props.citationKeys,
@@ -758,6 +808,7 @@ export function DocumentCanvas(props: {
           onCreateMissingFile,
           true,
           onTexlabGoto,
+          latexLiveRef,
         ),
         linter((view) => editorDiagnosticsForFile(diagnosticsRef.current.build, secondaryFile, view.state.doc), {
           delay: 150,
@@ -767,7 +818,7 @@ export function DocumentCanvas(props: {
         }),
       ];
     },
-    [editorKeymap, editorSpellcheck, graphicsRoots, localMacros, onCreateMissingFile, onFindReferences, onGotoDefinition, onPasteImageFile, onRenameEnvironment, onRenameSymbol, onTexlabGoto, onWrapEnvironment, projectPaths, props.citationKeys, props.citations, props.onLoadReferenceImage, props.references, props.unusedCitations, props.unusedLabels, secondaryFile],
+    [editorKeymap, editorSpellcheck, graphicsRoots, localMacros, onCreateMissingFile, onFindReferences, onGotoDefinition, onPasteImageFile, onRenameEnvironment, onRenameSymbol, onTexlabGoto, onWrapEnvironment, projectPaths, props.citationKeys, props.citations, props.onLoadReferenceImage, props.references, props.unusedCitations, props.unusedLabels, reportSecondaryVimMode, secondaryFile],
   );
   const insertTextAtCursor = useCallback((insert: string, cursorOffset = insert.length) => {
     const view = editorViewRef.current;
@@ -1167,6 +1218,11 @@ export function DocumentCanvas(props: {
           <button type="button" className="status-goto" title="Go to line (⌘G)" onClick={onGotoLineRequest}>
             Ln {statusPosition.line}, Col {statusPosition.column + 1}
           </button>
+          {editorKeymap === "vim" && (
+            <span className="status-vim-mode" aria-live="polite" title="Vim mode">
+              --{focusedVimMode.toUpperCase()}--
+            </span>
+          )}
           {breadcrumb.length > 0 && (
             <span className="editor-breadcrumb" title={breadcrumb.map((node) => node.title).join(" › ")}>
               {breadcrumb.map((node, index) => (

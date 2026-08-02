@@ -30,13 +30,13 @@
   touch-action: none;
   user-select: none;
   opacity: 0;
-  transition: opacity 120ms ease-out 160ms;
+  transition: opacity var(--duration-quick) var(--ease-out) var(--duration-base);
 }
 
 .lattice-scrollbar[data-hovering],
 .lattice-scrollbar[data-scrolling] {
   opacity: 1;
-  transition-duration: 160ms;
+  transition-duration: var(--duration-base);
   transition-delay: 0ms;
 }
 
@@ -46,7 +46,6 @@
 
 .external-scrollbar .lattice-scrollbar-thumb {
   flex: none;
-  will-change: height, transform;
 }
 
 .lattice-scrollbar[data-orientation="vertical"]:not([data-overflow-y-start]):not([data-overflow-y-end]),
@@ -77,22 +76,22 @@
 .lattice-scrollbar-thumb {
   position: relative;
   border-radius: 9999px;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-  transition: background-color 160ms ease-in-out, width 160ms ease-in-out, height 160ms ease-in-out;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  transition: background-color var(--duration-base) var(--ease-in-out), width var(--duration-base) var(--ease-in-out), height var(--duration-base) var(--ease-in-out);
 }
 
 .lattice-scrollbar:hover .lattice-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text) 12%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
 }
 
 .lattice-scrollbar-thumb:active {
-  background: color-mix(in srgb, var(--text) 16%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 16%, transparent);
 }
 
 .lattice-scrollbar[data-orientation="vertical"] .lattice-scrollbar-thumb {
   width: 4px;
   height: var(--scroll-area-thumb-height);
-  margin: 4px auto;
+  margin: var(--space-2) auto;
   transform: translateX(-2px);
 }
 
@@ -103,7 +102,7 @@
 .lattice-scrollbar[data-orientation="horizontal"] .lattice-scrollbar-thumb {
   width: var(--scroll-area-thumb-width);
   height: 4px;
-  margin: auto 4px;
+  margin: auto var(--space-2);
   transform: translateY(-2px);
 }
 
@@ -191,7 +190,7 @@
 }
 
 .native-hover-scrollbar:hover {
-  scrollbar-color: color-mix(in srgb, var(--text) 12%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--text-primary) 12%, transparent) transparent;
 }
 
 .native-hover-scrollbar::-webkit-scrollbar {
@@ -221,7 +220,7 @@
 }
 
 .native-hover-scrollbar:hover::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text) 12%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
   background-clip: content-box;
 }
 
@@ -236,14 +235,6 @@
 }
 
 .native-hover-scrollbar::-webkit-scrollbar-thumb:active {
-  background: color-mix(in srgb, var(--text) 18%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 18%, transparent);
   background-clip: padding-box;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lattice-scrollbar,
-  .lattice-scrollbar-thumb {
-    transition-duration: 0ms;
-    transition-delay: 0ms;
-  }
 }

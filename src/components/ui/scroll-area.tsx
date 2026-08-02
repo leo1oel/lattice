@@ -153,6 +153,7 @@ const ScrollArea = forwardRef<
         >
           <ScrollAreaPrimitive.Viewport {...sharedViewportProps}>
             <ScrollAreaPrimitive.Content
+              data-slot="scroll-area-content-shell"
               style={orientation === "vertical" ? { minWidth: 0, width: "100%" } : undefined}
             >
               {content}

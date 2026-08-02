@@ -27,7 +27,7 @@
 }
 
 .ui-reload-icon--once {
-  animation: ui-reload-once 0.58s cubic-bezier(0.3, 0.75, 0.25, 1);
+  animation: ui-reload-once 0.58s var(--ease-emphasized);
 }
 
 @keyframes ui-reload-once {

@@ -789,7 +789,7 @@ fn markup_to_string(value: Option<&Value>) -> Option<String> {
 
 fn map_diagnostic(item: &Value, relative: &str) -> Option<Diagnostic> {
     let message = item.get("message")?.as_str()?.trim().to_string();
-    if message.is_empty() {
+    if message.is_empty() || crate::latex::is_pass_noise_warning(&message) {
         return None;
     }
     // texlab reports its lints (unused label, unused BibTeX entry, …) at
@@ -854,6 +854,11 @@ mod tests {
                         "range": { "start": { "line": 12, "character": 0 }, "end": { "line": 12, "character": 8 } },
                         "severity": 4,
                         "message": "Unused label 'fig:native-umm'."
+                    },
+                    {
+                        "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 1 } },
+                        "severity": 2,
+                        "message": "Package epstopdf Warning: Shell escape feature is not enabled."
                     }
                 ]
             }

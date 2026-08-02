@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderChatMarkdown } from "./chat-markdown";
+import { renderChatMarkdown } from "./chat-markdown-renderer";
 
 describe("renderChatMarkdown", () => {
   it("renders the markdown the agent actually emits", () => {

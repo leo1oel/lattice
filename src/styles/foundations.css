@@ -1,3 +1,26 @@
+/*
+ * Interactive state model.
+ *
+ * One state, one selector shape, everywhere. Add a state to a component by
+ * matching this table, not by inventing a parallel hook.
+ *
+ *   hover      `:hover:not(:disabled)`            pointer is over the control
+ *   pressed    `:active:not(:disabled)`           pointer is held down
+ *   focus      `:focus-visible`                   keyboard focus; ring is global
+ *   open       `[data-state="open"]`              this control owns an open menu,
+ *                                                 popover, or select
+ *   active     `.active`                          the view or tab this control
+ *                                                 leads to is the current one
+ *   selected   `[aria-selected="true"]`, `.selected`
+ *                                                 one of several list rows the
+ *                                                 user has picked
+ *   checked    `[aria-checked="true"]`, `:checked`, `[data-state="checked"]`
+ *                                                 a toggle is on
+ *   disabled   `:disabled`, `[data-disabled]`     not operable
+ *
+ * Surface strength runs in one direction, so two states are never confusable:
+ * hover < pressed, and hover < selected < active.
+ */
 :root {
   /* Typography
    *
@@ -5,6 +28,7 @@
    * Components should consume these semantic roles instead of introducing new
    * pixel values for the same job.
    */
+  --type-nano-size: 9px;
   --type-micro-size: 10px;
   --type-micro-line-height: 14px;
   --type-micro-weight: 500;
@@ -30,16 +54,18 @@
   --type-title-large-line-height: 20px;
   --type-title-large-weight: 600;
   --type-heading-size: 18px;
+  --type-display-size: 24px; /* The one title on a page that has only one. */
+  --insert-glyph-size: 22px; /* A character sample, sized by its tile. */
   --type-heading-line-height: 22px;
   --type-heading-weight: 600;
 
-  /* Specialized compact roles. Project filenames get their own 12px role so
+  /* Specialized compact roles. Project filenames get their own 13px role so
      Papers metadata and other compact navigation can remain at 11px. Source
      and diff content use the application-owned TX-02-first editor font role. */
   --type-tree-size: var(--type-caption-size);
   --type-tree-line-height: var(--type-caption-line-height);
   --type-tree-weight: var(--weight-regular);
-  --type-project-tree-size: var(--type-label-size);
+  --type-project-tree-size: var(--type-body-size);
   --type-project-tree-line-height: var(--type-label-line-height);
   --type-project-tree-weight: var(--weight-regular);
   --type-project-tree-selected-weight: var(--weight-medium);
@@ -76,10 +102,45 @@
   --space-12: 24px;
   --space-16: 32px;
 
+  /*
+   * Spacing that sits between grid steps, because a 2px grid cannot express
+   * distances inside a control. These are roles, not scale steps: the name says
+   * what the distance is for, so the same intent gets the same value everywhere
+   * and one edit changes all of them.
+   */
+  --gap-hairline: 1px; /* Seam between adjacent segments in one track. */
+  --gap-tight: 3px; /* Stacked lines that read as a single block. */
+  --gap-inline-tight: 5px; /* Icon to its label inside a compact control. */
+  --gap-inline: 7px; /* Members of one inline group. */
+  --pad-inline-control: 9px; /* Chrome control side padding. */
+  --pad-inline-control-tight: 7px; /* The same, on a shorter control. */
+
+  /*
+   * Motion roles. Durations are tiers, not free numbers: everything that reads
+   * as one kind of change shares one value, so the whole interface can be tuned
+   * from here. Ambient loops (loaders, background drift) are timed in their own
+   * component and are deliberately not on this scale.
+   *
+   * The easing names hold today's values exactly, which makes them a single
+   * place to upgrade a curve later instead of 60 places.
+   */
+  --duration-quick: 120ms; /* Color and opacity on hover or state change. */
+  --duration-base: 160ms; /* Size, position, and anything that travels. */
+  --duration-reveal: 200ms; /* Something entering or leaving the screen. */
+  --duration-disclosure: 220ms; /* Opening and closing menus, selects, and popovers. */
+  --duration-slow: 300ms; /* Whole-surface changes, like a theme switch. */
+  --ease-default: ease;
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+  --ease-emphasized: cubic-bezier(0.2, 0.75, 0.25, 1); /* Travel: the app's signature curve. */
+  --ease-entrance: cubic-bezier(0.22, 1, 0.36, 1); /* Arrival: settles hard at the end. */
+
   /* Radius roles. Special asymmetric message bubbles remain component-owned. */
   --radius-compact: 4px;
   --radius-icon: 6px;
+  --radius-chrome: 7px;
   --radius-control: 8px;
+  --radius-panel: 9px;
   --radius-surface: 10px;
   --radius-dialog: 14px;
   --radius-pill: 999px;
@@ -89,25 +150,29 @@
   --control-size-icon: 28px;
   --control-size-icon-large: 30px;
   --control-height-compact: 28px;
-  --control-height-default: 32px;
-  --control-height-form: 38px;
+  --control-height-default: 30px;
+  --control-height-form: var(--control-height-default);
 
   /* Text-entry controls share one visual contract even when their behavior
      differs (forms, search, comments, inline edits, or compact toolbar values). */
   --field-control-border-width: 1px;
-  --field-control-background: var(--side-surface);
+  --field-control-background: var(--surface-input);
   --field-control-border-color: color-mix(
     in srgb,
-    var(--text) 12%,
+    var(--text-primary) 12%,
     var(--field-control-background)
   );
   --field-control-interactive-border-color: color-mix(
     in srgb,
-    var(--text) 24%,
+    var(--text-primary) 24%,
     var(--field-control-background)
   );
   --field-control-radius: var(--radius-control);
   --field-control-padding-inline: var(--space-5);
+  --form-control-border-width: var(--field-control-border-width);
+  --form-control-border-color: var(--field-control-border-color);
+  --form-control-background: var(--field-control-background);
+  --form-control-radius: var(--field-control-radius);
   --search-control-height: var(--control-height-default);
   --search-control-height-compact: var(--control-height-compact);
   --search-control-border-width: var(--field-control-border-width);
@@ -118,12 +183,98 @@
   --search-control-gap: var(--space-3);
   --search-control-icon-size: 14px;
   --search-control-interactive-border-color: var(--field-control-interactive-border-color);
+  --form-control-select-radius: 9px;
+  --form-control-height-form: var(--control-height-form);
+  --form-control-textarea-min-height: 88px;
+  --form-control-disabled-opacity: 0.45;
+  --control-hover-surface: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  --control-pressed-surface: color-mix(in srgb, var(--text-primary) 11%, transparent);
+  --control-disabled-opacity: 0.42;
+  --control-off-surface: var(--border-strong);
+  --control-on-surface: var(--control-active);
+  --control-thumb-surface: var(--surface-panel-raised);
+  --control-hover-border: color-mix(in srgb, var(--control-active) 44%, var(--border-strong));
+  --control-invalid-border: var(--status-danger);
+  /* Borders for cards and rows that answer to pointer or selection. Two steps:
+     the default emphasis, and a stronger one for a committed choice. */
+  --control-active-border: color-mix(in srgb, var(--control-active) 35%, var(--border-subtle));
+  --control-active-border-strong: color-mix(in srgb, var(--control-active) 45%, var(--border-strong));
+  --search-clear-width: 20px;
+  --search-clear-height: 22px;
   --control-height-segmented-compact: 26px;
   --control-height-segmented-default: 34px;
+  --segmented-surface: var(--border-subtle);
+  --segmented-selected-surface: var(--editor-bg);
+  --segmented-selected-shadow: 0 1px 4px rgb(0 0 0 / 8%);
+  --segmented-tab-padding-inline: var(--space-5);
+  --toolbar-height: 40px;
+  --toolbar-icon-width: 24px;
+  --toolbar-icon-height: 27px;
+  --toolbar-icon-radius: var(--radius-icon);
+  --toolbar-hover-surface: var(--border-subtle);
+  --toolbar-active-surface: color-mix(in srgb, var(--control-active) 14%, transparent);
+  /* The floor for a pointer target, independent of how small the control is
+     painted. See the `data-hit-area` note in styles/surfaces.css. */
+  --hit-area-min: 24px;
   --control-size-checkbox: 14px;
   --control-width-switch: 24px;
   --control-height-switch: 14px;
   --control-size-switch-thumb: 10px;
+
+  /* Host navigation contract. These semantic values preserve the current
+     sidebar geometry while keeping its states independent from component
+     selectors and third-party tree implementation details. */
+  --navigation-header-height: 40px;
+  --navigation-control-height: 29px;
+  --navigation-action-size: var(--navigation-control-height);
+  --navigation-tab-expanded-width: 85px;
+  --navigation-tab-gap: var(--space-4);
+  --navigation-mode-actions-gap: var(--space-4);
+  --navigation-search-height: var(--search-control-height);
+  --navigation-search-font-size: var(--type-label-size);
+  --navigation-search-line-height: var(--type-project-tree-line-height);
+  --navigation-search-font-weight: var(--type-project-tree-weight);
+  --navigation-row-height: var(--row-height-tree);
+  --navigation-tab-hover-surface: color-mix(in srgb, var(--border-subtle) 35%, transparent);
+  --navigation-tab-selected-surface: color-mix(in srgb, var(--border-subtle) 65%, transparent);
+  --navigation-action-hover-surface: var(--chrome-hover-surface);
+  --navigation-tree-hover-surface: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  --navigation-tree-selected-surface: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  --navigation-focus-ring: var(--focus-ring);
+
+  /* Window chrome contract. The titlebar carries the traffic lights, the
+     project switcher, and the tab strip in one row, so its geometry is shared
+     rather than restated per element. */
+  --titlebar-height: 40px;
+  --titlebar-sidebar-width: 320px;
+  --titlebar-navigator-width: 132px;
+  --titlebar-navigator-width-fullscreen: 50px;
+  --titlebar-traffic-space-width: 90px;
+  --titlebar-action-size: var(--control-size-icon-large);
+
+  /* Editor tab strip contract. The strip has two variants that share every
+     state role: the standalone strip below a toolbar, and the compact chrome
+     variant hosted in the titlebar. */
+  --tab-strip-height: 36px;
+  --tab-strip-height-chrome: 34px;
+  --tab-height-chrome: var(--control-height-compact);
+  --tab-basis: 160px;
+  --tab-min-width: 104px;
+  --tab-max-width: 180px;
+  --tab-radius: var(--radius-chrome) var(--radius-chrome) 0 0;
+  --tab-hover-surface: color-mix(in srgb, var(--surface-panel-raised) 42%, transparent);
+  --tab-selected-surface: var(--editor-bg);
+  --tab-selected-border-color: var(--border-subtle);
+  --tab-chrome-surface: color-mix(in srgb, var(--surface-panel-raised) 58%, transparent);
+  --tab-chrome-hover-surface: color-mix(in srgb, var(--surface-panel-raised) 72%, transparent);
+  --tab-chrome-border-color: color-mix(in srgb, var(--border-subtle) 55%, transparent);
+  --tab-chrome-selected-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  --tab-dragging-opacity: 0.8;
+  --tab-label-fade-width: 12px;
+  --tab-close-fade-width: 48px;
+  --tab-dirty-dot-size: 5px;
+  --tab-close-size: 22px;
+
   --badge-height: 20px;
   --badge-height-compact: 16px;
   --row-height-compact: 32px;
@@ -131,31 +282,142 @@
   --row-height-comfortable: 44px;
   --row-height-tree: var(--row-height-compact);
 
-  /* Settings layout and frame contract. Native Lattice sections and embedded
-     Synara sections mirror these roles so their content columns and outlined
-     controls/cards align exactly. */
-  --settings-content-max-width: 500px;
-  --settings-content-padding-top: 30px;
-  --settings-content-padding-inline: 34px;
-  --settings-content-padding-bottom: 40px;
+  /* Settings layout contract. A settings page is an unframed column: page
+     heading, then groups whose own heading carries the only rule, then rows of
+     copy on the left and one control on the right.
+
+     The embedded Synara runtime mirrors these roles from its own copy of the
+     values, so changing a number here only lands in Providers/MCP/Skills once
+     the pinned runtime revision is rebuilt. */
+  --settings-content-max-width: 720px;
+  --settings-content-padding-top: var(--space-16);
+  --settings-content-padding-inline: 40px;
+  --settings-content-padding-bottom: 48px;
   --settings-content-padding-top-compact: 24px;
   --settings-content-padding-inline-compact: 20px;
   --settings-content-padding-bottom-compact: 32px;
+  --settings-header-height: 50px;
+  --settings-nav-width: 190px;
+  --settings-nav-width-compact: 132px;
+  --settings-nav-padding-block: var(--space-6);
+  --settings-nav-padding-inline: 9px;
+  --settings-nav-group-gap: 14px;
+  --settings-embed-min-height: 470px;
+  --settings-group-gap: 28px;
+  --settings-group-title-size: 13px;
+  --settings-group-title-line-height: 18px;
+  --settings-control-width: 170px;
+  --settings-control-height: var(--control-height-default);
+  --settings-control-radius: 9px;
+  --settings-control-font-family: var(--ui-font);
+  --settings-control-font-size: var(--type-label-size);
+  --settings-control-line-height: var(--type-label-line-height);
+  --settings-control-font-weight: var(--type-body-weight);
+  --settings-row-control-min-width: 170px;
   --settings-frame-border-width: 1px;
   --settings-frame-border-color: var(--line-strong);
   --settings-control-border-color: var(--line-strong);
   --settings-frame-radius: var(--radius-control);
+  --settings-control-hover-surface: color-mix(
+    in srgb,
+    var(--text-primary) 7%,
+    var(--surface-panel-raised)
+  );
 
-  /* Semantic color aliases preserve the neutral accent and follow both themes. */
+  /* The overlay stacking ladder, in ascending order.
+   *
+   * Every value here is the one the surface already used; naming them is the
+   * point, not renumbering them. Read top to bottom to see what covers what.
+   *
+   * Two things this makes visible that were not before. Radix popovers, menus,
+   * and selects sit at 50 (`z-50`, hard-coded in `components/ui/menu-surface.ts`
+   * and not settable from CSS) — above every modal, below every banner and
+   * toast. And the app updater and the toast stack sit one apart at the top of
+   * a four-digit cliff.
+   *
+   * Surfaces that only compete with their own siblings inside a local stacking
+   * context are deliberately absent: the PDF viewer's internal layers, the
+   * scroll-area thumb, resizers, and the collab caret label. Those numbers are
+   * local and mean nothing on this ladder. */
+  --z-chrome: 5;
+  --z-menu-inline: 5;
+  --z-menu-inline-raised: 6;
+  --z-editor-overlay: 6;
+  --z-editor-popover: 7;
+  --z-editor-scrollbar: 8;
+  --z-diagnostics: 9;
+  --z-modal-backdrop: 10;
+  --z-modal: 11;
+  --z-drawer-backdrop: 20;
+  --z-nested-modal-backdrop: 30;
+  --z-nested-modal: 31;
+  --z-radix-popper: 50;
+  --z-selection-toolbar: 80;
+  --z-banner: 90;
+  --z-drag-ghost: 120;
+  --z-app-updater: 9999;
+  --z-toast: 10000;
+
+  /* Semantic color aliases preserve the neutral accent and follow both themes.
+     Raw theme values remain owned by styles/theme.css; components consume these
+     roles instead of reaching into the palette directly. */
+  --surface-app: var(--bg);
+  --surface-panel: var(--panel);
+  --surface-panel-raised: var(--panel-strong);
+  --surface-chrome: var(--chrome-surface);
+  --surface-sidebar: var(--sidebar);
+  --surface-input: var(--side-surface);
+  --border-subtle: var(--line);
+  --border-strong: var(--line-strong);
   --text-primary: var(--text);
   --text-secondary: var(--muted);
   --text-tertiary: var(--faint);
+  --text-chrome: var(--chrome-text);
   --control-active: var(--accent);
   --control-active-soft: var(--accent-soft);
+  --control-active-contrast: var(--accent-contrast);
+  /* One hover wash for chrome affordances that sit directly on a chrome or
+     sidebar surface: titlebar buttons, navigation actions, toolbar icons. */
+  --chrome-hover-surface: var(--border-subtle);
+  /* Keyboard focus is one ring, declared once and drawn by the global
+     `:focus-visible` rule in styles/app-shell.css. Components size it through
+     these roles instead of hand-rolling a per-component shadow. */
+  --focus-ring: color-mix(in srgb, var(--text-primary) 55%, transparent);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 1px;
   --status-success: var(--success);
   --status-success-soft: color-mix(in srgb, var(--success) 12%, transparent);
   --status-warning: var(--warning);
   --status-warning-soft: color-mix(in srgb, var(--warning) 12%, transparent);
+  /* Search hits are marked on document content, not on chrome, so they keep
+     one warm highlight in both themes: found, and the current one. */
+  --highlight-match-surface: rgba(255, 208, 0, 0.34);
+  --highlight-match-current-surface: rgba(255, 142, 0, 0.48);
+  --highlight-match-current-border: rgba(202, 94, 0, 0.72);
+  --scrim-surface: rgba(0, 0, 0, 0.18);
+
+  /* A rendered page stays paper-colored in both themes. */
+  /* Text selection in the editor reads as a system selection rather than as
+     app chrome, so it keeps its own blue in both themes. */
+  --editor-selection-tint: #3d7af2;
+  --editor-selection-surface: color-mix(in srgb, var(--editor-selection-tint) 42%, transparent);
+  --editor-selection-surface-active: color-mix(in srgb, var(--editor-selection-tint) 52%, transparent);
+  --pdf-page-surface: #f9f9fa;
+  --status-info: var(--info);
+  --status-info-soft: color-mix(in srgb, var(--info) 12%, transparent);
   --status-danger: var(--danger);
   --status-danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
+
+  /* Tone-relative surfaces.
+   *
+   * Status surfaces (diagnostics, banners, notices) set one `color` for their
+   * severity and derive every border and interactive wash from it, so these
+   * roles are expressed in `currentColor` and resolve against whatever tone the
+   * host element carries. Use them instead of repeating a `color-mix` per
+   * severity variant. */
+  --tone-surface: color-mix(in srgb, currentColor 10%, transparent);
+  --tone-hover-surface: color-mix(in srgb, currentColor 8%, transparent);
+  --tone-border: color-mix(in srgb, currentColor 14%, transparent);
+  --tone-border-emphasis: color-mix(in srgb, currentColor 28%, transparent);
+  --tone-chip-border: color-mix(in srgb, currentColor 18%, transparent);
 }

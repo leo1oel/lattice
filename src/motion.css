@@ -11,7 +11,7 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: color 120ms ease;
+  transition: color var(--duration-quick) var(--ease-default);
 }
 
 .sliding-tab:hover {
@@ -22,18 +22,13 @@
   color: var(--text-primary);
 }
 
-.sliding-tab:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--control-active) 24%, transparent);
-}
-
 .sliding-tab-pill {
   position: absolute;
   inset: 0;
   z-index: 0;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-strong);
   border-radius: inherit;
-  background: var(--panel-strong);
+  background: var(--surface-panel-raised);
 }
 
 .sliding-tab-underline {

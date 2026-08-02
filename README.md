@@ -178,6 +178,8 @@ pnpm check
 ```
 
 This runs frontend lint, frontend tests, a production web build, Rust unit tests, and Clippy with warnings treated as errors.
+The frontend lint command also caps the known React warning backlog; lower that
+cap whenever warnings are removed so new debt cannot silently replace them.
 
 Build the macOS application bundle:
 

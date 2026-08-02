@@ -2,10 +2,10 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addAppLog,
-  AppToastStack,
   clearAppLogs,
   updateAppLog,
-} from "./app-log";
+} from "./app-log-store";
+import { AppToastStack } from "./app-log";
 
 describe("AppToastStack", () => {
   beforeEach(() => {

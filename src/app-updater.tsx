@@ -30,7 +30,7 @@ import {
   InfinityLoader,
   ReloadButton,
 } from "./components/ui/activity-icons";
-import { addAppLog } from "./app-log";
+import { addAppLog } from "./app-log-store";
 
 export type UpdateMode = "auto" | "manual";
 export type UpdatePhase =

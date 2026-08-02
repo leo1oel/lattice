@@ -114,6 +114,7 @@ describe("LaTeX citation editing", () => {
     const second = source.indexOf("dosovitskiy") + 4;
     expect(citationHoverTarget(source, first)?.key).toBe("vaswani2017attention");
     expect(citationHoverTarget(source, second)?.key).toBe("dosovitskiy2021image");
+    expect(citationHoverTarget(source, source.indexOf("citep") + 2)).toBeNull();
     expect(citationHoverTarget("Plain text", 3)).toBeNull();
   });
 
@@ -484,7 +485,7 @@ describe("LaTeX citation editing", () => {
     expect(diagnostics.some((item) => item.message.includes('Duplicate bibliography key “same”'))).toBe(true);
   });
 
-  it("opt-in spellcheck marks the contenteditable attributes", () => {
+  it("keeps native spellcheck off when Harper is enabled", () => {
     const off = new EditorView({
       state: EditorState.create({ doc: "typo", extensions: latexEditorExtensions([]) }),
     });
@@ -496,8 +497,8 @@ describe("LaTeX citation editing", () => {
         extensions: latexEditorExtensions([], [], [], undefined, undefined, [], undefined, undefined, true),
       }),
     });
-    expect(on.contentDOM.getAttribute("spellcheck")).toBe("true");
-    expect(on.contentDOM.getAttribute("autocorrect")).toBe("on");
+    expect(on.contentDOM.getAttribute("spellcheck")).toBe("false");
+    expect(on.contentDOM.getAttribute("autocorrect")).toBe("off");
     on.destroy();
   });
 

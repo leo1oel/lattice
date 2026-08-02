@@ -96,8 +96,18 @@ export function stripFrontmatter(markdown: string): string {
 
 let windowDragTimer: ReturnType<typeof setTimeout> | null = null;
 
+export function isWindowDragExcluded(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(
+    "[data-window-drag-exclude], button, input, select, textarea, a",
+  ));
+}
+
 export function beginWindowDrag(event: React.MouseEvent<HTMLElement>) {
-  if (event.buttons !== 1 || event.detail > 1 || (event.target as Element).closest("button, input, select, textarea, a")) return;
+  if (
+    event.buttons !== 1
+    || event.detail > 1
+    || isWindowDragExcluded(event.target)
+  ) return;
   event.preventDefault();
   if (windowDragTimer) clearTimeout(windowDragTimer);
   // Delay drag so a second click can still register as double-click → fullscreen.

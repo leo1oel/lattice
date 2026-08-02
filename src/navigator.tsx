@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type {
   ContextMenuItem as PierreContextMenuItem,
@@ -20,7 +20,6 @@ import {
   ImagePlus,
   Pencil,
   Plus,
-  Quote,
 } from "lucide-react";
 import {
   ContextMenu,
@@ -33,8 +32,8 @@ import { DestructiveButton } from "./components/ui/destructive-button";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { ExternalScrollbar } from "./components/ui/external-scrollbar";
 import { SearchField } from "./components/ui/search-field";
-import { paperKey, paperSubtitle, CITE_COMMANDS } from "./app-utils";
-import type { FileNode, GitFileStatus, PaperSummary, CiteCommand } from "./app-types";
+import { paperKey, paperSubtitle } from "./app-utils";
+import type { FileNode, GitFileStatus, PaperSummary } from "./app-types";
 import { toPierreGitStatus } from "./project-tree-git";
 
 // @pierre/trees virtualizes by a numeric item height, so this mirrors the
@@ -124,11 +123,10 @@ const PIERRE_TREE_CSS = `
 button[data-type="item"] {
   background: transparent;
   letter-spacing: -0.005em;
-  transition:
-    background-color 140ms cubic-bezier(.2, .8, .2, 1),
-    box-shadow 140ms cubic-bezier(.2, .8, .2, 1),
-    color 120ms ease,
-    opacity 100ms ease;
+  transition: background-color var(--duration-base) var(--ease-emphasized),
+    box-shadow var(--duration-base) var(--ease-emphasized),
+    color var(--duration-quick) var(--ease-default),
+    opacity var(--duration-quick) var(--ease-default);
 }
 
 /* Tauri's native file-drop bridge and HTML5 row dragging do not share a
@@ -154,12 +152,12 @@ button[data-type="item"][data-lattice-pointer-dragging="true"] {
 button[data-type="item"][data-lattice-pointer-drag-preview="true"] {
   position: fixed;
   inset: 0 auto auto 0;
-  z-index: 10000;
+  z-index: var(--z-drag-ghost);
   margin: 0;
   overflow: visible;
-  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 9%, transparent);
   border-radius: 7px;
-  background: color-mix(in srgb, var(--panel-strong) 54%, transparent);
+  background: color-mix(in srgb, var(--surface-panel-raised) 54%, transparent);
   box-shadow:
     0 8px 22px color-mix(in srgb, #000 11%, transparent),
     0 2px 6px color-mix(in srgb, #000 7%, transparent);
@@ -169,9 +167,8 @@ button[data-type="item"][data-lattice-pointer-drag-preview="true"] {
   will-change: transform, opacity;
   backdrop-filter: blur(10px) saturate(92%);
   -webkit-backdrop-filter: blur(10px) saturate(92%);
-  transition:
-    opacity 70ms ease-out,
-    box-shadow 90ms ease;
+  transition: opacity var(--duration-quick) var(--ease-out),
+    box-shadow var(--duration-quick) var(--ease-default);
 }
 
 [data-lattice-pointer-drag-count="true"] {
@@ -183,12 +180,12 @@ button[data-type="item"][data-lattice-pointer-drag-preview="true"] {
   height: 17px;
   padding: 0 5px;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--panel-strong) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--surface-panel-raised) 80%, transparent);
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--control-active);
   box-shadow: 0 2px 6px color-mix(in srgb, #000 18%, transparent);
-  color: var(--accent-contrast);
-  font-size: 9px;
+  color: var(--control-active-contrast);
+  font-size: var(--type-nano-size);
   font-weight: var(--weight-semibold);
   line-height: 1;
 }
@@ -208,7 +205,7 @@ button[data-type="item"][data-item-focused="true"]::before {
 }
 
 button[data-type="item"]:focus-visible::before {
-  outline: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  outline: 1px solid var(--navigation-focus-ring);
   outline-offset: -1px;
 }
 
@@ -281,26 +278,26 @@ button[data-type="item"][data-item-selected="true"] [data-item-section="icon"] {
 }
 
 button[data-type="item"][data-lattice-native-drop-target="true"] {
-  background: color-mix(in srgb, var(--text) 9%, transparent);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 9%, transparent);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 18%, transparent);
 }
 
 [data-item-drag-target="true"] {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 18%, transparent);
 }
 
 button[data-type="item"][data-lattice-pointer-drop-target="true"] {
-  background: var(--accent-soft);
-  color: var(--text);
+  background: var(--control-active-soft);
+  color: var(--text-primary);
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 27%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--control-active) 27%, transparent),
     0 1px 4px color-mix(in srgb, #000 4%, transparent);
 }
 
 [data-item-flattened-subitem][data-lattice-pointer-flattened-drop-target="true"] {
   border-radius: 4px;
-  background: var(--accent-soft);
+  background: var(--control-active-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -311,7 +308,8 @@ button[data-type="item"][data-lattice-pointer-drop-target="true"] {
 }
 
 [data-file-tree-search-container] {
-  margin: 0 2px 7px;
+  margin: 0 0 7px;
+  padding-inline: var(--space-1);
 }
 
 [data-file-tree-search-container][data-open="false"] {
@@ -320,23 +318,22 @@ button[data-type="item"][data-lattice-pointer-drop-target="true"] {
 
 [data-file-tree-search-input] {
   box-sizing: border-box;
-  height: var(--search-control-height-compact);
-  padding: 0 var(--search-control-padding-inline);
+  height: var(--navigation-search-height);
+  padding: 0 var(--search-control-padding-inline) 0 14px;
   border: var(--search-control-border-width) solid var(--search-control-border-color);
   border-radius: var(--search-control-radius);
   outline: none !important;
   background: var(--search-control-background);
-  color: var(--text);
-  font-size: var(--type-project-tree-size);
-  font-weight: var(--type-project-tree-weight);
-  line-height: var(--search-control-height-compact);
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease;
+  color: var(--text-primary);
+  font-size: var(--navigation-search-font-size);
+  font-weight: var(--navigation-search-font-weight);
+  line-height: var(--navigation-search-line-height);
+  transition: background-color var(--duration-quick) var(--ease-default),
+    border-color var(--duration-quick) var(--ease-default);
 }
 
 [data-file-tree-search-input]::placeholder {
-  color: var(--faint);
+  color: var(--text-tertiary);
 }
 
 [data-file-tree-search-input]::-webkit-search-cancel-button,
@@ -1328,7 +1325,6 @@ export function Navigator(props: {
   assetDropTarget: string | null;
   assetImporting: boolean;
   onPaper: (paper: PaperSummary) => void;
-  onCitePaper: (paper: PaperSummary, command: CiteCommand) => void;
   onFetchFullText: (paper: PaperSummary) => void;
   paperFetchStates: Record<string, "loading" | "success">;
   onDeletePaper: (paper: PaperSummary) => void;
@@ -1339,20 +1335,6 @@ export function Navigator(props: {
   importing: boolean;
 }) {
   const paperImportRef = useRef<HTMLInputElement | null>(null);
-  const [citeMenuId, setCiteMenuId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!citeMenuId) return;
-    const close = () => setCiteMenuId(null);
-    const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-    };
-    window.addEventListener("pointerdown", close);
-    window.addEventListener("keydown", closeWithEscape);
-    return () => {
-      window.removeEventListener("pointerdown", close);
-      window.removeEventListener("keydown", closeWithEscape);
-    };
-  }, [citeMenuId]);
   const renderPaperContextMenu = (
     path: string,
     children: React.ReactElement,
@@ -1399,6 +1381,7 @@ export function Navigator(props: {
           ref={paperImportRef}
           aria-label="Import paper"
           containerClassName="import-box"
+          controlSize="compact"
           placeholder="arXiv id, DOI, URL, or title"
           value={props.importInput}
           onChange={(event) => props.setImportInput(event.target.value)}
@@ -1451,45 +1434,17 @@ export function Navigator(props: {
                 </span>
                 <span><strong>{paper.title}</strong><small>{paperSubtitle(paper)}</small></span>
               </button>
-              {paper.citationKey && (
-                <div className="cite-menu-wrap">
-                  <button
-                    className="row-cite"
-                    title={`Insert citation for ${paper.citationKey}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setCiteMenuId((current) => current === paperKey(paper) ? null : paperKey(paper));
-                    }}
-                  >
-                    <Quote size={12} />
-                  </button>
-                  {citeMenuId === paperKey(paper) && (
-                    <div className="cite-command-menu" onPointerDown={(event) => event.stopPropagation()}>
-                      {CITE_COMMANDS.map((command) => (
-                        <button
-                          key={command}
-                          type="button"
-                          onClick={() => {
-                            props.onCitePaper(paper, command);
-                            setCiteMenuId(null);
-                          }}
-                        >
-                          \{command}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {paper.citationKey && (
-                <button className="row-edit-bib" title="Edit bibliography entry" onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
-              )}
-              <DestructiveButton
-                className="row-delete"
-                title={`Remove ${paper.title}`}
-                iconSize={12}
-                onClick={() => props.onDeletePaper(paper)}
-              />
+              <div className="paper-row-actions">
+                {paper.citationKey && (
+                  <button className="row-edit-bib" title="Edit bibliography entry" onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
+                )}
+                <DestructiveButton
+                  className="row-delete"
+                  title={`Remove ${paper.title}`}
+                  iconSize={12}
+                  onClick={() => props.onDeletePaper(paper)}
+                />
+              </div>
               </div>
             );
             // A cited-only paper has no local file to act on, so it stays bare;

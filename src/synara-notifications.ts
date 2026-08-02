@@ -5,7 +5,7 @@ import {
   updateAppLog,
   type AppLogLevel,
   type AppToastOptions,
-} from "./app-log";
+} from "./app-log-store";
 
 export const SYNARA_EMBEDDED_NOTIFICATION = "synara:embedded-notification";
 export const LATTICE_EMBEDDED_NOTIFICATION_ACTION =

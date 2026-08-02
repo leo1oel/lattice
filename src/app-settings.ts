@@ -28,6 +28,71 @@ export const SIDEBAR_WIDTH_KEY = "lattice.sidebar-width.v1";
 export const LAST_FILE_KEY = "lattice.last-file.v1";
 export const LAST_FILE_MAX = 60;
 export const PAPER_READING_WIDTH_KEY = "lattice.paper-reading-width";
+export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
+export const WORKSPACE_LAYOUT_MAX = 60;
+
+export type WorkspaceCanvasMode =
+  | "source"
+  | "pdf"
+  | "split"
+  | "dual"
+  | "columns"
+  | "markdown-preview"
+  | "paper"
+  | "asset";
+
+export type WorkspaceLayout = {
+  openTabs: string[];
+  activeFile: string;
+  activeTab: string;
+  secondaryFile: string | null;
+  focusedPane: "primary" | "secondary";
+  canvasMode: WorkspaceCanvasMode;
+  paperView: "blog" | "fulltext";
+  tabRecency: string[];
+};
+
+const WORKSPACE_CANVAS_MODES = new Set<WorkspaceCanvasMode>([
+  "source",
+  "pdf",
+  "split",
+  "dual",
+  "columns",
+  "markdown-preview",
+  "paper",
+  "asset",
+]);
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((item): item is string => typeof item === "string" && Boolean(item)))];
+}
+
+function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<WorkspaceLayout>;
+  const activeFile = typeof candidate.activeFile === "string" ? candidate.activeFile : "";
+  const openTabs = stringList(candidate.openTabs);
+  const activeTab = typeof candidate.activeTab === "string" && candidate.activeTab
+    ? candidate.activeTab
+    : activeFile;
+  const secondaryFile = typeof candidate.secondaryFile === "string" && candidate.secondaryFile
+    ? candidate.secondaryFile
+    : null;
+  const canvasMode = WORKSPACE_CANVAS_MODES.has(candidate.canvasMode as WorkspaceCanvasMode)
+    ? candidate.canvasMode as WorkspaceCanvasMode
+    : "split";
+  return {
+    openTabs,
+    activeFile,
+    activeTab,
+    secondaryFile,
+    focusedPane: candidate.focusedPane === "secondary" ? "secondary" : "primary",
+    canvasMode,
+    paperView: candidate.paperView === "fulltext" ? "fulltext" : "blog",
+    tabRecency: stringList(candidate.tabRecency),
+  };
+}
 
 export function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
@@ -148,6 +213,36 @@ export function persistLastFile(root: string, path: string) {
   }
 }
 
+/** The complete editor workspace last used in a project. */
+export function loadWorkspaceLayout(root: string): WorkspaceLayout | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(WORKSPACE_LAYOUT_KEY) ?? "{}") as unknown;
+    if (!value || typeof value !== "object") return null;
+    return normalizeWorkspaceLayout((value as Record<string, unknown>)[root]);
+  } catch {
+    return null;
+  }
+}
+
+export function persistWorkspaceLayout(root: string, layout: WorkspaceLayout) {
+  if (!root) return;
+  try {
+    const stored = JSON.parse(localStorage.getItem(WORKSPACE_LAYOUT_KEY) ?? "{}") as unknown;
+    const map = stored && typeof stored === "object"
+      ? { ...(stored as Record<string, unknown>) }
+      : {};
+    delete map[root];
+    const entries = [
+      ...Object.entries(map),
+      [root, normalizeWorkspaceLayout(layout) ?? layout] as [string, WorkspaceLayout],
+    ];
+    const trimmed = entries.slice(Math.max(0, entries.length - WORKSPACE_LAYOUT_MAX));
+    localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify(Object.fromEntries(trimmed)));
+  } catch {
+    // Workspace restoration is a convenience; the current session remains usable.
+  }
+}
+
 export function loadSidebarOpen(): boolean {
   try {
     return localStorage.getItem(SIDEBAR_OPEN_KEY) !== "0";
@@ -181,6 +276,7 @@ export type AppearanceSettings = {
 
 export const APPEARANCE_KEY = "lattice.appearance.v5";
 export const LEGACY_APPEARANCE_KEY = "lattice.appearance.v4";
+export const MAX_OPEN_TABS = 12;
 const OLDER_APPEARANCE_KEY = "lattice.appearance.v3";
 
 export function loadAppearance(): AppearanceSettings {
@@ -224,7 +320,7 @@ export function loadAppearance(): AppearanceSettings {
           ? "emacs"
           : "default",
       editorSpellcheck: value?.editorSpellcheck === true,
-      maxOpenTabs: clamp(Math.round(Number(value?.maxOpenTabs) || defaults.maxOpenTabs), 1, 20),
+      maxOpenTabs: clamp(Math.round(Number(value?.maxOpenTabs) || defaults.maxOpenTabs), 1, MAX_OPEN_TABS),
     };
   } catch {
     return defaults;
