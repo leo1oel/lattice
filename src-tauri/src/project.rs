@@ -3240,7 +3240,8 @@ fn normalize_source_path(relative: &str) -> Result<String, String> {
             Ok(path.to_string_lossy().to_string())
         }
         _ => Err(
-            "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, or .tldr.".to_string(),
+            "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, or .tldr."
+                .to_string(),
         ),
     }
 }
@@ -4656,15 +4657,17 @@ mod tests {
         assert!(root.join("notes.md").is_file());
         assert!(root.join("attention-demo.html").is_file());
         assert!(root.join("attention-map.tldr").is_file());
-        let board: serde_json::Value = serde_json::from_slice(
-            &fs::read(root.join("attention-map.tldr")).unwrap(),
-        )
-        .unwrap();
+        let board: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join("attention-map.tldr")).unwrap()).unwrap();
         assert_eq!(board["tldrawFileFormatVersion"], 1);
         let board_records = board["records"].as_array().unwrap();
         assert!(board_records.len() >= 18);
-        assert!(board_records.iter().any(|record| record["id"] == "shape:query"));
-        assert!(board_records.iter().any(|record| record["id"] == "shape:context"));
+        assert!(board_records
+            .iter()
+            .any(|record| record["id"] == "shape:query"));
+        assert!(board_records
+            .iter()
+            .any(|record| record["id"] == "shape:context"));
         assert!(root.join("project.toml").is_file());
         assert!(root.join("references.bib").is_file());
         assert!(root.join("neurips.sty").is_file());
