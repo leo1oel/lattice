@@ -307,6 +307,7 @@ const LATTICE_AGENT_PANEL_OPENED = "lattice:agent-panel-opened";
 const SYNARA_AGENT_PERMISSION_MODE_STATUS = "synara:agent-permission-mode";
 const SYNARA_LAYOUT_METRICS = "synara:layout-metrics";
 const SYNARA_EMBED_READY = "synara:embed-ready";
+const SYNARA_OPEN_SETTINGS = "synara:open-settings";
 const SYNARA_SIDEBAR_MINIMUM = 320;
 const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
 
@@ -1130,6 +1131,14 @@ function App() {
         if (sidebarMode === "agent") {
           postSynaraMessage({ type: LATTICE_AGENT_PANEL_OPENED });
         }
+        return;
+      }
+      if (
+        event.data?.type === SYNARA_OPEN_SETTINGS &&
+        event.data.section === "providers"
+      ) {
+        setSettingsTab("agent");
+        setSettingsOpen(true);
         return;
       }
       if (event.data?.type === LATTICE_HOST_CONTEXT_REQUEST) {

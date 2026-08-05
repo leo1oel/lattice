@@ -916,6 +916,26 @@ describe("project workspace", () => {
       { type: "lattice:request-agent-permission-mode" },
       synaraHook.runtime.origin,
     );
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: "https://untrusted.example",
+        data: { type: "synara:open-settings", section: "providers" },
+      }));
+    });
+    expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "synara:open-settings", section: "providers" },
+      }));
+    });
+    const settings = await screen.findByRole("dialog", { name: "Settings" });
+    expect(within(settings).getByRole("button", { name: "Providers" }))
+      .toHaveAttribute("aria-current", "page");
   });
 
   it("opens a project switcher with recent and folder actions", async () => {
