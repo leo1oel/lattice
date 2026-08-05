@@ -12,8 +12,6 @@
 .avatar-group > * {
   --avatar-group-shift: 0px;
   --avatar-group-active-scale: 1;
-  width: 10px;
-  height: 10px;
   margin-left: -8px;
   position: relative;
   flex: none;
@@ -23,6 +21,10 @@
   will-change: transform;
 }
 
-.avatar-group.avatar-group > * { border-radius: 50%; }
+.avatar-group.avatar-group > * {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
 .avatar-group > *:first-child { margin-left: 0; }
 .avatar-group > *:hover { z-index: 1; }
