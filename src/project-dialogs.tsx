@@ -42,6 +42,7 @@ export function Welcome(props: {
   onOpen: () => void;
   onImportZip: () => void;
   onJoinCollab: () => void;
+  onOpenTutorial: () => void;
   onSettings: () => void;
   onInstallTex: () => void;
   onOpenOverleaf?: () => void;
@@ -73,6 +74,13 @@ export function Welcome(props: {
           >
             <MorphIcon size={17} idle={<Folder size={17} />} hover={<FolderOpen size={17} />} />
             Open folder
+          </MotionButton>
+          <MotionButton
+            className={buttonClassName({ variant: "ghost", size: "form" })}
+            disabled={Boolean(props.busyLabel)}
+            onClick={props.onOpenTutorial}
+          >
+            <Sparkles size={17} /> Start product tour
           </MotionButton>
         </div>
         <div className="welcome-more">
@@ -274,7 +282,7 @@ export function ProjectMenu(props: {
       <DropdownMenuItem onSelect={props.onExportZip}><FileArchive /> Export ZIP</DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem disabled={busy} onSelect={props.onOpenTutorial}>
-        <Sparkles /> Explore Lattice tutorial
+        <Sparkles /> Start product tour
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={props.onSettings}><Settings /> Settings</DropdownMenuItem>
       {props.busyLabel && (

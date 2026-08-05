@@ -70,6 +70,36 @@ export class CollabTextDurableStoreV2 {
     });
   }
 
+  async compactAck(namespace: TextNamespaceV2, snapshot: Uint8Array, ack: DurableAckV2, stateVector: Uint8Array): Promise<OutboxEntryV2[]> {
+    const key = textNamespaceKey(namespace);
+    return this.serial(key, async () => {
+      const db = await this.db();
+      return new Promise<OutboxEntryV2[]>((resolve, reject) => {
+        const tx = db.transaction([STORE, OUTBOX_STORE], "readwrite");
+        const documents = tx.objectStore(STORE);
+        const outbox = tx.objectStore(OUTBOX_STORE);
+        const documentRequest = documents.get(key);
+        const outboxRequest = outbox.index(OUTBOX_DOC_INDEX).getAll(key);
+        let remaining: OutboxEntryV2[] = [];
+        let prepared = false;
+        const prepare = () => {
+          if (prepared || documentRequest.readyState !== "done" || outboxRequest.readyState !== "done") return;
+          prepared = true;
+          const prior = documentRequest.result as DurableTextRecordV2 | undefined;
+          const records = outboxRequest.result as StoredOutboxRecordV2[];
+          remaining = records.map((record) => record.entry).filter((entry) => !updateCoveredByStateVector(entry.update, stateVector));
+          documents.put({ ...(prior ?? { key, namespace, outbox: [] }), snapshot, ack });
+          for (const record of records) if (updateCoveredByStateVector(record.entry.update, stateVector)) outbox.delete(record.key);
+        };
+        documentRequest.onsuccess = prepare;
+        outboxRequest.onsuccess = prepare;
+        tx.oncomplete = () => { db.close(); remaining.sort((a, b) => a.createdAt - b.createdAt); resolve(remaining); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+        tx.onabort = () => { db.close(); reject(tx.error); };
+      });
+    });
+  }
+
   async deleteCovered(namespace: TextNamespaceV2, stateVector: Uint8Array): Promise<OutboxEntryV2[]> {
     const key = textNamespaceKey(namespace); return this.serial(key, async () => {
       const entries = await this.readOutboxEntries(key);

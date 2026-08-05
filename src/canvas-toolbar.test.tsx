@@ -11,6 +11,7 @@ const baseProps = {
   html: false,
   activePath: "main.tex",
   activeKind: "document" as const,
+  canInsert: true,
   dirty: false,
   canNavigateBack: false,
   canNavigateForward: false,
@@ -52,5 +53,15 @@ describe("CanvasToolbar Overleaf status", () => {
 
     const button = screen.getByRole("button", { name: "Sync with Overleaf" });
     expect(button.querySelector(".overleaf-status-dot")).toBeNull();
+  });
+});
+
+describe("CanvasToolbar insert action", () => {
+  it("only renders the action when the active editor supports snippets", () => {
+    const { rerender } = render(<CanvasToolbar {...baseProps} />);
+    expect(screen.getByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).toBeInTheDocument();
+
+    rerender(<CanvasToolbar {...baseProps} activePath="sketch.tldr" canInsert={false} />);
+    expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).not.toBeInTheDocument();
   });
 });

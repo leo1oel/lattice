@@ -4,7 +4,12 @@ import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addBlockBelow, moveBlockUp, moveTopLevelBlock } from "./visual-editor-block-controls";
+import {
+  addBlockBelow,
+  moveBlockUp,
+  moveTopLevelBlock,
+  restoreVisualViewportWithReveal,
+} from "./visual-editor-block-controls";
 import { getComponentItems, getInlineComponentItems } from "@ok-app/editor/slash-command/component-items";
 import { getEmbedStarterItems } from "@ok-app/editor/slash-command/embed-starter-items";
 import { VisualMarkdownEditor } from "./visual-markdown-editor";
@@ -14,8 +19,26 @@ import { tableEnterDown } from "@ok-app/editor/extensions/table-row-enter";
 import { LinkPathSuggestionInput } from "@ok-app/editor/link-path-suggestions";
 import { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
 import tutorialMarkdown from "../src-tauri/templates/tutorial/notes.md?raw";
+import {
+  LARGE_MARKDOWN_PREVIEW_THRESHOLD,
+  markdownPreviewSyncPolicy,
+} from "./markdown-preview-sync-policy";
 
 afterEach(cleanup);
+
+function rect({ top, bottom }: { top: number; bottom: number }): DOMRect {
+  return {
+    x: 0,
+    y: top,
+    top,
+    bottom,
+    left: 0,
+    right: 100,
+    width: 100,
+    height: bottom - top,
+    toJSON: () => ({}),
+  };
+}
 
 function renderEditor(
   text = "Hello",
@@ -44,6 +67,19 @@ async function replaceEditorText(text: string) {
 }
 
 describe("VisualMarkdownEditor", () => {
+  it("uses one adaptive synchronization policy for every Markdown preview", () => {
+    expect(markdownPreviewSyncPolicy(1_000)).toEqual({
+      publicationIdleMs: 200,
+      publicationMaxMs: 1_500,
+      peerScrollDelayMs: 0,
+    });
+    expect(markdownPreviewSyncPolicy(LARGE_MARKDOWN_PREVIEW_THRESHOLD)).toEqual({
+      publicationIdleMs: 1_000,
+      publicationMaxMs: 5_000,
+      peerScrollDelayMs: 140,
+    });
+  });
+
   it("draws Overleaf cursors and publishes the visual caret in Markdown coordinates", async () => {
     const onCaretChange = vi.fn();
     render(
@@ -567,7 +603,7 @@ describe("VisualMarkdownEditor", () => {
     expect(surface).toHaveAttribute("contenteditable", "true");
   });
 
-  it("coalesces rapid paper edits before serializing the full document", async () => {
+  it("coalesces rapid reading-preview edits before serializing the document", async () => {
     const onChange = vi.fn<(next: string, expected: string) => boolean>(() => true);
     render(
       <VisualMarkdownEditor
@@ -593,6 +629,32 @@ describe("VisualMarkdownEditor", () => {
     expect(onChange).toHaveBeenCalledWith("Hello a b c", "Hello");
   });
 
+  it("uses the same deferred publication outside reading mode", async () => {
+    const onChange = vi.fn<(next: string, expected: string) => boolean>(() => true);
+    render(
+      <VisualMarkdownEditor
+        text="Hello"
+        activePath="notes.md"
+        onChangeMarkdown={onChange}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+
+    act(() => {
+      editor.commands.insertContentAt(6, " a");
+      editor.commands.insertContentAt(8, " b");
+      editor.commands.insertContentAt(10, " c");
+    });
+
+    await Promise.resolve();
+    expect(onChange).not.toHaveBeenCalled();
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1), { timeout: 1_000 });
+    expect(onChange).toHaveBeenCalledWith("Hello a b c", "Hello");
+  });
+
   it("flushes a pending paper edit before a mode or tab unmount", () => {
     const onChange = vi.fn<(next: string, expected: string) => boolean>(() => true);
     const view = render(
@@ -614,10 +676,23 @@ describe("VisualMarkdownEditor", () => {
     expect(onChange).toHaveBeenCalledWith("Hello final", "Hello");
   });
 
-  it("adds a block without asking ProseMirror to reposition the paper viewport", () => {
-    renderEditor("First\n\nSecond");
+  it("adds a slash block without unnecessary split preview movement", async () => {
+    const onRequestViewportLock = vi.fn();
+    render(
+      <VisualMarkdownEditor
+        text="First\n\nSecond"
+        activePath="notes.md"
+        onChangeMarkdown={() => true}
+        onRequestViewportLock={onRequestViewportLock}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const viewport = surface.closest<HTMLElement>(".visual-markdown-editor")!;
+    viewport.classList.add("editor-doc-scroll");
+    viewport.scrollTop = 480;
     const transactions: boolean[] = [];
     const dispatch = editor.view.dispatch.bind(editor.view);
     vi.spyOn(editor.view, "dispatch").mockImplementation((transaction) => {
@@ -629,13 +704,52 @@ describe("VisualMarkdownEditor", () => {
 
     expect(transactions[0]).toBe(false);
     expect(editor.state.selection.$from.parent.type.name).toBe("paragraph");
+    expect(editor.state.selection.$from.parent.textContent).toBe("/");
+    expect(onRequestViewportLock).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("listbox", { name: "Slash commands" })).toBeInTheDocument();
+    await waitFor(() => expect(onRequestViewportLock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(viewport.scrollTop).toBe(480));
+  });
+
+  it("scrolls only enough to reveal an added block below the viewport", () => {
+    const viewport = document.createElement("div");
+    const anchor = document.createElement("p");
+    const reveal = document.createElement("p");
+    viewport.append(anchor, reveal);
+    document.body.append(viewport);
+    viewport.scrollTop = 480;
+    vi.spyOn(viewport, "getBoundingClientRect").mockReturnValue(rect({ top: 100, bottom: 600 }));
+    vi.spyOn(anchor, "getBoundingClientRect").mockReturnValue(rect({ top: 400, bottom: 450 }));
+    const revealRect = vi.spyOn(reveal, "getBoundingClientRect");
+
+    revealRect.mockReturnValue(rect({ top: 520, bottom: 580 }));
+    restoreVisualViewportWithReveal(viewport, 480, anchor, 400, reveal);
+    expect(viewport.scrollTop).toBe(480);
+
+    revealRect.mockReturnValue(rect({ top: 590, bottom: 645 }));
+    restoreVisualViewportWithReveal(viewport, 480, anchor, 400, reveal);
+    expect(viewport.scrollTop).toBe(525);
   });
 
   it("keeps tutorial fenced-code bodies when the block plus action adds a slash paragraph", async () => {
     const { onChange } = renderEditor(tutorialMarkdown);
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
-    await waitFor(() => expect(document.querySelectorAll(".ok-codeblock")).toHaveLength(2));
+    await waitFor(() => expect(document.querySelectorAll(".ok-codeblock")).toHaveLength(3));
+    await waitFor(() => {
+      const callout = document.querySelector<HTMLElement>('[data-component-name="Callout"]');
+      const accordion = document.querySelector<HTMLElement>('[data-component-name="Accordion"]');
+      expect(callout?.querySelector(".callout-body")).toHaveTextContent(
+        "Attention weights show routing patterns",
+      );
+      expect(accordion?.querySelector(".accordion-body")).toHaveTextContent(
+        "Scaling keeps the softmax distribution",
+      );
+      expect(accordion?.querySelector("details.accordion")).toHaveAttribute("open");
+    });
+    expect(screen.getByRole("img", {
+      name: "Scaled dot-product attention from Figure 2 of the Transformer paper",
+    }).closest(".ok-image-resizable")).toHaveStyle({ width: "223px" });
 
     act(() => addBlockBelow(editor, 0, editor.state.doc.firstChild!));
 
@@ -646,18 +760,32 @@ describe("VisualMarkdownEditor", () => {
     });
     expect(codeNodes[0]).toContain("scores = queries");
     expect(codeNodes[1]).toContain("flowchart LR");
+    expect(codeNodes[2]).toContain("Select a query token");
     expect(Array.from(document.querySelectorAll(".ok-codeblock-pre")).map((node) => node.textContent))
-      .toEqual(expect.arrayContaining([expect.stringContaining("scores = queries"), expect.stringContaining("flowchart LR")]));
+      .toEqual(expect.arrayContaining([
+        expect.stringContaining("scores = queries"),
+        expect.stringContaining("flowchart LR"),
+        expect.stringContaining("Select a query token"),
+      ]));
     const output = String(onChange.mock.lastCall?.[0]);
     expect(output).toContain([
-      "```python",
-      "scores = queries @ keys.T / sqrt(key_dimension)",
-      "weights = softmax(scores, axis=-1)",
-      "context = weights @ values",
-      "```",
+      "```python title=\"Scaled dot-product attention in NumPy\"",
+      "import numpy as np",
+      "",
+      "def softmax(values: np.ndarray, axis: int = -1) -> np.ndarray:",
+      "    shifted = values - values.max(axis=axis, keepdims=True)",
+      "    exponentials = np.exp(shifted)",
+      "    return exponentials / exponentials.sum(axis=axis, keepdims=True)",
     ].join("\n"));
     expect(output).toContain([
-      "```mermaid",
+      "    key_dimension = keys.shape[-1]",
+      "    scores = queries @ keys.swapaxes(-1, -2) / np.sqrt(key_dimension)",
+      "    if mask is not None:",
+      "        scores = np.where(mask, scores, -np.inf)",
+      "    weights = softmax(scores, axis=-1)",
+    ].join("\n"));
+    expect(output).toContain([
+      "```mermaid title=\"From queries and keys to contextual representations\"",
       "flowchart LR",
       "  Q[Queries] --> S[Scaled scores]",
       "  K[Keys] --> S",
@@ -666,6 +794,56 @@ describe("VisualMarkdownEditor", () => {
       "  V[Values] --> C",
       "```",
     ].join("\n"));
+    expect(output).toContain("```html preview h=360px title=\"Embedded attention demo\"");
+    expect(output).toContain("render(1);");
+    expect(output).toContain("<Callout type=\"important\" title=\"Attention maps need validation\"");
+    expect(output).toContain("Compare them with ablations or attribution methods");
+    expect(output).toContain("<Accordion title=\"Why scale attention scores?\"");
+    expect(output).toContain("Scaling keeps the softmax distribution and its gradients well behaved.");
+    expect(output).toContain('width={223}');
+  });
+
+  it("keeps accordion block content visible when remounting from Preview to Split", async () => {
+    const accordionMarkdown = [
+      '<Accordion title="Details" defaultOpen>',
+      'A paragraph with **formatted text**.',
+      '',
+      '- First item',
+      '- Second item',
+      '',
+      '```ts',
+      'const scale = Math.sqrt(64);',
+      '```',
+      '</Accordion>',
+    ].join('\n');
+    const props = {
+      text: accordionMarkdown,
+      activePath: "notes.md",
+      onChangeMarkdown: () => true,
+      onUndo: () => false,
+      onRedo: () => false,
+    };
+    const view = render(
+      <VisualMarkdownEditor key="preview" {...props} synchronizeSourceScroll={false} />,
+    );
+
+    const expandedAccordion = () => {
+      const accordion = document.querySelector<HTMLElement>('[data-component-name="Accordion"]');
+      expect(accordion?.querySelector("details.accordion")).toHaveAttribute("open");
+      expect(accordion?.querySelector(".accordion-body")).toHaveTextContent(
+        "A paragraph with formatted text",
+      );
+      expect(accordion?.querySelectorAll(".accordion-body li")).toHaveLength(2);
+      expect(accordion?.querySelector(".accordion-body code")).toHaveTextContent(
+        "const scale = Math.sqrt(64);",
+      );
+    };
+    await waitFor(expandedAccordion);
+
+    view.rerender(
+      <VisualMarkdownEditor key="split" {...props} synchronizeSourceScroll />,
+    );
+    await waitFor(expandedAccordion);
   });
 
   it("keeps intentional code clearing authoritative", async () => {
@@ -959,6 +1137,9 @@ describe("VisualMarkdownEditor", () => {
     const bold = await screen.findByRole("button", { name: "bold" });
     const toolbar = bold.closest<HTMLElement>('[data-testid="bubble-menu-bar"]')!;
     expect(bold).toBeEnabled();
+    expect(
+      toolbar.querySelector('button[aria-label="Convert selection to inline math"]'),
+    ).toBeEnabled();
     expect(toolbar).toHaveAttribute("data-testid", "bubble-menu-bar");
     // The toolbar node is portalled outside .tiptap-editor, so it must carry
     // the vendored theme scope itself. Otherwise WebKit paints unstyled
@@ -974,6 +1155,29 @@ describe("VisualMarkdownEditor", () => {
     fireEvent.blur(surface, { relatedTarget: outside });
     outside.focus();
     await waitFor(() => expect(screen.queryByRole("button", { name: "bold" })).not.toBeInTheDocument());
+  });
+
+  it("converts selected text to inline math from the contextual toolbar", async () => {
+    const { onChange } = renderEditor("Energy is E=mc^2.");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    editor.view.focus();
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 11, 17)),
+    );
+
+    fireEvent.mouseDown(
+      await screen.findByRole("button", { name: "Convert selection to inline math" }),
+    );
+
+    let inlineMathFormula: string | null = null;
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === "mathInline") inlineMathFormula = node.attrs.formula as string;
+    });
+    expect(inlineMathFormula).toBe("E=mc^2");
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith("Energy is $E=mc^2$.", "Energy is E=mc^2."),
+    );
   });
 
   it("creates a Markdown comment from the visual selection", async () => {
@@ -1049,45 +1253,49 @@ describe("VisualMarkdownEditor", () => {
     expect(onViewInSource).toHaveBeenCalledWith(0, expect.any(Number));
   });
 
-  it("maps View in source to the selected Markdown block offset", async () => {
-    const markdown = "# Heading\n\nFirst paragraph.\n\nTarget paragraph.";
-    const onViewInSource = vi.fn<(sourceOffset: number) => void>();
-    render(
-      <VisualMarkdownEditor
-        text={markdown}
-        activePath="notes.md"
-        onChangeMarkdown={() => true}
-        onUndo={() => false}
-        onRedo={() => false}
-        onViewInSource={onViewInSource}
-      />,
-    );
-    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
-    const editor = (surface as HTMLElement & { editor: Editor }).editor;
-    let targetPosition = 0;
-    editor.state.doc.descendants((node, position) => {
-      if (node.isText && node.text?.startsWith("Target")) targetPosition = position;
-    });
-    editor.view.focus();
-    editor.view.dispatch(editor.view.state.tr.setSelection(
-      TextSelection.create(editor.view.state.doc, targetPosition, targetPosition + 6),
-    ));
-
-    await waitFor(() => {
-      const targetBlock = surface.querySelectorAll(":scope > p, :scope > h1")[2];
-      expect(targetBlock).toHaveAttribute("data-source-line", "5");
-      expect(targetBlock).toHaveAttribute(
-        "data-source-offset",
-        String(markdown.indexOf("Target paragraph.")),
+  it.each([false, true])(
+    "maps View in source with exact block labels when reading optimization is %s",
+    async (optimizeForReading) => {
+      const markdown = "# Heading\n\nFirst paragraph.\n\nTarget paragraph.";
+      const onViewInSource = vi.fn<(sourceOffset: number) => void>();
+      render(
+        <VisualMarkdownEditor
+          text={markdown}
+          activePath="notes.md"
+          optimizeForReading={optimizeForReading}
+          onChangeMarkdown={() => true}
+          onUndo={() => false}
+          onRedo={() => false}
+          onViewInSource={onViewInSource}
+        />,
       );
-      expect(targetBlock).toHaveAttribute("data-source-end-offset", String(markdown.length));
-    });
-    fireEvent.click(await screen.findByRole("button", { name: "View in source Markdown" }));
-    expect(onViewInSource).toHaveBeenCalledWith(
-      markdown.indexOf("Target paragraph."),
-      expect.any(Number),
-    );
-  });
+      const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+      const editor = (surface as HTMLElement & { editor: Editor }).editor;
+      let targetPosition = 0;
+      editor.state.doc.descendants((node, position) => {
+        if (node.isText && node.text?.startsWith("Target")) targetPosition = position;
+      });
+      editor.view.focus();
+      editor.view.dispatch(editor.view.state.tr.setSelection(
+        TextSelection.create(editor.view.state.doc, targetPosition, targetPosition + 6),
+      ));
+
+      await waitFor(() => {
+        const targetBlock = surface.querySelectorAll(":scope > p, :scope > h1")[2];
+        expect(targetBlock).toHaveAttribute("data-source-line", "5");
+        expect(targetBlock).toHaveAttribute(
+          "data-source-offset",
+          String(markdown.indexOf("Target paragraph.")),
+        );
+        expect(targetBlock).toHaveAttribute("data-source-end-offset", String(markdown.length));
+      });
+      fireEvent.click(await screen.findByRole("button", { name: "View in source Markdown" }));
+      expect(onViewInSource).toHaveBeenCalledWith(
+        markdown.indexOf("Target paragraph."),
+        expect.any(Number),
+      );
+    },
+  );
 
   it("mounts Open Knowledge-style add and drag controls for document blocks", async () => {
     renderEditor("First\n\nSecond");
@@ -1159,6 +1367,32 @@ describe("VisualMarkdownEditor", () => {
     await waitFor(() => expect(String(onChange.mock.lastCall?.[0])).toBe(""));
   });
 
+  it.each(["toml", "mermaid", "html"])("renders a titled %s block with its title attached to the surface", async (language) => {
+    const body = language === "mermaid"
+      ? "graph TD; A-->B"
+      : language === "html"
+        ? "<p>Hello</p>"
+        : "[tool]\nname = \"demo\"";
+    const previewMeta = language === "toml" ? "" : " w=320px";
+    renderEditor(`\`\`\`${language} title="Example"${previewMeta}\n${body}\n\`\`\``);
+    const block = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(`.ok-codeblock[data-language="${language}"]`);
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const title = within(block).getByTestId("ok-codeblock-title");
+    const surface = language === "toml"
+      ? block.querySelector(".ok-codeblock-pre")
+      : block.querySelector(".ok-codeblock-preview");
+    expect(surface).not.toBeNull();
+    if (language === "toml") {
+      expect(title.compareDocumentPosition(surface!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    } else {
+      expect(title.parentElement).toBe(surface);
+      expect(surface).toHaveStyle({ width: "320px" });
+    }
+  });
+
   it("opens a searchable slash menu and inserts the selected block", async () => {
     const { onChange } = renderEditor("");
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
@@ -1170,7 +1404,7 @@ describe("VisualMarkdownEditor", () => {
     fireEvent.mouseDown(within(menu).getByRole("option", { name: /Heading 2/ }));
     await waitFor(() => expect(editor.isActive("heading", { level: 2 })).toBe(true));
     expect(editor.getText()).not.toContain("/h2");
-    expect(onChange).toHaveBeenCalled();
+    await waitFor(() => expect(onChange).toHaveBeenCalled(), { timeout: 2_500 });
   });
 
   it("offers the complete set of Markdown-native insertions from the add menu", async () => {
@@ -1536,7 +1770,40 @@ describe("VisualMarkdownEditor", () => {
     const preview = await screen.findByTitle("HTML preview");
     expect(preview).toHaveAttribute("sandbox", "allow-scripts");
     expect(preview.getAttribute("srcdoc")).not.toContain("okPreviewHeight");
-    expect((preview.closest(".ok-codeblock-preview") as HTMLElement).style.height).toBe("");
+    expect(preview.getAttribute("srcdoc")).toContain("scrollbar-color: transparent transparent");
+    expect(preview.getAttribute("srcdoc")).toContain("*:hover::-webkit-scrollbar-thumb");
+    const previewWrapper = preview.closest<HTMLElement>(".ok-codeblock-preview");
+    expect(previewWrapper).toHaveClass("ok-codeblock-preview--html");
+    expect(previewWrapper!.querySelector(".ok-resize-handle--l")).not.toBeNull();
+    expect(previewWrapper!.querySelector(".ok-resize-handle--r")).not.toBeNull();
+    expect(previewWrapper!.querySelector(".ok-resize-handle--b")).toBeNull();
+    vi.spyOn(previewWrapper!, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 320,
+      bottom: 416,
+      width: 320,
+      height: 416,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const rightHandle = previewWrapper!.querySelector<HTMLElement>(".ok-resize-handle--r");
+    const previewViewport = surface.closest<HTMLElement>(".visual-markdown-editor")!;
+    previewViewport.classList.add("editor-doc-scroll");
+    previewViewport.scrollTop = 480;
+    fireEvent.pointerDown(rightHandle!, { pointerId: 1, clientX: 320, clientY: 200 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 400, clientY: 300 });
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 400, clientY: 300 });
+    await waitFor(() => expect(String(onChange.mock.lastCall?.[0])).toContain("w=400px"));
+    await waitFor(() => expect(previewViewport.scrollTop).toBe(480));
+    expect(String(onChange.mock.lastCall?.[0])).not.toContain("h=");
+    expect(screen.getByRole("button", { name: "Align preview center" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Align preview right" }));
+    await waitFor(() => expect(String(onChange.mock.lastCall?.[0])).toContain("align=right"));
     await waitFor(() => expect(String(onChange.mock.lastCall?.[0])).toContain("```html preview"));
     fireEvent.click(screen.getByRole("button", { name: "Hide HTML preview" }));
     expect(screen.queryByTitle("HTML preview")).not.toBeInTheDocument();
@@ -1604,7 +1871,10 @@ describe("VisualMarkdownEditor", () => {
     // its node UI owns subsequent source editing.
     expect(prompt).not.toHaveBeenCalled();
     await waitFor(() => expect(editorMarkdown(editor)).not.toContain("/image"));
-    expect(String(onChange.mock.lastCall?.[0])).toBe('<img src="" />');
+    await waitFor(
+      () => expect(String(onChange.mock.lastCall?.[0])).toBe('<img src="" />'),
+      { timeout: 2_500 },
+    );
     prompt.mockRestore();
   });
 
@@ -1692,7 +1962,7 @@ describe("VisualMarkdownEditor", () => {
   });
 
   it("discards an empty tag placeholder on Escape", async () => {
-    const { onChange } = renderEditor("A");
+    renderEditor("A");
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
     act(() => {
@@ -1701,8 +1971,9 @@ describe("VisualMarkdownEditor", () => {
     const input = await screen.findByRole("textbox", { name: "Tag value" });
     fireEvent.keyDown(input, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("textbox", { name: "Tag value" })).not.toBeInTheDocument());
-    // The placeholder atom deleted itself; the document is back to the original.
-    await waitFor(() => expect(String(onChange.mock.lastCall?.[0])).toBe("A"));
+    // The placeholder atom deleted itself, returning the document to its
+    // original state regardless of when deferred publication runs.
+    expect(editor.getText()).toBe("A");
   });
 
   it("deletes a filled tag atom with a single Backspace", async () => {
@@ -1867,7 +2138,15 @@ describe("VisualMarkdownEditor", () => {
       if (node.type.name === "jsxComponent") mathPosition = position;
     });
     editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, mathPosition)));
-    expect(await screen.findByRole("button", { name: "Edit display equation" })).toBeInTheDocument();
+    const propertiesButton = await screen.findByRole("button", { name: "Dollar Math properties" });
+    const mathComponent = propertiesButton.closest(".jsx-component-wrapper");
+    expect(mathComponent).not.toBeNull();
+    expect(within(mathComponent as HTMLElement).queryByRole("button", { name: "Edit display equation" })).not.toBeInTheDocument();
+    const toolbarButtons = within(mathComponent as HTMLElement).getAllByRole("button");
+    expect(toolbarButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Dollar Math properties",
+      "Delete Dollar Math",
+    ]);
     expect(moveBlockUp(editor.state, editor.view.dispatch)).toBe(true);
     expect(editor.state.selection).toBeInstanceOf(NodeSelection);
     expect(editor.state.doc.nodeAt(editor.state.selection.from)?.type.name).toBe("jsxComponent");
@@ -2176,7 +2455,10 @@ describe("VisualMarkdownEditor", () => {
     fireEvent.click(insertRowBelow);
     await waitFor(() => expect(surface.querySelectorAll("tr")).toHaveLength(3));
     expect(surface.querySelectorAll("tr:first-child th")).toHaveLength(2);
-    expect(String(onChange.mock.lastCall?.[0])).toMatch(/\| Left\s+\| Right\s+\|\n\| -+ \| -+ \|/);
+    await waitFor(
+      () => expect(String(onChange.mock.lastCall?.[0])).toMatch(/\| Left\s+\| Right\s+\|\n\| -+ \| -+ \|/),
+      { timeout: 2_500 },
+    );
   });
 
   it("uses Enter to move down a table column and appends a row at the bottom", async () => {
@@ -2191,7 +2473,7 @@ describe("VisualMarkdownEditor", () => {
     fireEvent.keyDown(surface, { key: "Enter" });
     await waitFor(() => expect(surface.querySelectorAll("tr")).toHaveLength(3));
     expect(surface.querySelectorAll("tr:first-child th")).toHaveLength(2);
-    expect(onChange).toHaveBeenCalled();
+    await waitFor(() => expect(onChange).toHaveBeenCalled(), { timeout: 2_500 });
   });
 
   it("moves down a column instead of splitting the cell when table text is selected", () => {
@@ -2412,14 +2694,33 @@ describe("VisualMarkdownEditor", () => {
       expect(el).not.toBeNull();
       return el!;
     });
-    expect(block).toHaveAttribute("data-code-visible", "true");
-    expect(screen.getByRole("button", { name: "Code block language: Mermaid. Click to change." })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show Mermaid preview" }));
-    expect(await screen.findByRole("group", { name: "Mermaid preview" })).toBeInTheDocument();
     expect(block).toHaveAttribute("data-code-visible", "false");
+    expect(screen.getByRole("button", { name: "Code block language: Mermaid. Click to change." })).toBeInTheDocument();
+    const initialPreview = await screen.findByRole("group", { name: "Mermaid preview" });
+    expect(initialPreview).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Hide Mermaid preview" }));
     expect(screen.queryByRole("group", { name: "Mermaid preview" })).not.toBeInTheDocument();
+    expect(block).toHaveAttribute("data-code-visible", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Show Mermaid preview" }));
+    const preview = await screen.findByRole("group", { name: "Mermaid preview" });
+    expect(preview).toBeInTheDocument();
+    const previewWrapper = preview.closest<HTMLElement>(".ok-codeblock-preview");
+    expect(previewWrapper).toHaveClass("ok-codeblock-preview--mermaid");
+    expect(previewWrapper!.querySelector(".ok-resize-handle--l")).not.toBeNull();
+    expect(previewWrapper!.querySelector(".ok-resize-handle--r")).not.toBeNull();
+    expect(previewWrapper!.querySelector(".ok-resize-handle--b")).toBeNull();
+    expect(block).toHaveAttribute("data-code-visible", "false");
     expect(block).toHaveTextContent("graph TD; A-->B");
+  });
+
+  it("opens a plain HTML fence as a visual preview by default", async () => {
+    renderEditor("```html\n<p>Visual by default</p>\n```");
+    expect(await screen.findByTitle("HTML preview")).toBeInTheDocument();
+    expect(document.querySelector('.ok-codeblock[data-language="html"]')).toHaveAttribute(
+      "data-code-visible",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: "Hide HTML preview" })).toBeInTheDocument();
   });
 
   it("offers Mermaid in the code block language picker", async () => {
@@ -2433,7 +2734,8 @@ describe("VisualMarkdownEditor", () => {
       target: { value: "Mermaid" },
     });
     fireEvent.click(await screen.findByRole("option", { name: "Mermaid" }));
-    expect(await screen.findByRole("button", { name: "Show Mermaid preview" })).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: "Mermaid preview" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide Mermaid preview" })).toBeInTheDocument();
     await waitFor(() =>
       expect(String(onChange.mock.lastCall?.[0])).toBe("```mermaid\ngraph TD; A-->B\n```"),
     );
@@ -2736,5 +3038,66 @@ describe("VisualMarkdownEditor", () => {
       "src",
       "data:image/png;base64,YmxvY2s=",
     );
+  });
+
+  it("keeps image alignment in the hover toolbar instead of the selection bubble", async () => {
+    const { onChange } = renderEditor("![Plot](figures/plot.png)");
+    const image = await screen.findByRole("img", { name: "Plot" });
+    const component = image.closest<HTMLElement>("[data-jsx-component]");
+    expect(component).not.toBeNull();
+
+    fireEvent.mouseOver(component!);
+    expect(screen.getByRole("button", { name: "Align center" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Align right" }));
+    await waitFor(() => expect(String(onChange.mock.lastCall?.[0])).toContain('align="right"'));
+    expect(String(onChange.mock.lastCall?.[0])).toContain('src="figures/plot.png"');
+    expect(String(onChange.mock.lastCall?.[0])).not.toContain("sourceUrl=");
+
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    editor.commands.setNodeSelection(0);
+    for (const bubbleMenu of screen.queryAllByTestId("bubble-menu-bar")) {
+      expect(within(bubbleMenu).queryByRole("button", { name: "Align right" })).toBeNull();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Image properties" }));
+    await waitFor(() => expect(document.querySelector("[data-prop-panel]")).not.toBeNull());
+    expect(document.querySelector("[data-prop-panel-advanced-trigger]")).toBeNull();
+    expect(screen.queryByText("Align")).not.toBeInTheDocument();
+  });
+
+  it("resizes a Markdown image and persists its dimensions as an HTML image", async () => {
+    const { onChange } = renderEditor("![Plot](figures/plot.png \"Results\")");
+    const image = await screen.findByRole("img", { name: "Plot" });
+    const wrapper = image.closest<HTMLElement>(".ok-image-resizable");
+    expect(wrapper).not.toBeNull();
+    vi.spyOn(wrapper!, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 320,
+      bottom: 240,
+      width: 320,
+      height: 240,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    expect(wrapper!.querySelector(".ok-resize-handle--br")).toBeNull();
+    const handle = wrapper!.querySelector<HTMLElement>(".ok-resize-handle--r");
+    expect(handle).not.toBeNull();
+    fireEvent.pointerDown(handle!, { pointerId: 1, clientX: 320, clientY: 240 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 400, clientY: 300 });
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 400, clientY: 300 });
+
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(String(onChange.mock.lastCall?.[0])).toContain('width={400}');
+    expect(String(onChange.mock.lastCall?.[0])).not.toContain('height=');
+    expect(String(onChange.mock.lastCall?.[0])).toContain('src="figures/plot.png"');
+    expect(String(onChange.mock.lastCall?.[0])).toContain('alt="Plot"');
+    expect(String(onChange.mock.lastCall?.[0])).toContain('title="Results"');
   });
 });

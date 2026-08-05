@@ -11,6 +11,12 @@ import {
 } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
+import {
+  LanguageDescription,
+  LanguageSupport,
+  StreamLanguage,
+  type StreamParser,
+} from "@codemirror/language";
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin } from "@codemirror/view";
@@ -29,6 +35,8 @@ import {
 } from "./overleaf-track-changes";
 import type { TrackedChange } from "./use-overleaf-realtime";
 import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
+import { markdownPreviewSyncPolicy } from "./markdown-preview-sync-policy";
+import { restoreVisualViewportWithReveal } from "./visual-editor-block-controls";
 import {
   Columns2,
   FileCode2,
@@ -128,13 +136,17 @@ import type { EditorCollabSession } from "./collab-session";
 import { peerCaretOffsetsV2 } from "./collab-session";
 import { collabEditorExtensions } from "./collab-editor";
 
-const PdfPreview = lazy(() => import("./pdf-viewer").then((module) => ({
+const loadPdfPreviewModule = () => import("./pdf-viewer");
+const loadVisualMarkdownEditorModule = () => import("./visual-markdown-editor");
+const loadBoardEditorModule = () => import("./board-editor");
+
+const PdfPreview = lazy(() => loadPdfPreviewModule().then((module) => ({
   default: module.PdfPreview,
 })));
-const VisualMarkdownEditor = lazy(() => import("./visual-markdown-editor").then((module) => ({
+const VisualMarkdownEditor = lazy(() => loadVisualMarkdownEditorModule().then((module) => ({
   default: module.VisualMarkdownEditor,
 })));
-const BoardEditor = lazy(() => import("./board-editor").then((module) => ({
+const BoardEditor = lazy(() => loadBoardEditorModule().then((module) => ({
   default: module.BoardEditor,
 })));
 
@@ -468,6 +480,48 @@ const BIBTEX_EXTENSIONS: Extension[] = [bibtex({
   enableAutocomplete: true,
   autoCloseBrackets: true,
 })];
+interface GitignoreParserState {
+  atLineStart: boolean;
+}
+const gitignoreParser: StreamParser<GitignoreParserState> = {
+  startState: () => ({ atLineStart: true }),
+  token(stream, state) {
+    if (stream.sol()) state.atLineStart = true;
+    if (stream.eatSpace()) return null;
+    if (state.atLineStart && stream.peek() === "#") {
+      stream.skipToEnd();
+      return "comment";
+    }
+    if (state.atLineStart && stream.peek() === "!") {
+      state.atLineStart = false;
+      stream.next();
+      return "operator";
+    }
+    state.atLineStart = false;
+    if (stream.peek() === "\\") {
+      stream.next();
+      stream.next();
+      return "escape";
+    }
+    if (stream.match(/^[*?]+/)) return "regexp";
+    if (stream.peek() === "[") {
+      stream.next();
+      stream.skipTo("]");
+      stream.next();
+      return "regexp";
+    }
+    if (stream.peek() === "/") {
+      stream.next();
+      return "operator";
+    }
+    stream.eatWhile((character) => !"\\*?[/".includes(character));
+    return "string";
+  },
+  languageData: { commentTokens: { line: "#" } },
+};
+const GITIGNORE_EXTENSIONS: Extension[] = [
+  new LanguageSupport(StreamLanguage.define(gitignoreParser)),
+];
 let markdownExtensionsPromise: Promise<Extension[]> | null = null;
 let htmlExtensionsPromise: Promise<Extension[]> | null = null;
 
@@ -486,7 +540,61 @@ function loadHtmlExtensions(): Promise<Extension[]> {
 }
 
 function immediateTextLanguageExtensions(path: string): Extension[] {
-  return /\.bib$/i.test(path) ? BIBTEX_EXTENSIONS : EMPTY_EXTENSIONS;
+  if (/\.bib$/i.test(path)) return BIBTEX_EXTENSIONS;
+  if (/(?:^|\/)\.gitignore$/i.test(path)) return GITIGNORE_EXTENSIONS;
+  return EMPTY_EXTENSIONS;
+}
+
+/** Load the CodeMirror language associated with a project filename. */
+export async function loadTextLanguageExtensions(path: string): Promise<Extension[]> {
+  const immediate = immediateTextLanguageExtensions(path);
+  if (immediate.length > 0) return immediate;
+  if (/\.md$/i.test(path)) return loadMarkdownExtensions();
+  if (isHtmlFilePath(path)) return loadHtmlExtensions();
+
+  const { languages } = await import("@codemirror/language-data");
+  const filename = path.slice(path.lastIndexOf("/") + 1);
+  const description = LanguageDescription.matchFilename(languages, filename)
+    ?? LanguageDescription.matchFilename(languages, filename.toLowerCase());
+  return description ? [await description.load()] : EMPTY_EXTENSIONS;
+}
+
+/** Download project-relevant editor and preview chunks without mounting UI. */
+// eslint-disable-next-line react-refresh/only-export-components -- App lazy-loads this alongside the canvas chunk.
+export async function prewarmProjectPreviewModules(paths: readonly string[]): Promise<void> {
+  const normalized = paths.map((path) => path.toLocaleLowerCase());
+  const representativeLanguages = new Map<string, string>();
+  for (const path of paths) {
+    const filename = path.slice(path.lastIndexOf("/") + 1);
+    if (filename !== ".gitignore" && !/\.(?:tex|bib|mdx?|txt|html?|sty|cls|bst)$/i.test(filename)) continue;
+    const extension = filename.includes(".") ? filename.slice(filename.lastIndexOf(".")) : filename;
+    if (!representativeLanguages.has(extension)) representativeLanguages.set(extension, path);
+  }
+  const work: Promise<unknown>[] = [...representativeLanguages.values()].map(loadTextLanguageExtensions);
+  if (normalized.some((path) => path.endsWith(".md") || path.endsWith(".mdx"))) {
+    work.push(loadVisualMarkdownEditorModule());
+  }
+  if (normalized.some((path) => path.endsWith(".tex") || path.endsWith(".pdf"))) {
+    work.push(loadPdfPreviewModule());
+  }
+  if (normalized.some((path) => path.endsWith(".tldr"))) {
+    work.push(Promise.all([
+      loadBoardEditorModule(),
+      import("./board-yjs-bridge"),
+    ]).then(([, board]) => {
+      // Initialize tldraw's schema/store machinery without mounting a canvas
+      // or attaching a writable collaboration bridge.
+      board.createBoardStore("");
+    }));
+  }
+  await Promise.allSettled(work);
+}
+
+/** Parse one Markdown document into the visual editor's bounded warm cache. */
+// eslint-disable-next-line react-refresh/only-export-components -- App lazy-loads this alongside the canvas chunk.
+export async function prewarmMarkdownPreviewDocument(path: string, source: string): Promise<void> {
+  const module = await loadVisualMarkdownEditorModule();
+  module.prewarmVisualMarkdownDocument(path, source);
 }
 
 function useTextLanguageExtensions(path: string): Extension[] {
@@ -499,14 +607,9 @@ function useTextLanguageExtensions(path: string): Extension[] {
     let disposed = false;
     const immediate = immediateTextLanguageExtensions(path);
     setLoaded({ path, extensions: immediate });
-    const loading = /\.md$/i.test(path)
-      ? loadMarkdownExtensions()
-      : isHtmlFilePath(path)
-        ? loadHtmlExtensions()
-        : null;
-    if (!loading) return () => { disposed = true; };
+    if (immediate.length > 0 || !path) return () => { disposed = true; };
 
-    void loading.then((extensions) => {
+    void loadTextLanguageExtensions(path).then((extensions) => {
       if (!disposed) setLoaded({ path, extensions });
     });
     return () => { disposed = true; };
@@ -756,6 +859,7 @@ export function DocumentCanvas(props: {
       ? markdownFrontmatterEnd(props.source)
       : 0;
   const markdownPreviewText = props.markdownPreviewSource ?? props.source.slice(markdownPreviewStart);
+  const markdownSyncPolicy = markdownPreviewSyncPolicy(markdownPreviewText.length);
   const markdownPreviewLineOffset = props.source.slice(0, markdownPreviewStart).split("\n").length - 1;
   const markdownVisualCursors = useMemo(
     () => props.overleafPresenceCursors
@@ -780,7 +884,10 @@ export function DocumentCanvas(props: {
   const [primaryScrollbarView, setPrimaryScrollbarView] = useState<EditorView | null>(null);
   const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<EditorView | null>(null);
   const [markdownPreviewViewport, setMarkdownPreviewViewport] = useState<HTMLDivElement | null>(null);
+  const markdownPreviewViewportRef = useRef<HTMLDivElement | null>(null);
   const markdownScrollSyncSuppressedRef = useRef(false);
+  const markdownPreviewViewportLockRef = useRef(0);
+  const markdownPreviewOverflowAnchorRef = useRef("");
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<{ pane: EditorPaneId; cursor: number } | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
@@ -1308,8 +1415,12 @@ export function DocumentCanvas(props: {
   const reportSecondaryVimMode = useCallback((mode: string) => reportVimMode("secondary", mode), [reportVimMode]);
   const primaryKeymapExtensions = useOptionalKeymapExtensions(editorKeymap, reportPrimaryVimMode);
   const secondaryKeymapExtensions = useOptionalKeymapExtensions(editorKeymap, reportSecondaryVimMode);
-  const primaryTextLanguageExtensions = useTextLanguageExtensions(activeFile);
-  const secondaryTextLanguageExtensions = useTextLanguageExtensions(secondaryFile ?? "");
+  const primaryTextLanguageExtensions = useTextLanguageExtensions(
+    isLatexSourcePath(activeFile) ? "" : activeFile,
+  );
+  const secondaryTextLanguageExtensions = useTextLanguageExtensions(
+    secondaryFile && !isLatexSourcePath(secondaryFile) ? secondaryFile : "",
+  );
   const focusedVimMode = focusedPane === "secondary" && secondaryFile
     ? vimModes.secondary
     : vimModes.primary;
@@ -1735,6 +1846,42 @@ export function DocumentCanvas(props: {
     markdownPreviewStart,
   ]);
 
+  const lockMarkdownPreviewViewport = useCallback((
+    anchor: HTMLElement | null,
+    anchorTop: number | null,
+    reveal: HTMLElement | null,
+  ) => {
+    const viewport = markdownPreviewViewportRef.current;
+    if (!viewport) return;
+    const scrollTop = viewport.scrollTop;
+    const lock = markdownPreviewViewportLockRef.current + 1;
+    if (markdownPreviewViewportLockRef.current === 0) {
+      markdownPreviewOverflowAnchorRef.current = viewport.style.overflowAnchor;
+    }
+    markdownPreviewViewportLockRef.current = lock;
+    viewport.style.overflowAnchor = "none";
+    const restore = () => {
+      if (markdownPreviewViewportLockRef.current !== lock || !viewport.isConnected) return false;
+      restoreVisualViewportWithReveal(viewport, scrollTop, anchor, anchorTop, reveal);
+      return true;
+    };
+    restore();
+    queueMicrotask(restore);
+    window.requestAnimationFrame(() => {
+      if (!restore()) return;
+      window.requestAnimationFrame(() => {
+        if (!restore()) return;
+        markdownPreviewViewportLockRef.current = 0;
+        viewport.style.overflowAnchor = markdownPreviewOverflowAnchorRef.current;
+      });
+    });
+  }, []);
+
+  const attachMarkdownPreviewViewport = useCallback((viewport: HTMLDivElement | null) => {
+    markdownPreviewViewportRef.current = viewport;
+    setMarkdownPreviewViewport(viewport);
+  }, []);
+
   const undoVisualMarkdown = useCallback(() => {
     const storedView = primaryViewRef.current;
     const view = storedView?.dom.isConnected && primaryViewPathRef.current === activeFile ? storedView : null;
@@ -1754,11 +1901,12 @@ export function DocumentCanvas(props: {
     return true;
   }, [activeFile, collabReady, collabSession]);
 
+  const onViewMarkdownSource = props.onViewMarkdownSource;
   const viewMarkdownSource = useCallback((sourceOffset: number, viewportY?: number) => {
     // This is an explicit cross-pane reveal, not a change of scroll ownership.
     // Keep Preview fixed while CodeMirror moves to the corresponding source.
     markdownScrollSyncSuppressedRef.current = true;
-    props.onViewMarkdownSource();
+    onViewMarkdownSource();
 
     let attempts = 0;
     const releaseScrollSync = () => {
@@ -1789,7 +1937,7 @@ export function DocumentCanvas(props: {
       releaseScrollSync();
     };
     window.requestAnimationFrame(focusSource);
-  }, [markdownPreviewStart, props.onViewMarkdownSource]);
+  }, [markdownPreviewStart, onViewMarkdownSource]);
 
   const redoVisualMarkdown = useCallback(() => {
     const storedView = primaryViewRef.current;
@@ -1818,20 +1966,23 @@ export function DocumentCanvas(props: {
     let ignoreEditorScroll = false;
     let ignorePreviewScroll = false;
     let editorFrame: number | null = null;
+    let editorFrameMeasureAnchors = false;
     let previewFrame: number | null = null;
-    let anchorFrame: number | null = null;
-    let paperSyncTimer: number | null = null;
-    let paperSyncOwner: "editor" | "preview" = "editor";
-    let sourceAnchors = Array.from(
-      preview.querySelectorAll<HTMLElement>("[data-source-offset]"),
-    );
+    let settledSyncTimer: number | null = null;
+    let settledSyncOwner: "editor" | "preview" = "editor";
+    let anchorsDirty = true;
     let cachedEditorToPreview: Array<{ from: number; to: number }> = [];
     let cachedPreviewToEditor: Array<{ from: number; to: number }> = [];
     const scrollRanges = () => ({
       editor: Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight),
       preview: Math.max(0, preview.scrollHeight - preview.clientHeight),
     });
+    const scrollSyncBlocked = () => markdownScrollSyncSuppressedRef.current
+      || markdownPreviewViewportLockRef.current !== 0;
     const rebuildAnchorPairs = () => {
+      const sourceAnchors = Array.from(
+        preview.querySelectorAll<HTMLElement>("[data-source-offset]"),
+      );
       const previewRect = preview.getBoundingClientRect();
       const pairs: Array<{ editor: number; preview: number }> = [];
       for (const anchor of sourceAnchors) {
@@ -1861,20 +2012,18 @@ export function DocumentCanvas(props: {
       }
       cachedEditorToPreview = pairs.map((pair) => ({ from: pair.editor, to: pair.preview }));
       cachedPreviewToEditor = pairs.map((pair) => ({ from: pair.preview, to: pair.editor }));
+      anchorsDirty = false;
     };
-    const scheduleAnchorRebuild = () => {
-      if (anchorFrame != null) return;
-      anchorFrame = window.requestAnimationFrame(() => {
-        anchorFrame = null;
-        rebuildAnchorPairs();
-      });
+    const refreshAnchorsIfNeeded = () => {
+      if (anchorsDirty) rebuildAnchorPairs();
     };
-    const syncPreviewFromEditor = () => {
-      if (markdownScrollSyncSuppressedRef.current) return;
+    const syncPreviewFromEditor = (measureAnchors = true) => {
+      if (scrollSyncBlocked()) return;
       if (ignoreEditorScroll) {
         ignoreEditorScroll = false;
         return;
       }
+      if (measureAnchors) refreshAnchorsIfNeeded();
       const ranges = scrollRanges();
       const editorHalf = view.scrollDOM.clientHeight / 2;
       const previewHalf = preview.clientHeight / 2;
@@ -1892,10 +2041,12 @@ export function DocumentCanvas(props: {
       preview.scrollTop = nextTop;
     };
     const syncEditorFromPreview = () => {
+      if (scrollSyncBlocked()) return;
       if (ignorePreviewScroll) {
         ignorePreviewScroll = false;
         return;
       }
+      refreshAnchorsIfNeeded();
       const ranges = scrollRanges();
       const editorHalf = view.scrollDOM.clientHeight / 2;
       const previewHalf = preview.clientHeight / 2;
@@ -1917,11 +2068,14 @@ export function DocumentCanvas(props: {
     // paints. Synchronizing both panes for every event repeatedly walks and
     // measures the Markdown DOM, so coalesce each direction to one pass per
     // animation frame.
-    const schedulePreviewFromEditor = () => {
+    const schedulePreviewFromEditor = (measureAnchors = true) => {
+      editorFrameMeasureAnchors ||= measureAnchors;
       if (editorFrame != null) return;
       editorFrame = window.requestAnimationFrame(() => {
         editorFrame = null;
-        syncPreviewFromEditor();
+        const shouldMeasure = editorFrameMeasureAnchors;
+        editorFrameMeasureAnchors = false;
+        syncPreviewFromEditor(shouldMeasure);
       });
     };
     const scheduleEditorFromPreview = () => {
@@ -1932,57 +2086,53 @@ export function DocumentCanvas(props: {
       });
     };
 
-    // A paper split places two long, independently painted documents beside
-    // each other. Moving both on every trackpad frame makes WKWebView composite
-    // the source and image-heavy visual editor during the same gesture. Keep
-    // the pane under the pointer at native frame rate and reconcile its peer
-    // once the scroll burst settles. Ordinary Markdown keeps live sync.
-    const schedulePaperSync = (owner: "editor" | "preview") => {
-      paperSyncOwner = owner;
-      if (paperSyncTimer != null) window.clearTimeout(paperSyncTimer);
-      paperSyncTimer = window.setTimeout(() => {
-        paperSyncTimer = null;
-        if (paperSyncOwner === "editor") syncPreviewFromEditor();
+    // Large Markdown places two expensive, independently painted documents
+    // beside each other. Keep the pane under the pointer at native frame rate
+    // and reconcile its peer once the scroll burst settles. Smaller documents
+    // retain live synchronization, regardless of whether they are Paper/Blog
+    // or ordinary project Markdown.
+    const scheduleSettledSync = (owner: "editor" | "preview") => {
+      settledSyncOwner = owner;
+      if (settledSyncTimer != null) window.clearTimeout(settledSyncTimer);
+      settledSyncTimer = window.setTimeout(() => {
+        settledSyncTimer = null;
+        if (settledSyncOwner === "editor") syncPreviewFromEditor();
         else syncEditorFromPreview();
-      }, 140);
+      }, markdownSyncPolicy.peerScrollDelayMs);
     };
 
     const ownEditorScroll = () => {
-      if (markdownScrollSyncSuppressedRef.current) return;
-      if (props.activePaper) {
+      if (scrollSyncBlocked()) return;
+      if (markdownSyncPolicy.peerScrollDelayMs > 0) {
         if (ignoreEditorScroll) {
           ignoreEditorScroll = false;
           return;
         }
-        schedulePaperSync("editor");
+        scheduleSettledSync("editor");
       } else {
         schedulePreviewFromEditor();
       }
     };
     const ownPreviewScroll = () => {
-      if (props.activePaper) {
+      if (scrollSyncBlocked()) return;
+      if (markdownSyncPolicy.peerScrollDelayMs > 0) {
         if (ignorePreviewScroll) {
           ignorePreviewScroll = false;
           return;
         }
-        schedulePaperSync("preview");
+        scheduleSettledSync("preview");
       } else {
         scheduleEditorFromPreview();
       }
     };
     view.scrollDOM.addEventListener("scroll", ownEditorScroll, { passive: true });
     preview.addEventListener("scroll", ownPreviewScroll, { passive: true });
-    const observer = new MutationObserver((mutations) => {
-      if (mutations.some((mutation) => mutation.type === "childList")) {
-        sourceAnchors = Array.from(
-          preview.querySelectorAll<HTMLElement>("[data-source-offset]"),
-        );
-      }
+    const observer = new MutationObserver(() => {
       // Source labels and child nodes change after every settled visual edit.
-      // Rebuild geometry once after layout, but don't move either pane: doing
-      // so while ProseMirror and CodeMirror are reconciling creates a scroll
-      // feedback jump. The next user scroll consumes the fresh cached map.
-      scheduleAnchorRebuild();
+      // Measuring every block here forces a full layout after each source
+      // publication. Mark the map stale and rebuild only when the user next
+      // scrolls either pane.
+      anchorsDirty = true;
     });
     observer.observe(preview, {
       attributes: true,
@@ -1990,17 +2140,19 @@ export function DocumentCanvas(props: {
       childList: true,
       subtree: true,
     });
-    const resizeObserver = new ResizeObserver(scheduleAnchorRebuild);
+    const resizeObserver = new ResizeObserver(() => {
+      anchorsDirty = true;
+    });
     resizeObserver.observe(preview);
     const previewContent = preview.firstElementChild;
     if (previewContent instanceof HTMLElement) resizeObserver.observe(previewContent);
-    rebuildAnchorPairs();
-    schedulePreviewFromEditor();
+    // Initial alignment uses the proportional fallback. Exact block geometry
+    // is measured lazily on the first real scroll after labels are available.
+    schedulePreviewFromEditor(false);
     return () => {
       if (editorFrame != null) window.cancelAnimationFrame(editorFrame);
       if (previewFrame != null) window.cancelAnimationFrame(previewFrame);
-      if (anchorFrame != null) window.cancelAnimationFrame(anchorFrame);
-      if (paperSyncTimer != null) window.clearTimeout(paperSyncTimer);
+      if (settledSyncTimer != null) window.clearTimeout(settledSyncTimer);
       observer.disconnect();
       resizeObserver.disconnect();
       view.scrollDOM.removeEventListener("scroll", ownEditorScroll);
@@ -2010,8 +2162,8 @@ export function DocumentCanvas(props: {
     markdownDocument,
     markdownPreviewStart,
     markdownPreviewViewport,
+    markdownSyncPolicy.peerScrollDelayMs,
     primaryScrollbarView,
-    props.activePaper,
     props.mode,
   ]);
 
@@ -2033,7 +2185,7 @@ export function DocumentCanvas(props: {
       // `.editor-doc-scroll` class (bubble-menu-clip.ts) and this testid
       // (frozen-table-headers.ts resolves it via closest()).
       viewportProps={{ "data-testid": "editor-scroll-container" }}
-      viewportRef={setMarkdownPreviewViewport}
+      viewportRef={attachMarkdownPreviewViewport}
       onPointerDownCapture={() => props.onContextSurfaceActivate(primarySurface)}
       onFocusCapture={() => props.onContextSurfaceActivate(primarySurface)}
       onMouseUp={props.activePaper ? (event) => {
@@ -2052,10 +2204,11 @@ export function DocumentCanvas(props: {
           text={markdownPreviewText}
           activePath={props.activeFile}
           optimizeForReading={Boolean(props.activePaper)}
-          // Precise split sync labels and measures every top-level block.
-          // Papers use the proportional fallback in the host sync loop, which
-          // keeps both panes aligned without scanning hundreds of anchors.
-          synchronizeSourceScroll={props.mode === "split" && !props.activePaper}
+          // Every split preview uses exact source labels. Geometry is measured
+          // lazily on scroll, so long Paper/Blog documents and ordinary
+          // Markdown share accuracy without paying layout cost while typing.
+          synchronizeSourceScroll={props.mode === "split"}
+          onRequestViewportLock={lockMarkdownPreviewViewport}
           onOpenProjectPath={props.onOpenMarkdownPath}
           workspaceIndex={props.workspaceIndex}
           macros={katexMacros}
@@ -2352,6 +2505,7 @@ export function DocumentCanvas(props: {
         doc: session.doc,
         awareness: session.provider.awareness,
         user: session.boardPresenceUser,
+        canWrite: session.canWrite !== false,
       }
       : null;
     return (

@@ -20,6 +20,8 @@ import {
 } from "tldraw";
 import {
   BOARD_CONTENT_KEY,
+  BOARD_RECORD_GENERATIONS_KEY,
+  BOARD_RECORD_PATCHES_KEY,
   BOARD_RECORDS_KEY,
   attachBoardBridge,
   attachBoardPresence,
@@ -30,6 +32,7 @@ import {
   seedBoardRecords,
   serializeBoard,
 } from "./board-yjs-bridge";
+import tutorialBoard from "../src-tauri/templates/tutorial/attention-map.tldr?raw";
 
 function createStore() {
   return createTLStore({ shapeUtils: [...defaultShapeUtils], bindingUtils: [...defaultBindingUtils] });
@@ -101,6 +104,20 @@ function presenceRecords(store: ReturnType<typeof createStore>): TLInstancePrese
 }
 
 describe("serialize/parse round-trip", () => {
+  it("loads the editable attention diagram bundled with the tutorial", () => {
+    const records = parseBoardRecords(tutorialBoard);
+    expect(records).not.toBeNull();
+    const shapes = records!.filter((record) => record.typeName === "shape");
+    expect(shapes).toHaveLength(16);
+    expect(shapes.map((shape) => shape.id)).toEqual(expect.arrayContaining([
+      createShapeId("query"),
+      createShapeId("scores"),
+      createShapeId("softmax"),
+      createShapeId("weighted"),
+      createShapeId("context"),
+    ]));
+  });
+
   it("round-trips document records through .tldr JSON", () => {
     const store = createStore();
     const shape = makeGeoShape("one");
@@ -243,6 +260,150 @@ describe("attachBoardBridge", () => {
 
     bridgeA.dispose();
     bridgeB.dispose();
+  });
+
+  it("merges concurrent edits to independent fields of the same shape", () => {
+    const storeA = createStore();
+    const storeB = createStore();
+    const docA = new Y.Doc();
+    const docB = new Y.Doc();
+    const bridgeA = attachBoardBridge(storeA, docA);
+    const bridgeB = attachBoardBridge(storeB, docB);
+    const shape = makeGeoShape("concurrent");
+
+    storeA.put([shape]);
+    syncDocs(docA, docB);
+
+    storeA.put([{ ...storeA.get(shape.id) as TLShape, x: 500 }]);
+    const peerShape = storeB.get(shape.id) as TLShape;
+    storeB.put([{ ...peerShape, props: { ...peerShape.props, color: "red" } } as TLShape]);
+    syncDocs(docA, docB);
+
+    expect(storeA.get(shape.id)).toMatchObject({ x: 500, props: { color: "red" } });
+    expect(storeB.get(shape.id)).toMatchObject({ x: 500, props: { color: "red" } });
+    bridgeA.dispose();
+    bridgeB.dispose();
+  });
+
+  it("preserves concurrent edits when both peers start from a legacy atomic record", () => {
+    const source = createStore();
+    const shape = makeGeoShape("legacy");
+    source.put([shape]);
+    const baseline = new Y.Doc();
+    baseline.getText(BOARD_CONTENT_KEY).insert(0, serializeBoard(source.allRecords()));
+    baseline.getMap<TLRecord>(BOARD_RECORDS_KEY).set(shape.id, shape);
+    const initial = Y.encodeStateAsUpdate(baseline);
+    const docA = new Y.Doc();
+    const docB = new Y.Doc();
+    Y.applyUpdate(docA, initial);
+    Y.applyUpdate(docB, initial);
+    const storeA = createStore();
+    const storeB = createStore();
+    const bridgeA = attachBoardBridge(storeA, docA);
+    const bridgeB = attachBoardBridge(storeB, docB);
+
+    storeA.put([{ ...storeA.get(shape.id) as TLShape, x: 700 }]);
+    const peerShape = storeB.get(shape.id) as TLShape;
+    storeB.put([{ ...peerShape, props: { ...peerShape.props, color: "blue" } } as TLShape]);
+    syncDocs(docA, docB);
+
+    expect(storeA.get(shape.id)).toMatchObject({ x: 700, props: { color: "blue" } });
+    expect(storeB.get(shape.id)).toMatchObject({ x: 700, props: { color: "blue" } });
+    bridgeA.dispose();
+    bridgeB.dispose();
+  });
+
+  it("does not resurrect patches from an older incarnation after delete and recreate", () => {
+    const storeA = createStore();
+    const storeB = createStore();
+    const docA = new Y.Doc();
+    const docB = new Y.Doc();
+    const bridgeA = attachBoardBridge(storeA, docA);
+    const bridgeB = attachBoardBridge(storeB, docB);
+    const shape = makeGeoShape("recreated");
+
+    storeA.put([shape]);
+    syncDocs(docA, docB);
+    storeA.put([{ ...storeA.get(shape.id) as TLShape, x: 900 }]);
+    storeB.remove([shape.id]);
+    storeB.put([{ ...shape, x: 20 }]);
+    syncDocs(docA, docB);
+
+    expect(storeA.get(shape.id)).toMatchObject({ x: 20 });
+    expect(storeB.get(shape.id)).toMatchObject({ x: 20 });
+    bridgeA.dispose();
+    bridgeB.dispose();
+  });
+
+  it("converges when a scalar and its subtree are edited concurrently", () => {
+    const storeA = createStore();
+    const storeB = createStore();
+    const docA = new Y.Doc();
+    const docB = new Y.Doc();
+    const bridgeA = attachBoardBridge(storeA, docA);
+    const bridgeB = attachBoardBridge(storeB, docB);
+    const shape = { ...makeGeoShape("subtree"), meta: { custom: { child: 1 } } } as TLShape;
+
+    storeA.put([shape]);
+    syncDocs(docA, docB);
+    storeA.put([{ ...storeA.get(shape.id) as TLShape, meta: { custom: "scalar" } } as TLShape]);
+    storeB.put([{
+      ...storeB.get(shape.id) as TLShape,
+      meta: { custom: { child: 2, "a/b|c": true } },
+    } as TLShape]);
+    syncDocs(docA, docB);
+
+    expect(storeA.get(shape.id)?.meta.custom).toBe("scalar");
+    expect(storeB.get(shape.id)?.meta.custom).toBe("scalar");
+    bridgeA.dispose();
+    bridgeB.dispose();
+  });
+
+  it("rejects prototype-polluting patch paths from peers", () => {
+    const store = createStore();
+    const doc = new Y.Doc();
+    const bridge = attachBoardBridge(store, doc);
+    const shape = makeGeoShape("safe-path");
+    store.put([shape]);
+    const generation = doc.getMap<string>(BOARD_RECORD_GENERATIONS_KEY).get(shape.id)!;
+
+    doc.getMap(BOARD_RECORD_PATCHES_KEY).set(
+      `${encodeURIComponent(shape.id)}|${encodeURIComponent(generation)}|meta/__proto__/polluted`,
+      true,
+    );
+
+    expect((Object.prototype as { polluted?: boolean }).polluted).toBeUndefined();
+    expect(store.get(shape.id)?.meta).toEqual({});
+    bridge.dispose();
+  });
+
+  it("hydrates read-only boards without seeding or publishing local mutations", () => {
+    const source = createStore();
+    source.put([makeGeoShape("visible")]);
+    const doc = new Y.Doc();
+    doc.getText(BOARD_CONTENT_KEY).insert(0, serializeBoard(source.allRecords()));
+    const store = createStore();
+    const bridge = attachBoardBridge(store, doc, { canWrite: false });
+
+    expect(store.get(createShapeId("visible"))).toBeDefined();
+    expect(doc.getMap(BOARD_RECORDS_KEY).size).toBe(0);
+    store.put([makeGeoShape("blocked")]);
+    expect(doc.getMap(BOARD_RECORDS_KEY).size).toBe(0);
+    bridge.dispose();
+  });
+
+  it("stops publishing immediately when write permission is revoked", () => {
+    const doc = new Y.Doc();
+    const store = createStore();
+    let canWrite = true;
+    const bridge = attachBoardBridge(store, doc, { canWrite: () => canWrite });
+    store.put([makeGeoShape("published")]);
+    expect(doc.getMap(BOARD_RECORDS_KEY).has(createShapeId("published"))).toBe(true);
+
+    canWrite = false;
+    store.put([makeGeoShape("blocked-after-revoke")]);
+    expect(doc.getMap(BOARD_RECORDS_KEY).has(createShapeId("blocked-after-revoke"))).toBe(false);
+    bridge.dispose();
   });
 
   it("seeds an empty store from imported content on attach", () => {

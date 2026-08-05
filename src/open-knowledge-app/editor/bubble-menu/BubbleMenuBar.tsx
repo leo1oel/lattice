@@ -11,7 +11,6 @@ import { deriveEditorClipOptions } from './bubble-menu-clip';
 import { shouldShowBubbleMenu } from './bubble-menu-state';
 import { FileBubbleButtons, isFileNodeSelected } from './FileBubbleButtons';
 import { FootnoteBubbleButton } from './FootnoteBubbleButton';
-import { ImageAlignButtons, isImageNodeSelected } from './ImageAlignButtons';
 import { InlineFormatButtons } from './InlineFormatButtons';
 import { LinkEditPopover } from './LinkEditPopover';
 import { ViewInSourceBubbleButton } from './ViewInSourceBubbleButton';
@@ -31,17 +30,9 @@ export function BubbleMenuBar({
   const [tooltipKey, setTooltipKey] = useState(0);
   const stopAutoUpdateRef = useRef<(() => void) | null>(null);
 
-  // When an image / file is NodeSelected we swap the bar's contents to
-  // per-type controls (alignment buttons for images, download for
-  // files). The text-style controls (block-type / inline-format / link)
-  // are inappropriate for a leaf media block — they'd target the wrong
-  // selection or no-op. The selectors watch `selection` so the bar
-  // swaps content live as the user moves between text and media blocks
-  // without dismount.
-  const isImageMode = useEditorState({
-    editor,
-    selector: (ctx) => isImageNodeSelected(ctx.editor),
-  });
+  // File NodeSelection swaps the bar to its download controls. Images own
+  // alignment in their hover toolbar, so selecting one does not open this
+  // text-oriented bubble menu.
   const isFileMode = useEditorState({
     editor,
     selector: (ctx) => isFileNodeSelected(ctx.editor),
@@ -129,8 +120,6 @@ export function BubbleMenuBar({
     >
       {commentOnly ? (
         <CommentBubbleButton key={`${tooltipKey}-comment`} />
-      ) : isImageMode ? (
-        <ImageAlignButtons key={`${tooltipKey}-img-align`} editor={editor} />
       ) : isFileMode ? (
         <FileBubbleButtons key={`${tooltipKey}-file`} editor={editor} />
       ) : (

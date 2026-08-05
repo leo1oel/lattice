@@ -39,6 +39,31 @@ export function serializeEditorComments(comments: EditorComment[]): string {
   return `${JSON.stringify({ schemaVersion: 1, comments }, null, 2)}\n`;
 }
 
+/** Merge independently saved comment files without dropping either author. */
+export function mergeEditorComments(
+  first: EditorComment[],
+  second: EditorComment[],
+): EditorComment[] {
+  const merged = new Map<string, EditorComment>();
+  for (const comment of [...first, ...second]) {
+    const previous = merged.get(comment.id);
+    if (!previous) {
+      merged.set(comment.id, comment);
+      continue;
+    }
+    const latest = comment.updatedAt >= previous.updatedAt ? comment : previous;
+    const replies = new Map(previous.replies.map((reply) => [reply.id, reply]));
+    for (const reply of comment.replies) replies.set(reply.id, reply);
+    merged.set(comment.id, {
+      ...latest,
+      replies: [...replies.values()].sort((a, b) =>
+        a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
+    });
+  }
+  return [...merged.values()].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+}
+
 export function tryParseEditorComments(raw: string): EditorComment[] | null {
   let parsed: unknown;
   try {

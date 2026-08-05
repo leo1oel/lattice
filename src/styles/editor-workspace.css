@@ -1603,4 +1603,5 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
   outline-color: oklch(1 0 0 / 0.1);
 }
 .asset-preview-unsupported { color: var(--text-tertiary); display: grid; place-items: center; gap: var(--space-4); font-size: var(--type-caption-size); }
-.board-editor-root { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; overflow: hidden; }
+/* Keep tldraw's high internal layers below app-level right drawers. */
+.board-editor-root { position: relative; isolation: isolate; flex: 1 1 0; min-width: 0; min-height: 0; overflow: hidden; }

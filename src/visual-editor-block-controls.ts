@@ -14,6 +14,30 @@ import { NodeSelection, Plugin, TextSelection, type EditorState, type Transactio
 const HANDLE_HEIGHT = 20;
 const MAX_SINGLE_LINE_HEIGHT = 48;
 const BODY_LINE_HEIGHT = 28;
+export const PRESERVE_VISUAL_VIEWPORT_META = "research-writer:preserve-visual-viewport";
+export type PreserveVisualViewportMeta = {
+  anchorPosition: number;
+  anchorTop: number | null;
+  insertedPosition: number;
+};
+
+/** Restore the clicked block, then reveal only any new content below the viewport. */
+export function restoreVisualViewportWithReveal(
+  viewport: HTMLElement,
+  scrollTop: number,
+  anchor: HTMLElement | null,
+  anchorTop: number | null,
+  reveal: HTMLElement | null,
+): void {
+  viewport.scrollTop = scrollTop;
+  if (anchor?.isConnected && anchorTop != null) {
+    const delta = anchor.getBoundingClientRect().top - anchorTop;
+    if (Math.abs(delta) > 0.25) viewport.scrollTop += delta;
+  }
+  if (!reveal?.isConnected) return;
+  const overflow = reveal.getBoundingClientRect().bottom - viewport.getBoundingClientRect().bottom;
+  if (overflow > 0.25) viewport.scrollTop += overflow;
+}
 
 function blockLabel(node: ProseMirrorNode | null): string {
   if (!node) return "Select block";
@@ -104,21 +128,46 @@ export function addBlockBelow(editor: Editor, nodePosition: number, node: ProseM
   const { state, view } = editor;
   const insertAt = nodePosition + node.nodeSize;
   if (insertAt > state.doc.content.size) return;
-  const paragraph = state.schema.nodes.paragraph?.create();
+  const paragraph = state.schema.nodes.paragraph?.create(null, state.schema.text("/"));
   if (!paragraph) return;
+  const viewport = view.dom.closest<HTMLElement>(".editor-doc-scroll");
+  const scrollTop = viewport?.scrollTop ?? 0;
+  const anchorDom = view.nodeDOM(nodePosition);
+  const anchorTop = anchorDom instanceof HTMLElement ? anchorDom.getBoundingClientRect().top : null;
 
-  const tr = state.tr.insert(insertAt, paragraph);
+  const tr = state.tr
+    .insert(insertAt, paragraph)
+    .setMeta(PRESERVE_VISUAL_VIEWPORT_META, {
+      anchorPosition: nodePosition,
+      anchorTop,
+      insertedPosition: insertAt,
+    } satisfies PreserveVisualViewportMeta);
   // The add button is attached to a visible block, so the new paragraph is
   // already at the viewport edge. Asking ProseMirror to scroll it into view
   // makes WebKit recalculate the entire editable document and can move a long
   // paper's scroll container to the top before its new block has a stable box.
-  tr.setSelection(TextSelection.near(tr.doc.resolve(insertAt + 1)));
+  tr.setSelection(TextSelection.near(tr.doc.resolve(insertAt + 2)));
   view.dispatch(tr);
   view.focus();
-  // Match Open Knowledge's lifecycle: establish a valid text block and caret
-  // first, then let a normal text insertion activate TipTap Suggestion. The
-  // popup itself stays hidden until floating-ui has completed first layout.
-  editor.commands.insertContent("/");
+  // In split mode the Markdown echo and focus restoration can run in the same
+  // frame. Keep the clicked block anchored, but reveal the new slash paragraph
+  // when it extends below the viewport instead of hiding the user's insertion.
+  if (viewport) {
+    const revealDom = view.nodeDOM(insertAt);
+    const reveal = revealDom instanceof HTMLElement ? revealDom : null;
+    const restore = () => restoreVisualViewportWithReveal(
+      viewport,
+      scrollTop,
+      anchorDom instanceof HTMLElement ? anchorDom : null,
+      anchorTop,
+      reveal,
+    );
+    restore();
+    queueMicrotask(restore);
+    window.requestAnimationFrame(() => {
+      restore();
+    });
+  }
 }
 
 export function currentTopLevelBlock(state: EditorState): { from: number; to: number } | null {

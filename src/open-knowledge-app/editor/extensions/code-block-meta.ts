@@ -71,14 +71,18 @@ export function removeMetaToken(meta: string | null | undefined, token: string):
  */
 export const PREVIEWABLE_LANGUAGES = new Set(['html', 'htm', 'xml', 'mermaid']);
 
-/** Test whether a (language, meta) pair should render its preview pane. */
+/**
+ * HTML and Mermaid open visually by default. `source` is the explicit,
+ * persisted opt-out written by the preview toggle; the older `preview` token
+ * remains accepted but is no longer required.
+ */
 export function shouldShowPreview(
   language: string | null | undefined,
   meta: string | null | undefined,
 ): boolean {
   if (!language) return false;
   if (!PREVIEWABLE_LANGUAGES.has(language.toLowerCase())) return false;
-  return metaHasToken(meta, 'preview');
+  return !metaHasToken(meta, 'source');
 }
 
 const KV_RE = /^([a-zA-Z][a-zA-Z0-9_-]*)=(.+)$/;
@@ -146,6 +150,14 @@ export function parsePreviewHeight(meta: string | null | undefined): string | nu
  */
 export function parsePreviewWidth(meta: string | null | undefined): string | null {
   return parseLengthToken(meta, 'w');
+}
+
+export type PreviewAlign = 'left' | 'center' | 'right';
+
+/** Read preview placement from `align=…`; invalid and absent values center. */
+export function parsePreviewAlign(meta: string | null | undefined): PreviewAlign {
+  const align = getMetaKeyValue(meta, 'align');
+  return align === 'left' || align === 'right' ? align : 'center';
 }
 
 /**

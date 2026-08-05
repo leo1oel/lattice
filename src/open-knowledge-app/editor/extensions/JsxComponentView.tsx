@@ -48,7 +48,17 @@ import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
 import type { NodeViewProps } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/react';
-import { ArrowDown, ArrowUp, ExternalLink, Pencil, Settings2, Trash2 } from 'lucide-react';
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  ArrowDown,
+  ArrowUp,
+  ExternalLink,
+  Pencil,
+  Settings2,
+  Trash2,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
@@ -81,6 +91,7 @@ import {
   focusInsertedComponent,
 } from '../slash-command/component-items.tsx';
 import { ALIGNABLE_DESCRIPTOR_NAMES } from '../utils/alignable-descriptors.ts';
+import { runWithAlignAnimation } from '../utils/animate-align-change.ts';
 import { formatContainerAriaLabel } from '../utils/editor-strings.ts';
 import { reconstructSource } from '../utils/reconstruct-source.ts';
 import { sanitizeComponentProps } from '../utils/sanitize-url.ts';
@@ -400,31 +411,55 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
   // doesn't close over `descriptor.name`. Mirrors the
   // `isSelfClosingLeaf` centralization above.
   const isAlignable = ALIGNABLE_DESCRIPTOR_NAMES.has(descriptor.name);
+  const currentAlign =
+    currentProps.align === 'left' || currentProps.align === 'right' ? currentProps.align : 'center';
+
+  const setAlignment = (align: 'left' | 'center' | 'right') => {
+    if (typeof getPos !== 'function') return;
+    const livePos = getPos();
+    if (typeof livePos !== 'number') return;
+    try {
+      const liveNode = editor.state.doc.nodeAt(livePos);
+      if (!liveNode || liveNode.type.name !== 'jsxComponent') return;
+      const componentName = String(liveNode.attrs.componentName ?? '');
+      if (!ALIGNABLE_DESCRIPTOR_NAMES.has(componentName) || liveNode.attrs.kind !== 'element') return;
+      const props = (liveNode.attrs.props ?? {}) as Record<string, unknown>;
+      const { sourceUrl, ...authoredProps } = props;
+      const nextProps = componentName === 'CommonMarkImage'
+        ? {
+            ...authoredProps,
+            ...(typeof sourceUrl === 'string' ? { src: sourceUrl } : {}),
+            align,
+          }
+        : { ...props, align };
+      const wrapper = editor.view.nodeDOM(livePos) as HTMLElement | null;
+      runWithAlignAnimation(wrapper, () => {
+        editor.view.dispatch(
+          editor.state.tr.setNodeMarkup(livePos, null, {
+            ...liveNode.attrs,
+            componentName: componentName === 'CommonMarkImage' ? 'img' : componentName,
+            props: nextProps,
+            sourceDirty: true,
+          }),
+        );
+      });
+    } catch (error) {
+      if (error instanceof RangeError) return;
+      throw error;
+    }
+  };
 
   /**
    * Per-descriptor "source-bearing prop" mapping for the edit
-   * modal. Each entry names the prop that carries the rendered source
-   * (`MermaidFence.chart`, `Math.formula`) and the CodeMirror language
-   * to surface. Descriptors not in the table don't render the edit
-   * button. Mermaid + LaTeX grammars resolve via
-   * `resolveLanguageExtension` in `CodePreviewEditModal`
-   * (`codemirror-lang-mermaid` + `@codemirror/legacy-modes/mode/stex`),
-   * so both surfaces get real token highlighting.
+   * modal. Mermaid owns a dedicated source editor; math is edited through
+   * its properties panel instead, so it deliberately stays out of this map.
+   * Descriptors not in the table don't render the edit button.
    */
   const editableSource: { propName: string; language: 'mermaid' | 'latex' } | null =
     descriptor.name === 'MermaidFence'
       ? { propName: 'chart', language: 'mermaid' }
-      : descriptor.name === 'Math' ||
-          descriptor.name === 'DollarMath' ||
-          descriptor.name === 'MathFence'
-        ? { propName: 'formula', language: 'latex' }
-        : null;
-  const editableSourceLabel =
-    descriptor.name === 'Math' ||
-    descriptor.name === 'DollarMath' ||
-    descriptor.name === 'MathFence'
-      ? t`Edit display equation`
-      : t`Edit ${descriptor.displayName ?? descriptor.name} source`;
+      : null;
+  const editableSourceLabel = t`Edit ${descriptor.displayName ?? descriptor.name} source`;
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   // Source-bearing self-closing leaves (today only MermaidFence) hide their
@@ -1062,16 +1097,25 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
           onMouseDown={(e) => e.stopPropagation()}
           {...{ [OPT_OUT_ATTR]: 'true' }}
         >
-          {/* Alignment intentionally absent here — the bubble menu's
-            `ImageAlignButtons` is the single alignment surface for every
-            descriptor in `ALIGNABLE_DESCRIPTOR_NAMES` (`img` /
-            `CommonMarkImage` / `Embed` / `video`). NodeSelection fires
-            on the image click and the floating bubble bar lands centered
-            above the block, so the old chrome-bar trio + PropPanel
-            `Align` Select were redundant duplicates. CommonMarkImage's
-            descriptor-upgrade path on first non-default alignment lives
-            in `ImageAlignButtons` itself; removing it here doesn't lose
-            the conversion. */}
+          {isAlignable
+            ? ([
+                ['left', t`Align left`, AlignLeft],
+                ['center', t`Align center`, AlignCenter],
+                ['right', t`Align right`, AlignRight],
+              ] as const).map(([align, label, Icon]) => (
+                <button
+                  key={align}
+                  type="button"
+                  className="jsx-chrome-btn"
+                  data-active={currentAlign === align ? 'true' : undefined}
+                  aria-label={label}
+                  aria-pressed={currentAlign === align}
+                  onClick={() => setAlignment(align)}
+                >
+                  <Icon size={12} aria-hidden="true" />
+                </button>
+              ))
+            : null}
 
           {/* Open in new tab — `Embed` only. Lets the reader hop to the
             embedded URL when they want the full browser surface.
@@ -1214,9 +1258,9 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
             </button>
           )}
 
-          {/* Edit source — Mermaid + Math. Opens the
+          {/* Edit source — Mermaid. Opens the
               `CodePreviewEditModal` seeded with the source-bearing prop
-              (`chart` / `formula`). Modal mount lives at the bottom of
+              (`chart`). Modal mount lives at the bottom of
               this component beside the PopoverContent (Dialog uses its
               own Portal). */}
           {editableSource && typeof pos === 'number' ? (
@@ -1231,10 +1275,26 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
             </button>
           ) : null}
 
-          {/* Delete — positioned between move arrows and settings so the
-            settings gear stays anchored at the right edge of the chrome bar
-            (consistent "destructive action mid, config action far-right"
-            pattern regardless of whether the component has editable props). */}
+          {/* Settings — opens the controlled PropPanel popover hoisted above
+            NodeViewWrapper. `<PopoverTrigger asChild>` is the canonical click-to-
+            open path. In placeholder mode the popover is positioned via the
+            `<PopoverAnchor>` wrapping the placeholder pill (Anchor takes precedence
+            over Trigger for placement); both paths flip the same popoverOpen state. */}
+          {hasEditableProps && (
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="jsx-chrome-btn"
+                data-jsx-gear=""
+                aria-label={t`${settingsDescriptorLabel} properties`}
+              >
+                <Settings2 size={12} aria-hidden="true" />
+              </button>
+            </PopoverTrigger>
+          )}
+
+          {/* Delete stays at the right edge so the destructive action is
+            visually separated from the component's editing controls. */}
           <button
             type="button"
             className="jsx-chrome-btn jsx-chrome-btn--delete"
@@ -1284,24 +1344,6 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
           >
             <Trash2 size={12} aria-hidden="true" />
           </button>
-
-          {/* Settings — opens the controlled PropPanel popover hoisted above
-            NodeViewWrapper. `<PopoverTrigger asChild>` is the canonical click-to-
-            open path. In placeholder mode the popover is positioned via the
-            `<PopoverAnchor>` wrapping the placeholder pill (Anchor takes precedence
-            over Trigger for placement); both paths flip the same popoverOpen state. */}
-          {hasEditableProps && (
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="jsx-chrome-btn"
-                data-jsx-gear=""
-                aria-label={t`${settingsDescriptorLabel} properties`}
-              >
-                <Settings2 size={12} aria-hidden="true" />
-              </button>
-            </PopoverTrigger>
-          )}
         </div>
 
         {/* Live React component — renders exactly like production.
@@ -1461,9 +1503,8 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
             // `extractPrimitiveProps` → `sanitizeComponentProps` →
             // `normalizeDocRelativeMediaRenderProps`) rather than raw
             // `currentProps`, matching the production render branch.
-            // Today's `editableSource` descriptors (Math /
-            // DollarMath / MathFence / MermaidFence) carry no URL-typed
-            // props so the practical attack surface is zero, but the
+            // Today's `editableSource` descriptor (MermaidFence) carries no
+            // URL-typed props so the practical attack surface is zero, but the
             // sanitization contract documented on `extractPrimitiveProps` ("Every
             // returned object flows through `sanitizeComponentProps`")
             // is structural — keeping the preview on the same path

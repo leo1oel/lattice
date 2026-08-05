@@ -128,7 +128,7 @@ mod realtime_generation_tests {
     }
 
     #[test]
-    fn a_delayed_overleaf_action_cannot_move_to_the_new_project() {
+    fn a_delayed_project_action_cannot_move_to_the_new_project() {
         let root_a = PathBuf::from("/project/a");
 
         assert_eq!(
@@ -137,7 +137,7 @@ mod realtime_generation_tests {
         );
         assert_eq!(
             ensure_expected_project_root(root_a, "/project/b"),
-            Err("The project changed before the Overleaf action could start.".to_string())
+            Err("The project changed before the action could start.".to_string())
         );
     }
 }
@@ -183,7 +183,7 @@ fn current_root(state: &tauri::State<'_, AppState>) -> Result<PathBuf, String> {
 
 fn ensure_expected_project_root(root: PathBuf, project_root: &str) -> Result<PathBuf, String> {
     if root != Path::new(project_root) {
-        return Err("The project changed before the Overleaf action could start.".to_string());
+        return Err("The project changed before the action could start.".to_string());
     }
     Ok(root)
 }
@@ -192,8 +192,8 @@ fn ensure_expected_project_root(root: PathBuf, project_root: &str) -> Result<Pat
 ///
 /// Tauri commands can be scheduled after the writer has already switched
 /// projects. Reading `current_root` alone would reinterpret a delayed action
-/// for A as an action on B. Every Overleaf mutation that does not already
-/// carry a realtime generation uses this guard before touching the network.
+/// for A as an action on B. Every command that can mutate project files must
+/// use this guard before touching disk or the network.
 fn scoped_root(state: &tauri::State<'_, AppState>, project_root: &str) -> Result<PathBuf, String> {
     ensure_expected_project_root(current_root(state)?, project_root)
 }
@@ -482,20 +482,11 @@ async fn write_project_file(
     state: tauri::State<'_, AppState>,
     path: String,
     content: String,
-    project_root: Option<String>,
+    project_root: String,
 ) -> Result<String, String> {
-    let _lease = if project_root.is_some() {
-        Some(state.overleaf_sync_lease.read().await)
-    } else {
-        None
-    };
-    let root = current_root(&state)?;
-    if project_root
-        .as_deref()
-        .is_some_and(|expected| root != Path::new(expected))
-    {
-        return Err("The project changed before the file could be written.".to_string());
-    }
+    let _lease = state.overleaf_sync_lease.read().await;
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the file could be written.".to_string())?;
     run_blocking("Project file write", move || {
         let transaction =
             project::apply_transaction(&root, &format!("Edit {path}"), vec![(path, content)])?;
@@ -754,9 +745,12 @@ async fn create_project_entry(
     state: tauri::State<'_, AppState>,
     path: String,
     kind: String,
+    project_root: String,
 ) -> Result<String, String> {
+    let _lease = state.overleaf_sync_lease.read().await;
     let _mutation = state.structural_mutation.lock().await;
-    let root = current_root(&state)?;
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the file could be created.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || project::create_entry(&root, &path, &kind))
         .await
         .map_err(|error| format!("File creation stopped unexpectedly: {error}"))?
@@ -766,21 +760,12 @@ async fn create_project_entry(
 async fn delete_project_entry(
     state: tauri::State<'_, AppState>,
     path: String,
-    project_root: Option<String>,
+    project_root: String,
 ) -> Result<(), String> {
-    let _lease = if project_root.is_some() {
-        Some(state.overleaf_sync_lease.read().await)
-    } else {
-        None
-    };
+    let _lease = state.overleaf_sync_lease.read().await;
     let _mutation = state.structural_mutation.lock().await;
-    let root = current_root(&state)?;
-    if project_root
-        .as_deref()
-        .is_some_and(|expected| root != Path::new(expected))
-    {
-        return Err("The project changed before the file could be deleted.".to_string());
-    }
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the file could be deleted.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || project::delete_entry(&root, &path))
         .await
         .map_err(|error| format!("File deletion stopped unexpectedly: {error}"))?
@@ -791,21 +776,12 @@ async fn rename_project_entry(
     state: tauri::State<'_, AppState>,
     path: String,
     new_name: String,
-    project_root: Option<String>,
+    project_root: String,
 ) -> Result<String, String> {
-    let _lease = if project_root.is_some() {
-        Some(state.overleaf_sync_lease.read().await)
-    } else {
-        None
-    };
+    let _lease = state.overleaf_sync_lease.read().await;
     let _mutation = state.structural_mutation.lock().await;
-    let root = current_root(&state)?;
-    if project_root
-        .as_deref()
-        .is_some_and(|expected| root != Path::new(expected))
-    {
-        return Err("The project changed before the file could be renamed.".to_string());
-    }
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the file could be renamed.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || project::rename_entry(&root, &path, &new_name))
         .await
         .map_err(|error| format!("File rename stopped unexpectedly: {error}"))?
@@ -816,21 +792,12 @@ async fn move_project_entry(
     state: tauri::State<'_, AppState>,
     path: String,
     target_directory: String,
-    project_root: Option<String>,
+    project_root: String,
 ) -> Result<String, String> {
-    let _lease = if project_root.is_some() {
-        Some(state.overleaf_sync_lease.read().await)
-    } else {
-        None
-    };
+    let _lease = state.overleaf_sync_lease.read().await;
     let _mutation = state.structural_mutation.lock().await;
-    let root = current_root(&state)?;
-    if project_root
-        .as_deref()
-        .is_some_and(|expected| root != Path::new(expected))
-    {
-        return Err("The project changed before the file could be moved.".to_string());
-    }
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the file could be moved.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
         project::move_entry(&root, &path, &target_directory)
     })
@@ -843,8 +810,11 @@ async fn import_project_assets(
     state: tauri::State<'_, AppState>,
     paths: Vec<String>,
     target_directory: String,
+    project_root: String,
 ) -> Result<Vec<String>, String> {
-    let root = current_root(&state)?;
+    let _lease = state.overleaf_sync_lease.read().await;
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the assets could be imported.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
         project::import_assets(&root, &paths, &target_directory)
     })
@@ -857,8 +827,11 @@ async fn import_project_sources(
     state: tauri::State<'_, AppState>,
     paths: Vec<String>,
     target_directory: String,
+    project_root: String,
 ) -> Result<Vec<String>, String> {
-    let root = current_root(&state)?;
+    let _lease = state.overleaf_sync_lease.read().await;
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the sources could be imported.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
         project::import_sources(&root, &paths, &target_directory)
     })
@@ -872,8 +845,11 @@ async fn import_clipboard_image(
     target_directory: String,
     file_name: String,
     base64_data: String,
+    project_root: String,
 ) -> Result<String, String> {
-    let root = current_root(&state)?;
+    let _lease = state.overleaf_sync_lease.read().await;
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the image could be imported.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
         project::import_image_bytes(&root, &target_directory, &file_name, &base64_data)
     })
@@ -918,20 +894,11 @@ async fn write_project_bytes(
     state: tauri::State<'_, AppState>,
     path: String,
     base64_data: String,
-    project_root: Option<String>,
+    project_root: String,
 ) -> Result<(), String> {
-    let _lease = if project_root.is_some() {
-        Some(state.overleaf_sync_lease.read().await)
-    } else {
-        None
-    };
-    let root = current_root(&state)?;
-    if project_root
-        .as_deref()
-        .is_some_and(|expected| root != Path::new(expected))
-    {
-        return Err("The project changed before the asset could be written.".to_string());
-    }
+    let _lease = state.overleaf_sync_lease.read().await;
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the asset could be written.".to_string())?;
     run_blocking("Project asset write", move || {
         project::write_bytes(&root, &path, &base64_data)
     })
@@ -942,8 +909,11 @@ async fn write_project_bytes(
 async fn prepare_latex_figure(
     state: tauri::State<'_, AppState>,
     path: String,
+    project_root: String,
 ) -> Result<String, String> {
-    let root = current_root(&state)?;
+    let _lease = state.overleaf_sync_lease.read().await;
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the figure could be prepared.".to_string())?;
     run_blocking("Figure preparation", move || {
         project::prepare_latex_figure(&root, &path)
     })

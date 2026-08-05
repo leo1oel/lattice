@@ -20,7 +20,12 @@ import {
 // Vendored Open Knowledge editor chrome (see scripts/vendor-open-knowledge.mjs).
 import { BridgeIdPlugin } from "@ok-app/editor/extensions/bridge-id-plugin";
 import { SelectionStatePlugin } from "@ok-app/editor/extensions/selection-state-plugin";
-import { VisualBlockControls, VisualBlockMover } from "./visual-editor-block-controls";
+import {
+  PRESERVE_VISUAL_VIEWPORT_META,
+  VisualBlockControls,
+  VisualBlockMover,
+  type PreserveVisualViewportMeta,
+} from "./visual-editor-block-controls";
 import { NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { KeyboardNav } from "@ok-app/editor/block-ux/keyboard-nav";
@@ -53,11 +58,11 @@ import type { PresenceCursor } from "./overleaf-cursors";
 import { resolveCommentAnchor } from "./editor-comment-data";
 import Zoom from "react-medium-image-zoom";
 import { Check, X } from "lucide-react";
+import { markdownPreviewSyncPolicy } from "./markdown-preview-sync-policy";
 
 const EMPTY_MACROS: Record<string, string> = {};
-const LARGE_VISUAL_MARKDOWN_THRESHOLD = 50_000;
 const VISUAL_LINK_INSERT_EVENT = "research-writer:visual-link-insert";
-const VISUAL_DOCUMENT_CACHE_LIMIT = 6;
+const VISUAL_DOCUMENT_CACHE_LIMIT = 64;
 const VISUAL_DOCUMENT_CACHE_TEXT_LIMIT = 4_000_000;
 const TRACKED_CHANGE_HOVER_RADIUS = 24;
 const TRACKED_CHANGE_CLOSE_DELAY_MS = 180;
@@ -101,6 +106,12 @@ function cachedVisualDocument(path: string, text: string): CachedVisualDocument 
     visualDocumentCacheTextSize -= oldest?.text.length ?? 0;
   }
   return entry;
+}
+
+/** Prime the bounded visual parse cache without mounting an editor. */
+// eslint-disable-next-line react-refresh/only-export-components -- project-open idle warming shares the editor's private LRU.
+export function prewarmVisualMarkdownDocument(path: string, text: string): void {
+  cachedVisualDocument(path, text);
 }
 
 function cachedVisualContent(path: string, text: string): CachedVisualDocument["content"] {
@@ -614,6 +625,11 @@ type VisualMarkdownEditorProps = {
   onChangeMarkdown: (next: string, expected: string) => boolean;
   optimizeForReading?: boolean;
   synchronizeSourceScroll?: boolean;
+  onRequestViewportLock?: (
+    anchor: HTMLElement | null,
+    anchorTop: number | null,
+    reveal: HTMLElement | null,
+  ) => void;
   onOpenProjectPath?: (path: string) => void;
   workspaceIndex?: MarkdownWorkspaceIndex | null;
   macros?: Record<string, string>;
@@ -948,6 +964,7 @@ export function VisualMarkdownEditor({
   onChangeMarkdown,
   optimizeForReading = false,
   synchronizeSourceScroll = true,
+  onRequestViewportLock,
   onOpenProjectPath,
   workspaceIndex,
   macros,
@@ -996,6 +1013,7 @@ export function VisualMarkdownEditor({
   const eligibilityText = useRef<string | null>(null);
   const eligibilityRepresentedExactly = useRef<boolean | null>(null);
   const changeRef = useRef(onChangeMarkdown);
+  const requestViewportLockRef = useRef(onRequestViewportLock);
   const openPathRef = useRef(onOpenProjectPath);
   const indexRef = useRef(workspaceIndex);
   const indexedDocumentRef = useRef<{ index: MarkdownWorkspaceIndex; path: string } | null>(null);
@@ -1010,10 +1028,11 @@ export function VisualMarkdownEditor({
     editor: Editor;
     explicitReplacement: boolean;
     changedBlocks: Set<number>;
+    viewportAnchor: PreserveVisualViewportMeta | null;
   } | null>(null);
-  const localUpdateQueued = useRef(false);
   const localUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localUpdateMaxTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncPolicyRef = useRef(markdownPreviewSyncPolicy(text.length));
   const trackedChangeCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealTrackedChanges = useCallback((target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return;
@@ -1178,11 +1197,10 @@ export function VisualMarkdownEditor({
     if (localUpdateMaxTimer.current) clearTimeout(localUpdateMaxTimer.current);
     localUpdateTimer.current = null;
     localUpdateMaxTimer.current = null;
-    localUpdateQueued.current = false;
     const pending = pendingLocalUpdate.current;
     pendingLocalUpdate.current = null;
     if (!pending || pending.editor.isDestroyed) return;
-    const { editor: updatedEditor, explicitReplacement, changedBlocks } = pending;
+    const { editor: updatedEditor, explicitReplacement, changedBlocks, viewportAnchor } = pending;
     // Initialization and canonical-reconciliation transactions are not user
     // edits. In particular, never let opening a source-only paper normalize
     // and silently overwrite syntax that the visual editor cannot preserve.
@@ -1196,6 +1214,18 @@ export function VisualMarkdownEditor({
       expected,
     );
     if (next === expected) return;
+    // A deferred split publication happens after the short lock requested by
+    // the original + transaction. Re-lock immediately before the source echo
+    // so its CodeMirror update cannot move the preview several frames later.
+    if (viewportAnchor) {
+      const anchor = updatedEditor.view.nodeDOM(viewportAnchor.anchorPosition);
+      const reveal = updatedEditor.view.nodeDOM(viewportAnchor.insertedPosition);
+      requestViewportLockRef.current?.(
+        anchor instanceof HTMLElement ? anchor : null,
+        viewportAnchor.anchorTop,
+        reveal instanceof HTMLElement ? reveal : null,
+      );
+    }
     if (changeRef.current(next, expected)) {
       acceptedMarkdown.current = next;
       reportVisualCaret(updatedEditor, next);
@@ -1235,11 +1265,16 @@ export function VisualMarkdownEditor({
 
   useEffect(() => {
     changeRef.current = onChangeMarkdown;
+    requestViewportLockRef.current = onRequestViewportLock;
     openPathRef.current = onOpenProjectPath;
     indexRef.current = workspaceIndex;
     undoRef.current = onUndo;
     redoRef.current = onRedo;
-  }, [onChangeMarkdown, onOpenProjectPath, onRedo, onUndo, workspaceIndex]);
+  }, [onChangeMarkdown, onOpenProjectPath, onRedo, onRequestViewportLock, onUndo, workspaceIndex]);
+
+  useEffect(() => {
+    syncPolicyRef.current = markdownPreviewSyncPolicy(text.length);
+  }, [text.length]);
 
   useEffect(() => {
     if (!workspaceIndex) return;
@@ -1562,34 +1597,32 @@ export function VisualMarkdownEditor({
       // equivalent hard-break nodes after mount. This is internal document
       // normalization, not an authored Markdown change.
       if (isMultilineTextNormalization(transaction)) return;
+      const viewportAnchor = transaction.getMeta(PRESERVE_VISUAL_VIEWPORT_META) as
+        PreserveVisualViewportMeta | undefined;
+      if (viewportAnchor) {
+        const anchor = currentEditor.view.nodeDOM(viewportAnchor.anchorPosition);
+        const reveal = currentEditor.view.nodeDOM(viewportAnchor.insertedPosition);
+        requestViewportLockRef.current?.(
+          anchor instanceof HTMLElement ? anchor : null,
+          viewportAnchor.anchorTop,
+          reveal instanceof HTMLElement ? reveal : null,
+        );
+      }
       const changedBlocks = changedTopLevelBlocks(transaction);
       for (const index of pendingLocalUpdate.current?.changedBlocks ?? []) changedBlocks.add(index);
       pendingLocalUpdate.current = {
         editor: currentEditor,
         explicitReplacement: transaction.getMeta("preventUpdate") === false,
         changedBlocks,
+        viewportAnchor: viewportAnchor ?? pendingLocalUpdate.current?.viewportAnchor ?? null,
       };
-      // Papers can contain hundreds of math/table nodes. Serializing the whole
-      // ProseMirror tree after every keystroke makes typing cost scale with the
-      // complete paper. Match Open Knowledge's persistence boundary: publish
-      // after an idle pause, with a bounded maximum delay for sustained typing.
-      // The editor DOM remains immediate; blur/undo flush synchronously.
-      if (optimizeForReading || text.length >= LARGE_VISUAL_MARKDOWN_THRESHOLD) {
-        if (localUpdateTimer.current) clearTimeout(localUpdateTimer.current);
-        const idleDelay = optimizeForReading ? 1_000 : 250;
-        const maximumDelay = optimizeForReading ? 10_000 : 2_000;
-        localUpdateTimer.current = setTimeout(flushPendingLocalUpdate, idleDelay);
-        localUpdateMaxTimer.current ??= setTimeout(flushPendingLocalUpdate, maximumDelay);
-        return;
-      }
-      if (localUpdateQueued.current) return;
-      localUpdateQueued.current = true;
-      // Commands such as the block + establish a paragraph and then insert the
-      // slash trigger in consecutive transactions. Publishing the intermediate
-      // document lets the parent echo a stale canonical value between them,
-      // which can force setContent and reload iframe NodeViews. Serialize only
-      // the settled document at the end of the current transaction burst.
-      queueMicrotask(flushPendingLocalUpdate);
+      // Every preview uses the same adaptive publication boundary. The editor
+      // DOM remains immediate; source serialization waits for an idle pause,
+      // with a bounded maximum delay during sustained typing.
+      if (localUpdateTimer.current) clearTimeout(localUpdateTimer.current);
+      const policy = syncPolicyRef.current;
+      localUpdateTimer.current = setTimeout(flushPendingLocalUpdate, policy.publicationIdleMs);
+      localUpdateMaxTimer.current ??= setTimeout(flushPendingLocalUpdate, policy.publicationMaxMs);
     },
     onSelectionUpdate: ({ editor: currentEditor }) => {
       reportVisualCaret(currentEditor, acceptedMarkdown.current);

@@ -49,6 +49,7 @@ export function CanvasToolbar(props: {
   onPaperView?: (view: "blog" | "fulltext") => void;
   activePath: string;
   activeKind: "document" | "paper" | "asset";
+  canInsert: boolean;
   dirty: boolean;
   canNavigateBack: boolean;
   canNavigateForward: boolean;
@@ -149,7 +150,7 @@ export function CanvasToolbar(props: {
                 <Redo2 size={14} />
               </button>
             </Tip>
-            {!props.markdown && <Tip label="Insert snippet or symbol (⌘⇧I)">
+            {props.canInsert && <Tip label="Insert snippet or symbol (⌘⇧I)">
               <button type="button" onClick={props.onInsert}>
                 <Omega size={14} />
               </button>

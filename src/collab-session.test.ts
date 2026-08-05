@@ -3,6 +3,7 @@ import * as Y from "yjs";
 import {
   createCollabChatMessage,
   MAX_COLLAB_CHAT_MESSAGES,
+  mergeTextIntoYText,
   normalizeCollabHost,
   observeCollabChatMessages,
   peerCaretOffsetsV2,
@@ -13,6 +14,83 @@ import {
   type EditorCollabSession,
 } from "./collab-session";
 import { Awareness } from "y-protocols/awareness";
+
+describe("mergeTextIntoYText", () => {
+  it("is a no-op for identical content", () => {
+    const doc = new Y.Doc();
+    const ytext = doc.getText("content");
+    ytext.insert(0, "same");
+    const before = Y.encodeStateAsUpdate(doc);
+    mergeTextIntoYText(ytext, "same");
+    expect(ytext.toString()).toBe("same");
+    // No transaction, so no new update beyond the initial insert.
+    expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
+  });
+
+  it("edits only the changed span, preserving untouched regions", () => {
+    const doc = new Y.Doc();
+    const ytext = doc.getText("content");
+    ytext.insert(0, "alpha beta gamma");
+    mergeTextIntoYText(ytext, "alpha DELTA gamma");
+    expect(ytext.toString()).toBe("alpha DELTA gamma");
+  });
+
+  it("treats a pure append as an insert with no deletion", () => {
+    const doc = new Y.Doc();
+    const ytext = doc.getText("content");
+    ytext.insert(0, "start");
+    mergeTextIntoYText(ytext, "start and more");
+    expect(ytext.toString()).toBe("start and more");
+  });
+
+  it("marks the transaction local so disk observers skip it", () => {
+    const doc = new Y.Doc();
+    const ytext = doc.getText("content");
+    ytext.insert(0, "before");
+    const origins: unknown[] = [];
+    ytext.observe((_event, transaction) => { if (transaction.local) origins.push(transaction.origin); });
+    mergeTextIntoYText(ytext, "after");
+    expect(origins).toEqual(["lattice-local"]);
+  });
+
+  it("two clients appending concurrently converge with both chunks intact (JSON stays parseable)", () => {
+    // Stand in for two peers each appending a comment to the shared JSON file:
+    // both compute a minimal-span insert against the same base, then sync.
+    const base = '{\n  "comments": [\n    { "id": "first" }\n  ]\n}\n';
+    const host = new Y.Doc();
+    host.getText("content").insert(0, base);
+    const guest = new Y.Doc();
+    Y.applyUpdate(guest, Y.encodeStateAsUpdate(host));
+
+    mergeTextIntoYText(host.getText("content"), base.replace("    { \"id\": \"first\" }\n", '    { "id": "first" },\n    { "id": "host-added" }\n'));
+    mergeTextIntoYText(guest.getText("content"), base.replace("    { \"id\": \"first\" }\n", '    { "id": "first" },\n    { "id": "guest-added" }\n'));
+
+    Y.applyUpdate(guest, Y.encodeStateAsUpdate(host));
+    Y.applyUpdate(host, Y.encodeStateAsUpdate(guest));
+
+    const onHost = host.getText("content").toString();
+    expect(onHost).toBe(guest.getText("content").toString());
+    expect(onHost).toContain('"id": "host-added"');
+    expect(onHost).toContain('"id": "guest-added"');
+    expect(() => JSON.parse(onHost)).not.toThrow();
+  });
+
+  it("a peer's edit outside the published span survives the merge", () => {
+    const host = new Y.Doc();
+    host.getText("content").insert(0, "line one\nline two\nline three\n");
+    const guest = new Y.Doc();
+    Y.applyUpdate(guest, Y.encodeStateAsUpdate(host));
+
+    // Peer edits line one; meanwhile the local publish rewrites line three.
+    guest.getText("content").insert(0, "peer was here\n");
+    mergeTextIntoYText(host.getText("content"), "line one\nline two\nlocal rewrite\n");
+
+    Y.applyUpdate(host, Y.encodeStateAsUpdate(guest));
+    const merged = host.getText("content").toString();
+    expect(merged).toContain("peer was here");
+    expect(merged).toContain("local rewrite");
+  });
+});
 
 describe("collab session helpers", () => {
   it("normalizes host urls to a host:port form", () => {

@@ -97,6 +97,7 @@ describe("ConflictResolverDialog", () => {
       <ConflictResolverDialog
         open
         path="main.tex"
+        projectRoot="/tmp/paper"
         onClose={onClose}
         onResolved={onResolved}
       />,
@@ -114,6 +115,7 @@ describe("ConflictResolverDialog", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: "before\nrevised remote\nafter",
+      projectRoot: "/tmp/paper",
     }));
     expect(onResolved).toHaveBeenCalledWith("main.tex");
     expect(onClose).toHaveBeenCalledOnce();
@@ -127,7 +129,13 @@ describe("ConflictResolverDialog", () => {
     });
 
     render(
-      <ConflictResolverDialog open path="main.tex" onClose={vi.fn()} onResolved={vi.fn()} />,
+      <ConflictResolverDialog
+        open
+        path="main.tex"
+        projectRoot="/tmp/paper"
+        onClose={vi.fn()}
+        onResolved={vi.fn()}
+      />,
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Resolve first" }));
@@ -137,6 +145,7 @@ describe("ConflictResolverDialog", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: expect.stringContaining("<<<<<<< ours\nsecond local"),
+      projectRoot: "/tmp/paper",
     }));
   });
 });

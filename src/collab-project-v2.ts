@@ -61,6 +61,7 @@ export type CatalogDeltaV2 = {
 };
 
 const LIVE_STATES = new Set(["live"]);
+const BOARD_DISK_WRITE_DEBOUNCE_MS = 250;
 
 function liveById(catalog: CatalogV2): Map<string, CatalogFileV2> {
   const map = new Map<string, CatalogFileV2>();
@@ -113,6 +114,8 @@ export class CollabProjectControllerV2 {
   private catalogValue!: CatalogV2;
   private readonly clients = new Map<string, CollabTextClientV2>();
   private readonly diskObservers = new Map<string, () => void>();
+  private readonly boardDiskFlushes = new Map<string, () => Promise<void>>();
+  private readonly canWriteListeners = new Set<(canWrite: boolean) => void>();
   private readonly fileMutations = new Map<string, Promise<void>>();
   private readonly pool: CollabTextProviderPoolV2;
   private readonly fallbackDoc = new Y.Doc();
@@ -151,6 +154,21 @@ export class CollabProjectControllerV2 {
    * and board presence re-bind to the live Awareness instead of a dead one.
    */
   awarenessVersion = 0;
+
+  get canWrite(): boolean {
+    return (this.options.permission ?? "write") !== "read" && !this.activeClient?.isStopped;
+  }
+
+  subscribeCanWrite = (listener: (canWrite: boolean) => void): (() => void) => {
+    this.canWriteListeners.add(listener);
+    listener(this.canWrite);
+    return () => this.canWriteListeners.delete(listener);
+  };
+
+  private emitCanWrite(): void {
+    const value = this.canWrite;
+    for (const listener of this.canWriteListeners) listener(value);
+  }
 
   /** Reconnects replace a client's transport and Awareness; follow the swap. */
   private onTransportReplaced(client: CollabTextClientV2): void {
@@ -360,7 +378,7 @@ export class CollabProjectControllerV2 {
     // otherwise connect() throws "Client is destroyed" forever.
     if (client?.isDestroyed) { this.detachDiskObserver(file.fileId); this.clients.delete(file.fileId); client = undefined; }
     if (client && client.namespace.documentEpoch !== file.documentEpoch) { client.destroy(); this.clients.delete(file.fileId); this.options.onPermanentError?.(new Error("File epoch changed; export cached recovery before reopening"), file.fileId); throw new Error("File epoch mismatch"); }
-    if (!client) { const namespace: TextNamespaceV2 = { deployment: this.options.deployment, projectInstanceId: this.options.projectInstanceId, fileId: file.fileId, documentEpoch: file.documentEpoch }; client = await CollabTextClientV2.open(namespace, { store: this.options.store ?? new CollabTextDurableStoreV2(), issueTicket: (identity) => this.issueTicket(identity), transportFactory: this.options.transportFactory ?? createYPartyTransportV2({ host: this.options.deployment }), reconnect: this.options.reconnectPolicy }); this.clients.set(file.fileId, client); this.pool.add(client); const opened = client; client.subscribeState((state) => this.onDurability(state)); client.subscribeTransport(() => this.onTransportReplaced(opened)); }
+    if (!client) { const namespace: TextNamespaceV2 = { deployment: this.options.deployment, projectInstanceId: this.options.projectInstanceId, fileId: file.fileId, documentEpoch: file.documentEpoch }; client = await CollabTextClientV2.open(namespace, { store: this.options.store ?? new CollabTextDurableStoreV2(), issueTicket: (identity) => this.issueTicket(identity), transportFactory: this.options.transportFactory ?? createYPartyTransportV2({ host: this.options.deployment }), reconnect: this.options.reconnectPolicy }); this.clients.set(file.fileId, client); this.pool.add(client); const opened = client; client.subscribeState((state) => { this.onDurability(state); if (opened === this.activeClient) this.emitCanWrite(); }); client.subscribeTransport(() => this.onTransportReplaced(opened)); }
     try { await client.connect(); await client.waitForSynced(options.timeoutMs); } catch (error) { if (!options.allowCachedOffline) throw error; this.setStatus("offline"); }
     // (Re)mirroring onto disk: a resurrected client needs a fresh observer on
     // the new doc; attachDiskObserver no-ops when one is already live.
@@ -369,6 +387,7 @@ export class CollabProjectControllerV2 {
       const previousClient = this.activeClient;
       if (previousClient && previousClient !== client) this.pool.unpin(previousClient, this.activePin);
       this.activeClient = client; this.activePin = pin; this.pool.pin(client, pin); this.activePath = path; this.ytext = client.doc.getText("content"); this.undoManager.destroy(); this.undoManager = new Y.UndoManager(this.ytext); this.provider = { awareness: client.awareness ?? this.fallbackAwareness }; this.awarenessVersion += 1; this.announcePresence(previousClient, client, path);
+      this.emitCanWrite();
       if (!this.firstFileOpened) { this.firstFileOpened = true; const now = (this.options.now ?? Date.now)(); this.options.diagnostics?.({ name: "first_file_open", at: now, durationMs: now - this.startedAt, fileId: file.fileId }); }
     }
     return client.doc.getText("content");
@@ -455,23 +474,46 @@ export class CollabProjectControllerV2 {
    * create; a guest create with the host offline times out and the file stays
    * `initializing` (and local-only) until the host returns.
    */
-  async create(path: string, kind: "text" | "binary" | "board", options: { seedText?: string; timeoutMs?: number } = {}): Promise<void> {
+  async create(path: string, kind: "text" | "binary" | "board", options: { seedText?: string; timeoutMs?: number; adoptExisting?: boolean } = {}): Promise<boolean> {
     if ((this.options.permission ?? "write") === "read") throw new Error("Read-only collaborators cannot create files");
     const lease = this.requireLease();
     // Mirror the server's ensurePathFree: only states that still occupy the
     // path block creation — a tombstoned/purging entry (delete→recreate) does not.
     const existing = this.file(path);
-    if (existing && existing.state !== "tombstoned" && existing.state !== "purging") throw new Error(`File already exists in the v2 catalog: ${path}`);
+    const occupied = existing && existing.state !== "tombstoned" && existing.state !== "purging";
+    if (occupied && (!options.adoptExisting || existing.kind !== kind)) throw new Error(`File already exists in the v2 catalog: ${path}`);
     this.checkLease(lease);
-    const result = await this.control.operation<OperationResultV2>("create", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, path, kind });
-    const created = result.value as CatalogFileV2 | undefined;
+    const createOp = () => this.control.operation<OperationResultV2>("create", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, path, kind });
+    let result: OperationResultV2 | undefined;
+    let created: CatalogFileV2 | undefined = occupied ? existing : undefined;
+    let createdByThisClient = !occupied;
+    try {
+      if (!created) result = await createOp();
+    } catch (error) {
+      // A peer moved the catalog between our last pull and this op — resync
+      // and retry once.
+      if (!(error instanceof CollabControlErrorV2 && error.status === 409)) throw error;
+      await this.refetchCatalog();
+      // The peer's move may itself have been a create at this path.
+      const moved = this.file(path);
+      if (moved && moved.state !== "tombstoned" && moved.state !== "purging") {
+        if (moved.kind !== kind) throw new Error(`File already exists in the v2 catalog: ${path}`, { cause: error });
+        created = moved;
+        createdByThisClient = false;
+      } else {
+        result = await createOp();
+      }
+    }
+    if (result) created = result.value as CatalogFileV2 | undefined;
     if (!created?.fileId || created.path !== path) throw new Error("The coordinator did not return the created file");
-    this.catalogValue.catalogRevision = result.catalogRevision;
-    this.catalogValue.files.push({ ...created });
-    this.locallyCreated.add(created.fileId);
-    // Inline mutation bypasses refetchCatalog, so notify catalog watchers
-    // (file count in the share UI) ourselves.
-    this.options.onCatalog?.(this.catalogValue);
+    if (result) {
+      this.catalogValue.catalogRevision = result.catalogRevision;
+      this.catalogValue.files.push({ ...created });
+      this.locallyCreated.add(created.fileId);
+      // Inline mutation bypasses refetchCatalog, so notify catalog watchers
+      // (file count in the share UI) ourselves.
+      this.options.onCatalog?.(this.catalogValue);
+    }
     const now = this.options.now ?? Date.now;
     const deadline = now() + (options.timeoutMs ?? 15_000);
     while (true) {
@@ -484,18 +526,21 @@ export class CollabProjectControllerV2 {
         // A concurrent events-poll refetch can flip the file (or move the
         // revision) first — either way the next loop iteration sees it.
         await this.fileReady(created.fileId).catch(() => undefined);
+        // Happy path: file-ready flipped it inline — no backoff, no extra pull.
+        if (this.fileById(created.fileId)?.state === "live") break;
       }
       // Back off between attempts and tolerate transient fetch failures —
       // the deadline, not any single poll, bounds the wait.
       await new Promise<void>((resolve) => setTimeout(resolve, this.options.permission === "host" ? 250 : 500));
       await this.refetchCatalog().catch(() => undefined);
     }
-    if (options.seedText && kind !== "binary") {
+    if (createdByThisClient && options.seedText && kind !== "binary") {
       // Sideload: seeding must not steal the editor's active binding.
       const ytext = await this.openPath(path, "secondary", { sideload: true });
       // A peer who landed in the fresh room first may already have typed.
       if (ytext.length === 0) ytext.doc?.transact(() => ytext.insert(0, options.seedText!), COLLAB_LOCAL_ORIGIN);
     }
+    return createdByThisClient;
   }
 
   async rename(oldPath: string, newPath: string, local: CollabLocalMutationsV2): Promise<string> { const file = this.file(oldPath); if (!file) throw new Error("Unknown catalog path"); const lease = this.requireLease(); const fileId = file.fileId; return this.enqueueFile(fileId, async () => { this.checkLease(lease); this.locallyRenamed.set(fileId, newPath); try { const result = await this.control.operation<{ catalogRevision: number }>("rename", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, fileId, path: newPath }); this.catalogValue.catalogRevision = result.catalogRevision; this.renamePath(oldPath, newPath); this.checkLease(lease); try { const actual = await local.rename(oldPath, newPath, lease.projectRoot); this.checkLease(lease); return actual || newPath; } catch (error) { await this.refetchCatalog().catch(() => undefined); throw error; } } finally { this.locallyRenamed.delete(fileId); } }); }
@@ -510,6 +555,7 @@ export class CollabProjectControllerV2 {
   async revoke(grantId: string): Promise<void> { const result = await this.control.operation<OperationResultV2>("revoke", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, grantId }); this.catalogValue.catalogRevision = result.catalogRevision; }
   async delete(path: string, local: CollabLocalMutationsV2): Promise<void> { const file = this.file(path); if (!file) throw new Error("Unknown catalog path"); const lease = this.requireLease(); await this.enqueueFile(file.fileId, async () => { this.checkLease(lease); this.locallyDeleted.add(file.fileId); try { await this.control.operation("delete-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, fileId: file.fileId }); await this.refetchCatalog(); this.detachDiskObserver(file.fileId); this.checkLease(lease); await local.delete(path, lease.projectRoot); this.checkLease(lease); } finally { this.locallyDeleted.delete(file.fileId); } }); }
   async settled(): Promise<void> { await this.activeClient?.settled(); }
+  async flush(): Promise<void> { await Promise.all([...this.boardDiskFlushes.values()].map((flush) => flush())); }
   async downloadBinary(path: string): Promise<Uint8Array> { const file = this.file(path); if (!file || file.kind !== "binary") throw new Error("Unknown binary catalog path"); return this.getBinaryClient().download(file.fileId, file.documentEpoch); }
   async replaceBinary(path: string, bytes: Uint8Array, mime: string, local: CollabLocalMutationsV2): Promise<BinaryReplaceResult> { const file = this.file(path); if (!file || file.kind !== "binary" || file.state !== "live") throw new Error("Unknown binary catalog path"); const lease = this.requireLease(); return this.enqueueFile(file.fileId, async () => { this.checkLease(lease); const result = await this.getBinaryClient().replace(file.fileId, file.documentEpoch, bytes, mime, this.catalogValue.catalogRevision, file.contentRevision ?? 0, file.hash); this.checkLease(lease); if (result.status === "conflict") { const loser = await this.getBinaryClient().download(file.fileId, file.documentEpoch, result.conflict.conflictId); this.checkLease(lease); if (!local.writeBinaryConflict) throw new Error("Binary conflict requires an explicit conflict-copy writer"); await local.writeBinaryConflict(binaryConflictPath(path, result.conflict.conflictId), loser, lease.projectRoot); this.options.onPermanentError?.(new Error(`Binary conflict preserved for ${path}`), file.fileId); } await this.refetchCatalog().catch(() => undefined); return result; }); }
   /**
@@ -570,7 +616,7 @@ export class CollabProjectControllerV2 {
     this.awarenessListener?.(); this.awarenessListener = undefined;
     // Best-effort leave so our entry does not linger until the server TTL.
     if (this.control) void this.control.presence({ instanceId: this.instanceId, name: "", color: "", path: null, leave: true }).catch(() => undefined);
-    for (const detach of this.diskObservers.values()) detach(); this.diskObservers.clear(); for (const client of this.clients.values()) client.destroy(); this.clients.clear(); this.undoManager.destroy(); this.fallbackAwareness.destroy(); this.fallbackDoc.destroy();
+    for (const detach of this.diskObservers.values()) detach(); this.diskObservers.clear(); for (const client of this.clients.values()) client.destroy(); this.clients.clear(); this.canWriteListeners.clear(); this.undoManager.destroy(); this.fallbackAwareness.destroy(); this.fallbackDoc.destroy();
   }
 
   private file(path: string): CatalogFileV2 | undefined { return this.catalogValue.files.find((entry) => entry.path === path); }
@@ -586,11 +632,11 @@ export class CollabProjectControllerV2 {
     const fileId = file.fileId; const documentEpoch = file.documentEpoch;
     // Boards keep live state in the records map, so watching only the content
     // Y.Text would mirror the stale import forever; boardDocContent serializes
-    // records on demand. Remote-only: local edits are already on disk. The
-    // serializer is lazily imported so tldraw stays out of the main bundle.
-    const write = () => {
+    // records on demand. The serializer is lazily imported so tldraw stays out
+    // of the main bundle.
+    const write = async () => {
       if (!lease.isCurrent()) return;
-      void this.enqueueFile(fileId, async () => {
+      await this.enqueueFile(fileId, async () => {
         this.checkLease(lease);
         const current = this.fileById(fileId);
         if (!current || current.state !== "live" || current.documentEpoch !== documentEpoch) { this.detachDiskObserver(fileId); return; }
@@ -601,16 +647,61 @@ export class CollabProjectControllerV2 {
           : client.doc.getText("content").toString();
         await callbacks.writeText(path, content, lease.projectRoot);
         this.checkLease(lease);
-      }).catch((error) => this.options.onPermanentError?.(error instanceof Error ? error : new Error(String(error)), fileId));
+      });
     };
     if (file.kind === "board") {
-      const onUpdate = (_update: Uint8Array, _origin: unknown, _doc: Y.Doc, transaction: Y.Transaction) => { if (!transaction.local) write(); };
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const pendingWrites = new Set<Promise<void>>();
+      const startWrite = () => {
+        const pending = write();
+        pendingWrites.add(pending);
+        void pending.catch((error) => this.options.onPermanentError?.(
+          error instanceof Error ? error : new Error(String(error)),
+          fileId,
+        )).finally(() => pendingWrites.delete(pending));
+      };
+      const scheduleWrite = () => {
+        if (timer !== undefined) clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = undefined;
+          startWrite();
+        }, BOARD_DISK_WRITE_DEBOUNCE_MS);
+      };
+      const flush = async () => {
+        while (timer !== undefined || pendingWrites.size > 0) {
+          if (timer !== undefined) {
+            clearTimeout(timer);
+            timer = undefined;
+            startWrite();
+          }
+          await Promise.all([...pendingWrites]);
+        }
+      };
+      this.boardDiskFlushes.set(fileId, flush);
+      // Both local and remote record edits must reach the workspace .tldr.
+      // Coalesce pointer-frequency drawing updates into one latest-state write.
+      const onUpdate = () => scheduleWrite();
       client.doc.on("update", onUpdate);
-      this.diskObservers.set(fileId, () => client.doc.off("update", onUpdate));
+      // Initial sync completes before this observer is attached. Persist the
+      // already-converged state even if no later update wakes the observer.
+      scheduleWrite();
+      this.diskObservers.set(fileId, () => {
+        client.doc.off("update", onUpdate);
+        if (timer !== undefined) clearTimeout(timer);
+        timer = undefined;
+        this.boardDiskFlushes.delete(fileId);
+      });
     } else {
       const text = client.doc.getText("content");
-      const observer = (_event: Y.YTextEvent, transaction: Y.Transaction) => { if (!transaction.local) write(); };
+      const observer = (_event: Y.YTextEvent, transaction: Y.Transaction) => {
+        if (!transaction.local) void write().catch((error) => this.options.onPermanentError?.(error instanceof Error ? error : new Error(String(error)), fileId));
+      };
       text.observe(observer);
+      // Initial synchronization also completes before this observer exists.
+      void write().catch((error) => this.options.onPermanentError?.(
+        error instanceof Error ? error : new Error(String(error)),
+        fileId,
+      ));
       this.diskObservers.set(fileId, () => text.unobserve(observer));
     }
   }

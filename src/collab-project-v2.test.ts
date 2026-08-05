@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { toRichText } from "tldraw";
 import type { CatalogFileV2, CatalogV2 } from "../protocol/collab-v2";
 import { planCatalogDeltaV2 } from "./collab-project-v2";
 
@@ -22,6 +23,19 @@ function catalog(files: CatalogFileV2[], catalogRevision = 1): CatalogV2 {
     workspaceLeaseGeneration: 1,
     authorityEpoch: 1,
     files,
+  };
+}
+
+function boardShape(id: string, index: string, x: number, y: number) {
+  return {
+    id, typeName: "shape", type: "geo", x, y, rotation: 0,
+    index, parentId: "page:page", isLocked: false, opacity: 1, meta: {},
+    props: {
+      geo: "rectangle", dash: "draw", url: "", w: 20, h: 20,
+      growY: 0, scale: 1, labelColor: "black", color: "black",
+      fill: "none", size: "m", font: "draw", align: "middle",
+      verticalAlign: "middle", richText: toRichText(""),
+    },
   };
 }
 
@@ -184,7 +198,7 @@ describe("v2 project presence", () => {
 });
 
 describe("v2 board disk mirroring", () => {
-  it("mirrors remote board record edits onto disk as serialized .tldr", async () => {
+  it("mirrors local and remote board record edits onto disk as serialized .tldr", async () => {
     vi.resetModules();
     vi.stubEnv("VITE_LATTICE_COLLAB_V2", "true");
     const { IDBFactory } = await import("fake-indexeddb");
@@ -232,11 +246,7 @@ describe("v2 board disk mirroring", () => {
 
     // A peer's edit lands as a remote update on the records map.
     const peer = new Y.Doc();
-    peer.getMap("records").set("shape:one", {
-      id: "shape:one", typeName: "shape", type: "geo", x: 1, y: 2, rotation: 0,
-      index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: {},
-      props: { geo: "rectangle", w: 10, h: 10 },
-    });
+    peer.getMap("records").set("shape:one", boardShape("shape:one", "a1", 1, 2));
     Y.applyUpdate(controller.doc, Y.encodeStateAsUpdate(peer));
 
     await vi.waitFor(() => expect(writes.some((write) => write.path === "sketch.tldr")).toBe(true));
@@ -246,6 +256,11 @@ describe("v2 board disk mirroring", () => {
     expect(parsed.records.map((record) => record.id)).toContain("shape:one");
     // The imported content text is a historical artifact, not the live state.
     expect(controller.doc.getText("content").toString()).not.toContain("shape:one");
+
+    writes.length = 0;
+    controller.doc.getMap("records").set("shape:local", boardShape("shape:local", "a2", 3, 4));
+    await controller.flush();
+    expect(writes.some((write) => write.content.includes("shape:local"))).toBe(true);
     controller.destroy();
   });
 });
@@ -365,6 +380,8 @@ describe("v2 mid-share file creation", () => {
     permission?: "host" | "write" | "read";
     /** Flip the created file to live as soon as a catalog pull follows the create. */
     hostOnline?: boolean;
+    /** First /create answers 409 catalog_revision_conflict (a peer moved the revision first). */
+    failFirstCreate?: boolean;
     initializingFiles?: Array<{ fileId: string; path: string }>;
   } = {}) {
     vi.resetModules();
@@ -397,6 +414,11 @@ describe("v2 mid-share file creation", () => {
         calls.create += 1;
         createSeen = true;
         const body = JSON.parse(init?.body ?? "{}") as { path: string; kind: string };
+        if (options.failFirstCreate && calls.create === 1) {
+          // A peer's op landed first: the revision moved, so this expectedCatalogRevision is stale.
+          catalogValue.catalogRevision += 1;
+          return new Response(JSON.stringify({ error: "catalog_revision_conflict", message: "Catalog revision conflict" }), { status: 409, headers: { "content-type": "application/json" } });
+        }
         const created = { fileId: `created-${calls.create}`, path: body.path, kind: body.kind, state: "initializing", documentEpoch: 1 };
         catalogValue.files.push(created);
         catalogValue.catalogRevision += 1;
@@ -490,9 +512,27 @@ describe("v2 mid-share file creation", () => {
     controller.destroy();
   });
 
+  it("retries the create once when a peer moved the catalog revision first", async () => {
+    const { controller, catalogValue, calls } = await setupCreateTest({ permission: "host", failFirstCreate: true });
+    await controller.create("notes/raced.md", "text", { seedText: "# Raced\n" });
+    expect(calls.create).toBe(2);
+    expect(calls.fileReady).toBe(1);
+    expect(catalogValue.files.find((file) => file.path === "notes/raced.md")!.state).toBe("live");
+    const ytext = await controller.openPath("notes/raced.md", "secondary", { sideload: true });
+    expect(ytext.toString()).toBe("# Raced\n");
+    controller.destroy();
+  });
+
   it("rejects a path that is already in the catalog", async () => {
     const { controller, calls } = await setupCreateTest({ permission: "host" });
     await expect(controller.create("paper.md", "text")).rejects.toThrow(/already exists/);
+    expect(calls.create).toBe(0);
+    controller.destroy();
+  });
+
+  it("can adopt a same-kind path that a peer created first", async () => {
+    const { controller, calls } = await setupCreateTest({ permission: "host" });
+    await expect(controller.create("paper.md", "text", { adoptExisting: true })).resolves.toBe(false);
     expect(calls.create).toBe(0);
     controller.destroy();
   });

@@ -65,7 +65,9 @@ import {
   createEditorCommentReply,
   EDITOR_COMMENTS_PATH,
   loadEditorCommentAuthorId,
+  mergeEditorComments,
   serializeEditorComments,
+  tryParseEditorComments,
 } from "./editor-comment-data";
 import { useAppearance } from "./use-appearance";
 import { usePanelLayout } from "./use-panel-layout";
@@ -104,6 +106,10 @@ import {
 import {
   type EditorComment,
 } from "./editor-comment-data";
+import {
+  executeAgentCanvasToolRequest,
+  parseAgentCanvasToolRequest,
+} from "./agent-canvas-tools";
 const EditorCommentsPanel = lazy(() =>
   import("./editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
 );
@@ -117,6 +123,7 @@ import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "./pdf-bytes";
 import {
   loadCollabDisplayName,
   loadCollabHost,
+  mergeTextIntoYText,
   resolveCollabHost,
   saveCollabDisplayName,
   saveCollabHost,
@@ -445,7 +452,44 @@ function App() {
     [],
   );
   useEffect(() => {
-    if (project) void workspaceIndex.update(project.files);
+    if (!project) return;
+    let cancelled = false;
+    let idleCallback: number | null = null;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    const paths = flattenProjectPaths(project.files);
+    const canvasModule = loadDocumentCanvas();
+
+    // Chunk downloads can overlap the normal project setup without mounting
+    // hidden previews or changing user-visible state.
+    void canvasModule.then((module) => module.prewarmProjectPreviewModules(paths));
+    void Promise.all([canvasModule, workspaceIndex.update(project.files)]).then(([module]) => {
+      if (cancelled) return;
+      const documents = workspaceIndex.previewDocuments();
+      let nextDocument = 0;
+      const warmNext = () => {
+        if (cancelled) return;
+        const document = documents[nextDocument++];
+        if (!document) return;
+        void module.prewarmMarkdownPreviewDocument(document.path, document.content)
+          .finally(scheduleNext);
+      };
+      const scheduleNext = () => {
+        if (cancelled || nextDocument >= documents.length) return;
+        if ("requestIdleCallback" in window) {
+          idleCallback = window.requestIdleCallback(warmNext, { timeout: 1_500 });
+        } else {
+          fallbackTimer = globalThis.setTimeout(warmNext, 120);
+        }
+      };
+      scheduleNext();
+    });
+    return () => {
+      cancelled = true;
+      if (idleCallback != null && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleCallback);
+      }
+      if (fallbackTimer != null) globalThis.clearTimeout(fallbackTimer);
+    };
   }, [workspaceIndex, project]);
   const [tutorialActive, setTutorialActive] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
@@ -675,6 +719,10 @@ function App() {
   const [bibEntryInitial, setBibEntryInitial] = useState<ResolvedCitationDraft | undefined>(undefined);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [insertOpen, setInsertOpen] = useState(false);
+  const insertTargetPath = focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile;
+  const canInsert = !activePaper
+    && !activeAsset
+    && /\.(?:tex|sty|cls|txt)$/i.test(insertTargetPath);
   const [collabOpen, setCollabOpen] = useState(false);
   const [collabMode, setCollabMode] = useState<CollabDialogMode>("start");
   const [collabHost, setCollabHost] = useState(loadCollabHost);
@@ -686,6 +734,7 @@ function App() {
   const [collabStatus, setCollabStatus] = useState<CollabStatus>("disconnected");
   const [collabStatusDetail, setCollabStatusDetail] = useState<string | null>(null);
   const [collabSession, setCollabSession] = useState<EditorCollabSession | null>(null);
+  const [collabCanWrite, setCollabCanWrite] = useState(true);
   const [activeCollabVersion, setActiveCollabVersion] = useState<2 | null>(null);
   // True only after the shared doc has been seeded (host) / materialized (guest).
   // The editor must not bind yCollab before this: binding early makes the guest
@@ -789,6 +838,10 @@ function App() {
     }
   }, [activeAsset, activeFile, activePaper, canvasMode]);
   collabSessionRef.current = collabSession;
+  useEffect(() => {
+    setCollabCanWrite(collabSession?.canWrite !== false);
+    return collabSession?.subscribeCanWrite?.(setCollabCanWrite);
+  }, [collabSession]);
   projectRootRef.current = project?.root ?? null;
   const [citeInsertRequest, setCiteInsertRequest] = useState<{ key: string; command: InsertSymbolCommand; id: string } | null>(null);
   const [bibEntryOpen, setBibEntryOpen] = useState(false);
@@ -1105,6 +1158,8 @@ function App() {
       setTutorialStep(TUTORIAL_STEPS.agent);
     }
   };
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
   useEffect(() => {
     try {
       localStorage.setItem("lattice.sidebar-mode.v1", sidebarMode);
@@ -1158,6 +1213,11 @@ function App() {
         selectionSourceRef.current = null;
         setSelection("");
         setSelectionSource(null);
+        return;
+      }
+      const canvasRequest = parseAgentCanvasToolRequest(event.data);
+      if (canvasRequest) {
+        void executeAgentCanvasToolRequest(canvasRequest).then(postSynaraMessage);
         return;
       }
       const historySnapshot = parseAgentProjectHistorySnapshot(event.data);
@@ -1326,8 +1386,6 @@ function App() {
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
   const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const saveTimer = useRef<number | null>(null);
@@ -1554,14 +1612,9 @@ function App() {
             .catch((reason) => { if (lease.isCurrent()) setError(toMessage(reason)); });
         };
         if (path.toLocaleLowerCase().endsWith(".tldr")) {
-          // Boards: live state is the records map, not the content text.
-          const doc = v2.doc;
-          const onDocUpdate = (_update: unknown, _origin: unknown, _updated: unknown, transaction: { local: boolean }) => {
-            if (transaction.local) return;
-            void import("./board-yjs-bridge").then(({ boardDocContent }) => writeRemote(boardDocContent(doc)));
-          };
-          doc.on("update", onDocUpdate);
-          collabDetachRef.current = () => doc.off("update", onDocUpdate);
+          // The v2 controller owns board materialization for both local and
+          // remote record edits; a second active-file observer duplicates writes.
+          collabDetachRef.current = null;
         } else {
           const onText = (_event: unknown, transaction: { local: boolean }) => {
             if (transaction.local) return;
@@ -1609,24 +1662,28 @@ function App() {
     }
   }, [activeCollabVersion, markDiskMtime]);
 
-  const clearCollabLocalState = useCallback(() => {
-    collabWorkspaceGenerationRef.current += 1;
-    collabWorkspaceLeaseRef.current = null;
-    collabInitializedRef.current = false;
-    setCollabReady(false);
-    collabDetachRef.current?.();
-    collabDetachRef.current = null;
+  const clearCollabLocalState = useCallback(async () => {
     const session = collabSessionRef.current;
-    if (session) session.destroy();
-    collabV2ControllerRef.current = null;
-    collabSessionRef.current = null;
-    collabV2TreeSignatureRef.current = null;
-    setCollabSession(null);
-    setActiveCollabVersion(null);
-    setCollabStatus("disconnected");
-    setCollabStatusDetail(null);
-    setCollabPeerList([]);
-    setCollabFileCount(0);
+    try {
+      await session?.flush?.();
+    } finally {
+      collabWorkspaceGenerationRef.current += 1;
+      collabWorkspaceLeaseRef.current = null;
+      collabInitializedRef.current = false;
+      setCollabReady(false);
+      collabDetachRef.current?.();
+      collabDetachRef.current = null;
+      if (session) session.destroy();
+      collabV2ControllerRef.current = null;
+      collabSessionRef.current = null;
+      collabV2TreeSignatureRef.current = null;
+      setCollabSession(null);
+      setActiveCollabVersion(null);
+      setCollabStatus("disconnected");
+      setCollabStatusDetail(null);
+      setCollabPeerList([]);
+      setCollabFileCount(0);
+    }
   }, []);
 
   const restorePreCollabProject = useCallback(async () => {
@@ -1664,7 +1721,7 @@ function App() {
       if (activeCollabVersion === 2 && collabRoleRef.current === "host") {
         await collabV2ControllerRef.current?.close();
       }
-      clearCollabLocalState();
+      await clearCollabLocalState();
       setNotice(noticeText);
       setCollabOpen(false);
       // Peers edited these files during the session; re-read from disk so the
@@ -1683,7 +1740,7 @@ function App() {
     if (collabLeavingRef.current) return;
     collabLeavingRef.current = true;
     try {
-      clearCollabLocalState();
+      await clearCollabLocalState();
       setCollabOpen(false);
       if (restorePrior) {
         setNotice(noticeText);
@@ -1718,7 +1775,7 @@ function App() {
       // app — instead of ending the room for everyone. The others keep editing,
       // the room stays in the recent-shares list, and the host can rejoin it.
       // Only "Stop sharing" ends the session for all.
-      clearCollabLocalState();
+      await clearCollabLocalState();
       setCollabOpen(false);
       setNotice("Left the share — it keeps running; rejoin it from Live collaboration");
       return;
@@ -1790,9 +1847,14 @@ function App() {
     if (activeCollabVersion !== 2 || !controller || path.toLocaleLowerCase().endsWith(".tldr")) return false;
     if (!controller.hasTextPath(path)) return false;
     const ytext = await controller.openPath(path, "secondary", { sideload: true });
-    ytext.doc?.transact(() => { ytext.delete(0, ytext.length); ytext.insert(0, content); });
+    // Minimal-span merge, not delete-all + insert-all: a peer's concurrent
+    // edits outside the changed span survive, and the local origin keeps disk
+    // observers from rewriting the file we are about to write ourselves.
+    mergeTextIntoYText(ytext, content);
     const lease = collabWorkspaceLeaseRef.current;
-    await invoke("write_project_file", { path, content, ...(lease ? { projectRoot: lease.projectRoot } : {}) });
+    const projectRoot = lease?.projectRoot ?? projectRootRef.current;
+    if (!projectRoot) throw new Error("The project closed before the file could be written.");
+    await invoke("write_project_file", { path, content: ytext.toString(), projectRoot });
     return true;
   }, [activeCollabVersion]);
 
@@ -1934,7 +1996,9 @@ function App() {
     return () => {
       collabDetachRef.current?.();
       collabDetachRef.current = null;
-      collabSession.destroy();
+      void (collabSession.flush?.() ?? Promise.resolve())
+        .catch(() => undefined)
+        .finally(() => collabSession.destroy());
     };
   }, [collabSession]);
 
@@ -1952,7 +2016,11 @@ function App() {
             { path: activeFile, content: source, projectRoot: workspaceLease.projectRoot },
           ));
         } else {
-          await invoke("write_project_file", { path: activeFile, content: source });
+          await invoke("write_project_file", {
+            path: activeFile,
+            content: source,
+            projectRoot: project.root,
+          });
         }
         // Do NOT push the active buffer into Yjs here. It is already synced
         // character-by-character by yCollab. Re-publishing it as a full
@@ -1971,7 +2039,11 @@ function App() {
         // editor binding / awareness path) from the primary buffer.
         const published = await publishTextToCollabV2(secondaryFile, secondarySource);
         if (!published) {
-          await invoke("write_project_file", { path: secondaryFile, content: secondarySource });
+          await invoke("write_project_file", {
+            path: secondaryFile,
+            content: secondarySource,
+            projectRoot: project.root,
+          });
         }
         setSecondarySavedSource(secondarySource);
         wroteTex = wroteTex || secondaryFile.endsWith(".tex");
@@ -1981,7 +2053,11 @@ function App() {
         const path = `.research/papers/${activePaper.arxivId}/paper.md`;
         const published = await publishTextToCollabV2(path, paperMarkdown);
         if (!published) {
-          await invoke("write_project_file", { path, content: paperMarkdown });
+          await invoke("write_project_file", {
+            path,
+            content: paperMarkdown,
+            projectRoot: project.root,
+          });
         }
         setSavedPaperMarkdown(paperMarkdown);
         wrotePaper = true;
@@ -1990,7 +2066,11 @@ function App() {
         const path = `.research/papers/${activePaper.arxivId}/blog.md`;
         const published = await publishTextToCollabV2(path, paperBlog);
         if (!published) {
-          await invoke("write_project_file", { path, content: paperBlog });
+          await invoke("write_project_file", {
+            path,
+            content: paperBlog,
+            projectRoot: project.root,
+          });
         }
         setSavedPaperBlog(paperBlog);
         wrotePaper = true;
@@ -2158,7 +2238,11 @@ function App() {
         try {
           const published = await publishTextToCollabV2(secondaryFile, secondarySource);
           if (!published) {
-            await invoke("write_project_file", { path: secondaryFile, content: secondarySource });
+            await invoke("write_project_file", {
+              path: secondaryFile,
+              content: secondarySource,
+              projectRoot: project?.root,
+            });
           }
           setSecondarySavedSource(secondarySource);
         } catch (reason) {
@@ -2229,6 +2313,7 @@ function App() {
     collabSession,
     focusedPane,
     loadFile,
+    project?.root,
     pushNavigation,
     save,
     savedSource,
@@ -3307,6 +3392,16 @@ function App() {
       beginProjectTransition(true);
       setWorkspacePersistenceReadyRoot(null);
       pendingWorkspaceSurfaceRef.current = null;
+      // The backend already owns the incoming root. Clear the outgoing buffer
+      // before exposing that root to effects, otherwise an autosave or the
+      // incoming project's initial Overleaf sync can write the old relative
+      // path into the new project.
+      activeFileRef.current = "";
+      sourceRef.current = "";
+      savedSourceRef.current = "";
+      setActiveFile("");
+      setSource("");
+      setSavedSource("");
       projectRef.current = snapshot;
       projectBeforeTransitionRef.current = null;
       setProject(snapshot);
@@ -4444,7 +4539,11 @@ function App() {
 
   const createProjectEntry = useCallback(async (path: string, kind: "file" | "folder") => {
     try {
-      const createdPath = await invoke<string>("create_project_entry", { path, kind });
+      const createdPath = await invoke<string>("create_project_entry", {
+        path,
+        kind,
+        projectRoot: project?.root,
+      });
       await refreshProject();
       await refreshHistory();
       if (kind === "file") {
@@ -4468,6 +4567,7 @@ function App() {
     loadFile,
     overleafLink,
     overleafSyncMode,
+    project?.root,
     refreshHistory,
     refreshProject,
     shareCreatedFileWithCollabV2,
@@ -4477,7 +4577,11 @@ function App() {
     if (!paths.length || assetImporting) return [];
     setAssetImporting(true);
     try {
-      const imported = await invoke<string[]>("import_project_assets", { paths, targetDirectory });
+      const imported = await invoke<string[]>("import_project_assets", {
+        paths,
+        targetDirectory,
+        projectRoot: project?.root,
+      });
       await refreshProject();
       setNotice(`Imported ${imported.length} figure${imported.length === 1 ? "" : "s"} into ${targetDirectory}.`);
       setError(null);
@@ -4491,7 +4595,7 @@ function App() {
       setAssetImporting(false);
       setAssetDropTarget(null);
     }
-  }, [assetImporting, refreshProject, shareCreatedFileWithCollabV2]);
+  }, [assetImporting, project?.root, refreshProject, shareCreatedFileWithCollabV2]);
 
   const importProjectSources = useCallback(async (
     paths: string[],
@@ -4500,7 +4604,11 @@ function App() {
     if (!paths.length || assetImporting) return [];
     setAssetImporting(true);
     try {
-      const imported = await invoke<string[]>("import_project_sources", { paths, targetDirectory });
+      const imported = await invoke<string[]>("import_project_sources", {
+        paths,
+        targetDirectory,
+        projectRoot: project?.root,
+      });
       await reconcileProjectTree();
       await refreshHistory();
       setError(null);
@@ -4514,7 +4622,7 @@ function App() {
       setAssetImporting(false);
       setAssetDropTarget(null);
     }
-  }, [assetImporting, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
+  }, [assetImporting, project?.root, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
 
   const chooseProjectAssets = useCallback(async (targetDirectory = "figures") => {
     const selected = await open({
@@ -4627,7 +4735,10 @@ function App() {
 
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
     try {
-      const prepared = await invoke<string>("prepare_latex_figure", { path });
+      const prepared = await invoke<string>("prepare_latex_figure", {
+        path,
+        projectRoot: project?.root,
+      });
       if (prepared !== path) await refreshProject();
       setError(null);
       return prepared;
@@ -4635,7 +4746,7 @@ function App() {
       setError(toMessage(reason));
       return null;
     }
-  }, [refreshProject]);
+  }, [project?.root, refreshProject]);
 
   const handleFigureDropHandled = useCallback((id: string) => {
     setFigureDropRequest((request) => request?.id === id ? null : request);
@@ -4715,7 +4826,7 @@ function App() {
           rename: async () => { throw new Error("Unexpected rename during delete"); },
           delete: (localPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, localPath, () => invoke("delete_project_entry", { path: localPath, projectRoot })),
         });
-      } else await invoke("delete_project_entry", { path });
+      } else await invoke("delete_project_entry", { path, projectRoot: project?.root });
       const snapshot = await refreshProject();
       if (overleafLink && project) {
         // Structural deletes do not pass through `save()`, so handle the
@@ -4799,7 +4910,11 @@ function App() {
           rename: (oldPath, _newPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, oldPath, () => invoke<string>("rename_project_entry", { path: oldPath, newName: name, projectRoot })),
           delete: async () => { throw new Error("Unexpected delete during rename"); },
         })
-        : await invoke<string>("rename_project_entry", { path, newName: name });
+        : await invoke<string>("rename_project_entry", {
+          path,
+          newName: name,
+          projectRoot: project?.root,
+        });
       const changes = [{ previousPath: path, nextPath: renamedPath }];
       applyProjectEntryPathChanges(changes);
       if (activeFileRef.current) void markDiskMtime(activeFileRef.current);
@@ -4815,7 +4930,7 @@ function App() {
         projectTreeMutationCountRef.current - 1,
       );
     }
-  }, [activeCollabVersion, applyProjectEntryPathChanges, markDiskMtime, reconcileProjectTree]);
+  }, [activeCollabVersion, applyProjectEntryPathChanges, markDiskMtime, project?.root, reconcileProjectTree]);
 
   const moveProjectEntries = useCallback(async (
     paths: string[],
@@ -4840,7 +4955,11 @@ function App() {
             rename: (oldPath, _newPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, oldPath, () => invoke<string>("move_project_entry", { path: oldPath, targetDirectory: normalizedTarget, projectRoot })),
             delete: async () => { throw new Error("Unexpected delete during move"); },
           })
-          : await invoke<string>("move_project_entry", { path: planned.previousPath, targetDirectory: normalizedTarget });
+          : await invoke<string>("move_project_entry", {
+            path: planned.previousPath,
+            targetDirectory: normalizedTarget,
+            projectRoot: project?.root,
+          });
         const completed = { previousPath: planned.previousPath, nextPath: movedPath };
         completedChanges.push(completed);
         if (planned.nextPath !== movedPath) {
@@ -4876,6 +4995,7 @@ function App() {
     activeCollabVersion,
     applyProjectEntryPathChanges,
     markDiskMtime,
+    project?.root,
     reconcileProjectTree,
   ]);
 
@@ -4994,6 +5114,7 @@ function App() {
         targetDirectory: "figures",
         fileName: clipboardImageFileName(file.type || "image/png"),
         base64Data: base64,
+        projectRoot: project?.root,
       });
       await refreshProject();
       setError(null);
@@ -5004,7 +5125,7 @@ function App() {
       setError(toMessage(reason));
       return null;
     }
-  }, [refreshProject, shareCreatedFileWithCollabV2]);
+  }, [project?.root, refreshProject, shareCreatedFileWithCollabV2]);
 
   const handlePasteImageFile = useCallback((file: File) => {
     void importClipboardImageFile(file).then((path) => {
@@ -5034,6 +5155,7 @@ function App() {
         targetDirectory: "figures",
         fileName: clipboardImageFileName("image/png"),
         base64Data: base64,
+        projectRoot: project.root,
       });
       await refreshProject();
       // After setError(null): a share failure must remain visible.
@@ -5101,7 +5223,11 @@ function App() {
         const existing = bibliography === activeFile
           ? source
           : await invoke<string>("read_project_file", { path: bibliography });
-        await invoke("write_project_file", { path: bibliography, content: appendBibEntry(existing, formatBibEntry(draft)) });
+        await invoke("write_project_file", {
+          path: bibliography,
+          content: appendBibEntry(existing, formatBibEntry(draft)),
+          projectRoot: project.root,
+        });
       }
       // Re-sync the editor buffer and collab peers with what's now on disk.
       const next = await invoke<string>("read_project_file", { path: bibliography });
@@ -5257,13 +5383,51 @@ function App() {
     const payload = serializeEditorComments(next);
     try {
       await invoke("save_editor_comments", { comments: next });
-      // Push the same payload we just saved — avoid a disk re-read race. No-op
-      // when the comments file is not in the v2 catalog.
-      await publishTextToCollabV2(EDITOR_COMMENTS_PATH, payload);
+      // Push the same payload we just saved — avoid a disk re-read race.
+      const published = await publishTextToCollabV2(EDITOR_COMMENTS_PATH, payload);
+      if (!published && activeCollabVersion === 2 && collabV2ControllerRef.current) {
+        // The project never had a comments file, so it is not in the catalog
+        // yet — register it mid-share, seeding the payload we already hold.
+        const controller = collabV2ControllerRef.current;
+        await controller.create(EDITOR_COMMENTS_PATH, "text", { seedText: payload, adoptExisting: true });
+        // Always merge after creation: another peer can enter the fresh Y.Text
+        // before the catalog winner inserts its seed.
+        const ytext = await controller.openPath(EDITOR_COMMENTS_PATH, "secondary", { sideload: true });
+        const combined = mergeEditorComments(tryParseEditorComments(ytext.toString()) ?? [], next);
+        setEditorComments(combined);
+        await invoke("save_editor_comments", { comments: combined });
+        await publishTextToCollabV2(EDITOR_COMMENTS_PATH, serializeEditorComments(combined));
+      }
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [editorComments, publishTextToCollabV2]);
+  }, [activeCollabVersion, editorComments, publishTextToCollabV2]);
+
+  /**
+   * Live-update the comments panel from the shared comments file. Peer
+   * publishes land in the file's Yjs doc and mirror to disk, but without this
+   * observer the panel's state only refreshed on project reload. Local-origin
+   * transactions (our own publishes) are skipped — state is already set.
+   * collabFileCount re-runs the check so a comments file created mid-share
+   * gets observed once it appears in the catalog.
+   */
+  useEffect(() => {
+    const v2 = collabV2ControllerRef.current;
+    if (activeCollabVersion !== 2 || !collabSession || !v2?.hasTextPath(EDITOR_COMMENTS_PATH)) return;
+    let cancelled = false;
+    let detach: (() => void) | undefined;
+    void v2.openPath(EDITOR_COMMENTS_PATH, "secondary", { sideload: true }).then((ytext) => {
+      if (cancelled) return;
+      const onRemote = (_event: unknown, transaction: { local: boolean }) => {
+        if (transaction.local) return;
+        const parsed = tryParseEditorComments(ytext.toString());
+        if (parsed) setEditorComments(parsed);
+      };
+      ytext.observe(onRemote);
+      detach = () => ytext.unobserve(onRemote);
+    }).catch(() => undefined);
+    return () => { cancelled = true; detach?.(); };
+  }, [activeCollabVersion, collabFileCount, collabSession]);
 
   /** An Overleaf thread's id, when this comment is one of theirs. */
   const overleafThreadOf = useCallback((commentId: string) => (
@@ -5409,6 +5573,7 @@ function App() {
         <ConflictResolverDialog
           open
           path={conflictPath}
+          projectRoot={project?.root ?? ""}
           onClose={() => setConflictPath(null)}
           onResolved={async (path) => {
             await refreshProject();
@@ -5758,6 +5923,7 @@ function App() {
         setRefCitePicker("ref");
       }
       if (event.key.toLocaleLowerCase() === "i" && event.shiftKey) {
+        if (!canInsert) return;
         event.preventDefault();
         setInsertOpen(true);
       }
@@ -5776,7 +5942,7 @@ function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [cycleCompileDiagnostic, navigateHistory, reopenClosedTab, revealSourceInPdf]);
+  }, [canInsert, cycleCompileDiagnostic, navigateHistory, reopenClosedTab, revealSourceInPdf]);
 
   if (!project) {
     return (
@@ -5808,6 +5974,7 @@ function App() {
           onOpen={chooseExisting}
           onImportZip={() => void importOverleafZip()}
           onJoinCollab={() => openCollabDialog("join")}
+          onOpenTutorial={() => void openTutorialProject()}
           onSettings={() => openSettings("appearance")}
           onInstallTex={openTexSetupWizard}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
@@ -5985,6 +6152,7 @@ function App() {
               focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile
             )}
             activeKind={activeAsset ? "asset" : activePaper ? "paper" : "document"}
+            canInsert={canInsert}
             dirty={activePaper
               ? activePaperDirty
               : source !== savedSource
@@ -6484,12 +6652,15 @@ function App() {
             collabSession={activePaper ? null : collabSession}
             collabReady={collabReady}
             editorEditable={
-              overleafLink === null
-              || overleafRealtime.canWrite
-              || (
-                overleafRealtime.permission !== "unknown"
-                && overleafRealtime.entities.get(activeFile)?.kind !== "doc"
-                && !Array.from(overleafDocPaths.values()).includes(activeFile)
+              (collabSession?.canWrite !== false && collabCanWrite)
+              && (
+                overleafLink === null
+                || overleafRealtime.canWrite
+                || (
+                  overleafRealtime.permission !== "unknown"
+                  && overleafRealtime.entities.get(activeFile)?.kind !== "doc"
+                  && !Array.from(overleafDocPaths.values()).includes(activeFile)
+                )
               )
             }
             collabEditorKey={activePaper
@@ -7056,7 +7227,9 @@ function App() {
           { id: "view-columns", label: "Two sources + PDF", detail: "2+pdf", group: "View" },
           { id: "view-split", label: "Source + PDF", detail: "split", group: "View" },
           { id: "swap-panes", label: "Swap editor panes", detail: secondaryFile ? `${activeFile} ↔ ${secondaryFile}` : "Needs dual view", group: "View" },
-          { id: "insert", label: "Insert snippet", detail: "⌘⇧I", group: "Edit" },
+          ...(canInsert
+            ? [{ id: "insert", label: "Insert snippet", detail: "⌘⇧I", group: "Edit" }]
+            : []),
           {
             id: "collab",
             label: collabSession ? "Live sharing…" : "Start / join live sharing",
@@ -7076,7 +7249,7 @@ function App() {
           { id: "format", label: "Format document", detail: "latexindent", group: "Edit" },
           { id: "history", label: "Open project history", group: "Project" },
           { id: "export-zip", label: "Export project ZIP", detail: "Overleaf / arXiv source pack", group: "Project" },
-          { id: "tutorial", label: "Explore Lattice tutorial", detail: "Understanding Attention sample project", group: "Project" },
+          { id: "tutorial", label: "Start product tour", detail: "Guided tour with the Understanding Attention sample project", group: "Project" },
           { id: "doctor", label: "Run TeX doctor", group: "Project" },
           { id: "settings", label: "Open settings", group: "Project" },
         ]}

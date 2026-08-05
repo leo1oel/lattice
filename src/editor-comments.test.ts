@@ -10,6 +10,7 @@ import {
   createEditorCommentReply,
   editorCommentsExtension,
   formatCommentTimestamp,
+  mergeEditorComments,
   parseEditorComments,
   resolveCommentAnchor,
   resolveCommentRange,
@@ -18,6 +19,22 @@ import {
 } from "./editor-comments";
 
 describe("editor comments", () => {
+  it("merges independently created comments and replies by stable id", () => {
+    const first = createEditorComment({
+      path: "main.tex", source: "first second", from: 0, to: 5,
+      body: "A", authorId: "a", authorName: "A",
+    })!;
+    const second = createEditorComment({
+      path: "main.tex", source: "first second", from: 6, to: 12,
+      body: "B", authorId: "b", authorName: "B",
+    })!;
+    const reply = createEditorCommentReply({ body: "reply", authorId: "b", authorName: "B" })!;
+
+    const merged = mergeEditorComments([first], [second, { ...first, replies: [reply] }]);
+    expect(merged.map((comment) => comment.id).sort()).toEqual([first.id, second.id].sort());
+    expect(merged.find((comment) => comment.id === first.id)?.replies).toEqual([reply]);
+  });
+
   it("creates a comment with quote and context", () => {
     const source = "Hello bold world today";
     const comment = createEditorComment({

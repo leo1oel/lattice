@@ -33,6 +33,9 @@ import {
  */
 export const BOARD_CONTENT_KEY = "content";
 export const BOARD_RECORDS_KEY = "records";
+export const BOARD_META_KEY = "boardMeta";
+export const BOARD_RECORD_PATCHES_KEY = "recordPatches";
+export const BOARD_RECORD_GENERATIONS_KEY = "recordGenerations";
 
 /** Transaction origin for local store edits pushed into the Y.Doc. */
 export const BOARD_LOCAL_ORIGIN = "tldraw-local";
@@ -40,6 +43,142 @@ export const BOARD_LOCAL_ORIGIN = "tldraw-local";
 export const BOARD_SEED_ORIGIN = "tldraw-seed";
 
 const TLDRAW_FILE_FORMAT_VERSION = 1;
+const BOARD_BRIDGE_FORMAT_VERSION = 1;
+const PATCH_KEY_SEPARATOR = "|";
+const LEGACY_RECORD_GENERATION = "legacy";
+const DELETED_FIELD = { __latticeDeletedBoardField: true } as const;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value) && !(value instanceof Uint8Array);
+}
+
+function flattenRecord(value: unknown, path: string[] = [], output = new Map<string, unknown>()): Map<string, unknown> {
+  if (isPlainObject(value) && Object.keys(value).length > 0) {
+    for (const [key, child] of Object.entries(value)) flattenRecord(child, [...path, key], output);
+  } else {
+    output.set(path.map(encodeURIComponent).join("/"), value);
+  }
+  return output;
+}
+
+function patchKey(recordId: string, generation: string, path: string): string {
+  return [recordId, generation].map(encodeURIComponent).join(PATCH_KEY_SEPARATOR)
+    + PATCH_KEY_SEPARATOR + path;
+}
+
+function patchRecordId(key: string): string | undefined {
+  const separator = key.indexOf(PATCH_KEY_SEPARATOR);
+  if (separator < 0) return undefined;
+  try { return decodeURIComponent(key.slice(0, separator)); } catch { return undefined; }
+}
+
+function recordPatchPrefix(recordId: string, generation: string): string {
+  return `${encodeURIComponent(recordId)}${PATCH_KEY_SEPARATOR}${encodeURIComponent(generation)}${PATCH_KEY_SEPARATOR}`;
+}
+
+function isDeletedField(value: unknown): boolean {
+  return isPlainObject(value) && value.__latticeDeletedBoardField === true;
+}
+
+function setRecordPath(record: Record<string, unknown>, encodedPath: string, value: unknown): void {
+  const path = encodedPath.split("/").map(decodeURIComponent);
+  if (path.some((segment) => segment === "__proto__" || segment === "prototype" || segment === "constructor")) {
+    throw new Error("Unsafe collaborative board record path");
+  }
+  let parent = record;
+  for (let index = 0; index < path.length - 1; index++) {
+    const key = path[index];
+    if (!isPlainObject(parent[key])) parent[key] = {};
+    parent = parent[key] as Record<string, unknown>;
+  }
+  const key = path[path.length - 1];
+  if (isDeletedField(value)) delete parent[key];
+  else parent[key] = value;
+}
+
+function recordWithPatches(
+  record: TLRecord,
+  recordId: string,
+  generation: string,
+  patches: Y.Map<unknown>,
+): TLRecord {
+  const next = JSON.parse(JSON.stringify(record)) as Record<string, unknown>;
+  const prefix = recordPatchPrefix(recordId, generation);
+  const applicable: Array<[string, unknown]> = [];
+  patches.forEach((value, key) => {
+    if (key.startsWith(prefix)) applicable.push([key.slice(prefix.length), value]);
+  });
+  // Overlapping paths can survive when peers concurrently replace a subtree
+  // with a scalar and edit one of its children. Apply shallow paths last so
+  // the subtree replacement wins deterministically on every peer.
+  applicable.sort(([a], [b]) => b.split("/").length - a.split("/").length || a.localeCompare(b));
+  for (const [path, value] of applicable) setRecordPath(next, path, value);
+  return next as unknown as TLRecord;
+}
+
+function currentBoardRecords(
+  yRecords: Y.Map<TLRecord>,
+  generations: Y.Map<string>,
+  patches: Y.Map<unknown>,
+): TLRecord[] {
+  const records: TLRecord[] = [];
+  yRecords.forEach((record, id) => records.push(recordWithPatches(
+    record,
+    id,
+    generations.get(id) ?? LEGACY_RECORD_GENERATION,
+    patches,
+  )));
+  return records;
+}
+
+function clearRecordPatches(recordId: string, generation: string, patches: Y.Map<unknown>): void {
+  const prefix = recordPatchPrefix(recordId, generation);
+  for (const key of patches.keys()) if (key.startsWith(prefix)) patches.delete(key);
+}
+
+function clearRelatedPatches(
+  recordId: string,
+  generation: string,
+  path: string,
+  patches: Y.Map<unknown>,
+): void {
+  const prefix = recordPatchPrefix(recordId, generation);
+  for (const key of patches.keys()) {
+    if (!key.startsWith(prefix)) continue;
+    const existing = key.slice(prefix.length);
+    if (existing === path || existing.startsWith(`${path}/`) || path.startsWith(`${existing}/`)) {
+      patches.delete(key);
+    }
+  }
+}
+
+function writeRecordPatches(
+  before: TLRecord,
+  after: TLRecord,
+  generation: string,
+  patches: Y.Map<unknown>,
+): void {
+  const previous = flattenRecord(before);
+  const next = flattenRecord(after);
+  for (const [path, value] of next) {
+    if (JSON.stringify(previous.get(path)) !== JSON.stringify(value)) {
+      clearRelatedPatches(after.id, generation, path, patches);
+      patches.set(patchKey(after.id, generation, path), value);
+    }
+  }
+  for (const path of previous.keys()) {
+    if (next.has(path)) continue;
+    // A scalar/empty-object path can become descendants (or vice versa). The
+    // surviving related path already replaces that subtree, so a tombstone
+    // would make application order matter and could erase the new value.
+    const replacedAsSubtree = [...next.keys()].some((candidate) =>
+      candidate.startsWith(`${path}/`) || path.startsWith(`${candidate}/`));
+    if (!replacedAsSubtree) {
+      clearRelatedPatches(after.id, generation, path, patches);
+      patches.set(patchKey(after.id, generation, path), DELETED_FIELD);
+    }
+  }
+}
 
 let cachedSchema: TLSchema | null = null;
 
@@ -78,6 +217,14 @@ export function pruneUnusedAssets(records: TLRecord[]): TLRecord[] {
  */
 export function serializeBoard(records: TLRecord[], schema: TLSchema = getBoardSchema()): string {
   const documentRecords = pruneUnusedAssets(records.filter(isBoardDocumentRecord));
+  // Validate before claiming that these records conform to the current schema.
+  // Shared rooms may contain malformed or newer-client data that must not be
+  // materialized into a deceptively valid-looking .tldr file.
+  const validationStore = createTLStore({
+    shapeUtils: [...defaultShapeUtils],
+    bindingUtils: [...defaultBindingUtils],
+  });
+  validationStore.put(documentRecords);
   // Sort by id so repeated serializations of equal state are byte-identical.
   documentRecords.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return JSON.stringify({
@@ -108,6 +255,10 @@ export function seedBoardRecords(doc: Y.Doc, schema: TLSchema = getBoardSchema()
   if (!records || records.length === 0) return false;
   doc.transact(() => {
     for (const record of records) yRecords.set(record.id, record);
+    const meta = doc.getMap<unknown>(BOARD_META_KEY);
+    meta.set("formatVersion", BOARD_BRIDGE_FORMAT_VERSION);
+    meta.set("initialized", true);
+    meta.set("schema", schema.serialize());
   }, BOARD_SEED_ORIGIN);
   return true;
 }
@@ -116,9 +267,34 @@ export function seedBoardRecords(doc: Y.Doc, schema: TLSchema = getBoardSchema()
 export function boardDocContent(doc: Y.Doc, schema: TLSchema = getBoardSchema()): string {
   const yRecords = doc.getMap<TLRecord>(BOARD_RECORDS_KEY);
   if (yRecords.size === 0) return doc.getText(BOARD_CONTENT_KEY).toString();
-  const records: TLRecord[] = [];
-  yRecords.forEach((record) => records.push(record));
+  const records = migratedBoardRecords(doc, schema);
+  if (!records) throw new Error("The collaborative board schema cannot be read by this tldraw version");
   return serializeBoard(records, schema);
+}
+
+function migratedBoardRecords(doc: Y.Doc, schema: TLSchema): TLRecord[] | null {
+  const yRecords = doc.getMap<TLRecord>(BOARD_RECORDS_KEY);
+  const generations = doc.getMap<string>(BOARD_RECORD_GENERATIONS_KEY);
+  const patches = doc.getMap<unknown>(BOARD_RECORD_PATCHES_KEY);
+  const records = currentBoardRecords(yRecords, generations, patches);
+  const meta = doc.getMap<unknown>(BOARD_META_KEY);
+  const version = meta.get("formatVersion");
+  if (version !== undefined && version !== BOARD_BRIDGE_FORMAT_VERSION) return null;
+
+  const storedSchema = boardStoredSchema(doc);
+  if (!isPlainObject(storedSchema)) return records;
+  return parseBoardRecords(JSON.stringify({
+    tldrawFileFormatVersion: TLDRAW_FILE_FORMAT_VERSION,
+    schema: storedSchema,
+    records,
+  }), schema);
+}
+
+function boardStoredSchema(doc: Y.Doc): unknown {
+  const metadataSchema = doc.getMap<unknown>(BOARD_META_KEY).get("schema");
+  if (isPlainObject(metadataSchema)) return metadataSchema;
+  try { return (JSON.parse(doc.getText(BOARD_CONTENT_KEY).toString()) as { schema?: unknown }).schema; }
+  catch { return undefined; }
 }
 
 export type BoardBridge = {
@@ -133,17 +309,55 @@ export type BoardBridge = {
 export function attachBoardBridge(
   store: TLStore,
   doc: Y.Doc,
-  options: { schema?: TLSchema } = {},
+  options: { schema?: TLSchema; canWrite?: boolean | (() => boolean) } = {},
 ): BoardBridge {
   const schema = options.schema ?? getBoardSchema();
+  const canWriteNow = typeof options.canWrite === "function"
+    ? options.canWrite
+    : () => options.canWrite !== false;
+  const canWrite = canWriteNow();
   const yRecords = doc.getMap<TLRecord>(BOARD_RECORDS_KEY);
+  const generations = doc.getMap<string>(BOARD_RECORD_GENERATIONS_KEY);
+  const patches = doc.getMap<unknown>(BOARD_RECORD_PATCHES_KEY);
+  const meta = doc.getMap<unknown>(BOARD_META_KEY);
+  const currentSchema = schema.serialize();
 
-  seedBoardRecords(doc, schema);
+  const version = meta.get("formatVersion");
+  if (version !== undefined && version !== BOARD_BRIDGE_FORMAT_VERSION) {
+    throw new Error(`Unsupported board collaboration format: ${String(version)}`);
+  }
+
+  if (canWrite) seedBoardRecords(doc, schema);
+  const records = yRecords.size > 0 ? migratedBoardRecords(doc, schema) : null;
+  if (yRecords.size > 0 && !records) {
+    throw new Error("The collaborative board schema cannot be migrated by this tldraw version");
+  }
+
+  const storedSchema = boardStoredSchema(doc);
+  const requiresMigration = isPlainObject(storedSchema)
+    && JSON.stringify(storedSchema) !== JSON.stringify(currentSchema);
+  if (canWrite && requiresMigration) {
+    throw new Error("This collaborative board must be migrated before it can be edited");
+  }
+  if (canWrite && yRecords.size > 0 && !requiresMigration) {
+    doc.transact(() => {
+      meta.set("formatVersion", BOARD_BRIDGE_FORMAT_VERSION);
+      meta.set("initialized", true);
+      meta.set("schema", currentSchema);
+    }, BOARD_SEED_ORIGIN);
+  }
 
   // Pull the doc's record set into the store (remote-authoritative on attach).
   store.mergeRemoteChanges(() => {
     const incoming = new Map<string, TLRecord>();
-    yRecords.forEach((record, id) => incoming.set(id, record));
+    for (const record of records ?? []) incoming.set(record.id, record);
+    // A read-only user must not seed the shared Y.Doc. They can still view an
+    // imported board before a writer has promoted it into the records map.
+    if (!incoming.size && !canWrite) {
+      for (const record of parseBoardRecords(doc.getText(BOARD_CONTENT_KEY).toString(), schema) ?? []) {
+        incoming.set(record.id, record);
+      }
+    }
     const toPut: TLRecord[] = [];
     const toRemove: TLRecord["id"][] = [];
     for (const record of store.allRecords()) {
@@ -160,36 +374,73 @@ export function attachBoardBridge(
 
   // Local edits → Y.Doc. The scope filter keeps ephemeral records local.
   const unlisten = store.listen((entry) => {
-    doc.transact(() => {
-      for (const record of Object.values(entry.changes.added)) yRecords.set(record.id, record);
-      for (const [, record] of Object.values(entry.changes.updated)) yRecords.set(record.id, record);
-      for (const record of Object.values(entry.changes.removed)) yRecords.delete(record.id);
-    }, BOARD_LOCAL_ORIGIN);
-  }, { source: "user", scope: "document" });
+      if (!canWriteNow()) return;
+      doc.transact(() => {
+        for (const record of Object.values(entry.changes.added)) {
+          const previousGeneration = generations.get(record.id) ?? LEGACY_RECORD_GENERATION;
+          clearRecordPatches(record.id, previousGeneration, patches);
+          generations.set(record.id, crypto.randomUUID());
+          yRecords.set(record.id, record);
+        }
+        for (const [before, after] of Object.values(entry.changes.updated)) {
+          writeRecordPatches(
+            before,
+            after,
+            generations.get(after.id) ?? LEGACY_RECORD_GENERATION,
+            patches,
+          );
+        }
+        for (const record of Object.values(entry.changes.removed)) {
+          yRecords.delete(record.id);
+          clearRecordPatches(
+            record.id,
+            generations.get(record.id) ?? LEGACY_RECORD_GENERATION,
+            patches,
+          );
+          generations.delete(record.id);
+        }
+      }, BOARD_LOCAL_ORIGIN);
+    }, { source: "user", scope: "document" });
 
-  // Y.Doc → store (remote peers and the seed). Unknown records from newer
-  // clients are skipped rather than crashing the editor (fail-closed).
-  const observer = (event: Y.YMapEvent<TLRecord>, txn: Y.Transaction) => {
+  // Y.Doc → store (remote peers and the seed). Field patches use stable keys in
+  // one shared map, so independent edits compose without replacing record maps.
+  const applyChanged = (changed: Set<string>, txn: Y.Transaction) => {
     if (txn.origin === BOARD_LOCAL_ORIGIN) return;
     store.mergeRemoteChanges(() => {
-      for (const [id, change] of event.changes.keys) {
+      for (const id of changed) {
         try {
-          if (change.action === "delete") store.remove([id as TLRecord["id"]]);
-          else {
-            const record = yRecords.get(id);
-            if (record) store.put([record]);
-          }
+          const record = yRecords.get(id);
+          if (record) store.put([recordWithPatches(
+            record,
+            id,
+            generations.get(id) ?? LEGACY_RECORD_GENERATION,
+            patches,
+          )]);
+          else store.remove([id as TLRecord["id"]]);
         } catch {
           // Record failed schema validation (e.g. from a newer app version) — skip it.
         }
       }
     });
   };
-  yRecords.observe(observer);
+  const recordsObserver = (event: Y.YMapEvent<TLRecord>, txn: Y.Transaction) => {
+    applyChanged(new Set(event.changes.keys.keys()), txn);
+  };
+  const patchesObserver = (event: Y.YMapEvent<unknown>, txn: Y.Transaction) => {
+    const changed = new Set<string>();
+    for (const key of event.changes.keys.keys()) {
+      const id = patchRecordId(key);
+      if (id) changed.add(id);
+    }
+    applyChanged(changed, txn);
+  };
+  yRecords.observe(recordsObserver);
+  patches.observe(patchesObserver);
 
   return {
     dispose() {
-      yRecords.unobserve(observer);
+      yRecords.unobserve(recordsObserver);
+      patches.unobserve(patchesObserver);
       unlisten();
     },
   };

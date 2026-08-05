@@ -37,9 +37,35 @@ describe("v2 durable text client", () => {
     const transports: Transport[] = []; const client = await CollabTextClientV2.open(namespace, { store: new GatedStore(new IDBFactory()), issueTicket: async () => "ticket", transportFactory: ({ doc }) => { const t = new Transport(doc); transports.push(t); return t; } }); await client.connect(); client.doc.getText("x").insert(0, "durable-first"); await Promise.resolve(); expect(transports[0].sent).toHaveLength(0); release(); await client.settled(); expect(transports[0].sent).toHaveLength(1);
   });
   it("recovers idempotently when ACK recording succeeds but covered deletion crashes", async () => {
-    class CrashDeleteStore extends CollabTextDurableStoreV2 { fail = true; override async deleteCovered(...args: Parameters<CollabTextDurableStoreV2["deleteCovered"]>) { if (this.fail) { this.fail = false; throw new Error("crash-after-ack"); } return super.deleteCovered(...args); } }
+    class CrashDeleteStore extends CollabTextDurableStoreV2 { fail = true; override async compactAck(namespace: TextNamespaceV2, snapshot: Uint8Array, value: DurableAckV2, vector: Uint8Array) { if (this.fail) { this.fail = false; await this.recordAck(namespace, value); throw new Error("crash-after-ack"); } return super.compactAck(namespace, snapshot, value, vector); } }
     const idb = new IDBFactory(); const store = new CrashDeleteStore(idb); const transports: Transport[] = []; const client = await CollabTextClientV2.open(namespace, { store, issueTicket: async () => "ticket", transportFactory: ({ doc }) => { const t = new Transport(doc); transports.push(t); return t; } }); await client.connect(); client.doc.getText("x").insert(0, "a"); await client.settled(); transports[0].custom?.(ack(client.doc)); await expect(client.settled()).rejects.toThrow("crash-after-ack");
     const reopened = await setup(idb); expect(reopened.client.hasOutbox).toBe(false); expect(reopened.client.durabilityState).toBe("clean");
+  });
+  it("checkpoints successive acknowledged updates before removing them from the outbox", async () => {
+    const x = await setup(); await x.client.connect();
+    x.client.doc.getText("content").insert(0, "first"); await x.client.settled();
+    x.client.doc.getText("content").insert(5, " second"); await x.client.settled();
+    x.transports[0].custom?.(ack(x.client.doc)); await x.client.settled();
+    const reopened = await setup(x.idb);
+    expect(reopened.client.doc.getText("content").toString()).toBe("first second");
+    expect(reopened.client.hasOutbox).toBe(false);
+    expect((await reopened.store.load(namespace))?.outbox).toHaveLength(0);
+  });
+  it("captures an ACK checkpoint before a later queued local update", async () => {
+    const x = await setup(); await x.client.connect();
+    x.client.doc.getText("content").insert(0, "first"); await x.client.settled();
+    x.transports[0].custom?.(ack(x.client.doc));
+    x.client.doc.getText("content").insert(5, " second");
+    await x.client.settled();
+
+    const saved = await x.store.export(namespace);
+    const checkpoint = new Y.Doc();
+    Y.applyUpdate(checkpoint, saved!.snapshot);
+    expect(checkpoint.getText("content").toString()).toBe("first");
+    expect(saved!.outbox).toHaveLength(1);
+    const reopened = await setup(x.idb);
+    expect(reopened.client.doc.getText("content").toString()).toBe("first second");
+    expect(reopened.client.hasOutbox).toBe(true);
   });
   it("only a matching monotonic durable ACK with Yjs vector coverage clears updates", async () => {
     const x = await setup(); await x.client.connect(); x.client.doc.getText("content").insert(0, "a"); await x.client.settled();

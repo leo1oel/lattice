@@ -48,6 +48,10 @@ describe("MarkdownWorkspaceIndex", () => {
       ],
     });
     expect(index.getDoc("untitled")?.title).toBe("untitled");
+    expect(index.previewDocuments()).toEqual([
+      { path: "notes/foo.md", content: expect.stringContaining("# Document title") },
+      { path: "untitled.mdx", content: "Some text" },
+    ]);
   });
 
   test("extracts wiki and relative Markdown links and resolves backlinks", async () => {

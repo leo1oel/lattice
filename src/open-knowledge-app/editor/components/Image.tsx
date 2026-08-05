@@ -35,9 +35,12 @@
 
 import { toDesktopAssetHref } from '@ok-core';
 import type { ImgHTMLAttributes } from 'react';
+import { useEffect, useRef } from 'react';
 import Zoom from 'react-medium-image-zoom';
 import { LoadingImage } from '@ok-app/components/ui/loading-image';
 import { useProjectImageSrc } from '../../../project-image-host';
+import { useJsxComponentHost } from './jsx-host-context.tsx';
+import { ResizeHandles } from './ResizeHandles.tsx';
 
 interface ImageProps {
   src?: string;
@@ -100,9 +103,78 @@ function BareImg(props: ImageProps) {
  * so the zoom-view doesn't inherit a thumbnail-scoped sizes attribute.
  */
 export function Image(props: ImageProps) {
+  const wrapperRef = useRef<HTMLSpanElement | null>(null);
+  const host = useJsxComponentHost();
+  const width = coerceDimension(props.width);
+
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    wrapper.style.width = width === undefined ? '' : typeof width === 'number' ? `${width}px` : width;
+  }, [width]);
+
+  const writeSize = (next: { width: number; height: number }) => {
+    if (!host) return;
+    const pos = host.getPos();
+    if (typeof pos !== 'number') return;
+    try {
+      const node = host.editor.state.doc.nodeAt(pos);
+      if (!node || node.type.name !== 'jsxComponent') return;
+      const currentProps = (node.attrs.props as Record<string, unknown>) ?? {};
+      const { sourceUrl, height: _height, ...persistedProps } = currentProps;
+      host.editor.view.dispatch(
+        host.editor.state.tr.setNodeMarkup(pos, null, {
+          ...node.attrs,
+          // CommonMark image syntax has no dimensions. The first resize
+          // upgrades it to the canonical HTML image while preserving all
+          // existing image props.
+          componentName: node.attrs.componentName === 'CommonMarkImage' ? 'img' : node.attrs.componentName,
+          props: {
+            ...persistedProps,
+            // The parser may resolve a document-relative src for rendering
+            // and retain its authored form in sourceUrl. The canonical img
+            // descriptor has no sourceUrl prop, so restore that authored path
+            // instead of leaking either internal field into saved MDX.
+            ...(typeof sourceUrl === 'string' ? { src: sourceUrl } : {}),
+            width: Math.round(next.width),
+          },
+          sourceDirty: true,
+        }),
+      );
+    } catch (error) {
+      // A collaborative edit can remove the node between pointer-down and
+      // pointer-up. In that case there is no image left to resize.
+      if (error instanceof RangeError) return;
+      throw error;
+    }
+  };
+
   return (
-    <Zoom wrapElement="span" zoomMargin={20} zoomImg={{ sizes: undefined }}>
-      <BareImg {...props} />
-    </Zoom>
+    <span
+      ref={wrapperRef}
+      className="ok-image-resizable"
+      style={{ width }}
+      contentEditable={false}
+    >
+      <Zoom wrapElement="span" zoomMargin={20} zoomImg={{ sizes: undefined }}>
+        <BareImg {...props} width={undefined} height={undefined} />
+      </Zoom>
+      {host ? (
+        <ResizeHandles
+          targetRef={wrapperRef}
+          handles={['l', 'r']}
+          bounds={{
+            minWidth: 64,
+            maxWidth: 2000,
+          }}
+          onResize={(next) => {
+            const wrapper = wrapperRef.current;
+            if (!wrapper) return;
+            wrapper.style.width = `${next.width}px`;
+          }}
+          onResizeEnd={writeSize}
+        />
+      ) : null}
+    </span>
   );
 }

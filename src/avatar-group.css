@@ -12,7 +12,7 @@
 .avatar-group > * {
   --avatar-group-shift: 0px;
   --avatar-group-active-scale: 1;
-  margin-left: -8px;
+  margin-left: -12px;
   position: relative;
   flex: none;
   transform: translateY(var(--avatar-group-shift)) scale(var(--avatar-group-active-scale));
@@ -22,9 +22,11 @@
 }
 
 .avatar-group.avatar-group > * {
-  width: 10px;
-  height: 10px;
+  width: 24px;
+  height: 24px;
+  overflow: hidden;
   border-radius: 50%;
 }
+.avatar-group.avatar-group > button { color: #fff; }
 .avatar-group > *:first-child { margin-left: 0; }
 .avatar-group > *:hover { z-index: 1; }

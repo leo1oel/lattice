@@ -73,6 +73,7 @@ function PierreConflictSurface(props: {
 export function ConflictResolverDialog(props: {
   open: boolean;
   path: string | null;
+  projectRoot: string;
   onClose: () => void;
   /** Called after the resolved file is written, so the editor can reload. */
   onResolved: (path: string) => void;
@@ -127,7 +128,11 @@ export function ConflictResolverDialog(props: {
     setError(null);
     const savedContent = draftRef.current;
     try {
-      await invoke("write_project_file", { path: props.path, content: savedContent });
+      await invoke("write_project_file", {
+        path: props.path,
+        content: savedContent,
+        projectRoot: props.projectRoot,
+      });
       if (draftRef.current !== savedContent) {
         setError("The file changed while it was saving. Review the latest text and save again.");
         setSaving(false);

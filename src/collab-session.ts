@@ -6,6 +6,34 @@ export { peerColorForName, peerColorForKey } from "./collab-colors";
 /** Origin tag for local Yjs transactions, so observers can tell them apart from remote ones. */
 export const COLLAB_LOCAL_ORIGIN = "lattice-local";
 
+/**
+ * Replace a shared text's content with `next` as a minimal-span edit (common
+ * prefix/suffix preserved) rather than a delete-all + insert-all. Peers'
+ * concurrent edits outside the changed span survive the merge, their carets
+ * keep their relative anchors, and the wire update stays small. Two clients
+ * appending at the same spot (e.g. both adding a JSON array entry) still
+ * converge: a single insert op is atomic in Yjs merges, so both chunks land
+ * contiguous and the document stays parseable. The transaction is tagged
+ * local so disk observers do not rewrite a file the caller just wrote.
+ */
+export function mergeTextIntoYText(ytext: Y.Text, next: string): void {
+  const current = ytext.toString();
+  if (current === next) return;
+  let start = 0;
+  const limit = Math.min(current.length, next.length);
+  while (start < limit && current[start] === next[start]) start += 1;
+  let currentEnd = current.length;
+  let nextEnd = next.length;
+  while (currentEnd > start && nextEnd > start && current[currentEnd - 1] === next[nextEnd - 1]) {
+    currentEnd -= 1;
+    nextEnd -= 1;
+  }
+  ytext.doc?.transact(() => {
+    if (currentEnd > start) ytext.delete(start, currentEnd - start);
+    if (nextEnd > start) ytext.insert(start, next.slice(start, nextEnd));
+  }, COLLAB_LOCAL_ORIGIN);
+}
+
 export type CollabStatus = "disconnected" | "connecting" | "synced" | "error";
 
 export type EditorCollabSession = {
@@ -18,9 +46,15 @@ export type EditorCollabSession = {
   undoManager: Y.UndoManager;
   setActivePath: (path: string, seedIfEmpty?: string) => Y.Text;
   fileCount: () => number;
+  /** Flush pending workspace materialization before ending or switching sessions. */
+  flush?: () => Promise<void>;
   destroy: () => void;
   /** Identity for board cursor presence. */
   boardPresenceUser?: { id: string; name: string; color: string };
+  /** Whether this actor may mutate the active collaborative document. */
+  canWrite?: boolean;
+  /** Observe live permission loss such as grant revocation. */
+  subscribeCanWrite?: (listener: (canWrite: boolean) => void) => () => void;
   /** Bumped when provider.awareness is swapped (file switch / reconnect); watch it to re-bind awareness consumers. */
   awarenessVersion?: number;
 };

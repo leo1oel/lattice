@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import { Tldraw, type TLStore } from "tldraw";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Tldraw, type Editor, type TLStore } from "tldraw";
 import "tldraw/tldraw.css";
 import type * as Y from "yjs";
 import type { Awareness } from "y-protocols/awareness";
+import {
+  createTldrawAgentCanvasAdapter,
+  registerAgentCanvasAdapter,
+} from "./agent-canvas-tools";
 import {
   attachBoardBridge,
   attachBoardPresence,
@@ -23,6 +27,7 @@ export type BoardCollabBinding = {
   doc: Y.Doc;
   awareness: Awareness | null;
   user: BoardPresenceUser | null;
+  canWrite: boolean;
 };
 
 export type BoardEditorProps = {
@@ -54,7 +59,22 @@ export function mergeExternalBoardSource(store: TLStore, source: string): boolea
 
 export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  const editorRef = useRef<Editor | null>(null);
+  const unregisterAgentAdapterRef = useRef<(() => void) | null>(null);
+  const canWriteRef = useRef(collab?.canWrite !== false);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  useLayoutEffect(() => {
+    canWriteRef.current = collab?.canWrite !== false;
+    editorRef.current?.updateInstanceState({ isReadonly: !canWriteRef.current });
+  }, [collab?.canWrite]);
+  useLayoutEffect(() => () => {
+    canWriteRef.current = false;
+    unregisterAgentAdapterRef.current?.();
+    unregisterAgentAdapterRef.current = null;
+    editorRef.current = null;
+  }, []);
   // The store is created once per mount (the canvas keys this component by
   // file path). Collab mode starts empty: attachBoardBridge seeds records
   // from the doc's imported content and pulls the doc-authoritative state.
@@ -69,7 +89,7 @@ export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
   const collabUser = collab?.user ?? null;
   useEffect(() => {
     if (!collabDoc) return;
-    const bridge = attachBoardBridge(store, collabDoc);
+    const bridge = attachBoardBridge(store, collabDoc, { canWrite: () => canWriteRef.current });
     const disposePresence = collabAwareness && collabUser
       ? attachBoardPresence(store, collabAwareness, collabUser)
       : undefined;
@@ -77,7 +97,9 @@ export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
       disposePresence?.();
       bridge.dispose();
     };
-  }, [store, collabDoc, collabAwareness, collabUser]);
+  }, [store, collabDoc, collabAwareness, collabUser, collab?.canWrite]);
+
+  const canWrite = collab?.canWrite !== false;
 
   // Local mode: debounce-serialize edits out; merge external source changes in.
   useEffect(() => {
@@ -110,7 +132,24 @@ export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
 
   return (
     <div className="board-editor-root" data-tour="board-workspace">
-      <Tldraw store={store} licenseKey={LICENSE_KEY} />
+      <Tldraw
+        store={store}
+        licenseKey={LICENSE_KEY}
+        locale="en"
+        onMount={(editor) => {
+          editorRef.current = editor;
+          editor.updateInstanceState({ isReadonly: !canWrite });
+          if (editor.getCurrentPageShapes().length > 0) {
+            window.requestAnimationFrame(() => {
+              if (!editor.isDisposed) editor.zoomToFit({ immediate: true });
+            });
+          }
+          unregisterAgentAdapterRef.current?.();
+          unregisterAgentAdapterRef.current = registerAgentCanvasAdapter(
+            createTldrawAgentCanvasAdapter(editor, () => canWriteRef.current),
+          );
+        }}
+      />
     </div>
   );
 }

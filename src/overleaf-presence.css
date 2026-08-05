@@ -3,16 +3,16 @@
    class names since the two collaboration systems can be live at once and
    must never share styling that one of them changes independently. */
 .overleaf-presence-avatar {
-  width: 10px;
-  height: 10px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 1px solid var(--surface-panel);
   border-radius: 50%;
   display: grid;
   place-items: center;
   color: #fff;
-  font: 600 var(--type-nano-size)/1 var(--ui-font);
-  letter-spacing: .02em;
+  font: 500 var(--type-micro-size)/1 var(--ui-font);
+  letter-spacing: 0;
   cursor: pointer;
 }
-.overleaf-presence-avatar.more { background: var(--border-subtle); color: var(--text-secondary); cursor: default; }
+.overleaf-presence-avatar.more { background: var(--border-subtle); color: var(--text-secondary); cursor: default; font-size: var(--type-nano-size); }

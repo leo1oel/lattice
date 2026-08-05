@@ -108,15 +108,26 @@ export function parsePreviewCspViolationMessage(
  * srcDoc rather than being inherited from the host page.
  */
 const PREVIEW_SCROLLBAR_STYLE = `<style>
-  html, body { scrollbar-width: thin; scrollbar-color: rgba(115,115,115,0.4) transparent; }
+  html, body, * { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  html:hover, body:hover, *:hover { scrollbar-color: color-mix(in srgb, var(--foreground) 12%, transparent) transparent; }
   html::-webkit-scrollbar, body::-webkit-scrollbar,
-  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
   html::-webkit-scrollbar-track, body::-webkit-scrollbar-track,
   *::-webkit-scrollbar-track { background: transparent; }
   html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb,
-  *::-webkit-scrollbar-thumb { background: rgba(115,115,115,0.4); border-radius: 4px; }
-  html::-webkit-scrollbar-thumb:hover, body::-webkit-scrollbar-thumb:hover,
-  *::-webkit-scrollbar-thumb:hover { background: rgba(115,115,115,0.6); }
+  *::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 9999px; background: transparent; background-clip: content-box; }
+  html::-webkit-scrollbar-thumb:vertical, body::-webkit-scrollbar-thumb:vertical,
+  *::-webkit-scrollbar-thumb:vertical { border-right-width: 5px; border-left-width: 1px; }
+  html::-webkit-scrollbar-thumb:horizontal, body::-webkit-scrollbar-thumb:horizontal,
+  *::-webkit-scrollbar-thumb:horizontal { border-top-width: 1px; border-bottom-width: 5px; }
+  html:hover::-webkit-scrollbar-thumb, body:hover::-webkit-scrollbar-thumb,
+  *:hover::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--foreground) 12%, transparent); background-clip: content-box; }
+  html:hover::-webkit-scrollbar-thumb:vertical, body:hover::-webkit-scrollbar-thumb:vertical,
+  *:hover::-webkit-scrollbar-thumb:vertical { border-right-width: 4px; border-left-width: 0; }
+  html:hover::-webkit-scrollbar-thumb:horizontal, body:hover::-webkit-scrollbar-thumb:horizontal,
+  *:hover::-webkit-scrollbar-thumb:horizontal { border-top-width: 0; border-bottom-width: 4px; }
+  html::-webkit-scrollbar-thumb:active, body::-webkit-scrollbar-thumb:active,
+  *::-webkit-scrollbar-thumb:active { background: color-mix(in srgb, var(--foreground) 18%, transparent); background-clip: padding-box; }
 </style>`;
 
 /** Render the injected token subset for one theme as `--name:value;` declarations. */

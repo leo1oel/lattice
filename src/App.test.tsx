@@ -3,7 +3,7 @@ import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { syntaxTree } from "@codemirror/language";
-import { StateEffect } from "@codemirror/state";
+import { EditorState, StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
@@ -11,6 +11,7 @@ import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { persistWorkspaceLayout } from "./app-settings";
+import { loadTextLanguageExtensions } from "./document-canvas";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 import { usePanelLayout } from "./use-panel-layout";
 import { parseVisualMarkdown } from "./visual-markdown-schema";
@@ -247,7 +248,20 @@ describe("welcome screen", () => {
     expect(screen.getByRole("heading", { name: "Research, written with evidence." })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /open folder/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /explore lattice/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start product tour" })).toBeInTheDocument();
+  });
+
+  it("starts the product tour from the welcome screen", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "initial_project") return null;
+      if (command === "open_tutorial_project") throw new Error("Tutorial fixture stopped after invocation.");
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Start product tour" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
   });
 
   it("does not start the tutorial before a project has opened", async () => {
@@ -484,6 +498,17 @@ describe("welcome screen", () => {
 });
 
 describe("project workspace", () => {
+  it.each([
+    ["scripts/train.py", "def train(steps):\n    return steps + 1", "FunctionDefinition"],
+    ["config/settings.toml", "[tool]\nname = \"research-writer\"\nenabled = true", "propertyName"],
+    [".gitignore", "# Build output\ndist/\n*.log\n!important.log", "comment"],
+  ])("loads syntax highlighting for %s", async (path, source, expectedNode) => {
+    const extensions = await loadTextLanguageExtensions(path);
+    const state = EditorState.create({ doc: source, extensions });
+
+    expect(syntaxTree(state).toString()).toContain(expectedNode);
+  });
+
   it("temporarily reveals auxiliary sources without forgetting the selected document view", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -971,7 +996,7 @@ describe("project workspace", () => {
     expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Light" })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Settings" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Explore Lattice tutorial" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Start product tour" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /open another folder/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize workspace sidebar" })).toBeInTheDocument();
@@ -1311,6 +1336,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: "\\documentclass{article}\nNew result.",
+      projectRoot: "/tmp/lattice-paper",
     }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
       force: false,
@@ -1359,6 +1385,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: "\\documentclass{article}\nIdle build.",
+      projectRoot: "/tmp/lattice-paper",
     }), { timeout: 2_500 });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
       force: false,
@@ -1575,6 +1602,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: ".research/papers/1706.03762/blog.md",
       content: "# Edited overview\n\nSaved from Papers.",
+      projectRoot: "/tmp/lattice-paper",
     }));
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     expect(await screen.findByRole("heading", { name: "Edited overview" })).toBeInTheDocument();
@@ -1605,6 +1633,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: ".research/papers/1706.03762/paper.md",
       content: "# Edited paper\n\nLocal notes.",
+      projectRoot: "/tmp/lattice-paper",
     }));
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     expect(await screen.findByRole("heading", { name: "Edited paper" })).toBeInTheDocument();
@@ -1750,7 +1779,11 @@ describe("project workspace", () => {
     const renameInput = await findProjectTreeRenameInput();
     fireEvent.input(renameInput, { target: { value: "paper" } });
     fireEvent.keyDown(renameInput, { key: "Enter" });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("rename_project_entry", { path: "main.tex", newName: "paper" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("rename_project_entry", {
+      path: "main.tex",
+      newName: "paper",
+      projectRoot: "/tmp/lattice-paper",
+    }));
     expect(await screen.findByRole("tab", { name: /paper\.tex/ })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument();
     expect(await findProjectTreeItem("paper.tex")).toBeInTheDocument();
@@ -1901,6 +1934,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("move_project_entry", {
       path: "draft.tex",
       targetDirectory: "sections",
+      projectRoot: "/tmp/lattice-paper",
     }));
     // Pierre's local model must move immediately, before filesystem
     // persistence finishes.
@@ -2040,6 +2074,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("move_project_entry", {
       path: "draft.tex",
       targetDirectory: "sections",
+      projectRoot: "/tmp/lattice-paper",
     }));
     rejectMove(new Error("Move failed"));
     expect(await findProjectTreeItem("draft.tex")).toBeInTheDocument();
@@ -2110,6 +2145,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("move_project_entry", {
       path: "sections/draft.tex",
       targetDirectory: "",
+      projectRoot: "/tmp/lattice-paper",
     }));
   });
 
@@ -2180,6 +2216,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("move_project_entry", {
       path: "draft.tex",
       targetDirectory: "sections",
+      projectRoot: "/tmp/lattice-paper",
     }));
   });
 
@@ -2243,6 +2280,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_assets", {
       paths: ["/tmp/result.png"],
       targetDirectory: "figures",
+      projectRoot: "/tmp/lattice-paper",
     }));
   });
 
@@ -2458,6 +2496,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_sources", {
       paths: ["/tmp/method.tex"],
       targetDirectory: "",
+      projectRoot: "/tmp/lattice-paper",
     }));
     expect(await screen.findByRole("tab", { name: /method\.tex/ }))
       .toHaveAttribute("aria-selected", "true");
@@ -2534,6 +2573,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_assets", {
       paths: ["/tmp/new.png"],
       targetDirectory: "figures",
+      projectRoot: "/tmp/lattice-paper",
     }));
     expect(await screen.findByRole("tab", { name: /new\.png/ }))
       .toHaveAttribute("aria-selected", "true");
@@ -2694,7 +2734,10 @@ describe("project workspace", () => {
       clientX: 100,
       clientY: 100,
     });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("prepare_latex_figure", { path: "figures/native-umm.svg" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("prepare_latex_figure", {
+      path: "figures/native-umm.svg",
+      projectRoot: "/tmp/lattice-paper",
+    }));
     const figureDialog = await screen.findByLabelText("Insert figure");
     fireEvent.click(within(figureDialog).getByRole("button", { name: "Insert" }));
     await waitFor(() => {
@@ -3130,12 +3173,109 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: "\\documentclass{article}\nDraft change.",
+      projectRoot: "/tmp/lattice-paper",
     }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "intro.tex" }));
     await waitFor(() => {
       const next = document.querySelector<HTMLElement>(".cm-editor");
       const nextView = next ? EditorView.findFromDOM(next) : null;
       expect(nextView?.state.doc.toString()).toBe("\\section{Intro}");
+    });
+  });
+
+  it("does not carry an open Markdown buffer into the next project", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
+      { name: "Notes", path: "/tmp/notes" },
+      { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
+    ]));
+    const notesSnapshot = {
+      root: "/tmp/notes",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "notes-id",
+        name: "Notes",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
+    };
+    const overleafSnapshot = {
+      root: "/tmp/overleaf-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "overleaf-id",
+        name: "Overleaf paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    let currentRoot = notesSnapshot.root;
+    let releaseIncomingPapers!: (papers: never[]) => void;
+    const incomingPapers = new Promise<never[]>((resolve) => {
+      releaseIncomingPapers = resolve;
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return notesSnapshot;
+      if (command === "open_project") {
+        currentRoot = String((args as { path?: string } | undefined)?.path ?? "");
+        return overleafSnapshot;
+      }
+      if (command === "read_project_file") {
+        const path = String((args as { path?: string } | undefined)?.path ?? "");
+        if (currentRoot === notesSnapshot.root && path === "draft.md") return "# Private draft";
+        if (currentRoot === overleafSnapshot.root && path === "main.tex") return "\\documentclass{article}";
+        return "";
+      }
+      if (command === "list_papers") {
+        return currentRoot === overleafSnapshot.root ? incomingPapers : [];
+      }
+      if (command === "list_history") return [];
+      if (command === "write_project_file") return undefined;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const initialEditor = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      const view = element ? EditorView.findFromDOM(element) : null;
+      expect(view?.state.doc.toString()).toBe("# Private draft");
+      return view!;
+    });
+    initialEditor.dispatch({ changes: { from: initialEditor.state.doc.length, insert: "\nLocal only." } });
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Overleaf paper" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_project", {
+      path: "/tmp/overleaf-paper",
+    }));
+    await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      const view = element ? EditorView.findFromDOM(element) : null;
+      expect(view?.state.doc.toString()).toBe("");
+    });
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const writes = vi.mocked(invoke).mock.calls.filter(([command]) => command === "write_project_file");
+    expect(writes).toEqual([
+      ["write_project_file", {
+        path: "draft.md",
+        content: "# Private draft\nLocal only.",
+        projectRoot: "/tmp/notes",
+      }],
+    ]);
+
+    releaseIncomingPapers([]);
+    await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      const view = element ? EditorView.findFromDOM(element) : null;
+      expect(view?.state.doc.toString()).toBe("\\documentclass{article}");
     });
   });
 
@@ -3394,7 +3534,11 @@ describe("project workspace", () => {
     expect(fileNameInput).toHaveValue("untitled");
     fireEvent.input(fileNameInput, { target: { value: "method" } });
     fireEvent.keyDown(fileNameInput, { key: "Enter" });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "method", kind: "file" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", {
+      path: "method",
+      kind: "file",
+      projectRoot: "/tmp/lattice-paper",
+    }));
     expect(await screen.findByRole("tab", { name: /method\.tex/ })).toBeInTheDocument();
 
     fireEvent.contextMenu(projectTreeSurface);
@@ -3423,12 +3567,16 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", {
       path: "untitled",
       kind: "file",
+      projectRoot: "/tmp/lattice-paper",
     }));
     expect(await findProjectTreeItem("untitled.tex")).toBeInTheDocument();
 
     fireEvent.contextMenu(await findProjectTreeItem("notes.tex"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_project_entry", { path: "notes.tex" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_project_entry", {
+      path: "notes.tex",
+      projectRoot: "/tmp/lattice-paper",
+    }));
     await switchSidebarMode("Papers");
     fireEvent.click(screen.getByTitle("Remove Attention Is All You Need"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("remove_reference", { key: "vaswani2017attention" }));
@@ -3462,8 +3610,14 @@ describe("project workspace", () => {
     expect(nameInput).toHaveValue("untitled");
     fireEvent.input(nameInput, { target: { value: "sketch" } });
     fireEvent.keyDown(nameInput, { key: "Enter" });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "sketch.tldr", kind: "file" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", {
+      path: "sketch.tldr",
+      kind: "file",
+      projectRoot: "/tmp/lattice-paper",
+    }));
     expect(await screen.findByTestId("board-editor-mock")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
+      .not.toBeInTheDocument();
   });
 
 });

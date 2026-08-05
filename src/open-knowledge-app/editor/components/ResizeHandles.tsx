@@ -44,7 +44,7 @@ interface ResizeBounds {
   maxHeight?: number;
 }
 
-type HandleKey = 'tl' | 't' | 'tr' | 'r' | 'br' | 'b' | 'bl' | 'l';
+export type HandleKey = 'tl' | 't' | 'tr' | 'r' | 'br' | 'b' | 'bl' | 'l';
 
 interface HandleSpec {
   key: HandleKey;
@@ -131,9 +131,17 @@ interface ResizeHandlesProps {
    */
   onResizeEnd?: (size: { width: number; height: number }) => void;
   bounds?: ResizeBounds;
+  /** Restrict the visible and interactive grips. Defaults to all eight. */
+  handles?: ReadonlyArray<HandleKey>;
 }
 
-export function ResizeHandles({ targetRef, onResize, onResizeEnd, bounds }: ResizeHandlesProps) {
+export function ResizeHandles({
+  targetRef,
+  onResize,
+  onResizeEnd,
+  bounds,
+  handles,
+}: ResizeHandlesProps) {
   const { t } = useLingui();
   // Captured-pointer state for the active drag. Kept in a ref because the
   // updates fire faster than React state can reconcile and we don't render
@@ -252,7 +260,7 @@ export function ResizeHandles({ targetRef, onResize, onResizeEnd, bounds }: Resi
 
   return (
     <div className="ok-resize-overlay" contentEditable={false} aria-hidden="true">
-      {HANDLES.map((handle) => {
+      {HANDLES.filter((handle) => !handles || handles.includes(handle.key)).map((handle) => {
         const handleKey = handle.key;
         return (
           <button

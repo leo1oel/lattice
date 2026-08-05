@@ -1,5 +1,9 @@
+use reqwest::Url;
+use sha2::{Digest, Sha256};
+
 const SERVICE_PREFIX: &str = "com.lattice.research-writer.collab";
 const MAX_COMPONENT: usize = 256;
+const MAX_DEPLOYMENT: usize = 2048;
 const MAX_SECRET: usize = 16 * 1024;
 
 fn validate_component(value: &str, name: &str) -> Result<(), String> {
@@ -18,6 +22,27 @@ fn validate_component(value: &str, name: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn deployment_key(value: &str) -> Result<String, String> {
+    if value.is_empty() || value.len() > MAX_DEPLOYMENT {
+        return Err("invalid deployment".to_string());
+    }
+    let url = Url::parse(value).map_err(|_| "invalid deployment".to_string())?;
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || url.path() != "/"
+    {
+        return Err("invalid deployment".to_string());
+    }
+    Ok(Sha256::digest(value.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect())
+}
+
 fn entry(
     credential_ref: &str,
     project_instance_id: &str,
@@ -25,8 +50,8 @@ fn entry(
 ) -> Result<keyring::Entry, String> {
     validate_component(credential_ref, "credential ref")?;
     validate_component(project_instance_id, "project instance id")?;
-    validate_component(deployment, "deployment")?;
-    let service = format!("{SERVICE_PREFIX}.{deployment}.{project_instance_id}");
+    let deployment_key = deployment_key(deployment)?;
+    let service = format!("{SERVICE_PREFIX}.{deployment_key}.{project_instance_id}");
     keyring::Entry::new(&service, credential_ref)
         .map_err(|_| "secure credential store unavailable".to_string())
 }
@@ -73,7 +98,7 @@ pub fn delete_collab_credential(
 
 #[cfg(test)]
 mod tests {
-    use super::validate_component;
+    use super::{deployment_key, validate_component};
 
     #[test]
     fn credential_identity_rejects_injection_and_oversize() {
@@ -82,5 +107,24 @@ mod tests {
         }
         assert!(validate_component(&"a".repeat(257), "value").is_err());
         assert!(validate_component("cred_0123456789abcdef", "value").is_ok());
+    }
+
+    #[test]
+    fn credential_deployment_accepts_origins_and_hashes_them_for_the_service_name() {
+        let remote = deployment_key("https://lattice-collab.example.workers.dev").unwrap();
+        let local = deployment_key("http://localhost:8787").unwrap();
+        assert_eq!(remote.len(), 64);
+        assert_eq!(local.len(), 64);
+        assert_ne!(remote, local);
+
+        for invalid in [
+            "lattice-collab.example.workers.dev",
+            "ftp://example.com",
+            "https://user@example.com",
+            "https://example.com/path",
+            "https://example.com/?query=1",
+        ] {
+            assert!(deployment_key(invalid).is_err(), "accepted {invalid}");
+        }
     }
 }

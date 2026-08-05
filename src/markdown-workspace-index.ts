@@ -261,6 +261,11 @@ export class MarkdownWorkspaceIndex {
     this.replaceDocs(docs);
   }
 
+  /** Reuse already-read Markdown sources when warming visual previews. */
+  previewDocuments(): Array<{ path: string; content: string }> {
+    return this.indexedDocs.map(({ path, content }) => ({ path, content }));
+  }
+
   /** Ranked page completion via the vendored searchWorkspaceCorpus (intent "autocomplete"); empty query returns first `limit` docs in source order. */
   searchPages(query: string, limit = 20): MarkdownDocEntry[] {
     if (!query.trim()) return this.indexedDocs.slice(0, limit);

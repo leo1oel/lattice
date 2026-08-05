@@ -42,6 +42,7 @@ const ICLR_2026_BST: &str = include_str!("../templates/iclr-2026/iclr2026_confer
 const TUTORIAL_MAIN: &str = include_str!("../templates/tutorial/main.tex");
 const TUTORIAL_NOTES: &str = include_str!("../templates/tutorial/notes.md");
 const TUTORIAL_HTML: &str = include_str!("../templates/tutorial/attention-demo.html");
+const TUTORIAL_BOARD: &str = include_str!("../templates/tutorial/attention-map.tldr");
 const TUTORIAL_TOML: &str = include_str!("../templates/tutorial/project.toml");
 const TUTORIAL_REFERENCES: &str = include_str!("../templates/tutorial/references.bib");
 const TUTORIAL_FIGURE_ATTRIBUTION: &str =
@@ -354,13 +355,13 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
     .map_err(err)?;
     fs::write(
         root.join(".research/tutorial.json"),
-        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 4\n}\n",
+        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 5\n}\n",
     )
     .map_err(err)?;
     fs::write(root.join("main.tex"), TUTORIAL_MAIN).map_err(err)?;
     fs::write(root.join("notes.md"), TUTORIAL_NOTES).map_err(err)?;
     fs::write(root.join("attention-demo.html"), TUTORIAL_HTML).map_err(err)?;
-    fs::write(root.join("attention-map.tldr"), "").map_err(err)?;
+    fs::write(root.join("attention-map.tldr"), TUTORIAL_BOARD).map_err(err)?;
     fs::write(root.join("project.toml"), TUTORIAL_TOML).map_err(err)?;
     fs::write(root.join("references.bib"), TUTORIAL_REFERENCES).map_err(err)?;
     install_tutorial_assets(&root)?;
@@ -4655,6 +4656,15 @@ mod tests {
         assert!(root.join("notes.md").is_file());
         assert!(root.join("attention-demo.html").is_file());
         assert!(root.join("attention-map.tldr").is_file());
+        let board: serde_json::Value = serde_json::from_slice(
+            &fs::read(root.join("attention-map.tldr")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(board["tldrawFileFormatVersion"], 1);
+        let board_records = board["records"].as_array().unwrap();
+        assert!(board_records.len() >= 18);
+        assert!(board_records.iter().any(|record| record["id"] == "shape:query"));
+        assert!(board_records.iter().any(|record| record["id"] == "shape:context"));
         assert!(root.join("project.toml").is_file());
         assert!(root.join("references.bib").is_file());
         assert!(root.join("neurips.sty").is_file());

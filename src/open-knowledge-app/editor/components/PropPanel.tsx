@@ -158,8 +158,14 @@ interface PropPanelProps {
 }
 
 export function PropPanel({ descriptor, values, onChange, onDismiss }: PropPanelProps) {
+  const imageDescriptor = descriptor.name === 'img' || descriptor.name === 'CommonMarkImage';
   const editableProps = descriptor.props.filter(
-    (p) => !('hidden' in p && p.hidden) && p.hideWhen?.(values) !== true && p.type !== 'reactnode',
+    (p) =>
+      !('hidden' in p && p.hidden) &&
+      p.hideWhen?.(values) !== true &&
+      p.type !== 'reactnode' &&
+      !(imageDescriptor && p.name === 'align') &&
+      !(imageDescriptor && 'advanced' in p && p.advanced),
   );
 
   const commonProps = editableProps.filter((p) => !('advanced' in p && p.advanced));

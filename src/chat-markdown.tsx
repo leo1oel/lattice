@@ -70,6 +70,7 @@ function EditableMarkdownBlock({
   $?: unknown;
 }) {
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const cancellingRef = useRef(false);
   void _metadata;
   const editingContext = useContext(MarkdownEditingContext);
   const startLine = Number(sourceLine);
@@ -105,7 +106,7 @@ function EditableMarkdownBlock({
   }
   if (active && editingContext.editing) {
     const session = editingContext.editing;
-    const finishAndRestoreFocus = (finish: () => void) => {
+    const finishAndRestoreFocus = (finish: () => void, cancelling = false) => {
       const root = editorRef.current?.closest(".chat-markdown");
       const host = root?.parentElement;
       const focusEditButton = () => {
@@ -118,6 +119,7 @@ function EditableMarkdownBlock({
         button?.focus();
         return Boolean(button);
       };
+      cancellingRef.current = cancelling;
       finish();
       requestAnimationFrame(() => {
         if (focusEditButton() || !host) return;
@@ -134,7 +136,10 @@ function EditableMarkdownBlock({
         data-source-line={startLine}
         data-source-end-line={endLine}
         onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          if (
+            !cancellingRef.current
+            && !event.currentTarget.contains(event.relatedTarget as Node | null)
+          ) {
             editingContext.commit();
           }
         }}
@@ -150,7 +155,7 @@ function EditableMarkdownBlock({
             if (event.nativeEvent.isComposing || event.keyCode === 229) return;
             if (event.key === "Escape") {
               event.preventDefault();
-              finishAndRestoreFocus(editingContext.cancel);
+              finishAndRestoreFocus(editingContext.cancel, true);
             } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               event.preventDefault();
               finishAndRestoreFocus(editingContext.commit);
@@ -159,7 +164,7 @@ function EditableMarkdownBlock({
         />
         <div className="markdown-block-editor-actions">
           {session.error ? <span role="alert">{session.error}</span> : <span>Markdown source</span>}
-          <button type="button" onClick={() => finishAndRestoreFocus(editingContext.cancel)}>
+          <button type="button" onClick={() => finishAndRestoreFocus(editingContext.cancel, true)}>
             <X size={13} aria-hidden="true" /> Cancel
           </button>
           <button type="button" onClick={() => finishAndRestoreFocus(editingContext.commit)}>

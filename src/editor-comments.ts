@@ -8,6 +8,7 @@ export {
   EDITOR_COMMENTS_PATH,
   emptyEditorCommentsFile,
   loadEditorCommentAuthorId,
+  mergeEditorComments,
   parseEditorComments,
   resolveCommentAnchor,
   resolveCommentRange,

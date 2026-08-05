@@ -381,7 +381,7 @@ describe("switching files with work in flight", () => {
     // The answer still arrives, and only then is the room given up.
     emit({ type: "docAck", docId: DOC_A, version: 10 });
     await waitFor(() => expect(leaves).toContain(DOC_A));
-    expect(result.current.livePaths).toEqual(["b.tex"]);
+    await waitFor(() => expect(result.current.livePaths).toEqual(["b.tex"]));
   });
 
   it("keeps the last path for a held document removed from the tree, but follows a rename", async () => {
@@ -502,7 +502,7 @@ describe("an acknowledgement whose outcome is not known", () => {
     // own the old path again.
     emit({ type: "docAck", docId: DOC_A, version: 10 });
     await waitFor(() => expect(leaves).toContain(DOC_A));
-    expect(result.current.livePaths).toEqual(["b.tex"]);
+    await waitFor(() => expect(result.current.livePaths).toEqual(["b.tex"]));
   });
 
   it("rejoins from the trusted version after a lost send ack and never retransmits blindly", async () => {
@@ -523,7 +523,7 @@ describe("an acknowledgement whose outcome is not known", () => {
     // the settled room rather than uploading the file through REST.
     rerender("b.tex");
     await waitFor(() => expect(leaves).toContain(DOC_A));
-    expect(result.current.livePaths).toEqual(["b.tex"]);
+    await waitFor(() => expect(result.current.livePaths).toEqual(["b.tex"]));
   });
 
   it("does not apply catch-up while its own public id is unknown", async () => {

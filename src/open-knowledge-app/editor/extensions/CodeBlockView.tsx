@@ -13,6 +13,9 @@ import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
 import type { NodeViewProps } from '@tiptap/core';
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/react';
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Check,
   ChevronDown,
   Copy,
@@ -49,9 +52,8 @@ import { CODE_BLOCK_LANGUAGES, normalizeCodeLanguage } from './code-block-langua
 import {
   addMetaToken,
   getMetaTitle,
-  metaHasToken,
   PREVIEWABLE_LANGUAGES,
-  parsePreviewHeight,
+  parsePreviewAlign,
   parsePreviewWidth,
   removeMetaToken,
   setMetaKeyValue,
@@ -189,15 +191,11 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
   const currentLabel = !rawLanguage
     ? t`Plain`
     : (CODE_BLOCK_LANGUAGES.find((l) => l.value === normalized)?.label ?? rawLanguage);
-  const previewToggled = metaHasToken(rawMeta, 'preview');
   const previewRenderable = normalized ? PREVIEWABLE_LANGUAGES.has(normalized) : false;
   const previewActive = shouldShowPreview(normalized, rawMeta);
   const isMermaidPreview = normalized === 'mermaid';
-  const previewHeight = previewActive ? parsePreviewHeight(rawMeta) : null;
   const previewWidth = previewActive ? parsePreviewWidth(rawMeta) : null;
-  // Without an explicit `h=`, CSS supplies a stable default height. Do not fit
-  // the host to iframe-reported content: changing the iframe viewport changes
-  // its body geometry and creates a ResizeObserver feedback loop in WebKit.
+  const previewAlign = parsePreviewAlign(rawMeta);
   // A preview normally replaces its source, but hiding the PM contentDOM would
   // also hide an Overleaf collaborator's cursor. Reveal the source while a
   // remote-caret widget is inside this block, then collapse it again when the
@@ -289,9 +287,9 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
   };
 
   const handleTogglePreview = () => {
-    const next = previewToggled
-      ? removeMetaToken(rawMeta, 'preview')
-      : addMetaToken(rawMeta, 'preview');
+    const next = previewActive
+      ? addMetaToken(rawMeta, 'source')
+      : removeMetaToken(rawMeta, 'source');
     updateAttributes({ meta: next });
   };
 
@@ -315,15 +313,41 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
     setSettingsOpen(false);
   };
 
-  // Commit the final drag size into fence `h=` + `w=` meta so the size is
-  // markdown-byte-stable across sessions. Called once per drag (pointerup).
+  // Preview blocks resize horizontally only. Mermaid derives its height from
+  // the diagram, while HTML uses a fixed scrolling viewport.
   const handleResizeEnd = (size: { width: number; height: number }) => {
     const w = `${Math.round(size.width)}px`;
-    const h = `${Math.round(size.height)}px`;
-    const withHeight = setMetaKeyValue(rawMetaRef.current, 'h', h);
-    const next = setMetaKeyValue(withHeight, 'w', w);
+    const next = setMetaKeyValue(rawMetaRef.current, 'w', w);
+    const viewport = previewWrapperRef.current?.closest<HTMLElement>('.editor-doc-scroll') ?? null;
+    const scrollTop = viewport?.scrollTop ?? 0;
     updateAttributes({ meta: next });
+    // In split mode the source echo and Mermaid's responsive reflow can land
+    // in the same frame. Preserve the visual pane's viewport so the metadata
+    // commit cannot expose the editor's stale top-of-document selection.
+    if (viewport) {
+      queueMicrotask(() => {
+        viewport.scrollTop = scrollTop;
+      });
+      window.requestAnimationFrame(() => {
+        viewport.scrollTop = scrollTop;
+      });
+    }
   };
+
+  const setPreviewAlign = (align: 'left' | 'center' | 'right') => {
+    updateAttributes({ meta: setMetaKeyValue(rawMetaRef.current, 'align', align) });
+  };
+
+  const titleStrip = title ? (
+    <div
+      className="ok-codeblock-title"
+      contentEditable={false}
+      data-testid="ok-codeblock-title"
+      title={title}
+    >
+      <span className="ok-codeblock-title-text">{title}</span>
+    </div>
+  ) : null;
 
   return (
     <NodeViewWrapper
@@ -332,22 +356,28 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
       data-cursor-inside={cursorInside ? 'true' : undefined}
       data-selected={selected ? 'true' : undefined}
       data-preview={previewActive ? 'true' : undefined}
+      data-preview-align={previewActive ? previewAlign : undefined}
       data-code-visible={codeVisible ? 'true' : 'false'}
       data-hovered={hovered ? 'true' : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* A source title sits above its pre. Preview titles live inside the
+          resizable preview card below, so both surfaces share one width. */}
+      {!previewActive ? titleStrip : null}
+
       {previewActive ? (
         // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation required so resize-handle drags don't bubble into PM
         <div
           ref={previewWrapperRef}
           className={cn(
             'ok-codeblock-preview',
+            isMermaidPreview ? 'ok-codeblock-preview--mermaid' : 'ok-codeblock-preview--html',
             codeVisible ? 'ok-codeblock-preview--with-code' : 'ok-codeblock-preview--solo',
           )}
+          data-align={previewAlign}
           contentEditable={false}
           style={{
-            ...(previewHeight ? { height: previewHeight } : {}),
             ...(previewWidth ? { width: previewWidth } : {}),
           }}
           // PM treats mousedown inside contentEditable as a selection drag.
@@ -356,13 +386,14 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
           // attempts don't trip PM's drag.
           onMouseDown={(e) => e.stopPropagation()}
         >
+          {titleStrip}
           {isMermaidPreview ? (
             <div
               role="group"
               aria-label={t`Mermaid preview`}
-              className="flex size-full min-h-0 items-stretch justify-stretch"
+              className="ok-codeblock-preview-content flex w-full min-h-0 items-stretch justify-stretch"
             >
-              <MermaidView chart={node.textContent} className="size-full rounded-none border-0" />
+              <MermaidView chart={node.textContent} className="w-full rounded-none border-0" />
             </div>
           ) : (
             <iframe
@@ -397,20 +428,18 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
           )}
           <ResizeHandles
             targetRef={previewWrapperRef}
+            handles={['l', 'r']}
             bounds={{
               minWidth: 192,
               maxWidth: Math.round(window.innerWidth * 0.9),
-              minHeight: 128,
-              maxHeight: Math.round(window.innerHeight * 0.9),
             }}
             // Live: paint the new size on the wrapper for smooth feedback.
             onResize={(size) => {
               const el = previewWrapperRef.current;
               if (!el) return;
               el.style.width = `${size.width}px`;
-              el.style.height = `${size.height}px`;
             }}
-            // Commit: persist both axes into `w=` + `h=` fence meta.
+            // Commit only width; vertical size is content-policy driven.
             onResizeEnd={handleResizeEnd}
           />
         </div>
@@ -422,27 +451,6 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
           truncated={blockedRequests.truncated}
           onDismiss={() => setBlockedRequests(null)}
         />
-      ) : null}
-
-      {/* Title strip — rendered above the source whenever the fence carries
-          `title="…"` in its info-string. Display-only here; the
-          editable surface is the title input inside the settings popover.
-          `contentEditable={false}` so PM's contentDOM
-          contract isn't disturbed. The title is content (not chrome) so
-          it stays AT-visible — screen readers announce it once with the
-          surrounding code block. */}
-      {title ? (
-        <div
-          className="ok-codeblock-title"
-          contentEditable={false}
-          data-testid="ok-codeblock-title"
-          // Browser-native tooltip surfaces the full title on hover when the
-          // strip truncates with text-overflow: ellipsis (long filenames /
-          // narrow viewports). Cheap, AT-friendly, no JS state needed.
-          title={title}
-        >
-          <span className="ok-codeblock-title-text">{title}</span>
-        </div>
       ) : null}
 
       {/* `<pre>` is ALWAYS mounted so PM's contentDOM has a stable host — we
@@ -537,10 +545,10 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
           <button
             type="button"
             className="ok-codeblock-chrome-btn"
-            data-active={previewToggled ? 'true' : undefined}
-            aria-pressed={previewToggled}
+            data-active={previewActive ? 'true' : undefined}
+            aria-pressed={previewActive}
             aria-label={
-              previewToggled
+              previewActive
                 ? isMermaidPreview
                   ? t`Hide Mermaid preview`
                   : t`Hide HTML preview`
@@ -550,8 +558,30 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
             }
             onClick={handleTogglePreview}
           >
-            {previewToggled ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+            {previewActive ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
           </button>
+        ) : null}
+
+        {editable && previewActive ? (
+          <>
+            {([
+              ['left', t`Align preview left`, AlignLeft],
+              ['center', t`Align preview center`, AlignCenter],
+              ['right', t`Align preview right`, AlignRight],
+            ] as const).map(([align, label, Icon]) => (
+              <button
+                key={align}
+                type="button"
+                className="ok-codeblock-chrome-btn"
+                data-active={previewAlign === align ? 'true' : undefined}
+                aria-label={label}
+                aria-pressed={previewAlign === align}
+                onClick={() => setPreviewAlign(align)}
+              >
+                <Icon className="size-3.5" aria-hidden="true" />
+              </button>
+            ))}
+          </>
         ) : null}
 
         {editable ? (

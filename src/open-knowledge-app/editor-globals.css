@@ -678,7 +678,7 @@
   align-items: center;
   gap: 0.375rem;
   padding: 0.375rem 1rem;
-  background: oklch(0.94 0 0);
+  background: color-mix(in oklab, var(--foreground) 5%, var(--background));
   border: 1px solid var(--border);
   border-bottom: 0;
   border-radius: 0.5rem 0.5rem 0 0;
@@ -686,11 +686,6 @@
   font-size: 0.75rem;
   color: var(--muted-foreground);
   user-select: none;
-}
-
-.dark .ok-codeblock-title {
-  background: oklch(0.22 0.005 285);
-  color: oklch(0.78 0 0);
 }
 
 .ok-codeblock-title-text {
@@ -812,39 +807,83 @@
   color: var(--destructive, #ef4444);
 }
 
-/* HTML preview pane — primary surface when language=html + meta has `preview`.
+/* HTML/Mermaid preview pane — the default surface for previewable fences.
    Iframe is `sandbox="allow-scripts"` only (null origin) so embedded JS can't
    reach the parent doc / cookies / auth-bearing fetch surface. The code body
    is hidden by default in preview mode (see [data-code-visible] selectors
-   below) and toggled visible via the code-icon chrome button. Resize is
-   driven by the shared `ok-resize-overlay` handles (8 corners + edges), not
-   native CSS `resize` — replaces the bottom-only grip with full-axis control
-   and unifies the affordance with `.ok-embed`. */
+   below) and toggled visible via the code-icon chrome button. Like Notion,
+   previews expose only left/right width handles; vertical size follows each
+   content type's policy. */
 .ProseMirror .ok-codeblock > .ok-codeblock-preview {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   /* Track the editor theme so a dark-mode preview does not flash white
      before / while the iframe document paints (the iframe's own srcDoc sets
      a themed `body` background once loaded). */
   background: var(--background);
-  height: 26rem;
-  min-height: 8rem;
-  max-height: 80vh;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
   max-width: 100%;
   overflow: hidden;
   @apply scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30 dark:scrollbar-thumb-muted-foreground/50;
 }
 
-.ok-codeblock-preview--solo {
-  border-radius: 0.5rem;
+.ProseMirror .ok-codeblock > .ok-codeblock-preview--html {
+  height: 26rem;
 }
 
-.ok-codeblock-preview--with-code {
-  border-top-left-radius: 0.5rem;
-  border-top-right-radius: 0.5rem;
+.ProseMirror .ok-codeblock > .ok-codeblock-preview--mermaid {
+  height: auto;
+  min-height: 0;
+}
+
+.ok-codeblock-preview--mermaid > .ok-codeblock-preview-content {
+  box-sizing: border-box;
+  padding: var(--space-3);
+}
+
+.ok-codeblock-preview--mermaid .mermaid-ready {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.ok-codeblock-preview > .ok-codeblock-title {
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.ok-codeblock-preview--mermaid .ok-mermaid-svg svg {
+  display: block;
+  width: 100%;
+  height: auto !important;
+}
+
+.ProseMirror .ok-codeblock-preview[data-align="left"] {
+  margin-right: auto;
+  margin-left: 0;
+}
+
+.ProseMirror .ok-codeblock-preview[data-align="center"] {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.ProseMirror .ok-codeblock-preview[data-align="right"] {
+  margin-right: 0;
+  margin-left: auto;
 }
 
 .ok-codeblock-preview-frame {
   display: block;
+  flex: 1;
+  min-height: 0;
   width: 100%;
   height: 100%;
   border: 0;
@@ -1170,6 +1209,29 @@
 .ProseMirror .jsx-component-wrapper[data-component-type="img"] img,
 .ProseMirror .jsx-component-wrapper[data-component-type="commonmarkimage"] img {
   contain: paint;
+}
+
+/* Images share HTML/Mermaid's horizontal resize interaction. The wrapper owns
+   the authored width; the image keeps its intrinsic aspect ratio and derives
+   height automatically. */
+.ProseMirror .ok-image-resizable {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+.ProseMirror .ok-image-resizable > [data-rmiz] {
+  display: block;
+  width: 100%;
+}
+
+.ProseMirror .ok-image-resizable [data-testid="image-slot"],
+.ProseMirror .ok-image-resizable img {
+  width: 100%;
+  height: auto;
+  margin: 0;
 }
 
 .ProseMirror img.ProseMirror-selectednode {
@@ -1734,6 +1796,15 @@
   --selection-halo-radius: calc(0.625rem + 2px);
 }
 
+/* Images use the same hover resize affordance as HTML/Mermaid previews. Avoid
+   stacking the generic selected-component halo behind those side handles —
+   that extra full-width frame made the image controls read as a different,
+   heavier resize treatment. */
+.ProseMirror .jsx-component-wrapper[data-component-type="img"][data-selected="true"]::after,
+.ProseMirror .jsx-component-wrapper[data-component-type="commonmarkimage"][data-selected="true"]::after {
+  --selection-halo-opacity: 0;
+}
+
 .ProseMirror .jsx-component-wrapper[data-component-type="video"] {
   --selection-halo-radius: calc(0.625rem + 2px);
 }
@@ -2005,9 +2076,11 @@
    (iframe clicks, text selection) work in resting state. */
 .ProseMirror .ok-embed:hover .ok-resize-handle,
 .ProseMirror .ok-embed:focus-within .ok-resize-handle,
+.ProseMirror .ok-image-resizable:hover .ok-resize-handle,
+.ProseMirror .ok-image-resizable:focus-within .ok-resize-handle,
 .ProseMirror .ok-codeblock-preview:hover .ok-resize-handle,
 .ProseMirror .ok-codeblock[data-cursor-inside="true"] .ok-codeblock-preview .ok-resize-handle,
-.ProseMirror .jsx-component-wrapper[data-selected="true"] .ok-resize-handle {
+.ProseMirror .jsx-component-wrapper[data-selected="true"]:not([data-component-type="img"]):not([data-component-type="commonmarkimage"]) .ok-resize-handle {
   opacity: 1;
   pointer-events: auto;
   color: var(--ring, oklch(0.55 0.18 250));
@@ -3002,7 +3075,7 @@
  */
 .accordion {
   border: 1px solid var(--border);
-  background: var(--background);
+  background: transparent;
   margin: 0.5rem 0;
   overflow: hidden;
   @apply rounded-lg;

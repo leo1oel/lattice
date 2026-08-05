@@ -11,16 +11,12 @@ import type { Editor } from '@tiptap/react';
 import { findMarkIdAt } from '../extensions/mark-identity';
 import { getFindReplaceState } from '../find-replace/tiptap-find-replace-extension';
 import { isFileNodeSelected } from './FileBubbleButtons';
-import { isImageNodeSelected } from './ImageAlignButtons';
 
 export function shouldShowBubbleMenu({ editor }: { editor: Editor }): boolean {
   if (getFindReplaceState(editor.state).query) return false;
   if (editor.isActive('codeBlock')) return false;
-  // Image / File NodeSelection — show the menu so the per-type buttons
-  // (`ImageAlignButtons` / `FileBubbleButtons`) are reachable even though
-  // `textBetween` is empty across a leaf atom. Bypasses the text-bearing-
-  // selection guards below.
-  if (isImageNodeSelected(editor)) return true;
+  // File NodeSelection shows its download controls even though textBetween
+  // is empty across a leaf atom. Images use their own hover toolbar.
   if (isFileNodeSelected(editor)) return true;
   if (editor.state.selection.empty) return false;
   const { from, to } = editor.state.selection;
@@ -61,6 +57,6 @@ export function resolveAddLinkShortcutAction(editor: Editor): AddLinkShortcutAct
     return markId === null ? null : { kind: 'edit-link', markId };
   }
   if (!shouldShowBubbleMenu({ editor })) return null;
-  if (isImageNodeSelected(editor) || isFileNodeSelected(editor)) return null;
+  if (isFileNodeSelected(editor)) return null;
   return { kind: 'open-popover' };
 }

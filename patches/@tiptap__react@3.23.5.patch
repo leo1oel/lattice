@@ -1,0 +1,53 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 44f319f1a1484ffddd7a0270180bfb6e2d77816f..d1489c9211671d9eb2664b200e5f4592ffe2d135 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -891,10 +891,11 @@ var ReactNodeView = class extends import_core3.NodeView {
+       this.contentDOMElement.dataset.nodeViewWrapper = "";
+       this.contentDOMElement.style.whiteSpace = "inherit";
+       const contentTarget = this.dom.querySelector("[data-node-view-content]");
+-      if (!contentTarget) {
+-        return;
++      if (contentTarget) {
++        contentTarget.appendChild(this.contentDOMElement);
++      } else {
++        this.dom.appendChild(this.contentDOMElement);
+       }
+-      contentTarget.appendChild(this.contentDOMElement);
+     }
+     if (this.options.trackNodeViewPosition) {
+       this.editor.on("update", this.handlePositionUpdate);
+diff --git a/dist/index.js b/dist/index.js
+index 7f215904981bd889067b753867c1b4e27e8c0ab6..85d25fb0406815f4cfaaff6edc8d0b0139a1bf8c 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -829,10 +829,11 @@ var ReactNodeView = class extends NodeView {
+       this.contentDOMElement.dataset.nodeViewWrapper = "";
+       this.contentDOMElement.style.whiteSpace = "inherit";
+       const contentTarget = this.dom.querySelector("[data-node-view-content]");
+-      if (!contentTarget) {
+-        return;
++      if (contentTarget) {
++        contentTarget.appendChild(this.contentDOMElement);
++      } else {
++        this.dom.appendChild(this.contentDOMElement);
+       }
+-      contentTarget.appendChild(this.contentDOMElement);
+     }
+     if (this.options.trackNodeViewPosition) {
+       this.editor.on("update", this.handlePositionUpdate);
+diff --git a/src/ReactNodeViewRenderer.tsx b/src/ReactNodeViewRenderer.tsx
+index 23ab773675c49c6f04c5f07c06e10756b22b021e..00a3958267417a81ccc4707526aed83066d8dfd1 100644
+--- a/src/ReactNodeViewRenderer.tsx
++++ b/src/ReactNodeViewRenderer.tsx
+@@ -118,6 +118,6 @@ export class ReactNodeView<
+-      if (!contentTarget) {
+-        return
++      if (contentTarget) {
++        contentTarget.appendChild(this.contentDOMElement)
++      } else {
++        this.dom.appendChild(this.contentDOMElement)
+       }
+-
+-      contentTarget.appendChild(this.contentDOMElement)
+     }
