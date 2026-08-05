@@ -1,3 +1,5 @@
+@import "shadow-plugin";
+
 :root { background: var(--surface-app); }
 html, body, #root { min-height: 100%; height: auto; overflow: auto; }
 body { margin: 0; background: var(--surface-app); color: var(--text-primary); }
@@ -21,8 +23,8 @@ body { margin: 0; background: var(--surface-app); color: var(--text-primary); }
 .motion-toggle { height: 34px; padding: 0 11px; border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface-panel); color: var(--text-secondary); display: flex; align-items: center; gap: 7px; font-size: var(--type-micro-size); cursor: pointer; }
 .motion-toggle input { accent-color: var(--control-active); }
 .lab-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.lab-card { padding: 15px; border: 1px solid var(--border-subtle); border-radius: 11px; outline: none; background: var(--surface-panel-raised); transition: border-color .15s ease, box-shadow .15s ease; }
-.lab-card:hover, .lab-card:focus-visible { border-color: var(--border-strong); box-shadow: var(--shadow-soft); }
+.lab-card { @apply smooth-shadow-ring-xs; padding: 15px; border-radius: 11px; outline: none; background: var(--surface-panel-raised); transition: box-shadow .15s ease; }
+.lab-card:hover, .lab-card:focus-visible { @apply smooth-shadow-ring-sm; }
 .card-heading, .card-heading > div { display: flex; align-items: center; }
 .card-heading { justify-content: space-between; gap: 12px; }
 .card-heading > div { gap: 8px; }
@@ -38,8 +40,8 @@ body { margin: 0; background: var(--surface-app); color: var(--text-primary); }
 .lab-card > p { min-height: 30px; margin: 12px 2px 0; color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.45; }
 .conversion-grid { display: grid; gap: 10px; }
 .conversion-grid + .collection-heading { margin-top: 54px; }
-.conversion-card { padding: 15px; border: 1px solid var(--border-subtle); border-radius: 11px; outline: none; background: var(--surface-panel-raised); }
-.conversion-card:hover, .conversion-card:focus-visible { border-color: var(--border-strong); box-shadow: var(--shadow-soft); }
+.conversion-card { @apply smooth-shadow-ring-xs; padding: 15px; border-radius: 11px; outline: none; background: var(--surface-panel-raised); }
+.conversion-card:hover, .conversion-card:focus-visible { @apply smooth-shadow-ring-sm; }
 .conversion-comparison { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
 .conversion-comparison > div { min-height: 94px; padding: 12px; border-radius: var(--radius-control); background: var(--surface-panel); display: flex; align-items: center; justify-content: center; position: relative; }
 .conversion-comparison > div > .conversion-label { position: absolute; top: 9px; left: 10px; color: var(--text-tertiary); font-size: 8px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
@@ -51,7 +53,7 @@ body { margin: 0; background: var(--surface-app); color: var(--text-primary); }
 .toolbar-context-section .section-copy { display: flex; align-items: baseline; gap: 12px; }
 .toolbar-context-section .section-copy h2 { flex: none; }
 .toolbar-context-section .section-copy p { margin: 0; }
-.toolbar-preview { height: 46px; margin-top: 14px; padding: 0 7px 0 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-surface); background: var(--surface-sidebar); box-shadow: var(--shadow-soft); display: grid; grid-template-columns: minmax(150px, 1fr) auto minmax(190px, 1fr); align-items: center; gap: 10px; overflow: hidden; }
+.toolbar-preview { @apply smooth-shadow-ring-sm; height: 46px; margin-top: 14px; padding: 0 7px 0 14px; border-radius: var(--radius-surface); background: var(--surface-sidebar); display: grid; grid-template-columns: minmax(150px, 1fr) auto minmax(190px, 1fr); align-items: center; gap: 10px; overflow: hidden; }
 .toolbar-preview-tab { min-width: 0; display: flex; align-items: center; gap: 7px; color: var(--text-primary); font-size: var(--type-caption-size); }
 .toolbar-preview-tab span { overflow: hidden; text-overflow: ellipsis; }
 .toolbar-preview-tab i { width: 5px; height: 5px; border-radius: 50%; background: var(--control-active); }

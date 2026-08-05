@@ -150,7 +150,7 @@ export function MorphIcon(props: { idle: ReactNode; hover: ReactNode; size?: num
   );
 }
 
-export type SlidingTab = { value: string; label: ReactNode; title?: string };
+export type SlidingTab = { value: string; label: ReactNode; title?: string; dataTour?: string };
 
 /**
  * A tab strip where the selected background slides from the old tab to the new
@@ -173,10 +173,11 @@ export function SlidingTabs(props: {
   /**
    * What slides. "pill" is a filled background, for strips that sit on a
    * panel; "underline" is a rule along the bottom, for strips that head a
-   * section. Each place keeps the shape it already had — only the way the
-   * indicator gets from one tab to the next changes.
+   * section; "none" leaves selection styling to the tab itself. Each place
+   * keeps the shape it already had — only the way the indicator gets from one
+   * tab to the next changes.
    */
-  variant?: "pill" | "underline";
+  variant?: "pill" | "underline" | "none";
   /** The strip's own class, so each place keeps its existing styling. */
   className?: string;
   /** Class for each tab, for the same reason. */
@@ -196,6 +197,7 @@ export function SlidingTabs(props: {
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             title={item.title}
+            data-tour={item.dataTour}
             className={`sliding-tab${selected ? " active" : ""}${props.tabClassName ? ` ${props.tabClassName}` : ""}`}
             onClick={() => props.onChange(item.value)}
             onKeyDown={(event) => {
@@ -213,7 +215,7 @@ export function SlidingTabs(props: {
               tabs?.[nextIndex]?.focus();
             }}
           >
-            {selected && (
+            {selected && props.variant !== "none" && (
               <motion.span
                 aria-hidden
                 className={props.variant === "underline" ? "sliding-tab-underline" : "sliding-tab-pill"}

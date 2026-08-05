@@ -125,6 +125,10 @@ pub struct FileNode {
     pub name: String,
     pub path: String,
     pub kind: String,
+    /// Content-derived routing boundary. `text` is lossless bounded UTF-8;
+    /// everything uncertain is `binary`, and links are never followed.
+    pub content_kind: String,
+    pub size: u64,
     pub children: Vec<FileNode>,
 }
 
@@ -228,7 +232,7 @@ pub struct TexlabLocation {
 #[serde(rename_all = "camelCase")]
 pub struct BuildResult {
     pub success: bool,
-    pub pdf_base64: Option<String>,
+    pub has_pdf: bool,
     pub log: String,
     pub duration_ms: u128,
     pub diagnostics: Vec<Diagnostic>,
@@ -392,6 +396,9 @@ pub struct PaperSummary {
     pub has_full_text: bool,
     /// True only when an overview is already present in the local paper cache.
     pub has_blog: bool,
+    /// Converter-owned files needed to render figures in the paper reader.
+    #[serde(default)]
+    pub asset_paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

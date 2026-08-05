@@ -2,11 +2,18 @@
   "name": "lattice-collab",
   "main": "src/index.ts",
   "compatibility_date": "2024-11-01",
+  "r2_buckets": [
+    { "binding": "BinaryObjects", "bucket_name": "lattice-collab-binary-v2", "preview_bucket_name": "lattice-collab-binary-v2-preview" }
+  ],
   "durable_objects": {
     "bindings": [
       {
-        "name": "LatticeDoc",
-        "class_name": "LatticeDoc"
+        "name": "ProjectCoordinatorV2",
+        "class_name": "ProjectCoordinatorV2"
+      },
+      {
+        "name": "TextFileV2",
+        "class_name": "TextFileV2"
       }
     ]
   },
@@ -14,6 +21,18 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["LatticeDoc"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["ProjectCoordinatorV2"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["TextFileV2"]
+    },
+    {
+      "tag": "v4",
+      "deleted_classes": ["LatticeDoc"]
     }
   ]
 }

@@ -13,7 +13,7 @@ describe("Harper prose spellcheck", () => {
   it("reports a real spelling diagnostic for misspelled prose", async () => {
     const diagnostics = await harperDiagnostics("This is introductiom.");
 
-    expect(diagnostics.some((diagnostic) => diagnostic.source === "Spelling")).toBe(true);
+    expect(diagnostics.some((diagnostic) => diagnostic.source === "Harper")).toBe(true);
     expect(diagnostics.some((diagnostic) => diagnostic.from === 8 && diagnostic.to === 20)).toBe(true);
   });
 
@@ -45,6 +45,46 @@ describe("Harper prose spellcheck", () => {
 
     expect(diagnostics.some((diagnostic) =>
       /does not start with a capital letter/i.test(diagnostic.message))).toBe(true);
+  });
+
+  it("masks author names and LaTeX package and bibliography identifiers", () => {
+    const source = [
+      "\\usepackage{neurips_2025}",
+      "\\author{Yimimg Zhaoo}",
+      "\\bibliographystyle{plainnatt}",
+      "\\title{A sentnce}",
+    ].join("\n");
+    const prose = maskLatexForProse(source);
+
+    expect(prose).not.toContain("neurips_2025");
+    expect(prose).not.toContain("Yimimg Zhaoo");
+    expect(prose).not.toContain("plainnatt");
+    expect(prose).toContain("A sentnce");
+  });
+
+  it("skips Markdown tables without hiding surrounding prose", async () => {
+    const source = [
+      "This is introductiom.",
+      "",
+      "| Method | Description |",
+      "| --- | --- |",
+      "| Baseline | This table cell contains many words that Harper should never treat as one long sentence |",
+      "| Proposed | Another table cell with additional prose that belongs to the table |",
+      "",
+      "Visible prose remains available to Harper.",
+    ].join("\n");
+    const prose = maskLatexForProse(source);
+    const diagnostics = await harperDiagnostics(source);
+
+    expect(prose).toHaveLength(source.length);
+    expect(prose).not.toContain("Method");
+    expect(prose).not.toContain("Baseline");
+    expect(prose).toContain("This is introductiom.");
+    expect(prose).toContain("Visible prose remains available to Harper.");
+    expect(diagnostics.some((diagnostic) =>
+      source.slice(diagnostic.from, diagnostic.to) === "introductiom")).toBe(true);
+    expect(diagnostics.some((diagnostic) =>
+      source.slice(diagnostic.from, diagnostic.to).includes("table cell"))).toBe(false);
   });
 
   it("accepts words from the project dictionary", async () => {
@@ -132,7 +172,7 @@ describe("Harper prose spellcheck", () => {
 
     diagnostic.actions?.[0]?.apply(view, diagnostic.from, diagnostic.to);
     expect(view.state.doc.toString()).toBe("A sentence.");
-    expect(diagnostic.source).toBe("Spelling");
+    expect(diagnostic.source).toBe("Harper");
     expect(diagnostic.severity).toBe("error");
     view.destroy();
   });

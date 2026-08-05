@@ -67,7 +67,7 @@
 }
 .overleaf-picker-header { display: flex; align-items: flex-start; justify-content: space-between; }
 .overleaf-picker-modal h2 { margin: 14px 0 var(--space-3); font-size: var(--type-heading-size); }
-.overleaf-picker-modal > p { margin: 0 0 14px; }
+.overleaf-picker-modal > p { margin: 0 0 var(--drawer-section-gap); }
 .overleaf-picker-modal .overleaf-waiting,
 .overleaf-picker-modal .overleaf-connect-row { margin-top: var(--space-2); }
 .overleaf-advanced-link {
@@ -84,7 +84,7 @@
 .overleaf-picker-controls .overleaf-checkbox { flex: none; }
 
 .overleaf-project-list-scroll {
-  margin: var(--space-6) 0 0;
+  margin: var(--drawer-section-gap) 0 0;
   flex: 1 1 auto;
   min-height: 0;
   border: 1px solid var(--border-subtle);
@@ -222,11 +222,10 @@
 .overleaf-channel-off { color: var(--text-secondary); }
 .overleaf-channel-error { color: var(--status-danger); }
 
-/* Steady dot on the toolbar while a document is edited through Overleaf's own
-   channel, rather than waiting for the next sync. A plain filled dot, not a
-   count badge: there is nothing to count, and the badge's shape read as a
-   coloured ring rather than "live". */
-.overleaf-live-dot {
+/* Steady dot on the toolbar while the live channel is online or a sync is in
+   progress. It is absolutely positioned so status changes never move the
+   cloud icon or alter the button's layout. */
+.overleaf-status-dot {
   position: absolute;
   top: 2px;
   right: 2px;

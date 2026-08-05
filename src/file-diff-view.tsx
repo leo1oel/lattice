@@ -5,8 +5,16 @@ import {
   isHighlighterLoaded,
   parseDiffFromFile,
   preloadHighlighter,
+  registerCustomLanguage,
+  registerCustomTheme,
+  type SupportedLanguages,
 } from "@pierre/diffs";
 import { FileDiff, type FileDiffMetadata } from "@pierre/diffs/react";
+import bibtex from "@shikijs/langs/bibtex";
+import markdown from "@shikijs/langs/markdown";
+import tex from "@shikijs/langs/tex";
+import githubDark from "@shikijs/themes/github-dark";
+import githubLight from "@shikijs/themes/github-light";
 import { useEffect, useMemo, useState } from "react";
 import { InfinityLoader } from "./components/ui/activity-icons";
 
@@ -16,12 +24,28 @@ export type FileDiffChange = {
   after?: string | null;
 };
 
-const THEMES = {
+// Shared by every Pierre surface; React components remain the only stateful exports.
+// eslint-disable-next-line react-refresh/only-export-components
+export const PIERRE_THEMES = {
   light: "github-light",
   dark: "github-dark",
 } as const;
 
-const unsafeCss = `
+registerCustomLanguage("tex", () => Promise.resolve({ default: tex }));
+registerCustomLanguage("bibtex", () => Promise.resolve({ default: bibtex }));
+registerCustomLanguage("markdown", () => Promise.resolve({ default: markdown }));
+registerCustomTheme(PIERRE_THEMES.light, () => Promise.resolve(githubLight));
+registerCustomTheme(PIERRE_THEMES.dark, () => Promise.resolve(githubDark));
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function pierreLanguageForPath(path: string): SupportedLanguages {
+  const language = getFiletypeFromFileName(path);
+  return language === "tex" || language === "bibtex" || language === "markdown"
+    ? language
+    : "text";
+}
+
+export const PIERRE_UNSAFE_CSS = `
 :host {
   --diffs-font-family: var(--editor-font);
   --diffs-header-font-family: var(--ui-font);
@@ -70,26 +94,73 @@ const unsafeCss = `
 }
 
 @media (pointer: fine) {
-  * {
+  [data-code],
+  [data-error-wrapper] {
     scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--text-primary) 8%, transparent) transparent;
+    scrollbar-color: transparent transparent;
   }
 
-  *::-webkit-scrollbar { width: 10px; height: 10px; }
-  *::-webkit-scrollbar-track,
-  *::-webkit-scrollbar-corner { background: transparent; }
-  *::-webkit-scrollbar-thumb {
+  [data-code]:hover,
+  [data-error-wrapper]:hover {
+    scrollbar-color: color-mix(in srgb, var(--text-primary) 12%, transparent) transparent;
+  }
+
+  [data-code]::-webkit-scrollbar,
+  [data-error-wrapper]::-webkit-scrollbar {
+    width: 10px !important;
+    height: 10px !important;
+  }
+
+  [data-code]::-webkit-scrollbar-track,
+  [data-code]::-webkit-scrollbar-corner,
+  [data-error-wrapper]::-webkit-scrollbar-track,
+  [data-error-wrapper]::-webkit-scrollbar-corner {
+    background: transparent !important;
+  }
+
+  [data-code]::-webkit-scrollbar-thumb,
+  [data-error-wrapper]::-webkit-scrollbar-thumb {
     border: 3px solid transparent;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+    border-radius: var(--radius-pill);
+    background: transparent !important;
     background-clip: content-box;
   }
-  *::-webkit-scrollbar-thumb:vertical { border-right-width: 5px; border-left-width: 1px; }
-  *::-webkit-scrollbar-thumb:horizontal { border-top-width: 1px; border-bottom-width: 5px; }
-  *::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--text-primary) 12%, transparent); }
-  *::-webkit-scrollbar-thumb:vertical:hover { border-right-width: 4px; border-left-width: 0; }
-  *::-webkit-scrollbar-thumb:horizontal:hover { border-top-width: 0; border-bottom-width: 4px; }
-  *::-webkit-scrollbar-thumb:active { background-color: color-mix(in srgb, var(--text-primary) 16%, transparent); }
+
+  [data-code]::-webkit-scrollbar-thumb:vertical,
+  [data-error-wrapper]::-webkit-scrollbar-thumb:vertical {
+    border-right-width: 5px;
+    border-left-width: 1px;
+  }
+
+  [data-code]::-webkit-scrollbar-thumb:horizontal,
+  [data-error-wrapper]::-webkit-scrollbar-thumb:horizontal {
+    border-top-width: 1px;
+    border-bottom-width: 5px;
+  }
+
+  [data-code]:hover::-webkit-scrollbar-thumb,
+  [data-error-wrapper]:hover::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--text-primary) 12%, transparent) !important;
+    background-clip: content-box;
+  }
+
+  [data-code]:hover::-webkit-scrollbar-thumb:vertical,
+  [data-error-wrapper]:hover::-webkit-scrollbar-thumb:vertical {
+    border-right-width: 4px;
+    border-left-width: 0;
+  }
+
+  [data-code]:hover::-webkit-scrollbar-thumb:horizontal,
+  [data-error-wrapper]:hover::-webkit-scrollbar-thumb:horizontal {
+    border-top-width: 0;
+    border-bottom-width: 4px;
+  }
+
+  [data-code]::-webkit-scrollbar-thumb:active,
+  [data-error-wrapper]::-webkit-scrollbar-thumb:active {
+    background: color-mix(in srgb, var(--text-primary) 18%, transparent) !important;
+    background-clip: padding-box;
+  }
 }
 `;
 
@@ -97,8 +168,24 @@ function currentTheme(): "light" | "dark" {
   return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
 
-function useDocumentTheme(): "light" | "dark" {
+// eslint-disable-next-line react-refresh/only-export-components
+export function usePierreResources(path: string | readonly string[]) {
   const [theme, setTheme] = useState(currentTheme);
+  const themeName = PIERRE_THEMES[theme];
+  const languages = useMemo(
+    () => [...new Set((typeof path === "string" ? [path] : path).map(pierreLanguageForPath))],
+    [path],
+  );
+  const language = languages[0] ?? "text";
+  const languageKey = languages.join(",");
+  const preloadKey = `${themeName}:${languageKey}`;
+  const [loadResult, setLoadResult] = useState<{ key: string; error?: Error } | null>(null);
+  const preloadSucceeded = loadResult?.key === preloadKey && loadResult.error == null;
+  const ready = preloadSucceeded || (
+    isHighlighterLoaded()
+    && areThemesAttached(themeName)
+    && languages.every((candidate) => areLanguagesAttached(candidate))
+  );
 
   useEffect(() => {
     const observer = new MutationObserver(() => setTheme(currentTheme()));
@@ -106,15 +193,43 @@ function useDocumentTheme(): "light" | "dark" {
     return () => observer.disconnect();
   }, []);
 
-  return theme;
+  useEffect(() => {
+    if (ready) return;
+    let active = true;
+    void preloadHighlighter({ themes: [themeName], langs: languages }).then(
+      () => {
+        if (active) setLoadResult({ key: preloadKey });
+      },
+      (cause: unknown) => {
+        if (!active) return;
+        setLoadResult({
+          key: preloadKey,
+          error: cause instanceof Error ? cause : new Error(String(cause)),
+        });
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [languages, preloadKey, ready, themeName]);
+
+  return {
+    error: loadResult?.key === preloadKey ? loadResult.error : undefined,
+    language,
+    languages,
+    preloadKey,
+    ready,
+    theme,
+    themeName,
+  };
 }
 
-function metadataFor(change: FileDiffChange): FileDiffMetadata {
+function metadataFor(change: FileDiffChange, language: SupportedLanguages): FileDiffMetadata {
   const before = change.before ?? "";
   const after = change.after ?? "";
   const parsed = parseDiffFromFile(
-    { name: change.path, contents: before },
-    { name: change.path, contents: after },
+    { name: change.path, contents: before, lang: language },
+    { name: change.path, contents: after, lang: language },
   );
   if (change.before == null) return { ...parsed, type: "new" };
   if (change.after == null) return { ...parsed, type: "deleted" };
@@ -131,37 +246,11 @@ export function FileDiffView(props: {
   onOpenLine?: (path: string, line: number) => void;
 }) {
   const { after, before, path } = props.change;
-  const theme = useDocumentTheme();
-  const themeName = THEMES[theme];
-  const language = getFiletypeFromFileName(path);
-  const preloadKey = `${themeName}:${language}`;
-  const [loadResult, setLoadResult] = useState<{ key: string; error?: Error } | null>(null);
+  const resources = usePierreResources(path);
   const fileDiff = useMemo(
-    () => metadataFor({ path, before, after }),
-    [after, before, path],
+    () => metadataFor({ path, before, after }, resources.language),
+    [after, before, path, resources.language],
   );
-  const resourcesReady =
-    isHighlighterLoaded() && areThemesAttached(themeName) && areLanguagesAttached(language);
-
-  useEffect(() => {
-    if (resourcesReady) return;
-    let active = true;
-    void preloadHighlighter({ themes: [themeName], langs: [language] }).then(
-      () => {
-        if (active) setLoadResult({ key: preloadKey });
-      },
-      (cause: unknown) => {
-        if (!active) return;
-        setLoadResult({
-          key: preloadKey,
-          error: cause instanceof Error ? cause : new Error(String(cause)),
-        });
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [language, preloadKey, resourcesReady, themeName]);
 
   if (before === after) {
     return <p className="lattice-file-diff-empty">No textual changes.</p>;
@@ -169,24 +258,24 @@ export function FileDiffView(props: {
   if ((before == null && after === "") || (after == null && before === "")) {
     return <p className="lattice-file-diff-empty">Empty file {before == null ? "added" : "deleted"}.</p>;
   }
-  if (loadResult?.key === preloadKey && loadResult.error) {
-    return <p className="lattice-file-diff-error" role="alert">Could not render this diff: {loadResult.error.message}</p>;
+  if (resources.error) {
+    return <p className="lattice-file-diff-error" role="alert">Could not render this diff: {resources.error.message}</p>;
   }
-  if (!resourcesReady) {
+  if (!resources.ready) {
     return <p className="lattice-file-diff-loading" role="status"><InfinityLoader size={12} /> Rendering diff…</p>;
   }
 
   return (
     <FileDiff
-      key={`${preloadKey}:${path}:${before?.length ?? -1}:${after?.length ?? -1}`}
+      key={`${resources.preloadKey}:${path}:${before?.length ?? -1}:${after?.length ?? -1}`}
       fileDiff={fileDiff}
       options={{
         diffStyle: "unified",
         lineDiffType: "word",
         overflow: "scroll",
-        theme: themeName,
-        themeType: theme,
-        unsafeCSS: unsafeCss,
+        theme: resources.themeName,
+        themeType: resources.theme,
+        unsafeCSS: PIERRE_UNSAFE_CSS,
         disableFileHeader: true,
         onLineClick: props.onOpenLine
           ? ({ lineNumber }) => props.onOpenLine?.(path, lineNumber)

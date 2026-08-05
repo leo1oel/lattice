@@ -44,7 +44,7 @@ export function ModalDialog(props: {
   };
   const preventWindowDragDismissal = (event: Event) => {
     const originalTarget = (event as CustomEvent<{ originalEvent?: Event }>)
-      .detail?.originalEvent?.target;
+      .detail?.originalEvent?.target ?? event.target;
     if (
       props.closeDisabled
       || (originalTarget instanceof Element
@@ -84,6 +84,7 @@ export function ModalDialog(props: {
           }}
           onEscapeKeyDown={preventWhenDisabled}
           onPointerDownOutside={preventWindowDragDismissal}
+          onInteractOutside={preventWindowDragDismissal}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();

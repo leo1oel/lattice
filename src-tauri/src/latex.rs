@@ -2,10 +2,9 @@ use crate::commands;
 use crate::models::{BuildResult, Diagnostic, PdfSyncTarget, SyncTexTarget};
 use crate::pdf_fonts;
 use crate::project;
-use base64::{engine::general_purpose::STANDARD, Engine};
 use regex::Regex;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -82,6 +81,12 @@ fn default_root_document(
         .find(|document| document.is_default)
         .or_else(|| manifest.root_documents.first())
         .ok_or_else(|| "The project has no root document.".to_string())
+}
+
+fn compiled_pdf_path(root: &Path) -> Result<PathBuf, String> {
+    let manifest = project::read_manifest(root)?;
+    let document = default_root_document(&manifest)?;
+    Ok(project::safe_path(root, &document.path)?.with_extension("pdf"))
 }
 
 pub fn clean(root: &Path) -> Result<String, String> {
@@ -199,7 +204,6 @@ fn run_latexmk(
     } else {
         None
     };
-    let pdf_base64 = pdf_bytes.as_ref().map(|bytes| STANDARD.encode(bytes));
     let mut diagnostics = parse_diagnostics(&log);
     if success {
         if let Some(bytes) = pdf_bytes.as_deref() {
@@ -232,7 +236,7 @@ fn run_latexmk(
 
     Ok(BuildResult {
         success,
-        pdf_base64,
+        has_pdf: pdf_bytes.is_some(),
         diagnostics,
         log: trim_log(&log),
         duration_ms: started.elapsed().as_millis(),
@@ -242,7 +246,7 @@ fn run_latexmk(
 fn cancelled_build(started: Instant) -> BuildResult {
     BuildResult {
         success: false,
-        pdf_base64: None,
+        has_pdf: false,
         diagnostics: vec![Diagnostic {
             file: None,
             line: None,
@@ -257,7 +261,17 @@ fn cancelled_build(started: Instant) -> BuildResult {
     }
 }
 
-pub fn save_pdf(path: &Path, pdf_base64: &str) -> Result<String, String> {
+pub fn read_compiled_pdf(root: &Path) -> Result<Vec<u8>, String> {
+    let path = compiled_pdf_path(root)?;
+    let bytes =
+        fs::read(&path).map_err(|error| format!("The compiled PDF could not be read: {error}"))?;
+    if !bytes.starts_with(b"%PDF-") {
+        return Err("The compiled output is not a valid PDF.".to_string());
+    }
+    Ok(bytes)
+}
+
+pub fn save_pdf(path: &Path, bytes: &[u8]) -> Result<String, String> {
     if path.as_os_str().is_empty() {
         return Err("Choose where to save the PDF.".to_string());
     }
@@ -266,9 +280,7 @@ pub fn save_pdf(path: &Path, pdf_base64: &str) -> Result<String, String> {
         Some(extension) if extension.eq_ignore_ascii_case("pdf") => path.to_path_buf(),
         Some(_) => return Err("The exported paper must use the .pdf extension.".to_string()),
     };
-    let bytes = STANDARD
-        .decode(pdf_base64)
-        .map_err(|error| format!("The compiled PDF could not be decoded: {error}"))?;
+
     if !bytes.starts_with(b"%PDF-") {
         return Err("The compiled output is not a valid PDF.".to_string());
     }
@@ -760,7 +772,7 @@ mod tests {
         let root = project::create(&parent, "R&D_100%").unwrap();
         let result = build(&root, false, &new_active_build()).unwrap();
         assert!(result.success, "{}", result.log);
-        assert!(result.pdf_base64.is_some());
+        assert!(read_compiled_pdf(&root).unwrap().starts_with(b"%PDF-"));
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -939,11 +951,11 @@ Running 'pdflatex  -interaction=nonstopmode \"main.tex\"'\n\
     fn saves_a_compiled_pdf_to_the_chosen_path() {
         let directory = temp_root();
         fs::create_dir_all(&directory).unwrap();
-        let encoded = STANDARD.encode(b"%PDF-1.7\ntest");
-        let destination = save_pdf(&directory.join("paper"), &encoded).unwrap();
+        let bytes = b"%PDF-1.7\ntest";
+        let destination = save_pdf(&directory.join("paper"), bytes).unwrap();
         assert_eq!(Path::new(&destination).extension().unwrap(), "pdf");
         assert_eq!(fs::read(destination).unwrap(), b"%PDF-1.7\ntest");
-        assert!(save_pdf(&directory.join("paper.txt"), &encoded).is_err());
+        assert!(save_pdf(&directory.join("paper.txt"), bytes).is_err());
         fs::remove_dir_all(directory).unwrap();
     }
 }

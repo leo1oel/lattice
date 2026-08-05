@@ -440,7 +440,7 @@ export function VersionsTimeline(props: {
  */
 export const versionsTimelineCss = `
 .versions-tabs { display: flex; gap: var(--space-1); margin-top: var(--space-4); border-bottom: 1px solid var(--border-subtle); }
-.versions-tab { height: 28px; padding: 0 var(--space-5); background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: 600; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; }
+.versions-tab { height: 28px; padding: 0 var(--space-5); background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: 600; border-bottom: 2px solid transparent; border-radius: var(--radius-icon); }
 .versions-tab:hover { color: var(--text-primary); background: var(--border-subtle); }
 /* The accent rule is the sliding indicator, not a static border. */
 .versions-tab.active { color: var(--text-primary); }

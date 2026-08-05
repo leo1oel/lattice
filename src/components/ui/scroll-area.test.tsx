@@ -35,7 +35,7 @@ describe("ScrollArea", () => {
     expect(onScroll).toHaveBeenCalledOnce();
   });
 
-  it("allows edge fading to be disabled for exceptional surfaces", () => {
+  it("disables both edge masks and their scroll measurements", async () => {
     render(
       <ScrollArea
         fadeEdges={false}
@@ -45,7 +45,18 @@ describe("ScrollArea", () => {
       </ScrollArea>,
     );
 
-    expect(screen.getByLabelText("Unmasked content")).not.toHaveClass("scroll-fade");
+    const viewport = screen.getByLabelText("Unmasked content");
+    expect(viewport).not.toHaveClass("scroll-fade");
+    setScrollGeometry(viewport, {
+      clientHeight: 100,
+      clientWidth: 100,
+      scrollHeight: 300,
+      scrollWidth: 100,
+    });
+    fireEvent.scroll(viewport);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(viewport).not.toHaveAttribute("data-has-vertical-overflow");
+    expect(viewport).not.toHaveAttribute("data-can-scroll-down");
   });
 
   it("tracks which edges still have content to reveal", async () => {
@@ -82,10 +93,12 @@ describe("ScrollArea", () => {
     viewport.scrollTop = 200;
     viewport.scrollLeft = 150;
     fireEvent.scroll(viewport);
-    expect(viewport).toHaveAttribute("data-can-scroll-up", "true");
-    expect(viewport).toHaveAttribute("data-can-scroll-down", "false");
-    expect(viewport).toHaveAttribute("data-can-scroll-left", "true");
-    expect(viewport).toHaveAttribute("data-can-scroll-right", "false");
+    await waitFor(() => {
+      expect(viewport).toHaveAttribute("data-can-scroll-up", "true");
+      expect(viewport).toHaveAttribute("data-can-scroll-down", "false");
+      expect(viewport).toHaveAttribute("data-can-scroll-left", "true");
+      expect(viewport).toHaveAttribute("data-can-scroll-right", "false");
+    });
   });
 
   it("marks both axes as non-scrollable when all content fits", async () => {

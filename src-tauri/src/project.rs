@@ -6,11 +6,14 @@ use crate::models::{
     ResolvedCitation, RootDocument, SymbolOccurrence, SyncTexTarget, TodoHit, TransactionRecord,
     UnusedSymbols,
 };
+use crate::project_fs::ProjectDir;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::Utc;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use uuid::Uuid;
 use walkdir::WalkDir;
@@ -18,6 +21,10 @@ use walkdir::WalkDir;
 const MANIFEST_PATH: &str = ".research/project.json";
 const PDF_MARKS_PATH: &str = ".research/pdf-annotations.json";
 const EDITOR_COMMENTS_PATH: &str = ".research/editor-comments.json";
+const MATERIALIZATION_INDEX_PATH: &str = ".research/cache/materialization-index-v1.json";
+/// Inventory classification reads at most this many bytes. Larger files are
+/// visible but conservatively binary/unknown, avoiding unbounded scans.
+const MAX_CLASSIFIED_TEXT_BYTES: u64 = 8 * 1024 * 1024;
 const RESEARCH_GITIGNORE: &str = "history/\nsessions/\ncheckpoints/\ncache/\n";
 const MAX_HISTORY_ENTRIES: usize = 100;
 const MAX_CHECKPOINTS_PER_SESSION: usize = 100;
@@ -32,6 +39,88 @@ const ICML_2026_BST: &str = include_str!("../templates/icml-2026/icml2026.bst");
 const ICLR_2026_MAIN: &str = include_str!("../templates/iclr-2026/main.tex");
 const ICLR_2026_STYLE: &str = include_str!("../templates/iclr-2026/iclr2026_conference.sty");
 const ICLR_2026_BST: &str = include_str!("../templates/iclr-2026/iclr2026_conference.bst");
+const TUTORIAL_MAIN: &str = include_str!("../templates/tutorial/main.tex");
+const TUTORIAL_NOTES: &str = include_str!("../templates/tutorial/notes.md");
+const TUTORIAL_HTML: &str = include_str!("../templates/tutorial/attention-demo.html");
+const TUTORIAL_TOML: &str = include_str!("../templates/tutorial/project.toml");
+const TUTORIAL_REFERENCES: &str = include_str!("../templates/tutorial/references.bib");
+const TUTORIAL_FIGURE_ATTRIBUTION: &str =
+    include_str!("../templates/tutorial/figures/ATTRIBUTION.md");
+const TUTORIAL_SCALED_ATTENTION_PNG: &[u8] =
+    include_bytes!("../templates/tutorial/figures/scaled-dot-product-attention.png");
+const TUTORIAL_MULTI_HEAD_ATTENTION_PNG: &[u8] =
+    include_bytes!("../templates/tutorial/figures/multi-head-attention.png");
+const TUTORIAL_ATTENTION_FIGURE_PDF: &[u8] =
+    include_bytes!("../templates/tutorial/figures/attention-figure-2.pdf");
+const TUTORIAL_PROJECT_NAME: &str = "Understanding Attention";
+const TUTORIAL_V2_SVG_MD5: &str = "5208e75172b7e7b5bbf2faee51da289a";
+const TUTORIAL_V2_PDF_MD5: &str = "52a33c6af6420aaf86e642cd24a8f466";
+
+/// Local-only durable state for the future v2 catalog/materializer. This is
+/// deliberately not wired to collaboration and lives under excluded cache.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct MaterializationIndex {
+    pub schema_version: u32,
+    pub files: BTreeMap<String, MaterializedFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct MaterializedFile {
+    pub path: String,
+    pub document_epoch: u64,
+    pub applied_revision: u64,
+    pub durable_revision: u64,
+    pub content_sha256: String,
+}
+
+#[allow(dead_code)]
+pub fn read_materialization_index(root: &Path) -> Result<MaterializationIndex, String> {
+    let path = root.join(MATERIALIZATION_INDEX_PATH);
+    if !path.exists() {
+        return Ok(MaterializationIndex {
+            schema_version: 1,
+            files: BTreeMap::new(),
+        });
+    }
+    let index: MaterializationIndex =
+        serde_json::from_slice(&fs::read(path).map_err(err)?).map_err(err)?;
+    if index.schema_version != 1 {
+        return Err("Unsupported materialization index schema.".to_string());
+    }
+    Ok(index)
+}
+
+#[allow(dead_code)]
+pub fn write_materialization_index(
+    root: &Path,
+    index: &MaterializationIndex,
+) -> Result<(), String> {
+    if index.schema_version != 1 {
+        return Err("Unsupported materialization index schema.".to_string());
+    }
+    let path = root.join(MATERIALIZATION_INDEX_PATH);
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Invalid materialization index path.".to_string())?;
+    fs::create_dir_all(parent).map_err(err)?;
+    let temporary = parent.join(format!(".materialization-{}.tmp", Uuid::new_v4()));
+    let result = (|| {
+        let mut file = fs::File::create(&temporary).map_err(err)?;
+        file.write_all(&serde_json::to_vec_pretty(index).map_err(err)?)
+            .map_err(err)?;
+        file.write_all(b"\n").map_err(err)?;
+        file.sync_all().map_err(err)?;
+        fs::rename(&temporary, &path).map_err(err)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Venue {
@@ -227,6 +316,99 @@ pub fn create_with_venue(parent: &Path, name: &str, venue: Venue) -> Result<Path
     }
     fs::write(root.join("references.bib"), "").map_err(err)?;
     Ok(root)
+}
+
+/// Recreate the stable sample project used by the in-app tutorial.
+/// The managed tutorial is disposable: every launch starts from the bundled baseline.
+pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
+    let root = parent.join(TUTORIAL_PROJECT_NAME);
+    if root.exists() {
+        let managed = fs::read(root.join(".research/tutorial.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+            .and_then(|marker| {
+                marker
+                    .get("id")
+                    .and_then(|id| id.as_str())
+                    .map(str::to_string)
+            })
+            .is_some_and(|id| id == "understanding-attention");
+        if !managed {
+            return Err(format!(
+                "A folder named “{TUTORIAL_PROJECT_NAME}” already exists in Lattice Tutorials. Move it, then try again."
+            ));
+        }
+        fs::remove_dir_all(&root).map_err(err)?;
+    }
+
+    prepare_project_skeleton(&root)?;
+    let mut manifest = default_manifest(TUTORIAL_PROJECT_NAME);
+    manifest.venue = "tutorial".to_string();
+    manifest.word_budget = None;
+    manifest.page_budget = None;
+    write_manifest(&root, &manifest)?;
+    fs::write(
+        root.join(".research/brief.md"),
+        "# Understanding Attention\n\n## Goal\n\nLearn the Lattice workflow with an original short paper about attention.\n\n## Evidence\n\nImport arXiv:1706.03762 from the Papers panel before asking an Agent to make factual changes.\n\n## Constraints\n\n- Keep claims conservative.\n- Cite the original paper for architecture and reported results.\n",
+    )
+    .map_err(err)?;
+    fs::write(
+        root.join(".research/tutorial.json"),
+        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 4\n}\n",
+    )
+    .map_err(err)?;
+    fs::write(root.join("main.tex"), TUTORIAL_MAIN).map_err(err)?;
+    fs::write(root.join("notes.md"), TUTORIAL_NOTES).map_err(err)?;
+    fs::write(root.join("attention-demo.html"), TUTORIAL_HTML).map_err(err)?;
+    fs::write(root.join("attention-map.tldr"), "").map_err(err)?;
+    fs::write(root.join("project.toml"), TUTORIAL_TOML).map_err(err)?;
+    fs::write(root.join("references.bib"), TUTORIAL_REFERENCES).map_err(err)?;
+    install_tutorial_assets(&root)?;
+    Ok(root)
+}
+
+fn install_tutorial_assets(root: &Path) -> Result<(), String> {
+    let style = NEURIPS_2026_STYLE.replacen(
+        "\\ProvidesPackage{neurips_2026}",
+        "\\ProvidesPackage{neurips}",
+        1,
+    );
+    remove_unchanged_tutorial_asset(&root.join("figures/attention-map.svg"), TUTORIAL_V2_SVG_MD5)?;
+    remove_unchanged_tutorial_asset(&root.join("figures/attention-map.pdf"), TUTORIAL_V2_PDF_MD5)?;
+    for (path, contents) in [
+        (root.join("neurips.sty"), style.into_bytes()),
+        (
+            root.join("figures/scaled-dot-product-attention.png"),
+            TUTORIAL_SCALED_ATTENTION_PNG.to_vec(),
+        ),
+        (
+            root.join("figures/multi-head-attention.png"),
+            TUTORIAL_MULTI_HEAD_ATTENTION_PNG.to_vec(),
+        ),
+        (
+            root.join("figures/attention-figure-2.pdf"),
+            TUTORIAL_ATTENTION_FIGURE_PDF.to_vec(),
+        ),
+        (
+            root.join("figures/ATTRIBUTION.md"),
+            TUTORIAL_FIGURE_ATTRIBUTION.as_bytes().to_vec(),
+        ),
+    ] {
+        if !path.exists() {
+            fs::write(path, contents).map_err(err)?;
+        }
+    }
+    Ok(())
+}
+
+fn remove_unchanged_tutorial_asset(path: &Path, expected_md5: &str) -> Result<(), String> {
+    let Ok(contents) = fs::read(path) else {
+        return Ok(());
+    };
+    if format!("{:x}", md5::compute(contents)) == expected_md5 {
+        fs::remove_file(path).map_err(err)?;
+    }
+    Ok(())
 }
 
 /// Empty workspace for joining a live share — no conference template files.
@@ -788,8 +970,21 @@ pub fn write_editor_comments(root: &Path, comments: Vec<EditorComment>) -> Resul
 }
 
 pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    resolve_project_path(root, relative, false)
+}
+
+pub(crate) fn creation_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    resolve_project_path(root, relative, true)
+}
+
+fn resolve_project_path(
+    root: &Path,
+    relative: &str,
+    create_parents: bool,
+) -> Result<PathBuf, String> {
     let relative_path = Path::new(relative);
-    if relative_path.is_absolute()
+    if relative_path.as_os_str().is_empty()
+        || relative_path.is_absolute()
         || relative_path.components().any(|part| {
             matches!(
                 part,
@@ -799,26 +994,49 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
     {
         return Err("The requested path is outside the project.".to_string());
     }
-
-    let path = root.join(relative_path);
-    let parent = path.parent().unwrap_or(root);
-    fs::create_dir_all(parent).map_err(err)?;
-    let canonical_parent = parent.canonicalize().map_err(err)?;
     let canonical_root = root.canonicalize().map_err(err)?;
-    if !canonical_parent.starts_with(&canonical_root) {
-        return Err("The requested path is outside the project.".to_string());
+    let mut cursor = canonical_root.clone();
+    let components = relative_path.components().collect::<Vec<_>>();
+    for (index, component) in components.iter().enumerate() {
+        let Component::Normal(name) = component else {
+            continue;
+        };
+        cursor.push(name);
+        match fs::symlink_metadata(&cursor) {
+            Ok(metadata) => {
+                if metadata.file_type().is_symlink() {
+                    return Err(
+                        "Symbolic links cannot be used for project file operations.".to_string()
+                    );
+                }
+                if index + 1 < components.len() && !metadata.is_dir() {
+                    return Err("A project path component is not a folder.".to_string());
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if !create_parents && index + 1 < components.len() {
+                    return Err(error.to_string());
+                }
+                if create_parents && index + 1 < components.len() {
+                    fs::create_dir(&cursor).map_err(err)?;
+                }
+            }
+            Err(error) => return Err(error.to_string()),
+        }
     }
-    Ok(path)
+    Ok(cursor)
 }
 
 pub fn read_file(root: &Path, relative: &str) -> Result<String, String> {
-    fs::read_to_string(safe_path(root, relative)?).map_err(|error| {
-        if error.kind() == std::io::ErrorKind::InvalidData {
-            "This is a binary file and cannot be opened in the source editor.".to_string()
-        } else {
-            error.to_string()
-        }
-    })
+    let path = safe_path(root, relative)?;
+    if classify_regular_file(&path)? != ContentKind::Text {
+        return Err(
+            "This is a binary or unsupported file and cannot be opened in the source editor."
+                .to_string(),
+        );
+    }
+    let bytes = fs::read(path).map_err(err)?;
+    String::from_utf8(bytes).map_err(|_| "This is not lossless UTF-8 text.".to_string())
 }
 
 pub fn citation_keys(root: &Path) -> Result<Vec<String>, String> {
@@ -1567,7 +1785,8 @@ fn apply_symbol_rename(
         .map(|(path, _)| path.clone())
         .collect::<Vec<_>>();
     let occurrence_count = edits.len() as u32;
-    let transaction = apply_transaction(root, label, file_edits)?;
+    let transaction = apply_transaction(root, label, file_edits)?
+        .ok_or_else(|| "The rename did not change any files.".to_string())?;
     Ok(RenameSymbolResult {
         changed_files,
         occurrence_count,
@@ -2220,7 +2439,7 @@ fn searchable_text_path(path: &str) -> bool {
             .and_then(|extension| extension.to_str())
             .map(str::to_lowercase)
             .as_deref(),
-        Some("tex" | "bib" | "sty" | "cls" | "md" | "txt")
+        Some("tex" | "bib" | "sty" | "cls" | "md" | "txt" | "html")
     )
 }
 
@@ -2231,7 +2450,7 @@ pub fn create_entry(root: &Path, relative: &str, kind: &str) -> Result<String, S
         "folder" => relative.trim().to_string(),
         _ => return Err("Choose a source file or folder.".to_string()),
     };
-    let path = safe_path(root, &normalized)?;
+    let path = creation_path(root, &normalized)?;
     if path.exists() {
         return Err("A file or folder already exists at that path.".to_string());
     }
@@ -2269,10 +2488,6 @@ pub fn rename_entry(root: &Path, relative: &str, new_name: &str) -> Result<Strin
     } else {
         requested_name.to_string()
     };
-    if source.is_file() && !is_visible_source(Path::new(&normalized_name)) {
-        return Err("Keep a supported project file extension when renaming this file.".to_string());
-    }
-
     let parent = Path::new(relative)
         .parent()
         .unwrap_or_else(|| Path::new(""));
@@ -2349,9 +2564,11 @@ fn relocate_entry(
         destination_relative,
     );
 
-    fs::rename(&source, &destination).map_err(err)?;
+    ProjectDir::open(root)?.rename(relative, destination_relative)?;
     if let Err(error) = write_manifest(root, &updated_manifest) {
-        let _ = fs::rename(&destination, &source);
+        if let Ok(project) = ProjectDir::open(root) {
+            let _ = project.rename(destination_relative, relative);
+        }
         let _ = write_manifest(root, &original_manifest);
         return Err(error);
     }
@@ -2446,8 +2663,9 @@ pub fn import_image_bytes(
     }
     let destination = available_asset_path(&target, name);
     fs::write(&destination, bytes).map_err(err)?;
+    let canonical_root = root.canonicalize().map_err(err)?;
     Ok(destination
-        .strip_prefix(root)
+        .strip_prefix(canonical_root)
         .map_err(err)?
         .to_string_lossy()
         .replace('\\', "/"))
@@ -2696,6 +2914,7 @@ pub fn import_assets(
     }
 
     let mut imported = Vec::new();
+    let canonical_root = root.canonicalize().map_err(err)?;
     for source in sources {
         let source = Path::new(source);
         let file_name = source
@@ -2706,7 +2925,7 @@ pub fn import_assets(
         fs::copy(source, &destination).map_err(err)?;
         imported.push(
             destination
-                .strip_prefix(root)
+                .strip_prefix(&canonical_root)
                 .map_err(err)?
                 .to_string_lossy()
                 .to_string(),
@@ -2835,17 +3054,13 @@ pub fn write_bytes(root: &Path, relative: &str, base64_data: &str) -> Result<(),
     if bytes.len() > 15 * 1024 * 1024 {
         return Err("Synced binary files must be 15 MB or smaller.".to_string());
     }
-    let path = safe_path(root, &relative)?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(err)?;
-    }
-    fs::write(path, bytes).map_err(err)
+    ProjectDir::open(root)?.atomic_write(&relative, &bytes)
 }
 
 pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
     let path = safe_path(root, relative)?;
-    if !path.is_file() || !is_supported_asset(&path) {
-        return Err("Choose an image or PDF from the project.".to_string());
+    if !path.is_file() || classify_regular_file(&path)? == ContentKind::Text {
+        return Err("Choose a binary project file.".to_string());
     }
     let size = fs::metadata(&path).map_err(err)?.len();
     if size > 50 * 1024 * 1024 {
@@ -2853,8 +3068,7 @@ pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
             "This figure is too large to preview inside Lattice (50 MB maximum).".to_string(),
         );
     }
-    let mime_type = asset_mime_type(&path)
-        .ok_or_else(|| "Lattice cannot preview this figure type.".to_string())?;
+    let mime_type = asset_mime_type(&path).unwrap_or("application/octet-stream");
     Ok(AssetPreview {
         path: relative.replace('\\', "/"),
         mime_type: mime_type.to_string(),
@@ -3008,7 +3222,7 @@ fn is_supported_source(path: &Path) -> bool {
             .and_then(|extension| extension.to_str())
             .map(str::to_ascii_lowercase)
             .as_deref(),
-        Some("tex" | "bib" | "md" | "txt" | "sty" | "cls" | "bst")
+        Some("tex" | "bib" | "md" | "txt" | "html" | "sty" | "cls" | "bst")
     )
 }
 
@@ -3019,12 +3233,14 @@ fn normalize_source_path(relative: &str) -> Result<String, String> {
         Some(extension)
             if matches!(
                 extension.to_ascii_lowercase().as_str(),
-                "tex" | "bib" | "md" | "sty" | "cls" | "txt"
+                "tex" | "bib" | "md" | "sty" | "cls" | "txt" | "html" | "tldr"
             ) =>
         {
             Ok(path.to_string_lossy().to_string())
         }
-        _ => Err("New source files must use .tex, .bib, .md, .sty, .cls, or .txt.".to_string()),
+        _ => Err(
+            "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, or .tldr.".to_string(),
+        ),
     }
 }
 
@@ -3038,7 +3254,7 @@ fn seed_content_for_path(path: &str) -> String {
         Some("bib") => "% Bibliography\n".to_string(),
         Some("md") => "# Notes\n".to_string(),
         Some("sty" | "cls") => "% Package\n".to_string(),
-        Some("txt") => String::new(),
+        Some("txt" | "html" | "tldr") => String::new(),
         _ => "% New LaTeX file\n".to_string(),
     }
 }
@@ -3064,10 +3280,10 @@ pub fn delete_entry(root: &Path, relative: &str) -> Result<(), String> {
         return Err("That file or folder no longer exists.".to_string());
     }
     if path.is_dir() {
-        fs::remove_dir_all(path).map_err(err)
+        ProjectDir::open(root)?.remove(relative)
     } else {
         let before = fs::read_to_string(&path).ok();
-        fs::remove_file(path).map_err(err)?;
+        ProjectDir::open(root)?.remove(relative)?;
         if let Some(before) = before {
             let record = new_transaction(
                 &format!("Delete {relative}"),
@@ -3118,11 +3334,15 @@ fn ensure_ignore_line(path: &Path, line: &str) -> Result<(), String> {
     fs::write(path, format!("{current}{separator}{line}\n")).map_err(err)
 }
 
+fn file_change_has_effect(change: &FileChange) -> bool {
+    change.before != change.after
+}
+
 pub fn apply_transaction(
     root: &Path,
     label: &str,
     edits: Vec<(String, String)>,
-) -> Result<TransactionRecord, String> {
+) -> Result<Option<TransactionRecord>, String> {
     let context = if label.starts_with("Edit ") {
         HistoryContext::user("edit", "editor")
     } else {
@@ -3135,7 +3355,7 @@ pub fn apply_citation_transaction(
     root: &Path,
     label: &str,
     edits: Vec<(String, String)>,
-) -> Result<TransactionRecord, String> {
+) -> Result<Option<TransactionRecord>, String> {
     apply_transaction_with_context(
         root,
         label,
@@ -3156,7 +3376,7 @@ fn apply_transaction_with_context(
     label: &str,
     edits: Vec<(String, String)>,
     context: HistoryContext,
-) -> Result<TransactionRecord, String> {
+) -> Result<Option<TransactionRecord>, String> {
     if edits.is_empty() {
         return Err("The transaction contains no edits.".to_string());
     }
@@ -3166,33 +3386,57 @@ fn apply_transaction_with_context(
         if relative.starts_with(".research/history/") {
             return Err("History records cannot edit themselves.".to_string());
         }
-        let path = safe_path(root, relative)?;
+        let relative_path = Path::new(relative);
+        if relative_path.as_os_str().is_empty()
+            || relative_path.is_absolute()
+            || relative_path
+                .components()
+                .any(|component| !matches!(component, Component::Normal(_) | Component::CurDir))
+        {
+            return Err("The requested path is outside the project.".to_string());
+        }
+        // This path is used only to capture the previous contents. Parent
+        // creation and the mutation itself are descriptor-relative below.
+        let path = root.join(relative_path);
         let before = if path.exists() {
             Some(fs::read_to_string(&path).map_err(err)?)
         } else {
             None
         };
-        changes.push(FileChange {
-            path: relative.clone(),
-            before,
-            after: Some(after.clone()),
-        });
-    }
-
-    for change in &changes {
-        let path = safe_path(root, &change.path)?;
-        if let Some(after) = &change.after {
-            fs::write(path, after).map_err(err)?;
+        if before.as_ref() != Some(after) {
+            changes.push(FileChange {
+                path: relative.clone(),
+                before,
+                after: Some(after.clone()),
+            });
         }
     }
 
-    if let Some(record) = coalesce_edit_transaction(root, label, &changes, &context)? {
-        return Ok(record);
+    if changes.is_empty() {
+        return Ok(None);
+    }
+
+    for change in &changes {
+        if let Some(after) = &change.after {
+            ProjectDir::open(root)?.atomic_write(&change.path, after.as_bytes())?;
+        }
+    }
+
+    match coalesce_edit_transaction(root, label, &changes, &context)? {
+        CoalescedTransaction::NotCoalesced => {}
+        CoalescedTransaction::Removed => return Ok(None),
+        CoalescedTransaction::Updated(record) => return Ok(Some(*record)),
     }
 
     let record = new_transaction(label, changes, context);
     persist_transaction(root, &record)?;
-    Ok(record)
+    Ok(Some(record))
+}
+
+enum CoalescedTransaction {
+    NotCoalesced,
+    Removed,
+    Updated(Box<TransactionRecord>),
 }
 
 fn coalesce_edit_transaction(
@@ -3200,38 +3444,42 @@ fn coalesce_edit_transaction(
     label: &str,
     changes: &[FileChange],
     context: &HistoryContext,
-) -> Result<Option<TransactionRecord>, String> {
+) -> Result<CoalescedTransaction, String> {
     if !label.starts_with("Edit ") || changes.len() != 1 {
-        return Ok(None);
+        return Ok(CoalescedTransaction::NotCoalesced);
     }
     let Some(change) = changes.first() else {
-        return Ok(None);
+        return Ok(CoalescedTransaction::NotCoalesced);
     };
     let Some(mut previous) = latest_history_record(root)? else {
-        return Ok(None);
+        return Ok(CoalescedTransaction::NotCoalesced);
     };
     if previous.label != label || previous.changes.len() != 1 {
-        return Ok(None);
+        return Ok(CoalescedTransaction::NotCoalesced);
     }
     if inferred_history_metadata(&previous) != (context.actor, context.kind, context.source) {
-        return Ok(None);
+        return Ok(CoalescedTransaction::NotCoalesced);
     }
     if previous.changes[0].path != change.path {
-        return Ok(None);
+        return Ok(CoalescedTransaction::NotCoalesced);
     }
     let Ok(previous_time) = chrono::DateTime::parse_from_rfc3339(&previous.timestamp) else {
-        return Ok(None);
+        return Ok(CoalescedTransaction::NotCoalesced);
     };
     let age = Utc::now().signed_duration_since(previous_time.with_timezone(&Utc));
     if age.num_seconds() > EDIT_COALESCE_SECS {
-        return Ok(None);
+        return Ok(CoalescedTransaction::NotCoalesced);
+    }
+    if previous.changes[0].before == change.after {
+        fs::remove_file(transaction_path(root, &previous.id)?).map_err(err)?;
+        return Ok(CoalescedTransaction::Removed);
     }
     previous.changes[0].after = change.after.clone();
     previous.timestamp = Utc::now().to_rfc3339();
     let path = transaction_path(root, &previous.id)?;
     let raw = serde_json::to_string_pretty(&previous).map_err(err)?;
     fs::write(path, format!("{raw}\n")).map_err(err)?;
-    Ok(Some(previous))
+    Ok(CoalescedTransaction::Updated(Box::new(previous)))
 }
 
 fn latest_history_record(root: &Path) -> Result<Option<TransactionRecord>, String> {
@@ -3249,6 +3497,9 @@ fn latest_history_record(root: &Path) -> Result<Option<TransactionRecord>, Strin
         let Ok(record) = serde_json::from_str::<TransactionRecord>(&raw) else {
             continue;
         };
+        if !record.changes.iter().any(file_change_has_effect) {
+            continue;
+        }
         let stamp = record.timestamp.clone();
         if newest
             .as_ref()
@@ -3373,10 +3624,7 @@ fn prune_conversation_checkpoints(
                 fs::remove_file(path).map_err(err)?;
                 continue;
             }
-            if !path
-                .extension()
-                .is_some_and(|extension| extension == "json")
-            {
+            if path.extension().is_none_or(|extension| extension != "json") {
                 continue;
             }
             let metadata = checkpoint.metadata().map_err(err)?;
@@ -3627,16 +3875,21 @@ pub fn history(root: &Path) -> Result<Vec<HistoryItem>, String> {
         if path.extension().is_some_and(|ext| ext == "json") {
             let raw = fs::read_to_string(path).map_err(err)?;
             if let Ok(record) = serde_json::from_str::<TransactionRecord>(&raw) {
+                let changed_files = record
+                    .changes
+                    .iter()
+                    .filter(|change| file_change_has_effect(change))
+                    .map(|change| change.path.clone())
+                    .collect::<Vec<_>>();
+                if changed_files.is_empty() {
+                    continue;
+                }
                 let (actor, kind, source) = inferred_history_metadata(&record);
                 records.push(HistoryItem {
                     id: record.id.clone(),
                     label: record.label.clone(),
                     timestamp: record.timestamp.clone(),
-                    files: record
-                        .changes
-                        .iter()
-                        .map(|change| change.path.clone())
-                        .collect(),
+                    files: changed_files,
                     actor: actor.to_string(),
                     kind: kind.to_string(),
                     source: source.to_string(),
@@ -4035,7 +4288,9 @@ pub fn get_history_entry(root: &Path, transaction_id: &str) -> Result<Transactio
         return Err("That history entry no longer exists.".to_string());
     }
     let raw = fs::read_to_string(history_path).map_err(err)?;
-    serde_json::from_str(&raw).map_err(err)
+    let mut record: TransactionRecord = serde_json::from_str(&raw).map_err(err)?;
+    record.changes.retain(file_change_has_effect);
+    Ok(record)
 }
 
 fn transaction_path(root: &Path, transaction_id: &str) -> Result<PathBuf, String> {
@@ -4053,18 +4308,16 @@ fn transaction_path(root: &Path, transaction_id: &str) -> Result<PathBuf, String
 }
 
 fn persist_transaction(root: &Path, record: &TransactionRecord) -> Result<(), String> {
-    let directory = root.join(".research/history");
-    fs::create_dir_all(&directory).map_err(err)?;
     let raw = serde_json::to_string_pretty(record).map_err(err)?;
-    fs::write(
-        directory.join(format!("{}.json", record.id)),
-        format!("{raw}\n"),
-    )
-    .map_err(err)?;
-    prune_history(&directory, MAX_HISTORY_ENTRIES)
+    ProjectDir::open(root)?.atomic_write(
+        &format!(".research/history/{}.json", record.id),
+        format!("{raw}\n").as_bytes(),
+    )?;
+    ProjectDir::open(root)?.prune_json_files(".research/history", MAX_HISTORY_ENTRIES)
 }
 
-fn prune_history(directory: &Path, limit: usize) -> Result<(), String> {
+#[cfg(any(test, not(unix)))]
+pub(crate) fn prune_history(directory: &Path, limit: usize) -> Result<(), String> {
     let mut entries = fs::read_dir(directory)
         .map_err(err)?
         .filter_map(Result::ok)
@@ -4082,6 +4335,99 @@ fn prune_history(directory: &Path, limit: usize) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ContentKind {
+    Text,
+    Binary,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollabInventoryFile {
+    pub path: String,
+    pub content_kind: String,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollabInventoryExclusion {
+    pub path_or_pattern: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CollabProjectInventoryV2 {
+    pub files: Vec<CollabInventoryFile>,
+    pub excluded: Vec<CollabInventoryExclusion>,
+}
+
+fn classify_regular_file(path: &Path) -> Result<ContentKind, String> {
+    let metadata = fs::symlink_metadata(path).map_err(err)?;
+    if !metadata.file_type().is_file() || metadata.len() > MAX_CLASSIFIED_TEXT_BYTES {
+        return Ok(ContentKind::Binary);
+    }
+    let bytes = fs::read(path).map_err(err)?;
+    if bytes.contains(&0) {
+        return Ok(ContentKind::Binary);
+    }
+    // Binary formats can have an ASCII-only prefix and no early NULs. Known
+    // signatures keep routing content-based without trusting the extension.
+    if bytes.starts_with(b"%PDF-")
+        || bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+        || bytes.starts_with(b"\xff\xd8\xff")
+        || bytes.starts_with(b"GIF87a")
+        || bytes.starts_with(b"GIF89a")
+        || bytes.starts_with(b"PK\x03\x04")
+        || bytes.starts_with(b"\x7fELF")
+        || (bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"))
+    {
+        return Ok(ContentKind::Binary);
+    }
+    match std::str::from_utf8(&bytes) {
+        Ok(decoded) if decoded.as_bytes() == bytes => Ok(ContentKind::Text),
+        _ => Ok(ContentKind::Binary),
+    }
+}
+
+fn exclusion_reason(relative: &Path, name: &str, path: &Path) -> Option<&'static str> {
+    let normalized = relative.to_string_lossy().replace('\\', "/");
+    if normalized == ".git" || normalized.starts_with(".git/") {
+        return Some("git-internals");
+    }
+    if normalized == ".research" || normalized.starts_with(".research/") {
+        return Some("app-private-state");
+    }
+    if matches!(
+        name,
+        ".DS_Store" | "Thumbs.db" | "desktop.ini" | ".Spotlight-V100" | ".Trashes"
+    ) {
+        return Some("os-junk");
+    }
+    if matches!(
+        name,
+        "node_modules"
+            | "target"
+            | "dist"
+            | "build"
+            | ".next"
+            | ".turbo"
+            | "__pycache__"
+            | ".pytest_cache"
+            | ".mypy_cache"
+    ) {
+        return Some("generated-directory");
+    }
+    if is_build_artifact(path)
+        || name.ends_with('~')
+        || name.ends_with(".swp")
+        || name.ends_with(".tmp")
+    {
+        return Some("transient-artifact");
+    }
+    None
+}
+
 fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
     fn visit(root: &Path, directory: &Path) -> Result<Vec<FileNode>, String> {
         let mut nodes = Vec::new();
@@ -4089,27 +4435,54 @@ fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
             let entry = entry.map_err(err)?;
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') || is_build_artifact(&path) {
-                continue;
-            }
             let relative = path
                 .strip_prefix(root)
                 .map_err(err)?
                 .to_string_lossy()
                 .to_string();
-            if path.is_dir() {
+            if exclusion_reason(Path::new(&relative), &name, &path).is_some() {
+                continue;
+            }
+            let metadata = fs::symlink_metadata(&path).map_err(err)?;
+            let file_type = metadata.file_type();
+            if file_type.is_symlink() {
+                nodes.push(FileNode {
+                    name,
+                    path: relative,
+                    kind: "symlink".to_string(),
+                    content_kind: "symlink".to_string(),
+                    size: 0,
+                    children: Vec::new(),
+                });
+            } else if file_type.is_dir() {
                 let children = visit(root, &path)?;
                 nodes.push(FileNode {
                     name,
                     path: relative,
                     kind: "directory".to_string(),
+                    content_kind: "directory".to_string(),
+                    size: 0,
                     children,
                 });
-            } else if is_visible_source(&path) {
+            } else if file_type.is_file() {
+                let content_kind = classify_regular_file(&path)?;
                 nodes.push(FileNode {
                     name,
                     path: relative,
-                    kind: file_kind(&path).to_string(),
+                    kind: if content_kind == ContentKind::Text {
+                        file_kind(&path).to_string()
+                    } else if is_supported_asset(&path) {
+                        "figure".to_string()
+                    } else {
+                        "binary".to_string()
+                    },
+                    content_kind: if content_kind == ContentKind::Text {
+                        "text"
+                    } else {
+                        "binary"
+                    }
+                    .to_string(),
+                    size: metadata.len(),
                     children: Vec::new(),
                 });
             }
@@ -4120,10 +4493,87 @@ fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
             b_dir
                 .cmp(&a_dir)
                 .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+                // Case-colliding names can coexist on case-sensitive hosts.
+                // Keep both and use raw name/path as deterministic tie-breaks.
+                .then_with(|| a.name.cmp(&b.name))
+                .then_with(|| a.path.cmp(&b.path))
         });
         Ok(nodes)
     }
     visit(root, root)
+}
+
+pub fn collab_project_inventory_v2(root: &Path) -> Result<CollabProjectInventoryV2, String> {
+    let root = root.canonicalize().map_err(err)?;
+    let mut files = Vec::new();
+    let mut excluded = Vec::new();
+    let walker = WalkDir::new(&root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| {
+            if entry.depth() == 0 {
+                return true;
+            }
+            let relative = entry.path().strip_prefix(&root).unwrap_or(entry.path());
+            let normalized = relative.to_string_lossy().replace('\\', "/");
+            // Paper markdown and its converter-owned assets are portable project
+            // content. Traverse only this public branch of otherwise private
+            // `.research` state so collaborators receive renderable papers.
+            if normalized == ".research" || normalized == ".research/papers" {
+                return true;
+            }
+            if normalized.starts_with(".research/papers/") {
+                return !entry.file_name().to_string_lossy().starts_with(".fetch-");
+            }
+            exclusion_reason(relative, &entry.file_name().to_string_lossy(), entry.path()).is_none()
+        });
+    for entry in walker.filter_map(Result::ok).skip(1) {
+        let path = entry.path();
+        let relative = path.strip_prefix(&root).map_err(err)?;
+        let normalized = relative.to_string_lossy().replace('\\', "/");
+        let metadata = fs::symlink_metadata(path).map_err(err)?;
+        if metadata.file_type().is_symlink() {
+            excluded.push(CollabInventoryExclusion {
+                path_or_pattern: normalized,
+                reason: "symlink-not-followed".into(),
+            });
+            continue;
+        }
+        if metadata.is_file() {
+            let kind = classify_regular_file(path)?;
+            files.push(CollabInventoryFile {
+                path: normalized,
+                content_kind: if kind == ContentKind::Text {
+                    "text"
+                } else {
+                    "binary"
+                }
+                .into(),
+                size: metadata.len(),
+            });
+        }
+    }
+    for (pattern, reason) in [
+        (".git/**", "git-internals"),
+        (".research/** (except papers)", "app-private-state"),
+        ("node_modules/**", "generated-directory"),
+        ("target/**", "generated-directory"),
+        ("dist/**", "generated-directory"),
+        ("build/**", "generated-directory"),
+    ] {
+        let excluded_root = pattern
+            .split_once("/**")
+            .map_or(pattern, |(directory, _)| directory);
+        if root.join(excluded_root).exists() {
+            excluded.push(CollabInventoryExclusion {
+                path_or_pattern: pattern.into(),
+                reason: reason.into(),
+            });
+        }
+    }
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    excluded.sort_by(|a, b| a.path_or_pattern.cmp(&b.path_or_pattern));
+    Ok(CollabProjectInventoryV2 { files, excluded })
 }
 
 fn file_kind(path: &Path) -> &'static str {
@@ -4136,35 +4586,11 @@ fn file_kind(path: &Path) -> &'static str {
         Some("tex") => "tex",
         Some("bib") => "bib",
         Some("md") => "markdown",
+        Some("tldr") => "tldr",
         Some("bst") => "text",
         Some("png" | "jpg" | "jpeg" | "pdf" | "svg" | "eps" | "webp") => "figure",
         _ => "text",
     }
-}
-
-fn is_visible_source(path: &Path) -> bool {
-    matches!(
-        path.extension()
-            .and_then(|extension| extension.to_str())
-            .map(str::to_ascii_lowercase)
-            .as_deref(),
-        Some(
-            "tex"
-                | "bib"
-                | "md"
-                | "txt"
-                | "sty"
-                | "cls"
-                | "bst"
-                | "png"
-                | "jpg"
-                | "jpeg"
-                | "pdf"
-                | "svg"
-                | "eps"
-                | "webp"
-        )
-    )
 }
 
 fn is_build_artifact(path: &Path) -> bool {
@@ -4222,9 +4648,177 @@ mod tests {
     }
 
     #[test]
+    fn tutorial_project_is_complete_and_resets_on_reopen() {
+        let parent = temp_root("tutorial-project");
+        let root = create_tutorial(&parent).unwrap();
+        assert!(root.join("main.tex").is_file());
+        assert!(root.join("notes.md").is_file());
+        assert!(root.join("attention-demo.html").is_file());
+        assert!(root.join("attention-map.tldr").is_file());
+        assert!(root.join("project.toml").is_file());
+        assert!(root.join("references.bib").is_file());
+        assert!(root.join("neurips.sty").is_file());
+        assert!(root
+            .join("figures/scaled-dot-product-attention.png")
+            .is_file());
+        assert!(root.join("figures/multi-head-attention.png").is_file());
+        assert!(root.join("figures/attention-figure-2.pdf").is_file());
+        assert!(root.join("figures/ATTRIBUTION.md").is_file());
+        assert!(root.join(".research/tutorial.json").is_file());
+        assert_eq!(read_manifest(&root).unwrap().venue, "tutorial");
+        assert!(fs::read_to_string(root.join("main.tex"))
+            .unwrap()
+            .contains("\\usepackage[preprint]{neurips}"));
+        assert_eq!(
+            fs::read_to_string(root.join("references.bib"))
+                .unwrap()
+                .matches("@")
+                .count(),
+            9
+        );
+
+        fs::write(root.join("notes.md"), "learner edit\n").unwrap();
+        fs::write(root.join("learner-file.txt"), "temporary\n").unwrap();
+        assert_eq!(create_tutorial(&parent).unwrap(), root);
+        assert_eq!(
+            fs::read_to_string(root.join("notes.md")).unwrap(),
+            TUTORIAL_NOTES
+        );
+        assert!(!root.join("learner-file.txt").exists());
+        assert!(fs::read(root.join("figures/attention-figure-2.pdf"))
+            .unwrap()
+            .starts_with(b"%PDF-1.3"));
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn tutorial_reset_refuses_to_delete_an_unmanaged_folder() {
+        let parent = temp_root("tutorial-reset-guard");
+        let root = parent.join(TUTORIAL_PROJECT_NAME);
+        fs::create_dir_all(root.join(".research")).unwrap();
+        fs::write(
+            root.join(".research/tutorial.json"),
+            "{\"id\":\"someone-else\"}",
+        )
+        .unwrap();
+        fs::write(root.join("keep.txt"), "keep\n").unwrap();
+
+        assert!(create_tutorial(&parent).is_err());
+        assert_eq!(fs::read_to_string(root.join("keep.txt")).unwrap(), "keep\n");
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
     fn rejects_parent_traversal() {
         let root = temp_root("safe-path");
         assert!(safe_path(&root, "../secret.txt").is_err());
+        assert!(!root.join("missing").exists());
+        assert!(safe_path(&root, "missing/file.txt").is_err());
+        assert!(!root.join("missing").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn inventory_classifies_content_without_extension_and_preserves_hidden_user_files() {
+        let root = temp_root("inventory-content");
+        fs::write(root.join("README"), b"plain utf-8\r\n").unwrap();
+        fs::write(root.join("known.bin"), b"still text\n").unwrap();
+        fs::write(root.join(".env.example"), b"SAFE=value\n").unwrap();
+        fs::write(root.join("bom.txt"), b"\xef\xbb\xbfhello\r\n").unwrap();
+        fs::write(root.join("nul.txt"), b"hello\0world").unwrap();
+        fs::write(root.join("unknown.dat"), [0xff, 0xfe, 0x01]).unwrap();
+        fs::create_dir_all(root.join(".research/cache")).unwrap();
+        fs::write(root.join(".research/cache/private"), b"private").unwrap();
+        fs::create_dir(root.join("node_modules")).unwrap();
+        fs::write(root.join("node_modules/generated.js"), b"generated").unwrap();
+
+        let files = scan_files(&root).unwrap();
+        let node = |path: &str| files.iter().find(|node| node.path == path).unwrap();
+        for path in ["README", "known.bin", ".env.example", "bom.txt"] {
+            assert_eq!(node(path).content_kind, "text", "{path}");
+        }
+        for path in ["nul.txt", "unknown.dat"] {
+            assert_eq!(node(path).content_kind, "binary", "{path}");
+        }
+        assert!(!files.iter().any(|node| node.path == ".research"));
+        assert!(!files.iter().any(|node| node.path == "node_modules"));
+        assert_eq!(
+            read_file(&root, "bom.txt").unwrap().as_bytes(),
+            b"\xef\xbb\xbfhello\r\n"
+        );
+        assert!(read_file(&root, "nul.txt").is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn collaboration_inventory_includes_paper_bundles_but_not_other_research_state() {
+        let root = temp_root("inventory-papers");
+        fs::create_dir_all(root.join(".research/papers/2401.00001/paper_assets")).unwrap();
+        fs::write(
+            root.join(".research/papers/2401.00001/paper.md"),
+            b"# Paper\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".research/papers/2401.00001/paper_assets/figure.png"),
+            b"\x89PNG\r\n\x1a\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join(".research/history")).unwrap();
+        fs::write(root.join(".research/history/private.json"), b"{}").unwrap();
+
+        let inventory = collab_project_inventory_v2(&root).unwrap();
+        let paths = inventory
+            .files
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>();
+        assert!(paths.contains(&".research/papers/2401.00001/paper.md"));
+        assert!(paths.contains(&".research/papers/2401.00001/paper_assets/figure.png"));
+        assert!(!paths.iter().any(|path| path.contains("history")));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinks_are_visible_but_never_followed() {
+        use std::os::unix::fs::symlink;
+        let root = temp_root("inventory-links");
+        let outside = temp_root("inventory-links-outside");
+        fs::write(outside.join("secret"), b"secret").unwrap();
+        symlink(outside.join("secret"), root.join("outside-link")).unwrap();
+        symlink(&outside, root.join("outside-directory")).unwrap();
+        let files = scan_files(&root).unwrap();
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().all(|node| node.content_kind == "symlink"));
+        assert!(read_file(&root, "outside-link").is_err());
+        assert!(creation_path(&root, "outside-directory/new").is_err());
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[test]
+    fn materialization_index_round_trips_atomically_under_private_cache() {
+        let root = temp_root("materialization-index");
+        let mut files = BTreeMap::new();
+        files.insert(
+            "file-id-1".to_string(),
+            MaterializedFile {
+                path: "notes/README".to_string(),
+                document_epoch: 3,
+                applied_revision: 7,
+                durable_revision: 6,
+                content_sha256: "abc123".to_string(),
+            },
+        );
+        let index = MaterializationIndex {
+            schema_version: 1,
+            files,
+        };
+        write_materialization_index(&root, &index).unwrap();
+        assert_eq!(read_materialization_index(&root).unwrap(), index);
+        assert!(root.join(MATERIALIZATION_INDEX_PATH).is_file());
+        assert!(scan_files(&root).unwrap().is_empty());
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -4354,6 +4948,7 @@ mod tests {
             "edit",
             vec![("main.tex".to_string(), "after".to_string())],
         )
+        .unwrap()
         .unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "after");
         let restore = revert(&root, &transaction.id).unwrap();
@@ -4402,6 +4997,7 @@ mod tests {
             "Edit main.tex",
             vec![("main.tex".to_string(), "after".to_string())],
         )
+        .unwrap()
         .unwrap();
         fs::write(root.join("main.tex"), "newer").unwrap();
 
@@ -4558,6 +5154,7 @@ mod tests {
             "edit",
             vec![("main.tex".to_string(), "after".to_string())],
         )
+        .unwrap()
         .unwrap();
         delete_history(&root, &transaction.id).unwrap();
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "after");
@@ -4805,7 +5402,36 @@ mod tests {
         assert!(delete_entry(&root, "references.bib").is_err());
         assert!(create_entry(&root, ".research/private.txt", "file").is_err());
         assert_eq!(create_entry(&root, "notes.md", "file").unwrap(), "notes.md");
+        assert_eq!(
+            create_entry(&root, "supplement.html", "file").unwrap(),
+            "supplement.html"
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("supplement.html")).unwrap(),
+            ""
+        );
+        assert!(scan_files(&root)
+            .unwrap()
+            .iter()
+            .any(|node| node.path == "supplement.html"));
         assert!(create_entry(&root, "binary.exe", "file").is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn create_entry_supports_board_files() {
+        let parent = temp_root("board-entry");
+        let root = create(&parent, "paper").unwrap();
+        assert_eq!(
+            create_entry(&root, "sketch.tldr", "file").unwrap(),
+            "sketch.tldr"
+        );
+        // Boards seed empty: the editor initializes the tldraw store itself.
+        assert_eq!(fs::read_to_string(root.join("sketch.tldr")).unwrap(), "");
+        assert!(scan_files(&root)
+            .unwrap()
+            .iter()
+            .any(|node| node.path == "sketch.tldr" && node.kind == "tldr"));
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -4956,11 +5582,11 @@ mod tests {
         let parent = temp_root("preview-assets");
         let root = create(&parent, "paper").unwrap();
         let png = root.join("figures/result.png");
-        fs::write(&png, b"png-bytes").unwrap();
+        fs::write(&png, b"\x89PNG\r\n\x1a\n").unwrap();
         let preview = read_asset(&root, "figures/result.png").unwrap();
         assert_eq!(preview.path, "figures/result.png");
         assert_eq!(preview.mime_type, "image/png");
-        assert_eq!(preview.base64, "cG5nLWJ5dGVz");
+        assert_eq!(preview.base64, "iVBORw0KGgo=");
         assert_eq!(
             prepare_latex_figure(&root, "figures/result.png").unwrap(),
             "figures/result.png"
@@ -5273,6 +5899,71 @@ mod tests {
         let entry = get_history_entry(&root, &items[0].id).unwrap();
         assert_eq!(entry.changes[0].after.as_deref(), Some("% two\n"));
         assert_ne!(entry.changes[0].before.as_deref(), Some("% one\n"));
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn unchanged_edits_do_not_create_history_entries() {
+        let parent = temp_root("history-unchanged");
+        let root = create(&parent, "paper").unwrap();
+        let content = fs::read_to_string(root.join("main.tex")).unwrap();
+
+        let transaction = apply_transaction(
+            &root,
+            "Edit main.tex",
+            vec![("main.tex".to_string(), content)],
+        )
+        .unwrap();
+
+        assert!(transaction.is_none());
+        assert!(history(&root).unwrap().is_empty());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn existing_unchanged_records_are_hidden_from_history() {
+        let parent = temp_root("history-existing-unchanged");
+        let root = create(&parent, "paper").unwrap();
+        let directory = root.join(".research/history");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("unchanged.json"),
+            r#"{
+  "id": "unchanged",
+  "label": "Edit main.tex",
+  "timestamp": "2026-08-03T12:00:00Z",
+  "changes": [{"path":"main.tex","before":"same","after":"same"}]
+}
+"#,
+        )
+        .unwrap();
+
+        assert!(history(&root).unwrap().is_empty());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn coalesced_edit_removed_when_file_returns_to_original_content() {
+        let parent = temp_root("history-coalesce-original");
+        let root = create(&parent, "paper").unwrap();
+        let original = fs::read_to_string(root.join("main.tex")).unwrap();
+        apply_transaction(
+            &root,
+            "Edit main.tex",
+            vec![("main.tex".to_string(), "% temporary\n".to_string())],
+        )
+        .unwrap();
+
+        let transaction = apply_transaction(
+            &root,
+            "Edit main.tex",
+            vec![("main.tex".to_string(), original.clone())],
+        )
+        .unwrap();
+
+        assert!(transaction.is_none());
+        assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), original);
+        assert!(history(&root).unwrap().is_empty());
         fs::remove_dir_all(parent).unwrap();
     }
 

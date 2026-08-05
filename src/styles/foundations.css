@@ -114,6 +114,8 @@
   --gap-inline: 7px; /* Members of one inline group. */
   --pad-inline-control: 9px; /* Chrome control side padding. */
   --pad-inline-control-tight: 7px; /* The same, on a shorter control. */
+  --drawer-content-inset: 14px; /* Shared edge for drawer headers and first-level content. */
+  --drawer-section-gap: var(--space-5); /* Vertical rhythm between first-level drawer sections. */
 
   /*
    * Motion roles. Durations are tiers, not free numbers: everything that reads
@@ -247,7 +249,7 @@
      rather than restated per element. */
   --titlebar-height: 40px;
   --titlebar-sidebar-width: 320px;
-  --titlebar-navigator-width: 132px;
+  --titlebar-navigator-width: 140px;
   --titlebar-navigator-width-fullscreen: 50px;
   --titlebar-traffic-space-width: 90px;
   --titlebar-action-size: var(--control-size-icon-large);
@@ -353,8 +355,12 @@
   --z-nested-modal: 31;
   --z-radix-popper: 50;
   --z-selection-toolbar: 80;
+  --z-tooltip: 81;
   --z-banner: 90;
   --z-drag-ghost: 120;
+  --z-tour-spotlight: 1499;
+  --z-tour-suggestion: 1650;
+  --z-tour-pointer: 1700;
   --z-app-updater: 9999;
   --z-toast: 10000;
 

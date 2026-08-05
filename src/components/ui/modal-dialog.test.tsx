@@ -9,6 +9,7 @@ function Harness(props: {
   closeDisabled?: boolean;
   focusDialogOnOpen?: boolean;
   onClose?: () => void;
+  onWindowDrag?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -19,6 +20,10 @@ function Harness(props: {
           label="Example dialog"
           closeDisabled={props.closeDisabled}
           focusDialogOnOpen={props.focusDialogOnOpen}
+          windowDragTop={props.onWindowDrag ? {
+            onMouseDown: props.onWindowDrag,
+            onDoubleClick: vi.fn(),
+          } : undefined}
           onClose={() => {
             props.onClose?.();
             setOpen(false);
@@ -75,5 +80,23 @@ describe("ModalDialog", () => {
     const dialog = screen.getByRole("dialog", { name: "Example dialog" });
     await waitFor(() => expect(dialog).toHaveFocus());
     expect(screen.getByRole("textbox", { name: "First field" })).not.toHaveFocus();
+  });
+
+  it("keeps the dialog open through a complete top-strip drag gesture", () => {
+    const onClose = vi.fn();
+    const onWindowDrag = vi.fn();
+    render(<Harness onClose={onClose} onWindowDrag={onWindowDrag} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open dialog" }));
+    const topStrip = document.querySelector<HTMLElement>("[data-modal-window-drag]")!;
+
+    fireEvent.pointerDown(topStrip, { button: 0, buttons: 1, pointerType: "mouse" });
+    fireEvent.mouseDown(topStrip, { button: 0, buttons: 1, detail: 1 });
+    fireEvent.pointerUp(topStrip, { button: 0, buttons: 0, pointerType: "mouse" });
+    fireEvent.mouseUp(topStrip, { button: 0, buttons: 0, detail: 1 });
+    fireEvent.click(topStrip, { button: 0, detail: 1 });
+
+    expect(onWindowDrag).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Example dialog" })).toBeInTheDocument();
   });
 });

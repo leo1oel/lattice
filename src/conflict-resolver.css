@@ -1,4 +1,4 @@
-/* Conflict resolution: one card per contested spot, two sides to choose from. */
+/* Conflict resolution: Pierre owns the code surface; the dialog owns saving. */
 
 .conflict-resolver {
   width: min(760px, calc(100vw - 48px));
@@ -30,83 +30,18 @@
 .conflict-loading svg { color: var(--control-active); }
 .conflict-empty { margin: 0; padding: var(--space-10) 0; color: var(--text-tertiary); font-size: var(--type-caption-size); text-align: center; }
 
-.conflict-list {
+.conflict-pierre-surface {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  padding-right: var(--space-2);
-}
-
-.conflict-hunk {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.conflict-hunk header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  font-size: var(--type-caption-size);
-  color: var(--text-primary);
-}
-.conflict-hunk header span { color: var(--text-tertiary); font-size: var(--type-micro-size); }
-.conflict-hunk header em {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-tight);
-  padding: 1px var(--space-3);
-  border-radius: var(--radius-compact);
-  background: var(--control-active-soft);
-  color: var(--control-active);
-  font-size: var(--type-micro-size);
-  font-style: normal;
-}
-
-.conflict-sides { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
-.conflict-side {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
   background: var(--surface-app);
-  text-align: left;
-  cursor: pointer;
-  min-width: 0;
-}
-.conflict-side:hover { border-color: var(--border-strong); }
-.conflict-side.chosen { border-color: var(--control-active); background: var(--control-active-soft); }
-.conflict-side-label { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); }
-.conflict-side pre {
-  margin: 0;
-  max-height: 160px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: var(--text-primary);
-  font: var(--type-diff-code-weight) var(--type-diff-code-size)/var(--type-diff-code-line-height) var(--editor-font, monospace);
 }
 
-.conflict-both {
-  align-self: flex-start;
-  padding: var(--space-2) var(--space-5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-icon);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--type-micro-size);
-  cursor: pointer;
+.conflict-pierre-surface > * {
+  min-height: 240px;
 }
-.conflict-both:hover { border-color: var(--border-strong); color: var(--text-primary); }
-.conflict-both.chosen { border-color: var(--control-active); background: var(--control-active-soft); color: var(--control-active); }
 
 .conflict-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-4); }
 .conflict-progress { margin-right: auto; color: var(--text-tertiary); font-size: var(--type-micro-size); }

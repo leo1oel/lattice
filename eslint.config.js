@@ -4,7 +4,9 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "src-tauri/target"] },
+  // The open-knowledge trees are vendored upstream code (inkeep/open-knowledge)
+  // kept close to its source for diffability; it is not linted with app rules.
+  { ignores: ["dist", "src-tauri/target", "src/open-knowledge-core", "src/open-knowledge-app"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -37,6 +39,13 @@ export default tseslint.config(
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/immutability": "warn",
       "react-hooks/exhaustive-deps": "warn",
+      // This compiler optimization diagnostic duplicates exhaustive-deps at
+      // very high volume in App; keep correctness rules authoritative.
+      "react-hooks/preserve-manual-memoization": "off",
+      "@typescript-eslint/no-unused-vars": ["error", {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+      }],
     },
   },
 );

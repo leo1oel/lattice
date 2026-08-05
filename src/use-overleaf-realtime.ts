@@ -38,12 +38,13 @@ type ProjectPermission = {
 };
 /** Where a comment thread is anchored in the open document. */
 export type CommentRange = { threadId: string; position: number; quote: string };
+export type OverleafCommentTarget = { projectRoot: string; docId: string; path: string };
 /** A suggestion in the open document: text somebody proposed adding or removing. */
 export type TrackedChange = {
   id: string;
   position: number;
   text: string;
-  /** True when the suggestion is to remove `text`, which is still in the document. */
+  /** True when `text` was removed as a suggestion and is absent from the document. */
   deletion: boolean;
   userId: string | null;
   timestamp: string | null;
@@ -95,6 +96,7 @@ type RealtimeEvent =
   | { type: "trackChangesToggled"; on: boolean }
   | { type: "otError"; docId: string; message: string }
   | { type: "disconnected"; reason: string };
+type DocUpdateEvent = Extract<RealtimeEvent, { type: "docUpdate" }>;
 
 export type RealtimeStatus = "off" | "connecting" | "live" | "error";
 
@@ -209,7 +211,12 @@ export type OverleafRealtime = {
    * Overleaf has it; rejects when the document is not live or an edit is still
    * in flight, which the caller should report rather than swallow.
    */
-  anchorComment: (threadId: string, position: number, quote: string) => Promise<void>;
+  anchorComment: (
+    target: OverleafCommentTarget,
+    threadId: string,
+    position: number,
+    quote: string,
+  ) => Promise<void>;
 };
 
 export function useOverleafRealtime(options: {
@@ -265,6 +272,8 @@ export function useOverleafRealtime(options: {
    * it away at the moment of switching and the last edit made in it goes too.
    */
   const documents = useRef<Map<string, OtDocument>>(new Map());
+  /** Updates received after joining a room but before its snapshot reaches React. */
+  const joiningUpdates = useRef<Map<string, DocUpdateEvent[]>>(new Map());
   /** Current reverse lookup, so draining documents keep their project paths. */
   const pathsByDocId = useRef<Map<string, string>>(new Map());
   /** Documents kept alive only until they settle, then left. */
@@ -281,8 +290,6 @@ export function useOverleafRealtime(options: {
   const sendTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Typed but still inside the send debounce, so not yet in the document. */
   const unsentText = useRef<string | null>(null);
-  /** Pending re-read of a document's anchors after we suggested something. */
-  const rangesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Set by `reload`: take the server's copy instead of resuming from ours. */
   const forceFullJoin = useRef(false);
   const flushRef = useRef<(
@@ -309,24 +316,9 @@ export function useOverleafRealtime(options: {
   const permission = projectPermission.projectRoot === options.projectRoot
     ? projectPermission.permission
     : "unknown";
-  /**
-   * Whether this account may put anything into the document at all.
-   *
-   * A reviewer can: not as edits, but as suggestions, which is the whole point
-   * of the role. Treating them as read-only locked them out of the one thing
-   * they are there to do. Only a viewer is genuinely unable to contribute.
-   */
+  /** Whether this account may apply ordinary edits to the document. */
   const canContribute = useRef(true);
-  canContribute.current = permission !== "readOnly" && permission !== "unknown";
-  /**
-   * Whether what is typed goes out as a suggestion rather than an edit.
-   *
-   * Two independent reasons: the account asked for it, or the account has no
-   * choice — the server rejects a plain update from a reviewer, and
-   * disconnects them for trying.
-   */
-  const asSuggestion = useRef(false);
-  asSuggestion.current = trackChanges || permission === "review";
+  canContribute.current = permission === "owner" || permission === "readAndWrite";
 
   /** Publish the complete set of paths that ordinary syncing must not own. */
   const publishLivePaths = useCallback(() => {
@@ -529,42 +521,6 @@ export function useOverleafRealtime(options: {
   }, []);
 
   /**
-   * Re-read what is anchored in a document, shortly after we suggested
-   * something in it.
-   *
-   * Overleaf never echoes our own operation back, so a suggestion we just made
-   * is invisible here: the text looks like ordinary text, nothing underlines
-   * it, and the changes list stays empty — which made suggesting look exactly
-   * like editing. This asks for the ranges without re-joining, so the buffer
-   * is not replaced under whoever is still typing. Debounced, because a burst
-   * of typing is one suggestion being written, not many.
-   */
-  const refreshRanges = useCallback((id: string) => {
-    if (rangesTimer.current) clearTimeout(rangesTimer.current);
-    const projectRoot = connectionRoot.current;
-    if (!projectRoot) return;
-    rangesTimer.current = setTimeout(() => {
-      rangesTimer.current = null;
-      void invoke<{ comments: CommentRange[]; changes: TrackedChange[] }>(
-        "overleaf_doc_ranges",
-        { projectRoot, docId: id },
-      )
-        .then((ranges) => {
-          if (connectionRoot.current !== projectRoot) return;
-          setOpenDoc((current) => (
-            current && current.id === id
-              ? { ...current, comments: ranges.comments, changes: ranges.changes }
-              : current
-          ));
-        })
-        .catch(() => {
-          // The suggestion is on Overleaf either way; only its highlight here
-          // is missing, and the next read will pick it up.
-        });
-    }, 700);
-  }, []);
-
-  /**
    * Ask the server to replay from the last version we trust after a send's
    * acknowledgement went missing.
    *
@@ -657,23 +613,13 @@ export function useOverleafRealtime(options: {
       return;
     }
     try {
-      // Suggesting is not a display mode: the difference is which call the
-      // keystrokes leave by, and it is decided here at the moment of sending.
-      // Sending plain updates while the setting says suggestions made the
-      // toolbar's own label untrue — it read "Suggesting" while every
-      // keystroke went straight into everyone else's document.
-      const suggesting = asSuggestion.current;
-      const command = suggesting ? "overleaf_rt_send_tracked_ops" : "overleaf_rt_send_ops";
-      await invoke(command, {
+      await invoke("overleaf_rt_send_ops", {
         projectRoot,
         docId: id,
         version: send.version,
         ops: send.ops,
       });
       if (connectionRoot.current !== projectRoot) return;
-      // Only suggestions need this: an ordinary edit is just text, and its
-      // effect is already on screen.
-      if (suggesting) refreshRanges(id);
     } catch (reason) {
       if (connectionRoot.current !== projectRoot) return;
       // A rejected Promise only says the acknowledgement did not reach this
@@ -682,7 +628,7 @@ export function useOverleafRealtime(options: {
       // overwrite it. Keep ownership and reconcile by replaying history.
       markOutcomeUnknown(id, reason);
     }
-  }, [markOutcomeUnknown, refreshRanges]);
+  }, [markOutcomeUnknown]);
   useEffect(() => {
     flushRef.current = flush;
   }, [flush]);
@@ -806,7 +752,10 @@ export function useOverleafRealtime(options: {
       if (payload.type !== "docUpdate") return;
 
       const doc = documents.current.get(payload.docId);
-      if (!doc) return;
+      if (!doc) {
+        joiningUpdates.current.get(payload.docId)?.push(payload);
+        return;
+      }
       // Our own work coming back is already in this copy; only the separate
       // acknowledgement moves the state machine on.
       if (payload.source && publicId.current && payload.source === publicId.current) return;
@@ -882,6 +831,9 @@ export function useOverleafRealtime(options: {
       if (cancelled) return;
       needsReconnect = true;
       lastReason = reason;
+      // The connection that established the current role is gone. Fail closed
+      // for the entire backoff, not only once the next handshake starts.
+      setProjectPermission({ projectRoot: connectingRoot, permission: "unknown" });
       if (retryTimer || connecting) return;
       const delay = immediate ? 0 : reconnectDelay(retryAttempt);
       if (!immediate) retryAttempt += 1;
@@ -900,6 +852,10 @@ export function useOverleafRealtime(options: {
     const connect = async () => {
       if (cancelled || connecting) return;
       connecting = true;
+      // Every handshake may return a different role. Reconnects must fail
+      // closed rather than temporarily retaining a writer permission that
+      // Overleaf may have revoked while the socket was down.
+      setProjectPermission({ projectRoot: connectingRoot, permission: "unknown" });
       setStatus("connecting");
       if (!needsReconnect) setDetail(null);
       try {
@@ -1025,6 +981,9 @@ export function useOverleafRealtime(options: {
       return;
     }
     let cancelled = false;
+    const pendingUpdates: DocUpdateEvent[] = [];
+    const pendingByDocument = joiningUpdates.current;
+    pendingByDocument.set(id, pendingUpdates);
     // Coming back to a document that was still draining: it is being edited
     // again, so the timer that would have given up its room has to go, or it
     // would fire in the middle of typing.
@@ -1053,8 +1012,10 @@ export function useOverleafRealtime(options: {
       .then((joined) => {
         if (cancelled) {
           // Joined after the writer moved on. Leave, or the room stays
-          // subscribed for the rest of the session.
-          if (!documents.current.has(id)) {
+          // subscribed for the rest of the session. A replacement join for the
+          // same document owns that room now, so the stale attempt must not
+          // unsubscribe it.
+          if (!documents.current.has(id) && !joiningUpdates.current.has(id)) {
             void invoke("overleaf_rt_leave_doc", {
               projectRoot: joiningRoot,
               docId: id,
@@ -1113,6 +1074,43 @@ export function useOverleafRealtime(options: {
           uncertain.current.delete(id);
           caret = callbacks.current.readCaret();
         }
+        // Joining the socket room and returning its snapshot cross an async IPC
+        // boundary. Updates can arrive in between; replay them over the snapshot
+        // instead of silently leaving the local buffer one version behind.
+        const buffered = pendingByDocument.get(id) === pendingUpdates
+          ? pendingUpdates.splice(0)
+          : [];
+        if (pendingByDocument.get(id) === pendingUpdates) {
+          pendingByDocument.delete(id);
+        }
+        const joinedDocument = documents.current.get(id);
+        const bufferedApplied: OtOp[][] = [];
+        if (joinedDocument) {
+          buffered.sort((left, right) => left.version - right.version);
+          try {
+            for (const update of buffered) {
+              const versionBefore = joinedDocument.version;
+              const result = joinedDocument.remote(update.ops, update.version);
+              text = result.text;
+              // The snapshot already contains older buffered updates, but the
+              // editor caret predates that snapshot and still has to cross them.
+              const caretOps = !held && update.version < versionBefore
+                ? update.ops
+                : result.applied;
+              caret = OtDocument.caretAfter(caret, caretOps);
+              if (result.applied.length) bufferedApplied.push(result.applied);
+            }
+          } catch (reason) {
+            const message = reason instanceof Error ? reason.message : String(reason);
+            if (joinedDocument.settled) dropDocument(id, message);
+            else markOutcomeUnknown(id, message);
+            setDetail(message);
+            callbacks.current.onNotice(
+              "This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it.",
+            );
+            return;
+          }
+        }
         publishLivePaths();
         docId.current = id;
         setLiveFile(true);
@@ -1120,8 +1118,9 @@ export function useOverleafRealtime(options: {
           id,
           comments: joined.comments ?? [],
           changes: joined.changes ?? [],
-          version: joined.version,
+          version: joinedDocument?.version ?? joined.version,
         });
+        for (const applied of bufferedApplied) shiftAnchors(id, applied);
         setDetail(null);
         callbacks.current.onRemoteText(text, caret);
       })
@@ -1130,6 +1129,9 @@ export function useOverleafRealtime(options: {
       });
     return () => {
       cancelled = true;
+      if (pendingByDocument.get(id) === pendingUpdates) {
+        pendingByDocument.delete(id);
+      }
     };
   }, [
     options.activeFile,
@@ -1139,8 +1141,10 @@ export function useOverleafRealtime(options: {
     reloadNonce,
     stopDocument,
     flush,
+    dropDocument,
     markOutcomeUnknown,
     publishLivePaths,
+    shiftAnchors,
   ]);
 
   // ---- local edits --------------------------------------------------------
@@ -1167,15 +1171,20 @@ export function useOverleafRealtime(options: {
     }, 250);
   }, [flush, shiftAnchors]);
 
-  const anchorComment = useCallback(async (threadId: string, position: number, quote: string) => {
-    const id = docId.current;
-    const doc = id ? documents.current.get(id) : null;
-    if (!doc || !id) {
-      throw new Error("This file is not being edited live with Overleaf yet.");
-    }
-    const projectRoot = connectionRoot.current;
-    if (!projectRoot) {
-      throw new Error("Open the linked Overleaf project first.");
+  const anchorComment = useCallback(async (
+    target: OverleafCommentTarget,
+    threadId: string,
+    position: number,
+    quote: string,
+  ) => {
+    const doc = documents.current.get(target.docId);
+    if (
+      !doc
+      || docId.current !== target.docId
+      || connectionRoot.current !== target.projectRoot
+      || callbacks.current.activeFile !== target.path
+    ) {
+      throw new Error("The commented file is no longer open live with Overleaf. Try again.");
     }
     // An anchor is an operation like any other, so it needs the wire to
     // itself; typing while one is outstanding would be built on a version the
@@ -1186,20 +1195,20 @@ export function useOverleafRealtime(options: {
     }
     try {
       await invoke("overleaf_rt_send_comment", {
-        projectRoot,
-        docId: id,
+        projectRoot: target.projectRoot,
+        docId: target.docId,
         version: reserved.version,
         position,
         quote,
         threadId,
       });
     } catch (reason) {
-      fail(String(reason), projectRoot);
+      fail(String(reason), target.projectRoot);
       throw reason;
     }
     // Show it straight away rather than waiting for the round trip.
     setOpenDoc((current) => (
-      current && current.id === id
+      current && current.id === target.docId
         ? { ...current, comments: [...current.comments, { threadId, position, quote }] }
         : current
     ));

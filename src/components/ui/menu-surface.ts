@@ -9,7 +9,7 @@
  * labels, so they carry a 1.5 stroke rather than Lucide's default 2.
  */
 export const floatingSurfaceClassName =
-  "z-50 [--surface-radius:calc(var(--radius-icon)+var(--gap-inline-tight))] [--surface-inset:var(--gap-inline-tight)] [--nested-radius:calc(var(--surface-radius)-var(--surface-inset))] rounded-[var(--surface-radius)] border border-border bg-popover text-popover-foreground shadow-[0_1px_2px_rgba(28,25,23,0.06),0_16px_36px_-18px_rgba(28,25,23,0.5)] outline-hidden dark:shadow-[0_2px_12px_rgba(0,0,0,0.6)]";
+  "z-50 [--surface-radius:calc(var(--radius-icon)+var(--gap-inline-tight))] [--surface-inset:var(--gap-inline-tight)] [--nested-radius:calc(var(--surface-radius)-var(--surface-inset))] rounded-[var(--surface-radius)] bg-popover text-popover-foreground smooth-shadow-lg outline-hidden";
 
 export const menuViewportClassName =
   "overflow-x-hidden overflow-y-auto p-[var(--surface-inset)]";

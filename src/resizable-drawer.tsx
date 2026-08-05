@@ -40,6 +40,7 @@ function persistDrawerWidth(width: number) {
 export function ResizableDrawer(props: {
   children: ReactNode;
   className?: string;
+  dataTour?: string;
   ariaLabel?: string;
   closeDisabled?: boolean;
   onClose: () => void;
@@ -123,6 +124,7 @@ export function ResizableDrawer(props: {
       <aside
         className={`history-drawer resizable-drawer native-hover-scrollbar ${props.className ?? ""}`.trim()}
         style={{ width }}
+        data-tour={props.dataTour}
         aria-label={props.ariaLabel}
         onMouseDown={(event) => event.stopPropagation()}
         onScroll={props.onScroll}

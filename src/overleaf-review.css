@@ -96,11 +96,26 @@
 
 .overleaf-review-diff {
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
   background: var(--surface-app);
 }
+.overleaf-review-code-view {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+.overleaf-review-diff-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+  font: var(--type-micro-size)/1.2 var(--ui-font);
+  white-space: nowrap;
+}
+.overleaf-review-diff-kind[data-kind="conflict"] { color: var(--status-danger); }
+.overleaf-review-diff-kind[data-kind="incoming"] { color: var(--control-active); }
 .overleaf-review-empty {
   margin: 0;
   padding: var(--space-12) var(--space-8);

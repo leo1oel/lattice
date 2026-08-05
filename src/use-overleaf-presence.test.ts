@@ -117,6 +117,28 @@ describe("useOverleafPresence roster", () => {
     });
     expect(result.current.peers).toHaveLength(0);
   });
+
+  it("clears collaborators and ignores stale events after leaving a linked project", async () => {
+    const { result, rerender } = renderHook(
+      ({ projectRoot }) => useOverleafPresence({
+        projectRoot,
+        docId: projectRoot ? "doc-1" : null,
+        selfId: projectRoot ? "self-1" : null,
+        readCaret: () => ({ row: 0, column: 0 }),
+      }),
+      { initialProps: { projectRoot: "/tmp/overleaf-project" as string | null } },
+    );
+    await flush();
+    expect(result.current.peers).toHaveLength(1);
+
+    rerender({ projectRoot: null });
+    expect(result.current.peers).toHaveLength(0);
+
+    await act(async () => {
+      emit?.({ payload: { type: "presenceUpdated", user: peer({ id: "late-peer" }) } });
+    });
+    expect(result.current.peers).toHaveLength(0);
+  });
 });
 
 describe("useOverleafPresence publish", () => {

@@ -38,7 +38,16 @@ export const CITE_COMMANDS: CiteCommand[] = ["cite", "citep", "citet"];
 
 export const PROJECT_FIGURE_DRAG_TYPE = "application/x-lattice-project-figure";
 
-const PROJECT_SOURCE_EXTENSIONS = new Set(["tex", "bib", "md", "txt", "sty", "cls", "bst"]);
+export function absoluteProjectPath(projectRoot: string, relativePath: string): string {
+  const separator = projectRoot.includes("\\") ? "\\" : "/";
+  const root = projectRoot.replace(/[\\/]+$/, "");
+  const path = relativePath.replace(/[\\/]/g, separator).replace(/^[\\/]+/, "");
+  return `${root}${separator}${path}`;
+}
+
+const PROJECT_SOURCE_EXTENSIONS = new Set([
+  "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "tldr",
+]);
 const PROJECT_ASSET_EXTENSIONS = new Set(["png", "jpg", "jpeg", "pdf", "svg", "eps", "webp"]);
 
 function fileExtension(path: string): string {
@@ -51,8 +60,20 @@ export function isProjectSourceFilePath(path: string): boolean {
   return PROJECT_SOURCE_EXTENSIONS.has(fileExtension(path));
 }
 
+export function isHtmlFilePath(path: string): boolean {
+  return fileExtension(path) === "html";
+}
+
+export function isPreviewableSourceFilePath(path: string): boolean {
+  return ["tex", "md", "html"].includes(fileExtension(path));
+}
+
 export function isProjectAssetFilePath(path: string): boolean {
   return PROJECT_ASSET_EXTENSIONS.has(fileExtension(path));
+}
+
+export function isHarperProseFilePath(path: string): boolean {
+  return ["tex", "md", "txt"].includes(fileExtension(path));
 }
 
 export function classifyExternalProjectDrop(
@@ -81,25 +102,49 @@ export function arxivIdFromTabKey(key: string): string {
   return key.slice(PAPER_TAB_PREFIX.length, key.length - PAPER_TAB_SUFFIX.length);
 }
 
+/** Returns the byte offset after leading YAML/TOML frontmatter, or zero. */
+export function markdownFrontmatterEnd(markdown: string): number {
+  const start = markdown.startsWith("\uFEFF") ? 1 : 0;
+  const firstBreak = markdown.indexOf("\n", start);
+  if (firstBreak < 0) return 0;
+  const delimiter = markdown.slice(start, firstBreak).replace(/\r$/, "").trim();
+  if (delimiter !== "---" && delimiter !== "+++") return 0;
+
+  let lineStart = firstBreak + 1;
+  while (lineStart <= markdown.length) {
+    const lineBreak = markdown.indexOf("\n", lineStart);
+    const lineEnd = lineBreak < 0 ? markdown.length : lineBreak;
+    const line = markdown.slice(lineStart, lineEnd).replace(/\r$/, "").trim();
+    if (line === delimiter || (delimiter === "---" && line === "...")) {
+      return lineBreak < 0 ? lineEnd : lineBreak + 1;
+    }
+    if (lineBreak < 0) break;
+    lineStart = lineBreak + 1;
+  }
+  return 0;
+}
+
 /**
  * Full text imported with `arxiv2md --frontmatter` leads with a YAML block; the
  * reader shows the title from metadata, so drop the raw YAML rather than render
  * it as a stray `<hr>` + text. A no-op for older papers without frontmatter.
  */
 export function stripFrontmatter(markdown: string): string {
-  if (!markdown.startsWith("---")) return markdown;
-  const end = markdown.indexOf("\n---", 3);
-  if (end === -1) return markdown;
-  const after = markdown.indexOf("\n", end + 1);
-  return after === -1 ? "" : markdown.slice(after + 1).replace(/^\s+/, "");
+  const end = markdownFrontmatterEnd(markdown);
+  return end === 0 ? markdown : markdown.slice(end).replace(/^(?:\r?\n)+/, "");
 }
 
 let windowDragTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function isWindowDragExcluded(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest(
-    "[data-window-drag-exclude], button, input, select, textarea, a",
-  ));
+  if (!(target instanceof Element)) return false;
+  if (target.closest("[data-window-drag-exclude], button, input, select, textarea, a")) {
+    return true;
+  }
+  const overflowRegion = target.closest("[data-window-drag-exclude-on-overflow]");
+  if (!overflowRegion) return false;
+  const viewport = overflowRegion.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']");
+  return viewport?.dataset.hasHorizontalOverflow === "true";
 }
 
 export function beginWindowDrag(event: React.MouseEvent<HTMLElement>) {
@@ -141,7 +186,7 @@ export function autoBuildTitle(mode: AutoBuildMode): string {
 }
 
 export function autoBuildDetail(mode: AutoBuildMode): string {
-  if (mode === "automatic") return "Lattice saves and builds when you leave the editor or after 1.2 seconds without typing.";
+  if (mode === "automatic") return "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds.";
   return "Use the Build button or Command-S. Source changes are still saved automatically.";
 }
 

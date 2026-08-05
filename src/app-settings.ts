@@ -30,6 +30,7 @@ export const LAST_FILE_MAX = 60;
 export const PAPER_READING_WIDTH_KEY = "lattice.paper-reading-width";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 export const WORKSPACE_LAYOUT_MAX = 60;
+export const TUTORIAL_SEEN_KEY = "lattice.tutorial-seen.v1";
 
 export type WorkspaceCanvasMode =
   | "source"
@@ -37,8 +38,6 @@ export type WorkspaceCanvasMode =
   | "split"
   | "dual"
   | "columns"
-  | "markdown-preview"
-  | "paper"
   | "asset";
 
 export type WorkspaceLayout = {
@@ -48,6 +47,7 @@ export type WorkspaceLayout = {
   secondaryFile: string | null;
   focusedPane: "primary" | "secondary";
   canvasMode: WorkspaceCanvasMode;
+  documentMode: Exclude<WorkspaceCanvasMode, "asset">;
   paperView: "blog" | "fulltext";
   tabRecency: string[];
 };
@@ -58,8 +58,6 @@ const WORKSPACE_CANVAS_MODES = new Set<WorkspaceCanvasMode>([
   "split",
   "dual",
   "columns",
-  "markdown-preview",
-  "paper",
   "asset",
 ]);
 
@@ -79,9 +77,23 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
   const secondaryFile = typeof candidate.secondaryFile === "string" && candidate.secondaryFile
     ? candidate.secondaryFile
     : null;
-  const canvasMode = WORKSPACE_CANVAS_MODES.has(candidate.canvasMode as WorkspaceCanvasMode)
-    ? candidate.canvasMode as WorkspaceCanvasMode
-    : "split";
+  const storedCanvasModeValue = (candidate as { canvasMode?: unknown }).canvasMode;
+  const storedCanvasMode = typeof storedCanvasModeValue === "string" ? storedCanvasModeValue : "";
+  const canvasMode: WorkspaceCanvasMode = storedCanvasMode === "markdown-preview" || storedCanvasMode === "paper"
+    ? "pdf"
+    : WORKSPACE_CANVAS_MODES.has(storedCanvasMode as WorkspaceCanvasMode)
+      ? storedCanvasMode as WorkspaceCanvasMode
+      : "split";
+  const storedDocumentModeValue = (candidate as { documentMode?: unknown }).documentMode;
+  const storedDocumentMode = typeof storedDocumentModeValue === "string"
+    ? storedDocumentModeValue
+    : "";
+  const documentMode = WORKSPACE_CANVAS_MODES.has(storedDocumentMode as WorkspaceCanvasMode)
+    && storedDocumentMode !== "asset"
+    ? storedDocumentMode as Exclude<WorkspaceCanvasMode, "asset">
+    : canvasMode === "asset"
+      ? "split"
+      : canvasMode;
   return {
     openTabs,
     activeFile,
@@ -89,6 +101,7 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
     secondaryFile,
     focusedPane: candidate.focusedPane === "secondary" ? "secondary" : "primary",
     canvasMode,
+    documentMode,
     paperView: candidate.paperView === "fulltext" ? "fulltext" : "blog",
     tabRecency: stringList(candidate.tabRecency),
   };
@@ -126,6 +139,29 @@ export function persistRecentProjects(projects: RecentProject[]) {
     localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(projects));
   } catch {
     // Recent projects are a convenience; project access still works if storage is unavailable.
+  }
+}
+
+export function hasSeenTutorial(): boolean {
+  try {
+    if (localStorage.getItem(TUTORIAL_SEEN_KEY) === "1") return true;
+    const seenInAnEarlierVersion = loadRecentProjects().some((project) => {
+      const path = project.path.replaceAll("\\", "/");
+      return project.name === "Understanding Attention"
+        && path.includes("/Lattice Tutorials/Understanding Attention");
+    });
+    if (seenInAnEarlierVersion) localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
+    return seenInAnEarlierVersion;
+  } catch {
+    return false;
+  }
+}
+
+export function markTutorialSeen() {
+  try {
+    localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
+  } catch {
+    // The tutorial still works for this session when preferences cannot persist.
   }
 }
 

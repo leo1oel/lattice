@@ -10,6 +10,7 @@
     "core:window:allow-set-min-size",
     "core:webview:allow-set-webview-zoom",
     "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-read-image",
     "opener:default",
     "dialog:default",

@@ -1,0 +1,28 @@
+.avatar-group {
+  --avatar-group-lift: -2px;
+  --avatar-group-falloff: .35;
+  --avatar-group-scale: 1.025;
+  --avatar-group-ease-in: cubic-bezier(.22, 1, .36, 1);
+  --avatar-group-ease-out: cubic-bezier(.2, .8, .2, 1.05);
+  display: flex;
+  align-items: center;
+  padding-inline: var(--space-2);
+}
+
+.avatar-group > * {
+  --avatar-group-shift: 0px;
+  --avatar-group-active-scale: 1;
+  width: 10px;
+  height: 10px;
+  margin-left: -8px;
+  position: relative;
+  flex: none;
+  transform: translateY(var(--avatar-group-shift)) scale(var(--avatar-group-active-scale));
+  transform-origin: center;
+  transition: transform var(--duration-disclosure) var(--avatar-group-ease-in);
+  will-change: transform;
+}
+
+.avatar-group.avatar-group > * { border-radius: 50%; }
+.avatar-group > *:first-child { margin-left: 0; }
+.avatar-group > *:hover { z-index: 1; }

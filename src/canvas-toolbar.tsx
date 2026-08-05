@@ -42,7 +42,7 @@ export function CanvasToolbar(props: {
   mode: CanvasMode;
   setMode: (mode: DocumentViewMode) => void;
   markdown: boolean;
-  onMarkdownMode: (preview: boolean) => void;
+  html: boolean;
   paperView?: "blog" | "fulltext";
   paperHasBlog?: boolean;
   paperHasFullText?: boolean;
@@ -80,31 +80,43 @@ export function CanvasToolbar(props: {
   /** Where the Overleaf presence avatars go; kept as a slot so this file need
    *  not know anything about who is in the project. */
   overleafPresence?: ReactNode;
-  /** Slot for the suggestion-mode switch, for the same reason. */
-  overleafTrackChangesToggle?: ReactNode;
 }) {
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
   const switcherMode = props.mode === "dual" || props.mode === "columns" ? "split" : props.mode;
+  const showOverleafOnline = Boolean(props.overleafLinked && (
+    props.overleafSyncing || props.overleafLiveEditing || props.overleafChannel === "live"
+  ));
   return (
     <div className="canvas-toolbar">
       <div className="active-document"><ActiveIcon size={14} /><span>{props.activePath}</span>{props.activeKind === "document" && props.dirty && <i />}</div>
-      <div className="canvas-mode-controls">
+      <div className="canvas-mode-controls" data-tour="document-view">
         <SegmentedControl
           value={switcherMode}
           onChange={(mode) => {
-            if (mode === "markdown-preview") props.onMarkdownMode(true);
-            else if (props.markdown) props.onMarkdownMode(false);
-            else if (mode === "source" || mode === "split" || mode === "pdf") props.setMode(mode);
+            if (mode === "source" || mode === "split" || mode === "pdf") props.setMode(mode);
           }}
           ariaLabel="Document view"
           className="canvas-view-switcher"
-          items={props.markdown ? [
-            { value: "source", label: "Edit", title: "Edit Markdown" },
-            { value: "markdown-preview", label: "Preview", title: "Preview Markdown" },
-          ] : [
-            { value: "source", label: "source", title: "Source only" },
-            { value: "split", label: "split", title: "Source and PDF" },
-            { value: "pdf", label: "pdf", title: "PDF only" },
+          items={[
+            {
+              value: "source",
+              label: "Edit",
+              title: props.markdown ? "Edit Markdown" : props.html ? "Edit HTML" : "Edit source",
+            },
+            {
+              value: "split",
+              label: "Split",
+              title: props.markdown
+                ? "Edit and preview Markdown"
+                : props.html
+                  ? "Edit and preview HTML"
+                  : "Edit source and preview PDF",
+            },
+            {
+              value: "pdf",
+              label: "Preview",
+              title: props.markdown ? "Preview Markdown" : props.html ? "Preview HTML" : "Preview PDF",
+            },
           ]}
         />
         {props.activeKind === "paper"
@@ -118,8 +130,8 @@ export function CanvasToolbar(props: {
             ariaLabel="Paper content"
             className="paper-content-switcher"
             items={[
-              { value: "blog", label: "Blog", title: "Open the paper overview" },
-              { value: "fulltext", label: "Paper", title: "Open the full paper Markdown" },
+              { value: "blog", label: "Blog", title: "Open the paper overview", dataTour: "paper-blog" },
+              { value: "fulltext", label: "Paper", title: "Open the full paper Markdown", dataTour: "paper-fulltext" },
             ]}
           />
         )}
@@ -160,6 +172,7 @@ export function CanvasToolbar(props: {
             >
               <button
                 type="button"
+                data-tour="collaboration"
                 className={props.collabLive ? "active collab-toolbar-button" : "collab-toolbar-button"}
                 onClick={props.onCollab}
               >
@@ -181,6 +194,7 @@ export function CanvasToolbar(props: {
             : "Open a project from Overleaf"}
           >
             <button
+              data-tour="overleaf"
               className={props.overleafLinked ? "history-button active" : "history-button"}
               disabled={props.overleafSyncing}
               onClick={props.overleafLinked ? props.onOverleafSync : props.onOverleafOpen}
@@ -190,8 +204,8 @@ export function CanvasToolbar(props: {
                 : props.overleafLinked
                   ? <AnimatedProductIcon source="provided" kind="cloud-upload-outline" size={14} />
                   : <Cloud size={14} />}
-              {props.overleafLiveEditing && !props.overleafSyncing
-                ? <em className="overleaf-live-dot" title="Editing live with Overleaf" />
+              {showOverleafOnline
+                ? <em className="overleaf-status-dot" aria-hidden="true" />
                 : props.overleafPending && !props.overleafSyncing
                   ? <em className="collab-peer-badge">•</em>
                   : null}
@@ -215,10 +229,9 @@ export function CanvasToolbar(props: {
             </button>
           </Tip>
         )}
-        {props.overleafTrackChangesToggle}
         {props.overleafPresence}
         <Tip label="Git status and commit">
-          <button className="history-button" onClick={props.onGit}>
+          <button className="history-button" data-tour="git" onClick={props.onGit}>
             <AnimatedProductIcon kind="git-branch" size={15} />
           </button>
         </Tip>

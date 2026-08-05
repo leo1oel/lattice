@@ -64,6 +64,9 @@ export type FileNode = {
   name: string;
   path: string;
   kind: string;
+  /** Native, content-derived routing. v1 collaboration remains extension-scoped. */
+  contentKind?: "directory" | "text" | "binary" | "symlink";
+  size?: number;
   children: FileNode[];
 };
 
@@ -122,7 +125,7 @@ export type PdfSyncResponse = Omit<PdfSyncTarget, "id">;
 
 export type BuildResult = {
   success: boolean;
-  pdfBase64?: string;
+  hasPdf: boolean;
   log: string;
   durationMs: number;
   diagnostics: CompileDiagnostic[];
@@ -136,6 +139,8 @@ export type PaperSummary = {
   hasFullText: boolean;
   /** True only when blog.md is already available locally. */
   hasBlog: boolean;
+  /** Converter-owned files needed to render figures in the paper reader. */
+  assetPaths?: string[];
 };
 
 export type RenameTarget =
@@ -150,7 +155,7 @@ export type RenameSymbolResult = {
   transactionId: string;
 };
 
-export type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "markdown-preview" | "paper" | "asset";
+export type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "asset";
 export type EditorPaneId = "primary" | "secondary";
 export type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
 export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "overleaf" | "api" | "doctor" | "logs";

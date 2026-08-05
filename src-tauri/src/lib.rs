@@ -1,10 +1,12 @@
 mod alphaxiv;
+mod collab_credentials;
 mod commands;
 mod doctor;
 mod format_latex;
 mod fts;
 mod git;
 mod latex;
+mod link_preview;
 mod literature;
 #[cfg(target_os = "macos")]
 mod macos_window;
@@ -15,11 +17,13 @@ mod overleaf_rt;
 mod papers;
 mod pdf_fonts;
 mod project;
+mod project_fs;
 mod synara;
 mod tex_setup;
 mod texcount;
 mod texlab;
 
+use base64::{engine::general_purpose::STANDARD, Engine};
 use models::{
     AssetPreview, BuildResult, CitationInfo, DoctorReport, EditorComment, GitDiff, GitRemoteResult,
     GitStatus, HistoryItem, ImportResult, LiteraturePage, OpenAlexWork, PaperSummary, PdfMark,
@@ -147,6 +151,8 @@ struct AppState {
     /// Serializes a whole ZIP sync against document join/leave and outgoing
     /// realtime mutations, closing the ownership-snapshot race.
     overleaf_sync_lease: Arc<tokio::sync::RwLock<()>>,
+    /// Serializes project-wide create/delete/rename/move catalog mutations.
+    structural_mutation: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl AppState {
@@ -161,6 +167,7 @@ impl AppState {
             texlab: Arc::new(Mutex::new(texlab::TexlabPool::default())),
             realtime: Arc::new(Mutex::new(OverleafRealtimeState::default())),
             overleaf_sync_lease: Arc::new(tokio::sync::RwLock::new(())),
+            structural_mutation: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 }
@@ -197,6 +204,9 @@ async fn set_root(state: &tauri::State<'_, AppState>, root: PathBuf) -> Result<(
     // while this lease ensures the backend cannot reinterpret a request for A
     // against B halfway through it.
     let _lease = state.overleaf_sync_lease.write().await;
+    // Keep root switching in the same lock order as root-scoped structural
+    // commands: Overleaf lease, then catalog mutation lock.
+    let _mutation = state.structural_mutation.lock().await;
     if let Ok(mut pool) = state.texlab.lock() {
         pool.reset();
     }
@@ -244,6 +254,29 @@ async fn create_project(
         } else {
             project::create_with_venue(Path::new(&parent), &name, venue)?
         };
+        let snapshot = project::open(&root)?;
+        Ok((root, snapshot))
+    })
+    .await?;
+    set_root(&state, root).await?;
+    Ok(snapshot)
+}
+
+#[tauri::command]
+async fn open_tutorial_project(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<ProjectSnapshot, String> {
+    use tauri::Manager;
+    let documents = app
+        .path()
+        .document_dir()
+        .map_err(|error| format!("Could not resolve Documents folder: {error}"))?;
+    let (root, snapshot) = run_blocking("Tutorial project creation", move || {
+        let parent = documents.join("Lattice Tutorials");
+        std::fs::create_dir_all(&parent)
+            .map_err(|error| format!("Could not create Lattice Tutorials folder: {error}"))?;
+        let root = project::create_tutorial(&parent)?;
         let snapshot = project::open(&root)?;
         Ok((root, snapshot))
     })
@@ -410,11 +443,34 @@ async fn refresh_project(state: tauri::State<'_, AppState>) -> Result<ProjectSna
 }
 
 #[tauri::command]
+async fn collab_project_inventory_v2(
+    state: tauri::State<'_, AppState>,
+) -> Result<project::CollabProjectInventoryV2, String> {
+    let root = current_root(&state)?;
+    run_blocking("Collaboration project inventory", move || {
+        project::collab_project_inventory_v2(&root)
+    })
+    .await
+}
+
+#[tauri::command]
 async fn read_project_file(
     state: tauri::State<'_, AppState>,
     path: String,
+    project_root: Option<String>,
 ) -> Result<String, String> {
+    let _lease = if project_root.is_some() {
+        Some(state.overleaf_sync_lease.read().await)
+    } else {
+        None
+    };
     let root = current_root(&state)?;
+    if project_root
+        .as_deref()
+        .is_some_and(|expected| root != Path::new(expected))
+    {
+        return Err("The project changed before the file could be read.".to_string());
+    }
     run_blocking("Project file read", move || {
         project::read_file(&root, &path)
     })
@@ -443,7 +499,7 @@ async fn write_project_file(
     run_blocking("Project file write", move || {
         let transaction =
             project::apply_transaction(&root, &format!("Edit {path}"), vec![(path, content)])?;
-        Ok(transaction.id)
+        Ok(transaction.map(|record| record.id).unwrap_or_default())
     })
     .await
 }
@@ -699,6 +755,7 @@ async fn create_project_entry(
     path: String,
     kind: String,
 ) -> Result<String, String> {
+    let _mutation = state.structural_mutation.lock().await;
     let root = current_root(&state)?;
     tauri::async_runtime::spawn_blocking(move || project::create_entry(&root, &path, &kind))
         .await
@@ -709,8 +766,21 @@ async fn create_project_entry(
 async fn delete_project_entry(
     state: tauri::State<'_, AppState>,
     path: String,
+    project_root: Option<String>,
 ) -> Result<(), String> {
+    let _lease = if project_root.is_some() {
+        Some(state.overleaf_sync_lease.read().await)
+    } else {
+        None
+    };
+    let _mutation = state.structural_mutation.lock().await;
     let root = current_root(&state)?;
+    if project_root
+        .as_deref()
+        .is_some_and(|expected| root != Path::new(expected))
+    {
+        return Err("The project changed before the file could be deleted.".to_string());
+    }
     tauri::async_runtime::spawn_blocking(move || project::delete_entry(&root, &path))
         .await
         .map_err(|error| format!("File deletion stopped unexpectedly: {error}"))?
@@ -721,8 +791,21 @@ async fn rename_project_entry(
     state: tauri::State<'_, AppState>,
     path: String,
     new_name: String,
+    project_root: Option<String>,
 ) -> Result<String, String> {
+    let _lease = if project_root.is_some() {
+        Some(state.overleaf_sync_lease.read().await)
+    } else {
+        None
+    };
+    let _mutation = state.structural_mutation.lock().await;
     let root = current_root(&state)?;
+    if project_root
+        .as_deref()
+        .is_some_and(|expected| root != Path::new(expected))
+    {
+        return Err("The project changed before the file could be renamed.".to_string());
+    }
     tauri::async_runtime::spawn_blocking(move || project::rename_entry(&root, &path, &new_name))
         .await
         .map_err(|error| format!("File rename stopped unexpectedly: {error}"))?
@@ -733,8 +816,21 @@ async fn move_project_entry(
     state: tauri::State<'_, AppState>,
     path: String,
     target_directory: String,
+    project_root: Option<String>,
 ) -> Result<String, String> {
+    let _lease = if project_root.is_some() {
+        Some(state.overleaf_sync_lease.read().await)
+    } else {
+        None
+    };
+    let _mutation = state.structural_mutation.lock().await;
     let root = current_root(&state)?;
+    if project_root
+        .as_deref()
+        .is_some_and(|expected| root != Path::new(expected))
+    {
+        return Err("The project changed before the file could be moved.".to_string());
+    }
     tauri::async_runtime::spawn_blocking(move || {
         project::move_entry(&root, &path, &target_directory)
     })
@@ -822,8 +918,20 @@ async fn write_project_bytes(
     state: tauri::State<'_, AppState>,
     path: String,
     base64_data: String,
+    project_root: Option<String>,
 ) -> Result<(), String> {
+    let _lease = if project_root.is_some() {
+        Some(state.overleaf_sync_lease.read().await)
+    } else {
+        None
+    };
     let root = current_root(&state)?;
+    if project_root
+        .as_deref()
+        .is_some_and(|expected| root != Path::new(expected))
+    {
+        return Err("The project changed before the asset could be written.".to_string());
+    }
     run_blocking("Project asset write", move || {
         project::write_bytes(&root, &path, &base64_data)
     })
@@ -846,8 +954,12 @@ async fn prepare_latex_figure(
 async fn build_project(
     state: tauri::State<'_, AppState>,
     force: Option<bool>,
+    project_root: String,
 ) -> Result<BuildResult, String> {
     let root = current_root(&state)?;
+    if root != Path::new(&project_root) {
+        return Err("The project changed before its build could start.".to_string());
+    }
     let force = force.unwrap_or(false);
     let active = state.active_build.clone();
     tauri::async_runtime::spawn_blocking(move || latex::build(&root, force, &active))
@@ -2248,9 +2360,37 @@ async fn save_editor_comments(
 }
 
 #[tauri::command]
-async fn save_compiled_pdf(path: String, pdf_base64: String) -> Result<String, String> {
+async fn read_compiled_pdf(
+    state: tauri::State<'_, AppState>,
+    project_root: String,
+) -> Result<tauri::ipc::Response, String> {
+    let root = current_root(&state)?;
+    if root != Path::new(&project_root) {
+        return Err("The project changed before its PDF could be loaded.".to_string());
+    }
+    let bytes = run_blocking("Compiled PDF read", move || latex::read_compiled_pdf(&root)).await?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[tauri::command]
+async fn save_compiled_pdf(request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let destination = request
+        .headers()
+        .get("x-pdf-destination")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| "Choose where to save the PDF.".to_string())?;
+    let path = String::from_utf8(
+        STANDARD
+            .decode(destination)
+            .map_err(|error| format!("The PDF destination is invalid: {error}"))?,
+    )
+    .map_err(|error| format!("The PDF destination is invalid: {error}"))?;
+    let bytes = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        _ => return Err("The PDF contents were not sent as binary data.".to_string()),
+    };
     run_blocking("Compiled PDF save", move || {
-        latex::save_pdf(Path::new(&path), &pdf_base64)
+        latex::save_pdf(Path::new(&path), &bytes)
     })
     .await
 }
@@ -2453,24 +2593,15 @@ fn set_window_background(app: tauri::AppHandle, dark: bool) -> Result<(), String
 }
 
 #[tauri::command]
-fn align_traffic_lights(
-    app: tauri::AppHandle,
-    close_center_x: f64,
-    center_from_top: f64,
-) -> Result<(), String> {
+async fn sample_screen_color(app: tauri::AppHandle) -> Result<Option<String>, String> {
     #[cfg(target_os = "macos")]
     {
-        use tauri::Manager;
-        let window = app
-            .get_webview_window("main")
-            .ok_or_else(|| "Main window is unavailable.".to_string())?;
-        macos_window::align_traffic_lights_to(&window, close_center_x, center_from_top);
-        Ok(())
+        macos_window::sample_screen_color(&app).await
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (app, close_center_x, center_from_top);
-        Ok(())
+        let _ = app;
+        Ok(None)
     }
 }
 
@@ -2587,7 +2718,6 @@ pub fn run() {
             {
                 macos_window::clear_launch_quarantine();
                 if let Some(window) = app.get_webview_window("main") {
-                    macos_window::install_traffic_light_alignment(&window);
                     macos_window::apply_window_background(&window, false);
                 }
                 macos_window::install_magnify_monitor(app.handle().clone());
@@ -2595,13 +2725,19 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            link_preview::link_preview,
+            collab_credentials::put_collab_credential,
+            collab_credentials::get_collab_credential,
+            collab_credentials::delete_collab_credential,
             create_project,
+            open_tutorial_project,
             create_collab_join_workspace,
             initial_project,
             open_project,
             import_project_zip,
             export_project_zip,
             refresh_project,
+            collab_project_inventory_v2,
             read_project_file,
             stat_project_file,
             write_project_file,
@@ -2713,6 +2849,7 @@ pub fn run() {
             save_pdf_annotations,
             list_editor_comments,
             save_editor_comments,
+            read_compiled_pdf,
             save_compiled_pdf,
             synctex_edit,
             synctex_view,
@@ -2731,7 +2868,7 @@ pub fn run() {
             delete_history_entry,
             start_tex_install,
             set_window_background,
-            align_traffic_lights,
+            sample_screen_color,
             synara::synara_runtime_status,
             synara::synara_ensure_ready,
             synara::synara_open_skills_folder,

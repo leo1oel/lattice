@@ -1,0 +1,290 @@
+/* Local seam — not upstream code (but all token VALUES are copied verbatim from
+ * inkeep/open-knowledge packages/app/src/globals.css @ 9e8a00e24c6eaea110b546758664aad0e7ebab7e).
+ *
+ * Why this file exists: the vendored editor-globals.css consumes upstream app
+ * tokens (shadcn-style --background/--muted/--accent, syntax + link + lint
+ * colors, brand palette, easing curves, agent-flash keyframes) that upstream
+ * defines app-wide in :root/.dark/@theme. Research Writer already owns several
+ * of those bare names with DIFFERENT semantics (--accent and --muted are
+ * foreground-ish colors in src/styles/theme.css), so upstream's runtime tokens
+ * are scoped to the editor tree and its document.body portals instead of :root.
+ *
+ * - @theme tokens (namespaced --color-, --ease-, --text-) are safe globally;
+ *   they generate the utilities the vendored CSS @applies (text-sky-blue etc.).
+ * - Runtime tokens are declared on .tiptap-editor (editor tree) and on every
+ *   body-level portal the vendored chrome creates: [data-tippy-root] (bubble
+ *   menu via tippy), [data-suggestion-popup] (slash / suggestion popups from
+ *   suggestion-floating-ui.ts), and [data-ok-vendor] (vendored Radix
+ *   dropdown/tooltip content, tagged by scripts/vendor-open-knowledge.mjs
+ *   because the host's own Radix popups use identical data-slot names).
+ * - Dark values follow the app's :root[data-theme="dark"] toggle, matching the
+ *   @custom-variant dark in src/index.css (upstream uses a .dark class).
+ */
+
+@theme {
+  /* Agent terracotta */
+  --color-agent: #d97757;
+  --color-agent-foreground: #ffffff;
+
+  /* Strong custom easing curves (Emil / easing.dev) — punchier than default ease-out */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+
+  --text-2xs: 0.688rem; /* 11px */
+  --text-1sm: 0.813rem; /* 13px */
+
+  /* brand colors */
+  --color-azure-blue: #3784ff;
+  --color-sky-blue: #69a3ff;
+  --color-crystal-blue: #d5e5ff;
+
+  /* based on azure blue (#3784ff) */
+  --color-azure-50: oklch(0.9697 0.0148 251.16);
+  --color-azure-100: oklch(0.9308 0.0339 253.71);
+  --color-azure-200: oklch(0.8807 0.0599 252.33);
+  --color-azure-300: oklch(0.8092 0.0999 249.58);
+  --color-azure-400: oklch(0.7135 0.1524 254.03);
+  --color-azure-500: oklch(0.6321 0.1983 259.59);
+  --color-azure-600: oklch(0.5468 0.2329 262.71);
+  --color-azure-700: oklch(0.4895 0.233 263.93);
+  --color-azure-800: oklch(0.4234 0.195 264.97);
+  --color-azure-900: oklch(0.3773 0.1488 264.94);
+  --color-azure-950: oklch(0.2785 0.0961 267.56);
+}
+
+/* Keyframes the vendored CSS animates with. Upstream declares these inside
+ * @theme; hoisted to top level here so emission never depends on Tailwind's
+ * theme tree-shaking. Bodies are verbatim upstream. */
+@keyframes agent-flash {
+  0% {
+    box-shadow: inset 3px 0 0 transparent;
+    background: transparent;
+    transform: translateX(0);
+  }
+  8% {
+    box-shadow: inset 3px 0 0 var(--color-agent);
+    background: rgba(217, 119, 87, 0.09);
+    transform: translateX(1px);
+  }
+  35% {
+    box-shadow: inset 3px 0 0 var(--color-agent);
+    background: rgba(217, 119, 87, 0.06);
+    transform: translateX(0);
+  }
+  100% {
+    box-shadow: inset 3px 0 0 transparent;
+    background: transparent;
+    transform: translateX(0);
+  }
+}
+
+@keyframes agent-insert-flash {
+  0% {
+    background: rgba(217, 119, 87, 0.3);
+    box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.12);
+  }
+  55% {
+    background: rgba(217, 119, 87, 0.14);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes agent-breathing {
+  0%,
+  100% {
+    background: rgba(217, 119, 87, 0.04);
+  }
+  50% {
+    background: rgba(217, 119, 87, 0.14);
+  }
+}
+
+/* Upstream runtime tokens (light), scoped to the editor tree and its
+ * body-level tippy portals. Values verbatim from upstream :root. */
+.tiptap-editor,
+[data-tippy-root],
+[data-suggestion-popup],
+[data-ok-layer-spawned],
+[data-ok-vendor] {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.6321 0.1983 259.59);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --selection-soft: oklch(0.66 0.18 259 / 0.18);
+
+  /* Syntax-highlight semantic tokens (upstream names differ from the app's
+     own --syntax-* family in src/styles/theme.css; scoping keeps both). */
+  --syntax-keyword: var(--color-purple-700, #6f42c1);
+  --syntax-tag: var(--color-red-700, #b31d28);
+  --syntax-attr: var(--color-blue-700, #005cc5);
+  --syntax-string: var(--color-green-800, #22863a);
+  --syntax-number: var(--color-blue-800, #005cc5);
+  --syntax-atom: var(--color-orange-700, #d2691e);
+  --syntax-comment: var(--color-gray-500, #6a737d);
+  --syntax-func: var(--color-purple-700, #6f42c1);
+  --syntax-var: var(--color-red-700, #b31d28);
+  --syntax-type: var(--color-yellow-700, #8b6500);
+  --syntax-operator: var(--foreground);
+  --syntax-meta: var(--color-gray-600, #6a737d);
+  --syntax-bg: oklch(0.97 0 0);
+
+  /* Editor affordances a theme repaints. */
+  --link-color: var(--color-azure-blue);
+  --broken-link-color: oklch(55% 0.15 25);
+  --lint-warning-color: oklch(70% 0.15 75);
+  --lint-error-color: oklch(55% 0.15 25);
+  --diff-added: var(--color-green-800, #22863a);
+  --diff-removed: var(--color-red-700, #b31d28);
+
+  /* Use the host typography contract on the editor and every body-level
+     vendor portal. Code keeps the host's editor face; controls and menus use
+     the same UI face and density as the rest of Research Writer. */
+  --font-mono: var(--editor-font);
+  font-family: var(--ui-font);
+  font-size: var(--type-body-size);
+  -webkit-font-smoothing: antialiased;
+  color: var(--foreground);
+
+  /* Tailwind utility routing. The host maps utilities to its own semantic
+     vars via @theme inline (index.css): bg-popover → var(--panel-strong),
+     hover:bg-accent → var(--accent-soft), font-sans → var(--ui-font), and so
+     on. Inline mode resolves those var()s at the usage element, so aliasing
+     the host names to the upstream tokens above makes every vendored
+     Tailwind class (menus, buttons, borders, radius, fonts) render
+     upstream's design instead of the host theme. The three --ok-* hooks
+     cover host names whose semantics collide with upstream tokens
+     (--muted/--accent are foregrounds in the host, backgrounds upstream);
+     index.css falls back to host values wherever these are unset. */
+  --bg: var(--background);
+  --text: var(--foreground);
+  --panel-strong: var(--popover);
+  --panel: var(--secondary);
+  --control-active: var(--primary);
+  --accent-contrast: var(--primary-foreground);
+  --accent-soft: var(--accent);
+  --danger: var(--destructive);
+  --line-strong: var(--border);
+  --ok-muted-foreground: var(--muted-foreground);
+  --ok-accent-foreground: var(--accent-foreground);
+  --ok-ring: var(--ring);
+  --ok-input: var(--input);
+  --radius: 0.625rem; /* upstream globals.css :root --radius */
+}
+
+/* Upstream runtime tokens (dark) — verbatim from upstream .dark, keyed to the
+ * app's data-theme toggle. */
+:root[data-theme="dark"] .tiptap-editor,
+:root[data-theme="dark"] [data-tippy-root],
+:root[data-theme="dark"] [data-suggestion-popup],
+:root[data-theme="dark"] [data-ok-layer-spawned],
+:root[data-theme="dark"] [data-ok-vendor] {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: var(--color-sky-blue);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --selection-soft: oklch(0.72 0.16 259 / 0.32);
+
+  --syntax-keyword: var(--color-purple-300, #d2a8ff);
+  --syntax-tag: var(--color-red-300, #ffa198);
+  --syntax-attr: var(--color-blue-300, #79c0ff);
+  --syntax-string: var(--color-green-300, #7ee787);
+  --syntax-number: var(--color-blue-300, #79c0ff);
+  --syntax-atom: var(--color-orange-300, #ffa657);
+  --syntax-comment: var(--color-gray-400, #8b949e);
+  --syntax-func: var(--color-purple-300, #d2a8ff);
+  --syntax-var: var(--color-red-300, #ffa198);
+  --syntax-type: var(--color-yellow-300, #e3b341);
+  --syntax-operator: var(--foreground);
+  --syntax-meta: var(--color-gray-400, #8b949e);
+  --syntax-bg: oklch(0.18 0.005 285);
+
+  --link-color: var(--color-sky-blue);
+  --broken-link-color: oklch(72% 0.18 25);
+  --lint-warning-color: oklch(80% 0.13 80);
+  --lint-error-color: oklch(72% 0.18 25);
+  --diff-added: var(--color-green-300, #7ee787);
+  --diff-removed: var(--color-red-300, #ffa198);
+}
+
+/* Scoped Tailwind Preflight equivalent for form controls.
+ *
+ * The host deliberately skips Preflight (index.css imports theme+utilities
+ * only), but every vendored component was written against it: an upstream
+ * button with no bg-* class expects `background-color: transparent` from
+ * Preflight. Without it, the UA button face shows through — the dark-gray
+ * menu buttons in the slash menu / dropdowns — and buttons keep the UA's
+ * own small system font instead of inheriting Inter from the scope root.
+ *
+ * Declarations mirror tailwindcss v4 preflight.css (form-control section
+ * only; the universal border/box-sizing resets are already covered by the
+ * host's app-shell.css and by v4 utilities setting border-style
+ * themselves). :where() keeps specificity at (0,0,0) and the rules live in
+ * @layer base — exactly where Preflight sits — so Tailwind utilities
+ * (bg-accent, rounded-md, …) in the later `utilities` layer still win. */
+@layer base {
+  /* Preflight's universal margin/padding zero, scoped. Upstream's editor
+   * CSS re-adds every margin it wants (`.ProseMirror p { margin-bottom }`,
+   * list paddings, heading margins) ON TOP of a zeroed baseline; without
+   * this, UA defaults leak through — `p { margin-top: 1em }` pushes task
+   * item text below its checkbox, lists get UA margins, and overall
+   * spacing drifts from upstream. Host rules are unlayered and thus still
+   * override this base-layer reset wherever they style their own blocks. */
+  :where(.tiptap-editor, [data-tippy-root], [data-suggestion-popup], [data-ok-layer-spawned], [data-ok-vendor]) :where(*),
+  :where(.tiptap-editor, [data-tippy-root], [data-suggestion-popup], [data-ok-layer-spawned], [data-ok-vendor]) ::before,
+  :where(.tiptap-editor, [data-tippy-root], [data-suggestion-popup], [data-ok-layer-spawned], [data-ok-vendor]) ::after {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Preflight heading normalization: upstream styles h1–h3 itself and
+   * expects h4–h6 to render as plain inherited text. */
+  :where(.tiptap-editor, [data-tippy-root], [data-suggestion-popup], [data-ok-layer-spawned], [data-ok-vendor])
+    :where(h1, h2, h3, h4, h5, h6) {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  :where(.tiptap-editor, [data-tippy-root], [data-suggestion-popup], [data-ok-layer-spawned], [data-ok-vendor])
+    :where(button, input, select, optgroup, textarea),
+  :where([data-ok-vendor]):where(button, input, select, optgroup, textarea) {
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    border-radius: 0;
+    background-color: transparent;
+    opacity: 1;
+  }
+
+  :where(.tiptap-editor, [data-tippy-root], [data-suggestion-popup], [data-ok-layer-spawned], [data-ok-vendor])
+    :where(button, input:is([type="button"], [type="reset"], [type="submit"])) {
+    appearance: button;
+  }
+}

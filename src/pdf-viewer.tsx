@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -34,27 +34,50 @@ import { Tip } from "./components/icon-tip";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { ScrollArea } from "./components/ui/scroll-area";
 import { SearchField } from "./components/ui/search-field";
-import { pdfBase64Fingerprint, pdfBase64ToBytes } from "./pdf-bytes";
+import { pdfBase64Fingerprint, pdfBase64ToBytes, utf8ToBase64 } from "./pdf-bytes";
 import { MotionButton } from "./motion";
 import {
   annotationBounds,
+  closestPdfPageIndex,
   findPdfMatches,
   fitPdfScale,
   normalizePdfSelection,
   parsePdfZoomPercent,
+  PdfRenderQueue,
   pdfRenderPixelRatio,
   PDF_CMAP_URL,
   PDF_MAX_SCALE,
   PDF_MIN_SCALE,
   PDF_STANDARD_FONT_DATA_URL,
+  updatePdfRenderCache,
   type PdfPageSize,
-  type PdfSearchMatch,
 } from "./pdf-viewer-utils";
 import "./pdf-viewer.css";
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const PDF_LOAD_TIMEOUT_MS = 45_000;
+const PDF_VIEW_PREFERENCE_KEY = "lattice.pdf-view-preference.v1";
+
+type PdfViewPreference = {
+  fitMode: "width" | "height" | null;
+  scale: number;
+};
+
+function loadPdfViewPreference(): PdfViewPreference {
+  try {
+    const stored = JSON.parse(localStorage.getItem(PDF_VIEW_PREFERENCE_KEY) ?? "null") as unknown;
+    if (!stored || typeof stored !== "object") return { fitMode: "width", scale: 1.1 };
+    const candidate = stored as Partial<PdfViewPreference>;
+    const fitMode = candidate.fitMode === "height" || candidate.fitMode === null ? candidate.fitMode : "width";
+    const scale = typeof candidate.scale === "number" && Number.isFinite(candidate.scale)
+      ? clamp(candidate.scale, PDF_MIN_SCALE, PDF_MAX_SCALE)
+      : 1.1;
+    return { fitMode, scale };
+  } catch {
+    return { fitMode: "width", scale: 1.1 };
+  }
+}
 
 export type PdfSyncTarget = {
   id: string;
@@ -185,13 +208,19 @@ function PdfLinkLayer({
   );
 }
 
-function ContinuousPdfPage({
+const ContinuousPdfPage = memo(function ContinuousPdfPage({
   documentProxy,
   pageNumber,
   scale,
+  active,
+  nearby,
+  fallbackPageSize,
+  pageAcquireQueue,
+  renderQueue,
   searchQuery,
-  selectedSearchMatch,
+  selectedSearchOccurrence,
   syncTarget,
+  onProximityChange,
   onTextLayerText,
   onSource,
   onDestination,
@@ -199,9 +228,15 @@ function ContinuousPdfPage({
   documentProxy: PDFDocumentProxy;
   pageNumber: number;
   scale: number;
+  active: boolean;
+  nearby: boolean;
+  fallbackPageSize: PdfPageSize | null;
+  pageAcquireQueue: PdfRenderQueue;
+  renderQueue: PdfRenderQueue;
   searchQuery: string;
-  selectedSearchMatch: PdfSearchMatch | null;
+  selectedSearchOccurrence: number | null;
   syncTarget: PdfSyncTarget | null;
+  onProximityChange: (page: number, nearby: boolean) => void;
   onTextLayerText: (page: number, text: string) => void;
   onSource?: (page: number, x: number, y: number) => void;
   onDestination: (destination: string | unknown[]) => void;
@@ -211,19 +246,28 @@ function ContinuousPdfPage({
   const textLayerRef = useRef<HTMLDivElement | null>(null);
   const [page, setPage] = useState<PDFPageProxy | null>(null);
   const [annotations, setAnnotations] = useState<PdfAnnotation[]>([]);
-  const [shouldRender, setShouldRender] = useState(pageNumber === 1);
-  const [rendering, setRendering] = useState(true);
+  const [rendering, setRendering] = useState(active);
   const [textLayerVersion, setTextLayerVersion] = useState(0);
   const [pageError, setPageError] = useState("");
+  const nearbyRef = useRef(nearby);
+  const acquirePriorityRef = useRef(active || nearby);
+  const prioritizeAcquireRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    let active = true;
-    void documentProxy.getPage(pageNumber)
-      .then((nextPage) => {
-        if (active) setPage(nextPage);
-      })
-      .catch((reason) => {
-        if (!active) return;
+    nearbyRef.current = nearby;
+    acquirePriorityRef.current = active || nearby;
+    if (active || nearby) prioritizeAcquireRef.current?.();
+  }, [active, nearby]);
+
+  useEffect(() => {
+    if (page) return;
+    let alive = true;
+    const cancelQueuedAcquire = pageAcquireQueue.enqueue(async () => {
+      try {
+        const nextPage = await documentProxy.getPage(pageNumber);
+        if (alive) setPage(nextPage);
+      } catch (reason) {
+        if (!alive) return;
         // Destroyed workers surface as messageHandler null — treat as cancelled.
         const detail = message(reason);
         if (/messageHandler|worker is being destroyed|RenderingCancelled/i.test(detail)) {
@@ -232,115 +276,132 @@ function ContinuousPdfPage({
         }
         setPageError(detail);
         setRendering(false);
-      });
+      }
+    }, acquirePriorityRef.current);
+    prioritizeAcquireRef.current = cancelQueuedAcquire.prioritize;
     return () => {
-      active = false;
+      alive = false;
+      prioritizeAcquireRef.current = null;
+      cancelQueuedAcquire();
     };
-  }, [documentProxy, pageNumber]);
+  }, [documentProxy, page, pageAcquireQueue, pageNumber]);
 
   useEffect(() => {
     const shell = shellRef.current;
     if (!shell) return;
     if (typeof IntersectionObserver === "undefined") {
-      const frame = window.requestAnimationFrame(() => setShouldRender(true));
+      const frame = window.requestAnimationFrame(() => onProximityChange(pageNumber, true));
       return () => window.cancelAnimationFrame(frame);
     }
     const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) setShouldRender(true);
+      onProximityChange(pageNumber, entries.some((entry) => entry.isIntersecting));
     }, {
       root: shell.closest(".pdf-scroll-area-viewport"),
       rootMargin: "900px 0px",
     });
     observer.observe(shell);
     return () => observer.disconnect();
-  }, []);
+  }, [onProximityChange, pageNumber]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const textContainer = textLayerRef.current;
-    if (!page || !canvas || !textContainer || !shouldRender) return;
-    let active = true;
+    if (!page || !canvas || !textContainer) return;
+    if (!active) {
+      canvas.width = 0;
+      canvas.height = 0;
+      textContainer.replaceChildren();
+      page.cleanup();
+      return;
+    }
+    let alive = true;
     let renderTask: { promise: Promise<unknown>; cancel: () => void } | null = null;
     let textLayer: TextLayer | null = null;
-    try {
-      // Preview.app looks sharp; pdf.js canvas Type1 Times needs supersampling,
-      // especially on VM displays that report devicePixelRatio=1.
-      const pixelRatio = pdfRenderPixelRatio(window.devicePixelRatio || 1);
-      const viewport = page.getViewport({ scale: scale * pixelRatio });
-      const cssViewport = page.getViewport({ scale });
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-      canvas.style.width = `${Math.floor(cssViewport.width)}px`;
-      canvas.style.height = `${Math.floor(cssViewport.height)}px`;
-      textContainer.replaceChildren();
+    const cancelQueuedRender = renderQueue.enqueue(async () => {
+      if (!alive) return;
       setRendering(true);
       setPageError("");
-      const context = canvas.getContext("2d", { alpha: false, desynchronized: true });
-      if (context) {
-        context.setTransform(1, 0, 0, 1, 0, 0);
-        // High-DPI bitmap is downscaled in CSS; light smoothing keeps Type1 paths clean.
-        context.imageSmoothingEnabled = true;
-        context.imageSmoothingQuality = "high";
-        context.fillStyle = "#F9F9FA";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-      }
-      renderTask = page.render({
-        canvas,
-        viewport,
-        intent: "display",
-        ...(context ? { canvasContext: context } : {}),
-      });
-      textLayer = new TextLayer({
-        textContentSource: page.streamTextContent(),
-        container: textContainer,
-        viewport: cssViewport,
-      });
-      void page.getAnnotations({ intent: "display" }).then((items) => {
-        if (!active) return;
-        setAnnotations((items as PdfAnnotation[]).map((annotation) => ({
-          ...annotation,
-          rect: annotation.rect
-            ? [
-                ...cssViewport.convertToViewportPoint(annotation.rect[0], annotation.rect[1]),
-                ...cssViewport.convertToViewportPoint(annotation.rect[2], annotation.rect[3]),
-              ]
-            : undefined,
-        })));
-      }).catch(() => {
-        if (active) setAnnotations([]);
-      });
-      void Promise.all([
-        renderTask.promise,
-        textLayer.render().then(() => {
-          if (active) {
+      try {
+        // Preview.app looks sharp; pdf.js canvas Type1 Times needs supersampling,
+        // especially on VM displays that report devicePixelRatio=1.
+        const cssViewport = page.getViewport({ scale });
+        const pixelRatio = pdfRenderPixelRatio(window.devicePixelRatio || 1, cssViewport);
+        const viewport = page.getViewport({ scale: scale * pixelRatio });
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        canvas.style.width = `${Math.floor(cssViewport.width)}px`;
+        canvas.style.height = `${Math.floor(cssViewport.height)}px`;
+        textContainer.replaceChildren();
+        // PDF pages are static frames. Let WKWebView synchronize the canvas
+        // with its compositor so a scroll cannot expose a partially committed bitmap.
+        const context = canvas.getContext("2d", { alpha: false });
+        if (context) {
+          context.setTransform(1, 0, 0, 1, 0, 0);
+          // High-DPI bitmap is downscaled in CSS; light smoothing keeps Type1 paths clean.
+          context.imageSmoothingEnabled = true;
+          context.imageSmoothingQuality = "high";
+          context.fillStyle = "#F9F9FA";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        renderTask = page.render({
+          canvas,
+          viewport,
+          intent: "display",
+          ...(context ? { canvasContext: context } : {}),
+        });
+        void page.getAnnotations({ intent: "display" }).then((items) => {
+          if (!alive) return;
+          setAnnotations((items as PdfAnnotation[]).map((annotation) => ({
+            ...annotation,
+            rect: annotation.rect
+              ? [
+                  ...cssViewport.convertToViewportPoint(annotation.rect[0], annotation.rect[1]),
+                  ...cssViewport.convertToViewportPoint(annotation.rect[2], annotation.rect[3]),
+                ]
+              : undefined,
+          })));
+        }).catch(() => {
+          if (alive) setAnnotations([]);
+        });
+        await renderTask.promise;
+        if (!alive) return;
+        setRendering(false);
+
+        // A selectable text layer is useful, but it must not hold a scarce
+        // canvas-render slot or keep a completed page hidden behind its loader.
+        textLayer = new TextLayer({
+          textContentSource: page.streamTextContent(),
+          container: textContainer,
+          viewport: cssViewport,
+        });
+        void textLayer.render()
+          .then(() => {
+            if (!alive) return;
             onTextLayerText(pageNumber, textContainer.textContent ?? "");
             setTextLayerVersion((version) => version + 1);
-          }
-        }),
-      ])
-        .catch((reason) => {
-          if (!active) return;
-          const detail = message(reason);
-          if (
-            reason?.name === "RenderingCancelledException"
-            || /messageHandler|worker is being destroyed/i.test(detail)
-          ) {
-            return;
-          }
+          })
+          .catch(() => {
+            // A cancelled or malformed text layer must not hide a valid canvas.
+          });
+      } catch (reason) {
+        if (!alive) return;
+        const detail = message(reason);
+        const errorName = reason && typeof reason === "object" && "name" in reason
+          ? String(reason.name)
+          : "";
+        if (
+          errorName !== "RenderingCancelledException"
+          && !/messageHandler|worker is being destroyed/i.test(detail)
+        ) {
           setPageError(detail);
-        })
-        .finally(() => {
-          if (active) setRendering(false);
-        });
-    } catch (reason) {
-      const detail = message(reason);
-      if (!/messageHandler|worker is being destroyed/i.test(detail)) {
-        setPageError(detail);
+        }
+      } finally {
+        if (alive) setRendering(false);
       }
-      setRendering(false);
-    }
+    }, nearbyRef.current);
     return () => {
-      active = false;
+      alive = false;
+      cancelQueuedRender();
       try {
         renderTask?.cancel();
         textLayer?.cancel();
@@ -348,7 +409,7 @@ function ContinuousPdfPage({
         // Worker may already be gone during PDF rebuilds.
       }
     };
-  }, [onTextLayerText, page, pageNumber, scale, shouldRender]);
+  }, [active, onTextLayerText, page, pageNumber, renderQueue, scale]);
 
   useEffect(() => {
     const container = textLayerRef.current;
@@ -356,14 +417,14 @@ function ContinuousPdfPage({
       highlightTextLayer(
         container,
         searchQuery,
-        selectedSearchMatch?.page === pageNumber ? selectedSearchMatch.occurrence : null,
+        selectedSearchOccurrence,
       );
     }
-  }, [pageNumber, searchQuery, selectedSearchMatch, textLayerVersion]);
+  }, [searchQuery, selectedSearchOccurrence, textLayerVersion]);
 
   const viewport = page?.getViewport({ scale });
-  const width = Math.floor(viewport?.width ?? 612 * scale);
-  const height = Math.floor(viewport?.height ?? 792 * scale);
+  const width = Math.floor(viewport?.width ?? (fallbackPageSize?.width ?? 612) * scale);
+  const height = Math.floor(viewport?.height ?? (fallbackPageSize?.height ?? 792) * scale);
   const revealSourceAt = (clientX: number, clientY: number) => {
     if (!onSource || !shellRef.current) return;
     const bounds = shellRef.current.getBoundingClientRect();
@@ -390,7 +451,7 @@ function ContinuousPdfPage({
   return (
     <div
       ref={shellRef}
-      className="pdf-page-shell"
+      className="pdf-page-shell smooth-shadow-sm"
       data-pdf-page={pageNumber}
       style={{ width, height, "--total-scale-factor": scale } as React.CSSProperties}
       aria-busy={rendering}
@@ -406,7 +467,7 @@ function ContinuousPdfPage({
         className="textLayer pdf-text-layer"
         onDoubleClick={revealSourceFromText}
       />
-      <PdfLinkLayer annotations={annotations} onDestination={onDestination} />
+      <PdfLinkLayer annotations={active ? annotations : []} onDestination={onDestination} />
       {pageSyncTarget && (
         <div
           key={pageSyncTarget.id}
@@ -420,15 +481,16 @@ function ContinuousPdfPage({
           aria-label="Source location in PDF"
         />
       )}
-      {rendering && <div className="pdf-page-skeleton" aria-hidden="true" />}
+      {active && rendering && <div className="pdf-page-skeleton" aria-hidden="true" />}
       {pageError && <div className="pdf-page-error">Could not render page {pageNumber}. {pageError}</div>}
     </div>
   );
-}
+});
 
 export function PdfPreview({
   url,
   pdfBase64,
+  pdfBytes = null,
   fileName = "paper.pdf",
   syncTarget = null,
   onSource,
@@ -442,6 +504,7 @@ export function PdfPreview({
 }: {
   url: string | null;
   pdfBase64: string | null;
+  pdfBytes?: ArrayBuffer | null;
   fileName?: string;
   syncTarget?: PdfSyncTarget | null;
   onSource?: (page: number, x: number, y: number) => void;
@@ -454,6 +517,7 @@ export function PdfPreview({
   outline?: ReactNode;
 }) {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const pagesRef = useRef<HTMLDivElement | null>(null);
   const onTextSelectRef = useRef(onTextSelect);
   onTextSelectRef.current = onTextSelect;
   const onNumPagesRef = useRef(onNumPages);
@@ -461,21 +525,43 @@ export function PdfPreview({
   const onPageChangeRef = useRef(onPageChange);
   onPageChangeRef.current = onPageChange;
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
+  const [documentGeneration, setDocumentGeneration] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
+  const pageNumberRef = useRef(1);
   useEffect(() => {
+    pageNumberRef.current = pageNumber;
     onPageChangeRef.current?.(pageNumber);
   }, [pageNumber]);
   const [pageEditing, setPageEditing] = useState(false);
   const [pageDraft, setPageDraft] = useState("");
   const cancelPageEditRef = useRef(false);
-  const [scale, setScale] = useState(1.1);
-  const [fitMode, setFitMode] = useState<"width" | "height" | null>(null);
+  const [initialViewPreference] = useState(loadPdfViewPreference);
+  const [scale, setScale] = useState(initialViewPreference.scale);
+  const [fitMode, setFitMode] = useState<"width" | "height" | null>(initialViewPreference.fitMode);
   const [pageSize, setPageSize] = useState<PdfPageSize | null>(null);
+  const [renderQueue] = useState(() => new PdfRenderQueue());
+  const pageAcquireQueue = useMemo(() => new PdfRenderQueue(), [documentGeneration]);
+  const [pageRenderState, setPageRenderState] = useState({
+    cached: [1],
+    nearby: new Set<number>(),
+  });
+  const onPageProximityChange = useCallback((page: number, nearby: boolean) => {
+    setPageRenderState((current) => {
+      const nextNearby = new Set(current.nearby);
+      if (nearby) nextNearby.add(page);
+      else nextNearby.delete(page);
+      return {
+        cached: updatePdfRenderCache(current.cached, nextNearby, page, nearby),
+        nearby: nextNearby,
+      };
+    });
+  }, []);
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState("");
   const [savingPdf, setSavingPdf] = useState(false);
   const [saveNotice, setSaveNotice] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchIndexRequested, setSearchIndexRequested] = useState(false);
   const [pageTexts, setPageTexts] = useState<string[]>([]);
   const pageTextsRef = useRef<string[]>([]);
   pageTextsRef.current = pageTexts;
@@ -485,6 +571,13 @@ export function PdfPreview({
   const [zoomDraft, setZoomDraft] = useState("");
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
+  useEffect(() => {
+    try {
+      localStorage.setItem(PDF_VIEW_PREFERENCE_KEY, JSON.stringify({ fitMode, scale }));
+    } catch {
+      // The current viewer still works when preference storage is unavailable.
+    }
+  }, [fitMode, scale]);
   const updateManualScale = useCallback((update: (current: number) => number) => {
     setFitMode(null);
     setScale(update);
@@ -704,14 +797,17 @@ export function PdfPreview({
           return;
         }
         const previous = documentProxyRef.current;
+        const retainedPage = Math.min(pageNumberRef.current, pdf.numPages);
         documentProxyRef.current = pdf;
+        setPageRenderState({ cached: [retainedPage], nearby: new Set() });
+        setDocumentGeneration((generation) => generation + 1);
         setDocumentProxy(pdf);
         if (previous && previous !== pdf) {
           void previous.cleanup();
         }
         setPageTexts([]);
         setSearchError("");
-        setPageNumber((page) => Math.min(page, pdf.numPages));
+        setPageNumber(retainedPage);
         setPdfError("");
         onNumPagesRef.current?.(pdf.numPages);
         try {
@@ -781,7 +877,7 @@ export function PdfPreview({
 
   const fittedPageSizeRef = useRef<PdfPageSize | null>(null);
   useEffect(() => {
-    if (!pageSize || !loadedUrl) return;
+    if (!pageSize || !loadedUrl || !fitMode) return;
     const previous = fittedPageSizeRef.current;
     if (
       previous
@@ -803,19 +899,20 @@ export function PdfPreview({
         return;
       }
       fittedPageSizeRef.current = pageSize;
-      applyFit("width");
+      applyFit(fitMode);
     };
     const frame = requestAnimationFrame(tryFit);
     return () => {
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [applyFit, loadedUrl, pageSize]);
+  }, [applyFit, fitMode, loadedUrl, pageSize]);
 
   useEffect(() => {
-    if (!documentProxy) return;
+    if (!documentProxy || !searchIndexRequested) return;
     let active = true;
-    // Defer full-text indexing so the first page can paint without worker contention.
+    // Index only after search is used. Eager extraction competes with visible
+    // canvas work on the same PDF.js worker during ordinary scrolling.
     const timer = window.setTimeout(() => {
       // Read pages sequentially. Asking one worker to extract every page at
       // once can reject the whole index while its text layers still render.
@@ -865,7 +962,7 @@ export function PdfPreview({
       active = false;
       window.clearTimeout(timer);
     };
-  }, [documentProxy]);
+  }, [documentProxy, searchIndexRequested]);
 
   const storeRenderedPageText = useCallback((page: number, text: string) => {
     if (!documentProxy || !text.trim()) return;
@@ -922,26 +1019,32 @@ export function PdfPreview({
   const showBlockingLoader = loading && !documentProxy;
   const searchIndexing = Boolean(documentProxy && pageTexts.length !== documentProxy.numPages);
 
-  const updateCurrentPage = useCallback(() => {
+  const currentPageFrameRef = useRef<number | null>(null);
+  const findCurrentPage = useCallback(() => {
+    currentPageFrameRef.current = null;
     const scrollArea = scrollAreaRef.current;
     if (!scrollArea) return;
     const scrollBounds = scrollArea.getBoundingClientRect();
     const marker = scrollBounds.top + Math.min(scrollBounds.height * 0.35, 240);
-    let closestPage = 1;
-    let closestDistance = Number.POSITIVE_INFINITY;
-    for (const shell of scrollArea.querySelectorAll<HTMLElement>("[data-pdf-page]")) {
-      const bounds = shell.getBoundingClientRect();
-      const distance = marker < bounds.top
-        ? bounds.top - marker
-        : marker > bounds.bottom
-          ? marker - bounds.bottom
-          : 0;
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestPage = Number(shell.dataset.pdfPage ?? 1);
-      }
+    const shells = pagesRef.current?.children;
+    if (!shells) return;
+    const index = closestPdfPageIndex(shells.length, (candidate) => (
+      (shells[candidate] as HTMLElement).getBoundingClientRect()
+    ), marker);
+    if (index >= 0) {
+      const nextPage = Number((shells[index] as HTMLElement).dataset.pdfPage ?? 1);
+      setPageNumber((current) => current === nextPage ? current : nextPage);
     }
-    setPageNumber(closestPage);
+  }, []);
+  const updateCurrentPage = useCallback(() => {
+    if (currentPageFrameRef.current !== null) return;
+    currentPageFrameRef.current = window.requestAnimationFrame(findCurrentPage);
+  }, [findCurrentPage]);
+  useEffect(() => () => {
+    if (currentPageFrameRef.current !== null) {
+      window.cancelAnimationFrame(currentPageFrameRef.current);
+      currentPageFrameRef.current = null;
+    }
   }, []);
 
   const scrollToPage = useCallback((nextPage: number, behavior: ScrollBehavior = "smooth") => {
@@ -973,8 +1076,7 @@ export function PdfPreview({
   };
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(updateCurrentPage);
-    return () => window.cancelAnimationFrame(frame);
+    updateCurrentPage();
   }, [documentProxy, scale, updateCurrentPage]);
 
   useEffect(() => {
@@ -984,6 +1086,29 @@ export function PdfPreview({
   useEffect(() => {
     if (syncTarget) scrollToPage(syncTarget.page);
   }, [scrollToPage, syncTarget]);
+
+  const navigateDestination = useCallback(async (destination: string | unknown[]) => {
+    if (!documentProxy) return;
+    try {
+      const explicit = typeof destination === "string"
+        ? await documentProxy.getDestination(destination)
+        : destination;
+      const reference = explicit?.[0];
+      if (!reference) return;
+      const pageIndex = typeof reference === "number"
+        ? reference
+        : await documentProxy.getPageIndex(reference);
+      scrollToPage(pageIndex + 1);
+    } catch (reason) {
+      setSaveNotice(`Could not open PDF link. ${message(reason)}`);
+    }
+  }, [documentProxy, scrollToPage]);
+  const pages = useMemo(
+    () => documentProxy
+      ? Array.from({ length: documentProxy.numPages }, (_, index) => index + 1)
+      : [],
+    [documentProxy],
+  );
 
   if (!url) {
     return (
@@ -1008,7 +1133,7 @@ export function PdfPreview({
   }
 
   const download = async () => {
-    if (!pdfBase64 || savingPdf) return;
+    if (!pdfBytes || savingPdf) return;
     setSavingPdf(true);
     setSaveNotice("");
     try {
@@ -1018,7 +1143,9 @@ export function PdfPreview({
         filters: [{ name: "PDF document", extensions: ["pdf"] }],
       });
       if (!destination) return;
-      const savedPath = await invoke<string>("save_compiled_pdf", { path: destination, pdfBase64 });
+      const savedPath = await invoke<string>("save_compiled_pdf", pdfBytes, {
+        headers: { "x-pdf-destination": utf8ToBase64(destination) },
+      });
       setSaveNotice(`Saved to ${savedPath}`);
     } catch (reason) {
       setSaveNotice(`Could not save PDF. ${message(reason)}`);
@@ -1030,25 +1157,6 @@ export function PdfPreview({
     if (!matches.length) return;
     setSearchMatchIndex((index) => (index + delta + matches.length) % matches.length);
   };
-  const navigateDestination = async (destination: string | unknown[]) => {
-    if (!documentProxy) return;
-    try {
-      const explicit = typeof destination === "string"
-        ? await documentProxy.getDestination(destination)
-        : destination;
-      const reference = explicit?.[0];
-      if (!reference) return;
-      const pageIndex = typeof reference === "number"
-        ? reference
-        : await documentProxy.getPageIndex(reference);
-      scrollToPage(pageIndex + 1);
-    } catch (reason) {
-      setSaveNotice(`Could not open PDF link. ${message(reason)}`);
-    }
-  };
-  const pages = documentProxy
-    ? Array.from({ length: documentProxy.numPages }, (_, index) => index + 1)
-    : [];
 
   return (
     <div className="pdf-preview">
@@ -1100,7 +1208,9 @@ export function PdfPreview({
             value={searchQuery}
             placeholder="Find in PDF"
             onChange={(event) => {
-              setSearchQuery(event.target.value);
+              const query = event.target.value;
+              setSearchQuery(query);
+              if (query.trim()) setSearchIndexRequested(true);
               setSearchMatchIndex(0);
             }}
             trailing={searchQuery ? (
@@ -1180,11 +1290,11 @@ export function PdfPreview({
             <button className={fitMode === "height" ? "active" : ""} aria-pressed={fitMode === "height"} disabled={!pageSize} onClick={() => toggleFit("height")}><RectangleVertical size={14} /></button>
           </Tip>
           <Tip label="Save PDF as…">
-            <MotionButton disabled={!pdfBase64 || savingPdf} onClick={() => void download()}>{savingPdf ? <InfinityLoader size={14} /> : <Download size={14} />}</MotionButton>
+            <MotionButton disabled={!pdfBytes || savingPdf} onClick={() => void download()}>{savingPdf ? <InfinityLoader size={14} /> : <Download size={14} />}</MotionButton>
           </Tip>
         </div>
       </div>
-      {saveNotice && <div className={`pdf-save-notice ${saveNotice.startsWith("Could not") ? "error" : ""}`}>{saveNotice}<button title="Dismiss PDF save notice" onClick={() => setSaveNotice("")}><X size={12} /></button></div>}
+      {saveNotice && <div className={`pdf-save-notice smooth-shadow-ring-md ${saveNotice.startsWith("Could not") ? "error" : ""}`}>{saveNotice}<button title="Dismiss PDF save notice" onClick={() => setSaveNotice("")}><X size={12} /></button></div>}
       <ScrollArea
         className="pdf-scroll-area"
         orientation="both"
@@ -1197,26 +1307,33 @@ export function PdfPreview({
         {pdfError
           ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div>
           : <div
+            ref={pagesRef}
             className="pdf-pages"
             style={zoomFactor === 1
               ? undefined
               : { transform: `scale(${zoomFactor})`, transformOrigin: "0 0" }}
           >{documentProxy && pages.map((page) => (
             <ContinuousPdfPage
-              key={page}
+              key={`${documentGeneration}:${page}`}
               documentProxy={documentProxy}
               pageNumber={page}
               scale={scale}
+              active={pageRenderState.cached.includes(page)}
+              nearby={pageRenderState.nearby.has(page)}
+              fallbackPageSize={pageSize}
+              pageAcquireQueue={pageAcquireQueue}
+              renderQueue={renderQueue}
               searchQuery={searchQuery}
-              selectedSearchMatch={selectedMatch}
-              syncTarget={syncTarget}
+              selectedSearchOccurrence={selectedMatch?.page === page ? selectedMatch.occurrence : null}
+              syncTarget={syncTarget?.page === page ? syncTarget : null}
+              onProximityChange={onPageProximityChange}
               onTextLayerText={storeRenderedPageText}
               onSource={onSource}
-              onDestination={(destination) => void navigateDestination(destination)}
+              onDestination={navigateDestination}
             />
           ))}</div>}
-        {showBlockingLoader && <div className="pdf-loading"><InfinityLoader size={17} /> Rendering PDF…</div>}
-        {loading && documentProxy ? <div className="pdf-loading pdf-loading-quiet"><InfinityLoader size={14} /> Updating…</div> : null}
+        {showBlockingLoader && <div className="pdf-loading smooth-shadow-ring-md"><InfinityLoader size={17} /> Rendering PDF…</div>}
+        {loading && documentProxy ? <div className="pdf-loading pdf-loading-quiet smooth-shadow-ring-md"><InfinityLoader size={14} /> Updating…</div> : null}
       </ScrollArea>
     </div>
   );

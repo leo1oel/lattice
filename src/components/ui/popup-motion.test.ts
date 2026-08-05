@@ -24,6 +24,10 @@ function stylesheets(): { name: string; source: string }[] {
   const here = "components/ui/"
   return Object.keys(import.meta.glob("../../**/*.css"))
     .map((path) => (path.startsWith("./") ? `${here}${path.slice(2)}` : path.slice("../../".length)))
+    // Vendored Open Knowledge editor CSS is pinned byte-faithful upstream
+    // styling (plus its theme seam) and is exempt from host-owned CSS
+    // invariants; theme normalization is deferred by explicit user decision.
+    .filter((name) => !name.startsWith("open-knowledge-app/"))
     .sort((a, b) => a.localeCompare(b))
     .map((name) => ({ name, source: String(readFileSync(`src/${name}`, "utf8")) }))
 }

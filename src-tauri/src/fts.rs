@@ -284,7 +284,7 @@ fn searchable_text_path(path: &str) -> bool {
             .and_then(|extension| extension.to_str())
             .map(str::to_lowercase)
             .as_deref(),
-        Some("tex" | "bib" | "sty" | "cls" | "md" | "txt")
+        Some("tex" | "bib" | "sty" | "cls" | "md" | "txt" | "html")
     )
 }
 
@@ -319,6 +319,16 @@ mod tests {
         assert!(path_hits
             .iter()
             .any(|hit| hit.path == "sections/method.tex"));
+
+        fs::write(
+            root.join("supplement.html"),
+            "<p>A distinctive supplementary result.</p>\n",
+        )
+        .unwrap();
+        assert!(search(&root, "supplementary result")
+            .unwrap()
+            .iter()
+            .any(|hit| hit.path == "supplement.html"));
 
         let _ = fs::remove_dir_all(parent);
     }

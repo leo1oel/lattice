@@ -17,7 +17,9 @@
     /* Path alias for shadcn/ui components (@/… -> src/…). */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@ok-app/*": ["./src/open-knowledge-app/*"],
+      "@ok-core": ["./src/open-knowledge-core/index.ts"]
     },
 
     /* Linting */
@@ -27,5 +29,13 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
+  // Vendored Open Knowledge core tests are written against upstream's looser
+  // tsconfig and @tiptap 3.22 types; they run under vitest but are excluded
+  // from app typechecking to avoid hand-editing vendored code.
+  "exclude": [
+    "src/open-knowledge-core/**/*.test.ts",
+    "src/open-knowledge-core/**/*.test-helper.ts",
+    "src/open-knowledge-core/markdown/fixtures/**"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

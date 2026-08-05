@@ -3,12 +3,27 @@ import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 import {
   buildPresenceCursorDecorations,
+  hueFromColorHex,
   measureCursorLabelPlacements,
   overleafCursorsExtension,
   posForRowColumn,
   setOverleafCursorsEffect,
   type PresenceCursor,
 } from "./overleaf-cursors";
+
+describe("hueFromColorHex", () => {
+  it("maps primary colors to their HSL hue", () => {
+    expect(hueFromColorHex("#ff0000")).toBe(0);
+    expect(hueFromColorHex("#00ff00")).toBe(120);
+    expect(hueFromColorHex("#0000ff")).toBe(240);
+    expect(hueFromColorHex("1971c2")).toBeCloseTo(209, 0);
+  });
+
+  it("falls back for greys and malformed input", () => {
+    expect(hueFromColorHex("#888888")).toBe(0);
+    expect(hueFromColorHex("not-a-color")).toBe(210);
+  });
+});
 
 function cursor(overrides: Partial<PresenceCursor> = {}): PresenceCursor {
   return { name: "Ada Lovelace", hue: 200, row: 0, column: 0, ...overrides };

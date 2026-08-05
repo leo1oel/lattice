@@ -1,0 +1,14 @@
+[
+  {
+    "name": "dual-html-preview (PRD-6955 shape: 2nd embed declares const DATA)",
+    "source": "# Chart page\n\n```html h=400px preview\n<div id=\"a\"></div>\n<script>\nconst first = 1;\ndocument.getElementById('a').textContent = String(first);\n</script>\n```\n\nSome prose between the two embeds.\n\n```html h=640px preview\n<div id=\"b\"></div>\n<script>\nconst DATA={\"points\":[[1,2],[3,4],[5,6]],\"label\":\"series-1\"};\ndocument.getElementById('b').textContent = JSON.stringify(DATA);\n</script>\n```\n",
+    "scriptsMustParse": true,
+    "notes": "The PRD-6955 trigger shape (reduced): two `html preview` embeds, the second declaring `const DATA={...}` (the brace-injection target, const DATA= -> {onst). O6 extracts every <script> and asserts JS-parse validity + that the const head was never single-character-substituted."
+  },
+  {
+    "name": "single-html-preview with const declaration",
+    "source": "```html h=300px preview\n<div id=\"chart\"></div>\n<script>\nconst values = [10, 20, 30];\nconst total = values.reduce((a, b) => a + b, 0);\ndocument.getElementById('chart').textContent = String(total);\n</script>\n```\n",
+    "scriptsMustParse": true,
+    "notes": "A single html preview embed with const declarations in its script — single-client round-trip + JS-parse baseline."
+  }
+]

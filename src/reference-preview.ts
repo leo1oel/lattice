@@ -1,6 +1,3 @@
-// Legacy build + shared font assets, for the same reason as the main viewer:
-// see the note in pdf-viewer.tsx.
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { PDF_CMAP_URL, PDF_STANDARD_FONT_DATA_URL } from "./pdf-viewer-utils";
 
 export type ReferenceAssetPreview = {
@@ -15,6 +12,9 @@ export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview)
   }
   if (asset.mimeType !== "application/pdf") return null;
 
+  // Keep PDF.js out of startup for the common image-preview path. The legacy
+  // build matches the main viewer and is loaded only for an actual PDF asset.
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const binary = atob(asset.base64);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const loadingTask = getDocument({

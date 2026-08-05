@@ -144,15 +144,11 @@ export function SettingsDialog(props: {
   setBuildPreferences: (preferences: BuildPreferences) => void;
   hasProject: boolean;
   project: ProjectSnapshot | null;
-  activeFile: string | null;
   onUpdateManifest: (patch: {
     engine?: string | null;
-    defaultRoot?: string | null;
     trusted?: boolean | null;
     spellingWords?: string[] | null;
   }) => void;
-  onAddRootDocument: (path: string, makeDefault: boolean) => void;
-  onRemoveRootDocument: (path: string) => void;
   doctorReport: DoctorReport | null;
   doctorBusy: boolean;
   doctorNotice: string;
@@ -672,7 +668,7 @@ export function SettingsDialog(props: {
                   <>
                     <SettingsRow
                       label="Compile engine"
-                      description="Applies to this project. XeLaTeX and LuaLaTeX support system fonts."
+                      description="XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence."
                     >
                       <Select
                         value={props.project.manifest.engine ?? "pdf"}
@@ -686,59 +682,9 @@ export function SettingsDialog(props: {
                         </SelectContent>
                       </Select>
                     </SettingsRow>
-                    <SettingsRow
-                      label="Root document"
-                      description="The file Lattice compiles when you build this project."
-                    >
-                      <Select
-                        value={
-                          props.project.manifest.rootDocuments.find((document) => document.isDefault)?.path
-                          ?? props.project.manifest.rootDocuments[0]?.path
-                          ?? ""
-                        }
-                        onValueChange={(value) => props.onUpdateManifest({ defaultRoot: value })}
-                      >
-                        <SelectTrigger size="form" aria-label="Root document"><SelectValue /></SelectTrigger>
-                        <SelectContent data-settings-control="true" position="popper" align="end">
-                          {props.project.manifest.rootDocuments.map((document) => (
-                            <SelectItem key={document.path} value={document.path}>{document.name} ({document.path})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </SettingsRow>
-                    <SettingsRow
-                      label="Compile roots"
-                      description="Choose additional .tex entry points to compile alongside the main document."
-                    >
-                      <Button
-                        size="compact"
-                        disabled={!props.activeFile?.endsWith(".tex")}
-                        title={props.activeFile?.endsWith(".tex") ? `Add ${props.activeFile} as a compile root` : "Open a .tex file first"}
-                        onClick={() => {
-                          if (props.activeFile?.endsWith(".tex")) {
-                            props.onAddRootDocument(props.activeFile, false);
-                          }
-                        }}
-                      >
-                        Add open .tex
-                      </Button>
-                      <Button
-                        size="compact"
-                        disabled={props.project.manifest.rootDocuments.length <= 1}
-                        title="Remove the selected root document"
-                        onClick={() => {
-                          const selected =
-                            props.project!.manifest.rootDocuments.find((document) => document.isDefault)?.path
-                            ?? props.project!.manifest.rootDocuments[0]?.path;
-                          if (selected) props.onRemoveRootDocument(selected);
-                        }}
-                      >
-                        Remove selected
-                      </Button>
-                    </SettingsRow>
                     <SwitchField
                       label="Allow external commands"
-                      description="Lets LaTeX run external programs while compiling. Keep this off unless a trusted project needs it."
+                      description="Lets trusted projects run external tools during builds."
                       checked={props.project.manifest.trusted}
                       onChange={(trusted) => props.onUpdateManifest({ trusted })}
                     />

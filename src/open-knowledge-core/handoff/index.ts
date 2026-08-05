@@ -1,0 +1,63 @@
+/**
+ * Public surface of the Open-in-Agent handoff subsystem.
+ *
+ * Core is "shared, no React, no Node APIs" — this barrel re-exports only
+ * pure string I/O and type shapes. Dispatch orchestration, UI, and the
+ * `KNOWN_TARGETS` data constant live in `packages/app/src/lib/handoff/`.
+ */
+
+export { buildClaudeUrl } from './claude-url.ts';
+export { buildCodexUrl } from './codex-url.ts';
+export { buildCursorUrl } from './cursor-url.ts';
+export {
+  type AssembleHandoffPromptInput,
+  assembleHandoffPrompt,
+  type ComposeSelection,
+  type CreateScenario,
+  composeAskProjectPrompt,
+  composeAskPrompt,
+  composeCreatePrompt,
+  composeEmptySpacePrompt,
+  composeFilePrompt,
+  composeFixAllProblemsPrompt,
+  composeFolderPrompt,
+  composeLintFixPrompt,
+  composeSelectionPrompt,
+  composeSkillPrompt,
+  composeTerminalBareLaunchPrompt,
+  composeThreadBareLaunchPrompt,
+  type LintFixPromptInput,
+  OK_PROJECT_SKILL_POINTER,
+  OK_TERMINAL_SURFACE_PREAMBLE,
+  OK_THREAD_SURFACE_PREAMBLE,
+  type PromptTransport,
+  TERMINAL_INLINE_PROMPT_BUDGET,
+  withSkillPointer,
+} from './prompt-composer.ts';
+export {
+  buildClaudeLaunchCommand,
+  buildCliLaunchArgString,
+  buildCliLaunchCommand,
+  buildStartupInjectionBytes,
+  OK_GATED_TOOL_NAMES,
+  shellSingleQuote,
+  startupInjectionFor,
+  TERMINAL_CLI_IDS,
+  TERMINAL_CLIS,
+  type TerminalCli,
+  type TerminalCliInfo,
+} from './terminal-launch.ts';
+export type {
+  DocContext,
+  HandoffFailureReason,
+  HandoffOutcome,
+  HandoffPayload,
+  HandoffScope,
+  HandoffTarget,
+  InstallState,
+  TargetData,
+} from './types.ts';
+// Local deviation from upstream: the `urn-ipc-registry.ts` re-export is
+// dropped. It exists to keep upstream's IPC error channels in sync with
+// their zod API schemas (`schemas/api/_envelope.ts`), a subsystem this
+// host doesn't vendor. Nothing in the vendored app layer consumes it.

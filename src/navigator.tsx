@@ -32,8 +32,9 @@ import { DestructiveButton } from "./components/ui/destructive-button";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { ExternalScrollbar } from "./components/ui/external-scrollbar";
 import { SearchField } from "./components/ui/search-field";
-import { paperKey, paperSubtitle } from "./app-utils";
+import { absoluteProjectPath, paperKey, paperSubtitle } from "./app-utils";
 import type { FileNode, GitFileStatus, PaperSummary } from "./app-types";
+import { PROJECT_FILE_TREE_ICONS } from "./project-file-icons";
 import { toPierreGitStatus } from "./project-tree-git";
 
 // @pierre/trees virtualizes by a numeric item height, so this mirrors the
@@ -376,6 +377,8 @@ button[data-type="item"][data-lattice-pointer-drop-target="true"] {
 type ProjectFileTreeProps = {
   projectKey: string;
   searchOpen: boolean;
+  /** Incrementing signal from the header "New board" button. */
+  boardCreateRequest?: number;
   onSearchOpenChange: (open: boolean) => void;
   files: FileNode[];
   gitStatus: GitFileStatus[];
@@ -683,21 +686,21 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
   const treeRef = useRef(tree);
   const modelRef = useRef<ReturnType<typeof useFileTree>["model"] | null>(null);
   const syncingSelectionRef = useRef(false);
-  const pendingCreationsRef = useRef(new Map<string, "file" | "folder">());
+  const pendingCreationsRef = useRef(new Map<string, { kind: "file" | "folder"; extension?: string }>());
   const pendingCleanupTimersRef = useRef(new Map<string, number>());
   const pointerTreeDragRef = useRef<PointerTreeDragSession | null>(null);
   const suppressTreeClickRef = useRef(false);
   const clearPendingCreation = useCallback((path: string) => {
     const normalizedPath = fromPierrePath(path);
-    const kind = pendingCreationsRef.current.get(normalizedPath);
-    if (!kind) return false;
+    const pending = pendingCreationsRef.current.get(normalizedPath);
+    if (!pending) return false;
     pendingCreationsRef.current.delete(normalizedPath);
     const currentModel = modelRef.current;
-    const modelPath = kind === "folder"
+    const modelPath = pending.kind === "folder"
       ? toPierreDirectoryPath(normalizedPath)
       : normalizedPath;
     if (currentModel?.getItem(modelPath)) {
-      currentModel.remove(modelPath, kind === "folder" ? { recursive: true } : undefined);
+      currentModel.remove(modelPath, pending.kind === "folder" ? { recursive: true } : undefined);
     }
     return true;
   }, []);
@@ -707,12 +710,17 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     isFolder: boolean,
   ) => {
     const source = fromPierrePath(sourcePath);
-    const destination = fromPierrePath(destinationPath);
-    const kind = pendingCreationsRef.current.get(source);
-    if (!kind) return false;
+    const pending = pendingCreationsRef.current.get(source);
+    if (!pending) return false;
     pendingCreationsRef.current.delete(source);
+    // Creation modes may pin an extension (e.g. boards → .tldr) so the inline
+    // name stays extension-free; an explicit user-typed extension wins.
+    let destination = fromPierrePath(destinationPath);
+    if (pending.extension && !/\.[^./\\]+$/.test(destination.split("/").at(-1) ?? "")) {
+      destination = `${destination}.${pending.extension}`;
+    }
     void propsRef.current
-      .onCreateEntry(destination, kind)
+      .onCreateEntry(destination, pending.kind)
       .then((createdPath) => {
         const currentModel = modelRef.current;
         const optimisticPath = isFolder
@@ -755,7 +763,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     fileTreeSearchMode: "hide-non-matches",
     flattenEmptyDirectories: true,
     gitStatus,
-    icons: "complete",
+    icons: PROJECT_FILE_TREE_ICONS,
     search: true,
     searchBlurBehavior: "retain",
     stickyFolders: true,
@@ -766,7 +774,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
       if (!selected) return;
       const node = treeRef.current.nodes.get(selected);
       if (!node || isDirectoryNode(node)) return;
-      if (node.kind === "figure") propsRef.current.onAsset(node.path);
+      if (node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink") propsRef.current.onAsset(node.path);
       else propsRef.current.onFile(node.path);
     },
     renaming: {
@@ -905,8 +913,8 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
                 if (input.value.trim() !== originalName) return;
                 // Pierre treats an unchanged rename as a no-op and therefore
                 // skips onRename. Enter still means "create".
-                const kind = pendingCreationsRef.current.get(path);
-                if (kind) persistPendingCreation(path, path, kind === "folder");
+                const pending = pendingCreationsRef.current.get(path);
+                if (pending) persistPendingCreation(path, path, pending.kind === "folder");
               }, { capture: true });
             }
             return;
@@ -919,13 +927,14 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
         pendingCleanupTimersRef.current.set(path, timer);
       }
     };
+    const cleanupTimers = pendingCleanupTimersRef.current;
     const unsubscribe = model.subscribe(scheduleCleanup);
     return () => {
       unsubscribe();
-      for (const timer of pendingCleanupTimersRef.current.values()) {
+      for (const timer of cleanupTimers.values()) {
         window.clearTimeout(timer);
       }
-      pendingCleanupTimersRef.current.clear();
+      cleanupTimers.clear();
     };
   }, [clearPendingCreation, model, persistPendingCreation]);
 
@@ -1153,7 +1162,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     context.close({ restoreFocus: false });
     afterMenuClose(action);
   };
-  const beginInlineCreate = (targetDirectory: string, kind: "file" | "folder") => {
+  const beginInlineCreate = (targetDirectory: string, kind: "file" | "folder", extension?: string) => {
     // A context-menu click blurs any previous draft. Remove that draft before
     // choosing a placeholder so a canceled creation never leaks into the next
     // name as "untitled-2".
@@ -1177,12 +1186,22 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     }
 
     model.add(modelPath);
-    pendingCreationsRef.current.set(placeholderPath, kind);
+    pendingCreationsRef.current.set(placeholderPath, { kind, extension });
     if (!model.startRenaming(modelPath, { removeIfCanceled: true })) {
       pendingCreationsRef.current.delete(placeholderPath);
       model.remove(modelPath, kind === "folder" ? { recursive: true } : undefined);
     }
   };
+  // Header actions (e.g. "New board") request an inline creation at the root
+  // through a monotonically increasing signal; each new value starts one draft.
+  const boardCreateRequest = props.boardCreateRequest ?? 0;
+  const handledBoardCreateRequestRef = useRef(boardCreateRequest);
+  useEffect(() => {
+    if (boardCreateRequest === handledBoardCreateRequestRef.current) return;
+    handledBoardCreateRequestRef.current = boardCreateRequest;
+    beginInlineCreate("", "file", "tldr");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- beginInlineCreate reads live refs/model
+  }, [boardCreateRequest]);
   const renderContextMenu = (
     item: PierreContextMenuItem,
     context: PierreContextMenuOpenContext,
@@ -1208,7 +1227,10 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
         <button role="menuitem" onClick={() => closeThen(context, () => model.startRenaming(item.path))}>
           <Pencil size={14} />Rename
         </button>
-        <button role="menuitem" onClick={() => closeThen(context, () => void writeText(path))}>
+        <button
+          role="menuitem"
+          onClick={() => closeThen(context, () => void writeText(absoluteProjectPath(props.projectKey, path)))}
+        >
           <Copy size={14} />Copy path
         </button>
         <button role="menuitem" onClick={() => closeThen(context, () => props.onReveal(path))}>
@@ -1267,7 +1289,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
               if (!path) return;
               beginPointerTreeDrag(path, event);
               const node = tree.nodes.get(path);
-              if (node?.kind === "figure") {
+              if (node?.kind === "figure" || node?.contentKind === "binary") {
                 props.onBeginFigureDrag(node.path, node.name, event);
               } else if (node && !isDirectoryNode(node)) {
                 props.onBeginFileDrag(node.path, node.name, event);
@@ -1304,6 +1326,7 @@ export function Navigator(props: {
   projectKey: string;
   searchOpen: boolean;
   onSearchOpenChange: (open: boolean) => void;
+  boardCreateRequest?: number;
   files: FileNode[];
   gitStatus: GitFileStatus[];
   activeFile: string;
@@ -1355,6 +1378,7 @@ export function Navigator(props: {
           key={`project-tree:${props.projectKey}:default-complete-context-v4`}
           projectKey={props.projectKey}
           searchOpen={props.searchOpen}
+          boardCreateRequest={props.boardCreateRequest}
           onSearchOpenChange={props.onSearchOpenChange}
           files={props.files}
           gitStatus={props.gitStatus}
@@ -1411,6 +1435,7 @@ export function Navigator(props: {
             const row = (
               <div className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}>
               <button
+                data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
                 title={locallyReadable
                   ? paper.title
                   : paper.arxivId
@@ -1461,7 +1486,6 @@ export function Navigator(props: {
             <div className="papers-empty-state">
               <strong>Add your first paper</strong>
               <p>Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence.</p>
-              <button type="button" onClick={() => paperImportRef.current?.focus()}>Focus search</button>
             </div>
           )}
           {!!props.papers.length && <p className="paper-list-end">{props.papers.length} paper{props.papers.length === 1 ? "" : "s"}</p>}

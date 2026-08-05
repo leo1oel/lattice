@@ -69,7 +69,7 @@ function SelectContent({
         data-slot="select-content"
         className={cn(
           floatingSurfaceClassName,
-          "relative max-h-(--radix-select-content-available-height) min-w-[6rem] origin-(--radix-select-content-transform-origin) overflow-hidden shadow-md",
+          "relative max-h-(--radix-select-content-available-height) min-w-[6rem] origin-(--radix-select-content-transform-origin) overflow-hidden",
           popupMotionClassName,
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",

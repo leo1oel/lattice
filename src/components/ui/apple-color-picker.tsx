@@ -1,30 +1,37 @@
 "use client";
 
-import { Pipette, Plus, X } from "lucide-react";
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Check, Pipette, Plus, X } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
+import { SegmentedControl } from "./segmented-control";
 
 type Rgb = { r: number; g: number; b: number };
 type Hsv = { h: number; s: number; v: number };
 type PickerTab = "Grid" | "Spectrum" | "Sliders";
 
+const PICKER_TABS: PickerTab[] = ["Grid", "Spectrum", "Sliders"];
+const MAX_RECENT_COLORS = 8;
+
 const APPLE_GRID_COLORS = [
-  "#FFFFFF", "#EBEBEB", "#D6D6D6", "#C2C2C2", "#ADADAD", "#999999", "#858585", "#707070", "#5C5C5C", "#474747", "#333333", "#000000",
-  "#003366", "#336699", "#3366CC", "#003399", "#000099", "#0000CC", "#000066", "#333366", "#663399", "#660099", "#330066", "#330033",
-  "#006699", "#0099CC", "#0066CC", "#0033CC", "#0000FF", "#3333FF", "#333399", "#6633CC", "#9933CC", "#9900CC", "#6600CC", "#660066",
-  "#0099CC", "#00CCFF", "#0099FF", "#0066FF", "#3366FF", "#6666FF", "#6666CC", "#9966CC", "#CC66FF", "#CC33FF", "#9900FF", "#990099",
-  "#33CCCC", "#66FFFF", "#33CCFF", "#3399FF", "#6699FF", "#9999FF", "#9999CC", "#CC99FF", "#FF99FF", "#FF66FF", "#CC00FF", "#CC00CC",
-  "#66CCCC", "#99FFFF", "#66CCFF", "#6699FF", "#99CCFF", "#CCCCFF", "#CC99CC", "#FFCCFF", "#FF99FF", "#FF66FF", "#FF33FF", "#FF00FF",
-  "#99CCCC", "#CCFFFF", "#99CCFF", "#9999FF", "#CCCCFF", "#FFFFFF", "#FFCCFF", "#FF99FF", "#FF66FF", "#FF00FF", "#CC00CC", "#990099",
-  "#CCFFCC", "#FFFFCC", "#FFFF99", "#FFFF66", "#FFFF33", "#FFFF00", "#FFCC00", "#FF9900", "#FF6600", "#FF3300", "#FF0000", "#CC0000",
-  "#99FF99", "#CCFF99", "#CCCC66", "#CCCC33", "#CCCC00", "#CC9900", "#CC6600", "#CC3300", "#CC0000", "#990000", "#660000", "#330000",
-  "#66FF66", "#99FF66", "#99CC66", "#99CC33", "#999900", "#996600", "#993300", "#990000", "#660000", "#330000", "#000000", "#000000",
-  "#33FF33", "#66FF33", "#66CC33", "#669933", "#666600", "#663300", "#660000", "#330000", "#000000", "#000000", "#000000", "#000000",
-  "#00FF00", "#33FF00", "#33CC00", "#339900", "#336600", "#333300", "#330000", "#000000", "#000000", "#000000", "#000000", "#000000",
+  "#FFFFFF", "#E5E7EB", "#CBD5E1", "#94A3B8", "#64748B", "#475569", "#1E293B", "#000000",
+  "#FEF9C3", "#FFFF66", "#FFFF00", "#FFCC00", "#FDE68A", "#FDBA74", "#FB923C", "#F97316",
+  "#FEE2E2", "#FCA5A5", "#F87171", "#EF4444", "#DC2626", "#BE123C", "#FB7185", "#F9A8D4",
+  "#DCFCE7", "#BBF7D0", "#86EFAC", "#4ADE80", "#22C55E", "#16A34A", "#14B8A6", "#5EEAD4",
+  "#E0F2FE", "#BAE6FD", "#7DD3FC", "#38BDF8", "#0EA5E9", "#3B82F6", "#2563EB", "#1D4ED8",
+  "#EDE9FE", "#C4B5FD", "#A78BFA", "#8B5CF6", "#7C3AED", "#A855F7", "#D946EF", "#EC4899",
 ] as const;
 
 const DEFAULT_RECENT_COLORS = [
-  "#000000", "#FFFFFF", "#FF3B30", "#FF9500", "#FFCC00",
-  "#34C759", "#5AC8FA", "#007AFF", "#5856D6", "#FF2D55",
+  "#FFFF00", "#FFCC00", "#FDBA74", "#FCA5A5", "#86EFAC",
+  "#5EEAD4", "#7DD3FC", "#A78BFA",
 ];
 
 function normalizeHex(value: string): string | null {
@@ -62,6 +69,23 @@ function rgbToHsv({ r, g, b }: Rgb): Hsv {
   return { h: hue, s: max ? (delta / max) * 100 : 0, v: max * 100 };
 }
 
+function colorName(hex: string) {
+  const { h, s, v } = rgbToHsv(hexToRgb(hex));
+  if (s < 8) {
+    if (v > 96) return "White";
+    if (v > 78) return "Light Gray";
+    if (v > 42) return "Gray";
+    if (v > 10) return "Dark Gray";
+    return "Black";
+  }
+  const names = ["Red", "Orange", "Yellow", "Lime", "Green", "Teal", "Cyan", "Azure", "Blue", "Indigo", "Violet", "Magenta"];
+  const name = names[Math.round(h / 30) % names.length];
+  if (v < 45) return `Dark ${name}`;
+  if (s < 30) return `Muted ${name}`;
+  if (s < 55 || (v > 94 && s < 75)) return `Soft ${name}`;
+  return name;
+}
+
 function hsvToRgb({ h, s, v }: Hsv): Rgb {
   const saturation = s / 100;
   const value = v / 100;
@@ -78,39 +102,51 @@ function hsvToRgb({ h, s, v }: Hsv): Rgb {
   return { r: (red + offset) * 255, g: (green + offset) * 255, b: (blue + offset) * 255 };
 }
 
-function SegmentedControl(props: {
-  selected: PickerTab;
-  onChange: (tab: PickerTab) => void;
-}) {
-  return (
-    <div className="flex h-7 items-center rounded-lg bg-[#E3E3E8] p-0.5 dark:bg-white/10">
-      {(["Grid", "Spectrum", "Sliders"] as const).map((option) => (
-        <button
-          key={option}
-          type="button"
-          className={`relative h-6 flex-1 appearance-none border-0 p-0 text-[length:var(--type-caption-size)] font-medium leading-6 transition ${props.selected === option ? "rounded-md bg-[#F9F9FA] text-black shadow-[0_1px_3px_rgba(0,0,0,0.14)] dark:bg-white/90" : "bg-transparent text-[#707789] hover:text-gray-700 dark:text-white/55 dark:hover:text-white/80"}`}
-          onClick={() => props.onChange(option)}
-        >
-          {option === "Sliders" ? "Slider" : option}
-        </button>
-      ))}
-    </div>
-  );
+function clampedNumber(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
 }
 
-function ColorGrid(props: { value: string; onChange: (color: string) => void }) {
+function stepWithWheel(
+  event: ReactWheelEvent<HTMLElement>,
+  value: number,
+  min: number,
+  max: number,
+  onChange: (value: number) => void,
+) {
+  if (event.deltaY === 0) return;
+  event.preventDefault();
+  onChange(clampedNumber(value + (event.deltaY < 0 ? 1 : -1), min, max));
+}
+
+function ColorGrid(props: {
+  value: string;
+  onChange: (color: string) => void;
+  selectionId: string;
+  reduceMotion: boolean;
+}) {
   return (
-    <div className="grid h-40 grid-cols-12 gap-px overflow-hidden rounded-lg bg-[#F9F9FA] p-0 dark:bg-white/10">
+    <div className="highlight-color-grid">
       {APPLE_GRID_COLORS.map((color, index) => (
         <button
           key={`${color}-${index}`}
           type="button"
           aria-label={`Select ${color}`}
-          className="relative min-h-0 min-w-0 appearance-none rounded-none border-0 p-0 hover:z-10 hover:brightness-110 focus:z-20 focus:outline-none"
+          aria-pressed={props.value === color}
+          className="highlight-color-swatch"
           style={{ backgroundColor: color }}
           onClick={() => props.onChange(color)}
         >
-          {props.value === color && <span className="pointer-events-none absolute inset-0 border-2 border-white mix-blend-difference" />}
+          {props.value === color && (
+            <motion.span
+              aria-hidden="true"
+              className="highlight-color-selection"
+              layout="position"
+              layoutId={props.reduceMotion ? undefined : props.selectionId}
+              transition={props.reduceMotion ? { duration: 0 } : { type: "spring", duration: 0.3, bounce: 0 }}
+            >
+              <Check size={13} strokeWidth={2.2} />
+            </motion.span>
+          )}
         </button>
       ))}
     </div>
@@ -124,15 +160,15 @@ function SpectrumPicker(props: { hsv: Hsv; onChange: (hsv: Hsv) => void }) {
     if (!bounds) return;
     const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
     const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
-    props.onChange({ h: x * 360, s: (1 - y) * 100, v: 100 });
+    props.onChange({ h: x * 360, s: (1 - y) * 100, v: props.hsv.v });
   };
   return (
     <div
       ref={ref}
       role="application"
       aria-label="Color spectrum"
-      className="relative h-40 w-full touch-none cursor-crosshair overflow-hidden rounded-lg shadow-inner"
-      style={{ background: "linear-gradient(to bottom, transparent, #000), linear-gradient(to right, #F9F9FA, transparent), linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)" }}
+      className="highlight-spectrum"
+      style={{ "--spectrum-value": `${props.hsv.v}%` } as CSSProperties}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);
         update(event);
@@ -142,8 +178,12 @@ function SpectrumPicker(props: { hsv: Hsv; onChange: (hsv: Hsv) => void }) {
       }}
     >
       <span
-        className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-md"
-        style={{ left: `${props.hsv.h / 3.6}%`, top: `${100 - props.hsv.s}%`, backgroundColor: rgbToHex(hsvToRgb(props.hsv)) }}
+        className="highlight-spectrum-thumb"
+        style={{
+          "--spectrum-x": `${props.hsv.h / 3.6}%`,
+          "--spectrum-y": `${100 - props.hsv.s}%`,
+          backgroundColor: rgbToHex(hsvToRgb(props.hsv)),
+        } as CSSProperties}
       />
     </div>
   );
@@ -163,26 +203,36 @@ function SliderPicker(props: {
     ? hexDraft.text
     : props.value.slice(1);
   const channels = [
-    { label: "Red", key: "r" as const, color: "#FF3B30" },
-    { label: "Green", key: "g" as const, color: "#34C759" },
-    { label: "Blue", key: "b" as const, color: "#007AFF" },
+    { label: "Red", shortLabel: "R", key: "r" as const, color: "#EF4444" },
+    { label: "Green", shortLabel: "G", key: "g" as const, color: "#22C55E" },
+    { label: "Blue", shortLabel: "B", key: "b" as const, color: "#3B82F6" },
   ];
   return (
-    <div className="flex h-40 flex-col justify-between py-1">
+    <div className="highlight-slider-panel">
       {channels.map((channel) => (
-        <div key={channel.key} className="flex items-center gap-2">
-          <span className="w-8 text-[length:var(--type-nano-size)] font-semibold uppercase text-gray-500 dark:text-white/50">{channel.label}</span>
-          <div className="relative h-5 flex-1 rounded-full shadow-inner" style={{ background: `linear-gradient(to right, #000, ${channel.color})` }}>
+        <div key={channel.key} className="highlight-slider-row">
+          <span className="highlight-slider-label">{channel.shortLabel}</span>
+          <div className="highlight-slider-track" style={{ background: `linear-gradient(to right, #000, ${channel.color})` }}>
             <input
               type="range"
               min="0"
               max="255"
               aria-label={channel.label}
               value={props.rgb[channel.key]}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              className="highlight-range-input"
               onChange={(event) => props.onRgbChange({ ...props.rgb, [channel.key]: Number(event.target.value) })}
             />
-            <span className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gray-200 bg-[#F9F9FA] shadow-md" style={{ left: `${props.rgb[channel.key] / 2.55}%` }} />
+            <span
+              className="highlight-slider-thumb"
+              style={{
+                "--slider-position": `${props.rgb[channel.key] / 2.55}%`,
+                backgroundColor: rgbToHex({
+                  r: channel.key === "r" ? props.rgb.r : 0,
+                  g: channel.key === "g" ? props.rgb.g : 0,
+                  b: channel.key === "b" ? props.rgb.b : 0,
+                }),
+              } as CSSProperties}
+            />
           </div>
           <input
             type="number"
@@ -190,24 +240,33 @@ function SliderPicker(props: {
             max="255"
             aria-label={`${channel.label} value`}
             value={props.rgb[channel.key]}
-            className="h-6 w-10 rounded-md border border-black/10 bg-white/80 px-1 text-center text-[length:var(--type-nano-size)] text-black outline-none dark:border-white/10"
-            onChange={(event) => props.onRgbChange({ ...props.rgb, [channel.key]: Math.max(0, Math.min(255, Number(event.target.value))) })}
+            className="highlight-number-input"
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              if (!Number.isNaN(value)) props.onRgbChange({ ...props.rgb, [channel.key]: clampedNumber(value, 0, 255) });
+            }}
+            onWheel={(event) => stepWithWheel(event, props.rgb[channel.key], 0, 255, (value) => {
+              props.onRgbChange({ ...props.rgb, [channel.key]: value });
+            })}
           />
         </div>
       ))}
-      <label className="flex items-center justify-between text-[length:var(--type-nano-size)] text-[#007AFF]">
-        Hex Color #
-        <input
-          value={resolvedHexDraft}
-          aria-label="Hex color"
-          className="h-6 w-20 rounded-md border border-black/10 bg-white/80 px-2 text-right text-[length:var(--type-micro-size)] font-medium uppercase text-black outline-none focus:border-[#007AFF] dark:border-white/10"
-          onChange={(event) => {
-            const next = event.target.value;
-            if (!/^[0-9a-f]{0,6}$/i.test(next)) return;
-            setHexDraft({ source: props.value, text: next });
-            if (next.length === 6) props.onHexChange(`#${next}`);
-          }}
-        />
+      <label className="highlight-hex-row">
+        <span>Hex</span>
+        <span className="highlight-hex-input-wrap">
+          <span aria-hidden="true">#</span>
+          <input
+            value={resolvedHexDraft}
+            aria-label="Hex color"
+            className="highlight-hex-input"
+            onChange={(event) => {
+              const next = event.target.value;
+              if (!/^[0-9a-f]{0,6}$/i.test(next)) return;
+              setHexDraft({ source: props.value, text: next });
+              if (next.length === 6) props.onHexChange(`#${next}`);
+            }}
+          />
+        </span>
       </label>
     </div>
   );
@@ -219,15 +278,13 @@ function OpacitySlider(props: {
   onChange: (opacity: number) => void;
 }) {
   return (
-    <section className="border-t border-black/[0.07] pt-3 dark:border-white/10">
-      <div className="mb-2 text-[length:var(--type-micro-size)] font-semibold uppercase tracking-[0.03em] text-[#6E7788] dark:text-white/55">
-        Opacity
-      </div>
-      <div className="flex items-center gap-3">
+    <section className="highlight-opacity">
+      <div className="highlight-section-label">Opacity</div>
+      <div className="highlight-opacity-row">
         <div
-          className="relative h-5 min-w-0 flex-1 overflow-visible rounded-full shadow-inner"
+          className="highlight-opacity-track"
           style={{
-            backgroundColor: "#F9F9FA",
+            backgroundColor: "var(--surface-input)",
             backgroundImage:
               `linear-gradient(to right, transparent, ${props.color}), linear-gradient(45deg, #c8ced8 25%, transparent 25%), linear-gradient(135deg, #c8ced8 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #c8ced8 75%), linear-gradient(135deg, transparent 75%, #c8ced8 75%)`,
             backgroundSize: "100% 100%, 8px 8px, 8px 8px, 8px 8px, 8px 8px",
@@ -240,28 +297,34 @@ function OpacitySlider(props: {
             max="100"
             aria-label="Opacity"
             value={props.value}
-            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+            className="highlight-range-input"
             onChange={(event) => props.onChange(Number(event.target.value))}
           />
           <span
-            className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/10 bg-[#F9F9FA] shadow-[0_1px_4px_rgba(0,0,0,0.22)]"
-            style={{ left: `clamp(8px, ${props.value}%, calc(100% - 8px))` }}
-          >
-            <span className="absolute inset-0.5 rounded-full" style={{ backgroundColor: props.color, opacity: props.value / 100 }} />
-          </span>
+            className="highlight-opacity-thumb"
+            style={{
+              "--slider-position": `${props.value}%`,
+              backgroundColor: props.color,
+            } as CSSProperties}
+          />
         </div>
-        <label className="relative h-6 w-12 flex-none">
+        <label
+          className="highlight-opacity-value"
+          onWheel={(event) => stepWithWheel(event, props.value, 0, 100, props.onChange)}
+        >
           <input
-            type="text"
-            inputMode="numeric"
+            type="number"
+            min="0"
+            max="100"
             aria-label="Opacity value"
-            value={`${props.value}%`}
-            className="h-full w-full rounded-md border border-black/[0.07] bg-white/45 px-1 text-center text-[length:var(--type-nano-size)] font-medium text-black outline-none focus:border-[#007AFF]/60 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            value={props.value}
+            className="highlight-number-input"
             onChange={(event) => {
-              const value = Number.parseInt(event.target.value.replace("%", ""), 10);
-              if (!Number.isNaN(value)) props.onChange(Math.max(0, Math.min(100, value)));
+              const value = Number(event.target.value);
+              if (!Number.isNaN(value)) props.onChange(clampedNumber(value, 0, 100));
             }}
           />
+          <span aria-hidden="true">%</span>
         </label>
       </div>
     </section>
@@ -275,100 +338,157 @@ function RecentColors(props: {
   onAdd: () => void;
 }) {
   return (
-    <div className="flex gap-3.5 border-t border-black/[0.07] pt-3 dark:border-white/10">
-      <div className="h-10 w-10 flex-none rounded-lg border border-black/[0.06] shadow-inner dark:border-white/10" style={{ backgroundColor: props.current }} />
-      <div className="grid flex-1 grid-cols-6 content-start gap-1.5">
+    <section className="highlight-recents">
+      <div className="highlight-section-label">Recent</div>
+      <div className="highlight-recent-grid">
         {props.colors.map((color, index) => (
-          <button key={`${color}-${index}`} type="button" aria-label={`Recent color ${color}`} className="h-5 w-5 appearance-none rounded-full border border-black/10 p-0 shadow-sm transition-transform hover:scale-110 dark:border-white/10" style={{ backgroundColor: color }} onClick={() => props.onSelect(color)} />
-        ))}
-        {props.colors.length < 12 && (
-          <button type="button" aria-label="Add current color" className="grid h-5 w-5 appearance-none place-items-center rounded-full border border-black/10 bg-black/5 p-0 text-gray-500 hover:bg-black/10 dark:border-white/10 dark:bg-white/10 dark:text-white/60" onClick={props.onAdd}>
-            <Plus size={11} />
+          <button key={`${color}-${index}`} type="button" aria-label={`Recent color ${color}`} aria-pressed={props.current === color} className="highlight-recent-swatch" style={{ backgroundColor: color }} onClick={() => props.onSelect(color)}>
+            {props.current === color && <Check aria-hidden="true" size={10} strokeWidth={2.2} />}
           </button>
-        )}
+        ))}
+        <button type="button" aria-label="Add current color" className="highlight-recent-add" onClick={props.onAdd}>
+          <Plus size={11} />
+        </button>
       </div>
-    </div>
+    </section>
   );
 }
 
 export function AppleColorPicker(props: {
   value: string;
   opacity?: number;
-  onValueChange: (color: string) => void;
-  onOpacityChange?: (opacity: number) => void;
-  onClose: () => void;
+  onConfirm: (color: string, opacity: number) => void;
+  onCancel: () => void;
 }) {
-  const normalizedValue = normalizeHex(props.value) ?? "#007AFF";
+  const initialValue = normalizeHex(props.value) ?? "#007AFF";
+  const [draftValue, setDraftValue] = useState(initialValue);
+  const [draftOpacity, setDraftOpacity] = useState(props.opacity ?? 100);
   const [activeTab, setActiveTab] = useState<PickerTab>("Grid");
+  const [tabDirection, setTabDirection] = useState(1);
   const [recentColors, setRecentColors] = useState(DEFAULT_RECENT_COLORS);
   const nativeColorInputRef = useRef<HTMLInputElement>(null);
-  const rgb = hexToRgb(normalizedValue);
+  const gridSelectionId = `${useId()}-grid-selection`;
+  const reduceMotion = useReducedMotion();
+  const rgb = hexToRgb(draftValue);
   const hsv = rgbToHsv(rgb);
   const setColor = (value: string) => {
     const normalized = normalizeHex(value);
-    if (normalized) props.onValueChange(normalized);
+    if (normalized) setDraftValue(normalized);
   };
   const pickFromScreen = async () => {
     const EyeDropper = (window as typeof window & {
       EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> };
     }).EyeDropper;
-    if (!EyeDropper) {
-      nativeColorInputRef.current?.click();
+    try {
+      const color = await invoke<string | null>("sample_screen_color");
+      if (color) setColor(color);
+      return;
+    } catch {
+      // Browser development has no native command. Continue through the web
+      // fallbacks; the desktop app always uses the system-wide NSColorSampler.
+    }
+    if (EyeDropper) {
+      try {
+        const result = await new EyeDropper().open();
+        setColor(result.sRGBHex);
+      } catch {
+        // The platform rejects the promise when the sampling session is cancelled.
+      }
       return;
     }
-    try {
-      const result = await new EyeDropper().open();
-      setColor(result.sRGBHex);
-    } catch {
-      // The platform rejects the promise when the sampling session is cancelled.
-    }
+    nativeColorInputRef.current?.click();
   };
   return (
-    <div className="apple-color-picker box-border w-60 select-none overflow-hidden rounded-[18px] border border-white/60 bg-[#F2F3F8]/95 p-3.5 [font-family:var(--ui-font)] text-black shadow-[0_14px_42px_rgba(21,31,55,0.20)] backdrop-blur-xl [&_*]:box-border [&_button]:font-[inherit] [&_input]:font-[inherit] dark:border-white/10 dark:bg-[#252527]/95 dark:text-white">
+    <div className="apple-color-picker">
       <input
         ref={nativeColorInputRef}
         type="color"
         aria-label="Native color picker"
-        value={normalizedValue}
+        value={draftValue}
         className="sr-only"
         tabIndex={-1}
         onChange={(event) => setColor(event.target.value)}
       />
-      <div className="mb-3 flex h-6 items-center justify-between">
-        <button type="button" aria-label="Pick color from screen" className="appearance-none rounded-full border-0 bg-transparent p-1.5 text-[#007AFF] transition-colors hover:bg-black/5 dark:hover:bg-white/10" onClick={() => void pickFromScreen()}>
-          <Pipette size={16} />
-        </button>
-        <h2 className="m-0 text-[length:var(--type-caption-size)] font-semibold leading-none">Colors</h2>
-        <button type="button" aria-label="Close color picker" className="appearance-none rounded-full border-0 bg-transparent p-1.5 text-gray-500 transition-colors hover:bg-black/5 dark:text-white/55 dark:hover:bg-white/10" onClick={props.onClose}>
-          <X size={16} />
-        </button>
+      <div className="highlight-picker-header">
+        <div className="highlight-picker-title">
+          <span className="highlight-current-color" aria-hidden="true">
+            <span style={{ backgroundColor: draftValue, opacity: draftOpacity / 100 }} />
+          </span>
+          <span>
+            <strong>{colorName(draftValue)}</strong>
+            <small>{draftValue} · {draftOpacity}%</small>
+          </span>
+        </div>
+        <div className="highlight-picker-actions">
+          <button type="button" aria-label="Pick color from screen" className="ui-icon-button" data-size="compact" onClick={() => void pickFromScreen()}>
+            <Pipette size={14} strokeWidth={1.6} />
+          </button>
+          <button type="button" aria-label="Apply highlight color" className="ui-icon-button highlight-picker-confirm" data-size="compact" onClick={() => props.onConfirm(draftValue, draftOpacity)}>
+            <Check size={14} strokeWidth={1.8} />
+          </button>
+          <button type="button" aria-label="Cancel color selection" className="ui-icon-button" data-size="compact" onClick={props.onCancel}>
+            <X size={14} strokeWidth={1.6} />
+          </button>
+        </div>
       </div>
-      <SegmentedControl selected={activeTab} onChange={setActiveTab} />
-      <div className="mt-3 h-40">
-        {activeTab === "Grid" && <ColorGrid value={normalizedValue} onChange={setColor} />}
-        {activeTab === "Spectrum" && <SpectrumPicker hsv={hsv} onChange={(next) => setColor(rgbToHex(hsvToRgb(next)))} />}
-        {activeTab === "Sliders" && (
-          <SliderPicker
-            rgb={rgb}
-            value={normalizedValue}
-            onRgbChange={(next) => setColor(rgbToHex(next))}
-            onHexChange={setColor}
-          />
-        )}
-      </div>
-      <div className="mt-3">
-        <OpacitySlider
-          value={props.opacity ?? 100}
-          color={normalizedValue}
-          onChange={(opacity) => props.onOpacityChange?.(opacity)}
+      <div className="highlight-picker-body">
+        <SegmentedControl
+          value={activeTab}
+          onChange={(tab) => {
+            setTabDirection(PICKER_TABS.indexOf(tab) > PICKER_TABS.indexOf(activeTab) ? 1 : -1);
+            setActiveTab(tab);
+          }}
+          ariaLabel="Color selection mode"
+          className="highlight-picker-tabs"
+          tabClassName="highlight-picker-tab"
+          items={PICKER_TABS.map((tab) => ({
+            value: tab,
+            label: tab === "Sliders" ? "Slider" : tab,
+          }))}
         />
-      </div>
-      <div className="mt-3">
+        <div className="highlight-picker-main">
+          <AnimatePresence initial={false} mode="popLayout">
+            <motion.div
+              key={activeTab}
+              className="highlight-picker-panel"
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: tabDirection * 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: tabDirection * -8 }}
+              transition={reduceMotion ? { duration: 0.1 } : { type: "spring", duration: 0.3, bounce: 0 }}
+            >
+              {activeTab === "Grid" && (
+                <ColorGrid
+                  value={draftValue}
+                  onChange={setColor}
+                  selectionId={gridSelectionId}
+                  reduceMotion={Boolean(reduceMotion)}
+                />
+              )}
+              {activeTab === "Spectrum" && <SpectrumPicker hsv={hsv} onChange={(next) => setColor(rgbToHex(hsvToRgb(next)))} />}
+              {activeTab === "Sliders" && (
+                <SliderPicker
+                  rgb={rgb}
+                  value={draftValue}
+                  onRgbChange={(next) => setColor(rgbToHex(next))}
+                  onHexChange={setColor}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        <OpacitySlider
+          value={draftOpacity}
+          color={draftValue}
+          onChange={setDraftOpacity}
+        />
         <RecentColors
           colors={recentColors}
-          current={normalizedValue}
+          current={draftValue}
           onSelect={setColor}
-          onAdd={() => setRecentColors((current) => current.includes(normalizedValue) ? current : [normalizedValue, ...current].slice(0, 12))}
+          onAdd={() => setRecentColors((current) => [
+            draftValue,
+            ...current.filter((color) => color !== draftValue),
+          ].slice(0, MAX_RECENT_COLORS))}
         />
       </div>
     </div>

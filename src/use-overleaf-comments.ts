@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { OverleafThread } from "./app-types";
+import type { OverleafCommentTarget } from "./use-overleaf-realtime";
 
 /** How long to wait before re-reading, so a burst costs one request. */
 const REFRESH_DEBOUNCE_MS = 400;
@@ -56,7 +57,12 @@ export type OverleafComments = {
    * halves apart — the conversation behind REST, the anchor on the editing
    * channel — so this does both and answers with the thread's id.
    */
-  create: (position: number, quote: string, content: string) => Promise<string>;
+  create: (
+    target: OverleafCommentTarget,
+    position: number,
+    quote: string,
+    content: string,
+  ) => Promise<string>;
   setResolved: (threadId: string, resolved: boolean) => Promise<void>;
   remove: (threadId: string) => Promise<void>;
 };
@@ -87,7 +93,12 @@ export function useOverleafComments(options: {
   /** Thread ids anchored in the open document. */
   anchored: string[];
   /** Anchors the thread to its span on the editing channel. */
-  anchor: (threadId: string, position: number, quote: string) => Promise<void>;
+  anchor: (
+    target: OverleafCommentTarget,
+    threadId: string,
+    position: number,
+    quote: string,
+  ) => Promise<void>;
 }): OverleafComments {
   const [threads, setThreads] = useState<OverleafThread[]>([]);
   const [anchors, setAnchors] = useState<Map<string, OverleafCommentAnchor>>(new Map());
@@ -175,14 +186,22 @@ export function useOverleafComments(options: {
     await invoke("overleaf_reply_to_thread", { projectRoot, threadId, content });
   }), [act, projectRoot]);
 
-  const create = useCallback(async (position: number, quote: string, content: string) => {
+  const create = useCallback(async (
+    target: OverleafCommentTarget,
+    position: number,
+    quote: string,
+    content: string,
+  ) => {
     const threadId = newThreadId();
     setError(null);
     try {
       // The message first, the anchor second — the order Overleaf's own editor
       // uses, so a thread never exists on the page with nothing in it.
-      await invoke("overleaf_reply_to_thread", { projectRoot, threadId, content });
-      await anchor.current(threadId, position, quote);
+      if (target.projectRoot !== projectRoot) {
+        throw new Error("The linked Overleaf project changed. Try commenting again.");
+      }
+      await invoke("overleaf_reply_to_thread", { projectRoot: target.projectRoot, threadId, content });
+      await anchor.current(target, threadId, position, quote);
       await refreshRef.current();
       return threadId;
     } catch (reason) {

@@ -4,6 +4,7 @@ import "katex/dist/katex.min.css";
 import { Omega } from "lucide-react";
 import { EmptyState } from "./components/ui/empty-state";
 import { PanelHeader } from "./components/ui/panel-header";
+import { ScrollArea } from "./components/ui/scroll-area";
 import { SearchField } from "./components/ui/search-field";
 import { INSERT_GROUPS, INSERT_SNIPPETS, type InsertSnippet } from "./insert-snippets";
 import { SlidingTabs } from "./motion";
@@ -85,13 +86,18 @@ export function InsertPalette(props: {
       ariaLabel="Insert LaTeX snippets"
       onClose={props.onClose}
     >
-        <PanelHeader
-          className="drawer-header"
-          icon={<Omega size={16} />}
-          title="Insert"
-          closeLabel="Close insert palette"
-          onClose={props.onClose}
-        />
+      <PanelHeader
+        className="drawer-header"
+        icon={<Omega size={16} />}
+        title="Insert"
+        closeLabel="Close insert palette"
+        onClose={props.onClose}
+      />
+      <ScrollArea
+        className="insert-palette-scroll"
+        contentClassName="insert-palette-scroll-content"
+        fadeEdges={false}
+      >
         <p className="drawer-copy">Pick a symbol or snippet. Each tile shows what it looks like, a short description, and the LaTeX that will be inserted.</p>
         <SearchField
           autoFocus
@@ -106,7 +112,7 @@ export function InsertPalette(props: {
           value={group}
           onChange={(next) => setGroup(next as (typeof INSERT_GROUPS)[number] | "All")}
           ariaLabel="Insert categories"
-          variant="underline"
+          variant="none"
           className="insert-palette-tabs"
           tabClassName="insert-palette-tab"
           items={[
@@ -140,6 +146,7 @@ export function InsertPalette(props: {
             <EmptyState description="No matching snippets. Try fraction, implies, align*, or eqref." />
           )}
         </div>
+      </ScrollArea>
     </ResizableDrawer>
   );
 }

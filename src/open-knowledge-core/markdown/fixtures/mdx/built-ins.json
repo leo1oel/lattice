@@ -1,0 +1,207 @@
+[
+  {
+    "componentName": "Callout",
+    "blockForm": "<Callout type=\"warning\">\n\nAlways run tests\n\n</Callout>\n",
+    "notes": "type attr; block form with inline children — GFM 5-type enum (D-MF11)"
+  },
+  {
+    "componentName": "Callout-self-closing",
+    "blockForm": "<Callout />\n",
+    "notes": "self-closing standalone line → flow"
+  },
+  {
+    "componentName": "Callout-info-alias",
+    "blockForm": "<Callout type=\"info\">\n\nContent here\n\n</Callout>\n",
+    "notes": "US-012: D-MF15 unknown-attr contract — pre-GFM-narrow `type=\"info\"` round-trips byte-identical via γ sourceRaw; runtime renderer alias-folds to 'note' (D-MF11 narrow)"
+  },
+  {
+    "componentName": "Callout-boolean-shorthand",
+    "blockForm": "<Callout disabled>\n\nContent\n\n</Callout>\n",
+    "notes": "boolean shorthand (value: null in mdast); `disabled` is not a descriptor prop but D-MF15 preserves unknown attrs"
+  },
+  {
+    "componentName": "Callout-widened-foldable",
+    "blockForm": "<Callout type=\"warning\" title=\"Heads up\" collapsible defaultOpen>\n\nContent\n\n</Callout>\n",
+    "notes": "US-012 / FR-1 widened 7-prop surface: type + title + collapsible + defaultOpen (D-MF17)"
+  },
+  {
+    "componentName": "Callout-widened-color-override",
+    "blockForm": "<Callout type=\"note\" color=\"#F05032\">\n\nGit-accent note\n\n</Callout>\n",
+    "notes": "US-012 / FR-1 widened: color hex override (Mintlify generic-Callout parity)"
+  },
+  {
+    "componentName": "Accordion-title-only",
+    "blockForm": "<Accordion title=\"FAQ\">\n\nAnswer text\n\n</Accordion>\n",
+    "notes": "US-012: standalone Accordion per D-MF16 (no <Accordions> wrapper required); FR-5 minimal shape"
+  },
+  {
+    "componentName": "Accordion-name-grouping",
+    "blockForm": "<Accordion title=\"One\" name=\"grp\">\n\nBody text\n\n</Accordion>\n",
+    "notes": "US-012 / FR-5: HTML5 `name` attr for exclusive-accordion grouping (native <details name=> substrate, Chrome 120+/Safari 17.2+/Firefox 130+)"
+  },
+  {
+    "componentName": "Accordion-defaultOpen-id",
+    "blockForm": "<Accordion title=\"Advanced\" defaultOpen id=\"advanced\">\n\nBody\n\n</Accordion>\n",
+    "notes": "US-012 / FR-5: defaultOpen boolean shorthand + id attr for deep-linking"
+  },
+  {
+    "componentName": "img-basic",
+    "blockForm": "<img src=\"/img.png\" alt=\"Photo\" />\n",
+    "notes": "lowercase HTML <img> canonical — self-closing with src + alt attrs"
+  },
+  {
+    "componentName": "img-with-srcset-loading",
+    "blockForm": "<img src=\"/assets/diagram.png\" alt=\"Architecture\" width={640} srcset=\"/diagram@1x.png 1x, /diagram@2x.png 2x\" loading=\"lazy\" />\n",
+    "notes": "advanced HTML attrs: srcset (responsive), width number expression, loading enum"
+  },
+  {
+    "componentName": "video-basic",
+    "blockForm": "<video src=\"/clip.mp4\" />\n",
+    "notes": "lowercase HTML <video> canonical — controls default true at render time"
+  },
+  {
+    "componentName": "video-with-poster-autoplay",
+    "blockForm": "<video src=\"/clip.mp4\" poster=\"/p.jpg\" autoplay muted loop />\n",
+    "notes": "HTML-attr lowercase: autoplay (not autoPlay) + muted + loop; React translates to camelCase at JSX boundary"
+  },
+  {
+    "componentName": "audio-basic",
+    "blockForm": "<audio src=\"/clip.mp3\" />\n",
+    "notes": "lowercase HTML <audio> canonical — controls is now an explicit prop (default true)"
+  },
+  {
+    "componentName": "audio-widened-preload",
+    "blockForm": "<audio src=\"/clip.mp3\" autoplay loop preload=\"metadata\" />\n",
+    "notes": "HTML-attr lowercase autoplay + loop + preload enum; controls={false} would be the chrome-less opt-out"
+  },
+  {
+    "componentName": "Nested-Callout-Accordion",
+    "blockForm": "<Callout type=\"note\">\n\nIntro text\n\n<Accordion title=\"Details\">\n\nMore info\n\n</Accordion>\n\n</Callout>\n",
+    "notes": "US-012 / D-MF18: nested composition — Callout containing Accordion; exercises I16 hasDirtyDescendant walk across 5-pack compositions"
+  },
+  {
+    "componentName": "Nested-Accordion-Callout",
+    "blockForm": "<Accordion title=\"Outer\">\n\nOpening\n\n<Callout type=\"tip\">\n\nInside\n\n</Callout>\n\n</Accordion>\n",
+    "notes": "US-012 / D-MF18: nested composition — Accordion containing Callout; reverse-nesting exercises I16"
+  },
+  {
+    "componentName": "Nested-Accordion-Accordion",
+    "blockForm": "<Accordion title=\"Outer\">\n\nOpening\n\n<Accordion title=\"Inner\">\n\nDeep content\n\n</Accordion>\n\n</Accordion>\n",
+    "notes": "US-012 / D-MF18: same-type nesting — Accordion inside Accordion"
+  },
+  {
+    "componentName": "Nested-Callout-Callout",
+    "blockForm": "<Callout type=\"note\">\n\nOuter intro\n\n<Callout type=\"tip\">\n\nInner tip\n\n</Callout>\n\n</Callout>\n",
+    "notes": "US-012 / D-MF18: same-type nesting — Callout inside Callout"
+  },
+  {
+    "componentName": "Nested-Callout-collapsible-Accordion",
+    "blockForm": "<Callout type=\"warning\" collapsible defaultOpen>\n\nFoldable Callout intro\n\n<Accordion title=\"Details\">\n\nDeep body\n\n</Accordion>\n\n</Callout>\n",
+    "notes": "US-012 / D-MF18: foldable Callout wrapping nested Accordion — exercises I16 under the collapsible-Callout shape introduced in D-MF17"
+  },
+  {
+    "componentName": "Unregistered-CustomThing",
+    "blockForm": "<CustomThing foo=\"bar\">\n\nContent\n\n</CustomThing>\n",
+    "notes": "unregistered component — exercises wildcard descriptor path; byte-identity preservation per D-MF15"
+  },
+  {
+    "componentName": "Comp-expression-attr",
+    "blockForm": "<Comp data={values}>\n\nContent\n\n</Comp>\n",
+    "notes": "identifier expression attr (not a literal) — wildcard"
+  },
+  {
+    "componentName": "Comp-spread-attr",
+    "blockForm": "<Comp {...rest}>\n\nContent\n\n</Comp>\n",
+    "notes": "spread attr — preserved verbatim, not destructured — wildcard"
+  },
+  {
+    "componentName": "Icon-inline-self-closing",
+    "blockForm": "Hello <Icon name=\"check\" /> world\n",
+    "notes": "inline thin shape — self-closing within paragraph"
+  },
+  {
+    "componentName": "Badge-inline-paired",
+    "blockForm": "See <Badge>x</Badge> here\n",
+    "notes": "inline thin shape — paired tags within paragraph"
+  },
+  {
+    "componentName": "Comp-inline-expression-attr",
+    "blockForm": "Use <Comp data={values} /> now\n",
+    "notes": "inline thin shape — expression attr on self-closing"
+  },
+  {
+    "componentName": "Callout-gfm-note",
+    "blockForm": "> [!NOTE]\n> Body text\n",
+    "notes": "US-010 / FR-7: GFM alerts syntax — blockquote parses through remark-github-alerts + callout-transformer → mdxJsxFlowElement(Callout, {type:'note'}); γ pristine preserves bytes"
+  },
+  {
+    "componentName": "Callout-gfm-tip",
+    "blockForm": "> [!TIP]\n> Use `npm ci` in CI\n",
+    "notes": "US-010: GFM tip alert — inline code survives through the transformer + position-slice"
+  },
+  {
+    "componentName": "Callout-gfm-important",
+    "blockForm": "> [!IMPORTANT]\n> Critical information\n",
+    "notes": "US-010: GFM important alert"
+  },
+  {
+    "componentName": "Callout-gfm-warning",
+    "blockForm": "> [!WARNING]\n> Heads up\n",
+    "notes": "US-010: GFM warning alert"
+  },
+  {
+    "componentName": "Callout-gfm-caution",
+    "blockForm": "> [!CAUTION]\n> Dangerous action ahead\n",
+    "notes": "US-010: GFM caution alert"
+  },
+  {
+    "componentName": "Callout-obsidian-foldable-closed",
+    "blockForm": "> [!WARNING]-\n> Hidden by default (defaultOpen=false)\n",
+    "notes": "US-010 / D-MF17: Obsidian `-` marker → collapsible + defaultOpen=false; γ preserves the `-` on pristine save"
+  },
+  {
+    "componentName": "Callout-obsidian-foldable-open",
+    "blockForm": "> [!IMPORTANT]+\n> Open by default (defaultOpen=true)\n",
+    "notes": "US-010 / D-MF17: Obsidian `+` marker → collapsible + defaultOpen=true; γ preserves the `+` on pristine save"
+  },
+  {
+    "componentName": "Accordion-details-single-line",
+    "blockForm": "<details><summary>Details</summary>Body text</details>\n",
+    "notes": "US-011 / FR-8: HTML5 <details> single-line → Accordion mdxJsxFlowElement; γ pristine preserves the <details> bytes verbatim"
+  },
+  {
+    "componentName": "Accordion-details-open-attr",
+    "blockForm": "<details open><summary>Show details</summary>\n\nBody\n\n</details>\n",
+    "notes": "US-011: HTML5 <details open> → Accordion with defaultOpen; multi-paragraph body form"
+  },
+  {
+    "componentName": "Accordion-details-name-attr",
+    "blockForm": "<details name=\"grp\"><summary>One</summary>Body</details>\n",
+    "notes": "US-011: HTML5 <details name> → Accordion with name (exclusive-accordion grouping via native <details name=>)"
+  },
+  {
+    "componentName": "Accordion-details-id-attr",
+    "blockForm": "<details id=\"anchor\" open><summary>Named</summary>Body</details>\n",
+    "notes": "US-011: HTML5 <details id+open> → Accordion with id + defaultOpen for deep-linking"
+  },
+  {
+    "componentName": "Math-basic",
+    "blockForm": "<Math formula=\"E = mc^2\" />\n",
+    "notes": "FR-M1 (SPEC 2026-04-29-math-canonical-and-syntax): self-closing block descriptor; formula prop carries LaTeX source"
+  },
+  {
+    "componentName": "Math-with-id",
+    "blockForm": "<Math formula=\"a^2 + b^2 = c^2\" id=\"pythagoras\" />\n",
+    "notes": "FR-M1: id attr for deep-link anchor (e.g. #pythagoras) on a block math node"
+  },
+  {
+    "componentName": "Mermaid-basic",
+    "blockForm": "```mermaid\ngraph TD; A-->B;\n```\n",
+    "notes": "` ```mermaid ` fence is the only authoring form. The descriptor (`MermaidFence`) exposes a single `chart` prop and emits the fence on dirty save."
+  },
+  {
+    "componentName": "Mermaid-multiline",
+    "blockForm": "```mermaid\nflowchart LR\n  A[Start] --> B{Valid?}\n  B -- Yes --> C[Render]\n  B -- No --> D[Show error]\n```\n",
+    "notes": "Multi-line chart body; the fence keeps the source bytes verbatim — no escaping of newlines or special chars (unlike the removed JSX form)."
+  }
+]

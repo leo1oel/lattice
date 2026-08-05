@@ -11,6 +11,7 @@
  */
 import { peerInitials } from "./collab-session";
 import type { PresenceUser } from "./use-overleaf-presence";
+import { AvatarGroup } from "./avatar-group";
 import "./overleaf-presence.css";
 
 const MAX_AVATARS = 5;
@@ -28,7 +29,7 @@ export function OverleafPresenceAvatars(props: {
   const overflow = peers.slice(MAX_AVATARS);
 
   return (
-    <div className="overleaf-presence-avatars" aria-label="People in this Overleaf project">
+    <AvatarGroup className="overleaf-presence-avatars" ariaLabel="People in this Overleaf project">
       {shown.map((peer) => {
         const label = peer.name || "Anonymous";
         const path = peer.docId ? props.pathForDoc(peer.docId) : null;
@@ -54,6 +55,6 @@ export function OverleafPresenceAvatars(props: {
           +{overflow.length}
         </span>
       )}
-    </div>
+    </AvatarGroup>
   );
 }

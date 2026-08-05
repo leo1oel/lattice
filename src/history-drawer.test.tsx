@@ -56,6 +56,22 @@ describe("HistoryDrawer", () => {
     });
   });
 
+  it("keeps the header outside the shared scroll area when changing views", () => {
+    mockBackend();
+    render(<HistoryDrawer {...required} />);
+    const title = screen.getByText("Project history");
+    const header = title.closest<HTMLElement>('[data-slot="panel-header"]');
+    const viewport = screen.getByLabelText("Project history content");
+
+    expect(viewport).not.toContainElement(header);
+    expect(viewport.closest('[data-slot="scroll-area"]'))
+      .toHaveClass("project-history-scroll");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Versions" }));
+    expect(screen.getByText("Project history").closest('[data-slot="panel-header"]'))
+      .toBe(header);
+  });
+
   it("falls back off the remembered Overleaf tab for an unlinked project", () => {
     mockBackend();
     // The tab choice is remembered across opens for the session, so pick it

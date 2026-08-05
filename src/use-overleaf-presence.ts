@@ -57,14 +57,19 @@ export function useOverleafPresence(options: {
   /** Where our caret is right now, for the keepalive to re-publish without a fresh move. */
   readCaret: () => { row: number; column: number };
 }): OverleafPresence {
-  const [roster, setRoster] = useState<Map<string, PresenceUser>>(new Map());
+  const [roster, setRoster] = useState<{
+    projectRoot: string | null;
+    users: Map<string, PresenceUser>;
+  }>({ projectRoot: null, users: new Map() });
 
   // The persistent listener below is registered once and outlives every prop
   // change, so it reads through refs rather than closing over stale values.
+  const projectRootRef = useRef(options.projectRoot);
   const selfIdRef = useRef(options.selfId);
   const docIdRef = useRef(options.docId);
   const readCaretRef = useRef(options.readCaret);
   useEffect(() => {
+    projectRootRef.current = options.projectRoot;
     selfIdRef.current = options.selfId;
     docIdRef.current = options.docId;
     readCaretRef.current = options.readCaret;
@@ -82,31 +87,38 @@ export function useOverleafPresence(options: {
     void listen<PresenceEvent>("overleaf-realtime", (event) => {
       const payload = event.payload;
       if (payload.type === "presenceUpdated" && payload.user) {
+        // The listener outlives individual projects. Once the current project
+        // is not linked, a queued event from the channel being torn down must
+        // not repopulate the roster we just cleared.
+        const projectRoot = projectRootRef.current;
+        if (!projectRoot) return;
         const user = payload.user;
         // Our own move is echoed back like anyone else's; showing it would
         // make the roster claim we are our own collaborator.
         if (selfIdRef.current && user.id === selfIdRef.current) return;
         setRoster((current) => {
-          const next = new Map(current);
+          const next = current.projectRoot === projectRoot
+            ? new Map(current.users)
+            : new Map<string, PresenceUser>();
           next.set(user.id, user);
-          return next;
+          return { projectRoot, users: next };
         });
         return;
       }
       if (payload.type === "presenceLeft" && payload.id) {
         const id = payload.id;
         setRoster((current) => {
-          if (!current.has(id)) return current;
-          const next = new Map(current);
+          if (current.projectRoot !== projectRootRef.current || !current.users.has(id)) return current;
+          const next = new Map(current.users);
           next.delete(id);
-          return next;
+          return { ...current, users: next };
         });
         return;
       }
       if (payload.type === "disconnected") {
         // A dropped socket takes everyone with it at once; a roster left over
         // from before it dropped would claim people are here who are not.
-        setRoster(new Map());
+        setRoster({ projectRoot: null, users: new Map() });
       }
     }).then((dispose) => {
       if (disposed) dispose();
@@ -129,9 +141,12 @@ export function useOverleafPresence(options: {
     void invoke<PresenceUser[]>("overleaf_rt_connected_users", { projectRoot })
       .then((users) => {
         if (cancelled) return;
-        setRoster(new Map(
-          users.filter((user) => user.id !== selfId).map((user) => [user.id, user]),
-        ));
+        setRoster({
+          projectRoot,
+          users: new Map(
+            users.filter((user) => user.id !== selfId).map((user) => [user.id, user]),
+          ),
+        });
       })
       .catch(() => {
         // The channel may not have finished connecting, or dropped while this
@@ -192,7 +207,7 @@ export function useOverleafPresence(options: {
   const publish = useCallback((row: number, column: number) => {
     if (!options.docId || !options.projectRoot) return;
     const projectRoot = options.projectRoot;
-    const alone = roster.size === 0;
+    const alone = roster.projectRoot !== projectRoot || roster.users.size === 0;
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       debounceTimer.current = null;
@@ -207,7 +222,9 @@ export function useOverleafPresence(options: {
     }, alone ? DEBOUNCE_ALONE_MS : DEBOUNCE_WITH_OTHERS_MS);
   }, [options.docId, options.projectRoot, roster]);
 
-  const peers = Array.from(roster.values()).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  const peers = options.projectRoot && roster.projectRoot === options.projectRoot
+    ? Array.from(roster.users.values()).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+    : [];
 
   return { peers, publish };
 }

@@ -3,7 +3,6 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Mutex;
 
 /// Payload of the `trackpad-magnify` event the web UI listens for.
 #[derive(Clone, serde::Serialize)]
@@ -74,144 +73,11 @@ pub fn install_magnify_monitor(app: tauri::AppHandle) {
 
 const LIGHT_WINDOW_BACKGROUND: (f64, f64, f64) = (247.0, 247.0, 246.0);
 const DARK_WINDOW_BACKGROUND: (f64, f64, f64) = (23.0, 23.0, 24.0);
-const DEFAULT_TRAFFIC_LIGHT_CLOSE_CENTER_X: f64 = 23.0;
-const DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP: f64 = 22.0;
-
-#[derive(Clone, Copy)]
-struct TrafficLightTarget {
-    close_center_x: f64,
-    center_from_top: f64,
-}
-
-static TRAFFIC_LIGHT_TARGET: Mutex<TrafficLightTarget> = Mutex::new(TrafficLightTarget {
-    close_center_x: DEFAULT_TRAFFIC_LIGHT_CLOSE_CENTER_X,
-    center_from_top: DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP,
-});
-
 fn window_background(dark: bool) -> (f64, f64, f64) {
     if dark {
         DARK_WINDOW_BACKGROUND
     } else {
         LIGHT_WINDOW_BACKGROUND
-    }
-}
-
-/// Align the native traffic-light centers with the 40-point web titlebar.
-///
-/// AppKit button frames are expressed in their private titlebar superview,
-/// whose origin is not the window's origin. Convert the desired center from
-/// window coordinates before assigning the frame; treating either Tauri's
-/// inset or the private container height as a button center causes the visible
-/// up-and-left offset this function avoids.
-#[cfg(target_os = "macos")]
-pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
-    schedule_traffic_light_alignment(window);
-
-    // AppKit performs one final titlebar layout while the window is first
-    // shown. Reapply the same absolute centers after that pass.
-    let delayed = window.clone();
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(120));
-        schedule_traffic_light_alignment(&delayed);
-    });
-
-    // Resizing across displays or leaving fullscreen can recreate or relayout
-    // the native titlebar hierarchy. Movement alone does not change its local
-    // geometry, so deliberately avoid a per-move correction that could jitter.
-    let observed = window.clone();
-    window.on_window_event(move |event| {
-        if matches!(
-            event,
-            tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. }
-        ) {
-            schedule_traffic_light_alignment(&observed);
-        }
-    });
-}
-
-/// Apply web-measured traffic-light centers in AppKit logical points.
-pub fn align_traffic_lights_to(
-    window: &tauri::WebviewWindow,
-    close_center_x: f64,
-    center_from_top: f64,
-) {
-    if !close_center_x.is_finite()
-        || close_center_x < 0.0
-        || !center_from_top.is_finite()
-        || center_from_top < 0.0
-    {
-        return;
-    }
-    if let Ok(mut target) = TRAFFIC_LIGHT_TARGET.lock() {
-        *target = TrafficLightTarget {
-            close_center_x,
-            center_from_top,
-        };
-    }
-    schedule_traffic_light_alignment(window);
-}
-
-fn schedule_traffic_light_alignment(window: &tauri::WebviewWindow) {
-    let Ok(ptr) = window.ns_window() else {
-        return;
-    };
-    if ptr.is_null() {
-        return;
-    }
-    let ptr = ptr as usize;
-    let _ = window.run_on_main_thread(move || unsafe {
-        align_traffic_lights_on_main(ptr as *mut std::ffi::c_void);
-    });
-}
-
-fn traffic_light_target() -> TrafficLightTarget {
-    TRAFFIC_LIGHT_TARGET
-        .lock()
-        .map(|target| *target)
-        .unwrap_or(TrafficLightTarget {
-            close_center_x: DEFAULT_TRAFFIC_LIGHT_CLOSE_CENTER_X,
-            center_from_top: DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP,
-        })
-}
-
-#[cfg(target_os = "macos")]
-unsafe fn align_traffic_lights_on_main(ns_window: *mut std::ffi::c_void) {
-    use objc2_app_kit::{NSView, NSWindow, NSWindowButton};
-    use objc2_foundation::NSPoint;
-
-    let window = &*(ns_window as *const NSWindow);
-    let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) else {
-        return;
-    };
-    let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) else {
-        return;
-    };
-    let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) else {
-        return;
-    };
-    let Some(button_superview) = close.superview() else {
-        return;
-    };
-
-    let close_frame = NSView::frame(&close);
-    let miniaturize_frame = NSView::frame(&miniaturize);
-    let close_center_x = close_frame.origin.x + close_frame.size.width / 2.0;
-    let miniaturize_center_x = miniaturize_frame.origin.x + miniaturize_frame.size.width / 2.0;
-    let center_spacing = miniaturize_center_x - close_center_x;
-    let target = traffic_light_target();
-    let center_y_in_window = window.frame().size.height - target.center_from_top;
-
-    for (index, button) in [close, miniaturize, zoom].into_iter().enumerate() {
-        let desired_window_center = NSPoint::new(
-            target.close_center_x + index as f64 * center_spacing,
-            center_y_in_window,
-        );
-        let desired_local_center =
-            button_superview.convertPoint_fromView(desired_window_center, None);
-        let mut frame = NSView::frame(&button);
-        frame.origin.x = desired_local_center.x - frame.size.width / 2.0;
-        frame.origin.y = desired_local_center.y - frame.size.height / 2.0;
-        button.setFrameOrigin(frame.origin);
     }
 }
 
@@ -271,6 +137,59 @@ pub fn apply_window_background(window: &tauri::WebviewWindow, dark: bool) {
     });
 }
 
+fn rgb_hex(red: f64, green: f64, blue: f64) -> String {
+    let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+    format!(
+        "#{:02X}{:02X}{:02X}",
+        channel(red),
+        channel(green),
+        channel(blue)
+    )
+}
+
+/// Open AppKit's system-wide color sampler and resolve after the user selects
+/// a screen pixel or cancels. NSColorSampler owns the loupe, multi-display
+/// sampling, Escape handling, and screen access, so the app does not need to
+/// capture the desktop or request screen-recording permission itself.
+pub async fn sample_screen_color(app: &tauri::AppHandle) -> Result<Option<String>, String> {
+    use block2::RcBlock;
+    use objc2_app_kit::{NSColor, NSColorSampler, NSColorSpace};
+    use std::ptr::NonNull;
+    use std::sync::{Arc, Mutex};
+    use tokio::sync::oneshot;
+
+    let (sender, receiver) = oneshot::channel();
+    let sender = Arc::new(Mutex::new(Some(sender)));
+    app.run_on_main_thread(move || {
+        let sampler = NSColorSampler::new();
+        let sender = Arc::clone(&sender);
+        let handler = RcBlock::new(move |color: *mut NSColor| {
+            let selected = NonNull::new(color).and_then(|color| {
+                // SAFETY: AppKit guarantees the selected NSColor remains valid
+                // for the duration of the completion handler.
+                let color = unsafe { color.as_ref() };
+                let srgb = color.colorUsingColorSpace(&NSColorSpace::sRGBColorSpace())?;
+                Some(rgb_hex(
+                    srgb.redComponent(),
+                    srgb.greenComponent(),
+                    srgb.blueComponent(),
+                ))
+            });
+            if let Some(sender) = sender.lock().ok().and_then(|mut slot| slot.take()) {
+                let _ = sender.send(selected);
+            }
+        });
+        // SAFETY: the block has AppKit's documented NSColor callback signature.
+        // NSColorSampler retains itself until the asynchronous session completes.
+        unsafe { sampler.showSamplerWithSelectionHandler(&handler) };
+    })
+    .map_err(|reason| format!("Could not start the screen color sampler: {reason}"))?;
+
+    receiver
+        .await
+        .map_err(|_| "The screen color sampler ended without a result.".to_string())
+}
+
 /// Strip Gatekeeper quarantine from our bundle (and an adjacent collab folder when present).
 pub fn clear_launch_quarantine() {
     if let Some(bundle) = bundle_root() {
@@ -313,20 +232,22 @@ mod tests {
     }
 
     #[test]
-    fn macos_window_config_leaves_center_alignment_to_appkit_coordinates() {
+    fn sampled_colors_are_clamped_and_formatted_as_srgb_hex() {
+        assert_eq!(super::rgb_hex(1.0, 0.5, 0.0), "#FF8000");
+        assert_eq!(super::rgb_hex(-0.2, 1.4, 1.0 / 255.0), "#00FF01");
+    }
+
+    #[test]
+    fn macos_window_config_owns_a_stable_traffic_light_inset() {
         let config: Value =
             serde_json::from_str(include_str!("../tauri.conf.json")).expect("valid Tauri config");
         assert_eq!(config["app"]["macOSPrivateApi"], true);
         let window = &config["app"]["windows"][0];
-        assert!(
-            window.get("trafficLightPosition").is_none(),
-            "WRY's inset must not compete with the explicit center alignment"
-        );
-        assert_eq!(super::DEFAULT_TRAFFIC_LIGHT_CLOSE_CENTER_X, 23.0);
-        assert_eq!(super::DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP, 22.0);
-        let app = include_str!("../../src/App.tsx");
-        assert!(app.contains("const TRAFFIC_LIGHT_CLOSE_CENTER_X_CSS_PX = 21;"));
-        assert!(app.contains("const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;"));
+        // WRY retains this inset and reapplies it from the native view's draw
+        // path, so live resizing never competes with a manual frame update.
+        assert_eq!(window["trafficLightPosition"]["x"], 13.0);
+        assert_eq!(window["trafficLightPosition"]["y"], 22.2);
+        assert!(!include_str!("../../src/App.tsx").contains("align_traffic_lights"));
         let css_entry = include_str!("../../src/App.css");
         assert!(css_entry.contains("./styles/app-shell.css"));
         let css = include_str!("../../src/styles/app-shell.css");

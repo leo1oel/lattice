@@ -45,7 +45,7 @@ describe("agent host context", () => {
         hasFullText: true,
         hasBlog: true,
       },
-      canvasMode: "paper",
+      canvasMode: "pdf",
       paperView: "fulltext",
       pdfPage: 1,
       pdfPageCount: null,

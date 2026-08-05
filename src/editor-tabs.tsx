@@ -130,7 +130,7 @@ export function EditorTabs(props: {
   }, [onPointerMove, endDrag]);
 
   return (
-    <div className="editor-tabs" data-window-drag-exclude>
+    <div className="editor-tabs" data-window-drag-exclude-on-overflow>
       <ScrollArea
         className="editor-tabs-scroll"
         orientation="horizontal"

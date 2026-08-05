@@ -2,10 +2,8 @@
  * Public Yjs sync host used by Start / Join sharing.
  *
  * Set at build time with VITE_LATTICE_COLLAB_HOST=lattice-collab.<you>.workers.dev
- * After `pnpm collab:deploy` (Wrangler → your Cloudflare account), paste the host
- * into Lattice Advanced, or into `.env.local` for builds.
- *
- * Until then, sharing falls back to localhost:8787 (same machine / LAN only).
+ * After `pnpm collab:deploy` (Wrangler → your Cloudflare account), set the host
+ * in `.env.local` for builds.
  */
 /** Fallback when env is unset (your Cloudflare workers.dev deploy). */
 const FALLBACK_COLLAB_HOST = "lattice-collab.paperlattice.workers.dev";

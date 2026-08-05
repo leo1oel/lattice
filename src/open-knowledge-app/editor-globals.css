@@ -1,0 +1,3848 @@
+/* Vendored from inkeep/open-knowledge packages/app/src/globals.css @ 9e8a00e24c6eaea110b546758664aad0e7ebab7e; extracted editor sections only; do not hand-edit. */
+/* Agent flash — surgical, survives ProseMirror reconciliation.
+   The data-agent-flash-state attribute lives on the React wrapper (stable across PM updates).
+   Targets only the last 3 blocks (append) or first 3 blocks (prepend) — covers most agent writes.
+   Uses :nth-last-child / :nth-child to scope the flash without touching PM-managed DOM.
+
+   Staggered entry (30ms per block) via animation-delay for a cascading feel on multi-block writes. */
+
+/* Position-accurate agent-insert flash — inline decoration class applied by
+   the agent-insert-flash PM plugin to the exact ranges a remote agent write
+   changed. `box-decoration-break: clone` keeps wrapped lines individually
+   rounded; duration matches AGENT_INSERT_FLASH_MS in agent-insert-flash.ts. */
+.ok-agent-insert-flash {
+  animation: agent-insert-flash 1.4s var(--ease-out-strong) forwards;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ok-agent-insert-flash {
+    animation-duration: 1ms;
+  }
+}
+
+/* Landing flash — transient highlight on the range a mode-switch jump lands on
+   (landing-flash-source.ts / landing-flash-wysiwyg.ts). A dedicated class, not
+   the agent-write flash, so its treatment can diverge from the agent wash later
+   without touching attribution; it reuses the shared agent-flash keyframe today.
+   Inline decoration in both editors, so one rule covers CodeMirror and
+   ProseMirror. box-decoration-break keeps a wrapped multi-line range
+   individually accented; duration matches FLASH_DURATION_MS. */
+.ok-landing-flash {
+  animation: agent-flash 2s var(--ease-out-strong) forwards;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  position: relative;
+}
+
+/* Reduced motion — static terracotta accent bar, no movement or background sweep. */
+@media (prefers-reduced-motion: reduce) {
+  .ok-landing-flash {
+    animation: none;
+    box-shadow: inset 3px 0 0 var(--color-agent);
+    transition: box-shadow 2s ease;
+  }
+}
+
+[data-agent-flash-state="editing"][data-agent-flash-position="append"]
+  .ProseMirror
+  > *:nth-last-child(-n + 3),
+[data-agent-flash-state="editing"][data-agent-flash-position="prepend"]
+  .ProseMirror
+  > *:nth-child(-n + 3) {
+  animation: agent-flash 2s var(--ease-out-strong) forwards;
+  position: relative;
+}
+
+/* Stagger — second affected block fires 30ms after first, third at 60ms */
+[data-agent-flash-state="editing"][data-agent-flash-position="append"]
+  .ProseMirror
+  > *:nth-last-child(2) {
+  animation-delay: 30ms;
+}
+[data-agent-flash-state="editing"][data-agent-flash-position="append"]
+  .ProseMirror
+  > *:nth-last-child(1) {
+  animation-delay: 0ms;
+}
+[data-agent-flash-state="editing"][data-agent-flash-position="prepend"]
+  .ProseMirror
+  > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+[data-agent-flash-state="editing"][data-agent-flash-position="prepend"]
+  .ProseMirror
+  > *:nth-child(2) {
+  animation-delay: 30ms;
+}
+[data-agent-flash-state="editing"][data-agent-flash-position="prepend"]
+  .ProseMirror
+  > *:nth-child(3) {
+  animation-delay: 60ms;
+}
+
+/* Reduced motion — keep opacity/color transition for comprehension, remove movement.
+   Static terracotta left accent bar fades in and out, no transform, no background tint. */
+@media (prefers-reduced-motion: reduce) {
+  [data-agent-flash-state="editing"][data-agent-flash-position="append"]
+    .ProseMirror
+    > *:nth-last-child(-n + 3),
+  [data-agent-flash-state="editing"][data-agent-flash-position="prepend"]
+    .ProseMirror
+    > *:nth-child(-n + 3) {
+    animation: none;
+    box-shadow: inset 3px 0 0 var(--color-agent);
+    transition: box-shadow 2s ease;
+  }
+}
+/* Editor layout — grid on wrapper; content column max 1024px (lg), side rails minmax(gutter, 1fr) */
+.tiptap-editor {
+  --content-max-width: 1024px;
+  --margin-width: 4rem;
+  display: grid;
+  width: 100%;
+  grid-template-columns:
+    [full-start] minmax(var(--margin-left-width, var(--margin-width)), 1fr)
+    [content-start] minmax(0, min(var(--content-max-width), 100%))
+    [content-end] minmax(var(--margin-right-width, var(--margin-width)), 1fr)
+    [full-end];
+}
+
+/* Same content-column grid as .tiptap-editor — applied to siblings (e.g., the
+   property panel) so they horizontally align with the editor body. Variables
+   redeclared here so this class doesn't depend on living inside .tiptap-editor. */
+.editor-content-aligned {
+  --content-max-width: 1024px;
+  --margin-width: 4rem;
+  display: grid;
+  width: 100%;
+  grid-template-columns:
+    [full-start] minmax(var(--margin-left-width, var(--margin-width)), 1fr)
+    [content-start] minmax(0, min(var(--content-max-width), 100%))
+    [content-end] minmax(var(--margin-right-width, var(--margin-width)), 1fr)
+    [full-end];
+}
+
+.editor-content-aligned > * {
+  grid-column: content;
+}
+
+/* The floating Ask AI composer reserves scroll room at the bottom of the doc by
+   padding the editor CONTENT (.ProseMirror / .cm-content) — padding the scroll
+   container alone creates no overflow because the content's own min-height fills
+   it. The inset tracks the live composer via `--ask-composer-height` (card height
+   + gap, published by BottomComposer); the var is the single source of truth and
+   is absent when the composer is collapsed or hidden, so the padding collapses to
+   0 and the space is reclaimed — no class to fall out of sync. Scoped inside
+   `.editor-doc-scroll` so the floating composer's own ProseMirror (a sibling of
+   the scroll container) is never padded. */
+.editor-doc-scroll {
+  scroll-padding-bottom: var(--ask-composer-height, 0px);
+}
+.editor-doc-scroll :is(.ProseMirror, .cm-content) {
+  padding-bottom: var(--ask-composer-height, 0px);
+}
+
+/* Standalone Mermaid docs render OUTSIDE `.editor-doc-scroll` — a diagram +
+   source pane, not a ProseMirror/CM scroll surface — so the inset above never
+   reaches them. Reserve the composer height on the whole editor so a full-page
+   panzoom diagram (which does not scroll) and the source pane's last lines clear
+   the floating card. The var is 0 when the composer is collapsed/hidden, so the
+   space is reclaimed with no class to fall out of sync. */
+[data-mermaid-doc-editor] {
+  padding-bottom: var(--ask-composer-height, 0px);
+}
+
+/* Conflict-mode DiffView scroller: same composer inset so the last hunks (and
+   their inline Accept/Reject controls) can scroll clear of the floating
+   composer. The content-side padding rule lives next to the
+   `.source-editor .cm-content` restore rule AFTER the `.cm-editor .cm-content`
+   padding reset (equal specificity — source order decides; see the comment
+   there). The conflict footer itself needs no inset — the composer anchors
+   above it via `--conflict-footer-height` (see use-conflict-footer-height.ts). */
+.diff-view {
+  scroll-padding-bottom: var(--ask-composer-height, 0px);
+}
+
+/* Ease the inset + composer entrance so collapsing/expanding glides instead of a
+   hard jump cut. The per-frame scroll re-clamp in BottomComposer keeps the bottom
+   pinned while the padding transition plays. `bottom` is included because the
+   composer's anchor tracks `--conflict-footer-height`, which flips between 0 and
+   the conflict footer's height when conflict mode mounts/unmounts. Reduced-motion
+   users get the instant change. */
+@media (prefers-reduced-motion: no-preference) {
+  .editor-doc-scroll :is(.ProseMirror, .cm-content),
+  .diff-view .cm-content {
+    transition: padding-bottom 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  [data-testid="bottom-composer"] {
+    transition:
+      opacity 200ms ease,
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      bottom 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @starting-style {
+    [data-testid="bottom-composer"] {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+}
+
+/* Content-column children. The `.tiptap-editor` wrapper is a 3-column named
+ * grid ([full-start] margin [content-start] content [content-end] margin
+ * [full-end]). Direct children default to `grid-column: content` so editor
+ * chrome — EditorContent, future <nav>/<header>/<footer>
+ * — lands in the content column. An earlier version of this rule targeted
+ * `> div` specifically, which worked while every child was a <div> but
+ * silently broke semantic elements: a direct <nav> child auto-placed into
+ * the right-margin track (width = --margin-width = 4rem), truncating its
+ * content into a ~64px vertical sliver. Widened to `> *` so the rule's
+ * intent ("content-column children") matches the CSS. Edge-to-edge
+ * elements that want a different track can explicit-override with
+ * `grid-column: full`.
+ */
+.tiptap-editor > * {
+  grid-column: content;
+  position: relative;
+}
+
+/* H6 cross-doc-bleed structural fix: `<EditorContent>`'s refDiv is rendered
+ * via `React.createPortal` into a per-Activity `data-ok-editor-portal` div,
+ * which itself is appended into a JSX `portalSlot` placeholder (`display:
+ * contents`) inside `.tiptap-editor`. Both wrappers use `display: contents`
+ * so the refDiv remains the effective grid item of `.tiptap-editor` — same
+ * grid placement, scroll geometry, and box model as the pre-portal inline
+ * `<EditorContent>` mount.
+ *
+ * The `.tiptap-editor > *` rule above selects DOM DIRECT children only.
+ * Two layers of `display: contents` (portalSlot + portalTarget) make the
+ * refDiv a DOM great-grandchild of `.tiptap-editor` even though, for grid
+ * layout purposes, it acts as a direct grid item. The descendant selector
+ * `.tiptap-editor .tiptap-editor-portal-content` matches it explicitly and
+ * applies the same `grid-column: content; position: relative` that the
+ * inline refDiv used to inherit via `.tiptap-editor > *`. Without this
+ * rule, the refDiv falls into the first grid track (the left margin) at
+ * intrinsic-min width and collapses ProseMirror to a ~104px column —
+ * surfaced via the slash-menu's `onMouseEnter` racing the cursor's now-
+ * overlapping popup.
+ */
+.tiptap-editor .tiptap-editor-portal-content {
+  grid-column: content;
+  /* Explicit row: `.ok-table-cell-handle-layer` is pinned to row 1 to share
+     this row (see that rule for why); without an explicit row here,
+     auto-placement would skip the occupied content-column cell and bump the
+     editor body to row 2 whenever the cursor is in a table. */
+  grid-row: 1;
+  position: relative;
+}
+
+/* Editor polish */
+.ProseMirror {
+  outline: none;
+  min-height: 200px;
+  line-height: 1.7;
+  /* Extend hit area into left margin so the gap between text and the drag handle
+     does not prematurely hide it. padding-left compensates so text is unchanged. */
+  margin-left: -2.5rem;
+  padding-left: 2.5rem;
+  /* Mirror the same negative-margin/padding trick on the right. Without it, the
+     content box's right edge sits flush with the editor element's border-box
+     right edge (content-end), so a `w-full` bordered block (e.g. the empty-Mermaid
+     placeholder card) paints its right border with ZERO in-element slack — the
+     left border has 2.5rem of it. Any right-side clip (an overflow ancestor's edge
+     or a scrollbar gutter at wide widths) then shaves that flush 1px right border
+     while the slack-protected left/top/bottom survive. Extending the border-box
+     2.5rem into the right gutter (padding-right compensates, so text and every
+     block stay put) gives the right border the same slack the left already has. */
+  margin-right: -2.5rem;
+  padding-right: 2.5rem;
+  @apply text-gray-800 dark:text-white/80;
+}
+
+.ProseMirror p {
+  margin-bottom: 0.5em;
+}
+
+/* The bottom "Ask AI" composer reuses a ProseMirror view but is a slim prompt
+   field, not a document body: drop the 200px min-height and the drag-handle
+   left margin/padding so it rests at one line and its text origin aligns with
+   the placeholder overlay. Higher specificity (.ProseMirror.composer-prosemirror)
+   beats the unlayered base rule above; a Tailwind `min-h-0` utility would not. */
+.ProseMirror.composer-prosemirror {
+  min-height: 0;
+  line-height: 1.5;
+  margin-left: 0;
+  padding-left: 0;
+  /* Drop the right gutter mirror too — the slim composer is a single-line prompt,
+     not a document body, so it needs neither the drag-handle hit area nor the
+     full-width-block border slack. */
+  margin-right: 0;
+  padding-right: 0;
+}
+
+.ProseMirror.composer-prosemirror p {
+  margin-bottom: 0;
+}
+
+/* Inline `@`-mention chip in the composer — VISUALLY INDISTINGUISHABLE from the
+   host-level ComposerContextChips top-row chip (`FileChip`): a user can't tell an
+   inline chip from a top-row chip by looking, only by where it sits. Each rule
+   below maps token-for-token to a Tailwind class on the top-row chip so the two
+   stay in lockstep. The top-row container is:
+     inline-flex max-w-[14rem] items-center gap-1 rounded-md border bg-muted/40
+     py-0.5 pr-1.5 pl-1 text-muted-foreground text-xs
+   and its leading icon-button is `size-3.5 rounded-sm` holding a `size-3` glyph
+   that cross-fades file-icon → X.
+
+   Like the top-row chip, the LEADING icon doubles as the remove control (Cursor
+   pattern): NO trailing × and no reserved trailing slot — at rest the chip is
+   fully tight (leading `@` marker + label). The reveal is LAYOUT-NEUTRAL: the
+   leading cell is fixed-size and holds two stacked glyphs (`@` and `×`); on
+   hover/`:focus-within` they cross-fade via `opacity` ONLY (the `@` fades to 0,
+   the `×` fades to 1) in the same cell, so the chip's box is identical hovered vs
+   not and the inline prompt text never reflows (a width/margin-changing reveal
+   here flickered: reflow shifted the chip out from under the cursor, toggling
+   :hover off → shrink → reflow back → infinite). Single-line ONLY: `inline-flex`
+   + bounded `max-width` + the label ellipsizes, so a long label truncates with
+   `…` instead of wrapping. `vertical-align: middle` (inline-context-only — the
+   top-row chip is a standalone flex row and doesn't need it) keeps the pill
+   aligned with the surrounding prompt text. */
+.composer-mention-chip {
+  display: inline-flex; /* inline-flex */
+  align-items: center; /* items-center */
+  gap: 0.25rem; /* gap-1 */
+  max-width: 14rem; /* max-w-[14rem] */
+  border-radius: var(--radius-md); /* rounded-md */
+  border: 1px solid var(--border); /* border */
+  background-color: color-mix(in oklab, var(--muted) 40%, transparent); /* bg-muted/40 */
+  padding: 0.125rem 0.375rem 0.125rem 0.25rem; /* py-0.5 pr-1.5 pl-1 */
+  font-size: var(--text-xs); /* text-xs */
+  line-height: 1rem; /* text-xs line-height — matches the top-row chip's pill height */
+  color: var(--muted-foreground); /* text-muted-foreground */
+  vertical-align: middle;
+  white-space: nowrap;
+  user-select: none;
+}
+/* The leading icon-button — the top-row chip's `size-3.5 rounded-sm` ghost
+   icon-button: a fixed-size cell that overlays its two glyphs (so the cell never
+   resizes during the cross-fade). It IS the remove control — focusable real
+   `<button>` (Enter/Space activate natively), clickable cursor, accessible name
+   set in the node view. The `text-muted-foreground/80 → hover:text-foreground`
+   mirrors the top-row icon-button's color treatment. */
+.composer-mention-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 0.875rem; /* size-3.5 */
+  height: 0.875rem; /* size-3.5 */
+  border-radius: var(--radius-sm); /* rounded-sm */
+  line-height: 1;
+  color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
+  cursor: pointer;
+}
+.composer-mention-icon:hover {
+  color: var(--foreground);
+}
+.composer-mention-icon:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
+}
+/* Both glyphs share the SAME `size-3`-equivalent cell (stacked + centered). Only
+   `opacity` toggles — never layout — so the swap is reflow-free. Each glyph holds
+   an inline lucide `<svg>` (injected by the node view), sized to the top-row
+   chip's `size-3` (0.75rem) footprint and inheriting `currentColor` so the cell's
+   `color` (muted-foreground → foreground on hover) drives the glyph — identical
+   to the React-rendered top-row icon. The base rule is the static reduced-motion
+   state (instant swap, no transition); the transition is added only under
+   `prefers-reduced-motion: no-preference` below. */
+.composer-mention-glyph {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.composer-mention-glyph svg {
+  width: 0.75rem; /* size-3 — matches the top-row leading icon */
+  height: 0.75rem;
+}
+.composer-mention-glyph-icon {
+  opacity: 1;
+}
+.composer-mention-glyph-x {
+  opacity: 0;
+}
+.composer-mention-chip:hover .composer-mention-glyph-icon,
+.composer-mention-chip:focus-within .composer-mention-glyph-icon {
+  opacity: 0;
+}
+.composer-mention-chip:hover .composer-mention-glyph-x,
+.composer-mention-chip:focus-within .composer-mention-glyph-x {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .composer-mention-glyph {
+    transition: opacity 140ms ease;
+  }
+}
+.composer-mention-label {
+  min-width: 0; /* min-w-0 */
+  overflow: hidden; /* truncate */
+  white-space: nowrap; /* truncate */
+  text-overflow: ellipsis; /* truncate */
+}
+
+.ProseMirror [data-mark-view-content] {
+  @apply truncate;
+}
+
+.ProseMirror mark {
+  color: inherit;
+  background: color-mix(in oklab, var(--syntax-type) 28%, var(--background));
+  @apply py-0.5 px-1 rounded-sm;
+}
+
+/* Authoring annotations (`%%…%%`, `<!-- … -->`). The editing surface shows
+ * them dimmed rather than hiding them: the comment promoter claims literal
+ * comment syntax wherever it appears in the bytes, including prose a user
+ * typed without meaning it as a comment, so `display: none` here would
+ * delete typed text from the surface it was typed into. Reading surfaces
+ * still hide them — the mdast→hast renderer emits a literal HTML comment.
+ *
+ * The delimiters are not in the document (the promoter strips them and
+ * records the form as an attribute), so they are drawn as pseudo-elements.
+ * That keeps them out of the text content ProseMirror maps positions
+ * against and out of the serialized bytes. */
+.comment-mark {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+/* The delimiters are chrome, not prose. `content: "…" / ""` supplies an empty
+ * alternative text so assistive technology does not read the punctuation out
+ * as part of the sentence — `user-select: none` only governs mouse selection
+ * and in-editor copy, it says nothing to AT. No extra opacity: these glyphs
+ * are the only signifier that a run is an annotation, so dimming them below
+ * the body they label put them under the 3:1 non-text contrast floor in the
+ * light theme. */
+.comment-mark::before,
+.comment-mark::after {
+  content: "%%" / "";
+  font-style: normal;
+  user-select: none;
+}
+
+.comment-mark[data-source-form="html"]::before {
+  content: "<!--" / "";
+  margin-right: 0.15em;
+}
+
+.comment-mark[data-source-form="html"]::after {
+  content: "-->" / "";
+  margin-left: 0.15em;
+}
+
+/* The block form needs an affordance the inline form gets from its delimiter
+ * glyphs, and it has to stay distinguishable from a blockquote, which sits a
+ * few rules below with its own muted left rail. A dashed rail plus a `%%`
+ * marker in the gutter carries both: dashed reads as "not part of the prose"
+ * where blockquote's solid rail reads as "quoted prose", and the marker names
+ * the construct the way the inline glyphs do. */
+.comment-block {
+  position: relative;
+  color: var(--muted-foreground);
+  font-style: italic;
+  border-left: 2px dashed color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+/* `background: inherit` rather than the page token so the knockout tracks the
+ * local surface when the block sits inside a callout, a card, or a selection
+ * highlight. The offset stays inside the block's own margin box so the marker
+ * cannot collide with the previous line's descenders or clip when the block is
+ * a first child. */
+.comment-block::before {
+  content: "%%" / "";
+  position: absolute;
+  left: 0.35rem;
+  top: -0.45em;
+  font-style: normal;
+  font-size: 0.7em;
+  line-height: 1;
+  padding: 0 0.15rem;
+  background: inherit;
+  user-select: none;
+}
+
+.comment-block[data-source-form="html"]::before {
+  content: "<!--" / "";
+}
+
+.ProseMirror .ok-find-match {
+  border-radius: 0.15rem;
+  background-color: color-mix(in oklab, var(--color-agent) 28%, transparent);
+  color: inherit;
+}
+
+.ProseMirror .ok-find-match-active {
+  background-color: color-mix(in oklab, var(--primary) 34%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 55%, transparent);
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+}
+
+.ProseMirror > h1:first-child,
+.ProseMirror > h2:first-child,
+.ProseMirror > h3:first-child {
+  margin-top: 0;
+}
+
+.ProseMirror h1 {
+  font-size: 1.5em;
+  @apply tracking-tighter;
+}
+.ProseMirror h2 {
+  font-size: 1.25em;
+  @apply tracking-tight;
+}
+.ProseMirror h3 {
+  font-size: 1.1em;
+  @apply tracking-tight;
+}
+
+/* Lists */
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  /* Wide enough for 3-digit markers (`100.`). The previous 1.5em fits
+     single-digit items only; 2-digit markers (`20.`/`21.`/`22.`) overflow
+     into the negative inline-start area where the surrounding canvas
+     container's clip horizon truncates the leading digit (PRD-7113). */
+  padding-left: 2.5em;
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror li {
+  margin-bottom: 0.15em;
+}
+
+.ProseMirror li > p {
+  margin-bottom: 0.15em;
+}
+
+/* Nested lists */
+.ProseMirror ul ul {
+  list-style-type: circle;
+  margin-bottom: 0;
+}
+
+.ProseMirror ul ul ul {
+  list-style-type: square;
+}
+
+/* Task lists — unified List extension emits <li data-type="taskItem"> */
+.ProseMirror ul:has(> li[data-type="taskItem"]) {
+  list-style: none;
+  padding-left: 0;
+}
+
+.ProseMirror li[data-type="taskItem"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  margin-bottom: 0.1em;
+}
+
+.ProseMirror li[data-type="taskItem"] > label {
+  flex-shrink: 0;
+  margin-top: 0.3em;
+}
+
+.ProseMirror li[data-type="taskItem"] > label input[type="checkbox"] {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border: 1.5px solid var(--border);
+  border-radius: calc(var(--radius) * 0.4);
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  margin: 0;
+  transition:
+    background-color 150ms,
+    border-color 150ms;
+}
+
+.ProseMirror li[data-type="taskItem"] > label input[type="checkbox"]:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.ProseMirror li[data-type="taskItem"] > label input[type="checkbox"]:checked::after {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  background-color: var(--color-primary-foreground);
+}
+
+.ProseMirror li[data-type="taskItem"] > label input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+.ProseMirror li[data-type="taskItem"] > div {
+  flex: 1;
+}
+
+.ProseMirror li[data-type="taskItem"] > div p {
+  margin-bottom: 0;
+}
+
+.ProseMirror li[data-type="taskItem"][data-checked="true"] > div {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+
+/* Blockquote */
+.ProseMirror blockquote {
+  border-left: 3px solid var(--callout-quote-color);
+  padding-left: 1em;
+  margin-left: 0;
+  margin-bottom: 0.5em;
+  color: var(--muted-foreground);
+}
+
+/* Code blocks — fallback for any <pre> not wrapped by the .ok-codeblock NodeView */
+.ProseMirror pre {
+  background: var(--syntax-bg);
+  padding: 0.75em 1em;
+  margin-bottom: 0.5em;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  line-height: 1.6;
+  @apply scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30 dark:scrollbar-thumb-muted-foreground/50 rounded-lg;
+}
+
+/* .ok-codeblock — zero permanent chrome (precedent #30). Single rounded
+   container, generous padding, no border. Hover/selection reveals a chrome
+   bar floating above the block edge. Dark theme inverts the surface so
+   the block reads as a code surface in either color mode. */
+.ProseMirror .ok-codeblock {
+  position: relative;
+}
+
+.ProseMirror .ok-codeblock-pre {
+  background: var(--syntax-bg);
+  color: var(--foreground);
+  border: 0;
+  @apply scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30 dark:scrollbar-thumb-muted-foreground/50;
+}
+
+/* Strip the outer-pre fallback chrome — the NodeView's own .ok-codeblock-pre
+   carries the box. */
+.ProseMirror .ok-codeblock pre.ok-codeblock-pre {
+  margin: 0;
+  border-radius: 0.5rem;
+}
+
+/* Title strip above the code body when the fence carries `title="…"`
+   (PRD-6819). Display-only — the editable surface is the title input
+   inside the chrome's settings popover. The strip and the `<pre>` below
+   it form one visual card by squaring the pre's top corners (rule below). */
+.ok-codeblock-title {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 1rem;
+  background: oklch(0.94 0 0);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 0.5rem 0.5rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  user-select: none;
+}
+
+.dark .ok-codeblock-title {
+  background: oklch(0.22 0.005 285);
+  color: oklch(0.78 0 0);
+}
+
+.ok-codeblock-title-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Square the pre's top corners when a title strip is rendered above it
+   so the two surfaces share a single visual edge. */
+.ProseMirror .ok-codeblock:has(> .ok-codeblock-title) pre.ok-codeblock-pre {
+  border-radius: 0 0 0.5rem 0.5rem;
+}
+
+/* Hover-revealed chrome bar hosting the language picker, edit-source,
+   preview toggle, settings, Ask AI, copy, and delete affordances. Floats
+   above the block edge (opacity-toggled) so the surface stays clean and
+   the chrome does not overlap a preview iframe's content. */
+.ok-codeblock-chrome {
+  position: absolute;
+  /* Float above the block edge (same visual pattern as the text-selection
+     bubble menu) rather than inside the top-right corner, where the chrome
+     was intrusive over an html preview iframe's content. Flush with the
+     block edge (no gap) so the wrapper's mouseleave doesn't fire while the
+     user's pointer travels from the block up into the chrome buttons. */
+  bottom: 100%;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.1875rem;
+  /* Preserve the visual gap between block and chrome via padding-bottom on
+     the chrome itself, which stays inside the hover-tracked box. Must sit
+     AFTER the `padding` shorthand or biome flags a shorthand-override. */
+  padding-bottom: calc(0.1875rem + 0.375rem);
+  border-radius: 0.375rem;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 50;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.ProseMirror .ok-codeblock:hover > .ok-codeblock-chrome,
+.ProseMirror .ok-codeblock:focus-within > .ok-codeblock-chrome,
+.ProseMirror .ok-codeblock[data-cursor-inside="true"] > .ok-codeblock-chrome,
+.ProseMirror .ok-codeblock[data-selected="true"] > .ok-codeblock-chrome {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* HTML preview blocks: the iframe fills the block area with its own
+   pointer-events, so the native `:hover` selector never fires on the
+   wrapper. `CodeBlockView` mirrors hover state onto `data-hovered="true"`
+   via native mouseenter/mouseleave listeners so the chrome still reveals
+   on interaction. */
+.ProseMirror .ok-codeblock[data-hovered="true"] > .ok-codeblock-chrome {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ok-codeblock-chrome-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  height: 1.5rem;
+  min-width: 1.5rem;
+  padding: 0 0.375rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition:
+    background-color 0.1s,
+    color 0.1s;
+}
+
+.ok-codeblock-chrome-btn:hover:not(:disabled),
+.ok-codeblock-chrome-btn[data-state="open"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* Persistent pressed indicator for toggle buttons: preview-shown
+   (`Eye`/`EyeOff`) and settings-carrying-title (`Settings2`) both emit
+   `data-active="true"` when their underlying state is on. Mirrors the
+   sibling `.jsx-chrome-btn[data-active="true"]` treatment so the two
+   chrome surfaces read the same to a user. */
+.ok-codeblock-chrome-btn[data-active="true"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.ok-codeblock-chrome-btn:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+.ok-codeblock-chrome-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.ok-codeblock-chrome-lang {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.ok-codeblock-chrome-btn--delete:hover {
+  background: transparent;
+  color: var(--destructive, #ef4444);
+}
+
+/* HTML preview pane — primary surface when language=html + meta has `preview`.
+   Iframe is `sandbox="allow-scripts"` only (null origin) so embedded JS can't
+   reach the parent doc / cookies / auth-bearing fetch surface. The code body
+   is hidden by default in preview mode (see [data-code-visible] selectors
+   below) and toggled visible via the code-icon chrome button. Resize is
+   driven by the shared `ok-resize-overlay` handles (8 corners + edges), not
+   native CSS `resize` — replaces the bottom-only grip with full-axis control
+   and unifies the affordance with `.ok-embed`. */
+.ProseMirror .ok-codeblock > .ok-codeblock-preview {
+  position: relative;
+  /* Track the editor theme so a dark-mode preview does not flash white
+     before / while the iframe document paints (the iframe's own srcDoc sets
+     a themed `body` background once loaded). */
+  background: var(--background);
+  height: 26rem;
+  min-height: 8rem;
+  max-height: 80vh;
+  max-width: 100%;
+  overflow: hidden;
+  @apply scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30 dark:scrollbar-thumb-muted-foreground/50;
+}
+
+.ok-codeblock-preview--solo {
+  border-radius: 0.5rem;
+}
+
+.ok-codeblock-preview--with-code {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+
+.ok-codeblock-preview-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* Themed so the pre-load iframe surface matches light/dark (see the
+     .ok-codeblock-preview rule above). */
+  background: var(--background);
+}
+
+/* Collapse the code body (PM contentDOM) when preview is active and the
+   user hasn't opted to view source. We keep the <pre> mounted (precedent
+   #30 — never literally `display:none` PM content) and instead clip it
+   to zero height; PM still owns the contentDOM, undo history is stable,
+   caret can re-enter when toggled back on. */
+.ProseMirror .ok-codeblock[data-preview="true"][data-code-visible="false"] > .ok-codeblock-pre {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  border: 0;
+  pointer-events: none;
+}
+
+/* Inline code */
+.ProseMirror code {
+  background: var(--syntax-bg);
+  border-radius: 0.25em;
+  padding: 0.15em 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.ProseMirror pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* ----------------------------------------------------------------------
+ * Syntax highlighting tokens — highlight.js class names emitted by lowlight
+ * via ProseMirror Decoration.inline. Light & dark palettes mirror the
+ * `github` / `github-dark` hljs themes, tuned to our color tokens.
+ * ---------------------------------------------------------------------- */
+.ProseMirror .ok-codeblock code .hljs-comment,
+.ProseMirror .ok-codeblock code .hljs-quote {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+.ProseMirror .ok-codeblock code .hljs-keyword,
+.ProseMirror .ok-codeblock code .hljs-selector-tag,
+.ProseMirror .ok-codeblock code .hljs-doctag,
+.ProseMirror .ok-codeblock code .hljs-formula {
+  color: var(--syntax-keyword);
+}
+
+.ProseMirror .ok-codeblock code .hljs-name,
+.ProseMirror .ok-codeblock code .hljs-section,
+.ProseMirror .ok-codeblock code .hljs-tag,
+.ProseMirror .ok-codeblock code .hljs-template-variable,
+.ProseMirror .ok-codeblock code .hljs-variable {
+  color: var(--syntax-var);
+}
+
+.ProseMirror .ok-codeblock code .hljs-attr {
+  color: var(--syntax-attr);
+}
+
+.ProseMirror .ok-codeblock code .hljs-string,
+.ProseMirror .ok-codeblock code .hljs-regexp,
+.ProseMirror .ok-codeblock code .hljs-literal,
+.ProseMirror .ok-codeblock code .hljs-meta-string,
+.ProseMirror .ok-codeblock code .hljs-symbol,
+.ProseMirror .ok-codeblock code .hljs-bullet,
+.ProseMirror .ok-codeblock code .hljs-addition {
+  color: var(--syntax-string);
+}
+
+.ProseMirror .ok-codeblock code .hljs-number,
+.ProseMirror .ok-codeblock code .hljs-built_in,
+.ProseMirror .ok-codeblock code .hljs-link {
+  color: var(--syntax-number);
+}
+
+.ProseMirror .ok-codeblock code .hljs-type {
+  color: var(--syntax-type);
+}
+
+.ProseMirror .ok-codeblock code .hljs-title,
+.ProseMirror .ok-codeblock code .hljs-attribute,
+.ProseMirror .ok-codeblock code .hljs-meta {
+  color: var(--syntax-func);
+}
+
+/* Descendant-combinator selectors come AFTER the simple-class rules so
+   document order matches specificity order (biome's noDescendingSpecificity).
+   `.hljs-class .hljs-title` paints class names as types; `.hljs-function
+   .hljs-title` keeps function names in the function slot. */
+.ProseMirror .ok-codeblock code .hljs-class .hljs-title {
+  color: var(--syntax-type);
+}
+
+.ProseMirror .ok-codeblock code .hljs-function .hljs-title {
+  color: var(--syntax-func);
+}
+
+.ProseMirror .ok-codeblock code .hljs-deletion {
+  color: var(--diff-removed);
+  background: color-mix(in oklab, var(--diff-removed) 15%, transparent);
+}
+
+.ProseMirror .ok-codeblock code .hljs-emphasis {
+  font-style: italic;
+}
+
+.ProseMirror .ok-codeblock code .hljs-strong {
+  font-weight: 600;
+}
+
+/* Links */
+.ProseMirror a {
+  color: var(--link-color);
+  cursor: pointer;
+  @apply font-medium hover:underline hover:underline-offset-2;
+}
+/* Chrome-bar anchor items (Embed, Mirror) must NOT inherit the prose-link
+ * blue color or hover underline — they're icon buttons in the
+ * `.jsx-component-chrome` bubble, not body links. Specificity 0,1,1,1
+ * beats `.ProseMirror a` (0,0,1,1) and the Tailwind `@apply` rules above. */
+.ProseMirror a.jsx-chrome-btn,
+.ProseMirror a.jsx-chrome-btn:hover {
+  color: inherit;
+  text-decoration: none;
+  font-weight: inherit;
+}
+
+/* -------------------------------------------------------------------------
+ * V2 InteractionLayer chips — InternalLink + WikiLink (precedent #27(h))
+ *
+ * Pre-V2: per-instance React MarkViews rendered styled chrome around each
+ * link mark. V2 moves to plain-DOM `<span data-link>` / `<span data-wiki-link>`
+ * with `data-mark-id` / `data-node-id` for event delegation AND a
+ * `data-resolution-state` decoration attribute ('resolved' | 'folder' |
+ * 'unresolved' | 'loading' | 'external' | 'anchor' | 'asset') written by the
+ * `linkResolutionDecorationPlugin`. The styling below is the user-visible
+ * half of that contract (review Pass-2 Major #8).
+ * --------------------------------------------------------------------- */
+
+.ProseMirror [data-link],
+.ProseMirror [data-wiki-link] {
+  display: inline;
+  cursor: pointer;
+  color: var(--link-color);
+  text-decoration: underline;
+  text-decoration-style: solid;
+  text-underline-offset: 2px;
+  border-radius: 2px;
+  @apply font-medium;
+}
+
+.ProseMirror [data-link]:hover,
+.ProseMirror [data-wiki-link]:hover {
+  text-decoration-thickness: 2px;
+}
+
+.ProseMirror [data-link]:focus-visible,
+.ProseMirror [data-wiki-link]:focus-visible {
+  outline: 2px solid var(--color-ring);
+  /* Pulled inset (was `2px`, which painted the ring OUTSIDE the chip's
+   * text bounds). On a wrap boundary the offset cropped against the
+   * line below; on chips near a scroll-container edge the 2px halo got
+   * clipped by the surrounding `overflow: hidden` ancestor. `1px`
+   * stays visible without crossing into adjacent text or beyond the
+   * column edge. Border-radius rounds the ring corners so the rect
+   * matches the link's perceived shape (especially visible on wiki
+   * chips which have a subtle background). */
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+/* Wiki-link chip icon prefix — emoji or `<img>` inside the chip, before
+   the visible label. The slot is always rendered (so DOM shape stays
+   stable across icon changes) but `:empty` collapses it to zero width
+   when no icon is set — most docs have no `icon:` frontmatter so the
+   common case carries no layout cost. `text-decoration: none` opts the
+   icon out of the chip's underline; `vertical-align: -2px` nudges the
+   inline-block down so emoji glyphs and small images sit on the text
+   baseline rather than floating above it. */
+.ProseMirror [data-wiki-link-icon]:empty {
+  display: none;
+}
+
+.ProseMirror [data-wiki-link-icon] {
+  display: inline-block;
+  margin-right: 0.25rem;
+  text-decoration: none;
+  vertical-align: -2px;
+  line-height: 1;
+  font-size: 0.95em;
+}
+
+/* `/skill-name` references in skill-doc prose: installed reads as a link;
+   missing reads as the broken-link treatment with an install path on click. */
+.ProseMirror .ok-skill-ref,
+.cm-skill-ref {
+  cursor: pointer;
+  color: var(--color-azure-blue);
+  @apply dark:text-sky-blue;
+}
+.ProseMirror .ok-skill-ref:hover,
+.cm-skill-ref:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ProseMirror .ok-skill-ref-missing,
+.cm-skill-ref-missing {
+  color: var(--muted-foreground);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+/* In-viewer find (§8.4): CSS Custom Highlight API paint — DOM untouched. */
+::highlight(ok-find) {
+  background-color: color-mix(in srgb, var(--color-azure-blue) 30%, transparent);
+}
+::highlight(ok-find-active) {
+  background-color: color-mix(in srgb, var(--color-azure-blue) 60%, transparent);
+}
+
+/* Skill-doc bundle-path affordance — code spans shaped like `references/…` /
+   `scripts/…` get a link cursor; the visible affordance is hover-only (link
+   tint + solid underline). Dotted-at-rest was tried and read as the
+   unresolved/spellcheck error style, and wrapped chips in tables stacked
+   rows of dots. Decoration-only; bytes and chip styling untouched. */
+.ProseMirror .ok-skill-path-link,
+.cm-skill-path-link {
+  cursor: pointer;
+}
+.ProseMirror .ok-skill-path-link:hover,
+.cm-skill-path-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--color-azure-blue);
+  @apply dark:text-sky-blue;
+}
+
+/* Resolution states — the decoration plugin writes `data-resolution-state`
+   at PM render time. Selectors are specific enough to override the base
+   chip color when present. */
+
+.ProseMirror [data-resolution-state="resolved"] {
+  color: var(--link-color);
+}
+
+/* Folder chip — doc-reference to a directory rather than a page. Italicize
+   to differentiate from a resolved page link. */
+.ProseMirror [data-resolution-state="folder"] {
+  font-style: italic;
+}
+
+/* Unresolved / broken — squiggly underline + muted color to make the
+   broken state visible in WYSIWYG (source mode has its own squiggly via
+   `source-polish`). */
+.ProseMirror [data-resolution-state="unresolved"] {
+  color: var(--color-red-600, #dc2626);
+  text-decoration-style: wavy;
+  text-decoration-color: var(--color-red-600, #dc2626);
+}
+
+.dark .ProseMirror [data-resolution-state="unresolved"] {
+  color: #f87171; /* red-400 */
+  text-decoration-color: #f87171;
+}
+
+/* Loading — awaiting page-list-cache population. Dotted underline
+   communicates "indeterminate" without alarming. */
+.ProseMirror [data-resolution-state="loading"] {
+  opacity: 0.7;
+  text-decoration-style: dotted;
+}
+
+/* External — leaves-the-workspace visual. Find decorations split a single
+   link into adjacent inline fragments; only the final fragment gets the cue. */
+.ProseMirror [data-resolution-state="external"]:has(+ [data-resolution-state="external"])::after {
+  content: none;
+}
+
+.ProseMirror [data-resolution-state="external"]::after {
+  content: " ↗";
+  font-size: 0.85em;
+  opacity: 0.6;
+}
+
+/* In-doc anchor — no external navigation. Keep base link color; just drop
+   the ↗ glyph. Selector intentionally LAST so it overrides `external`'s
+   ::after if both flags ever coexist. */
+.ProseMirror [data-resolution-state="anchor"]::after {
+  content: none;
+}
+
+/* Horizontal rule */
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1em 0;
+}
+
+/* Images */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  margin: 0.5em 0;
+  @apply rounded-lg;
+}
+
+/* Keep ordinary Markdown images in a local paint boundary so decoding does not
+   invalidate the entire editable document. Do not force a compositor layer
+   with translateZ: a document with many figures otherwise retains one large
+   texture layer per image, which makes WKWebView scrolling less consistent.
+   Wiki-link icons are excluded because they participate in inline text. */
+.ProseMirror [data-image-inline-zoom] img,
+.ProseMirror .jsx-component-wrapper[data-component-type="img"] img,
+.ProseMirror .jsx-component-wrapper[data-component-type="commonmarkimage"] img {
+  contain: paint;
+}
+
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* `<div align>` compat wrapper (HtmlAlignBlock / div-align-promoter):
+   images inside the aligned block flow inline like GitHub renders them —
+   the OK default `display: block` image would ignore the wrapper's
+   text-align and pin badges/heroes to the left edge. */
+.ProseMirror [data-component-type="align-block"] img {
+  display: inline-block;
+}
+
+/* Wiki-link chip icon — the `<img>` inside `[data-wiki-link-icon]`. Lives
+   AFTER `.ProseMirror img` so source order matches the descending-
+   specificity ratchet (biome's noDescendingSpecificity). Overrides
+   the chip-image defaults (`max-width: 100%; height: auto; margin:
+   0.5em 0; rounded-lg`) with the tight inline glyph sizing the chip
+   needs. */
+.ProseMirror [data-wiki-link-icon] img {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  max-width: none;
+  margin: 0;
+  border-radius: 2px;
+  object-fit: cover;
+  vertical-align: baseline;
+}
+
+/* Tables */
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+  /* Extra bottom room so the TableInsertControls "add row" bar (≈20px below
+     the table: EDGE_GAP + bar thickness) clears the following block. */
+  margin: 0.5em 0 1.75em;
+  @apply scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30 dark:scrollbar-thumb-muted-foreground/50;
+}
+
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  /* `clip`, not `hidden`: overflow:hidden makes the table itself a scroll
+     container, which would capture the first-column `position: sticky` cells
+     below (sticky constrains to the nearest scrollport — the cells must reach
+     .tableWrapper's). clip clips identically without creating a scrollport. */
+  overflow: clip;
+}
+
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid var(--border);
+  padding: 0.4em 0.6em;
+  vertical-align: top;
+  position: relative;
+  min-width: 80px;
+  box-sizing: border-box;
+}
+
+.ProseMirror th {
+  background: var(--muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+.ProseMirror td > p,
+.ProseMirror th > p {
+  margin-bottom: 0;
+}
+
+.ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-azure-100);
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: var(--color-azure-400);
+  pointer-events: none;
+  z-index: 20;
+}
+
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+/* First-column sticky freeze (horizontal scroll). Works because .tableWrapper
+   is the CSS scroll container for the x-axis. */
+.ProseMirror .tableWrapper > table > tbody > tr > td:first-child,
+.ProseMirror .tableWrapper > table > tbody > tr > th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.ProseMirror .tableWrapper > table > tbody > tr > td:first-child {
+  background-color: var(--background);
+}
+
+/* Corner cell (first column + header row) must clear both frozen row layer and
+   sticky column layer when both are active simultaneously. */
+.ProseMirror .tableWrapper > table > tbody > tr > th:first-child {
+  background-color: var(--muted);
+  z-index: 3;
+}
+
+/* Occluder above the frozen header (frozen-table-headers.ts): scrolled-past
+   rows must not show in the translucent toolbar-fade slot above the pinned
+   header. An opaque block riding each header cell's composited layer tracks
+   the frozen header's transform pixel-for-pixel — unlike a scroll-driven
+   clip-path on the wrapper, which updates on the main thread and trails the
+   compositor during scroll. Hidden until the extension's scroll-driven
+   opacity flip reveals it while frozen. The wrapper's own overflow clips the
+   block at the table's top edge, so it never covers content above the table.
+   ±1px horizontal overlap closes the seams over collapsed cell borders.
+   height must stay >= TOOLBAR_HEIGHT (56px, frozen-table-headers.ts) so the
+   block spans the whole toolbar-fade slot; 80px adds margin. */
+.ProseMirror .tableWrapper > table > tbody > tr:first-child > th::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  bottom: 100%;
+  height: 80px;
+  background: var(--background);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Print: neutralize the freeze. The WAAPI fill animations hold transform /
+   occluder opacity at the on-screen scroll position, which would print the
+   header mid-table; !important author declarations override animation
+   effects in the cascade, so these win over the fills. */
+@media print {
+  .ProseMirror .tableWrapper > table > tbody > tr:first-child > th {
+    transform: none;
+    box-shadow: none;
+  }
+  .ProseMirror .tableWrapper > table > tbody > tr:first-child > th::before {
+    opacity: 0;
+  }
+}
+
+.ProseMirror p.is-empty::before {
+  content: attr(data-placeholder);
+  pointer-events: none;
+  float: left;
+  height: 0;
+  @apply text-muted-foreground/60;
+}
+
+/* When any JSX prop panel is open in this editor, suppress the slash-command
+ * placeholder on empty paragraphs — the placeholder competes for attention
+ * with the focused panel. Scope is narrow on purpose: the trigger must live
+ * inside `.jsx-component-chrome` so other open popovers (BubbleMenu, color
+ * picker, future link panels routed through InteractionLayerStore) keep the
+ * placeholder visible. `:has()` is supported on Chrome 105+, Safari 15.4+,
+ * Firefox 121+; older Firefox sees the pre-fix behavior (placeholder still
+ * visible behind the panel) as graceful degradation. */
+.tiptap-editor:has(
+    .jsx-component-chrome button[data-slot="popover-trigger"][data-state="open"]
+  ) .ProseMirror
+  p.is-empty::before {
+  content: none;
+}
+
+/* DragHandlePlugin container — absolutely positioned flex row of grip + "+"
+   created imperatively by `BlockDragHandle` (see
+   `packages/app/src/editor/extensions/drag-handle.ts`). Per FR-15 / FR-16. */
+.ok-block-controls {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 1;
+  transition: opacity 100ms var(--ease-out-strong);
+  user-select: none;
+}
+
+/* + button */
+.ok-add-block-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  color: oklch(0.72 0 0);
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  transition: background-color 100ms var(--ease-out-strong);
+}
+.ok-add-block-btn:hover {
+  background-color: oklch(0 0 0 / 6%);
+}
+
+/* Drag grip — rendered as a <button> for a11y (click handler binds to a
+   semantic interactive element discoverable by screen readers). Default
+   <button> chrome (border, padding, system background) is reset so the
+   visual is unchanged from when this was a <div>. */
+.ok-drag-grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  cursor: grab;
+  color: oklch(0.72 0 0);
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+.ok-drag-grip:hover {
+  background-color: oklch(0 0 0 / 6%);
+}
+.ok-drag-grip:active {
+  cursor: grabbing;
+}
+
+/* Keyboard focus indicator — mirrors the editor-wide pattern used by
+   .tag, [data-link], a.ok-file-attachment, and task-list checkboxes.
+   The grip carries tabindex="-1" today, so the indicator only fires on
+   explicit `.focus()` calls; the add button is reachable via Tab while
+   its hover-only chrome is visible. */
+.ok-add-block-btn:focus-visible,
+.ok-drag-grip:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Visibility fade — DragHandlePlugin sets inline visibility: hidden */
+.ok-block-controls[style*="visibility: hidden"],
+.ok-block-controls[style*="visibility:hidden"] {
+  opacity: 0;
+}
+
+/* Dark mode */
+.dark .ok-add-block-btn {
+  color: oklch(0.5 0 0);
+}
+.dark .ok-add-block-btn:hover {
+  background-color: oklch(1 0 0 / 8%);
+}
+.dark .ok-drag-grip {
+  color: oklch(0.5 0 0);
+}
+.dark .ok-drag-grip:hover {
+  background-color: oklch(1 0 0 / 8%);
+}
+
+/* Positioned host for the per-column / per-row cell-handle dropdowns
+   (`TableCellHandles`). The handles are `position: absolute` + floating-ui
+   placed, so they need a positioned offsetParent. This host is a React-rendered
+   direct child of `.tiptap-editor`, so it inherits `grid-column: content;
+   position: relative` from `.tiptap-editor > *` — content-aligned, inside the
+   scroll container (handles track scroll), and crucially NOT
+   `view.dom.parentElement`, which TipTap vacuums on `<Activity>` recycle. A
+   portal into that node desyncs React and throws `removeChild` on navigation
+   (see TableCellHandles.tsx). The host is pinned into the content's grid row
+   (`grid-row: 1` here + on `.tiptap-editor-portal-content`) instead of
+   generating its own: `.tiptap-editor` is taller than short documents, and the
+   default `align-content: stretch` hands every in-flow auto row an equal share
+   of the leftover height — an own row for this host would balloon into a blank
+   band ABOVE the document the moment the cursor enters a table. `align-self:
+   start` keeps the host zero-height inside the shared row, so the absolute
+   handles position exactly as they would from an own top row.
+
+   Visibility is gated here, not in JS: the layer is rendered whenever the
+   cursor is in a cell (TableCellHandles owns that), but the pills only paint
+   when the user is actively touching the table — editor focused (covers
+   typing, click-to-place-caret, and the post-dismiss pill-focused state, all
+   under `.tiptap-editor:focus-within`), or a handle's Radix dropdown is open
+   (the trigger inside the layer carries `data-state="open"` while focus has
+   moved to the body-portaled menu content). `visibility: hidden` (not
+   `display: none`) keeps floating-ui's positioning math live and drops the
+   pills out of tab order. */
+.ok-table-cell-handle-layer {
+  position: relative;
+  grid-row: 1;
+  align-self: start;
+  visibility: hidden;
+  /* Delay the falling edge (visible -> hidden) so Radix's focus-restoration on
+     Escape / dismiss lands on the (still-focusable) pill BEFORE the layer goes
+     visibility:hidden. The rising edge stays immediate because the visible
+     selectors below override transition-delay to 0s. */
+  transition: visibility 0s 150ms;
+}
+.tiptap-editor:focus-within .ok-table-cell-handle-layer,
+.ok-table-cell-handle-layer:has([data-state="open"]) {
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+/* Table edge "+" bars — Notion-style append-column / append-row affordance.
+   The TableInsertControls extension mounts one container per table on
+   `editor.view.dom.parentElement` and floating-ui sets each bar's `left`/`top`
+   plus the stretched cross-axis size inline. Each bar is a persistent but
+   transparent hit zone at the table edge; hovering it (the mouse landing inside
+   the bar) reveals the "+", so reveal is pure CSS — no JS hover tracking. */
+.ok-table-insert-controls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* The container is just a positioning anchor — only the bars take pointer
+     events, so the overlay never shadows editor content. */
+  pointer-events: none;
+  z-index: 5;
+}
+
+.ok-table-insert-bar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  /* Invisible until hovered: transparent background + `currentColor`-stroked
+     icon hidden via a transparent text color. The element still occupies its
+     strip, so it's hoverable. */
+  color: transparent;
+  background: transparent;
+  /* The bar sits flush against the table edge (no floating-ui offset). The
+     gutter toward the table is transparent padding — `content-box` keeps the
+     visible highlight off it, preserving the visual gap while making the gutter
+     itself part of the (hoverable) button, so there's no dead zone between the
+     table and the bar. One shared var so the column/row gutters can't drift. */
+  --ok-table-bar-gap: 6px;
+  --ok-table-bar-thickness: 16px;
+  background-clip: content-box;
+  transition:
+    background-color 100ms var(--ease-out-strong),
+    color 100ms var(--ease-out-strong);
+}
+/* width/height = transparent gutter (toward the table) + visible strip. */
+.ok-table-insert-column {
+  width: calc(var(--ok-table-bar-thickness) + var(--ok-table-bar-gap));
+  padding-left: var(--ok-table-bar-gap);
+}
+.ok-table-insert-row {
+  height: calc(var(--ok-table-bar-thickness) + var(--ok-table-bar-gap));
+  padding-top: var(--ok-table-bar-gap);
+}
+/* Revealed when hovered directly, focused, or when the pointer is in the
+   table's last column / last row (`.is-active`, toggled by TableInsertControls). */
+.ok-table-insert-bar:hover,
+.ok-table-insert-bar:focus-visible,
+.ok-table-insert-bar.is-active {
+  background-color: oklch(0 0 0 / 6%);
+  /* ~3:1 against the page (WCAG 1.4.11 non-text contrast); 0.72 was too faint. */
+  color: oklch(0.55 0 0);
+}
+.dark .ok-table-insert-bar:hover,
+.dark .ok-table-insert-bar:focus-visible,
+.dark .ok-table-insert-bar.is-active {
+  background-color: oklch(1 0 0 / 8%);
+  color: oklch(0.5 0 0);
+}
+.ok-table-insert-bar:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+/* prose-no-margin — margin reset for first/last children inside wrappers.
+   Applied to the jsx-component-wrapper's nested editable region so block
+   children don't carry their natural top/bottom prose margins into the
+   component chrome. Surviving consumer: the wildcard UnregisteredBadgeRender
+   in componentMap.tsx wraps children in <div className="prose-no-margin">,
+   and this file's rawMdxFallback chrome + future DIY Callout/Accordion chrome
+   rely on the same selector shape. Pre-US-004 the fumadocs cherry-pick section
+   (Steps utility classes + Accordion/Collapsible animation keyframes) sat above
+   this block; removed alongside the per-component CSS-variable token bridge
+   in D-MF2. */
+.prose-no-margin > :first-child {
+  margin-top: 0;
+}
+.prose-no-margin > :last-child {
+  margin-bottom: 0;
+}
+
+/* 7. Component block chrome — all overlays, zero permanent layout shift.
+ * Principle: components render exactly like production. Editor affordances
+ * are hover-revealed overlays (badge+gear, add-child pill, subtle hover tint). */
+
+.ProseMirror .jsx-component-wrapper {
+  position: relative;
+  border-radius: 0.375rem;
+  /* Reserve vertical space above each component wrapper for the chrome
+   * bar (`.jsx-component-chrome` floats at `top: -11px`, ~28px tall, so
+   * it extends ~11-39px above the wrapper). Without this gap, the bar
+   * visually overlaps the previous block's bottom AND gets clipped at
+   * the editor's scroll-top edge when the wrapper is the first block.
+   * The Tailwind class on the element (`my-2` = 0.5rem each side) is
+   * insufficient for the bar's 11px above-wrapper extension; this rule
+   * overrides via descendant-selector specificity (0,2,0 vs 0,1,0).
+   * Symmetric block spacing — both top and bottom — keeps the visual
+   * weight consistent block-to-block. */
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+  /* Establishes a stacking context for the behind-content halo (§7a).
+   * `position: relative` alone is NOT sufficient: with `z-index: auto`
+   * the wrapper doesn't open its own stacking context, so the `::after`
+   * at `z-index: -1` escapes to the viewport root and paints BEHIND
+   * `body { background-color: ... }` — the halo becomes invisible.
+   * `isolation: isolate` creates a stacking context without affecting
+   * z-index cascade for siblings, trapping the halo at -1 behind the
+   * wrapper's own content but above the body background. SPEC §3.3
+   * T10 evidence assumed `position: relative` was enough; it's not. */
+  isolation: isolate;
+}
+/* Child component drag prevention is handled via onDragStart={preventDefault}
+   on the NodeViewWrapper in JsxComponentView.tsx. CSS-level -webkit-user-drag
+   was removed due to Biome lint incompatibility. */
+/* Invisible hover zone above the component — allows reaching the parent's
+   chrome bar even when children fill the entire block. Does NOT affect
+   layout (position:absolute + negative top, zero height in flow). */
+.ProseMirror .jsx-component-wrapper::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: 0;
+  right: 0;
+  height: 12px;
+  z-index: 9;
+}
+
+/* 7a. Selection halo — per-block-type tokens, behind-content (T10),
+ * transparent-outline placeholder (T3), forced-colors compliant,
+ * reduced-motion gated, compositor-safe opacity transition.
+ *
+ * Consumes data-* attrs emitted by JsxComponentView from SelectionStatePlugin
+ * (see selection-state-plugin.ts). The pseudo-element is `::after` because
+ * `::before` is already used above as an invisible hover hit-zone; the
+ * T10 (behind-content) + T3 (transparent-outline) architecture is identical
+ * either way — only the name differs from the reference SPEC.
+ *
+ * Per-type tuning is opt-in via --selection-halo-* custom properties scoped
+ * under [data-component-type="..."]. Pre-US-004 this pattern was described
+ * as "extends the fumadocs token bridge"; the bridge itself was removed
+ * alongside the fumadocs-ui React deps in D-MF2 / FR-13, leaving only the
+ * per-type custom-property overlay shape. */
+.ProseMirror .jsx-component-wrapper {
+  /* Default halo tokens (overridden per component type below). */
+  --selection-halo-inset: -4px;
+  --selection-halo-radius: calc(0.375rem + 4px);
+  --selection-halo-color: var(--ring);
+  --selection-halo-opacity: 0;
+  --selection-halo-width: 2px;
+}
+
+.ProseMirror .jsx-component-wrapper::after {
+  content: "";
+  position: absolute;
+  inset: var(--selection-halo-inset);
+  /* T3: transparent-outline placeholder — forced-colors mode forces
+     border-color, making the element visible in Windows High Contrast
+     even when the browser strips box-shadow. */
+  border: var(--selection-halo-width) solid transparent;
+  border-radius: var(--selection-halo-radius);
+  opacity: var(--selection-halo-opacity);
+  pointer-events: none;
+  /* T10: behind-content — halo paints below the wrapper's chrome and its
+     own content, so Card/Accordion/Callout borders don't stack a second
+     ring. Requires position:relative on the wrapper (set above) + the
+     wrapper having a transparent default background (it does). */
+  z-index: -1;
+  box-sizing: border-box;
+}
+
+/* Compositor-safe fade — only animate when motion is welcome. */
+@media (prefers-reduced-motion: no-preference) {
+  .ProseMirror .jsx-component-wrapper::after {
+    /* Use the repo's custom easing token (defined ~L32) — matches the
+       Emil Kowalski "strong ease-out" used by every other interactive
+       transition in this file (7 usages incl. Popover, Callout). */
+    transition: opacity 180ms var(--ease-out-strong);
+  }
+}
+
+/* Paint the halo for the innermost selected wrapper. */
+.ProseMirror .jsx-component-wrapper[data-selected="true"]::after {
+  --selection-halo-opacity: 1;
+  border-color: var(--selection-halo-color);
+}
+
+/* Innermost-wins defense-in-depth: the plugin never sets both attrs on the
+ * same wrapper (store-enforced), but if a future refactor were to regress
+ * that invariant, this rule keeps only the innermost halo visible. */
+.ProseMirror .jsx-component-wrapper[data-has-child-selected="true"][data-selected="true"]::after {
+  --selection-halo-opacity: 0;
+}
+
+/* Drag suppresses the halo + transition (Vaul pattern — halo re-appears
+ * cleanly on drop rather than fading during the gesture). */
+.ProseMirror .jsx-component-wrapper[data-dragging="true"]::after {
+  --selection-halo-opacity: 0;
+  transition: none;
+}
+
+/* Forced-colors (Windows High Contrast): CanvasText is the current system
+ * foreground color, guaranteed visible regardless of WHCM theme. */
+@media (forced-colors: active) {
+  .ProseMirror .jsx-component-wrapper[data-selected="true"]::after {
+    border-color: CanvasText;
+  }
+}
+
+/* Soft "in your range" halo for JSX wrappers covered by a TextSelection /
+ * AllSelection. The wrapper's chrome is contentEditable=false, so the
+ * browser-native text highlight never reaches it; this rule paints a
+ * subtle filled treatment so range-encompass is visually legible.
+ *
+ * Painted via `background` on the ::after pseudo-element (not the wrapper)
+ * so it composes with the existing inset / radius / z-index:-1 tokens —
+ * the soft tone tucks behind the wrapper content the same way the full
+ * halo does. Specificity-wise, when both attributes happen to be set the
+ * full halo wins (selectedness > range-encompass); the `:not()` guard
+ * makes the intent explicit at the CSS layer in case a future code path
+ * sets both attrs simultaneously. */
+.ProseMirror .jsx-component-wrapper[data-range-selected="true"]:not([data-selected="true"])::after {
+  background: var(--selection-soft);
+  opacity: 1;
+}
+
+/* Forced-colors (Windows High Contrast): use the system Highlight color so
+ * the in-range halo remains visible when the user's OS forces a high-
+ * contrast palette. The `:not()` guard mirrors the standard rule above:
+ * keeps the soft in-range tint from compositing with the full-halo
+ * selection paint if a future code path were to set both attributes. */
+@media (forced-colors: active) {
+  .ProseMirror
+    .jsx-component-wrapper[data-range-selected="true"]:not([data-selected="true"])::after {
+    background: Highlight;
+    opacity: 0.5;
+  }
+}
+
+/* Per-block-type tuning. Media blocks (Image, Video) keep a tighter
+ * border-radius that matches their inner element's corner geometry; the
+ * halo inset itself is uniform across all substrates (set on the wrapper
+ * default at the top of this block). Callouts read --callout-type-color
+ * (set inline by the DIY Callout renderer) so the halo matches the
+ * callout's chroma; the fallback to var(--ring) covers unregistered /
+ * wildcard paths. Other substrates fall through to the wildpath defaults. */
+.ProseMirror .jsx-component-wrapper[data-component-type="img"] {
+  --selection-halo-radius: calc(0.625rem + 2px);
+}
+
+.ProseMirror .jsx-component-wrapper[data-component-type="video"] {
+  --selection-halo-radius: calc(0.625rem + 2px);
+}
+
+/* Math block — KaTeX's default `.math-display` has zero vertical
+ * padding, so a block formula sits flush against the surrounding
+ * prose (the parent `.jsx-component-wrapper`'s `my-2` covers the
+ * outer gap, but the formula's *content box* still touches the
+ * wrapper's top + bottom edges, reading as cramped — especially when
+ * two `$$…$$` blocks land back-to-back). 0.75rem of vertical padding
+ * gives the formula breathing room without changing the block's
+ * horizontal centering or the wrapper's selection-halo radius. */
+.ProseMirror [data-component-type="math"].math-display {
+  padding: 0.75rem 0;
+}
+
+/* Audio shrinks the wrapper to the rendered media's actual width so
+   the selection halo and chrome bar (positioned at right: 0) hug the
+   audio element instead of the full editor column. Text-heavy types
+   (Callout, Accordion, etc.) intentionally fill the column and are
+   not listed here.
+
+   Image and video are excluded from fit-content for two different
+   reasons:
+   - Image: arbitrarily small (down to 1px decorative PNGs); a
+     fit-content wrapper collapses to those dimensions, causing the
+     right-anchored chrome bar (~120px wide) to overlap the image's
+     click area.
+   - Video: PropPanel anchors to the wrapper; a fit-content wrapper
+     shrinks/grows as the author edits the video's `width` prop,
+     causing the floating PropPanel to jump on every keystroke
+     (PRD-6822). Column-width wrapper keeps the panel anchor stable.
+
+   Both img and video use the text-align-on-wrapper alignment shape
+   (see the `[data-align]` rules below) so the chrome bar sits at the
+   column's right edge while the media moves left / center / right
+   within the column. */
+.ProseMirror .jsx-component-wrapper[data-component-type="audio"] {
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* Image alignment within the column. Driven by `data-align` on the
+ * `JsxComponentView` wrapper, which is set from the descriptor's `align`
+ * prop (`htmlImgProps`, default `center`). Both descriptors that render
+ * as an image — the `img` canonical AND the `CommonMarkImage` compat
+ * (`![alt](src)` form) — get the alignment surface; the chrome-bar click
+ * handler upgrades a CommonMarkImage to `img` on first non-default
+ * alignment so the value persists through serialization.
+ *
+ * Implemented via `text-align` on the wrapper (the inline `<img>` inside
+ * is centered/left/right via inline-content alignment). This is
+ * deliberately DIFFERENT from the `width: fit-content + margin: auto`
+ * approach — that would shrink the wrapper to the image's natural
+ * dimensions, causing the right-anchored chrome bar (~120px wide,
+ * `top: -11px`) to overlap the image's click region for small images.
+ * The decorative-PNG comment on the `data-component-type="video|audio"`
+ * fit-content rule above was written to protect against exactly this
+ * overlap; `text-align` keeps the wrapper at its natural column width
+ * so the chrome bar stays at the column's right edge while the image
+ * sits left/center/right inside. */
+.ProseMirror .jsx-component-wrapper[data-component-type="img"][data-align="left"],
+.ProseMirror .jsx-component-wrapper[data-component-type="commonmarkimage"][data-align="left"] {
+  text-align: left;
+}
+.ProseMirror .jsx-component-wrapper[data-component-type="img"][data-align="center"],
+.ProseMirror .jsx-component-wrapper[data-component-type="commonmarkimage"][data-align="center"] {
+  text-align: center;
+}
+.ProseMirror .jsx-component-wrapper[data-component-type="img"][data-align="right"],
+.ProseMirror .jsx-component-wrapper[data-component-type="commonmarkimage"][data-align="right"] {
+  text-align: right;
+}
+/* Tailwind v4 preflight sets `img { display: block }` (to fix the
+ * baseline-descender gap when img sits next to text). Block elements
+ * ignore the parent's `text-align`, which silently breaks the three
+ * alignment rules above. Override to `inline-block` ONLY inside an
+ * alignment-bearing image wrapper so the `text-align` can center /
+ * left / right the img — Tailwind's block default stays in place for
+ * every other img on the page. */
+.ProseMirror .jsx-component-wrapper[data-component-type="img"][data-align] img,
+.ProseMirror .jsx-component-wrapper[data-component-type="commonmarkimage"][data-align] img {
+  display: inline-block;
+}
+
+/* Embed alignment — text-align on the wrapper centers/lefts/rights the
+   inline-block embed pane inside the column. Mirrors the img/CommonMarkImage
+   rules above. */
+.ProseMirror .jsx-component-wrapper[data-component-type="embed"][data-align="left"] {
+  text-align: left;
+}
+.ProseMirror .jsx-component-wrapper[data-component-type="embed"][data-align="center"] {
+  text-align: center;
+}
+.ProseMirror .jsx-component-wrapper[data-component-type="embed"][data-align="right"] {
+  text-align: right;
+}
+
+/* Video alignment — parity with img + embed (PRD-6822). `text-align` on the
+   wrapper centers / lefts / rights the inline-block `.ok-video` child inside
+   the column. The wrapper stays at column width (no fit-content) so the
+   right-anchored chrome bar and the floating PropPanel stay column-stable
+   while the author tweaks the video's `width` prop. */
+.ProseMirror .jsx-component-wrapper[data-component-type="video"][data-align="left"] {
+  text-align: left;
+}
+.ProseMirror .jsx-component-wrapper[data-component-type="video"][data-align="center"] {
+  text-align: center;
+}
+.ProseMirror .jsx-component-wrapper[data-component-type="video"][data-align="right"] {
+  text-align: right;
+}
+
+/* Embed pane — `display: inline-block` so the `text-align` alignment rules
+   above can center / left / right the pane within the column. Resize is
+   driven by the `ok-resize-overlay` handles (see below), not native CSS
+   `resize` — the handles work on all 4 sides + 4 corners and don't
+   require the user to find the bottom-right grip. */
+.ProseMirror .ok-embed {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 12rem;
+  min-height: 8rem;
+  max-height: 80vh;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.ProseMirror .ok-embed-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* Match the wrapper background while the cross-origin page loads —
+     hardcoded `white` flashes a light rectangle in dark mode. The
+     embedded page renders its own background on load and covers this. */
+  background: var(--background);
+}
+
+/* Placeholder shown for a fresh `<Embed />` with no src yet. Kept in a
+   single matched-color box so the slash-insert UX is recognisable. */
+.ProseMirror .ok-embed--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 8rem;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+/* -----------------------------------------------------------------------
+ * Resize handles — shared 8-grip overlay for rich blocks (Embed, codeblock
+ * preview, …). Inactive until the host wrapper is hovered / cursor-inside /
+ * NodeSelected; the handles fade in via opacity so resting state stays
+ * uncluttered. Each handle is a small absolutely-positioned hit target.
+ *
+ * Corners render as L-shaped brackets (matching the visual mock); edges
+ * render as thin lines centred on each side. All 8 share the same hover
+ * tint so the affordance reads consistently.
+ * --------------------------------------------------------------------- */
+.ok-resize-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.ok-resize-handle {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--border);
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    color 0.1s;
+  pointer-events: none;
+}
+
+/* Honor the user's reduced-motion preference. Matches the codebase
+   pattern applied to every other transition in this file. */
+@media (prefers-reduced-motion: reduce) {
+  .ok-resize-handle {
+    transition: none;
+  }
+}
+
+/* Edge handles — thin centred lines spanning ~40% of the side. Larger
+   invisible hit-target padding makes them grabbable without precision. */
+.ok-resize-handle--t,
+.ok-resize-handle--b {
+  left: 30%;
+  right: 30%;
+  height: 8px;
+  background: currentColor;
+  border-radius: 4px;
+}
+.ok-resize-handle--t {
+  top: -4px;
+}
+.ok-resize-handle--b {
+  bottom: -4px;
+}
+
+.ok-resize-handle--l,
+.ok-resize-handle--r {
+  top: 30%;
+  bottom: 30%;
+  width: 8px;
+  background: currentColor;
+  border-radius: 4px;
+}
+.ok-resize-handle--l {
+  left: -4px;
+}
+.ok-resize-handle--r {
+  right: -4px;
+}
+
+/* Corner handles — L-shaped brackets. Drawn with a 14×14 box whose two
+   visible borders form the bracket; the inside is transparent. */
+.ok-resize-handle--tl,
+.ok-resize-handle--tr,
+.ok-resize-handle--bl,
+.ok-resize-handle--br {
+  width: 14px;
+  height: 14px;
+  background: transparent;
+  border: 0;
+}
+
+.ok-resize-handle--tl {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  border-top-left-radius: 4px;
+}
+.ok-resize-handle--tr {
+  top: -1px;
+  right: -1px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  border-top-right-radius: 4px;
+}
+.ok-resize-handle--bl {
+  bottom: -1px;
+  left: -1px;
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  border-bottom-left-radius: 4px;
+}
+.ok-resize-handle--br {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  border-bottom-right-radius: 4px;
+}
+
+/* Hover-on-host reveal. Host is the resizable component's wrapper
+   (`.ok-embed`, `.ok-codeblock-preview`, etc.). The handle pointer-events
+   only enable while visible so the wrapper's normal interactions
+   (iframe clicks, text selection) work in resting state. */
+.ProseMirror .ok-embed:hover .ok-resize-handle,
+.ProseMirror .ok-embed:focus-within .ok-resize-handle,
+.ProseMirror .ok-codeblock-preview:hover .ok-resize-handle,
+.ProseMirror .ok-codeblock[data-cursor-inside="true"] .ok-codeblock-preview .ok-resize-handle,
+.ProseMirror .jsx-component-wrapper[data-selected="true"] .ok-resize-handle {
+  opacity: 1;
+  pointer-events: auto;
+  color: var(--ring, oklch(0.55 0.18 250));
+}
+
+.ok-resize-handle:hover {
+  color: var(--ring, oklch(0.55 0.18 250));
+}
+
+.ProseMirror .jsx-component-wrapper[data-component-type="callout"],
+.ProseMirror .jsx-component-wrapper[data-component-type="gfmcallout"] {
+  --selection-halo-color: var(--callout-type-color, var(--ring));
+  --selection-halo-radius: calc(0.625rem + 4px);
+}
+
+.ProseMirror .jsx-component-wrapper[data-component-type="accordion"] {
+  --selection-halo-radius: calc(0.625rem + 4px);
+}
+
+/* 7b. Callout (5-pack DIY renderer, US-005) — per-type accent tokens.
+ *
+ * Per-type accent color drives: left-border tint, icon color, collapsible
+ * chevron, and the wrapper's selection halo (via --callout-type-color which
+ * the §7a rule above reads). Author's `color` prop sets --callout-type-color
+ * inline on the root element, overriding the per-type default below. The
+ * 5 values match the GFM alert set (D-MF11); parser alias map (US-010)
+ * folds broader Obsidian / Mintlify types into this subset.
+ *
+ * All five accent tokens are oklch() for consistent chroma across light/dark.
+ * Mapping rationale: `note` → sky-blue (OK primary family, informational);
+ * `tip` → green (positive / supportive); `important` → violet (emphasis /
+ * attention); `warning` → amber (heads-up, non-destructive); `caution` →
+ * red (destructive / hazard).
+ */
+:root {
+  /* GFM 5 — pre-2026-05 colors, kept identical so existing renders are
+   * unchanged. */
+  --callout-note-color: oklch(0.62 0.15 240); /* blue */
+  --callout-tip-color: oklch(0.58 0.14 145); /* green */
+  --callout-important-color: oklch(0.55 0.18 290); /* violet */
+  --callout-warning-color: oklch(0.65 0.16 70); /* amber */
+  --callout-caution-color: oklch(0.58 0.21 25); /* red */
+  /* Obsidian-parity 10 — distinct hues so the visual identity per type
+   * is recognizable at a glance. Tokens are referenced once in the
+   * `[data-callout-type="…"]` rules below; chroma values match the GFM
+   * 5's intensity for visual coherence. */
+  --callout-abstract-color: oklch(0.65 0.13 220); /* sky / teal */
+  --callout-info-color: oklch(0.62 0.15 240); /* blue — note's hue */
+  --callout-todo-color: oklch(0.62 0.15 260); /* indigo */
+  --callout-success-color: oklch(0.6 0.16 150); /* emerald — slightly hotter than tip's green */
+  --callout-question-color: oklch(0.6 0.18 310); /* magenta-violet */
+  --callout-failure-color: oklch(0.58 0.21 15); /* red — matches caution */
+  --callout-danger-color: oklch(0.6 0.21 35); /* red-orange */
+  --callout-bug-color: oklch(0.58 0.18 5); /* deep red */
+  --callout-example-color: oklch(0.6 0.15 280); /* violet, distinct from important */
+  --callout-quote-color: oklch(0.55 0.04 270); /* near-gray with cool tint */
+}
+
+.dark {
+  /* Lifted lightness for dark-mode legibility — same hue family per type. */
+  --callout-note-color: oklch(0.75 0.12 240);
+  --callout-tip-color: oklch(0.73 0.13 145);
+  --callout-important-color: oklch(0.72 0.16 290);
+  --callout-warning-color: oklch(0.77 0.14 70);
+  --callout-caution-color: oklch(0.72 0.2 25);
+  --callout-abstract-color: oklch(0.78 0.11 220);
+  --callout-info-color: oklch(0.75 0.12 240);
+  --callout-todo-color: oklch(0.75 0.13 260);
+  --callout-success-color: oklch(0.75 0.14 150);
+  --callout-question-color: oklch(0.75 0.16 310);
+  --callout-failure-color: oklch(0.72 0.2 15);
+  --callout-danger-color: oklch(0.74 0.19 35);
+  --callout-bug-color: oklch(0.72 0.17 5);
+  --callout-example-color: oklch(0.75 0.13 280);
+  --callout-quote-color: oklch(0.72 0.04 270);
+}
+
+/* ── Footnotes ───────────────────────────────────────────────────────────────
+ *
+ * `footnoteReference` PM atom + `footnoteDefinition` PM block.
+ * Reference: superscript link to the matching definition. Definition:
+ * numbered list at the foot of the document with a back-reference arrow
+ * — Obsidian-parity rendering. Both keyed on the `identifier` attr; the
+ * `<sup><a href="#fn-{id}">` link points to `<aside id="fn-{id}">`, and
+ * the `<a class="footnote-backref" href="#fnref-{id}">` arrow on the
+ * definition points back to the reference's `<sup id="fnref-{id}">`.
+ */
+.footnote-ref {
+  font-size: 0.75em;
+  /* `position: relative; top` instead of `vertical-align: super` keeps
+   * the inline box on baseline (so the parent's line-height isn't
+   * forced to grow), while rendering visually as a superscript. The
+   * previous `vertical-align: super` + `line-height: 0` pair raised
+   * the inline box ~0.5em and then collapsed its line-box
+   * contribution, so the bracket glyph's top extended above the
+   * parent line's ascender — visible clipping in headings (tighter
+   * intrinsic ascender) and on the first line of a block. The
+   * relative-position technique is the standard cross-browser fix
+   * (used by MDN's reset, Wikipedia's mobile skin, etc.). */
+  vertical-align: baseline;
+  position: relative;
+  top: -0.4em;
+  margin: 0 0.05em;
+}
+.footnote-ref-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+.footnote-ref-link:hover {
+  text-decoration: underline;
+}
+
+/* Counter resets at the editor root so all `.footnote-def` blocks in the
+ * document share one auto-numbering sequence (1., 2., 3., …) regardless
+ * of their identifier strings. */
+.ProseMirror {
+  counter-reset: footnote 0;
+}
+
+.footnote-def {
+  counter-increment: footnote;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+/* Auto-numbered marker: `1.`, `2.`, `3.` — generated from the counter
+ * rather than the identifier string, matching how Obsidian / GFM
+ * renderers display footnotes regardless of the underlying label. */
+.footnote-def::before {
+  content: counter(footnote) ".";
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.5em;
+}
+
+/* Visual divider above the first footnote in the document — separates
+ * the footnote list from the prose body. CSS has no native "first-of-
+ * class" selector, so we apply the divider to ALL `.footnote-def` and
+ * then UN-apply it on any `.footnote-def` that has a prior
+ * `.footnote-def` SIBLING anywhere earlier in the parent. The general-
+ * sibling combinator (`~`) matches across intervening non-footnote
+ * elements — PM inserts `<p class="ok-chunk-wrapper">` chunks between
+ * every block-level node, so the adjacent-sibling combinator (`+`)
+ * would never see a `.footnote-def + .footnote-def` match in practice.
+ *
+ * Class-keyed rather than `:first-of-type` because `commentBlock` also
+ * renders as `<aside>` (see `core/src/extensions/comment-block.ts`) —
+ * a comment block before the first footnote would otherwise hide the
+ * divider. */
+.footnote-def {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.footnote-def ~ .footnote-def {
+  margin-top: 0.25rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.footnote-def .footnote-body {
+  flex: 1;
+}
+.footnote-def .footnote-body > :first-child {
+  margin-top: 0;
+}
+.footnote-def .footnote-body > :last-child {
+  margin-bottom: 0;
+}
+
+.footnote-backref {
+  color: var(--muted-foreground);
+  text-decoration: none;
+  font-size: 0.85em;
+  margin-left: 0.25rem;
+  flex-shrink: 0;
+}
+.footnote-backref:hover {
+  color: var(--primary);
+}
+
+/* Per-type default accent. An inline `--callout-type-color` from the
+ * Callout.tsx `color` prop wins over these defaults (inline style has
+ * higher specificity than an attribute selector rule). */
+.callout[data-callout-type="note"] {
+  --callout-type-color: var(--callout-note-color);
+}
+.callout[data-callout-type="tip"] {
+  --callout-type-color: var(--callout-tip-color);
+}
+.callout[data-callout-type="important"] {
+  --callout-type-color: var(--callout-important-color);
+}
+.callout[data-callout-type="warning"] {
+  --callout-type-color: var(--callout-warning-color);
+}
+.callout[data-callout-type="caution"] {
+  --callout-type-color: var(--callout-caution-color);
+}
+.callout[data-callout-type="abstract"] {
+  --callout-type-color: var(--callout-abstract-color);
+}
+.callout[data-callout-type="info"] {
+  --callout-type-color: var(--callout-info-color);
+}
+.callout[data-callout-type="todo"] {
+  --callout-type-color: var(--callout-todo-color);
+}
+.callout[data-callout-type="success"] {
+  --callout-type-color: var(--callout-success-color);
+}
+.callout[data-callout-type="question"] {
+  --callout-type-color: var(--callout-question-color);
+}
+.callout[data-callout-type="failure"] {
+  --callout-type-color: var(--callout-failure-color);
+}
+.callout[data-callout-type="danger"] {
+  --callout-type-color: var(--callout-danger-color);
+}
+.callout[data-callout-type="bug"] {
+  --callout-type-color: var(--callout-bug-color);
+}
+.callout[data-callout-type="example"] {
+  --callout-type-color: var(--callout-example-color);
+}
+.callout[data-callout-type="quote"] {
+  --callout-type-color: var(--callout-quote-color);
+}
+
+.callout {
+  background: color-mix(in oklab, var(--callout-type-color) 6%, transparent);
+  margin: 0.5rem 0;
+  @apply rounded-lg py-3 px-4 pl-5 relative;
+}
+
+/* Accent line as a pseudo-element so it survives <details> collapse —
+   non-summary children of a closed <details> are hidden by the browser,
+   but ::before is not a child. */
+.callout::before {
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: 0.5rem;
+  width: 2px;
+  border-radius: 9999px;
+  background: var(--callout-type-color);
+  pointer-events: none;
+}
+
+.callout .callout-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--callout-type-color);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.callout .callout-icon {
+  flex: none;
+  color: var(--callout-type-color);
+}
+
+.callout .callout-title {
+  font-size: 0.9rem;
+}
+
+.callout-summary {
+  @apply flex items-center gap-2 justify-between;
+}
+
+.callout-body {
+  color: inherit;
+  margin-top: 0.5rem;
+}
+
+.callout-body > :first-child {
+  margin-top: 0;
+}
+.callout-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* Strip the trailing <p>'s margin-bottom so it doesn't stack on top of the
+   callout's own padding-bottom. ProseMirror wraps content in two NodeView
+   layers (.component-children → [data-node-view-wrapper]) before the <p>,
+   so :last-child is chained down to the deepest-last paragraph and only
+   that one. Fallbacks cover 0/1 wrapper depths. */
+.callout-body > p:last-child,
+.callout-body > :last-child > p:last-child,
+.callout-body > :last-child > :last-child > p:last-child {
+  margin-bottom: 0;
+}
+
+/* Collapsible variant — native <details>/<summary> with a real <svg> chevron.
+ * The chevron is a lucide ChevronDown rendered as an actual DOM child of
+ * <summary>, so cloneNode(true) (used by the clipboard live-DOM walker) can
+ * carry it across to the pasted-HTML output in destination apps. CSS rotates
+ * it on the `[open]` attribute, honoring prefers-reduced-motion. */
+.callout-collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.callout-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.callout-chevron {
+  flex: none;
+  color: var(--callout-type-color);
+  transform: rotate(0deg);
+  transform-origin: 50% 50%;
+}
+
+.callout-collapsible[open] > summary > .callout-chevron {
+  transform: rotate(-180deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .callout-chevron {
+    transition: transform 180ms var(--ease-out-strong);
+  }
+}
+
+/* 7c. Video (5-pack DIY renderer, US-007 — pure HTML5 `<video>` wrapper).
+ *
+ * Minimal styling per D-MF12 "HTML5 native chrome is the UX" — we only own
+ * layout (block-level, max-width, rounded corners) so the video snaps to a
+ * sensible authored size inside the editor without inheriting any
+ * text-editor line-box weirdness. Native controls, poster-frame rendering,
+ * fullscreen button, keyboard shortcuts, and reduced-motion all remain the
+ * browser's responsibility.
+ */
+.ok-video {
+  display: block;
+  max-width: 100%;
+  @apply rounded-lg;
+  margin: 0.5rem 0;
+}
+
+/* YouTube dispatch: wrap a `<div>` containing react-lite-youtube-embed's
+   `.yt-lite` (which uses `aspect-ratio: 16/9` to derive height from width).
+   Native `<video>` is a replaced element with intrinsic dimensions from
+   the file — the JsxComponentView wrapper's `width: fit-content` rule
+   sizes that correctly. The lite-embed's `<div>` has no intrinsic width
+   (the play button is `position: absolute`), so giving it an explicit
+   default lets the same `fit-content` wrapper hug it without needing a
+   `:has()` override that would otherwise expand the chrome bar / halo
+   to the full column. `max-width: 100%` keeps the embed contained when
+   the column is narrower than 720px. Author-supplied `width` (via
+   inline style from the Video descriptor) overrides this default. */
+.ok-video-youtube {
+  width: 720px;
+  max-width: 100%;
+  /* Clip the inner `.yt-lite`'s rectangular thumbnail (and the
+     post-activation iframe) to the wrapper's rounded corners — without
+     this, the lib's background-image bleeds past the `.ok-video`'s
+     border-radius and the video looks like it's leaking on the right.
+     Native `<video>` doesn't need this because the element renders its
+     pixels inside its own box; for a `<div>` wrapper with rounded
+     corners the clip is on us. */
+  overflow: hidden;
+}
+
+/* Vimeo dispatch: parallel to `.ok-video-youtube`. `@u-wave/react-vimeo`
+   in `responsive` mode renders an iframe wrapped in a div that resizes
+   to its parent — give the parent the same 720px default so authors who
+   don't supply explicit width get the same UX as the YouTube path. The
+   iframe itself is rectangular; rounded-corner clipping is on us. */
+.ok-video-vimeo {
+  width: 720px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Loom dispatch: parallel to YouTube + Vimeo. The wrapper supplies the
+   720px default + max-width and clips the iframe to the rounded corner.
+   The Loom iframe itself defaults to no width/height (Loom's embed sizes
+   itself via CSS internals), so we set sensible defaults on the iframe
+   to match the wrapper. Author-supplied width/height override. */
+.ok-video-loom {
+  width: 720px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Video alignment (PRD-6822) — `.ok-video` is `display: block` by default
+   (HTML5 `<video>` is block, and the YouTube / Vimeo / Loom wrapper `<div>`
+   is too). Block elements ignore the parent's `text-align`, breaking the
+   three `[data-component-type="video"][data-align="…"]` rules above (which
+   live with the rest of the wrapper-alignment rules). Override to
+   `inline-block` for every JSX-form video wrapper so the `text-align` can
+   position the media — `JsxComponentView` always emits `data-align` on
+   video wrappers (defaulting to `center` via the `ALIGNABLE_DESCRIPTOR_NAMES`
+   clamp), so the wrapper-component-type selector is the precise scope. The
+   global `display: block` default stays everywhere outside the JSX
+   wrapper. Placed after the `.ok-video-*` width rules so selector
+   specificity stays ascending in document order. */
+.ProseMirror .jsx-component-wrapper[data-component-type="video"] .ok-video {
+  display: inline-block;
+}
+.ok-video-loom-iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
+
+/* 7c-bis. PDF (Obsidian-parity `![[doc.pdf]]` — Pdf.tsx renders pages
+ * to canvas via pdfjs-dist, no iframe). Three regions: toolbar (title +
+ * page-nav controls), pages container (scrollable canvas list), and the
+ * canvas pages themselves. Container height is set inline by Pdf.tsx
+ * from the `height=N` anchor parameter (default 600px); per-page width
+ * is computed at render time so the viewer fits the prose column.
+ */
+.ok-pdf {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  margin: 0.5rem 0;
+  background-color: var(--muted);
+  overflow: hidden;
+}
+
+.ok-pdf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--background);
+  font-size: 0.8rem;
+  user-select: none;
+}
+
+.ok-pdf-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.ok-pdf-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.ok-pdf-divider {
+  display: inline-block;
+  width: 1px;
+  height: 1.1rem;
+  background: var(--border);
+  margin: 0 0.2rem;
+}
+
+.ok-pdf-page-form {
+  display: inline-flex;
+}
+
+.ok-pdf-page-input {
+  width: 2.4rem;
+  height: 1.5rem;
+  padding: 0 0.25rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: var(--background);
+  color: var(--foreground);
+}
+.ok-pdf-page-input:focus {
+  outline: 2px solid var(--ring, var(--border));
+  outline-offset: -1px;
+}
+
+.ok-pdf-page-of {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  margin-right: 0.15rem;
+}
+
+.ok-pdf-zoom-display {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  min-width: 2.6rem;
+  text-align: center;
+}
+
+.ok-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  border: 1px solid transparent;
+  padding: 0;
+}
+.ok-pdf-btn:hover:not(:disabled) {
+  background-color: var(--muted);
+  border-color: var(--border);
+}
+.ok-pdf-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ok-pdf-btn[aria-pressed="true"] {
+  background-color: var(--muted);
+  border-color: var(--border);
+}
+
+/* Layout-dropdown menu — anchored to the chevron button.
+ * Width is determined by content; max set so long labels don't push
+ * the embed sideways. The wrapping `<div>` is the positioning context. */
+.ok-pdf-layout-menu {
+  position: relative;
+}
+
+.ok-pdf-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 10;
+  min-width: 11rem;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.ok-pdf-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 0.25rem;
+  color: var(--foreground);
+  cursor: pointer;
+}
+.ok-pdf-menu-item:hover {
+  background-color: var(--muted);
+}
+.ok-pdf-menu-check {
+  display: inline-flex;
+  width: 0.9rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground);
+}
+.ok-pdf-menu-divider {
+  margin: 0.25rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* Body — flex row that hosts the optional thumbnail sidebar and the
+ * main page-stack viewport. Sidebar is a fixed-width column; pages
+ * take the remaining space. */
+.ok-pdf-body {
+  flex: 1;
+  display: flex;
+  min-height: 0; /* allow children to shrink below their content size */
+}
+
+.ok-pdf-sidebar {
+  flex: 0 0 auto;
+  width: 9rem;
+  overflow-y: auto;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border-right: 1px solid var(--border);
+  background: var(--background);
+}
+
+.ok-pdf-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.25rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  cursor: pointer;
+}
+.ok-pdf-thumb:hover {
+  background-color: var(--muted);
+}
+.ok-pdf-thumb[data-active] {
+  border-color: var(--ring, var(--foreground));
+  background-color: var(--muted);
+}
+.ok-pdf-thumb-canvas {
+  display: block;
+  max-width: 100%;
+  background: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  border-radius: 1px;
+}
+.ok-pdf-thumb-num {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pages container — default vertical column. Two-page modes flip the
+ * layout to a 2-column grid via the `data-layout` selector below. */
+.ok-pdf-pages {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  /* `align-items: safe center` keeps narrow canvases centered horizontally
+   * but falls back to `start` once a page (post-zoom) is wider than the
+   * container — without `safe`, an oversized item gets centered by the
+   * flex layout, which prevents the user from scrolling all the way to
+   * its left edge. */
+  align-items: safe center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background-color: color-mix(in oklab, var(--muted) 70%, transparent);
+}
+
+.ok-pdf-pages[data-layout="two-odd"],
+.ok-pdf-pages[data-layout="two-even"] {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  justify-content: center;
+  column-gap: 0.75rem;
+  row-gap: 0.5rem;
+  align-items: start;
+}
+
+/* Two-page (even) — page 1 is a "cover" alone on the right, then pairs
+ * (2,3) (4,5) … Achieved by shifting the first canvas to grid column 2;
+ * subsequent pages flow normally starting at column 1. */
+.ok-pdf-pages[data-layout="two-even"] > .ok-pdf-page:first-child {
+  grid-column-start: 2;
+}
+
+.ok-pdf-page {
+  display: block;
+  /* No `max-width: 100%` — the inline `style.width` set by `Pdf.tsx` is
+   * authoritative. At zoom > 1× the canvas is intentionally wider than
+   * its parent and the container's `overflow: auto` (above) handles the
+   * horizontal scroll. Clamping to 100% would silently re-floor zoom
+   * to whichever fit-* base scale the parent's width can hold. */
+  flex-shrink: 0;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+}
+
+.ok-pdf-loading,
+.ok-pdf-error {
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+.ok-pdf-error {
+  color: var(--destructive, #c33);
+}
+
+/* 7e. File (DIY renderer for the `File` canonical, 2026-05).
+ *
+ * Notion-style inline row — small file-up icon + bold name + dim size,
+ * stacked vertically when consecutive (each File is its own block from
+ * the JsxComponentView wrapper). No card background / border / padded
+ * box: the row reads as part of doc flow rather than as a callout-
+ * shaped block competing with prose for visual weight. Hover paints a
+ * subtle muted background and underlines the name to signal
+ * clickability.
+ *
+ * Why this differs from the Pdf card: Pdf renders a full pdfjs viewer
+ * (toolbar + canvas list — necessarily card-shaped). File never
+ * previews — it's the catch-all for types we deliberately don't try to
+ * render inline (.zip / .docx / .xlsx / unknown extensions). Stacks of
+ * Files read as a "files attached" list rather than a series of cards.
+ */
+/* Descendant base rules — declared before the anchor's hover/focus rules
+ * so the cascade reads in ascending-specificity order (Biome
+ * `noDescendingSpecificity` rule). The anchor selector uses
+ * `.ProseMirror a.ok-file-attachment` (1 class + 1 element + 1 class) so
+ * it beats Tailwind v4 typography's `.prose a` rule (1 class + 1
+ * element) on specificity — without `.ProseMirror`, the blue prose-link
+ * color + underline defaults bleed through and the row reads as a
+ * generic markdown link rather than a file attachment row.
+ *
+ * No negative margin / padding overhang: the hover background must NOT
+ * extend past the parent column's edge (which would clip in the
+ * `.ProseMirror` overflow box and make the row look truncated on the
+ * left). Internal padding gives the hover background breathing room
+ * around the content without poking outside the column. */
+.ok-file-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  /* Baseline alignment hack — lucide icons render with their bounding
+   * box centered, but a paperclip glyph optically sits high relative
+   * to the text x-height. Nudge down 0.18em so the icon's visual
+   * center aligns with the lowercase letters of the name. */
+  position: relative;
+  top: 0.18em;
+  color: var(--foreground);
+}
+
+.ok-file-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60ch;
+}
+
+.ok-file-size {
+  font-size: 0.85em;
+  color: var(--muted-foreground);
+}
+
+/* File wrapper takes the full column width (chrome bar sits at the
+ * column's right edge, away from the row content). The wrapper-level
+ * selection halo (`.jsx-component-wrapper[data-selected="true"]::after`,
+ * `inset: -4px`) is hidden for File-type wrappers because painting a
+ * 4px border around the full prose column when only the row is the
+ * "selected thing" reads as a wide rectangle outline floating in
+ * empty space. The selection feedback paints on the inner row instead
+ * (a rule further below scoped to `[data-selected="true"] a.ok-file-attachment`)
+ * so the highlight tracks the visible content.
+ *
+ * Both source-form variants — canonical `[data-component-type="file"]`
+ * (hand-authored `<File>` JSX) and compat
+ * `[data-component-type="wikiembedfile"]` (drop / `![[]]` form) — get
+ * the same treatment so selection looks identical regardless of how
+ * the row was authored.
+ *
+ * Rule ordering: the base `.ProseMirror a.ok-file-attachment` rule is
+ * declared FIRST so that the more-specific selection-state rules below
+ * cascade over it in source order (Biome `noDescendingSpecificity`). */
+.ProseMirror a.ok-file-attachment {
+  /* Full-width row (block-level flex) so the hover/selection background
+   * spans the whole prose column — matches Notion's "file attached"
+   * row visual where the row reads as a structural element of the
+   * doc, not a content-width pill. */
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.375rem;
+  text-decoration: none;
+  color: var(--foreground);
+  font-size: inherit;
+  line-height: 1.5;
+  transition: background-color 120ms ease;
+}
+
+.ProseMirror a.ok-file-attachment:hover {
+  background-color: var(--muted);
+}
+
+.ProseMirror a.ok-file-attachment:focus-visible {
+  outline: 2px solid var(--ring, currentColor);
+  outline-offset: 2px;
+}
+
+.ProseMirror a.ok-file-attachment:hover .ok-file-name {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.ProseMirror a.ok-file-attachment:hover .ok-file-size {
+  /* Override the prose typography hover-underline that would otherwise
+   * cascade through the `<a>` and paint a single underline beneath the
+   * size span too — only the name should pick up the hover-underline,
+   * the size stays muted gray. */
+  text-decoration: none;
+}
+
+/* Suppress wrapper-level selection halo for File rows — see the comment
+ * block above. The inner-row outline below is the selection feedback. */
+.ProseMirror .jsx-component-wrapper[data-component-type="file"][data-selected="true"]::after,
+.ProseMirror
+  .jsx-component-wrapper[data-component-type="wikiembedfile"][data-selected="true"]::after {
+  --selection-halo-opacity: 0;
+}
+
+.ProseMirror
+  .jsx-component-wrapper[data-component-type="file"][data-selected="true"]
+  a.ok-file-attachment,
+.ProseMirror
+  .jsx-component-wrapper[data-component-type="wikiembedfile"][data-selected="true"]
+  a.ok-file-attachment {
+  /* Selection feedback is the muted background only — no outline ring.
+   * The full-width row + bg tint reads clearly as "this row is the
+   * thing you've selected" without painting a hard rectangle. The
+   * chrome bar's appearance + bubble-menu mode-swap (download button)
+   * provide the additional UI signals. */
+  background-color: var(--muted);
+}
+
+/* 7f. CodeMirror prop input (PropPanel string-prop control with `language` set,
+ * 2026-05).
+ *
+ * Replaces the plain `<input type="text">` for code-shaped props (Math
+ * formula → LaTeX, Mermaid chart, JSON / HTML / YAML payloads). Sized
+ * to fit the PropPanel popover comfortably — min-height ≈ 5 lines so a
+ * one-line formula doesn't render in a sliver, max-height with overflow
+ * so a 50-line Mermaid diagram doesn't blow out the popover.
+ *
+ * Padding-free wrapper — the inner `.cm-editor` has its own padding from
+ * CM6 defaults. Matches shadcn `<Input>` border + radius tokens so the
+ * editor sits visually consistent with sibling string inputs in the
+ * same panel. */
+/* PRD-6821 — Code preview "Edit source" modal's CodeMirror surface.
+ * Sibling of `.ok-prop-codemirror` below but sized to fill its modal pane
+ * instead of capping at 18rem. The inner editor expands to the host
+ * div's full height (the modal's pane uses `flex-1 min-h-[260px]`), the
+ * scroller takes the remainder via `flex: 1 1 0`, and color tokens flow
+ * from app CSS variables so light / dark tracks the active theme without
+ * a CodeMirror Compartment. The first iteration of this modal tried to
+ * use `nested-cm-extensions`'s `darkTheme`/`lightTheme` exports — those
+ * expect a Compartment + transparent background, which lost the cascade
+ * battle against the dialog's solid surfaces and left the source pane
+ * blank against the dark background. The all-CSS approach below
+ * sidesteps that whole class of bug. */
+.ok-codepreview-cm {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.ok-codepreview-cm .cm-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  outline: none;
+}
+
+.ok-codepreview-cm .cm-editor.cm-focused {
+  outline: none;
+}
+
+.ok-codepreview-cm .cm-scroller {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.5;
+  overscroll-behavior: contain;
+}
+
+.ok-codepreview-cm .cm-content {
+  padding: 0.5rem 0;
+  color: var(--foreground);
+  caret-color: var(--foreground);
+}
+
+.ok-codepreview-cm .cm-gutters {
+  background-color: var(--background);
+  border-right: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.ok-codepreview-cm .cm-activeLineGutter,
+.ok-codepreview-cm .cm-activeLine {
+  background-color: var(--muted);
+}
+
+.ok-codepreview-cm .cm-selectionBackground,
+/* `.cm-focused` lands on `.cm-editor` (CM6's wrapper), not on this
+ * outer host div — so the focused-selection rule must nest through it.
+ * Sibling `.ok-prop-codemirror` uses the same nesting at line 3790. */
+  .ok-codepreview-cm .cm-editor.cm-focused
+  .cm-selectionBackground,
+.ok-codepreview-cm ::selection {
+  background-color: var(--accent);
+}
+
+.ok-prop-codemirror {
+  width: 100%;
+  /* Tightened from 6.5rem / 18rem — the PropPanel popover is narrow, so
+   * a tall code surface dominated the visible area (Mermaid's `chart`
+   * prop was the worst offender at ~188px on default content). The
+   * fullscreen "Edit source" pen-icon modal remains the right tool for
+   * heavy editing; the inline panel is for quick tweaks. */
+  min-height: 4rem;
+  max-height: 12rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background-color: var(--background);
+  overflow: hidden;
+  /* Stepped down from 0.8125rem (13px) to 0.75rem (12px) so the
+   * source-string region reads as one of the panel's compact controls
+   * instead of a centerpiece. Still inside the WCAG-2.1 SC 1.4.4
+   * resize-text margin (browser zoom and OS-level font scaling apply
+   * normally to monospace text). */
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  transition: border-color 120ms ease;
+}
+
+.ok-prop-codemirror:focus-within {
+  border-color: var(--ring, var(--border));
+  outline: 2px solid var(--ring, currentColor);
+  outline-offset: -1px;
+}
+
+.ok-prop-codemirror .cm-editor {
+  height: 100%;
+  /* Matches the host's compacted max-height (was 18rem). */
+  max-height: 12rem;
+  outline: none;
+}
+
+.ok-prop-codemirror .cm-editor.cm-focused {
+  outline: none;
+}
+
+.ok-prop-codemirror .cm-scroller {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.45;
+  /*
+    Stop scroll-chaining inside the PropPanel popover — without this,
+    scrolling past the editor's content boundary (e.g. on a long
+    Mermaid diagram) chains to the page behind the popover. `contain`
+    keeps the gesture local to the editor's scrollable region.
+  */
+  overscroll-behavior: contain;
+}
+
+.ok-prop-codemirror .cm-content {
+  padding: 0.4rem 0;
+  caret-color: var(--foreground);
+}
+
+.ok-prop-codemirror .cm-gutters {
+  background-color: var(--muted);
+  border-right: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.ok-prop-codemirror .cm-activeLineGutter,
+.ok-prop-codemirror .cm-activeLine {
+  background-color: var(--accent);
+}
+
+/* 7d. Accordion (5-pack DIY renderer, US-009 — standalone HTML5 <details>).
+ *
+ * Standalone <details>/<summary> styled with OK shadcn tokens per D-MF14 +
+ * D-MF16 — no parent wrapper required, no Radix animation state machine.
+ * Chevron rotation keyed on the [open] attribute; summary is
+ * contentEditable=false so PM doesn't mount inside. Exclusive-accordion
+ * grouping uses HTML5 `<details name="group">` natively (Chrome 120+,
+ * Safari 17.2+, Firefox 130+) — no wrapper component needed.
+ *
+ * Shadcn tokens: --border / --muted for the container; --foreground /
+ * --muted-foreground for text; --ring inherits through the selection halo.
+ */
+.accordion {
+  border: 1px solid var(--border);
+  background: var(--background);
+  margin: 0.5rem 0;
+  overflow: hidden;
+  @apply rounded-lg;
+}
+
+.accordion > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordion-chevron {
+  flex: none;
+  color: var(--muted-foreground);
+  margin-top: 0.25rem;
+  transform: rotate(0deg);
+  transform-origin: 50% 50%;
+}
+
+.accordion[open] > summary > .accordion-chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .accordion-chevron {
+    transition: transform 180ms var(--ease-out-strong);
+  }
+}
+
+.accordion .accordion-icon {
+  flex: none;
+  margin-top: 0.125rem;
+  color: var(--muted-foreground);
+}
+
+.accordion .accordion-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.accordion .accordion-title {
+  color: var(--foreground);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.accordion .accordion-description {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.accordion .accordion-body {
+  padding: 0.5rem 0.875rem 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.accordion .accordion-body > :first-child {
+  margin-top: 0;
+}
+.accordion .accordion-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Tabs
+ *
+ * Notion-style horizontal pill strip above an active panel. Component in
+ * `editor/components/Tabs.tsx`; descriptor pair (Tabs + Tab) in
+ * `core/registry/built-ins.ts`.
+ *
+ * Active visibility is purely CSS: `Tabs.tsx` writes `data-active-index="N"`
+ * on `.tabs-content`; the rules below hide every `.react-renderer` sibling
+ * (each PM-rendered child NodeView is wrapped in one) and re-show the
+ * N+1-th. PM children stay live (Precedent #30) — they're just `display:
+ * none` when not the active tab.
+ *
+ * Capacity: nth-of-type rules cover indices 0–19. Beyond that, Tabs.tsx
+ * clamps `safeActive` to `labels.length - 1` so the last-rule slot
+ * (index 19) stays visible; a 21st+ panel would silently fall back to
+ * hidden until the rule list widens. Twenty tabs in a single `<Tabs>` is
+ * already well outside realistic authoring.
+ *
+ * Chrome mirrors Accordion's shadcn-token shape (1px --border, --background
+ * fill, rounded-lg) so the two canonical containers read as siblings.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* Bordered container — single chrome shell, no muted header band. The pill
+   strip sits inline at the top of the same surface; the active panel paints
+   directly below it on the same background. Matches Accordion's
+   shadcn-token shape (border + rounded-lg) so the two canonical containers
+   read as siblings.
+
+   NO `overflow: hidden` — selection halos and focus outlines on inner blocks
+   bleed slightly outside their box and would otherwise clip at the rounded
+   container edge (visible on first-line / last-line of a Tab body). */
+.tabs {
+  border: 1px solid var(--border);
+  background: var(--background);
+  margin: 0.5rem 0;
+  @apply rounded-lg;
+}
+
+.tabs-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  padding: 0.5rem 0.625rem 0;
+}
+
+/* The `role="tablist"` element wraps only the `[role="tab"]` pills (WAI-
+ * ARIA's required-owned-elements rule). `display: contents` makes it
+ * transparent to layout so the pills participate directly in the outer
+ * `.tabs-strip` flex row, alongside the auxiliary `+ Add tab` button
+ * which lives as a sibling of the tablist. Visual row is unchanged from
+ * the pre-restructure layout. */
+.tabs-tablist {
+  display: contents;
+}
+
+.tabs-strip-pill {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  line-height: 1.3;
+  transition:
+    background-color 100ms var(--ease-out-strong),
+    color 100ms var(--ease-out-strong),
+    transform 160ms var(--ease-out-strong);
+}
+
+.tabs-strip-pill:hover {
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+}
+
+.tabs-strip-pill:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.tabs-strip-pill[data-active="true"] {
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--muted) 70%, transparent);
+}
+
+/* Inline "+ Add tab" button — sits at the end of the strip's flex row,
+ * styled as a muted square that brightens on hover so it reads as a
+ * "background" affordance until the author actively needs it. Visible
+ * only when the Tabs descriptor's host context provides `addChild()`
+ * (i.e. inside the editor, not in standalone preview surfaces). */
+.tabs-strip-add {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.3125rem;
+  cursor: pointer;
+  margin-left: 0.125rem;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.tabs-strip-add:hover {
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+}
+
+.tabs-strip-add:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.tabs-content {
+  padding: 0.125rem 0.875rem 0.375rem;
+}
+
+/* Hide every Tab inside the active Tabs's content area, then re-show the
+   matching nth-of-type for each active-index value. PM/Tiptap's render
+   stack between the JSX `<NodeViewContent>` and the user-visible Tab
+   wrapper adds TWO intermediate divs:
+
+     .tabs-content                              ← Tabs's own panel container
+     > .component-children                      ← React's <NodeViewContent>
+     > [data-node-view-content-react]           ← PM's contentDOMElement
+                                                  (ReactNodeViewRenderer
+                                                   constructor appends this
+                                                   INSIDE the React node)
+     > .react-renderer.node-jsxComponent        ← per-child ReactRenderer
+                                                  element (one per Tab)
+     > .jsx-component-wrapper[data-component-type="tab"]   ← our NodeViewWrapper
+
+   We hide at the `.react-renderer` level (the actual sibling row PM
+   manipulates). Schema is `block*` not `tab+`, so technically a non-Tab
+   block could land here — but the user-facing contract is "Tabs only
+   contains Tab children" (no slash entry for Tab outside Tabs; pasted
+   non-Tab blocks would have no matching strip pill anyway). `:nth-of-type`
+   over `.react-renderer` siblings drives the active selection. */
+.tabs-content > .component-children > [data-node-view-content-react] > .react-renderer {
+  display: none;
+}
+
+.tabs-content[data-active-index="0"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(1) {
+  display: block;
+}
+.tabs-content[data-active-index="1"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(2) {
+  display: block;
+}
+.tabs-content[data-active-index="2"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(3) {
+  display: block;
+}
+.tabs-content[data-active-index="3"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(4) {
+  display: block;
+}
+.tabs-content[data-active-index="4"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(5) {
+  display: block;
+}
+.tabs-content[data-active-index="5"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(6) {
+  display: block;
+}
+.tabs-content[data-active-index="6"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(7) {
+  display: block;
+}
+.tabs-content[data-active-index="7"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(8) {
+  display: block;
+}
+.tabs-content[data-active-index="8"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(9) {
+  display: block;
+}
+.tabs-content[data-active-index="9"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(10) {
+  display: block;
+}
+.tabs-content[data-active-index="10"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(11) {
+  display: block;
+}
+.tabs-content[data-active-index="11"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(12) {
+  display: block;
+}
+.tabs-content[data-active-index="12"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(13) {
+  display: block;
+}
+.tabs-content[data-active-index="13"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(14) {
+  display: block;
+}
+.tabs-content[data-active-index="14"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(15) {
+  display: block;
+}
+.tabs-content[data-active-index="15"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(16) {
+  display: block;
+}
+.tabs-content[data-active-index="16"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(17) {
+  display: block;
+}
+.tabs-content[data-active-index="17"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(18) {
+  display: block;
+}
+.tabs-content[data-active-index="18"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(19) {
+  display: block;
+}
+.tabs-content[data-active-index="19"]
+  > .component-children
+  > [data-node-view-content-react]
+  > .react-renderer:nth-of-type(20) {
+  display: block;
+}
+
+.tab-panel > .component-children > :first-child {
+  margin-top: 0;
+}
+.tab-panel > .component-children > :last-child {
+  margin-bottom: 0;
+}
+
+/* Hover-revealed chrome bar (component name + gear icon) — top-right overlay.
+   z-index 50 sits high enough to paint above any intra-component sticky/z-40
+   layers (pre-US-004 this was tuned against fumadocs Banner's sticky header)
+   but still below shadcn Popover/Dialog portals (typically z-50+ on a detached
+   layer), so the chrome isn't occluded by in-component stickies. */
+.jsx-component-chrome {
+  position: absolute;
+  top: -11px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  color: var(--muted-foreground);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 50;
+  white-space: nowrap;
+}
+/* Only show chrome for the INNERMOST hovered component — prevents
+   parent and child chrome bars from overlapping at the top-right.
+   When hovering a Card inside Cards, only the Card's icons show.
+   When hovering the Cards container gap, only Cards' icons show. */
+.jsx-component-wrapper:hover:not(:has(.component-children .jsx-component-wrapper:hover))
+> .jsx-component-chrome {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Keyboard-selected parity with hover. Keyboard-only users who arrow-key
+   to a component (block-ux/keyboard-nav.ts NodeSelection) get the halo
+   via [data-selected]; this rule mirrors it so the chrome bar's Move /
+   Delete / Settings buttons are reachable without a mouse (WCAG 2.1.1
+   Keyboard). Innermost-wins uses [data-has-child-selected] written by
+   SelectionStatePlugin (precedent #34) — a plain attribute-presence
+   negation, so a parent whose descendant is the selected block doesn't
+   paint chrome on both the parent AND the child. */
+.jsx-component-wrapper[data-selected="true"]:not([data-has-child-selected="true"])
+> .jsx-component-chrome {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Unconfigured hint — when the component has settable props AND at least one
+   is empty/unset, surface the full-styled chrome pill with ONLY the gear
+   button visible (arrows + destructive delete stay hidden until hover).
+   The pill itself looks identical to its hovered state (full background,
+   border, padding, opacity) — the hint is conveyed by *presence*, not by
+   styling the gear differently. Hover upgrades the pill to show every
+   button via the hover rule above. */
+.jsx-component-wrapper[data-needs-config="true"]:not(
+  :has(.component-children .jsx-component-wrapper:hover)
+)
+> .jsx-component-chrome {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* In hint mode (not hovering the wrapper itself), hide every chrome button
+   except the properties trigger so the gear is the only affordance shown. */
+.jsx-component-wrapper[data-needs-config="true"]:not(:hover):not(
+    :has(.component-children .jsx-component-wrapper:hover)
+  ) > .jsx-component-chrome
+  > button:not([aria-label*="properties"]) {
+  display: none;
+}
+
+/* Chrome bar icon buttons — shared base style. Applies to both `<button>`
+ * and `<a>` siblings; anchor chrome items (Embed's "open in new tab",
+ * Mirror's "Open source" deep-link) need this so they match the button
+ * siblings instead of inheriting the page's link styling. */
+.jsx-chrome-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.125rem;
+  border: none;
+  border-radius: 0.1875rem;
+  background: transparent;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.1s,
+    color 0.1s;
+}
+.jsx-chrome-btn:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+/* Active-state for toggle buttons (image alignment left/center/right —
+ * only one is "pressed" at a time, reflecting the current `props.align`).
+ * Keyed off `data-active="true"` rather than `aria-pressed` so the
+ * selector composes cleanly with the hover rule above without specificity
+ * tricks. */
+.jsx-chrome-btn[data-active="true"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+/* Keyboard focus indicator — mirrors the editor-wide pattern used by
+   .tag, [data-link], file-attachment links, and the drag-handle controls.
+   Chrome buttons are tab-reachable when the wrapper has roving tabIndex=0,
+   so the focus ring is load-bearing for keyboard-only operation. */
+.jsx-chrome-btn:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+/* Delete icon — subtle red tint on hover, not a full red background */
+.jsx-chrome-btn--delete:hover {
+  background: transparent;
+  color: var(--destructive, #ef4444);
+}
+
+/* 8. Container child insertion — overlay pill + empty placeholder */
+
+/* "Add child" pill — centered at bottom edge of container, absolute overlay */
+.jsx-add-child-pill {
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 0.125rem 0;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+.jsx-add-child-pill > span {
+  display: inline-block;
+  padding: 0.125rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--popover);
+  white-space: nowrap;
+}
+/* Add-child pill shows on ANY hover of the container — not restricted to
+   innermost-only like the chrome bar. The pill sits at bottom:-10px (outside
+   children) so it doesn't compete with child chrome. This makes it accessible
+   even when children fill the entire container (e.g., Steps full of Steps). */
+.jsx-component-wrapper:hover > .jsx-add-child-pill {
+  opacity: 1;
+  pointer-events: auto;
+}
+.jsx-add-child-pill:hover > span {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border-color: var(--accent);
+}
+
+/* Empty container placeholder — in-flow (it IS the content for empty containers) */
+.jsx-empty-child-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 1rem;
+  margin-top: 0.25rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+.jsx-empty-child-placeholder:hover {
+  border-color: var(--ring);
+  color: var(--accent-foreground);
+}
+/* Dark overrides — ProseMirror content surfaces */
+.dark .ProseMirror pre code {
+  background: none;
+}
+/* Dark overrides — agent flash keyframes with boosted alpha for dark canvas */
+@keyframes agent-flash-dark {
+  0% {
+    box-shadow: inset 3px 0 0 transparent;
+    background: transparent;
+    transform: translateX(0);
+  }
+  8% {
+    box-shadow: inset 3px 0 0 var(--color-agent);
+    background: rgba(217, 119, 87, 0.22);
+    transform: translateX(1px);
+  }
+  35% {
+    box-shadow: inset 3px 0 0 var(--color-agent);
+    background: rgba(217, 119, 87, 0.14);
+    transform: translateX(0);
+  }
+  100% {
+    box-shadow: inset 3px 0 0 transparent;
+    background: transparent;
+    transform: translateX(0);
+  }
+}
+
+@keyframes agent-breathing-dark {
+  0%,
+  100% {
+    background: rgba(217, 119, 87, 0.1);
+  }
+  50% {
+    background: rgba(217, 119, 87, 0.28);
+  }
+}
+
+@keyframes undo-ready-dark {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(217, 119, 87, 0);
+  }
+  40% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 4px rgba(217, 119, 87, 0.3);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(217, 119, 87, 0);
+  }
+}
+
+.dark
+  [data-agent-flash-state="editing"][data-agent-flash-position="append"]
+  .ProseMirror
+  > *:nth-last-child(-n + 3),
+.dark
+  [data-agent-flash-state="editing"][data-agent-flash-position="prepend"]
+  .ProseMirror
+  > *:nth-child(-n + 3) {
+  animation-name: agent-flash-dark;
+}
+
+.dark [data-presence-badge="agent"][data-presence-mode="editing"] {
+  animation-name: agent-breathing-dark;
+}
+
+/* Boosted-alpha landing flash on the dark canvas (reduced motion already
+   neutralizes the animation via a 0s duration, so the accent-bar fallback
+   still stands). */
+.dark .ok-landing-flash {
+  animation-name: agent-flash-dark;
+}
+/* Dark overrides — MEDIUM-severity items */
+.dark .ProseMirror .selectedCell::after {
+  background: var(--color-azure-900);
+  opacity: 0.4;
+}
+/* WYSIWYG markdown-lint decorations (markdown-lint-decorations.ts). Source mode
+   underlines the exact error range; WYSIWYG has no source columns, so we flag
+   the top-level block a diagnostic falls in with the SAME wavy underline visual
+   language — applied to the block's text via a node decoration. No background
+   fill or accent bar (those read as a heavy full-width highlight); just the
+   recognizable squiggle, reusing the --lint-*-color tokens so the two surfaces
+   match in light and dark. The native `title` tooltip the plugin sets on the
+   block lists the rule + message on hover. */
+.ProseMirror .ok-lint-block {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--lint-warning-color);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 0.2em;
+}
+.ProseMirror .ok-lint-block.ok-lint-block-error {
+  text-decoration-color: var(--lint-error-color);
+}
+/* Textless blocks (thematic break, block image) carry no inline text, so the
+   wavy text-decoration above paints nothing. Swap it for an outline that reads
+   the same warning/error color. The base .ok-lint-block class stays applied for
+   the hover-tooltip lookup; here we cancel its (invisible) underline. */
+.ProseMirror .ok-lint-block-atom {
+  text-decoration: none;
+  outline: 2px dashed var(--lint-warning-color);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+.ProseMirror .ok-lint-block-atom.ok-lint-block-error {
+  outline-color: var(--lint-error-color);
+}
+/* Hover tooltip for a decorated lint block (markdown-lint-decorations.ts). A
+   styled, instant alternative to the native `title` — OK popover tokens,
+   one diagnostic per line, never intercepts pointer events. */
+.ok-lint-tooltip {
+  position: absolute;
+  z-index: 50;
+  max-width: 22rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 0.25rem);
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-md, 0 2px 8px oklch(0% 0 0 / 0.15));
+  font-size: 0.75rem;
+  line-height: 1.1rem;
+  white-space: pre-line;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+}
+.ok-lint-tooltip-message {
+  white-space: pre-line;
+}
+/* Fix button styling comes from the shadcn buttonVariants recipe applied in
+   markdown-lint-decorations.ts; this guard keeps the recipe's inline-flex from
+   overriding the `hidden` attribute on the imperative DOM element. */
+.ok-lint-tooltip-fix[hidden] {
+  display: none;
+}
+.ok-lint-tooltip[hidden] {
+  display: none;
+}
+/* V2 mode-toggle visibility (FR9, V2 SPEC §8b) — replaces Tailwind's
+   `hidden` (`display: none`) on the non-active editor's container during
+   Visual ↔ Source mode flips. `content-visibility: hidden` skips browser
+   style + layout recalc on the 39K-PM-DOM-node tree of large docs:
+   CV:hidden probe AC22 MET at 204 ms first / 115 ms repeat in dev,
+   target G4 < 200 ms prod (cold-mount-profile §S3). `contain-intrinsic-size`
+   reserves layout space so the scrollbar doesn't collapse during the
+   toggle (no jarring scrollbar disappearance). The reserved height (8000px)
+   is generous enough to cover most docs without forcing a layout shift
+   on toggle-back; for ultra-tall docs CV:hidden's auto-resume on visibility
+   handles the diff cheaply.
+
+   Difference vs `display: none`:
+     - `display: none` removes the element from layout entirely. Browser
+       still has the DOM in memory but no layout/paint cost.
+     - `content-visibility: hidden` keeps the element in layout but skips
+       descendant layout/paint. The container reserves intrinsic size.
+       Switching back to visible is faster on large trees (no full reflow).
+
+   Out-of-flow stacking: `position: absolute; inset: 0` takes the hidden
+   editor out of normal flow so its 8000px reserved intrinsic size does
+   not size the wrapper (or any grid row) — earlier grid-based stacking
+   sized rows to MAX intrinsic across children, stretching the visible
+   sibling to 8000px and producing bottom whitespace on short docs. The
+   consuming dual-editor wrapper must be `position: relative` so this
+   absolute positioning resolves against it (see `EditorActivityPool.tsx`).
+   `pointer-events: none` guards against stray hit-tests reaching hidden
+   descendants before content-visibility's own hit-test skip applies. */
+.ok-mode-hidden {
+  content-visibility: hidden;
+  contain-intrinsic-size: 0 8000px;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* Block-chunked content-visibility:auto for read-only large-doc surfaces.
+   Editable papers deliberately do not opt in: deferred materialization makes
+   content appear after the scroll gesture and destabilizes WebKit selection
+   anchoring when blocks are inserted deep in the document. */
+.ProseMirror .ok-chunk-wrapper {
+  content-visibility: auto;
+  contain-intrinsic-inline-size: auto 0px;
+  contain-intrinsic-block-size: auto var(--ok-cv-h, 80px);
+}
+
+/* Code-block wrapper needs an unclipped paint area — the block's chrome
+   floats above the block edge (see `.ok-codeblock-chrome`). content-visibility
+   auto's paint containment would otherwise clip the chrome to the wrapper's box,
+   hiding it entirely. */
+.ProseMirror .ok-chunk-wrapper.node-codeBlock {
+  content-visibility: visible;
+}
+/* Rendered (WYSIWYG) Timeline diff — inline track-changes decorations.
+   Scoped under .ProseMirror so they render inside the read-only diff editor's
+   content DOM (RenderedDiffView). `ins`/`del` are decoration classes, not real
+   nodes — see lib/rendered-diff/diff-decorations.ts. */
+.ProseMirror .ok-diff-ins {
+  background-color: color-mix(in srgb, var(--color-emerald-500) 18%, transparent);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Whole added block (node decoration on the `<li>`/`<p>`/`<h2>` itself). */
+.ProseMirror .ok-diff-ins-block {
+  background-color: color-mix(in srgb, var(--color-emerald-500) 14%, transparent);
+  border-radius: 2px;
+  padding-inline: 0.25rem;
+  border-left: 2px solid var(--color-emerald-500);
+}
+
+.ProseMirror .ok-diff-del {
+  color: var(--color-red-600);
+  text-decoration: line-through;
+  background-color: color-mix(in srgb, var(--color-red-500) 10%, transparent);
+  border-radius: 2px;
+  opacity: 0.85;
+}
+
+.dark .ProseMirror .ok-diff-del {
+  color: var(--color-red-400);
+}
+
+/* Whole-block deletions render as a struck-through block (removed heading /
+   list / code) rather than an inline run. */
+.ProseMirror .ok-diff-del-block {
+  display: block;
+  margin-block: 0.15em;
+  padding-inline: 0.25rem;
+  border-left: 2px solid var(--color-red-500);
+}
+
+/* Removed content is chrome, not editable document — never show a text caret. */
+.ProseMirror .ok-diff-del,
+.ProseMirror .ok-diff-del * {
+  cursor: default;
+}
+
+/* Mermaid WYSIWYG canvas (`mermaid-wysiwyg` package). The package injects its
+   own `<style data-mw>` at runtime with `--mw-*` custom-property hooks for all
+   interaction chrome (selection glow, popovers, in-place editors, plus-menus).
+   Map those hooks onto OK's design tokens, and pin the SVG host back to the
+   exact pre-package layout (centered, filling, non-selectable) so the rendered
+   diagram is pixel-identical to the previous DIY renderer. Selectors ride on
+   `.ok-mermaid-svg.mw-canvas` — two classes out-specify every single-class
+   rule in the runtime-injected sheet regardless of load order. */
+.ok-mermaid-svg.mw-canvas {
+  --mw-accent: var(--ring);
+  --mw-chrome-bg: var(--popover);
+  --mw-chrome-border: var(--border);
+  --mw-chrome-hover: var(--accent);
+  --mw-chrome-fg: var(--popover-foreground);
+  --mw-chrome-dim: var(--muted-foreground);
+  --mw-editor-bg: var(--background);
+  /* Package default is `overflow: auto`; OK pans/zooms the SVG in place. */
+  overflow: hidden;
+}
+.ok-mermaid-svg.mw-canvas .mw-svg-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.ok-mermaid-svg.mw-canvas .mw-svg-host > svg {
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Mid-edit parse failures keep the last good diagram on canvas; restyle the
+   package's red badge to OK's destructive banner language. */
+.ok-mermaid-svg.mw-canvas .mw-error-badge {
+  background: var(--background);
+  color: var(--destructive);
+  border: 1px solid color-mix(in srgb, var(--destructive) 30%, transparent);
+  box-shadow: none;
+}
+/* Selection / hover / connect chrome: the package defaults to a stacked
+   drop-shadow bloom, which with OK's near-white `--ring` accent reads as a
+   blown-out halo on dark canvases (and puts a glow on text glyphs while
+   editing). Replace with a single tight edge tint. `!important` is required
+   to beat the package's own `!important` on `.mw-selected`. */
+.ok-mermaid-svg.mw-canvas [data-mw-entity]:hover {
+  filter: drop-shadow(0 0 1px color-mix(in srgb, var(--mw-accent) 55%, transparent));
+}
+.ok-mermaid-svg.mw-canvas .mw-selected,
+.ok-mermaid-svg.mw-canvas .mw-connect-source {
+  /* biome-ignore lint/complexity/noImportantStyles: the package's injected `.mw-selected` rule is itself `!important`; matching importance is the only way to replace its stacked-bloom filter. */
+  filter: drop-shadow(0 0 1.25px var(--mw-accent)) !important;
+}
+/* In-place label editing shows the caret only — no outline, no underline, no
+   backdrop — matching how the previous inline editor read as "the label just
+   became typeable". */
+.ok-mermaid-svg.mw-canvas [contenteditable="true"] {
+  outline: none;
+  box-shadow: none;
+}
+.ok-mermaid-svg.mw-canvas .mw-inplace-editor {
+  box-shadow: none;
+  background: transparent;
+}

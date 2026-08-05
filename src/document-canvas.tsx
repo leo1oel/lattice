@@ -1,12 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import CodeMirror from "@uiw/react-codemirror";
+import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin } from "@codemirror/view";
-import { emacs } from "@replit/codemirror-emacs";
-import { getCM, vim } from "@replit/codemirror-vim";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { bibtex } from "codemirror-lang-bib";
 import { latex } from "codemirror-lang-latex";
 import {
+  hueFromColorHex,
   overleafCursorsExtension,
   setOverleafCursorsEffect,
   type PresenceCursor,
@@ -16,6 +28,7 @@ import {
   type TrackedChangeTooltipActions,
 } from "./overleaf-track-changes";
 import type { TrackedChange } from "./use-overleaf-realtime";
+import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
 import {
   Columns2,
   FileCode2,
@@ -23,11 +36,14 @@ import {
   Image,
   ListTodo,
   MessageSquareText,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import {
   countWords,
   latexEditorExtensions,
   latexLanguageOptions,
+  textEditorExtensions,
   renameEnvironmentAt,
   textStats,
   wrapRange,
@@ -45,6 +61,7 @@ import {
 } from "./latex-selection-toolbar";
 import { ScrollArea } from "./components/ui/scroll-area";
 import { Textarea } from "./components/ui/textarea";
+import { Tip } from "./components/icon-tip";
 import {
   latexFigureInsertion,
   markdownAssetInsertion,
@@ -54,6 +71,7 @@ import { FigureInsertDialog } from "./figure-insert-dialog";
 import {
   createEditorComment,
   editorCommentsExtension,
+  resolveCommentAnchor,
   resolveCommentRange,
   setEditorCommentsEffect,
   type EditorComment,
@@ -79,9 +97,9 @@ import { InsertPalette } from "./insert-palette";
 import type { InsertSnippet } from "./insert-snippets";
 import { expandSnippetPlaceholders, nextSnippetStop, previousSnippetStop } from "./snippet-placeholders";
 import { MathPreview } from "./math-preview";
-import { ChatMarkdown } from "./chat-markdown";
 import { TableGeneratorDialog } from "./table-generator-dialog";
-import { PdfPreview, type PdfSyncTarget } from "./pdf-viewer";
+import type { PdfSyncTarget } from "./pdf-viewer";
+import { pdfBase64ToBytes } from "./pdf-bytes";
 import type {
   WordCount,
   EditorViewState,
@@ -95,11 +113,342 @@ import type {
   InsertSymbolCommand,
   EditorKeymap,
 } from "./app-types";
-import { PROJECT_FIGURE_DRAG_TYPE } from "./app-utils";
+import {
+  isHarperProseFilePath,
+  isHtmlFilePath,
+  markdownFrontmatterEnd,
+  PROJECT_FIGURE_DRAG_TYPE,
+} from "./app-utils";
+import {
+  calculateVerticalScrollGeometry,
+  EXTERNAL_SCROLLBAR_TRACK_INSET,
+} from "./components/ui/external-scrollbar-geometry";
 import type { AgentHostSurface } from "./agent-host-context";
+import type { EditorCollabSession } from "./collab-session";
+import { peerCaretOffsetsV2 } from "./collab-session";
+import { collabEditorExtensions } from "./collab-editor";
+
+const PdfPreview = lazy(() => import("./pdf-viewer").then((module) => ({
+  default: module.PdfPreview,
+})));
+const VisualMarkdownEditor = lazy(() => import("./visual-markdown-editor").then((module) => ({
+  default: module.VisualMarkdownEditor,
+})));
+const BoardEditor = lazy(() => import("./board-editor").then((module) => ({
+  default: module.BoardEditor,
+})));
+
+let visualMarkdownEditorWarmed = false;
+
+function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
+  const [ready, setReady] = useState(visualMarkdownEditorWarmed);
+  useEffect(() => {
+    if (ready) return;
+    const frame = window.requestAnimationFrame(() => setReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [ready]);
+  useEffect(() => {
+    if (ready) visualMarkdownEditorWarmed = true;
+  }, [ready]);
+  if (!ready) {
+    return <div className="visual-markdown-preparing" aria-busy="true" aria-label="Preparing Markdown editor" />;
+  }
+  return <VisualMarkdownEditor {...props} />;
+}
+
+const HTML_PREVIEW_OPEN_EXTERNAL = "lattice:html-preview-open-external";
+const HTML_PREVIEW_SCROLL = "lattice:html-preview-scroll";
+const HTML_PREVIEW_SET_SCROLL_TOP = "lattice:html-preview-set-scroll-top";
+
+const HTML_PREVIEW_SCROLLBAR_STYLES = `
+@media (pointer: fine) {
+  html, body { scrollbar-width: none; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; width: 0; height: 0; }
+}`;
+
+function HtmlPreview({ path, source }: { path: string; source: string }) {
+  const [previewSource, setPreviewSource] = useState(source);
+  const [scrollMetrics, setScrollMetrics] = useState({
+    clientHeight: 0,
+    scrollHeight: 0,
+    scrollTop: 0,
+  });
+  const [scrollbarHovering, setScrollbarHovering] = useState(false);
+  const [scrolling, setScrolling] = useState(false);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const scrollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    scrollPerPixel: number;
+    startClientY: number;
+    startScrollTop: number;
+  } | null>(null);
+  const scrollGeometry = useMemo(
+    () => calculateVerticalScrollGeometry(scrollMetrics),
+    [scrollMetrics],
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setPreviewSource(source), 180);
+    return () => window.clearTimeout(timer);
+  }, [source]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent<unknown>) => {
+      if (event.source !== frameRef.current?.contentWindow) return;
+      const data = event.data;
+      if (!data || typeof data !== "object" || !("type" in data)) return;
+      if (
+        data.type === HTML_PREVIEW_SCROLL
+        && "clientHeight" in data
+        && "scrollHeight" in data
+        && "scrollTop" in data
+        && typeof data.clientHeight === "number"
+        && typeof data.scrollHeight === "number"
+        && typeof data.scrollTop === "number"
+      ) {
+        setScrollMetrics({
+          clientHeight: data.clientHeight,
+          scrollHeight: data.scrollHeight,
+          scrollTop: data.scrollTop,
+        });
+        setScrolling(true);
+        if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
+        scrollingTimerRef.current = setTimeout(() => {
+          scrollingTimerRef.current = null;
+          setScrolling(false);
+        }, 500);
+        return;
+      }
+      if (data.type !== HTML_PREVIEW_OPEN_EXTERNAL || !("href" in data) || typeof data.href !== "string") return;
+      let url: URL;
+      try {
+        url = new URL(data.href);
+      } catch {
+        return;
+      }
+      if (!["http:", "https:", "mailto:"].includes(url.protocol)) return;
+      void openUrl(url).catch(() => undefined);
+    };
+    window.addEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
+    };
+  }, []);
+
+  const html = useMemo(() => {
+    const document = new DOMParser().parseFromString(previewSource, "text/html");
+    for (const base of document.querySelectorAll("base")) base.remove();
+    const isolatedBase = document.createElement("base");
+    isolatedBase.href = "about:blank";
+    document.head.prepend(isolatedBase);
+    const scrollbarStyles = document.createElement("style");
+    scrollbarStyles.dataset.latticePreview = "scrollbar";
+    scrollbarStyles.textContent = HTML_PREVIEW_SCROLLBAR_STYLES;
+    document.head.append(scrollbarStyles);
+    for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href]")) {
+      const href = link.getAttribute("href")?.trim() ?? "";
+      if (/^(?:#|\/\/|[a-z][a-z0-9+.-]*:)/i.test(href)) continue;
+      link.removeAttribute("href");
+      link.title ||= "Relative project links are unavailable in this preview";
+    }
+    const fragmentNavigation = document.createElement("script");
+    fragmentNavigation.dataset.latticePreview = "fragment-navigation";
+    fragmentNavigation.textContent = `document.addEventListener("click",(event)=>{const link=event.target instanceof Element?event.target.closest("a[href]"):null;if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;const href=link.getAttribute("href");if(!href)return;if(/^(?:https?:|mailto:)/i.test(href)){event.preventDefault();parent.postMessage({type:${JSON.stringify(HTML_PREVIEW_OPEN_EXTERNAL)},href},"*");return}if(href==="#"||!href.startsWith("#"))return;let id;try{id=decodeURIComponent(href.slice(1))}catch{return}const target=document.getElementById(id);if(!target)return;event.preventDefault();target.scrollIntoView()});`;
+    document.body.append(fragmentNavigation);
+    const scrollbarBridge = document.createElement("script");
+    scrollbarBridge.dataset.latticePreview = "scrollbar-bridge";
+    scrollbarBridge.textContent = `(()=>{const type=${JSON.stringify(HTML_PREVIEW_SCROLL)};const setType=${JSON.stringify(HTML_PREVIEW_SET_SCROLL_TOP)};let frame=0;const send=()=>{frame=0;const root=document.scrollingElement||document.documentElement;parent.postMessage({type,clientHeight:root.clientHeight,scrollHeight:root.scrollHeight,scrollTop:root.scrollTop},"*")};const schedule=()=>{if(!frame)frame=requestAnimationFrame(send)};window.addEventListener("scroll",schedule,{passive:true});window.addEventListener("resize",schedule,{passive:true});window.addEventListener("message",(event)=>{if(event.source!==parent||!event.data||event.data.type!==setType||typeof event.data.scrollTop!=="number")return;const root=document.scrollingElement||document.documentElement;root.scrollTop=event.data.scrollTop;schedule()});new ResizeObserver(schedule).observe(document.documentElement);new ResizeObserver(schedule).observe(document.body);new MutationObserver(schedule).observe(document.documentElement,{attributes:true,childList:true,subtree:true});schedule()})();`;
+    document.body.append(scrollbarBridge);
+    return `<!doctype html>${document.documentElement.outerHTML}`;
+  }, [previewSource]);
+
+  const setScrollTop = (scrollTop: number) => {
+    frameRef.current?.contentWindow?.postMessage({
+      type: HTML_PREVIEW_SET_SCROLL_TOP,
+      scrollTop,
+    }, "*");
+  };
+
+  const scrollToThumbOffset = (thumbOffset: number) => {
+    const availableTrack = Math.max(
+      0,
+      scrollGeometry.height - EXTERNAL_SCROLLBAR_TRACK_INSET * 2,
+    );
+    const travel = Math.max(0, availableTrack - scrollGeometry.thumbHeight);
+    if (travel <= 0) return;
+    setScrollTop(
+      scrollGeometry.maxScrollTop
+        * (Math.min(Math.max(0, thumbOffset), travel) / travel),
+    );
+  };
+
+  return (
+    <div className="html-preview" data-tour="document-preview">
+      <iframe
+        ref={frameRef}
+        className="html-preview-frame"
+        title={`HTML preview for ${path}`}
+        sandbox="allow-scripts"
+        referrerPolicy="no-referrer"
+        srcDoc={html}
+      />
+      <div
+        aria-hidden="true"
+        className="lattice-scrollbar html-preview-scrollbar"
+        data-hovering={scrollbarHovering ? "" : undefined}
+        data-orientation="vertical"
+        data-overflow-y-end={scrollGeometry.overflow && scrollGeometry.scrollTop < scrollGeometry.maxScrollTop ? "" : undefined}
+        data-overflow-y-start={scrollGeometry.overflow && scrollGeometry.scrollTop > 0 ? "" : undefined}
+        data-scrolling={scrolling ? "" : undefined}
+        onPointerCancel={(event) => {
+          if (dragRef.current?.pointerId !== event.pointerId) return;
+          dragRef.current = null;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+          setScrolling(false);
+        }}
+        onPointerDown={(event) => {
+          if (!scrollGeometry.overflow) return;
+          event.preventDefault();
+          const availableTrack = Math.max(0, scrollGeometry.height - EXTERNAL_SCROLLBAR_TRACK_INSET * 2);
+          const travel = Math.max(0, availableTrack - scrollGeometry.thumbHeight);
+          const isThumb = event.target instanceof HTMLElement && event.target.dataset.slot === "scroll-area-thumb";
+          if (!isThumb) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            scrollToThumbOffset(
+              event.clientY - rect.top - EXTERNAL_SCROLLBAR_TRACK_INSET - scrollGeometry.thumbHeight / 2,
+            );
+          }
+          dragRef.current = {
+            pointerId: event.pointerId,
+            scrollPerPixel: travel > 0 ? scrollGeometry.maxScrollTop / travel : 0,
+            startClientY: event.clientY,
+            startScrollTop: scrollGeometry.scrollTop,
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setScrolling(true);
+        }}
+        onPointerEnter={() => setScrollbarHovering(true)}
+        onPointerLeave={() => {
+          setScrollbarHovering(false);
+          if (!dragRef.current) setScrolling(false);
+        }}
+        onPointerMove={(event) => {
+          const drag = dragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          setScrollTop(
+            drag.startScrollTop + (event.clientY - drag.startClientY) * drag.scrollPerPixel,
+          );
+        }}
+        onPointerUp={(event) => {
+          if (dragRef.current?.pointerId !== event.pointerId) return;
+          dragRef.current = null;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+          setScrolling(false);
+        }}
+        onWheel={(event) => {
+          if (!scrollGeometry.overflow) return;
+          event.preventDefault();
+          setScrollTop(scrollGeometry.scrollTop + event.deltaY);
+        }}
+        style={{ height: scrollGeometry.height }}
+      >
+        <div
+          className="lattice-scrollbar-thumb"
+          data-slot="scroll-area-thumb"
+          style={{
+            height: scrollGeometry.thumbHeight,
+            transform: `translate3d(-2px, ${scrollGeometry.thumbOffset}px, 0)`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function minimalTextChange(previous: string, next: string, offset: number) {
+  let prefix = 0;
+  while (prefix < previous.length && prefix < next.length && previous[prefix] === next[prefix]) {
+    prefix += 1;
+  }
+  let suffix = 0;
+  while (
+    suffix < previous.length - prefix
+    && suffix < next.length - prefix
+    && previous[previous.length - suffix - 1] === next[next.length - suffix - 1]
+  ) {
+    suffix += 1;
+  }
+  return {
+    from: offset + prefix,
+    to: offset + previous.length - suffix,
+    insert: next.slice(prefix, next.length - suffix),
+  };
+}
+
+function PdfPreviewLoading() {
+  return (
+    <div className="pdf-preview">
+      <div className="pdf-placeholder">
+        <FileText size={28} />
+        <p>Preparing PDF preview…</p>
+      </div>
+    </div>
+  );
+}
+
+function HtmlPreviewLoading() {
+  return (
+    <div className="html-preview">
+      <div className="pdf-placeholder">
+        <FileCode2 size={28} />
+        <p>Preparing HTML preview…</p>
+      </div>
+    </div>
+  );
+}
 
 const SPLIT_SOURCE_MIN_WIDTH = 480;
 const SPLIT_PDF_MIN_WIDTH = 500;
+
+export function interpolateScrollAnchors(
+  value: number,
+  pairs: Array<{ from: number; to: number }>,
+  fromMin: number,
+  fromMax: number,
+  toMin: number,
+  toMax: number,
+) {
+  const bound = (target: number, key: "from" | "to", upper: boolean, low = 0, high = pairs.length) => {
+    while (low < high) {
+      const middle = low + Math.floor((high - low) / 2);
+      const candidate = pairs[middle][key];
+      if (candidate < target || (upper && candidate === target)) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  };
+  const firstInterior = Math.max(
+    bound(fromMin, "from", true),
+    bound(toMin, "to", true),
+  );
+  const afterInterior = Math.min(
+    bound(fromMax, "from", false, firstInterior),
+    bound(toMax, "to", false, firstInterior),
+  );
+  const insertion = bound(value, "from", false, firstInterior, afterInterior);
+  const lower = insertion > firstInterior
+    ? pairs[insertion - 1]
+    : { from: fromMin, to: toMin };
+  const upper = insertion < afterInterior
+    ? pairs[insertion]
+    : { from: fromMax, to: toMax };
+  const span = upper.from - lower.from;
+  const progress = span > 0 ? (value - lower.from) / span : 0;
+  return clamp(lower.to + progress * (upper.to - lower.to), toMin, toMax);
+}
+
 const EDITOR_BASIC_SETUP = {
   autocompletion: false,
   lineNumbers: true,
@@ -108,15 +457,75 @@ const EDITOR_BASIC_SETUP = {
   highlightActiveLineGutter: true,
 };
 
-function readVimMode(cm: ReturnType<typeof getCM>): string {
+function isLatexSourcePath(path: string): boolean {
+  return /\.(?:tex|sty|cls)$/i.test(path);
+}
+
+const EMPTY_EXTENSIONS: Extension[] = [];
+const BIBTEX_EXTENSIONS: Extension[] = [bibtex({
+  enableLinting: false,
+  enableTooltips: true,
+  enableAutocomplete: true,
+  autoCloseBrackets: true,
+})];
+let markdownExtensionsPromise: Promise<Extension[]> | null = null;
+let htmlExtensionsPromise: Promise<Extension[]> | null = null;
+
+function loadMarkdownExtensions(): Promise<Extension[]> {
+  markdownExtensionsPromise ??= Promise.all([
+    import("@codemirror/lang-markdown"),
+    import("@codemirror/language-data"),
+  ]).then(([{ markdown }, { languages }]) => [markdown({ codeLanguages: languages })]);
+  return markdownExtensionsPromise;
+}
+
+function loadHtmlExtensions(): Promise<Extension[]> {
+  htmlExtensionsPromise ??= import("@codemirror/lang-html")
+    .then(({ html }) => [html()]);
+  return htmlExtensionsPromise;
+}
+
+function immediateTextLanguageExtensions(path: string): Extension[] {
+  return /\.bib$/i.test(path) ? BIBTEX_EXTENSIONS : EMPTY_EXTENSIONS;
+}
+
+function useTextLanguageExtensions(path: string): Extension[] {
+  const [loaded, setLoaded] = useState<{ path: string; extensions: Extension[] }>(() => ({
+    path,
+    extensions: immediateTextLanguageExtensions(path),
+  }));
+
+  useEffect(() => {
+    let disposed = false;
+    const immediate = immediateTextLanguageExtensions(path);
+    setLoaded({ path, extensions: immediate });
+    const loading = /\.md$/i.test(path)
+      ? loadMarkdownExtensions()
+      : isHtmlFilePath(path)
+        ? loadHtmlExtensions()
+        : null;
+    if (!loading) return () => { disposed = true; };
+
+    void loading.then((extensions) => {
+      if (!disposed) setLoaded({ path, extensions });
+    });
+    return () => { disposed = true; };
+  }, [path]);
+
+  return loaded.path === path ? loaded.extensions : immediateTextLanguageExtensions(path);
+}
+
+type VimGetCM = typeof import("@replit/codemirror-vim").getCM;
+
+function readVimMode(cm: ReturnType<VimGetCM>): string {
   const state = cm?.state.vim;
   if (state?.insertMode) return "insert";
   return state?.mode ?? "normal";
 }
 
-function vimModeExtension(onModeChange: (mode: string) => void): Extension {
+function vimModeExtension(getCM: VimGetCM, onModeChange: (mode: string) => void): Extension {
   return ViewPlugin.fromClass(class {
-    private readonly cm: ReturnType<typeof getCM>;
+    private readonly cm: ReturnType<VimGetCM>;
     private readonly handleModeChange = () => onModeChange(readVimMode(this.cm));
 
     constructor(view: EditorView) {
@@ -131,8 +540,40 @@ function vimModeExtension(onModeChange: (mode: string) => void): Extension {
   });
 }
 
+function useOptionalKeymapExtensions(
+  keymap: EditorKeymap,
+  onVimModeChange: (mode: string) => void,
+): Extension[] {
+  const [loaded, setLoaded] = useState<{ keymap: EditorKeymap; extensions: Extension[] }>({
+    keymap: "default",
+    extensions: EMPTY_EXTENSIONS,
+  });
+
+  useEffect(() => {
+    let disposed = false;
+    if (keymap === "default") {
+      setLoaded({ keymap, extensions: EMPTY_EXTENSIONS });
+      return () => { disposed = true; };
+    }
+
+    const loading = keymap === "vim"
+      ? import("@replit/codemirror-vim").then((module) => [
+          module.vim({ status: false }),
+          vimModeExtension(module.getCM, onVimModeChange),
+        ])
+      : import("@replit/codemirror-emacs").then((module) => [module.emacs()]);
+    void loading.then((extensions) => {
+      if (!disposed) setLoaded({ keymap, extensions });
+    });
+    return () => { disposed = true; };
+  }, [keymap, onVimModeChange]);
+
+  return loaded.keymap === keymap ? loaded.extensions : EMPTY_EXTENSIONS;
+}
+
 export function DocumentCanvas(props: {
   mode: CanvasMode;
+  workspaceIndex?: MarkdownWorkspaceIndex | null;
   source: string;
   markdownPreviewSource?: string;
   activeFile: string;
@@ -146,8 +587,10 @@ export function DocumentCanvas(props: {
   onPdfTextSelect: (value: string) => void;
   onPaperTextSelect: (value: string) => void;
   onContextSurfaceActivate: (surface: AgentHostSurface) => void;
+  onViewMarkdownSource: () => void;
   pdfUrl: string | null;
   pdfBase64: string | null;
+  pdfBytes?: ArrayBuffer | null;
   pdfTop?: ReactNode;
   activePaper: PaperSummary | null;
   activeAsset: AssetPreview | null;
@@ -160,6 +603,7 @@ export function DocumentCanvas(props: {
   onEditorLeave: () => void;
   onPrepareFigure: (path: string) => Promise<string | null>;
   onPasteImageFile: (file: File) => boolean | void;
+  onImportAsset?: (file: File) => Promise<string | null>;
   nativeFigureDropActive: boolean;
   fileDropTargetPane: EditorPaneId | null;
   figurePointerPosition: { x: number; y: number } | null;
@@ -229,8 +673,12 @@ export function DocumentCanvas(props: {
   onPdfPageCount: (pages: number | null) => void;
   onPdfPageChange: (page: number) => void;
   onCreateMissingFile: (path: string) => void;
-  collabExtensions: Extension[];
+  onOpenMarkdownPath: (path: string) => void;
+  interactivePreviewsEnabled: boolean;
+  collabSession: EditorCollabSession | null;
+  collabReady: boolean;
   collabEditorKey: string;
+  editorEditable: boolean;
   onOpenCitation: (key: string) => void;
   canOpenCitation: (key: string) => boolean;
 }) {
@@ -245,7 +693,8 @@ export function DocumentCanvas(props: {
     texlabDiagnostics,
     citeInsertRequest,
     collabEditorKey,
-    collabExtensions,
+    collabSession,
+    collabReady,
     editorKeymap,
     editorNavigation,
     editorSpellcheck,
@@ -295,12 +744,43 @@ export function DocumentCanvas(props: {
     onCommentFocusHandled,
   } = props;
   const primarySurface: AgentHostSurface = props.activePaper ? "paper" : "editor";
+  const markdownDocument = Boolean(props.activePaper) || activeFile.toLocaleLowerCase().endsWith(".md");
+  const htmlDocument = !props.activePaper && isHtmlFilePath(activeFile);
+  const boardDocument = !props.activePaper && activeFile.toLocaleLowerCase().endsWith(".tldr");
+  const explicitPreviewStart = props.markdownPreviewSource !== undefined && props.source.endsWith(props.markdownPreviewSource)
+    ? props.source.length - props.markdownPreviewSource.length
+    : 0;
+  const markdownPreviewStart = props.markdownPreviewSource !== undefined
+    ? explicitPreviewStart
+    : markdownDocument
+      ? markdownFrontmatterEnd(props.source)
+      : 0;
+  const markdownPreviewText = props.markdownPreviewSource ?? props.source.slice(markdownPreviewStart);
+  const markdownPreviewLineOffset = props.source.slice(0, markdownPreviewStart).split("\n").length - 1;
+  const markdownVisualCursors = useMemo(
+    () => props.overleafPresenceCursors
+      .filter((cursor) => cursor.row >= markdownPreviewLineOffset)
+      .map((cursor) => ({ ...cursor, row: cursor.row - markdownPreviewLineOffset })),
+    [markdownPreviewLineOffset, props.overleafPresenceCursors],
+  );
+  const markdownVisualChanges = useMemo(() => {
+    const previewEnd = markdownPreviewStart + markdownPreviewText.length;
+    return props.overleafChanges.flatMap((change) => {
+      const changeEnd = change.deletion ? change.position : change.position + change.text.length;
+      return change.position < markdownPreviewStart || changeEnd > previewEnd
+        ? []
+        : [{ ...change, position: change.position - markdownPreviewStart }];
+    });
+  }, [markdownPreviewStart, markdownPreviewText.length, props.overleafChanges]);
   const splitRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const primaryViewRef = useRef<EditorView | null>(null);
+  const primaryViewPathRef = useRef("");
   const secondaryViewRef = useRef<EditorView | null>(null);
   const [primaryScrollbarView, setPrimaryScrollbarView] = useState<EditorView | null>(null);
   const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<EditorView | null>(null);
+  const [markdownPreviewViewport, setMarkdownPreviewViewport] = useState<HTMLDivElement | null>(null);
+  const markdownScrollSyncSuppressedRef = useRef(false);
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<{ pane: EditorPaneId; cursor: number } | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
@@ -320,11 +800,16 @@ export function DocumentCanvas(props: {
     pane: EditorPaneId;
   } | null>(null);
   const [commentComposer, setCommentComposer] = useState<{
+    path: string;
     from: number;
     to: number;
     quote: string;
+    prefix: string;
+    suffix: string;
     body: string;
+    error: string | null;
   } | null>(null);
+  const commentComposerViewRef = useRef<EditorView | null>(null);
 
   const constrainSplitRatio = useCallback((ratio: number) => {
     const width = splitRef.current?.getBoundingClientRect().width ?? 0;
@@ -442,15 +927,81 @@ export function DocumentCanvas(props: {
     from: number;
     to: number;
   } | null>(null);
+  const dismissSelectionToolbar = useCallback(() => {
+    selectionToolbarOwnerRef.current = null;
+    setSelectionToolbarPane(null);
+    setSelectionToolbarPosition(null);
+  }, []);
   // reportEditorPosition is assigned below after its useCallback.
 
+  const collabSeedSourceRef = useRef(props.source);
+  collabSeedSourceRef.current = props.source;
+  const collabExtensions = useMemo(() => {
+    // Binding before the host's Y.Texts have synced can create a competing
+    // placeholder. Keep this stable across keystrokes so yCollab listeners live.
+    if (!collabSession || !activeFile || !collabReady) return EMPTY_EXTENSIONS;
+    collabSession.setActivePath(activeFile, collabSeedSourceRef.current);
+    return collabEditorExtensions(collabSession);
+    // awarenessVersion: a transport reconnect swaps provider.awareness — rebuild
+    // yCollab against the live Awareness or remote carets silently freeze.
+  }, [activeFile, collabReady, collabSession, collabSession?.awarenessVersion]);
   const collabLive = collabExtensions.length > 0;
+  // Lattice collab (v2) carets for the visual editor: the same awareness room
+  // the source editor's yCollab binds, resolved to row/column against the live
+  // Y.Text and shifted into preview coordinates like the Overleaf carets above.
+  // Computed every render on purpose — a remote caret move pushes a peers
+  // update that re-renders us, and awareness itself is not a React dependency.
+  const collabVisualCursors: PresenceCursor[] = [];
+  if (collabLive && markdownDocument && collabSession?.boardPresenceUser) {
+    const text = collabSession.ytext.toString();
+    for (const caret of peerCaretOffsetsV2(collabSession)) {
+      const before = text.slice(0, caret.index);
+      const row = before.split("\n").length - 1;
+      if (row < markdownPreviewLineOffset) continue;
+      collabVisualCursors.push({
+        name: caret.name,
+        hue: hueFromColorHex(caret.color),
+        row: row - markdownPreviewLineOffset,
+        column: caret.index - (before.lastIndexOf("\n") + 1),
+      });
+    }
+  }
   const mountSourceRef = useRef(props.source);
+  const visualSourceHistoryRef = useRef<{ path: string; undo: string[]; redo: string[] }>({
+    path: activeFile,
+    undo: [],
+    redo: [],
+  });
   const prevCollabEditorKeyRef = useRef(collabEditorKey);
   if (prevCollabEditorKeyRef.current !== collabEditorKey) {
     prevCollabEditorKeyRef.current = collabEditorKey;
     mountSourceRef.current = props.source;
   }
+  useEffect(() => {
+    const view = primaryViewRef.current;
+    if (view?.dom.isConnected) {
+      mountSourceRef.current = view.state.doc.toString();
+      visualSourceHistoryRef.current = { path: activeFile, undo: [], redo: [] };
+      return;
+    }
+    if (mountSourceRef.current !== props.source) {
+      visualSourceHistoryRef.current = { path: activeFile, undo: [], redo: [] };
+      mountSourceRef.current = props.source;
+    }
+  }, [activeFile, props.mode, props.source]);
+
+  useEffect(() => {
+    if (!collabLive || primaryViewRef.current?.dom.isConnected || !collabSession || activeFile !== collabSession.activePath) return;
+    const ytext = collabSession.ytext;
+    const syncPreviewSource = () => {
+      const next = ytext.toString();
+      mountSourceRef.current = next;
+      setSourceRef.current(next);
+    };
+    ytext.observe(syncPreviewSource);
+    syncPreviewSource();
+    return () => ytext.unobserve(syncPreviewSource);
+  }, [activeFile, collabLive, collabSession, props.mode]);
 
   // Stable callbacks — @uiw/react-codemirror reconfigures (destroying yCollab +
   // comment fields) whenever onUpdate/onChange identity changes.
@@ -487,7 +1038,7 @@ export function DocumentCanvas(props: {
 
   const updateSelectionToolbar = useCallback((view: EditorView, path: string) => {
     const range = view.state.selection.main;
-    if (range.empty || !path.endsWith(".tex")) {
+    if (range.empty || (!path.endsWith(".tex") && !path.toLocaleLowerCase().endsWith(".md"))) {
       selectionToolbarOwnerRef.current = null;
       setSelectionToolbarPane(null);
       setSelectionToolbarPosition(null);
@@ -537,28 +1088,37 @@ export function DocumentCanvas(props: {
   updateSelectionToolbarRef.current = updateSelectionToolbar;
 
   useEffect(() => {
+    let frame: number | null = null;
     const reposition = () => {
       const owner = selectionToolbarOwnerRef.current;
       if (!owner) return;
       const view = owner.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
       if (view) updateSelectionToolbar(view, owner.path);
     };
-    const resizeObserver = new ResizeObserver(reposition);
+    const scheduleReposition = () => {
+      if (frame != null || !selectionToolbarOwnerRef.current) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        reposition();
+      });
+    };
+    const resizeObserver = new ResizeObserver(scheduleReposition);
     for (const view of [primaryViewRef.current, secondaryViewRef.current]) {
       const editor = view?.dom.closest(".source-editor");
       if (editor) resizeObserver.observe(editor);
     }
-    window.addEventListener("resize", reposition);
-    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", scheduleReposition);
+    window.addEventListener("scroll", scheduleReposition, true);
     return () => {
+      if (frame != null) window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
-      window.removeEventListener("resize", reposition);
-      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", scheduleReposition);
+      window.removeEventListener("scroll", scheduleReposition, true);
     };
   }, [activeFile, focusedPane, secondaryFile, updateSelectionToolbar]);
 
   useEffect(() => {
-    if (props.mode === "pdf" || props.mode === "paper" || props.mode === "asset" || props.mode === "markdown-preview") {
+    if (props.mode === "pdf" || props.mode === "asset") {
       selectionToolbarOwnerRef.current = null;
       setSelectionToolbarPane(null);
       setSelectionToolbarPosition(null);
@@ -612,11 +1172,16 @@ export function DocumentCanvas(props: {
     const quote = view.state.sliceDoc(range.from, range.to);
     if (!quote.trim()) return;
     setCommentComposer({
+      path: activeFile,
       from: range.from,
       to: range.to,
       quote,
+      prefix: view.state.sliceDoc(Math.max(0, range.from - 32), range.from),
+      suffix: view.state.sliceDoc(range.to, Math.min(view.state.doc.length, range.to + 32)),
       body: "",
+      error: null,
     });
+    commentComposerViewRef.current = view;
   }, [activeFile]);
 
   const applySelectionAction = useCallback((action: LatexSelectionAction, value?: string) => {
@@ -639,6 +1204,7 @@ export function DocumentCanvas(props: {
       setSelectionToolbarPosition(null);
       return;
     }
+    if (!props.editorEditable) return;
     let before = "";
     let after = "";
     switch (action) {
@@ -675,15 +1241,27 @@ export function DocumentCanvas(props: {
     });
     view.focus();
     updateSelectionToolbar(view, owner.path);
-  }, [openCommentComposer, updateSelectionToolbar]);
+  }, [openCommentComposer, props.editorEditable, updateSelectionToolbar]);
 
   const saveCommentComposer = useCallback(() => {
     if (!commentComposer || !activeFile) return;
+    if (commentComposer.path !== activeFile) {
+      setCommentComposer(null);
+      return;
+    }
+    const range = resolveCommentAnchor(editorSource, commentComposer);
+    if (!range) {
+      setCommentComposer((current) => current ? {
+        ...current,
+        error: "The selected text changed. Select it again before commenting.",
+      } : current);
+      return;
+    }
     const comment = createEditorComment({
       path: activeFile,
       source: editorSource,
-      from: commentComposer.from,
-      to: commentComposer.to,
+      from: range.from,
+      to: range.to,
       body: commentComposer.body,
       authorId: commentAuthorId,
       authorName: commentAuthorName,
@@ -691,7 +1269,12 @@ export function DocumentCanvas(props: {
     if (!comment) return;
     onCreateEditorComment(comment);
     setCommentComposer(null);
+    commentComposerViewRef.current?.focus();
   }, [activeFile, commentAuthorId, commentAuthorName, commentComposer, editorSource, onCreateEditorComment]);
+  const closeCommentComposer = useCallback(() => {
+    setCommentComposer(null);
+    commentComposerViewRef.current?.focus();
+  }, []);
   const breadcrumb = useMemo(
     () => (focusedPath.endsWith(".tex")
       ? sectionBreadcrumbNodes(focusedSource, statusPosition.line, focusedPath)
@@ -723,37 +1306,50 @@ export function DocumentCanvas(props: {
   }, []);
   const reportPrimaryVimMode = useCallback((mode: string) => reportVimMode("primary", mode), [reportVimMode]);
   const reportSecondaryVimMode = useCallback((mode: string) => reportVimMode("secondary", mode), [reportVimMode]);
+  const primaryKeymapExtensions = useOptionalKeymapExtensions(editorKeymap, reportPrimaryVimMode);
+  const secondaryKeymapExtensions = useOptionalKeymapExtensions(editorKeymap, reportSecondaryVimMode);
+  const primaryTextLanguageExtensions = useTextLanguageExtensions(activeFile);
+  const secondaryTextLanguageExtensions = useTextLanguageExtensions(secondaryFile ?? "");
   const focusedVimMode = focusedPane === "secondary" && secondaryFile
     ? vimModes.secondary
     : vimModes.primary;
   reportEditorPositionRef.current = reportEditorPosition;
   const editorExtensions = useMemo(
     () => [
-      ...(editorKeymap === "vim" ? [vim({ status: false }), vimModeExtension(reportPrimaryVimMode)] : editorKeymap === "emacs" ? [emacs()] : []),
-      latex(latexLanguageOptions),
-      ...latexEditorExtensions(
-        props.citationKeys,
-        props.citations,
-        props.references,
-        props.onLoadReferenceImage,
-        onGotoDefinition,
-        projectPaths,
-        onFindReferences,
-        onRenameSymbol,
-        editorSpellcheck,
-        props.unusedLabels,
-        props.unusedCitations,
-        onRenameEnvironment,
-        onWrapEnvironment,
-        localMacros,
-        activeFile,
-        onPasteImageFile,
-        graphicsRoots,
-        onCreateMissingFile,
-        true,
-        onTexlabGoto,
-        latexLiveRef,
-      ),
+      ...primaryKeymapExtensions,
+      ...(isLatexSourcePath(activeFile) ? [
+        latex(latexLanguageOptions),
+        ...latexEditorExtensions(
+          props.citationKeys,
+          props.citations,
+          props.references,
+          props.onLoadReferenceImage,
+          onGotoDefinition,
+          projectPaths,
+          onFindReferences,
+          onRenameSymbol,
+          editorSpellcheck && isHarperProseFilePath(activeFile),
+          props.unusedLabels,
+          props.unusedCitations,
+          onRenameEnvironment,
+          onWrapEnvironment,
+          localMacros,
+          activeFile,
+          onPasteImageFile,
+          graphicsRoots,
+          onCreateMissingFile,
+          true,
+          onTexlabGoto,
+          latexLiveRef,
+        ),
+      ] : [
+        ...primaryTextLanguageExtensions,
+        ...textEditorExtensions(
+          editorSpellcheck && isHarperProseFilePath(activeFile),
+          latexLiveRef,
+          onPasteImageFile,
+        ),
+      ]),
       ...collabExtensions,
       overleafCursorsExtension({ getCursors: () => overleafPresenceCursorsRef.current }),
       overleafTrackChangesExtension({
@@ -772,53 +1368,64 @@ export function DocumentCanvas(props: {
       linter((view) => editorDiagnosticsForFile(diagnosticsRef.current.build, activeFile, view.state.doc), {
         delay: 150,
       }),
-      linter((view) => editorTexlabDiagnosticsForFile(diagnosticsRef.current.texlab, activeFile, view.state.doc), {
-        delay: 200,
-      }),
+      ...(isLatexSourcePath(activeFile) ? [linter(
+        (view) => editorTexlabDiagnosticsForFile(diagnosticsRef.current.texlab, activeFile, view.state.doc),
+        { delay: 200 },
+      )] : []),
     ],
     // Volatile macros/diagnostics/comments are read via refs so this array stays
     // stable across keystrokes — otherwise reconfigure kills yCollab carets.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
-    [activeFile, collabExtensions, editorKeymap, editorSpellcheck, reportPrimaryVimMode],
+    [activeFile, collabExtensions, editorSpellcheck, primaryKeymapExtensions, primaryTextLanguageExtensions],
   );
   const secondaryEditorExtensions = useMemo(
     () => {
       if (!secondaryFile) return [];
       return [
-        ...(editorKeymap === "vim" ? [vim({ status: false }), vimModeExtension(reportSecondaryVimMode)] : editorKeymap === "emacs" ? [emacs()] : []),
-        latex(latexLanguageOptions),
-        ...latexEditorExtensions(
-          props.citationKeys,
-          props.citations,
-          props.references,
-          props.onLoadReferenceImage,
-          onGotoDefinition,
-          projectPaths,
-          onFindReferences,
-          onRenameSymbol,
-          editorSpellcheck,
-          props.unusedLabels,
-          props.unusedCitations,
-          onRenameEnvironment,
-          onWrapEnvironment,
-          localMacros,
-          secondaryFile,
-          onPasteImageFile,
-          graphicsRoots,
-          onCreateMissingFile,
-          true,
-          onTexlabGoto,
-          latexLiveRef,
-        ),
+        ...secondaryKeymapExtensions,
+        ...(isLatexSourcePath(secondaryFile) ? [
+          latex(latexLanguageOptions),
+          ...latexEditorExtensions(
+            props.citationKeys,
+            props.citations,
+            props.references,
+            props.onLoadReferenceImage,
+            onGotoDefinition,
+            projectPaths,
+            onFindReferences,
+            onRenameSymbol,
+            editorSpellcheck && isHarperProseFilePath(secondaryFile),
+            props.unusedLabels,
+            props.unusedCitations,
+            onRenameEnvironment,
+            onWrapEnvironment,
+            localMacros,
+            secondaryFile,
+            onPasteImageFile,
+            graphicsRoots,
+            onCreateMissingFile,
+            true,
+            onTexlabGoto,
+            latexLiveRef,
+          ),
+        ] : [
+          ...secondaryTextLanguageExtensions,
+          ...textEditorExtensions(
+            editorSpellcheck && isHarperProseFilePath(secondaryFile),
+            latexLiveRef,
+            onPasteImageFile,
+          ),
+        ]),
         linter((view) => editorDiagnosticsForFile(diagnosticsRef.current.build, secondaryFile, view.state.doc), {
           delay: 150,
         }),
-        linter((view) => editorTexlabDiagnosticsForFile(diagnosticsRef.current.texlab, secondaryFile, view.state.doc), {
-          delay: 200,
-        }),
+        ...(isLatexSourcePath(secondaryFile) ? [linter(
+          (view) => editorTexlabDiagnosticsForFile(diagnosticsRef.current.texlab, secondaryFile, view.state.doc),
+          { delay: 200 },
+        )] : []),
       ];
     },
-    [editorKeymap, editorSpellcheck, graphicsRoots, localMacros, onCreateMissingFile, onFindReferences, onGotoDefinition, onPasteImageFile, onRenameEnvironment, onRenameSymbol, onTexlabGoto, onWrapEnvironment, projectPaths, props.citationKeys, props.citations, props.onLoadReferenceImage, props.references, props.unusedCitations, props.unusedLabels, reportSecondaryVimMode, secondaryFile],
+    [editorSpellcheck, graphicsRoots, localMacros, onCreateMissingFile, onFindReferences, onGotoDefinition, onPasteImageFile, onRenameEnvironment, onRenameSymbol, onTexlabGoto, onWrapEnvironment, projectPaths, props.citationKeys, props.citations, props.onLoadReferenceImage, props.references, props.unusedCitations, props.unusedLabels, secondaryFile, secondaryKeymapExtensions, secondaryTextLanguageExtensions],
   );
   const insertTextAtCursor = useCallback((insert: string, cursorOffset = insert.length) => {
     const view = editorViewRef.current;
@@ -1073,38 +1680,419 @@ export function DocumentCanvas(props: {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [snippetStops]);
-  if (props.mode === "asset" && props.activeAsset) {
-    return <ProjectAssetPreview asset={props.activeAsset} />;
-  }
-  if (props.mode === "paper" || props.mode === "markdown-preview") {
-    return (
-      <ScrollArea
-        className="markdown-preview"
-        orientation="both"
-        contentClassName="markdown-preview-content"
-        onPointerDownCapture={() => props.onContextSurfaceActivate(primarySurface)}
-        onFocusCapture={() => props.onContextSurfaceActivate(primarySurface)}
-        onMouseUp={props.activePaper ? (event) => {
-          const liveSelection = window.getSelection();
-          const anchor = liveSelection?.anchorNode;
-          props.onPaperTextSelect(
-            anchor && event.currentTarget.contains(anchor)
-              ? liveSelection?.toString() ?? ""
-              : "",
-          );
-        } : undefined}
-      >
-        <ChatMarkdown
-          text={props.markdownPreviewSource ?? props.source}
-          macros={props.katexMacros}
-          breaks={false}
-        />
-      </ScrollArea>
+
+  const replaceVisualMarkdown = useCallback((nextBody: string, expectedBody: string) => {
+    const storedView = primaryViewRef.current;
+    const view = storedView?.dom.isConnected && primaryViewPathRef.current === activeFile
+      ? storedView
+      : null;
+    const ytext = collabReady && collabSession?.activePath === activeFile
+      ? collabSession.ytext
+      : null;
+    const source = view?.state.doc.toString() ?? ytext?.toString() ?? mountSourceRef.current;
+    const from = markdownPreviewStart;
+    if (source.slice(from) !== expectedBody) return false;
+    const insert = expectedBody.includes("\r\n")
+      ? nextBody.replace(/\r?\n/g, "\r\n")
+      : nextBody;
+    const prefix = source.slice(0, from);
+    const separator = expectedBody === "" && insert !== "" && from === source.length && prefix !== "" && !/\r?\n$/.test(prefix)
+      ? (source.includes("\r\n") ? "\r\n" : "\n")
+      : "";
+    const insertedSource = `${separator}${insert}`;
+    const nextSource = `${prefix}${insertedSource}`;
+    const change = minimalTextChange(expectedBody, insertedSource, from);
+
+    if (view) {
+      view.dispatch({ changes: change });
+      mountSourceRef.current = nextSource;
+      return true;
+    }
+    if (ytext) {
+      if (ytext.toString() !== source) return false;
+      collabSession?.undoManager.stopCapturing();
+      ytext.doc?.transact(() => {
+        ytext.delete(change.from, change.to - change.from);
+        ytext.insert(change.from, change.insert);
+      });
+      collabSession?.undoManager.stopCapturing();
+    } else {
+      const history = visualSourceHistoryRef.current;
+      if (history.path !== activeFile) {
+        visualSourceHistoryRef.current = { path: activeFile, undo: [source], redo: [] };
+      } else {
+        history.undo.push(source);
+        history.redo = [];
+      }
+    }
+    mountSourceRef.current = nextSource;
+    setSourceRef.current(nextSource);
+    return true;
+  }, [
+    activeFile,
+    collabReady,
+    collabSession,
+    markdownPreviewStart,
+  ]);
+
+  const undoVisualMarkdown = useCallback(() => {
+    const storedView = primaryViewRef.current;
+    const view = storedView?.dom.isConnected && primaryViewPathRef.current === activeFile ? storedView : null;
+    if (collabReady && collabSession?.activePath === activeFile) {
+      const before = collabSession.ytext.toString();
+      collabSession.undoManager.undo();
+      return collabSession.ytext.toString() !== before;
+    }
+    if (view) return undoCodeMirror(view);
+    const history = visualSourceHistoryRef.current;
+    if (history.path !== activeFile) return false;
+    const previous = history.undo.pop();
+    if (previous == null) return false;
+    history.redo.push(mountSourceRef.current);
+    mountSourceRef.current = previous;
+    setSourceRef.current(previous);
+    return true;
+  }, [activeFile, collabReady, collabSession]);
+
+  const viewMarkdownSource = useCallback((sourceOffset: number, viewportY?: number) => {
+    // This is an explicit cross-pane reveal, not a change of scroll ownership.
+    // Keep Preview fixed while CodeMirror moves to the corresponding source.
+    markdownScrollSyncSuppressedRef.current = true;
+    props.onViewMarkdownSource();
+
+    let attempts = 0;
+    const releaseScrollSync = () => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          markdownScrollSyncSuppressedRef.current = false;
+        });
+      });
+    };
+    const focusSource = () => {
+      const view = primaryViewRef.current;
+      if (!view?.dom.isConnected) {
+        if (attempts++ < 30) window.requestAnimationFrame(focusSource);
+        else markdownScrollSyncSuppressedRef.current = false;
+        return;
+      }
+      const cursor = clamp(markdownPreviewStart + sourceOffset, 0, view.state.doc.length);
+      view.dispatch({ selection: { anchor: cursor } });
+      const scrollRect = view.scrollDOM.getBoundingClientRect();
+      const desiredViewportY = viewportY == null
+        ? view.scrollDOM.clientHeight / 2
+        : clamp(viewportY - scrollRect.top, 0, view.scrollDOM.clientHeight);
+      const sourceBlock = view.lineBlockAt(cursor);
+      const sourceCenter = (sourceBlock.top + sourceBlock.bottom) / 2;
+      const maxScroll = Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight);
+      view.scrollDOM.scrollTop = clamp(sourceCenter - desiredViewportY, 0, maxScroll);
+      view.focus();
+      releaseScrollSync();
+    };
+    window.requestAnimationFrame(focusSource);
+  }, [markdownPreviewStart, props.onViewMarkdownSource]);
+
+  const redoVisualMarkdown = useCallback(() => {
+    const storedView = primaryViewRef.current;
+    const view = storedView?.dom.isConnected && primaryViewPathRef.current === activeFile ? storedView : null;
+    if (collabReady && collabSession?.activePath === activeFile) {
+      const before = collabSession.ytext.toString();
+      collabSession.undoManager.redo();
+      return collabSession.ytext.toString() !== before;
+    }
+    if (view) return redoCodeMirror(view);
+    const history = visualSourceHistoryRef.current;
+    if (history.path !== activeFile) return false;
+    const next = history.redo.pop();
+    if (next == null) return false;
+    history.undo.push(mountSourceRef.current);
+    mountSourceRef.current = next;
+    setSourceRef.current(next);
+    return true;
+  }, [activeFile, collabReady, collabSession]);
+
+  useEffect(() => {
+    const view = primaryScrollbarView;
+    const preview = markdownPreviewViewport;
+    if (!view || !preview || !markdownDocument || props.mode !== "split") return;
+
+    let ignoreEditorScroll = false;
+    let ignorePreviewScroll = false;
+    let editorFrame: number | null = null;
+    let previewFrame: number | null = null;
+    let anchorFrame: number | null = null;
+    let paperSyncTimer: number | null = null;
+    let paperSyncOwner: "editor" | "preview" = "editor";
+    let sourceAnchors = Array.from(
+      preview.querySelectorAll<HTMLElement>("[data-source-offset]"),
     );
+    let cachedEditorToPreview: Array<{ from: number; to: number }> = [];
+    let cachedPreviewToEditor: Array<{ from: number; to: number }> = [];
+    const scrollRanges = () => ({
+      editor: Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight),
+      preview: Math.max(0, preview.scrollHeight - preview.clientHeight),
+    });
+    const rebuildAnchorPairs = () => {
+      const previewRect = preview.getBoundingClientRect();
+      const pairs: Array<{ editor: number; preview: number }> = [];
+      for (const anchor of sourceAnchors) {
+        const previewFrom = Number(anchor.dataset.sourceOffset);
+        const previewTo = Number(anchor.dataset.sourceEndOffset);
+        if (!Number.isFinite(previewFrom) || !Number.isFinite(previewTo)) continue;
+        const sourceFrom = clamp(markdownPreviewStart + previewFrom, 0, view.state.doc.length);
+        const sourceTo = clamp(
+          markdownPreviewStart + Math.max(previewFrom, previewTo - 1),
+          sourceFrom,
+          view.state.doc.length,
+        );
+        const sourceStartBlock = view.lineBlockAt(sourceFrom);
+        const sourceEndBlock = view.lineBlockAt(sourceTo);
+        const anchorRect = anchor.getBoundingClientRect();
+        const pair = {
+          editor: (sourceStartBlock.top + sourceEndBlock.bottom) / 2,
+          preview: Math.max(
+            0,
+            preview.scrollTop + anchorRect.top - previewRect.top + anchorRect.height / 2,
+          ),
+        };
+        const previous = pairs.at(-1);
+        if (!previous || (pair.editor > previous.editor && pair.preview > previous.preview)) {
+          pairs.push(pair);
+        }
+      }
+      cachedEditorToPreview = pairs.map((pair) => ({ from: pair.editor, to: pair.preview }));
+      cachedPreviewToEditor = pairs.map((pair) => ({ from: pair.preview, to: pair.editor }));
+    };
+    const scheduleAnchorRebuild = () => {
+      if (anchorFrame != null) return;
+      anchorFrame = window.requestAnimationFrame(() => {
+        anchorFrame = null;
+        rebuildAnchorPairs();
+      });
+    };
+    const syncPreviewFromEditor = () => {
+      if (markdownScrollSyncSuppressedRef.current) return;
+      if (ignoreEditorScroll) {
+        ignoreEditorScroll = false;
+        return;
+      }
+      const ranges = scrollRanges();
+      const editorHalf = view.scrollDOM.clientHeight / 2;
+      const previewHalf = preview.clientHeight / 2;
+      const targetCenter = interpolateScrollAnchors(
+        view.scrollDOM.scrollTop + editorHalf,
+        cachedEditorToPreview,
+        editorHalf,
+        ranges.editor + editorHalf,
+        previewHalf,
+        ranges.preview + previewHalf,
+      );
+      const nextTop = targetCenter - previewHalf;
+      if (Math.abs(preview.scrollTop - nextTop) <= 1) return;
+      ignorePreviewScroll = true;
+      preview.scrollTop = nextTop;
+    };
+    const syncEditorFromPreview = () => {
+      if (ignorePreviewScroll) {
+        ignorePreviewScroll = false;
+        return;
+      }
+      const ranges = scrollRanges();
+      const editorHalf = view.scrollDOM.clientHeight / 2;
+      const previewHalf = preview.clientHeight / 2;
+      const targetCenter = interpolateScrollAnchors(
+        preview.scrollTop + previewHalf,
+        cachedPreviewToEditor,
+        previewHalf,
+        ranges.preview + previewHalf,
+        editorHalf,
+        ranges.editor + editorHalf,
+      );
+      const nextTop = targetCenter - editorHalf;
+      if (Math.abs(view.scrollDOM.scrollTop - nextTop) <= 1) return;
+      ignoreEditorScroll = true;
+      view.scrollDOM.scrollTop = nextTop;
+    };
+
+    // Trackpad input can deliver several scroll events before the browser
+    // paints. Synchronizing both panes for every event repeatedly walks and
+    // measures the Markdown DOM, so coalesce each direction to one pass per
+    // animation frame.
+    const schedulePreviewFromEditor = () => {
+      if (editorFrame != null) return;
+      editorFrame = window.requestAnimationFrame(() => {
+        editorFrame = null;
+        syncPreviewFromEditor();
+      });
+    };
+    const scheduleEditorFromPreview = () => {
+      if (previewFrame != null) return;
+      previewFrame = window.requestAnimationFrame(() => {
+        previewFrame = null;
+        syncEditorFromPreview();
+      });
+    };
+
+    // A paper split places two long, independently painted documents beside
+    // each other. Moving both on every trackpad frame makes WKWebView composite
+    // the source and image-heavy visual editor during the same gesture. Keep
+    // the pane under the pointer at native frame rate and reconcile its peer
+    // once the scroll burst settles. Ordinary Markdown keeps live sync.
+    const schedulePaperSync = (owner: "editor" | "preview") => {
+      paperSyncOwner = owner;
+      if (paperSyncTimer != null) window.clearTimeout(paperSyncTimer);
+      paperSyncTimer = window.setTimeout(() => {
+        paperSyncTimer = null;
+        if (paperSyncOwner === "editor") syncPreviewFromEditor();
+        else syncEditorFromPreview();
+      }, 140);
+    };
+
+    const ownEditorScroll = () => {
+      if (markdownScrollSyncSuppressedRef.current) return;
+      if (props.activePaper) {
+        if (ignoreEditorScroll) {
+          ignoreEditorScroll = false;
+          return;
+        }
+        schedulePaperSync("editor");
+      } else {
+        schedulePreviewFromEditor();
+      }
+    };
+    const ownPreviewScroll = () => {
+      if (props.activePaper) {
+        if (ignorePreviewScroll) {
+          ignorePreviewScroll = false;
+          return;
+        }
+        schedulePaperSync("preview");
+      } else {
+        scheduleEditorFromPreview();
+      }
+    };
+    view.scrollDOM.addEventListener("scroll", ownEditorScroll, { passive: true });
+    preview.addEventListener("scroll", ownPreviewScroll, { passive: true });
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => mutation.type === "childList")) {
+        sourceAnchors = Array.from(
+          preview.querySelectorAll<HTMLElement>("[data-source-offset]"),
+        );
+      }
+      // Source labels and child nodes change after every settled visual edit.
+      // Rebuild geometry once after layout, but don't move either pane: doing
+      // so while ProseMirror and CodeMirror are reconciling creates a scroll
+      // feedback jump. The next user scroll consumes the fresh cached map.
+      scheduleAnchorRebuild();
+    });
+    observer.observe(preview, {
+      attributes: true,
+      attributeFilter: ["data-source-offset", "data-source-end-offset"],
+      childList: true,
+      subtree: true,
+    });
+    const resizeObserver = new ResizeObserver(scheduleAnchorRebuild);
+    resizeObserver.observe(preview);
+    const previewContent = preview.firstElementChild;
+    if (previewContent instanceof HTMLElement) resizeObserver.observe(previewContent);
+    rebuildAnchorPairs();
+    schedulePreviewFromEditor();
+    return () => {
+      if (editorFrame != null) window.cancelAnimationFrame(editorFrame);
+      if (previewFrame != null) window.cancelAnimationFrame(previewFrame);
+      if (anchorFrame != null) window.cancelAnimationFrame(anchorFrame);
+      if (paperSyncTimer != null) window.clearTimeout(paperSyncTimer);
+      observer.disconnect();
+      resizeObserver.disconnect();
+      view.scrollDOM.removeEventListener("scroll", ownEditorScroll);
+      preview.removeEventListener("scroll", ownPreviewScroll);
+    };
+  }, [
+    markdownDocument,
+    markdownPreviewStart,
+    markdownPreviewViewport,
+    primaryScrollbarView,
+    props.activePaper,
+    props.mode,
+  ]);
+
+  if (props.mode === "asset" && props.activeAsset) {
+    return <ProjectAssetPreview key={props.activeAsset.path} asset={props.activeAsset} />;
   }
+  const markdownPreview = (
+    <ScrollArea
+      className="markdown-preview"
+      data-tour={props.activePaper ? "paper-reading-view" : "markdown-visual-editor"}
+      orientation="both"
+      // Mask gradients repaint the full editable surface while scrolling in
+      // WebKit. Markdown has a persistent scrollbar, so the fade adds cost
+      // without adding useful overflow information.
+      fadeEdges={false}
+      contentClassName="markdown-preview-content"
+      viewportClassName="editor-doc-scroll"
+      // Upstream contract: the editor scroll container carries both the
+      // `.editor-doc-scroll` class (bubble-menu-clip.ts) and this testid
+      // (frozen-table-headers.ts resolves it via closest()).
+      viewportProps={{ "data-testid": "editor-scroll-container" }}
+      viewportRef={setMarkdownPreviewViewport}
+      onPointerDownCapture={() => props.onContextSurfaceActivate(primarySurface)}
+      onFocusCapture={() => props.onContextSurfaceActivate(primarySurface)}
+      onMouseUp={props.activePaper ? (event) => {
+        const liveSelection = window.getSelection();
+        const anchor = liveSelection?.anchorNode;
+        props.onPaperTextSelect(
+          anchor && event.currentTarget.contains(anchor)
+            ? liveSelection?.toString() ?? ""
+            : "",
+        );
+      } : undefined}
+    >
+      <Suspense fallback={<div className="chat-markdown">Preparing preview…</div>}>
+        <DeferredVisualMarkdownEditor
+          key={props.activeFile}
+          text={markdownPreviewText}
+          activePath={props.activeFile}
+          optimizeForReading={Boolean(props.activePaper)}
+          // Precise split sync labels and measures every top-level block.
+          // Papers use the proportional fallback in the host sync loop, which
+          // keeps both panes aligned without scanning hundreds of anchors.
+          synchronizeSourceScroll={props.mode === "split" && !props.activePaper}
+          onOpenProjectPath={props.onOpenMarkdownPath}
+          workspaceIndex={props.workspaceIndex}
+          macros={katexMacros}
+          onChangeMarkdown={replaceVisualMarkdown}
+          onUndo={undoVisualMarkdown}
+          onRedo={redoVisualMarkdown}
+          onViewInSource={viewMarkdownSource}
+          onImportAsset={props.onImportAsset}
+          onLoadAsset={props.onLoadReferenceImage}
+          presenceCursors={collabVisualCursors.length ? [...markdownVisualCursors, ...collabVisualCursors] : markdownVisualCursors}
+          overleafChanges={markdownVisualChanges}
+          overleafTrackChangeActions={props.overleafTrackChangeActions}
+          onCreateComment={(from, to, body) => {
+            const comment = createEditorComment({
+              path: activeFile,
+              source: props.source,
+              from: markdownPreviewStart + from,
+              to: markdownPreviewStart + to,
+              body,
+              authorId: commentAuthorId,
+              authorName: commentAuthorName,
+            });
+            if (comment) onCreateEditorComment(comment);
+          }}
+          editable={props.editorEditable}
+          onCaretChange={(row, column) => {
+            const line = row + markdownPreviewLineOffset + 1;
+            setStatusPosition({ line, column });
+            props.onEditorPosition({ path: activeFile, line, column });
+          }}
+        />
+      </Suspense>
+    </ScrollArea>
+  );
   const showTexChrome = activeFile.endsWith(".tex");
   const editor = (
-    <div className="source-workspace">
+    <div className="source-workspace" data-tour="document-editor">
       <div className="source-main">
         <div
           className={`source-editor ${
@@ -1153,9 +2141,11 @@ export function DocumentCanvas(props: {
             className="code-editor-root"
             value={collabLive ? mountSourceRef.current : props.source}
             height="100%"
+            editable={props.editorEditable}
             extensions={editorExtensions}
             onCreateEditor={(view) => {
               primaryViewRef.current = view;
+              primaryViewPathRef.current = activeFile;
               setPrimaryScrollbarView(view);
               if (focusedPaneRef.current === "primary") editorViewRef.current = view;
               lastInsertionPositionRef.current = view.state.selection.main.head;
@@ -1175,6 +2165,8 @@ export function DocumentCanvas(props: {
           {commentComposer && (
             <div
               className="editor-comment-popover"
+              role="dialog"
+              aria-label="Add comment"
               onMouseDown={(event) => event.stopPropagation()}
             >
               <p className="editor-comment-quote">{commentComposer.quote}</p>
@@ -1189,7 +2181,7 @@ export function DocumentCanvas(props: {
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     event.preventDefault();
-                    setCommentComposer(null);
+                    closeCommentComposer();
                   }
                   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                     event.preventDefault();
@@ -1197,8 +2189,9 @@ export function DocumentCanvas(props: {
                   }
                 }}
               />
+              {commentComposer.error && <p role="alert" className="visual-node-source-error">{commentComposer.error}</p>}
               <div className="editor-comment-popover-actions">
-                <button type="button" onClick={() => setCommentComposer(null)}>Cancel</button>
+                <button type="button" onClick={closeCommentComposer}>Cancel</button>
                 <button
                   type="button"
                   className="primary"
@@ -1298,46 +2291,80 @@ export function DocumentCanvas(props: {
         <LatexSelectionToolbar
           position={selectionToolbarPosition}
           canComment={selectionToolbarPane === "primary"}
+          commentOnly={activeFile.toLocaleLowerCase().endsWith(".md") || !props.editorEditable}
           onAction={applySelectionAction}
+          onDismiss={dismissSelectionToolbar}
         />
       )}
     </div>
   );
-  const preview = (
+  const preview = markdownDocument ? markdownPreview : htmlDocument ? (
+    props.interactivePreviewsEnabled
+      ? <HtmlPreview key={activeFile} path={activeFile} source={props.source} />
+      : <HtmlPreviewLoading />
+  ) : (
     <div
       className="pdf-column"
+      data-tour="document-preview"
       onPointerDownCapture={() => props.onContextSurfaceActivate("pdf")}
       onFocusCapture={() => props.onContextSurfaceActivate("pdf")}
     >
       {props.pdfTop}
-      <PdfPreview
-        url={props.pdfUrl}
-        pdfBase64={props.pdfBase64}
-        syncTarget={props.pdfSyncTarget}
-        canForwardSync={props.canForwardSync}
-        locatingPdf={props.locatingPdf}
-        onForwardSync={props.onForwardSync}
-        // Reverse-jump to source only when the editor is visible (split/dual/
-        // columns). In PDF-only view there's nothing to jump to, so clicks stay
-        // inert and the synctex cursor is off.
-        onSource={props.mode === "pdf" ? undefined : props.onPdfSource}
-        onTextSelect={props.onPdfTextSelect}
-        onNumPages={props.onPdfPageCount}
-        onPageChange={props.onPdfPageChange}
-        outline={(
-          <DocumentOutline
-            nodes={outlineNodes}
-            activeId={activeOutlineId}
-            available={showTexChrome}
-            open={outlineOpen}
-            onSelect={onOutlineNavigate}
-            onClose={() => onOutlineOpenChange(false)}
-            onOpen={() => onOutlineOpenChange(true)}
-          />
-        )}
-      />
+      <Suspense fallback={<PdfPreviewLoading />}>
+        <PdfPreview
+          url={props.pdfUrl}
+          pdfBase64={props.pdfBase64}
+          pdfBytes={props.pdfBytes}
+          syncTarget={props.pdfSyncTarget}
+          canForwardSync={props.canForwardSync}
+          locatingPdf={props.locatingPdf}
+          onForwardSync={props.onForwardSync}
+          // Reverse-jump to source only when the editor is visible (split/dual/
+          // columns). In PDF-only view there's nothing to jump to, so clicks stay
+          // inert and the synctex cursor is off.
+          onSource={props.mode === "pdf" ? undefined : props.onPdfSource}
+          onTextSelect={props.onPdfTextSelect}
+          onNumPages={props.onPdfPageCount}
+          onPageChange={props.onPdfPageChange}
+          outline={(
+            <DocumentOutline
+              nodes={outlineNodes}
+              activeId={activeOutlineId}
+              available={showTexChrome}
+              open={outlineOpen}
+              onSelect={onOutlineNavigate}
+              onClose={() => onOutlineOpenChange(false)}
+              onOpen={() => onOutlineOpenChange(true)}
+            />
+          )}
+        />
+      </Suspense>
     </div>
   );
+  if (boardDocument) {
+    // collab preview. Remount per file so each board gets a fresh store. In a
+    // v2 collab session (boardPresenceUser is v2-only) the store bridges into
+    // the file's Y.Doc (records sync + cursor presence); v1 and local files
+    // serialize back through setSource.
+    const session = props.collabSession;
+    const collab = props.collabReady && session?.boardPresenceUser && session.activePath === activeFile
+      ? {
+        doc: session.doc,
+        awareness: session.provider.awareness,
+        user: session.boardPresenceUser,
+      }
+      : null;
+    return (
+      <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label="Preparing board editor" />}>
+        <BoardEditor
+          key={activeFile}
+          source={props.source}
+          onChange={(next) => setSourceRef.current(next)}
+          collab={collab}
+        />
+      </Suspense>
+    );
+  }
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
   if (props.mode === "dual" || props.mode === "columns") {
@@ -1535,6 +2562,7 @@ export function DocumentCanvas(props: {
     <div
       ref={splitRef}
       className="split-canvas"
+      data-tour="split-workspace"
       data-minimum-workspace-width={SPLIT_SOURCE_MIN_WIDTH + SPLIT_PDF_MIN_WIDTH + 1}
       style={{
         gridTemplateColumns: `clamp(${SPLIT_SOURCE_MIN_WIDTH}px, calc(${splitRatio * 100}% - ${splitRatio}px), calc(100% - ${SPLIT_PDF_MIN_WIDTH + 1}px)) 1px minmax(${SPLIT_PDF_MIN_WIDTH}px, 1fr)`,
@@ -1544,7 +2572,11 @@ export function DocumentCanvas(props: {
       <div
         className="split-resizer"
         role="separator"
-        aria-label="Resize source and PDF preview"
+        aria-label={markdownDocument
+          ? "Resize editor and Markdown preview"
+          : htmlDocument
+            ? "Resize editor and HTML preview"
+            : "Resize editor and PDF preview"}
         aria-orientation="vertical"
         aria-valuemin={20}
         aria-valuemax={80}
@@ -1568,7 +2600,10 @@ export function DocumentCanvas(props: {
 
 function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
   const thumbRef = useRef<HTMLDivElement | null>(null);
+  const thumbFrameRef = useRef<number | null>(null);
   const scrollingTimerRef = useRef<number | null>(null);
+  const lastScrollAtRef = useRef(0);
+  const scrollingActiveRef = useRef(false);
   const dragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
   const [scrolling, setScrolling] = useState(false);
@@ -1586,20 +2621,42 @@ function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
     const thumbHeight = Math.max(24, trackHeight * (scroller.clientHeight / scroller.scrollHeight));
     const travel = Math.max(0, trackHeight - thumbHeight);
     const top = 4 + travel * (scroller.scrollTop / maxScroll);
-    thumb.style.height = `${thumbHeight}px`;
-    thumb.style.transform = `translateY(${top}px)`;
+    const nextHeight = `${thumbHeight}px`;
+    const nextTransform = `translateY(${top}px)`;
+    if (thumb.style.height !== nextHeight) thumb.style.height = nextHeight;
+    if (thumb.style.transform !== nextTransform) thumb.style.transform = nextTransform;
   }, [view]);
 
   useEffect(() => {
     const scroller = view?.scrollDOM;
     if (!scroller) return;
-    const handleScroll = () => {
-      updateThumb();
-      setScrolling(true);
-      if (scrollingTimerRef.current) window.clearTimeout(scrollingTimerRef.current);
-      scrollingTimerRef.current = window.setTimeout(() => setScrolling(false), 180);
+    const scheduleThumbUpdate = () => {
+      if (thumbFrameRef.current != null) return;
+      thumbFrameRef.current = window.requestAnimationFrame(() => {
+        thumbFrameRef.current = null;
+        updateThumb();
+      });
     };
-    const resizeObserver = new ResizeObserver(updateThumb);
+    const finishScrolling = () => {
+      const remaining = 180 - (performance.now() - lastScrollAtRef.current);
+      if (remaining > 0) {
+        scrollingTimerRef.current = window.setTimeout(finishScrolling, remaining);
+        return;
+      }
+      scrollingTimerRef.current = null;
+      scrollingActiveRef.current = false;
+      setScrolling(false);
+    };
+    const handleScroll = () => {
+      scheduleThumbUpdate();
+      if (!scrollingActiveRef.current) {
+        scrollingActiveRef.current = true;
+        setScrolling(true);
+      }
+      lastScrollAtRef.current = performance.now();
+      scrollingTimerRef.current ??= window.setTimeout(finishScrolling, 180);
+    };
+    const resizeObserver = new ResizeObserver(scheduleThumbUpdate);
     resizeObserver.observe(scroller);
     resizeObserver.observe(view.contentDOM);
     scroller.addEventListener("scroll", handleScroll, { passive: true });
@@ -1607,7 +2664,11 @@ function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
     return () => {
       resizeObserver.disconnect();
       scroller.removeEventListener("scroll", handleScroll);
+      if (thumbFrameRef.current != null) window.cancelAnimationFrame(thumbFrameRef.current);
+      thumbFrameRef.current = null;
       if (scrollingTimerRef.current) window.clearTimeout(scrollingTimerRef.current);
+      scrollingTimerRef.current = null;
+      scrollingActiveRef.current = false;
     };
   }, [updateThumb, view]);
 
@@ -1616,6 +2677,7 @@ function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    scrollingActiveRef.current = false;
     setScrolling(false);
   };
 
@@ -1631,6 +2693,7 @@ function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
         event.preventDefault();
         event.stopPropagation();
         event.currentTarget.setPointerCapture(event.pointerId);
+        scrollingActiveRef.current = true;
         setScrolling(true);
         if ((event.target as HTMLElement).closest(".cm-overlay-scrollbar-thumb")) {
           dragRef.current = { pointerY: event.clientY, scrollTop: scroller.scrollTop };
@@ -1660,8 +2723,36 @@ function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
 
 function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
   const url = `data:${asset.mimeType};base64,${asset.base64}`;
+  const [scale, setScale] = useState(1);
+  const [zoomDraft, setZoomDraft] = useState("100");
+  const [zoomEditing, setZoomEditing] = useState(false);
+  const imageMinScale = 0.3;
+  const imageMaxScale = 5;
+  const updateScale = (next: number | ((current: number) => number)) => {
+    setScale((current) => clamp(
+      typeof next === "function" ? next(current) : next,
+      imageMinScale,
+      imageMaxScale,
+    ));
+  };
+  const commitZoomDraft = () => {
+    const percent = Number(zoomDraft.trim().replace(/%$/, ""));
+    if (Number.isFinite(percent) && percent > 0) updateScale(percent / 100);
+    setZoomEditing(false);
+  };
   if (asset.mimeType === "application/pdf") {
-    return <PdfPreview key={url} url={url} pdfBase64={asset.base64} fileName={asset.path.split("/").pop() ?? "figure.pdf"} />;
+    const pdfBytes = pdfBase64ToBytes(asset.base64);
+    return (
+      <Suspense fallback={<PdfPreviewLoading />}>
+        <PdfPreview
+          key={url}
+          url={url}
+          pdfBase64={asset.base64}
+          pdfBytes={pdfBytes.buffer}
+          fileName={asset.path.split("/").pop() ?? "figure.pdf"}
+        />
+      </Suspense>
+    );
   }
   return (
     <div className="asset-preview">
@@ -1669,14 +2760,71 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
         <Image size={14} />
         <span>{asset.path}</span>
         <small>Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it.</small>
+        {asset.mimeType.startsWith("image/") && (
+          <div className="asset-preview-zoom-controls">
+            <Tip label="Zoom out">
+              <button
+                type="button"
+                disabled={scale <= imageMinScale}
+                onClick={() => updateScale((current) => Number((current - 0.1).toFixed(1)))}
+              >
+                <ZoomOut size={14} aria-hidden="true" />
+              </button>
+            </Tip>
+            <label
+              className="asset-preview-zoom-value"
+              title="Enter a zoom percentage or scroll to zoom"
+              onWheel={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!event.deltaY) return;
+                updateScale((current) => Number((current + (event.deltaY < 0 ? 0.1 : -0.1)).toFixed(1)));
+              }}
+            >
+              <input
+                aria-label="Image zoom percentage"
+                inputMode="decimal"
+                value={zoomEditing ? zoomDraft : String(Math.round(scale * 100))}
+                onFocus={(event) => {
+                  const input = event.currentTarget;
+                  setZoomEditing(true);
+                  setZoomDraft(String(Math.round(scale * 100)));
+                  requestAnimationFrame(() => input.select());
+                }}
+                onChange={(event) => setZoomDraft(event.target.value)}
+                onBlur={commitZoomDraft}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                }}
+              />
+              <span aria-hidden="true">%</span>
+            </label>
+            <Tip label="Zoom in">
+              <button
+                type="button"
+                disabled={scale >= imageMaxScale}
+                onClick={() => updateScale((current) => Number((current + 0.1).toFixed(1)))}
+              >
+                <ZoomIn size={14} aria-hidden="true" />
+              </button>
+            </Tip>
+          </div>
+        )}
       </div>
       <ScrollArea
         className="asset-preview-stage"
         orientation="both"
         contentClassName="asset-preview-stage-content"
+        viewportProps={{
+          onWheel: (event) => {
+            if (!(event.metaKey || event.ctrlKey) || !event.deltaY) return;
+            event.preventDefault();
+            updateScale((current) => Number((current * Math.exp(-event.deltaY * 0.01)).toFixed(3)));
+          },
+        }}
       >
         {asset.mimeType.startsWith("image/")
-          ? <img src={url} alt={`Preview of ${asset.path}`} />
+          ? <img src={url} alt={`Preview of ${asset.path}`} style={{ zoom: scale }} />
           : <div className="asset-preview-unsupported"><FileText size={28} /><p>This format cannot be rendered in the preview.</p></div>}
       </ScrollArea>
     </div>

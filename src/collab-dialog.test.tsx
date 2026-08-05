@@ -19,15 +19,11 @@ function baseProps() {
     connectedRoom: "LT-ABC123",
     onClose: vi.fn(),
     onModeChange: vi.fn(),
-    onHostChange: vi.fn(),
     onRoomChange: vi.fn(),
     onDisplayNameChange: vi.fn(),
     onInviteChange: vi.fn(),
     onStartShare: vi.fn(),
     onJoinShare: vi.fn(),
-    recentRooms: [],
-    onReconnectRoom: vi.fn(),
-    onForgetRoom: vi.fn(),
     onDisconnect: vi.fn(),
     onCopyInvite: vi.fn(),
   };
@@ -55,6 +51,27 @@ describe("CollabDialog chat tab", () => {
     expect(screen.queryByRole("tab", { name: /chat/i })).not.toBeInTheDocument();
     // The live card's own status line still renders unchanged.
     expect(screen.getByText(/Sharing/)).toBeInTheDocument();
+  });
+
+  it("keeps sync-host configuration out of the sharing flow", () => {
+    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} />);
+    expect(screen.queryByText(/Advanced \(sync host\)/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Collab host")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Starting a share puts this project/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Use the full invite from Copy invite/i)).not.toBeInTheDocument();
+  });
+
+  it("labels a live project as sharing all project files", () => {
+    render(<CollabDialog {...baseProps()} />);
+    expect(screen.getByText(/all project files/)).toBeInTheDocument();
+  });
+
+  it("renders remembered v2 projects separately and routes rejoin and forget", () => {
+    const onRejoinProjectV2 = vi.fn(); const onForgetProjectV2 = vi.fn();
+    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[{ version: 2, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "write", title: "Paper", projectRoot: "/paper", lastUsed: 1 }]} onRejoinProjectV2={onRejoinProjectV2} onForgetProjectV2={onForgetProjectV2} />);
+    expect(screen.getByText("v2")).toBeInTheDocument(); expect(screen.getByText("project_12345678 · write")).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Rejoin Paper")); expect(onRejoinProjectV2).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByLabelText("Remove project_12345678 from recent shares")); expect(onForgetProjectV2).toHaveBeenCalledTimes(1);
   });
 
   it("badges the chat tab with the unread count, and clears it once that tab is opened", () => {

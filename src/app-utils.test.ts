@@ -1,13 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  absoluteProjectPath,
   applyProjectPathChanges,
   canvasContentAt,
   classifyExternalProjectDrop,
   dropCanvasAt,
   dropDirectoryAt,
   dropEditorAt,
+  isHarperProseFilePath,
   isWindowDragExcluded,
+  markdownFrontmatterEnd,
   remapProjectPath,
+  stripFrontmatter,
 } from "./app-utils";
 import type { ProjectSnapshot } from "./app-types";
 
@@ -15,6 +19,45 @@ afterEach(() => {
   vi.restoreAllMocks();
   Reflect.deleteProperty(document, "elementFromPoint");
   document.body.replaceChildren();
+});
+
+describe("absoluteProjectPath", () => {
+  it("joins project-relative paths using the root's platform separator", () => {
+    expect(absoluteProjectPath("/Users/leo/paper", "figures/result.png"))
+      .toBe("/Users/leo/paper/figures/result.png");
+    expect(absoluteProjectPath("C:\\Users\\leo\\paper", "figures/result.png"))
+      .toBe("C:\\Users\\leo\\paper\\figures\\result.png");
+  });
+
+  it("does not duplicate a trailing root separator", () => {
+    expect(absoluteProjectPath("/Users/leo/paper/", "main.tex"))
+      .toBe("/Users/leo/paper/main.tex");
+  });
+});
+
+describe("stripFrontmatter", () => {
+  it("removes separator blank lines without changing indented Markdown", () => {
+    expect(stripFrontmatter("---\ntitle: Paper\n---\n\n    indented code\n"))
+      .toBe("    indented code\n");
+  });
+
+  it("returns an empty body for frontmatter-only papers", () => {
+    expect(stripFrontmatter("---\ntitle: Empty\n---")).toBe("");
+  });
+
+  it.each([
+    "---\r\ntitle: Draft\r\n---\r\nBody",
+    "\uFEFF---\ntitle: Draft\n...\nBody",
+    "+++\ntitle = \"Draft\"\n+++\nBody",
+  ])("finds the exact end of frontmatter without changing its bytes", (markdown) => {
+    const end = markdownFrontmatterEnd(markdown);
+    expect(end).toBeGreaterThan(0);
+    expect(markdown.slice(end)).toBe("Body");
+  });
+
+  it("does not treat an unclosed delimiter as frontmatter", () => {
+    expect(markdownFrontmatterEnd("---\nA paragraph")).toBe(0);
+  });
 });
 
 describe("dropDirectoryAt", () => {
@@ -44,7 +87,7 @@ describe("dropDirectoryAt", () => {
 });
 
 describe("window dragging", () => {
-  it("excludes interactive controls and marked tab-strip descendants", () => {
+  it("excludes interactive controls and explicitly marked descendants", () => {
     const tabStrip = document.createElement("div");
     tabStrip.dataset.windowDragExclude = "";
     const scrollbarThumb = document.createElement("div");
@@ -56,11 +99,40 @@ describe("window dragging", () => {
     expect(isWindowDragExcluded(button)).toBe(true);
     expect(isWindowDragExcluded(emptyChrome)).toBe(false);
   });
+
+  it("excludes tab-strip whitespace only while the strip overflows", () => {
+    const tabStrip = document.createElement("div");
+    tabStrip.dataset.windowDragExcludeOnOverflow = "";
+    const viewport = document.createElement("div");
+    viewport.dataset.slot = "scroll-area-viewport";
+    const whitespace = document.createElement("div");
+    tabStrip.append(viewport, whitespace);
+
+    viewport.dataset.hasHorizontalOverflow = "false";
+    expect(isWindowDragExcluded(whitespace)).toBe(false);
+
+    viewport.dataset.hasHorizontalOverflow = "true";
+    expect(isWindowDragExcluded(whitespace)).toBe(true);
+  });
 });
 
 describe("editor file drops", () => {
+  it("runs Harper only for prose source files", () => {
+    expect(isHarperProseFilePath("main.tex")).toBe(true);
+    expect(isHarperProseFilePath("notes.md")).toBe(true);
+    expect(isHarperProseFilePath("notes.txt")).toBe(true);
+    expect(isHarperProseFilePath("references.bib")).toBe(false);
+    expect(isHarperProseFilePath("conference.sty")).toBe(false);
+    expect(isHarperProseFilePath("article.cls")).toBe(false);
+    expect(isHarperProseFilePath("supplement.html")).toBe(false);
+  });
+
   it("classifies source files separately from figures and rejects mixed drops", () => {
-    expect(classifyExternalProjectDrop(["/tmp/main.tex", "C:\\paper\\references.bib"]))
+    expect(classifyExternalProjectDrop([
+      "/tmp/main.tex",
+      "C:\\paper\\references.bib",
+      "/tmp/supplement.html",
+    ]))
       .toBe("source");
     expect(classifyExternalProjectDrop(["/tmp/result.svg", "/tmp/plot.pdf"]))
       .toBe("asset");

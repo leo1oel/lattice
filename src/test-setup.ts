@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 // Re-exported by the React bindings, which are the direct dependency here.
 import { configure } from "@testing-library/react";
+import { afterEach, vi } from "vitest";
 
 // Much of the app is behind `lazy()`, so the first `findBy…` for one of those
 // components is really waiting on a dynamic import. The default second is
@@ -8,6 +9,17 @@ import { configure } from "@testing-library/react";
 // different test failing each run — always whichever happened to import a
 // component first. A ceiling for a hang, not the expected duration of anything.
 configure({ asyncUtilTimeout: 5_000 });
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+// A few test files (vendored Open Knowledge core suites) opt into the node
+// environment via `@vitest-environment node`; everything below shims
+// browser APIs and only applies under jsdom.
+if (typeof window !== "undefined") setupDomShims();
+
+function setupDomShims() {
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,
@@ -69,6 +81,12 @@ Object.defineProperty(Range.prototype, "getBoundingClientRect", {
   value: () => ({ bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0, x: 0, y: 0 }),
 });
 
+// tldraw's environment detection calls CSS.supports at module scope; jsdom
+// exposes the CSS global without implementing it.
+if (typeof globalThis.CSS === "undefined" || typeof globalThis.CSS.supports !== "function") {
+  (globalThis as unknown as { CSS: unknown }).CSS = { supports: () => false };
+}
+
 // Radix UI (shadcn menus/tooltips/etc.) relies on APIs jsdom doesn't implement.
 if (!("ResizeObserver" in globalThis)) {
   (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
@@ -81,4 +99,6 @@ for (const method of ["hasPointerCapture", "setPointerCapture", "releasePointerC
   if (!(method in Element.prototype)) {
     Object.defineProperty(Element.prototype, method, { configurable: true, value: () => undefined });
   }
+}
+
 }

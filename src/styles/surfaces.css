@@ -6,9 +6,9 @@
  * so a future elevation change lands once.
  */
 
-/* Floating cards and dialogs that sit above the page. */
-.modal,
-.settings-modal,
+/* Floating cards and dialogs that sit above the page. Drawer content keeps the
+ * modal typography contract, but belongs to the already elevated drawer shell. */
+.modal:not(.collab-drawer-content):not(.overleaf-picker-drawer-content),
 .root-error-card,
 .settings-preview,
 .cm-latex-tooltip,
@@ -27,9 +27,14 @@
 .figure-drag-ghost,
 .brand-mark,
 .app-toast {
-  border: 1px solid var(--border-strong);
+  @apply smooth-shadow-ring-lg;
   background: var(--surface-panel-raised);
-  box-shadow: var(--shadow);
+}
+
+/* Settings deliberately has no edge stroke, so it uses the ringless variant. */
+.settings-modal {
+  @apply smooth-shadow-xl;
+  background: var(--surface-panel-raised);
 }
 
 /* Frosted cards that hover over document text. They stay translucent so the
@@ -37,7 +42,7 @@
 .texlab-hover-card,
 .citation-hover-card,
 .reference-hover-card {
-  border: 1px solid var(--border-strong);
+  @apply smooth-shadow-ring-md;
   border-radius: var(--radius-panel);
   background: color-mix(in srgb, var(--surface-panel-raised) 97%, transparent);
   backdrop-filter: blur(14px);
@@ -48,13 +53,13 @@
 .resizable-drawer,
 .table-generator,
 .project-replace {
+  @apply smooth-shadow-lg;
   position: relative;
   z-index: 1;
   height: 100%;
   max-width: 100%;
   background: var(--surface-input);
-  box-shadow: var(--shadow);
-  padding: 14px;
+  padding: var(--drawer-content-inset);
   overflow: auto;
   animation: drawer-in var(--duration-reveal) var(--ease-out);
 }

@@ -6,6 +6,7 @@ export type SegmentedControlItem<Value extends string> = {
   value: Value;
   label: ReactNode;
   title?: string;
+  dataTour?: string;
 };
 
 export function SegmentedControl<Value extends string>({

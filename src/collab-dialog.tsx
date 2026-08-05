@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, Radio, Users, X } from "lucide-react";
+import { Check, Copy, Radio, X } from "lucide-react";
 import { IconSwap, MotionButton } from "./motion";
 import { isLocalCollabHost } from "./collab-config";
 import type { CollabChatMessage, CollabStatus } from "./collab-session";
-import type { CollabRoomRecord } from "./collab-rooms";
+import type { CollabProjectRecordV2 } from "./collab-rooms";
 import { CollabChatPanel } from "./collab-chat";
 import { Button } from "./components/ui/button";
 import { InfinityLoader } from "./components/ui/activity-icons";
@@ -33,19 +33,19 @@ export function CollabDialog(props: {
   peerCount: number;
   fileCount: number;
   connectedRoom: string | null;
+
   /** When true, Start sharing is hidden (e.g. welcome screen Join-only). */
   joinOnly?: boolean;
   onClose: () => void;
   onModeChange: (mode: CollabDialogMode) => void;
-  onHostChange: (host: string) => void;
   onRoomChange: (room: string) => void;
   onDisplayNameChange: (name: string) => void;
   onInviteChange: (invite: string) => void;
   onStartShare: () => void;
   onJoinShare: () => void;
-  recentRooms: CollabRoomRecord[];
-  onReconnectRoom: (record: CollabRoomRecord) => void;
-  onForgetRoom: (record: CollabRoomRecord) => void;
+  recentProjectsV2?: CollabProjectRecordV2[];
+  onRejoinProjectV2?: (record: CollabProjectRecordV2) => void;
+  onForgetProjectV2?: (record: CollabProjectRecordV2) => void;
   onDisconnect: () => void;
   onCopyInvite: () => Promise<void> | void;
   onInstallTex?: () => void;
@@ -58,7 +58,6 @@ export function CollabDialog(props: {
   /** Fires whenever the chat tab is the visible one while the dialog is open, to clear the badge. */
   onChatOpen?: () => void;
 }) {
-  const [advanced, setAdvanced] = useState(false);
   const [copied, setCopied] = useState(false);
   const [liveTab, setLiveTab] = useState<CollabLiveTab>("status");
   const sendChat = props.onChatSend;
@@ -111,6 +110,7 @@ export function CollabDialog(props: {
   return (
     <ResizableDrawer
       className="collab-drawer"
+      dataTour="collaboration-panel"
       ariaLabel="Live collaboration"
       onClose={props.onClose}
     >
@@ -154,65 +154,39 @@ export function CollabDialog(props: {
           />
         </label>
         {!live && !nameReady ? (
-          <p className="collab-help">Enter your name so others can see who is editing.</p>
+          <p className="collab-help collab-name-help">Enter your name so others can see who is editing.</p>
         ) : null}
 
-        {!live && props.recentRooms.length > 0 ? (
+        {!live && (props.recentProjectsV2?.length ?? 0) > 0 ? (
           <div className="collab-recent">
             <div className="collab-recent-title">Recent shares</div>
             <ul className="collab-recent-list">
-              {props.recentRooms.map((record) => (
-                <li key={`${record.host}:${record.room}`} className="collab-recent-row">
-                  <button
-                    type="button"
-                    className={rowClassName("data", "collab-recent-item")}
-                    onClick={() => props.onReconnectRoom(record)}
-                    title={`Reconnect to ${record.room} on ${record.host}`}
-                  >
-                    <span className="collab-recent-role" data-role={record.role}>
-                      {record.role === "host" ? <Radio size={12} /> : <Users size={12} />}
-                    </span>
+              {(props.recentProjectsV2 ?? []).map((record) => (
+                <li key={`v2:${record.host}:${record.projectInstanceId}`} className="collab-recent-row">
+                  <button type="button" className={rowClassName("data", "collab-recent-item")} onClick={() => props.onRejoinProjectV2?.(record)} title={`Rejoin ${record.title}`}>
+                    <span className="collab-recent-role" data-role={record.permission}>v2</span>
                     <span className="collab-recent-name">{record.title}</span>
-                    <span className="collab-recent-code">{record.room}</span>
+                    <span className="collab-recent-code">{record.projectInstanceId} · {record.permission}</span>
                   </button>
-                  <IconButton
-                    size="compact"
-                    tooltip={false}
-                    className="collab-recent-forget"
-                    label={`Remove ${record.room} from recent shares`}
-                    onClick={() => props.onForgetRoom(record)}
-                  >
-                    <X size={12} />
-                  </IconButton>
+                  <IconButton size="compact" tooltip={false} className="collab-recent-forget" label={`Remove ${record.projectInstanceId} from recent shares`} onClick={() => props.onForgetProjectV2?.(record)}><X size={12} /></IconButton>
                 </li>
               ))}
             </ul>
           </div>
         ) : null}
 
-        {/* Both modes reserve the same space here, so switching never changes
-            the dialog's height — a centered dialog that grows would drag the
-            mode switch up or down with it. */}
-        {!live ? (
+        {!live && mode === "join" ? (
           <div className="collab-mode-panel">
-            {mode === "join" ? (
-              <label>
-                Invite link
-                <Textarea
-                  aria-label="Collab invite"
-                  placeholder="Paste the full invite: lattice:host/LT-XXXXXX"
-                  value={props.inviteText}
-                  rows={3}
-                  onChange={(event) => props.onInviteChange(event.target.value)}
-                />
-              </label>
-            ) : (
-              <p className="collab-help collab-mode-blurb">
-                Starting a share puts this project in a room and gives you an invite to send.
-                Everyone you invite edits the same sources with you, and you can stop the share
-                at any time.
-              </p>
-            )}
+            <label>
+              Invite link
+              <Textarea
+                aria-label="Collab invite"
+                placeholder="Paste the full invite from Copy invite"
+                value={props.inviteText}
+                rows={3}
+                onChange={(event) => props.onInviteChange(event.target.value)}
+              />
+            </label>
           </div>
         ) : null}
 
@@ -248,7 +222,7 @@ export function CollabDialog(props: {
                   {props.status === "connecting" && <InfinityLoader size={12} />}
                   <span>
                     {props.status === "synced"
-                      ? `${props.role === "guest" ? "Joined" : "Sharing"} · ${props.fileCount} files · ${othersLabel} · ${props.connectedRoom}`
+                      ? `${props.role === "guest" ? "Joined" : "Sharing"} · all project files · ${props.fileCount} files · ${othersLabel} · ${props.connectedRoom}`
                       : props.statusDetail || "Connecting…"}
                   </span>
                 </div>
@@ -270,8 +244,8 @@ export function CollabDialog(props: {
                   </p>
                 ) : localHost ? (
                   <p className="collab-help">
-                    This session uses a local host. Friends outside your network need a public sync host
-                    (one-time <code>pnpm collab:login</code> + <code>pnpm collab:deploy</code>, then Advanced).
+                    This session uses a local sync host, so only people on your network can join.
+                    Use a build configured with a public sync host to collaborate remotely.
                     Stop sharing or switch projects ends the session for everyone.
                   </p>
                 ) : (
@@ -294,43 +268,11 @@ export function CollabDialog(props: {
             )}
           </div>
         ) : (
-          <>
+          props.status === "error" ? (
             <div className="collab-status-line" data-status={props.status}>
-              {props.status === "error" ? <span>{props.statusDetail || "Connection failed"}</span> : null}
+              <span>{props.statusDetail || "Connection failed"}</span>
             </div>
-            <Button
-              size="compact"
-              variant="ghost"
-              className="collab-advanced-toggle"
-              onClick={() => setAdvanced((value) => !value)}
-            >
-              {advanced ? "Hide advanced" : "Advanced (sync host)"}
-            </Button>
-            {advanced ? (
-              <label>
-                Sync host
-                <Input
-                  controlSize="form"
-                  aria-label="Collab host"
-                  placeholder="lattice-collab.you.workers.dev"
-                  value={props.host}
-                  onChange={(event) => props.onHostChange(event.target.value)}
-                />
-              </label>
-            ) : null}
-            {localHost ? (
-              <p className="collab-help">
-                Default host is local. Fine for two windows on this Mac; for a remote friend, run
-                {" "}<code>pnpm collab:login</code> then <code>pnpm collab:deploy</code>, and paste the
-                {" "}<code>*.workers.dev</code> host under Advanced (saved for next time).
-              </p>
-            ) : (
-              <p className="collab-help">
-                Use the full invite from Copy invite (includes the sync host). Room codes alone
-                only work if both of you already use the same host.
-              </p>
-            )}
-          </>
+          ) : null
         )}
 
         <div className="modal-actions">

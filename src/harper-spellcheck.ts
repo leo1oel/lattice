@@ -15,9 +15,11 @@ export const harperDictionaryChanged = StateEffect.define<null>();
 
 const OPAQUE_COMMANDS = new Set([
   "addbibresource",
+  "author",
   "autocite",
   "begin",
   "bibliography",
+  "bibliographystyle",
   "cite",
   "citealp",
   "citealt",
@@ -87,8 +89,39 @@ function balancedGroupEnd(source: string, start: number, open: string, close: st
   return source.length;
 }
 
+function maskMarkdownTables(
+  source: string,
+  blank: (from: number, to: number) => void,
+): void {
+  const lines: Array<{ from: number; to: number; text: string }> = [];
+  for (let from = 0; from <= source.length;) {
+    const newline = source.indexOf("\n", from);
+    const to = newline === -1 ? source.length : newline;
+    lines.push({ from, to, text: source.slice(from, to).replace(/\r$/, "") });
+    if (newline === -1) break;
+    from = newline + 1;
+  }
+
+  const isDelimiter = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed.includes("|")) return false;
+    const cells = trimmed.replace(/^\|/, "").replace(/\|$/, "").split("|");
+    return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+  };
+
+  for (let index = 1; index < lines.length; index += 1) {
+    if (!isDelimiter(lines[index].text) || !lines[index - 1].text.includes("|")) continue;
+    let end = index + 1;
+    while (end < lines.length && lines[end].text.includes("|")) end += 1;
+    for (let row = index - 1; row < end; row += 1) {
+      blank(lines[row].from, lines[row].to);
+    }
+    index = end - 1;
+  }
+}
+
 /**
- * Replace LaTeX syntax with spaces while preserving every UTF-16 offset.
+ * Replace LaTeX syntax and Markdown tables with spaces while preserving every UTF-16 offset.
  * Harper can then lint ordinary prose and its spans still map directly back
  * into CodeMirror's document positions.
  */
@@ -115,6 +148,7 @@ function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolea
       }
     }
   };
+  maskMarkdownTables(source, blank);
 
   let index = 0;
   while (index < source.length) {
@@ -262,7 +296,7 @@ export function createHarperDiagnostic(input: {
     from: input.from,
     to: input.to,
     severity: input.kind === "Spelling" || input.kind === "Typo" ? "error" : "warning",
-    source: "Spelling",
+    source: "Harper",
     message: input.message,
     actions,
   };

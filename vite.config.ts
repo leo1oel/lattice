@@ -42,6 +42,9 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       "@": path.resolve(fileURLToPath(new URL(".", import.meta.url)), "src"),
+      // Vendored Open Knowledge app layer (see scripts/vendor-open-knowledge.mjs).
+      "@ok-app": path.resolve(fileURLToPath(new URL(".", import.meta.url)), "src/open-knowledge-app"),
+      "@ok-core": path.resolve(fileURLToPath(new URL(".", import.meta.url)), "src/open-knowledge-core/index.ts"),
     },
   },
 
@@ -65,8 +68,9 @@ export default defineConfig(async () => ({
       output: {
         manualChunks(id) {
           if (id.includes("node_modules/@lezer")) return "parser";
-          if (id.includes("@codemirror") || id.includes("@uiw/react-codemirror") || id.includes("codemirror-lang-latex")) return "editor";
-          if (id.includes("marked") || id.includes("dompurify")) return "paper-reader";
+          if (id.includes("/node_modules/@codemirror/lang-markdown/") || id.includes("/node_modules/@codemirror/language-data/")) return undefined;
+          if (id.includes("/node_modules/@replit/codemirror-vim/") || id.includes("/node_modules/@replit/codemirror-emacs/")) return undefined;
+          if (id.includes("/node_modules/@codemirror/") || id.includes("/node_modules/@uiw/react-codemirror/") || id.includes("/node_modules/codemirror-lang-latex/")) return "editor";
           if (id.includes("pdfjs-dist")) return "pdf-reader";
           if (id.includes("gsap")) return "motion";
           if (id.includes("node_modules/react") || id.includes("node_modules/lucide-react")) return "ui";

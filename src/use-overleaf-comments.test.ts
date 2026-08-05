@@ -62,6 +62,37 @@ afterEach(() => {
 });
 
 describe("useOverleafComments", () => {
+  it("keeps a new comment bound to its original document across a file switch", async () => {
+    let releaseReply!: () => void;
+    const replyPending = new Promise<void>((resolve) => {
+      releaseReply = resolve;
+    });
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_reply_to_thread") await replyPending;
+      if (command === "overleaf_threads" || command === "overleaf_comment_anchors") return [];
+      return undefined;
+    });
+    const anchor = vi.fn(async () => undefined);
+    const { result, rerender } = renderHook(
+      ({ projectRoot, docId }) => useOverleafComments({
+        enabled: true,
+        projectRoot,
+        docId,
+        anchored: [],
+        anchor,
+      }),
+      { initialProps: { projectRoot: "/tmp/project-a", docId: "doc-a" } },
+    );
+    const target = { projectRoot: "/tmp/project-a", docId: "doc-a", path: "a.md" };
+    const creating = result.current.create(target, 4, "text", "comment");
+
+    rerender({ projectRoot: "/tmp/project-b", docId: "doc-b" });
+    releaseReply();
+    await act(() => creating);
+
+    expect(anchor).toHaveBeenCalledWith(target, expect.any(String), 4, "text");
+  });
+
   it("resolves and deletes against the thread's own document, not the open one", async () => {
     mockProject();
     const { result } = mount();

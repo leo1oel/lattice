@@ -39,6 +39,8 @@ describe("ConfirmActionProvider", () => {
 
     expect(await screen.findByRole("dialog", { name: "Delete “notes.tex” from this project?" }))
       .toBeInTheDocument();
+    expect(document.querySelector(".modal-backdrop"))
+      .toHaveClass("confirm-action-backdrop");
     expect(screen.getByText("This action cannot be undone.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
     expect(confirm).not.toHaveBeenCalled();

@@ -11,6 +11,7 @@ import {
   editorCommentsExtension,
   formatCommentTimestamp,
   parseEditorComments,
+  resolveCommentAnchor,
   resolveCommentRange,
   serializeEditorComments,
   tryParseEditorComments,
@@ -52,6 +53,43 @@ describe("editor comments", () => {
     comment.from = 0;
     comment.to = 1;
     expect(resolveCommentRange("prefix TARGET suffix", comment)).toEqual({ from: 7, to: 13 });
+  });
+
+  it("re-anchors a pending comment after text is inserted before its selection", () => {
+    const anchor = {
+      from: 6,
+      to: 10,
+      quote: "bold",
+      prefix: "Hello ",
+      suffix: " world",
+    };
+    expect(resolveCommentAnchor("New: Hello bold world", anchor)).toEqual({ from: 11, to: 15 });
+  });
+
+  it("rejects a pending comment when its quote is missing or ambiguous", () => {
+    const anchor = {
+      from: 2,
+      to: 6,
+      quote: "same",
+      prefix: "missing ",
+      suffix: " context",
+    };
+    expect(resolveCommentAnchor("the selection was deleted", anchor)).toBeNull();
+    expect(resolveCommentAnchor("same and same", anchor)).toBeNull();
+  });
+
+  it("rejects a pending comment when its complete context is ambiguous", () => {
+    const anchor = {
+      from: 2,
+      to: 8,
+      quote: "TARGET",
+      prefix: "before ",
+      suffix: " after",
+    };
+    expect(resolveCommentAnchor(
+      "before TARGET after / before TARGET after",
+      anchor,
+    )).toBeNull();
   });
 
   it("round-trips JSON", () => {

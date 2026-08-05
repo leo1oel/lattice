@@ -1,0 +1,25 @@
+[
+  { "section": "Tables", "markdown": "| foo | bar |\n| --- | --- |\n| baz | bim |\n" },
+  { "section": "Tables", "markdown": "| abc | defghi |\n:-: | -----------:\nbar | baz\n" },
+  {
+    "section": "Tables",
+    "markdown": "| f\\|oo  |\n| ------ |\n| b `\\|` az |\n| b **\\|** im |\n"
+  },
+  { "section": "Tables", "markdown": "| abc |\n|-----|---|\n| def |\n" },
+  { "section": "Tables", "markdown": "| abc | def |\n| --- | --- |\n" },
+  { "section": "Tables", "markdown": "| abc |\n| --- |\n| bar |\nbar\n" },
+  { "section": "Strikethrough", "markdown": "~~Hi~~ Hello, world!\n" },
+  { "section": "Strikethrough", "markdown": "This ~~has a\n\nnew paragraph~~.\n" },
+  { "section": "Strikethrough", "markdown": "This will ~~not be struck~~ through.\n" },
+  { "section": "Autolinks", "markdown": "www.commonmark.org\n" },
+  { "section": "Autolinks", "markdown": "Visit www.commonmark.org/help for more information.\n" },
+  { "section": "Autolinks", "markdown": "http://commonmark.org\n" },
+  { "section": "Autolinks", "markdown": "foo@bar.example.com\n" },
+  { "section": "Task list items", "markdown": "- [ ] foo\n- [x] bar\n" },
+  { "section": "Task list items", "markdown": "- [x] foo\n  - [ ] bar\n  - [x] baz\n- [ ] bim\n" },
+  { "section": "Strikethrough", "markdown": "~~foo~~\n" },
+  { "section": "Tables", "markdown": "foo | bar\n--- | ---\nbaz | bim\n" },
+  { "section": "Tables", "markdown": "abc | def\n--- | ---\nbar | baz\n> bar\n" },
+  { "section": "Strikethrough", "markdown": "This ~~has a\n\nnew paragraph~~.\n" },
+  { "section": "Tables", "markdown": "| abc | def |\n| --- | --- |\n| bar | baz |\n> bar\n" }
+]

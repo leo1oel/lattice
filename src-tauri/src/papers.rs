@@ -4,10 +4,19 @@ use crate::project;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::Output;
 use uuid::Uuid;
+
+// Schema 4 also normalizes converter block boundaries before hashing and
+// publishing the bundle, so schema-3 papers are rebuilt instead of waiting for
+// the editor to rewrite them after first open.
+const PAPER_SCHEMA_VERSION: u32 = 4;
+const ASSET_MANIFEST_SCHEMA_VERSION: u32 = 1;
+const ARXIV2MD_REQUIREMENT: &str =
+    "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@a03cb7f2a4ea8b20f36e2f2ac8f53838e9d07146";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,6 +27,62 @@ struct PaperMetadata {
     title: String,
     schema_version: u32,
     complete: bool,
+    #[serde(default)]
+    converter: String,
+    #[serde(default)]
+    paper_sha256: String,
+    #[serde(default)]
+    asset_manifest_schema_version: u32,
+}
+
+type ImportedPaper = (String, PaperMetadata, bool, bool, Vec<String>);
+
+fn normalize_imported_markdown(markdown: &str) -> String {
+    let lines = markdown.split('\n').collect::<Vec<_>>();
+    let mut normalized = Vec::with_capacity(lines.len() + 16);
+    let mut in_display_math = false;
+    for (index, original) in lines.iter().enumerate() {
+        let previous = index
+            .checked_sub(1)
+            .and_then(|previous| lines.get(previous));
+        let line = if previous.is_some_and(|line| *line == "- •")
+            && !original.is_empty()
+            && !original.starts_with(char::is_whitespace)
+        {
+            format!("  {original}")
+        } else {
+            (*original).to_string()
+        };
+        normalized.push(line.clone());
+        if line == "$$" {
+            in_display_math = !in_display_math;
+        }
+
+        let Some(next) = lines.get(index + 1) else {
+            continue;
+        };
+        let heading_before_list = line.starts_with('#') && next.starts_with("- ");
+        let prose_before_display_math = !in_display_math && !line.is_empty() && *next == "$$";
+        if heading_before_list || prose_before_display_math {
+            normalized.push(String::new());
+        }
+    }
+    normalized.join("\n")
+}
+
+#[derive(Debug, Deserialize)]
+struct AssetManifest {
+    schema_version: u32,
+    assets: Vec<AssetManifestEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AssetManifestEntry {
+    path: String,
+    sha256: String,
+    size: u64,
+    #[serde(rename = "type")]
+    mime_type: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -83,16 +148,17 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
     let base = arxiv_base_id(&requested).to_string();
     let dir = project::safe_path(root, &format!(".research/papers/{base}"))?;
     let metadata_path = dir.join("metadata.json");
-    let valid = fs::read_to_string(&metadata_path)
+    let cached_metadata = fs::read_to_string(&metadata_path)
         .ok()
-        .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok())
-        .is_some_and(|m| {
-            m.schema_version == 1
-                && m.complete
-                && m.arxiv_id.eq_ignore_ascii_case(&base)
-                && cached_paper_has_body(&dir.join("paper.md"))
-                && (requested == base || m.requested_arxiv_id.eq_ignore_ascii_case(&requested))
-        });
+        .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok());
+    let valid = cached_metadata.as_ref().is_some_and(|m| {
+        m.schema_version == PAPER_SCHEMA_VERSION
+            && m.complete
+            && m.arxiv_id.eq_ignore_ascii_case(&base)
+            && cached_paper_has_body(&dir.join("paper.md"))
+            && (requested == base || m.requested_arxiv_id.eq_ignore_ascii_case(&requested))
+            && validate_paper_bundle(&dir, m).is_ok()
+    });
     if valid {
         return Ok(FetchResult {
             arxiv_id: base.clone(),
@@ -115,6 +181,12 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
         .current_dir(&output_dir)
         .arg(&requested)
         .arg("--frontmatter")
+        .arg("--download-assets")
+        .arg("--remove-refs")
+        .arg("--section")
+        .arg("Acknowledgements")
+        .arg("--section")
+        .arg("Acknowledgments")
         .arg("-o")
         .arg(&output_path)
         .output()
@@ -123,15 +195,20 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
     if !output_path.is_file() {
         return Err("arxiv2md did not produce paper.md".to_string());
     }
-    let title = parse_title(&fs::read_to_string(&output_path).map_err(err)?)
-        .unwrap_or_else(|| format!("arXiv {base}"));
+    let markdown = normalize_imported_markdown(&fs::read_to_string(&output_path).map_err(err)?);
+    fs::write(&output_path, &markdown).map_err(err)?;
+    let title = parse_title(&markdown).unwrap_or_else(|| format!("arXiv {base}"));
     let metadata = PaperMetadata {
         arxiv_id: base.clone(),
         requested_arxiv_id: requested,
         title,
-        schema_version: 1,
+        schema_version: PAPER_SCHEMA_VERSION,
         complete: true,
+        converter: ARXIV2MD_REQUIREMENT.to_string(),
+        paper_sha256: sha256_hex(markdown.as_bytes()),
+        asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
     };
+    validate_paper_bundle(&output_dir, &metadata)?;
     fs::write(
         output_dir.join("metadata.json"),
         format!(
@@ -142,6 +219,18 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
     .map_err(err)?;
     if let Ok(Some(blog)) = crate::alphaxiv::fetch_overview(&base) {
         fs::write(output_dir.join("blog.md"), blog).map_err(err)?;
+    } else if dir.join("blog.md").is_file() {
+        fs::copy(dir.join("blog.md"), output_dir.join("blog.md")).map_err(err)?;
+    }
+    if dir.join("paper.md").is_file()
+        && cached_metadata.as_ref().is_none_or(|metadata| {
+            metadata.paper_sha256.is_empty()
+                || fs::read(dir.join("paper.md"))
+                    .ok()
+                    .is_none_or(|bytes| sha256_hex(&bytes) != metadata.paper_sha256)
+        })
+    {
+        fs::copy(dir.join("paper.md"), output_dir.join("paper.legacy.md")).map_err(err)?;
     }
     fs::create_dir_all(dir.parent().unwrap()).map_err(err)?;
     let backup = dir.with_extension(format!("old-{}", Uuid::new_v4()));
@@ -165,6 +254,66 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
             .then(|| format!(".research/papers/{base}/blog.md")),
         reused: false,
     })
+}
+
+fn validate_paper_bundle(directory: &Path, metadata: &PaperMetadata) -> Result<(), String> {
+    if metadata.converter != ARXIV2MD_REQUIREMENT
+        || metadata.asset_manifest_schema_version != ASSET_MANIFEST_SCHEMA_VERSION
+    {
+        return Err("The cached paper was produced by an unsupported converter.".to_string());
+    }
+    let paper = fs::read(directory.join("paper.md")).map_err(err)?;
+    if sha256_hex(&paper) != metadata.paper_sha256 {
+        return Err("The cached paper markdown does not match its metadata.".to_string());
+    }
+    let manifest_path = directory.join("paper_assets/manifest.json");
+    let manifest: AssetManifest =
+        serde_json::from_slice(&fs::read(&manifest_path).map_err(err)?)
+            .map_err(|error| format!("Invalid paper asset manifest: {error}"))?;
+    if manifest.schema_version != ASSET_MANIFEST_SCHEMA_VERSION {
+        return Err("Unsupported paper asset manifest version.".to_string());
+    }
+    let canonical_directory = fs::canonicalize(directory).map_err(err)?;
+    for asset in manifest.assets {
+        let relative = Path::new(&asset.path);
+        if !relative.starts_with("paper_assets")
+            || relative
+                .components()
+                .any(|component| !matches!(component, Component::Normal(_)))
+        {
+            return Err(format!("Unsafe paper asset path: {}", asset.path));
+        }
+        if !matches!(
+            asset.mime_type.as_str(),
+            "image/png" | "image/jpeg" | "image/gif" | "image/webp"
+        ) {
+            return Err(format!("Unsupported paper asset type: {}", asset.mime_type));
+        }
+        let path = directory.join(relative);
+        let canonical_path = fs::canonicalize(&path)
+            .map_err(|_| format!("Paper asset is missing: {}", asset.path))?;
+        if !canonical_path.starts_with(&canonical_directory) || !canonical_path.is_file() {
+            return Err(format!("Unsafe paper asset path: {}", asset.path));
+        }
+        let bytes = fs::read(&canonical_path).map_err(err)?;
+        if bytes.len() as u64 != asset.size || sha256_hex(&bytes) != asset.sha256 {
+            return Err(format!(
+                "Paper asset failed integrity validation: {}",
+                asset.path
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .fold(String::with_capacity(64), |mut output, byte| {
+            use std::fmt::Write;
+            let _ = write!(output, "{byte:02x}");
+            output
+        })
 }
 
 pub(crate) fn arxiv_base_id(arxiv_id: &str) -> &str {
@@ -199,7 +348,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
         // claimed the work had none and offered to download it again.
         let matched = imported
             .iter()
-            .position(|(id, _metadata, _has_full_text, _has_blog)| {
+            .position(|(id, _metadata, _has_full_text, _has_blog, _asset_paths)| {
                 let by_arxiv = citation.arxiv_id.as_deref().is_some_and(|cited| {
                     arxiv_base_id(cited).eq_ignore_ascii_case(arxiv_base_id(id))
                 });
@@ -216,17 +365,20 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             // else whatever the bibliography entry points at.
             arxiv_id: matched
                 .as_ref()
-                .map(|(id, _, _, _)| id.clone())
+                .map(|(id, _, _, _, _)| id.clone())
                 .or(citation.arxiv_id)
                 .unwrap_or_default(),
             title,
             citation_key: Some(citation.key),
             has_full_text: matched
                 .as_ref()
-                .is_some_and(|(_, _, has_full_text, _)| *has_full_text),
+                .is_some_and(|(_, _, has_full_text, _, _)| *has_full_text),
             has_blog: matched
                 .as_ref()
-                .is_some_and(|(_, _, _, has_blog)| *has_blog),
+                .is_some_and(|(_, _, _, has_blog, _)| *has_blog),
+            asset_paths: matched
+                .map(|(_, _, _, _, asset_paths)| asset_paths)
+                .unwrap_or_default(),
         });
     }
     // The bibliography is strictly authoritative; unclaimed cache entries stay hidden.
@@ -235,7 +387,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
 }
 
 /// Directories under `.research/papers` that hold full text and/or an overview.
-fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata, bool, bool)>, String> {
+fn imported_papers(root: &Path) -> Result<Vec<ImportedPaper>, String> {
     let directory = root.join(".research/papers");
     if !directory.exists() {
         return Ok(Vec::new());
@@ -267,10 +419,35 @@ fn imported_papers(root: &Path) -> Result<Vec<(String, PaperMetadata, bool, bool
                 title: parse_title(&markdown).unwrap_or_default(),
                 schema_version: 0,
                 complete: false,
+                converter: String::new(),
+                paper_sha256: String::new(),
+                asset_manifest_schema_version: 0,
             });
-        imported.push((arxiv_id, metadata, has_full_text, has_blog));
+        let asset_paths = paper_asset_paths(&paper_directory, &arxiv_id);
+        imported.push((arxiv_id, metadata, has_full_text, has_blog, asset_paths));
     }
     Ok(imported)
+}
+
+fn paper_asset_paths(directory: &Path, arxiv_id: &str) -> Vec<String> {
+    let manifest_path = directory.join("paper_assets/manifest.json");
+    let Ok(bytes) = fs::read(&manifest_path) else {
+        return Vec::new();
+    };
+    let Ok(manifest) = serde_json::from_slice::<AssetManifest>(&bytes) else {
+        return Vec::new();
+    };
+    let prefix = format!(".research/papers/{arxiv_id}/");
+    let mut paths = vec![format!("{prefix}paper_assets/manifest.json")];
+    paths.extend(manifest.assets.into_iter().filter_map(|asset| {
+        let path = Path::new(&asset.path);
+        (path.starts_with("paper_assets")
+            && path
+                .components()
+                .all(|component| matches!(component, Component::Normal(_))))
+        .then(|| format!("{prefix}{}", asset.path))
+    }));
+    paths
 }
 
 fn paper_cache_directories(directory: &Path) -> Result<Vec<PathBuf>, String> {
@@ -778,6 +955,15 @@ Install it from Settings → TeX doctor → Open install guide (or run `brew ins
 mod tests {
     use super::*;
 
+    #[test]
+    fn normalizes_converter_block_structure_without_touching_latex() {
+        let source = "## Contents\n- Intro\n\n<a id=\"eq\"></a>\n$$\nx_{p} \\%\n$$\n\n- •\nContinuation with $x_{p}$\n";
+        assert_eq!(
+            normalize_imported_markdown(source),
+            "## Contents\n\n- Intro\n\n<a id=\"eq\"></a>\n\n$$\nx_{p} \\%\n$$\n\n- •\n  Continuation with $x_{p}$\n",
+        );
+    }
+
     /// bibcite reports one indented JSON object and its diagnostics around it.
     /// Read a line at a time this parsed nothing at all, so every import
     /// recorded a null citation key while bibcite had returned one.
@@ -1261,14 +1447,27 @@ mod tests {
         let root = project::create(&parent, "paper").unwrap();
         let directory = root.join(".research/papers/1706.03762");
         fs::create_dir_all(&directory).unwrap();
+        let markdown = "Title: Attention Is All You Need\n";
+        fs::write(directory.join("paper.md"), markdown).unwrap();
+        fs::create_dir_all(directory.join("paper_assets")).unwrap();
         fs::write(
-            directory.join("paper.md"),
-            "Title: Attention Is All You Need\n",
+            directory.join("paper_assets/manifest.json"),
+            r#"{"schema_version":1,"assets":[]}"#,
         )
         .unwrap();
+        let metadata = PaperMetadata {
+            arxiv_id: "1706.03762".to_string(),
+            requested_arxiv_id: "1706.03762v7".to_string(),
+            title: "Attention Is All You Need".to_string(),
+            schema_version: PAPER_SCHEMA_VERSION,
+            complete: true,
+            converter: ARXIV2MD_REQUIREMENT.to_string(),
+            paper_sha256: sha256_hex(markdown.as_bytes()),
+            asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
+        };
         fs::write(
             directory.join("metadata.json"),
-            r#"{"arxivId":"1706.03762","requestedArxivId":"1706.03762v7","title":"Attention Is All You Need","schemaVersion":1,"complete":true}"#,
+            serde_json::to_vec(&metadata).unwrap(),
         )
         .unwrap();
 
@@ -1276,6 +1475,61 @@ mod tests {
         assert!(result.reused);
         assert_eq!(result.arxiv_id, "1706.03762");
         fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn rejects_paper_bundles_with_missing_or_tampered_assets() {
+        let directory =
+            std::env::temp_dir().join(format!("lattice-paper-assets-{}", Uuid::new_v4()));
+        fs::create_dir_all(directory.join("paper_assets")).unwrap();
+        let markdown = b"# Paper\n\n![Figure](paper_assets/figure.png)\n";
+        fs::write(directory.join("paper.md"), markdown).unwrap();
+        let metadata = PaperMetadata {
+            arxiv_id: "2401.00001".to_string(),
+            requested_arxiv_id: "2401.00001".to_string(),
+            title: "Paper".to_string(),
+            schema_version: PAPER_SCHEMA_VERSION,
+            complete: true,
+            converter: ARXIV2MD_REQUIREMENT.to_string(),
+            paper_sha256: sha256_hex(markdown),
+            asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
+        };
+
+        assert!(validate_paper_bundle(&directory, &metadata).is_err());
+        fs::write(
+            directory.join("paper_assets/manifest.json"),
+            r#"{"schema_version":1,"assets":[{"path":"paper_assets/figure.png","sha256":"00","size":3,"type":"image/png"}]}"#,
+        )
+        .unwrap();
+        fs::write(directory.join("paper_assets/figure.png"), b"bad").unwrap();
+        assert!(validate_paper_bundle(&directory, &metadata).is_err());
+
+        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn rejects_asset_manifest_paths_that_escape_the_paper_bundle() {
+        let directory = std::env::temp_dir().join(format!("lattice-paper-path-{}", Uuid::new_v4()));
+        fs::create_dir_all(directory.join("paper_assets")).unwrap();
+        let markdown = b"# Paper\n";
+        fs::write(directory.join("paper.md"), markdown).unwrap();
+        fs::write(
+            directory.join("paper_assets/manifest.json"),
+            r#"{"schema_version":1,"assets":[{"path":"paper_assets/../outside.png","sha256":"00","size":0,"type":"image/png"}]}"#,
+        )
+        .unwrap();
+        let metadata = PaperMetadata {
+            arxiv_id: "2401.00001".to_string(),
+            requested_arxiv_id: "2401.00001".to_string(),
+            title: "Paper".to_string(),
+            schema_version: PAPER_SCHEMA_VERSION,
+            complete: true,
+            converter: ARXIV2MD_REQUIREMENT.to_string(),
+            paper_sha256: sha256_hex(markdown),
+            asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
+        };
+        assert!(validate_paper_bundle(&directory, &metadata).is_err());
+        let _ = fs::remove_dir_all(directory);
     }
 
     #[test]

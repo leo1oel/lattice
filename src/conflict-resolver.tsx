@@ -6,21 +6,69 @@
  * both — so resolving never means editing around markers by hand. Anything
  * left undecided keeps its markers, so closing halfway is safe.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { UnresolvedFile as PierreUnresolvedFile, type FileContents } from "@pierre/diffs";
+import { Editor, type EditorOptions } from "@pierre/diffs/edit";
+import {
+  EditProvider,
+  File,
+} from "@pierre/diffs/react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Check, TriangleAlert } from "lucide-react";
+import { PencilLine, TriangleAlert } from "lucide-react";
 import { MotionButton } from "./motion";
 import { Button } from "./components/ui/button";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
-import {
-  type ConflictChoice,
-  conflictHunks,
-  resolveConflicts,
-} from "./conflict-markers";
+import { conflictHunks } from "./conflict-markers";
 import { toMessage } from "./app-utils";
+import { PIERRE_UNSAFE_CSS, usePierreResources } from "./file-diff-view";
 import "./conflict-resolver.css";
+
+const createEditor = (options: EditorOptions<undefined>) => new Editor(options);
+
+function PierreConflictSurface(props: {
+  content: string;
+  language: FileContents["lang"];
+  onResolve: (content: string) => void;
+  path: string;
+  session: number;
+  theme: "light" | "dark";
+  themeName: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef(props.content);
+  const onResolveRef = useRef(props.onResolve);
+
+  useLayoutEffect(() => {
+    contentRef.current = props.content;
+    onResolveRef.current = props.onResolve;
+  }, [props.content, props.onResolve]);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const surface = new PierreUnresolvedFile({
+      disableFileHeader: true,
+      mergeConflictActionsType: "default",
+      onMergeConflictResolve(file) {
+        contentRef.current = file.contents;
+        onResolveRef.current(file.contents);
+      },
+      overflow: "scroll",
+      theme: props.themeName,
+      themeType: props.theme,
+      unsafeCSS: PIERRE_UNSAFE_CSS,
+    });
+    surface.render({
+      file: { name: props.path, contents: contentRef.current, lang: props.language },
+      fileContainer: container,
+    });
+    return () => surface.cleanUp();
+  }, [props.language, props.path, props.session, props.theme, props.themeName]);
+
+  return <div ref={containerRef} />;
+}
 
 export function ConflictResolverDialog(props: {
   open: boolean;
@@ -30,17 +78,27 @@ export function ConflictResolverDialog(props: {
   onResolved: (path: string) => void;
 }) {
   const [content, setContent] = useState("");
-  const [choices, setChoices] = useState<Map<number, ConflictChoice>>(new Map());
+  const [resolvedContent, setResolvedContent] = useState("");
+  const [draftContent, setDraftContent] = useState("");
+  const [stage, setStage] = useState<"resolve" | "edit">("resolve");
+  const [loadVersion, setLoadVersion] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const draftRef = useRef("");
+  const resources = usePierreResources(props.path ?? "conflict.txt");
 
   const load = useCallback(async (path: string) => {
     setLoading(true);
     setError(null);
-    setChoices(new Map());
+    setStage("resolve");
     try {
-      setContent(await invoke<string>("read_project_file", { path }));
+      const nextContent = await invoke<string>("read_project_file", { path });
+      setContent(nextContent);
+      setResolvedContent(nextContent);
+      setDraftContent(nextContent);
+      draftRef.current = nextContent;
+      setLoadVersion((current) => current + 1);
     } catch (reason) {
       setError(toMessage(reason));
     }
@@ -51,8 +109,15 @@ export function ConflictResolverDialog(props: {
     if (props.open && props.path) void load(props.path);
   }, [load, props.open, props.path]);
 
-  const hunks = useMemo(() => conflictHunks(content), [content]);
-  const decided = hunks.filter((hunk) => choices.has(hunk.index)).length;
+  const total = useMemo(() => conflictHunks(content).length, [content]);
+  const remaining = useMemo(() => conflictHunks(resolvedContent).length, [resolvedContent]);
+  const decided = total - remaining;
+  const editorOptions = useMemo<EditorOptions<undefined>>(() => ({
+    onChange(file) {
+      draftRef.current = file.contents;
+      setDraftContent(file.contents);
+    },
+  }), []);
 
   if (!props.open || !props.path) return null;
 
@@ -60,9 +125,14 @@ export function ConflictResolverDialog(props: {
     if (!props.path) return;
     setSaving(true);
     setError(null);
+    const savedContent = draftRef.current;
     try {
-      const resolved = resolveConflicts(content, choices);
-      await invoke("write_project_file", { path: props.path, content: resolved });
+      await invoke("write_project_file", { path: props.path, content: savedContent });
+      if (draftRef.current !== savedContent) {
+        setError("The file changed while it was saving. Review the latest text and save again.");
+        setSaving(false);
+        return;
+      }
       props.onResolved(props.path);
       props.onClose();
     } catch (reason) {
@@ -85,77 +155,84 @@ export function ConflictResolverDialog(props: {
 
         {error && <p className="conflict-error" role="alert">{error}</p>}
 
-        {loading ? (
+        {resources.error ? (
+          <p className="conflict-error" role="alert">Could not render this file: {resources.error.message}</p>
+        ) : loading || !resources.ready ? (
           <div className="conflict-loading"><InfinityLoader size={16} /> Reading the file…</div>
-        ) : hunks.length === 0 ? (
+        ) : total === 0 ? (
           <p className="conflict-empty">
             Nothing left to decide — this file has no conflict markers.
           </p>
+        ) : stage === "edit" ? (
+          <div className="conflict-pierre-surface" data-stage="edit" inert={saving || undefined}>
+            <EditProvider createEditor={createEditor}>
+              <File
+                file={{
+                  name: props.path,
+                  contents: draftContent,
+                  lang: resources.language,
+                  cacheKey: `conflict:${props.path}:${loadVersion}`,
+                }}
+                edit
+                editorOptions={editorOptions}
+                options={{
+                  disableFileHeader: true,
+                  overflow: "scroll",
+                  theme: resources.themeName,
+                  themeType: resources.theme,
+                  unsafeCSS: PIERRE_UNSAFE_CSS,
+                }}
+                disableWorkerPool
+              />
+            </EditProvider>
+          </div>
         ) : (
-          <div className="conflict-list">
-            {hunks.map((hunk, position) => {
-              const choice = choices.get(hunk.index);
-              const pick = (value: ConflictChoice) => {
-                setChoices((current) => {
-                  const next = new Map(current);
-                  if (next.get(hunk.index) === value) next.delete(hunk.index);
-                  else next.set(hunk.index, value);
-                  return next;
-                });
-              };
-              return (
-                <section key={hunk.index} className="conflict-hunk">
-                  <header>
-                    <strong>Spot {position + 1}</strong>
-                    <span>line {hunk.line}</span>
-                    {choice && <em><Check size={11} /> {choice === "both" ? "keeping both" : `keeping ${choice}`}</em>}
-                  </header>
-                  <div className="conflict-sides">
-                    <button
-                      type="button"
-                      className={`conflict-side${choice === "ours" ? " chosen" : ""}`}
-                      onClick={() => pick("ours")}
-                    >
-                      <span className="conflict-side-label">Mine</span>
-                      <pre>{hunk.ours || "(nothing)"}</pre>
-                    </button>
-                    <button
-                      type="button"
-                      className={`conflict-side${choice === "theirs" ? " chosen" : ""}`}
-                      onClick={() => pick("theirs")}
-                    >
-                      <span className="conflict-side-label">From Overleaf</span>
-                      <pre>{hunk.theirs || "(nothing)"}</pre>
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    className={`conflict-both${choice === "both" ? " chosen" : ""}`}
-                    onClick={() => pick("both")}
-                  >
-                    Keep both, mine first
-                  </button>
-                </section>
-              );
-            })}
+          <div className="conflict-pierre-surface" data-stage="resolve" inert={saving || undefined}>
+            <PierreConflictSurface
+              content={resolvedContent}
+              language={resources.language}
+              onResolve={(nextContent) => {
+                setResolvedContent(nextContent);
+                setDraftContent(nextContent);
+                draftRef.current = nextContent;
+              }}
+              path={props.path}
+              session={loadVersion}
+              theme={resources.theme}
+              themeName={resources.themeName}
+            />
           </div>
         )}
 
         <div className="conflict-actions">
           <span className="conflict-progress">
-            {hunks.length > 0 ? `${decided} of ${hunks.length} decided` : ""}
+            {total > 0 ? (stage === "edit" ? "Review the final file before saving" : `${decided} of ${total} decided`) : ""}
           </span>
           <Button disabled={saving} onClick={props.onClose}>
             Cancel
           </Button>
-          <MotionButton
-            className={buttonClassName({ variant: "primary" })}
-            disabled={saving || loading || decided === 0}
-            onClick={() => void save()}
-          >
-            {saving ? <InfinityLoader size={15} /> : null}
-            {saving ? "Saving…" : "Save file"}
-          </MotionButton>
+          {stage === "resolve" && remaining === 0 && total > 0 ? (
+            <MotionButton
+              className={buttonClassName({ variant: "primary" })}
+              disabled={saving || loading}
+              onClick={() => {
+                draftRef.current = resolvedContent;
+                setDraftContent(resolvedContent);
+                setStage("edit");
+              }}
+            >
+              <PencilLine size={14} /> Review and edit
+            </MotionButton>
+          ) : (
+            <MotionButton
+              className={buttonClassName({ variant: "primary" })}
+              disabled={saving || loading || decided === 0}
+              onClick={() => void save()}
+            >
+              {saving ? <InfinityLoader size={15} /> : null}
+              {saving ? "Saving…" : stage === "edit" ? "Save file" : "Save progress"}
+            </MotionButton>
+          )}
         </div>
       </div>
     </ModalDialog>

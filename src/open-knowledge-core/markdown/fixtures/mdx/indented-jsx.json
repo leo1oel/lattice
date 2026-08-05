@@ -1,0 +1,52 @@
+[
+  {
+    "name": "github-sync-4step (real docs/content/features/github-sync.mdx, D5)",
+    "source": "<Steps>\n\n<Step>\n    ### Open the clone dialog\n\n    From the Navigator window, click **Clone from GitHub**. You can open the navigator window from the editor by clicking on your project name in the bottom left and then clicking **Switch project**.\n</Step>\n\n<Step>\n    ### Sign into GitHub\n\n    If you are already signed in with the GitHub CLI, Open Knowledge will use those credentials by default. If not, click **Sign into GitHub** and complete the device authentication flow.\n</Step>\n\n<Step>\n    ### Choose a repository\n\n    Paste a repository URL or `owner/repo` shorthand. You can also filter and select from a list of repositories your account can access.\n</Step>\n\n<Step>\n    ### Open the project\n\n    When the clone completes, the cloned project opens in a new editor window and the Navigator closes. Re-summon the Navigator from inside the editor via the sidebar Switch Project pill, the File menu, or the Command Palette.\n</Step>\n</Steps>\n",
+    "notes": "M4 — the production doc's flush-left <Step> shape with 4-space-indented ### heading + paragraph children. RED on HEAD post-#1904 (211->218), GREEN under step-7g. This is the canonical fidelity fixture (D5); current i13 was a 2-Step reduction."
+  },
+  {
+    "name": "m2-blank-inside (heading-less, indented Step, blank before body)",
+    "source": "<Steps>\n\n  <Step>\n\n    Install the package using your package manager of choice.\n\n  </Step>\n\n</Steps>\n",
+    "notes": "M2 — a bare paragraph child under a blank line inside an indented <Step>. The blank defeats 7f on HEAD (44->43). GREEN under step-7g."
+  },
+  {
+    "name": "heading-less flush-left multi-Step",
+    "source": "<Steps>\n\n<Step>\n\nClone the repository to your local machine.\n\n</Step>\n\n<Step>\n\nInstall the project dependencies.\n\n</Step>\n\n<Step>\n\nStart the development server.\n\n</Step>\n\n</Steps>\n",
+    "notes": "Heading-less, flush-left <Step>, paragraph-only children — the simplest still-broken-on-HEAD shape."
+  },
+  {
+    "name": "m3-two-sibling-Steps-blocks",
+    "source": "## First procedure\n\n<Steps>\n\n<Step>\n\nDo the first thing.\n\n</Step>\n\n<Step>\n\nDo the second thing.\n\n</Step>\n\n</Steps>\n\n## Second procedure\n\n<Steps>\n\n<Step>\n\nDo another first thing.\n\n</Step>\n\n<Step>\n\nDo another second thing.\n\n</Step>\n\n</Steps>\n",
+    "notes": "M3 — two separate <Steps> blocks in one doc (124->125 on HEAD, direction flipped by #1904). GREEN under step-7g."
+  },
+  {
+    "name": "tabs-tab with indented code-ish body",
+    "source": "<Tabs>\n\n<Tab value=\"npm\">\n\n    Run npm install to add the package.\n\n</Tab>\n\n<Tab value=\"pnpm\">\n\n    Run pnpm add to install the package.\n\n</Tab>\n\n</Tabs>\n",
+    "notes": "Tabs/Tab container with an attribute on the child tag — tag-name independent of <Steps>."
+  },
+  {
+    "name": "depth-3 nested Steps > Step > Tabs > Tab",
+    "source": "<Steps>\n\n<Step>\n    ### Configure the package manager\n\n    <Tabs>\n\n    <Tab value=\"npm\">\n\n    Use npm for this step.\n\n    </Tab>\n\n    <Tab value=\"yarn\">\n\n    Use yarn for this step.\n\n    </Tab>\n\n    </Tabs>\n</Step>\n\n</Steps>\n",
+    "notes": "Depth-3 nested containers (Steps > Step > Tabs > Tab) with a heading sibling."
+  },
+  {
+    "name": "depth-4 nested containers",
+    "source": "<Steps>\n\n<Step>\n\n<Tabs>\n\n<Tab value=\"a\">\n\n<Steps>\n\n<Step>\n\nThe deeply nested innermost body paragraph.\n\n</Step>\n\n</Steps>\n\n</Tab>\n\n</Tabs>\n\n</Step>\n\n</Steps>\n",
+    "notes": "Depth-4 container nesting (Steps > Step > Tabs > Tab > Steps > Step)."
+  },
+  {
+    "name": "depth-5 nested containers",
+    "source": "<Steps>\n\n<Step>\n\n<Tabs>\n\n<Tab value=\"a\">\n\n<Steps>\n\n<Step>\n\n<Tabs>\n\n<Tab value=\"b\">\n\nThe depth-5 innermost body.\n\n</Tab>\n\n</Tabs>\n\n</Step>\n\n</Steps>\n\n</Tab>\n\n</Tabs>\n\n</Step>\n\n</Steps>\n",
+    "notes": "Depth-5 container nesting — stresses the depth tracker."
+  },
+  {
+    "name": "wide-6 sibling Steps",
+    "source": "<Steps>\n\n<Step>\n\nStep one body.\n\n</Step>\n\n<Step>\n\nStep two body.\n\n</Step>\n\n<Step>\n\nStep three body.\n\n</Step>\n\n<Step>\n\nStep four body.\n\n</Step>\n\n<Step>\n\nStep five body.\n\n</Step>\n\n<Step>\n\nStep six body.\n\n</Step>\n\n</Steps>\n",
+    "notes": "Six sibling <Step> children — wide-sibling fan-out (a step beyond the typical 2-4)."
+  },
+  {
+    "name": "steps-with-fenced-code-child (CommonMark 4.4 hazard intersection)",
+    "source": "<Steps>\n\n<Step>\n    ### Add the config\n\n    ```ts\n    export const config = {\n      enabled: true,\n    };\n    ```\n</Step>\n\n</Steps>\n",
+    "notes": "A fenced-code block inside a <Step> — the fence interior must be byte-preserved (never folded) while the container boundary blanks fold. Intersects CommonMark 4.4 indented-code handling."
+  }
+]

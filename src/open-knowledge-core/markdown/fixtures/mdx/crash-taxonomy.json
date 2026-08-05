@@ -1,0 +1,210 @@
+[
+  {
+    "id": "C01",
+    "input": "# Heading\n\n{unclosed brace\n\n# Footer\n",
+    "class": "EOF in expression",
+    "r23Covers": true,
+    "expectedOutcome": "clean-parse",
+    "note": "R23 protects unmatched { via GUARD_OPEN_BRACE"
+  },
+  {
+    "id": "C02",
+    "input": "# Heading\n\n> {a\nb}\n\n# Footer\n",
+    "class": "Lazy line in expression in container",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "Lazy continuation in blockquote; may parse clean or degrade"
+  },
+  {
+    "id": "C03",
+    "input": "# Heading\n\n<Foo\nattr>\n\n# Footer\n",
+    "class": "Lazy line in flow JSX tag",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "Multi-line JSX tag in flow"
+  },
+  {
+    "id": "C04",
+    "input": "# Heading\n\n<?xml version=\"1.0\"?> content\n\n# Footer\n",
+    "class": "Bad first-name char (processing instruction)",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "PI-style <?xml?> triggers tokenizer at factory-tag.js:132 (bad-first-name-char). R23 HTML-comment regex doesn't cover PI syntax; agnostic mode + R6 either parses as HTML or block-fallback."
+  },
+  {
+    "id": "C05",
+    "input": "# Heading\n\n< 1>\n\n# Footer\n",
+    "class": "Bad after-< char",
+    "r23Covers": false,
+    "expectedOutcome": "clean-parse",
+    "note": "< followed by space is not claimed as JSX under agnostic mode"
+  },
+  {
+    "id": "C06",
+    "input": "# Heading\n\n<Foo@bar>\n\n# Footer\n",
+    "class": "Bad in-name char",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "@ in tag name"
+  },
+  {
+    "id": "C07",
+    "input": "# Heading\n\n<Foo.bar@baz>content</Foo.bar@baz>\n\n# Footer\n",
+    "class": "Bad in-member-name char (@)",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "Invalid character inside member name (factory-tag.js:276). R23 doesn't touch this pattern; block-level fallback expected."
+  },
+  {
+    "id": "C08",
+    "input": "# Heading\n\n<svg: />\n\n# Footer\n",
+    "class": "Bad before-local-name (empty after colon)",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "Namespace colon with no local name (factory-tag.js:326). R23 doesn't cover; block-level fallback expected."
+  },
+  {
+    "id": "C09",
+    "input": "# Heading\n\n<svg:path%/>\n\n# Footer\n",
+    "class": "Bad after-local-name",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "Invalid character after namespaced local name (factory-tag.js:378). R23 doesn't cover; block-level fallback expected."
+  },
+  {
+    "id": "C10",
+    "input": "# Heading\n\n<Foo @bar>\n\n# Footer\n",
+    "class": "Bad attribute-name char",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "@ as attr name start"
+  },
+  {
+    "id": "C11",
+    "input": "# Heading\n\n<Foo a=>\n\n# Footer\n",
+    "class": "Bad before-attr-value",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "Attribute without value after ="
+  },
+  {
+    "id": "C12",
+    "input": "# Heading\n\n<Foo a=\"unclosed>\n\n# Footer\n",
+    "class": "Mismatched attr-value quote",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "Unclosed attribute quote"
+  },
+  {
+    "id": "C13",
+    "input": "# Heading\n\n<Foo /x>\n\n# Footer\n",
+    "class": "Bad after-self-closing slash",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "Garbage after self-closing slash (factory-tag.js:711). R23 partial coverage; block-level fallback expected."
+  },
+  {
+    "id": "C14",
+    "input": "# Heading\n\n<Foo!>\n\n# Footer\n",
+    "class": "After-name junk",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "! after tag name"
+  },
+  {
+    "id": "C15",
+    "input": "# Heading\n\n<Foo.bar!>content</Foo.bar>\n\n# Footer\n",
+    "class": "After-member-name junk",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "Trailing junk after member name (factory-tag.js:306). R23 doesn't cover; block-level fallback expected."
+  },
+  {
+    "id": "C16",
+    "input": "# Heading\n\n<Foo a:b!>content</Foo>\n\n# Footer\n",
+    "class": "After-local-attr-name junk",
+    "r23Covers": false,
+    "expectedOutcome": "clean-or-fallback",
+    "note": "Trailing junk after namespaced attr name (factory-tag.js:597). R23 doesn't cover; block-level fallback expected."
+  },
+  {
+    "id": "C17",
+    "input": "# Heading\n\ntext </Bar> more\n\n# Footer\n",
+    "class": "Closing slash without open",
+    "r23Covers": false,
+    "expectedOutcome": "block-fallback",
+    "note": "Standalone close tag"
+  },
+  {
+    "id": "C18",
+    "input": "# Heading\n\n</Foo bar>\n\n# Footer\n",
+    "class": "Attribute on closing tag",
+    "r23Covers": false,
+    "expectedOutcome": "block-fallback",
+    "note": "Attributes on close tag"
+  },
+  {
+    "id": "C19",
+    "input": "# Heading\n\n</Foo/>\n\n# Footer\n",
+    "class": "Self-close on closing tag",
+    "r23Covers": false,
+    "expectedOutcome": "block-fallback",
+    "note": "Self-close on close tag"
+  },
+  {
+    "id": "C20",
+    "input": "# Heading\n\n<Foo>broken</Bar>\n\n# Footer\n",
+    "class": "End-tag mismatch",
+    "r23Covers": false,
+    "expectedOutcome": "block-fallback",
+    "note": "MOST COMMON — tag mismatch"
+  },
+  {
+    "id": "C21",
+    "input": "# Heading\n\n<Foo>\n\n# Footer\n",
+    "class": "Dangling open tag at EOF",
+    "r23Covers": false,
+    "expectedOutcome": "block-fallback-or-whole-doc",
+    "note": "Unclosed flow tag"
+  },
+  {
+    "id": "C22",
+    "input": "API returns in <50ms and costs $5.\n",
+    "class": "Prose with < and number",
+    "r23Covers": true,
+    "expectedOutcome": "clean-parse",
+    "note": "R23 protects bare < patterns"
+  },
+  {
+    "id": "C23",
+    "input": "Config: { noServer: true }\n",
+    "class": "Balanced braces in prose",
+    "r23Covers": false,
+    "expectedOutcome": "clean-parse",
+    "note": "Agnostic mode parses balanced braces as expression (no acorn)"
+  },
+  {
+    "id": "C24",
+    "input": "| col |\n|---|\n| 1:1s |\n",
+    "class": "Colon in table cell (remark-directive)",
+    "r23Covers": false,
+    "expectedOutcome": "clean-parse",
+    "note": "D14 removed remark-directive — colon is literal text"
+  },
+  {
+    "id": "C25",
+    "input": "# Heading\n\n<Callout type=\"warning\">Important</Callout>\n\n# Footer\n",
+    "class": "Valid MDX component",
+    "r23Covers": false,
+    "expectedOutcome": "clean-parse",
+    "note": "Valid JSX — should parse structured"
+  },
+  {
+    "id": "C26",
+    "input": "# Heading\n\ntext <Icon name=\"check\" /> more text\n\n# Footer\n",
+    "class": "Valid inline JSX",
+    "r23Covers": false,
+    "expectedOutcome": "clean-parse",
+    "note": "Valid inline JSX — should parse as jsxInline"
+  }
+]

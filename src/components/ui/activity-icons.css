@@ -26,6 +26,13 @@
   transform-origin: center;
 }
 
+/* Busy reload actions stay visually whole instead of fading the entire button
+ * while its icon and label are changing state. */
+.ui-reload-button[aria-busy="true"]:disabled {
+  opacity: 1;
+  color: var(--text-secondary);
+}
+
 .ui-reload-icon--once {
   animation: ui-reload-once 0.58s var(--ease-emphasized);
 }

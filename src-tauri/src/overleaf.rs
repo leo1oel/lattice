@@ -728,8 +728,8 @@ fn base_copy_path(root: &Path, rel: &str) -> PathBuf {
 /// on disk for no benefit.
 fn is_mergeable_text(rel: &str, bytes: &[u8]) -> bool {
     const TEXT_SUFFIXES: &[&str] = &[
-        ".tex", ".bib", ".txt", ".md", ".cls", ".sty", ".bst", ".json", ".yml", ".yaml", ".csv",
-        ".tikz", ".sty.txt", ".cfg", ".def", ".ltx",
+        ".tex", ".bib", ".txt", ".md", ".html", ".cls", ".sty", ".bst", ".json", ".yml", ".yaml",
+        ".csv", ".tikz", ".sty.txt", ".cfg", ".def", ".ltx",
     ];
     let lower = rel.to_ascii_lowercase();
     if !TEXT_SUFFIXES.iter().any(|suffix| lower.ends_with(suffix)) {

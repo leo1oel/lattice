@@ -1,0 +1,92 @@
+[
+  {
+    "id": "case-1",
+    "name": "inline-children-double-quoted-attr",
+    "input": "<Callout type=\"info\">Hello world</Callout>\n",
+    "expectedOutput": null,
+    "idempotent": true,
+    "highlighted": false,
+    "note": "Baseline: inline children, double quotes (single-line → parsed as inline mdxJsxTextElement = jsxInline thin shape)"
+  },
+  {
+    "id": "case-2",
+    "name": "single-quote-to-double-quote-normalization",
+    "input": "<Callout type='info'>Hello world</Callout>\n",
+    "expectedOutput": null,
+    "idempotent": true,
+    "highlighted": true,
+    "note": "HIGHLIGHTED: mdast-util-mdx-jsx serializer normalizes single-quoted attrs to double-quoted. Library-specific behavior — a version bump could silently flip this."
+  },
+  {
+    "id": "case-3",
+    "name": "expression-attr-identifier",
+    "input": "<Chart data={values} />\n",
+    "expectedOutput": null,
+    "idempotent": true,
+    "highlighted": false,
+    "note": "Expression attrs preserve source text verbatim via MdxJsxAttributeValueExpression.value"
+  },
+  {
+    "id": "case-4",
+    "name": "boolean-shorthand-attr",
+    "input": "<Icon disabled />\n",
+    "expectedOutput": null,
+    "idempotent": true,
+    "highlighted": false,
+    "note": "Boolean attrs (value: null in mdast) serialize as shorthand"
+  },
+  {
+    "id": "case-5",
+    "name": "flush-left-block-children-emphasis",
+    "input": "<Callout type=\"warning\">\n\n**Bold**\n\n</Callout>\n",
+    "expectedOutput": null,
+    "idempotent": true,
+    "highlighted": true,
+    "note": "HIGHLIGHTED: our custom mdxJsxFlowElementHandler emits children flush-left (zero indent). Tests the FR-6 handler's contract with emphasis inside container."
+  },
+  {
+    "id": "case-6",
+    "name": "flush-left-nested-jsx-container",
+    "input": "<Callout type=\"note\">\n\n<Accordion title=\"Details\">\n\nNested body\n\n</Accordion>\n\n</Callout>\n",
+    "expectedOutput": null,
+    "idempotent": true,
+    "highlighted": true,
+    "note": "HIGHLIGHTED (US-012 rewrite): nested JSX in a 5-pack composition (Callout > Accordion). Flush-left handler emits consistent blank-line separation between children. Was `<Steps>/<Step>` pre-US-012 rewrite; semantics identical."
+  },
+  {
+    "id": "case-7",
+    "name": "dotted-name-with-children",
+    "input": "<Docs.Link href=\"/api\">text</Docs.Link>\n",
+    "expectedOutput": null,
+    "idempotent": true,
+    "highlighted": true,
+    "note": "HIGHLIGHTED: dotted component names (member access) preserve through parse/serialize round-trip"
+  },
+  {
+    "id": "case-8",
+    "name": "complex-array-expression-attr",
+    "input": "<Comp data={[1,2,3]} />\n",
+    "expectedOutput": null,
+    "idempotent": true,
+    "highlighted": false,
+    "note": "Complex expressions (array literals) round-trip via estree AST preservation"
+  },
+  {
+    "id": "case-9",
+    "name": "dotted-name-self-closing",
+    "input": "<Docs.Link href=\"/api\" />\n",
+    "expectedOutput": null,
+    "idempotent": true,
+    "highlighted": false,
+    "note": "Self-closing dotted names"
+  },
+  {
+    "id": "case-10",
+    "name": "self-closing-trailing-newline",
+    "input": "<Callout type=\"info\" />\n",
+    "expectedOutput": null,
+    "idempotent": true,
+    "highlighted": false,
+    "note": "Self-closing block JSX with trailing newline — remark-stringify final-newline handling"
+  }
+]

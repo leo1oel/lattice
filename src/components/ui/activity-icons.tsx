@@ -63,6 +63,7 @@ function useReloadClick(
 export function ReloadButton({
   busy = false,
   children,
+  className,
   iconSize = 14,
   onClick,
   ...props
@@ -75,6 +76,7 @@ export function ReloadButton({
   return (
     <Button
       {...props}
+      className={cn("ui-reload-button", className)}
       onClick={reload.handleClick}
       aria-busy={busy || undefined}
     >

@@ -2,19 +2,17 @@ import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import {
   createCollabChatMessage,
-  createShareRoomCode,
-  createShareToken,
-  defaultCollabRoom,
-  formatCollabInvite,
   MAX_COLLAB_CHAT_MESSAGES,
-  maybeSeedCollabText,
   normalizeCollabHost,
   observeCollabChatMessages,
-  parseCollabInvite,
+  peerCaretOffsetsV2,
   peerColorForName,
+  peerCursorLocationV2,
   readCollabChatMessages,
   sendCollabChatMessage,
+  type EditorCollabSession,
 } from "./collab-session";
+import { Awareness } from "y-protocols/awareness";
 
 describe("collab session helpers", () => {
   it("normalizes host urls to a host:port form", () => {
@@ -23,61 +21,60 @@ describe("collab session helpers", () => {
     expect(normalizeCollabHost("  localhost:1999  ")).toBe("localhost:1999");
   });
 
-  it("builds a stable default room from project and file", () => {
-    expect(defaultCollabRoom("paper-id", "sections/intro.tex")).toBe("paper-id/sections/intro.tex");
-    expect(defaultCollabRoom("", "")).toBe("project/main.tex");
-  });
-
-  it("creates short share room codes", () => {
-    const code = createShareRoomCode();
-    expect(code).toMatch(/^LT-[A-Z0-9]{6}$/);
-  });
-
-  it("formats and parses lattice invites", () => {
-    const invite = formatCollabInvite("https://demo.partykit.dev/", "LT-ABC123");
-    expect(invite).toBe("lattice:demo.partykit.dev/LT-ABC123");
-    expect(parseCollabInvite(`Join me\n${invite}\nthanks`)).toEqual({
-      host: "demo.partykit.dev",
-      room: "LT-ABC123",
-      token: "",
-    });
-    expect(parseCollabInvite("LT-ZZ99KK")?.room).toBe("LT-ZZ99KK");
-  });
-
-  it("round-trips the room token through the invite", () => {
-    const token = createShareToken();
-    expect(token).toMatch(/^[A-Za-z0-9\-_]{24}$/);
-    const invite = formatCollabInvite("demo.partykit.dev", "LT-ABC123", token);
-    expect(invite).toBe(`lattice:demo.partykit.dev/LT-ABC123#${token}`);
-    expect(parseCollabInvite(`Join me\n${invite}\nthanks`)).toEqual({
-      host: "demo.partykit.dev",
-      room: "LT-ABC123",
-      token,
-    });
-  });
-
-  it("seeds only empty shared text once", () => {
-    const doc = new Y.Doc();
-    const ytext = doc.getText("latex");
-    expect(maybeSeedCollabText(ytext, "hello")).toBe(true);
-    expect(ytext.toString()).toBe("hello");
-    expect(maybeSeedCollabText(ytext, "other")).toBe(false);
-    expect(ytext.toString()).toBe("hello");
-    expect(maybeSeedCollabText(ytext, "")).toBe(false);
-  });
-
   it("assigns a stable peer color from the display name", () => {
     expect(peerColorForName("Ada")).toEqual(peerColorForName("Ada"));
     expect(peerColorForName("Ada").color).toMatch(/^#/);
   });
+});
 
-  it("builds UndoManager on a doc-bound pending text, not a detached Y.Text", () => {
-    const doc = new Y.Doc();
-    const pending = doc.getText("__lattice_pending__");
-    expect(() => new Y.UndoManager(pending)).not.toThrow();
-    expect(() => new Y.UndoManager(new Y.Text())).toThrow(/null|undefined|doc/i);
+function v2SessionWithCaret(text: string, caretIndex: number | null) {
+  const doc = new Y.Doc();
+  const ytext = doc.getText("content");
+  ytext.insert(0, text);
+  const awareness = new Awareness(doc);
+  if (caretIndex !== null) {
+    const head = Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(ytext, caretIndex));
+    awareness.states.set(999, {
+      cursor: { head },
+      user: { name: "Bo", color: "#1971c2" },
+    });
+  }
+  const session = { doc, ytext, activePath: "paper.md", provider: { awareness } } as unknown as EditorCollabSession;
+  return { session, awareness };
+}
+
+describe("v2 peer caret helpers", () => {
+  it("resolves a remote caret to an offset with identity, skipping self", () => {
+    const { session, awareness } = v2SessionWithCaret("one\ntwo\nthree", 5);
+    awareness.setLocalState({ cursor: { head: null } });
+    const carets = peerCaretOffsetsV2(session);
+    expect(carets).toHaveLength(1);
+    expect(carets[0]).toMatchObject({ clientId: 999, name: "Bo", color: "#1971c2", index: 5 });
+  });
+
+  it("maps a peer caret to path and 1-based line for avatar follow", () => {
+    const { session } = v2SessionWithCaret("one\ntwo\nthree", 5);
+    expect(peerCursorLocationV2(session, 999)).toEqual({ path: "paper.md", line: 2 });
+    expect(peerCursorLocationV2(session, 123)).toBeNull();
+  });
+
+  it("skips peers without a cursor or with a caret on a different text", () => {
+    const { session, awareness } = v2SessionWithCaret("hello", 2);
+    awareness.states.set(1000, { user: { name: "NoCaret" } });
+    const otherDoc = new Y.Doc();
+    const otherText = otherDoc.getText("content");
+    otherText.insert(0, "elsewhere");
+    awareness.states.set(1001, {
+      cursor: { head: Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(otherText, 1)) },
+      user: { name: "WrongDoc" },
+    });
+    const carets = peerCaretOffsetsV2(session);
+    expect(carets.map((caret) => caret.name)).toEqual(["Bo"]);
+    expect(peerCursorLocationV2(session, 1000)).toBeNull();
+    expect(peerCursorLocationV2(session, 1001)).toBeNull();
   });
 });
+
 
 describe("collab chat", () => {
   it("merges messages sent from two independent peers with no data loss", () => {

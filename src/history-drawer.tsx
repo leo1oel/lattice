@@ -1,14 +1,23 @@
-import { useRef, useState } from "react";
+import { parseDiffFromFile, type CodeViewItem } from "@pierre/diffs";
+import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Clock3, History, RotateCcw } from "lucide-react";
 import { EmptyState } from "./components/ui/empty-state";
 import { DestructiveButton } from "./components/ui/destructive-button";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { PanelHeader } from "./components/ui/panel-header";
+import { ScrollArea } from "./components/ui/scroll-area";
 import { HistoryDiff, VersionsTimeline, versionsTimelineCss } from "./versions-timeline";
 import { OverleafHistoryPanel } from "./overleaf-history";
 import { SlidingTabs } from "./motion";
 import { ResizableDrawer } from "./resizable-drawer";
+import {
+  PIERRE_UNSAFE_CSS,
+  pierreLanguageForPath,
+  usePierreResources,
+} from "./file-diff-view";
+import { changeKind } from "./history-diff";
 
 export type HistoryItem = {
   id: string;
@@ -89,8 +98,14 @@ export function HistoryDrawer(props: {
   const [entry, setEntry] = useState<TransactionRecord | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [activePath, setActivePath] = useState("");
+  const [activeChangeIndex, setActiveChangeIndex] = useState(0);
   const [filter, setFilter] = useState<HistoryFilter>("all");
+  const codeViewRef = useRef<CodeViewHandle<undefined>>(null);
+  const activeChangeIndexRef = useRef(0);
+  const entryRequestGeneration = useRef(0);
+  useEffect(() => {
+    activeChangeIndexRef.current = activeChangeIndex;
+  }, [activeChangeIndex]);
 
   const selectTab = (next: HistoryTab) => {
     userPickedTab.current = true;
@@ -99,17 +114,18 @@ export function HistoryDrawer(props: {
   };
 
   const toggleEntry = (item: HistoryItem) => {
+    const requestGeneration = ++entryRequestGeneration.current;
     if (expandedId === item.id) {
       setExpandedId(null);
       setEntry(null);
-      setActivePath("");
+      setActiveChangeIndex(0);
       setError("");
       setLoadingId(null);
       return;
     }
     setExpandedId(item.id);
     setEntry(null);
-    setActivePath("");
+    setActiveChangeIndex(0);
     setError("");
     if (item.kind === "agent-checkpoint") {
       setLoadingId(null);
@@ -118,24 +134,98 @@ export function HistoryDrawer(props: {
     setLoadingId(item.id);
     void invoke<TransactionRecord>("get_history_entry", { transactionId: item.id })
       .then((record) => {
+        if (entryRequestGeneration.current !== requestGeneration) return;
         setEntry(record);
-        setActivePath(record.changes[0]?.path ?? "");
+        setActiveChangeIndex(0);
       })
       .catch((reason) => {
+        if (entryRequestGeneration.current !== requestGeneration) return;
         setEntry(null);
         setError(message(reason));
       })
-      .finally(() => setLoadingId((current) => (current === item.id ? null : current)));
+      .finally(() => {
+        if (entryRequestGeneration.current === requestGeneration) setLoadingId(null);
+      });
   };
 
-  const activeChange = entry?.changes.find((change) => change.path === activePath) ?? entry?.changes[0] ?? null;
+  const activeChange = entry?.changes[activeChangeIndex] ?? entry?.changes[0] ?? null;
+  const changePaths = useMemo(() => entry?.changes.map((change) => change.path) ?? [], [entry]);
+  const resources = usePierreResources(changePaths);
+  const { onClose, onOpenFile } = props;
+  const codeViewItems = useMemo<CodeViewItem[]>(() => entry?.changes.map((change, index) => {
+    const language = pierreLanguageForPath(change.path);
+    const revisionKey = `history:${entry.id}:${index}`;
+    const parsed = parseDiffFromFile(
+      {
+        name: change.path,
+        contents: change.before ?? "",
+        lang: language,
+        cacheKey: `${revisionKey}:before`,
+      },
+      {
+        name: change.path,
+        contents: change.after ?? "",
+        lang: language,
+        cacheKey: `${revisionKey}:after`,
+      },
+    );
+    const fileDiff = change.before == null
+      ? { ...parsed, type: "new" as const }
+      : change.after == null
+        ? { ...parsed, type: "deleted" as const }
+        : parsed;
+    return { id: revisionKey, type: "diff", fileDiff, version: 1 };
+  }) ?? [], [entry]);
+  const syncActiveChangeFromViewport = useCallback((
+    scrollTop: number,
+    viewer: { getTopForItem: (id: string) => number | undefined },
+  ) => {
+    let visibleIndex: number | null = codeViewItems.length > 0 ? 0 : null;
+    for (let index = 0; index < codeViewItems.length; index += 1) {
+      const top = viewer.getTopForItem(codeViewItems[index]!.id);
+      if (top == null) continue;
+      if (top > scrollTop + 1) break;
+      visibleIndex = index;
+    }
+    if (visibleIndex != null) {
+      setActiveChangeIndex((current) => current === visibleIndex ? current : visibleIndex);
+    }
+  }, [codeViewItems]);
+  const codeViewOptions = useMemo(() => ({
+    diffStyle: "unified" as const,
+    lineDiffType: "word" as const,
+    overflow: "scroll" as const,
+    stickyHeaders: true,
+    theme: resources.themeName,
+    themeType: resources.theme,
+    unsafeCSS: PIERRE_UNSAFE_CSS,
+    layout: { paddingTop: 0, paddingBottom: 8, gap: 8 },
+    onLineClick: onOpenFile
+      ? ({ lineNumber }: { lineNumber: number }, context: { item: CodeViewItem }) => {
+          if (context.item.type !== "diff") return;
+          onOpenFile(context.item.fileDiff.name, lineNumber);
+          onClose();
+        }
+      : undefined,
+  }), [onClose, onOpenFile, resources.theme, resources.themeName]);
+  useEffect(() => {
+    if (tab !== "changes" || !resources.ready || !entry || entry.changes.length < 2) return;
+    const activeItem = codeViewItems[activeChangeIndexRef.current];
+    if (!activeItem) return;
+    codeViewRef.current?.scrollTo({
+      type: "item",
+      id: activeItem.id,
+      align: "start",
+      behavior: "smooth",
+    });
+  }, [codeViewItems, entry, resources.ready, tab]);
   const visibleHistory = props.history.filter((item) => {
     if (filter === "all") return true;
     return (item.actor ?? "user") === filter;
   });
 
   return (
-    <ResizableDrawer onClose={props.onClose}>
+    <ResizableDrawer className="project-history-drawer" onClose={props.onClose}>
         <style>{versionsTimelineCss}</style>
         <PanelHeader
           className="drawer-header"
@@ -143,6 +233,12 @@ export function HistoryDrawer(props: {
           title="Project history"
           onClose={props.onClose}
         />
+        <ScrollArea
+          className="project-history-scroll"
+          fadeEdges={false}
+          viewportClassName="project-history-scroll-viewport"
+          viewportProps={{ "aria-label": "Project history content" }}
+        >
         <SlidingTabs
           value={tab}
           onChange={(next) => selectTab(next as HistoryTab)}
@@ -218,7 +314,6 @@ export function HistoryDrawer(props: {
                     : "Restore the state before this change";
                 return (
                   <div className={`history-item ${expanded ? "expanded" : ""}`} key={item.id}>
-                    <div className={`history-dot ${item.actor ?? "user"}`} />
                     <div className="history-body">
                       <button
                         type="button"
@@ -257,19 +352,28 @@ export function HistoryDrawer(props: {
                             <>
                               {entry.changes.length > 1 && (
                                 <div className="history-file-tabs">
-                                  {entry.changes.map((change) => (
+                                  {entry.changes.map((change, index) => (
                                     <button
-                                      key={change.path}
+                                      key={`${change.path}:${index}`}
                                       type="button"
-                                      className={change.path === activeChange?.path ? "active" : ""}
-                                      onClick={() => setActivePath(change.path)}
+                                      className={index === activeChangeIndex ? "active" : ""}
+                                      aria-current={index === activeChangeIndex ? "true" : undefined}
+                                      onClick={() => {
+                                        codeViewRef.current?.scrollTo({
+                                          type: "item",
+                                          id: `history:${entry.id}:${index}`,
+                                          align: "start",
+                                          behavior: "smooth",
+                                        });
+                                        setActiveChangeIndex(index);
+                                      }}
                                     >
                                       {change.path}
                                     </button>
                                   ))}
                                 </div>
                               )}
-                              {activeChange && (
+                              {entry.changes.length === 1 && activeChange && (
                                 <HistoryDiff
                                   key={`${item.id}:${activeChange.path}`}
                                   change={activeChange}
@@ -281,7 +385,54 @@ export function HistoryDrawer(props: {
                                     : undefined}
                                 />
                               )}
-                              {activeChange && props.onRevertFile && (
+                              {entry.changes.length > 1 && (
+                                <div className="history-code-view-shell">
+                                  {resources.error ? (
+                                    <p className="history-diff-error" role="alert">
+                                      Could not render these changes: {resources.error.message}
+                                    </p>
+                                  ) : !resources.ready ? (
+                                    <p className="history-diff-loading"><InfinityLoader size={12} /> Rendering changes…</p>
+                                  ) : (
+                                    <CodeView
+                                      ref={codeViewRef}
+                                      items={codeViewItems}
+                                      options={codeViewOptions}
+                                      className="history-code-view"
+                                      disableWorkerPool
+                                      onScroll={syncActiveChangeFromViewport}
+                                      renderHeaderMetadata={(codeItem) => {
+                                        const index = codeViewItems.findIndex((candidate) => candidate.id === codeItem.id);
+                                        const change = entry.changes[index];
+                                        return change ? (
+                                          <span
+                                            className="history-code-view-metadata"
+                                          >
+                                            <span className="history-code-view-kind">
+                                              {changeKind(change.before, change.after)}
+                                            </span>
+                                            {props.onRevertFile && (
+                                              <button
+                                                type="button"
+                                                className="history-code-view-restore"
+                                                title={`Restore only ${change.path}`}
+                                                aria-label={`Restore only ${change.path}`}
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  props.onRevertFile?.(item.id, change.path);
+                                                }}
+                                              >
+                                                <RotateCcw size={12} aria-hidden="true" />
+                                              </button>
+                                            )}
+                                          </span>
+                                        ) : null;
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                              )}
+                              {entry.changes.length === 1 && activeChange && props.onRevertFile && (
                                 <button
                                   type="button"
                                   className="history-restore-file"
@@ -323,6 +474,7 @@ export function HistoryDrawer(props: {
             </div>
           </>
         )}
+        </ScrollArea>
     </ResizableDrawer>
   );
 }

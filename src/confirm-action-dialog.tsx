@@ -81,7 +81,11 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
     <>
       {children}
       {current && copy && (
-        <ModalDialog label={copy.title} onClose={() => settle(false)}>
+        <ModalDialog
+          label={copy.title}
+          onClose={() => settle(false)}
+          backdropClassName="confirm-action-backdrop"
+        >
           <PopIn className="modal confirm-action-modal" data-destructive={copy.destructive}>
             <div className="confirm-action-icon" aria-hidden="true">
               {copy.destructive ? <Trash2 size={19} /> : <CircleAlert size={19} />}

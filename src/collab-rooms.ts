@@ -4,76 +4,41 @@
  * in localStorage; the server has no room registry to query.
  */
 
-export type CollabRoomRecord = {
-  /** Room code, e.g. LT-XXXXXX. */
-  room: string;
-  /** Secret room token (the invite's password). */
-  token: string;
-  /** Sync host the room lives on. */
+/** v2 share record: one entry per project the user has hosted or joined. */
+export type CollabProjectRecordV2 = {
+  version: 2;
+  projectInstanceId: string;
   host: string;
-  /** Whether we opened the room (host) or joined it (guest). */
-  role: "host" | "guest";
-  /** Human label for the list — the project name. */
+  /** Opaque lookup key for a credential held by a future native secure store. */
+  credentialRef?: string;
+  permission: "host" | "write" | "read";
   title: string;
-  /** For a host room: the project folder to reopen on reconnect. */
   projectRoot: string | null;
-  /** Last time we used this room (ms), for ordering and staleness. */
   lastUsed: number;
 };
 
-const ROOMS_KEY = "lattice.collab.rooms.v1";
-const MAX_ROOMS = 24;
-/** Matches the server's idle-expiry: past this a room is gone, so hide it. */
-const ROOM_ACTIVE_MS = 30 * 24 * 60 * 60 * 1000;
+export const PROJECTS_V2_KEY = "lattice.collab.projects.v2";
 
-function isRecord(value: unknown): value is CollabRoomRecord {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Partial<CollabRoomRecord>;
-  return (
-    typeof record.room === "string"
-    && typeof record.token === "string"
-    && typeof record.host === "string"
-    && (record.role === "host" || record.role === "guest")
-  );
-}
-
-function readRooms(): CollabRoomRecord[] {
+export function loadCollabProjectsV2(): CollabProjectRecordV2[] {
   try {
-    const raw = JSON.parse(localStorage.getItem(ROOMS_KEY) ?? "[]") as unknown;
-    if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord);
-  } catch {
-    return [];
-  }
+    const value: unknown = JSON.parse(localStorage.getItem(PROJECTS_V2_KEY) ?? "[]");
+    if (!Array.isArray(value)) return [];
+    return value.filter((entry): entry is CollabProjectRecordV2 => {
+      const record = entry as Partial<CollabProjectRecordV2>;
+      return record.version === 2 && typeof record.projectInstanceId === "string"
+        && typeof record.host === "string"
+        && (record.credentialRef === undefined || typeof record.credentialRef === "string")
+        && (record.permission === "host" || record.permission === "write" || record.permission === "read");
+    });
+  } catch { return []; }
 }
 
-function writeRooms(rooms: CollabRoomRecord[]): void {
-  try {
-    localStorage.setItem(ROOMS_KEY, JSON.stringify(rooms.slice(0, MAX_ROOMS)));
-  } catch {
-    // Non-fatal: the list is a convenience, not a source of truth.
-  }
+export function rememberCollabProjectV2(record: CollabProjectRecordV2): void {
+  const rest = loadCollabProjectsV2().filter((item) => !(item.host === record.host && item.projectInstanceId === record.projectInstanceId));
+  try { localStorage.setItem(PROJECTS_V2_KEY, JSON.stringify([record, ...rest].slice(0, 24))); } catch { /* convenience only */ }
 }
 
-/** Active (recent) rooms, newest first — what the dialog shows. */
-export function loadActiveCollabRooms(now = Date.now()): CollabRoomRecord[] {
-  return readRooms()
-    .filter((room) => now - (room.lastUsed || 0) < ROOM_ACTIVE_MS)
-    .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
-}
-
-/** Record (or refresh) a room, de-duped by host+room, stamped as just used. */
-export function rememberCollabRoom(
-  record: Omit<CollabRoomRecord, "lastUsed">,
-  now = Date.now(),
-): void {
-  const rest = readRooms().filter(
-    (room) => !(room.room === record.room && room.host === record.host),
-  );
-  writeRooms([{ ...record, lastUsed: now }, ...rest]);
-}
-
-/** Drop a room from the list (host stopped it, or a reconnect found it gone). */
-export function forgetCollabRoom(host: string, room: string): void {
-  writeRooms(readRooms().filter((entry) => !(entry.room === room && entry.host === host)));
+export function forgetCollabProjectV2(host: string, projectInstanceId: string): void {
+  const remaining = loadCollabProjectsV2().filter((item) => !(item.host === host && item.projectInstanceId === projectInstanceId));
+  try { localStorage.setItem(PROJECTS_V2_KEY, JSON.stringify(remaining)); } catch { /* convenience only */ }
 }

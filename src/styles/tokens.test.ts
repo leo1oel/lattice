@@ -24,6 +24,13 @@ const tailwindTheme = read("src/index.css")
 function collectSources(dir: string, files: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const full = `${dir}/${entry}`
+    // Vendored Open Knowledge code carries upstream's styling (pinned
+    // byte-faithful editor CSS, embedded preview-starter CSS and the like)
+    // and is not held to this app's design token contract. This includes the
+    // editor-theme-seam, whose values intentionally mirror upstream's raw
+    // tokens; theme normalization is deferred by explicit user decision.
+    if (full === "src/open-knowledge-core") continue
+    if (full === "src/open-knowledge-app") continue
     if (statSync(full).isDirectory()) {
       collectSources(full, files)
       continue
@@ -72,12 +79,18 @@ const PALETTE = [
 const EXTERNAL_PREFIXES = [
   "--radix-",
   "--tw-",
+  // Vendored Open Knowledge editor hooks: referenced with fallbacks in
+  // index.css, defined only inside src/open-knowledge-app (excluded from
+  // this scan) so upstream editor scopes can re-route colliding token names.
+  "--ok-",
   "--cm-",
   "--color-",
   "--trees-",
   "--total-scale-factor",
   "--scroll-area-thumb-",
   "--bk-speed",
+  // Shiki dual themes write the dark-variant tokens as inline styles on spans.
+  "--shiki-",
 ]
 
 describe("design token contract", () => {
@@ -138,17 +151,20 @@ describe("design token contract", () => {
     expect(foundations).toMatch(/--settings-control-line-height: var\(--type-label-line-height\)/)
     expect(foundations).toMatch(/--settings-control-font-weight: var\(--type-body-weight\)/)
     expect(dialogs).toContain('[data-slot="select-content"][data-settings-control="true"]')
-    expect(settingsDialog.match(/data-settings-control="true"/g)).toHaveLength(6)
+    expect(settingsDialog.match(/data-settings-control="true"/g)).toHaveLength(5)
   })
 
   it("draws keyboard focus exactly once", () => {
     const globalRing =
-      /:where\(button, a, select, \[role="button"\], \[tabindex\]\):focus-visible \{\s*outline: var\(--focus-ring-width\) solid var\(--focus-ring\);\s*outline-offset: var\(--focus-ring-offset\);/
+      /:where\(button:not\(\.project-title\), a, select, \[role="button"\], \[tabindex\]:not\(\.ProseMirror\):not\(\[tabindex="-1"\]\):not\(\[role="menuitem"\]\)\):focus-visible \{\s*outline: var\(--focus-ring-width\) solid var\(--focus-ring\);\s*outline-offset: var\(--focus-ring-offset\);/
     expect(appCss).toMatch(globalRing)
+    expect(appCss).not.toMatch(/\[tabindex\]\):focus-visible/)
+    expect(appCss).toMatch(/\.project-title:hover, \.project-title:focus-visible, \.project-title\[aria-expanded="true"\] \{ background: var\(--chrome-hover-surface\); \}/)
 
     // No control may cancel the ring or re-implement it as a shadow. Text entry
-    // is the one exception: it is excluded from the ring by design, so a field
-    // may still suppress the native halo on its own selector.
+    // and composite active rows are excluded from the ring by design, so a field
+    // may still suppress the native halo on its own selector. Composite controls
+    // must express focus with their existing fill rather than another outline.
     const cancelled = sources.filter(({ rules }) =>
       [...rules.matchAll(/([^{}]*):focus-visible[^{]*\{[^}]*outline:\s*none/g)].some(
         (match) => !/input|textarea|search/i.test(match[1]),
@@ -253,7 +269,7 @@ describe("design token contract", () => {
     // resizer and the vendor component write the property on the element, and an
     // inline value beats every selector there is.
     const FOREIGN =
-      /cm-|data-slot|data-type=|data-lattice|data-virtualizer|data-unmodified|trees-|diffs-|katex|:host|prefers-reduced-motion|reordering-tabs|split-canvas|data-file-tree|\brow-(?:cite|delete|edit-bib)\b/
+      /cm-|data-slot|data-type=|data-lattice|data-virtualizer|data-unmodified|data-code|data-error-wrapper|trees-|diffs-|katex|shiki|react-joyride|:host|prefers-reduced-motion|reordering-tabs|split-canvas|data-file-tree|\brow-(?:cite|delete|edit-bib)\b/
 
     const offenders: string[] = []
     for (const { file, rules } of sources) {

@@ -1,9 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { syntaxTree } from "@codemirror/language";
 import { StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import type { Editor as TiptapEditor } from "@tiptap/react";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +13,7 @@ import App from "./App";
 import { persistWorkspaceLayout } from "./app-settings";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 import { usePanelLayout } from "./use-panel-layout";
+import { parseVisualMarkdown } from "./visual-markdown-schema";
 import type { SynaraRuntimeInfo } from "./synara-runtime";
 
 const windowApi = vi.hoisted(() => ({
@@ -40,6 +43,7 @@ const synaraHook = vi.hoisted(() => ({
     revision: "test" as string | null,
   } as SynaraRuntimeInfo,
   retry: vi.fn(),
+  enabledCalls: [] as boolean[],
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
@@ -60,8 +64,14 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: vi.fn(),
 }));
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
+// The board creation flow opens the .tldr in the canvas; mounting the real
+// Tldraw editor needs browser canvas APIs jsdom doesn't have.
+vi.mock("./board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
 vi.mock("./use-synara-runtime", () => ({
-  useSynaraRuntime: () => synaraHook,
+  useSynaraRuntime: (enabled = true) => {
+    synaraHook.enabledCalls.push(enabled);
+    return synaraHook;
+  },
 }));
 vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
   GlobalWorkerOptions: {},
@@ -140,6 +150,7 @@ async function findProjectTreeRenameInput(): Promise<HTMLInputElement> {
 
 beforeEach(() => {
   localStorage.clear();
+  localStorage.setItem("lattice.tutorial-seen.v1", "1");
   webviewApi.dragDropHandler = null;
   synaraHook.runtime = {
     state: "ready",
@@ -151,10 +162,12 @@ beforeEach(() => {
     revision: "test",
   };
   synaraHook.retry.mockReset();
+  synaraHook.enabledCalls.length = 0;
   // The app asks through the dialog plugin, not the global — see confirmAction.
   vi.mocked(confirm).mockResolvedValue(true);
   vi.mocked(open).mockResolvedValue(null);
   vi.mocked(save).mockResolvedValue(null);
+  vi.mocked(openUrl).mockResolvedValue(undefined);
   vi.mocked(revealItemInDir).mockResolvedValue(undefined);
   vi.mocked(writeText).mockResolvedValue(undefined);
   windowApi.isFullscreen.mockResolvedValue(false);
@@ -234,6 +247,19 @@ describe("welcome screen", () => {
     expect(screen.getByRole("heading", { name: "Research, written with evidence." })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /open folder/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /explore lattice/i })).not.toBeInTheDocument();
+  });
+
+  it("does not start the tutorial before a project has opened", async () => {
+    localStorage.removeItem("lattice.tutorial-seen.v1");
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "initial_project") return null;
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<App />);
+    expect(screen.getByRole("heading", { name: "Research, written with evidence." })).toBeInTheDocument();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("initial_project"));
+    expect(invoke).not.toHaveBeenCalledWith("open_tutorial_project");
   });
 
   it("opens the project creation dialog", () => {
@@ -257,6 +283,34 @@ describe("welcome screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("That folder already exists and is not empty.");
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
+  });
+
+  it("automatically offers the tutorial after an unseen user opens a project", async () => {
+    localStorage.removeItem("lattice.tutorial-seen.v1");
+    const snapshot = {
+      root: "/tmp/research/First paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "first-paper-id",
+        name: "First paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "open_tutorial_project") throw new Error("Tutorial fixture stopped after invocation.");
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
+    expect(open).not.toHaveBeenCalled();
   });
 
   it("starts the first build as soon as a new project opens", async () => {
@@ -291,8 +345,50 @@ describe("welcome screen", () => {
       name: "New paper",
       venue: "icml",
     }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+      force: false,
+      projectRoot: "/tmp/research/New paper",
+    }));
     expect(await screen.findByRole("button", { name: "Switch project" })).toHaveTextContent("New paper");
+  });
+
+  it("shows an existing compiled PDF without waiting for the initial build", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const build = new Promise<never>(() => undefined);
+    const NativeURL = globalThis.URL;
+    class TestURL extends NativeURL {
+      static createObjectURL = vi.fn(() => "blob:cached-pdf");
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") return build;
+      if (command === "read_compiled_pdf") {
+        return new TextEncoder().encode("%PDF-1.4 cached").buffer;
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_compiled_pdf", {
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    expect(TestURL.createObjectURL).toHaveBeenCalledOnce();
   });
 
   it("uses fixed application fonts while preserving editor size controls", async () => {
@@ -305,7 +401,7 @@ describe("welcome screen", () => {
     render(<App />);
     expect(screen.queryByTitle("Toggle theme")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    const settingsNavigation = screen.getByRole("navigation", {
+    const settingsNavigation = await screen.findByRole("navigation", {
       name: "Settings sections",
     });
     expect(within(settingsNavigation).getByRole("button", { name: "Appearance" }))
@@ -331,7 +427,7 @@ describe("welcome screen", () => {
     expect(within(settingsNavigation).getByRole("button", { name: "Editor & builds" }))
       .toHaveAttribute("aria-current", "page");
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
-    expect(screen.getByText(/leave the editor or after 1.2 seconds/i)).toBeInTheDocument();
+    expect(screen.getByText(/leave the editor or stop typing for 1.2 seconds/i)).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v2")).toContain("automatic"));
     fireEvent.click(screen.getByRole("button", { name: "Providers" }));
     expect(screen.getByText("Open a project to manage Agent settings.")).toBeInTheDocument();
@@ -341,7 +437,7 @@ describe("welcome screen", () => {
   it("keeps Settings draggable from its header and the top window strip", async () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    const dialog = screen.getByRole("dialog", { name: "Settings" });
+    const dialog = await screen.findByRole("dialog", { name: "Settings" });
     const header = dialog.querySelector<HTMLElement>(".settings-header")!;
 
     fireEvent.mouseDown(header, { button: 0, buttons: 1, detail: 1 });
@@ -351,39 +447,102 @@ describe("welcome screen", () => {
     const topStrip = document.querySelector<HTMLElement>("[data-modal-window-drag]")!;
     fireEvent.pointerDown(topStrip, { button: 0, buttons: 1, pointerType: "mouse" });
     fireEvent.mouseDown(topStrip, { button: 0, buttons: 1, detail: 1 });
+    fireEvent.pointerUp(topStrip, { button: 0, buttons: 0, pointerType: "mouse" });
+    fireEvent.mouseUp(topStrip, { button: 0, buttons: 0, detail: 1 });
+    fireEvent.click(topStrip, { button: 0, detail: 1 });
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     await waitFor(() => expect(windowApi.startDragging).toHaveBeenCalledOnce());
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
   });
 
   it("persists the opt-in editor spellcheck setting", async () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
     const spellcheck = screen.getByLabelText("Check spelling in prose");
     expect(spellcheck).not.toBeChecked();
     fireEvent.click(spellcheck);
     await waitFor(() => expect(localStorage.getItem("lattice.appearance.v5")).toContain('"editorSpellcheck":true'));
   });
 
-  it("keeps an explicitly selected manual build preference", () => {
+  it("keeps an explicitly selected manual build preference", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Manual only");
   });
 
-  it("migrates the legacy manual default to automatic build", () => {
+  it("migrates the legacy manual default to automatic build", async () => {
     localStorage.setItem("lattice.build-preferences.v1", JSON.stringify({ autoBuildMode: "manual" }));
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
   });
 
 });
 
 describe("project workspace", () => {
+  it("temporarily reveals auxiliary sources without forgetting the selected document view", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "introduction.tex", path: "introduction.tex", kind: "tex", children: [] },
+        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
+        { name: "conference.sty", path: "conference.sty", kind: "text", children: [] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        const path = (args as { path: string }).path;
+        if (path === "references.bib") return "@article{lattice, title={Lattice}}";
+        if (path === "conference.sty") return "\\ProvidesPackage{conference}";
+        return "\\documentclass{article}";
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const documentView = await screen.findByRole("tablist", { name: "Document view" });
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    await waitFor(() => expect(document.querySelector(".source-editor")).toBeNull());
+
+    fireEvent.click(await findProjectTreeItem("introduction.tex"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /introduction\.tex/ }))
+      .toHaveAttribute("aria-selected", "true"));
+    expect(document.querySelector(".source-editor")).toBeNull();
+
+    fireEvent.click(await findProjectTreeItem("references.bib"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /references\.bib/ }))
+      .toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(document.querySelector(".source-editor")).not.toBeNull());
+
+    fireEvent.click(await findProjectTreeItem("main.tex"));
+    await waitFor(() => expect(document.querySelector(".source-editor")).toBeNull());
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
+    fireEvent.click(await findProjectTreeItem("conference.sty"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /conference\.sty/ }))
+      .toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(document.querySelector(".source-editor")).not.toBeNull());
+
+    fireEvent.click(await findProjectTreeItem("main.tex"));
+    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
+      .toBeInTheDocument();
+  });
+
   it("restores tab order, active pane, and column layout after relaunch", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -408,6 +567,7 @@ describe("project workspace", () => {
       secondaryFile: "method.tex",
       focusedPane: "secondary",
       canvasMode: "columns",
+      documentMode: "columns",
       paperView: "blog",
       tabRecency: ["method.tex", "main.tex", "intro.tex"],
     });
@@ -429,6 +589,189 @@ describe("project workspace", () => {
     expect(document.querySelector(".dual-pane-label")).toHaveTextContent("method.tex");
     expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "main.tex" });
     expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "method.tex" });
+  });
+
+  it("opens relative project files from Markdown previews", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        {
+          name: "notes",
+          path: "notes",
+          kind: "directory",
+          children: [
+            { name: "index.md", path: "notes/index.md", kind: "markdown", children: [] },
+            { name: "native-unified-view.md", path: "notes/native-unified-view.md", kind: "markdown", children: [] },
+          ],
+        },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["notes/index.md"],
+      activeFile: "notes/index.md",
+      activeTab: "notes/index.md",
+      secondaryFile: "",
+      focusedPane: "primary",
+      canvasMode: "split",
+      documentMode: "split",
+      paperView: "blog",
+      tabRecency: ["notes/index.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") {
+        return (args as { path: string }).path === "notes/index.md"
+          ? "---\ntitle: Exact metadata\n---\n[Native unified view](native-unified-view.md)\n\n-\n  [ ] Review preview"
+          : "# Native unified view";
+      }
+      if (command === "write_project_file") return undefined;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const editorDom = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".source-editor .cm-editor");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const editor = EditorView.findFromDOM(editorDom);
+    if (!editor) throw new Error("Markdown editor was not created.");
+    await waitFor(() => expect(syntaxTree(editor.state).toString()).toContain("Link("));
+    const documentView = screen.getByRole("tablist", { name: "Document view" });
+    expect(document.querySelector(".markdown-preview")).not.toBeNull();
+    const visualSurface = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    const visualEditor = (visualSurface as HTMLElement & { editor: TiptapEditor }).editor;
+    act(() => {
+      visualEditor.commands.setContent(
+        parseVisualMarkdown("[Visually edited view](native-unified-view.md)\n\n- [ ] Review preview"),
+      );
+    });
+    await waitFor(() => expect(editor.state.doc.toString())
+      .toContain("[Visually edited view](native-unified-view.md)"));
+    expect(editor.state.doc.toString()).toBe(
+      "---\ntitle: Exact metadata\n---\n[Visually edited view](native-unified-view.md)\n\n- [ ] Review preview",
+    );
+    await waitFor(() => expect(screen.getByRole("link", { name: "Visually edited view" })).toBeInTheDocument());
+    fireEvent.click(await screen.findByRole("checkbox"));
+    await waitFor(() => expect(editor.state.doc.toString()).toContain("- [x] Review preview"));
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+    expect(document.querySelector(".source-editor .cm-editor")).not.toBeNull();
+    expect(document.querySelector(".markdown-preview")).toBeNull();
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
+    const splitEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
+    expect(splitEditorDom).not.toBeNull();
+    expect(document.querySelector(".markdown-preview")).not.toBeNull();
+    const splitEditor = splitEditorDom ? EditorView.findFromDOM(splitEditorDom) : null;
+    if (!splitEditor) throw new Error("Markdown split editor was not created.");
+    splitEditor.dispatch({
+      changes: {
+        from: 0,
+        to: splitEditor.state.doc.length,
+        insert: "[Updated native view](native-unified-view.md)",
+      },
+    });
+    expect(await screen.findByRole("link", { name: "Updated native view" })).toBeInTheDocument();
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    await waitFor(() => expect(document.querySelector(".source-editor .cm-editor")).toBeNull());
+    fireEvent.click(await screen.findByRole("link", { name: "Updated native view" }), { metaKey: true });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
+      path: "notes/native-unified-view.md",
+    }));
+    expect(await screen.findByRole("tab", { name: /native-unified-view\.md/ }))
+      .toHaveAttribute("aria-selected", "true");
+  });
+
+  it("opens HTML documents in an interactive sandboxed preview with Edit and Split views", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "report.html", name: "Results", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "report.html", path: "report.html", kind: "html", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") {
+        return (args as { path: string }).path === "report.html"
+          ? "<!doctype html><html><head><base href='https://example.com/'><style>h1{color:tomato}</style></head><body><h1 id='results'>Results</h1><button onclick='this.textContent=&quot;Done&quot;'>Run</button><a href='./details.html'>Details</a><a href='#results'>Jump</a><script>window.previewReady=true</script></body></html>"
+          : "\\documentclass{article}";
+      }
+      if (command === "write_project_file") return undefined;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    const documentView = await screen.findByRole("tablist", { name: "Document view" });
+    expect(screen.queryByTitle("HTML preview for report.html")).not.toBeInTheDocument();
+    fireEvent.pointerDown(documentView);
+    const preview = await screen.findByTitle<HTMLIFrameElement>("HTML preview for report.html");
+    expect(within(documentView).getByRole("tab", { name: "Preview" })).toHaveAttribute("aria-selected", "true");
+    expect(preview).toHaveAttribute("sandbox", "allow-scripts");
+    expect(preview).toHaveAttribute("referrerpolicy", "no-referrer");
+    expect(preview.getAttribute("srcdoc")).toContain('<h1 id="results">Results</h1>');
+    expect(preview.getAttribute("srcdoc")).toContain("h1{color:tomato}");
+    expect(preview.getAttribute("srcdoc")).toContain("<script>window.previewReady=true</script>");
+    expect(preview.getAttribute("srcdoc")).toContain("onclick=");
+    expect(preview.getAttribute("srcdoc")).toContain('<base href="about:blank">');
+    expect(preview.getAttribute("srcdoc")).not.toContain("https://example.com/");
+    expect(preview.getAttribute("srcdoc")).not.toContain("href=\"./details.html\"");
+    expect(preview.getAttribute("srcdoc")).toContain("href=\"#results\"");
+    expect(preview.getAttribute("srcdoc")).toContain('data-lattice-preview="fragment-navigation"');
+    expect(preview.getAttribute("srcdoc")).toContain("target.scrollIntoView()");
+    expect(preview.getAttribute("srcdoc")).toContain("lattice:html-preview-open-external");
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: preview.contentWindow,
+        data: {
+          type: "lattice:html-preview-open-external",
+          href: "https://arxiv.org/abs/2110.04366",
+        },
+      }));
+    });
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith(new URL("https://arxiv.org/abs/2110.04366")));
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+    expect(document.querySelector(".source-editor .cm-editor")).not.toBeNull();
+    expect(screen.queryByTitle("HTML preview for report.html")).not.toBeInTheDocument();
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
+    expect(document.querySelector(".source-editor .cm-editor")).not.toBeNull();
+    expect(await screen.findByTitle("HTML preview for report.html")).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize editor and HTML preview" })).toBeInTheDocument();
+
+    const editorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
+    const editor = editorDom ? EditorView.findFromDOM(editorDom) : null;
+    if (!editor) throw new Error("HTML editor was not created.");
+    editor.dispatch({
+      changes: {
+        from: 0,
+        to: editor.state.doc.length,
+        insert: "<!doctype html><html><body><h2>Updated results</h2></body></html>",
+      },
+    });
+    await waitFor(() => expect(screen.getByTitle("HTML preview for report.html").getAttribute("srcdoc"))
+      .toContain("<h2>Updated results</h2>"));
   });
 
   it("adds and removes project dictionary terms from Editor settings", async () => {
@@ -522,6 +865,59 @@ describe("project workspace", () => {
     expect(within(settings).queryByText("Subscriptions")).not.toBeInTheDocument();
   });
 
+  it("defers a restored Agent frame until a post-startup interaction", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    localStorage.setItem("lattice.sidebar-mode.v1", "agent");
+
+    render(<App />);
+    await screen.findByRole("button", { name: "Switch project" });
+    expect(screen.getByRole("tab", { name: "Project" })).toHaveAttribute("aria-selected", "true");
+    expect(document.querySelector('iframe[title="Agent"]')).toBeNull();
+    expect(synaraHook.enabledCalls).toContain(true);
+    await switchSidebarMode("Agent");
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
+
+    fireEvent.load(frame);
+    expect(postMessage).not.toHaveBeenCalled();
+    expect(frame.closest(".synara-frame-shell")).not.toHaveAttribute("data-ready");
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "synara:embed-ready" },
+      }));
+    });
+
+    await waitFor(() => expect(frame.closest(".synara-frame-shell")).toHaveAttribute("data-ready"));
+    expect(postMessage).toHaveBeenCalledWith(
+      { type: "lattice:request-agent-permission-mode" },
+      synaraHook.runtime.origin,
+    );
+  });
+
   it("opens a project switcher with recent and folder actions", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -555,6 +951,7 @@ describe("project workspace", () => {
     expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Light" })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Explore Lattice tutorial" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /open another folder/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize workspace sidebar" })).toBeInTheDocument();
@@ -697,7 +1094,7 @@ describe("project workspace", () => {
     await switchSidebarMode("Agent");
     expect(divider).toHaveAttribute("aria-valuenow", "424");
 
-    const splitDivider = screen.getByRole("separator", { name: "Resize source and PDF preview" });
+    const splitDivider = screen.getByRole("separator", { name: "Resize editor and PDF preview" });
     expect(splitDivider.closest(".split-canvas")).toHaveAttribute(
       "data-minimum-workspace-width",
       "981",
@@ -800,6 +1197,11 @@ describe("project workspace", () => {
           kind: "text",
           children: [],
         },
+        { name: "references.bib", path: "references.bib", kind: "text", children: [] },
+        { name: "paper.pdf", path: "paper.pdf", kind: "figure", children: [] },
+        { name: "conference.sty", path: "conference.sty", kind: "text", children: [] },
+        { name: "plain.bst", path: "plain.bst", kind: "text", children: [] },
+        { name: "figure.eps", path: "figure.eps", kind: "figure", children: [] },
       ],
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -831,6 +1233,18 @@ describe("project workspace", () => {
     expect(host).toHaveAttribute("data-file-tree-virtualized", "true");
     expect((await findProjectTreeItem("component.tsx")).querySelector("[data-icon-token='react']"))
       .not.toBeNull();
+    expect((await findProjectTreeItem("chapters/method/main.tex")).querySelector("use"))
+      .toHaveAttribute("href", "#lattice-material-tex");
+    expect((await findProjectTreeItem("references.bib")).querySelector("use"))
+      .toHaveAttribute("href", "#lattice-material-bibliography");
+    expect((await findProjectTreeItem("paper.pdf")).querySelector("use"))
+      .toHaveAttribute("href", "#lattice-material-pdf");
+    expect((await findProjectTreeItem("conference.sty")).querySelector("use"))
+      .toHaveAttribute("href", "#lattice-material-tex-style");
+    expect((await findProjectTreeItem("plain.bst")).querySelector("use"))
+      .toHaveAttribute("href", "#lattice-material-bibtex-style");
+    expect((await findProjectTreeItem("figure.eps")).querySelector("use"))
+      .toHaveAttribute("href", "#file-tree-builtin-image");
     const folderRows = projectTreeRoot()?.querySelectorAll("[data-item-type='folder']");
     expect(new Set(Array.from(folderRows ?? [], (row) => (row as HTMLElement).dataset.itemPath)))
       .toEqual(new Set(["chapters/method/"]));
@@ -878,7 +1292,10 @@ describe("project workspace", () => {
       path: "main.tex",
       content: "\\documentclass{article}\nNew result.",
     }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+      force: false,
+      projectRoot: "/tmp/lattice-paper",
+    }));
   });
 
   it("automatically builds after 1.2 seconds without editing", async () => {
@@ -912,7 +1329,10 @@ describe("project workspace", () => {
     });
     const view = EditorView.findFromDOM(editorElement);
     if (!view) throw new Error("CodeMirror view was not available");
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+      force: false,
+      projectRoot: "/tmp/lattice-paper",
+    }));
     vi.mocked(invoke).mockClear();
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nIdle build." } });
 
@@ -920,7 +1340,52 @@ describe("project workspace", () => {
       path: "main.tex",
       content: "\\documentclass{article}\nIdle build.",
     }), { timeout: 2_500 });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+      force: false,
+      projectRoot: "/tmp/lattice-paper",
+    }));
+  });
+
+  it("automatically rebuilds after the active source changes on disk", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    let source = "\\documentclass{article}";
+    let mtimeMs = 1;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return source;
+      if (command === "stat_project_file") return { exists: true, mtimeMs };
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") {
+        return { success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+      force: false,
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    vi.mocked(invoke).mockClear();
+    source = "\\documentclass{article}\nExternal edit.";
+    mtimeMs = 2;
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+      force: false,
+      projectRoot: "/tmp/lattice-paper",
+    }), { timeout: 3_500 });
   });
 
   it("lists a work that is only cited but does not offer to open it", async () => {
@@ -1050,7 +1515,9 @@ describe("project workspace", () => {
         hasBlog: true,
       }];
       if (command === "list_history") return [];
-      if (command === "read_paper") return "---\ntitle: Attention Is All You Need\n---\n\n## Abstract";
+      if (command === "read_paper") {
+        return "---\ntitle: Attention Is All You Need\nnotes: |\n  - [ ] Hidden metadata task\n---\n\n## Abstract\n\n- [ ] Review paper";
+      }
       if (command === "read_paper_blog") return "# Attention overview\n\nA concise explanation.";
       if (command === "write_project_file") return undefined;
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
@@ -1064,7 +1531,7 @@ describe("project workspace", () => {
     expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
     expect(document.querySelector(".paper-reader")).toBeNull();
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
-    expect(screen.getByRole("heading", { name: "Attention overview" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Attention overview" })).toBeInTheDocument();
 
     const documentView = screen.getByRole("tablist", { name: "Document view" });
     expect(within(documentView).getByRole("tab", { name: "Edit" })).toBeInTheDocument();
@@ -1095,10 +1562,18 @@ describe("project workspace", () => {
     fireEvent.click(within(paperContent).getByRole("tab", { name: "Paper" }));
     expect(await screen.findByRole("heading", { name: "Abstract" })).toBeInTheDocument();
     expect(screen.queryByText("title: Attention Is All You Need")).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("checkbox"));
+    await waitFor(() => expect(screen.getByRole("checkbox")).toBeChecked());
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
-    const paperEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-    const paperEditor = paperEditorDom ? EditorView.findFromDOM(paperEditorDom) : null;
+    const paperEditor = await waitFor(() => {
+      const paperEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
+      const view = paperEditorDom ? EditorView.findFromDOM(paperEditorDom) : null;
+      expect(view).not.toBeNull();
+      return view;
+    });
     if (!paperEditor) throw new Error("Full paper Markdown editor was not created.");
+    expect(paperEditor.state.doc.toString()).toContain("- [ ] Hidden metadata task");
+    expect(paperEditor.state.doc.toString()).toContain("- [x] Review paper");
     paperEditor.dispatch({
       changes: {
         from: 0,
@@ -1118,6 +1593,56 @@ describe("project workspace", () => {
     fireEvent.click(await findProjectTreeItem("main.tex"));
     await switchSidebarMode("Papers");
     await waitFor(() => expect(screen.getByTitle("Attention Is All You Need").closest(".paper-row")).not.toHaveClass("active"));
+  });
+
+  it("remembers the selected paper content when reopening an article", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{main}";
+      if (command === "list_papers") return [{
+        arxivId: "1706.03762",
+        title: "Attention Is All You Need",
+        hasFullText: true,
+        hasBlog: true,
+      }];
+      if (command === "list_history") return [];
+      if (command === "read_paper") return "## Abstract\n\nPaper content.";
+      if (command === "read_paper_blog") return "# Attention overview\n\nBlog content.";
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByTitle("Attention Is All You Need"));
+    const paperContent = await screen.findByRole("tablist", { name: "Paper content" });
+    fireEvent.click(within(paperContent).getByRole("tab", { name: "Paper" }));
+    await waitFor(() => expect(within(paperContent).getByRole("tab", { name: "Paper" }))
+      .toHaveAttribute("aria-selected", "true"));
+
+    await switchSidebarMode("Project");
+    fireEvent.click(await findProjectTreeItem("main.tex"));
+    await switchSidebarMode("Papers");
+    const paper = await screen.findByTitle("Attention Is All You Need");
+    await waitFor(() => expect(paper.closest(".paper-row")).not.toHaveClass("active"));
+    fireEvent.click(paper);
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "read_paper")).toHaveLength(2));
+
+    const reopenedPaperContent = await screen.findByRole("tablist", { name: "Paper content" });
+    await waitFor(() => expect(within(reopenedPaperContent).getByRole("tab", { name: "Paper" }))
+      .toHaveAttribute("aria-selected", "true"));
   });
 
   it("uses Pierre path search while keeping indexed full-text search available", async () => {
@@ -1767,6 +2292,10 @@ describe("project workspace", () => {
     }));
     expect(await screen.findByRole("tab", { name: /references\.bib/ }))
       .toHaveAttribute("aria-selected", "true");
+    const bibliographyEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
+    const bibliographyEditor = bibliographyEditorDom ? EditorView.findFromDOM(bibliographyEditorDom) : null;
+    expect(bibliographyEditor && syntaxTree(bibliographyEditor.state).toString())
+      .toContain("Entry(EntryType");
     expect(document.querySelector(".source-editor")).not.toHaveClass("file-drop-active");
   });
 
@@ -1958,6 +2487,15 @@ describe("project workspace", () => {
     fireEvent.click(await findProjectTreeItem("figures/"));
     fireEvent.click(await findProjectTreeItem("figures/existing.svg"));
     const preview = await screen.findByAltText("Preview of figures/existing.svg");
+    const zoomPercentage = screen.getByLabelText("Image zoom percentage");
+    expect(zoomPercentage).toHaveValue("100");
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(zoomPercentage).toHaveValue("110");
+    expect(preview).toHaveStyle({ zoom: "1.1" });
+    fireEvent.change(zoomPercentage, { target: { value: "999" } });
+    fireEvent.blur(zoomPercentage);
+    expect(zoomPercentage).toHaveValue("500");
+    expect(preview).toHaveStyle({ zoom: "5" });
     Object.defineProperty(document, "elementFromPoint", {
       configurable: true,
       value: vi.fn(() => preview),
@@ -1979,7 +2517,8 @@ describe("project workspace", () => {
     }));
     expect(await screen.findByRole("tab", { name: /new\.png/ }))
       .toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByAltText("Preview of figures/new.png")).toBeInTheDocument();
+    expect(await screen.findByAltText("Preview of figures/new.png")).toHaveStyle({ zoom: "1" });
+    expect(screen.getByLabelText("Image zoom percentage")).toHaveValue("100");
     expect(invoke).not.toHaveBeenCalledWith("prepare_latex_figure", expect.anything());
     Reflect.deleteProperty(document, "elementFromPoint");
   });
@@ -2108,7 +2647,7 @@ describe("project workspace", () => {
     expect(screen.getByLabelText("Search PDF").closest(".pdf-find-controls"))
       .toHaveClass("without-outline");
 
-    fireEvent.click(screen.getByRole("tab", { name: "source" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
     const editorElement = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");
       expect(element).not.toBeNull();
@@ -2192,6 +2731,29 @@ describe("project workspace", () => {
   });
 
   it("renders every PDF page in one continuous themed reader", async () => {
+    const intersections: Array<{
+      element: Element;
+      notify: (isIntersecting: boolean) => void;
+    }> = [];
+    class TestIntersectionObserver {
+      constructor(private readonly callback: IntersectionObserverCallback) {}
+      observe(element: Element) {
+        intersections.push({
+          element,
+          notify: (isIntersecting) => this.callback(
+            [{ isIntersecting } as IntersectionObserverEntry],
+            this as unknown as IntersectionObserver,
+          ),
+        });
+      }
+      disconnect() {}
+      unobserve() {}
+      takeRecords() { return []; }
+      readonly root = null;
+      readonly rootMargin = "900px 0px";
+      readonly thresholds = [0];
+    }
+    vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -2205,6 +2767,8 @@ describe("project workspace", () => {
       files: [],
     };
     const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
+    const renderPdfPage = vi.fn(() => renderTask);
+    const getPdfPageText = vi.fn(async () => ({ items: [{ str: "Attention is all you need" }] }));
     const pdf = {
       numPages: 2,
       getPage: vi.fn(async () => ({
@@ -2213,15 +2777,16 @@ describe("project workspace", () => {
           height: 800,
           convertToViewportPoint: (x: number, y: number) => [x, y],
         }),
-        render: () => renderTask,
+        render: renderPdfPage,
         streamTextContent: () => new ReadableStream(),
-        getTextContent: async () => ({ items: [{ str: "Attention is all you need" }] }),
+        getTextContent: getPdfPageText,
         getAnnotations: async () => [{
           id: "link-1",
           subtype: "Link",
           rect: [10, 20, 80, 40],
           url: "https://example.com/paper",
         }],
+        cleanup: vi.fn(),
       })),
       getDestination: vi.fn(),
       getPageIndex: vi.fn(),
@@ -2245,11 +2810,14 @@ describe("project workspace", () => {
       if (command === "list_papers" || command === "list_history") return [];
       if (command === "build_project") return {
         success: true,
-        pdfBase64: "JVBERi0xLjQ=",
+        hasPdf: true,
         log: "",
         durationMs: 100,
         diagnostics: [],
       };
+      if (command === "read_compiled_pdf") {
+        return new TextEncoder().encode("%PDF-1.4").buffer;
+      }
       if (command === "save_compiled_pdf") return "/tmp/exported-paper.pdf";
       if (command === "synctex_edit") return { path: "main.tex", line: 1 };
       if (command === "synctex_view") {
@@ -2267,7 +2835,13 @@ describe("project workspace", () => {
     });
 
     render(<App />);
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+      force: false,
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_compiled_pdf", {
+      projectRoot: "/tmp/lattice-paper",
+    }));
     const savePdf = await screen.findByRole("button", { name: "Save PDF as…" });
     const pdfScrollArea = document.querySelector(".pdf-scroll-area")!;
     const pdfViewport = pdfScrollArea.querySelector("[data-slot='scroll-area-viewport']");
@@ -2276,23 +2850,39 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled());
     expect(await screen.findByLabelText("PDF page 1")).toBeInTheDocument();
     expect(await screen.findByLabelText("PDF page 2")).toBeInTheDocument();
+    act(() => {
+      for (const intersection of intersections) intersection.notify(true);
+    });
+    await waitFor(() => expect(renderPdfPage).toHaveBeenCalledTimes(2));
+    const firstPageIntersection = intersections.find(
+      ({ element }) => (element as HTMLElement).dataset.pdfPage === "1",
+    );
+    expect(firstPageIntersection).toBeDefined();
+    act(() => firstPageIntersection?.notify(false));
+    await Promise.resolve();
+    act(() => firstPageIntersection?.notify(true));
+    await Promise.resolve();
+    expect(renderPdfPage).toHaveBeenCalledTimes(2);
+    expect(renderTask.cancel).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(document.querySelector(".pdf-text-layer span")).toHaveTextContent("Attention is all you need");
     });
+    expect(getPdfPageText).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(screen.getAllByTitle("https://example.com/paper").length).toBeGreaterThan(0);
     });
     expect(pdf.getPage).toHaveBeenCalledWith(1);
-    expect(pdf.getPage).toHaveBeenCalledWith(2);
+    await waitFor(() => expect(pdf.getPage).toHaveBeenCalledWith(2));
     expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
     const fitWidth = screen.getByRole("button", { name: "Fit page to width" });
     const fitHeight = screen.getByRole("button", { name: "Fit page to height" });
-    fireEvent.click(fitWidth);
     expect(fitWidth).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(fitHeight);
     expect(fitWidth).toHaveAttribute("aria-pressed", "false");
     expect(fitHeight).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(localStorage.getItem("lattice.pdf-view-preference.v1"))
+      .toContain('"fitMode":"height"'));
     fireEvent.click(fitHeight);
     expect(fitHeight).toHaveAttribute("aria-pressed", "false");
     const pageInput = screen.getByLabelText("PDF page number");
@@ -2306,6 +2896,7 @@ describe("project workspace", () => {
     fireEvent.change(searchInput, { target: { value: "attention" } });
     expect(searchControl.querySelector(":scope > svg")).toBeNull();
     expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+    await waitFor(() => expect(getPdfPageText).toHaveBeenCalledTimes(2));
     expect(await screen.findByText("1 / 2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next search result" }));
     expect(await screen.findByText("2 / 2")).toBeInTheDocument();
@@ -2374,16 +2965,20 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
     expect(zoomInput).toHaveValue(String(zoomBefore + 10));
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", { force: false }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+      force: false,
+      projectRoot: "/tmp/lattice-paper",
+    }));
     // Identical PDF bytes must not thrash pdf.js — keep the same document + zoom.
     expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(1);
     expect(zoomInput).toHaveValue(String(zoomBefore + 10));
     fireEvent.click(savePdf);
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: "paper.pdf" })));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("save_compiled_pdf", {
-      path: "/tmp/exported-paper.pdf",
-      pdfBase64: "JVBERi0xLjQ=",
-    }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "save_compiled_pdf",
+      expect.objectContaining({ byteLength: 8 }),
+      { headers: { "x-pdf-destination": "L3RtcC9leHBvcnRlZC1wYXBlci5wZGY=" } },
+    ));
     expect(await screen.findByText("Saved to /tmp/exported-paper.pdf")).toBeInTheDocument();
     const pdfPage = screen.getByLabelText("PDF page 1");
     // Double-click (not single click) jumps from the PDF back to the source.
@@ -2737,6 +3332,7 @@ describe("project workspace", () => {
     expect(palette).toHaveTextContent("Pick a symbol or snippet");
     expect(within(palette).getByRole("button", { name: /Alpha/i })).toBeInTheDocument();
     fireEvent.click(within(palette).getByRole("tab", { name: "Greek" }));
+    expect(palette.querySelector(".sliding-tab-underline")).not.toBeInTheDocument();
     expect(within(palette).getByRole("button", { name: /Capital omega/i })).toBeInTheDocument();
   });
 
@@ -2816,6 +3412,38 @@ describe("project workspace", () => {
     await switchSidebarMode("Papers");
     fireEvent.click(screen.getByTitle("Remove Attention Is All You Need"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("remove_reference", { key: "vaswani2017attention" }));
+  });
+
+  it("creates a board from the header button with an inline name", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "notes.tex", path: "notes.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "";
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
+      if (command === "create_project_entry") return (args as { path: string }).path;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    await screen.findByLabelText("Project files");
+    fireEvent.click(screen.getByRole("button", { name: "New board" }));
+    const nameInput = await findProjectTreeRenameInput();
+    expect(nameInput).toHaveValue("untitled");
+    fireEvent.input(nameInput, { target: { value: "sketch" } });
+    fireEvent.keyDown(nameInput, { key: "Enter" });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "sketch.tldr", kind: "file" }));
+    expect(await screen.findByTestId("board-editor-mock")).toBeInTheDocument();
   });
 
 });

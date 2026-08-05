@@ -15,7 +15,7 @@ pub fn command(name: &str) -> Command {
 ///
 /// Do not resolve from `PATH`: an editable or stale global install would make
 /// the app behave differently on every machine. uvx owns the cached environment
-/// and resolves the explicit `@latest` request against PyPI for each invocation.
+/// and resolves the explicit requirement for each invocation.
 pub struct UvTool {
     /// The PyPI distribution that provides the command.
     pub requirement: &'static str,
@@ -36,7 +36,7 @@ pub const BIBCITE: UvTool = UvTool {
 
 /// Converts an arXiv paper to markdown Lattice and the agent can read.
 pub const ARXIV2MD: UvTool = UvTool {
-    requirement: "arxiv2markdown@latest",
+    requirement: "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@a03cb7f2a4ea8b20f36e2f2ac8f53838e9d07146",
     binary: "arxiv2md",
     override_env: "LATTICE_ARXIV2MD_BIN",
 };
@@ -216,9 +216,8 @@ mod tests {
     }
 
     #[test]
-    fn python_tools_refresh_unconstrained_latest_releases() {
+    fn python_tools_use_their_explicit_requirements() {
         for tool in [&BIBCITE, &ARXIV2MD] {
-            assert!(tool.requirement.ends_with("@latest"));
             let command = tool.command();
             let args: Vec<_> = command
                 .get_args()
@@ -228,5 +227,10 @@ mod tests {
                 .windows(2)
                 .any(|pair| pair == ["--from", tool.requirement]));
         }
+        assert!(BIBCITE.requirement.ends_with("@latest"));
+        assert_eq!(
+            ARXIV2MD.requirement,
+            "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@a03cb7f2a4ea8b20f36e2f2ac8f53838e9d07146"
+        );
     }
 }

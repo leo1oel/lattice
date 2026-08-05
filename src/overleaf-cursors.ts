@@ -20,6 +20,23 @@ export type PresenceCursor = {
   column: number;
 };
 
+/** PresenceCursor speaks HSL hues; collab peers carry hex colors. */
+export function hueFromColorHex(hex: string): number {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!match) return 210;
+  const value = parseInt(match[1]!, 16);
+  const r = ((value >> 16) & 255) / 255;
+  const g = ((value >> 8) & 255) / 255;
+  const b = (value & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max === min) return 0;
+  const delta = max - min;
+  let hue = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+  hue *= 60;
+  return hue < 0 ? hue + 360 : hue;
+}
+
 const REMOTE_CARET_SELECTOR = ".cm-ySelectionCaret, .cm-overleaf-caret";
 const REMOTE_LABEL_SELECTOR = ".cm-ySelectionInfo, .cm-overleaf-caret-label";
 

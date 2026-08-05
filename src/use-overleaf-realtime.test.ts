@@ -18,6 +18,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 const DOC_A = "doc-a";
 const DOC_B = "doc-b";
+const DOC_MD = "doc-md";
 
 /** Feeds the hook the events the Rust side would emit. */
 let emit: (payload: unknown) => void;
@@ -46,6 +47,11 @@ let connectFailures: number;
 let connectErrorMessage: string;
 /** Project scope carried by document-level realtime calls. */
 let scopedRealtimeCalls: { command: string; projectRoot: string; docId: string | null }[];
+/** A join held open to reproduce updates arriving before its snapshot resolves. */
+let deferredJoin: {
+  docId: string;
+  promise: Promise<ReturnType<typeof joinAnswer>>;
+} | null;
 
 function joinAnswer(docId: string, fromVersion: number | null = null) {
   if (docId === DOC_A && fromVersion === 10 && loseSendAck && sends.length) {
@@ -86,6 +92,7 @@ beforeEach(() => {
   connectFailures = 0;
   connectErrorMessage = "network unavailable";
   scopedRealtimeCalls = [];
+  deferredJoin = null;
   connectionPublicId = "me";
   loseSendAck = false;
   account = { permission: "readAndWrite", trackChanges: false };
@@ -156,6 +163,8 @@ beforeEach(() => {
         docId: input.docId as string,
         fromVersion,
       });
+      const pendingJoin = deferredJoin;
+      if (pendingJoin && pendingJoin.docId === input.docId) return pendingJoin.promise;
       return joinAnswer(input.docId as string, fromVersion);
     }
     if (command === "overleaf_rt_send_ops") {
@@ -269,6 +278,8 @@ describe("connection ownership", () => {
 
     emit({ type: "disconnected", reason: "network changed" });
     await waitFor(() => expect(result.current.status).toBe("connecting"));
+    expect(result.current.permission).toBe("unknown");
+    expect(result.current.canWrite).toBe(false);
     expect(result.current.detail).toMatch(/reconnecting in 1s/i);
 
     await act(async () => {
@@ -304,6 +315,49 @@ describe("connection ownership", () => {
 });
 
 describe("switching files with work in flight", () => {
+  it("keeps an update that arrives while a newly uploaded Markdown document is joining", async () => {
+    let resolveJoin!: (joined: ReturnType<typeof joinAnswer>) => void;
+    deferredJoin = {
+      docId: DOC_MD,
+      promise: new Promise((resolve) => { resolveJoin = resolve; }),
+    };
+    const remoteTexts: string[] = [];
+    const { result } = mount("notes.md", (text) => remoteTexts.push(text));
+    await waitFor(() => expect(result.current.status).toBe("live"));
+
+    emit({
+      type: "treeChanged",
+      docs: [
+        { id: DOC_A, path: "a.tex" },
+        { id: DOC_B, path: "b.tex" },
+        { id: DOC_MD, path: "notes.md" },
+      ],
+      entities: [],
+    });
+    await waitFor(() => expect(joins).toContainEqual({ docId: DOC_MD, fromVersion: null }));
+
+    // Overleaf can emit an edit after joining the room but before the join
+    // command's snapshot has crossed the IPC boundary back to React.
+    emit({
+      type: "docUpdate",
+      docId: DOC_MD,
+      version: 10,
+      ops: [{ p: 5, i: " online" }],
+      source: "someone-else",
+    });
+    resolveJoin({
+      text: "notes",
+      version: 10,
+      comments: [],
+      changes: [],
+      caughtUp: [],
+      resumed: false,
+    });
+
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+    expect(remoteTexts.at(-1)).toBe("notes online");
+  });
+
   it("keeps the document until Overleaf answers, then leaves", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { result, rerender } = mount("a.tex");
@@ -580,12 +634,6 @@ describe("settled guards around REST mutations", () => {
   });
 });
 
-/**
- * Suggesting is not a display mode. The toolbar can turn Overleaf's setting
- * on, but if the keystrokes still leave as ordinary edits then the label is
- * simply untrue — the text lands in everyone's document immediately while the
- * button claims it is waiting to be reviewed.
- */
 describe("what typing goes out as", () => {
   async function typeInto(result: { current: { pushLocal: (text: string) => void } }) {
     await act(async () => {
@@ -604,7 +652,7 @@ describe("what typing goes out as", () => {
     expect(tracked).toHaveLength(0);
   });
 
-  it("sends suggestions once the account has turned it on", async () => {
+  it("always sends ordinary edits even when Overleaf's legacy setting is on", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     account.trackChanges = true;
     const { result } = mount("a.tex");
@@ -612,11 +660,11 @@ describe("what typing goes out as", () => {
     await waitFor(() => expect(result.current.trackChanges).toBe(true));
 
     await typeInto(result);
-    await waitFor(() => expect(tracked).toHaveLength(1));
-    expect(sends).toHaveLength(0);
+    await waitFor(() => expect(sends).toHaveLength(1));
+    expect(tracked).toHaveLength(0);
   });
 
-  it("follows the setting when it is turned on mid-session", async () => {
+  it("keeps sending ordinary edits when the legacy setting changes mid-session", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { result } = mount("a.tex");
     await waitFor(() => expect(result.current.liveFile).toBe(true));
@@ -624,22 +672,20 @@ describe("what typing goes out as", () => {
     emit({ type: "trackChangesToggled", on: true });
     await waitFor(() => expect(result.current.trackChanges).toBe(true));
     await typeInto(result);
-    await waitFor(() => expect(tracked).toHaveLength(1));
-    expect(sends).toHaveLength(0);
+    await waitFor(() => expect(sends).toHaveLength(1));
+    expect(tracked).toHaveLength(0);
   });
 
-  it("lets a reviewer type, but only ever as suggestions", async () => {
+  it("does not send text changes for a comment-only reviewer", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     account.permission = "review";
     const { result } = mount("a.tex");
     await waitFor(() => expect(result.current.liveFile).toBe(true));
-    // They cannot change the document directly, which is a different question
-    // from whether they may contribute at all.
     expect(result.current.canWrite).toBe(false);
 
     await typeInto(result);
-    await waitFor(() => expect(tracked).toHaveLength(1));
     expect(sends).toHaveLength(0);
+    expect(tracked).toHaveLength(0);
   });
 
   it("does not let a viewer type at all", async () => {
@@ -780,14 +826,8 @@ describe("anchors as the text moves", () => {
   });
 });
 
-/**
- * Your own suggestion has to become visible where you made it. Overleaf never
- * echoes an operation back to whoever sent it, so nothing on the channel says
- * the suggestion exists — which is why suggesting looked exactly like editing
- * from this side.
- */
-describe("a suggestion you just made", () => {
-  it("is read back so it shows as a suggestion", async () => {
+describe("legacy suggesting state", () => {
+  it("does not turn a new edit into a suggestion or refresh suggestion ranges", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     account.trackChanges = true;
     const { result } = mount("a.tex");
@@ -795,19 +835,16 @@ describe("a suggestion you just made", () => {
     await waitFor(() => expect(result.current.trackChanges).toBe(true));
 
     await act(async () => {
-      result.current.pushLocal("alpha suggested");
+      result.current.pushLocal("alpha edited");
       vi.advanceTimersByTime(300);
     });
-    await waitFor(() => expect(tracked).toHaveLength(1));
+    await waitFor(() => expect(sends).toHaveLength(1));
+    expect(tracked).toHaveLength(0);
 
-    // Nothing yet — the read is debounced, because a burst of typing is one
-    // suggestion being written rather than many.
-    expect(rangeReads).toHaveLength(0);
     await act(async () => {
       vi.advanceTimersByTime(1000);
     });
-    await waitFor(() => expect(rangeReads).toEqual([DOC_A]));
-    await waitFor(() => expect(result.current.changes).toHaveLength(1));
+    expect(rangeReads).toHaveLength(0);
   });
 
   it("is not read back for an ordinary edit", async () => {

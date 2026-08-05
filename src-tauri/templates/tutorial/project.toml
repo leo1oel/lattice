@@ -1,0 +1,18 @@
+# Example project metadata for the Lattice format preview.
+# Lattice keeps its own settings separately; this file is safe to edit.
+
+[project]
+title = "Understanding Attention"
+kind = "tutorial"
+primary_document = "main.tex"
+bibliography = "references.bib"
+keywords = ["attention", "transformers", "research-writing"]
+
+[preview]
+compile_on_save = true
+default_view = "split"
+
+[demo]
+markdown = "notes.md"
+html = "attention-demo.html"
+board = "attention-map.tldr"

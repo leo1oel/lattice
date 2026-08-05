@@ -20,7 +20,11 @@ import "./scroll-area.css";
 const ScrollAreaContext = createContext(false);
 
 type Orientation = "vertical" | "horizontal" | "both";
-type ViewportProps = Omit<ComponentPropsWithoutRef<"div">, "children">;
+// React's HTMLAttributes only admits `data-*` keys in JSX, not in object
+// literals, so admit them explicitly for callers passing viewportProps.
+type ViewportProps = Omit<ComponentPropsWithoutRef<"div">, "children"> & {
+  [dataAttribute: `data-${string}`]: string | undefined;
+};
 
 interface ScrollAreaProps extends ComponentPropsWithoutRef<"div"> {
   contentClassName?: string;
@@ -42,18 +46,20 @@ function updateScrollEdges(viewport: HTMLDivElement) {
   const tolerance = 1;
   const verticalOverflow = viewport.scrollHeight > viewport.clientHeight + tolerance;
   const horizontalOverflow = viewport.scrollWidth > viewport.clientWidth + tolerance;
-  viewport.dataset.hasVerticalOverflow = String(verticalOverflow);
-  viewport.dataset.hasHorizontalOverflow = String(horizontalOverflow);
-  viewport.dataset.canScrollUp = String(verticalOverflow && viewport.scrollTop > tolerance);
-  viewport.dataset.canScrollDown = String(
-    verticalOverflow
+  const edges = {
+    hasVerticalOverflow: verticalOverflow,
+    hasHorizontalOverflow: horizontalOverflow,
+    canScrollUp: verticalOverflow && viewport.scrollTop > tolerance,
+    canScrollDown: verticalOverflow
       && viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - tolerance,
-  );
-  viewport.dataset.canScrollLeft = String(horizontalOverflow && viewport.scrollLeft > tolerance);
-  viewport.dataset.canScrollRight = String(
-    horizontalOverflow
+    canScrollLeft: horizontalOverflow && viewport.scrollLeft > tolerance,
+    canScrollRight: horizontalOverflow
       && viewport.scrollLeft + viewport.clientWidth < viewport.scrollWidth - tolerance,
-  );
+  };
+  for (const [name, active] of Object.entries(edges)) {
+    const value = String(active);
+    if (viewport.dataset[name] !== value) viewport.dataset[name] = value;
+  }
 }
 
 const ScrollArea = forwardRef<
@@ -81,19 +87,31 @@ const ScrollArea = forwardRef<
   }, [viewportRef]);
 
   useEffect(() => {
-    if (!viewport) return;
+    // Base UI owns scrollbar overflow state. These extra measurements only
+    // drive the optional edge masks, so unmasked high-frequency surfaces such
+    // as Markdown and PDF should not install another scroll/resize pipeline.
+    if (!viewport || fadeEdges === false) return;
     const update = () => updateScrollEdges(viewport);
-    const resizeObserver = new ResizeObserver(update);
+    let frame: number | null = null;
+    const scheduleUpdate = () => {
+      if (frame != null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        update();
+      });
+    };
+    const resizeObserver = new ResizeObserver(scheduleUpdate);
     resizeObserver.observe(viewport);
     const content = viewport.firstElementChild;
     if (content instanceof HTMLElement) resizeObserver.observe(content);
-    viewport.addEventListener("scroll", update, { passive: true });
+    viewport.addEventListener("scroll", scheduleUpdate, { passive: true });
     update();
     return () => {
+      if (frame != null) window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
-      viewport.removeEventListener("scroll", update);
+      viewport.removeEventListener("scroll", scheduleUpdate);
     };
-  }, [viewport]);
+  }, [fadeEdges, viewport]);
 
   const content = (
     <div data-slot="scroll-area-content" className={contentClassName}>

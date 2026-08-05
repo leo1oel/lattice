@@ -22,6 +22,27 @@ import {
 import { compactSearchPanel } from "./search-panel";
 import { harperDiagnostics, harperDictionaryChanged } from "./harper-spellcheck";
 import infinityLoaderUrl from "../infinity-loader.svg";
+import type {
+  CitationInfo,
+  DefinitionTarget,
+  LocalMacro,
+  ReferenceInfo,
+  SymbolTarget,
+} from "./latex-text";
+export {
+  bibliographyEntryLine,
+  mergeReferences,
+  parseGraphicsPaths,
+  parseLocalLabels,
+  parseLocalMacros,
+} from "./latex-text";
+export type {
+  CitationInfo,
+  DefinitionTarget,
+  LocalMacro,
+  ReferenceInfo,
+  SymbolTarget,
+} from "./latex-text";
 
 const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite";
 const REFERENCE_COMMANDS = "ref|eqref|pageref|autoref|cref|Cref";
@@ -34,39 +55,8 @@ const COMPLETE_REFERENCE = new RegExp(`\\\\(?:${REFERENCE_COMMANDS})\\*?\\{([^}]
 const COMPLETE_INCLUDE = /\\(?:input|include)\{([^}]*)\}/g;
 const COMPLETE_GRAPHICS = /\\includegraphics(?:\[[^\]]*\])?\{((?:\\detokenize\{[^}]*\}|[^}]+))\}/g;
 const COMPLETE_LABEL = /\\label\{([^}]*)\}/g;
-const GRAPHICSPATH = /\\graphicspath\s*\{((?:\{[^}]*\})+)\}/g;
-const NEWCOMMAND = /\\(?:new|renew|provide)command\*?\{(\\[A-Za-z@]+)\}/g;
-const NEWENVIRONMENT = /\\(?:new|renew)environment\*?\{([A-Za-z*][A-Za-z0-9*]*)\}/g;
 const BEGIN_OR_END = /\\(begin|end)\{([A-Za-z*][A-Za-z0-9*]*)\}/g;
 const CLOSED_BEGIN = /\\begin\{([A-Za-z*][A-Za-z0-9*]*)\}$/;
-
-export type CitationInfo = {
-  key: string;
-  title: string;
-  authors: string;
-  year: string;
-  venue: string;
-};
-
-export type ReferenceInfo = {
-  label: string;
-  kind: "figure" | "table" | "equation" | "section" | "reference" | string;
-  title: string;
-  snippet: string;
-  path: string;
-  line: number;
-  imagePath?: string;
-};
-
-export type DefinitionTarget =
-  | { kind: "reference"; path: string; line: number; label: string }
-  | { kind: "citation"; key: string }
-  | { kind: "include"; path: string }
-  | { kind: "asset"; path: string };
-
-export type SymbolTarget =
-  | { kind: "label"; label: string }
-  | { kind: "citation"; key: string };
 
 export const latexLanguageOptions = {
   enableAutocomplete: false,
@@ -288,99 +278,10 @@ export function renameEnvironmentAt(
   ];
 }
 
-/** Labels defined in a dirty buffer, for live completion before save. */
-export function parseLocalLabels(path: string, source: string): ReferenceInfo[] {
-  const labels: ReferenceInfo[] = [];
-  const seen = new Set<string>();
-  COMPLETE_LABEL.lastIndex = 0;
-  for (let match = COMPLETE_LABEL.exec(source); match; match = COMPLETE_LABEL.exec(source)) {
-    const label = match[1].trim();
-    if (!label || seen.has(label)) continue;
-    seen.add(label);
-    const line = source.slice(0, match.index).split("\n").length;
-    labels.push({
-      label,
-      kind: "reference",
-      title: label,
-      snippet: source.split("\n")[line - 1]?.trim() ?? "",
-      path,
-      line,
-    });
-  }
-  return labels;
-}
-
-export function mergeReferences(
-  projectReferences: ReferenceInfo[],
-  activePath: string,
-  localLabels: ReferenceInfo[],
-): ReferenceInfo[] {
-  const projectByLabel = new Map(
-    projectReferences
-      .filter((reference) => reference.path === activePath)
-      .map((reference) => [reference.label, reference]),
-  );
-  const byLabel = new Map<string, ReferenceInfo>();
-  for (const reference of projectReferences) {
-    if (reference.path === activePath) continue;
-    byLabel.set(reference.label, reference);
-  }
-  for (const local of localLabels) {
-    const existing = projectByLabel.get(local.label);
-    byLabel.set(local.label, existing ? {
-      ...existing,
-      line: local.line,
-      snippet: local.snippet || existing.snippet,
-      path: local.path,
-    } : local);
-  }
-  return [...byLabel.values()];
-}
-
-export type LocalMacro = {
-  label: string;
-  detail: string;
-  type: "keyword" | "type";
-};
-
-export function parseLocalMacros(sources: string[]): LocalMacro[] {
-  const macros = new Map<string, LocalMacro>();
-  for (const source of sources) {
-    NEWCOMMAND.lastIndex = 0;
-    for (let match = NEWCOMMAND.exec(source); match; match = NEWCOMMAND.exec(source)) {
-      const label = match[1];
-      if (!macros.has(label)) macros.set(label, { label, detail: "project command", type: "keyword" });
-    }
-    NEWENVIRONMENT.lastIndex = 0;
-    for (let match = NEWENVIRONMENT.exec(source); match; match = NEWENVIRONMENT.exec(source)) {
-      const name = match[1];
-      const begin = `\\begin{${name}}`;
-      if (!macros.has(begin)) {
-        macros.set(begin, { label: begin, detail: "project environment", type: "type" });
-      }
-    }
-  }
-  return [...macros.values()];
-}
-
 export function unwrapLatexPath(raw: string): string {
   const trimmed = raw.trim();
   const detokenized = trimmed.match(/^\\detokenize\{([^}]*)\}?$/);
   return (detokenized ? detokenized[1] : trimmed).trim().replace(/\\/g, "/");
-}
-
-export function parseGraphicsPaths(sources: string[]): string[] {
-  const roots = new Set<string>();
-  for (const source of sources) {
-    GRAPHICSPATH.lastIndex = 0;
-    for (let match = GRAPHICSPATH.exec(source); match; match = GRAPHICSPATH.exec(source)) {
-      for (const part of match[1].matchAll(/\{([^}]*)\}/g)) {
-        const path = part[1].trim().replace(/\\/g, "/").replace(/\/+$/, "");
-        if (path) roots.add(path);
-      }
-    }
-  }
-  return [...roots];
 }
 
 function normalizeGraphicsRoot(root: string): string {
@@ -794,13 +695,6 @@ export function definitionTargetAt(
     return { kind: "include", path };
   }
   return null;
-}
-
-export function bibliographyEntryLine(source: string, key: string): number | null {
-  const pattern = new RegExp(`@[A-Za-z]+\\s*\\{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*,`, "i");
-  const match = pattern.exec(source);
-  if (!match) return null;
-  return source.slice(0, match.index).split("\n").length;
 }
 
 function stripLineComments(text: string): string {
@@ -1346,6 +1240,64 @@ export function selectionVisibilityExtension(): Extension {
   ];
 }
 
+/** Editing behavior shared by LaTeX, Markdown, BibTeX, and plain-text files. */
+export function textEditorExtensions(
+  spellcheck = false,
+  liveRef?: { current: LatexEditorLiveData },
+  onPasteImage?: (file: File) => boolean | void,
+): Extension[] {
+  return [
+    EditorView.lineWrapping,
+    selectionVisibilityExtension(),
+    EditorView.contentAttributes.of({
+      // Harper owns prose diagnostics, so WebKit spellcheck stays disabled for
+      // every source language instead of duplicating underlines.
+      spellcheck: "false",
+      autocorrect: "off",
+      autocapitalize: "off",
+    }),
+    syntaxHighlighting(luxLatexHighlightStyle),
+    search({ top: true }),
+    compactSearchPanel,
+    highlightSelectionMatches(),
+    tooltips({
+      tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()),
+    }),
+    ...(spellcheck ? [linter((view) => {
+      const data = liveRef?.current;
+      return harperDiagnostics(view.state.doc.toString(), {
+        projectWords: data?.spellingWords ?? [],
+        onAddProjectWord: data?.onAddSpellingWord
+          ? async (word) => {
+              const accepted = await data.onAddSpellingWord?.(word);
+              if (accepted === false) return false;
+              const current = liveRef?.current;
+              if (current && !current.spellingWords.some((existing) => existing.toLocaleLowerCase() === word.toLocaleLowerCase())) {
+                current.spellingWords = [...current.spellingWords, word];
+              }
+              return true;
+            }
+          : undefined,
+      });
+    }, {
+      delay: 350,
+      needsRefresh: (update) => update.transactions.some((transaction) =>
+        transaction.effects.some((effect) => effect.is(harperDictionaryChanged))),
+    })] : []),
+    ...(onPasteImage ? [EditorView.domEventHandlers({
+      paste(event) {
+        if (!event.clipboardData) return false;
+        const imageItem = [...event.clipboardData.items]
+          .find((item) => item.type.startsWith("image/"));
+        const file = imageItem?.getAsFile();
+        if (!file || onPasteImage(file) === false) return false;
+        event.preventDefault();
+        return true;
+      },
+    })] : []),
+  ];
+}
+
 export function latexEditorExtensions(
   citationKeys: string[],
   citations: CitationInfo[] = [],
@@ -1418,46 +1370,10 @@ export function latexEditorExtensions(
     return { from: word.from, options, validFor: /^\\?[A-Za-z@]*$/ };
   };
   return [
-    EditorView.lineWrapping,
-    selectionVisibilityExtension(),
-    EditorView.contentAttributes.of({
-      // Harper owns prose diagnostics. Keeping WebKit spellcheck enabled here
-      // duplicates underlines and causes it to inspect raw LaTeX commands.
-      spellcheck: "false",
-      autocorrect: "off",
-      autocapitalize: "off",
-    }),
-    syntaxHighlighting(luxLatexHighlightStyle),
-    search({ top: true }),
-    compactSearchPanel,
-    highlightSelectionMatches(),
-    tooltips({
-      tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()),
-    }),
+    ...textEditorExtensions(spellcheck, liveRef),
     citationTooltips(citations, live),
     referenceTooltips(references, loadReferenceImage),
     ...(enableTexlabLanguage ? [texlabHoverTooltip(texlabPath)] : []),
-    ...(spellcheck ? [linter((view) => {
-      const data = live();
-      return harperDiagnostics(view.state.doc.toString(), {
-        projectWords: data.spellingWords,
-        onAddProjectWord: data.onAddSpellingWord
-          ? async (word) => {
-              const accepted = await data.onAddSpellingWord?.(word);
-              if (accepted === false) return false;
-              const current = live();
-              if (!current.spellingWords.some((existing) => existing.toLocaleLowerCase() === word.toLocaleLowerCase())) {
-                current.spellingWords = [...current.spellingWords, word];
-              }
-              return true;
-            }
-          : undefined,
-      });
-    }, {
-      delay: 350,
-      needsRefresh: (update) => update.transactions.some((transaction) =>
-        transaction.effects.some((effect) => effect.is(harperDictionaryChanged))),
-    })] : []),
     linter((view) => {
       const data = live();
       return indexDiagnostics(

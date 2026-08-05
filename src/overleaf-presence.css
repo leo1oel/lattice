@@ -2,17 +2,11 @@
    stack of chips, matching Lattice's own live-share avatars — kept as its own
    class names since the two collaboration systems can be live at once and
    must never share styling that one of them changes independently. */
-.overleaf-presence-avatars {
-  display: flex;
-  align-items: center;
-  padding-left: var(--space-2);
-}
 .overleaf-presence-avatar {
-  width: 20px;
-  height: 20px;
-  margin-left: -5px;
+  width: 10px;
+  height: 10px;
   padding: 0;
-  border: 1.5px solid var(--surface-panel);
+  border: 1px solid var(--surface-panel);
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -20,9 +14,5 @@
   font: 600 var(--type-nano-size)/1 var(--ui-font);
   letter-spacing: .02em;
   cursor: pointer;
-  transition: transform var(--duration-quick) var(--ease-default);
 }
-.overleaf-presence-avatar:first-child { margin-left: 0; }
-.overleaf-presence-avatar:hover { transform: translateY(-1px) scale(1.08); z-index: 1; }
 .overleaf-presence-avatar.more { background: var(--border-subtle); color: var(--text-secondary); cursor: default; }
-.overleaf-presence-avatar.more:hover { transform: none; }

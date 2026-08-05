@@ -1,14 +1,65 @@
 import { describe, expect, it } from "vitest";
 import {
   annotationBounds,
+  closestPdfPageIndex,
   findPdfMatches,
   fitPdfScale,
   normalizePdfSelection,
   parsePdfZoomPercent,
+  PdfRenderQueue,
+  PDF_MAX_CANVAS_PIXELS,
   pdfRenderPixelRatio,
+  updatePdfRenderCache,
 } from "./pdf-viewer-utils";
 
 describe("PDF viewer helpers", () => {
+  it("finds the closest ordered page with logarithmic rect reads and first-page ties", () => {
+    const rects = Array.from({ length: 128 }, (_, index) => ({
+      top: index * 110,
+      bottom: index * 110 + 100,
+    }));
+    let reads = 0;
+    const find = (marker: number) => closestPdfPageIndex(rects.length, (index) => {
+      reads += 1;
+      return rects[index];
+    }, marker);
+    expect(find(105)).toBe(0);
+    expect(find(106)).toBe(1);
+    expect(find(5_555)).toBe(50);
+    expect(find(-20)).toBe(0);
+    expect(find(99_999)).toBe(127);
+    expect(reads).toBeLessThan(55);
+    expect(closestPdfPageIndex(0, () => ({ top: 0, bottom: 0 }), 0)).toBe(-1);
+  });
+
+  it("limits concurrent page renders and keeps visible pages in arrival order", async () => {
+    const queue = new PdfRenderQueue();
+    const started: number[] = [];
+    const finish: Array<() => void> = [];
+    const enqueue = (page: number, priority = false) => queue.enqueue(async () => {
+      started.push(page);
+      await new Promise<void>((resolve) => finish.push(resolve));
+    }, priority);
+
+    enqueue(1);
+    enqueue(2);
+    const cancelPage3 = enqueue(3);
+    const prioritizePage8 = enqueue(8);
+    enqueue(9, true);
+    prioritizePage8.prioritize();
+    expect(started).toEqual([1, 2]);
+    finish.shift()?.();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(started).toEqual([1, 2, 9]);
+    finish.shift()?.();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(started).toEqual([1, 2, 9, 8]);
+    cancelPage3();
+    finish.forEach((resolve) => resolve());
+  });
+
   it("normalizes PDF text-layer selections for agent context", () => {
     expect(normalizePdfSelection("  Attention\u00a0is\nall   you need.  ")).toBe("Attention is all you need.");
     expect(normalizePdfSelection("\n\t")).toBe("");
@@ -41,6 +92,23 @@ describe("PDF viewer helpers", () => {
     expect(pdfRenderPixelRatio(1.5)).toBe(2);
     expect(pdfRenderPixelRatio(2)).toBe(2);
     expect(pdfRenderPixelRatio(3)).toBe(2.5);
+    expect(PDF_MAX_CANVAS_PIXELS).toBe(2 ** 24);
+    expect(pdfRenderPixelRatio(2, { width: 6_000, height: 6_000 }))
+      .toBeCloseTo(Math.sqrt((2 ** 24) / 36_000_000));
+  });
+
+  it("bounds rendered PDF pages while retaining every page near the viewport", () => {
+    const nearby = new Set([10, 11]);
+    expect(updatePdfRenderCache(
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      nearby,
+      11,
+      true,
+    )).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(updatePdfRenderCache([8, 9, 10, 11], nearby, 10, true))
+      .toEqual([8, 9, 11, 10]);
+    expect(updatePdfRenderCache([8, 9, 10, 11], new Set([8, 9, 10]), 11, false, 3))
+      .toEqual([8, 9, 10]);
   });
 
   it("computes fit-to-width and fit-to-height scales", () => {

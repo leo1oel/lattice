@@ -31,7 +31,7 @@ function PopoverContent({
         sideOffset={sideOffset}
         className={cn(
           floatingSurfaceClassName,
-          "w-72 origin-(--radix-popover-content-transform-origin) p-4 shadow-md",
+          "w-72 origin-(--radix-popover-content-transform-origin) p-4",
           popupMotionClassName,
           className
         )}

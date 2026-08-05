@@ -623,6 +623,7 @@ export function OverleafPickerDialog(props: {
   return (
     <ResizableDrawer
       className="overleaf-picker-drawer"
+      dataTour="overleaf-panel"
       ariaLabel="Open from Overleaf"
       closeDisabled={Boolean(cloning)}
       onClose={onClose}

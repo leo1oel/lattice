@@ -278,7 +278,7 @@ export function UpdateBanner(props?: { corner?: BannerCorner }) {
   const stacked = phase === "downloading" || phase === "installing";
 
   return (
-    <div className={`app-update-banner ${corner} ${phase}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
+    <div className={`app-update-banner smooth-shadow-ring-lg ${corner} ${phase}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
       {phase === "available" && (
         <>
           <div className="app-update-text">

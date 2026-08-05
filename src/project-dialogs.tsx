@@ -59,11 +59,6 @@ export function Welcome(props: {
         <p className="welcome-copy">
           A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected.
         </p>
-        {/* Two rows because there are two kinds of action here, not because
-            five buttons happen not to fit: start something, or open something
-            that exists. Laid out as one row they were five equal chips that
-            overflowed 620px, dropping the widest onto a line of its own —
-            which read as a mistake rather than as a choice. */}
         <div className="welcome-actions">
           <MotionButton
             className={buttonClassName({ variant: "primary", size: "form" })}
@@ -247,6 +242,7 @@ export function ProjectMenu(props: {
   onRecent: (path: string) => void;
   onOpen: () => void;
   onNew: () => void;
+  onOpenTutorial: () => void;
   onExportZip: () => void;
   onOpenOverleaf?: () => void;
   onSettings: () => void;
@@ -277,6 +273,9 @@ export function ProjectMenu(props: {
       )}
       <DropdownMenuItem onSelect={props.onExportZip}><FileArchive /> Export ZIP</DropdownMenuItem>
       <DropdownMenuSeparator />
+      <DropdownMenuItem disabled={busy} onSelect={props.onOpenTutorial}>
+        <Sparkles /> Explore Lattice tutorial
+      </DropdownMenuItem>
       <DropdownMenuItem onSelect={props.onSettings}><Settings /> Settings</DropdownMenuItem>
       {props.busyLabel && (
         <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">

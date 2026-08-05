@@ -1,4 +1,9 @@
 import "./polyfills";
+// OpenKnowledge imports the zoom package's structural stylesheet once at the
+// app root. Without it, the native dialog expands as an unstyled white page,
+// its close control becomes a stray black button, and the zoom transition
+// cannot complete reliably.
+import "react-medium-image-zoom/dist/styles.css";
 import "./index.css";
 import ReactDOM from "react-dom/client";
 import "@fontsource-variable/inter";
