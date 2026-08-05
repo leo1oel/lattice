@@ -49,7 +49,7 @@ type BinaryGcResult = { scanned: number; deleted: number; orphanBacklog: number;
 type PendingFileWork = { kind: "delete" | "close" | "revoke"; fileId: string; documentEpoch: number; authorityEpoch: number; operationId?: string; grantId?: string; grantEpoch?: number; attempts?: number; lastAttemptAt?: number };
 type DurableMetadata = { documentEpoch: number; contentRevision: number; snapshotGeneration: number; size: number; hash: string; stateVector: string };
 type ImportManifestEntry = { fileId: string; path: string; kind: "text" | "binary" | "board"; size: number; hash: string };
-type PresenceEntry = { name: string; color: string; path: string | null; updatedAt: number };
+type PresenceEntry = { name: string; color: string; path: string | null; updatedAt: number; grantId?: string };
 type CoordinatorState = CatalogV2 & {
   host: SecretHash;
   grants: Grant[];
@@ -107,7 +107,7 @@ export class ProjectCoordinatorV2 extends DurableObject {
       if (action === "read-tickets" && parts.at(-2) === "binary") return this.issueBinaryRead(body, actor);
       if (action === "commit" && parts.at(-2) === "binary") return this.commitBinary(body, actor);
       if (action === "gc" && parts.at(-2) === "binary") return actor.permission === "host" ? this.sweepBinaryGc(body) : this.reject(403, "forbidden", "Host permission required");
-      if (action === "presence") return this.updatePresence(body);
+      if (action === "presence") return this.updatePresence(body, actor);
       if ((action === "pin" || action === "release") && parts.at(-3) === "binary") return actor.permission === "host" ? this.mutateRetentionRoot(action, parts.at(-2)!, body) : this.reject(403, "forbidden", "Host permission required");
       return await this.mutate(action, body, actor);
     } catch (error) {
@@ -177,22 +177,29 @@ export class ProjectCoordinatorV2 extends DurableObject {
    * clients heartbeat who they are and which file they are in. Entries expire
    * lazily — a crashed client disappears within PRESENCE_TTL_MS.
    */
-  private async updatePresence(body: Record<string, unknown>): Promise<Response> {
+  private async updatePresence(body: Record<string, unknown>, actor: { grantId: string; permission: GrantPermission }): Promise<Response> {
     const instanceId = requiredString(body.instanceId, "instanceId");
     if (instanceId.length > 64) throw new Error("Invalid instanceId");
     const now = Date.now();
     const presence = this.state!.presence ??= {};
     for (const [id, entry] of Object.entries(presence)) if (now - entry.updatedAt > PRESENCE_TTL_MS) delete presence[id];
-    if (body.leave === true) delete presence[instanceId];
+    if (body.leave === true) {
+      if (actor.permission === "host" || presence[instanceId]?.grantId === actor.grantId) delete presence[instanceId];
+    }
     else {
+      const ownerGrantId = presence[instanceId]?.grantId;
+      if (actor.permission !== "host" && ownerGrantId && ownerGrantId !== actor.grantId) return this.reject(403, "forbidden", "Presence entry belongs to another collaborator");
       if (!presence[instanceId] && Object.keys(presence).length >= MAX_PRESENCE_ENTRIES) return this.reject(429, "presence_full", "Too many presence entries");
       const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 80) : "Anonymous";
       const color = typeof body.color === "string" && body.color ? body.color.slice(0, 40) : "#8b8b93";
       const path = typeof body.path === "string" && body.path ? body.path.slice(0, MAX_PATH) : null;
-      presence[instanceId] = { name, color, path, updatedAt: now };
+      presence[instanceId] = { name, color, path, updatedAt: now, grantId: actor.grantId };
     }
     await this.persist();
-    return json({ protocol: CONTROL_PROTOCOL_VERSION, presence });
+    const visiblePresence = actor.permission === "host"
+      ? presence
+      : Object.fromEntries(Object.entries(presence).map(([id, { grantId: _grantId, ...entry }]) => [id, entry]));
+    return json({ protocol: CONTROL_PROTOCOL_VERSION, presence: visiblePresence });
   }
 
   /** Idempotency log append with the bounded-retention prune in exactly one place. */
@@ -286,6 +293,7 @@ export class ProjectCoordinatorV2 extends DurableObject {
     } else if (action === "revoke") {
       const grant = state.grants.find((g) => g.grantId === body.grantId); if (!grant) throw new Error("Grant not found");
       if (!grant.revoked && !grant.revoking) { grant.revoking = true; grant.authEpoch++; state.authorityEpoch++; }
+      for (const [instanceId, entry] of Object.entries(state.presence ?? {})) if (entry.grantId === grant.grantId) delete state.presence![instanceId];
       await this.persist();
       const failed: string[] = [];
       for (const file of state.files.filter((item) => item.kind !== "binary" && (item.state === "live" || item.state === "initializing"))) {

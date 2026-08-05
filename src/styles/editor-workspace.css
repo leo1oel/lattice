@@ -507,6 +507,8 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   color: var(--text-primary);
   font-family: var(--editor-font) !important;
   font-size: var(--editor-font-size) !important;
+  /* Override CodeMirror's base-theme 1.4 so source matches reading density. */
+  line-height: 1.6 !important;
 }
 /* Keep content transparent so CM's selection layer stays visible under collab. */
 .source-editor .cm-content {
@@ -514,6 +516,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   color: var(--text-primary);
   font-family: var(--editor-font) !important;
   font-size: var(--editor-font-size) !important;
+  line-height: 1.6 !important;
 }
 .source-editor .cm-gutters { background: var(--editor-gutter); color: var(--text-tertiary); border-right: 1px solid var(--border-subtle); }
 /* CodeMirror sizes the gutter to the widest line number, so the text column
@@ -523,6 +526,19 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .source-editor .cm-lineNumbers .cm-gutterElement {
   min-width: calc(3ch + 8px);
   font-variant-numeric: tabular-nums;
+}
+/* Fold column: CM's spacer uses the closed glyph (›), but open fold marks (⌄)
+   are wider, and language packs only expose foldable ranges after async load.
+   Pin the column so .txt → .md (or first fold marker) cannot widen gutters. */
+.source-editor .cm-foldGutter {
+  min-width: 18px;
+}
+.source-editor .cm-foldGutter span {
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: center;
+  overflow: hidden;
 }
 /* Active-line fill sits above CM's selection layer and hides selected text.
    Keep the soft neutral only when the caret is empty; clear it while selecting. */
@@ -628,6 +644,8 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .source-editor .cm-foldGutter .cm-gutterElement {
   display: grid;
   place-items: center;
+  width: 18px;
+  min-width: 18px;
   line-height: inherit;
 }
 .source-editor .cm-tooltip.cm-tooltip-autocomplete { border-radius: var(--radius-control); overflow: hidden; max-width: min(420px, 70vw); }
@@ -923,7 +941,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 }
 
 .tiptap-editor .ProseMirror {
-  font-size: var(--type-body-size);
+  font-size: var(--type-reading-size);
 }
 
 .tiptap-editor .ProseMirror pre,
@@ -1605,3 +1623,18 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .asset-preview-unsupported { color: var(--text-tertiary); display: grid; place-items: center; gap: var(--space-4); font-size: var(--type-caption-size); }
 /* Keep tldraw's high internal layers below app-level right drawers. */
 .board-editor-root { position: relative; isolation: isolate; flex: 1 1 0; min-width: 0; min-height: 0; overflow: hidden; }
+
+/* tldraw's rich-text editor also uses ProseMirror. The Markdown editor's
+   unscoped `.ProseMirror` rules add a 200px minimum height, gutter offsets,
+   and paragraph spacing that make a shape label jump upward and clip its
+   first line as soon as editing starts. Restore tldraw's own label geometry
+   inside the board without weakening the Markdown editor styles. */
+.board-editor-root .tl-rich-text .ProseMirror {
+  min-height: 0;
+  margin-inline: 0;
+  padding-inline: 0;
+  color: inherit;
+  line-height: inherit;
+  counter-reset: none;
+}
+.board-editor-root .tl-rich-text .ProseMirror p { margin: 0; }

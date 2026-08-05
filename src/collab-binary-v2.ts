@@ -39,7 +39,7 @@ export class CollabBinaryV2Client {
     await this.checkWorkspaceLease?.();
     const ticket = await this.json("binary/upload-tickets", { fileId, documentEpoch, declaredHash: hash, declaredSize: bytes.byteLength, contentType, expectedCatalogRevision, expectedContentRevision, expectedPriorHash, operationId }) as { ticket: string };
     await this.checkWorkspaceLease?.();
-    const upload = await this.fetcher(this.url(`binary/uploads/${encodeURIComponent(ticket.ticket)}`), { method: "PUT", headers: { Authorization: `Bearer ${this.credential}`, "content-type": contentType, "content-length": String(bytes.byteLength) }, body: bytes });
+    const upload = await this.fetcher(this.url(`binary/uploads/${encodeURIComponent(ticket.ticket)}`), { method: "PUT", headers: { Authorization: `Bearer ${this.credential}`, "content-type": contentType }, body: bytes });
     await this.checkWorkspaceLease?.();
     if (!upload.ok) throw await httpError(upload, "Binary upload failed");
     await this.checkWorkspaceLease?.();

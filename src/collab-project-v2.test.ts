@@ -161,14 +161,14 @@ describe("v2 project presence", () => {
 
   it("announces identity and path on awareness, merges cross-file presence, and leaves on destroy", async () => {
     const { controller, presenceCalls, peersCalls } = await setupPresenceTest({
-      presenceTable: { "other-instance": { name: "Bo", color: "#123456", path: "notes.md", updatedAt: 1 } },
+      presenceTable: { "other-instance": { name: "Bo", color: "#123456", path: "notes.md", updatedAt: 1, grantId: "grant-bo" } },
     });
     await controller.openPath("paper.md");
     const local = controller.provider.awareness.getLocalState() as { user?: { name?: string }; path?: string; instanceId?: string };
     expect(local.user?.name).toBe("Ada");
     expect(local.path).toBe("paper.md");
     expect(typeof local.instanceId).toBe("string");
-    await vi.waitFor(() => expect(peersCalls.flat().some((peer) => peer.name === "Bo" && peer.path === "notes.md")).toBe(true));
+    await vi.waitFor(() => expect(peersCalls.flat().some((peer) => peer.name === "Bo" && peer.path === "notes.md" && peer.grantId === "grant-bo")).toBe(true));
     await vi.waitFor(() => expect(presenceCalls.some((call) => call.name === "Ada" && call.path === "paper.md")).toBe(true));
     controller.destroy();
     await vi.waitFor(() => expect(presenceCalls.some((call) => call.leave === true)).toBe(true));
@@ -176,15 +176,18 @@ describe("v2 project presence", () => {
 
   it("does not double-count a same-file peer visible in both awareness and presence", async () => {
     const { controller, peersCalls } = await setupPresenceTest({
-      presenceTable: { "other-instance": { name: "Bo", color: "#123456", path: "paper.md", updatedAt: 1 } },
+      presenceTable: { "other-instance": { name: "Bo", color: "#123456", path: "paper.md", updatedAt: 1, grantId: "grant-bo" } },
     });
     await controller.openPath("paper.md");
     const awareness = controller.provider.awareness;
     awareness.states.set(999, { user: { name: "Bo", color: "#123456" }, path: "paper.md", instanceId: "other-instance" });
     awareness.emit("change", [{ added: [999], updated: [], removed: [] }, "local"]);
-    const latest = peersCalls.at(-1) ?? [];
-    expect(latest.filter((peer) => peer.name === "Bo")).toHaveLength(1);
-    expect(latest.find((peer) => peer.name === "Bo")?.clientId).toBe(999);
+    await vi.waitFor(() => {
+      const latest = peersCalls.at(-1) ?? [];
+      expect(latest.filter((peer) => peer.name === "Bo")).toHaveLength(1);
+      expect(latest.find((peer) => peer.name === "Bo")?.clientId).toBe(999);
+      expect(latest.find((peer) => peer.name === "Bo")?.grantId).toBe("grant-bo");
+    });
   });
 
   it("retracts the announcement from the previous file's room when switching files", async () => {

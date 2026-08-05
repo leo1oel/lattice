@@ -14,6 +14,7 @@ import { NodeSelection, Plugin, TextSelection, type EditorState, type Transactio
 const HANDLE_HEIGHT = 20;
 const MAX_SINGLE_LINE_HEIGHT = 48;
 const BODY_LINE_HEIGHT = 28;
+const INSERTED_BLOCK_BOTTOM_GAP = 40;
 export const PRESERVE_VISUAL_VIEWPORT_META = "research-writer:preserve-visual-viewport";
 export type PreserveVisualViewportMeta = {
   anchorPosition: number;
@@ -36,7 +37,7 @@ export function restoreVisualViewportWithReveal(
   }
   if (!reveal?.isConnected) return;
   const overflow = reveal.getBoundingClientRect().bottom - viewport.getBoundingClientRect().bottom;
-  if (overflow > 0.25) viewport.scrollTop += overflow;
+  if (overflow > 0.25) viewport.scrollTop += overflow + INSERTED_BLOCK_BOTTOM_GAP;
 }
 
 function blockLabel(node: ProseMirrorNode | null): string {
@@ -130,8 +131,6 @@ export function addBlockBelow(editor: Editor, nodePosition: number, node: ProseM
   if (insertAt > state.doc.content.size) return;
   const paragraph = state.schema.nodes.paragraph?.create(null, state.schema.text("/"));
   if (!paragraph) return;
-  const viewport = view.dom.closest<HTMLElement>(".editor-doc-scroll");
-  const scrollTop = viewport?.scrollTop ?? 0;
   const anchorDom = view.nodeDOM(nodePosition);
   const anchorTop = anchorDom instanceof HTMLElement ? anchorDom.getBoundingClientRect().top : null;
 
@@ -148,26 +147,9 @@ export function addBlockBelow(editor: Editor, nodePosition: number, node: ProseM
   // paper's scroll container to the top before its new block has a stable box.
   tr.setSelection(TextSelection.near(tr.doc.resolve(insertAt + 2)));
   view.dispatch(tr);
+  // ProseMirror's focus() uses focusPreventScroll and also synchronizes its DOM
+  // selection. Viewport movement remains owned by the shared coordinator.
   view.focus();
-  // In split mode the Markdown echo and focus restoration can run in the same
-  // frame. Keep the clicked block anchored, but reveal the new slash paragraph
-  // when it extends below the viewport instead of hiding the user's insertion.
-  if (viewport) {
-    const revealDom = view.nodeDOM(insertAt);
-    const reveal = revealDom instanceof HTMLElement ? revealDom : null;
-    const restore = () => restoreVisualViewportWithReveal(
-      viewport,
-      scrollTop,
-      anchorDom instanceof HTMLElement ? anchorDom : null,
-      anchorTop,
-      reveal,
-    );
-    restore();
-    queueMicrotask(restore);
-    window.requestAnimationFrame(() => {
-      restore();
-    });
-  }
 }
 
 export function currentTopLevelBlock(state: EditorState): { from: number; to: number } | null {

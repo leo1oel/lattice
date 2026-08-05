@@ -43,7 +43,17 @@ export function SlashCommandMenu({
     const options = container.querySelectorAll('[role="option"]');
     const selected = options.item(selectedIndex);
     if (selected) {
-      selected.scrollIntoView({ block: 'nearest' });
+      // `scrollIntoView` may also scroll ancestors outside this body-portaled
+      // popup, including the Markdown preview near the document bottom. Move
+      // only the menu's own viewport so opening or navigating it can never
+      // reposition the editor behind it.
+      const containerRect = container.getBoundingClientRect();
+      const selectedRect = selected.getBoundingClientRect();
+      if (selectedRect.top < containerRect.top) {
+        container.scrollTop -= containerRect.top - selectedRect.top;
+      } else if (selectedRect.bottom > containerRect.bottom) {
+        container.scrollTop += selectedRect.bottom - containerRect.bottom;
+      }
     }
   }, [selectedIndex]);
 

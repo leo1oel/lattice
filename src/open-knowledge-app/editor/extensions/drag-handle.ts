@@ -42,11 +42,11 @@ import { createChildNode, focusInsertedComponent } from '../slash-command/compon
 
 // Height of the handle element (matches .ok-block-controls button height: 20px in globals.css).
 const HANDLE_HEIGHT = 20;
-// Approximate height of a single line at the largest heading size (h1: 1.5em × line-height 1.7 ≈ 41px).
+// Approximate height of a single line at the largest heading size (h1: 1.5em × line-height 1.7 ≈ 36px at 14px).
 // Blocks taller than this are multiline — use BODY_LINE_HEIGHT instead to stay on the first line.
-const MAX_SINGLE_LINE_HEIGHT = 44;
-// Body text line height: 16px base × line-height: 1.7 ≈ 27px. Used for multiline blocks.
-const BODY_LINE_HEIGHT = 28;
+const MAX_SINGLE_LINE_HEIGHT = 40;
+// Body text line height: 14px reading size × line-height 1.7 ≈ 24px. Used for multiline blocks.
+const BODY_LINE_HEIGHT = 24;
 
 /**
  * Build the grip's `aria-label` for the currently-hovered block. For

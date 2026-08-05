@@ -61,9 +61,28 @@ describe("CollabDialog chat tab", () => {
     expect(screen.queryByText(/Use the full invite from Copy invite/i)).not.toBeInTheDocument();
   });
 
+  it("offers cancellation instead of another start attempt while a share is connecting", () => {
+    const onStartShare = vi.fn(); const onDisconnect = vi.fn();
+    render(<CollabDialog {...baseProps()} status="connecting" connectedRoom={null} onStartShare={onStartShare} onDisconnect={onDisconnect} />);
+    const button = screen.getByRole("button", { name: "Cancel" });
+    fireEvent.click(button);
+    expect(onStartShare).not.toHaveBeenCalled();
+    expect(onDisconnect).toHaveBeenCalledOnce();
+  });
+
   it("labels a live project as sharing all project files", () => {
     render(<CollabDialog {...baseProps()} />);
     expect(screen.getByText(/all project files/)).toBeInTheDocument();
+  });
+
+  it("lets the host remove an authenticated collaborator with an explicit warning", async () => {
+    const onRemovePeer = vi.fn(); const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const peer = { clientId: 7, name: "Bo", color: "#123456", path: "paper.md", grantId: "grant-bo" };
+    render(<CollabDialog {...baseProps()} peers={[peer]} onRemovePeer={onRemovePeer} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Bo from this share" }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Anyone who joined with the same invite"));
+    await vi.waitFor(() => expect(onRemovePeer).toHaveBeenCalledWith(peer));
+    confirm.mockRestore();
   });
 
   it("renders remembered v2 projects separately and routes rejoin and forget", () => {

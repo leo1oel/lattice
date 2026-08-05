@@ -14,7 +14,7 @@ describe("available fonts", () => {
     expect(availableFontOptions(UI_FONT_OPTIONS, measure).map((option) => option.family))
       .toEqual(["Inter Variable"]);
     expect(availableFontOptions(EDITOR_FONT_OPTIONS, measure).map((option) => option.family))
-      .toEqual(["JetBrains Mono Variable"]);
+      .toEqual(["Ioskeley Mono"]);
   });
 
   it("normalizes a stored alternate editor font to the fixed code stack", () => {
@@ -31,10 +31,10 @@ describe("available fonts", () => {
     ).toBe(FIXED_EDITOR_FONT);
   });
 
-  it("prefers TX-02 before the bundled JetBrains Mono fallback", () => {
-    expect(FIXED_EDITOR_FONT.indexOf('"TX-02 Variable"')).toBeLessThan(
-      FIXED_EDITOR_FONT.indexOf('"JetBrains Mono Variable"'),
-    );
+  it("uses bundled Ioskeley Mono as the true default editor face", () => {
+    expect(FIXED_EDITOR_FONT.startsWith('"Ioskeley Mono"')).toBe(true);
+    expect(FIXED_EDITOR_FONT).not.toContain("JetBrains Mono");
+    expect(FIXED_EDITOR_FONT).not.toContain("TX-02");
   });
 
   it("treats the system UI stack as always available", () => {

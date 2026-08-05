@@ -65,3 +65,22 @@ describe("CanvasToolbar insert action", () => {
     expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).not.toBeInTheDocument();
   });
 });
+
+describe("CanvasToolbar collaboration status", () => {
+  it("shows the live peer count in the collaboration-specific badge", () => {
+    render(
+      <CanvasToolbar
+        {...baseProps}
+        collabLive
+        collabPeers={2}
+        collabPresence={<div aria-label="Collaboration avatars" />}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "Live · 2 others" });
+    const badge = button.querySelector(".collab-live-badge");
+    expect(badge).toHaveTextContent("2");
+    expect(badge).toHaveClass("collab-peer-badge");
+    expect(screen.getByLabelText("Collaboration avatars").previousElementSibling).toBe(button);
+  });
+});

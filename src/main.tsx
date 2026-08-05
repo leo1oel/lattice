@@ -7,7 +7,7 @@ import "react-medium-image-zoom/dist/styles.css";
 import "./index.css";
 import ReactDOM from "react-dom/client";
 import "@fontsource-variable/inter";
-import "@fontsource-variable/jetbrains-mono";
+import "./assets/fonts/ioskeley-mono/ioskeley-mono.css";
 import "@fontsource/instrument-serif/400.css";
 import { InterfaceKit } from "interface-kit/react";
 import App from "./App";
@@ -16,6 +16,9 @@ import "./app-updater.css";
 import { RootErrorBoundary } from "./root-error-boundary";
 import { AppToastStack } from "./app-log";
 import { ConfirmActionProvider } from "./confirm-action-dialog";
+import { installGlobalErrorCapture } from "./global-error-capture";
+
+installGlobalErrorCapture();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <>

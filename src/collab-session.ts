@@ -135,6 +135,10 @@ export type CollabPeer = {
   color: string;
   /** The file they are looking at, when they have announced one. */
   path: string | null;
+  /** Stable session identity used to merge awareness with project presence. */
+  instanceId?: string;
+  /** Host-visible authorization grant. Peers sharing one invite share this grant. */
+  grantId?: string;
 };
 
 /**
@@ -149,7 +153,7 @@ export function readCollabPeers(
   const peers: CollabPeer[] = [];
   for (const [clientId, state] of states) {
     if (clientId === selfClientId) continue;
-    const record = (state ?? {}) as { user?: unknown; path?: unknown };
+    const record = (state ?? {}) as { user?: unknown; path?: unknown; instanceId?: unknown };
     const user = (record.user ?? {}) as { name?: unknown; color?: unknown };
     const name = typeof user.name === "string" && user.name.trim() ? user.name.trim() : "Anonymous";
     peers.push({
@@ -157,6 +161,7 @@ export function readCollabPeers(
       name,
       color: typeof user.color === "string" && user.color ? user.color : "#8b8b93",
       path: typeof record.path === "string" && record.path.trim() ? record.path.trim() : null,
+      ...(typeof record.instanceId === "string" ? { instanceId: record.instanceId } : {}),
     });
   }
   // Stable order so avatars do not shuffle on every awareness tick.

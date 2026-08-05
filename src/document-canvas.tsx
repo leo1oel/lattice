@@ -1047,6 +1047,10 @@ export function DocumentCanvas(props: {
     // Binding before the host's Y.Texts have synced can create a competing
     // placeholder. Keep this stable across keystrokes so yCollab listeners live.
     if (!collabSession || !activeFile || !collabReady) return EMPTY_EXTENSIONS;
+    // Joining/materializing updates several parent states in one transition.
+    // Never turn a transient path mismatch into a render-time app crash; the
+    // awaited loadFile/openPath flow will re-render once this path is active.
+    if (collabSession.activePath !== activeFile) return EMPTY_EXTENSIONS;
     collabSession.setActivePath(activeFile, collabSeedSourceRef.current);
     return collabEditorExtensions(collabSession);
     // awarenessVersion: a transport reconnect swaps provider.awareness — rebuild
@@ -2184,7 +2188,13 @@ export function DocumentCanvas(props: {
       // Upstream contract: the editor scroll container carries both the
       // `.editor-doc-scroll` class (bubble-menu-clip.ts) and this testid
       // (frozen-table-headers.ts resolves it via closest()).
-      viewportProps={{ "data-testid": "editor-scroll-container" }}
+      viewportProps={{
+        "data-testid": "editor-scroll-container",
+        // Split mode has an explicit source/preview scroll coordinator and
+        // insertion viewport lock. Native anchoring is a competing scroll
+        // writer when media above the viewport resolves or remounts.
+        style: props.mode === "split" ? { overflowAnchor: "none" } : undefined,
+      }}
       viewportRef={attachMarkdownPreviewViewport}
       onPointerDownCapture={() => props.onContextSurfaceActivate(primarySurface)}
       onFocusCapture={() => props.onContextSurfaceActivate(primarySurface)}

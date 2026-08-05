@@ -1,6 +1,6 @@
 [package]
 name = "research-writer"
-version = "0.1.182"
+version = "0.1.183"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
@@ -34,6 +34,8 @@ tauri-plugin-clipboard-manager = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tauri-plugin-window-state = "2"
+tauri-plugin-log = "2"
+log = "0.4"
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 flate2 = "1"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }

@@ -18,7 +18,7 @@ textarea {
 
 :root {
   --ui-font: "Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif;
-  --editor-font: "TX-02 Variable", "TX-02", "Berkeley Mono Variable", "Berkeley Mono", "JetBrains Mono Variable", "JetBrains Mono", Menlo, "SF Mono", ui-monospace, monospace;
+  --editor-font: "Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace;
   --editor-font-size: var(--type-reading-size);
   font-family: var(--ui-font);
   font-weight: var(--weight-regular);

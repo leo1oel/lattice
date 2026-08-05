@@ -1,12 +1,53 @@
 /* eslint-disable react-refresh/only-export-components -- provider and hook form one host seam */
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 type ProjectImageHostValue = {
   activePath: string;
   loadAsset?: (path: string) => Promise<string | null>;
 };
 
+type ProjectImageResource = {
+  promise: Promise<string | null>;
+  dataUrl?: string;
+};
+
 const ProjectImageHostContext = createContext<ProjectImageHostValue>({ activePath: "" });
+const projectImageResources = new WeakMap<
+  (path: string) => Promise<string | null>,
+  Map<string, ProjectImageResource>
+>();
+
+function projectImageResource(
+  loadAsset: (path: string) => Promise<string | null>,
+  projectPath: string,
+): ProjectImageResource {
+  let resources = projectImageResources.get(loadAsset);
+  if (!resources) {
+    resources = new Map();
+    projectImageResources.set(loadAsset, resources);
+  }
+  const cached = resources.get(projectPath);
+  if (cached) return cached;
+  const resource: ProjectImageResource = {
+    promise: loadAsset(projectPath).then((dataUrl) => {
+      if (dataUrl) resource.dataUrl = dataUrl;
+      return dataUrl;
+    }).catch((error) => {
+      if (resources?.get(projectPath) === resource) resources.delete(projectPath);
+      throw error;
+    }),
+  };
+  resources.set(projectPath, resource);
+  return resource;
+}
+
+function cachedProjectImageResource(
+  loadAsset: ((path: string) => Promise<string | null>) | undefined,
+  projectPath: string | null,
+): ProjectImageResource | null {
+  if (!loadAsset || !projectPath) return null;
+  return projectImageResources.get(loadAsset)?.get(projectPath) ?? null;
+}
 
 function resolveProjectPath(activePath: string, href: string): string | null {
   const rawPath = href.split(/[?#]/, 1)[0];
@@ -37,8 +78,9 @@ export function ProjectImageHostProvider({
   loadAsset,
   children,
 }: ProjectImageHostValue & { children: ReactNode }) {
+  const value = useMemo(() => ({ activePath, loadAsset }), [activePath, loadAsset]);
   return (
-    <ProjectImageHostContext.Provider value={{ activePath, loadAsset }}>
+    <ProjectImageHostContext.Provider value={value}>
       {children}
     </ProjectImageHostContext.Provider>
   );
@@ -46,22 +88,26 @@ export function ProjectImageHostProvider({
 
 export function useProjectImageSrc(src: string | undefined): string | undefined {
   const { activePath, loadAsset } = useContext(ProjectImageHostContext);
+  const projectPath = src ? resolveProjectPath(activePath, src) : null;
+  const resource = cachedProjectImageResource(loadAsset, projectPath);
   const [loaded, setLoaded] = useState<{
-    source: string;
+    projectPath: string;
     loader: (path: string) => Promise<string | null>;
     dataUrl: string;
   } | null>(null);
 
   useEffect(() => {
-    if (!src || !loadAsset) return;
-    const projectPath = resolveProjectPath(activePath, src);
-    if (!projectPath) return;
+    if (!projectPath || !loadAsset || resource?.dataUrl) return;
+    const pendingResource = resource ?? projectImageResource(loadAsset, projectPath);
     let active = true;
-    void loadAsset(projectPath).then((dataUrl) => {
-      if (active && dataUrl) setLoaded({ source: src, loader: loadAsset, dataUrl });
+    void pendingResource.promise.then((dataUrl) => {
+      if (active && dataUrl) setLoaded({ projectPath, loader: loadAsset, dataUrl });
     }).catch(() => undefined);
     return () => { active = false; };
-  }, [activePath, loadAsset, src]);
+  }, [loadAsset, projectPath, resource]);
 
-  return loaded && loaded.source === src && loaded.loader === loadAsset ? loaded.dataUrl : src;
+  if (resource?.dataUrl) return resource.dataUrl;
+  return loaded && loaded.projectPath === projectPath && loaded.loader === loadAsset
+    ? loaded.dataUrl
+    : src;
 }

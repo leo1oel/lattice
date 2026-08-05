@@ -59,6 +59,8 @@ export function CanvasToolbar(props: {
   onCollab: () => void;
   collabLive: boolean;
   collabPeers: number;
+  /** Collaboration presence avatars, rendered beside the live control. */
+  collabPresence?: ReactNode;
   onHistory: () => void;
   onGit: () => void;
   commentCount: number;
@@ -178,9 +180,10 @@ export function CanvasToolbar(props: {
                 onClick={props.onCollab}
               >
                 <AnimatedProductIcon source="provided" kind="radio" size={14} />
-                {props.collabLive ? <em className="collab-peer-badge">{props.collabPeers}</em> : null}
+                {props.collabLive ? <em className="collab-peer-badge collab-live-badge">{props.collabPeers}</em> : null}
               </button>
             </Tip>
+            {props.collabPresence}
           </>
         )}
         {(props.onOverleafSync || props.onOverleafOpen) && (

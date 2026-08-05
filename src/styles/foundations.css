@@ -61,7 +61,7 @@
 
   /* Specialized compact roles. Project filenames get their own 13px role so
      Papers metadata and other compact navigation can remain at 11px. Source
-     and diff content use the application-owned TX-02-first editor font role. */
+     and diff content use the application-owned Ioskeley Mono editor font role. */
   --type-tree-size: var(--type-caption-size);
   --type-tree-line-height: var(--type-caption-line-height);
   --type-tree-weight: var(--weight-regular);

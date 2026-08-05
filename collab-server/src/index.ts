@@ -16,18 +16,32 @@ function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 }
 
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, PUT, OPTIONS",
+  "access-control-allow-headers": "authorization, content-length, content-type, x-content-sha256, x-document-epoch, x-operation-id",
+  "access-control-max-age": "86400",
+} as const;
+
+function withCors(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(CORS_HEADERS)) headers.set(name, value);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const match = url.pathname.match(/^\/v2\/projects\/([^/]+)(?:\/|$)/);
     if (match) {
+      if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
       const projectInstanceId = decodeURIComponent(match[1]);
-      if (!/^[A-Za-z0-9_-]{16,128}$/.test(projectInstanceId)) return new Response("Invalid projectInstanceId", { status: 400 });
+      if (!/^[A-Za-z0-9_-]{16,128}$/.test(projectInstanceId)) return withCors(new Response("Invalid projectInstanceId", { status: 400 }));
       const binary = url.pathname.match(/^\/v2\/projects\/[^/]+\/binary\/(uploads|downloads)\/([^/]+)$/);
-      if (binary) return binary[1] === "uploads" ? uploadBinary(request, env, projectInstanceId, decodeURIComponent(binary[2])) : downloadBinary(request, env, projectInstanceId, decodeURIComponent(binary[2]));
+      if (binary) return withCors(await (binary[1] === "uploads" ? uploadBinary(request, env, projectInstanceId, decodeURIComponent(binary[2])) : downloadBinary(request, env, projectInstanceId, decodeURIComponent(binary[2]))));
       const textImport = url.pathname.match(/^\/v2\/projects\/[^/]+\/text\/imports\/([^/]+)$/);
-      if (textImport) return importText(request, env, projectInstanceId, decodeURIComponent(textImport[1]));
-      return env.ProjectCoordinatorV2.getByName(projectInstanceId).fetch(request);
+      if (textImport) return withCors(await importText(request, env, projectInstanceId, decodeURIComponent(textImport[1])));
+      return withCors(await env.ProjectCoordinatorV2.getByName(projectInstanceId).fetch(request));
     }
     return (
       (await routePartykitRequest(request, env as never, {

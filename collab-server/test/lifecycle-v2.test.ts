@@ -38,10 +38,34 @@ async function binaryProject() {
 }
 
 async function sha(bytes: Uint8Array) { return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), b => b.toString(16).padStart(2, "0")).join(""); }
+async function guestSecretHash(secret: string) { const salt = "p".repeat(43); return { salt, hash: await sha(new TextEncoder().encode(`${salt}:${secret}`)) }; }
 
 async function readState(id: string): Promise<any> {
   return runInDurableObject(env.ProjectCoordinatorV2.getByName(id), async (_instance, state) => state.storage.get(STATE_KEY));
 }
+
+describe("v2 browser access", () => {
+  it("answers preflight and includes CORS headers on project responses", async () => {
+    const id = `cors-${++sequence}-abcdefghijklmnop`;
+    const preflight = await SELF.fetch(`https://worker/v2/projects/${id}/bootstrap`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "tauri://localhost",
+        "Access-Control-Request-Method": "PUT",
+        "Access-Control-Request-Headers": "authorization, content-length, content-type, x-content-sha256, x-document-epoch, x-operation-id",
+      },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe("*");
+    expect(preflight.headers.get("access-control-allow-methods")).toContain("PUT");
+    expect(preflight.headers.get("access-control-allow-headers")).toContain("content-length");
+    expect(preflight.headers.get("access-control-allow-headers")).toContain("x-operation-id");
+
+    const response = await hostPost(id, "bootstrap", { projectInstanceId: id, hostSecret: secret, paths: [], kind: "text" }, null);
+    expect(response.status).toBe(201);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+  });
+});
 
 describe("v2 project presence channel", () => {
   it("announces, lists, prunes stale entries, supports leave, and requires auth", async () => {
@@ -59,6 +83,26 @@ describe("v2 project presence channel", () => {
     const left = await (await hostPost(id, "presence", { instanceId: "b", leave: true })).json<any>();
     expect(left.presence.b).toBeUndefined();
     expect(left.presence.a).toBeDefined();
+  });
+
+  it("shows grant ownership only to the host and removes matching presence on revoke", async () => {
+    const { id } = await textProject();
+    const guestSecret = "presence-guest-secret-with-thirty-two-bytes";
+    const grant = await (await hostPost(id, "grants", { operationId: crypto.randomUUID(), expectedCatalogRevision: 1, permission: "write", guestSecretHash: await guestSecretHash(guestSecret) })).json<any>();
+    const grantId = grant.value.grantId as string;
+    const guestView = await (await hostPost(id, "presence", { instanceId: "guest-instance", name: "Bo", color: "#123", path: "paper.md" }, guestSecret)).json<any>();
+    expect(guestView.presence["guest-instance"].grantId).toBeUndefined();
+    const hostView = await (await hostPost(id, "presence", { instanceId: "host-instance", name: "Ada", color: "#456", path: "paper.md" })).json<any>();
+    expect(hostView.presence["guest-instance"].grantId).toBe(grantId);
+    const otherGuestSecret = "other-presence-guest-secret-with-thirty-two-bytes";
+    await hostPost(id, "grants", { operationId: crypto.randomUUID(), expectedCatalogRevision: 2, permission: "write", guestSecretHash: await guestSecretHash(otherGuestSecret) });
+    expect((await hostPost(id, "presence", { instanceId: "guest-instance", name: "Mallory" }, otherGuestSecret)).status).toBe(403);
+    await hostPost(id, "presence", { instanceId: "guest-instance", leave: true }, otherGuestSecret);
+    const afterUnauthorizedLeave = await (await hostPost(id, "presence", { instanceId: "host-instance", name: "Ada", color: "#456", path: "paper.md" })).json<any>();
+    expect(afterUnauthorizedLeave.presence["guest-instance"]).toBeDefined();
+    await hostPost(id, "revoke", { operationId: crypto.randomUUID(), expectedCatalogRevision: 3, grantId });
+    const after = await (await hostPost(id, "presence", { instanceId: "host-instance", name: "Ada", color: "#456", path: "paper.md" })).json<any>();
+    expect(after.presence["guest-instance"]).toBeUndefined();
   });
 });
 

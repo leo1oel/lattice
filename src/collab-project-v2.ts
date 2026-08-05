@@ -444,11 +444,16 @@ export class CollabProjectControllerV2 {
     const seen = new Set<string>([this.instanceId]);
     for (const state of awareness.getStates().values()) {
       const instanceId = (state as { instanceId?: unknown } | null)?.instanceId;
-      if (typeof instanceId === "string") seen.add(instanceId);
+      if (typeof instanceId === "string") {
+        seen.add(instanceId);
+        const peer = peers.find((candidate) => candidate.instanceId === instanceId);
+        const presence = this.presenceValue[instanceId];
+        if (peer && presence?.grantId) peer.grantId = presence.grantId;
+      }
     }
     for (const [instanceId, entry] of Object.entries(this.presenceValue)) {
       if (seen.has(instanceId)) continue;
-      peers.push({ clientId: presenceClientId(instanceId), name: entry.name, color: entry.color, path: entry.path });
+      peers.push({ clientId: presenceClientId(instanceId), name: entry.name, color: entry.color, path: entry.path, instanceId, ...(entry.grantId ? { grantId: entry.grantId } : {}) });
     }
     peers.sort((left, right) => left.clientId - right.clientId);
     onPeers(peers);
@@ -610,7 +615,7 @@ export class CollabProjectControllerV2 {
     if (!openPath) throw new Error("The shared project has no live text files");
     return { rootPath: lease.projectRoot, openPath, textCount: textFiles.length, binaryCount: files.length - textFiles.length, fileCount: files.length };
   }
-  async close(): Promise<void> { await this.control.operation("close-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision }); await this.refetchCatalog(); }
+  async close(): Promise<void> { await this.control.operation("close-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision }); if (!this.destroyed) await this.refetchCatalog(); }
   destroy(): void {
     if (this.destroyed) return; this.destroyed = true; this.stopEventsPolling();
     this.awarenessListener?.(); this.awarenessListener = undefined;

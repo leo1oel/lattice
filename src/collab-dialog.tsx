@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy, Radio, X } from "lucide-react";
 import { IconSwap, MotionButton } from "./motion";
 import { isLocalCollabHost } from "./collab-config";
-import type { CollabChatMessage, CollabStatus } from "./collab-session";
+import type { CollabChatMessage, CollabPeer, CollabStatus } from "./collab-session";
 import type { CollabProjectRecordV2 } from "./collab-rooms";
 import { CollabChatPanel } from "./collab-chat";
 import { Button } from "./components/ui/button";
@@ -31,6 +31,7 @@ export function CollabDialog(props: {
   status: CollabStatus;
   statusDetail: string | null;
   peerCount: number;
+  peers?: CollabPeer[];
   fileCount: number;
   connectedRoom: string | null;
 
@@ -48,6 +49,7 @@ export function CollabDialog(props: {
   onForgetProjectV2?: (record: CollabProjectRecordV2) => void;
   onDisconnect: () => void;
   onCopyInvite: () => Promise<void> | void;
+  onRemovePeer?: (peer: CollabPeer) => Promise<void> | void;
   onInstallTex?: () => void;
 
   /** Omitting these leaves the live card exactly as it was — chat is opt-in per caller. */
@@ -59,6 +61,7 @@ export function CollabDialog(props: {
   onChatOpen?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [removingPeer, setRemovingPeer] = useState<string | null>(null);
   const [liveTab, setLiveTab] = useState<CollabLiveTab>("status");
   const sendChat = props.onChatSend;
   const chatEnabled = Boolean(sendChat);
@@ -79,9 +82,8 @@ export function CollabDialog(props: {
   // A session exists as long as we have a connected room. Keep showing the live
   // card (with Leave/Stop) through a transient error/reconnect instead of
   // dropping back to the Start/Join form and losing the disconnect button.
-  const live = props.connectedRoom != null
-    || props.status === "synced"
-    || props.status === "connecting";
+  const live = props.connectedRoom != null || props.status === "synced";
+  const starting = props.status === "connecting" && props.connectedRoom == null;
   const localHost = isLocalCollabHost(props.host);
   const nameReady = props.displayName.trim().length > 0;
   const mode = props.joinOnly ? "join" : props.mode;
@@ -105,6 +107,17 @@ export function CollabDialog(props: {
       if (!ok) return;
     }
     props.onDisconnect();
+  };
+
+  const removePeer = async (peer: CollabPeer) => {
+    if (!peer.grantId || !props.onRemovePeer) return;
+    if (!window.confirm(`Remove ${peer.name}?\n\nThey will lose access immediately. Anyone who joined with the same invite will also lose access.`)) return;
+    setRemovingPeer(peer.grantId);
+    try {
+      await props.onRemovePeer(peer);
+    } finally {
+      setRemovingPeer(null);
+    }
   };
 
   return (
@@ -235,6 +248,31 @@ export function CollabDialog(props: {
                       </IconSwap>
                       {copied ? "Copied" : "Copy invite"}
                     </button>
+                    {(props.peers?.length ?? 0) > 0 ? (
+                      <div className="collab-participants">
+                        <div className="collab-participants-title">Collaborators</div>
+                        <ul className="collab-participants-list">
+                          {props.peers!.map((peer) => (
+                            <li key={peer.clientId} className="collab-participant-row">
+                              <span className="collab-participant-name">{peer.name}</span>
+                              {peer.path ? <span className="collab-participant-path">{peer.path}</span> : null}
+                              {peer.grantId && props.onRemovePeer ? (
+                                <Button
+                                  size="compact"
+                                  variant="ghost"
+                                  className="collab-remove-peer"
+                                  disabled={removingPeer === peer.grantId}
+                                  aria-label={`Remove ${peer.name} from this share`}
+                                  onClick={() => { void removePeer(peer); }}
+                                >
+                                  {removingPeer === peer.grantId ? "Removing…" : "Remove"}
+                                </Button>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                   </>
                 ) : null}
                 {props.role === "guest" ? (
@@ -276,7 +314,11 @@ export function CollabDialog(props: {
         )}
 
         <div className="modal-actions">
-          {live ? (
+          {starting ? (
+            <MotionButton type="button" className={buttonClassName({ variant: "primary" })} onClick={props.onDisconnect}>
+              Cancel
+            </MotionButton>
+          ) : live ? (
             <MotionButton type="button" className={buttonClassName({ variant: "primary" })} onClick={stopOrLeave}>
               {props.role === "guest" ? "Leave share" : "Stop sharing"}
             </MotionButton>

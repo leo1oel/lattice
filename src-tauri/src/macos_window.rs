@@ -3,6 +3,7 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
 
 /// Payload of the `trackpad-magnify` event the web UI listens for.
 #[derive(Clone, serde::Serialize)]
@@ -73,11 +74,107 @@ pub fn install_magnify_monitor(app: tauri::AppHandle) {
 
 const LIGHT_WINDOW_BACKGROUND: (f64, f64, f64) = (247.0, 247.0, 246.0);
 const DARK_WINDOW_BACKGROUND: (f64, f64, f64) = (23.0, 23.0, 24.0);
+const TRAFFIC_LIGHT_LEFT_INSET: f64 = 13.0;
+const DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP: f64 = 20.0;
+
+static TRAFFIC_LIGHT_CENTER_FROM_TOP: Mutex<f64> =
+    Mutex::new(DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP);
+
 fn window_background(dark: bool) -> (f64, f64, f64) {
     if dark {
         DARK_WINDOW_BACKGROUND
     } else {
         LIGHT_WINDOW_BACKGROUND
+    }
+}
+
+/// Align the native traffic-light centers with the measured web titlebar.
+///
+/// AppKit owns the button size, spacing, and private titlebar hierarchy, and
+/// those details differ between macOS releases. Read that geometry at runtime
+/// and convert the desired window-space center into the button superview rather
+/// than treating Tauri's version-sensitive titlebar inset as a stable position.
+#[cfg(target_os = "macos")]
+pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
+    schedule_traffic_light_alignment(window);
+
+    // AppKit performs a final titlebar layout after the window first appears.
+    // Re-read the native frames after that pass instead of assuming the first
+    // hierarchy survives unchanged.
+    let delayed = window.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(120));
+        schedule_traffic_light_alignment(&delayed);
+    });
+}
+
+/// Apply a web-measured vertical center in AppKit logical points.
+pub fn align_traffic_lights_to(window: &tauri::WebviewWindow, center_from_top: f64) {
+    if !center_from_top.is_finite() || center_from_top < 0.0 {
+        return;
+    }
+    if let Ok(mut target) = TRAFFIC_LIGHT_CENTER_FROM_TOP.lock() {
+        *target = center_from_top;
+    }
+    schedule_traffic_light_alignment(window);
+}
+
+fn schedule_traffic_light_alignment(window: &tauri::WebviewWindow) {
+    let Ok(ptr) = window.ns_window() else {
+        return;
+    };
+    if ptr.is_null() {
+        return;
+    }
+    let ptr = ptr as usize;
+    let _ = window.run_on_main_thread(move || unsafe {
+        align_traffic_lights_on_main(ptr as *mut std::ffi::c_void);
+    });
+}
+
+fn traffic_light_center_from_top() -> f64 {
+    TRAFFIC_LIGHT_CENTER_FROM_TOP
+        .lock()
+        .map(|target| *target)
+        .unwrap_or(DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP)
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn align_traffic_lights_on_main(ns_window: *mut std::ffi::c_void) {
+    use objc2_app_kit::{NSView, NSWindow, NSWindowButton};
+    use objc2_foundation::NSPoint;
+
+    let window = &*(ns_window as *const NSWindow);
+    let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) else {
+        return;
+    };
+    let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) else {
+        return;
+    };
+    let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) else {
+        return;
+    };
+    let Some(button_superview) = close.superview() else {
+        return;
+    };
+
+    let close_frame = NSView::frame(&close);
+    let miniaturize_frame = NSView::frame(&miniaturize);
+    let spacing = miniaturize_frame.origin.x - close_frame.origin.x;
+    let center_y_in_window = window.frame().size.height - traffic_light_center_from_top();
+
+    for (index, button) in [close, miniaturize, zoom].into_iter().enumerate() {
+        let frame = NSView::frame(&button);
+        let desired_window_center = NSPoint::new(
+            TRAFFIC_LIGHT_LEFT_INSET + index as f64 * spacing + frame.size.width / 2.0,
+            center_y_in_window,
+        );
+        let desired_local_center =
+            button_superview.convertPoint_fromView(desired_window_center, None);
+        button.setFrameOrigin(NSPoint::new(
+            desired_local_center.x - frame.size.width / 2.0,
+            desired_local_center.y - frame.size.height / 2.0,
+        ));
     }
 }
 
@@ -238,16 +335,13 @@ mod tests {
     }
 
     #[test]
-    fn macos_window_config_owns_a_stable_traffic_light_inset() {
+    fn macos_window_uses_runtime_traffic_light_geometry() {
         let config: Value =
             serde_json::from_str(include_str!("../tauri.conf.json")).expect("valid Tauri config");
         assert_eq!(config["app"]["macOSPrivateApi"], true);
         let window = &config["app"]["windows"][0];
-        // WRY retains this inset and reapplies it from the native view's draw
-        // path, so live resizing never competes with a manual frame update.
-        assert_eq!(window["trafficLightPosition"]["x"], 13.0);
-        assert_eq!(window["trafficLightPosition"]["y"], 22.2);
-        assert!(!include_str!("../../src/App.tsx").contains("align_traffic_lights"));
+        assert!(window.get("trafficLightPosition").is_none());
+        assert!(include_str!("../../src/App.tsx").contains("align_traffic_lights"));
         let css_entry = include_str!("../../src/App.css");
         assert!(css_entry.contains("./styles/app-shell.css"));
         let css = include_str!("../../src/styles/app-shell.css");

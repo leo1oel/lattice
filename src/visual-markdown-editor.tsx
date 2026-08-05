@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
 import { EditorContent, NodeViewWrapper, ReactNodeViewRenderer, useEditor, type Editor } from "@tiptap/react";
 import { Extension, posToDOMRect, type NodeViewProps } from "@tiptap/core";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
@@ -958,6 +958,60 @@ function openMarkdownLink(
   else if (/^(?:https?:|mailto:)/i.test(href)) void openUrl(href).catch(() => undefined);
 }
 
+const VisualEditorSurface = memo(function VisualEditorSurface({
+  editor,
+  activePath,
+  onLoadAsset,
+  workspaceIndex,
+  viewInSource,
+  editorViewMounted,
+  openVisualCommentComposer,
+  bubbleMenuHidden,
+  editable,
+  optimizeForReading,
+  onLinkPopoverOpenChange,
+}: {
+  editor: Editor;
+  activePath: string;
+  onLoadAsset?: (path: string) => Promise<string | null>;
+  workspaceIndex?: MarkdownWorkspaceIndex | null;
+  viewInSource: (editor: Editor) => void;
+  editorViewMounted: boolean;
+  openVisualCommentComposer: (() => void) | null;
+  bubbleMenuHidden: boolean;
+  editable: boolean;
+  optimizeForReading: boolean;
+  onLinkPopoverOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <ProjectImageHostProvider activePath={activePath} loadAsset={onLoadAsset}>
+      <MirrorHostProvider workspaceIndex={workspaceIndex}>
+        <ViewInSourceProvider onViewInSource={viewInSource}>
+          <TooltipProvider delayDuration={280} skipDelayDuration={400}>
+            <div className="tiptap-editor">
+              {editorViewMounted && (
+                <VisualCommentProvider onComment={openVisualCommentComposer}>
+                  <BubbleMenuBar
+                    editor={editor}
+                    hidden={bubbleMenuHidden}
+                    commentOnly={!editable}
+                  />
+                </VisualCommentProvider>
+              )}
+              {editorViewMounted && !optimizeForReading && <TableCellHandles editor={editor} />}
+              <EmojiInsertPopover />
+              {editorViewMounted && (
+                <VisualLinkInsertPopover editor={editor} onOpenChange={onLinkPopoverOpenChange} />
+              )}
+              <EditorContent className="tiptap-editor-portal-content" editor={editor} />
+            </div>
+          </TooltipProvider>
+        </ViewInSourceProvider>
+      </MirrorHostProvider>
+    </ProjectImageHostProvider>
+  );
+});
+
 export function VisualMarkdownEditor({
   text,
   activePath,
@@ -1217,12 +1271,18 @@ export function VisualMarkdownEditor({
     // A deferred split publication happens after the short lock requested by
     // the original + transaction. Re-lock immediately before the source echo
     // so its CodeMirror update cannot move the preview several frames later.
+    // The first lock may already have scrolled down to reveal the inserted
+    // row, so preserve the anchor's current screen position rather than
+    // replaying its pre-insertion position and briefly jumping upward.
     if (viewportAnchor) {
       const anchor = updatedEditor.view.nodeDOM(viewportAnchor.anchorPosition);
       const reveal = updatedEditor.view.nodeDOM(viewportAnchor.insertedPosition);
+      const currentAnchorTop = anchor instanceof HTMLElement && anchor.isConnected
+        ? anchor.getBoundingClientRect().top
+        : viewportAnchor.anchorTop;
       requestViewportLockRef.current?.(
         anchor instanceof HTMLElement ? anchor : null,
-        viewportAnchor.anchorTop,
+        currentAnchorTop,
         reveal instanceof HTMLElement ? reveal : null,
       );
     }
@@ -1630,7 +1690,7 @@ export function VisualMarkdownEditor({
     onFocus: ({ editor: currentEditor }) => {
       reportVisualCaret(currentEditor, acceptedMarkdown.current);
     },
-  });
+  }, [activePath]);
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     const wired = new WeakSet<HTMLAnchorElement>();
@@ -1783,31 +1843,44 @@ export function VisualMarkdownEditor({
         sourceRanges = visualSourceRanges(text, renderedBlocks.length);
         sourceRangeBlockCount = renderedBlocks.length;
       }
-      let previousOffset = 0;
-      let sourceLine = 1;
-      for (const [index, element] of renderedBlocks.entries()) {
-        if (!(element instanceof HTMLElement)) continue;
-        const range = sourceRanges[index];
-        if (!range) {
-          delete element.dataset.sourceLine;
-          delete element.dataset.sourceOffset;
-          delete element.dataset.sourceEndOffset;
-          continue;
+      // Source labels are synchronization metadata, not editable document
+      // attributes. Keep ProseMirror's DOM observer from reparsing the whole
+      // document when these data attributes change; reparsing destroys every
+      // React NodeView and visibly reloads images, Mermaid, and HTML previews.
+      const domObserver = (editor.view as unknown as {
+        domObserver?: { flush: () => void; start: () => void; stop: () => void };
+      }).domObserver;
+      domObserver?.flush();
+      domObserver?.stop();
+      try {
+        let previousOffset = 0;
+        let sourceLine = 1;
+        for (const [index, element] of renderedBlocks.entries()) {
+          if (!(element instanceof HTMLElement)) continue;
+          const range = sourceRanges[index];
+          if (!range) {
+            delete element.dataset.sourceLine;
+            delete element.dataset.sourceOffset;
+            delete element.dataset.sourceEndOffset;
+            continue;
+          }
+          sourceLine += text.slice(previousOffset, range.from).split(/\r\n|\r|\n/).length - 1;
+          previousOffset = range.from;
+          const nextSourceLine = String(sourceLine);
+          const nextSourceOffset = String(range.from);
+          const nextSourceEndOffset = String(range.to);
+          if (element.dataset.sourceLine !== nextSourceLine) {
+            element.dataset.sourceLine = nextSourceLine;
+          }
+          if (element.dataset.sourceOffset !== nextSourceOffset) {
+            element.dataset.sourceOffset = nextSourceOffset;
+          }
+          if (element.dataset.sourceEndOffset !== nextSourceEndOffset) {
+            element.dataset.sourceEndOffset = nextSourceEndOffset;
+          }
         }
-        sourceLine += text.slice(previousOffset, range.from).split(/\r\n|\r|\n/).length - 1;
-        previousOffset = range.from;
-        const nextSourceLine = String(sourceLine);
-        const nextSourceOffset = String(range.from);
-        const nextSourceEndOffset = String(range.to);
-        if (element.dataset.sourceLine !== nextSourceLine) {
-          element.dataset.sourceLine = nextSourceLine;
-        }
-        if (element.dataset.sourceOffset !== nextSourceOffset) {
-          element.dataset.sourceOffset = nextSourceOffset;
-        }
-        if (element.dataset.sourceEndOffset !== nextSourceEndOffset) {
-          element.dataset.sourceEndOffset = nextSourceEndOffset;
-        }
+      } finally {
+        domObserver?.start();
       }
     };
     labelSourceBlocks();
@@ -1856,26 +1929,13 @@ export function VisualMarkdownEditor({
       return;
     }
     onViewInSource(
-      visualSourceRanges(text, selectedEditor.state.doc.childCount)[blockIndex]?.from ?? 0,
+      visualSourceRanges(acceptedMarkdown.current, selectedEditor.state.doc.childCount)[blockIndex]?.from ?? 0,
       viewportY,
     );
-  }, [onViewInSource, text]);
+  }, [onViewInSource]);
 
-  if (!editor) return <div aria-label="Loading Markdown editor" />;
-
-  const activeHoveredChanges = hoveredChanges
-    ? hoveredChanges.changeIds.flatMap((id) => {
-        const change = overleafChanges.find((candidate) => candidate.id === id);
-        return change ? [change] : [];
-      })
-    : [];
-  const restoreTrackedChangeFocus = () => {
-    const ids = hoveredChanges?.changeIds ?? [];
-    Array.from(sectionRef.current?.querySelectorAll<HTMLElement>("[data-visual-change-id]") ?? [])
-      .find((mark) => ids.includes(mark.dataset.visualChangeId ?? ""))
-      ?.focus();
-  };
-  const openVisualCommentComposer = onCreateComment ? () => {
+  const openVisualCommentComposer = useCallback(() => {
+    if (!editor || !onCreateComment) return;
     const { from, to, empty } = editor.state.selection;
     if (empty) return;
     const mappedFrom = sourceOffsetForProseMirrorPosition(editor, from, acceptedMarkdown.current);
@@ -1902,7 +1962,22 @@ export function VisualMarkdownEditor({
       left: Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - 328)),
       top: Math.min(window.innerHeight - 220, rect.bottom + 8),
     });
-  } : null;
+  }, [activePath, editor, onCreateComment]);
+
+  if (!editor) return <div aria-label="Loading Markdown editor" />;
+
+  const activeHoveredChanges = hoveredChanges
+    ? hoveredChanges.changeIds.flatMap((id) => {
+        const change = overleafChanges.find((candidate) => candidate.id === id);
+        return change ? [change] : [];
+      })
+    : [];
+  const restoreTrackedChangeFocus = () => {
+    const ids = hoveredChanges?.changeIds ?? [];
+    Array.from(sectionRef.current?.querySelectorAll<HTMLElement>("[data-visual-change-id]") ?? [])
+      .find((mark) => ids.includes(mark.dataset.visualChangeId ?? ""))
+      ?.focus();
+  };
   const submitVisualComment = () => {
     if (!commentComposer || !commentComposer.body.trim() || !onCreateComment) return;
     if (commentComposer.path !== activePath) {
@@ -2055,39 +2130,22 @@ export function VisualMarkdownEditor({
           contract (bubble-menu-clip.ts resolves it via closest()). The
           legacy visual-markdown-content typography class is intentionally
           gone — vendored editor-globals.css owns all editor styling. */}
-      {/* Keep Markdown chrome on the same tooltip timing and surface used by
-          the host toolbar without changing the rest of the app tree. */}
-      <ProjectImageHostProvider activePath={activePath} loadAsset={onLoadAsset}>
-        <MirrorHostProvider workspaceIndex={workspaceIndex}>
-          <ViewInSourceProvider onViewInSource={viewInSource}>
-            <TooltipProvider delayDuration={280} skipDelayDuration={400}>
-              <div className="tiptap-editor">
-            {/* Gated on view mount: BubbleMenuBar reads `editor.view.dom`
-                during render, and TipTap v3's view proxy throws pre-mount.
-                Upstream only renders this chrome once the view exists. */}
-            {editorViewMounted && (
-              <VisualCommentProvider onComment={openVisualCommentComposer}>
-                <BubbleMenuBar
-                  editor={editor}
-                  hidden={linkPopoverOpen || Boolean(commentComposer)}
-                  commentOnly={!editable}
-                />
-              </VisualCommentProvider>
-            )}
-            {editorViewMounted && !optimizeForReading && <TableCellHandles editor={editor} />}
-            {/* Singleton listener for the slash menu's "/emoji" item —
-                upstream mounts it once in EditorPane; it opens on the
-                `ok:emoji-picker-open` DOM event and inserts at the caret. */}
-            <EmojiInsertPopover />
-            {editorViewMounted && (
-              <VisualLinkInsertPopover editor={editor} onOpenChange={setLinkPopoverOpen} />
-            )}
-            <EditorContent className="tiptap-editor-portal-content" editor={editor} />
-              </div>
-            </TooltipProvider>
-          </ViewInSourceProvider>
-        </MirrorHostProvider>
-      </ProjectImageHostProvider>
+      {/* Keep the portal plane outside controlled Markdown echo renders.
+          NodeView subscriptions update their own chrome; unchanged image,
+          Mermaid, and HTML views must retain their mounted DOM and state. */}
+      <VisualEditorSurface
+        editor={editor}
+        activePath={activePath}
+        onLoadAsset={onLoadAsset}
+        workspaceIndex={workspaceIndex}
+        viewInSource={viewInSource}
+        editorViewMounted={editorViewMounted}
+        openVisualCommentComposer={onCreateComment ? openVisualCommentComposer : null}
+        bubbleMenuHidden={linkPopoverOpen || Boolean(commentComposer)}
+        editable={editable}
+        optimizeForReading={optimizeForReading}
+        onLinkPopoverOpenChange={setLinkPopoverOpen}
+      />
     </section>
   );
 }

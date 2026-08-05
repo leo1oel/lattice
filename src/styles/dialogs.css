@@ -190,6 +190,13 @@
   font-weight: var(--weight-semibold);
 }
 .collab-copy-button:hover { color: var(--control-active); border-color: var(--control-active-border); }
+.collab-participants { display: grid; gap: var(--space-3); }
+.collab-participants-title { color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); }
+.collab-participants-list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.collab-participant-row { min-height: var(--control-height-compact); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); }
+.collab-participant-name { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--type-caption-size); text-overflow: ellipsis; white-space: nowrap; }
+.collab-participant-path { min-width: 0; grid-column: 1; overflow: hidden; color: var(--text-tertiary); font-size: var(--type-micro-size); text-overflow: ellipsis; white-space: nowrap; }
+.collab-remove-peer { grid-column: 2; grid-row: 1 / span 2; color: var(--status-danger); }
 .collab-help { margin: var(--space-5) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .modal.collab-drawer-content > .collab-name-help { margin: var(--space-8) 0 0; }
 .collab-help code { font-family: var(--editor-font); color: var(--text-secondary); }

@@ -9,8 +9,7 @@ export type FontOption = {
 
 export const FIXED_UI_FONT = '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif';
 export const FIXED_EDITOR_FONT =
-  '"TX-02 Variable", "TX-02", "Berkeley Mono Variable", "Berkeley Mono", ' +
-  '"JetBrains Mono Variable", "JetBrains Mono", Menlo, "SF Mono", ui-monospace, monospace';
+  '"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace';
 
 export const UI_FONT_OPTIONS: FontOption[] = [
   { label: "Inter", value: FIXED_UI_FONT, family: "Inter Variable", alwaysAvailable: true },
@@ -18,9 +17,9 @@ export const UI_FONT_OPTIONS: FontOption[] = [
 
 export const EDITOR_FONT_OPTIONS: FontOption[] = [
   {
-    label: "TX-02 / JetBrains Mono",
+    label: "Ioskeley Mono",
     value: FIXED_EDITOR_FONT,
-    family: "JetBrains Mono Variable",
+    family: "Ioskeley Mono",
     alwaysAvailable: true,
   },
 ];

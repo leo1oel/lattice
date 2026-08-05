@@ -12,10 +12,9 @@ not to force every surface into one density.
 - Agent body copy, user messages, and the composer use 13px type on a 20px line
   height at regular weight.
 - Long-form reading surfaces may use 14px type on a 22px line height.
-- Code and diffs use one fixed editor font stack. It prefers a locally installed
-  TX-02 / Berkeley Mono family, then falls back to the bundled JetBrains Mono
-  Variable face. Berkeley Mono itself is not distributed with Lattice. Local
-  and embedded code surfaces share this stack; editor font size remains
+- Code and diffs use one fixed editor font stack. The bundled default is
+  Ioskeley Mono (OFL), with system monospace faces as fallback. Local and
+  embedded code surfaces share this stack; editor font size remains
   adjustable.
 - Project filenames and folders use Inter at 13/16px. Project rows use the
   compact 32px row role; selected items move from regular to medium weight.

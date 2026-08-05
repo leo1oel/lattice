@@ -57,17 +57,17 @@
 .app-toast-action:hover { background: var(--border-subtle); }
 .app-toast > button { width: 24px; height: 24px; display: grid; place-items: center; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); }
 .app-toast > button:hover { background: var(--border-subtle); color: var(--text-primary); }
-.app-log-actions { display: flex; gap: var(--space-4); margin: 0 0 14px; }
-.app-log-list { display: flex; flex-direction: column; gap: var(--space-4); }
-.app-log-entry { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--border-subtle); border-left-width: 3px; border-radius: var(--radius-panel); background: var(--surface-app); }
-.app-log-entry.info { border-left-color: var(--status-info); }
-.app-log-entry.success { border-left-color: var(--status-success); }
-.app-log-entry.warning { border-left-color: var(--status-warning); }
-.app-log-entry.error { border-left-color: var(--status-danger); }
-.app-log-entry header { display: flex; justify-content: space-between; gap: var(--space-5); }
-.app-log-entry header strong { font-size: var(--type-caption-size); }
-.app-log-entry time, .app-log-entry small { color: var(--text-secondary); font-size: var(--type-nano-size); }
-.app-log-entry pre { max-height: 140px; margin: 7px 0 0; overflow: auto; color: var(--text-primary); font: var(--type-micro-size)/1.45 var(--editor-font); white-space: pre-wrap; overflow-wrap: anywhere; }
+.app-log-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin: 0 0 14px; }
+.app-log-location { margin: -6px 0 14px; color: var(--text-secondary); font: var(--type-nano-size)/1.4 var(--editor-font); overflow-wrap: anywhere; }
+/* Logs tab: pin the settings scroll chain to the viewport so the settings
+   page itself never scrolls — the log panel takes the remaining height and
+   scrolls internally with the app's own ScrollArea scrollbar. */
+.settings-content [data-slot="scroll-area-content-shell"]:has(.app-logs-settings) { height: 100%; }
+.settings-content [data-slot="scroll-area-content"]:has(.app-logs-settings) { height: 100%; }
+.app-logs-settings { height: 100%; display: flex; flex-direction: column; }
+.app-logs-settings .ui-settings-group { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.app-log-scroll { flex: 1; min-height: 140px; border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface-app); }
+.app-log-text { margin: 0; padding: var(--space-5); color: var(--text-primary); font: var(--type-micro-size)/1.5 var(--editor-font); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 
 /* Holds the two icons of a MorphIcon on top of each other, so the swap does
    not shift the label beside it. */

@@ -431,7 +431,7 @@ describe("welcome screen", () => {
         '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif',
       );
       expect(document.documentElement.style.getPropertyValue("--editor-font")).toBe(
-        '"TX-02 Variable", "TX-02", "Berkeley Mono Variable", "Berkeley Mono", "JetBrains Mono Variable", "JetBrains Mono", Menlo, "SF Mono", ui-monospace, monospace',
+        '"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace',
       );
     });
     expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("14");
@@ -674,6 +674,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(syntaxTree(editor.state).toString()).toContain("Link("));
     const documentView = screen.getByRole("tablist", { name: "Document view" });
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
+    expect(await screen.findByTestId("editor-scroll-container")).toHaveStyle({ overflowAnchor: "none" });
     const visualSurface = await screen.findByRole("textbox", { name: "Markdown document editor" });
     const visualEditor = (visualSurface as HTMLElement & { editor: TiptapEditor }).editor;
     act(() => {
@@ -698,6 +699,7 @@ describe("project workspace", () => {
     const splitEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
     expect(splitEditorDom).not.toBeNull();
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
+    expect(screen.getByTestId("editor-scroll-container")).toHaveStyle({ overflowAnchor: "none" });
     const splitEditor = splitEditorDom ? EditorView.findFromDOM(splitEditorDom) : null;
     if (!splitEditor) throw new Error("Markdown split editor was not created.");
     splitEditor.dispatch({
@@ -711,6 +713,7 @@ describe("project workspace", () => {
 
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     await waitFor(() => expect(document.querySelector(".source-editor .cm-editor")).toBeNull());
+    expect(screen.getByTestId("editor-scroll-container").style.overflowAnchor).toBe("");
     fireEvent.click(await screen.findByRole("link", { name: "Updated native view" }), { metaKey: true });
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {

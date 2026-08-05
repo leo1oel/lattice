@@ -11,6 +11,23 @@ type LoadingImageProps = ImgHTMLAttributes<HTMLImageElement> & {
   slotClassName?: string;
 };
 
+// Project images now remount with the same resolved data URL. Retaining the
+// terminal state for that exact URL prevents a fresh img element from showing
+// the fallback slot while the browser revalidates its decoded-image cache.
+const loadedImageSources = new Map<string, true>();
+const LOADED_IMAGE_SOURCE_LIMIT = 128;
+
+function rememberLoadedImageSource(src: string | undefined) {
+  if (!src) return;
+  loadedImageSources.delete(src);
+  loadedImageSources.set(src, true);
+  while (loadedImageSources.size > LOADED_IMAGE_SOURCE_LIMIT) {
+    const oldest = loadedImageSources.keys().next().value;
+    if (oldest === undefined) break;
+    loadedImageSources.delete(oldest);
+  }
+}
+
 function hasIntrinsicDimensions(
   width: number | string | undefined,
   height: number | string | undefined,
@@ -49,7 +66,7 @@ export function LoadingImage({
 }: LoadingImageProps) {
   const { t } = useLingui();
   const imgRef = useRef<HTMLImageElement>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(() => Boolean(src && loadedImageSources.has(src)));
   const intrinsic = hasIntrinsicDimensions(width, height);
   const slotStyle = computeSlotStyle(width, height, style);
 
@@ -64,7 +81,7 @@ export function LoadingImage({
   // biome-ignore lint/correctness/useExhaustiveDependencies: src is the reactive trigger; the body reads imgRef.current (refs don't trigger re-runs) so biome treats src as unused.
   useLayoutEffect(() => {
     const img = imgRef.current;
-    if (img?.complete) {
+    if ((src && loadedImageSources.has(src)) || img?.complete) {
       setLoaded(true);
     } else {
       setLoaded(false);
@@ -115,6 +132,7 @@ export function LoadingImage({
           className,
         )}
         onLoad={(event) => {
+          rememberLoadedImageSource(src);
           setLoaded(true);
           onLoad?.(event);
         }}
@@ -123,6 +141,7 @@ export function LoadingImage({
           // indicator becomes visible and screen readers stop announcing
           // aria-busy="true" forever. Without this, a 404 leaves the
           // <img> stuck at opacity-0 — a regression from default <img>.
+          rememberLoadedImageSource(src);
           setLoaded(true);
           onError?.(event);
         }}

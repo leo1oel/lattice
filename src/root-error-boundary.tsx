@@ -1,5 +1,6 @@
 import { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "./components/ui/button";
+import { addAppLog } from "./app-log-store";
 
 type RootErrorFallbackProps = {
   error: Error;
@@ -89,7 +90,15 @@ export class RootErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("Lattice UI crashed", error, info.componentStack);
+    // Write directly to the log store (not console.error, which the global
+    // capture already wraps) so the crash lands in the on-disk log file.
+    addAppLog({
+      level: "error",
+      source: "UI",
+      title: "Lattice UI crashed",
+      detail: `${error.stack ?? error.message}\n${info.componentStack ?? ""}`,
+      toast: false,
+    });
   }
 
   render() {

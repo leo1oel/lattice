@@ -1,10 +1,20 @@
-import { useEffect } from "react";
-import { AlertTriangle, CheckCircle2, CircleAlert, Info } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { openPath } from "@tauri-apps/plugin-opener";
+import { AlertTriangle, CheckCircle2, CircleAlert, FolderOpen, Info } from "lucide-react";
 import { CloseButton } from "./components/ui/icon-button";
 import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
 import { SettingsSectionHeader } from "./components/ui/settings-section-header";
 import { SettingsGroup } from "./components/ui/settings-row";
+import { ScrollArea } from "./components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select";
 import { CopyButton } from "./components/copy-button";
 import {
   clearAppLogs,
@@ -15,6 +25,7 @@ import {
   useAppLogSnapshot,
   useAppToastIdsSnapshot,
   type AppLogEntry,
+  type AppLogLevel,
 } from "./app-log-store";
 
 const LOG_ICON = {
@@ -105,36 +116,64 @@ export function AppToastStack() {
 
 export function AppLogsSettings() {
   const logs = useAppLogSnapshot();
-  const copy = () => void navigator.clipboard.writeText(formatAppLogs(logs));
+  const [levelFilter, setLevelFilter] = useState<"all" | AppLogLevel>("all");
+  const [logDir, setLogDir] = useState<string | null>(null);
+  const logViewportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    invoke<string>("get_app_log_dir")
+      .then(setLogDir)
+      .catch(() => setLogDir(null));
+  }, []);
+  const visible = levelFilter === "all" ? logs : logs.filter((entry) => entry.level === levelFilter);
+  // Entries are stored newest-first; the text view reads like a terminal —
+  // chronological, newest at the bottom. The panel fills the settings
+  // viewport (the page itself never scrolls) and scrolls internally with
+  // the app's own scrollbar.
+  const logText = formatAppLogs([...visible].reverse());
+  useEffect(() => {
+    const panel = logViewportRef.current;
+    if (!panel) return;
+    const nearBottom = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 48;
+    if (nearBottom) panel.scrollTop = panel.scrollHeight;
+  }, [logText]);
+  const copy = () => void navigator.clipboard.writeText(logText);
+  const openLogFolder = () => {
+    if (!logDir) return;
+    void openPath(logDir);
+  };
   return (
     <div className="settings-section app-logs-settings">
       <SettingsSectionHeader
         title="Logs"
-        description="Warnings and errors remain here after their notifications are dismissed."
+        description="Newest last, like a terminal. This view keeps the most recent 300 entries; the full history lives in a rotating log file on disk, which Clear does not remove."
       />
       <SettingsGroup title="Activity log">
         <div className="app-log-actions">
-          <Button size="compact" disabled={logs.length === 0} onClick={copy}>Copy all</Button>
+          <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value as "all" | AppLogLevel)}>
+            <SelectTrigger size="form" aria-label="Log level filter"><SelectValue /></SelectTrigger>
+            <SelectContent data-settings-control="true" position="popper" align="start">
+              <SelectItem value="all">All levels</SelectItem>
+              <SelectItem value="info">Info</SelectItem>
+              <SelectItem value="success">Success</SelectItem>
+              <SelectItem value="warning">Warning</SelectItem>
+              <SelectItem value="error">Error</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button size="compact" disabled={visible.length === 0} onClick={copy}>Copy all</Button>
           <Button size="compact" disabled={logs.length === 0} onClick={clearAppLogs}>Clear</Button>
+          <Button size="compact" disabled={!logDir} onClick={openLogFolder}>
+            <FolderOpen size={13} />
+            Open log folder
+          </Button>
         </div>
-        <div className="app-log-list">
-          {logs.length === 0 && (
-            <EmptyState align="start" density="compact" description="No logs yet." />
-          )}
-          {logs.map((entry) => {
-            const Icon = LOG_ICON[entry.level];
-            return (
-              <article key={entry.id} className={`app-log-entry ${entry.level}`}>
-                <Icon size={14} />
-                <div>
-                  <header><strong>{entry.title}</strong><time>{new Date(entry.timestamp).toLocaleString()}</time></header>
-                  <small>{entry.source}</small>
-                  {entry.detail && <pre>{entry.detail}</pre>}
-                </div>
-              </article>
-            );
-          })}
-        </div>
+        {logDir && <p className="app-log-location">{logDir}</p>}
+        {visible.length === 0 ? (
+          <EmptyState align="start" density="compact" description={logs.length === 0 ? "No logs yet." : "No logs at this level."} />
+        ) : (
+          <ScrollArea className="app-log-scroll" viewportRef={logViewportRef} fadeEdges={false}>
+            <pre className="app-log-text">{logText}</pre>
+          </ScrollArea>
+        )}
       </SettingsGroup>
     </div>
   );

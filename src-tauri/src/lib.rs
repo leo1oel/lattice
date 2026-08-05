@@ -235,9 +235,18 @@ where
     T: Send + 'static,
     F: FnOnce() -> Result<T, String> + Send + 'static,
 {
-    tauri::async_runtime::spawn_blocking(task)
-        .await
-        .map_err(|error| format!("{label} stopped unexpectedly: {error}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = task();
+        if let Err(reason) = &result {
+            log::error!(target: "lattice::tasks", "{label} failed: {reason}");
+        }
+        result
+    })
+    .await
+    .map_err(|error| {
+        log::error!(target: "lattice::tasks", "{label} stopped unexpectedly: {error}");
+        format!("{label} stopped unexpectedly: {error}")
+    })?
 }
 
 #[tauri::command]
@@ -1227,6 +1236,19 @@ fn overleaf_config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_config_dir()
         .map_err(|error| format!("Could not resolve the app config folder: {error}"))
+}
+
+/// Folder containing the rotating `lattice.log` files written by tauri-plugin-log.
+/// Created on demand so "Open log folder" works even before the first write.
+#[tauri::command]
+fn get_app_log_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|error| format!("Could not resolve the log folder: {error}"))?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|error| format!("Could not create the log folder: {error}"))?;
+    Ok(dir.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -2563,6 +2585,24 @@ fn set_window_background(app: tauri::AppHandle, dark: bool) -> Result<(), String
 }
 
 #[tauri::command]
+fn align_traffic_lights(app: tauri::AppHandle, center_from_top: f64) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Manager;
+        let window = app
+            .get_webview_window("main")
+            .ok_or_else(|| "Main window is unavailable.".to_string())?;
+        macos_window::align_traffic_lights_to(&window, center_from_top);
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, center_from_top);
+        Ok(())
+    }
+}
+
+#[tauri::command]
 async fn sample_screen_color(app: tauri::AppHandle) -> Result<Option<String>, String> {
     #[cfg(target_os = "macos")]
     {
@@ -2671,7 +2711,32 @@ pub fn run() {
     if run_cli() {
         return;
     }
+    // Panics after the log plugin installs its logger land in the log file;
+    // earlier ones are dropped silently by the `log` crate, which is fine.
+    std::panic::set_hook(Box::new(|info| {
+        log::error!(target: "lattice::panic", "{info}");
+    }));
     let app = tauri::Builder::default()
+        // Registered first so init-time logs from the other plugins are captured.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("lattice".to_string()),
+                    }),
+                    #[cfg(debug_assertions)]
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                ])
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5))
+                .max_file_size(2 * 1024 * 1024)
+                .level(if cfg!(debug_assertions) {
+                    log::LevelFilter::Debug
+                } else {
+                    log::LevelFilter::Info
+                })
+                .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
@@ -2681,6 +2746,7 @@ pub fn run() {
         // Remember the window's size + position across launches.
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
+            log::info!(target: "lattice::app", "Lattice {} starting", app.package_info().version);
             app.manage(AppState::from_environment());
             app.manage(synara::SynaraRuntime::new(app)?);
             synara::prewarm(app.handle().clone());
@@ -2688,6 +2754,7 @@ pub fn run() {
             {
                 macos_window::clear_launch_quarantine();
                 if let Some(window) = app.get_webview_window("main") {
+                    macos_window::install_traffic_light_alignment(&window);
                     macos_window::apply_window_background(&window, false);
                 }
                 macos_window::install_magnify_monitor(app.handle().clone());
@@ -2701,6 +2768,7 @@ pub fn run() {
             collab_credentials::delete_collab_credential,
             create_project,
             open_tutorial_project,
+            get_app_log_dir,
             create_collab_join_workspace,
             initial_project,
             open_project,
@@ -2838,6 +2906,7 @@ pub fn run() {
             delete_history_entry,
             start_tex_install,
             set_window_background,
+            align_traffic_lights,
             sample_screen_color,
             synara::synara_runtime_status,
             synara::synara_ensure_ready,

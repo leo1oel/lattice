@@ -13,7 +13,7 @@ export class CollabControlErrorV2 extends Error {
   get requiresRefetch(): boolean { return this.body.refetch === true; }
 }
 
-export type PresenceEntryV2 = { name: string; color: string; path: string | null; updatedAt: number };
+export type PresenceEntryV2 = { name: string; color: string; path: string | null; updatedAt: number; grantId?: string };
 
 export class CollabControlV2Client {
   constructor(private readonly baseUrl: string, private readonly projectInstanceId: string, private readonly credential?: string) {}

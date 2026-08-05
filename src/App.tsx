@@ -19,7 +19,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Play,
-  Radio,
   Search,
   Shapes,
   Shield,
@@ -317,6 +316,7 @@ const SYNARA_EMBED_READY = "synara:embed-ready";
 const SYNARA_OPEN_SETTINGS = "synara:open-settings";
 const SYNARA_SIDEBAR_MINIMUM = 320;
 const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
+const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
 
 type SynaraPermissionMode = "approval-required" | "auto" | "full-access";
 
@@ -807,6 +807,8 @@ function App() {
   const collabWorkspaceLeaseRef = useRef<CollabWorkspaceLease | null>(null);
   const collabDiskWriteQueueRef = useRef(new CollabDiskWriteQueue());
   const collabDetachRef = useRef<(() => void) | null>(null);
+  const collabStartingRef = useRef(false);
+  const collabStartGenerationRef = useRef(0);
   // The provider re-fires "sync" on every reconnect. Guard the one-time
   // seed/materialize so a network blip does not re-materialize the whole doc
   // over local disk and yank the open tab back to the root document.
@@ -1663,6 +1665,8 @@ function App() {
   }, [activeCollabVersion, markDiskMtime]);
 
   const clearCollabLocalState = useCallback(async () => {
+    collabStartGenerationRef.current += 1;
+    collabStartingRef.current = false;
     const session = collabSessionRef.current;
     try {
       await session?.flush?.();
@@ -1718,11 +1722,19 @@ function App() {
     if (collabLeavingRef.current) return;
     collabLeavingRef.current = true;
     try {
+      let closeFailed = false;
       if (activeCollabVersion === 2 && collabRoleRef.current === "host") {
-        await collabV2ControllerRef.current?.close();
+        try {
+          await collabV2ControllerRef.current?.close();
+        } catch {
+          closeFailed = true;
+        }
       }
-      await clearCollabLocalState();
-      setNotice(noticeText);
+      // A remote close failure must never trap the user in a broken local
+      // controller. Detach locally; the server's idle lifecycle handles an
+      // unreachable room, and the user can retry closing from Recent shares.
+      await clearCollabLocalState().catch(() => undefined);
+      setNotice(closeFailed ? "Stopped sharing locally; the remote share may still be available" : noticeText);
       setCollabOpen(false);
       // Peers edited these files during the session; re-read from disk so the
       // navigator, papers and citations reflect what is actually there now.
@@ -1900,6 +1912,7 @@ function App() {
   }, [activeCollabVersion, publishTextToCollabV2]);
 
   const startCollabShare = useCallback(() => {
+    if (collabStartingRef.current) return;
     if (!collabName.trim()) {
       setError("Enter your name before starting a share.");
       setCollabOpen(true);
@@ -1909,7 +1922,13 @@ function App() {
       setError("Open a project before starting live collaboration.");
       return;
     }
+    collabStartingRef.current = true;
+    const startGeneration = ++collabStartGenerationRef.current;
     void (async () => {
+        let controller: CollabProjectControllerV2 | null = null;
+        const assertCurrentStart = () => {
+          if (collabStartGenerationRef.current !== startGeneration) throw new Error("Share start was canceled");
+        };
         setCollabStatus("connecting");
         setCollabStatusDetail("Importing all project files…");
         try {
@@ -1918,6 +1937,7 @@ function App() {
           saveCollabDisplayName(collabName.trim());
           const deployment = new URL(resolved.includes("://") ? resolved : `https://${resolved}`).origin;
           const nativeInventory = await invoke<{ files: Array<{ path: string; contentKind: "text" | "binary"; size: number }>; excluded: Array<{ pathOrPattern: string; reason: string }> }>("collab_project_inventory_v2");
+          assertCurrentStart();
           if (nativeInventory.excluded.length) {
             const details = nativeInventory.excluded.map(item => `• ${item.pathOrPattern} — ${item.reason}`).join("\n");
             if (!window.confirm(`Some project items won't be included in this share:\n\n${details}\n\nContinue with the listed regular files?`)) {
@@ -1925,10 +1945,12 @@ function App() {
               setCollabStatusDetail(null);
               return;
             }
+            assertCurrentStart();
           }
           const inventory = nativeInventory.files.map(item => ({ path: item.path, kind: item.contentKind }));
           const kinds = new Map(inventory.map((item) => [item.path, item.kind]));
           const store = collabCredentialStore();
+          setCollabStatusDetail(`Preparing ${inventory.length} project files…`);
           const record = await createProjectV2({
             deployment,
             credentialStore: store,
@@ -1940,12 +1962,19 @@ function App() {
                 return Uint8Array.from(atob(asset.base64), (character) => character.charCodeAt(0));
               },
             },
-            onRecord: async (created) => rememberCollabProjectV2({ version: 2, projectInstanceId: created.projectInstanceId, host: created.deployment, credentialRef: created.credentialRef, permission: "host", title: project.root.split(/[/\\]/).filter(Boolean).pop() || "Shared project", projectRoot: project.root, lastUsed: Date.now() }),
+            onProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(`Uploading project files… ${completed}/${total}`); },
+            onRecord: async (created) => { assertCurrentStart(); rememberCollabProjectV2({ version: 2, projectInstanceId: created.projectInstanceId, host: created.deployment, credentialRef: created.credentialRef, permission: "host", title: project.root.split(/[/\\]/).filter(Boolean).pop() || "Shared project", projectRoot: project.root, lastUsed: Date.now() }); },
           });
-          const controller = await CollabProjectControllerV2.start({ deployment, projectInstanceId: record.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: "host", onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList });
+          assertCurrentStart();
+          controller = await CollabProjectControllerV2.start({ deployment, projectInstanceId: record.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: "host", onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList });
+          assertCurrentStart();
           const path = controller.hasTextPath(activeFile || "") ? activeFile : controller.catalogTextPaths()[0];
           if (!path) throw new Error("The shared project has no text files");
           await controller.openPath(path);
+          assertCurrentStart();
+          const invitation = await controller.createInvitation("write");
+          assertCurrentStart();
+          collabV2InvitationRef.current = invitation;
           const workspaceGeneration = collabWorkspaceGenerationRef.current + 1;
           collabWorkspaceGenerationRef.current = workspaceGeneration;
           collabWorkspaceLeaseRef.current = {
@@ -1964,22 +1993,52 @@ function App() {
           setCollabFileCount(controller.fileCount());
           setCollabReady(true);
           await loadFile(path);
-          const invitation = await controller.createInvitation("write");
-          collabV2InvitationRef.current = invitation;
-          await writeText(invitation);
+          assertCurrentStart();
+          const inviteCopied = await writeText(invitation).then(() => true, () => false);
           setCollabStatus("synced");
-          setNotice("Started v2 project share · invite copied");
+          setNotice(inviteCopied ? "Started v2 project share · invite copied" : "Started v2 project share · use Copy invite to share it");
         } catch (reason) {
+          const canceled = collabStartGenerationRef.current !== startGeneration;
+          if (controller) {
+            if (collabV2ControllerRef.current === controller) await clearCollabLocalState().catch(() => undefined);
+            else controller.destroy();
+          }
+          if (canceled) {
+            if (!collabStartingRef.current && collabSessionRef.current === null) {
+              setCollabStatus("disconnected");
+              setCollabStatusDetail(null);
+            }
+            return;
+          }
           setCollabStatus("error");
           setCollabStatusDetail("Import failed — retry Start sharing");
           setError(toMessage(reason));
+        } finally {
+          if (collabStartGenerationRef.current === startGeneration) collabStartingRef.current = false;
         }
       })();
-  }, [activeFile, collabHost, collabName, handleV2Catalog, loadFile, mapV2Status, project, v2WorkspaceCallbacks]);
+  }, [activeFile, clearCollabLocalState, collabHost, collabName, handleV2Catalog, loadFile, mapV2Status, project, v2WorkspaceCallbacks]);
 
   const copyCollabInvite = useCallback(async () => {
-    if (collabV2InvitationRef.current) await writeText(collabV2InvitationRef.current);
+    const controller = collabV2ControllerRef.current;
+    if (activeCollabVersion === 2 && collabRoleRef.current === "host" && controller) {
+      collabV2InvitationRef.current = await controller.createInvitation("write");
+    }
+    if (!collabV2InvitationRef.current) throw new Error("No collaboration invite is available");
+    await writeText(collabV2InvitationRef.current);
     setNotice("Invite copied");
+  }, [activeCollabVersion]);
+
+  const removeCollabPeer = useCallback(async (peer: CollabPeer) => {
+    const controller = collabV2ControllerRef.current;
+    if (collabRoleRef.current !== "host" || !controller || !peer.grantId) return;
+    try {
+      await controller.revoke(peer.grantId);
+      setCollabPeerList((current) => current.filter((candidate) => candidate.grantId !== peer.grantId));
+      setNotice(`Removed ${peer.name} from the share`);
+    } catch (reason) {
+      setError(`Could not remove ${peer.name}: ${toMessage(reason)}`);
+    }
   }, []);
 
   const openCollabDialog = useCallback((mode: CollabDialogMode = "start") => {
@@ -3692,7 +3751,7 @@ function App() {
       }
       void (async () => {
         setBusyLabel("Opening a v2 shared workspace…");
-        let controllerStarted = false;
+        let controller: CollabProjectControllerV2 | null = null;
         try {
           const priorRoot = project?.root ?? null;
           preCollabProjectRootRef.current = priorRoot;
@@ -3710,8 +3769,7 @@ function App() {
           const store = collabCredentialStore();
           const record = await acceptCollabInvitationV2(v2Raw, store, { projectRoot: snapshot.root, title: shortRoom });
           if (!record?.credentialRef) throw new Error("Could not store the v2 collaboration credential");
-          const controller = await CollabProjectControllerV2.start({ deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: v2Invite.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList });
-          controllerStarted = true;
+          controller = await CollabProjectControllerV2.start({ deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: v2Invite.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList });
           collabV2ControllerRef.current = controller;
           collabSessionRef.current = controller;
           const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
@@ -3721,15 +3779,20 @@ function App() {
           setCollabRole("guest");
           setActiveCollabVersion(2);
           setCollabRoom(controller.room);
-          setCollabSession(controller);
           setCollabFileCount(controller.fileCount());
-          setCollabReady(true);
+          // loadFile awaits openPath before publishing the session/ready state.
+          // Publishing first lets DocumentCanvas render against activePath=""
+          // and used to crash the entire joining app in setActivePath().
           await loadFile(materialized.openPath);
           setCollabStatus("synced");
           setNotice(`Joined v2 shared workspace · ${controller.fileCount()} files`);
         } catch (reason) {
           setCollabReady(false);
-          if (!controllerStarted) cancelProjectTransition();
+          if (controller) {
+            if (collabV2ControllerRef.current === controller) await clearCollabLocalState().catch(() => undefined);
+            else controller.destroy();
+          }
+          cancelProjectTransition();
           setCollabStatus("error");
           setError(toMessage(reason));
         } finally {
@@ -3739,11 +3802,12 @@ function App() {
       return;
     }
     setError("That invite is not a v2 collaboration invite — ask the host for a fresh one from Copy invite.");
-  }, [cancelProjectTransition, collabHost, collabInvite, collabName, collabRoom, enterProject, handleV2Catalog, loadFile, mapV2Status, project, refreshProject, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
+  }, [cancelProjectTransition, clearCollabLocalState, collabHost, collabInvite, collabName, collabRoom, enterProject, handleV2Catalog, loadFile, mapV2Status, project, refreshProject, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
 
   const rejoinCollabProjectV2 = useCallback((record: CollabProjectRecordV2) => {
     void (async () => {
       setBusyLabel("Rejoining v2 collaboration…");
+      let controller: CollabProjectControllerV2 | null = null;
       try {
         const store = collabCredentialStore();
         const credentialRef = await requireRememberedV2Credential(record, store);
@@ -3762,15 +3826,21 @@ function App() {
         const generation = collabWorkspaceGenerationRef.current + 1; collabWorkspaceGenerationRef.current = generation;
         const lease: CollabWorkspaceLease = { projectRoot: root, generation, isCurrent: () => collabWorkspaceGenerationRef.current === generation && projectRootRef.current === root };
         collabWorkspaceLeaseRef.current = lease;
-        const controller = await CollabProjectControllerV2.start({ deployment: record.host, projectInstanceId: record.projectInstanceId, credentialRef, credentialStore: store, permission: record.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList });
+        controller = await CollabProjectControllerV2.start({ deployment: record.host, projectInstanceId: record.projectInstanceId, credentialRef, credentialStore: store, permission: record.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList });
         const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
         await refreshProject(); collabV2ControllerRef.current = controller; collabSessionRef.current = controller;
-        collabRoleRef.current = record.permission === "host" ? "host" : "guest"; setCollabRole(collabRoleRef.current); setActiveCollabVersion(2); setCollabRoom(controller.room); setCollabSession(controller); setCollabFileCount(controller.fileCount()); setCollabReady(true); await loadFile(materialized.openPath);
+        collabRoleRef.current = record.permission === "host" ? "host" : "guest"; setCollabRole(collabRoleRef.current); setActiveCollabVersion(2); setCollabRoom(controller.room); setCollabFileCount(controller.fileCount()); await loadFile(materialized.openPath);
         rememberCollabProjectV2({ ...record, projectRoot: root, lastUsed: Date.now() }); refreshRecentRooms(); setCollabStatus("synced");
-      } catch (reason) { cancelProjectTransition(); setError(toMessage(reason)); setCollabStatus("error"); }
+      } catch (reason) {
+        if (controller) {
+          if (collabV2ControllerRef.current === controller) await clearCollabLocalState().catch(() => undefined);
+          else controller.destroy();
+        }
+        cancelProjectTransition(); setError(toMessage(reason)); setCollabStatus("error");
+      }
       finally { setBusyLabel(null); }
     })();
-  }, [cancelProjectTransition, collabName, enterProject, handleV2Catalog, loadFile, mapV2Status, project, refreshProject, refreshRecentRooms, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
+  }, [cancelProjectTransition, clearCollabLocalState, collabName, enterProject, handleV2Catalog, loadFile, mapV2Status, project, refreshProject, refreshRecentRooms, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
 
   const forgetRecentProjectV2 = useCallback((record: CollabProjectRecordV2) => {
     forgetCollabProjectV2(record.host, record.projectInstanceId);
@@ -4013,6 +4083,50 @@ function App() {
       stopListening?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (isFullscreen) return;
+    let active = true;
+    let stopListening: (() => void) | undefined;
+    let resizeTimer: number | undefined;
+    const align = () => {
+      if (!active) return;
+      const titlebar = shellRef.current?.querySelector<HTMLElement>(".titlebar");
+      if (!titlebar) return;
+      const rect = titlebar.getBoundingClientRect();
+      // WebKit reports unzoomed CSS pixels while AppKit consumes logical
+      // points. Measuring the rendered titlebar and applying the live webview
+      // zoom keeps the native center aligned for every interface scale.
+      void invoke("align_traffic_lights", {
+        centerFromTop:
+          (rect.top + rect.height / 2 - TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX)
+          * appearance.interfaceScale,
+      }).catch(() => {
+        // Browser tests and non-macOS builds have no native traffic lights.
+      });
+    };
+    const frame = window.requestAnimationFrame(align);
+    const initialTimer = window.setTimeout(align, 120);
+    const appWindow = getCurrentWindowSafely();
+    if (appWindow && typeof appWindow.onResized === "function") {
+      void appWindow.onResized(() => {
+        if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
+        // Wait until AppKit's live-resize layout pass has settled, then measure
+        // once. Updating on every resize event makes the native buttons jitter.
+        resizeTimer = window.setTimeout(align, 120);
+      }).then((unlisten) => {
+        if (active) stopListening = unlisten;
+        else unlisten();
+      });
+    }
+    return () => {
+      active = false;
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(initialTimer);
+      if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
+      stopListening?.();
+    };
+  }, [appearance.interfaceScale, isFullscreen]);
 
   useEffect(() => {
     const documentDirty = Boolean(!activePaper && activeFile && source !== savedSource);
@@ -4305,7 +4419,7 @@ function App() {
       });
     referencePreviewCache.current.set(path, preview);
     return preview;
-  }, []);
+  }, [project?.root]);
 
   const openProjectAssetFromClick = useCallback((path: string) => {
     if (suppressedFigureClick.current === path) {
@@ -5993,6 +6107,7 @@ function App() {
               status={collabStatus}
               statusDetail={collabStatusDetail}
               peerCount={collabPeers}
+              peers={collabPeerList}
               fileCount={collabFileCount}
               connectedRoom={collabSession?.room ?? null}
               onClose={() => setCollabOpen(false)}
@@ -6007,6 +6122,7 @@ function App() {
               onForgetProjectV2={forgetRecentProjectV2}
               onDisconnect={disconnectCollab}
               onCopyInvite={copyCollabInvite}
+              onRemovePeer={removeCollabPeer}
               onInstallTex={openTexSetupWizard}
             />
           </Suspense>
@@ -6072,44 +6188,6 @@ function App() {
                 onSettings={() => openSettings("appearance")}
               />
             </DropdownMenu>
-            {(collabStatus === "synced" || collabStatus === "connecting") && (
-              <button
-                type="button"
-                className="collab-title-chip"
-                title="Live collaboration"
-                onClick={() => openCollabDialog(collabRole === "guest" ? "join" : "start")}
-              >
-                <Radio size={12} />
-                <span>
-                  {collabStatus === "connecting"
-                    ? "Connecting…"
-                    : collabRole === "guest"
-                      ? (collabPeers > 0 ? `Guest · ${collabPeers} other${collabPeers === 1 ? "" : "s"}` : "Guest · live")
-                      : (collabPeers > 0 ? `Sharing · ${collabPeers} other${collabPeers === 1 ? "" : "s"}` : "Sharing · just you")}
-                </span>
-              </button>
-            )}
-            {collabPeerList.length > 0 && (
-              <AvatarGroup className="collab-peer-avatars" ariaLabel="People in this session">
-                {collabPeerList.slice(0, 5).map((peer) => (
-                  <button
-                    key={peer.clientId}
-                    type="button"
-                    className="collab-peer-avatar"
-                    style={{ background: peer.color }}
-                    title={peer.path ? `${peer.name} · ${peer.path} — click to follow` : peer.name}
-                    onClick={() => void followCollabPeer(peer)}
-                  >
-                    {peerInitials(peer.name)}
-                  </button>
-                ))}
-                {collabPeerList.length > 5 && (
-                  <span className="collab-peer-avatar more" title={collabPeerList.slice(5).map((peer) => peer.name).join(", ")}>
-                    +{collabPeerList.length - 5}
-                  </span>
-                )}
-              </AvatarGroup>
-            )}
             <div className="titlebar-drag-area" aria-hidden="true" />
           </div>
         </div>
@@ -6174,6 +6252,27 @@ function App() {
             }}
             collabLive={collabStatus === "synced" || collabStatus === "connecting"}
             collabPeers={collabPeers}
+            collabPresence={collabPeerList.length > 0 ? (
+              <AvatarGroup className="collab-peer-avatars" ariaLabel="People in this session">
+                {collabPeerList.slice(0, 5).map((peer) => (
+                  <button
+                    key={peer.clientId}
+                    type="button"
+                    className="collab-peer-avatar"
+                    style={{ background: peer.color }}
+                    title={peer.path ? `${peer.name} · ${peer.path} — click to follow` : peer.name}
+                    onClick={() => void followCollabPeer(peer)}
+                  >
+                    {peerInitials(peer.name)}
+                  </button>
+                ))}
+                {collabPeerList.length > 5 && (
+                  <span className="collab-peer-avatar more" title={collabPeerList.slice(5).map((peer) => peer.name).join(", ")}>
+                    +{collabPeerList.length - 5}
+                  </span>
+                )}
+              </AvatarGroup>
+            ) : null}
             onHistory={() => setHistoryOpen(true)}
             onGit={() => {
               if (tutorialActive) {
@@ -6694,6 +6793,7 @@ function App() {
             status={collabStatus}
             statusDetail={collabStatusDetail}
             peerCount={collabPeers}
+            peers={collabPeerList}
             fileCount={collabFileCount}
             connectedRoom={collabSession?.room ?? null}
             onClose={() => {
@@ -6713,6 +6813,7 @@ function App() {
             onForgetProjectV2={forgetRecentProjectV2}
             onDisconnect={disconnectCollab}
             onCopyInvite={copyCollabInvite}
+            onRemovePeer={removeCollabPeer}
             onInstallTex={openTexSetupWizard}
           />
         </Suspense>

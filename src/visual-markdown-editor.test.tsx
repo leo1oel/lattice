@@ -8,7 +8,9 @@ import {
   addBlockBelow,
   moveBlockUp,
   moveTopLevelBlock,
+  PRESERVE_VISUAL_VIEWPORT_META,
   restoreVisualViewportWithReveal,
+  type PreserveVisualViewportMeta,
 } from "./visual-editor-block-controls";
 import { getComponentItems, getInlineComponentItems } from "@ok-app/editor/slash-command/component-items";
 import { getEmbedStarterItems } from "@ok-app/editor/slash-command/embed-starter-items";
@@ -693,25 +695,57 @@ describe("VisualMarkdownEditor", () => {
     const viewport = surface.closest<HTMLElement>(".visual-markdown-editor")!;
     viewport.classList.add("editor-doc-scroll");
     viewport.scrollTop = 480;
+    const localScrollWrites: number[] = [];
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      get: () => 480,
+      set: (value: number) => localScrollWrites.push(value),
+    });
     const transactions: boolean[] = [];
+    let preserveViewport: PreserveVisualViewportMeta | undefined;
     const dispatch = editor.view.dispatch.bind(editor.view);
     vi.spyOn(editor.view, "dispatch").mockImplementation((transaction) => {
       transactions.push(transaction.scrolledIntoView);
+      const viewportMeta = transaction.getMeta(PRESERVE_VISUAL_VIEWPORT_META) as
+        PreserveVisualViewportMeta | undefined;
+      if (viewportMeta) preserveViewport = viewportMeta;
       dispatch(transaction);
     });
 
     addBlockBelow(editor, 0, editor.state.doc.firstChild!);
 
     expect(transactions[0]).toBe(false);
+    expect(localScrollWrites).toEqual([]);
     expect(editor.state.selection.$from.parent.type.name).toBe("paragraph");
     expect(editor.state.selection.$from.parent.textContent).toBe("/");
     expect(onRequestViewportLock).toHaveBeenCalledTimes(1);
+    const firstAnchor = onRequestViewportLock.mock.calls[0]?.[0] as HTMLElement;
+    const firstAnchorTop = onRequestViewportLock.mock.calls[0]?.[1] as number;
+    expect(firstAnchor).toHaveTextContent("First");
+    const shiftedAnchor = document.createElement("p");
+    shiftedAnchor.textContent = "First";
+    document.body.append(shiftedAnchor);
+    vi.spyOn(shiftedAnchor, "getBoundingClientRect").mockReturnValue(
+      rect({ top: firstAnchorTop - 36, bottom: firstAnchorTop + 12 }),
+    );
+    const nodeDom = editor.view.nodeDOM.bind(editor.view);
+    vi.spyOn(editor.view, "nodeDOM").mockImplementation((position) => (
+      position === preserveViewport?.anchorPosition ? shiftedAnchor : nodeDom(position)
+    ));
     expect(await screen.findByRole("listbox", { name: "Slash commands" })).toBeInTheDocument();
     await waitFor(() => expect(onRequestViewportLock).toHaveBeenCalledTimes(2));
+    const deferredAnchor = onRequestViewportLock.mock.calls[1]?.[0] as HTMLElement | null;
+    const deferredAnchorTop = onRequestViewportLock.mock.calls[1]?.[1];
+    // The first lock may intentionally scroll down to reveal the inserted row.
+    // Deferred publication must preserve that new position, not restore the
+    // clicked block's pre-insertion screen coordinate.
+    expect(deferredAnchor).not.toBeNull();
+    expect(deferredAnchor).toHaveTextContent("First");
+    expect(deferredAnchorTop).toBe(firstAnchorTop - 36);
     await waitFor(() => expect(viewport.scrollTop).toBe(480));
   });
 
-  it("scrolls only enough to reveal an added block below the viewport", () => {
+  it("reveals an added block below the viewport with bottom breathing room", () => {
     const viewport = document.createElement("div");
     const anchor = document.createElement("p");
     const reveal = document.createElement("p");
@@ -728,7 +762,7 @@ describe("VisualMarkdownEditor", () => {
 
     revealRect.mockReturnValue(rect({ top: 590, bottom: 645 }));
     restoreVisualViewportWithReveal(viewport, 480, anchor, 400, reveal);
-    expect(viewport.scrollTop).toBe(525);
+    expect(viewport.scrollTop).toBe(565);
   });
 
   it("keeps tutorial fenced-code bodies when the block plus action adds a slash paragraph", async () => {
@@ -1443,8 +1477,10 @@ describe("VisualMarkdownEditor", () => {
     renderEditor("");
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
     editor.chain().focus().insertContent("/").run();
     const menu = await screen.findByRole("listbox", { name: "Slash commands" });
+    expect(scrollIntoView).not.toHaveBeenCalled();
     const heading2 = within(menu).getByRole("option", { name: /Heading 2/ });
     fireEvent.mouseEnter(heading2);
     await waitFor(() => expect(
@@ -1456,6 +1492,8 @@ describe("VisualMarkdownEditor", () => {
       within(screen.getByRole("listbox", { name: "Slash commands" })).getByRole("option", { name: /Heading 3/ }),
     ).toHaveAttribute("aria-selected", "true"));
     expect(menu.parentElement?.parentElement?.querySelector("aside")).toHaveTextContent("Small section heading.");
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    scrollIntoView.mockRestore();
   });
 
   it("inserts a canonical MDX callout", async () => {
@@ -3019,6 +3057,139 @@ describe("VisualMarkdownEditor", () => {
     await waitFor(() => expect(onLoadAsset).toHaveBeenCalledWith("figures/plot.png"));
     await waitFor(() => expect(image).toHaveAttribute("src", "data:image/png;base64,cGxvdA=="));
     expect(image).toHaveAttribute("decoding", "async");
+  });
+
+  it.each(["above", "below", "far below"] as const)(
+    "keeps a loaded Markdown image visible when the plus action inserts %s it",
+    async (side) => {
+      const initial = [
+        "Before",
+        "![Plot](figures/plot.png)",
+        "After",
+        "Far 1",
+        "Far 2",
+        "Far 3",
+        "Far 4",
+        "Far 5",
+      ].join("\n\n");
+      const onLoadAsset = vi.fn(async () => "data:image/png;base64,cGxvdA==");
+      function ControlledEditor() {
+        const [text, setText] = useState(initial);
+        const accepted = useRef(initial);
+        return (
+          <VisualMarkdownEditor
+            text={text}
+            activePath="notes.md"
+            onChangeMarkdown={(next, expected) => {
+              if (accepted.current !== expected) return false;
+              accepted.current = next;
+              setText(next);
+              return true;
+            }}
+            onLoadAsset={onLoadAsset}
+            onUndo={() => false}
+            onRedo={() => false}
+          />
+        );
+      }
+
+      render(<ControlledEditor />);
+      const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+      const editor = (surface as HTMLElement & { editor: Editor }).editor;
+      let canonicalReplacements = 0;
+      const dispatch = editor.view.dispatch.bind(editor.view);
+      vi.spyOn(editor.view, "dispatch").mockImplementation((transaction) => {
+        if (transaction.getMeta("canonicalMarkdownReplace")) canonicalReplacements += 1;
+        dispatch(transaction);
+      });
+      await screen.findByRole("img", { name: "Plot" });
+      await waitFor(() => expect(screen.getByRole("img", { name: "Plot" })).toHaveAttribute(
+        "src",
+        "data:image/png;base64,cGxvdA==",
+      ));
+      fireEvent.load(screen.getByRole("img", { name: "Plot" }));
+      await waitFor(() => expect(screen.queryByTestId("image-loading-skeleton")).not.toBeInTheDocument());
+      const image = screen.getByRole("img", { name: "Plot" });
+      let imagePosition = -1;
+      let farPosition = -1;
+      editor.state.doc.descendants((node, position) => {
+        if (node.type.name === "jsxComponent" && node.attrs.componentName === "CommonMarkImage") {
+          imagePosition = position;
+        }
+        if (node.type.name === "paragraph" && node.textContent === "Far 5") farPosition = position;
+      });
+      expect(imagePosition).toBeGreaterThanOrEqual(0);
+      expect(farPosition).toBeGreaterThan(imagePosition);
+      const targetPosition = side === "above"
+        ? 0
+        : side === "below"
+          ? imagePosition
+          : farPosition;
+      const target = editor.state.doc.nodeAt(targetPosition);
+      expect(target).not.toBeNull();
+
+      act(() => addBlockBelow(editor, targetPosition, target!));
+
+      expect(screen.getByRole("img", { name: "Plot" })).toBe(image);
+      expect(await screen.findByRole("listbox", { name: "Slash commands" })).toBeInTheDocument();
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+      expect(canonicalReplacements).toBe(0);
+      expect(screen.getByRole("img", { name: "Plot" })).toHaveAttribute(
+        "src",
+        "data:image/png;base64,cGxvdA==",
+      );
+      expect(screen.getByRole("img", { name: "Plot" })).toBe(image);
+      expect(screen.getByRole("img", { name: "Plot" })).toHaveClass("opacity-100");
+      expect(screen.queryByTestId("image-loading-skeleton")).not.toBeInTheDocument();
+      expect(onLoadAsset).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("keeps existing Mermaid and HTML previews mounted after a controlled Markdown echo", async () => {
+    const initial = [
+      "Before",
+      "```mermaid\ngraph TD; A-->B\n```",
+      "```html preview\n<p>Persistent HTML</p>\n```",
+      "Tail",
+    ].join("\n\n");
+    function ControlledEditor() {
+      const [text, setText] = useState(initial);
+      const accepted = useRef(initial);
+      return (
+        <VisualMarkdownEditor
+          text={text}
+          activePath="notes.md"
+          onChangeMarkdown={(next, expected) => {
+            if (accepted.current !== expected) return false;
+            accepted.current = next;
+            setText(next);
+            return true;
+          }}
+          onUndo={() => false}
+          onRedo={() => false}
+        />
+      );
+    }
+
+    render(<ControlledEditor />);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const mermaid = await screen.findByRole("group", { name: "Mermaid preview" });
+    const html = await screen.findByTitle("HTML preview");
+    let tailPosition = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "paragraph" && node.textContent === "Tail") tailPosition = position;
+    });
+    expect(tailPosition).toBeGreaterThanOrEqual(0);
+    const tail = editor.state.doc.nodeAt(tailPosition);
+    expect(tail).not.toBeNull();
+
+    act(() => addBlockBelow(editor, tailPosition, tail!));
+
+    expect(await screen.findByRole("listbox", { name: "Slash commands" })).toBeInTheDocument();
+    await new Promise((resolve) => window.setTimeout(resolve, 300));
+    expect(screen.getByRole("group", { name: "Mermaid preview" })).toBe(mermaid);
+    expect(screen.getByTitle("HTML preview")).toBe(html);
   });
 
   it("loads an Open Knowledge image component through the host asset reader", async () => {

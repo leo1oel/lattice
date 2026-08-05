@@ -682,7 +682,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
   border-radius: 2px;
 }
 
-/* Who else is here, in the title bar. Overlapped like a stack of chips. */
+/* Who else is here, beside the live-collaboration control in the toolbar. */
 .collab-peer-avatar {
   width: 24px;
   height: 24px;
@@ -701,30 +701,6 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .todo-toolbar-button { position: relative; }
 .collab-toolbar-button { position: relative; }
 .collab-toolbar-button.active { color: var(--control-active); }
-.collab-title-chip {
-  flex: none;
-  height: 26px;
-  max-width: min(220px, 34vw);
-  margin-left: var(--space-3);
-  padding: 0 var(--space-4);
-  border: 1px solid var(--control-active-border);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--control-active-soft) 70%, transparent);
-  color: var(--control-active);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-inline-tight);
-  font-size: var(--type-micro-size);
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.collab-title-chip span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .collab-peer-badge {
   position: absolute;
   top: 1px;
@@ -738,4 +714,11 @@ body.resizing-panels .resizable-drawer { transition: none; }
   font-style: normal;
   font-size: var(--type-nano-size);
   line-height: 12px;
+}
+.collab-live-badge {
+  display: grid;
+  place-items: center;
+  background: var(--status-success);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
