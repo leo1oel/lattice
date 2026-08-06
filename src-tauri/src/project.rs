@@ -5701,7 +5701,10 @@ mod tests {
             .and_then(|(_, rest)| rest.split_once("\\end{document}"))
             .map(|(body, _)| body.trim().to_string())
             .unwrap_or_default();
-        assert!(!body.is_empty(), "placeholder must typeset at least one page: {placeholder:?}");
+        assert!(
+            !body.is_empty(),
+            "placeholder must typeset at least one page: {placeholder:?}"
+        );
         assert!(!root.join("neurips.sty").exists());
         assert!(!root.join("icml2026.sty").exists());
         assert!(!root.join("iclr2026_conference.sty").exists());
