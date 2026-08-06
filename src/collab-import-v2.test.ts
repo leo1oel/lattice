@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CatalogV2 } from "../protocol/collab-v2";
 import { MemoryCollabCredentialStore } from "./collab-credentials";
-import { createProjectV2, type ImportFileV2 } from "./collab-import-v2";
+import { createProjectV2, putTextFileV2, type ImportFileV2 } from "./collab-import-v2";
 
 const policy = { allowCreateV2: true, preferV2ForNewProjects: true, emergencyDisableWrites: false, emergencyDisableReads: false };
 
@@ -35,15 +35,16 @@ describe("createProjectV2", () => {
       }
       if (url.endsWith("/import-finalize")) { catalog!.lifecycle = "live"; catalog!.catalogRevision += 1; return json({ status: "complete" }); }
       throw new Error(`Unexpected request: ${url}`);
-    }) as unknown as typeof fetch;
+    });
     const preparationProgress: Array<[number, number]> = []; const progress: Array<[number, number]> = [];
 
     await createProjectV2({
       deployment: "https://collab.example",
+      projectName: "Attention Paper",
       projectInstanceId: "project_parallel_import",
       idFactory: () => "operation_parallel_import",
       credentialStore: new MemoryCollabCredentialStore(),
-      fetch: fetcher,
+      fetch: fetcher as typeof fetch,
       policy,
       source: {
         inventory: async () => paths.map((path) => ({ path, kind: "text" as const })),
@@ -59,9 +60,24 @@ describe("createProjectV2", () => {
     });
 
     expect(maxReads).toBe(8);
+    expect(JSON.parse(String(fetcher.mock.calls.find(([input]) => String(input).endsWith("/bootstrap"))?.[1]?.body)).projectName).toBe("Attention Paper");
     expect(maxUploads).toBe(8);
     expect(catalogRequests).toBe(3);
     expect(preparationProgress.at(-1)).toEqual([paths.length, paths.length]);
     expect(progress.at(-1)).toEqual([paths.length, paths.length]);
+  });
+
+  it("preserves the server error when a durable text import is rejected", async () => {
+    const fetcher = vi.fn().mockResolvedValue(json({ protocol: 2, error: "import_not_authorized" }, 403));
+    await expect(putTextFileV2({
+      fetch: fetcher,
+      deployment: "https://collab.example",
+      projectInstanceId: "project_parallel_import",
+      credential: "secret",
+      fileId: "comments",
+      documentEpoch: 1,
+      bytes: new TextEncoder().encode("[]"),
+      operationId: "initialize_comments",
+    })).rejects.toThrow("text_import_failed: import_not_authorized (403)");
   });
 });

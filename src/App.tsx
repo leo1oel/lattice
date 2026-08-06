@@ -136,10 +136,11 @@ import {
 import { collabCredentialStore } from "./collab-credentials";
 import { loadCollabFeaturePolicy } from "./collab-feature-policy";
 import { createProjectV2 } from "./collab-import-v2";
+import { CollabControlErrorV2, CollabControlV2Client } from "./collab-control-v2";
 import { acceptCollabInvitationV2 } from "./collab-join-v2";
 import { CollabProjectControllerV2, type CollabMaterializeCallbacksV2, type CollabProjectStatusV2 } from "./collab-project-v2";
 import type { CatalogV2 } from "../protocol/collab-v2";
-import { parsePreferredCollabInvitation, requireRememberedV2Credential } from "./collab-app-v2";
+import { parsePreferredCollabInvitation, readRememberedV2Credential, requireRememberedV2Credential } from "./collab-app-v2";
 import {
   forgetCollabProjectV2,
   loadCollabProjectsV2,
@@ -334,6 +335,28 @@ const SettingsDialog = lazy(() =>
 const CollabDialog = lazy(() =>
   import("./collab-dialog").then((module) => ({ default: module.CollabDialog })),
 );
+
+async function mutateRememberedRoomV2(
+  control: CollabControlV2Client,
+  endpoint: "project-rename" | "close-begin",
+  body: Record<string, unknown> = {},
+): Promise<void> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const catalog = await control.catalog();
+    if (endpoint === "close-begin" && (catalog.lifecycle === "closing" || catalog.lifecycle === "closed")) return;
+    try {
+      await control.operation(endpoint, { ...body, operationId: crypto.randomUUID(), expectedCatalogRevision: catalog.catalogRevision });
+      return;
+    } catch (error) {
+      if (error instanceof CollabControlErrorV2 && error.status === 409 && error.body.error === "catalog_revision_conflict" && attempt === 0) continue;
+      if (endpoint === "close-begin" && error instanceof CollabControlErrorV2 && error.status === 409) {
+        const refreshed = await control.catalog();
+        if (refreshed.lifecycle === "closing" || refreshed.lifecycle === "closed") return;
+      }
+      throw error;
+    }
+  }
+}
 const OverleafPickerDialog = lazy(() =>
   import("./overleaf-connect").then((module) => ({ default: module.OverleafPickerDialog })),
 );
@@ -550,6 +573,7 @@ function App() {
   const projectOperationGenerationRef = useRef(0);
   const projectRefreshGenerationRef = useRef(0);
   const fileLoadGenerationRef = useRef(0);
+  const secondaryFileLoadGenerationRef = useRef(0);
   const projectBeforeTransitionRef = useRef<ProjectSnapshot | null>(null);
   const overleafSyncingRef = useRef(false);
   useEffect(() => {
@@ -572,6 +596,8 @@ function App() {
     if (overleafSyncingRef.current && !force) return false;
     if (projectRef.current) projectBeforeTransitionRef.current = projectRef.current;
     projectOperationGenerationRef.current += 1;
+    fileLoadGenerationRef.current += 1;
+    secondaryFileLoadGenerationRef.current += 1;
     // A root-changing backend command may finish before React commits the new
     // snapshot. Nulling only the imperative identity closes that gap without
     // flashing the welcome screen or discarding the rendered old project.
@@ -781,6 +807,7 @@ function App() {
   const [collabRoom, setCollabRoom] = useState("");
   const [collabInvite, setCollabInvite] = useState("");
   const [collabName, setCollabName] = useState(loadCollabDisplayName);
+  const [collabProjectName, setCollabProjectName] = useState("Shared project");
   const [recentProjectsV2, setRecentProjectsV2] = useState<CollabProjectRecordV2[]>(loadCollabProjectsV2);
   const refreshRecentRooms = useCallback(() => { setRecentProjectsV2(loadCollabProjectsV2()); }, []);
   const [collabStatus, setCollabStatus] = useState<CollabStatus>("disconnected");
@@ -1626,12 +1653,12 @@ function App() {
   sourceRef.current = source;
   savedSourceRef.current = savedSource;
 
-  const markDiskMtime = useCallback(async (path: string) => {
+  const markDiskMtime = useCallback(async (path: string, mayApply: () => boolean = () => true) => {
     try {
       const stat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", { path });
-      diskMtimeRef.current = stat.exists ? stat.mtimeMs : null;
+      if (mayApply()) diskMtimeRef.current = stat.exists ? stat.mtimeMs : null;
     } catch {
-      diskMtimeRef.current = null;
+      if (mayApply()) diskMtimeRef.current = null;
     }
   }, []);
 
@@ -1646,7 +1673,13 @@ function App() {
   ) => {
     const loadGeneration = fileLoadGenerationRef.current + 1;
     fileLoadGenerationRef.current = loadGeneration;
-    const isLatestLoad = () => loadGeneration === fileLoadGenerationRef.current;
+    const projectRoot = options?.expectedProjectRoot ?? projectRef.current?.root;
+    const projectGeneration = options?.projectGeneration ?? projectOperationGenerationRef.current;
+    const isLatestLoad = () => (
+      loadGeneration === fileLoadGenerationRef.current
+      && projectOperationGenerationRef.current === projectGeneration
+      && projectRef.current?.root === projectRoot
+    );
     const previousPath = activeFileRef.current;
     const showLoadedDocument = () => {
       setCanvasMode((mode) => {
@@ -1662,7 +1695,7 @@ function App() {
       const v2 = collabV2ControllerRef.current;
       if (v2?.hasTextPath(path) && (activeCollabVersion === 2 || collabSessionRef.current === v2)) {
         const ytext = await v2.openPath(path, "main", { activateIf: isLatestLoad });
-        if (!isLatestLoad()) return;
+        if (!isLatestLoad()) return false;
         const content = ytext.toString();
         setActiveFile(path);
         setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
@@ -1696,19 +1729,11 @@ function App() {
           ytext.observe(onText);
           collabDetachRef.current = () => ytext.unobserve(onText);
         }
-        await markDiskMtime(path);
-        return;
+        await markDiskMtime(path, isLatestLoad);
+        return isLatestLoad();
       }
-      const content = await invoke<string>("read_project_file", { path });
-      if (
-        !isLatestLoad()
-        || (options?.expectedProjectRoot && (
-          projectRef.current?.root !== options.expectedProjectRoot
-          || projectOperationGenerationRef.current !== options.projectGeneration
-        ))
-      ) {
-        return;
-      }
+      const content = await invoke<string>("read_project_file", { path, projectRoot });
+      if (!isLatestLoad()) return false;
       setActiveFile(path);
       setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
       setSource(content);
@@ -1721,7 +1746,8 @@ function App() {
       setSavedPaperBlog(null);
       showLoadedDocument();
       setError(null);
-      await markDiskMtime(path);
+      await markDiskMtime(path, isLatestLoad);
+      if (!isLatestLoad()) return false;
       // Where you last were in this file, unless the caller is about to send
       // you somewhere specific in it. Both land as requests the editor answers
       // on the next frame, and the restore is applied second, so asking for
@@ -1730,8 +1756,10 @@ function App() {
       if (saved) {
         setViewRestore({ path, cursor: saved.cursor, scrollTop: saved.scrollTop, id: crypto.randomUUID() });
       }
+      return true;
     } catch (reason) {
-      setError(toMessage(reason));
+      if (isLatestLoad()) setError(toMessage(reason));
+      return false;
     }
   }, [activeCollabVersion, collabPathMutationGeneration, markDiskMtime]);
 
@@ -1763,6 +1791,32 @@ function App() {
         setCollabFileCount(0);
       }
     }
+  }, []);
+
+  useEffect(() => {
+    const appWindow = getCurrentWindowSafely();
+    if (!appWindow || typeof appWindow.onCloseRequested !== "function" || typeof appWindow.destroy !== "function") return;
+    let active = true;
+    let closing = false;
+    let unlisten: (() => void) | undefined;
+    void appWindow.onCloseRequested((event) => {
+      if (closing) return;
+      closing = true;
+      event.preventDefault();
+      const controller = collabV2ControllerRef.current;
+      const leave = controller?.leavePresence() ?? Promise.resolve();
+      const deadline = new Promise<void>((resolve) => window.setTimeout(resolve, 500));
+      void Promise.race([leave.catch(() => undefined), deadline]).finally(() => {
+        if (active) void appWindow.destroy();
+      });
+    }).then((stop) => {
+      if (active) unlisten = stop;
+      else stop();
+    });
+    return () => {
+      active = false;
+      unlisten?.();
+    };
   }, []);
 
   const restorePreCollabProject = useCallback(async () => {
@@ -2087,6 +2141,11 @@ function App() {
       setCollabOpen(true);
       return;
     }
+    if (!collabProjectName.trim()) {
+      setError("Enter a room name before starting a share.");
+      setCollabOpen(true);
+      return;
+    }
     if (!project) {
       setError("Open a project before starting live collaboration.");
       return;
@@ -2122,6 +2181,7 @@ function App() {
           setCollabStatusDetail(`Preparing ${inventory.length} project files…`);
           const record = await createProjectV2({
             deployment,
+            projectName: collabProjectName.trim(),
             credentialStore: store,
             source: {
               inventory: async () => inventory,
@@ -2133,7 +2193,7 @@ function App() {
             },
             onPrepareProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(`Preparing project files… ${completed}/${total}`); },
             onProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(`Uploading project files… ${completed}/${total}`); },
-            onRecord: async (created) => { assertCurrentStart(); rememberCollabProjectV2({ version: 2, projectInstanceId: created.projectInstanceId, host: created.deployment, credentialRef: created.credentialRef, permission: "host", title: project.root.split(/[/\\]/).filter(Boolean).pop() || "Shared project", projectRoot: project.root, lastUsed: Date.now() }); },
+            onRecord: async (created) => { assertCurrentStart(); rememberCollabProjectV2({ version: 2, projectInstanceId: created.projectInstanceId, host: created.deployment, credentialRef: created.credentialRef, permission: "host", title: collabProjectName.trim(), projectRoot: project.root, lastUsed: Date.now() }); },
           });
           assertCurrentStart();
           setCollabStatusDetail("Connecting to the live session…");
@@ -2191,7 +2251,7 @@ function App() {
           if (collabStartGenerationRef.current === startGeneration) collabStartingRef.current = false;
         }
       })();
-  }, [activeFile, clearCollabLocalState, collabHost, collabName, handleV2Catalog, loadFile, mapV2Status, project, v2WorkspaceCallbacks]);
+  }, [activeFile, clearCollabLocalState, collabHost, collabName, collabProjectName, handleV2Catalog, loadFile, mapV2Status, project, v2WorkspaceCallbacks]);
 
   const copyCollabInvite = useCallback(async () => {
     const controller = collabV2ControllerRef.current;
@@ -2220,9 +2280,10 @@ function App() {
     // (e.g. an onClick handler) landing here and leaving neither tab selected.
     setCollabMode(mode === "join" ? "join" : "start");
     setCollabHost(resolveCollabHost(collabHost));
+    if (mode !== "join" && project) setCollabProjectName(project.manifest.name || project.root.split(/[/\\]/).filter(Boolean).pop() || "Shared project");
     refreshRecentRooms();
     setCollabOpen(true);
-  }, [collabHost, refreshRecentRooms]);
+  }, [collabHost, project, refreshRecentRooms]);
 
   useEffect(() => {
     if (!collabSession) return;
@@ -2450,12 +2511,23 @@ function App() {
       && !activePaper
       && !activeAsset;
     if (secondaryFocused) {
+      const requestGeneration = secondaryFileLoadGenerationRef.current + 1;
+      secondaryFileLoadGenerationRef.current = requestGeneration;
+      const projectRoot = project?.root;
+      const projectGeneration = projectOperationGenerationRef.current;
+      const isLatestSecondaryLoad = () => (
+        requestGeneration === secondaryFileLoadGenerationRef.current
+        && projectOperationGenerationRef.current === projectGeneration
+        && projectRef.current?.root === projectRoot
+      );
       if (activeCollabVersion === 2) {
         try {
           if (secondaryFile && secondarySource !== secondarySavedSource && !(await save())) return;
+          if (!isLatestSecondaryLoad()) return;
           const controller = collabV2ControllerRef.current;
           if (!controller?.hasTextPath(path)) throw new Error(`${path} is not a v2 text file`);
-          const ytext = await controller.openPath(path, "secondary");
+          const ytext = await controller.openPath(path, "secondary", { activateIf: isLatestSecondaryLoad });
+          if (!isLatestSecondaryLoad()) return;
           const content = ytext.toString();
           setSecondaryFile(path);
           setSecondarySource(content);
@@ -2464,7 +2536,7 @@ function App() {
           setFocusedPane("secondary");
           setError(null);
         } catch (reason) {
-          setError(toMessage(reason));
+          if (isLatestSecondaryLoad()) setError(toMessage(reason));
         }
         return;
       }
@@ -2493,7 +2565,8 @@ function App() {
         }
       }
       try {
-        const content = await invoke<string>("read_project_file", { path });
+        const content = await invoke<string>("read_project_file", { path, projectRoot });
+        if (!isLatestSecondaryLoad()) return;
         setSecondaryFile(path);
         setSecondarySource(content);
         setSecondarySavedSource(content);
@@ -2507,7 +2580,7 @@ function App() {
           pushNavigation(path, 1);
         }
       } catch (reason) {
-        setError(toMessage(reason));
+        if (isLatestSecondaryLoad()) setError(toMessage(reason));
       }
       return;
     }
@@ -2536,7 +2609,8 @@ function App() {
       const saved = await save();
       if (!saved) return;
     }
-    await loadFile(path, { restoreView: !line, revealSource: true });
+    const applied = await loadFile(path, { restoreView: !line, revealSource: true });
+    if (!applied) return;
     setFocusedPane("primary");
     if (line) {
       setEditorNavigation({ path, line, id: crypto.randomUUID() });
@@ -3642,6 +3716,15 @@ function App() {
         await settleCollabBeforeProjectSwitch(snapshot.root);
       }
       beginProjectTransition(true);
+      const projectGeneration = projectOperationGenerationRef.current;
+      const primaryRestoreGeneration = fileLoadGenerationRef.current + 1;
+      fileLoadGenerationRef.current = primaryRestoreGeneration;
+      const secondaryRestoreGeneration = secondaryFileLoadGenerationRef.current + 1;
+      secondaryFileLoadGenerationRef.current = secondaryRestoreGeneration;
+      const ownsProjectRestore = () => (
+        projectOperationGenerationRef.current === projectGeneration
+        && projectRef.current?.root === snapshot.root
+      );
       setWorkspacePersistenceReadyRoot(null);
       pendingWorkspaceSurfaceRef.current = null;
       // The backend already owns the incoming root. Clear the outgoing buffer
@@ -3778,7 +3861,20 @@ function App() {
           : rootDocument?.path && sourcePaths.has(rootDocument.path)
             ? rootDocument.path
             : [...sourcePaths][0];
-      if (primaryFile) await loadFile(primaryFile);
+      if (
+        !ownsProjectRestore()
+        || fileLoadGenerationRef.current !== primaryRestoreGeneration
+        || secondaryFileLoadGenerationRef.current !== secondaryRestoreGeneration
+      ) return;
+      if (primaryFile) {
+        const primaryApplied = await loadFile(primaryFile, {
+          expectedProjectRoot: snapshot.root,
+          projectGeneration,
+        });
+        if (!primaryApplied || !ownsProjectRestore()) return;
+      }
+      const appliedPrimaryGeneration = fileLoadGenerationRef.current;
+      if (!ownsProjectRestore()) return;
       const secondaryFile = restored?.secondaryFile
         && restored.secondaryFile !== primaryFile
         && sourcePaths.has(restored.secondaryFile)
@@ -3786,16 +3882,39 @@ function App() {
         : null;
       if (secondaryFile) {
         try {
-          const content = await invoke<string>("read_project_file", { path: secondaryFile });
+          if (
+            !ownsProjectRestore()
+            || fileLoadGenerationRef.current !== appliedPrimaryGeneration
+            || secondaryFileLoadGenerationRef.current !== secondaryRestoreGeneration
+          ) return;
+          const content = await invoke<string>("read_project_file", {
+            path: secondaryFile,
+            projectRoot: snapshot.root,
+          });
+          if (
+            !ownsProjectRestore()
+            || fileLoadGenerationRef.current !== appliedPrimaryGeneration
+            || secondaryFileLoadGenerationRef.current !== secondaryRestoreGeneration
+          ) return;
           setSecondaryFile(secondaryFile);
           setSecondarySource(content);
           setSecondarySavedSource(content);
         } catch {
-          setSecondaryFile(null);
-          setSecondarySource("");
-          setSecondarySavedSource("");
+          if (
+            ownsProjectRestore()
+            && secondaryFileLoadGenerationRef.current === secondaryRestoreGeneration
+          ) {
+            setSecondaryFile(null);
+            setSecondarySource("");
+            setSecondarySavedSource("");
+          }
         }
       }
+      if (
+        !ownsProjectRestore()
+        || fileLoadGenerationRef.current !== appliedPrimaryGeneration
+        || secondaryFileLoadGenerationRef.current !== secondaryRestoreGeneration
+      ) return;
       const restoredTabs = restored
         ? restored.openTabs.filter(validTab)
         : primaryFile
@@ -3953,16 +4072,22 @@ function App() {
           if (project && (source !== savedSource || (secondaryFile && secondarySource !== secondarySavedSource)) && !(await save())) return;
           if (!startProjectTransition()) return;
           const shortRoom = v2Invite.projectInstanceId.slice(-12);
-          const snapshot = await invoke<ProjectSnapshot>("create_collab_join_workspace", { room: shortRoom });
+          const store = collabCredentialStore();
+          let record = await acceptCollabInvitationV2(v2Raw, store, { projectRoot: null, title: `Shared project ${shortRoom.slice(-6)}` });
+          if (!record?.credentialRef) throw new Error("Could not store the v2 collaboration credential");
+          const credentialRef = record.credentialRef;
+          const catalog = await new CollabControlV2Client(v2Invite.deployment, v2Invite.projectInstanceId, v2Invite.guestSecret).catalog();
+          const roomName = catalog.name ?? v2Invite.projectName ?? record.title;
+          const snapshot = await invoke<ProjectSnapshot>("create_collab_join_workspace", { room: shortRoom.slice(-6), projectName: roomName });
+          record = { ...record, projectRoot: snapshot.root, title: roomName, lastUsed: Date.now() };
+          rememberCollabProjectV2(record);
           await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
           const workspaceGeneration = collabWorkspaceGenerationRef.current + 1;
           collabWorkspaceGenerationRef.current = workspaceGeneration;
           const lease: CollabWorkspaceLease = { projectRoot: snapshot.root, generation: workspaceGeneration, isCurrent: () => collabWorkspaceGenerationRef.current === workspaceGeneration && projectRootRef.current === snapshot.root };
           collabWorkspaceLeaseRef.current = lease;
-          const store = collabCredentialStore();
-          const record = await acceptCollabInvitationV2(v2Raw, store, { projectRoot: snapshot.root, title: shortRoom });
-          if (!record?.credentialRef) throw new Error("Could not store the v2 collaboration credential");
-          controller = await CollabProjectControllerV2.start({ deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: v2Invite.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList });
+          setCollabProjectName(record.title);
+          controller = await CollabProjectControllerV2.start({ deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef, credentialStore: store, permission: v2Invite.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList });
           collabV2ControllerRef.current = controller;
           collabSessionRef.current = controller;
           const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
@@ -4011,7 +4136,7 @@ function App() {
           await enterProject(await invoke<ProjectSnapshot>("open_project", { path: root }), { skipCollabLifecycle: true, deferInitialBuild: true });
         } else if (!root) {
           if (!startProjectTransition()) return;
-          const snapshot = await invoke<ProjectSnapshot>("create_collab_join_workspace", { room: record.projectInstanceId.slice(-12) });
+          const snapshot = await invoke<ProjectSnapshot>("create_collab_join_workspace", { room: record.projectInstanceId.slice(-6), projectName: record.title });
           root = snapshot.root;
           await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
         }
@@ -4020,6 +4145,7 @@ function App() {
         const lease: CollabWorkspaceLease = { projectRoot: root, generation, isCurrent: () => collabWorkspaceGenerationRef.current === generation && projectRootRef.current === root };
         collabWorkspaceLeaseRef.current = lease;
         controller = await CollabProjectControllerV2.start({ deployment: record.host, projectInstanceId: record.projectInstanceId, credentialRef, credentialStore: store, permission: record.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList });
+        setCollabProjectName(record.title);
         const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
         await refreshProject(); collabV2ControllerRef.current = controller; collabSessionRef.current = controller;
         collabRoleRef.current = record.permission === "host" ? "host" : "guest"; setCollabRole(collabRoleRef.current); setActiveCollabVersion(2); setCollabRoom(controller.room); setCollabFileCount(controller.fileCount()); await loadFile(materialized.openPath);
@@ -4040,6 +4166,88 @@ function App() {
     refreshRecentRooms();
     if (record.credentialRef && window.confirm("Also remove this collaboration credential from Keychain?")) void collabCredentialStore().delete(record.credentialRef, record.projectInstanceId, record.host).catch(reason => setError(toMessage(reason)));
   }, [refreshRecentRooms]);
+
+  const renameRecentProjectV2 = useCallback((record: CollabProjectRecordV2, name: string) => {
+    const next = name.trim();
+    if (!next || next === record.title) return;
+    if (next.length > 80) {
+      setError("Room names can be at most 80 characters.");
+      return;
+    }
+    void (async () => {
+      try {
+        const store = collabCredentialStore();
+        const credential = await readRememberedV2Credential(record, store);
+        const control = new CollabControlV2Client(record.host, record.projectInstanceId, credential);
+        await mutateRememberedRoomV2(control, "project-rename", { name: next });
+        rememberCollabProjectV2({ ...record, title: next, lastUsed: Date.now() });
+        if (collabV2ControllerRef.current?.room === record.projectInstanceId) setCollabProjectName(next);
+        refreshRecentRooms();
+        setNotice(`Renamed the room to “${next}”`);
+      } catch (reason) {
+        setError(`Could not rename the room: ${toMessage(reason)}`);
+      }
+    })();
+  }, [refreshRecentRooms]);
+
+  const closeRecentProjectV2 = useCallback((record: CollabProjectRecordV2) => {
+    if (!window.confirm(`Close “${record.title}” for everyone?\n\nExisting invitations will stop working and collaborators will be disconnected.`)) return;
+    void (async () => {
+      let remoteClosed = false;
+      const store = collabCredentialStore();
+      try {
+        const activeController = collabV2ControllerRef.current;
+        // Prefer the live host session: it already holds the host token in memory,
+        // so Close does not need another Keychain round-trip.
+        if (
+          activeCollabVersion === 2
+          && collabRoleRef.current === "host"
+          && activeController?.room === record.projectInstanceId
+        ) {
+          await activeController.flush();
+          await activeController.close();
+          remoteClosed = true;
+          await clearCollabLocalState({ flush: false });
+          setCollabOpen(false);
+          setCollabStatus("disconnected");
+        } else {
+          const credential = await readRememberedV2Credential(record, store);
+          const control = new CollabControlV2Client(record.host, record.projectInstanceId, credential);
+          await mutateRememberedRoomV2(control, "close-begin");
+          remoteClosed = true;
+        }
+        if (record.credentialRef) {
+          await store.delete(record.credentialRef, record.projectInstanceId, record.host).catch(() => undefined);
+        }
+        forgetCollabProjectV2(record.host, record.projectInstanceId);
+        refreshRecentRooms();
+        setNotice(`Closed “${record.title}” for everyone`);
+      } catch (reason) {
+        const detail = toMessage(reason);
+        const hostKeyMissing = /keychain|credential is unavailable|credential from the system/i.test(detail);
+        if (!remoteClosed && hostKeyMissing) {
+          // Not asking for a password — the saved room host token is gone/unreadable.
+          const dropLocal = window.confirm(
+            `Lattice can’t find the host key for “${record.title}” in the system keychain, so it can’t tell the sync server to close the room.\n\n`
+            + "That key is the room token saved when you started sharing — not your login password.\n\n"
+            + "Remove it from Your shared rooms on this Mac anyway? Anyone who already has the invite may still be able to join until the server expires the room.",
+          );
+          if (dropLocal) {
+            forgetCollabProjectV2(record.host, record.projectInstanceId);
+            if (record.credentialRef) {
+              void store.delete(record.credentialRef, record.projectInstanceId, record.host).catch(() => undefined);
+            }
+            refreshRecentRooms();
+            setNotice(`Removed “${record.title}” from this Mac`);
+          }
+          return;
+        }
+        setError(remoteClosed
+          ? `The room was closed, but local cleanup did not finish: ${detail}. Keep this entry and retry Close to finish cleanup.`
+          : `Could not close the room: ${detail}`);
+      }
+    })();
+  }, [activeCollabVersion, clearCollabLocalState, refreshRecentRooms]);
 
   const chooseExisting = useCallback(async () => {
     const selected = await open({ directory: true, multiple: false, title: "Open a LaTeX project" });
@@ -6320,6 +6528,7 @@ function App() {
               host={collabHost}
               room={collabRoom}
               displayName={collabName}
+              projectName={collabProjectName}
               inviteText={collabInvite}
               status={collabStatus}
               statusDetail={collabStatusDetail}
@@ -6331,12 +6540,15 @@ function App() {
               onModeChange={setCollabMode}
               onRoomChange={setCollabRoom}
               onDisplayNameChange={setCollabName}
+              onProjectNameChange={setCollabProjectName}
               onInviteChange={setCollabInvite}
               onStartShare={startCollabShare}
               onJoinShare={joinCollabShare}
               recentProjectsV2={recentProjectsV2}
               onRejoinProjectV2={rejoinCollabProjectV2}
               onForgetProjectV2={forgetRecentProjectV2}
+              onRenameProjectV2={renameRecentProjectV2}
+              onCloseProjectV2={closeRecentProjectV2}
               onDisconnect={disconnectCollab}
               onCopyInvite={copyCollabInvite}
               onRemovePeer={removeCollabPeer}
@@ -7008,6 +7220,7 @@ function App() {
             host={collabHost}
             room={collabRoom}
             displayName={collabName}
+            projectName={collabProjectName}
             inviteText={collabInvite}
             status={collabStatus}
             statusDetail={collabStatusDetail}
@@ -7024,12 +7237,15 @@ function App() {
             onModeChange={setCollabMode}
             onRoomChange={setCollabRoom}
             onDisplayNameChange={setCollabName}
+            onProjectNameChange={setCollabProjectName}
             onInviteChange={setCollabInvite}
             onStartShare={startCollabShare}
             onJoinShare={joinCollabShare}
             recentProjectsV2={recentProjectsV2}
             onRejoinProjectV2={rejoinCollabProjectV2}
             onForgetProjectV2={forgetRecentProjectV2}
+            onRenameProjectV2={renameRecentProjectV2}
+            onCloseProjectV2={closeRecentProjectV2}
             onDisconnect={disconnectCollab}
             onCopyInvite={copyCollabInvite}
             onRemovePeer={removeCollabPeer}

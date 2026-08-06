@@ -82,9 +82,29 @@ impl OverleafRealtimeState {
 
 #[cfg(test)]
 mod realtime_generation_tests {
-    use super::{ensure_expected_project_root, OverleafRealtimeState};
+    use super::{
+        ensure_expected_project_root, project, prune_old_share_workspaces, OverleafRealtimeState,
+    };
     use std::collections::BTreeSet;
     use std::path::PathBuf;
+
+    #[test]
+    fn share_workspace_pruning_requires_an_owned_shared_project_manifest() {
+        let temp =
+            std::env::temp_dir().join(format!("lattice-share-prune-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&temp).unwrap();
+        let current = project::create_blank(&temp, "Current — Shared abc123").unwrap();
+        let old = project::create_blank(&temp, "Old — Shared def456").unwrap();
+        let unrelated = temp.join("Notes — Shared Archive");
+        std::fs::create_dir_all(&unrelated).unwrap();
+
+        prune_old_share_workspaces(&temp, &current, 0);
+
+        assert!(current.exists());
+        assert!(!old.exists());
+        assert!(unrelated.exists());
+        std::fs::remove_dir_all(temp).unwrap();
+    }
 
     #[test]
     fn a_late_connect_and_stale_cleanup_cannot_replace_the_new_project() {
@@ -301,6 +321,7 @@ async fn create_collab_join_workspace(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     room: String,
+    project_name: Option<String>,
 ) -> Result<ProjectSnapshot, String> {
     use tauri::Manager;
     let room = room.trim();
@@ -317,6 +338,20 @@ async fn create_collab_join_workspace(
             }
         })
         .collect();
+    let safe_title: String = project_name
+        .unwrap_or_else(|| "Shared project".to_string())
+        .trim()
+        .chars()
+        .filter(|ch| ch.is_alphanumeric() || *ch == ' ' || *ch == '-' || *ch == '_')
+        .take(48)
+        .collect::<String>()
+        .trim_matches([' ', '-', '_'])
+        .to_string();
+    let safe_title = if safe_title.is_empty() {
+        "Shared project".to_string()
+    } else {
+        safe_title
+    };
     let documents = app
         .path()
         .document_dir()
@@ -326,7 +361,7 @@ async fn create_collab_join_workspace(
         std::fs::create_dir_all(&parent)
             .map_err(|error| format!("Could not create Lattice Shares folder: {error}"))?;
         let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-        let name = format!("share-{safe_room}-{stamp}");
+        let name = format!("{safe_title} — Shared {safe_room}-{stamp}");
         let root = project::create_blank(&parent, &name)?;
         // Each join materializes a full local copy here; it's only a convenience
         // backup, so keep the most-recent handful and delete older ones.
@@ -342,7 +377,7 @@ async fn create_collab_join_workspace(
 /// How many joined-share workspaces to retain under Documents/Lattice Shares.
 const MAX_SHARE_WORKSPACES: usize = 8;
 
-/// Keep the `keep` most-recently-modified `share-*` folders under `parent`
+/// Keep the `keep` most-recently-modified joined-share folders under `parent`
 /// (always keeping `current`), deleting older ones. Best-effort: any failure to
 /// enumerate or remove a stale copy is ignored so it never blocks joining.
 fn prune_old_share_workspaces(parent: &std::path::Path, current: &std::path::Path, keep: usize) {
@@ -357,7 +392,10 @@ fn prune_old_share_workspaces(parent: &std::path::Path, current: &std::path::Pat
                 return None;
             }
             let name = path.file_name()?.to_string_lossy();
-            if !name.starts_with("share-") {
+            if !name.starts_with("share-") && !name.contains(" — Shared ") {
+                return None;
+            }
+            if project::read_manifest(&path).ok()?.venue != "shared" {
                 return None;
             }
             let modified = entry

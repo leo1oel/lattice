@@ -81,7 +81,7 @@ export function CollabChatPanel(props: {
         anyone who joins later sees what was already said.
       </p>
 
-      <div className="collab-chat-list" ref={listRef}>
+      <div className="collab-chat-list native-hover-scrollbar" ref={listRef}>
         {!props.messages.length && (
           <p className="git-empty">No messages yet. Say something and everyone in the room sees it.</p>
         )}

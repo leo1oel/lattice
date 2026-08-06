@@ -22,6 +22,7 @@ import { textFileV2RoomName, type TextFileV2 } from "./text-file-v2";
 const STATE_KEY = "coordinator:v2";
 const MAX_FILES = 2_000;
 const MAX_PATH = 512;
+const MAX_PROJECT_NAME = 80;
 const MAX_GRANTS = 100;
 const MAX_EVENTS = 256;
 const MAX_OPERATIONS = 512;
@@ -122,6 +123,7 @@ export class ProjectCoordinatorV2 extends DurableObject {
     if (this.state) return fail(409, "already_exists", "Project already exists");
     const body = await readObject(request);
     const projectInstanceId = requiredString(body.projectInstanceId, "projectInstanceId");
+    const projectName = optionalProjectName(body.projectName);
     const routedId = decodeURIComponent(new URL(request.url).pathname.split("/").filter(Boolean)[2] ?? "");
     if (projectInstanceId !== routedId) throw new Error("projectInstanceId must match the routed coordinator");
     const hostSecret = strongSecret(body.hostSecret);
@@ -140,7 +142,7 @@ export class ProjectCoordinatorV2 extends DurableObject {
     const folded = files.map((file) => file.path.toLocaleLowerCase("en-US"));
     if (new Set(folded).size !== folded.length) throw new Error("Imported paths duplicate or case-collide");
     this.state = {
-      protocol: CONTROL_PROTOCOL_VERSION, projectInstanceId, lifecycle: "importing", catalogRevision: 0,
+      protocol: CONTROL_PROTOCOL_VERSION, projectInstanceId, ...(projectName ? { name: projectName } : {}), lifecycle: "importing", catalogRevision: 0,
       snapshotGeneration: 0, workspaceLeaseGeneration: 0, authorityEpoch: 1, files, host: await derive(hostSecret),
       grants: [], operations: {}, operationOrder: [], events: [], tickets: [],
       ticketWindow: { startedAt: Date.now(), count: 0 },
@@ -217,7 +219,7 @@ export class ProjectCoordinatorV2 extends DurableObject {
 
   private async mutate(action: string, body: Record<string, unknown>, actor: { grantId: string; permission: GrantPermission }): Promise<Response> {
     if (action === "tickets") return await this.issueTicket(body, actor);
-    const hostActions = new Set(["import-finalize", "file-ready", "delete-ack", "grants", "revoke", "close-begin", "close-ack"]);
+    const hostActions = new Set(["import-finalize", "file-ready", "delete-ack", "grants", "revoke", "project-rename", "close-begin", "close-ack"]);
     if (hostActions.has(action) && actor.permission !== "host") return this.reject(403, "forbidden", "Host permission required");
     if (["create", "rename", "delete-begin"].includes(action) && actor.permission === "read") return this.reject(403, "forbidden", "Write permission required");
     const operationId = requiredString(body.operationId, "operationId");
@@ -254,6 +256,10 @@ export class ProjectCoordinatorV2 extends DurableObject {
         }
       }
       state.lifecycle = "live";
+    } else if (action === "project-rename") {
+      requireLive(state);
+      state.name = requiredProjectName(body.name);
+      value = { name: state.name };
     } else if (action === "create") {
       requireLive(state);
       if (state.files.filter((f) => f.state !== "purging").length >= MAX_FILES) throw new Error("File quota exceeded");
@@ -866,13 +872,15 @@ export class ProjectCoordinatorV2 extends DurableObject {
   private reject(status: number, error: string, message: string, extra?: object): Response { log("coordinator_rejected", { projectInstanceId: this.state?.projectInstanceId, error }); return fail(status, error, message, extra); }
 }
 
-function publicCatalog(s: CoordinatorState): CatalogV2 { const { protocol, projectInstanceId, lifecycle, catalogRevision, snapshotGeneration, workspaceLeaseGeneration, authorityEpoch, files } = s; return { protocol, projectInstanceId, lifecycle, catalogRevision, snapshotGeneration, workspaceLeaseGeneration, authorityEpoch, files }; }
+function publicCatalog(s: CoordinatorState): CatalogV2 { const { protocol, projectInstanceId, name, lifecycle, catalogRevision, snapshotGeneration, workspaceLeaseGeneration, authorityEpoch, files } = s; return { protocol, projectInstanceId, ...(name ? { name } : {}), lifecycle, catalogRevision, snapshotGeneration, workspaceLeaseGeneration, authorityEpoch, files }; }
 function requireLive(s: CoordinatorState): void { if (s.lifecycle !== "live") throw new ControlError(409, "project_not_live", "Project is not live"); }
 function findFile(s: CoordinatorState, id: string): CatalogFileV2 { const file = s.files.find((f) => f.fileId === id); if (!file) throw new Error("File not found"); return file; }
 function liveFile(s: CoordinatorState, id: string): CatalogFileV2 { const file = findFile(s, id); if (file.state !== "live" && file.state !== "initializing") throw new Error("File is not live"); return file; }
 function ensurePathFree(s: CoordinatorState, path: string, except?: string): void { if (s.files.some((f) => f.fileId !== except && f.state !== "tombstoned" && f.state !== "purging" && f.path.toLocaleLowerCase("en-US") === path.toLocaleLowerCase("en-US"))) throw new Error("Path already exists or case-collides"); }
 export function binaryKey(projectInstanceId: string, fileId: string, hash: string): string { return `v2/${projectInstanceId}/${fileId}/${hash}`; }
 function canonicalPath(value: unknown): string { const path = requiredString(value, "path").normalize("NFC"); if (path.length > MAX_PATH || path.startsWith("/") || path.endsWith("/") || path.includes("\\")) throw new Error("Invalid project-relative path"); const parts = path.split("/"); if (parts.some((p) => !p || p === "." || p === "..")) throw new Error("Path traversal or empty segment"); return parts.join("/"); }
+function requiredProjectName(value: unknown): string { const name = requiredString(value, "name").normalize("NFC").trim(); if (name.length > MAX_PROJECT_NAME || /[\u0000-\u001f\u007f]/.test(name)) throw new Error("Invalid project name"); return name; }
+function optionalProjectName(value: unknown): string | undefined { return value === undefined ? undefined : requiredProjectName(value); }
 function parseImportManifest(value: unknown): ImportManifestEntry[] {
   if (!Array.isArray(value) || value.length > MAX_FILES) throw new Error("Invalid import manifest");
   const entries = value.map((raw) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { collabV2Inventory, parsePreferredCollabInvitation, requireRememberedV2Credential, shouldCreateCollabV2 } from "./collab-app-v2";
+import { collabV2Inventory, parsePreferredCollabInvitation, readRememberedV2Credential, requireRememberedV2Credential, shouldCreateCollabV2 } from "./collab-app-v2";
 import { MemoryCollabCredentialStore } from "./collab-credentials";
 import { formatCollabInvitationV2 } from "./collab-invitation-v2";
 
@@ -14,6 +14,14 @@ describe("App v2 collaboration routing", () => {
     const store = new MemoryCollabCredentialStore(); const deleteSpy = vi.spyOn(store, "delete");
     await expect(requireRememberedV2Credential({ version: 2, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "missing", permission: "write", title: "Paper", projectRoot: null, lastUsed: 1 }, store)).rejects.toThrow("kept");
     expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps controller startup on the opaque reference but returns the bearer secret for direct room management", async () => {
+    const store = new MemoryCollabCredentialStore();
+    const record = { version: 2 as const, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "credential-reference", permission: "host" as const, title: "Paper", projectRoot: null, lastUsed: 1 };
+    await store.put(record.credentialRef, "actual-bearer-secret", record.projectInstanceId, record.host);
+    expect(await requireRememberedV2Credential(record, store)).toBe("credential-reference");
+    expect(await readRememberedV2Credential(record, store)).toBe("actual-bearer-secret");
   });
 
   it("recognizes a v2 invitation before legacy routing", () => {

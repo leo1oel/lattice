@@ -6,6 +6,7 @@ const valid = { version: 2 as const, deployment: "https://collab.example/", proj
 describe("versioned v2 collaboration invitations", () => {
   it("round trips the deployment, identity, permission, and guest secret", () => {
     expect(parseCollabInvitationV2(formatCollabInvitationV2(valid))).toEqual(valid);
+    expect(parseCollabInvitationV2(formatCollabInvitationV2({ ...valid, projectName: "Attention Paper" }))?.projectName).toBe("Attention Paper");
   });
 
   it("does not claim v1 invitations and rejects host secrets, weak identities, and weak secrets", () => {
@@ -15,6 +16,7 @@ describe("versioned v2 collaboration invitations", () => {
       { ...valid, guestSecret: "weak" },
       { ...valid, deployment: "http://collab.example/" },
       { ...valid, hostSecret: "must-never-appear" },
+      { ...valid, projectName: "x".repeat(81) },
     ]) expect(() => formatCollabInvitationV2(payload as typeof valid)).toThrow();
   });
 });

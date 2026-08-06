@@ -14,6 +14,14 @@ export async function requireRememberedV2Credential(record: CollabProjectRecordV
   return record.credentialRef;
 }
 
+/** Reads the bearer secret for a one-off control request without exposing it to persisted room metadata. */
+export async function readRememberedV2Credential(record: CollabProjectRecordV2, store: CollabCredentialStore): Promise<string> {
+  if (!record.credentialRef) throw new Error("Collaboration credential is unavailable. The remembered project was kept.");
+  const credential = await store.get(record.credentialRef, record.projectInstanceId, record.host);
+  if (!credential) throw new Error("Collaboration credential is unavailable. The remembered project was kept.");
+  return credential;
+}
+
 export function collabV2Inventory(nodes: FileNode[]): Array<{ path: string; kind: "text" | "binary" }> {
   const files: Array<{ path: string; kind: "text" | "binary" }> = [];
   const visit = (items: FileNode[]) => {

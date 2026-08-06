@@ -29,7 +29,14 @@ export function loadCollabProjectsV2(): CollabProjectRecordV2[] {
         && typeof record.host === "string"
         && (record.credentialRef === undefined || typeof record.credentialRef === "string")
         && (record.permission === "host" || record.permission === "write" || record.permission === "read");
-    });
+    }).map((record) => ({
+      ...record,
+      title: typeof record.title === "string" && record.title.trim()
+        ? record.title.trim()
+        : `Shared project ${record.projectInstanceId.slice(-6)}`,
+      projectRoot: typeof record.projectRoot === "string" ? record.projectRoot : null,
+      lastUsed: typeof record.lastUsed === "number" ? record.lastUsed : 0,
+    }));
   } catch { return []; }
 }
 

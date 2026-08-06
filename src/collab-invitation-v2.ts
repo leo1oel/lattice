@@ -6,6 +6,8 @@ export type CollabInvitationV2 = {
   projectInstanceId: string;
   guestSecret: string;
   permission: Exclude<GrantPermission, "host">;
+  /** Optional for backwards compatibility with invitations created before room naming. */
+  projectName?: string;
 };
 
 const PREFIX = "lattice-collab-v2:";
@@ -46,8 +48,9 @@ function validate(value: unknown): asserts value is CollabInvitationV2 {
   if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== "/") throw new Error("Deployment must be an HTTPS origin");
   if (typeof invitation.guestSecret !== "string" || !/^[A-Za-z0-9_-]{43,172}$/.test(invitation.guestSecret)
     || fromBase64Url(invitation.guestSecret).byteLength < 32) throw new Error("Guest secret must contain at least 32 random bytes");
+  if (invitation.projectName !== undefined && (typeof invitation.projectName !== "string" || !invitation.projectName.trim() || invitation.projectName.length > 80)) throw new Error("Invalid project name");
   const keys = Object.keys(invitation);
-  if (keys.length !== 5 || keys.some((key) => !["version", "deployment", "projectInstanceId", "guestSecret", "permission"].includes(key))) throw new Error("Invitation contains unknown fields");
+  if (keys.length < 5 || keys.length > 6 || keys.some((key) => !["version", "deployment", "projectInstanceId", "guestSecret", "permission", "projectName"].includes(key))) throw new Error("Invitation contains unknown fields");
 }
 
 function base64Url(bytes: Uint8Array): string { return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", ""); }

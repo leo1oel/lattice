@@ -110,7 +110,7 @@ describe("planCatalogDeltaV2", () => {
 });
 
 describe("v2 project presence", () => {
-  async function setupPresenceTest(options: { paths?: string[]; boardPaths?: string[]; presenceTable?: Record<string, unknown> } = {}) {
+  async function setupPresenceTest(options: { paths?: string[]; boardPaths?: string[]; presenceTable?: Record<string, unknown>; syncManually?: boolean } = {}) {
     vi.resetModules();
     vi.stubEnv("VITE_LATTICE_COLLAB_V2", "true");
     const { IDBFactory } = await import("fake-indexeddb");
@@ -126,6 +126,7 @@ describe("v2 project presence", () => {
     };
     const presenceCalls: Array<Record<string, unknown>> = [];
     const awarenesses: InstanceType<typeof Awareness>[] = [];
+    const syncedListeners: Array<(synced: boolean) => void> = [];
     const fetchMock = vi.fn(async (url: string, init?: { body?: string }) => {
       const respond = (value: unknown) => new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } });
       if (url.endsWith("/catalog")) return respond(catalogValue);
@@ -149,7 +150,11 @@ describe("v2 project presence", () => {
           awareness,
           onCustomMessage: () => () => undefined,
           onDisconnect: () => () => undefined,
-          onSynced: (listener) => { queueMicrotask(() => listener(true)); return () => undefined; },
+          onSynced: (listener) => {
+            if (options.syncManually) syncedListeners.push(listener);
+            else queueMicrotask(() => listener(true));
+            return () => undefined;
+          },
           clearAwareness: () => awareness.setLocalState(null),
           destroy: () => awareness.destroy(),
         };
@@ -158,7 +163,7 @@ describe("v2 project presence", () => {
       displayName: "Ada",
       onPeers: (peers) => peersCalls.push(peers),
     });
-    return { controller, presenceCalls, peersCalls, awarenesses, store };
+    return { controller, presenceCalls, peersCalls, awarenesses, store, catalogValue, syncedListeners };
   }
 
   it("announces identity and path on awareness, merges cross-file presence, and leaves on destroy", async () => {
@@ -207,6 +212,42 @@ describe("v2 project presence", () => {
     expect(controller.activePath).toBe("");
     await controller.openPath("notes.md");
     expect(controller.activePath).toBe("notes.md");
+    controller.destroy();
+  });
+
+  it("rejects a client whose catalog epoch changes while synchronization is pending", async () => {
+    const { controller, catalogValue, syncedListeners } = await setupPresenceTest({ syncManually: true });
+    const opening = controller.openPath("paper.md");
+    await vi.waitFor(() => expect(syncedListeners).toHaveLength(1));
+    catalogValue.files[0]!.documentEpoch = 2;
+    catalogValue.catalogRevision = 2;
+    await controller.refetchCatalog();
+    syncedListeners[0]!(true);
+
+    await expect(opening).rejects.toThrow("File changed while opening");
+    expect(controller.activePath).toBe("");
+    controller.destroy();
+  });
+
+  it("rejects shared waiters cleanly when a file is renamed during synchronization", async () => {
+    const { controller, catalogValue, syncedListeners } = await setupPresenceTest({ syncManually: true });
+    const oldPath = controller.openPath("paper.md");
+    await vi.waitFor(() => expect(syncedListeners).toHaveLength(1));
+    catalogValue.files[0]!.path = "renamed.md";
+    catalogValue.catalogRevision = 2;
+    await controller.refetchCatalog();
+    const newPath = controller.openPath("renamed.md");
+    syncedListeners[0]!(true);
+
+    await expect(oldPath).rejects.toThrow("File changed while opening");
+    await expect(newPath).rejects.toThrow("File changed while opening");
+    expect(controller.activePath).toBe("");
+
+    const retry = controller.openPath("renamed.md");
+    await vi.waitFor(() => expect(syncedListeners).toHaveLength(2));
+    syncedListeners[1]!(true);
+    await expect(retry).resolves.toBeDefined();
+    expect(controller.activePath).toBe("renamed.md");
     controller.destroy();
   });
 
@@ -321,6 +362,43 @@ describe("v2 project presence", () => {
     await flush;
 
     expect(writes).toEqual(["s", "smooth"]);
+    controller.destroy();
+  });
+
+  it("keeps an in-flight disk write in flush after its observer is detached", async () => {
+    const { controller } = await setupPresenceTest();
+    let releaseWrite!: () => void;
+    let blockWrite = false;
+    const writeReleased = new Promise<void>((resolve) => { releaseWrite = resolve; });
+    const writes: string[] = [];
+    controller.bindWorkspace(
+      { projectRoot: "/tmp/proj", isCurrent: () => true },
+      {
+        writeText: async (_path, content) => {
+          writes.push(content);
+          if (blockWrite) await writeReleased;
+        },
+        writeBytes: async () => undefined,
+      },
+    );
+    await controller.openPath("paper.md");
+    await controller.flush();
+    writes.length = 0;
+
+    blockWrite = true;
+    const peer = new Y.Doc();
+    peer.getText("content").insert(0, "remote");
+    Y.applyUpdate(controller.doc, Y.encodeStateAsUpdate(peer));
+    await vi.waitFor(() => expect(writes).toEqual(["remote"]));
+    (controller as unknown as { detachDiskObserver(fileId: string): void }).detachDiskObserver("f0");
+    let flushed = false;
+    const flush = controller.flush().then(() => { flushed = true; });
+    await Promise.resolve();
+    expect(flushed).toBe(false);
+    blockWrite = false;
+    releaseWrite();
+    await flush;
+    expect(flushed).toBe(true);
     controller.destroy();
   });
 });
@@ -624,6 +702,18 @@ describe("v2 mid-share file creation", () => {
     expect(calls.importedText).toBe("draft body");
     expect(calls.fileReady).toBe(0);
     expect(catalogValue.files.find((file) => file.path === "draft.md")!.state).toBe("live");
+    controller.destroy();
+  });
+
+  it("write guest: creates the comments document while the host is offline", async () => {
+    const { controller, catalogValue, calls } = await setupCreateTest({ permission: "write", hostOnline: false });
+    const comments = JSON.stringify([{ id: "comment-1", body: "Please clarify this paragraph" }]);
+    await controller.create(".research/editor-comments.json", "text", { seedText: comments });
+    expect(calls.create).toBe(1);
+    expect(calls.textImport).toBe(1);
+    expect(calls.importedText).toBe(comments);
+    expect(calls.fileReady).toBe(0);
+    expect(catalogValue.files.find((file) => file.path === ".research/editor-comments.json")!.state).toBe("live");
     controller.destroy();
   });
 

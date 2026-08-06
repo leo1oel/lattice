@@ -8,7 +8,13 @@ export type NativeImportSourceV2 = { inventory(): Promise<Array<{ path: string; 
 export type ImportProjectRecordV2 = { version: 2; deployment: string; projectInstanceId: string; credentialRef: string };
 export type ImportResumeV2 = { projectInstanceId: string; credentialRef: string; manifestHash: string; operationId: string; fileIds: Record<string, string>; completed: string[]; error: string };
 export class CollabImportV2Error extends Error { constructor(message: string, readonly resume: ImportResumeV2, cause?: unknown) { super(message, { cause }); } }
-export type ImportV2Options = { deployment: string; source: NativeImportSourceV2; credentialStore: CollabCredentialStore; fetch?: typeof fetch; projectInstanceId?: string; idFactory?: () => string; resume?: ImportResumeV2; policy?: CollabFeaturePolicy; onPhase?: (phase: "importing") => void; onPrepareProgress?: (completed: number, total: number) => void; onProgress?: (completed: number, total: number) => void; onRecord: (record: ImportProjectRecordV2) => Promise<void> };
+export type ImportV2Options = { deployment: string; projectName?: string; source: NativeImportSourceV2; credentialStore: CollabCredentialStore; fetch?: typeof fetch; projectInstanceId?: string; idFactory?: () => string; resume?: ImportResumeV2; policy?: CollabFeaturePolicy; onPhase?: (phase: "importing") => void; onPrepareProgress?: (completed: number, total: number) => void; onProgress?: (completed: number, total: number) => void; onRecord: (record: ImportProjectRecordV2) => Promise<void> };
+
+export class TextImportErrorV2 extends Error {
+  constructor(readonly status: number, readonly code: string) {
+    super(`text_import_failed: ${code} (${status})`);
+  }
+}
 
 const IMPORT_CONCURRENCY = 8;
 
@@ -27,7 +33,7 @@ async function run(options: ImportV2Options): Promise<ImportProjectRecordV2> {
     const plain = files.map(({ bytes: _bytes, contentType: _type, ...entry }) => entry); const computedManifestHash = await canonicalImportManifestHash(plain); if (manifestHash && manifestHash !== computedManifestHash) throw new Error("resume_manifest_changed"); manifestHash = computedManifestHash;
     remoteRequestStarted = true;
     let catalog = await getCatalog(fetcher, options.deployment, id, secret).catch(() => undefined);
-    if (!catalog) { const response = await jsonFetch(fetcher, projectUrl(options.deployment, id, "bootstrap"), { projectInstanceId: id, hostSecret: secret, importManifest: plain, expectedManifestHash: manifestHash, operationId: importOperationId }); if (!response.ok) throw new Error("v2_bootstrap_failed"); catalog = await response.json() as CatalogV2; }
+    if (!catalog) { const response = await jsonFetch(fetcher, projectUrl(options.deployment, id, "bootstrap"), { projectInstanceId: id, projectName: options.projectName, hostSecret: secret, importManifest: plain, expectedManifestHash: manifestHash, operationId: importOperationId }); if (!response.ok) throw new Error("v2_bootstrap_failed"); catalog = await response.json() as CatalogV2; }
     if (catalog.lifecycle === "live") { await options.onRecord({ version: 2, deployment: options.deployment, projectInstanceId: id, credentialRef }); return { version: 2, deployment: options.deployment, projectInstanceId: id, credentialRef }; }
     let progress = 0;
     const pending = files.filter((file) => {
@@ -78,7 +84,14 @@ export async function putTextFileV2(options: { fetch?: typeof fetch; deployment:
     headers: { ...auth(options.credential), "x-document-epoch": String(options.documentEpoch), "x-content-sha256": hash, "x-operation-id": options.operationId },
     body: options.bytes,
   });
-  if (!response.ok) throw new Error("text_import_failed");
+  if (!response.ok) {
+    let code = response.statusText || "unknown_error";
+    try {
+      const body = await response.json() as { error?: unknown };
+      if (typeof body.error === "string" && body.error) code = body.error;
+    } catch { /* preserve the HTTP fallback */ }
+    throw new TextImportErrorV2(response.status, code);
+  }
   return { size: options.bytes.byteLength, hash };
 }
 async function putBinary(f:typeof fetch,d:string,id:string,s:string,x:ImportFileV2,rev:number,op:string){const t=await jsonFetch(f,projectUrl(d,id,"binary/upload-tickets"),{fileId:x.fileId,documentEpoch:1,declaredHash:x.hash,declaredSize:x.size,contentType:x.contentType,expectedCatalogRevision:rev,expectedContentRevision:0,operationId:op,import:true},s);if(!t.ok)throw new Error("binary_ticket_failed");const ticket=(await t.json() as {ticket:string}).ticket;const u=await f(projectUrl(d,id,`binary/uploads/${encodeURIComponent(ticket)}`),{method:"PUT",headers:{"content-type":x.contentType!},body:x.bytes});if(!u.ok)throw new Error("binary_import_failed");const c=await jsonFetch(f,projectUrl(d,id,"binary/commit"),{ticket,operationId:op},s);if(!c.ok)throw new Error("binary_commit_failed");}

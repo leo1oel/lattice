@@ -19,7 +19,7 @@ export async function acceptCollabInvitationV2(
     host: invitation.deployment,
     credentialRef,
     permission: invitation.permission,
-    title: options.title ?? "共享项目",
+    title: invitation.projectName ?? options.title ?? "Shared project",
     projectRoot: options.projectRoot ?? null,
     lastUsed: options.now ?? Date.now(),
   };

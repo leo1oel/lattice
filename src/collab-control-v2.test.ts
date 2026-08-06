@@ -27,4 +27,22 @@ describe("CollabControlV2Client", () => {
     const { CollabControlV2Client } = await import("./collab-control-v2");
     await expect(new CollabControlV2Client("https://collab.example", "project", "secret").catalog()).rejects.toThrow("Invalid v2 catalog response");
   });
+
+  it("keeps an explicit presence leave alive while the app window closes", async () => {
+    vi.stubEnv("VITE_LATTICE_COLLAB_V2", "true");
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ protocol: 2, presence: {} })));
+    vi.stubGlobal("fetch", fetch);
+    const { CollabControlV2Client } = await import("./collab-control-v2");
+    await new CollabControlV2Client("https://collab.example", "project", "secret").presence({
+      instanceId: "instance",
+      name: "Ada",
+      color: "#123456",
+      path: "paper.md",
+      leave: true,
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      "https://collab.example/v2/projects/project/presence",
+      expect.objectContaining({ keepalive: true }),
+    );
+  });
 });

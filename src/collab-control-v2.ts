@@ -26,7 +26,10 @@ export class CollabControlV2Client {
 
   /** Project-level presence heartbeat; per-file awareness rooms cannot see each other. */
   async presence(body: { instanceId: string; name: string; color: string; path: string | null; leave?: boolean }): Promise<Record<string, PresenceEntryV2>> {
-    const value = await this.request("presence", { method: "POST", body: JSON.stringify(body) });
+    // A normal window close tears down JavaScript immediately after destroy().
+    // keepalive lets the explicit leave finish instead of making every clean
+    // exit look like a crash until the server's presence TTL expires.
+    const value = await this.request("presence", { method: "POST", body: JSON.stringify(body), keepalive: body.leave === true });
     const presence = (value as { presence?: unknown })?.presence;
     return (presence ?? {}) as Record<string, PresenceEntryV2>;
   }

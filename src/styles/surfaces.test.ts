@@ -56,8 +56,18 @@ describe("shared surface contracts", () => {
   })
 
   it("keeps collaboration helper text clear of its input", () => {
-    expect(appCss).toContain('.modal.collab-drawer-content > .collab-name-help { margin: var(--space-8) 0 0; }')
+    expect(appCss).toContain(".collab-field > .collab-name-help { margin: 0; }")
+    expect(appCss).toContain("gap: var(--drawer-section-gap)")
     expect(appCss).not.toContain(".collab-advanced-toggle")
+  })
+
+  it("keeps shared-room sideways overflow inside the Lattice scrollbar", () => {
+    expect(appCss).toMatch(
+      /\.collab-recent-scroll \{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*min-width:\s*0/,
+    )
+    expect(appCss).toMatch(
+      /\.collab-recent-scroll-content \{[^}]*width:\s*max-content;[^}]*min-width:\s*100%/,
+    )
   })
 
   it("keeps elevated menus and Settings free of hard outer frames", () => {

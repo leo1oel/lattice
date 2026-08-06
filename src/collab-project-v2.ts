@@ -129,6 +129,7 @@ export class CollabProjectControllerV2 {
   private readonly diskObserverFlushes = new Map<string, () => Promise<void>>();
   private readonly canWriteListeners = new Set<(canWrite: boolean) => void>();
   private readonly fileMutations = new Map<string, Promise<void>>();
+  private readonly pendingDiskWrites = new Set<Promise<void>>();
   private readonly pool: CollabTextProviderPoolV2;
   private readonly fallbackDoc = new Y.Doc();
   private fallbackAwareness = new Awareness(this.fallbackDoc);
@@ -144,6 +145,8 @@ export class CollabProjectControllerV2 {
   private binaryClient?: CollabBinaryV2Client;
   private eventsTimer?: ReturnType<typeof setInterval>;
   private eventsPolling = false;
+  private presenceQueue: Promise<void> = Promise.resolve();
+  private presenceLeaveRequested = false;
   /** Stable per-session identity announced in awareness and coordinator presence. */
   private readonly instanceId = crypto.randomUUID();
   private presenceValue: Record<string, PresenceEntryV2> = {};
@@ -396,13 +399,23 @@ export class CollabProjectControllerV2 {
     if (!client) client = await this.openClient(file);
     try { await client.connect(); await client.waitForSynced(options.timeoutMs); } catch (error) { if (this.destroyed || !options.allowCachedOffline) throw error; this.setStatus("offline"); }
     this.assertLiveController();
+    const current = this.fileById(file.fileId);
+    if (client.isDestroyed || !current || current.state !== "live" || current.path !== path || current.documentEpoch !== file.documentEpoch) {
+      this.detachDiskObserver(file.fileId);
+      if (this.clients.get(file.fileId) === client) this.clients.delete(file.fileId);
+      this.pool.remove(client);
+      client.destroy();
+      throw new Error("File changed while opening");
+    }
     // (Re)mirroring onto disk: a resurrected client needs a fresh observer on
     // the new doc; attachDiskObserver no-ops when one is already live.
     if (this.materializeContext) this.attachDiskObserver(file, client, this.materializeContext.lease, this.materializeContext.callbacks);
     if (!options.sideload && (options.activateIf?.() ?? true)) {
       const previousClient = this.activeClient;
-      if (previousClient && previousClient !== client) this.pool.unpin(previousClient, this.activePin);
-      this.activeClient = client; this.activePin = pin; this.pool.pin(client, pin); this.activePath = path; this.ytext = client.doc.getText("content"); this.undoManager.destroy(); this.undoManager = new Y.UndoManager(this.ytext); this.provider = { awareness: client.awareness ?? this.fallbackAwareness }; this.awarenessVersion += 1; this.announcePresence(previousClient, client, path);
+      const previousPin = this.activePin;
+      this.pool.pin(client, pin);
+      if (previousClient && (previousClient !== client || previousPin !== pin)) this.pool.unpin(previousClient, previousPin);
+      this.activeClient = client; this.activePin = pin; this.activePath = path; this.ytext = client.doc.getText("content"); this.undoManager.destroy(); this.undoManager = new Y.UndoManager(this.ytext); this.provider = { awareness: client.awareness ?? this.fallbackAwareness }; this.awarenessVersion += 1; this.announcePresence(previousClient, client, path);
       this.emitCanWrite();
       if (!this.firstFileOpened) { this.firstFileOpened = true; const now = (this.options.now ?? Date.now)(); this.options.diagnostics?.({ name: "first_file_open", at: now, durationMs: now - this.startedAt, fileId: file.fileId }); }
     }
@@ -539,13 +552,24 @@ export class CollabProjectControllerV2 {
 
   /** Best-effort heartbeat; the server TTL prunes us if we stay offline. */
   private async heartbeatPresence(): Promise<void> {
-    try {
+    if (this.presenceLeaveRequested) return;
+    await this.enqueuePresence(async () => {
+      if (this.destroyed || this.presenceLeaveRequested) return;
       const identity = this.presenceIdentity();
       const presence = await this.control.presence({ instanceId: this.instanceId, name: identity.name, color: identity.color, path: this.activePath || null });
       if (this.destroyed) return;
       this.presenceValue = presence;
       this.pushPeers();
-    } catch { /* keep last known presence */ }
+    }).catch(() => { /* keep last known presence */ });
+  }
+
+  /** Ordered after any in-flight heartbeat so a late heartbeat cannot recreate our entry. */
+  async leavePresence(): Promise<void> {
+    if (this.presenceLeaveRequested) return this.presenceQueue;
+    this.presenceLeaveRequested = true;
+    return this.enqueuePresence(async () => {
+      await this.control.presence({ instanceId: this.instanceId, name: "", color: "", path: null, leave: true });
+    });
   }
 
   setActivePath(path: string, seedIfEmpty?: string): Y.Text { if (path !== this.activePath) throw new Error("v2 files must be awaited with openPath before editor binding"); if (seedIfEmpty && this.ytext.length === 0) this.ytext.insert(0, seedIfEmpty); return this.ytext; }
@@ -649,13 +673,23 @@ export class CollabProjectControllerV2 {
     const hash = await sha256(`${salt}:${guestSecret}`);
     await this.control.operation("grants", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, permission, guestSecretHash: { salt, hash } });
     await this.refetchCatalog();
+    // Keep the original five-field v2 wire shape so older v2 clients continue
+    // accepting new invitations. Joiners read the current name from catalog.
     return formatCollabInvitationV2({ version: 2, deployment: new URL(this.options.deployment).origin + "/", projectInstanceId: this.options.projectInstanceId, guestSecret, permission });
   }
   listGrants(): Promise<Array<{ grantId: string; permission: "read" | "write"; revoked: boolean }>> { return this.control.grants(); }
   async revoke(grantId: string): Promise<void> { const result = await this.control.operation<OperationResultV2>("revoke", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, grantId }); this.catalogValue.catalogRevision = result.catalogRevision; }
   async delete(path: string, local: CollabLocalMutationsV2): Promise<void> { const file = this.file(path); if (!file) throw new Error("Unknown catalog path"); const lease = this.requireLease(); await this.enqueueFile(file.fileId, async () => { this.checkLease(lease); this.locallyDeleted.add(file.fileId); try { await this.control.operation("delete-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, fileId: file.fileId }); await this.refetchCatalog(); this.detachDiskObserver(file.fileId); this.checkLease(lease); await local.delete(path, lease.projectRoot); this.checkLease(lease); } finally { this.locallyDeleted.delete(file.fileId); } }); }
   async settled(): Promise<void> { await this.activeClient?.settled(); }
-  async flush(): Promise<void> { await Promise.all([...this.diskObserverFlushes.values()].map((flush) => flush())); }
+  async flush(): Promise<void> {
+    while (this.diskObserverFlushes.size > 0 || this.pendingDiskWrites.size > 0) {
+      const flushes = [...this.diskObserverFlushes.values()];
+      if (flushes.length > 0) await Promise.all(flushes.map((flush) => flush()));
+      if (this.pendingDiskWrites.size > 0) await Promise.all([...this.pendingDiskWrites]);
+      if (flushes.length === 0 && this.pendingDiskWrites.size === 0) break;
+      if ([...this.diskObserverFlushes.values()].every((flush) => flushes.includes(flush)) && this.pendingDiskWrites.size === 0) break;
+    }
+  }
   async downloadBinary(path: string): Promise<Uint8Array> { const file = this.file(path); if (!file || file.kind !== "binary") throw new Error("Unknown binary catalog path"); return this.getBinaryClient().download(file.fileId, file.documentEpoch); }
   async replaceBinary(path: string, bytes: Uint8Array, mime: string, local: CollabLocalMutationsV2): Promise<BinaryReplaceResult> { const file = this.file(path); if (!file || file.kind !== "binary" || file.state !== "live") throw new Error("Unknown binary catalog path"); const lease = this.requireLease(); return this.enqueueFile(file.fileId, async () => { this.checkLease(lease); const result = await this.getBinaryClient().replace(file.fileId, file.documentEpoch, bytes, mime, this.catalogValue.catalogRevision, file.contentRevision ?? 0, file.hash); this.checkLease(lease); if (result.status === "conflict") { const loser = await this.getBinaryClient().download(file.fileId, file.documentEpoch, result.conflict.conflictId); this.checkLease(lease); if (!local.writeBinaryConflict) throw new Error("Binary conflict requires an explicit conflict-copy writer"); await local.writeBinaryConflict(binaryConflictPath(path, result.conflict.conflictId), loser, lease.projectRoot); this.options.onPermanentError?.(new Error(`Binary conflict preserved for ${path}`), file.fileId); } await this.refetchCatalog().catch(() => undefined); return result; }); }
   /**
@@ -710,13 +744,19 @@ export class CollabProjectControllerV2 {
     if (!openPath) throw new Error("The shared project has no live text files");
     return { rootPath: lease.projectRoot, openPath, textCount: textFiles.length, binaryCount: files.length - textFiles.length, fileCount: files.length };
   }
-  async close(): Promise<void> { await this.control.operation("close-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision }); if (!this.destroyed) await this.refetchCatalog(); }
+  async close(): Promise<void> {
+    if (this.catalogValue.lifecycle === "closing" || this.catalogValue.lifecycle === "closed") return;
+    const result = await this.control.operation<OperationResultV2>("close-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision });
+    this.catalogValue.catalogRevision = result.catalogRevision;
+    this.catalogValue.lifecycle = result.status === "pending" ? "closing" : "closed";
+    this.options.onCatalog?.(this.catalogValue);
+  }
   destroy(): void {
     if (this.destroyed) return; this.destroyed = true; this.stopEventsPolling();
     this.cancelPeerRefresh?.(); this.cancelPeerRefresh = undefined;
     this.awarenessListener?.(); this.awarenessListener = undefined;
     // Best-effort leave so our entry does not linger until the server TTL.
-    if (this.control) void this.control.presence({ instanceId: this.instanceId, name: "", color: "", path: null, leave: true }).catch(() => undefined);
+    if (this.control) void this.leavePresence().catch(() => undefined);
     for (const detach of this.diskObservers.values()) detach(); this.diskObservers.clear(); for (const client of this.clients.values()) client.destroy(); this.clients.clear(); this.canWriteListeners.clear(); this.undoManager.destroy(); this.fallbackAwareness.destroy(); this.fallbackDoc.destroy();
   }
 
@@ -726,7 +766,17 @@ export class CollabProjectControllerV2 {
   private requireLease(): CollabMaterializeLeaseV2 { if (!this.materializeLease) throw new Error("Controller has no workspace lease"); this.checkLease(this.materializeLease); return this.materializeLease; }
   private getBinaryClient(): CollabBinaryV2Client { if (this.binaryClient) return this.binaryClient; const lease = this.requireLease(); return this.binaryClient = new CollabBinaryV2Client(this.options.deployment, this.options.projectInstanceId, this.credential, () => this.checkLease(lease)); }
   private enqueueFile<T>(fileId: string, mutation: () => Promise<T>): Promise<T> { const prior = this.fileMutations.get(fileId) ?? Promise.resolve(); const result = prior.catch(() => undefined).then(mutation); const tail = result.then(() => undefined, () => undefined); this.fileMutations.set(fileId, tail); void tail.finally(() => { if (this.fileMutations.get(fileId) === tail) this.fileMutations.delete(fileId); }); return result; }
+  private enqueuePresence(operation: () => Promise<void>): Promise<void> {
+    const result = this.presenceQueue.catch(() => undefined).then(operation);
+    this.presenceQueue = result.then(() => undefined, () => undefined);
+    return result;
+  }
   private detachDiskObserver(fileId: string): void { this.diskObservers.get(fileId)?.(); this.diskObservers.delete(fileId); }
+  private trackDiskWrite(promise: Promise<void>): Promise<void> {
+    const tracked = promise.finally(() => this.pendingDiskWrites.delete(tracked));
+    this.pendingDiskWrites.add(tracked);
+    return tracked;
+  }
   /** Mirror remote edits of a synced text-family file onto the workspace disk. */
   private attachDiskObserver(file: CatalogFileV2, client: CollabTextClientV2, lease: CollabMaterializeLeaseV2, callbacks: CollabMaterializeCallbacksV2): void {
     if (this.diskObservers.has(file.fileId)) return;
@@ -754,7 +804,7 @@ export class CollabProjectControllerV2 {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const pendingWrites = new Set<Promise<void>>();
       const startWrite = () => {
-        const pending = write();
+        const pending = this.trackDiskWrite(write());
         pendingWrites.add(pending);
         void pending.catch((error) => this.options.onPermanentError?.(
           error instanceof Error ? error : new Error(String(error)),
@@ -800,7 +850,7 @@ export class CollabProjectControllerV2 {
       const startWrite = () => {
         if (pending) { dirty = true; return; }
         dirty = false;
-        pending = write().catch((error) => this.options.onPermanentError?.(
+        pending = this.trackDiskWrite(write()).catch((error) => this.options.onPermanentError?.(
           error instanceof Error ? error : new Error(String(error)),
           fileId,
         )).finally(() => {

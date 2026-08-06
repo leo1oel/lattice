@@ -11,6 +11,7 @@ function baseProps() {
     host: "lattice-collab.example.workers.dev",
     room: "LT-ABC123",
     displayName: "Ada",
+    projectName: "Attention paper",
     inviteText: "",
     status: "synced" as const,
     statusDetail: null,
@@ -21,6 +22,7 @@ function baseProps() {
     onModeChange: vi.fn(),
     onRoomChange: vi.fn(),
     onDisplayNameChange: vi.fn(),
+    onProjectNameChange: vi.fn(),
     onInviteChange: vi.fn(),
     onStartShare: vi.fn(),
     onJoinShare: vi.fn(),
@@ -66,6 +68,16 @@ describe("CollabDialog chat tab", () => {
     expect(screen.getByLabelText("Collab invite")).toHaveClass("native-hover-scrollbar");
   });
 
+  it("uses the Lattice scrollbar for remembered rooms on both axes", () => {
+    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[{ version: 2, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "host", title: "Paper", projectRoot: "/paper", lastUsed: 1 }]} />);
+    const viewport = screen.getByLabelText("Your shared rooms");
+    expect(viewport).toHaveAttribute("data-slot", "scroll-area-viewport");
+    expect(viewport.closest("[data-slot='scroll-area']")).toHaveClass("collab-recent-scroll");
+    // Host actions sit beside the room id and are what forces sideways overflow.
+    expect(screen.getByRole("button", { name: "Rename" })).toBeInTheDocument();
+    expect(viewport).toHaveStyle({ height: "auto", maxHeight: "168px" });
+  });
+
   it("offers cancellation instead of another start attempt while a share is connecting", () => {
     const onStartShare = vi.fn(); const onDisconnect = vi.fn();
     render(<CollabDialog {...baseProps()} status="connecting" statusDetail="Uploading project files… 3/8" connectedRoom={null} onStartShare={onStartShare} onDisconnect={onDisconnect} />);
@@ -94,9 +106,35 @@ describe("CollabDialog chat tab", () => {
   it("renders remembered v2 projects separately and routes rejoin and forget", () => {
     const onRejoinProjectV2 = vi.fn(); const onForgetProjectV2 = vi.fn();
     render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[{ version: 2, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "write", title: "Paper", projectRoot: "/paper", lastUsed: 1 }]} onRejoinProjectV2={onRejoinProjectV2} onForgetProjectV2={onForgetProjectV2} />);
-    expect(screen.getByText("v2")).toBeInTheDocument(); expect(screen.getByText("project_12345678 · write")).toBeInTheDocument();
+    expect(screen.getByText("joined")).toBeInTheDocument(); expect(screen.getByText("project_12345678 · write")).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Rejoin Paper")); expect(onRejoinProjectV2).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByLabelText("Remove project_12345678 from recent shares")); expect(onForgetProjectV2).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets a host rename or close a remembered room without rejoining it", () => {
+    const room = { version: 2 as const, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "host" as const, title: "Paper", projectRoot: "/paper", lastUsed: 1 };
+    const onRenameProjectV2 = vi.fn(); const onCloseProjectV2 = vi.fn();
+    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[room]} onRenameProjectV2={onRenameProjectV2} onCloseProjectV2={onCloseProjectV2} />);
+    // Hosts must Close (not forget) so a live share can't disappear from the only UI that can end it.
+    expect(screen.queryByLabelText("Remove project_12345678 from recent shares")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    const renameInput = screen.getByLabelText("Rename Paper");
+    fireEvent.change(renameInput, { target: { value: "Final paper" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onRenameProjectV2).toHaveBeenCalledWith(room, "Final paper");
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onCloseProjectV2).toHaveBeenCalledWith(room);
+  });
+
+  it("cancels an in-progress room rename without calling the handler", () => {
+    const room = { version: 2 as const, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "host" as const, title: "Paper", projectRoot: "/paper", lastUsed: 1 };
+    const onRenameProjectV2 = vi.fn();
+    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[room]} onRenameProjectV2={onRenameProjectV2} />);
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    fireEvent.change(screen.getByLabelText("Rename Paper"), { target: { value: "Draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onRenameProjectV2).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Rename" })).toBeInTheDocument();
   });
 
   it("badges the chat tab with the unread count, and clears it once that tab is opened", () => {

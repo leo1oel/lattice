@@ -60,6 +60,17 @@ describe("ProjectCoordinatorV2", () => {
     expect((await request(stub, id, "bootstrap", { body: { projectInstanceId: id, hostSecret } })).response.status).toBe(409);
   });
 
+  it("persists a room name and only lets the host rename it", async () => {
+    const value = coordinator("room-name");
+    await request(value.stub, value.id, "bootstrap", { body: { projectInstanceId: value.id, projectName: "Draft room", hostSecret, paths: [], kind: "text" } });
+    await mutate(value.stub, value.id, "import-finalize", 0);
+    const grant = await mutate(value.stub, value.id, "grants", 1, { permission: "write", guestSecretHash: await secretHash(guestSecret) });
+    expect(grant.response.status).toBe(200);
+    expect((await mutate(value.stub, value.id, "project-rename", 2, { name: "Guest name" }, guestSecret)).response.status).toBe(403);
+    expect((await mutate(value.stub, value.id, "project-rename", 2, { name: "Final room" })).response.status).toBe(200);
+    expect((await request(value.stub, value.id, "catalog", { credential: hostSecret })).body.name).toBe("Final room");
+  });
+
   it("enforces permissions and revocation immediately without retaining plaintext secrets", async () => {
     const { id, stub } = await bootstrap("permissions");
     await mutate(stub, id, "import-finalize", 0);
@@ -81,7 +92,7 @@ describe("ProjectCoordinatorV2", () => {
     expect(stored).not.toContain(guestSecret);
   });
 
-  it("keeps a writer-created text file initializing until its durable seed exists", async () => {
+  it("lets a write guest durably create the comments file while the host is offline", async () => {
     const { id, stub } = await bootstrap("durable-create");
     await mutate(stub, id, "import-finalize", 0);
     const writeGrant = await mutate(stub, id, "grants", 1, { permission: "write", guestSecretHash: await secretHash(guestSecret) });
@@ -91,7 +102,7 @@ describe("ProjectCoordinatorV2", () => {
     await mutate(stub, id, "grants", 3, { permission: "write", guestSecretHash: await secretHash(otherWriterSecret) });
     const hash = "a".repeat(64);
     const operationId = "initialize_guest_text";
-    const created = await mutate(stub, id, "create", 4, { path: "guest.md", kind: "text", initializer: { operationId, size: 12, hash } }, guestSecret);
+    const created = await mutate(stub, id, "create", 4, { path: ".research/editor-comments.json", kind: "text", initializer: { operationId, size: 12, hash } }, guestSecret);
     const fileId = created.body.value.fileId as string;
 
     expect(created.body.value.state).toBe("initializing");
@@ -105,7 +116,7 @@ describe("ProjectCoordinatorV2", () => {
     expect(await stub.updateTextDurableMetadata(fileId, 1, 1, 1, 20, "b".repeat(64), "state-vector")).toBe(true);
     expect(await stub.completeTextImport(fileId, 1, 12, hash)).toBe(true);
     const catalog = await request(stub, id, "catalog", { credential: guestSecret });
-    expect(catalog.body.files[0]).toMatchObject({ fileId, path: "guest.md", state: "live", size: 12, hash });
+    expect(catalog.body.files[0]).toMatchObject({ fileId, path: ".research/editor-comments.json", state: "live", size: 12, hash });
 
     // A lost 201 can retry the same TextFile operation after publication.
     expect(await stub.authorizeTextImport(guestSecret, fileId, 1, operationId, 12, hash)).toBe(true);

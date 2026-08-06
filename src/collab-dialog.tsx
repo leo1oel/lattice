@@ -12,6 +12,7 @@ import { IconButton } from "./components/ui/icon-button";
 import { Input } from "./components/ui/input";
 import { PanelHeader } from "./components/ui/panel-header";
 import { rowClassName } from "./components/ui/row";
+import { ScrollArea } from "./components/ui/scroll-area";
 import { SegmentedControl } from "./components/ui/segmented-control";
 import { Textarea } from "./components/ui/textarea";
 import { ResizableDrawer } from "./resizable-drawer";
@@ -27,6 +28,7 @@ export function CollabDialog(props: {
   host: string;
   room: string;
   displayName: string;
+  projectName: string;
   inviteText: string;
   status: CollabStatus;
   statusDetail: string | null;
@@ -41,12 +43,16 @@ export function CollabDialog(props: {
   onModeChange: (mode: CollabDialogMode) => void;
   onRoomChange: (room: string) => void;
   onDisplayNameChange: (name: string) => void;
+  onProjectNameChange: (name: string) => void;
   onInviteChange: (invite: string) => void;
   onStartShare: () => void;
   onJoinShare: () => void;
   recentProjectsV2?: CollabProjectRecordV2[];
   onRejoinProjectV2?: (record: CollabProjectRecordV2) => void;
   onForgetProjectV2?: (record: CollabProjectRecordV2) => void;
+  /** Receives the trimmed name; the dialog owns the rename field (Tauri has no window.prompt). */
+  onRenameProjectV2?: (record: CollabProjectRecordV2, name: string) => void;
+  onCloseProjectV2?: (record: CollabProjectRecordV2) => void;
   onDisconnect: () => void;
   onCopyInvite: () => Promise<void> | void;
   onRemovePeer?: (peer: CollabPeer) => Promise<void> | void;
@@ -63,6 +69,8 @@ export function CollabDialog(props: {
   const [copied, setCopied] = useState(false);
   const [removingPeer, setRemovingPeer] = useState<string | null>(null);
   const [liveTab, setLiveTab] = useState<CollabLiveTab>("status");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const sendChat = props.onChatSend;
   const chatEnabled = Boolean(sendChat);
   // Destructured so the effect below depends on the specific values it reads
@@ -86,6 +94,7 @@ export function CollabDialog(props: {
   const starting = props.status === "connecting" && props.connectedRoom == null;
   const localHost = isLocalCollabHost(props.host);
   const nameReady = props.displayName.trim().length > 0;
+  const roomNameReady = props.projectName.trim().length > 0;
   const mode = props.joinOnly ? "join" : props.mode;
   const othersLabel = props.peerCount === 0
     ? "just you"
@@ -118,6 +127,26 @@ export function CollabDialog(props: {
     } finally {
       setRemovingPeer(null);
     }
+  };
+
+  const beginRename = (record: CollabProjectRecordV2) => {
+    setRenamingId(record.projectInstanceId);
+    setRenameDraft(record.title);
+  };
+
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameDraft("");
+  };
+
+  const commitRename = (record: CollabProjectRecordV2) => {
+    const name = renameDraft.trim();
+    if (!name || name === record.title) {
+      cancelRename();
+      return;
+    }
+    props.onRenameProjectV2?.(record, name);
+    cancelRename();
   };
 
   return (
@@ -155,36 +184,107 @@ export function CollabDialog(props: {
           />
         ) : null}
 
-        <label>
-          Your name
-          <Input
-            controlSize="form"
-            aria-label="Collab display name"
-            placeholder="Ada"
-            value={props.displayName}
-            disabled={live}
-            onChange={(event) => props.onDisplayNameChange(event.target.value)}
-          />
-        </label>
-        {!live && !nameReady ? (
-          <p className="collab-help collab-name-help">Enter your name so others can see who is editing.</p>
+        <div className="collab-field">
+          <label>
+            Your name
+            <Input
+              controlSize="form"
+              aria-label="Collab display name"
+              placeholder="Ada"
+              value={props.displayName}
+              disabled={live}
+              onChange={(event) => props.onDisplayNameChange(event.target.value)}
+            />
+          </label>
+          {!live && !nameReady ? (
+            <p className="collab-help collab-name-help">Enter your name so others can see who is editing.</p>
+          ) : null}
+        </div>
+
+        {!live && mode === "start" && !props.joinOnly ? (
+          <label>
+            Room name
+            <Input
+              controlSize="form"
+              aria-label="Collab room name"
+              placeholder="Attention paper"
+              value={props.projectName}
+              maxLength={80}
+              onChange={(event) => props.onProjectNameChange(event.target.value)}
+            />
+          </label>
         ) : null}
 
         {!live && (props.recentProjectsV2?.length ?? 0) > 0 ? (
           <div className="collab-recent">
-            <div className="collab-recent-title">Recent shares</div>
-            <ul className="collab-recent-list">
-              {(props.recentProjectsV2 ?? []).map((record) => (
-                <li key={`v2:${record.host}:${record.projectInstanceId}`} className="collab-recent-row">
-                  <button type="button" className={rowClassName("data", "collab-recent-item")} onClick={() => props.onRejoinProjectV2?.(record)} title={`Rejoin ${record.title}`}>
-                    <span className="collab-recent-role" data-role={record.permission}>v2</span>
-                    <span className="collab-recent-name">{record.title}</span>
-                    <span className="collab-recent-code">{record.projectInstanceId} · {record.permission}</span>
-                  </button>
-                  <IconButton size="compact" tooltip={false} className="collab-recent-forget" label={`Remove ${record.projectInstanceId} from recent shares`} onClick={() => props.onForgetProjectV2?.(record)}><X size={12} /></IconButton>
-                </li>
-              ))}
-            </ul>
+            <div className="collab-recent-title">Your shared rooms</div>
+            <ScrollArea
+              className="collab-recent-scroll"
+              orientation="both"
+              fadeEdges={false}
+              contentClassName="collab-recent-scroll-content"
+              viewportProps={{
+                "aria-label": "Your shared rooms",
+                // Cap height on the viewport: ScrollArea defaults to height:100%,
+                // which ignores a max-height-only parent. Width is clamped on the
+                // root so sideways overflow scrolls inside Lattice, not the drawer.
+                style: { height: "auto", maxHeight: 168 },
+              }}
+            >
+              <ul className="collab-recent-list">
+                {(props.recentProjectsV2 ?? []).map((record) => {
+                  const renaming = renamingId === record.projectInstanceId;
+                  return (
+                    <li key={`v2:${record.host}:${record.projectInstanceId}`} className="collab-recent-row">
+                      {renaming ? (
+                        <form
+                          className="collab-recent-rename"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            commitRename(record);
+                          }}
+                        >
+                          <Input
+                            controlSize="compact"
+                            aria-label={`Rename ${record.title}`}
+                            value={renameDraft}
+                            maxLength={80}
+                            autoFocus
+                            onChange={(event) => setRenameDraft(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Escape") {
+                                event.preventDefault();
+                                cancelRename();
+                              }
+                            }}
+                          />
+                          <Button size="compact" type="submit">Save</Button>
+                          <Button size="compact" variant="ghost" type="button" onClick={cancelRename}>Cancel</Button>
+                        </form>
+                      ) : (
+                        <>
+                          <button type="button" className={rowClassName("data", "collab-recent-item")} onClick={() => props.onRejoinProjectV2?.(record)} title={`Rejoin ${record.title}`}>
+                            <span className="collab-recent-role" data-role={record.permission}>{record.permission === "host" ? "host" : "joined"}</span>
+                            <span className="collab-recent-name">{record.title}</span>
+                            <span className="collab-recent-code">{record.projectInstanceId} · {record.permission}</span>
+                          </button>
+                          {record.permission === "host" ? (
+                            <>
+                              <Button size="compact" variant="ghost" onClick={() => beginRename(record)}>Rename</Button>
+                              <Button size="compact" variant="ghost" onClick={() => props.onCloseProjectV2?.(record)}>Close</Button>
+                            </>
+                          ) : (
+                            // Hosts keep the row until Close ends the room for everyone.
+                            // Forgetting first would strand a live share with no UI to shut it down.
+                            <IconButton size="compact" tooltip={false} className="collab-recent-forget" label={`Remove ${record.projectInstanceId} from recent shares`} onClick={() => props.onForgetProjectV2?.(record)}><X size={12} /></IconButton>
+                          )}
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </ScrollArea>
           </div>
         ) : null}
 
@@ -330,7 +430,7 @@ export function CollabDialog(props: {
             <MotionButton
               type="button"
               className={buttonClassName({ variant: "primary" })}
-              disabled={!nameReady}
+              disabled={!nameReady || !roomNameReady}
               onClick={props.onStartShare}
             >
               Start sharing

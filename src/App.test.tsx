@@ -680,8 +680,14 @@ describe("project workspace", () => {
       .map((tab) => tab.dataset.tabPath)).toEqual(["intro.tex", "main.tex", "method.tex"]);
     expect(screen.getByRole("tab", { name: /method\.tex/ })).toHaveAttribute("aria-selected", "true");
     expect(document.querySelector(".dual-pane-label")).toHaveTextContent("method.tex");
-    expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "main.tex" });
-    expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "method.tex" });
+    expect(invoke).toHaveBeenCalledWith("read_project_file", {
+      path: "main.tex",
+      projectRoot: "/tmp/lattice-paper",
+    });
+    expect(invoke).toHaveBeenCalledWith("read_project_file", {
+      path: "method.tex",
+      projectRoot: "/tmp/lattice-paper",
+    });
   });
 
   it("opens relative project files from Markdown previews", async () => {
@@ -2418,6 +2424,7 @@ describe("project workspace", () => {
     });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
       path: "references.bib",
+      projectRoot: "/tmp/lattice-paper",
     }));
     expect(await screen.findByRole("tab", { name: /references\.bib/ }))
       .toHaveAttribute("aria-selected", "true");
@@ -3184,7 +3191,10 @@ describe("project workspace", () => {
     expect(screen.getByLabelText("Raw build log")).toHaveTextContent("Undefined control sequence.");
     fireEvent.click(screen.getByRole("tab", { name: /Messages/i }));
     fireEvent.click(screen.getByRole("button", { name: /chapters\/intro\.tex:4/i }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "chapters/intro.tex" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
+      path: "chapters/intro.tex",
+      projectRoot: "/tmp/lattice-paper",
+    }));
     await waitFor(() => {
       const editorElement = document.querySelector<HTMLElement>(".cm-editor");
       const view = editorElement ? EditorView.findFromDOM(editorElement) : null;
@@ -3246,11 +3256,63 @@ describe("project workspace", () => {
       content: "\\documentclass{article}\nDraft change.",
       projectRoot: "/tmp/lattice-paper",
     }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "intro.tex" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
+      path: "intro.tex",
+      projectRoot: "/tmp/lattice-paper",
+    }));
     await waitFor(() => {
       const next = document.querySelector<HTMLElement>(".cm-editor");
       const nextView = next ? EditorView.findFromDOM(next) : null;
       expect(nextView?.state.doc.toString()).toBe("\\section{Intro}");
+    });
+  });
+
+  it("keeps the latest file active when an earlier read resolves afterward", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
+        { name: "notes.tex", path: "notes.tex", kind: "tex", children: [] },
+      ],
+    };
+    let resolveIntro!: (content: string) => void;
+    let resolveNotes!: (content: string) => void;
+    const intro = new Promise<string>((resolve) => { resolveIntro = resolve; });
+    const notes = new Promise<string>((resolve) => { resolveNotes = resolve; });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") {
+        const path = String((args as { path?: string } | undefined)?.path ?? "");
+        if (path === "intro.tex") return intro;
+        if (path === "notes.tex") return notes;
+        return "main";
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true"));
+    fireEvent.click(await findProjectTreeItem("intro.tex"));
+    fireEvent.click(await findProjectTreeItem("notes.tex"));
+    await act(async () => { resolveNotes("latest notes"); });
+    await waitFor(() => expect(screen.getByRole("tab", { name: /notes\.tex/ })).toHaveAttribute("aria-selected", "true"));
+    await act(async () => { resolveIntro("stale intro"); });
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: /notes\.tex/ })).toHaveAttribute("aria-selected", "true");
+      const editor = document.querySelector<HTMLElement>(".cm-editor");
+      expect(editor ? EditorView.findFromDOM(editor)?.state.doc.toString() : null).toBe("latest notes");
     });
   });
 
@@ -3408,6 +3470,7 @@ describe("project workspace", () => {
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
       path: "intro.tex",
+      projectRoot: "/tmp/lattice-paper",
     }));
     resolveHistory([]);
   });

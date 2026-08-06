@@ -36,6 +36,8 @@ export type CatalogFileV2 = {
 export type CatalogV2 = {
   protocol: typeof CONTROL_PROTOCOL_VERSION;
   projectInstanceId: string;
+  /** Human-readable room name. Optional for projects created before naming was introduced. */
+  name?: string;
   lifecycle: ProjectLifecycle;
   catalogRevision: number;
   snapshotGeneration: number;
@@ -135,6 +137,7 @@ export function isCatalogV2(value: unknown): value is CatalogV2 {
   if (!value || typeof value !== "object") return false;
   const v = value as Partial<CatalogV2>;
   if (v.protocol !== 2 || typeof v.projectInstanceId !== "string" || !v.projectInstanceId
+    || (v.name !== undefined && (typeof v.name !== "string" || !v.name.trim() || v.name.length > 80))
     || !isRevision(v.catalogRevision) || !isRevision(v.snapshotGeneration)
     || !isRevision(v.workspaceLeaseGeneration) || !isRevision(v.authorityEpoch) || !Array.isArray(v.files)
     || !["importing", "live", "closing", "closed"].includes(v.lifecycle ?? "")) return false;

@@ -93,6 +93,7 @@ export class CollabTextProviderPoolV2 {
   private entries = new Map<string, { client: CollabTextClientV2; pins: Set<string>; draft: boolean; off: () => void }>();
   constructor(private readonly capacity: number, private readonly clock: () => number = Date.now) { if (!Number.isSafeInteger(capacity) || capacity < 1) throw new RangeError("capacity must be a positive integer"); }
   add(client: CollabTextClientV2): void { const key = textNamespaceKey(client.namespace); const old = this.entries.get(key); if (old) { old.off(); old.client.destroy(); } const entry: { client: CollabTextClientV2; pins: Set<string>; draft: boolean; off: () => void } = { client, pins: new Set<string>(), draft: false, off: () => undefined }; this.entries.set(key, entry); entry.off = client.subscribeState(() => this.evict()); client.touch(this.clock()); this.evict(); }
+  remove(client: CollabTextClientV2): void { const key = textNamespaceKey(client.namespace); const entry = this.entries.get(key); if (!entry || entry.client !== client) return; entry.off(); this.entries.delete(key); }
   pin(client: CollabTextClientV2, reason: "main" | "secondary"): void { this.entry(client).pins.add(reason); client.touch(this.clock()); }
   unpin(client: CollabTextClientV2, reason: "main" | "secondary"): void { this.entry(client).pins.delete(reason); this.evict(); }
   setDraft(client: CollabTextClientV2, draft: boolean): void { this.entry(client).draft = draft; this.evict(); }

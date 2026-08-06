@@ -36,6 +36,11 @@ describe("CollabChatPanel", () => {
     expect(screen.getByText(/No messages yet/)).toBeInTheDocument();
   });
 
+  it("uses the hover-revealed scrollbar for the message list", () => {
+    render(<CollabChatPanel messages={[]} selfId="host-1" onSend={vi.fn()} />);
+    expect(document.querySelector(".collab-chat-list")).toHaveClass("native-hover-scrollbar");
+  });
+
   it("sends on Enter, clears the draft, and never sends on Shift+Enter", async () => {
     const onSend = vi.fn();
     render(<CollabChatPanel messages={[]} selfId="host-1" onSend={onSend} />);
