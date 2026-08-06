@@ -184,13 +184,20 @@
  * those exceptional surfaces the same quiet, hover-revealed scrollbar without
  * changing their DOM or event target.
  */
-.native-hover-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
+/*
+ * Declared only for engines without `::-webkit-scrollbar`: setting these makes
+ * WebKit and Blink ignore every pseudo-element rule below, which is what kept
+ * this class from ever rendering its 4px hover-reveal thumb.
+ */
+@supports not selector(::-webkit-scrollbar) {
+  .native-hover-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
 
-.native-hover-scrollbar:hover {
-  scrollbar-color: color-mix(in srgb, var(--text-primary) 12%, transparent) transparent;
+  .native-hover-scrollbar:hover {
+    scrollbar-color: color-mix(in srgb, var(--text-primary) 12%, transparent) transparent;
+  }
 }
 
 .native-hover-scrollbar::-webkit-scrollbar {

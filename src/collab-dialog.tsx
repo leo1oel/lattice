@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, Copy, Radio, X } from "lucide-react";
 import { IconSwap, MotionButton } from "./motion";
+import { confirmAction } from "./app-utils";
 import { isLocalCollabHost } from "./collab-config";
 import type { CollabChatMessage, CollabPeer, CollabStatus } from "./collab-session";
 import type { CollabProjectRecordV2 } from "./collab-rooms";
@@ -53,8 +54,12 @@ export function CollabDialog(props: {
   /** Receives the trimmed name; the dialog owns the rename field (Tauri has no window.prompt). */
   onRenameProjectV2?: (record: CollabProjectRecordV2, name: string) => void;
   onCloseProjectV2?: (record: CollabProjectRecordV2) => void;
+  /** Ends the session: for a guest, leaves; for a host, closes the room for everyone. */
   onDisconnect: () => void;
-  onCopyInvite: () => Promise<void> | void;
+  /** Host-only: disconnect yourself but leave the room running for the others. */
+  onLeaveShare?: () => void;
+  /** Resolves `false` when the copy failed and was already surfaced. */
+  onCopyInvite: () => Promise<boolean | void> | boolean | void;
   onRemovePeer?: (peer: CollabPeer) => Promise<void> | void;
   onInstallTex?: () => void;
 
@@ -96,6 +101,14 @@ export function CollabDialog(props: {
   const nameReady = props.displayName.trim().length > 0;
   const roomNameReady = props.projectName.trim().length > 0;
   const mode = props.joinOnly ? "join" : props.mode;
+  // Rooms you host and rooms you joined are different things to do, and the
+  // tab you are on says which one you mean: Start sharing lists the rooms you
+  // can reopen and end, Join lists the ones you can go back into. One combined
+  // list under Start sharing offered to "start" a room you are only a guest in.
+  const recentRooms = (props.recentProjectsV2 ?? []).filter((record) => (
+    mode === "start" ? record.permission === "host" : record.permission !== "host"
+  ));
+  const recentRoomsTitle = mode === "start" ? "Rooms you host" : "Rooms you joined";
   const othersLabel = props.peerCount === 0
     ? "just you"
     : props.peerCount === 1
@@ -103,24 +116,37 @@ export function CollabDialog(props: {
       : `${props.peerCount} others`;
 
   const copyInvite = async () => {
-    await props.onCopyInvite();
+    // `false` means the copy failed (and was surfaced by the handler) — the
+    // button must not flip to "Copied".
+    if ((await props.onCopyInvite()) === false) return;
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
   };
 
-  const stopOrLeave = () => {
-    if (props.role === "host") {
-      const ok = window.confirm(
-        "Stop sharing for everyone?\n\nCollaborators will be returned to their previous projects.",
-      );
-      if (!ok) return;
+  /**
+   * Disconnect yourself. For a guest that is the only exit; for the host the
+   * room stays live for everyone else, so it needs no confirmation — nothing
+   * is destroyed and Your shared rooms can take them back in.
+   */
+  const leaveShare = () => {
+    if (props.role === "host" && props.onLeaveShare) {
+      props.onLeaveShare();
+      return;
     }
+    props.onDisconnect();
+  };
+
+  const stopSharing = async () => {
+    const ok = await confirmAction(
+      "Stop sharing for everyone?\n\nCollaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite.",
+    );
+    if (!ok) return;
     props.onDisconnect();
   };
 
   const removePeer = async (peer: CollabPeer) => {
     if (!peer.grantId || !props.onRemovePeer) return;
-    if (!window.confirm(`Remove ${peer.name}?\n\nThey will lose access immediately. Anyone who joined with the same invite will also lose access.`)) return;
+    if (!await confirmAction(`Remove ${peer.name}?\n\nThey will lose access immediately. Anyone who joined with the same invite will also lose access.`)) return;
     setRemovingPeer(peer.grantId);
     try {
       await props.onRemovePeer(peer);
@@ -215,16 +241,16 @@ export function CollabDialog(props: {
           </label>
         ) : null}
 
-        {!live && (props.recentProjectsV2?.length ?? 0) > 0 ? (
+        {!live && recentRooms.length > 0 ? (
           <div className="collab-recent">
-            <div className="collab-recent-title">Your shared rooms</div>
+            <div className="collab-recent-title">{recentRoomsTitle}</div>
             <ScrollArea
               className="collab-recent-scroll"
               orientation="both"
               fadeEdges={false}
               contentClassName="collab-recent-scroll-content"
               viewportProps={{
-                "aria-label": "Your shared rooms",
+                "aria-label": recentRoomsTitle,
                 // Cap height on the viewport: ScrollArea defaults to height:100%,
                 // which ignores a max-height-only parent. Width is clamped on the
                 // root so sideways overflow scrolls inside Lattice, not the drawer.
@@ -232,7 +258,7 @@ export function CollabDialog(props: {
               }}
             >
               <ul className="collab-recent-list">
-                {(props.recentProjectsV2 ?? []).map((record) => {
+                {recentRooms.map((record) => {
                   const renaming = renamingId === record.projectInstanceId;
                   return (
                     <li key={`v2:${record.host}:${record.projectInstanceId}`} className="collab-recent-row">
@@ -271,13 +297,26 @@ export function CollabDialog(props: {
                           {record.permission === "host" ? (
                             <>
                               <Button size="compact" variant="ghost" onClick={() => beginRename(record)}>Rename</Button>
-                              <Button size="compact" variant="ghost" onClick={() => props.onCloseProjectV2?.(record)}>Close</Button>
+                              {/* The only way to end a room you left. Styled as the destructive action it is. */}
+                              <Button
+                                size="compact"
+                                variant="danger"
+                                title={`End “${record.title}” for everyone and remove it from this Mac`}
+                                onClick={() => props.onCloseProjectV2?.(record)}
+                              >
+                                Close for everyone
+                              </Button>
                             </>
-                          ) : (
-                            // Hosts keep the row until Close ends the room for everyone.
-                            // Forgetting first would strand a live share with no UI to shut it down.
-                            <IconButton size="compact" tooltip={false} className="collab-recent-forget" label={`Remove ${record.projectInstanceId} from recent shares`} onClick={() => props.onForgetProjectV2?.(record)}><X size={12} /></IconButton>
-                          )}
+                          ) : null}
+                          {/*
+                            Close is the right exit for a room you host, but it
+                            cannot be the only one: a room the server has
+                            already reclaimed can never be closed, and without
+                            this the row was stuck in the list for good. The
+                            handler warns a host that removing the entry leaves
+                            the room running.
+                          */}
+                          <IconButton size="compact" tooltip={false} className="collab-recent-forget" label={`Remove ${record.projectInstanceId} from recent shares`} onClick={() => props.onForgetProjectV2?.(record)}><X size={12} /></IconButton>
                         </>
                       )}
                     </li>
@@ -349,50 +388,65 @@ export function CollabDialog(props: {
                       </IconSwap>
                       {copied ? "Copied" : "Copy invite"}
                     </button>
-                    {(props.peers?.length ?? 0) > 0 ? (
-                      <div className="collab-participants">
-                        <div className="collab-participants-title">Collaborators</div>
-                        <ul className="collab-participants-list">
-                          {props.peers!.map((peer) => (
-                            <li key={peer.clientId} className="collab-participant-row">
-                              <span className="collab-participant-name">{peer.name}</span>
-                              {peer.path ? <span className="collab-participant-path">{peer.path}</span> : null}
-                              {peer.grantId && props.onRemovePeer ? (
-                                <Button
-                                  size="compact"
-                                  variant="ghost"
-                                  className="collab-remove-peer"
-                                  disabled={removingPeer === peer.grantId}
-                                  aria-label={`Remove ${peer.name} from this share`}
-                                  onClick={() => { void removePeer(peer); }}
-                                >
-                                  {removingPeer === peer.grantId ? "Removing…" : "Remove"}
-                                </Button>
-                              ) : null}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
                   </>
                 ) : null}
+                {/*
+                  Everyone sees the room's roster, not just the host: without it
+                  a guest has no way to tell who started the share — and so no
+                  way to know who can end it — since every guest's own controls
+                  look identical. `host` comes from the coordinator's presence
+                  table, which stamps the authenticated permission server-side.
+                */}
+                <div className="collab-participants">
+                  <div className="collab-participants-title">In this room</div>
+                  <ul className="collab-participants-list">
+                    <li className="collab-participant-row">
+                      <span className="collab-participant-name">
+                        {props.displayName.trim() || "You"} <span className="collab-participant-you">(you)</span>
+                        {props.role === "host" ? <em className="collab-participant-role">host</em> : null}
+                      </span>
+                    </li>
+                    {(props.peers ?? []).map((peer) => (
+                      <li key={peer.clientId} className="collab-participant-row">
+                        <span className="collab-participant-name">
+                          {peer.name}
+                          {peer.permission === "host" ? <em className="collab-participant-role">host</em> : null}
+                        </span>
+                        {peer.path ? <span className="collab-participant-path">{peer.path}</span> : null}
+                        {peer.grantId && props.role === "host" && props.onRemovePeer ? (
+                          <Button
+                            size="compact"
+                            variant="ghost"
+                            className="collab-remove-peer"
+                            disabled={removingPeer === peer.grantId}
+                            aria-label={`Remove ${peer.name} from this share`}
+                            onClick={() => { void removePeer(peer); }}
+                          >
+                            {removingPeer === peer.grantId ? "Removing…" : "Remove"}
+                          </Button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
                 {props.role === "guest" ? (
                   <p className="collab-help">
                     You are in a shared workspace. Leave share returns you to your previous project;
                     the host keeps sharing.
                   </p>
-                ) : localHost ? (
-                  <p className="collab-help">
-                    This session uses a local sync host, so only people on your network can join.
-                    Use a build configured with a public sync host to collaborate remotely.
-                    Stop sharing or switch projects ends the session for everyone.
-                  </p>
                 ) : (
-                  <p className="collab-help">
-                    Send the invite above. They open Live collaboration → Join → paste → Join share.
-                    Lattice opens a new folder under Documents/Lattice Shares for them.
-                    Stop sharing or switch projects ends the session for everyone.
-                  </p>
+                  <>
+                    <p className="collab-help">
+                      {localHost
+                        ? "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely."
+                        : "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."}
+                    </p>
+                    <p className="collab-help">
+                      You started this share. <strong>Leave share</strong> (or switching projects) only
+                      disconnects you — the room keeps running and you can rejoin it from Your shared
+                      rooms. <strong>Stop sharing</strong> ends it for everyone.
+                    </p>
+                  </>
                 )}
                 {props.onInstallTex ? (
                   <p className="collab-help">
@@ -423,9 +477,26 @@ export function CollabDialog(props: {
               Cancel
             </MotionButton>
           ) : live ? (
-            <MotionButton type="button" className={buttonClassName({ variant: "primary" })} onClick={stopOrLeave}>
-              {props.role === "guest" ? "Leave share" : "Stop sharing"}
-            </MotionButton>
+            <>
+              {/*
+                The host gets both exits as separate buttons instead of one
+                label that changes with the role: leaving and ending the room
+                for everyone are different decisions, and collapsing them left
+                every participant looking at the same "Leave share".
+              */}
+              <MotionButton
+                type="button"
+                className={buttonClassName({ variant: props.role === "host" ? "secondary" : "primary" })}
+                onClick={() => void leaveShare()}
+              >
+                Leave share
+              </MotionButton>
+              {props.role === "host" ? (
+                <MotionButton type="button" className={buttonClassName({ variant: "danger" })} onClick={() => void stopSharing()}>
+                  Stop sharing
+                </MotionButton>
+              ) : null}
+            </>
           ) : mode === "start" ? (
             <MotionButton
               type="button"

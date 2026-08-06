@@ -85,6 +85,19 @@ describe("v2 project presence channel", () => {
     expect(left.presence.a).toBeDefined();
   });
 
+  it("stamps every entry with the authenticated permission, visibly to guests and unspoofable", async () => {
+    const { id } = await textProject();
+    const guestSecret = "permission-guest-secret-with-thirty-two-bytes";
+    await hostPost(id, "grants", { operationId: crypto.randomUUID(), expectedCatalogRevision: 1, permission: "write", guestSecretHash: await guestSecretHash(guestSecret) });
+    await hostPost(id, "presence", { instanceId: "host-instance", name: "Ada", color: "#456", path: "paper.md" });
+    // A guest claiming to be the host is recorded as the guest it authenticated as.
+    const guestView = await (await hostPost(id, "presence", { instanceId: "guest-instance", name: "Bo", color: "#123", path: "paper.md", permission: "host" }, guestSecret)).json<any>();
+    expect(guestView.presence["guest-instance"].permission).toBe("write");
+    // Unlike grantId, the permission stays visible to guests: it is how they
+    // tell who started the share.
+    expect(guestView.presence["host-instance"].permission).toBe("host");
+  });
+
   it("shows grant ownership only to the host and removes matching presence on revoke", async () => {
     const { id } = await textProject();
     const guestSecret = "presence-guest-secret-with-thirty-two-bytes";

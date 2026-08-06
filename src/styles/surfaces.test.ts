@@ -88,4 +88,72 @@ describe("shared surface contracts", () => {
       /\[data-slot="dropdown-menu-content"\]::-webkit-scrollbar[\s\S]*width:\s*0/,
     )
   })
+
+  // One appearance for anything the app tells you. There used to be five: the
+  // toast stack, three fixed banners next to it, and a bespoke coloured <p> in
+  // every panel that needed a line of feedback. Each rule below is one of those
+  // ways staying gone.
+  it("has a single notification surface", () => {
+    // The banners that sat beside the toast stack in a different shape.
+    for (const banner of [".error-banner", ".warning-banner", ".notice-banner"]) {
+      expect(appCss).not.toContain(banner)
+      expect(surfacesCss).not.toContain(banner)
+    }
+    // The updater keeps its own component — it owns a progress bar and an
+    // Install button — but not its own shape.
+    const updaterCss = read("src/app-updater.css")
+    expect(updaterCss).toMatch(/\.app-update-banner \{[^}]*width: 320px/)
+    expect(updaterCss).toMatch(/\.app-update-banner \{[^}]*border-radius: 11px/)
+    expect(appCss).toMatch(/\.app-toast \{[^}]*border-radius: 11px/)
+    expect(appCss).toMatch(/\.app-toast-stack \{[^}]*width: 320px/)
+  })
+
+  it("puts a notification's icon, message and dismiss on one axis", () => {
+    // A single-line toast centres all three against each other; `start` used to
+    // leave 16px of text riding above the 24px dismiss button beside it.
+    expect(appCss).toMatch(/\.app-toast \{[^}]*align-items: center/)
+    // Past one line, they pin to the title's line box instead, so the icon does
+    // not drift to the middle of a paragraph.
+    expect(appCss).toContain(".app-toast.expanded { align-items: start; }")
+    expect(appCss).toMatch(
+      /\.app-toast\.expanded > button \{ margin-top: calc\(\(var\(--type-label-line-height\) - var\(--control-size-icon-compact\)\) \/ 2\)/,
+    )
+    // The 16px the offsets are measured against has to be real, not assumed.
+    expect(appCss).toMatch(/\.app-toast strong \{[^}]*line-height: var\(--type-label-line-height\)/)
+  })
+
+  it("draws in-place messages through the shared inline component", () => {
+    const chromeCss = read("src/components/ui/chrome.css")
+    expect(chromeCss).toContain(".ui-inline-message")
+    // Same status roles as the toast, so the two read as one system.
+    for (const level of ["info", "success", "warning", "error"]) {
+      expect(chromeCss).toContain(`.ui-inline-message.${level} > svg`)
+    }
+    // Feature stylesheets may add spacing and a plate; they may not restate the
+    // colour, which is what made every panel's error look slightly different.
+    const featureCss = [
+      "src/overleaf-connect.css",
+      "src/overleaf-chat.css",
+      "src/overleaf-changes.css",
+      "src/overleaf-review.css",
+      "src/overleaf-history.css",
+      "src/conflict-resolver.css",
+      "src/pdf-viewer.css",
+    ].map(read).join("\n")
+    for (const retired of [
+      ".overleaf-error",
+      ".overleaf-chat-error",
+      ".overleaf-change-error",
+      ".overleaf-review-error",
+      ".overleaf-history-error",
+      ".overleaf-history-notice",
+      ".conflict-error",
+      ".pdf-save-notice",
+    ]) {
+      expect(featureCss).not.toContain(retired)
+    }
+    expect(appCss).not.toContain(".welcome-error")
+    expect(appCss).not.toContain(".settings-notice")
+    expect(appCss).not.toContain(".math-preview-error")
+  })
 })

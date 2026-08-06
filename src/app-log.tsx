@@ -47,9 +47,15 @@ function AppToast({ entry }: { entry: AppLogEntry }) {
       Math.max(1_000, timeoutMs),
     );
     return () => window.clearTimeout(timer);
-  }, [entry.id, timeoutMs]);
+    // entry.timestamp: a deduped repeat refreshes the entry in place (same id),
+    // and the toast should stay visible for a full window after the refresh.
+  }, [entry.id, entry.timestamp, timeoutMs]);
+  // Messages migrated off the old one-line banners arrive as a title with no
+  // detail, so length has to be judged across both — a 200-character title
+  // clipped to one line is the failure this replaced.
   const expanded = Boolean(
     entry.detail.length > 72 ||
+    entry.title.length > 72 ||
     options?.copyText ||
     options?.primaryAction ||
     options?.secondaryAction,
@@ -58,6 +64,12 @@ function AppToast({ entry }: { entry: AppLogEntry }) {
     <div
       className={`app-toast ${entry.level}${expanded ? " expanded" : ""}`}
       role={entry.level === "error" ? "alert" : "status"}
+      data-app-toast=""
+      // Notifications arrive while someone is writing. Taking the caret out of
+      // the editor to dismiss one — and losing the selection with it — is worse
+      // than the interruption itself, so the whole card refuses focus on press
+      // and lets the click through to the button underneath.
+      onMouseDown={(event) => event.preventDefault()}
     >
       <Icon size={15} />
       <div>

@@ -38,8 +38,13 @@ import type {
 import { confirmAction } from "./app-utils";
 import { peerColorForName } from "./collab-colors";
 import { DestructiveButton } from "./components/ui/destructive-button";
+import { InlineMessage } from "./components/ui/inline-message";
+import { notifySuccess } from "./app-notify";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import "./overleaf-history.css";
+
+/** Notification source label for the Overleaf history drawer. */
+const OVERLEAF_HISTORY_SOURCE = "Overleaf history";
 
 function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
@@ -119,7 +124,6 @@ export function OverleafHistoryPanel(props: {
   const [diffLoading, setDiffLoading] = useState(false);
   const [labelDraftFor, setLabelDraftFor] = useState<number | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
-  const [notice, setNotice] = useState("");
 
   const filesSeq = useRef(0);
   const diffSeq = useRef(0);
@@ -136,7 +140,6 @@ export function OverleafHistoryPanel(props: {
   }, [history.updates]);
 
   const toggleEntry = (update: OverleafUpdate) => {
-    setNotice("");
     setActivePath(null);
     setDiffChunks(null);
     setDiffBinary(false);
@@ -210,10 +213,9 @@ export function OverleafHistoryPanel(props: {
   /** Run a restore/label action, showing what happened and swallowing the
    *  error here — the hook already surfaces it above the list. */
   const run = async (onOk: string, action: () => Promise<void>) => {
-    setNotice("");
     try {
       await action();
-      setNotice(onOk);
+      notifySuccess(OVERLEAF_HISTORY_SOURCE, onOk);
     } catch {
       // Nothing further to do: history.error now holds the reason.
     }
@@ -227,8 +229,7 @@ export function OverleafHistoryPanel(props: {
         to bring the result into this app.
       </p>
 
-      {history.error && <p className="overleaf-history-error" role="alert">{history.error}</p>}
-      {notice && <p className="overleaf-history-notice" role="status">{notice}</p>}
+      {history.error && <InlineMessage level="error" className="overleaf-history-inline">{history.error}</InlineMessage>}
 
       {history.loading && !history.updates.length && (
         <p className="overleaf-history-loading"><InfinityLoader size={13} /> Loading Overleaf's history…</p>
@@ -361,7 +362,7 @@ export function OverleafHistoryPanel(props: {
                       {filesLoading && (
                         <p className="git-empty"><InfinityLoader size={12} /> Loading files…</p>
                       )}
-                      {filesError && <p className="overleaf-history-error" role="alert">{filesError}</p>}
+                      {filesError && <InlineMessage level="error" className="overleaf-history-inline">{filesError}</InlineMessage>}
                       {files && !files.length && !filesLoading && (
                         <p className="overleaf-history-note">No file changes recorded for this update.</p>
                       )}

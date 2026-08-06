@@ -33,6 +33,7 @@ import {
   usePierreResources,
 } from "./file-diff-view";
 import "./overleaf-review.css";
+import { InlineMessage } from "./components/ui/inline-message";
 
 const GROUPS: { kind: OverleafChangeKind; title: string; blurb: string }[] = [
   {
@@ -243,7 +244,7 @@ export function OverleafReviewDialog(props: {
           </ReloadButton>
         </div>
 
-        {error && <p className="overleaf-review-error" role="alert">{error}</p>}
+        {error && <InlineMessage level="error" className="overleaf-review-inline">{error}</InlineMessage>}
 
         {loading ? (
           <div className="overleaf-review-loading">
@@ -292,9 +293,9 @@ export function OverleafReviewDialog(props: {
             </div>
             <div className="overleaf-review-diff" id="overleaf-review-diffs">
               {resources.error ? (
-                <p className="overleaf-review-error" role="alert">
+                <InlineMessage level="error" className="overleaf-review-inline">
                   Could not render these changes: {resources.error.message}
-                </p>
+                </InlineMessage>
               ) : !resources.ready ? (
                 <div className="overleaf-review-loading">
                   <InfinityLoader size={16} /> Rendering changes…

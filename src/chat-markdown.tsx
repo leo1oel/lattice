@@ -346,7 +346,7 @@ export const MarkdownMath = memo(function MarkdownMath({
   );
 });
 
-export const MarkdownMermaid = memo(function MarkdownMermaid({
+const MarkdownMermaid = memo(function MarkdownMermaid({
   content,
   className = "",
   "data-source-line": sourceLine,

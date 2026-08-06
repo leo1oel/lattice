@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, memo } from "react";
 import { X } from "lucide-react";
 import { motion } from "motion/react";
 import {
@@ -27,7 +27,12 @@ function sameOrder(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
-export function EditorTabs(props: {
+/**
+ * Memoized: the tab strip is inside the titlebar, which App re-renders on every
+ * keystroke. Nothing here depends on the document text — only on which tabs are
+ * open, which is active, and whether each is dirty.
+ */
+export const EditorTabs = memo(function EditorTabs(props: {
   tabs: EditorTab[];
   activePath: string;
   animateLayout?: boolean;
@@ -220,4 +225,4 @@ export function EditorTabs(props: {
       </ScrollArea>
     </div>
   );
-}
+});

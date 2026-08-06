@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { findAllPassages, findPassage } from './passage-match.ts';
+import { findAllPassages, findPassage, rewriteCeiling } from './passage-match.ts';
 
 const BODY = `## Ingredients
 
@@ -153,5 +153,335 @@ describe('links', () => {
   test('a bare bracket in prose is not treated as syntax', () => {
     const prose = 'the array[0] value is fine';
     expect(findPassage(prose, 'array[0] value', { syntaxIn: 'haystack' })).not.toBeNull();
+  });
+});
+
+describe('lines that render as nothing', () => {
+  // The reported failure: dragging a selection across a code block returned a
+  // bare 400. The fence's backticks were already elastic, but the info string
+  // after them was not, so the match died on the `ts` in ```` ```ts ````.
+  const BODY = `Add \`appearance.language\` to \`ConfigSchema\`:
+
+\`\`\`ts
+language: z
+  .enum(['system', 'en', 'es'])
+\`\`\`
+
+Acceptance: the leaf validates.`;
+
+  /** What the editor hands over: rendered text, blocks joined by a newline. */
+  const rendered = (...lines: string[]): string => lines.join('\n');
+
+  test('a selection running from prose into a tagged code block', () => {
+    const hit = findPassage(
+      BODY,
+      rendered('Add appearance.language to ConfigSchema:', 'language: z'),
+      { syntaxIn: 'haystack' },
+    );
+    expect(BODY.slice(hit?.start, hit?.end)).toContain('```ts');
+  });
+
+  test('a selection running out of a code block back into prose', () => {
+    expect(
+      findPassage(BODY, rendered("  .enum(['system', 'en', 'es'])", 'Acceptance: the leaf'), {
+        syntaxIn: 'haystack',
+      }),
+    ).not.toBeNull();
+  });
+
+  test('a selection swallowing the whole block', () => {
+    expect(
+      findPassage(
+        BODY,
+        rendered(
+          'to ConfigSchema:',
+          'language: z',
+          "  .enum(['system', 'en', 'es'])",
+          'Acceptance:',
+        ),
+        { syntaxIn: 'haystack' },
+      ),
+    ).not.toBeNull();
+  });
+
+  test('a code block selected on its own is still an exact substring', () => {
+    const hit = findPassage(BODY, "language: z\n  .enum(['system', 'en', 'es'])", {
+      syntaxIn: 'haystack',
+    });
+    expect(BODY.slice(hit?.start, hit?.end)).toBe("language: z\n  .enum(['system', 'en', 'es'])");
+  });
+
+  test('a tilde fence carries an info string too', () => {
+    expect(
+      findPassage('before\n\n~~~ts\ncode here\n~~~\n\nafter', rendered('before', 'code here'), {
+        syntaxIn: 'haystack',
+      }),
+    ).not.toBeNull();
+  });
+
+  test('the mirror direction: a stored quote carrying a fence', () => {
+    // The server stores the body slice, fence and all; the editor then re-finds
+    // it against rendered text, so the same line has to be elastic both ways.
+    const editorText = 'to ConfigSchema:language: z';
+    expect(
+      findPassage(editorText, 'to `ConfigSchema`:\n\n```ts\nlanguage: z', { syntaxIn: 'needle' }),
+    ).not.toBeNull();
+  });
+
+  test('crosses a thematic break', () => {
+    expect(
+      findPassage('before\n\n---\n\nafter', rendered('before', 'after'), { syntaxIn: 'haystack' }),
+    ).not.toBeNull();
+  });
+
+  test('crosses a setext heading underline', () => {
+    expect(
+      findPassage('Title\n=====\n\nbody text', rendered('Title', 'body text'), {
+        syntaxIn: 'haystack',
+      }),
+    ).not.toBeNull();
+  });
+
+  test('crosses a table delimiter row and its cell boundaries', () => {
+    expect(
+      findPassage('| a | b |\n| --- | --- |\n| 1 | 2 |', rendered('a b', '1 2'), {
+        syntaxIn: 'haystack',
+      }),
+    ).not.toBeNull();
+  });
+
+  test('crosses task-list checkboxes', () => {
+    expect(
+      findPassage('- [ ] todo one\n- [x] todo two', rendered('todo one', 'todo two'), {
+        syntaxIn: 'haystack',
+      }),
+    ).not.toBeNull();
+  });
+
+  test('a line carrying content is never swallowed whole', () => {
+    // `***bold***` opens like a thematic break, so the needle has to STRADDLE
+    // it: fragments either side, nothing naming the line itself. Treating the
+    // line as invisible would bridge them. A real break is the control — same
+    // shape, same needle, and it must match.
+    const straddle = rendered('head', 'tail');
+    expect(
+      findPassage('head\n\n***bold***\n\ntail', straddle, { syntaxIn: 'haystack' }),
+    ).toBeNull();
+    expect(findPassage('head\n\n---\n\ntail', straddle, { syntaxIn: 'haystack' })).not.toBeNull();
+
+    // Same pair for the table-rule pattern, which `-- dashes` opens like.
+    expect(findPassage('head\n\n-- dashes\n\ntail', straddle, { syntaxIn: 'haystack' })).toBeNull();
+    expect(findPassage('head\n\n-- --\n\ntail', straddle, { syntaxIn: 'haystack' })).not.toBeNull();
+  });
+
+  test('elasticity across a fence still cannot bridge different words', () => {
+    expect(findPassage(BODY, 'ConfigSchema: gochujang', { syntaxIn: 'haystack' })).toBeNull();
+  });
+
+  describe('CRLF documents', () => {
+    // The line slice runs to the `\n`, so on CRLF it carries a trailing `\r`.
+    // The rule patterns' character classes do not admit one, so `$` could not
+    // match and every rule line stayed non-elastic on Windows line endings.
+    const crlf = (...lines: string[]): string => lines.join('\r\n');
+    const straddle = rendered('head', 'tail');
+
+    test('a thematic break', () => {
+      expect(
+        findPassage(crlf('head', '', '---', '', 'tail'), straddle, {
+          syntaxIn: 'haystack',
+        }),
+      ).not.toBeNull();
+    });
+
+    test('a setext heading underline', () => {
+      expect(
+        findPassage(crlf('Title', '=====', '', 'tail'), rendered('Title', 'tail'), {
+          syntaxIn: 'haystack',
+        }),
+      ).not.toBeNull();
+    });
+
+    test('a table delimiter row and its cell boundaries', () => {
+      expect(
+        findPassage(crlf('| a | b |', '| --- | --- |', '| 1 | 2 |'), rendered('a b', '1 2'), {
+          syntaxIn: 'haystack',
+        }),
+      ).not.toBeNull();
+    });
+
+    test('a fenced code block with an info string', () => {
+      expect(
+        findPassage(
+          crlf('before', '', '```ts', 'code here', '```', '', 'after'),
+          rendered('before', 'code here', 'after'),
+          {
+            syntaxIn: 'haystack',
+          },
+        ),
+      ).not.toBeNull();
+    });
+
+    test('a content line is still not swallowed', () => {
+      expect(
+        findPassage(crlf('head', '', '***bold***', '', 'tail'), straddle, {
+          syntaxIn: 'haystack',
+        }),
+      ).toBeNull();
+    });
+  });
+});
+
+/**
+ * Constructs whose markup renders as nothing, or as less than it spells.
+ *
+ * Each of these failed as a bare "the quoted passage is not in the document"
+ * for any comment on a paragraph that merely CONTAINED one — which in a
+ * wiki-style document is most paragraphs, since wiki links and tags are
+ * everywhere. The quote is always what the editor renders; the body is what is
+ * on disk.
+ */
+describe('markup that renders as less than it spells', () => {
+  /** The passage the caller quoted, as it sits in the body. */
+  function locate(body: string, quote: string): string | null {
+    const hit = findPassage(body, quote, { syntaxIn: 'haystack' });
+    return hit ? body.slice(hit.start, hit.end) : null;
+  }
+
+  test('a highlight, whose `==` delimiters render as nothing', () => {
+    expect(locate('A ==marked== word.', 'A marked word.')).toBe('A ==marked== word.');
+  });
+
+  test('inline math, whose `$$` delimiters render as nothing', () => {
+    expect(locate('A $$x^2$$ word.', 'A x^2 word.')).toBe('A $$x^2$$ word.');
+  });
+
+  test('an image, which renders as its alt text alone', () => {
+    expect(locate('A ![alt](img.png) word.', 'A alt word.')).toBe('A ![alt](img.png) word.');
+  });
+
+  test('a reference-style image, which renders as its alt text alone', () => {
+    expect(locate('A ![alt][ref] word.', 'A alt word.')).toBe('A ![alt][ref] word.');
+  });
+
+  test('a wiki link, which renders as its target', () => {
+    expect(locate('A [[page]] word.', 'A page word.')).toBe('A [[page]] word.');
+  });
+
+  test('an aliased wiki link, which renders as the alias and hides the target', () => {
+    expect(locate('A [[page|Alias]] word.', 'A Alias word.')).toBe('A [[page|Alias]] word.');
+  });
+
+  test('a wiki link with a heading fragment, which renders without it', () => {
+    expect(locate('A [[page#sec]] word.', 'A page word.')).toBe('A [[page#sec]] word.');
+  });
+
+  test('a footnote reference, whose brackets render as nothing', () => {
+    expect(locate('A claim[^1] word.', 'A claim1 word.')).toBe('A claim[^1] word.');
+  });
+
+  test('an inline HTML tag, which renders as its content alone', () => {
+    expect(locate('A <u>under</u> word.', 'A under word.')).toBe('A <u>under</u> word.');
+  });
+
+  test('an autolink, which renders as the bare URL', () => {
+    expect(locate('A <http://x.com> word.', 'A http://x.com word.')).toBe('A <http://x.com> word.');
+  });
+
+  test('a mermaid fence, whose delimiters render as nothing', () => {
+    expect(
+      locate('Before.\n\n```mermaid\ngraph TD;\n```\n\nAfter.', 'Before.\ngraph TD;\nAfter.'),
+    ).toBe('Before.\n\n```mermaid\ngraph TD;\n```\n\nAfter.');
+  });
+
+  /**
+   * `<` is elastic so an autolink can be crossed, but inline HTML that SURVIVES
+   * into rendered text is quoted with its tags — and a match has to be allowed
+   * to open on one. The start guard declines a syntax character only when the
+   * caller's own quote does not begin with it.
+   */
+  test('opens a match on a `<` the caller actually quoted', () => {
+    expect(locate('<div>\nbody\n</div>', '<div>\nbody\n</div>')).toBe('<div>\nbody\n</div>');
+  });
+
+  test('a bare `#` mid-sentence is still content, not a wiki-link fragment', () => {
+    // Tags render WITH their `#`, so it must match literally rather than being
+    // skipped — otherwise a quote could drift onto a different tag.
+    expect(locate('A #alpha and #beta.', 'A #beta.')).toBeNull();
+  });
+
+  test('a line-leading `#` is still a heading marker', () => {
+    expect(locate('## Heading here', 'Heading here')).toBe('Heading here');
+  });
+
+  test('a bare `!` is still content', () => {
+    expect(locate('Wow! Amazing.', 'Wow Amazing.')).toBeNull();
+  });
+
+  /**
+   * Sisters to the `!` rule above. None of these characters is markdown syntax
+   * on its own — a highlight is always `==`, and `<` / `>` are invisible only
+   * as the brackets of an autolink. Skipping a lone one would let a match cross
+   * an operator the quote never contained.
+   */
+  test('a lone `=` is still content', () => {
+    expect(locate('A = B', 'A B')).toBeNull();
+  });
+
+  test('a lone `>` is still content', () => {
+    expect(locate('if x > y then', 'if x y then')).toBeNull();
+  });
+
+  test('a lone `<` is still content', () => {
+    expect(locate('if x < y then', 'if x y then')).toBeNull();
+  });
+
+  test('an arrow is still content', () => {
+    expect(locate('map a => b here', 'map a b here')).toBeNull();
+  });
+
+  test('a `>` that closes no autolink is still content', () => {
+    expect(locate('read <docs> now', 'read docs now')).toBeNull();
+  });
+
+  test('an email autolink renders as the address', () => {
+    expect(locate('Mail <a@b.com> now.', 'Mail a@b.com now.')).toBe('Mail <a@b.com> now.');
+  });
+
+  test('a line-leading `>` is still a blockquote marker', () => {
+    expect(locate('> Quoted line.', 'Quoted line.')).toBe('Quoted line.');
+  });
+});
+
+/**
+ * The recovery ceiling, shared by both sides.
+ *
+ * It lived as two copies of two constants under a drift warning — the same
+ * arrangement that had already let the context scorer diverge, fixed on one
+ * side and silently stale on the other. These pin the policy itself so a change
+ * to it is a deliberate edit to one visible contract.
+ */
+describe('rewriteCeiling', () => {
+  test('allows a short passage to grow by the floor, not by the multiple', () => {
+    // 4x of 5 is 20, which would refuse an ordinary edit to a short quote.
+    expect(rewriteCeiling(5)).toBe(69);
+  });
+
+  test('allows a long passage to grow by the multiple', () => {
+    expect(rewriteCeiling(100)).toBe(400);
+  });
+
+  test('never returns less than the passage itself', () => {
+    for (const length of [0, 1, 21, 64, 500]) {
+      expect(rewriteCeiling(length)).toBeGreaterThanOrEqual(length);
+    }
+  });
+
+  test('grows monotonically', () => {
+    let previous = -1;
+    for (const length of [0, 10, 50, 100, 1000]) {
+      const ceiling = rewriteCeiling(length);
+      expect(ceiling).toBeGreaterThan(previous);
+      previous = ceiling;
+    }
   });
 });

@@ -8,7 +8,8 @@ import { CollabTextClientV2, CollabTextProviderPoolV2, createYPartyTransportV2, 
 import type { CollabDiagnosticSinkV2 } from "./collab-diagnostics-v2";
 import { CollabBinaryV2Client, type BinaryReplaceResult } from "./collab-binary-v2";
 import { formatCollabInvitationV2 } from "./collab-invitation-v2";
-import { peerColorForKey, readCollabPeers, type CollabPeer } from "./collab-session";
+import { COLLAB_CHAT_PATH, peerColorForKey, readCollabPeers, type CollabPeer } from "./collab-session";
+import { EDITOR_COMMENTS_PATH } from "./editor-comment-data";
 import type { OperationResultV2 } from "../protocol/collab-v2";
 import { putTextFileV2 } from "./collab-import-v2";
 
@@ -135,6 +136,10 @@ export class CollabProjectControllerV2 {
   private fallbackAwareness = new Awareness(this.fallbackDoc);
   private activeClient?: CollabTextClientV2;
   private activePin: "main" | "secondary" = "main";
+  private chatClient?: CollabTextClientV2;
+  private readonly chatDocListeners = new Set<(doc: Y.Doc | null) => void>();
+  private commentsClient?: CollabTextClientV2;
+  private readonly commentsDocListeners = new Set<(doc: Y.Doc | null) => void>();
   private destroyed = false;
   private cancelPeerRefresh?: () => void;
   private firstFileOpened = false;
@@ -216,6 +221,101 @@ export class CollabProjectControllerV2 {
   }
 
   get doc(): Y.Doc { return this.activeClient?.doc ?? this.fallbackDoc; }
+
+  /** The project-wide chat document, once openChatDoc has bound it. */
+  get chatDoc(): Y.Doc | null {
+    return this.chatClient && !this.chatClient.isDestroyed ? this.chatClient.doc : null;
+  }
+
+  subscribeChatDoc = (listener: (doc: Y.Doc | null) => void): (() => void) => {
+    this.chatDocListeners.add(listener);
+    listener(this.chatDoc);
+    return () => this.chatDocListeners.delete(listener);
+  };
+
+  /**
+   * Open (creating on first use) the shared chat document. Idempotent; safe to
+   * re-run on every catalog change. Returns null when the chat file does not
+   * exist yet and this actor cannot create it — a read-only guest before any
+   * writer has opened chat, or a writer whose workspace lease is not bound yet.
+   * Callers simply retry on the next catalog movement.
+   */
+  async openChatDoc(): Promise<Y.Doc | null> {
+    this.assertLiveController();
+    const entry = this.file(COLLAB_CHAT_PATH);
+    const live = entry && entry.state !== "tombstoned" && entry.state !== "purging";
+    if (this.chatClient) {
+      if (!this.chatClient.isDestroyed && live && entry.documentEpoch === this.chatClient.namespace.documentEpoch) {
+        return this.chatClient.doc;
+      }
+      // Destroyed, tombstoned, or epoch-bumped — drop and rebind below.
+      this.chatClient = undefined;
+      for (const listener of this.chatDocListeners) listener(null);
+    }
+    if (!live) {
+      if ((this.options.permission ?? "write") === "read" || !this.materializeLease) return null;
+      await this.create(COLLAB_CHAT_PATH, "text", { seedText: "", adoptExisting: true });
+    }
+    // sideload: chat must never steal the primary editor's active binding.
+    await this.openPath(COLLAB_CHAT_PATH, "secondary", { sideload: true, allowCachedOffline: true });
+    const file = this.file(COLLAB_CHAT_PATH);
+    const client = file ? this.clients.get(file.fileId) : undefined;
+    if (!client || client.isDestroyed) return null;
+    // Pinned for the whole session: an unpinned clean client is fair game for
+    // pool eviction, which would silently kill the chat panel under >capacity
+    // open-file pressure.
+    this.pool.pin(client, "chat");
+    this.chatClient = client;
+    for (const listener of this.chatDocListeners) listener(client.doc);
+    return client.doc;
+  }
+
+  get commentsDoc(): Y.Doc | null {
+    return this.commentsClient && !this.commentsClient.isDestroyed ? this.commentsClient.doc : null;
+  }
+
+  subscribeCommentsDoc = (listener: (doc: Y.Doc | null) => void): (() => void) => {
+    this.commentsDocListeners.add(listener);
+    listener(this.commentsDoc);
+    return () => this.commentsDocListeners.delete(listener);
+  };
+
+  /**
+   * The room's comments document, kept alive for the session.
+   *
+   * Same shape as chat, and for the same reason: it is opened sideloaded so it
+   * never steals the editor's binding, and an unpinned clean client is fair
+   * game for pool eviction. When that happened the panel's observer was left
+   * watching a destroyed document — a peer resolving a comment reached nobody,
+   * and the next local edit silently went to a freshly resurrected document
+   * instead. Pinning keeps one document for everyone to agree on, and
+   * subscribers re-bind when the epoch moves it.
+   */
+  async openCommentsDoc(): Promise<Y.Doc | null> {
+    this.assertLiveController();
+    const entry = this.file(EDITOR_COMMENTS_PATH);
+    const live = entry && entry.state !== "tombstoned" && entry.state !== "purging";
+    if (this.commentsClient) {
+      if (!this.commentsClient.isDestroyed && live && entry.documentEpoch === this.commentsClient.namespace.documentEpoch) {
+        return this.commentsClient.doc;
+      }
+      this.commentsClient = undefined;
+      for (const listener of this.commentsDocListeners) listener(null);
+    }
+    if (!live) {
+      if ((this.options.permission ?? "write") === "read" || !this.materializeLease) return null;
+      await this.create(EDITOR_COMMENTS_PATH, "text", { seedText: "", adoptExisting: true });
+    }
+    await this.openPath(EDITOR_COMMENTS_PATH, "secondary", { sideload: true, allowCachedOffline: true });
+    const file = this.file(EDITOR_COMMENTS_PATH);
+    const client = file ? this.clients.get(file.fileId) : undefined;
+    if (!client || client.isDestroyed) return null;
+    this.pool.pin(client, "comments");
+    this.commentsClient = client;
+    for (const listener of this.commentsDocListeners) listener(client.doc);
+    return client.doc;
+  }
+
   get status(): CollabProjectStatusV2 { return this.statusValue; }
   get lifecycle(): ProjectLifecycle { return this.catalogValue.lifecycle; }
   get peers(): number { return Math.max(0, this.provider.awareness.getStates().size - 1); }
@@ -540,11 +640,19 @@ export class CollabProjectControllerV2 {
         const peer = peers.find((candidate) => candidate.instanceId === instanceId);
         const presence = this.presenceValue[instanceId];
         if (peer && presence?.grantId) peer.grantId = presence.grantId;
+        // Awareness is peer-written, so who the host is comes from the
+        // coordinator's presence table even for someone in our own file.
+        if (peer && presence?.permission) peer.permission = presence.permission;
+        // Their awareness state reaches us before they have announced a path
+        // over it (and an older build never announces one at all). The
+        // coordinator knows which file they are in, so follow-the-peer works
+        // from the first frame instead of reporting them as nowhere.
+        if (peer && !peer.path && presence?.path) peer.path = presence.path;
       }
     }
     for (const [instanceId, entry] of Object.entries(this.presenceValue)) {
       if (seen.has(instanceId)) continue;
-      peers.push({ clientId: presenceClientId(instanceId), name: entry.name, color: entry.color, path: entry.path, instanceId, ...(entry.grantId ? { grantId: entry.grantId } : {}) });
+      peers.push({ clientId: presenceClientId(instanceId), name: entry.name, color: entry.color, path: entry.path, instanceId, ...(entry.grantId ? { grantId: entry.grantId } : {}), ...(entry.permission ? { permission: entry.permission } : {}) });
     }
     peers.sort((left, right) => left.clientId - right.clientId);
     onPeers(peers);
@@ -757,6 +865,10 @@ export class CollabProjectControllerV2 {
     this.awarenessListener?.(); this.awarenessListener = undefined;
     // Best-effort leave so our entry does not linger until the server TTL.
     if (this.control) void this.leavePresence().catch(() => undefined);
+    for (const listener of this.chatDocListeners) listener(null);
+    this.chatDocListeners.clear(); this.chatClient = undefined;
+    for (const listener of this.commentsDocListeners) listener(null);
+    this.commentsDocListeners.clear(); this.commentsClient = undefined;
     for (const detach of this.diskObservers.values()) detach(); this.diskObservers.clear(); for (const client of this.clients.values()) client.destroy(); this.clients.clear(); this.canWriteListeners.clear(); this.undoManager.destroy(); this.fallbackAwareness.destroy(); this.fallbackDoc.destroy();
   }
 
@@ -793,14 +905,19 @@ export class CollabProjectControllerV2 {
         if (!current || current.state !== "live" || current.documentEpoch !== documentEpoch) { this.detachDiskObserver(fileId); return; }
         const path = current.path;
         this.checkLease(lease);
+        // Comments and boards keep their live state beside the "content" text
+        // (a Y.Map / a records map), so mirroring that text would write the
+        // workspace file empty. Both serialize on demand instead.
         const content = file.kind === "board"
           ? (await import("./board-yjs-bridge")).boardDocContent(client.doc)
-          : client.doc.getText("content").toString();
+          : current.path === EDITOR_COMMENTS_PATH
+            ? (await import("./collab-comments")).collabCommentsContent(client.doc)
+            : client.doc.getText("content").toString();
         await callbacks.writeText(path, content, lease.projectRoot);
         this.checkLease(lease);
       });
     };
-    if (file.kind === "board") {
+    if (file.kind === "board" || file.path === EDITOR_COMMENTS_PATH) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const pendingWrites = new Set<Promise<void>>();
       const startWrite = () => {

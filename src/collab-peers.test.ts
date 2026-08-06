@@ -16,16 +16,28 @@ describe("readCollabPeers", () => {
   it("survives a peer on an older build that announces nothing useful", () => {
     // Awareness records come from other clients, so nothing here is guaranteed.
     const states = new Map<number, unknown>([
-      [1, null],
-      [2, {}],
-      [3, { user: { name: "   " } }],
+      [3, { user: { name: "   " }, instanceId: "i3" }],
       [4, { user: { name: "Ada" }, path: 42 }],
     ]);
     const peers = readCollabPeers(states, 99);
-    expect(peers).toHaveLength(4);
-    expect(peers.map((peer) => peer.name)).toEqual(["Anonymous", "Anonymous", "Anonymous", "Ada"]);
+    expect(peers).toHaveLength(2);
+    expect(peers.map((peer) => peer.name)).toEqual(["Anonymous", "Ada"]);
     expect(peers.every((peer) => typeof peer.color === "string" && peer.color)).toBe(true);
-    expect(peers[3].path).toBeNull();
+    expect(peers[1].path).toBeNull();
+  });
+
+  it("ignores connections that never announced anyone", () => {
+    // Awareness publishes `{}` for a client the moment it is constructed, and a
+    // document opened only to mirror it to disk never announces over that. Each
+    // such state used to render as its own "Anonymous" collaborator.
+    const states = new Map<number, unknown>([
+      [1, null],
+      [2, {}],
+      [5, { path: "main.tex" }],
+      [6, { user: {} }],
+      [7, { user: { name: "Ada" }, instanceId: "i7" }],
+    ]);
+    expect(readCollabPeers(states, 99).map((peer) => peer.name)).toEqual(["Ada"]);
   });
 });
 

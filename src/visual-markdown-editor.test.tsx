@@ -14,6 +14,11 @@ import {
 } from "./visual-editor-block-controls";
 import { getComponentItems, getInlineComponentItems } from "@ok-app/editor/slash-command/component-items";
 import { getEmbedStarterItems } from "@ok-app/editor/slash-command/embed-starter-items";
+const notifications = vi.hoisted(() => ({ error: vi.fn() }));
+vi.mock("./app-notify", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./app-notify")>()),
+  notifyError: notifications.error,
+}));
 import { VisualMarkdownEditor } from "./visual-markdown-editor";
 import { getMarkdownManager, parseVisualMarkdown } from "./visual-markdown-schema";
 import { canonicalizeSupportedMarkdown, preserveMarkdownEnvelope } from "./markdown-collab";
@@ -152,6 +157,69 @@ describe("VisualMarkdownEditor", () => {
     });
     await waitFor(() => expect(onCaretChange).toHaveBeenLastCalledWith(0, 4));
     expect(onSourceCaretChange).toHaveBeenLastCalledWith(4);
+  });
+
+  it("paints a comment over the prose it is anchored to, and opens it on click", async () => {
+    const onEditorCommentClick = vi.fn();
+    const source = "The quick brown fox jumps.";
+    const comment = {
+      id: "c1",
+      path: "commented.md",
+      from: source.indexOf("brown fox"),
+      to: source.indexOf("brown fox") + "brown fox".length,
+      quote: "brown fox",
+      prefix: "quick ",
+      suffix: " jumps",
+      body: "why this one?",
+      authorId: "ada",
+      authorName: "Ada",
+      resolved: false,
+      replies: [],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    render(
+      <VisualMarkdownEditor
+        text={source}
+        activePath="commented.md"
+        editorComments={[comment]}
+        onEditorCommentClick={onEditorCommentClick}
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    const mark = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>("[data-visual-comment-id='c1']");
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    // The highlight covers the quoted prose, not the whole paragraph.
+    expect(mark.textContent).toBe("brown fox");
+    fireEvent.click(mark);
+    expect(onEditorCommentClick).toHaveBeenCalledWith("c1");
+  });
+
+  it("leaves a resolved comment unpainted", async () => {
+    const source = "The quick brown fox jumps.";
+    const base = {
+      id: "c1", path: "resolved.md", from: 4, to: 9, quote: "quick", prefix: "The ", suffix: " brown",
+      body: "b", authorId: "ada", authorName: "Ada", replies: [],
+      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    render(
+      <VisualMarkdownEditor
+        text={source}
+        activePath="resolved.md"
+        editorComments={[{ ...base, resolved: true }]}
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    await screen.findByRole("textbox", { name: "Markdown document editor" });
+    expect(document.querySelector("[data-visual-comment-id]")).toBeNull();
   });
 
   it("draws and updates an Overleaf cursor inside an editable code block", async () => {
@@ -1327,8 +1395,6 @@ describe("VisualMarkdownEditor", () => {
     const onChange = vi.fn(() => false);
     const { rerender } = renderEditor("Canonical", onChange);
     await replaceEditorText("Conflicting");
-    const writeText = vi.fn(() => Promise.resolve());
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     rerender(
       <VisualMarkdownEditor
         text="Shared canonical"
@@ -1338,10 +1404,10 @@ describe("VisualMarkdownEditor", () => {
         onRedo={() => false}
       />,
     );
-    const alert = await screen.findByRole("alert");
+    await waitFor(() => expect(notifications.error).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByRole("textbox")).toHaveTextContent("Shared canonical"));
-    fireEvent.click(within(alert).getByRole("button", { name: "Copy local draft" }));
-    expect(writeText).toHaveBeenCalledWith("Conflicting");
+    // The rejected draft rides the notification's Copy button, whole.
+    expect(notifications.error.mock.calls.at(-1)![2].copyText).toBe("Conflicting");
   });
 
   it("shows an accessible contextual toolbar for a text selection", async () => {
@@ -3188,9 +3254,14 @@ describe("VisualMarkdownEditor", () => {
     );
     expect(surface).toHaveTextContent("完整的本地草稿");
     fireEvent.compositionEnd(surface);
-    const alert = await screen.findByRole("alert");
+    // The failure is reported through the app's notifications rather than as a
+    // bar inside the document, and it carries both ways out of it.
+    await waitFor(() => expect(notifications.error).toHaveBeenCalled());
     await waitFor(() => expect(surface).toHaveTextContent("Remote canonical"));
-    fireEvent.click(within(alert).getByRole("button", { name: "Restore draft and retry" }));
+    const options = notifications.error.mock.calls.at(-1)![2];
+    expect(options.copyText).toBe("完整的本地草稿");
+    expect(options.timeoutMs).toBe(0);
+    act(() => { void options.primaryAction.onClick(); });
     expect(surface).toHaveTextContent("完整的本地草稿");
   });
 

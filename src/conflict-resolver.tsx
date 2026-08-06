@@ -21,7 +21,12 @@ import { InfinityLoader } from "./components/ui/activity-icons";
 import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
 import { conflictHunks } from "./conflict-markers";
+
+/** Notification source label for conflict resolution. */
+const CONFLICT_SOURCE = "Conflicts";
 import { toMessage } from "./app-utils";
+import { InlineMessage } from "./components/ui/inline-message";
+import { logAction } from "./app-notify";
 import { PIERRE_UNSAFE_CSS, usePierreResources } from "./file-diff-view";
 import "./conflict-resolver.css";
 
@@ -87,23 +92,30 @@ export function ConflictResolverDialog(props: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const draftRef = useRef("");
+  const loadGenerationRef = useRef(0);
   const resources = usePierreResources(props.path ?? "conflict.txt");
 
   const load = useCallback(async (path: string) => {
+    // Live sync can retarget the dialog to a different conflict while a slow
+    // read is still in flight; if the stale read resolved last, the dialog
+    // showed (and Save would write) the previous file's contents.
+    const generation = ++loadGenerationRef.current;
     setLoading(true);
     setError(null);
     setStage("resolve");
     try {
       const nextContent = await invoke<string>("read_project_file", { path });
+      if (generation !== loadGenerationRef.current) return;
       setContent(nextContent);
       setResolvedContent(nextContent);
       setDraftContent(nextContent);
       draftRef.current = nextContent;
       setLoadVersion((current) => current + 1);
     } catch (reason) {
+      if (generation !== loadGenerationRef.current) return;
       setError(toMessage(reason));
     }
-    setLoading(false);
+    if (generation === loadGenerationRef.current) setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -125,8 +137,8 @@ export function ConflictResolverDialog(props: {
   const save = async () => {
     if (!props.path) return;
     setSaving(true);
-    setError(null);
     const savedContent = draftRef.current;
+    const trace = logAction(CONFLICT_SOURCE, "Save resolved file", props.path);
     try {
       await invoke("write_project_file", {
         path: props.path,
@@ -134,14 +146,15 @@ export function ConflictResolverDialog(props: {
         projectRoot: props.projectRoot,
       });
       if (draftRef.current !== savedContent) {
-        setError("The file changed while it was saving. Review the latest text and save again.");
+        trace.fail("The file changed while it was saving. Review the latest text and save again.");
         setSaving(false);
         return;
       }
+      trace.note(`Resolved ${props.path}`);
       props.onResolved(props.path);
       props.onClose();
     } catch (reason) {
-      setError(toMessage(reason));
+      trace.fail(reason);
     }
     setSaving(false);
   };
@@ -158,10 +171,10 @@ export function ConflictResolverDialog(props: {
           one; anything you skip keeps its markers so you can come back.
         </p>
 
-        {error && <p className="conflict-error" role="alert">{error}</p>}
+        {error && <InlineMessage level="error">{error}</InlineMessage>}
 
         {resources.error ? (
-          <p className="conflict-error" role="alert">Could not render this file: {resources.error.message}</p>
+          <InlineMessage level="error">Could not render this file: {resources.error.message}</InlineMessage>
         ) : loading || !resources.ready ? (
           <div className="conflict-loading"><InfinityLoader size={16} /> Reading the file…</div>
         ) : total === 0 ? (

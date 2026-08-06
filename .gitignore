@@ -37,3 +37,6 @@ skills-lock.json
 # Local scratch / caches (never commit)
 _to_delete/
 .arxiv2md_cache/
+
+# Local `wrangler dev` Durable Object / R2 state for the collab server
+collab-server/.wrangler/

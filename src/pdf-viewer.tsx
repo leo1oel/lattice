@@ -53,11 +53,18 @@ import {
   type PdfPageSize,
 } from "./pdf-viewer-utils";
 import "./pdf-viewer.css";
+import { logAction, notifyError } from "./app-notify";
+import { useNonPassiveWheel } from "./use-non-passive-wheel";
+
+/** Notification source label for the PDF preview. */
+const PDF_SOURCE = "PDF";
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const PDF_LOAD_TIMEOUT_MS = 45_000;
 const PDF_VIEW_PREFERENCE_KEY = "lattice.pdf-view-preference.v1";
+/** Quiet period a fit-mode resize waits for before re-rasterizing pages. */
+const PDF_REFIT_SETTLE_MS = 120;
 
 type PdfViewPreference = {
   fitMode: "width" | "height" | null;
@@ -559,7 +566,6 @@ export function PdfPreview({
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState("");
   const [savingPdf, setSavingPdf] = useState(false);
-  const [saveNotice, setSaveNotice] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchIndexRequested, setSearchIndexRequested] = useState(false);
   const [pageTexts, setPageTexts] = useState<string[]>([]);
@@ -582,6 +588,17 @@ export function PdfPreview({
     setFitMode(null);
     setScale(update);
   }, []);
+  const zoomValueLabelRef = useRef<HTMLLabelElement | null>(null);
+  useNonPassiveWheel(zoomValueLabelRef, (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.deltaY) return;
+    updateManualScale((value) => clamp(
+      Number((value + (event.deltaY < 0 ? 0.1 : -0.1)).toFixed(1)),
+      PDF_MIN_SCALE,
+      PDF_MAX_SCALE,
+    ));
+  });
   // Trackpad pinch on macOS (and ctrl+scroll) arrives as a wheel event with
   // ctrlKey set. Zoom continuously and keep the point under the cursor fixed.
   const pendingZoomAnchorRef = useRef<{ x: number; y: number; prevScale: number } | null>(null);
@@ -861,11 +878,26 @@ export function PdfPreview({
   useEffect(() => {
     const area = scrollAreaRef.current;
     if (!area || !fitMode || typeof ResizeObserver === "undefined") return;
-    const refit = () => applyFit(fitMode);
-    const observer = new ResizeObserver(refit);
+    let settle: ReturnType<typeof setTimeout> | null = null;
+    // Dragging the split divider resizes this element on every pointer frame,
+    // and the fitted scale is quantized to 1%, so a single drag walks through
+    // dozens of distinct scales. Each one reallocates and re-rasterizes the
+    // canvas of every page near the viewport, all of it discarded by the next
+    // frame — the divider itself deliberately stays out of React for the same
+    // reason. Let the width settle, then fit once.
+    const observer = new ResizeObserver(() => {
+      if (settle) clearTimeout(settle);
+      settle = setTimeout(() => {
+        settle = null;
+        applyFit(fitMode);
+      }, PDF_REFIT_SETTLE_MS);
+    });
     observer.observe(area);
-    refit();
-    return () => observer.disconnect();
+    applyFit(fitMode);
+    return () => {
+      observer.disconnect();
+      if (settle) clearTimeout(settle);
+    };
   }, [applyFit, fitMode]);
 
   const commitZoomDraft = () => {
@@ -1100,7 +1132,7 @@ export function PdfPreview({
         : await documentProxy.getPageIndex(reference);
       scrollToPage(pageIndex + 1);
     } catch (reason) {
-      setSaveNotice(`Could not open PDF link. ${message(reason)}`);
+      notifyError(PDF_SOURCE, "Could not open PDF link", { detail: message(reason) });
     }
   }, [documentProxy, scrollToPage]);
   const pages = useMemo(
@@ -1135,7 +1167,7 @@ export function PdfPreview({
   const download = async () => {
     if (!pdfBytes || savingPdf) return;
     setSavingPdf(true);
-    setSaveNotice("");
+    const trace = logAction(PDF_SOURCE, "Save PDF", fileName);
     try {
       const destination = await saveDialog({
         title: "Save compiled PDF",
@@ -1146,9 +1178,9 @@ export function PdfPreview({
       const savedPath = await invoke<string>("save_compiled_pdf", pdfBytes, {
         headers: { "x-pdf-destination": utf8ToBase64(destination) },
       });
-      setSaveNotice(`Saved to ${savedPath}`);
+      trace.ok(`Saved to ${savedPath}`);
     } catch (reason) {
-      setSaveNotice(`Could not save PDF. ${message(reason)}`);
+      trace.fail(reason);
     } finally {
       setSavingPdf(false);
     }
@@ -1234,18 +1266,9 @@ export function PdfPreview({
             <button disabled={scale <= PDF_MIN_SCALE} onClick={() => updateManualScale((value) => clamp(Number((value - 0.1).toFixed(1)), PDF_MIN_SCALE, PDF_MAX_SCALE))}><ZoomOut size={14} /></button>
           </Tip>
           <label
+            ref={zoomValueLabelRef}
             className="pdf-zoom-value"
             title="Enter a zoom percentage or scroll to zoom"
-            onWheel={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              if (!event.deltaY) return;
-              updateManualScale((value) => clamp(
-                Number((value + (event.deltaY < 0 ? 0.1 : -0.1)).toFixed(1)),
-                PDF_MIN_SCALE,
-                PDF_MAX_SCALE,
-              ));
-            }}
           >
             <input
               aria-label="PDF zoom percentage"
@@ -1294,7 +1317,6 @@ export function PdfPreview({
           </Tip>
         </div>
       </div>
-      {saveNotice && <div className={`pdf-save-notice smooth-shadow-ring-md ${saveNotice.startsWith("Could not") ? "error" : ""}`}>{saveNotice}<button title="Dismiss PDF save notice" onClick={() => setSaveNotice("")}><X size={12} /></button></div>}
       <ScrollArea
         className="pdf-scroll-area"
         orientation="both"

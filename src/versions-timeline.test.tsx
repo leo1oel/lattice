@@ -4,6 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { HistoryDrawer } from "./history-drawer";
 import { VersionsTimeline } from "./versions-timeline";
+import { AppToastStack } from "./app-log";
+import { clearAppLogs } from "./app-log-store";
 import type { GitLogEntry } from "./app-types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -50,6 +52,7 @@ async function expandFirstEntry() {
 
 afterEach(() => {
   cleanup();
+  clearAppLogs();
   vi.mocked(invoke).mockReset();
   vi.mocked(confirm).mockReset();
   vi.restoreAllMocks();
@@ -277,7 +280,9 @@ describe("VersionsTimeline", () => {
       if (command === "git_auto_commit") return "ccc333";
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<VersionsTimeline onVersionsChanged={onVersionsChanged} />);
+    // Outcomes are toasts now, so the shared stack has to be on screen for the
+    // assertion below to mean what it did when the panel printed them inline.
+    render(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><AppToastStack /></>);
 
     fireEvent.click(await screen.findByRole("button", { name: /Save version/ }));
     fireEvent.change(screen.getByLabelText("Version label"), { target: { value: "Before rebuttal" } });

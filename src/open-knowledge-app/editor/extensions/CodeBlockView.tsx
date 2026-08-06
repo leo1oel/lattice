@@ -8,7 +8,6 @@
  * (precedent #30) so codeblocks compose visually with other rich blocks.
  */
 
-import { composeSelectionPrompt } from '@ok-core';
 import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
 import type { NodeViewProps } from '@tiptap/core';
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/react';
@@ -27,8 +26,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '@ok-app/shims/next-themes';
 import { useEffect, useId, useRef, useState } from 'react';
-import { emitOpenAskAiComposer } from '@ok-app/components/ask-ai-composer-events';
-import { requestActiveTerminalInput } from '@ok-app/components/handoff/terminal-input-events';
+import { emitStartComment } from '@ok-app/comments/store';
 import {
   Command,
   CommandEmpty,
@@ -42,12 +40,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@ok-app/components/ui/p
 import { useIsEmbedded } from '@ok-app/hooks/use-is-embedded';
 import { useColorThemeEpoch } from '@ok-app/lib/color-theme-epoch';
 import { cn } from '@ok-app/lib/utils';
-import { docNameToRelativePath } from '@ok-app/lib/workspace-paths';
 import { OPT_OUT_ATTR } from '../clipboard/index.ts';
 import { PreviewBlockedNotice } from '../components/PreviewBlockedNotice';
 import { ResizeHandles } from '../components/ResizeHandles.tsx';
 import { MermaidView } from '../components/Mermaid.tsx';
-import { serializeWysiwygSelection } from '../edit-with-ai-selection';
 import { CODE_BLOCK_LANGUAGES, normalizeCodeLanguage } from './code-block-languages';
 import {
   addMetaToken,
@@ -60,7 +56,6 @@ import {
   setMetaTitle,
   shouldShowPreview,
 } from './code-block-meta';
-import { getEditorDocName } from './doc-context';
 import {
   buildPreviewIframeHeader,
   buildPreviewThemeMessage,
@@ -156,11 +151,26 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
   // would otherwise crowd the always-visible chrome.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState(title ?? '');
-  // Ask AI on this code block. Chrome-hosted (not the bubble menu),
-  // because the block isn't a text selection — the whole fence is the
-  // context we want to hand to the agent. Hidden inside an embedded agent
-  // host, same as the text bubble menu's Ask AI button.
+  // Ask AI on this code block. Chrome-hosted (not the bubble menu), because
+  // the bubble menu does not show over code — marks do not apply to code text,
+  // so its formatting controls would all be dead. Hidden inside an embedded
+  // agent host, same as the text bubble menu's Ask AI button.
   const isEmbedded = useIsEmbedded();
+
+  /**
+   * Does the live selection sit inside THIS block's content?
+   *
+   * `editor.isActive('codeBlock')` is not enough — it answers "some code
+   * block", so with two blocks on screen a pick in the first would suppress
+   * the second's button from selecting itself.
+   */
+  const selectionIsInsideThisBlock = (): boolean => {
+    const pos = typeof getPos === 'function' ? getPos() : undefined;
+    if (typeof pos !== 'number') return false;
+    const { from, to } = editor.state.selection;
+    if (from === to) return false;
+    return from > pos && to <= pos + node.nodeSize - 1;
+  };
   // Hovered state — the html preview iframe consumes 100% of the block's
   // pointer events, so the CSS `:hover` selector never fires on the wrapper.
   // Mirror mouseenter/mouseleave into a data attribute so the chrome-reveal
@@ -188,9 +198,15 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
     rawMetaRef.current = rawMeta;
   }, [rawMeta]);
   const normalized = normalizeCodeLanguage(rawLanguage);
+  // Language names are proper nouns and stay as written; the two descriptive
+  // entries (`Plain text`, `Shell session`) carry a deferred `labelMessage`
+  // that resolves here, in render, so the picker follows a language switch.
+  const displayLabel = (lang: (typeof CODE_BLOCK_LANGUAGES)[number]) =>
+    lang.labelMessage ? t(lang.labelMessage) : lang.label;
+  const currentEntry = CODE_BLOCK_LANGUAGES.find((l) => l.value === normalized);
   const currentLabel = !rawLanguage
     ? t`Plain`
-    : (CODE_BLOCK_LANGUAGES.find((l) => l.value === normalized)?.label ?? rawLanguage);
+    : (currentEntry && displayLabel(currentEntry)) || rawLanguage;
   const previewRenderable = normalized ? PREVIEWABLE_LANGUAGES.has(normalized) : false;
   const previewActive = shouldShowPreview(normalized, rawMeta);
   const isMermaidPreview = normalized === 'mermaid';
@@ -522,7 +538,10 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
                     return (
                       <CommandItem
                         key={lang.value}
-                        value={`${lang.label} ${lang.value} ${lang.aliases?.join(' ') ?? ''}`}
+                        // The English label stays in the filter haystack beside
+                        // the translated one so a reader who knows the term
+                        // either way finds the entry.
+                        value={`${displayLabel(lang)} ${lang.label} ${lang.value} ${lang.aliases?.join(' ') ?? ''}`}
                         onSelect={() => {
                           const next = lang.value === PLAIN_TEXT ? null : lang.value;
                           updateAttributes({ language: next });
@@ -530,7 +549,7 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
                           editor.commands.focus();
                         }}
                       >
-                        <span className="flex-1">{lang.label}</span>
+                        <span className="flex-1">{displayLabel(lang)}</span>
                         {isActive ? <Check className="size-3.5" aria-hidden="true" /> : null}
                       </CommandItem>
                     );
@@ -640,49 +659,39 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
           <button
             type="button"
             className="ok-codeblock-chrome-btn"
-            aria-label={t`Ask AI about this code block`}
+            aria-label={t`Comment or ask AI about this code block`}
             data-testid="ok-codeblock-ask-ai-btn"
             onClick={() => {
-              // Make this code block the WYSIWYG selection so
-              // `serializeWysiwygSelection` emits the canonical fenced form
-              // (the code-block-fidelity extension's `fenceLength` outlasts
-              // any inner backtick run). `composeSelectionPrompt` then
-              // decides inline vs locus against the encoded-URL budget; the
-              // dispatch routes through `SessionsHost` which pastes
-              // to a live PTY or launches a fresh Claude tab.
-              const docName = getEditorDocName(editor);
-              const pos = typeof getPos === 'function' ? getPos() : undefined;
-              if (typeof pos !== 'number') return;
-              try {
-                editor.commands.setNodeSelection(pos);
-              } catch (err) {
-                // Mirrors `handleDelete`'s classification — concurrent remote
-                // edits or Observer B re-parse can shift `pos` between
-                // getPos() and setNodeSelection, producing a RangeError. The
-                // block has moved or vanished, so there is nothing to Ask AI
-                // about; keep the error off the boundary for benign races.
-                if (!(err instanceof RangeError)) throw err;
-                console.warn('[CodeBlockView] Ask AI failed — position race', err);
-                return;
-              }
-              const selectionMarkdown = serializeWysiwygSelection(editor);
-              requestAnimationFrame(() => {
-                if (docName === null || !selectionMarkdown.trim()) {
-                  emitOpenAskAiComposer();
+              // The same composer the text bubble menu's Ask AI opens, which
+              // is why this used to be the odd one out: it fired a code block
+              // straight at a fresh CLI session, with no way to file the note
+              // for a later batch. Prose got both choices from one button and
+              // code got neither.
+              //
+              // Selection first, block second. A pick INSIDE this block is the
+              // passage the reader means — node-selecting over it would quietly
+              // widen the comment to the whole fence. Only when nothing is
+              // picked here does the block itself become the subject, matching
+              // the copy / delete buttons beside it.
+              if (!selectionIsInsideThisBlock()) {
+                const pos = typeof getPos === 'function' ? getPos() : undefined;
+                if (typeof pos !== 'number') return;
+                try {
+                  editor.commands.setNodeSelection(pos);
+                } catch (err) {
+                  // Mirrors `handleDelete`'s classification — concurrent remote
+                  // edits or Observer B re-parse can shift `pos` between
+                  // getPos() and setNodeSelection, producing a RangeError. The
+                  // block has moved or vanished, so there is nothing to ask
+                  // about; keep the error off the boundary for benign races.
+                  if (!(err instanceof RangeError)) throw err;
+                  console.warn('[CodeBlockView] Ask AI failed — position race', err);
                   return;
                 }
-                requestActiveTerminalInput(
-                  composeSelectionPrompt({
-                    relativePath: docNameToRelativePath(docName),
-                    instruction: '',
-                    selectionMarkdown,
-                    target: 'claude-code',
-                  }),
-                  // A composed ask, so a fresh session runs it — matching the
-                  // fresh-CLI behavior this surface has always had.
-                  { submit: true },
-                );
-              });
+              }
+              // After the selection transaction has landed, so the composer
+              // captures the range this click just established.
+              requestAnimationFrame(() => emitStartComment());
             }}
           >
             <Sparkles className="size-3.5" aria-hidden="true" />

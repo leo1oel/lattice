@@ -51,7 +51,13 @@ type PendingFileWork = { kind: "delete" | "close" | "revoke"; fileId: string; do
 type DurableMetadata = { documentEpoch: number; contentRevision: number; snapshotGeneration: number; size: number; hash: string; stateVector: string };
 type TextInitializer = { grantId: string; operationId: string; size: number; hash: string; completed?: boolean };
 type ImportManifestEntry = { fileId: string; path: string; kind: "text" | "binary" | "board"; size: number; hash: string };
-type PresenceEntry = { name: string; color: string; path: string | null; updatedAt: number; grantId?: string };
+/**
+ * `permission` is stamped from the authenticated actor, never from the request
+ * body: "who started this share" is the one presence field a client must not be
+ * able to claim for itself. Unlike `grantId` it stays visible to every peer, so
+ * guests can tell the host apart from each other in the collaborator list.
+ */
+type PresenceEntry = { name: string; color: string; path: string | null; updatedAt: number; grantId?: string; permission?: GrantPermission };
 type CoordinatorState = CatalogV2 & {
   host: SecretHash;
   grants: Grant[];
@@ -201,7 +207,7 @@ export class ProjectCoordinatorV2 extends DurableObject {
       const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 80) : "Anonymous";
       const color = typeof body.color === "string" && body.color ? body.color.slice(0, 40) : "#8b8b93";
       const path = typeof body.path === "string" && body.path ? body.path.slice(0, MAX_PATH) : null;
-      presence[instanceId] = { name, color, path, updatedAt: now, grantId: actor.grantId };
+      presence[instanceId] = { name, color, path, updatedAt: now, grantId: actor.grantId, permission: actor.permission };
     }
     await this.persist();
     const visiblePresence = actor.permission === "host"

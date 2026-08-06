@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {
-  Check,
-  CircleAlert,
-  Package,
-  Wrench,
-} from "lucide-react";
+import { Package, Wrench } from "lucide-react";
 import {
   isConferenceFontsMissing,
   isTexToolchainMissing,
@@ -17,6 +12,11 @@ import { Button } from "./components/ui/button";
 import { InfinityLoader, ReloadButton } from "./components/ui/activity-icons";
 import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
+import { InlineMessage } from "./components/ui/inline-message";
+import { logAction } from "./app-notify";
+
+/** Notification source label for the LaTeX install wizard. */
+const TEX_SETUP_SOURCE = "LaTeX setup";
 
 type InstallKind = "basic" | "full";
 
@@ -31,13 +31,11 @@ export function TexSetupWizard(props: {
 }) {
   const [installing, setInstalling] = useState<InstallKind | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
-  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!props.open) {
       setInstalling(null);
       setLocalStatus(null);
-      setLocalError(null);
     }
   }, [props.open]);
 
@@ -54,20 +52,16 @@ export function TexSetupWizard(props: {
   const checked = props.report !== null && !props.checking;
 
   const startInstall = async (kind: InstallKind) => {
-    setLocalError(null);
     setInstalling(kind);
+    const trace = logAction(TEX_SETUP_SOURCE, "Install LaTeX", kind);
     try {
       await invoke("start_tex_install", { kind });
+      trace.note("Installer launched in Terminal");
       setLocalStatus(
         "Terminal opened. When it finishes, click Recheck here. Already-installed pieces are skipped.",
       );
     } catch (reason) {
-      const message = typeof reason === "string"
-        ? reason
-        : reason instanceof Error
-          ? reason.message
-          : String(reason);
-      setLocalError(message);
+      trace.fail(reason);
     } finally {
       setInstalling(null);
     }
@@ -85,17 +79,15 @@ export function TexSetupWizard(props: {
         </p>
 
         {checked && !ready && (
-          <div className="tex-setup-banner bad" role="alert">
-            <CircleAlert size={16} />
-            <span>LaTeX is not ready on this Mac yet. Click Install BasicTeX below (or MacTeX if you prefer the full install).</span>
-          </div>
+          <InlineMessage level="error" className="tex-setup-banner">
+            LaTeX is not ready on this Mac yet. Click Install BasicTeX below (or MacTeX if you prefer the full install).
+          </InlineMessage>
         )}
 
         {checked && ready && (
-          <div className="tex-setup-banner ok" role="status">
-            <Check size={16} />
-            <span>LaTeX is ready. You can Build from the title bar.</span>
-          </div>
+          <InlineMessage level="success" className="tex-setup-banner">
+            LaTeX is ready. You can Build from the title bar.
+          </InlineMessage>
         )}
 
         <div className="tex-setup-options">
@@ -131,13 +123,9 @@ export function TexSetupWizard(props: {
         </div>
 
         {(localStatus || props.checking) && (
-          <p className={`tex-setup-status ${ready ? "ok" : "info"}`} role="status">
+          <InlineMessage level={ready ? "success" : "info"} className="tex-setup-status">
             {props.checking && !localStatus ? "Checking…" : localStatus}
-          </p>
-        )}
-
-        {localError && (
-          <p className="tex-setup-status danger" role="alert">{localError}</p>
+          </InlineMessage>
         )}
 
         <div className="modal-actions tex-setup-actions">

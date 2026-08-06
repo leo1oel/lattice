@@ -14,6 +14,19 @@ import { TUTORIAL_STEPS } from "./onboarding-steps";
 const ACTION_BUTTONS: Step["buttons"] = ["back", "skip"];
 const READING_BUTTONS: Step["buttons"] = ["back", "skip", "primary"];
 
+/**
+ * Remounts to spend on re-resolving a step target before giving up on it.
+ *
+ * Joyride only self-heals a missing target when it owns the step index. This
+ * tour controls `stepIndex`, so a miss leaves it parked: the overlay renders
+ * (its early return is bypassed while `waiting`), the spotlight cutout does
+ * not, and the card never reaches the `tooltip` lifecycle — a fully dimmed
+ * window with nothing on it.
+ */
+const TARGET_RECOVERY_ATTEMPTS = 2;
+/** Polls, 100ms apart, for the markdown step's card and add-block affordance. */
+const MARKDOWN_REVEAL_ATTEMPTS = 40;
+
 /* ─────────────────────────────────────────────────────────
  * TUTORIAL POINTER STORYBOARD
  *
@@ -116,7 +129,7 @@ function LatticeTourTooltip(props: TooltipRenderProps) {
         <span className="lattice-tour-mark" aria-hidden="true"><Sparkles size={15} /></span>
         <span className="lattice-tour-kicker">{index + 1} / {size}</span>
         {canSkip && (
-          <button className="lattice-tour-skip" type="button" {...skipProps}>Skip tour</button>
+          <button className="lattice-tour-skip" type="button" {...skipProps}>Skip tutorial</button>
         )}
       </header>
       <progress className="lattice-tour-progress" max={size} value={index + 1} aria-label={`Tutorial progress: step ${index + 1} of ${size}`} />
@@ -159,6 +172,8 @@ export function OnboardingTour(props: {
 }) {
   const pointerTimersRef = useRef<number[]>([]);
   const pointerRunningRef = useRef(false);
+  const [recoveryToken, setRecoveryToken] = useState(0);
+  const recoveryAttemptsRef = useRef(0);
   const [pointer, setPointer] = useState<TutorialPointerState>({
     visible: false,
     pressed: false,
@@ -195,7 +210,21 @@ export function OnboardingTour(props: {
   }, []);
 
   const animatePointerClick = useCallback((target: HTMLElement, activate: () => void) => {
-    if (pointerRunningRef.current) return;
+    // Never let a running animation swallow the next one's action. The tour
+    // advances inside `activate`, so dropping it leaves Joyride's lifecycle
+    // past the tooltip with the step index unchanged: the card and spotlight
+    // go, the overlay stays, and the window is dimmed with no way forward.
+    // Pressing Continue while the demonstration pointer is mid-flight — easy
+    // on the Markdown step, which starts an animation of its own — used to do
+    // exactly that. Abandon the animation in progress, including whatever it
+    // was about to click, and run the new action right away.
+    if (pointerRunningRef.current) {
+      clearPointerTimers();
+      pointerRunningRef.current = false;
+      setPointer((current) => ({ ...current, visible: false, pressed: false }));
+      activate();
+      return;
+    }
     pointerRunningRef.current = true;
     clearPointerTimers();
     const targetRect = target.getBoundingClientRect();
@@ -230,6 +259,20 @@ export function OnboardingTour(props: {
     );
   }, [clearPointerTimers]);
 
+  /**
+   * Reset the per-step scratch state.
+   *
+   * The tour used to be remounted on every step, which cleared this for free.
+   * It no longer is, so a pointer animation still marked as running when the
+   * step advances would make `animatePointerClick` bail out for the rest of
+   * the tour and silently strand every later auto-click. The pointer's own
+   * visibility needs no reset here — its hide timer is already scheduled.
+   */
+  useEffect(() => {
+    recoveryAttemptsRef.current = 0;
+    pointerRunningRef.current = false;
+  }, [props.stepIndex]);
+
   useEffect(() => {
     document.body.classList.add("lattice-tutorial-active");
     return () => {
@@ -244,6 +287,20 @@ export function OnboardingTour(props: {
     let attempts = 0;
     const revealAndClickAdd = () => {
       if (cancelled) return;
+      const retry = () => {
+        attempts += 1;
+        if (attempts < MARKDOWN_REVEAL_ATTEMPTS) {
+          pointerTimersRef.current.push(window.setTimeout(revealAndClickAdd, 100));
+        }
+      };
+      // The card on screen is Joyride's signal that it has finished measuring
+      // this step. Opening the slash menu any earlier rewrites the block DOM
+      // it is still measuring, and the step lands on a dimmed window with no
+      // spotlight. The card is also this animation's origin point.
+      if (!document.querySelector(".lattice-tour")) {
+        retry();
+        return;
+      }
       const block = markdownBlockForTour();
       if (block) {
         const rect = block.getBoundingClientRect();
@@ -264,11 +321,12 @@ export function OnboardingTour(props: {
         && addRect.height > 0
         && Math.abs(addRect.top - blockRect.top) < 72
       ) {
-        animatePointerClick(addButton, () => addButton.click());
+        // Guarded because the press lands 680ms after the pointer sets off,
+        // by which time the reader may already have moved on.
+        animatePointerClick(addButton, () => { if (!cancelled) addButton.click(); });
         return;
       }
-      attempts += 1;
-      if (attempts < 20) pointerTimersRef.current.push(window.setTimeout(revealAndClickAdd, 100));
+      retry();
     };
     pointerTimersRef.current.push(window.setTimeout(revealAndClickAdd, POINTER_TIMING.markdownReady));
     return () => { cancelled = true; };
@@ -309,16 +367,16 @@ export function OnboardingTour(props: {
       id: "welcome",
       target: "body",
       placement: "center",
-      title: "Take a guided tour of Lattice",
-      content: "This skippable tutorial uses the “Attention Is All You Need” sample project to introduce editing, previews, papers, agents, and collaboration.",
+      title: "Welcome to Lattice",
+      content: "We opened a real project for you — the “Attention Is All You Need” paper — so you can try each feature on real files as we go. Skip whenever you like.",
       buttons: ["skip", "primary"],
     },
     {
       id: "latex",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="split-workspace"]',
-      title: "Write LaTeX beside the finished PDF",
-      content: "Edit main.tex on the left. The PDF on the right saves, compiles, and refreshes automatically.",
+      title: "Your LaTeX and your PDF, side by side",
+      content: "Type in main.tex on the left. Lattice saves, compiles, and refreshes the PDF on the right on its own — there is no build button to hunt for.",
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -326,16 +384,16 @@ export function OnboardingTour(props: {
     {
       id: "project-files",
       target: '[data-tour="project-panel"]',
-      title: "One project, every research file",
-      content: "Open LaTeX, Markdown, HTML, TOML, PDF, images, and boards from the project tree.",
+      title: "Everything for the paper lives in one folder",
+      content: "LaTeX, notes, figures, boards, and the papers you cite. Click any file in the tree to open it here.",
       buttons: READING_BUTTONS,
       placement: "right-start",
     },
     {
       id: "view-modes",
       target: '[data-tour="document-view"]',
-      title: "Choose how you want to work",
-      content: "Switch between Edit, Split, and Preview at any time.",
+      title: "Three ways to look at a document",
+      content: "Edit for the source, Split for both, Preview for the finished result. Switch at any time.",
       buttons: READING_BUTTONS,
       placement: "bottom",
       spotlightPadding: 5,
@@ -344,8 +402,8 @@ export function OnboardingTour(props: {
       id: "markdown",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="split-workspace"]',
-      title: "Keep research notes in Markdown",
-      content: "Edit notes.md on the left and review the formatted result on the right.",
+      title: "Notes and drafts in Markdown",
+      content: "Not every file has to be LaTeX. notes.md gets the same live preview — source on the left, formatted on the right.",
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -354,8 +412,8 @@ export function OnboardingTour(props: {
       id: "markdown-visual",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="markdown-visual-editor"]',
-      title: "Edit the formatted document directly",
-      content: "Select text to edit it visually. Type / on an empty line to insert blocks, media, math, and more.",
+      title: "The preview is editable too",
+      content: "Click into the formatted side and type — no Markdown syntax needed. Press / on an empty line to drop in headings, tables, math, or images.",
       data: { action: "Try typing / in the visual editor" },
       buttons: READING_BUTTONS,
       placement: "top-end",
@@ -365,8 +423,8 @@ export function OnboardingTour(props: {
       id: "html",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="document-preview"]',
-      title: "Preview interactive HTML",
-      content: "Use HTML for interactive explanations and run them directly in the preview.",
+      title: "Run interactive explanations",
+      content: "HTML files render live right here — handy for demos and figures you want to poke at instead of only look at.",
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -375,69 +433,26 @@ export function OnboardingTour(props: {
       id: "board",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="board-workspace"]',
-      title: "Sketch ideas on a shared board",
-      content: "This editable attention flow shows how to connect diagrams, labels, and freehand research notes on one canvas.",
+      title: "Think visually on a board",
+      content: "An infinite canvas for diagrams, arrows, and freehand notes. This one maps how attention flows, and every shape on it is editable.",
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
     },
     {
-      id: "collaboration",
-      target: '[data-tour="collaboration"]',
-      title: "Write together in real time",
-      content: "Open the collaboration panel to start or join a shared workspace.",
-      data: { action: "Select Collaboration" },
-      buttons: ACTION_BUTTONS,
-      placement: "bottom-end",
-    },
-    {
-      id: "collaboration-panel",
-      target: '[data-tour="collaboration-panel"]',
-      title: "Share the whole research workspace",
-      content: "Invite collaborators to edit files, figures, papers, and comments together in real time.",
+      id: "workspace-actions",
+      target: '[data-tour="workspace-actions"]',
+      title: "Sharing and history live in this row",
+      content: "Leave comments on a draft, share the project live with a co-author, sync a linked Overleaf project, commit to Git, or open the full version history — one button each, no terminal.",
       buttons: READING_BUTTONS,
-      placement: "left",
-    },
-    {
-      id: "overleaf",
-      target: '[data-tour="overleaf"]',
-      title: "Keep working with Overleaf collaborators",
-      content: "Open the Overleaf panel to connect an existing project.",
-      data: { action: "Select Overleaf" },
-      buttons: ACTION_BUTTONS,
       placement: "bottom-end",
-    },
-    {
-      id: "overleaf-panel",
-      target: '[data-tour="overleaf-panel"]',
-      title: "Move between Lattice and Overleaf",
-      content: "Download an Overleaf project, work locally, then sync files, comments, and live edits.",
-      buttons: READING_BUTTONS,
-      placement: "left",
-    },
-    {
-      id: "git",
-      target: '[data-tour="git"]',
-      title: "Manage changes with Git",
-      content: "Open the Git workspace to review your project history.",
-      data: { action: "Select Git" },
-      buttons: ACTION_BUTTONS,
-      placement: "bottom-end",
-    },
-    {
-      id: "git-panel",
-      target: '[data-tour="git-panel"]',
-      title: "Keep every change reviewable",
-      content: "Review changes, create commits, and work with pull requests without leaving Lattice.",
-      buttons: READING_BUTTONS,
-      placement: "left",
     },
     {
       id: "open-papers",
       target: '[data-tour="papers-tab"]',
-      title: "Keep sources with the project",
-      content: "Manage papers and bibliography records in one place.",
-      data: { action: "Select Papers" },
+      title: "Your sources live in the project too",
+      content: "Switch to Papers to see what this manuscript cites.",
+      data: { action: "Click Papers" },
       buttons: ACTION_BUTTONS,
       placement: "bottom",
       disableFocusTrap: true,
@@ -445,17 +460,17 @@ export function OnboardingTour(props: {
     {
       id: "papers",
       target: '[data-tour="project-panel"]',
-      title: "Turn citations into a paper library",
-      content: "The bibliography is already organized here. Papers with an arXiv ID can be downloaded in one click.",
+      title: "Your .bib file, as a readable library",
+      content: "Every entry from the bibliography shows up here. Anything with an arXiv ID can be downloaded in full with one click.",
       buttons: READING_BUTTONS,
       placement: "right-start",
     },
     {
       id: "import-vit",
       target: '[data-tour="tutorial-vit-paper"]',
-      title: "Add the Vision Transformer paper",
-      content: "Download this cited paper. Lattice keeps the full paper, figures, metadata, and bibliography together.",
-      data: { action: "Select “An Image is Worth 16×16 Words”" },
+      title: "Let's download one of them",
+      content: "Lattice fetches the full text, the figures, and the metadata, then keeps them attached to the citation.",
+      data: { action: "Click “An Image is Worth 16×16 Words”" },
       buttons: ACTION_BUTTONS,
       placement: "right-start",
       disableFocusTrap: true,
@@ -463,9 +478,9 @@ export function OnboardingTour(props: {
     {
       id: "paper-blog",
       target: '[data-tour="paper-fulltext"]',
-      title: "Start with the generated overview",
-      content: "The Blog view gives you a visual, readable guide to the paper before you read the source.",
-      data: { action: "Select Paper to read the full text" },
+      title: "Get the gist before you dive in",
+      content: "Blog view is a generated, illustrated walkthrough of the paper — enough to tell whether it deserves a full read.",
+      data: { action: "Click Paper to read the full text" },
       buttons: ACTION_BUTTONS,
       placement: "bottom",
       disableFocusTrap: true,
@@ -475,8 +490,8 @@ export function OnboardingTour(props: {
       id: "paper-full-text",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="paper-reading-view"]',
-      title: "Read the complete paper in the same workspace",
-      content: "The Paper view preserves the full text, equations, sections, and figures as structured Markdown.",
+      title: "Then read the real thing, right here",
+      content: "Paper view keeps the complete text, sections, equations, and figures as structured Markdown — searchable, quotable, and next to your draft.",
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -484,9 +499,9 @@ export function OnboardingTour(props: {
     {
       id: "open-agent",
       target: '[data-tour="agent-tab"]',
-      title: "Choose your writing Agent",
-      content: "Use Codex, Claude, or another configured provider.",
-      data: { action: "Select Agent" },
+      title: "Last stop: your writing agent",
+      content: "Open the Agent tab. Codex, Claude, and other providers all plug in here.",
+      data: { action: "Click Agent" },
       buttons: ACTION_BUTTONS,
       placement: "bottom",
       disableFocusTrap: true,
@@ -494,8 +509,8 @@ export function OnboardingTour(props: {
     {
       id: "agent",
       target: '[data-tour="agent-panel"]',
-      title: "Work with the project as context",
-      content: "Agents use project context; Skills and MCP add workflows and tools.",
+      title: "An agent that has already read your project",
+      content: "It sees your manuscript, notes, and downloaded papers, so you can ask it to draft a section or check a claim against a source. Skills and MCP servers add more tools.",
       buttons: READING_BUTTONS,
       placement: "right-start",
     },
@@ -511,6 +526,20 @@ export function OnboardingTour(props: {
       if (event.index === steps.length - 1) props.onComplete();
       return;
     }
+    if (event.type === EVENTS.TARGET_NOT_FOUND) {
+      // Remounting restarts Joyride's target polling, which is the only way
+      // back out of the parked state while this tour owns the step index.
+      if (recoveryAttemptsRef.current < TARGET_RECOVERY_ATTEMPTS) {
+        recoveryAttemptsRef.current += 1;
+        setRecoveryToken((token) => token + 1);
+        return;
+      }
+      // Out of retries: move on rather than leave the window dimmed with
+      // nothing on it and no way forward.
+      if (props.stepIndex >= steps.length - 1) props.onComplete();
+      else props.onStepIndexChange(props.stepIndex + 1);
+      return;
+    }
     if (event.type !== EVENTS.STEP_AFTER) return;
     if (event.action === ACTIONS.PREV) {
       props.onStepIndexChange(Math.max(0, event.index - 1));
@@ -520,7 +549,7 @@ export function OnboardingTour(props: {
         [TUTORIAL_STEPS.viewModes]: { path: "notes.md", step: TUTORIAL_STEPS.markdown },
         [TUTORIAL_STEPS.markdownVisual]: { path: "attention-demo.html", step: TUTORIAL_STEPS.html },
         [TUTORIAL_STEPS.html]: { path: "attention-map.tldr", step: TUTORIAL_STEPS.board },
-        [TUTORIAL_STEPS.board]: { path: "main.tex", step: TUTORIAL_STEPS.collaboration },
+        [TUTORIAL_STEPS.board]: { path: "main.tex", step: TUTORIAL_STEPS.workspaceActions },
       } as Record<number, { path: string; step: number }>)[event.index];
       if (fileTransition) {
         if (event.index === TUTORIAL_STEPS.markdownVisual) closeMarkdownSlashMenu();
@@ -571,6 +600,7 @@ export function OnboardingTour(props: {
       </svg>
     )}
     <Joyride
+      key={`joyride:${recoveryToken}`}
       run={props.active}
       continuous
       stepIndex={props.stepIndex}
@@ -578,7 +608,7 @@ export function OnboardingTour(props: {
       onEvent={handleEvent}
       tooltipComponent={LatticeTourTooltip}
       floatingOptions={{ hideArrow: true }}
-      locale={{ back: "Back", last: "Finish", next: "Continue", skip: "Skip tour" }}
+      locale={{ back: "Back", last: "Finish", next: "Continue", skip: "Skip tutorial" }}
       options={{
         arrowColor: "var(--surface-panel-raised)",
         backgroundColor: "var(--surface-panel-raised)",

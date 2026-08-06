@@ -267,9 +267,113 @@ function pruneServerRuntime(stageRoot, target) {
   const serverRoot = join(stageRoot, "server");
   let removedBytes = 0;
   for (const path of walkFiles(serverRoot)) {
-    if (!path.endsWith(".map") && !path.endsWith(".pdb")) continue;
+    // TypeScript declarations are dev-time only; the staged runtime never
+    // typechecks. Keep .d.ts inside dist/ untouched anyway — nothing loads
+    // from node_modules typings at runtime.
+    const isTypings = path.includes("/node_modules/") && (path.endsWith(".d.ts") || path.endsWith(".d.mts") || path.endsWith(".d.cts"));
+    if (!path.endsWith(".map") && !path.endsWith(".pdb") && !isTypings) continue;
     removedBytes += statSync(path).size;
     rmSync(path, { force: true });
+  }
+
+  // Documentation, examples, and TS sources published inside node_modules are
+  // never read by the running agent.
+  const junkDirectories = [
+    "node_modules/@types",
+    "node_modules/@earendil-works/pi-coding-agent/docs",
+    "node_modules/@earendil-works/pi-coding-agent/examples",
+    "node_modules/@earendil-works/pi-coding-agent/node_modules/@types",
+    "node_modules/@anthropic-ai/sdk/src",
+    // ConPTY is Windows-only; keep it when staging a Windows runtime.
+    ...(target === "x86_64-pc-windows-msvc" ? [] : ["node_modules/node-pty/third_party"]),
+  ];
+  // Top-level copies of the provider SDKs and their support libraries satisfy
+  // the top-level @earendil-works/pi-ai, which the running server never
+  // imports: the bundled dist externalizes a fixed module list, and
+  // pi-coding-agent (the only consumer of pi-ai) ships an npm-shrinkwrap that
+  // resolves its own nested copies. Verified by walking declared dependency
+  // edges from the bundle's externalized import roots — none of these are
+  // resolvable from reachable code. ajv, ajv-formats, and zod must stay at
+  // top level: the agent SDKs require them at runtime without declaring them.
+  const unreachableTopLevelPackages = [
+    "@anthropic-ai/sdk",
+    "@aws-sdk",
+    "@earendil-works/pi-agent-core",
+    "@earendil-works/pi-ai",
+    "@google",
+    "@hono/node-server",
+    "@mistralai",
+    "@modelcontextprotocol",
+    "@opentelemetry",
+    "@smithy",
+    "express",
+    "hono",
+    "ioredis",
+    "jose",
+    "openai",
+    "protobufjs",
+    "react",
+    "react-dom",
+    "scheduler",
+    "typebox",
+    "web-streams-polyfill",
+  ];
+  for (const name of unreachableTopLevelPackages) {
+    junkDirectories.push(`node_modules/${name}`);
+  }
+  for (const relative of junkDirectories) {
+    const path = join(serverRoot, relative);
+    if (!existsSync(path)) continue;
+    removedBytes += walkFiles(path).reduce((total, file) => total + statSync(file).size, 0);
+    rmSync(path, { recursive: true, force: true });
+  }
+
+  // The launcher runs dist/index.mjs; the parallel CommonJS build of the same
+  // server (index.cjs and its chunks) is never executed.
+  const distRoot = join(serverRoot, "dist");
+  if (existsSync(distRoot)) {
+    for (const entry of readdirSync(distRoot)) {
+      if (!entry.endsWith(".cjs")) continue;
+      const path = join(distRoot, entry);
+      removedBytes += statSync(path).size;
+      rmSync(path, { force: true });
+    }
+  }
+
+  // Precompressed .br/.gz sidecars for the embedded client UI: the static
+  // server falls back to the identity file when a sidecar is missing, and the
+  // iframe loads over loopback where transfer compression buys nothing.
+  const clientRoot = join(distRoot, "client");
+  if (existsSync(clientRoot)) {
+    for (const path of walkFiles(clientRoot)) {
+      if (!path.endsWith(".br") && !path.endsWith(".gz")) continue;
+      removedBytes += statSync(path).size;
+      rmSync(path, { force: true });
+    }
+  }
+
+  // Vitest suites shipped inside the ACP SDK's published dist.
+  const acpDist = join(serverRoot, "node_modules/@agentclientprotocol/sdk/dist");
+  if (existsSync(acpDist)) {
+    for (const path of walkFiles(acpDist)) {
+      if (!path.endsWith(".test.js")) continue;
+      removedBytes += statSync(path).size;
+      rmSync(path, { force: true });
+    }
+  }
+
+  // Pruned packages leave dangling npm .bin symlinks behind, and tauri-build
+  // hard-errors on any broken link inside the bundled resources glob.
+  for (const binDirectory of [
+    join(serverRoot, "node_modules/.bin"),
+    join(serverRoot, "node_modules/@earendil-works/pi-coding-agent/node_modules/.bin"),
+  ]) {
+    if (!existsSync(binDirectory)) continue;
+    for (const entry of readdirSync(binDirectory)) {
+      const path = join(binDirectory, entry);
+      if (existsSync(path)) continue; // existsSync follows symlinks; false = dangling
+      rmSync(path, { force: true });
+    }
   }
 
   const platformDirectory = runtimePlatformDirectory(target);
@@ -386,14 +490,61 @@ const buildEnv = {
   ...process.env,
   PATH: `${bunDir}${process.platform === "win32" ? ";" : ":"}${process.env.PATH ?? ""}`,
 };
-run(bun, ["run", "--filter", "@synara/web", "build"], {
-  cwd: sourceRoot,
-  env: buildEnv,
-});
-run(bun, ["run", "--filter", "@synara/cli", "build"], {
-  cwd: sourceRoot,
-  env: buildEnv,
-});
+const pathSeparator = process.platform === "win32" ? ";" : ":";
+
+/**
+ * Run a workspace's own `build` script.
+ *
+ * This used to call `bun run --filter <package> build` from the repository
+ * root. On some Bun builds that prints `bun run` usage and exits 0 without
+ * running anything, so preparation silently continued and staged whatever
+ * `dist` happened to be left on disk -- a release could ship code months older
+ * than the pinned revision while the manifest reported the pin. Resolving the
+ * command from the workspace and running it directly removes that failure mode.
+ */
+function buildWorkspace(workspaceDirectory) {
+  const workspaceRoot = join(sourceRoot, workspaceDirectory);
+  const manifest = JSON.parse(readFileSync(join(workspaceRoot, "package.json"), "utf8"));
+  const command = manifest.scripts?.build;
+  if (!command) {
+    throw new Error(`${manifest.name ?? workspaceDirectory} does not define a build script.`);
+  }
+  console.log(`Building ${manifest.name ?? workspaceDirectory}: ${command}`);
+  run(process.platform === "win32" ? "cmd" : "sh", [
+    process.platform === "win32" ? "/c" : "-c",
+    command,
+  ], {
+    cwd: workspaceRoot,
+    env: {
+      ...buildEnv,
+      PATH: [
+        join(workspaceRoot, "node_modules/.bin"),
+        join(sourceRoot, "node_modules/.bin"),
+        buildEnv.PATH,
+      ].join(pathSeparator),
+    },
+  });
+}
+
+const buildStartedAt = Date.now();
+buildWorkspace("apps/web");
+buildWorkspace("apps/server");
+
+// Belt and braces: even with a working build command, refuse to stage artifacts
+// the build did not just write. Staging stale bytes under a fresh revision is
+// far worse than failing here.
+for (const artifact of ["apps/server/dist/index.mjs", "apps/server/dist/client/index.html"]) {
+  const artifactPath = join(sourceRoot, artifact);
+  if (!existsSync(artifactPath)) {
+    throw new Error(`The Synara build did not produce ${artifact}.`);
+  }
+  if (statSync(artifactPath).mtimeMs < buildStartedAt) {
+    throw new Error(
+      `${artifact} was not rewritten by the build, so the staged runtime would ship stale code. ` +
+        `Check that the workspace build command actually ran.`,
+    );
+  }
+}
 
 mkdirSync(cacheRoot, { recursive: true });
 const stageRoot = mkdtempSync(join(dirname(runtimeRoot), ".synara-runtime-"));

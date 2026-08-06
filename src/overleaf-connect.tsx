@@ -35,8 +35,13 @@ import {
   type OverleafStatus,
 } from "./app-types";
 import { confirmAction, relativeTime, toMessage } from "./app-utils";
+import { InlineMessage } from "./components/ui/inline-message";
+import { notifyError, notifySuccess } from "./app-notify";
 import { type OverleafRemoteDelete, type OverleafSyncMode } from "./app-settings";
 import "./overleaf-connect.css";
+
+/** Notification source label for everything in this file. */
+const OVERLEAF_SOURCE = "Overleaf";
 
 const DEFAULT_OVERLEAF_HOST = "https://www.overleaf.com";
 
@@ -181,12 +186,9 @@ export function OverleafSettingsSection(props: {
   const [link, setLink] = useState<OverleafLink | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [host, setHost] = useState(DEFAULT_OVERLEAF_HOST);
   const [cookie, setCookie] = useState("");
   const [applying, setApplying] = useState(false);
-  const [advancedError, setAdvancedError] = useState<string | null>(null);
-  const [advancedNotice, setAdvancedNotice] = useState<string | null>(null);
   const login = useOverleafLogin((session) => setStatus(session));
 
   const load = useCallback(async () => {
@@ -219,7 +221,7 @@ export function OverleafSettingsSection(props: {
    */
   const setPaused = async (paused: boolean) => {
     if (!props.projectRoot) {
-      setActionError("Open the linked Overleaf project before changing its sync setting.");
+      notifyError(OVERLEAF_SOURCE, "Open the linked Overleaf project before changing its sync setting.");
       return;
     }
     if (paused && !await confirmAction(
@@ -229,7 +231,6 @@ export function OverleafSettingsSection(props: {
       + "Resuming picks up where this left off: edits made on either side while it was "
       + "paused are merged, not overwritten.",
     )) return;
-    setActionError(null);
     try {
       await invoke("overleaf_set_paused", {
         projectRoot: props.projectRoot,
@@ -238,7 +239,7 @@ export function OverleafSettingsSection(props: {
       setLink((current) => (current ? { ...current, paused } : current));
       props.onLinkChanged();
     } catch (reason) {
-      setActionError(toMessage(reason));
+      notifyError(OVERLEAF_SOURCE, "Could not change Overleaf sync", { detail: toMessage(reason) });
     }
   };
 
@@ -247,7 +248,6 @@ export function OverleafSettingsSection(props: {
   }, [load]);
 
   const disconnect = async () => {
-    setActionError(null);
     try {
       await invoke("overleaf_disconnect");
       await load();
@@ -255,15 +255,13 @@ export function OverleafSettingsSection(props: {
       // re-read where it stands.
       props.onLinkChanged();
     } catch (reason) {
-      setActionError(toMessage(reason));
+      notifyError(OVERLEAF_SOURCE, "Could not disconnect from Overleaf", { detail: toMessage(reason) });
     }
   };
 
   const applyCookie = async () => {
     if (!cookie.trim() || applying) return;
     setApplying(true);
-    setAdvancedError(null);
-    setAdvancedNotice(null);
     try {
       const result = await invoke<OverleafStatus>("overleaf_store_cookie", {
         host: host.trim() || DEFAULT_OVERLEAF_HOST,
@@ -272,12 +270,12 @@ export function OverleafSettingsSection(props: {
       setStatus(result);
       if (result.connected) {
         setCookie("");
-        setAdvancedNotice(`Connected to ${result.host}.`);
+        notifySuccess(OVERLEAF_SOURCE, `Connected to ${result.host}.`);
       } else {
-        setAdvancedError("Overleaf didn’t accept that cookie. Make sure you’re signed in to Overleaf in your browser, then copy the Cookie header value again.");
+        notifyError(OVERLEAF_SOURCE, "Overleaf didn’t accept that cookie. Make sure you’re signed in to Overleaf in your browser, then copy the Cookie header value again.");
       }
     } catch (reason) {
-      setAdvancedError(toMessage(reason));
+      notifyError(OVERLEAF_SOURCE, "Could not apply the Overleaf cookie", { detail: toMessage(reason) });
     }
     setApplying(false);
   };
@@ -299,7 +297,7 @@ export function OverleafSettingsSection(props: {
         )}
         {loadError && (
         <>
-          <p className="overleaf-error" role="alert">{loadError}</p>
+          <InlineMessage level="error" className="overleaf-inline">{loadError}</InlineMessage>
           <div className="overleaf-retry-row">
             <ReloadButton
               size="compact"
@@ -336,9 +334,8 @@ export function OverleafSettingsSection(props: {
           </div>
         )
         )}
-        {login.error && <p className="overleaf-error" role="alert">{login.error}</p>}
-        {login.notice && <p className="overleaf-hint">{login.notice}</p>}
-        {actionError && <p className="overleaf-error" role="alert">{actionError}</p>}
+        {login.error && <InlineMessage level="error" className="overleaf-inline">{login.error}</InlineMessage>}
+        {login.notice && <InlineMessage level="info" className="overleaf-inline">{login.notice}</InlineMessage>}
         {link && (
         <div className="overleaf-status-row">
           <span className={`overleaf-dot ${link.paused ? "paused" : "connected"}`} aria-hidden="true" />
@@ -479,8 +476,6 @@ export function OverleafSettingsSection(props: {
         <p className="overleaf-hint">
           Paste the Cookie header value from your browser’s DevTools if automatic sign-in doesn’t work.
         </p>
-        {advancedError && <p className="overleaf-error" role="alert">{advancedError}</p>}
-        {advancedNotice && <p className="settings-notice">{advancedNotice}</p>}
         <div className="overleaf-advanced-actions">
           <MotionButton
             className={buttonClassName({ variant: "primary" })}
@@ -504,7 +499,8 @@ export function OverleafPickerDialog(props: {
   open: boolean;
   onClose: () => void;
   /** Invalidate work scoped to the currently open project before root changes. */
-  onBeforeClone?: () => boolean;
+  /** Claims the project switch; may wait out an in-flight sync, so await it. */
+  onBeforeClone?: () => boolean | Promise<boolean>;
   /** Restore the old project identity when the root-changing request fails. */
   onCloneCancelled?: () => void;
   onCloned: (root: string) => void;
@@ -520,7 +516,6 @@ export function OverleafPickerDialog(props: {
   const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [cloning, setCloning] = useState<OverleafProject | null>(null);
-  const [cloneError, setCloneError] = useState<string | null>(null);
   const login = useOverleafLogin((session) => setStatus(session));
   const { onClose } = props;
 
@@ -555,7 +550,6 @@ export function OverleafPickerDialog(props: {
     setShowArchived(false);
     setSelected(null);
     setCloning(null);
-    setCloneError(null);
     setProjects(null);
     setProjectsLoading(false);
     setProjectsError(null);
@@ -570,7 +564,6 @@ export function OverleafPickerDialog(props: {
   const clone = async (project: OverleafProject) => {
     if (cloning) return;
     setCloning(project);
-    setCloneError(null);
     try {
       // A folder of this name already holding files, with no link to any
       // Overleaf project, is what Stop syncing leaves behind. Downloading a
@@ -590,7 +583,7 @@ export function OverleafPickerDialog(props: {
           + "Cancel — download a separate copy into a new folder and leave that one alone.",
         );
       }
-      if (props.onBeforeClone?.() === false) {
+      if (await props.onBeforeClone?.() === false) {
         setCloning(null);
         return;
       }
@@ -608,7 +601,7 @@ export function OverleafPickerDialog(props: {
       props.onCloneCancelled?.();
       // A project that is already downloaded now simply opens, so there is no
       // longer a "move the folder aside yourself" case to explain.
-      setCloneError(toMessage(reason));
+      notifyError(OVERLEAF_SOURCE, "Could not open the Overleaf project", { detail: toMessage(reason) });
     }
   };
 
@@ -645,7 +638,7 @@ export function OverleafPickerDialog(props: {
         )}
         {statusError && (
           <>
-            <p className="overleaf-error" role="alert">{statusError}</p>
+            <InlineMessage level="error" className="overleaf-inline">{statusError}</InlineMessage>
             <div className="overleaf-retry-row">
               <ReloadButton
                 size="compact"
@@ -670,8 +663,8 @@ export function OverleafPickerDialog(props: {
                 <Cloud size={15} /> Connect to Overleaf
               </MotionButton>
             )}
-            {login.error && <p className="overleaf-error" role="alert">{login.error}</p>}
-            {login.notice && <p className="overleaf-hint">{login.notice}</p>}
+            {login.error && <InlineMessage level="error" className="overleaf-inline">{login.error}</InlineMessage>}
+            {login.notice && <InlineMessage level="info" className="overleaf-inline">{login.notice}</InlineMessage>}
             <Button
               size="compact"
               variant="ghost"
@@ -706,7 +699,7 @@ export function OverleafPickerDialog(props: {
             </div>
             {projectsError && (
               <>
-                <p className="overleaf-error" role="alert">{projectsError}</p>
+                <InlineMessage level="error" className="overleaf-inline">{projectsError}</InlineMessage>
                 <div className="overleaf-retry-row">
                   <ReloadButton
                     size="compact"
@@ -753,7 +746,7 @@ export function OverleafPickerDialog(props: {
                         type="button"
                         className="overleaf-project-main"
                         disabled={Boolean(cloning)}
-                        onClick={() => { setSelected(project.id); setCloneError(null); }}
+                        onClick={() => setSelected(project.id)}
                       >
                         <span className="overleaf-project-name">
                           {project.name}
@@ -797,7 +790,6 @@ export function OverleafPickerDialog(props: {
                 <span>Downloading {cloning.name} from Overleaf… this can take a minute for large projects.</span>
               </div>
             )}
-            {cloneError && <p className="overleaf-error" role="alert">{cloneError}</p>}
             <p className="overleaf-footer-note">
               Changes sync when you press the sync button in the toolbar — Lattice keeps a local copy that works offline.
             </p>

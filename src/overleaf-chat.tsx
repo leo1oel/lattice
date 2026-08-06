@@ -14,6 +14,7 @@ import { Textarea } from "./components/ui/textarea";
 import { resizeTextareaToContent } from "./components/ui/auto-resize-textarea";
 import type { OverleafMessage } from "./app-types";
 import "./overleaf-chat.css";
+import { InlineMessage } from "./components/ui/inline-message";
 
 /** "14:32" for today, "12 Mar 14:32" for anything older. */
 export function formatStamp(timestamp: number) {
@@ -79,7 +80,7 @@ export function OverleafChatPanel(props: {
         Overleaf. Messages appear on both sides as they are sent.
       </p>
 
-      {props.error && <p className="overleaf-chat-error" role="alert">{props.error}</p>}
+      {props.error && <InlineMessage level="error" className="overleaf-chat-inline">{props.error}</InlineMessage>}
 
       <div className="overleaf-chat-list" ref={listRef}>
         {props.loading && !props.messages.length && (

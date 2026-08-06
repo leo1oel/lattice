@@ -26,9 +26,6 @@
 .pdf-search small { flex: none; color: var(--text-tertiary); font-size: var(--type-nano-size); }
 .pdf-search .pdf-search-position { min-width: 31px; color: var(--text-secondary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
 .pdf-search button { flex: none; width: var(--search-clear-width); height: var(--search-clear-height); }
-.pdf-save-notice { --smooth-ring-color: color-mix(in srgb, var(--status-success) 35%, var(--border-subtle)); position: absolute; z-index: 3; top: 48px; right: 10px; max-width: min(420px, calc(100% - 20px)); min-height: 30px; padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--status-success); display: flex; align-items: center; gap: var(--gap-inline); font-size: var(--type-micro-size); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pdf-save-notice.error { --smooth-ring-color: color-mix(in srgb, var(--status-danger) 35%, var(--border-subtle)); color: var(--status-danger); }
-.pdf-save-notice button { flex: none; padding: var(--space-1); background: transparent; color: inherit; display: grid; place-items: center; }
 .pdf-scroll-area { position: relative; flex: 1; min-height: 0; }
 .pdf-scroll-area-viewport { position: relative; padding: var(--space-10); }
 .pdf-scroll-area-content { min-width: 100%; min-height: 100%; }

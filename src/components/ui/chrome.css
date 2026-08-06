@@ -421,6 +421,32 @@
   color: var(--status-danger);
 }
 
+/* Inline counterpart of `.app-toast`: same icon set, same status colours, same
+   division of labour — the icon carries the level so the text can stay legible
+   prose rather than a wall of red. Layout (margins, placement) belongs to the
+   feature that renders it. */
+.ui-inline-message {
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-weight: var(--type-caption-weight);
+  overflow-wrap: anywhere;
+}
+/* Optically centred on the first line rather than sitting on top of it, and
+   derived so it stays centred if the caption metrics move. */
+.ui-inline-message > svg { flex: none; margin-top: calc((var(--type-caption-line-height) - 13px) / 2); }
+.ui-inline-message > span { min-width: 0; }
+.ui-inline-message.error { color: var(--text-primary); }
+.ui-inline-message.info > svg { color: var(--status-info); }
+.ui-inline-message.success > svg { color: var(--status-success); }
+.ui-inline-message.warning > svg { color: var(--status-warning); }
+.ui-inline-message.error > svg { color: var(--status-danger); }
+
 .ui-empty-state {
   min-width: 0;
   padding: var(--space-8);

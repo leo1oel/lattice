@@ -38,6 +38,7 @@ import {
   searchWorkspaceCorpus,
   type WorkspaceSearchCorpus,
 } from '@ok-core';
+import { useLingui } from '@ok-app/shims/lingui-react-macro';
 import type { ReactNode } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useOptionalPageList } from '@ok-app/components/PageListContext';
@@ -165,6 +166,7 @@ export function SrcAutocomplete({
   className,
   onSubmit,
 }: SrcAutocompleteProps): ReactNode {
+  const { t } = useLingui();
   // Use the optional variant — falls back to an empty asset list when no
   // PageListProvider is mounted (e.g. PropPanel's renderToString unit
   // tests, where mounting the real provider would trigger the page-list
@@ -366,7 +368,7 @@ export function SrcAutocomplete({
         <div
           id={listboxId}
           role="listbox"
-          aria-label="Asset suggestions"
+          aria-label={t`Asset suggestions`}
           className="flex flex-col gap-px"
         >
           {suggestions.map((item, idx) => {

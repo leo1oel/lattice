@@ -8,7 +8,7 @@ import {
   Redo2,
   Undo2,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { memo, useMemo, useRef, type ReactNode } from "react";
 import { Tip } from "./components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "./app-types";
 import { AnimatedProductIcon } from "./animated-icons/product-animated-icon";
@@ -38,7 +38,7 @@ function overleafChannelLabel(
   return "Sync with Overleaf";
 }
 
-export function CanvasToolbar(props: {
+type CanvasToolbarProps = {
   mode: CanvasMode;
   setMode: (mode: DocumentViewMode) => void;
   markdown: boolean;
@@ -83,7 +83,9 @@ export function CanvasToolbar(props: {
   /** Where the Overleaf presence avatars go; kept as a slot so this file need
    *  not know anything about who is in the project. */
   overleafPresence?: ReactNode;
-}) {
+};
+
+const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarProps) {
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
   const switcherMode = props.mode === "dual" || props.mode === "columns" ? "split" : props.mode;
   const showOverleafOnline = Boolean(props.overleafLinked && (
@@ -139,7 +141,7 @@ export function CanvasToolbar(props: {
           />
         )}
       </div>
-      <div className="canvas-actions">
+      <div className="canvas-actions" data-tour="workspace-actions">
         {props.activeKind === "document" && (
           <>
             <Tip label="Go back (⌘[)">
@@ -246,5 +248,49 @@ export function CanvasToolbar(props: {
         </Tip>
       </div>
     </div>
+  );
+});
+
+/**
+ * App rebuilds this toolbar's handlers inline on every render, and it renders
+ * on every keystroke — so the toolbar was re-rendering constantly even though
+ * nothing it displays had changed. The handlers below keep one identity for the
+ * life of the component and forward to the newest props through a ref, which
+ * lets the view memoize on the values it actually draws. Optional handlers stay
+ * optional: the view reads their presence to decide what to render.
+ */
+export function CanvasToolbar(props: CanvasToolbarProps) {
+  const latest = useRef(props);
+  latest.current = props;
+  const stable = useMemo(() => ({
+    setMode: (mode: DocumentViewMode) => latest.current.setMode(mode),
+    onPaperView: (view: "blog" | "fulltext") => latest.current.onPaperView?.(view),
+    onNavigateBack: () => latest.current.onNavigateBack(),
+    onNavigateForward: () => latest.current.onNavigateForward(),
+    onInsert: () => latest.current.onInsert(),
+    onCollab: () => latest.current.onCollab(),
+    onHistory: () => latest.current.onHistory(),
+    onGit: () => latest.current.onGit(),
+    onComments: () => latest.current.onComments(),
+    onOverleafSync: () => latest.current.onOverleafSync?.(),
+    onOverleafOpen: () => latest.current.onOverleafOpen?.(),
+    onOverleafChat: () => latest.current.onOverleafChat?.(),
+  }), []);
+  return (
+    <CanvasToolbarView
+      {...props}
+      setMode={stable.setMode}
+      onPaperView={props.onPaperView ? stable.onPaperView : undefined}
+      onNavigateBack={stable.onNavigateBack}
+      onNavigateForward={stable.onNavigateForward}
+      onInsert={stable.onInsert}
+      onCollab={stable.onCollab}
+      onHistory={stable.onHistory}
+      onGit={stable.onGit}
+      onComments={stable.onComments}
+      onOverleafSync={props.onOverleafSync ? stable.onOverleafSync : undefined}
+      onOverleafOpen={props.onOverleafOpen ? stable.onOverleafOpen : undefined}
+      onOverleafChat={props.onOverleafChat ? stable.onOverleafChat : undefined}
+    />
   );
 }

@@ -19,7 +19,12 @@ import {
 import type { GitFileDiff, GitLogEntry, GitLogFileKind, GitStatus } from "./app-types";
 import { peerColorForName } from "./collab-colors";
 import { confirmAction, relativeTime } from "./app-utils";
+import { InlineMessage } from "./components/ui/inline-message";
+import { logAction } from "./app-notify";
 import { changeKind } from "./history-diff";
+
+/** Notification source label for the version timeline. */
+const VERSIONS_SOURCE = "Versions";
 import { FileDiffView } from "./file-diff-view";
 import {
   InfinityLoader,
@@ -77,7 +82,6 @@ export function VersionsTimeline(props: {
   const [phase, setPhase] = useState<Phase>("loading");
   const [entries, setEntries] = useState<GitLogEntry[]>([]);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedHash, setExpandedHash] = useState<string | null>(null);
@@ -130,12 +134,13 @@ export function VersionsTimeline(props: {
 
   const enableTracking = async () => {
     setBusy(true);
-    setError("");
+    const trace = logAction(VERSIONS_SOURCE, "Start tracking versions");
     try {
       await invoke<GitStatus>("git_init");
       await load();
+      trace.ok("Now tracking versions of this project.");
     } catch (reason) {
-      setError(message(reason));
+      trace.fail(reason);
     } finally {
       setBusy(false);
     }
@@ -144,8 +149,7 @@ export function VersionsTimeline(props: {
   const submitSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setBusy(true);
-    setError("");
-    setNotice("");
+    const trace = logAction(VERSIONS_SOURCE, "Save version", saveLabel.trim() || undefined);
     try {
       const hash = await invoke<string | null>("git_auto_commit", {
         message: saveLabel.trim() || "Saved version",
@@ -153,18 +157,17 @@ export function VersionsTimeline(props: {
       });
       setSaveOpen(false);
       setSaveLabel("");
-      setNotice(hash ? "Version saved." : "No changes since the last version.");
+      trace.ok(hash ? "Version saved." : "No changes since the last version.");
       if (hash) callbacksRef.current.onVersionsChanged?.();
       await load();
     } catch (reason) {
-      setError(message(reason));
+      trace.fail(reason);
     } finally {
       setBusy(false);
     }
   };
 
   const toggleEntry = (hash: string) => {
-    setNotice("");
     setActiveFile(null);
     setDiff(null);
     setDiffError("");
@@ -195,15 +198,14 @@ export function VersionsTimeline(props: {
   const restoreFile = async (hash: string, path: string) => {
     if (!await confirmAction(`Restore ${path} to this version? Your current file will be overwritten.`)) return;
     setBusy(true);
-    setError("");
-    setNotice("");
+    const trace = logAction(VERSIONS_SOURCE, "Restore file", `${path} @ ${hash}`);
     try {
       await invoke("git_restore_file", { rev: hash, path });
-      setNotice(`Restored ${path}.`);
+      trace.ok(`Restored ${path}.`);
       callbacksRef.current.onVersionsChanged?.();
       await load();
     } catch (reason) {
-      setError(message(reason));
+      trace.fail(reason);
     } finally {
       setBusy(false);
     }
@@ -215,15 +217,14 @@ export function VersionsTimeline(props: {
       + "and the restore itself is saved as a new version.";
     if (!await confirmAction(warning)) return;
     setBusy(true);
-    setError("");
-    setNotice("");
+    const trace = logAction(VERSIONS_SOURCE, "Restore project", hash);
     try {
       await invoke<string>("git_restore_project", { rev: hash });
-      setNotice("Project restored.");
+      trace.ok("Project restored.");
       callbacksRef.current.onVersionsChanged?.();
       await load();
     } catch (reason) {
-      setError(message(reason));
+      trace.fail(reason);
     } finally {
       setBusy(false);
     }
@@ -242,7 +243,7 @@ export function VersionsTimeline(props: {
   if (phase === "error") {
     return (
       <div className="versions-empty">
-        <p className="versions-error" role="alert">Version history is unavailable: {error}</p>
+        <InlineMessage level="error" className="versions-inline">Version history is unavailable: {error}</InlineMessage>
         <ReloadButton
           className="versions-save"
           busy={refreshing}
@@ -258,7 +259,7 @@ export function VersionsTimeline(props: {
     return (
       <div className="versions-empty">
         <p>Track versions of this project to see who changed what and roll back safely.</p>
-        {error && <p className="versions-error" role="alert">{error}</p>}
+        {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
         <button
           type="button"
           className="git-commit-button versions-enable"
@@ -272,7 +273,7 @@ export function VersionsTimeline(props: {
   }
 
   const renderDiff = (target: { hash: string; path: string }) => {
-    if (diffError) return <p className="history-diff-error" role="alert">{diffError}</p>;
+    if (diffError) return <InlineMessage level="error">{diffError}</InlineMessage>;
     if (!diff) return <p className="history-diff-loading"><InfinityLoader size={12} /> Loading diff…</p>;
     const restoreButton = (
       <button
@@ -341,10 +342,7 @@ export function VersionsTimeline(props: {
               type="button"
               className="versions-save"
               disabled={busy}
-              onClick={() => {
-                setNotice("");
-                setSaveOpen(true);
-              }}
+              onClick={() => setSaveOpen(true)}
             >
               <Save size={12} /> Save version
             </button>
@@ -360,8 +358,7 @@ export function VersionsTimeline(props: {
           </>
         )}
       </div>
-      {error && <p className="versions-error" role="alert">{error}</p>}
-      {notice && <p className="versions-notice" role="status">{notice}</p>}
+      {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
       {!entries.length && (
         <p className="versions-note">
           No versions yet. Versions are saved automatically as you work, or press Save version.
@@ -446,8 +443,8 @@ export const versionsTimelineCss = `
 .versions-tab.active { color: var(--text-primary); }
 .versions-loading, .versions-note { margin: 14px 0 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
 .versions-loading { display: flex; align-items: center; gap: var(--space-3); }
-.versions-error { margin: var(--space-4) 0 0; color: var(--status-danger); font-size: var(--type-micro-size); }
-.versions-notice { margin: var(--space-4) 0 0; color: var(--status-success); font-size: var(--type-micro-size); }
+/* Appearance is owned by \`.ui-inline-message\`; only the spacing is local. */
+.versions-inline { margin-top: var(--space-4); }
 .versions-empty { margin-top: 14px; display: grid; gap: var(--space-5); justify-items: start; }
 .versions-empty p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
 .versions-enable { width: auto; }

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
 import type { DurableAckV2 } from "../protocol/collab-v2";
 import { CollabTextDurableStoreV2, CollabTextStoreCorruptionErrorV2, textNamespaceKey, updateCoveredByStateVector, type TextNamespaceV2 } from "./collab-text-v2-store";
-import { closeEventErrorV2, CollabTextClientV2, CollabTextProviderPoolV2, reconnectDelayV2, TextClientPermanentErrorV2, ticketHttpErrorV2, type ReconnectPolicyV2, type TextTransportV2 } from "./collab-text-v2";
+import { closeEventErrorV2, CollabTextClientV2, CollabTextProviderPoolV2, reconnectDelayV2, TextClientPermanentErrorV2, ticketHttpErrorV2, type ReconnectPolicyV2, type TextTransportV2 , isClientDestroyedErrorV2 } from "./collab-text-v2";
 
 const namespace: TextNamespaceV2 = { deployment: "sync.example", projectInstanceId: "project", fileId: "file", documentEpoch: 1 };
 const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
@@ -66,6 +66,9 @@ describe("v2 durable text client", () => {
     client.destroy();
     releaseTicket();
     await expect(connecting).rejects.toThrow("Client is destroyed");
+    // Typed, so callers can tell an ordinary teardown apart from a failure
+    // instead of matching on the message.
+    await expect(connecting).rejects.toSatisfy(isClientDestroyedErrorV2);
     expect(transports).toHaveLength(0);
   });
 

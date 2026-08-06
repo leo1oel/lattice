@@ -1,3 +1,6 @@
+import { stripFrontmatter } from '../extensions/frontmatter.ts';
+import { bodyEdgeEmpties } from './doc-boundary-space.ts';
+
 const COMMONMARK_ESCAPE_RE = /\\([!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g;
 
 const TABLE_ALIGN_ROW_RE = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/;
@@ -228,8 +231,12 @@ function interiorBlankRunLengths(s: string): number[] {
 }
 
 export function addsBlankLines(baseline: string, candidate: string): boolean {
-  const before = interiorBlankRunLengths(baseline);
-  const after = interiorBlankRunLengths(candidate);
+  const beforeEdges = bodyEdgeEmpties(baseline);
+  const afterEdges = bodyEdgeEmpties(candidate);
+  if (afterEdges.leading > beforeEdges.leading) return true;
+  if (afterEdges.trailing > beforeEdges.trailing) return true;
+  const before = interiorBlankRunLengths(stripFrontmatter(baseline).body);
+  const after = interiorBlankRunLengths(stripFrontmatter(candidate).body);
   if (before.length !== after.length) return false;
   return after.some((length, i) => length > (before[i] ?? 0));
 }

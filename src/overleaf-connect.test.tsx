@@ -3,6 +3,8 @@ import { confirm } from "@tauri-apps/plugin-dialog";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OverleafPickerDialog, OverleafSettingsSection } from "./overleaf-connect";
+import { AppToastStack } from "./app-log";
+import { clearAppLogs } from "./app-log-store";
 import type { OverleafProject, OverleafStatus } from "./app-types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -66,6 +68,7 @@ function mockConnectedPicker() {
 
 afterEach(() => {
   cleanup();
+  clearAppLogs();
   vi.mocked(confirm).mockReset();
   vi.clearAllMocks();
 });
@@ -452,7 +455,7 @@ describe("Overleaf picker dialog", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("still shows a real failure inline rather than closing", async () => {
+  it("still reports a real failure and keeps the dialog open", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "overleaf_status") return connected;
       if (command === "overleaf_list_projects") return projects;
@@ -463,17 +466,22 @@ describe("Overleaf picker dialog", () => {
     const onBeforeClone = vi.fn();
     const onCloneCancelled = vi.fn();
     render(
-      <OverleafPickerDialog
-        open
-        onClose={onClose}
-        onBeforeClone={onBeforeClone}
-        onCloneCancelled={onCloneCancelled}
-        onCloned={vi.fn()}
-        onOpenSettings={vi.fn()}
-      />,
+      <>
+        <OverleafPickerDialog
+          open
+          onClose={onClose}
+          onBeforeClone={onBeforeClone}
+          onCloneCancelled={onCloneCancelled}
+          onCloned={vi.fn()}
+          onOpenSettings={vi.fn()}
+        />
+        <AppToastStack />
+      </>,
     );
     fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    // The failure is a toast now, not a line inside the dialog; it still has to
+    // reach the user, and the dialog still has to stay open behind it.
     expect(await screen.findByRole("alert")).toHaveTextContent(/Could not reach Overleaf/);
     expect(onBeforeClone).toHaveBeenCalledOnce();
     expect(onCloneCancelled).toHaveBeenCalledOnce();

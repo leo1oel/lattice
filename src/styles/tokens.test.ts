@@ -118,6 +118,11 @@ describe("design token contract", () => {
       for (const match of text.matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
     }
     for (const match of tailwindTheme.matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
+    // The vendored tree is excluded from the scan, but index.css imports the
+    // seam stylesheet directly, so its declarations (e.g. --muted-foreground)
+    // are live everywhere and legitimate to reference from app CSS.
+    const editorThemeSeam = read("src/open-knowledge-app/editor-theme-seam.css")
+    for (const match of editorThemeSeam.matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
 
     const missing = new Map<string, string>()
     for (const { file, text } of sources) {

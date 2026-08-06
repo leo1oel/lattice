@@ -10,6 +10,7 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } 
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App, { mayApplyProjectRefreshV2, planRemoteCollabDeleteUiV2 } from "./App";
+import { clearAppLogs, formatAppLogs } from "./app-log-store";
 import { persistWorkspaceLayout } from "./app-settings";
 import { loadTextLanguageExtensions } from "./document-canvas";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
@@ -251,9 +252,26 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  clearAppLogs();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
+
+function renderApp() {
+  return render(<App />);
+}
+
+/**
+ * `main.tsx` mounts the toast stack beside `<App />`, not inside it, so a test
+ * that renders the app alone cannot see the notifications it raises. Assert
+ * against the store the toasts read from instead: it is the same contract —
+ * every notification goes through `app-notify`, which always logs — and it
+ * keeps a second React tree out of an already heavy suite. `app-log.test.tsx`
+ * covers the rendering.
+ */
+async function expectNotification(pattern: RegExp) {
+  await waitFor(() => expect(formatAppLogs()).toMatch(pattern));
+}
 
 describe("panel layout", () => {
   it("applies a newly measured sidebar minimum during an active drag", () => {
@@ -312,22 +330,22 @@ describe("welcome screen", () => {
   });
 
   it("offers project creation and existing folder import", () => {
-    render(<App />);
+    renderApp();
     expect(screen.getByRole("heading", { name: "Research, written with evidence." })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /open folder/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start product tour" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guided tutorial" })).toBeInTheDocument();
   });
 
-  it("starts the product tour from the welcome screen", async () => {
+  it("starts the guided tutorial from the welcome screen", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "initial_project") return null;
       if (command === "open_tutorial_project") throw new Error("Tutorial fixture stopped after invocation.");
       throw new Error(`Unexpected command: ${command}`);
     });
 
-    render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "Start product tour" }));
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Guided tutorial" }));
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
   });
@@ -338,14 +356,14 @@ describe("welcome screen", () => {
       if (command === "initial_project") return null;
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<App />);
+    renderApp();
     expect(screen.getByRole("heading", { name: "Research, written with evidence." })).toBeInTheDocument();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("initial_project"));
     expect(invoke).not.toHaveBeenCalledWith("open_tutorial_project");
   });
 
   it("opens the project creation dialog", () => {
-    render(<App />);
+    renderApp();
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
     expect(screen.getByLabelText("Project name")).toHaveValue("Untitled research");
@@ -360,7 +378,7 @@ describe("welcome screen", () => {
       if (command === "create_project") throw new Error("That folder already exists and is not empty.");
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<App />);
+    renderApp();
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
     fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("That folder already exists and is not empty.");
@@ -389,7 +407,7 @@ describe("welcome screen", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
     expect(open).not.toHaveBeenCalled();
@@ -417,7 +435,7 @@ describe("welcome screen", () => {
       if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
-    render(<App />);
+    renderApp();
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
     fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "New paper" } });
     fireEvent.click(screen.getByRole("radio", { name: /ICML/i }));
@@ -465,7 +483,7 @@ describe("welcome screen", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_compiled_pdf", {
       projectRoot: "/tmp/lattice-paper",
@@ -480,7 +498,7 @@ describe("welcome screen", () => {
       editorFont: "Menlo, ui-monospace, monospace",
       editorFontSize: 14,
     }));
-    render(<App />);
+    renderApp();
     expect(screen.queryByTitle("Toggle theme")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     const settingsNavigation = await screen.findByRole("navigation", {
@@ -517,7 +535,7 @@ describe("welcome screen", () => {
   });
 
   it("keeps Settings draggable from its header and the top window strip", async () => {
-    render(<App />);
+    renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     const dialog = await screen.findByRole("dialog", { name: "Settings" });
     const header = dialog.querySelector<HTMLElement>(".settings-header")!;
@@ -538,7 +556,7 @@ describe("welcome screen", () => {
   });
 
   it("persists the opt-in editor spellcheck setting", async () => {
-    render(<App />);
+    renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
     const spellcheck = screen.getByLabelText("Check spelling in prose");
@@ -549,7 +567,7 @@ describe("welcome screen", () => {
 
   it("keeps an explicitly selected manual build preference", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    render(<App />);
+    renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Manual only");
@@ -557,7 +575,7 @@ describe("welcome screen", () => {
 
   it("migrates the legacy manual default to automatic build", async () => {
     localStorage.setItem("lattice.build-preferences.v1", JSON.stringify({ autoBuildMode: "manual" }));
-    render(<App />);
+    renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
@@ -575,6 +593,23 @@ describe("project workspace", () => {
     const state = EditorState.create({ doc: source, extensions });
 
     expect(syntaxTree(state).toString()).toContain(expectedNode);
+  });
+
+  it("hands a re-opened file the language it already resolved", async () => {
+    // Opening a file whose language loads asynchronously used to mount the
+    // editor bare and reconfigure it once the language arrived, which parses
+    // the document a second time on every visit. Resolving to the same array
+    // for a second file of the same type is what lets the editor be created
+    // with its language instead.
+    for (const [first, second] of [
+      ["notes.md", "chapters/intro.md"],
+      ["scripts/train.py", "tools/eval.py"],
+    ]) {
+      const initial = await loadTextLanguageExtensions(first);
+      expect(initial.length).toBeGreaterThan(0);
+      expect(await loadTextLanguageExtensions(second)).toBe(initial);
+      expect(await loadTextLanguageExtensions(first)).toBe(initial);
+    }
   });
 
   it("temporarily reveals auxiliary sources without forgetting the selected document view", async () => {
@@ -607,7 +642,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     await waitFor(() => expect(document.querySelector(".source-editor")).toBeNull());
@@ -673,7 +708,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
 
     await waitFor(() => expect(document.querySelector(".columns-canvas")).toBeInTheDocument());
     expect(Array.from(document.querySelectorAll<HTMLElement>(".editor-tab"))
@@ -737,7 +772,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const editorDom = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".source-editor .cm-editor");
       expect(element).not.toBeNull();
@@ -765,6 +800,26 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("checkbox"));
     await waitFor(() => expect(editor.state.doc.toString()).toContain("- [x] Review preview"));
 
+    // An edit the preview published is handed back to it immediately rather
+    // than settled, so the preview's accepted document never trails the source
+    // it just wrote. Outlast the idle budget: both surfaces still agree.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
+    expect(editor.state.doc.toString()).toContain("- [x] Review preview");
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByRole("link", { name: "Visually edited view" })).toBeInTheDocument();
+
+    // Source edits reach the preview on an idle budget rather than per
+    // keystroke. An edit the preview itself published must skip that wait:
+    // handing it back a document older than what it last emitted reads as a
+    // remote revert, and it would roll the user's typing back once the window
+    // elapsed. Outlast the budget and confirm both surfaces still agree.
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
+    expect(editor.state.doc.toString()).toContain("- [x] Review preview");
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByRole("link", { name: "Visually edited view" })).toBeInTheDocument();
+
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
     expect(document.querySelector(".source-editor .cm-editor")).not.toBeNull();
     expect(document.querySelector(".markdown-preview")).toBeNull();
@@ -783,6 +838,12 @@ describe("project workspace", () => {
         insert: "[Updated native view](native-unified-view.md)",
       },
     });
+    // Re-rendering the preview costs a full parse of the document, so source
+    // keystrokes reach it on an idle budget instead of one parse per key. The
+    // edit is still pending on the commit that follows the dispatch, and lands
+    // once typing stops.
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByRole("link", { name: "Updated native view" })).toBeNull();
     expect(await screen.findByRole("link", { name: "Updated native view" })).toBeInTheDocument();
 
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
@@ -822,7 +883,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
     expect(screen.queryByTitle("HTML preview for report.html")).not.toBeInTheDocument();
     fireEvent.pointerDown(documentView);
@@ -874,6 +935,28 @@ describe("project workspace", () => {
     });
     await waitFor(() => expect(screen.getByTitle("HTML preview for report.html").getAttribute("srcdoc"))
       .toContain("<h2>Updated results</h2>"));
+
+    // Republishing srcdoc reloads the frame, so the reader's position has to be
+    // carried across it — otherwise every pause in typing threw the author back
+    // to the top of their own document.
+    const reloaded = screen.getByTitle<HTMLIFrameElement>("HTML preview for report.html");
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: reloaded.contentWindow,
+        data: {
+          type: "lattice:html-preview-scroll",
+          clientHeight: 600,
+          scrollHeight: 4000,
+          scrollTop: 420,
+        },
+      }));
+    });
+    const postMessage = vi.spyOn(reloaded.contentWindow!, "postMessage");
+    fireEvent.load(reloaded);
+    expect(postMessage).toHaveBeenCalledWith(
+      { type: "lattice:html-preview-set-scroll-top", scrollTop: 420 },
+      "*",
+    );
   });
 
   it("adds and removes project dictionary terms from Editor settings", async () => {
@@ -901,7 +984,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
@@ -950,7 +1033,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await switchSidebarMode("Agent");
     const agentFailure = await screen.findByRole("alert");
     expect(agentFailure).toHaveTextContent("Agent unavailable");
@@ -988,7 +1071,7 @@ describe("project workspace", () => {
     });
     localStorage.setItem("lattice.sidebar-mode.v1", "agent");
 
-    render(<App />);
+    renderApp();
     await screen.findByRole("button", { name: "Switch project" });
     expect(screen.getByRole("tab", { name: "Project" })).toHaveAttribute("aria-selected", "true");
     expect(document.querySelector('iframe[title="Agent"]')).toBeNull();
@@ -1060,7 +1143,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await screen.findByRole("button", { name: "Switch project" });
     expect(screen.queryByText("/tmp/lattice-paper")).not.toBeInTheDocument();
     expect(document.querySelector(".titlebar-navigator")).not.toHaveAttribute("style");
@@ -1073,7 +1156,7 @@ describe("project workspace", () => {
     expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Light" })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Settings" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Start product tour" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Guided tutorial" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /open another folder/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize workspace sidebar" })).toBeInTheDocument();
@@ -1124,7 +1207,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await screen.findByRole("button", { name: "Hide sidebar" });
     await waitFor(() => expect(document.querySelector(".app-shell")).toHaveClass("fullscreen"));
   });
@@ -1149,7 +1232,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await screen.findByRole("button", { name: "Switch project" });
     fireEvent.doubleClick(document.querySelector(".titlebar-drag-area")!);
     await waitFor(() => expect(windowApi.setFullscreen).toHaveBeenCalledWith(true));
@@ -1175,7 +1258,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const divider = await screen.findByRole("separator", { name: "Resize workspace sidebar" });
     expect(divider).toHaveAttribute("aria-valuenow", "320");
     expect(document.querySelector<HTMLElement>(".workspace")?.style.gridTemplateAreas)
@@ -1276,7 +1359,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     expect(queryProjectTreeItem("notes.md")).toBeNull();
     expect(await findProjectTreeItem("notes.md", 3500)).toBeInTheDocument();
   });
@@ -1346,7 +1429,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const file = await findProjectTreeItem("chapters/method/main.tex");
     await waitFor(() => expect(file).toHaveAttribute("data-item-git-status", "modified"));
 
@@ -1398,7 +1481,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const editorElement = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");
       expect(element).not.toBeNull();
@@ -1444,7 +1527,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const editorElement = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");
       expect(element).not.toBeNull();
@@ -1497,7 +1580,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
       force: false,
       projectRoot: "/tmp/lattice-paper",
@@ -1546,7 +1629,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await switchSidebarMode("Papers");
     const papers = within(await screen.findByRole("list", { name: "Papers" }));
     // Its preprint is known, so the row offers to fetch rather than going dead.
@@ -1600,7 +1683,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await switchSidebarMode("Papers");
     const box = await screen.findByPlaceholderText("arXiv id, DOI, URL, or title");
     fireEvent.change(box, { target: { value: "10.1109/CVPR.2016.90" } });
@@ -1611,9 +1694,7 @@ describe("project workspace", () => {
     }));
     // The DOI must not be mistaken for an arXiv id, and the message has to
     // admit there is nothing to open rather than imply a paper was fetched.
-    expect(
-      await screen.findByText(/Cited .Deep Residual Learning.*No full text to open/),
-    ).toBeInTheDocument();
+    await expectNotification(/Cited .Deep Residual Learning.*No full text to open/);
   });
 
   it("shows imported papers by title while keeping the arXiv id", async () => {
@@ -1647,7 +1728,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await switchSidebarMode("Papers");
     const paper = await screen.findByRole("button", { name: /Attention Is All You Need.*1706\.03762/i });
     fireEvent.click(paper);
@@ -1749,7 +1830,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByTitle("Attention Is All You Need"));
     const paperContent = await screen.findByRole("tablist", { name: "Paper content" });
@@ -1797,7 +1878,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const searchToggle = await screen.findByRole("button", { name: "Search files" });
     fireEvent.click(searchToggle);
     let input = await findProjectTreeSearchInput();
@@ -1849,7 +1930,7 @@ describe("project workspace", () => {
       if (command === "rename_project_entry") return "paper.tex";
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
-    render(<App />);
+    renderApp();
 
     fireEvent.contextMenu(await findProjectTreeItem("main.tex"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
@@ -1927,7 +2008,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const source = await findProjectTreeItem("draft.tex");
     const figures = await findProjectTreeItem("figures/");
     const notes = await findProjectTreeItem("notes/");
@@ -2061,7 +2142,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const source = await findProjectTreeItem("main.tex");
     const target = await findProjectTreeItem("references.bib");
     fireEvent.pointerDown(source, {
@@ -2124,7 +2205,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const source = await findProjectTreeItem("draft.tex");
     const target = await findProjectTreeItem("sections/");
     fireEvent.pointerDown(source, {
@@ -2196,7 +2277,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const source = await findProjectTreeItem("sections/draft.tex");
     const rootFile = await findProjectTreeItem("main.tex");
     fireEvent.pointerDown(source, {
@@ -2261,7 +2342,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const source = await findProjectTreeItem("draft.tex");
     const flattenedSegment = await waitFor(() => {
       const element = projectTreeRoot()?.querySelector<HTMLElement>(
@@ -2318,7 +2399,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     fireEvent.contextMenu(await findProjectTreeItem("main.tex"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Show in Finder" }));
     await waitFor(() => expect(revealItemInDir).toHaveBeenCalledWith("/tmp/lattice-paper/main.tex"));
@@ -2351,7 +2432,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     fireEvent.contextMenu(await findProjectTreeItem("figures/"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Import images here" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_assets", {
@@ -2388,7 +2469,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const editorContent = await waitFor(() => {
       const content = document.querySelector<HTMLElement>(".source-editor .cm-content");
       expect(content).not.toBeNull();
@@ -2464,7 +2545,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     fireEvent.click(await findProjectTreeItem("draft.tex"));
     await waitFor(() => expect(screen.getByRole("tab", { name: /draft\.tex/ }))
       .toHaveAttribute("aria-selected", "true"));
@@ -2550,7 +2631,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const editorContent = await waitFor(() => {
       const content = document.querySelector<HTMLElement>(".source-editor .cm-content");
       expect(content).not.toBeNull();
@@ -2620,7 +2701,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     fireEvent.click(await findProjectTreeItem("figures/"));
     fireEvent.click(await findProjectTreeItem("figures/existing.svg"));
     const preview = await screen.findByAltText("Preview of figures/existing.svg");
@@ -2721,7 +2802,7 @@ describe("project workspace", () => {
       destroy: vi.fn(),
     } as never);
 
-    render(<App />);
+    renderApp();
     expect(queryProjectTreeItem("figures/native-umm.svg")).toBeNull();
     fireEvent.click(await findProjectTreeItem("figures/"));
     expect(await findProjectTreeItem("figures/native-umm.svg")).toBeInTheDocument();
@@ -2975,7 +3056,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
       force: false,
       projectRoot: "/tmp/lattice-paper",
@@ -3081,18 +3162,10 @@ describe("project workspace", () => {
     await waitFor(() => expect(revealCursor).toBeEnabled());
     forwardSyncFailure = "This bibliography entry is not included in the compiled PDF.";
     fireEvent.click(revealCursor);
-    const forwardSyncWarning = await screen.findByText(forwardSyncFailure);
-    expect(forwardSyncWarning.closest(".warning-banner")).not.toBeNull();
-    expect(document.querySelector(".notice-banner")).toBeNull();
-    expect(document.querySelector(".error-banner")).toBeNull();
-    editorView.focus();
-    expect(editorView.hasFocus).toBe(true);
-    const selectionBeforeDismiss = editorView.state.selection.main;
-    const dismissWarning = screen.getByRole("button", { name: "Dismiss warning" });
-    expect(fireEvent.mouseDown(dismissWarning)).toBe(false);
-    expect(editorView.hasFocus).toBe(true);
-    fireEvent.click(dismissWarning);
-    expect(editorView.state.selection.main.eq(selectionBeforeDismiss)).toBe(true);
+    // A failed reverse-sync is a warning, not an error: the click did nothing,
+    // but nothing broke either. `app-log.test.tsx` covers how it is drawn.
+    await expectNotification(new RegExp(`\\[WARNING\\].*\\n?.*${forwardSyncFailure.replace(/[.]/g, "\\.")}`));
+    expect(formatAppLogs()).not.toMatch(/\[ERROR\]/);
     expect(revealReconfigurations).toBe(0);
     forwardSyncFailure = null;
     const zoomInput = screen.getByLabelText("PDF zoom percentage") as HTMLInputElement;
@@ -3120,7 +3193,7 @@ describe("project workspace", () => {
       expect.objectContaining({ byteLength: 8 }),
       { headers: { "x-pdf-destination": "L3RtcC9leHBvcnRlZC1wYXBlci5wZGY=" } },
     ));
-    expect(await screen.findByText("Saved to /tmp/exported-paper.pdf")).toBeInTheDocument();
+    await expectNotification(/Saved to \/tmp\/exported-paper\.pdf/);
     const pdfPage = screen.getByLabelText("PDF page 1");
     // Double-click (not single click) jumps from the PDF back to the source.
     fireEvent.doubleClick(pdfPage, { clientX: 110, clientY: 220 });
@@ -3180,7 +3253,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const diagnosticsPanel = await screen.findByLabelText("Compile diagnostics");
     expect(diagnosticsPanel.closest(".pdf-column")).toBeInTheDocument();
     expect(diagnosticsPanel.parentElement).not.toHaveClass("workspace");
@@ -3240,7 +3313,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const editorElement = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");
       expect(element).not.toBeNull();
@@ -3301,7 +3374,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await waitFor(() => expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true"));
     fireEvent.click(await findProjectTreeItem("intro.tex"));
     fireEvent.click(await findProjectTreeItem("notes.tex"));
@@ -3371,7 +3444,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const initialEditor = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");
       const view = element ? EditorView.findFromDOM(element) : null;
@@ -3456,7 +3529,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const editorElement = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");
       expect(element).not.toBeNull();
@@ -3498,7 +3571,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
     await switchSidebarMode("Papers");
     expect(screen.queryByTitle("Insert citation for vaswani2017attention")).not.toBeInTheDocument();
@@ -3540,7 +3613,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     fireEvent.click(await screen.findByRole("button", { name: "Project history" }));
     // HistoryDrawer is lazy-loaded, so wait for its chunk to resolve.
     fireEvent.click(await screen.findByRole("button", { name: /Edit main\.tex/i }));
@@ -3582,7 +3655,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     expect(await screen.findByLabelText("Show document outline")).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Show outline"));
     expect(await screen.findByLabelText("Document outline")).toBeInTheDocument();
@@ -3618,7 +3691,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     fireEvent.click(await screen.findByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }));
     const palette = await screen.findByLabelText("Insert LaTeX snippets");
     expect(palette).toHaveClass("resizable-drawer");
@@ -3660,7 +3733,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     const projectTreeSurface = await screen.findByLabelText("Project files");
     fireEvent.contextMenu(projectTreeSurface);
     fireEvent.click(await screen.findByRole("menuitem", { name: "New file" }));
@@ -3737,7 +3810,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
-    render(<App />);
+    renderApp();
     await screen.findByLabelText("Project files");
     fireEvent.click(screen.getByRole("button", { name: "New board" }));
     const nameInput = await findProjectTreeRenameInput();

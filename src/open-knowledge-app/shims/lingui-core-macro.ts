@@ -30,3 +30,16 @@ export function msg(strings: TemplateStringsArray, ...values: unknown[]): Messag
   const text = interpolate(strings, values);
   return { id: text, message: text };
 }
+
+/**
+ * `plural` — English-only CLDR selection. Upstream relies on the active
+ * catalog's own plural categories; this host ships English, whose categories
+ * are exactly `one` and `other`. `#` interpolates the count, as in Lingui.
+ */
+export function plural(
+  value: number,
+  forms: { one?: string; other: string } & Record<string, string | undefined>,
+): string {
+  const form = (value === 1 ? forms.one : forms.other) ?? forms.other;
+  return form.replace(/#/g, String(value));
+}

@@ -691,14 +691,14 @@ const accordionProps: PropDef[] = [
     name: 'title',
     type: 'string',
     required: true,
-    description: 'Accordion heading shown inside the <summary>',
+    description: 'Heading shown inside the <summary>',
   },
   {
     name: 'defaultOpen',
     type: 'boolean',
     required: false,
     defaultValue: false,
-    description: 'When true, the accordion renders expanded on initial load',
+    description: 'When true, the block renders expanded on initial load',
   },
   // advanced — custom icon override, subtitle, deep-link anchor, exclusive-
   // group identifier. All taste-and-edge-case territory; default rendering
@@ -1300,9 +1300,29 @@ export const builtInComponents: JsxComponentMeta[] = [
     displayName: 'Accordion',
     description:
       'Standalone expand/collapse via native HTML5 <details>/<summary>. Group siblings with the `name` prop for exclusive-accordion UX.',
-    searchTerms: ['toggle', 'accordion', 'expandable', 'details', 'disclosure', 'collapse', 'fold'],
+    searchTerms: ['accordion', 'expandable', 'details', 'disclosure', 'collapse', 'fold'],
     exampleBody: 'Body content revealed when the accordion is expanded.',
     serialize: (node, ctx) => emitMdxJsx('Accordion', node, ctx, accordionProps),
+  },
+  {
+    // Toggle is Accordion's Notion-vocabulary alias. Same prop surface, same
+    // React component (componentMap['Toggle'] → Accordion); the descriptor
+    // exists so authors who reach for `<Toggle …>` in MDX or `/toggle` in the
+    // slash menu get a first-class insertion at their preferred name instead
+    // of being rewritten to `<Accordion>`. Both descriptors serialize to
+    // their own JSX name, so round-trips preserve whichever the author chose.
+    name: 'Toggle',
+    surface: 'canonical',
+    hasChildren: true,
+    props: accordionProps,
+    icon: 'ChevronRight',
+    category: 'content',
+    displayName: 'Toggle',
+    description:
+      'Standalone expand/collapse block (Notion-style). Same render + props as `<Accordion>` — pick whichever vocabulary matches the vault.',
+    searchTerms: ['toggle', 'collapsible', 'expand', 'details', 'disclosure', 'fold'],
+    exampleBody: 'Body content revealed when the toggle is expanded.',
+    serialize: (node, ctx) => emitMdxJsx('Toggle', node, ctx, accordionProps),
   },
   // Tabs + Tab canonical pair — Notion-style pill strip + active-panel
   // container. Pair of jsxComponent descriptors; Tabs holds Tab children,

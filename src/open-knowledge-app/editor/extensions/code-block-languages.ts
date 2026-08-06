@@ -6,14 +6,34 @@
  * Aliases let users type `js` / `ts` / `sh` / etc. in the filter input.
  */
 
+import type { MessageDescriptor } from '@ok-app/shims/lingui-core';
+import { msg } from '@ok-app/shims/lingui-core-macro';
+
 interface CodeLanguageOption {
   value: string;
+  /**
+   * The picker's display name. Almost every entry is a language proper noun
+   * (`Bash`, `Python`, `SQL`) that stays as written in every locale — a
+   * translated `Rust` would name nothing.
+   */
   label: string;
+  /**
+   * Set only on the entries whose label is descriptive English rather than a
+   * proper noun. Deferred (a descriptor, not a `t` call) because this list is
+   * module scope: resolving here would freeze the picker in whatever language
+   * was active at import. `CodeBlockView` resolves it per render.
+   */
+  labelMessage?: MessageDescriptor;
   aliases?: string[];
 }
 
 export const CODE_BLOCK_LANGUAGES: CodeLanguageOption[] = [
-  { value: 'plaintext', label: 'Plain text', aliases: ['text', 'txt', 'none'] },
+  {
+    value: 'plaintext',
+    label: 'Plain text',
+    labelMessage: msg`Plain text`,
+    aliases: ['text', 'txt', 'none'],
+  },
   // `'shell'` is intentionally NOT an alias of `bash` — the canonical
   // `'shell'` entry below is a distinct highlight.js grammar (shell-session
   // prompt + output). Listing it here would have been overwritten by the
@@ -24,6 +44,7 @@ export const CODE_BLOCK_LANGUAGES: CodeLanguageOption[] = [
   { value: 'csharp', label: 'C#', aliases: ['cs'] },
   { value: 'css', label: 'CSS' },
   { value: 'diff', label: 'Diff', aliases: ['patch'] },
+  { value: 'gherkin', label: 'Gherkin', aliases: ['feature', 'cucumber', 'bdd'] },
   { value: 'go', label: 'Go', aliases: ['golang'] },
   { value: 'graphql', label: 'GraphQL', aliases: ['gql'] },
   { value: 'ini', label: 'INI', aliases: ['toml'] },
@@ -44,7 +65,12 @@ export const CODE_BLOCK_LANGUAGES: CodeLanguageOption[] = [
   { value: 'ruby', label: 'Ruby', aliases: ['rb'] },
   { value: 'rust', label: 'Rust', aliases: ['rs'] },
   { value: 'scss', label: 'SCSS', aliases: ['sass'] },
-  { value: 'shell', label: 'Shell session', aliases: ['console', 'shellsession'] },
+  {
+    value: 'shell',
+    label: 'Shell session',
+    labelMessage: msg`Shell session`,
+    aliases: ['console', 'shellsession'],
+  },
   { value: 'sql', label: 'SQL' },
   { value: 'swift', label: 'Swift' },
   { value: 'typescript', label: 'TypeScript', aliases: ['ts', 'tsx'] },

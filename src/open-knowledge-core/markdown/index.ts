@@ -74,6 +74,7 @@ import {
   serializeMd,
 } from './pipeline.ts';
 import { normalizeDocRelativeAssetUrl } from './resolve-image-url.ts';
+import { emitMdxJsxTextFromNode } from './serialize-helpers.ts';
 import { flattenCellBlocks } from './table-cell-flatten.ts';
 import { toMarkdownHandlers } from './to-markdown-handlers.ts';
 import {
@@ -257,7 +258,10 @@ function hasDirtyDescendant(node: PmNode): boolean {
   let found = false;
   node.descendants((child) => {
     if (found) return false; // short-circuit
-    if (child.type.name === 'jsxInline') return false; // skip jsxInline subtrees
+    if (child.type.name === 'jsxInline') {
+      if (child.attrs.sourceDirty) found = true;
+      return false;
+    }
     if (child.type.name === 'jsxComponent' && child.attrs.sourceDirty) {
       found = true;
       return false;
@@ -805,6 +809,25 @@ function buildMdastToPmHandlers(
       if (node.name === 'Tag' && n.tag) {
         const value = extractStringAttr(node, 'value') ?? '';
         return n.tag.create({ value });
+      }
+      const inlineName = node.name ?? '';
+      const inlineDescriptor = inlineName ? registry.get(inlineName) : undefined;
+      if (inlineDescriptor && n.jsxInline) {
+        const structuredAttrs = destructureAttrs(node.attributes, inlineDescriptor.props);
+        const raw = rawFromData(node.data) ?? '';
+        const bodyText = (node.children ?? [])
+          .map((c) => (c && typeof c === 'object' && 'value' in c ? String(c.value ?? '') : ''))
+          .join('');
+        if (bodyText) {
+          structuredAttrs.children = bodyText;
+        }
+        return n.jsxInline.createAndFill({
+          componentName: inlineName,
+          attributes: node.attributes,
+          sourceRaw: raw,
+          sourceDirty: false,
+          props: structuredAttrs,
+        });
       }
       if (n.jsxInline) {
         const raw = rawFromData(node.data) ?? '';
@@ -1381,11 +1404,16 @@ function buildPmToMdastHandlers(
 
   if (n.jsxInline) {
     nodeHandlers.jsxInline = (pmNode: PmNode) => {
-      const raw = pmNode.attrs.sourceRaw || pmNode.textContent || '';
+      const componentName = (pmNode.attrs.componentName as string) || '';
+      if (componentName && pmNode.attrs.sourceDirty) {
+        return emitMdxJsxTextFromNode(componentName, pmNode, registry.get(componentName)?.props);
+      }
+      const attrsFromNode = pmNode.attrs.attributes;
+      const raw = (pmNode.attrs.sourceRaw as string) || pmNode.textContent || '';
       return {
         type: 'mdxJsxTextElement' as const,
-        name: null,
-        attributes: [],
+        name: componentName || null,
+        attributes: Array.isArray(attrsFromNode) ? attrsFromNode : [],
         children: [],
         data: { sourceRaw: String(raw) },
       };

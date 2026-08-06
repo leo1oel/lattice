@@ -14,6 +14,7 @@ import { trackedChangeContext } from "./overleaf-track-changes";
 import type { TrackedChange } from "./use-overleaf-realtime";
 import { formatCommentTimestamp } from "./editor-comments";
 import "./overleaf-changes.css";
+import { InlineMessage } from "./components/ui/inline-message";
 
 export function OverleafChangesPanel(props: {
   changes: TrackedChange[];
@@ -111,7 +112,7 @@ export function OverleafChangesPanel(props: {
         suggested text into ordinary text; rejecting undoes it. Both sides see the result at once.
       </p>
 
-      {props.error && <p className="overleaf-change-error" role="alert">{props.error}</p>}
+      {props.error && <InlineMessage level="error" className="overleaf-change-inline">{props.error}</InlineMessage>}
 
       {sorted.length > 1 && (
         <div className="overleaf-change-bulk-actions">

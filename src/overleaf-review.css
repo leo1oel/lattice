@@ -17,13 +17,11 @@
 .overleaf-review-head h2 { margin: 0 0 var(--space-2); }
 .overleaf-review-head p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
 
-.overleaf-review-error {
-  margin: 0;
+/* Appearance is owned by `.ui-inline-message`; the tinted plate is local. */
+.overleaf-review-inline {
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--status-danger) 12%, transparent);
-  color: var(--status-danger);
-  font-size: var(--type-caption-size);
 }
 
 .overleaf-review-loading {

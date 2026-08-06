@@ -17,8 +17,13 @@
  * the manifest and are never overwritten by this script. Each carries a
  * "Local seam — not upstream code" header.
  *
- * Usage: node scripts/vendor-open-knowledge.mjs [--check]
- *   --check: verify vendored files match upstream+rewrites without writing.
+ * Usage: node scripts/vendor-open-knowledge.mjs [--check|--lock-only]
+ *   --check:     verify vendored files match upstream+rewrites without writing.
+ *   --lock-only: rewrite the LOCK (commit + hashes) without touching vendored
+ *                files. Use after moving the pin by 3-way merge rather than by
+ *                regeneration, so the lock records the new upstream baseline
+ *                while local edits stay in place (they then show as --check
+ *                DRIFT, which is the intended signal).
  */
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -40,6 +45,7 @@ const MANIFEST = [
   "editor/block-ux/keyboard-nav.ts",
   // table chrome: row/column three-dot handles, drag reorder, insert bars
   "editor/table-controls/TableCellHandles.tsx",
+  "editor/table-controls/table-axis-selection.ts",
   "editor/table-controls/useTableDragReorder.tsx",
   "editor/extensions/table-insert-controls.ts",
   "editor/extensions/table-insert-commands.ts",
@@ -532,6 +538,7 @@ function rewrite(content) {
 }
 
 const check = process.argv.includes("--check");
+const lockOnly = process.argv.includes("--lock-only");
 const upstreamCommit = execSync("git rev-parse HEAD", { cwd: UPSTREAM }).toString().trim();
 
 let mismatches = 0;
@@ -554,7 +561,7 @@ for (const rel of MANIFEST) {
       console.error(`DRIFT: ${rel}`);
       mismatches++;
     }
-  } else {
+  } else if (!lockOnly) {
     mkdirSync(path.dirname(destPath), { recursive: true });
     writeFileSync(destPath, content);
   }
@@ -568,7 +575,7 @@ for (const rel of ASSET_DIRS) {
     process.exitCode = 1;
     continue;
   }
-  if (!check) cpSync(srcPath, destPath, { recursive: true });
+  if (!check && !lockOnly) cpSync(srcPath, destPath, { recursive: true });
   for (const f of readdirSync(srcPath)) {
     if (statSync(path.join(srcPath, f)).isFile()) {
       lockFiles[`${rel}/${f}`] = createHash("sha256")
@@ -595,7 +602,11 @@ if (!check) {
       2,
     )}\n`,
   );
-  console.log(`Vendored ${Object.keys(lockFiles).length} files from ${upstreamCommit}`);
+  console.log(
+    lockOnly
+      ? `Locked ${Object.keys(lockFiles).length} files at ${upstreamCommit} (no files written)`
+      : `Vendored ${Object.keys(lockFiles).length} files from ${upstreamCommit}`,
+  );
 } else if (mismatches) {
   console.error(`${mismatches} vendored file(s) drifted from upstream+rewrites`);
   process.exitCode = 1;

@@ -10,6 +10,17 @@ import { afterEach, vi } from "vitest";
 // component first. A ceiling for a hang, not the expected duration of anything.
 configure({ asyncUtilTimeout: 5_000 });
 
+// Every notification is forwarded to the on-disk log (`app-log-store.ts`), which
+// reaches for the Tauri plugin through a dynamic import. Unmocked, that import
+// is a real module resolution on the first notification of a run and its
+// rejection path calls `console.error` — both land in whichever test happened to
+// notify first rather than in any test that is about logging.
+vi.mock("@tauri-apps/plugin-log", () => ({
+  info: vi.fn(async () => undefined),
+  warn: vi.fn(async () => undefined),
+  error: vi.fn(async () => undefined),
+}));
+
 afterEach(() => {
   vi.useRealTimers();
 });

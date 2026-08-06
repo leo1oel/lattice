@@ -29,8 +29,8 @@
 import { Node } from '@tiptap/core';
 import { IMAGE_EXTENSIONS } from '../constants/upload.ts';
 import { extensionOf } from '../utils/extension.ts';
-import { normalizeNullableString } from './wiki-link.ts';
 import { renderInlineObjectText } from './input-rule-text.ts';
+import { normalizeNullableString } from './wiki-link.ts';
 
 export interface WikiLinkEmbedAttrs {
   target: string;

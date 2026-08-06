@@ -10,8 +10,8 @@
 .overleaf-history-empty,
 .overleaf-history-note { margin: 14px 0 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
 .overleaf-history-loading { display: flex; align-items: center; gap: var(--space-3); }
-.overleaf-history-error { margin: var(--space-4) 0 0; color: var(--status-danger); font-size: var(--type-micro-size); }
-.overleaf-history-notice { margin: var(--space-4) 0 0; color: var(--status-success); font-size: var(--type-micro-size); }
+/* Appearance is owned by `.ui-inline-message`; only the spacing is local. */
+.overleaf-history-inline { margin-top: var(--space-4); }
 
 .overleaf-history-list { margin-top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); overflow-y: auto; }
 

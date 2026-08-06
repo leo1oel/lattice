@@ -7,6 +7,15 @@ import { CollabTextDurableStoreV2, textNamespaceKey, type OutboxEntryV2, type Te
 const RESTORE_ORIGIN = Symbol("v2-restore"), REMOTE_ORIGIN = Symbol("v2-remote"), SEND_ORIGIN = Symbol("v2-send");
 export type TextClientPermanentCodeV2 = "revoked" | "stale_epoch" | "file_deleted" | "project_closed" | "tombstoned" | "connection_failed";
 export class TextClientPermanentErrorV2 extends Error { constructor(readonly code: TextClientPermanentCodeV2, options?: ErrorOptions) { super(code, options); } }
+/**
+ * The client was torn down while something was still awaiting it — closing a
+ * file, switching documents, ending a share. That is the normal end of a
+ * client's life, not a failure, so callers surface it as nothing at all rather
+ * than as "Client is destroyed" on screen. A distinct type keeps that decision
+ * off string matching.
+ */
+export class ClientDestroyedErrorV2 extends Error { constructor() { super("Client is destroyed"); } }
+export function isClientDestroyedErrorV2(reason: unknown): boolean { return reason instanceof ClientDestroyedErrorV2; }
 export type TextDurabilityStateV2 = "temporary" | "transport-synced" | "server-durable" | "clean";
 export type TextTransportV2 = { awareness?: Awareness; onCustomMessage(listener: (message: unknown) => void): () => void; onDisconnect(listener: (error?: unknown) => void): () => void; onSynced(listener: (synced: boolean) => void): () => void; clearAwareness(): void; destroy(): void };
 export type TextTransportFactoryV2 = (args: { namespace: TextNamespaceV2; doc: Y.Doc; ticket: string }) => TextTransportV2;
@@ -34,13 +43,13 @@ export class CollabTextClientV2 {
       if (saved.ack && client.validAck(saved.ack)) { const vector = safeDecodeBase64Url(saved.ack.stateVector); if (vector) { client.revision = saved.ack.contentRevision; client.generation = saved.ack.snapshotGeneration; client.durableSeen = true; client.outbox = await options.store.deleteCovered(namespace, vector); } }
     } return client;
   }
-  connect(): Promise<void> { if (this.destroyed) return Promise.reject(new Error("Client is destroyed")); if (this.stopped) return Promise.reject(this.stopped); if (this.transport) return Promise.resolve(); if (this.connecting) return this.connecting;
+  connect(): Promise<void> { if (this.destroyed) return Promise.reject(new ClientDestroyedErrorV2()); if (this.stopped) return Promise.reject(this.stopped); if (this.transport) return Promise.resolve(); if (this.connecting) return this.connecting;
     const connecting = this.connectFresh(); this.connecting = connecting; void connecting.finally(() => { if (this.connecting === connecting) this.connecting = undefined; }).catch(() => undefined); return connecting;
   }
   private async connectFresh(): Promise<void> { this.cancelReconnect(); const generation = ++this.connectionGeneration; this.disposeTransport();
-    try { const ticket = await this.issueTicket(this.namespace); if (generation !== this.connectionGeneration || this.destroyed) throw new Error(this.destroyed ? "Client is destroyed" : "Connection was superseded"); const networkDoc = new Y.Doc(); this.networkDoc = networkDoc;
+    try { const ticket = await this.issueTicket(this.namespace); if (generation !== this.connectionGeneration || this.destroyed) throw this.destroyed ? new ClientDestroyedErrorV2() : new Error("Connection was superseded"); const networkDoc = new Y.Doc(); this.networkDoc = networkDoc;
       networkDoc.on("update", (update: Uint8Array, origin: unknown) => { if (origin !== SEND_ORIGIN) Y.applyUpdate(this.doc, update, REMOTE_ORIGIN); });
-      const transport = this.factory({ namespace: this.namespace, doc: networkDoc, ticket }); if (generation !== this.connectionGeneration || this.destroyed) { transport.destroy(); networkDoc.destroy(); throw new Error(this.destroyed ? "Client is destroyed" : "Connection was superseded"); }
+      const transport = this.factory({ namespace: this.namespace, doc: networkDoc, ticket }); if (generation !== this.connectionGeneration || this.destroyed) { transport.destroy(); networkDoc.destroy(); throw this.destroyed ? new ClientDestroyedErrorV2() : new Error("Connection was superseded"); }
       this.transport = transport; this.unbind = [transport.onCustomMessage((message) => { const checkpoint = Y.encodeStateAsUpdate(this.doc); this.enqueue(() => this.handleCustomMessage(message, checkpoint)); }), transport.onDisconnect((e) => this.onDisconnect(generation, e)), transport.onSynced((synced) => { if (generation === this.connectionGeneration && !this.destroyed) { this.providerSynced = synced; if (synced) { this.reconnectAttempt = 0; this.resolveSyncWaiters(); } this.emitState(); } })];
       for (const entry of this.outbox) Y.applyUpdate(networkDoc, entry.update, SEND_ORIGIN); this.emitTransport(); this.emitState();
     } catch (cause) { if (generation === this.connectionGeneration && !this.destroyed) { if (cause instanceof TextClientPermanentErrorV2) this.stopped = cause; else this.scheduleReconnect(generation); this.emitState(); } throw cause; }
@@ -53,13 +62,13 @@ export class CollabTextClientV2 {
   get isDestroyed(): boolean { return this.destroyed; }
   get awareness(): Awareness | undefined { return this.transport?.awareness; }
   get synced(): boolean { return this.providerSynced; }
-  waitForSynced(timeoutMs = 20_000): Promise<void> { if (this.providerSynced) return Promise.resolve(); if (this.destroyed) return Promise.reject(new Error("Client is destroyed")); return new Promise((resolve, reject) => { const waiter = { resolve, reject, timer: undefined as ReturnType<typeof setTimeout> | undefined }; waiter.timer = setTimeout(() => { this.syncWaiters.delete(waiter); reject(new Error("Timed out waiting for file sync")); }, timeoutMs); this.syncWaiters.add(waiter); }); }
+  waitForSynced(timeoutMs = 20_000): Promise<void> { if (this.providerSynced) return Promise.resolve(); if (this.destroyed) return Promise.reject(new ClientDestroyedErrorV2()); return new Promise((resolve, reject) => { const waiter = { resolve, reject, timer: undefined as ReturnType<typeof setTimeout> | undefined }; waiter.timer = setTimeout(() => { this.syncWaiters.delete(waiter); reject(new Error("Timed out waiting for file sync")); }, timeoutMs); this.syncWaiters.add(waiter); }); }
   get durabilityState(): TextDurabilityStateV2 { return this.outbox.length ? (this.durableSeen ? "server-durable" : (this.providerSynced ? "transport-synced" : "temporary")) : (this.durableSeen ? "clean" : "temporary"); }
   subscribeTransport(listener: () => void): () => void { this.transportListeners.add(listener); return () => this.transportListeners.delete(listener); }
   subscribeState(listener: (state: TextDurabilityStateV2) => void): () => void { this.stateListeners.add(listener); listener(this.durabilityState); return () => this.stateListeners.delete(listener); }
   async exportRecovery() { return this.store.export(this.namespace); }
   async recoverAsNewFile(namespace: TextNamespaceV2): Promise<Uint8Array> { if (namespace.deployment !== this.namespace.deployment || namespace.projectInstanceId !== this.namespace.projectInstanceId || namespace.fileId === this.namespace.fileId || !Number.isSafeInteger(namespace.documentEpoch) || namespace.documentEpoch <= 0) throw new Error("Recovery requires a Coordinator-authorized new file identity"); return Y.encodeStateAsUpdate(this.doc); }
-  destroy(): void { if (this.destroyed) return; this.destroyed = true; ++this.connectionGeneration; this.cancelReconnect(); this.disposeTransport(); for (const waiter of this.syncWaiters) { if (waiter.timer) clearTimeout(waiter.timer); waiter.reject(new Error("Client is destroyed")); } this.syncWaiters.clear(); this.doc.destroy(); this.stateListeners.clear(); this.transportListeners.clear(); }
+  destroy(): void { if (this.destroyed) return; this.destroyed = true; ++this.connectionGeneration; this.cancelReconnect(); this.disposeTransport(); for (const waiter of this.syncWaiters) { if (waiter.timer) clearTimeout(waiter.timer); waiter.reject(new ClientDestroyedErrorV2()); } this.syncWaiters.clear(); this.doc.destroy(); this.stateListeners.clear(); this.transportListeners.clear(); }
   private enqueue(action: () => Promise<void>): void { this.tail = this.tail.then(action, action); }
   private async persistThenPublish(update: Uint8Array): Promise<void> { const entry = { id: await hash(update), update, createdAt: Date.now() }; await this.store.persistLocal(this.namespace, this.doc, entry); if (!this.outbox.some((x) => x.id === entry.id)) this.outbox.push(entry); if (this.networkDoc) Y.applyUpdate(this.networkDoc, update, SEND_ORIGIN); this.emitState(); }
   private async handleCustomMessage(raw: unknown, checkpoint: Uint8Array): Promise<void> { let value = raw; if (typeof raw === "string") { try { value = JSON.parse(raw); } catch { return; } } if (!isDurableAckV2(value) || !this.validAck(value)) return; const ack = value as DurableAckV2; const vector = safeDecodeBase64Url(ack.stateVector); if (!vector) return;
@@ -94,8 +103,8 @@ export class CollabTextProviderPoolV2 {
   constructor(private readonly capacity: number, private readonly clock: () => number = Date.now) { if (!Number.isSafeInteger(capacity) || capacity < 1) throw new RangeError("capacity must be a positive integer"); }
   add(client: CollabTextClientV2): void { const key = textNamespaceKey(client.namespace); const old = this.entries.get(key); if (old) { old.off(); old.client.destroy(); } const entry: { client: CollabTextClientV2; pins: Set<string>; draft: boolean; off: () => void } = { client, pins: new Set<string>(), draft: false, off: () => undefined }; this.entries.set(key, entry); entry.off = client.subscribeState(() => this.evict()); client.touch(this.clock()); this.evict(); }
   remove(client: CollabTextClientV2): void { const key = textNamespaceKey(client.namespace); const entry = this.entries.get(key); if (!entry || entry.client !== client) return; entry.off(); this.entries.delete(key); }
-  pin(client: CollabTextClientV2, reason: "main" | "secondary"): void { this.entry(client).pins.add(reason); client.touch(this.clock()); }
-  unpin(client: CollabTextClientV2, reason: "main" | "secondary"): void { this.entry(client).pins.delete(reason); this.evict(); }
+  pin(client: CollabTextClientV2, reason: "main" | "secondary" | "chat" | "comments"): void { this.entry(client).pins.add(reason); client.touch(this.clock()); }
+  unpin(client: CollabTextClientV2, reason: "main" | "secondary" | "chat" | "comments"): void { this.entry(client).pins.delete(reason); this.evict(); }
   setDraft(client: CollabTextClientV2, draft: boolean): void { this.entry(client).draft = draft; this.evict(); }
   rename(client: CollabTextClientV2, _path: string): CollabTextClientV2 { client.touch(); return client; }
   get size(): number { return this.entries.size; }

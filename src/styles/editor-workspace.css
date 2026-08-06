@@ -44,7 +44,6 @@
 .math-preview { flex: none; max-height: 140px; border-top: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-panel) 70%, var(--editor-bg)); padding: var(--space-4) var(--space-6); overflow: auto; }
 .math-preview > small { display: block; margin-bottom: var(--space-3); color: var(--text-tertiary); font-size: var(--type-nano-size); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
 .math-preview-body { color: var(--text-primary); overflow-x: auto; }
-.math-preview-error { margin: 0; color: var(--status-danger); font-size: var(--type-caption-size); }
 .source-editor { position: relative; flex: 1 1 0; width: 100%; min-height: 0; background: var(--editor-bg); }
 .latex-selection-toolbar-anchor {
   position: fixed;
@@ -837,6 +836,19 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .visual-overleaf-caret * { pointer-events: none; user-select: none; }
 .visual-overleaf-caret-dot { position: absolute; top: -3px; left: -4px; width: 6px; height: 6px; border-radius: 50%; }
 .visual-overleaf-caret-label { position: absolute; z-index: 6; top: -1.35em; left: -1px; padding: 1px 5px; border-radius: 4px 4px 4px 0; color: white; font: 600 var(--type-micro-size)/1.2 var(--ui-font); white-space: nowrap; pointer-events: none; }
+/* Preview counterpart of the source editor's comment marks — same per-author
+   colour, so a comment reads the same on both surfaces. */
+.visual-editor-comment {
+  cursor: pointer;
+  background-color: var(--visual-comment-tint);
+  border-bottom: 2px solid var(--visual-comment-color);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.visual-editor-comment-active { background-color: color-mix(in srgb, var(--visual-comment-color) 28%, transparent); }
+.visual-editor-comment:focus-visible { outline: 2px solid var(--visual-comment-color); outline-offset: 2px; }
+
 .visual-tracked-change { cursor: pointer; background: var(--visual-change-tint); }
 .visual-tracked-change-insert { border-bottom: 2px solid var(--visual-change-color); }
 .visual-tracked-change-delete { text-decoration: line-through 2px var(--visual-change-color); }
@@ -863,8 +875,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .visual-comment-composer { @apply smooth-shadow-ring-md; position: fixed; z-index: var(--z-radix-popper); display: flex; width: min(320px, calc(100vw - 16px)); flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-chrome); background: var(--surface-panel-raised); }
 .visual-comment-composer textarea { width: 100%; min-height: 76px; resize: vertical; border: 1px solid var(--border-subtle); border-radius: var(--radius-compact); outline: none; padding: var(--space-3); background: var(--editor-bg); color: var(--text-primary); font: var(--type-caption-size)/1.45 var(--ui-font); }
 .visual-comment-composer textarea:focus-visible { border-color: var(--control-active-border-strong); box-shadow: 0 0 0 2px var(--control-active-soft); }
-.visual-markdown-conflict { margin-bottom: var(--space-5); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-danger-soft); color: var(--status-danger); font-size: var(--type-caption-size); }
-.visual-markdown-eligibility { margin-top: calc(-1 * var(--space-16)); }
+/* The conflict banner this shared moved to the app's notifications; only the
+   eligibility note is left, and it carries the negative offset that tucks it
+   into the document's top padding. Without that offset the banner sat below
+   the padding and left a blank strip above itself. */
+.visual-markdown-eligibility { margin-top: calc(-1 * var(--space-16)); margin-bottom: var(--space-5); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-danger-soft); color: var(--status-danger); font-size: var(--type-caption-size); }
 .visual-markdown-fidelity-note { margin: calc(-1 * var(--space-8)) 0 var(--space-8); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.45; }
 .visual-code-block { margin-block: var(--space-6); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); background: var(--surface-panel); }
 .visual-code-block-controls { display: flex; min-width: 0; align-items: end; gap: var(--space-2); padding: var(--space-2); border-bottom: 1px solid var(--border-subtle); background: var(--surface-panel); font-family: var(--ui-font); }
@@ -1331,17 +1346,20 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
   font-size: var(--type-nano-size);
 }
 
-.visual-slash-menu,
-[data-ok-vendor] [data-slot="command-list"],
-[data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport] {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
+/* Same reason as theme.css: these would disable the pseudo-element rules below. */
+@supports not selector(::-webkit-scrollbar) {
+  .visual-slash-menu,
+  [data-ok-vendor] [data-slot="command-list"],
+  [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport] {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
 
-.visual-slash-menu:hover,
-[data-ok-vendor] [data-slot="command-list"]:hover,
-[data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]:hover {
-  scrollbar-color: color-mix(in srgb, var(--text-primary) 12%, transparent) transparent;
+  .visual-slash-menu:hover,
+  [data-ok-vendor] [data-slot="command-list"]:hover,
+  [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]:hover {
+    scrollbar-color: color-mix(in srgb, var(--text-primary) 12%, transparent) transparent;
+  }
 }
 
 .visual-slash-menu::-webkit-scrollbar,

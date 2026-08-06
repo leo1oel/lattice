@@ -44,6 +44,11 @@ export { normalizeDocRelativeAssetUrl } from "./markdown/resolve-image-url.ts";
 export { isRelativeUrl } from "./markdown/safe-url.ts";
 export { MarkdownManager } from "./markdown/index.ts";
 export { sharedExtensions } from "./extensions/shared.ts";
+// consumed by vendored editor/bubble-menu/bubble-menu-state.ts — an inline
+// atom (wiki link, inline math) contributes no `textBetween` characters, so a
+// selection containing only one used to read as empty and suppress the bubble
+// menu entirely.
+export { commentQuoteText } from "./comments/leaf-text.ts";
 
 /**
  * Upstream renamed this type after our core snapshot was taken; vendored

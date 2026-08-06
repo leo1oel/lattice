@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { mathRegionAt } from "./math-region";
+import { InlineMessage } from "./components/ui/inline-message";
 
 /**
  * Strip LaTeX bookkeeping that lives inside a math environment but isn't math —
@@ -51,7 +52,7 @@ export function MathPreview(props: {
     <div className="math-preview" aria-label="Math preview">
       <small>Math preview</small>
       {rendered.error
-        ? <p className="math-preview-error" role="alert">{rendered.error}</p>
+        ? <InlineMessage level="error">{rendered.error}</InlineMessage>
         : <div className="math-preview-body" dangerouslySetInnerHTML={{ __html: rendered.html }} />}
     </div>
   );

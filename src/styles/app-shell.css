@@ -112,18 +112,6 @@ input[type="search"]:focus-visible {
 @keyframes icon-swap { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
 @keyframes menu-in { from { opacity: 0; transform: translateY(-4px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-/* Above `--z-modal-backdrop`, because the failures worth reporting are mostly
-   raised by a dialog: saving a skill under an invalid name, adding an MCP
-   server, changing a root document. Left in flow, the banner painted behind
-   the blurred overlay, so the dialog stayed open and said nothing and the work
-   looked as though it had simply not registered. */
-.error-banner, .warning-banner, .notice-banner { position: fixed; z-index: var(--z-banner); top: 48px; right: 10px; width: min(420px, calc(100vw - 20px)); min-height: 38px; display: flex; align-items: center; gap: var(--space-4); padding: 7px 9px 7px 11px; border-radius: var(--radius-panel); font-size: var(--type-caption-size); font-weight: 400; animation: menu-in var(--duration-base) var(--ease-emphasized); }
-.error-banner { --smooth-ring-color: color-mix(in srgb, var(--status-danger) 28%, var(--border-subtle)); color: var(--status-danger); }
-.warning-banner { --smooth-ring-color: color-mix(in srgb, var(--status-warning) 28%, var(--border-subtle)); color: var(--status-warning); background: color-mix(in srgb, var(--status-warning) 6%, var(--surface-panel-raised)); }
-.notice-banner { --smooth-ring-color: color-mix(in srgb, var(--status-success) 25%, var(--border-subtle)); color: var(--status-success); }
-.error-banner > svg, .warning-banner > svg, .notice-banner > svg { width: 15px; height: 15px; flex: none; }
-.error-banner span, .warning-banner span, .notice-banner span { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; }
-.error-banner button, .warning-banner button, .notice-banner button { background: transparent; color: inherit; padding: 3px; display: grid; place-items: center; }
 .compile-diagnostics { --smooth-ring-color: color-mix(in srgb, var(--status-danger) 22%, var(--border-subtle)); position: absolute; z-index: var(--z-diagnostics); top: 46px; right: var(--space-4); width: min(440px, calc(100% - 16px)); border-radius: var(--radius-panel); color: var(--status-danger); overflow: hidden; }
 .compile-diagnostics.warning { --smooth-ring-color: color-mix(in srgb, var(--status-warning) 22%, transparent); background: color-mix(in srgb, var(--status-warning) 10%, var(--surface-panel)); color: var(--status-warning); }
 .compile-diagnostics.info { --smooth-ring-color: var(--border-subtle); background: var(--surface-panel); color: var(--text-secondary); }

@@ -2,7 +2,7 @@
   "repository": "https://github.com/leo1oel/synara.git",
   "upstream": "https://github.com/Emanuele-web04/synara.git",
   "branch": "codex/lattice-embed",
-  "revision": "cfb9b20cb486d0c2b60f5fa156981316017477a2",
+  "revision": "1fba1eb552a7715850869089bede41c11cdecf0a",
   "sourceDirectory": "../synara-poc",
   "nodeVersion": "24.13.0"
 }

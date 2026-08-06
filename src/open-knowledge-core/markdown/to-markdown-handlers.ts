@@ -713,6 +713,12 @@ export const toMarkdownHandlers = {
     if (typeof raw === 'string') return raw;
     const name = node.name ?? '';
     const attrs = serializeMdxJsxAttrs(node.attributes ?? []);
+    const body = (node.children ?? [])
+      .map((c) => (c && typeof c === 'object' && 'value' in c ? String(c.value ?? '') : ''))
+      .join('');
+    if (body) {
+      return attrs ? `<${name} ${attrs}>${body}</${name}>` : `<${name}>${body}</${name}>`;
+    }
     return attrs ? `<${name} ${attrs} />` : `<${name}/>`;
   },
 

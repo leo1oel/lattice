@@ -10,13 +10,12 @@
 .conflict-resolver h2 { margin: 0; }
 .conflict-resolver > p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
 
-.conflict-error {
-  margin: 0;
+/* Appearance is owned by `.ui-inline-message`; the tinted plate is local, so
+   a failure still reads as a block inside the dialog's own stack. */
+.conflict-resolver .ui-inline-message {
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--status-danger) 12%, transparent);
-  color: var(--status-danger);
-  font-size: var(--type-caption-size);
 }
 .conflict-loading {
   display: flex;

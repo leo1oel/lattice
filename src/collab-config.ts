@@ -14,6 +14,22 @@ export function builtInCollabHost(): string {
   return host;
 }
 
+/**
+ * Origin the control plane, binary uploads, and invitations address.
+ *
+ * A `wrangler dev` server speaks plain HTTP, so forcing `https://` on a local
+ * host fails the TLS handshake before the request leaves the WebView ("Load
+ * failed") and the documented local-test flow can never reach the Worker. The
+ * scheme therefore tracks what the Yjs transport already does: `y-partyserver`
+ * picks `ws://` for exactly this set of hosts and `wss://` for the rest, so the
+ * two planes agree on whether a deployment is local.
+ */
+export function collabDeploymentOrigin(host: string): string {
+  const raw = host.trim();
+  if (raw.includes("://")) return new URL(raw).origin;
+  return new URL(`${isLocalCollabHost(raw) ? "http" : "https"}://${raw}`).origin;
+}
+
 export function isLocalCollabHost(host: string): boolean {
   const normalized = host.trim().toLowerCase();
   return (

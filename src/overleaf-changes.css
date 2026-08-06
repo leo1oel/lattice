@@ -86,8 +86,4 @@
 .overleaf-change-actions button.danger:hover:not(:disabled),
 .overleaf-change-bulk-actions button.danger:hover:not(:disabled) { color: var(--status-danger); }
 
-.overleaf-change-error {
-  margin: 0 0 var(--space-4);
-  font-size: var(--type-caption-size);
-  color: var(--status-danger);
-}
+.overleaf-change-inline { margin-bottom: var(--space-4); }

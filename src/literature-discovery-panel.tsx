@@ -9,11 +9,16 @@ import {
 } from "lucide-react";
 import { baseArxivId } from "./arxiv-id";
 import { CheckboxField } from "./components/ui/checkbox-field";
+import { InlineMessage } from "./components/ui/inline-message";
+import { notifySuccess } from "./app-notify";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { EmptyState } from "./components/ui/empty-state";
 import { PanelHeader } from "./components/ui/panel-header";
 import { SearchField } from "./components/ui/search-field";
 import { ResizableDrawer } from "./resizable-drawer";
+
+/** Notification source label for literature discovery. */
+const LITERATURE_SOURCE = "Literature";
 
 export { baseArxivId };
 
@@ -158,12 +163,16 @@ export function LiteratureDiscoveryPanel(props: {
         precise: searched.precise,
         page: nextPage,
       });
+      // A new search may have started while this page was in flight; its
+      // results, paging, and seen-set belong to the old query — drop them.
+      if (searchedRef.current !== searched) return;
       pageRef.current = nextPage;
       const fresh = dedupeFresh(page.hits);
       setResults((current) => [...current, ...fresh]);
       setHasMore(page.hasMore);
       setVisible((current) => current + REVEAL_STEP);
     } catch (reason) {
+      if (searchedRef.current !== searched) return;
       setError(message(reason));
       setHasMore(false);
     } finally {
@@ -217,8 +226,8 @@ export function LiteratureDiscoveryPanel(props: {
             Search
           </button>
         </form>
-        {error ? <p className="history-diff-error" role="alert">{error}</p> : null}
-        {notice ? <p className="git-notice" role="status">{notice}</p> : null}
+        {error ? <InlineMessage level="error">{error}</InlineMessage> : null}
+        {notice ? <InlineMessage level="info">{notice}</InlineMessage> : null}
         <div className="literature-results">
           {results.slice(0, visible).map((work) => {
             const key = hitKey(work);
@@ -252,7 +261,7 @@ export function LiteratureDiscoveryPanel(props: {
                         setError("");
                         Promise.resolve(props.onImportArxiv(work.arxivId!))
                           .then(() => {
-                            setNotice(`Imported arXiv:${work.arxivId}`);
+                            notifySuccess(LITERATURE_SOURCE, `Imported arXiv:${work.arxivId}`);
                             setJustImported((current) => new Set(current).add(baseArxivId(work.arxivId!)));
                           })
                           .catch((reason) => setError(message(reason)))

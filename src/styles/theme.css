@@ -114,7 +114,20 @@ textarea {
 }
 
 @media (pointer: fine) {
-  * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-primary) 8%, transparent) transparent; }
+  /*
+   * The two scrollbar styling systems cannot be declared together. WebKit and
+   * Blink ignore every `::-webkit-scrollbar-*` rule on a scroller that also
+   * sets `scrollbar-width` or `scrollbar-color`, so declaring both here meant
+   * the standard properties won and the geometry below — a 10px track inset by
+   * 5px + 1px borders, i.e. the same 4px thumb the overlay ScrollArea draws —
+   * never rendered anywhere in the app. Native scrollers fell back to the
+   * platform's thicker "thin" bar, which is why they never matched the PDF
+   * viewer's. Keep the standard properties for engines that have no legacy
+   * pseudo-elements; the query is false in WebKit either way it answers.
+   */
+  @supports not selector(::-webkit-scrollbar) {
+    * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-primary) 8%, transparent) transparent; }
+  }
   *::-webkit-scrollbar { width: 10px; height: 10px; }
   *::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
   *::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--text-primary) 8%, transparent); background-clip: content-box; }

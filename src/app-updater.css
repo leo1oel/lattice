@@ -1,5 +1,12 @@
 /* In-app update banner + settings control. Uses Lattice's design tokens with
-   safe fallbacks so it also renders correctly outside the app shell. */
+   safe fallbacks so it also renders correctly outside the app shell.
+
+   Width, inset, radius, padding and fill deliberately match `.app-toast` in
+   `styles/adaptive-feedback.css`: the banner stacks directly above the toasts
+   in the same corner, and two cards an inch apart in slightly different shapes
+   read as two different systems. This one stays a separate component only
+   because it owns a progress bar and an Install button, which a toast is the
+   wrong shape for. */
 .app-update-banner {
   position: fixed;
   z-index: var(--z-app-updater, 9999);
@@ -12,9 +19,9 @@
   box-sizing: border-box;
   width: 320px;
   max-width: calc(100vw - 32px);
-  padding: var(--space-5) var(--space-6);
-  border-radius: 12px;
-  background: var(--surface-panel);
+  padding: var(--space-5);
+  border-radius: 11px;
+  background: var(--surface-panel-raised, var(--surface-panel));
   color: var(--text-primary);
   font-size: var(--type-label-size);
   animation: app-update-in var(--duration-base) var(--ease-out);

@@ -9,7 +9,7 @@
  * anyone else. It does not touch the editor or the document text — it only
  * ever sees `(row, column)` pairs, zero-based the way Overleaf counts them.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -39,6 +39,9 @@ const DEBOUNCE_WITH_OTHERS_MS = 500;
 const DEBOUNCE_ALONE_MS = 5 * 60 * 1000;
 /** Comfortably inside the server's 15-minute expiry, so one missed tick never drops us. */
 const KEEPALIVE_MS = 4 * 60 * 1000;
+
+/** One empty roster, so "nobody else is here" keeps a stable identity. */
+const NO_PEERS: PresenceUser[] = [];
 
 export type OverleafPresence = {
   /** Everyone else in the project. Our own entry is never in here. */
@@ -222,9 +225,17 @@ export function useOverleafPresence(options: {
     }, alone ? DEBOUNCE_ALONE_MS : DEBOUNCE_WITH_OTHERS_MS);
   }, [options.docId, options.projectRoot, roster]);
 
-  const peers = options.projectRoot && roster.projectRoot === options.projectRoot
-    ? Array.from(roster.users.values()).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
-    : [];
+  // Rebuilding this list on every render gave it a new identity on every
+  // keystroke, which walked all the way down to a CodeMirror transaction that
+  // repainted remote carets while you typed — including in projects that were
+  // never linked to Overleaf, where the list is always empty.
+  const peers = useMemo(
+    () => (options.projectRoot && roster.projectRoot === options.projectRoot
+      ? Array.from(roster.users.values())
+        .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+      : NO_PEERS),
+    [options.projectRoot, roster],
+  );
 
   return { peers, publish };
 }

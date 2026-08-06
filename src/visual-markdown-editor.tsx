@@ -56,7 +56,10 @@ import { detectClipboardPrefillUrl } from "@ok-app/editor/clipboard/lone-url";
 import { ImageSrcFidelity } from "./open-knowledge-core/extensions/image-src-fidelity";
 import { ProjectImageHostProvider, useProjectImageSrc } from "./project-image-host";
 import type { PresenceCursor } from "./overleaf-cursors";
-import { resolveCommentAnchor } from "./editor-comment-data";
+import { resolveCommentAnchor, type EditorComment } from "./editor-comment-data";
+import { peerColorForKey } from "./collab-colors";
+import { notifyError } from "./app-notify";
+import { dismissAppToastByDedupeKey } from "./app-log-store";
 import Zoom from "react-medium-image-zoom";
 import { Check, X } from "lucide-react";
 import { markdownPreviewSyncPolicy } from "./markdown-preview-sync-policy";
@@ -480,6 +483,83 @@ function visualTrackChangeDecorations(
   }));
 }
 
+const EMPTY_EDITOR_COMMENTS: EditorComment[] = [];
+
+type VisualCommentsMeta = { text: string; comments: EditorComment[]; activeId: string | null };
+const visualCommentsKey = new PluginKey<VisualCommentsMeta & { decorations: DecorationSet }>(
+  "visualEditorComments",
+);
+
+/**
+ * Comment highlights for the preview.
+ *
+ * Comments are anchored to source offsets, and only the CodeMirror surface
+ * could paint them — a comment on a Markdown file was invisible to everyone
+ * reading it in the preview, including the person who wrote it. The mapping is
+ * the same one peer carets and tracked changes already use: resolve the anchor
+ * in the source, then ask where those offsets land in the parsed document.
+ * A comment whose quote no longer resolves (edited away, or living inside
+ * syntax the preview does not render as text) is simply not painted.
+ */
+function visualCommentDecorations(
+  doc: Editor["state"]["doc"],
+  text: string,
+  comments: EditorComment[],
+  activeId: string | null,
+): DecorationSet {
+  return DecorationSet.create(doc, comments.flatMap((comment) => {
+    if (comment.resolved) return [];
+    const anchor = resolveCommentAnchor(text, comment);
+    if (!anchor) return [];
+    const from = proseMirrorPositionForSourceOffset(doc, text, anchor.from);
+    if (from === null) return [];
+    const to = proseMirrorPositionForSourceOffset(doc, text, anchor.to);
+    if (to === null || to <= from) return [];
+    // Same per-author colour the source editor marks it with, so the two
+    // surfaces read as one feature rather than two.
+    const colors = peerColorForKey(comment.authorId || comment.authorName);
+    return [Decoration.inline(from, to, {
+      class: `visual-editor-comment${comment.id === activeId ? " visual-editor-comment-active" : ""}`,
+      "data-visual-comment-id": comment.id,
+      role: "button",
+      tabindex: "0",
+      "aria-label": `Comment by ${comment.authorName || "Anonymous"}`,
+      style: `--visual-comment-tint: ${colors.colorLight}; --visual-comment-color: ${colors.color}`,
+    })];
+  }));
+}
+
+const VisualEditorComments = Extension.create({
+  name: "visualEditorComments",
+  addProseMirrorPlugins() {
+    return [new Plugin({
+      key: visualCommentsKey,
+      state: {
+        init: (): VisualCommentsMeta & { decorations: DecorationSet } => ({
+          text: "",
+          comments: [],
+          activeId: null,
+          decorations: DecorationSet.empty,
+        }),
+        apply: (transaction, current, _oldState, newState) => {
+          const meta = transaction.getMeta(visualCommentsKey) as VisualCommentsMeta | undefined;
+          return meta
+            ? { ...meta, decorations: visualCommentDecorations(newState.doc, meta.text, meta.comments, meta.activeId) }
+            : {
+                ...current,
+                decorations: transaction.docChanged
+                  ? current.decorations.map(transaction.mapping, newState.doc)
+                  : current.decorations,
+              };
+        },
+      },
+      props: {
+        decorations: (state) => visualCommentsKey.getState(state)?.decorations ?? null,
+      },
+    })];
+  },
+});
+
 const VisualOverleafTrackChanges = Extension.create({
   name: "visualOverleafTrackChanges",
   addProseMirrorPlugins() {
@@ -647,6 +727,10 @@ type VisualMarkdownEditorProps = {
   onCaretChange?: (row: number, column: number) => void;
   onSourceCaretChange?: (sourceOffset: number) => void;
   overleafChanges?: TrackedChange[];
+  /** Comments anchored in this file, painted as highlights over the prose. */
+  editorComments?: EditorComment[];
+  activeEditorCommentId?: string | null;
+  onEditorCommentClick?: (id: string) => void;
   overleafTrackChangeActions?: TrackedChangeTooltipActions;
   onCreateComment?: (from: number, to: number, body: string) => void;
   editable?: boolean;
@@ -1037,6 +1121,9 @@ export function VisualMarkdownEditor({
   onCaretChange,
   onSourceCaretChange,
   overleafChanges = [],
+  editorComments = EMPTY_EDITOR_COMMENTS,
+  activeEditorCommentId = null,
+  onEditorCommentClick,
   overleafTrackChangeActions,
   onCreateComment,
   editable = true,
@@ -1084,6 +1171,7 @@ export function VisualMarkdownEditor({
   const sourceCaretChangeRef = useRef(onSourceCaretChange);
   const presenceCursorsRef = useRef(presenceCursors);
   const overleafChangesRef = useRef(overleafChanges);
+  const commentsWereActive = useRef(false);
   const presenceWasActive = useRef(false);
   const trackChangesWereActive = useRef(false);
   const pendingLocalUpdate = useRef<{
@@ -1170,6 +1258,32 @@ export function VisualMarkdownEditor({
   useEffect(() => {
     overleafChangesRef.current = overleafChanges;
   }, [overleafChanges]);
+  // Clicking a highlight opens that thread, the same gesture the source editor
+  // offers. Registered on the container rather than as a ProseMirror handler so
+  // it also works when the preview is read-only.
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || !onEditorCommentClick) return;
+    const open = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const mark = target.closest<HTMLElement>("[data-visual-comment-id]");
+      const id = mark?.dataset.visualCommentId;
+      if (id) onEditorCommentClick(id);
+    };
+    const activate = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.closest("[data-visual-comment-id]")) return;
+      open(event);
+    };
+    section.addEventListener("click", open);
+    section.addEventListener("keydown", activate);
+    return () => {
+      section.removeEventListener("click", open);
+      section.removeEventListener("keydown", activate);
+    };
+  }, [onEditorCommentClick]);
   useEffect(() => {
     hoveredChangesRef.current = hoveredChanges;
   }, [hoveredChanges]);
@@ -1512,6 +1626,7 @@ export function VisualMarkdownEditor({
       VisualFixedCaret,
       VisualOverleafPresence,
       VisualOverleafTrackChanges,
+      VisualEditorComments,
       // Vendored Open Knowledge chrome: block "+"/grip, keyboard block nav,
       // slash menu, table insert bars, frozen headers, footnote scrolling.
       // BridgeIdPlugin must precede SelectionStatePlugin (priority 1000 in
@@ -1732,7 +1847,16 @@ export function VisualMarkdownEditor({
     const base = acceptedMarkdown.current;
     const draft = conflictDraftRef.current
       ?? preserveMarkdownEnvelope(serializeMarkdown(editor, base), base);
-    const hasLocalDraft = draft !== base;
+    // A document the parser cannot round-trip serializes back into something
+    // unlike its own source, and the surface is read-only for exactly that
+    // reason — so the difference is the round trip's drift, not the reader's
+    // work. Counting it as an unsaved draft reported a conflict to someone who
+    // had not typed a character, most visibly the moment a share connected and
+    // swapped the document underneath them. Only a document known to be lossy
+    // is discounted: an undetermined one keeps its draft, so a writer demoted
+    // to read-only mid-edit does not lose theirs.
+    const hasLocalDraft = draft !== base
+      && (conflictDraftRef.current != null || eligibilityRepresentedExactly.current !== false);
     if (hasLocalDraft) {
       const rebased = rebaseMarkdownDraft(base, draft, canonical);
       if (rebased != null && changeRef.current(rebased, canonical)) {
@@ -1751,6 +1875,39 @@ export function VisualMarkdownEditor({
     refreshVisualPresence(editor, canonical);
     refreshVisualTrackChanges(editor, canonical);
   }, [editor, refreshVisualPresence, refreshVisualTrackChanges]);
+
+  /**
+   * A failed publish is an error like any other, so it belongs in the app's
+   * notifications rather than wedged into the document as a red bar the reader
+   * has to scroll past. The toast keeps both ways out of it — the draft on the
+   * clipboard, and restoring it — and stays until it is answered.
+   */
+  useEffect(() => {
+    if (conflictDraft == null) return;
+    const key = `visual-conflict:${activePath}`;
+    notifyError("Preview", "This document changed in the same place", {
+      detail: "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again.",
+      copyText: conflictDraft,
+      timeoutMs: 0,
+      dedupeKey: key,
+      primaryAction: {
+        label: "Restore draft and retry",
+        onClick: () => {
+          if (editor && !editor.isDestroyed) {
+            setMarkdownWithoutHistory(editor, conflictDraft, activePathRef.current);
+          }
+          conflictDraftRef.current = null;
+          setConflictDraft(null);
+        },
+      },
+      ...(onEditSource ? { secondaryAction: { label: "Edit Markdown source", onClick: onEditSource } } : {}),
+      onDismiss: () => {
+        conflictDraftRef.current = null;
+        setConflictDraft(null);
+      },
+    });
+    return () => dismissAppToastByDedupeKey(key);
+  }, [activePath, conflictDraft, editor, onEditSource]);
 
   useEffect(() => {
     if (editor && editor.isEditable !== editable) editor.setEditable(editable);
@@ -1885,6 +2042,20 @@ export function VisualMarkdownEditor({
       changes: overleafChanges,
     } satisfies VisualTrackChangesMeta));
   }, [editor, editorViewMounted, overleafChanges, text]);
+
+  useEffect(() => {
+    if (!editor || !editorViewMounted || editor.isDestroyed) return;
+    // Anchors are resolved against the source this document was parsed from;
+    // repainting while they disagree would place highlights by stale offsets.
+    if (text !== acceptedMarkdown.current) return;
+    if (!editorComments.length && !commentsWereActive.current) return;
+    commentsWereActive.current = editorComments.length > 0;
+    editor.view.dispatch(editor.state.tr.setMeta(visualCommentsKey, {
+      text,
+      comments: editorComments,
+      activeId: activeEditorCommentId,
+    } satisfies VisualCommentsMeta));
+  }, [activeEditorCommentId, editor, editorComments, editorViewMounted, text]);
 
   useEffect(() => {
     if (!editor || !editorViewMounted || !synchronizeSourceScroll) return;
@@ -2163,20 +2334,8 @@ export function VisualMarkdownEditor({
         </div>
       )}
       {eligibilityReason && (
-        <div className="visual-markdown-conflict visual-markdown-eligibility" role="status">
+        <div className="visual-markdown-eligibility" role="status">
           {eligibilityReason}
-          {onEditSource && <button type="button" onClick={onEditSource}>Edit Markdown source</button>}
-        </div>
-      )}
-      {conflictDraft != null && (
-        <div className="visual-markdown-conflict" role="alert">
-          <span>This document changed in the same place. The shared version is shown; your visual draft is preserved.</span>
-          <button type="button" onClick={() => void navigator.clipboard.writeText(conflictDraft)}>Copy local draft</button>
-          <button type="button" onClick={() => {
-            setMarkdownWithoutHistory(editor, conflictDraft, activePath);
-            conflictDraftRef.current = null;
-            setConflictDraft(null);
-          }}>Restore draft and retry</button>
           {onEditSource && <button type="button" onClick={onEditSource}>Edit Markdown source</button>}
         </div>
       )}

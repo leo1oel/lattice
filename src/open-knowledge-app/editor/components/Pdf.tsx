@@ -106,9 +106,14 @@ let pdfjsPromise: Promise<PdfJsModule> | null = null;
 function loadPdfjs(): Promise<PdfJsModule> {
   if (!pdfjsPromise) {
     pdfjsPromise = (async () => {
-      const mod = await import('pdfjs-dist');
+      // Local patch: use the same legacy+minified pdfjs build as
+      // src/pdf-viewer.tsx so the bundle carries one pdfjs runtime and one
+      // worker instead of two of each (~3 MB saved), and PDF embeds keep
+      // working on the oldest supported WKWebView (macOS 11).
+      const mod = (await import('pdfjs-dist/legacy/build/pdf.mjs')) as PdfJsModule;
       if (!mod.GlobalWorkerOptions.workerSrc) {
-        const workerUrl = (await import('pdfjs-dist/build/pdf.worker.mjs?url')).default;
+        const workerUrl = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'))
+          .default;
         mod.GlobalWorkerOptions.workerSrc = workerUrl;
       }
       return mod;

@@ -1,5 +1,10 @@
 /* Ioskeley Mono — bundled editor / code face (OFL-1.1).
-   Source: https://github.com/ahatem/IoskeleyMono v2.0.0 (WOFF2-Unhinted, Normal width). */
+   Source: https://github.com/ahatem/IoskeleyMono v2.0.0 (WOFF2-Unhinted, Normal width).
+   Subset with pyftsubset to latin/latin-ext, Greek, punctuation, math,
+   arrows, and box drawing (all OpenType features kept) — 1.66 MB -> 0.42 MB.
+   Glyphs outside the subset fall back to the system font, same as CJK always
+   did. To regenerate from upstream, re-download and re-run the subset (see
+   the unicode ranges in the repo history for this file). */
 
 @font-face {
   font-family: "Ioskeley Mono";

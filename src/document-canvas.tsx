@@ -68,6 +68,7 @@ import {
   type LatexSelectionToolbarPosition,
 } from "./latex-selection-toolbar";
 import { ScrollArea } from "./components/ui/scroll-area";
+import { useNonPassiveWheel } from "./use-non-passive-wheel";
 import { Textarea } from "./components/ui/textarea";
 import { Tip } from "./components/icon-tip";
 import {
@@ -193,12 +194,17 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
   const [scrolling, setScrolling] = useState(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const scrollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Republishing srcDoc reloads the frame, which drops the reader back to the
+  // top of the document. Editing an HTML file therefore threw away the reading
+  // position every time typing paused. Carry it across the reload.
+  const restoreScrollTopRef = useRef(0);
   const dragRef = useRef<{
     pointerId: number;
     scrollPerPixel: number;
     startClientY: number;
     startScrollTop: number;
   } | null>(null);
+  const scrollbarRef = useRef<HTMLDivElement | null>(null);
   const scrollGeometry = useMemo(
     () => calculateVerticalScrollGeometry(scrollMetrics),
     [scrollMetrics],
@@ -228,6 +234,9 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
           scrollHeight: data.scrollHeight,
           scrollTop: data.scrollTop,
         });
+        // A reloaded frame reports 0 before the restore lands; keep the last
+        // real position so the restore has something to aim at.
+        if (data.scrollTop > 0) restoreScrollTopRef.current = data.scrollTop;
         setScrolling(true);
         if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
         scrollingTimerRef.current = setTimeout(() => {
@@ -267,7 +276,7 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
       const href = link.getAttribute("href")?.trim() ?? "";
       if (/^(?:#|\/\/|[a-z][a-z0-9+.-]*:)/i.test(href)) continue;
       link.removeAttribute("href");
-      link.title ||= "Relative project links are unavailable in this preview";
+      if (!link.title) link.title = "Relative project links are unavailable in this preview";
     }
     const fragmentNavigation = document.createElement("script");
     fragmentNavigation.dataset.latticePreview = "fragment-navigation";
@@ -300,6 +309,12 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
     );
   };
 
+  useNonPassiveWheel(scrollbarRef, (event) => {
+    if (!scrollGeometry.overflow) return;
+    event.preventDefault();
+    setScrollTop(scrollGeometry.scrollTop + event.deltaY);
+  });
+
   return (
     <div className="html-preview" data-tour="document-preview">
       <iframe
@@ -309,8 +324,12 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         srcDoc={html}
+        onLoad={() => {
+          if (restoreScrollTopRef.current > 0) setScrollTop(restoreScrollTopRef.current);
+        }}
       />
       <div
+        ref={scrollbarRef}
         aria-hidden="true"
         className="lattice-scrollbar html-preview-scrollbar"
         data-hovering={scrollbarHovering ? "" : undefined}
@@ -362,11 +381,6 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
           dragRef.current = null;
           if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
           setScrolling(false);
-        }}
-        onWheel={(event) => {
-          if (!scrollGeometry.overflow) return;
-          event.preventDefault();
-          setScrollTop(scrollGeometry.scrollTop + event.deltaY);
         }}
         style={{ height: scrollGeometry.height }}
       >
@@ -427,6 +441,73 @@ function HtmlPreviewLoading() {
 
 const SPLIT_SOURCE_MIN_WIDTH = 480;
 const SPLIT_PDF_MIN_WIDTH = 500;
+
+/**
+ * Trailing edge of the source → preview handoff.
+ *
+ * Handing the preview a new document costs a full Markdown parse plus a
+ * serialize round trip, so publishing every source keystroke makes typing in
+ * split mode scale with document length (~90ms per parse at 40KB, several
+ * times that once reconciliation runs). External edits — the source pane, a
+ * collaborator, an agent write — are therefore published on the same idle
+ * budget the preview already spends on the opposite direction.
+ *
+ * `immediate` bypasses the wait for documents the preview itself just wrote.
+ * Settling those would leave the preview's accepted document behind the real
+ * source for the length of the budget, and an edit landing in that window is
+ * rejected against the stale text and surfaces as a spurious conflict draft.
+ */
+function useSettledPreviewText(
+  text: string,
+  immediate: boolean,
+  resetKey: string,
+  idleMs: number,
+  maxMs: number,
+): string {
+  const [settled, setSettled] = useState(text);
+  const [settledKey, setSettledKey] = useState(resetKey);
+  const latestTextRef = useRef(text);
+  const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Opening another file, and the preview's own echo, land in the same commit
+  // as the source they came from. Adjusting state during render re-runs this
+  // component before the commit, so no frame can observe the stale document.
+  if (settledKey !== resetKey || (immediate && settled !== text)) {
+    setSettledKey(resetKey);
+    setSettled(text);
+  }
+
+  useEffect(() => {
+    // Refreshed here rather than during render so the max timer below, which
+    // outlives the commit that armed it, publishes the newest document.
+    latestTextRef.current = text;
+    if (settled === text) {
+      if (maxTimerRef.current) {
+        clearTimeout(maxTimerRef.current);
+        maxTimerRef.current = null;
+      }
+      return;
+    }
+    const publish = () => {
+      if (maxTimerRef.current) {
+        clearTimeout(maxTimerRef.current);
+        maxTimerRef.current = null;
+      }
+      setSettled(latestTextRef.current);
+    };
+    // A max timer keeps continuous typing from starving the preview entirely;
+    // it is armed once per burst and cleared when the preview catches up.
+    if (maxTimerRef.current == null) maxTimerRef.current = setTimeout(publish, maxMs);
+    const idle = setTimeout(publish, idleMs);
+    return () => clearTimeout(idle);
+  }, [idleMs, maxMs, settled, text]);
+
+  useEffect(() => () => {
+    if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
+  }, []);
+
+  return settled;
+}
 
 export function interpolateScrollAnchors(
   value: number,
@@ -543,24 +624,46 @@ function loadHtmlExtensions(): Promise<Extension[]> {
   return htmlExtensionsPromise;
 }
 
+/**
+ * Languages already resolved this session, keyed by file extension.
+ *
+ * Without this, opening a file whose language loads asynchronously mounts the
+ * editor with no language and reconfigures it a moment later, so the document
+ * is parsed twice on every visit — expensive for Markdown, whose parser is
+ * configured with the whole nested code-language table.
+ */
+const resolvedLanguageExtensions = new Map<string, Extension[]>();
+
+function languageCacheKey(path: string): string {
+  const filename = path.slice(path.lastIndexOf("/") + 1).toLocaleLowerCase();
+  const dot = filename.lastIndexOf(".");
+  return dot > 0 ? filename.slice(dot) : filename;
+}
+
 function immediateTextLanguageExtensions(path: string): Extension[] {
   if (/\.bib$/i.test(path)) return BIBTEX_EXTENSIONS;
   if (/(?:^|\/)\.gitignore$/i.test(path)) return GITIGNORE_EXTENSIONS;
-  return EMPTY_EXTENSIONS;
+  return resolvedLanguageExtensions.get(languageCacheKey(path)) ?? EMPTY_EXTENSIONS;
 }
 
 /** Load the CodeMirror language associated with a project filename. */
 export async function loadTextLanguageExtensions(path: string): Promise<Extension[]> {
   const immediate = immediateTextLanguageExtensions(path);
   if (immediate.length > 0) return immediate;
-  if (/\.md$/i.test(path)) return loadMarkdownExtensions();
-  if (isHtmlFilePath(path)) return loadHtmlExtensions();
+  const remember = (extensions: Extension[]) => {
+    // Empty means "no language matched"; caching that would be harmless but
+    // pointless, and it keeps `immediate.length > 0` meaning "already known".
+    if (extensions.length > 0) resolvedLanguageExtensions.set(languageCacheKey(path), extensions);
+    return extensions;
+  };
+  if (/\.md$/i.test(path)) return loadMarkdownExtensions().then(remember);
+  if (isHtmlFilePath(path)) return loadHtmlExtensions().then(remember);
 
   const { languages } = await import("@codemirror/language-data");
   const filename = path.slice(path.lastIndexOf("/") + 1);
   const description = LanguageDescription.matchFilename(languages, filename)
     ?? LanguageDescription.matchFilename(languages, filename.toLowerCase());
-  return description ? [await description.load()] : EMPTY_EXTENSIONS;
+  return description ? remember([await description.load()]) : EMPTY_EXTENSIONS;
 }
 
 /** Download project-relevant editor and preview chunks without mounting UI. */
@@ -608,11 +711,12 @@ function useTextLanguageExtensions(path: string): Extension[] {
   }));
 
   useEffect(() => {
+    // Only the asynchronous resolution needs to reach React. Re-seeding state
+    // with the synchronous answer committed one extra render of the whole app
+    // per file switch, and handed CodeMirror an equal-but-new extension array
+    // that made it reconfigure the view it had just created.
+    if (!path || immediateTextLanguageExtensions(path).length > 0) return;
     let disposed = false;
-    const immediate = immediateTextLanguageExtensions(path);
-    setLoaded({ path, extensions: immediate });
-    if (immediate.length > 0 || !path) return () => { disposed = true; };
-
     void loadTextLanguageExtensions(path).then((extensions) => {
       if (!disposed) setLoaded({ path, extensions });
     });
@@ -864,6 +968,21 @@ export function DocumentCanvas(props: {
       : 0;
   const markdownPreviewText = props.markdownPreviewSource ?? props.source.slice(markdownPreviewStart);
   const markdownSyncPolicy = markdownPreviewSyncPolicy(markdownPreviewText.length);
+  // Recorded for every document the preview publishes, so the settling below
+  // can tell the preview's own echo from an outside edit. It is state, not a
+  // ref, so the comparison is a render-safe read; the update batches with the
+  // source write it accompanies and costs no extra render.
+  const [visualEchoSource, setVisualEchoSource] = useState<string | null>(null);
+  const settledPreviewText = useSettledPreviewText(
+    // A LaTeX or plain-text file never reaches the Markdown preview, so feed
+    // the settling a constant there: otherwise every keystroke in a .tex file
+    // scheduled a publication whose only effect was one more render.
+    markdownDocument ? markdownPreviewText : "",
+    props.source === visualEchoSource,
+    activeFile,
+    markdownSyncPolicy.publicationIdleMs,
+    markdownSyncPolicy.publicationMaxMs,
+  );
   const markdownPreviewLineOffset = props.source.slice(0, markdownPreviewStart).split("\n").length - 1;
   const markdownVisualCursors = useMemo(
     () => props.overleafPresenceCursors
@@ -959,6 +1078,25 @@ export function DocumentCanvas(props: {
   );
   const commentsForActiveFileRef = useRef(commentsForActiveFile);
   commentsForActiveFileRef.current = commentsForActiveFile;
+
+  /**
+   * Comments rebased into the preview's own coordinates. The preview may render
+   * a slice of the file, and anchors are resolved against the text it was given
+   * — offsets from the whole document would land in the wrong prose or nowhere.
+   * A comment straddling the slice boundary is dropped rather than mispainted.
+   */
+  const markdownVisualComments = useMemo(() => {
+    const previewEnd = markdownPreviewStart + markdownPreviewText.length;
+    return commentsForActiveFile.flatMap((comment) => (
+      comment.from < markdownPreviewStart || comment.to > previewEnd
+        ? []
+        : [{
+            ...comment,
+            from: comment.from - markdownPreviewStart,
+            to: comment.to - markdownPreviewStart,
+          }]
+    ));
+  }, [commentsForActiveFile, markdownPreviewStart, markdownPreviewText.length]);
   // Read through a ref for the same reason the comments are: the extension is
   // built once and must not be rebuilt every time someone else moves.
   const overleafPresenceCursorsRef = useRef(props.overleafPresenceCursors);
@@ -1884,6 +2022,11 @@ export function DocumentCanvas(props: {
     const insertedSource = `${separator}${insert}`;
     const nextSource = `${prefix}${insertedSource}`;
     const change = minimalTextChange(expectedBody, insertedSource, from);
+    // Mark the document this edit is about to produce, before any writer can
+    // echo it back through props, so useSettledPreviewText hands it straight to
+    // the preview and keeps the preview's accepted document level with the
+    // source it just wrote.
+    setVisualEchoSource(nextSource);
 
     if (view) {
       view.dispatch({ changes: change });
@@ -1959,15 +2102,24 @@ export function DocumentCanvas(props: {
     if (collabReady && collabSession?.activePath === activeFile) {
       const before = collabSession.ytext.toString();
       collabSession.undoManager.undo();
-      return collabSession.ytext.toString() !== before;
+      const after = collabSession.ytext.toString();
+      setVisualEchoSource(after);
+      return after !== before;
     }
-    if (view) return undoCodeMirror(view);
+    if (view) {
+      const undone = undoCodeMirror(view);
+      // History commands are the preview's own edits: settling them would
+      // leave the user staring at pre-undo content for the idle window.
+      if (undone) setVisualEchoSource(view.state.doc.toString());
+      return undone;
+    }
     const history = visualSourceHistoryRef.current;
     if (history.path !== activeFile) return false;
     const previous = history.undo.pop();
     if (previous == null) return false;
     history.redo.push(mountSourceRef.current);
     mountSourceRef.current = previous;
+    setVisualEchoSource(previous);
     setSourceRef.current(previous);
     return true;
   }, [activeFile, collabReady, collabSession]);
@@ -2016,15 +2168,22 @@ export function DocumentCanvas(props: {
     if (collabReady && collabSession?.activePath === activeFile) {
       const before = collabSession.ytext.toString();
       collabSession.undoManager.redo();
-      return collabSession.ytext.toString() !== before;
+      const after = collabSession.ytext.toString();
+      setVisualEchoSource(after);
+      return after !== before;
     }
-    if (view) return redoCodeMirror(view);
+    if (view) {
+      const redone = redoCodeMirror(view);
+      if (redone) setVisualEchoSource(view.state.doc.toString());
+      return redone;
+    }
     const history = visualSourceHistoryRef.current;
     if (history.path !== activeFile) return false;
     const next = history.redo.pop();
     if (next == null) return false;
     history.undo.push(mountSourceRef.current);
     mountSourceRef.current = next;
+    setVisualEchoSource(next);
     setSourceRef.current(next);
     return true;
   }, [activeFile, collabReady, collabSession]);
@@ -2277,7 +2436,7 @@ export function DocumentCanvas(props: {
     >
       <Suspense fallback={<div className="chat-markdown">Preparing preview…</div>}>
         <DeferredVisualMarkdownEditor
-          text={markdownPreviewText}
+          text={settledPreviewText}
           activePath={props.activeFile}
           optimizeForReading={Boolean(props.activePaper)}
           // Split previews keep source labels for scroll sync. Pure preview
@@ -2297,6 +2456,11 @@ export function DocumentCanvas(props: {
           presenceCursors={collabVisualCursors.length ? [...markdownVisualCursors, ...collabVisualCursors] : markdownVisualCursors}
           overleafChanges={markdownVisualChanges}
           overleafTrackChangeActions={props.overleafTrackChangeActions}
+          editorComments={markdownVisualComments}
+          activeEditorCommentId={props.activeEditorCommentId}
+          // Opens the panel focused on that thread — the same thing replying
+          // from the source editor's tooltip does.
+          onEditorCommentClick={props.onReplyEditorComment}
           onCreateComment={(from, to, body) => {
             const comment = createEditorComment({
               path: activeFile,
@@ -2975,6 +3139,19 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
     if (Number.isFinite(percent) && percent > 0) updateScale(percent / 100);
     setZoomEditing(false);
   };
+  const zoomLabelRef = useRef<HTMLLabelElement | null>(null);
+  const stageViewportRef = useRef<HTMLDivElement | null>(null);
+  useNonPassiveWheel(zoomLabelRef, (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.deltaY) return;
+    updateScale((current) => Number((current + (event.deltaY < 0 ? 0.1 : -0.1)).toFixed(1)));
+  });
+  useNonPassiveWheel(stageViewportRef, (event) => {
+    if (!(event.metaKey || event.ctrlKey) || !event.deltaY) return;
+    event.preventDefault();
+    updateScale((current) => Number((current * Math.exp(-event.deltaY * 0.01)).toFixed(3)));
+  });
   if (asset.mimeType === "application/pdf") {
     const pdfBytes = pdfBase64ToBytes(asset.base64);
     return (
@@ -3007,14 +3184,9 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
               </button>
             </Tip>
             <label
+              ref={zoomLabelRef}
               className="asset-preview-zoom-value"
               title="Enter a zoom percentage or scroll to zoom"
-              onWheel={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (!event.deltaY) return;
-                updateScale((current) => Number((current + (event.deltaY < 0 ? 0.1 : -0.1)).toFixed(1)));
-              }}
             >
               <input
                 aria-label="Image zoom percentage"
@@ -3050,13 +3222,7 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
         className="asset-preview-stage"
         orientation="both"
         contentClassName="asset-preview-stage-content"
-        viewportProps={{
-          onWheel: (event) => {
-            if (!(event.metaKey || event.ctrlKey) || !event.deltaY) return;
-            event.preventDefault();
-            updateScale((current) => Number((current * Math.exp(-event.deltaY * 0.01)).toFixed(3)));
-          },
-        }}
+        viewportRef={stageViewportRef}
       >
         {asset.mimeType.startsWith("image/")
           ? <img src={url} alt={`Preview of ${asset.path}`} style={{ zoom: scale }} />

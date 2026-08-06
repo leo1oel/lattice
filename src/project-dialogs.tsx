@@ -30,7 +30,6 @@ import { ModalDialog } from "./components/ui/modal-dialog";
 export function Welcome(props: {
   busyLabel: string | null;
   createOpen: boolean;
-  error: string | null;
   createError: string | null;
   projectName: string;
   projectVenue: ProjectVenue;
@@ -80,7 +79,7 @@ export function Welcome(props: {
             disabled={Boolean(props.busyLabel)}
             onClick={props.onOpenTutorial}
           >
-            <Sparkles size={17} /> Start product tour
+            <Sparkles size={17} /> Guided tutorial
           </MotionButton>
         </div>
         <div className="welcome-more">
@@ -100,7 +99,6 @@ export function Welcome(props: {
           Install LaTeX tools (needed to compile PDFs)
         </Button>
         {props.busyLabel && <p className="busy-label"><InfinityLoader size={15} /> {props.busyLabel}</p>}
-        {props.error && <p className="welcome-error" role="alert">{props.error}</p>}
       </div>
       {props.createOpen && (
         <CreateProjectDialog
@@ -282,7 +280,7 @@ export function ProjectMenu(props: {
       <DropdownMenuItem onSelect={props.onExportZip}><FileArchive /> Export ZIP</DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem disabled={busy} onSelect={props.onOpenTutorial}>
-        <Sparkles /> Start product tour
+        <Sparkles /> Guided tutorial
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={props.onSettings}><Settings /> Settings</DropdownMenuItem>
       {props.busyLabel && (

@@ -6,27 +6,24 @@
   overscroll-behavior: contain;
 }
 .tex-setup-modal > p { margin-bottom: 14px; }
+/* Structure, icon and colour come from `.ui-inline-message`; only the plate
+   that lifts the wizard's headline status off the dialog is local. */
 .tex-setup-banner {
-  display: flex;
-  gap: var(--space-4);
-  align-items: flex-start;
   margin: 0 0 14px;
   padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
   font-size: var(--type-label-size);
   line-height: 1.45;
 }
-.tex-setup-banner.bad {
-  border: 1px solid color-mix(in srgb, var(--status-danger) 28%, var(--border-subtle));
+.tex-setup-banner.error {
+  border-color: color-mix(in srgb, var(--status-danger) 28%, var(--border-subtle));
   background: color-mix(in srgb, var(--status-danger) 8%, var(--surface-app));
-  color: var(--status-danger);
 }
-.tex-setup-banner.ok {
-  border: 1px solid color-mix(in srgb, var(--status-success) 28%, var(--border-subtle));
+.tex-setup-banner.success {
+  border-color: color-mix(in srgb, var(--status-success) 28%, var(--border-subtle));
   background: color-mix(in srgb, var(--status-success) 10%, var(--surface-app));
-  color: var(--status-success);
 }
-.tex-setup-banner svg { flex: none; margin-top: 1px; }
 .tex-setup-options {
   display: grid;
   gap: var(--space-5);
@@ -82,18 +79,11 @@
   margin: 0 0 var(--space-6);
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-control);
-  font-size: var(--type-caption-size);
   line-height: 1.45;
   background: color-mix(in srgb, var(--control-active) 10%, var(--surface-app));
-  color: var(--text-primary);
 }
-.tex-setup-status.ok {
+.tex-setup-status.success {
   background: color-mix(in srgb, var(--status-success) 14%, var(--surface-app));
-  color: var(--status-success);
-}
-.tex-setup-status.danger {
-  background: color-mix(in srgb, var(--status-danger) 10%, var(--surface-app));
-  color: var(--status-danger);
 }
 .tex-setup-inline {
   display: inline;
@@ -213,12 +203,34 @@
   font-weight: var(--weight-semibold);
 }
 .collab-copy-button:hover { color: var(--control-active); border-color: var(--control-active-border); }
+/*
+ * The unread badge is absolutely positioned for the toolbar button, which is
+ * `position: relative`. A segmented tab is not, so inside the live card the
+ * badge escaped to some ancestor and landed on top of the word "chat". Anchor
+ * it to the tab and reserve the corner, so the centered label keeps clear of it.
+ */
+.collab-live-tabs .ui-segmented-tab { position: relative; }
+.collab-live-tabs .ui-segmented-tab:has(.collab-peer-badge) {
+  padding-right: calc(var(--segmented-tab-padding-inline) + var(--space-6));
+}
+.collab-live-tabs .collab-peer-badge { top: 2px; right: 3px; }
 .collab-participants { display: grid; gap: var(--space-3); }
 .collab-participants-title { color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); }
 .collab-participants-list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .collab-participant-row { min-height: var(--control-height-compact); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); }
 .collab-participant-name { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--type-caption-size); text-overflow: ellipsis; white-space: nowrap; }
 .collab-participant-path { min-width: 0; grid-column: 1; overflow: hidden; color: var(--text-tertiary); font-size: var(--type-micro-size); text-overflow: ellipsis; white-space: nowrap; }
+.collab-participant-you { color: var(--text-tertiary); }
+.collab-participant-role {
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--control-active-border);
+  border-radius: var(--radius-sm);
+  color: var(--control-active);
+  font-size: var(--type-micro-size);
+  font-style: normal;
+  font-weight: var(--weight-semibold);
+}
 .collab-remove-peer { grid-column: 2; grid-row: 1 / span 2; color: var(--status-danger); }
 .collab-help { margin: var(--space-5) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .collab-field > .collab-name-help { margin: 0; }
@@ -609,7 +621,6 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 }
 .collab-inline-link:hover { text-decoration: underline; }
 .busy-label { display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); }
-.welcome-error { max-width: 500px; color: var(--status-danger); font-size: var(--type-micro-size); }
 .modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal-backdrop); background: rgba(10, 10, 12, .4); display: grid; place-items: center; }
 .modal-window-drag-strip { position: fixed; z-index: var(--z-modal); top: 0; left: 0; right: 0; height: var(--titlebar-height); pointer-events: auto; user-select: none; }
 .modal-dialog-content { position: fixed; top: 50%; left: 50%; z-index: var(--z-modal); width: max-content; transform: translate(-50%, -50%); }
@@ -787,7 +798,7 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
   color: var(--text-primary);
 }
 .settings-section input[type="range"] { width: 100%; accent-color: var(--control-active); }
-.settings-notice { margin-top: var(--space-6); color: var(--control-active); font-size: var(--type-caption-size); }
+.settings-inline { margin-top: var(--space-6); }
 .settings-api-actions { margin-top: var(--space-12); display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-4); }
 .modal-actions { margin-top: 22px; display: flex; justify-content: flex-end; gap: var(--space-4); }
 .destructive-button-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; transform-origin: 50% 70%; }

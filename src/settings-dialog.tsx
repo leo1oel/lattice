@@ -61,6 +61,7 @@ import { synaraFrameUrl, type SynaraRuntimeInfo } from "./synara-runtime";
 import { useSynaraNotificationBridge } from "./synara-notifications";
 import { useSynaraConfirmationBridge } from "./synara-confirmations";
 import { SynaraLoadingSurface } from "./synara-loading-surface";
+import { InlineMessage } from "./components/ui/inline-message";
 import {
   applySynaraSettingsHeight,
   isSettingsViewportNearBottom,
@@ -790,7 +791,7 @@ export function SettingsDialog(props: {
                       description="Checking local tools…"
                     />
                   )}
-                  {props.doctorNotice && <p className="settings-notice">{props.doctorNotice}</p>}
+                  {props.doctorNotice && <InlineMessage level="error" className="settings-inline">{props.doctorNotice}</InlineMessage>}
                 </SettingsGroup>
               </div>
             )}

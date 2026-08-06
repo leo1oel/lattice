@@ -1,4 +1,5 @@
 import * as Y from "yjs";
+import type { GrantPermission } from "../protocol/collab-v2";
 import { builtInCollabHost, isLocalCollabHost } from "./collab-config";
 
 export { peerColorForName, peerColorForKey } from "./collab-colors";
@@ -139,6 +140,14 @@ export type CollabPeer = {
   instanceId?: string;
   /** Host-visible authorization grant. Peers sharing one invite share this grant. */
   grantId?: string;
+  /**
+   * What the coordinator authenticated this peer as. `"host"` marks the person
+   * who started the share — the only one who can end it for everyone — so the
+   * collaborator list can say so instead of leaving every peer anonymous.
+   * Undefined for peers whose presence entry has not arrived yet, or whose
+   * server predates the field.
+   */
+  permission?: GrantPermission;
 };
 
 /**
@@ -155,13 +164,21 @@ export function readCollabPeers(
     if (clientId === selfClientId) continue;
     const record = (state ?? {}) as { user?: unknown; path?: unknown; instanceId?: unknown };
     const user = (record.user ?? {}) as { name?: unknown; color?: unknown };
-    const name = typeof user.name === "string" && user.name.trim() ? user.name.trim() : "Anonymous";
+    const instanceId = typeof record.instanceId === "string" ? record.instanceId : undefined;
+    const announced = typeof user.name === "string" && user.name.trim() ? user.name.trim() : "";
+    // A connection is not a person. y-protocols' Awareness publishes `{}` for
+    // its own client the instant it is constructed, and a document opened only
+    // to mirror it to disk never announces an identity over that. Listing those
+    // states invented an "Anonymous" collaborator per background document —
+    // and because they carry no instanceId they also failed to suppress the
+    // coordinator presence row for the same human, who then appeared twice.
+    if (!instanceId && !announced) continue;
     peers.push({
       clientId,
-      name,
+      name: announced || "Anonymous",
       color: typeof user.color === "string" && user.color ? user.color : "#8b8b93",
       path: typeof record.path === "string" && record.path.trim() ? record.path.trim() : null,
-      ...(typeof record.instanceId === "string" ? { instanceId: record.instanceId } : {}),
+      ...(instanceId ? { instanceId } : {}),
     });
   }
   // Stable order so avatars do not shuffle on every awareness tick.
@@ -360,6 +377,15 @@ export function peerCaretOffsetsV2(
 // ---------------------------------------------------------------------------
 
 const COLLAB_CHAT_KEY = "chat";
+/**
+ * Catalog path of the project-wide chat document in a v2 share. In v2 every
+ * file is its own Y.Doc, so chat cannot ride "the session's doc" — peers
+ * reading different files would each see a different conversation. Instead it
+ * lives on one dedicated catalog file (same `.research/` convention as
+ * EDITOR_COMMENTS_PATH), whose "content" Y.Text stays empty; messages ride the
+ * chat Y.Array beside it.
+ */
+export const COLLAB_CHAT_PATH = ".research/collab-chat.json";
 /** Keeps a long-running share's doc from growing without bound. */
 export const MAX_COLLAB_CHAT_MESSAGES = 500;
 

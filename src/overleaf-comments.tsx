@@ -25,6 +25,7 @@ import { confirmAction } from "./app-utils";
 import { DestructiveButton } from "./components/ui/destructive-button";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { Textarea } from "./components/ui/textarea";
+import { InlineMessage } from "./components/ui/inline-message";
 
 /** While an input method is composing, Enter is picking a candidate, not sending. */
 function isComposingEnter(event: React.KeyboardEvent) {
@@ -301,7 +302,7 @@ export function OverleafCommentsPanel(props: {
         show up on both sides straight away.
       </p>
 
-      {props.error && <p className="overleaf-chat-error" role="alert">{props.error}</p>}
+      {props.error && <InlineMessage level="error" className="overleaf-chat-inline">{props.error}</InlineMessage>}
 
       {resolvedCount > 0 && (
         <div className="pdf-marks-kind-filter overleaf-thread-filter">

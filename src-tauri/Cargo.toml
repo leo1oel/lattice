@@ -17,6 +17,15 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+# Halves the release binary (measured 26.6 MB -> 12.9 MB on aarch64-darwin).
+# panic="abort" would save ~3 MB more but turns any panic into a hard crash
+# with unsaved editor state on screen, so it stays off.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = "symbols"
+
 [dependencies]
 tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-opener = "2"
@@ -39,16 +48,15 @@ log = "0.4"
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 flate2 = "1"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
-sha2 = "0.11.0"
+# 0.10 matches the version tauri and its plugins already compile in; 0.11
+# shipped a second copy of the whole digest stack for one Sha256::digest call.
+sha2 = "0.10"
 md5 = "0.7"
 html-escape = "0.2.14"
 diffy = "0.5.1"
 tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots", "handshake"] }
 futures-util = { version = "0.3.33", default-features = false, features = ["std", "sink"] }
 tokio = { version = "1", features = ["sync", "net", "time"] }
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
-pdf-extract = "0.12"
-lopdf = { version = "0.42", default-features = false }
 keyring = { version = "3", features = ["apple-native"] }
 rustix = { version = "1", features = ["fs"] }
 

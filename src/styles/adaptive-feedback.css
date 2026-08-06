@@ -40,16 +40,28 @@
 
 .app-toast-stack { position: fixed; z-index: var(--z-toast); top: 52px; right: 16px; width: 320px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: var(--space-4); pointer-events: none; }
 .app-update-banner ~ .app-toast-stack { top: 128px; }
-.app-toast { pointer-events: auto; display: grid; grid-template-columns: 18px minmax(0, 1fr) 24px; align-items: start; gap: var(--space-4); padding: var(--space-5); border-radius: 11px; animation: app-update-in var(--duration-base) var(--ease-out); }
+/* One line, one axis: icon, message and dismiss share a centre. `start` used to
+   align all three to the top of a 24px row, which left a 16px line of text
+   sitting visibly above the dismiss button beside it. */
+.app-toast { pointer-events: auto; display: grid; grid-template-columns: 15px minmax(0, 1fr) var(--control-size-icon-compact); align-items: center; gap: var(--space-4); padding: var(--space-5); border-radius: 11px; animation: app-update-in var(--duration-base) var(--ease-out); }
 .app-toast.info { --smooth-ring-color: color-mix(in srgb, var(--status-info) 35%, var(--border-subtle)); }
 .app-toast.success { --smooth-ring-color: color-mix(in srgb, var(--status-success) 35%, var(--border-subtle)); }
 .app-toast.warning { --smooth-ring-color: color-mix(in srgb, var(--status-warning) 35%, var(--border-subtle)); }
 .app-toast.error { --smooth-ring-color: color-mix(in srgb, var(--status-danger) 35%, var(--border-subtle)); }
-.app-toast > svg { margin-top: 1px; }
+/* Past one line, centring would float the icon and the dismiss button against
+   the middle of a paragraph. Pin both to the title's line box instead — the
+   same optical centring, measured against the first line rather than the card. */
+.app-toast.expanded { align-items: start; }
+.app-toast.expanded > svg { margin-top: calc((var(--type-label-line-height) - 15px) / 2); }
+.app-toast.expanded > button { margin-top: calc((var(--type-label-line-height) - var(--control-size-icon-compact)) / 2); }
+/* The icon carries the level; the text stays in the primary colour so a long
+   message is read as prose, not as an alarm. */
+.app-toast.info > svg { color: var(--status-info); }
+.app-toast.success > svg { color: var(--status-success); }
 .app-toast.warning > svg { color: var(--status-warning); }
 .app-toast.error > svg { color: var(--status-danger); }
 .app-toast > div { min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
-.app-toast strong { font-size: var(--type-label-size); font-weight: 650; }
+.app-toast strong { display: -webkit-box; overflow: hidden; font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: 650; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .app-toast > div > span { overflow: hidden; color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .app-toast.expanded > div > span { display: -webkit-box; max-height: 5.6em; overflow-wrap: anywhere; white-space: pre-line; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
 .app-toast-actions { display: flex; flex-wrap: wrap; gap: var(--gap-inline-tight); margin-top: var(--space-3); }

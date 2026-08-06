@@ -17,6 +17,7 @@ import githubDark from "@shikijs/themes/github-dark";
 import githubLight from "@shikijs/themes/github-light";
 import { useEffect, useMemo, useState } from "react";
 import { InfinityLoader } from "./components/ui/activity-icons";
+import { InlineMessage } from "./components/ui/inline-message";
 
 export type FileDiffChange = {
   path: string;
@@ -259,7 +260,7 @@ export function FileDiffView(props: {
     return <p className="lattice-file-diff-empty">Empty file {before == null ? "added" : "deleted"}.</p>;
   }
   if (resources.error) {
-    return <p className="lattice-file-diff-error" role="alert">Could not render this diff: {resources.error.message}</p>;
+    return <InlineMessage level="error" className="lattice-file-diff-inline">Could not render this diff: {resources.error.message}</InlineMessage>;
   }
   if (!resources.ready) {
     return <p className="lattice-file-diff-loading" role="status"><InfinityLoader size={12} /> Rendering diff…</p>;

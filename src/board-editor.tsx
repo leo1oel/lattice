@@ -3,10 +3,8 @@ import { Tldraw, type Editor, type TLStore } from "tldraw";
 import "tldraw/tldraw.css";
 import type * as Y from "yjs";
 import type { Awareness } from "y-protocols/awareness";
-import {
-  createTldrawAgentCanvasAdapter,
-  registerAgentCanvasAdapter,
-} from "./agent-canvas-tools";
+import { createTldrawAgentCanvasAdapter } from "./agent-canvas-tldraw-adapter";
+import { registerAgentCanvasAdapter } from "./agent-canvas-tools";
 import {
   attachBoardBridge,
   attachBoardPresence,
@@ -97,7 +95,10 @@ export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
       disposePresence?.();
       bridge.dispose();
     };
-  }, [store, collabDoc, collabAwareness, collabUser, collab?.canWrite]);
+    // canWrite flips flow through canWriteRef (kept current by the layout
+    // effect above) so a permission change must not tear down and re-seed the
+    // whole bridge mid-session.
+  }, [store, collabDoc, collabAwareness, collabUser]);
 
   const canWrite = collab?.canWrite !== false;
 
@@ -138,6 +139,14 @@ export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
         locale="en"
         onMount={(editor) => {
           editorRef.current = editor;
+          // The `locale` prop above only reaches the provider wrapping the
+          // loading UI. Every menu inside the board reads
+          // `editor.user.getLocale()` instead, which falls back to the
+          // browser's language and left the board in Chinese on a
+          // Chinese-language machine while the rest of Lattice stayed English.
+          // This is a global tldraw preference, so setting it on mount covers
+          // the tutorial board and every board created later.
+          editor.user.updateUserPreferences({ locale: "en" });
           editor.updateInstanceState({ isReadonly: !canWrite });
           if (editor.getCurrentPageShapes().length > 0) {
             window.requestAnimationFrame(() => {

@@ -1,4 +1,4 @@
-import { isCatalogV2, type CatalogV2 } from "../protocol/collab-v2";
+import { isCatalogV2, type CatalogV2, type GrantPermission } from "../protocol/collab-v2";
 import { loadCollabFeaturePolicy, mayWriteCollabProject } from "./collab-feature-policy";
 
 // v2 is the only room type now; the env flag survives as an opt-out kill switch.
@@ -13,7 +13,8 @@ export class CollabControlErrorV2 extends Error {
   get requiresRefetch(): boolean { return this.body.refetch === true; }
 }
 
-export type PresenceEntryV2 = { name: string; color: string; path: string | null; updatedAt: number; grantId?: string };
+/** `permission` is stamped by the coordinator from the authenticated actor, so it identifies the host reliably. Absent from pre-v0.1.186 servers. */
+export type PresenceEntryV2 = { name: string; color: string; path: string | null; updatedAt: number; grantId?: string; permission?: GrantPermission };
 
 export class CollabControlV2Client {
   constructor(private readonly baseUrl: string, private readonly projectInstanceId: string, private readonly credential?: string) {}

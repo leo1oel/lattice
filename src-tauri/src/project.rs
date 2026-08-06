@@ -427,9 +427,16 @@ pub fn create_blank(parent: &Path, name: &str) -> Result<PathBuf, String> {
         format!("# {safe_name}\n\nLive collaboration workspace. Your other local projects were not modified.\n"),
     )
     .map_err(err)?;
+    // The body must not be empty. pdflatex writes no PDF at all for a document
+    // with no pages, and latexmk records that as "failed to create output file"
+    // in main.fdb_latexmk. Because the placeholder source does not change
+    // afterwards, every later build reports the target up to date and replays
+    // that stored failure — a build a guest can never get out of without
+    // deleting the auxiliary files, on a project whose real content is still
+    // arriving.
     fs::write(
         root.join("main.tex"),
-        "% Waiting for shared project files…\n\\documentclass{article}\n\\begin{document}\n\\end{document}\n",
+        "% Waiting for shared project files…\n\\documentclass{article}\n\\begin{document}\nWaiting for the shared project files to arrive…\n\\end{document}\n",
     )
     .map_err(err)?;
     fs::write(root.join("references.bib"), "").map_err(err)?;
@@ -5685,6 +5692,16 @@ mod tests {
         let manifest = read_manifest(&root).unwrap();
         assert_eq!(manifest.venue, "shared");
         assert!(root.join("main.tex").exists());
+        // A document with no pages makes pdflatex write no PDF, which latexmk
+        // stores as a failure and replays on every later build of a source that
+        // has not changed. The placeholder has to typeset to something.
+        let placeholder = fs::read_to_string(root.join("main.tex")).unwrap();
+        let body = placeholder
+            .split_once("\\begin{document}")
+            .and_then(|(_, rest)| rest.split_once("\\end{document}"))
+            .map(|(body, _)| body.trim().to_string())
+            .unwrap_or_default();
+        assert!(!body.is_empty(), "placeholder must typeset at least one page: {placeholder:?}");
         assert!(!root.join("neurips.sty").exists());
         assert!(!root.join("icml2026.sty").exists());
         assert!(!root.join("iclr2026_conference.sty").exists());

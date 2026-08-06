@@ -591,6 +591,8 @@ describe("v2 mid-share file creation", () => {
     /** Durable text initialization fails, including its one idempotent retry. */
     failImport?: boolean;
     initializingFiles?: Array<{ fileId: string; path: string }>;
+    /** Seed extra files that are already live in the catalog. */
+    liveFiles?: Array<{ fileId: string; path: string }>;
   } = {}) {
     vi.resetModules();
     vi.stubEnv("VITE_LATTICE_COLLAB_V2", "true");
@@ -602,6 +604,7 @@ describe("v2 mid-share file creation", () => {
       files: [
         { fileId: "f0", path: "paper.md", kind: "text", state: "live", documentEpoch: 1 },
         ...(options.initializingFiles ?? []).map((entry) => ({ fileId: entry.fileId, path: entry.path, kind: "text", state: "initializing", documentEpoch: 1 })),
+        ...(options.liveFiles ?? []).map((entry) => ({ fileId: entry.fileId, path: entry.path, kind: "text", state: "live", documentEpoch: 1 })),
       ] as Array<{ fileId: string; path: string; kind: string; state: string; documentEpoch: number }>,
     };
     const calls = { create: 0, fileReady: 0, textImport: 0, importedText: "" };
@@ -777,4 +780,75 @@ describe("v2 mid-share file creation", () => {
     expect(calls.create).toBe(0);
     controller.destroy();
   });
+
+describe("v2 project chat doc", () => {
+  // Reuses the mid-share creation harness above: the chat document is a plain
+  // catalog text file, so the same mocked coordinator covers it.
+  async function setupChatTest(options: Parameters<typeof setupCreateTest>[0] = {}) {
+    return setupCreateTest(options);
+  }
+
+  it("host: creates the chat file on first open and reuses the same doc after", async () => {
+    const { controller, catalogValue, calls } = await setupChatTest({ permission: "host" });
+    const { COLLAB_CHAT_PATH } = await import("./collab-session");
+    const doc = await controller.openChatDoc();
+    expect(doc).not.toBeNull();
+    expect(calls.create).toBe(1);
+    expect(catalogValue.files.find((file) => file.path === COLLAB_CHAT_PATH)!.state).toBe("live");
+    expect(controller.chatDoc).toBe(doc);
+    // Idempotent: no second create, same doc back.
+    await expect(controller.openChatDoc()).resolves.toBe(doc);
+    expect(calls.create).toBe(1);
+    // Chat never steals the primary editor's binding.
+    expect(controller.activePath).toBe("");
+    controller.destroy();
+  });
+
+  it("read guest: returns null (no create) until a writer's chat file is in the catalog", async () => {
+    const { controller, calls } = await setupChatTest({ permission: "read" });
+    await expect(controller.openChatDoc()).resolves.toBeNull();
+    expect(calls.create).toBe(0);
+    controller.destroy();
+  });
+
+  it("read guest: binds the chat file once it exists in the catalog", async () => {
+    const { COLLAB_CHAT_PATH } = await import("./collab-session");
+    const { controller, calls } = await setupChatTest({
+      permission: "read",
+      liveFiles: [{ fileId: "chat-file", path: COLLAB_CHAT_PATH }],
+    });
+    const doc = await controller.openChatDoc();
+    expect(doc).not.toBeNull();
+    expect(calls.create).toBe(0);
+    expect(controller.chatDoc).toBe(doc);
+    controller.destroy();
+  });
+
+  it("survives pool eviction pressure from many sideloaded files", async () => {
+    const { controller } = await setupChatTest({ permission: "host" });
+    const doc = await controller.openChatDoc();
+    expect(doc).not.toBeNull();
+    // Fill the pool (capacity 8) past its limit with other clean files; the
+    // pinned chat client must not be the eviction victim.
+    for (let index = 0; index < 9; index += 1) {
+      const path = `pressure/file-${index}.md`;
+      await controller.create(path, "text", { seedText: `# ${index}\n` });
+      await controller.openPath(path, "secondary", { sideload: true });
+    }
+    expect(controller.chatDoc).toBe(doc);
+    const again = await controller.openChatDoc();
+    expect(again).toBe(doc);
+    controller.destroy();
+  });
+
+  it("notifies subscribers with null on destroy", async () => {
+    const { controller } = await setupChatTest({ permission: "host" });
+    const seen: Array<unknown> = [];
+    controller.subscribeChatDoc((value) => seen.push(value));
+    const doc = await controller.openChatDoc();
+    expect(seen.at(-1)).toBe(doc);
+    controller.destroy();
+    expect(seen.at(-1)).toBeNull();
+  });
+});
 });

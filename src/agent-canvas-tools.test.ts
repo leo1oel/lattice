@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Editor, TLShape, TLShapeId } from "tldraw";
+import { createTldrawAgentCanvasAdapter } from "./agent-canvas-tldraw-adapter";
 import {
-  createTldrawAgentCanvasAdapter,
   executeAgentCanvasToolRequest,
   parseAgentCanvasToolRequest,
   registerAgentCanvasAdapter,

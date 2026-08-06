@@ -36,7 +36,8 @@
 .overleaf-connect-row .ui-button { width: fit-content; }
 
 .overleaf-hint { margin: var(--space-5) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.5; }
-.overleaf-error { margin: var(--space-5) 0 0; color: var(--status-danger); font-size: var(--type-micro-size); line-height: 1.5; }
+/* Appearance is owned by `.ui-inline-message`; only the spacing is local. */
+.overleaf-inline { margin-top: var(--space-5); }
 .overleaf-retry-row { margin-top: var(--space-6); display: flex; }
 
 .overleaf-waiting {

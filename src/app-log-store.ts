@@ -29,6 +29,10 @@ const MAX_DETAIL_LENGTH = 4_000;
 const EMPTY_TOAST_IDS: string[] = [];
 const listeners = new Set<() => void>();
 const toastOptionsById = new Map<string, AppToastOptions>();
+// Dedupe bookkeeping, live only while a toast is on screen. Both directions are
+// kept so a dismissal can drop the key without scanning the map.
+const entryIdByDedupeKey = new Map<string, string>();
+const dedupeKeyByEntryId = new Map<string, string>();
 
 function readEntries(): AppLogEntry[] {
   try {
@@ -113,7 +117,30 @@ export function addAppLog(input: {
   detail?: string;
   toast?: boolean;
   toastOptions?: AppToastOptions;
+  /**
+   * Collapse a repeat of a notification that is still on screen into the toast
+   * already showing it, instead of pushing a second copy. Four identical build
+   * failures would otherwise fill the entire visible stack. The on-disk log
+   * still records every occurrence — `updateAppLog` forwards too.
+   */
+  dedupeKey?: string;
 }): AppLogEntry {
+  if (input.dedupeKey) {
+    const existingId = entryIdByDedupeKey.get(input.dedupeKey);
+    if (existingId && visibleToastIds.includes(existingId)) {
+      const updated = updateAppLog(
+        existingId,
+        {
+          level: input.level,
+          source: input.source,
+          title: input.title,
+          detail: input.detail?.trim() ?? "",
+        },
+        input.toastOptions,
+      );
+      if (updated) return updated;
+    }
+  }
   const entry: AppLogEntry = {
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
@@ -126,6 +153,10 @@ export function addAppLog(input: {
   if (input.toast !== false) {
     visibleToastIds = [entry.id, ...visibleToastIds].slice(0, 4);
     if (input.toastOptions) toastOptionsById.set(entry.id, input.toastOptions);
+    if (input.dedupeKey) {
+      entryIdByDedupeKey.set(input.dedupeKey, entry.id);
+      dedupeKeyByEntryId.set(entry.id, input.dedupeKey);
+    }
   }
   persist();
   emit();
@@ -140,7 +171,15 @@ export function updateAppLog(
 ): AppLogEntry | null {
   const current = entries.find((entry) => entry.id === id);
   if (!current) return null;
-  const updated = { ...current, ...patch, detail: (patch.detail ?? current.detail).slice(0, MAX_DETAIL_LENGTH) };
+  // The entry jumps back to the front of a newest-first list, so its timestamp
+  // has to move with it — otherwise the terminal-style log view reads
+  // out of order.
+  const updated = {
+    ...current,
+    ...patch,
+    timestamp: new Date().toISOString(),
+    detail: (patch.detail ?? current.detail).slice(0, MAX_DETAIL_LENGTH),
+  };
   entries = [updated, ...entries.filter((entry) => entry.id !== id)].slice(0, MAX_ENTRIES);
   visibleToastIds = [id, ...visibleToastIds.filter((value) => value !== id)].slice(0, 4);
   if (toastOptions) toastOptionsById.set(id, toastOptions);
@@ -154,6 +193,8 @@ export function clearAppLogs() {
   entries = [];
   visibleToastIds = [];
   toastOptionsById.clear();
+  entryIdByDedupeKey.clear();
+  dedupeKeyByEntryId.clear();
   persist();
   emit();
 }
@@ -169,8 +210,26 @@ export function dismissAppToast(id: string, notify = true) {
   const options = toastOptionsById.get(id);
   visibleToastIds = visibleToastIds.filter((value) => value !== id);
   toastOptionsById.delete(id);
+  const dedupeKey = dedupeKeyByEntryId.get(id);
+  if (dedupeKey) {
+    dedupeKeyByEntryId.delete(id);
+    // Only if it still points here: a later toast may already own the key.
+    if (entryIdByDedupeKey.get(dedupeKey) === id) entryIdByDedupeKey.delete(dedupeKey);
+  }
   emit();
   if (notify) options?.onDismiss?.();
+}
+
+/**
+ * Take down whatever toast is currently showing under `key`, if any.
+ *
+ * This is how an operation retracts its own earlier failure: a build that
+ * succeeds should not leave the previous "compilation failed" toast sitting on
+ * screen waiting out its timeout.
+ */
+export function dismissAppToastByDedupeKey(key: string) {
+  const id = entryIdByDedupeKey.get(key);
+  if (id) dismissAppToast(id, false);
 }
 
 export function getAppLogEntry(id: string): AppLogEntry | undefined {
@@ -179,6 +238,16 @@ export function getAppLogEntry(id: string): AppLogEntry | undefined {
 
 export function getAppToastOptions(id: string): AppToastOptions | undefined {
   return toastOptionsById.get(id);
+}
+
+/**
+ * Which entries are currently on screen, as opposed to only in the log. The
+ * two are deliberately different sets — `toast: false` records something
+ * without interrupting anyone — and this is how that difference is checked
+ * outside React.
+ */
+export function getVisibleAppToastIds(): readonly string[] {
+  return visibleToastIds;
 }
 
 export function useAppLogSnapshot(): AppLogEntry[] {

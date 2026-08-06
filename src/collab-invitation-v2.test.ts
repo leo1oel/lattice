@@ -19,4 +19,13 @@ describe("versioned v2 collaboration invitations", () => {
       { ...valid, projectName: "x".repeat(81) },
     ]) expect(() => formatCollabInvitationV2(payload as typeof valid)).toThrow();
   });
+
+  it("carries a plain-HTTP deployment only when the host is local, so `wrangler dev` shares can be invited", () => {
+    for (const deployment of ["http://localhost:8787/", "http://127.0.0.1:8787/", "http://192.168.1.20:8787/"]) {
+      expect(parseCollabInvitationV2(formatCollabInvitationV2({ ...valid, deployment }))?.deployment).toBe(deployment);
+    }
+    for (const deployment of ["http://collab.example/", "http://localhost.evil.example/"]) {
+      expect(() => formatCollabInvitationV2({ ...valid, deployment })).toThrow();
+    }
+  });
 });

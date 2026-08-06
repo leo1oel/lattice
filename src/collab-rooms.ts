@@ -41,8 +41,18 @@ export function loadCollabProjectsV2(): CollabProjectRecordV2[] {
 }
 
 export function rememberCollabProjectV2(record: CollabProjectRecordV2): void {
-  const rest = loadCollabProjectsV2().filter((item) => !(item.host === record.host && item.projectInstanceId === record.projectInstanceId));
-  try { localStorage.setItem(PROJECTS_V2_KEY, JSON.stringify([record, ...rest].slice(0, 24))); } catch { /* convenience only */ }
+  const existing = loadCollabProjectsV2();
+  const previous = existing.find((item) => item.host === record.host && item.projectInstanceId === record.projectInstanceId);
+  const rest = existing.filter((item) => item !== previous);
+  // Joining a room you host must not downgrade your own entry. The host
+  // credential recorded here is the only way to close the room for everyone;
+  // overwriting it with a guest credential would leave the room running with
+  // no UI able to shut it down. Keep the host identity, take the fresh
+  // timestamp so the row still sorts as recently used.
+  const next = previous?.permission === "host" && record.permission !== "host"
+    ? { ...previous, lastUsed: record.lastUsed }
+    : record;
+  try { localStorage.setItem(PROJECTS_V2_KEY, JSON.stringify([next, ...rest].slice(0, 24))); } catch { /* convenience only */ }
 }
 
 export function forgetCollabProjectV2(host: string, projectInstanceId: string): void {

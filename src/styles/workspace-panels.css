@@ -83,11 +83,10 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .lattice-file-diff-body { max-height: 420px; overflow: auto; background: var(--surface-app); }
 .lattice-file-diff-body > diffs-container { display: block; min-width: 0; }
 .lattice-file-diff-loading,
-.lattice-file-diff-error,
 .lattice-file-diff-empty { margin: 0; padding: 9px; color: var(--text-secondary); font-size: var(--type-diff-meta-size); line-height: var(--type-diff-meta-line-height); }
 .lattice-file-diff-loading { display: flex; align-items: center; gap: var(--space-3); }
 .lattice-file-diff-loading .ui-infinity-loader { transform: translateY(-1px); }
-.lattice-file-diff-error { color: var(--status-danger); }
+.lattice-file-diff-inline { padding: 9px; }
 /* Taller than it was: a change is much easier to place when some of the
    document around it is visible at the same time. */
 .history-diff-body { margin: 0; max-height: 420px; overflow: auto; padding: var(--space-3) 0; font-family: var(--editor-font); font-size: var(--type-diff-code-size); line-height: var(--type-diff-code-line-height); font-weight: var(--type-diff-code-weight); }
@@ -349,10 +348,9 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .git-commit-button { width: 100%; justify-content: center; background: var(--control-active-soft); color: var(--control-active); border-color: transparent; }
 .git-commit-button:hover:not(:disabled) { filter: brightness(1.03); }
 .git-open-file { height: 22px; }
-.git-empty, .git-notice { margin: 0; font-size: var(--type-micro-size); color: var(--text-secondary); }
+.git-empty { margin: 0; font-size: var(--type-micro-size); color: var(--text-secondary); }
 .git-init-block { display: grid; gap: var(--space-5); }
 .git-init-block .git-commit-button { width: auto; justify-self: start; }
-.git-notice { color: var(--status-success); }
 .git-diff-body .history-diff-line.clickable { cursor: pointer; }
 .git-diff-body .history-diff-line.clickable:hover { filter: brightness(1.08); }
 

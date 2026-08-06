@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "src/icon-lab/main.tsx",
+    "scripts/*.mjs",
+    "vite.dev-isolated.config.ts"
+  ],
+  "project": ["src/**", "scripts/**", "protocol/**"],
+  "ignore": ["collab-server/**", "public/polyfills.js"],
+  "ignoreDependencies": ["bun", "mdast-util-mdx-expression", "mdast-util-mdx-jsx"]
+}

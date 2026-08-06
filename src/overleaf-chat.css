@@ -96,12 +96,10 @@
   padding: 0;
 }
 
-.overleaf-chat-error {
-  margin: 0 0 var(--space-4);
+/* Appearance is owned by `.ui-inline-message`; the tinted plate is local. */
+.overleaf-chat-inline {
+  margin-bottom: var(--space-4);
   padding: 7px 9px;
   border-radius: var(--radius-control);
-  font-size: var(--type-caption-size);
-  line-height: 1.5;
-  color: var(--status-danger);
   background: color-mix(in srgb, var(--status-danger) 10%, transparent);
 }
