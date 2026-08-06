@@ -122,9 +122,16 @@ function EditableMarkdownBlock({
       cancellingRef.current = cancelling;
       finish();
       requestAnimationFrame(() => {
-        if (focusEditButton() || !host) return;
+        if (!host) return;
+        focusEditButton();
+        // A late render pass (async highlighting settling) can rebuild the
+        // block and detach the button that just took focus, dropping focus to
+        // <body>. Keep re-aiming at the current button for the whole grace
+        // window — stopping at the first success left focus on a dead node.
+        // Focus moved deliberately to another element is left alone.
         const observer = new MutationObserver(() => {
-          if (focusEditButton()) observer.disconnect();
+          const lost = document.activeElement === null || document.activeElement === document.body;
+          if (lost) focusEditButton();
         });
         observer.observe(host, { childList: true, subtree: true });
         window.setTimeout(() => observer.disconnect(), 1_000);
