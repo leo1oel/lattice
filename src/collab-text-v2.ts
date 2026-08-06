@@ -12,13 +12,15 @@ export type TextTransportV2 = { awareness?: Awareness; onCustomMessage(listener:
 export type TextTransportFactoryV2 = (args: { namespace: TextNamespaceV2; doc: Y.Doc; ticket: string }) => TextTransportV2;
 export type TicketIssuerV2 = (namespace: TextNamespaceV2) => Promise<string>;
 export type ReconnectPolicyV2 = { schedule(task: () => void, delayMs: number): unknown; cancel(handle: unknown): void; delay(attempt: number): number };
-const defaultReconnect: ReconnectPolicyV2 = { schedule: (task, ms) => setTimeout(task, ms), cancel: (h) => clearTimeout(h as ReturnType<typeof setTimeout>), delay: (n) => Math.min(30_000, 250 * 2 ** Math.min(n, 7)) * (0.75 + Math.random() * 0.5) };
+export function reconnectDelayV2(attempt: number, random = Math.random): number { return Math.min(2_500, 100 * 2 ** Math.min(attempt, 5) * (0.75 + random() * 0.5)); }
+const defaultReconnect: ReconnectPolicyV2 = { schedule: (task, ms) => setTimeout(task, ms), cancel: (h) => clearTimeout(h as ReturnType<typeof setTimeout>), delay: reconnectDelayV2 };
 
 export class CollabTextClientV2 {
   readonly doc = new Y.Doc();
   private networkDoc?: Y.Doc; private transport?: TextTransportV2; private unbind: (() => void)[] = []; private outbox: OutboxEntryV2[] = [];
   private revision = -1; private generation = -1; private stopped?: TextClientPermanentErrorV2; private tail: Promise<void> = Promise.resolve(); private lastUsed = Date.now();
   private connectionGeneration = 0; private reconnectAttempt = 0; private reconnectHandle?: unknown; private destroyed = false; private durableSeen = false; private providerSynced = false; private disposing = false;
+  private connecting?: Promise<void>;
   private stateListeners = new Set<(state: TextDurabilityStateV2) => void>();
   /** Fired whenever the transport (and thus its Awareness) is replaced or torn down — reconnects make the old awareness a dead object. */
   private transportListeners = new Set<() => void>();
@@ -32,12 +34,15 @@ export class CollabTextClientV2 {
       if (saved.ack && client.validAck(saved.ack)) { const vector = safeDecodeBase64Url(saved.ack.stateVector); if (vector) { client.revision = saved.ack.contentRevision; client.generation = saved.ack.snapshotGeneration; client.durableSeen = true; client.outbox = await options.store.deleteCovered(namespace, vector); } }
     } return client;
   }
-  async connect(): Promise<void> { if (this.destroyed) throw new Error("Client is destroyed"); if (this.stopped) throw this.stopped; this.cancelReconnect(); const generation = ++this.connectionGeneration; this.disposeTransport();
-    try { const ticket = await this.issueTicket(this.namespace); if (generation !== this.connectionGeneration || this.destroyed) return; const networkDoc = new Y.Doc(); this.networkDoc = networkDoc;
+  connect(): Promise<void> { if (this.destroyed) return Promise.reject(new Error("Client is destroyed")); if (this.stopped) return Promise.reject(this.stopped); if (this.transport) return Promise.resolve(); if (this.connecting) return this.connecting;
+    const connecting = this.connectFresh(); this.connecting = connecting; void connecting.finally(() => { if (this.connecting === connecting) this.connecting = undefined; }).catch(() => undefined); return connecting;
+  }
+  private async connectFresh(): Promise<void> { this.cancelReconnect(); const generation = ++this.connectionGeneration; this.disposeTransport();
+    try { const ticket = await this.issueTicket(this.namespace); if (generation !== this.connectionGeneration || this.destroyed) throw new Error(this.destroyed ? "Client is destroyed" : "Connection was superseded"); const networkDoc = new Y.Doc(); this.networkDoc = networkDoc;
       networkDoc.on("update", (update: Uint8Array, origin: unknown) => { if (origin !== SEND_ORIGIN) Y.applyUpdate(this.doc, update, REMOTE_ORIGIN); });
-      const transport = this.factory({ namespace: this.namespace, doc: networkDoc, ticket }); if (generation !== this.connectionGeneration || this.destroyed) { transport.destroy(); networkDoc.destroy(); return; }
-      this.transport = transport; this.unbind = [transport.onCustomMessage((message) => { const checkpoint = Y.encodeStateAsUpdate(this.doc); this.enqueue(() => this.handleCustomMessage(message, checkpoint)); }), transport.onDisconnect((e) => this.onDisconnect(generation, e)), transport.onSynced((synced) => { if (generation === this.connectionGeneration && !this.destroyed) { this.providerSynced = synced; if (synced) this.resolveSyncWaiters(); this.emitState(); } })];
-      for (const entry of this.outbox) Y.applyUpdate(networkDoc, entry.update, SEND_ORIGIN); this.reconnectAttempt = 0; this.emitTransport(); this.emitState();
+      const transport = this.factory({ namespace: this.namespace, doc: networkDoc, ticket }); if (generation !== this.connectionGeneration || this.destroyed) { transport.destroy(); networkDoc.destroy(); throw new Error(this.destroyed ? "Client is destroyed" : "Connection was superseded"); }
+      this.transport = transport; this.unbind = [transport.onCustomMessage((message) => { const checkpoint = Y.encodeStateAsUpdate(this.doc); this.enqueue(() => this.handleCustomMessage(message, checkpoint)); }), transport.onDisconnect((e) => this.onDisconnect(generation, e)), transport.onSynced((synced) => { if (generation === this.connectionGeneration && !this.destroyed) { this.providerSynced = synced; if (synced) { this.reconnectAttempt = 0; this.resolveSyncWaiters(); } this.emitState(); } })];
+      for (const entry of this.outbox) Y.applyUpdate(networkDoc, entry.update, SEND_ORIGIN); this.emitTransport(); this.emitState();
     } catch (cause) { if (generation === this.connectionGeneration && !this.destroyed) { if (cause instanceof TextClientPermanentErrorV2) this.stopped = cause; else this.scheduleReconnect(generation); this.emitState(); } throw cause; }
   }
   async settled(): Promise<void> { await this.tail; }

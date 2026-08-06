@@ -2,7 +2,7 @@ import { EditorView as CMEditorView } from "@codemirror/view";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addBlockBelow,
@@ -82,14 +82,61 @@ describe("VisualMarkdownEditor", () => {
     });
   });
 
+  it("draws a fixed-height caret that does not grow with heading line boxes", async () => {
+    renderEditor("# Title\n\nBody paragraph.");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    let headingPos = 1;
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "heading") headingPos = position + 1;
+    });
+
+    const host = surface.closest<HTMLElement>(".visual-markdown-editor") ?? surface;
+    vi.spyOn(host, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 400,
+      bottom: 600,
+      width: 400,
+      height: 600,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(editor.view, "coordsAtPos").mockReturnValue({
+      top: 40,
+      bottom: 88,
+      left: 64,
+      right: 64,
+    });
+
+    act(() => {
+      editor.commands.focus();
+      editor.commands.setTextSelection(headingPos);
+    });
+
+    const caret = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".visual-fixed-caret");
+      expect(element).not.toBeNull();
+      expect(element?.hidden).toBe(false);
+      return element!;
+    });
+    expect(caret.style.height).toBe("22px");
+    expect(caret.style.top).toBe("53px");
+    expect(caret.style.left).toBe("64px");
+    expect(surface).toHaveAttribute("data-fixed-caret");
+  });
+
   it("draws Overleaf cursors and publishes the visual caret in Markdown coordinates", async () => {
     const onCaretChange = vi.fn();
+    const onSourceCaretChange = vi.fn();
     render(
       <VisualMarkdownEditor
         text="# Hello"
         activePath="presence-heading.md"
         presenceCursors={[{ name: "Ada", hue: 210, row: 0, column: 4 }]}
         onCaretChange={onCaretChange}
+        onSourceCaretChange={onSourceCaretChange}
         onChangeMarkdown={() => true}
         onUndo={() => false}
         onRedo={() => false}
@@ -104,6 +151,7 @@ describe("VisualMarkdownEditor", () => {
       editor.commands.setTextSelection(3);
     });
     await waitFor(() => expect(onCaretChange).toHaveBeenLastCalledWith(0, 4));
+    expect(onSourceCaretChange).toHaveBeenLastCalledWith(4);
   });
 
   it("draws and updates an Overleaf cursor inside an editable code block", async () => {
@@ -676,6 +724,144 @@ describe("VisualMarkdownEditor", () => {
     view.unmount();
 
     expect(onChange).toHaveBeenCalledWith("Hello final", "Hello");
+  });
+
+  it("reuses the TipTap instance when switching Markdown files", () => {
+    const { rerender } = render(
+      <VisualMarkdownEditor
+        text="Alpha document"
+        activePath="a.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    expect(surface).toHaveTextContent("Alpha document");
+
+    rerender(
+      <VisualMarkdownEditor
+        text="Beta document"
+        activePath="b.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    const nextSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const nextEditor = (nextSurface as HTMLElement & { editor: Editor }).editor;
+    expect(nextEditor).toBe(editor);
+    expect(nextSurface).toHaveTextContent("Beta document");
+    expect(nextSurface).not.toHaveTextContent("Alpha document");
+  });
+
+  it("publishes a pending edit for the previous file when the path switches", () => {
+    const publishes: { path: string; next: string; expected: string }[] = [];
+    function Harness({ path, text }: { path: string; text: string }) {
+      // Recreate the publisher when the path prop changes so changeRef from the
+      // previous commit still publishes against the old file during layout flush.
+      const publisher = useMemo(
+        () => (next: string, expected: string) => {
+          publishes.push({ path, next, expected });
+          return true;
+        },
+        [path],
+      );
+      return (
+        <VisualMarkdownEditor
+          text={text}
+          activePath={path}
+          onChangeMarkdown={publisher}
+          onUndo={() => false}
+          onRedo={() => false}
+        />
+      );
+    }
+
+    const view = render(<Harness path="a.md" text="Alpha" />);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => editor.commands.insertContentAt(6, " edit"));
+
+    act(() => {
+      view.rerender(<Harness path="b.md" text="Beta" />);
+    });
+
+    expect(publishes).toEqual([{ path: "a.md", next: "Alpha edit", expected: "Alpha" }]);
+    expect(screen.getByRole("textbox", { name: "Markdown document editor" }))
+      .toHaveTextContent("Beta");
+  });
+
+  it("does not let Undo restore the previous file after a path switch", () => {
+    const onUndo = vi.fn(() => true);
+    const { rerender } = render(
+      <VisualMarkdownEditor
+        text="Alpha"
+        activePath="a.md"
+        onChangeMarkdown={() => true}
+        onUndo={onUndo}
+        onRedo={() => false}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => editor.commands.insertContentAt(6, " edited"));
+    expect(surface).toHaveTextContent("Alpha edited");
+
+    rerender(
+      <VisualMarkdownEditor
+        text="Beta"
+        activePath="b.md"
+        onChangeMarkdown={() => true}
+        onUndo={onUndo}
+        onRedo={() => false}
+      />,
+    );
+    const nextSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const nextEditor = (nextSurface as HTMLElement & { editor: Editor }).editor;
+    expect(nextEditor).toBe(editor);
+    expect(nextSurface).toHaveTextContent("Beta");
+
+    // History is delegated to the host. After a path swap, Mod-z must not
+    // walk TipTap's previous-file stack back to Alpha.
+    act(() => {
+      nextEditor.commands.keyboardShortcut("Mod-z");
+    });
+    expect(onUndo).toHaveBeenCalledOnce();
+    expect(nextSurface).toHaveTextContent("Beta");
+    expect(nextSurface).not.toHaveTextContent("Alpha");
+  });
+
+  it("swaps files that share identical body text", () => {
+    const { rerender } = render(
+      <VisualMarkdownEditor
+        text="Same body"
+        activePath="a.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => editor.commands.insertContentAt(10, "!"));
+    expect(surface).toHaveTextContent("Same body!");
+
+    rerender(
+      <VisualMarkdownEditor
+        text="Same body"
+        activePath="b.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    const nextSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    expect((nextSurface as HTMLElement & { editor: Editor }).editor).toBe(editor);
+    expect(nextSurface).toHaveTextContent("Same body");
+    expect(nextSurface).not.toHaveTextContent("Same body!");
   });
 
   it("adds a slash block without unnecessary split preview movement", async () => {

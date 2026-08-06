@@ -26,7 +26,8 @@ import {
   VisualBlockMover,
   type PreserveVisualViewportMeta,
 } from "./visual-editor-block-controls";
-import { NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state";
+import { VisualFixedCaret } from "./visual-fixed-caret";
+import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { KeyboardNav } from "@ok-app/editor/block-ux/keyboard-nav";
 import { SlashCommand } from "@ok-app/editor/extensions/slash-command";
@@ -552,7 +553,10 @@ function projectAssetMarkdownHref(activePath: string, projectPath: string): stri
 }
 
 /** Upstream slash-menu composition minus app-only skill references. */
-function slashItemSources(importAsset?: (file: File) => Promise<string | null>, activePath = "") {
+function slashItemSources(
+  importAsset?: (file: File) => Promise<string | null>,
+  getActivePath: () => string = () => "",
+) {
   const cached = (factory: () => SlashCommandItem[]) => {
     let items: SlashCommandItem[] | null = null;
     return () => (items ??= factory());
@@ -581,7 +585,7 @@ function slashItemSources(importAsset?: (file: File) => Promise<string | null>, 
             attrs: {
               componentName: "img",
               kind: "element",
-              props: { src: projectAssetMarkdownHref(activePath, path) },
+              props: { src: projectAssetMarkdownHref(getActivePath(), path) },
               sourceDirty: true,
             },
           });
@@ -641,6 +645,7 @@ type VisualMarkdownEditorProps = {
   onLoadAsset?: (path: string) => Promise<string | null>;
   presenceCursors?: PresenceCursor[];
   onCaretChange?: (row: number, column: number) => void;
+  onSourceCaretChange?: (sourceOffset: number) => void;
   overleafChanges?: TrackedChange[];
   overleafTrackChangeActions?: TrackedChangeTooltipActions;
   onCreateComment?: (from: number, to: number, body: string) => void;
@@ -1030,6 +1035,7 @@ export function VisualMarkdownEditor({
   onLoadAsset,
   presenceCursors = [],
   onCaretChange,
+  onSourceCaretChange,
   overleafChanges = [],
   overleafTrackChangeActions,
   onCreateComment,
@@ -1058,6 +1064,7 @@ export function VisualMarkdownEditor({
   const hoveredChangesRef = useRef(hoveredChanges);
   const sectionRef = useRef<HTMLElement | null>(null);
   const editorReadyForChanges = useRef(false);
+  const activePathRef = useRef(activePath);
   const acceptedMarkdown = useRef(text);
   const incomingMarkdown = useRef(text);
   const pendingCanonical = useRef<string | null>(null);
@@ -1074,6 +1081,7 @@ export function VisualMarkdownEditor({
   const undoRef = useRef(onUndo);
   const redoRef = useRef(onRedo);
   const caretChangeRef = useRef(onCaretChange);
+  const sourceCaretChangeRef = useRef(onSourceCaretChange);
   const presenceCursorsRef = useRef(presenceCursors);
   const overleafChangesRef = useRef(overleafChanges);
   const presenceWasActive = useRef(false);
@@ -1154,7 +1162,8 @@ export function VisualMarkdownEditor({
   }, []);
   useEffect(() => {
     caretChangeRef.current = onCaretChange;
-  }, [onCaretChange]);
+    sourceCaretChangeRef.current = onSourceCaretChange;
+  }, [onCaretChange, onSourceCaretChange]);
   useEffect(() => {
     presenceCursorsRef.current = presenceCursors;
   }, [presenceCursors]);
@@ -1227,6 +1236,7 @@ export function VisualMarkdownEditor({
       Math.min(mapped.offset, expectedMarkdown.length),
     );
     callback(caret.row, caret.column);
+    sourceCaretChangeRef.current?.(mapped.offset);
   }, []);
   const refreshVisualPresence = useCallback((currentEditor: Editor, markdown: string) => {
     if (currentEditor.isDestroyed || !presenceWasActive.current) return;
@@ -1246,7 +1256,7 @@ export function VisualMarkdownEditor({
       changes,
     } satisfies VisualTrackChangesMeta));
   }, []);
-  const flushPendingLocalUpdate = () => {
+  const flushPendingLocalUpdate = useCallback(() => {
     if (localUpdateTimer.current) clearTimeout(localUpdateTimer.current);
     if (localUpdateMaxTimer.current) clearTimeout(localUpdateMaxTimer.current);
     localUpdateTimer.current = null;
@@ -1301,15 +1311,15 @@ export function VisualMarkdownEditor({
     }
     conflictDraftRef.current = next;
     setConflictDraft(next);
-  };
+  }, [refreshVisualPresence, reportVisualCaret]);
   // `useEditor` only consumes `content` while creating the editor, but its
   // options object is evaluated on every React render. Parsing here lazily
   // avoids reparsing an entire Markdown document when editor chrome mounts or
   // local status changes; later source updates are reconciled below.
   const [initialContent] = useState(() => cachedVisualContent(activePath, text));
   const slashSources = useMemo(
-    () => slashItemSources(onImportAsset, activePath),
-    [activePath, onImportAsset],
+    () => slashItemSources(onImportAsset, () => activePathRef.current),
+    [onImportAsset],
   );
   const imageExtension = useMemo(() => ImageSrcFidelity.extend({
     addNodeView() {
@@ -1402,7 +1412,7 @@ export function VisualMarkdownEditor({
         },
       };
     },
-  }), []);
+  }), [flushPendingLocalUpdate]);
   const linkOpeningShortcut = useMemo(() => Extension.create({
     name: "openMarkdownLink",
     addKeyboardShortcuts() {
@@ -1410,12 +1420,12 @@ export function VisualMarkdownEditor({
         "Mod-Enter": ({ editor: currentEditor }) => {
           const href = currentEditor.getAttributes("link").href as string | undefined;
           if (!href) return false;
-          openMarkdownLink(activePath, href, openPathRef.current, currentEditor.view.dom);
+          openMarkdownLink(activePathRef.current, href, openPathRef.current, currentEditor.view.dom);
           return true;
         },
       };
     },
-  }), [activePath]);
+  }), []);
   const atomicBlockSelection = useMemo(() => Extension.create({
     name: "atomicBlockSelection",
     addProseMirrorPlugins() {
@@ -1499,6 +1509,7 @@ export function VisualMarkdownEditor({
         extension.name === "tag" ? tagWithChrome : extension,
       ),
       SourceDirtyObserver,
+      VisualFixedCaret,
       VisualOverleafPresence,
       VisualOverleafTrackChanges,
       // Vendored Open Knowledge chrome: block "+"/grip, keyboard block nav,
@@ -1554,7 +1565,7 @@ export function VisualMarkdownEditor({
         const href = anchor.getAttribute("href");
         if (!href) return false;
         event.preventDefault();
-        openMarkdownLink(activePath, href, openPathRef.current, view.dom);
+        openMarkdownLink(activePathRef.current, href, openPathRef.current, view.dom);
         void nodePos;
         return true;
       },
@@ -1646,7 +1657,7 @@ export function VisualMarkdownEditor({
             return true;
           }
           const href = anchor.getAttribute("href");
-          if (href) openMarkdownLink(activePath, href, openPathRef.current, view.dom);
+          if (href) openMarkdownLink(activePathRef.current, href, openPathRef.current, view.dom);
           return true;
         },
       },
@@ -1690,7 +1701,10 @@ export function VisualMarkdownEditor({
     onFocus: ({ editor: currentEditor }) => {
       reportVisualCaret(currentEditor, acceptedMarkdown.current);
     },
-  }, [activePath]);
+  // Recreate only when reading-mode chrome changes. File switches reuse this
+  // instance via the path-swap layout effect below — remounting TipTap is what
+  // made .md navigation feel slow.
+  }, [optimizeForReading]);
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     const wired = new WeakSet<HTMLAnchorElement>();
@@ -1704,7 +1718,7 @@ export function VisualMarkdownEditor({
           if (!href) return;
           event.preventDefault();
           event.stopPropagation();
-          openMarkdownLink(activePath, href, openPathRef.current, editor.view.dom);
+          openMarkdownLink(activePathRef.current, href, openPathRef.current, editor.view.dom);
         });
       });
     };
@@ -1712,7 +1726,7 @@ export function VisualMarkdownEditor({
     const observer = new MutationObserver(wireLinks);
     observer.observe(editor.view.dom, { childList: true, subtree: true });
     return () => observer.disconnect();
-  }, [activePath, editor]);
+  }, [editor]);
   const reconcileCanonical = useCallback((canonical: string) => {
     if (!editor || editor.isDestroyed || canonical === acceptedMarkdown.current) return;
     const base = acceptedMarkdown.current;
@@ -1725,7 +1739,7 @@ export function VisualMarkdownEditor({
         acceptedMarkdown.current = rebased;
         conflictDraftRef.current = null;
         setConflictDraft(null);
-        setMarkdownWithoutHistory(editor, rebased, activePath);
+        setMarkdownWithoutHistory(editor, rebased, activePathRef.current);
         refreshVisualPresence(editor, rebased);
         refreshVisualTrackChanges(editor, rebased, []);
         return;
@@ -1733,26 +1747,70 @@ export function VisualMarkdownEditor({
       setConflictDraft(draft);
     }
     acceptedMarkdown.current = canonical;
-    setMarkdownWithoutHistory(editor, canonical, activePath);
+    setMarkdownWithoutHistory(editor, canonical, activePathRef.current);
     refreshVisualPresence(editor, canonical);
     refreshVisualTrackChanges(editor, canonical);
-  }, [activePath, editor, refreshVisualPresence, refreshVisualTrackChanges]);
+  }, [editor, refreshVisualPresence, refreshVisualTrackChanges]);
 
   useEffect(() => {
     if (editor && editor.isEditable !== editable) editor.setEditable(editable);
   }, [editable, editor]);
+
+  // Swap TipTap content across .md files without tearing down the editor.
+  // Runs in layout so changeRef still points at the previous file's publisher
+  // (that ref is refreshed in a later useEffect).
+  useLayoutEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (activePathRef.current === activePath) return;
+
+    flushPendingLocalUpdate();
+
+    activePathRef.current = activePath;
+    composing.current = false;
+    if (compositionClearTimer.current) {
+      clearTimeout(compositionClearTimer.current);
+      compositionClearTimer.current = null;
+    }
+    pendingCanonical.current = null;
+    conflictDraftRef.current = null;
+    setConflictDraft(null);
+    setHoveredChanges(null);
+    setCommentComposer(null);
+    setLinkPopoverOpen(false);
+    eligibilityText.current = null;
+    eligibilityRepresentedExactly.current = null;
+    editorReadyForChanges.current = false;
+
+    acceptedMarkdown.current = text;
+    incomingMarkdown.current = text;
+    setMarkdownWithoutHistory(editor, text, activePath);
+    // Fresh history so Undo cannot walk back into the previous file.
+    editor.view.updateState(EditorState.create({
+      doc: editor.state.doc,
+      plugins: editor.state.plugins,
+    }));
+
+    const scroller = sectionRef.current?.closest<HTMLElement>("[data-testid='editor-scroll-container']");
+    if (scroller) scroller.scrollTop = 0;
+  }, [activePath, editor, flushPendingLocalUpdate, text]);
+
   useEffect(() => {
     incomingMarkdown.current = text;
-    if (!editor || text === acceptedMarkdown.current) return;
+    if (!editor) return;
+    // Path swaps are handled in the layout effect; skip the reconcile echo for
+    // the same commit so we do not double-apply content.
+    if (activePathRef.current !== activePath) return;
+    if (text === acceptedMarkdown.current) return;
     if (composing.current) {
       pendingCanonical.current = text;
       return;
     }
     queueMicrotask(() => {
       if (editor.isDestroyed || incomingMarkdown.current !== text || text === acceptedMarkdown.current) return;
+      if (activePathRef.current !== activePath) return;
       reconcileCanonical(text);
     });
-  }, [editor, reconcileCanonical, text]);
+  }, [activePath, editor, reconcileCanonical, text]);
 
   useLayoutEffect(() => () => {
     // Keyboard mode/tab switches can unmount the editor without a DOM blur.
@@ -1762,7 +1820,7 @@ export function VisualMarkdownEditor({
     if (compositionClearTimer.current) clearTimeout(compositionClearTimer.current);
     if (localUpdateTimer.current) clearTimeout(localUpdateTimer.current);
     if (localUpdateMaxTimer.current) clearTimeout(localUpdateMaxTimer.current);
-  }, []);
+  }, [flushPendingLocalUpdate]);
 
   useEffect(() => {
     if (!editor) return;

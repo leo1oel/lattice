@@ -69,4 +69,13 @@ describe("shared surface contracts", () => {
     const borderedSurfaces = surfacesCss.slice(0, surfacesCss.indexOf("/* Settings deliberately"))
     expect(borderedSurfaces).not.toContain(".settings-modal")
   })
+
+  it("keeps menu viewports free of layout-taking scrollbars", () => {
+    expect(menuSurface).toContain("[scrollbar-width:none]")
+    expect(surfacesCss).toContain('[data-slot="dropdown-menu-content"]')
+    expect(surfacesCss).toContain("scrollbar-width: none")
+    expect(surfacesCss).toMatch(
+      /\[data-slot="dropdown-menu-content"\]::-webkit-scrollbar[\s\S]*width:\s*0/,
+    )
+  })
 })

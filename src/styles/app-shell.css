@@ -63,8 +63,18 @@ input[type="search"]:focus-visible {
 .titlebar-sidebar.collapsed { width: auto; }
 .titlebar-sidebar.collapsed .project-switcher { flex: none; }
 .titlebar-sidebar.collapsed .titlebar-drag-area { display: none; }
-.titlebar-navigator { width: var(--titlebar-navigator-width); height: 100%; flex: none; padding: 0 var(--space-4) 0 0; display: flex; align-items: center; gap: var(--space-1); }
-.traffic-space { width: var(--titlebar-traffic-space-width); height: 100%; flex: none; margin-right: var(--space-1); }
+/* Hide Sidebar is positioned at --titlebar-toggle-center (midpoint between the
+   measured green traffic-light right edge and the project label text), relative
+   to the titlebar so Tip wrappers cannot skew the math. */
+.titlebar-navigator { width: var(--titlebar-navigator-width); height: 100%; flex: none; display: flex; align-items: center; }
+.traffic-space { width: var(--titlebar-traffic-space-width); height: 100%; flex: none; }
+.titlebar-sidebar-toggle { flex: 1; min-width: 0; height: 100%; }
+.titlebar-sidebar-toggle .icon-button {
+  position: absolute;
+  left: var(--titlebar-toggle-center);
+  top: 50%;
+  translate: -50% -50%;
+}
 .app-shell.fullscreen .titlebar-navigator { width: var(--titlebar-navigator-width-fullscreen); padding: 0 var(--space-4); }
 .app-shell.fullscreen .traffic-space { width: 0; }
 .icon-button { width: var(--titlebar-action-size); height: var(--titlebar-action-size); border-radius: var(--radius-chrome); background: transparent; display: grid; place-items: center; color: var(--text-secondary); }

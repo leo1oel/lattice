@@ -133,11 +133,17 @@ import {
 } from "./components/ui/external-scrollbar-geometry";
 import type { AgentHostSurface } from "./agent-host-context";
 import type { EditorCollabSession } from "./collab-session";
-import { peerCaretOffsetsV2 } from "./collab-session";
+import { peerCaretOffsetsV2, publishCollabCursorV2 } from "./collab-session";
 import { collabEditorExtensions } from "./collab-editor";
 
 const loadPdfPreviewModule = () => import("./pdf-viewer");
-const loadVisualMarkdownEditorModule = () => import("./visual-markdown-editor");
+let visualMarkdownEditorWarmed = false;
+
+const loadVisualMarkdownEditorModule = () => import("./visual-markdown-editor").then((module) => {
+  // Chunk prewarm finished — skip DeferredVisualMarkdownEditor's one-frame blank.
+  visualMarkdownEditorWarmed = true;
+  return module;
+});
 const loadBoardEditorModule = () => import("./board-editor");
 
 const PdfPreview = lazy(() => loadPdfPreviewModule().then((module) => ({
@@ -149,8 +155,6 @@ const VisualMarkdownEditor = lazy(() => loadVisualMarkdownEditorModule().then((m
 const BoardEditor = lazy(() => loadBoardEditorModule().then((module) => ({
   default: module.BoardEditor,
 })));
-
-let visualMarkdownEditorWarmed = false;
 
 function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
   const [ready, setReady] = useState(visualMarkdownEditorWarmed);
@@ -1640,33 +1644,96 @@ export function DocumentCanvas(props: {
   useEffect(() => {
     const request = editorNavigation;
     if (!request) return;
-    const view = request.path === secondaryFile
-      ? secondaryViewRef.current
-      : request.path === activeFile
-        ? primaryViewRef.current ?? editorViewRef.current
-        : null;
-    if (!view) return;
-    const frame = window.requestAnimationFrame(() => {
-      const currentView = request.path === secondaryFile
+    const editorVisible = props.mode !== "pdf" && props.mode !== "asset";
+    const candidateView = editorVisible
+      ? request.path === secondaryFile
         ? secondaryViewRef.current
-        : primaryViewRef.current ?? editorViewRef.current;
-      if (!currentView) return;
-      const lineNumber = clamp(request.line, 1, currentView.state.doc.lines);
-      const line = currentView.state.doc.line(lineNumber);
-      // Center the target line so a jump lands in the middle of the viewport,
-      // not pinned to the top (jumping down) or bottom (jumping up).
-      currentView.dispatch({
-        selection: { anchor: line.from },
-        effects: EditorView.scrollIntoView(line.from, { y: "center" }),
-      });
-      editorViewRef.current = currentView;
-      if (request.path === secondaryFile) onFocusPane("secondary");
-      else onFocusPane("primary");
-      currentView.focus();
+        : request.path === activeFile
+          ? primaryViewRef.current ?? editorViewRef.current
+          : null
+      : null;
+    // Refs can be assigned just before CodeMirror's DOM reports connected.
+    // Treat the view as ready here; otherwise a one-shot navigation can be
+    // missed because the later ref attachment does not itself rerun this effect.
+    const view = candidateView;
+    const preview = request.path === activeFile && markdownDocument
+      ? markdownPreviewViewport
+      : null;
+    if (!view && !preview) return;
+    let frame: number | null = null;
+    let observer: MutationObserver | null = null;
+    const navigate = () => {
+      frame = null;
+      const currentView = editorVisible
+        ? request.path === secondaryFile
+          ? secondaryViewRef.current
+          : primaryViewRef.current ?? editorViewRef.current
+        : null;
+      if (currentView) {
+        const lineNumber = clamp(request.line, 1, currentView.state.doc.lines);
+        const line = currentView.state.doc.line(lineNumber);
+        // Center the target line so a jump lands in the middle of the viewport,
+        // not pinned to the top (jumping down) or bottom (jumping up).
+        currentView.dispatch({
+          selection: { anchor: line.from },
+          effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+        });
+        editorViewRef.current = currentView;
+        if (request.path === secondaryFile) onFocusPane("secondary");
+        else onFocusPane("primary");
+        currentView.focus();
+      } else if (preview) {
+        const targetLine = Math.max(1, request.line - markdownPreviewLineOffset);
+        const anchors = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
+        if (!anchors.length) return;
+        const target = anchors.reduce<HTMLElement | null>((closest, anchor) => {
+          const line = Number(anchor.dataset.sourceLine);
+          if (!Number.isFinite(line) || line > targetLine) return closest;
+          const closestLine = Number(closest?.dataset.sourceLine ?? 0);
+          return line > closestLine ? anchor : closest;
+        }, null) ?? anchors[0];
+        if (target) {
+          const viewportRect = preview.getBoundingClientRect();
+          const targetRect = target.getBoundingClientRect();
+          preview.scrollTop += targetRect.top - viewportRect.top
+            - (preview.clientHeight - targetRect.height) / 2;
+        }
+        onFocusPane("primary");
+      }
+      observer?.disconnect();
       onEditorNavigationHandled(request.id);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [activeFile, editorNavigation, editorSource, onEditorNavigationHandled, onFocusPane, secondaryFile, secondarySource]);
+    };
+    const scheduleNavigation = () => {
+      if (frame != null) return;
+      frame = window.requestAnimationFrame(navigate);
+    };
+    if (!view && preview) {
+      observer = new MutationObserver(scheduleNavigation);
+      observer.observe(preview, {
+        attributes: true,
+        attributeFilter: ["data-source-line"],
+        childList: true,
+        subtree: true,
+      });
+    }
+    scheduleNavigation();
+    return () => {
+      if (frame != null) window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [
+    activeFile,
+    editorNavigation,
+    editorSource,
+    markdownDocument,
+    markdownPreviewLineOffset,
+    markdownPreviewViewport,
+    onEditorNavigationHandled,
+    onFocusPane,
+    props.mode,
+    secondaryFile,
+    secondarySource,
+  ]);
   useEffect(() => {
     const view = editorViewRef.current;
     const point = props.figurePointerPosition;
@@ -2210,14 +2277,13 @@ export function DocumentCanvas(props: {
     >
       <Suspense fallback={<div className="chat-markdown">Preparing preview…</div>}>
         <DeferredVisualMarkdownEditor
-          key={props.activeFile}
           text={markdownPreviewText}
           activePath={props.activeFile}
           optimizeForReading={Boolean(props.activePaper)}
-          // Every split preview uses exact source labels. Geometry is measured
-          // lazily on scroll, so long Paper/Blog documents and ordinary
-          // Markdown share accuracy without paying layout cost while typing.
-          synchronizeSourceScroll={props.mode === "split"}
+          // Split previews keep source labels for scroll sync. Pure preview
+          // enables them only for a pending navigation, so collaborator jumps
+          // stay exact without paying the labeling cost while typing.
+          synchronizeSourceScroll={props.mode === "split" || editorNavigation?.path === activeFile}
           onRequestViewportLock={lockMarkdownPreviewViewport}
           onOpenProjectPath={props.onOpenMarkdownPath}
           workspaceIndex={props.workspaceIndex}
@@ -2248,6 +2314,11 @@ export function DocumentCanvas(props: {
             const line = row + markdownPreviewLineOffset + 1;
             setStatusPosition({ line, column });
             props.onEditorPosition({ path: activeFile, line, column });
+          }}
+          onSourceCaretChange={(sourceOffset) => {
+            if (collabLive && collabSession?.activePath === activeFile) {
+              publishCollabCursorV2(collabSession, markdownPreviewStart + sourceOffset);
+            }
           }}
         />
       </Suspense>

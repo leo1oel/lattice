@@ -61,9 +61,15 @@ describe("CollabDialog chat tab", () => {
     expect(screen.queryByText(/Use the full invite from Copy invite/i)).not.toBeInTheDocument();
   });
 
+  it("uses the hover-revealed scrollbar for the join invite", () => {
+    render(<CollabDialog {...baseProps()} mode="join" status="disconnected" connectedRoom={null} />);
+    expect(screen.getByLabelText("Collab invite")).toHaveClass("native-hover-scrollbar");
+  });
+
   it("offers cancellation instead of another start attempt while a share is connecting", () => {
     const onStartShare = vi.fn(); const onDisconnect = vi.fn();
-    render(<CollabDialog {...baseProps()} status="connecting" connectedRoom={null} onStartShare={onStartShare} onDisconnect={onDisconnect} />);
+    render(<CollabDialog {...baseProps()} status="connecting" statusDetail="Uploading project files… 3/8" connectedRoom={null} onStartShare={onStartShare} onDisconnect={onDisconnect} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Uploading project files… 3/8");
     const button = screen.getByRole("button", { name: "Cancel" });
     fireEvent.click(button);
     expect(onStartShare).not.toHaveBeenCalled();

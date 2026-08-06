@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
 import {
   createCollabChatMessage,
@@ -9,9 +9,11 @@ import {
   peerCaretOffsetsV2,
   peerColorForName,
   peerCursorLocationV2,
+  publishCollabCursorV2,
   readCollabChatMessages,
   sendCollabChatMessage,
   type EditorCollabSession,
+  waitForPeerCursorLocationV2,
 } from "./collab-session";
 import { Awareness } from "y-protocols/awareness";
 
@@ -122,6 +124,109 @@ function v2SessionWithCaret(text: string, caretIndex: number | null) {
 }
 
 describe("v2 peer caret helpers", () => {
+  it("waits for a cross-file peer's real awareness id and resolves its line", async () => {
+    vi.useFakeTimers();
+    const { session, awareness } = v2SessionWithCaret("one\ntwo\nthree", null);
+    const pending = waitForPeerCursorLocationV2(session, "peer-instance");
+    const head = Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(session.ytext, 9));
+
+    awareness.states.set(777, { instanceId: "peer-instance", cursor: { head }, user: { name: "Bo" } });
+    awareness.emit("change", [{ added: [777], updated: [], removed: [] }, "remote"]);
+
+    await expect(pending).resolves.toEqual({ path: "paper.md", line: 3 });
+    vi.useRealTimers();
+  });
+
+  it("stops waiting when a peer has no cursor in the opened file", async () => {
+    vi.useFakeTimers();
+    const { session, awareness } = v2SessionWithCaret("one\ntwo", null);
+    const off = vi.spyOn(awareness, "off");
+    const pending = waitForPeerCursorLocationV2(session, "missing", 50);
+
+    await vi.advanceTimersByTimeAsync(50);
+
+    await expect(pending).resolves.toBeNull();
+    expect(off).toHaveBeenCalledWith("change", expect.any(Function));
+    vi.useRealTimers();
+  });
+
+  it("publishes a visual editor caret in the format remote peers resolve", () => {
+    const { session, awareness } = v2SessionWithCaret("one\ntwo\nthree", null);
+    awareness.setLocalState({ user: { name: "Ada", color: "#1971c2" }, path: "paper.md" });
+
+    publishCollabCursorV2(session, 9);
+
+    const cursor = awareness.getLocalState()?.cursor as { head?: unknown } | undefined;
+    expect(cursor?.head).toBeTruthy();
+    const absolute = Y.createAbsolutePositionFromRelativePosition(
+      Y.createRelativePositionFromJSON(cursor!.head),
+      session.doc,
+    );
+    expect(absolute).toMatchObject({ type: session.ytext, index: 9 });
+    expect(awareness.getLocalState()).toMatchObject({
+      user: { name: "Ada" },
+      path: "paper.md",
+    });
+  });
+
+  it("coalesces rapid visual caret moves to the latest position per frame", async () => {
+    vi.useFakeTimers();
+    const { session, awareness } = v2SessionWithCaret("one\ntwo\nthree", null);
+    awareness.setLocalState({ user: { name: "Ada" }, path: "paper.md" });
+    const publish = vi.spyOn(awareness, "setLocalStateField");
+
+    publishCollabCursorV2(session, 1);
+    publishCollabCursorV2(session, 2);
+    publishCollabCursorV2(session, 4);
+    publishCollabCursorV2(session, 9);
+    expect(publish).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(20);
+    expect(publish).toHaveBeenCalledTimes(2);
+    const cursor = awareness.getLocalState()?.cursor as { head: unknown };
+    expect(Y.createAbsolutePositionFromRelativePosition(
+      Y.createRelativePositionFromJSON(cursor.head),
+      session.doc,
+    )?.index).toBe(9);
+
+    publishCollabCursorV2(session, 9);
+    expect(publish).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("discards a pending caret frame when the session switches files", async () => {
+    vi.useFakeTimers();
+    const { session, awareness: awarenessA } = v2SessionWithCaret("file a", null);
+    awarenessA.setLocalState({ path: "a.md" });
+    publishCollabCursorV2(session, 1);
+    publishCollabCursorV2(session, 5);
+
+    const docB = new Y.Doc();
+    const textB = docB.getText("content");
+    textB.insert(0, "file b content");
+    const awarenessB = new Awareness(docB);
+    awarenessB.setLocalState({ path: "b.md" });
+    const mutable = session as unknown as {
+      doc: Y.Doc;
+      ytext: Y.Text;
+      activePath: string;
+      provider: { awareness: Awareness };
+    };
+    mutable.doc = docB;
+    mutable.ytext = textB;
+    mutable.activePath = "b.md";
+    mutable.provider = { awareness: awarenessB };
+    publishCollabCursorV2(session, 3);
+
+    await vi.advanceTimersByTimeAsync(20);
+    const cursor = awarenessB.getLocalState()?.cursor as { head: unknown };
+    expect(Y.createAbsolutePositionFromRelativePosition(
+      Y.createRelativePositionFromJSON(cursor.head),
+      docB,
+    )?.index).toBe(3);
+    vi.useRealTimers();
+  });
+
   it("resolves a remote caret to an offset with identity, skipping self", () => {
     const { session, awareness } = v2SessionWithCaret("one\ntwo\nthree", 5);
     awareness.setLocalState({ cursor: { head: null } });

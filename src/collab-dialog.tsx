@@ -194,6 +194,7 @@ export function CollabDialog(props: {
               Invite link
               <Textarea
                 aria-label="Collab invite"
+                className="native-hover-scrollbar"
                 placeholder="Paste the full invite from Copy invite"
                 value={props.inviteText}
                 rows={3}
@@ -305,13 +306,16 @@ export function CollabDialog(props: {
               </>
             )}
           </div>
-        ) : (
-          props.status === "error" ? (
-            <div className="collab-status-line" data-status={props.status}>
-              <span>{props.statusDetail || "Connection failed"}</span>
-            </div>
-          ) : null
-        )}
+        ) : starting ? (
+          <div className="collab-status-line" data-status={props.status} role="status" aria-live="polite">
+            <InfinityLoader size={12} />
+            <span>{props.statusDetail || "Connecting…"}</span>
+          </div>
+        ) : props.status === "error" ? (
+          <div className="collab-status-line" data-status={props.status} role="status">
+            <span>{props.statusDetail || "Connection failed"}</span>
+          </div>
+        ) : null}
 
         <div className="modal-actions">
           {starting ? (

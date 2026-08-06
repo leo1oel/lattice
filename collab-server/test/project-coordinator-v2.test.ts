@@ -33,7 +33,10 @@ async function bootstrap(label: string, paths: string[] = []) {
 }
 
 async function mutate(stub: DurableObjectStub<ProjectCoordinatorV2>, id: string, action: string, revision: number, body: object = {}, credential = hostSecret) {
-  return request(stub, id, action, { credential, body: { operationId: crypto.randomUUID(), expectedCatalogRevision: revision, ...body } });
+  const initializer = action === "create" && (body as { kind?: string }).kind !== "binary"
+    ? { initializer: { operationId: `initialize_${crypto.randomUUID()}`, size: 0, hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" } }
+    : {};
+  return request(stub, id, action, { credential, body: { operationId: crypto.randomUUID(), expectedCatalogRevision: revision, ...initializer, ...body } });
 }
 
 async function secretHash(secret: string) {
@@ -78,13 +81,46 @@ describe("ProjectCoordinatorV2", () => {
     expect(stored).not.toContain(guestSecret);
   });
 
+  it("keeps a writer-created text file initializing until its durable seed exists", async () => {
+    const { id, stub } = await bootstrap("durable-create");
+    await mutate(stub, id, "import-finalize", 0);
+    const writeGrant = await mutate(stub, id, "grants", 1, { permission: "write", guestSecretHash: await secretHash(guestSecret) });
+    const readSecret = `${guestSecret}-read`;
+    await mutate(stub, id, "grants", 2, { permission: "read", guestSecretHash: await secretHash(readSecret) });
+    const otherWriterSecret = `${guestSecret}-other-writer`;
+    await mutate(stub, id, "grants", 3, { permission: "write", guestSecretHash: await secretHash(otherWriterSecret) });
+    const hash = "a".repeat(64);
+    const operationId = "initialize_guest_text";
+    const created = await mutate(stub, id, "create", 4, { path: "guest.md", kind: "text", initializer: { operationId, size: 12, hash } }, guestSecret);
+    const fileId = created.body.value.fileId as string;
+
+    expect(created.body.value.state).toBe("initializing");
+    expect(await stub.authorizeTextImport(guestSecret, fileId, 1, operationId, 12, hash)).toBe(true);
+    expect(await stub.authorizeTextImport(otherWriterSecret, fileId, 1, operationId, 12, hash)).toBe(false);
+    expect(await stub.authorizeTextImport(readSecret, fileId, 1, operationId, 12, hash)).toBe(false);
+    expect((await mutate(stub, id, "file-ready", 5, { fileId })).response.status).toBe(400);
+    expect(await stub.completeTextImport(fileId, 1, 12, hash)).toBe(false);
+    expect((await request(stub, id, "catalog", { credential: guestSecret })).body.files[0].state).toBe("initializing");
+
+    expect(await stub.updateTextDurableMetadata(fileId, 1, 1, 1, 20, "b".repeat(64), "state-vector")).toBe(true);
+    expect(await stub.completeTextImport(fileId, 1, 12, hash)).toBe(true);
+    const catalog = await request(stub, id, "catalog", { credential: guestSecret });
+    expect(catalog.body.files[0]).toMatchObject({ fileId, path: "guest.md", state: "live", size: 12, hash });
+
+    // A lost 201 can retry the same TextFile operation after publication.
+    expect(await stub.authorizeTextImport(guestSecret, fileId, 1, operationId, 12, hash)).toBe(true);
+    expect(await stub.completeTextImport(fileId, 1, 12, hash)).toBe(true);
+    await mutate(stub, id, "revoke", catalog.body.catalogRevision, { grantId: writeGrant.body.value.grantId });
+    expect(await stub.authorizeTextImport(guestSecret, fileId, 1, operationId, 12, hash)).toBe(false);
+  });
+
   it("provides CAS and recursively canonical idempotency", async () => {
     const { id, stub } = await bootstrap("cas");
     await mutate(stub, id, "import-finalize", 0);
     const operationId = crypto.randomUUID();
-    const firstBody = { operationId, expectedCatalogRevision: 1, path: "a.md", kind: "text", metadata: { z: 1, a: 2 } };
+    const firstBody = { operationId, expectedCatalogRevision: 1, path: "a.md", kind: "text", initializer: { operationId: "initialize_cas", size: 0, hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }, metadata: { z: 1, a: 2 } };
     const first = await request(stub, id, "create", { credential: hostSecret, body: firstBody });
-    const retry = await request(stub, id, "create", { credential: hostSecret, body: { metadata: { a: 2, z: 1 }, path: "a.md", kind: "text", expectedCatalogRevision: 1, operationId } });
+    const retry = await request(stub, id, "create", { credential: hostSecret, body: { metadata: { a: 2, z: 1 }, initializer: firstBody.initializer, path: "a.md", kind: "text", expectedCatalogRevision: 1, operationId } });
     expect(retry.body).toEqual(first.body);
     expect((await request(stub, id, "create", { credential: hostSecret, body: { ...firstBody, path: "b.md" } })).body.error).toBe("operation_id_reuse");
     expect((await mutate(stub, id, "create", 1, { path: "stale.md" })).body.error).toBe("catalog_revision_conflict");

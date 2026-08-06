@@ -48,6 +48,7 @@ type BinaryGcSweep = { rootGeneration: number; round: 1 | 2; cursor?: string; at
 type BinaryGcResult = { scanned: number; deleted: number; orphanBacklog: number; round: 1 | 2; truncated?: boolean; waitingForGrace?: boolean };
 type PendingFileWork = { kind: "delete" | "close" | "revoke"; fileId: string; documentEpoch: number; authorityEpoch: number; operationId?: string; grantId?: string; grantEpoch?: number; attempts?: number; lastAttemptAt?: number };
 type DurableMetadata = { documentEpoch: number; contentRevision: number; snapshotGeneration: number; size: number; hash: string; stateVector: string };
+type TextInitializer = { grantId: string; operationId: string; size: number; hash: string; completed?: boolean };
 type ImportManifestEntry = { fileId: string; path: string; kind: "text" | "binary" | "board"; size: number; hash: string };
 type PresenceEntry = { name: string; color: string; path: string | null; updatedAt: number; grantId?: string };
 type CoordinatorState = CatalogV2 & {
@@ -61,6 +62,7 @@ type CoordinatorState = CatalogV2 & {
   pendingCloseAcks: string[];
   pendingFileWork?: PendingFileWork[];
   durableMetadata?: Record<string, DurableMetadata>;
+  textInitializers?: Record<string, TextInitializer>;
   binaryTickets?: BinaryTicket[];
   binaryReferences?: Record<string, BinaryReferenceV2>;
   binaryConflicts?: BinaryConflictV2[];
@@ -156,8 +158,12 @@ export class ProjectCoordinatorV2 extends DurableObject {
 
   private async authenticate(request: Request): Promise<{ grantId: string; permission: GrantPermission } | null> {
     const raw = request.headers.get("Authorization")?.match(/^Bearer (.+)$/)?.[1];
-    if (!raw) return null;
-    if (await verify(raw, this.state!.host)) return { grantId: "host", permission: "host" };
+    return raw ? this.authenticateCredential(raw) : null;
+  }
+
+  private async authenticateCredential(raw: string): Promise<{ grantId: string; permission: GrantPermission } | null> {
+    if (!this.state) return null;
+    if (await verify(raw, this.state.host)) return { grantId: "host", permission: "host" };
     for (const grant of this.state!.grants) {
       if (!grant.revoked && !grant.revoking && await verify(raw, grant.secret)) return grant;
     }
@@ -254,6 +260,15 @@ export class ProjectCoordinatorV2 extends DurableObject {
       const path = canonicalPath(body.path);
       ensurePathFree(state, path);
       const file: CatalogFileV2 = { fileId: crypto.randomUUID(), path, kind: requiredFileKind(body.kind), state: "initializing", documentEpoch: 1 };
+      if (file.kind !== "binary") {
+        const initializer = readObjectValue(body.initializer, "initializer");
+        const initializerOperationId = requiredString(initializer.operationId, "initializer.operationId");
+        const initializerSize = requiredInteger(initializer.size, "initializer.size");
+        const initializerHash = requiredString(initializer.hash, "initializer.hash");
+        if (!isOperationId(initializerOperationId) || initializerSize < 0 || initializerSize > 5 * 1024 * 1024 || !isSha256(initializerHash)) throw new Error("Invalid text initializer");
+        state.textInitializers ??= {};
+        state.textInitializers[file.fileId] = { grantId: actor.grantId, operationId: initializerOperationId, size: initializerSize, hash: initializerHash };
+      }
       state.files.push(file); value = file;
     } else if (action === "rename") {
       requireLive(state);
@@ -262,6 +277,7 @@ export class ProjectCoordinatorV2 extends DurableObject {
     } else if (action === "file-ready") {
       const file = findFile(state, requiredString(body.fileId, "fileId"));
       if (file.state !== "initializing") throw new Error("File is not initializing");
+      if (file.kind !== "binary") throw new Error("Text files require durable initialization");
       file.state = "live"; value = file;
     } else if (action === "delete-begin") {
       requireLive(state);
@@ -666,21 +682,40 @@ export class ProjectCoordinatorV2 extends DurableObject {
     return true;
   }
 
-  /** Trusted Worker seam: authenticates host and binds every import claim to the bootstrap manifest. */
+  /** Trusted Worker seam: authorize bootstrap imports or a writer's newly-created text initializer. */
   async authorizeTextImport(credential: string, fileId: string, documentEpoch: number, operationId: string, size: number, hash: string): Promise<boolean> {
-    if (!this.state || this.state.lifecycle !== "importing" || !await verify(credential, this.state.host) || !isOperationId(operationId) || !isSha256(hash)) return false;
+    if (!this.state || !isOperationId(operationId) || !isSha256(hash)) return false;
     const file = this.state.files.find((item) => item.fileId === fileId);
+    const metadata = this.state.durableMetadata?.[fileId];
+    const replay = file?.state === "live" && metadata?.size === size && metadata.hash === hash;
+    if (!file || (file.state !== "initializing" && !replay) || file.documentEpoch !== documentEpoch || (file.kind !== "text" && file.kind !== "board")) return false;
+    if (this.state.lifecycle === "live") {
+      const actor = await this.authenticateCredential(credential);
+      const initializer = this.state.textInitializers?.[fileId];
+      return !!actor && actor.permission !== "read" && !!initializer
+        && actor.grantId === initializer.grantId
+        && operationId === initializer.operationId
+        && size === initializer.size
+        && hash === initializer.hash;
+    }
+    if (this.state.lifecycle !== "importing" || !await verify(credential, this.state.host)) return false;
     const entry = this.state.import?.entries.find((item) => item.fileId === fileId);
-    return !!file && file.state === "initializing" && file.documentEpoch === documentEpoch && !!entry && (entry.kind === "text" || entry.kind === "board") && entry.size === size && entry.hash === hash;
+    return !!entry && (entry.kind === "text" || entry.kind === "board") && entry.size === size && entry.hash === hash;
   }
 
   async completeTextImport(fileId: string, documentEpoch: number, size: number, hash: string): Promise<boolean> {
-    if (!this.state || this.state.lifecycle !== "importing") return false;
+    if (!this.state || (this.state.lifecycle !== "importing" && this.state.lifecycle !== "live")) return false;
     const file = this.state.files.find((item) => item.fileId === fileId);
     const entry = this.state.import?.entries.find((item) => item.fileId === fileId);
-    if (!file || file.state !== "initializing" || file.documentEpoch !== documentEpoch || !entry || (entry.kind !== "text" && entry.kind !== "board") || entry.size !== size || entry.hash !== hash) return false;
     const metadata = this.state.durableMetadata?.[fileId];
+    if (!file || file.documentEpoch !== documentEpoch || (file.kind !== "text" && file.kind !== "board")) return false;
+    if (file.state === "live") return metadata?.size === size && metadata.hash === hash;
+    if (file.state !== "initializing") return false;
+    if (this.state.lifecycle === "importing" && (!entry || (entry.kind !== "text" && entry.kind !== "board") || entry.size !== size || entry.hash !== hash)) return false;
+    const initializer = this.state.textInitializers?.[fileId];
+    if (this.state.lifecycle === "live" && (!initializer || initializer.size !== size || initializer.hash !== hash)) return false;
     if (!metadata) return false;
+    if (initializer) initializer.completed = true;
     metadata.size = size; metadata.hash = hash; file.size = size; file.hash = hash; file.state = "live";
     this.bump("file-ready", fileId); await this.persist(); return true;
   }
@@ -724,7 +759,7 @@ export class ProjectCoordinatorV2 extends DurableObject {
   async updateTextDurableMetadata(fileId: string, documentEpoch: number, contentRevision: number, snapshotGeneration: number, size: number, hash: string, stateVector: string): Promise<boolean> {
     if (!this.state || (this.state.lifecycle !== "live" && this.state.lifecycle !== "importing")) return false;
     const file = this.state.files.find((item) => item.fileId === fileId);
-    if (!file || (file.state !== "live" && !(this.state.lifecycle === "importing" && file.state === "initializing")) || file.documentEpoch !== documentEpoch) return false;
+    if (!file || (file.state !== "live" && !((this.state.lifecycle === "importing" || this.state.lifecycle === "live") && file.state === "initializing")) || file.documentEpoch !== documentEpoch) return false;
     const previous = this.state.durableMetadata?.[fileId];
     if (previous && contentRevision < previous.contentRevision) return false;
     if (previous && contentRevision === previous.contentRevision) return previous.snapshotGeneration === snapshotGeneration && previous.hash === hash;
@@ -871,6 +906,7 @@ async function verify(secret: string, stored: SecretHash): Promise<boolean> { re
 async function digest(v: string): Promise<string> { const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v)); return Array.from(new Uint8Array(h), (b) => b.toString(16).padStart(2, "0")).join(""); }
 function constantTime(a: string, b: string): boolean { if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; }
 async function readObject(r: Request): Promise<Record<string, unknown>> { const value: unknown = await r.json(); if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("JSON object required"); return value as Record<string, unknown>; }
+function readObjectValue(value: unknown, name: string): Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${name} must be an object`); return value as Record<string, unknown>; }
 function json(value: unknown, status = 200): Response { return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } }); }
 function fail(status: number, error: string, message: string, extra?: object): Response { return json({ error, message, ...extra }, status); }
 function log(event: string, fields: object): void { console.info(JSON.stringify({ event, ...fields })); }

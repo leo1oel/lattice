@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { toRichText } from "tldraw";
+import * as Y from "yjs";
 import type { CatalogFileV2, CatalogV2 } from "../protocol/collab-v2";
 import { planCatalogDeltaV2 } from "./collab-project-v2";
 
@@ -136,10 +137,11 @@ describe("v2 project presence", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { CollabProjectControllerV2 } = await import("./collab-project-v2");
     const peersCalls: import("./collab-session").CollabPeer[][] = [];
+    const store = new (await import("./collab-text-v2-store")).CollabTextDurableStoreV2(new IDBFactory());
     const controller = await CollabProjectControllerV2.start({
       deployment: "https://collab.example", projectInstanceId: "proj",
       credentialRef: "ref", credentialStore: { get: async () => "secret" } as never,
-      store: new (await import("./collab-text-v2-store")).CollabTextDurableStoreV2(new IDBFactory()),
+      store,
       transportFactory: ({ doc }) => {
         const awareness = new Awareness(doc);
         awarenesses.push(awareness);
@@ -156,7 +158,7 @@ describe("v2 project presence", () => {
       displayName: "Ada",
       onPeers: (peers) => peersCalls.push(peers),
     });
-    return { controller, presenceCalls, peersCalls, awarenesses };
+    return { controller, presenceCalls, peersCalls, awarenesses, store };
   }
 
   it("announces identity and path on awareness, merges cross-file presence, and leaves on destroy", async () => {
@@ -197,6 +199,129 @@ describe("v2 project presence", () => {
     expect(awarenesses).toHaveLength(2);
     expect(awarenesses[0]!.getLocalState()).toBeNull();
     expect((awarenesses[1]!.getLocalState() as { path?: string }).path).toBe("notes.md");
+  });
+
+  it("warms a superseded file without activating it over the latest navigation", async () => {
+    const { controller } = await setupPresenceTest({ paths: ["paper.md", "notes.md"] });
+    await controller.openPath("paper.md", "main", { activateIf: () => false });
+    expect(controller.activePath).toBe("");
+    await controller.openPath("notes.md");
+    expect(controller.activePath).toBe("notes.md");
+    controller.destroy();
+  });
+
+  it("coalesces concurrent uncached opens without destroying either caller's client", async () => {
+    const { controller, awarenesses, store } = await setupPresenceTest();
+    const originalLoad = store.load.bind(store);
+    let loadCount = 0;
+    let releaseLoads!: () => void;
+    const loadsReleased = new Promise<void>((resolve) => { releaseLoads = resolve; });
+    vi.spyOn(store, "load").mockImplementation(async (namespace) => {
+      loadCount += 1;
+      await loadsReleased;
+      return originalLoad(namespace);
+    });
+
+    const first = controller.openPath("paper.md");
+    const second = controller.openPath("paper.md");
+    await vi.waitFor(() => expect(loadCount).toBe(1));
+    releaseLoads();
+
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+    expect(awarenesses).toHaveLength(1);
+    controller.destroy();
+  });
+
+  it("rejects every shared open waiter when the controller is destroyed during restore", async () => {
+    const { controller, awarenesses, store } = await setupPresenceTest();
+    const originalLoad = store.load.bind(store);
+    let loadCount = 0;
+    let releaseLoad!: () => void;
+    const loadReleased = new Promise<void>((resolve) => { releaseLoad = resolve; });
+    vi.spyOn(store, "load").mockImplementation(async (namespace) => {
+      loadCount += 1;
+      await loadReleased;
+      return originalLoad(namespace);
+    });
+
+    const first = controller.openPath("paper.md");
+    const second = controller.openPath("paper.md");
+    await vi.waitFor(() => expect(loadCount).toBe(1));
+    controller.destroy();
+    releaseLoad();
+
+    await expect(first).rejects.toThrow("Controller is destroyed");
+    await expect(second).rejects.toThrow("Controller is destroyed");
+    expect(awarenesses).toHaveLength(0);
+  });
+
+  it("coalesces awareness bursts into one peer render and cancels it on destroy", async () => {
+    const { controller, awarenesses, peersCalls } = await setupPresenceTest();
+    await controller.openPath("paper.md");
+    (controller as unknown as { stopEventsPolling(): void }).stopEventsPolling();
+    const awareness = awarenesses[0]!;
+    awareness.states.set(999, {
+      instanceId: "peer",
+      path: "paper.md",
+      user: { name: "Bo", color: "#1971c2" },
+    });
+    const before = peersCalls.length;
+    for (let index = 0; index < 20; index++) {
+      awareness.emit("change", [{ added: [], updated: [999], removed: [] }, "remote"]);
+    }
+    expect(peersCalls).toHaveLength(before);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(peersCalls).toHaveLength(before + 1);
+
+    awareness.emit("change", [{ added: [], updated: [999], removed: [] }, "remote"]);
+    controller.destroy();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(peersCalls).toHaveLength(before + 1);
+  });
+
+  it("coalesces a burst of remote text transactions into one latest-state disk write", async () => {
+    const { controller } = await setupPresenceTest();
+    const writes: string[] = [];
+    let blockWrites = false;
+    let releaseWrite!: () => void;
+    const writeReleased = new Promise<void>((resolve) => { releaseWrite = resolve; });
+    controller.bindWorkspace(
+      { projectRoot: "/tmp/proj", isCurrent: () => true },
+      {
+        writeText: async (_path, content) => {
+          writes.push(content);
+          if (blockWrites) await writeReleased;
+        },
+        writeBytes: async () => undefined,
+      },
+    );
+    await controller.openPath("paper.md");
+    await controller.flush();
+    writes.length = 0;
+
+    const remote = new Y.Doc();
+    const remoteText = remote.getText("content");
+    const applyCharacter = (character: string) => {
+      const before = Y.encodeStateVector(remote);
+      remoteText.insert(remoteText.length, character);
+      Y.applyUpdate(controller.doc, Y.encodeStateAsUpdate(remote, before));
+    };
+    blockWrites = true;
+    applyCharacter("s");
+    await vi.waitFor(() => expect(writes).toEqual(["s"]));
+    for (const character of "mooth") {
+      applyCharacter(character);
+    }
+    let flushed = false;
+    const flush = controller.flush().then(() => { flushed = true; });
+    await Promise.resolve();
+    expect(flushed).toBe(false);
+    blockWrites = false;
+    releaseWrite();
+    await flush;
+
+    expect(writes).toEqual(["s", "smooth"]);
+    controller.destroy();
   });
 });
 
@@ -385,6 +510,8 @@ describe("v2 mid-share file creation", () => {
     hostOnline?: boolean;
     /** First /create answers 409 catalog_revision_conflict (a peer moved the revision first). */
     failFirstCreate?: boolean;
+    /** Durable text initialization fails, including its one idempotent retry. */
+    failImport?: boolean;
     initializingFiles?: Array<{ fileId: string; path: string }>;
   } = {}) {
     vi.resetModules();
@@ -399,7 +526,7 @@ describe("v2 mid-share file creation", () => {
         ...(options.initializingFiles ?? []).map((entry) => ({ fileId: entry.fileId, path: entry.path, kind: "text", state: "initializing", documentEpoch: 1 })),
       ] as Array<{ fileId: string; path: string; kind: string; state: string; documentEpoch: number }>,
     };
-    const calls = { create: 0, fileReady: 0 };
+    const calls = { create: 0, fileReady: 0, textImport: 0, importedText: "" };
     let createSeen = false;
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: { body?: string }) => {
       const respond = (value: unknown) => new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } });
@@ -413,6 +540,17 @@ describe("v2 mid-share file creation", () => {
       if (url.includes("/events")) return respond({ catalogRevision: catalogValue.catalogRevision, events: [], refetch: false });
       if (url.endsWith("/tickets")) return respond({ ticket: "ticket" });
       if (url.endsWith("/presence")) return respond({ protocol: 2, presence: {} });
+      if (url.includes("/text/imports/")) {
+        calls.textImport += 1;
+        if (options.failImport) return new Response(JSON.stringify({ error: "import_failed" }), { status: 503, headers: { "content-type": "application/json" } });
+        const fileId = decodeURIComponent(url.split("/").at(-1)!);
+        const entry = catalogValue.files.find((candidate) => candidate.fileId === fileId)!;
+        const body = init?.body as unknown as Uint8Array;
+        calls.importedText = new TextDecoder().decode(body);
+        entry.state = "live";
+        catalogValue.catalogRevision += 1;
+        return respond({ status: "created" });
+      }
       if (url.endsWith("/create")) {
         calls.create += 1;
         createSeen = true;
@@ -465,33 +603,44 @@ describe("v2 mid-share file creation", () => {
     return { controller, catalogValue, calls };
   }
 
-  it("host: create is marked live inline and the seed text lands in the fresh doc", async () => {
+  it("host: durably uploads seed text before the created file becomes live", async () => {
     const { controller, catalogValue, calls } = await setupCreateTest({ permission: "host" });
     await controller.create("notes/new.md", "text", { seedText: "# Notes\n" });
     expect(calls.create).toBe(1);
-    expect(calls.fileReady).toBe(1);
+    expect(calls.textImport).toBe(1);
+    expect(calls.importedText).toBe("# Notes\n");
+    expect(calls.fileReady).toBe(0);
     const entry = catalogValue.files.find((file) => file.path === "notes/new.md")!;
     expect(entry.state).toBe("live");
     expect(controller.hasTextPath("notes/new.md")).toBe(true);
-    const ytext = await controller.openPath("notes/new.md", "secondary", { sideload: true });
-    expect(ytext.toString()).toBe("# Notes\n");
     controller.destroy();
   });
 
-  it("guest: waits for the host's file-ready instead of calling it, then seeds", async () => {
-    const { controller, catalogValue, calls } = await setupCreateTest({ permission: "write", hostOnline: true });
+  it("guest: durably uploads its seed without waiting for the host", async () => {
+    const { controller, catalogValue, calls } = await setupCreateTest({ permission: "write", hostOnline: false });
     await controller.create("draft.md", "text", { seedText: "draft body" });
     expect(calls.create).toBe(1);
+    expect(calls.textImport).toBe(1);
+    expect(calls.importedText).toBe("draft body");
     expect(calls.fileReady).toBe(0);
     expect(catalogValue.files.find((file) => file.path === "draft.md")!.state).toBe("live");
-    const ytext = await controller.openPath("draft.md", "secondary", { sideload: true });
-    expect(ytext.toString()).toBe("draft body");
     controller.destroy();
   });
 
-  it("guest: times out while the host is offline and leaves the file initializing", async () => {
-    const { controller, catalogValue } = await setupCreateTest({ permission: "write", hostOnline: false });
-    await expect(controller.create("stuck.md", "text", { timeoutMs: 700 })).rejects.toThrow(/host/);
+  it("durably initializes an empty text file instead of using file-ready", async () => {
+    const { controller, catalogValue, calls } = await setupCreateTest({ permission: "host" });
+    await controller.create("empty.md", "text");
+    expect(calls.textImport).toBe(1);
+    expect(calls.importedText).toBe("");
+    expect(calls.fileReady).toBe(0);
+    expect(catalogValue.files.find((file) => file.path === "empty.md")!.state).toBe("live");
+    controller.destroy();
+  });
+
+  it("does not publish a text file when durable initialization fails", async () => {
+    const { controller, catalogValue, calls } = await setupCreateTest({ permission: "write", failImport: true });
+    await expect(controller.create("stuck.md", "text", { seedText: "must persist" })).rejects.toThrow(/text_import_failed/);
+    expect(calls.textImport).toBe(2);
     expect(catalogValue.files.find((file) => file.path === "stuck.md")!.state).toBe("initializing");
     controller.destroy();
   });
@@ -503,15 +652,15 @@ describe("v2 mid-share file creation", () => {
     controller.destroy();
   });
 
-  it("host: peer-created initializing files are marked live on the next catalog pull", async () => {
+  it("host does not publish peer-created text files before they are durably initialized", async () => {
     const { controller, catalogValue, calls } = await setupCreateTest({
       permission: "host",
       initializingFiles: [{ fileId: "peer-1", path: "peer/new.md" }],
     });
-    await vi.waitFor(() => expect(calls.fileReady).toBe(1));
-    expect(catalogValue.files.find((file) => file.fileId === "peer-1")!.state).toBe("live");
-    // The controller's own catalog copy catches up on the next events poll.
-    await vi.waitFor(() => expect(controller.hasTextPath("peer/new.md")).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(calls.fileReady).toBe(0);
+    expect(catalogValue.files.find((file) => file.fileId === "peer-1")!.state).toBe("initializing");
+    expect(controller.hasTextPath("peer/new.md")).toBe(false);
     controller.destroy();
   });
 
@@ -519,10 +668,9 @@ describe("v2 mid-share file creation", () => {
     const { controller, catalogValue, calls } = await setupCreateTest({ permission: "host", failFirstCreate: true });
     await controller.create("notes/raced.md", "text", { seedText: "# Raced\n" });
     expect(calls.create).toBe(2);
-    expect(calls.fileReady).toBe(1);
+    expect(calls.textImport).toBe(1);
+    expect(calls.fileReady).toBe(0);
     expect(catalogValue.files.find((file) => file.path === "notes/raced.md")!.state).toBe("live");
-    const ytext = await controller.openPath("notes/raced.md", "secondary", { sideload: true });
-    expect(ytext.toString()).toBe("# Raced\n");
     controller.destroy();
   });
 

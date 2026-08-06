@@ -249,9 +249,11 @@
      rather than restated per element. */
   --titlebar-height: 40px;
   --titlebar-sidebar-width: 320px;
-  --titlebar-navigator-width: 140px;
+  --titlebar-navigator-width: 120px;
   --titlebar-navigator-width-fullscreen: 50px;
-  --titlebar-traffic-space-width: 90px;
+  /* Fallback until AppKit reports the green button's right edge at runtime. */
+  --titlebar-traffic-space-width: 70px;
+  --titlebar-toggle-center: calc((var(--titlebar-traffic-space-width) + var(--titlebar-navigator-width)) / 2);
   --titlebar-action-size: var(--control-size-icon-large);
 
   /* Editor tab strip contract. The strip has two variants that share every

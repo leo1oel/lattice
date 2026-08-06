@@ -20,6 +20,8 @@ textarea {
   --ui-font: "Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif;
   --editor-font: "Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace;
   --editor-font-size: var(--type-reading-size);
+  /* Shared by source CodeMirror and the visual Markdown fixed caret. */
+  --editor-caret-width: 1.4px;
   font-family: var(--ui-font);
   font-weight: var(--weight-regular);
   -webkit-font-smoothing: antialiased;

@@ -2585,20 +2585,25 @@ fn set_window_background(app: tauri::AppHandle, dark: bool) -> Result<(), String
 }
 
 #[tauri::command]
-fn align_traffic_lights(app: tauri::AppHandle, center_from_top: f64) -> Result<(), String> {
+fn align_traffic_lights(
+    app: tauri::AppHandle,
+    center_from_top: f64,
+) -> Result<Option<f64>, String> {
     #[cfg(target_os = "macos")]
     {
         use tauri::Manager;
         let window = app
             .get_webview_window("main")
             .ok_or_else(|| "Main window is unavailable.".to_string())?;
-        macos_window::align_traffic_lights_to(&window, center_from_top);
-        Ok(())
+        Ok(macos_window::align_traffic_lights_to(
+            &window,
+            center_from_top,
+        ))
     }
     #[cfg(not(target_os = "macos"))]
     {
         let _ = (app, center_from_top);
-        Ok(())
+        Ok(None)
     }
 }
 

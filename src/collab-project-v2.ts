@@ -8,8 +8,9 @@ import { CollabTextClientV2, CollabTextProviderPoolV2, createYPartyTransportV2, 
 import type { CollabDiagnosticSinkV2 } from "./collab-diagnostics-v2";
 import { CollabBinaryV2Client, type BinaryReplaceResult } from "./collab-binary-v2";
 import { formatCollabInvitationV2 } from "./collab-invitation-v2";
-import { peerColorForKey, readCollabPeers, COLLAB_LOCAL_ORIGIN, type CollabPeer } from "./collab-session";
+import { peerColorForKey, readCollabPeers, type CollabPeer } from "./collab-session";
 import type { OperationResultV2 } from "../protocol/collab-v2";
+import { putTextFileV2 } from "./collab-import-v2";
 
 export type CollabProjectStatusV2 = "syncing" | "server-received" | "durable" | "offline" | "read-only" | "importing" | "closed" | "error";
 export type CollabProjectV2Options = {
@@ -62,6 +63,16 @@ export type CatalogDeltaV2 = {
 
 const LIVE_STATES = new Set(["live"]);
 const BOARD_DISK_WRITE_DEBOUNCE_MS = 250;
+const TEXT_DISK_WRITE_DEBOUNCE_MS = 100;
+
+function scheduleProjectFrameV2(callback: () => void): () => void {
+  if (typeof requestAnimationFrame === "function") {
+    const frame = requestAnimationFrame(callback);
+    return () => cancelAnimationFrame(frame);
+  }
+  const timer = setTimeout(callback, 16);
+  return () => clearTimeout(timer);
+}
 
 function liveById(catalog: CatalogV2): Map<string, CatalogFileV2> {
   const map = new Map<string, CatalogFileV2>();
@@ -113,8 +124,9 @@ export class CollabProjectControllerV2 {
   private control!: CollabControlV2Client;
   private catalogValue!: CatalogV2;
   private readonly clients = new Map<string, CollabTextClientV2>();
+  private readonly openingClients = new Map<string, Promise<CollabTextClientV2>>();
   private readonly diskObservers = new Map<string, () => void>();
-  private readonly boardDiskFlushes = new Map<string, () => Promise<void>>();
+  private readonly diskObserverFlushes = new Map<string, () => Promise<void>>();
   private readonly canWriteListeners = new Set<(canWrite: boolean) => void>();
   private readonly fileMutations = new Map<string, Promise<void>>();
   private readonly pool: CollabTextProviderPoolV2;
@@ -123,6 +135,7 @@ export class CollabProjectControllerV2 {
   private activeClient?: CollabTextClientV2;
   private activePin: "main" | "secondary" = "main";
   private destroyed = false;
+  private cancelPeerRefresh?: () => void;
   private firstFileOpened = false;
   private statusValue: CollabProjectStatusV2 = "syncing";
   private credential = "";
@@ -212,22 +225,23 @@ export class CollabProjectControllerV2 {
   async refetchCatalog(): Promise<CatalogV2> {
     this.assertLiveController();
     const catalog = await this.control.catalog();
+    this.assertLiveController();
     if (catalog.projectInstanceId !== this.options.projectInstanceId) throw new Error("Catalog project identity mismatch");
     this.catalogValue = catalog;
     this.reconcileDiskObservers();
     this.options.onCatalog?.(catalog);
     this.setStatus(catalog.lifecycle === "importing" ? "importing" : catalog.lifecycle === "closed" ? "closed" : "syncing");
-    // Host duty: peer-created files sit in `initializing` until the host marks
-    // them ready (the server only lets the host do this). Fire-and-forget so a
-    // slow finalize never blocks the refetch; the next poll retries failures.
+    // Binary files have no text snapshot to import, so the host can publish
+    // them directly. Text/board creators publish through the durable import
+    // endpoint instead; marking those live here could expose an empty room.
     if (catalog.lifecycle === "live" && this.options.permission === "host"
-      && catalog.files.some((file) => file.state === "initializing")) {
+      && catalog.files.some((file) => file.state === "initializing" && file.kind === "binary")) {
       void this.finalizeInitializingFiles().catch(() => undefined);
     }
     return catalog;
   }
 
-  /** Mark every initializing file live, sequentially so revisions stay chained. */
+  /** Mark initializing binary files live, sequentially so revisions stay chained. */
   private finalizingInitializing = false;
   private async finalizeInitializingFiles(): Promise<void> {
     // The sweep fires on every refetch; overlap would double file-ready the
@@ -235,7 +249,7 @@ export class CollabProjectControllerV2 {
     if (this.finalizingInitializing) return;
     this.finalizingInitializing = true;
     try {
-      for (const file of this.catalogValue.files.filter((entry) => entry.state === "initializing")) {
+      for (const file of this.catalogValue.files.filter((entry) => entry.state === "initializing" && entry.kind === "binary")) {
         await this.fileReady(file.fileId).catch((error) => {
           this.options.onPermanentError?.(error instanceof Error ? error : new Error(String(error)), file.fileId);
         });
@@ -248,6 +262,7 @@ export class CollabProjectControllerV2 {
   /** Host-only catalog op: flip an initializing file to live. */
   private async fileReady(fileId: string): Promise<void> {
     const result = await this.control.operation<OperationResultV2>("file-ready", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, fileId });
+    this.assertLiveController();
     this.catalogValue.catalogRevision = result.catalogRevision;
     const entry = this.fileById(fileId);
     if (entry && entry.state === "initializing") entry.state = "live";
@@ -370,7 +385,7 @@ export class CollabProjectControllerV2 {
     }
   }
 
-  async openPath(path: string, pin: "main" | "secondary" = "main", options: { allowCachedOffline?: boolean; timeoutMs?: number; sideload?: boolean } = {}): Promise<Y.Text> {
+  async openPath(path: string, pin: "main" | "secondary" = "main", options: { allowCachedOffline?: boolean; timeoutMs?: number; sideload?: boolean; activateIf?: () => boolean } = {}): Promise<Y.Text> {
     this.assertLiveController(); const file = this.file(path); if (!file) throw new Error(`File is not in the v2 catalog: ${path}`); if (file.state !== "live" && file.state !== "initializing") throw new Error("File is unavailable");
     let client = this.clients.get(file.fileId);
     // The provider pool evicts (destroys) unpinned clean clients without
@@ -378,12 +393,13 @@ export class CollabProjectControllerV2 {
     // otherwise connect() throws "Client is destroyed" forever.
     if (client?.isDestroyed) { this.detachDiskObserver(file.fileId); this.clients.delete(file.fileId); client = undefined; }
     if (client && client.namespace.documentEpoch !== file.documentEpoch) { client.destroy(); this.clients.delete(file.fileId); this.options.onPermanentError?.(new Error("File epoch changed; export cached recovery before reopening"), file.fileId); throw new Error("File epoch mismatch"); }
-    if (!client) { const namespace: TextNamespaceV2 = { deployment: this.options.deployment, projectInstanceId: this.options.projectInstanceId, fileId: file.fileId, documentEpoch: file.documentEpoch }; client = await CollabTextClientV2.open(namespace, { store: this.options.store ?? new CollabTextDurableStoreV2(), issueTicket: (identity) => this.issueTicket(identity), transportFactory: this.options.transportFactory ?? createYPartyTransportV2({ host: this.options.deployment }), reconnect: this.options.reconnectPolicy }); this.clients.set(file.fileId, client); this.pool.add(client); const opened = client; client.subscribeState((state) => { this.onDurability(state); if (opened === this.activeClient) this.emitCanWrite(); }); client.subscribeTransport(() => this.onTransportReplaced(opened)); }
-    try { await client.connect(); await client.waitForSynced(options.timeoutMs); } catch (error) { if (!options.allowCachedOffline) throw error; this.setStatus("offline"); }
+    if (!client) client = await this.openClient(file);
+    try { await client.connect(); await client.waitForSynced(options.timeoutMs); } catch (error) { if (this.destroyed || !options.allowCachedOffline) throw error; this.setStatus("offline"); }
+    this.assertLiveController();
     // (Re)mirroring onto disk: a resurrected client needs a fresh observer on
     // the new doc; attachDiskObserver no-ops when one is already live.
     if (this.materializeContext) this.attachDiskObserver(file, client, this.materializeContext.lease, this.materializeContext.callbacks);
-    if (!options.sideload) {
+    if (!options.sideload && (options.activateIf?.() ?? true)) {
       const previousClient = this.activeClient;
       if (previousClient && previousClient !== client) this.pool.unpin(previousClient, this.activePin);
       this.activeClient = client; this.activePin = pin; this.pool.pin(client, pin); this.activePath = path; this.ytext = client.doc.getText("content"); this.undoManager.destroy(); this.undoManager = new Y.UndoManager(this.ytext); this.provider = { awareness: client.awareness ?? this.fallbackAwareness }; this.awarenessVersion += 1; this.announcePresence(previousClient, client, path);
@@ -391,6 +407,60 @@ export class CollabProjectControllerV2 {
       if (!this.firstFileOpened) { this.firstFileOpened = true; const now = (this.options.now ?? Date.now)(); this.options.diagnostics?.({ name: "first_file_open", at: now, durationMs: now - this.startedAt, fileId: file.fileId }); }
     }
     return client.doc.getText("content");
+  }
+
+  private async openClient(file: CatalogFileV2): Promise<CollabTextClientV2> {
+    const openingKey = `${file.fileId}:${file.documentEpoch}`;
+    const pending = this.openingClients.get(openingKey);
+    if (pending) return pending;
+    const opening = (async () => {
+      const namespace: TextNamespaceV2 = {
+        deployment: this.options.deployment,
+        projectInstanceId: this.options.projectInstanceId,
+        fileId: file.fileId,
+        documentEpoch: file.documentEpoch,
+      };
+      const opened = await CollabTextClientV2.open(namespace, {
+        store: this.options.store ?? new CollabTextDurableStoreV2(),
+        issueTicket: (identity) => this.issueTicket(identity),
+        transportFactory: this.options.transportFactory ?? createYPartyTransportV2({ host: this.options.deployment }),
+        reconnect: this.options.reconnectPolicy,
+      });
+      if (this.destroyed) {
+        opened.destroy();
+        throw new Error("Controller is destroyed");
+      }
+      const current = this.fileById(file.fileId);
+      if (!current || current.documentEpoch !== file.documentEpoch) {
+        opened.destroy();
+        throw new Error("File epoch changed while opening");
+      }
+      const winner = this.clients.get(file.fileId);
+      if (winner && !winner.isDestroyed && winner.namespace.documentEpoch === file.documentEpoch) {
+        opened.destroy();
+        return winner;
+      }
+      if (winner) {
+        this.detachDiskObserver(file.fileId);
+        winner.destroy();
+      }
+      this.clients.set(file.fileId, opened);
+      this.pool.add(opened);
+      opened.subscribeState((state) => {
+        if (opened === this.activeClient) {
+          this.onDurability(state);
+          this.emitCanWrite();
+        }
+      });
+      opened.subscribeTransport(() => this.onTransportReplaced(opened));
+      return opened;
+    })();
+    this.openingClients.set(openingKey, opening);
+    try {
+      return await opening;
+    } finally {
+      if (this.openingClients.get(openingKey) === opening) this.openingClients.delete(openingKey);
+    }
   }
 
   /**
@@ -411,10 +481,18 @@ export class CollabProjectControllerV2 {
       path,
       instanceId: this.instanceId,
     });
-    const onChange = () => this.pushPeers();
+    const onChange = () => this.schedulePeerRefresh();
     awareness.on("change", onChange);
     this.awarenessListener = () => awareness.off("change", onChange);
     this.pushPeers();
+  }
+
+  private schedulePeerRefresh(): void {
+    if (this.cancelPeerRefresh || this.destroyed) return;
+    this.cancelPeerRefresh = scheduleProjectFrameV2(() => {
+      this.cancelPeerRefresh = undefined;
+      this.pushPeers();
+    });
   }
 
   private presenceIdentity(): { name: string; color: string; colorLight: string } {
@@ -463,7 +541,9 @@ export class CollabProjectControllerV2 {
   private async heartbeatPresence(): Promise<void> {
     try {
       const identity = this.presenceIdentity();
-      this.presenceValue = await this.control.presence({ instanceId: this.instanceId, name: identity.name, color: identity.color, path: this.activePath || null });
+      const presence = await this.control.presence({ instanceId: this.instanceId, name: identity.name, color: identity.color, path: this.activePath || null });
+      if (this.destroyed) return;
+      this.presenceValue = presence;
       this.pushPeers();
     } catch { /* keep last known presence */ }
   }
@@ -472,12 +552,10 @@ export class CollabProjectControllerV2 {
   renamePath(oldPath: string, newPath: string): void { const file = this.file(oldPath); if (!file) throw new Error("Unknown catalog path"); file.path = newPath; if (this.activePath === oldPath) { this.activePath = newPath; this.setAwarenessPath(newPath); } const client = this.clients.get(file.fileId); if (client) this.pool.rename(client, newPath); }
   /**
    * Add a file to the shared project mid-session. The server assigns the file
-   * identity in `initializing`; the host then marks it live — inline when we
-   * are the host, otherwise via the host peer's events poll, which we wait on.
-   * Once live, `seedText` (text/board files) is inserted into the fresh doc so
-   * peers pull the content rather than an empty room. Read-only actors cannot
-   * create; a guest create with the host offline times out and the file stays
-   * `initializing` (and local-only) until the host returns.
+   * identity in `initializing`. Text/board content is durably imported before
+   * the coordinator publishes it as live, so peers can never enter an empty
+   * room between catalog publication and seeding. Binary files retain the
+   * host-ready flow. Read-only actors cannot create.
    */
   async create(path: string, kind: "text" | "binary" | "board", options: { seedText?: string; timeoutMs?: number; adoptExisting?: boolean } = {}): Promise<boolean> {
     if ((this.options.permission ?? "write") === "read") throw new Error("Read-only collaborators cannot create files");
@@ -488,7 +566,14 @@ export class CollabProjectControllerV2 {
     const occupied = existing && existing.state !== "tombstoned" && existing.state !== "purging";
     if (occupied && (!options.adoptExisting || existing.kind !== kind)) throw new Error(`File already exists in the v2 catalog: ${path}`);
     this.checkLease(lease);
-    const createOp = () => this.control.operation<OperationResultV2>("create", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, path, kind });
+    const seedText = options.seedText ?? "";
+    const seedBytes = new TextEncoder().encode(seedText);
+    const initializer = kind === "binary" ? undefined : {
+      operationId: `initialize_${crypto.randomUUID()}`,
+      size: seedBytes.byteLength,
+      hash: await sha256(seedText),
+    };
+    const createOp = () => this.control.operation<OperationResultV2>("create", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, path, kind, ...(initializer ? { initializer } : {}) });
     let result: OperationResultV2 | undefined;
     let created: CatalogFileV2 | undefined = occupied ? existing : undefined;
     let createdByThisClient = !occupied;
@@ -519,6 +604,22 @@ export class CollabProjectControllerV2 {
       // (file count in the share UI) ourselves.
       this.options.onCatalog?.(this.catalogValue);
     }
+    if (createdByThisClient && initializer && kind !== "binary") {
+      const initialize = () => putTextFileV2({
+        deployment: this.options.deployment,
+        projectInstanceId: this.options.projectInstanceId,
+        credential: this.credential,
+        fileId: created.fileId,
+        documentEpoch: created.documentEpoch,
+        bytes: seedBytes,
+        hash: initializer.hash,
+        operationId: initializer.operationId,
+      });
+      try { await initialize(); }
+      catch { await initialize(); }
+      this.checkLease(lease);
+      await this.refetchCatalog();
+    }
     const now = this.options.now ?? Date.now;
     const deadline = now() + (options.timeoutMs ?? 15_000);
     while (true) {
@@ -527,7 +628,7 @@ export class CollabProjectControllerV2 {
       if (!entry) throw new Error("The created file vanished from the catalog");
       if (entry.state === "live") break;
       if (now() >= deadline) throw new Error(`Timed out waiting for the host to accept ${path}; it stays local until the host returns`);
-      if (this.options.permission === "host") {
+      if (this.options.permission === "host" && kind === "binary") {
         // A concurrent events-poll refetch can flip the file (or move the
         // revision) first — either way the next loop iteration sees it.
         await this.fileReady(created.fileId).catch(() => undefined);
@@ -538,12 +639,6 @@ export class CollabProjectControllerV2 {
       // the deadline, not any single poll, bounds the wait.
       await new Promise<void>((resolve) => setTimeout(resolve, this.options.permission === "host" ? 250 : 500));
       await this.refetchCatalog().catch(() => undefined);
-    }
-    if (createdByThisClient && options.seedText && kind !== "binary") {
-      // Sideload: seeding must not steal the editor's active binding.
-      const ytext = await this.openPath(path, "secondary", { sideload: true });
-      // A peer who landed in the fresh room first may already have typed.
-      if (ytext.length === 0) ytext.doc?.transact(() => ytext.insert(0, options.seedText!), COLLAB_LOCAL_ORIGIN);
     }
     return createdByThisClient;
   }
@@ -560,7 +655,7 @@ export class CollabProjectControllerV2 {
   async revoke(grantId: string): Promise<void> { const result = await this.control.operation<OperationResultV2>("revoke", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, grantId }); this.catalogValue.catalogRevision = result.catalogRevision; }
   async delete(path: string, local: CollabLocalMutationsV2): Promise<void> { const file = this.file(path); if (!file) throw new Error("Unknown catalog path"); const lease = this.requireLease(); await this.enqueueFile(file.fileId, async () => { this.checkLease(lease); this.locallyDeleted.add(file.fileId); try { await this.control.operation("delete-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, fileId: file.fileId }); await this.refetchCatalog(); this.detachDiskObserver(file.fileId); this.checkLease(lease); await local.delete(path, lease.projectRoot); this.checkLease(lease); } finally { this.locallyDeleted.delete(file.fileId); } }); }
   async settled(): Promise<void> { await this.activeClient?.settled(); }
-  async flush(): Promise<void> { await Promise.all([...this.boardDiskFlushes.values()].map((flush) => flush())); }
+  async flush(): Promise<void> { await Promise.all([...this.diskObserverFlushes.values()].map((flush) => flush())); }
   async downloadBinary(path: string): Promise<Uint8Array> { const file = this.file(path); if (!file || file.kind !== "binary") throw new Error("Unknown binary catalog path"); return this.getBinaryClient().download(file.fileId, file.documentEpoch); }
   async replaceBinary(path: string, bytes: Uint8Array, mime: string, local: CollabLocalMutationsV2): Promise<BinaryReplaceResult> { const file = this.file(path); if (!file || file.kind !== "binary" || file.state !== "live") throw new Error("Unknown binary catalog path"); const lease = this.requireLease(); return this.enqueueFile(file.fileId, async () => { this.checkLease(lease); const result = await this.getBinaryClient().replace(file.fileId, file.documentEpoch, bytes, mime, this.catalogValue.catalogRevision, file.contentRevision ?? 0, file.hash); this.checkLease(lease); if (result.status === "conflict") { const loser = await this.getBinaryClient().download(file.fileId, file.documentEpoch, result.conflict.conflictId); this.checkLease(lease); if (!local.writeBinaryConflict) throw new Error("Binary conflict requires an explicit conflict-copy writer"); await local.writeBinaryConflict(binaryConflictPath(path, result.conflict.conflictId), loser, lease.projectRoot); this.options.onPermanentError?.(new Error(`Binary conflict preserved for ${path}`), file.fileId); } await this.refetchCatalog().catch(() => undefined); return result; }); }
   /**
@@ -618,6 +713,7 @@ export class CollabProjectControllerV2 {
   async close(): Promise<void> { await this.control.operation("close-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision }); if (!this.destroyed) await this.refetchCatalog(); }
   destroy(): void {
     if (this.destroyed) return; this.destroyed = true; this.stopEventsPolling();
+    this.cancelPeerRefresh?.(); this.cancelPeerRefresh = undefined;
     this.awarenessListener?.(); this.awarenessListener = undefined;
     // Best-effort leave so our entry does not linger until the server TTL.
     if (this.control) void this.control.presence({ instanceId: this.instanceId, name: "", color: "", path: null, leave: true }).catch(() => undefined);
@@ -682,7 +778,7 @@ export class CollabProjectControllerV2 {
           await Promise.all([...pendingWrites]);
         }
       };
-      this.boardDiskFlushes.set(fileId, flush);
+      this.diskObserverFlushes.set(fileId, flush);
       // Both local and remote record edits must reach the workspace .tldr.
       // Coalesce pointer-frequency drawing updates into one latest-state write.
       const onUpdate = () => scheduleWrite();
@@ -694,20 +790,58 @@ export class CollabProjectControllerV2 {
         client.doc.off("update", onUpdate);
         if (timer !== undefined) clearTimeout(timer);
         timer = undefined;
-        this.boardDiskFlushes.delete(fileId);
+        this.diskObserverFlushes.delete(fileId);
       });
     } else {
       const text = client.doc.getText("content");
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let pending: Promise<void> | undefined;
+      let dirty = false;
+      const startWrite = () => {
+        if (pending) { dirty = true; return; }
+        dirty = false;
+        pending = write().catch((error) => this.options.onPermanentError?.(
+          error instanceof Error ? error : new Error(String(error)),
+          fileId,
+        )).finally(() => {
+          pending = undefined;
+          if (dirty) scheduleWrite();
+        });
+      };
+      const scheduleWrite = () => {
+        dirty = true;
+        if (timer !== undefined) clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = undefined;
+          startWrite();
+        }, TEXT_DISK_WRITE_DEBOUNCE_MS);
+      };
+      const flush = async () => {
+        while (timer !== undefined || pending || dirty) {
+          if (timer !== undefined) {
+            clearTimeout(timer);
+            timer = undefined;
+            startWrite();
+          } else if (!pending && dirty) {
+            startWrite();
+          }
+          if (pending) await pending;
+        }
+      };
+      this.diskObserverFlushes.set(fileId, flush);
       const observer = (_event: Y.YTextEvent, transaction: Y.Transaction) => {
-        if (!transaction.local) void write().catch((error) => this.options.onPermanentError?.(error instanceof Error ? error : new Error(String(error)), fileId));
+        if (!transaction.local) scheduleWrite();
       };
       text.observe(observer);
       // Initial synchronization also completes before this observer exists.
-      void write().catch((error) => this.options.onPermanentError?.(
-        error instanceof Error ? error : new Error(String(error)),
-        fileId,
-      ));
-      this.diskObservers.set(fileId, () => text.unobserve(observer));
+      scheduleWrite();
+      this.diskObservers.set(fileId, () => {
+        text.unobserve(observer);
+        if (timer !== undefined) clearTimeout(timer);
+        timer = undefined;
+        dirty = false;
+        this.diskObserverFlushes.delete(fileId);
+      });
     }
   }
   private reconcileDiskObservers(): void { for (const [fileId] of this.diskObservers) { const file = this.fileById(fileId); const client = this.clients.get(fileId); if (!file || file.state !== "live" || file.kind === "binary" || !client || client.isDestroyed || client.namespace.documentEpoch !== file.documentEpoch) this.detachDiskObserver(fileId); } }
@@ -718,7 +852,7 @@ export class CollabProjectControllerV2 {
     if (this.statusValue === "closed" || this.statusValue === "offline" || this.statusValue === "importing" || this.statusValue === "error") return;
     this.setStatus(state === "server-durable" || state === "clean" ? "durable" : "syncing");
   }
-  private setStatus(status: CollabProjectStatusV2): void { if (this.statusValue === status) return; this.statusValue = status; this.options.onStatus?.(status); }
+  private setStatus(status: CollabProjectStatusV2): void { if (this.destroyed || this.statusValue === status) return; this.statusValue = status; this.options.onStatus?.(status); }
   private assertLiveController(): void { if (this.destroyed) throw new Error("Controller is destroyed"); }
 }
 

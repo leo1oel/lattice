@@ -49,6 +49,8 @@ describe("shared chrome primitives", () => {
     // contract used by hand-written menus. Regular labels take a 1.5 stroke.
     expect(floatingSurfaceClassName).toContain("[--nested-radius:calc(var(--surface-radius)-var(--surface-inset))]");
     expect(menuViewportClassName).toContain("p-[var(--surface-inset)]");
+    expect(menuViewportClassName).toContain("[scrollbar-width:none]");
+
     expect(menuItemClassName).toContain("rounded-[var(--nested-radius,var(--radius-icon))]");
     expect(menuItemClassName).toContain("duration-[var(--duration-quick)]");
     expect(menuItemClassName).toContain("ease-out");

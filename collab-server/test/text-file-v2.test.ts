@@ -54,6 +54,37 @@ describe("TextFileV2 data plane", () => {
     expect((await SELF.fetch(wsUrl(value.room, value.ticket), { headers: { Upgrade: "websocket" } })).status).toBe(403);
   });
 
+  it("durably initializes a live-project text file before publishing it", async () => {
+    const projectInstanceId = `text-seed-${++sequence}-abcdefghijklmnop`;
+    const coordinator = env.ProjectCoordinatorV2.getByName(projectInstanceId);
+    const controlUrl = `https://test/v2/projects/${projectInstanceId}`;
+    await coordinator.fetch(`${controlUrl}/bootstrap`, { method: "POST", body: JSON.stringify({ projectInstanceId, hostSecret }) });
+    await coordinator.fetch(`${controlUrl}/import-finalize`, { method: "POST", headers: { Authorization: `Bearer ${hostSecret}`, "content-type": "application/json" }, body: JSON.stringify({ operationId: crypto.randomUUID(), expectedCatalogRevision: 0 }) });
+    const bytes = new TextEncoder().encode("# Durable first\n");
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const operationId = "initialize_durable_first";
+    const createdResponse = await coordinator.fetch(`${controlUrl}/create`, { method: "POST", headers: { Authorization: `Bearer ${hostSecret}`, "content-type": "application/json" }, body: JSON.stringify({ operationId: crypto.randomUUID(), expectedCatalogRevision: 1, path: "new.md", kind: "text", initializer: { operationId, size: bytes.byteLength, hash } }) });
+    const file = (await createdResponse.json<any>()).value;
+
+    let catalog = await (await coordinator.fetch(`${controlUrl}/catalog`, { headers: { Authorization: `Bearer ${hostSecret}` } })).json<any>();
+    expect(catalog.files[0].state).toBe("initializing");
+    const upload = () => SELF.fetch(`${controlUrl}/text/imports/${file.fileId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${hostSecret}`, "content-length": String(bytes.byteLength), "x-document-epoch": "1", "x-content-sha256": hash, "x-operation-id": operationId },
+      body: bytes,
+    });
+    expect((await upload()).status).toBe(201);
+
+    catalog = await (await coordinator.fetch(`${controlUrl}/catalog`, { headers: { Authorization: `Bearer ${hostSecret}` } })).json<any>();
+    expect(catalog.files[0]).toMatchObject({ state: "live", size: bytes.byteLength, hash });
+    const room = textFileV2RoomName(projectInstanceId, file.fileId, 1);
+    expect(await runInDurableObject(env.TextFileV2.getByName(room), async (instance) => {
+      await instance.onLoad();
+      return instance.document.getText("content").toString();
+    })).toBe("# Durable first\n");
+    expect((await upload()).status).toBe(200);
+  });
+
   it("persists immutable generations, caches metadata, and recovers the previous generation", async () => {
     const value = await liveFile();
     const stub = env.TextFileV2.getByName(value.room);

@@ -109,29 +109,53 @@ pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
 }
 
 /// Apply a web-measured vertical center in AppKit logical points.
-pub fn align_traffic_lights_to(window: &tauri::WebviewWindow, center_from_top: f64) {
+///
+/// Returns the zoom (green) button's right edge in window logical points so the
+/// web titlebar can center chrome between that edge and the project switcher.
+#[cfg(target_os = "macos")]
+pub fn align_traffic_lights_to(window: &tauri::WebviewWindow, center_from_top: f64) -> Option<f64> {
     if !center_from_top.is_finite() || center_from_top < 0.0 {
-        return;
+        return None;
     }
     if let Ok(mut target) = TRAFFIC_LIGHT_CENTER_FROM_TOP.lock() {
         *target = center_from_top;
     }
-    schedule_traffic_light_alignment(window);
+    measure_traffic_light_alignment(window)
 }
 
+#[cfg(not(target_os = "macos"))]
+pub fn align_traffic_lights_to(
+    _window: &tauri::WebviewWindow,
+    _center_from_top: f64,
+) -> Option<f64> {
+    None
+}
+
+#[cfg(target_os = "macos")]
 fn schedule_traffic_light_alignment(window: &tauri::WebviewWindow) {
+    let _ = measure_traffic_light_alignment(window);
+}
+
+#[cfg(target_os = "macos")]
+fn measure_traffic_light_alignment(window: &tauri::WebviewWindow) -> Option<f64> {
     let Ok(ptr) = window.ns_window() else {
-        return;
+        return None;
     };
     if ptr.is_null() {
-        return;
+        return None;
     }
     let ptr = ptr as usize;
-    let _ = window.run_on_main_thread(move || unsafe {
-        align_traffic_lights_on_main(ptr as *mut std::ffi::c_void);
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    let _ = window.run_on_main_thread(move || {
+        let right = unsafe { align_traffic_lights_on_main(ptr as *mut std::ffi::c_void) };
+        let _ = tx.send(right);
     });
+    rx.recv_timeout(std::time::Duration::from_millis(500))
+        .ok()
+        .flatten()
 }
 
+#[cfg(target_os = "macos")]
 fn traffic_light_center_from_top() -> f64 {
     TRAFFIC_LIGHT_CENTER_FROM_TOP
         .lock()
@@ -140,30 +164,22 @@ fn traffic_light_center_from_top() -> f64 {
 }
 
 #[cfg(target_os = "macos")]
-unsafe fn align_traffic_lights_on_main(ns_window: *mut std::ffi::c_void) {
+unsafe fn align_traffic_lights_on_main(ns_window: *mut std::ffi::c_void) -> Option<f64> {
     use objc2_app_kit::{NSView, NSWindow, NSWindowButton};
     use objc2_foundation::NSPoint;
 
     let window = &*(ns_window as *const NSWindow);
-    let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) else {
-        return;
-    };
-    let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) else {
-        return;
-    };
-    let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) else {
-        return;
-    };
-    let Some(button_superview) = close.superview() else {
-        return;
-    };
+    let close = window.standardWindowButton(NSWindowButton::CloseButton)?;
+    let miniaturize = window.standardWindowButton(NSWindowButton::MiniaturizeButton)?;
+    let zoom = window.standardWindowButton(NSWindowButton::ZoomButton)?;
+    let button_superview = close.superview()?;
 
     let close_frame = NSView::frame(&close);
     let miniaturize_frame = NSView::frame(&miniaturize);
     let spacing = miniaturize_frame.origin.x - close_frame.origin.x;
     let center_y_in_window = window.frame().size.height - traffic_light_center_from_top();
 
-    for (index, button) in [close, miniaturize, zoom].into_iter().enumerate() {
+    for (index, button) in [close, miniaturize, zoom.clone()].into_iter().enumerate() {
         let frame = NSView::frame(&button);
         let desired_window_center = NSPoint::new(
             TRAFFIC_LIGHT_LEFT_INSET + index as f64 * spacing + frame.size.width / 2.0,
@@ -176,6 +192,11 @@ unsafe fn align_traffic_lights_on_main(ns_window: *mut std::ffi::c_void) {
             desired_local_center.y - frame.size.height / 2.0,
         ));
     }
+
+    // Read the laid-out green button back in window coordinates — convertPoint
+    // can shift origins relative to the naive LEFT_INSET + n*spacing formula.
+    let zoom_in_window = button_superview.convertRect_toView(NSView::frame(&zoom), None);
+    Some(zoom_in_window.origin.x + zoom_in_window.size.width)
 }
 
 /// Match the native NSWindow backing surface to the web app. WKWebView can
@@ -342,14 +363,17 @@ mod tests {
         let window = &config["app"]["windows"][0];
         assert!(window.get("trafficLightPosition").is_none());
         assert!(include_str!("../../src/App.tsx").contains("align_traffic_lights"));
+        assert!(include_str!("../../src/App.tsx").contains("--titlebar-traffic-space-width"));
         let css_entry = include_str!("../../src/App.css");
         assert!(css_entry.contains("./styles/app-shell.css"));
         let css = include_str!("../../src/styles/app-shell.css");
         assert!(css.contains(".titlebar {"));
         assert!(css.contains("height: var(--titlebar-height)"));
         assert!(css.contains("align-items: center"));
+        assert!(css.contains(".titlebar-sidebar-toggle"));
         let foundations = include_str!("../../src/styles/foundations.css");
         assert!(foundations.contains("--titlebar-height: 40px"));
+        assert!(foundations.contains("--titlebar-traffic-space-width"));
         assert_eq!(window["backgroundColor"], "#F7F7F6");
         assert!(
             include_str!("../Cargo.toml").contains("\"macos-private-api\""),

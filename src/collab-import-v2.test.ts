@@ -36,7 +36,7 @@ describe("createProjectV2", () => {
       if (url.endsWith("/import-finalize")) { catalog!.lifecycle = "live"; catalog!.catalogRevision += 1; return json({ status: "complete" }); }
       throw new Error(`Unexpected request: ${url}`);
     }) as unknown as typeof fetch;
-    const progress: Array<[number, number]> = [];
+    const preparationProgress: Array<[number, number]> = []; const progress: Array<[number, number]> = [];
 
     await createProjectV2({
       deployment: "https://collab.example",
@@ -53,6 +53,7 @@ describe("createProjectV2", () => {
           activeReads -= 1; return new TextEncoder().encode(path);
         },
       },
+      onPrepareProgress: (completed, total) => preparationProgress.push([completed, total]),
       onProgress: (completed, total) => progress.push([completed, total]),
       onRecord: async () => {},
     });
@@ -60,6 +61,7 @@ describe("createProjectV2", () => {
     expect(maxReads).toBe(8);
     expect(maxUploads).toBe(8);
     expect(catalogRequests).toBe(3);
+    expect(preparationProgress.at(-1)).toEqual([paths.length, paths.length]);
     expect(progress.at(-1)).toEqual([paths.length, paths.length]);
   });
 });

@@ -499,6 +499,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .cm-overlay-scrollbar-thumb:active { background: color-mix(in srgb, var(--text-primary) 16%, transparent); }
 .source-editor .cm-content, .source-editor .cm-gutter { min-height: 100%; }
 .source-editor .cm-content { min-width: 0; font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; caret-color: var(--control-active); }
+.source-editor .cm-cursor,
+.source-editor .cm-dropCursor {
+  border-left: var(--editor-caret-width) solid var(--control-active);
+  margin-left: calc(var(--editor-caret-width) / -2);
+}
 /* CodeMirror's base theme sets `.cm-scroller { font-family: monospace }`, which
    overrides inheritance from `.cm-editor`. Set the face on scroller + content. */
 .source-editor .cm-editor,
@@ -801,6 +806,33 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .markdown-preview-content:has(> .visual-markdown-editor) { padding-inline: 0; }
 .markdown-preview-content > .visual-markdown-editor { width: 100%; min-height: 100%; margin: 0 auto; }
 .visual-markdown-editor { position: relative; }
+.visual-markdown-editor[data-visual-fixed-caret-host="true"] { position: relative; }
+/* Native caret follows the line box (tall in headings / 1.7 body leading).
+   Overlay a fixed reading-metric caret instead; match source-editor height.
+   WebKit resolves caret-color from the text node, so transparent must reach
+   descendants — not only the contenteditable root. */
+.tiptap-editor .ProseMirror[data-fixed-caret],
+.tiptap-editor .ProseMirror[data-fixed-caret] * {
+  caret-color: transparent;
+}
+.visual-fixed-caret {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  width: var(--editor-caret-width);
+  height: var(--type-reading-line-height);
+  margin-left: calc(var(--editor-caret-width) / -2);
+  background: var(--control-active);
+  pointer-events: none;
+  user-select: none;
+  animation: visual-fixed-caret-blink 1.06s steps(1, end) infinite;
+}
+.visual-fixed-caret[data-moving] { animation: none; opacity: 1; }
+@keyframes visual-fixed-caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
 .visual-overleaf-caret { position: relative; display: inline; margin-left: -1px; border-left: 2px solid; pointer-events: none; user-select: none; }
 .visual-overleaf-caret * { pointer-events: none; user-select: none; }
 .visual-overleaf-caret-dot { position: absolute; top: -3px; left: -4px; width: 6px; height: 6px; border-radius: 50%; }

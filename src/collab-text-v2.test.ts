@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
 import type { DurableAckV2 } from "../protocol/collab-v2";
 import { CollabTextDurableStoreV2, CollabTextStoreCorruptionErrorV2, textNamespaceKey, updateCoveredByStateVector, type TextNamespaceV2 } from "./collab-text-v2-store";
-import { closeEventErrorV2, CollabTextClientV2, CollabTextProviderPoolV2, TextClientPermanentErrorV2, ticketHttpErrorV2, type ReconnectPolicyV2, type TextTransportV2 } from "./collab-text-v2";
+import { closeEventErrorV2, CollabTextClientV2, CollabTextProviderPoolV2, reconnectDelayV2, TextClientPermanentErrorV2, ticketHttpErrorV2, type ReconnectPolicyV2, type TextTransportV2 } from "./collab-text-v2";
 
 const namespace: TextNamespaceV2 = { deployment: "sync.example", projectInstanceId: "project", fileId: "file", documentEpoch: 1 };
 const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
@@ -20,6 +20,55 @@ function ack(doc: Y.Doc, patch: Partial<DurableAckV2> = {}): DurableAckV2 { retu
 async function setup(idb = new IDBFactory(), identity = namespace) { const transports: Transport[] = []; const tickets: string[] = []; const store = new CollabTextDurableStoreV2(idb); const client = await CollabTextClientV2.open(identity, { store, issueTicket: async () => { const ticket = `ticket-${tickets.length + 1}`; tickets.push(ticket); return ticket; }, transportFactory: ({ doc }) => { const transport = new Transport(doc); transports.push(transport); return transport; } }); return { client, store, transports, tickets, idb }; }
 
 describe("v2 durable text client", () => {
+  it("caps jittered reconnect delays at 2.5 seconds", () => {
+    expect(reconnectDelayV2(0, () => 0)).toBe(75);
+    expect(reconnectDelayV2(0, () => 1)).toBe(125);
+    expect(reconnectDelayV2(20, () => 1)).toBe(2_500);
+  });
+
+  it("reuses a healthy or in-flight connection instead of replacing its transport", async () => {
+    let releaseTicket!: () => void;
+    const ticketGate = new Promise<void>((resolve) => { releaseTicket = resolve; });
+    const transports: Transport[] = [];
+    const tickets = vi.fn(async () => { await ticketGate; return "ticket"; });
+    const client = await CollabTextClientV2.open(namespace, {
+      store: new CollabTextDurableStoreV2(new IDBFactory()),
+      issueTicket: tickets,
+      transportFactory: ({ doc }) => {
+        const transport = new Transport(doc);
+        transports.push(transport);
+        return transport;
+      },
+    });
+
+    const first = client.connect();
+    const concurrent = client.connect();
+    releaseTicket();
+    await Promise.all([first, concurrent]);
+    await client.connect();
+
+    expect(tickets).toHaveBeenCalledOnce();
+    expect(transports).toHaveLength(1);
+    expect(transports[0]!.destroy).not.toHaveBeenCalled();
+    client.destroy();
+  });
+
+  it("rejects an in-flight connection when the client is destroyed before its ticket arrives", async () => {
+    let releaseTicket!: () => void;
+    const ticketGate = new Promise<void>((resolve) => { releaseTicket = resolve; });
+    const transports: Transport[] = [];
+    const client = await CollabTextClientV2.open(namespace, {
+      store: new CollabTextDurableStoreV2(new IDBFactory()),
+      issueTicket: async () => { await ticketGate; return "late-ticket"; },
+      transportFactory: ({ doc }) => { const transport = new Transport(doc); transports.push(transport); return transport; },
+    });
+    const connecting = client.connect();
+    client.destroy();
+    releaseTicket();
+    await expect(connecting).rejects.toThrow("Client is destroyed");
+    expect(transports).toHaveLength(0);
+  });
+
   it("persists locally before send and restores/replays after reload", async () => {
     const x = await setup(); await x.client.connect(); x.client.doc.getText("content").insert(0, "safe"); await x.client.settled();
     expect((await x.store.load(namespace))?.outbox).toHaveLength(1); expect(x.transports[0].sent).toHaveLength(1);
@@ -98,6 +147,35 @@ describe("v2 durable text client", () => {
     await expect(client.connect()).rejects.toThrow("offline"); expect(client.isStopped).toBe(false); expect(delays).toEqual([10]); tasks.shift()?.(); await vi.waitFor(() => expect(calls).toBe(2));
     const permanent = await CollabTextClientV2.open({ ...namespace, fileId: "other" }, { store, reconnect, issueTicket: async () => { throw new TextClientPermanentErrorV2("revoked"); }, transportFactory: ({ doc }) => new Transport(doc) });
     await expect(permanent.connect()).rejects.toMatchObject({ code: "revoked" }); expect(permanent.isStopped).toBe(true);
+  });
+  it("keeps increasing reconnect backoff until a transport actually syncs", async () => {
+    const tasks: (() => void)[] = [];
+    const delays: number[] = [];
+    const reconnect: ReconnectPolicyV2 = {
+      schedule: (task, delay) => (tasks.push(task), delays.push(delay), task),
+      cancel: (task) => { const index = tasks.indexOf(task as () => void); if (index >= 0) tasks.splice(index, 1); },
+      delay: (attempt) => 10 * (attempt + 1),
+    };
+    const transports: Transport[] = [];
+    const client = await CollabTextClientV2.open(namespace, {
+      store: new CollabTextDurableStoreV2(new IDBFactory()),
+      reconnect,
+      issueTicket: async () => "ticket",
+      transportFactory: ({ doc }) => { const transport = new Transport(doc); transports.push(transport); return transport; },
+    });
+
+    await client.connect();
+    transports[0]!.disconnected?.();
+    tasks.shift()?.();
+    await vi.waitFor(() => expect(transports).toHaveLength(2));
+    transports[1]!.disconnected?.();
+    tasks.shift()?.();
+    await vi.waitFor(() => expect(transports).toHaveLength(3));
+    transports[2]!.synced?.(true);
+    transports[2]!.disconnected?.();
+
+    expect(delays).toEqual([10, 20, 10]);
+    client.destroy();
   });
   it("cancels stale reconnect callbacks on manual connect and destroy", async () => {
     const tasks: (() => void)[] = []; const reconnect: ReconnectPolicyV2 = { schedule: (task) => (tasks.push(task), task), cancel: () => undefined, delay: () => 1 }; const x = await setup();

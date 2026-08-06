@@ -193,6 +193,125 @@ export function peerCursorLocationV2(
   return { path: session.activePath, line: before.split("\n").length };
 }
 
+function peerCursorLocationByInstanceV2(
+  session: EditorCollabSession,
+  instanceId: string,
+): { path: string; line: number } | null {
+  const awareness = session.provider.awareness;
+  for (const [clientId, state] of awareness.getStates()) {
+    if ((state as { instanceId?: unknown } | null)?.instanceId !== instanceId) continue;
+    return peerCursorLocationV2(session, clientId);
+  }
+  return null;
+}
+
+/** Wait for a cross-file coordinator peer to appear in the newly opened file's awareness room. */
+export function waitForPeerCursorLocationV2(
+  session: EditorCollabSession,
+  instanceId: string,
+  timeoutMs = 1_200,
+): Promise<{ path: string; line: number } | null> {
+  const immediate = peerCursorLocationByInstanceV2(session, instanceId);
+  if (immediate) return Promise.resolve(immediate);
+  const awareness = session.provider.awareness;
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (location: { path: string; line: number } | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      awareness.off("change", onChange);
+      resolve(location);
+    };
+    const onChange = () => {
+      const location = peerCursorLocationByInstanceV2(session, instanceId);
+      if (location) finish(location);
+    };
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    awareness.on("change", onChange);
+    // Close the gap between the synchronous check and listener registration.
+    onChange();
+  });
+}
+
+type PendingCursorPublicationV2 = {
+  pendingIndex?: number;
+  session: EditorCollabSession;
+  awareness: EditorCollabSession["provider"]["awareness"];
+  doc: Y.Doc;
+  ytext: Y.Text;
+  cancelFrame?: () => void;
+};
+
+const pendingCursorPublicationsV2 = new WeakMap<object, PendingCursorPublicationV2>();
+
+function scheduleCollabFrameV2(callback: () => void): () => void {
+  if (typeof requestAnimationFrame === "function") {
+    const frame = requestAnimationFrame(callback);
+    return () => cancelAnimationFrame(frame);
+  }
+  const timer = setTimeout(callback, 16);
+  return () => clearTimeout(timer);
+}
+
+function commitCollabCursorV2(state: PendingCursorPublicationV2): void {
+  state.cancelFrame = undefined;
+  const index = state.pendingIndex;
+  state.pendingIndex = undefined;
+  if (index === undefined) return;
+  if (
+    state.session.provider.awareness !== state.awareness
+    || state.session.doc !== state.doc
+    || state.session.ytext !== state.ytext
+  ) return;
+  if (state.awareness.getLocalState() == null) return;
+  const boundedIndex = Math.min(Math.max(index, 0), state.ytext.length);
+  if (localCollabCursorIndexV2(state.awareness, state.doc, state.ytext) === boundedIndex) return;
+  const position = Y.createRelativePositionFromTypeIndex(state.ytext, boundedIndex);
+  state.awareness.setLocalStateField("cursor", { anchor: position, head: position });
+}
+
+function localCollabCursorIndexV2(
+  awareness: EditorCollabSession["provider"]["awareness"],
+  doc: Y.Doc,
+  ytext: Y.Text,
+): number | undefined {
+  const head = (awareness.getLocalState() as { cursor?: { head?: unknown } } | null)?.cursor?.head;
+  if (!head) return undefined;
+  try {
+    const absolute = Y.createAbsolutePositionFromRelativePosition(
+      Y.createRelativePositionFromJSON(head),
+      doc,
+    );
+    return absolute?.type === ytext ? absolute.index : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Publish a visual editor caret in the same awareness shape as y-codemirror. */
+export function publishCollabCursorV2(session: EditorCollabSession, index: number): void {
+  const awareness = session.provider.awareness;
+  if (awareness.getLocalState() == null) return;
+  const boundedIndex = Math.min(Math.max(index, 0), session.ytext.length);
+  let state = pendingCursorPublicationsV2.get(awareness);
+  if (!state || state.doc !== session.doc || state.ytext !== session.ytext) {
+    state?.cancelFrame?.();
+    state = { session, awareness, doc: session.doc, ytext: session.ytext };
+    pendingCursorPublicationsV2.set(awareness, state);
+  }
+  state.session = session;
+  const publishedIndex = localCollabCursorIndexV2(awareness, session.doc, session.ytext);
+  if (publishedIndex === undefined && state.cancelFrame === undefined) {
+    state.pendingIndex = boundedIndex;
+    commitCollabCursorV2(state);
+    return;
+  }
+  if (boundedIndex === publishedIndex && state.pendingIndex === undefined) return;
+  state.pendingIndex = boundedIndex;
+  state.cancelFrame ??= scheduleCollabFrameV2(() => commitCollabCursorV2(state!));
+}
+
 /**
  * Caret offset of every remote peer in the session's currently bound file
  * (v2). Awareness carries the cursor as a relative position that survived a
