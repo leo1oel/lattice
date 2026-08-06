@@ -638,6 +638,14 @@ export function ChatMarkdown({
   const cancelEditing = () => setEditing(null);
   const commitEditing = () => {
     if (!currentEditing || !onReplaceBlock) return;
+    // An untouched draft has nothing to apply: closing is a cancel, not a
+    // write. Without this, a stray blur (focus moving during an async
+    // re-render) pushed an identical block through onReplaceBlock and into
+    // the document's undo history.
+    if (currentEditing.draft === currentEditing.original) {
+      setEditing(null);
+      return;
+    }
     const currentSource = markdownLines(text, currentEditing.startLine, currentEditing.endLine);
     if (currentSource !== currentEditing.original) {
       setEditing((current) => current ? {
