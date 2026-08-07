@@ -32,7 +32,9 @@ pub fn new_active_build() -> ActiveBuild {
 /// reachable state, and every build after that answered "cancelled" for the
 /// rest of the session.
 fn state(active: &ActiveBuild) -> std::sync::MutexGuard<'_, ActiveBuildState> {
-    active.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    active
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 pub fn abort(active: &ActiveBuild) -> Result<bool, String> {
@@ -721,8 +723,14 @@ mod tests {
         .join();
         assert!(active.lock().is_err(), "the lock should now be poisoned");
 
-        assert!(!finish_active(&active), "a poisoned lock is not a cancellation");
-        assert!(!abort(&active).unwrap(), "nothing is running, so there is nothing to abort");
+        assert!(
+            !finish_active(&active),
+            "a poisoned lock is not a cancellation"
+        );
+        assert!(
+            !abort(&active).unwrap(),
+            "nothing is running, so there is nothing to abort"
+        );
 
         // And the state machine is still usable afterwards. No pid is aborted
         // here on purpose: abort() signals a whole process group, and a made-up
@@ -732,7 +740,10 @@ mod tests {
             begin_active(&active, std::process::id()).is_err(),
             "a second build is still refused while one is registered",
         );
-        assert!(!finish_active(&active), "an uncancelled build reports its own result");
+        assert!(
+            !finish_active(&active),
+            "an uncancelled build reports its own result"
+        );
     }
 
     #[test]
