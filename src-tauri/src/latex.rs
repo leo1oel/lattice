@@ -206,15 +206,15 @@ fn run_latexmk(
     let output = child
         .wait_with_output()
         .map_err(|error| format!("latexmk exited unexpectedly: {error}"))?;
-    if finish_active(active) {
-        return Ok(cancelled_build(started));
-    }
-
     let log = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    if finish_active(active) {
+        return Ok(cancelled_build(started, &log));
+    }
+
     let success = output.status.success();
     let pdf_path = root_document.with_extension("pdf");
     let pdf_bytes = if pdf_path.exists() {
@@ -261,7 +261,13 @@ fn run_latexmk(
     })
 }
 
-fn cancelled_build(started: Instant) -> BuildResult {
+/// Someone stopped this build. Keep what latexmk had already written: a build
+/// is usually stopped *because* it was stuck, and the last thing it printed is
+/// the only clue about where — throwing the log away left the person who
+/// stopped it with nothing to act on but the word "cancelled".
+fn cancelled_build(started: Instant, partial_log: &str) -> BuildResult {
+    let elapsed = started.elapsed();
+    let trimmed = partial_log.trim();
     BuildResult {
         success: false,
         has_pdf: false,
@@ -272,10 +278,17 @@ fn cancelled_build(started: Instant) -> BuildResult {
             end_line: None,
             end_column: None,
             level: "error".to_string(),
-            message: "Build cancelled.".to_string(),
+            message: format!(
+                "Build stopped after {:.1}s. The log below is how far it got.",
+                elapsed.as_secs_f32()
+            ),
         }],
-        log: "Build cancelled.".to_string(),
-        duration_ms: started.elapsed().as_millis(),
+        log: if trimmed.is_empty() {
+            "Build cancelled before latexmk produced any output.".to_string()
+        } else {
+            trim_log(partial_log)
+        },
+        duration_ms: elapsed.as_millis(),
     }
 }
 
@@ -750,6 +763,28 @@ mod tests {
             !finish_active(&active),
             "an uncancelled build reports its own result"
         );
+    }
+
+    #[test]
+    fn stopping_a_build_keeps_what_latexmk_had_already_printed() {
+        // A build is usually stopped because it was stuck, so the last thing it
+        // printed is the only clue about where it stuck.
+        let partial = "Running 'pdflatex ...'\nProcessing figures/large.pdf\n";
+        let stopped = cancelled_build(Instant::now(), partial);
+
+        assert!(!stopped.success);
+        assert!(!stopped.has_pdf);
+        assert!(stopped.log.contains("Processing figures/large.pdf"));
+        assert_eq!(stopped.diagnostics.len(), 1);
+        assert!(
+            stopped.diagnostics[0].message.contains("stopped after"),
+            "the message should say it was stopped, not read as a failure: {}",
+            stopped.diagnostics[0].message,
+        );
+
+        // And a build stopped before latexmk said anything still explains itself.
+        let immediate = cancelled_build(Instant::now(), "   \n");
+        assert!(immediate.log.contains("before latexmk produced any output"));
     }
 
     #[test]
