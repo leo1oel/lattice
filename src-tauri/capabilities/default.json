@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window. `allow-destroy` is required: the app listens for tauri://close-requested (to leave collaboration presence before quitting), which makes the core prevent the native close and hand the window's fate to the frontend — without the permission the red traffic light would do nothing.",
-  "windows": ["main"],
+  "description": "Capability for the project windows. `allow-destroy` is required: the app listens for tauri://close-requested (to leave collaboration presence before quitting), which makes the core prevent the native close and hand the window's fate to the frontend — without the permission the red traffic light would do nothing. `project-*` covers the windows `open_project_window` creates; they run the same app as `main` and a capability listing only `main` would leave them unable to call anything.",
+  "windows": ["main", "project-*"],
   "permissions": [
     "core:default",
     "core:window:allow-destroy",

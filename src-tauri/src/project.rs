@@ -698,6 +698,115 @@ pub fn has_latexmkrc(root: &Path) -> bool {
     root.join("latexmkrc").is_file() || root.join(".latexmkrc").is_file()
 }
 
+/// Collapse `.` / `..` segments lexically. `safe_path` refuses `..` outright,
+/// but a `% !TEX root = ../main.tex` written in a chapter file is the normal
+/// way to name a root one directory up — resolve it here first, and refuse
+/// only paths that climb above the project root (`pop` on an empty stack).
+fn normalize_relative(path: &str) -> Option<String> {
+    let mut parts: Vec<&str> = Vec::new();
+    for part in path.split('/') {
+        match part {
+            "" | "." => continue,
+            ".." => {
+                parts.pop()?;
+            }
+            other => parts.push(other),
+        }
+    }
+    Some(parts.join("/"))
+}
+
+/// Which document should a build compile while `open_path` is the file in the
+/// editor? Overleaf's rule, extended with TeX magic comments: a `% !TEX root=`
+/// in the open file wins, then the open file itself if it declares a document
+/// class. `None` means the open file casts no vote (a chapter, a style file,
+/// Markdown) and the manifest default stands.
+pub fn resolve_compile_root(root: &Path, open_path: &str) -> Option<String> {
+    let relative = open_path.trim().replace('\\', "/");
+    if !relative.to_ascii_lowercase().ends_with(".tex") {
+        return None;
+    }
+    let absolute = safe_path(root, &relative).ok()?;
+    if !absolute.is_file() {
+        return None;
+    }
+    let content = fs::read_to_string(&absolute).ok()?;
+    if let Some(magic_root) = parse_tex_magic_comments(&content).root {
+        let magic = magic_root.replace('\\', "/");
+        let parent = Path::new(&relative)
+            .parent()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        // The TeX convention resolves the magic path against the file that
+        // declares it; project-root-relative comes second because that is what
+        // `apply_tex_magic_comments` has always accepted.
+        let candidates = [
+            normalize_relative(&format!("{parent}/{magic}")),
+            normalize_relative(&magic),
+        ];
+        for candidate in candidates.into_iter().flatten() {
+            if candidate.to_ascii_lowercase().ends_with(".tex")
+                && safe_path(root, &candidate).is_ok_and(|path| path.is_file())
+            {
+                return Some(candidate);
+            }
+        }
+    }
+    if declares_document_class(&content) {
+        return Some(relative);
+    }
+    None
+}
+
+/// A `\documentclass` on any line, ignoring what follows an unescaped `%` so a
+/// commented-out preamble in a chapter file does not turn it into a root.
+fn declares_document_class(content: &str) -> bool {
+    content.lines().any(|line| {
+        line.split('%')
+            .next()
+            .unwrap_or("")
+            .contains("\\documentclass")
+    })
+}
+
+/// Record `path` as the document builds compile from now on, upserting it into
+/// the root-documents list. Written to the manifest rather than kept as a
+/// one-shot override so everything that resolves the default root — the PDF
+/// preview, SyncTeX, clean, the outline, the next session — follows the
+/// document that was actually built.
+pub fn set_compile_root(root: &Path, path: &str) -> Result<ProjectManifest, String> {
+    let relative = path.trim().replace('\\', "/");
+    let mut manifest = read_manifest(root)?;
+    if manifest
+        .root_documents
+        .iter()
+        .any(|document| document.is_default && document.path == relative)
+    {
+        return Ok(manifest);
+    }
+    if !manifest
+        .root_documents
+        .iter()
+        .any(|document| document.path == relative)
+    {
+        let name = Path::new(&relative)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or(&relative)
+            .to_string();
+        manifest.root_documents.push(RootDocument {
+            path: relative.clone(),
+            name,
+            is_default: false,
+        });
+    }
+    for document in &mut manifest.root_documents {
+        document.is_default = document.path == relative;
+    }
+    write_manifest(root, &manifest)?;
+    Ok(manifest)
+}
+
 /// Pick the best root `.tex` for foreign / Overleaf-style trees.
 fn detect_root_document(root: &Path) -> Option<String> {
     // Honor `% !TEX root=` first when it points at a real file.
@@ -4964,6 +5073,112 @@ mod tests {
                 .map(|d| d.path.as_str()),
             Some("paper.tex"),
         );
+
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn the_open_file_wins_the_compile_when_it_is_a_root() {
+        let parent = temp_root("compile-root");
+        let root = parent.join("papers");
+        fs::create_dir_all(root.join("chapters")).unwrap();
+        fs::write(
+            root.join("main.tex"),
+            "\\documentclass{article}\n\\begin{document}\nA\n\\end{document}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("second.tex"),
+            "\\documentclass{article}\n\\begin{document}\nB\n\\end{document}\n",
+        )
+        .unwrap();
+        fs::write(root.join("chapters/intro.tex"), "\\section{Intro}\n").unwrap();
+        open(&root).unwrap();
+
+        // The open file declares a document class: it is the compile target.
+        assert_eq!(
+            resolve_compile_root(&root, "second.tex").as_deref(),
+            Some("second.tex")
+        );
+        // A chapter casts no vote; the manifest default stands.
+        assert_eq!(resolve_compile_root(&root, "chapters/intro.tex"), None);
+        // Non-.tex files never vote.
+        assert_eq!(resolve_compile_root(&root, "notes.md"), None);
+
+        // A commented-out preamble does not turn a chapter into a root.
+        fs::write(
+            root.join("chapters/outro.tex"),
+            "% \\documentclass{article}\ntext\n",
+        )
+        .unwrap();
+        assert_eq!(resolve_compile_root(&root, "chapters/outro.tex"), None);
+
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn a_magic_root_comment_resolves_relative_to_the_file_that_declares_it() {
+        let parent = temp_root("magic-root");
+        let root = parent.join("papers");
+        fs::create_dir_all(root.join("chapters")).unwrap();
+        fs::write(
+            root.join("main.tex"),
+            "\\documentclass{article}\n\\begin{document}\n\\input{chapters/one}\n\\end{document}\n",
+        )
+        .unwrap();
+        // `../main.tex` is the TeX convention: relative to the declaring file.
+        // `safe_path` alone refuses `..`, which is why this needs its own test.
+        fs::write(
+            root.join("chapters/one.tex"),
+            "% !TEX root = ../main.tex\n\\section{One}\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            resolve_compile_root(&root, "chapters/one.tex").as_deref(),
+            Some("main.tex")
+        );
+
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn set_compile_root_upserts_and_switches_the_default() {
+        let parent = temp_root("set-compile-root");
+        let root = parent.join("papers");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            root.join("main.tex"),
+            "\\documentclass{article}\n\\begin{document}\nA\n\\end{document}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("second.tex"),
+            "\\documentclass{article}\n\\begin{document}\nB\n\\end{document}\n",
+        )
+        .unwrap();
+        open(&root).unwrap();
+
+        let manifest = set_compile_root(&root, "second.tex").unwrap();
+        assert_eq!(manifest.root_documents.len(), 2);
+        assert!(manifest
+            .root_documents
+            .iter()
+            .any(|document| document.path == "second.tex" && document.is_default));
+        assert!(manifest
+            .root_documents
+            .iter()
+            .any(|document| document.path == "main.tex" && !document.is_default));
+        // Written down, not just returned: the next read agrees.
+        let reread = read_manifest(&root).unwrap();
+        assert!(reread
+            .root_documents
+            .iter()
+            .any(|document| document.path == "second.tex" && document.is_default));
+
+        // Re-recording the current default neither duplicates nor reorders.
+        let again = set_compile_root(&root, "second.tex").unwrap();
+        assert_eq!(again.root_documents.len(), 2);
 
         fs::remove_dir_all(parent).unwrap();
     }

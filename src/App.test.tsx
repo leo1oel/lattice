@@ -445,10 +445,10 @@ describe("welcome screen", () => {
       name: "New paper",
       venue: "icml",
     }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/research/New paper",
-    }));
+    })));
     expect(await screen.findByRole("button", { name: "Switch project" })).toHaveTextContent("New paper");
   });
 
@@ -1635,10 +1635,13 @@ describe("project workspace", () => {
       content: "\\documentclass{article}\nNew result.",
       projectRoot: "/tmp/lattice-paper",
     }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+    // The open file rides along so the backend can re-target the build on it
+    // when it is a compilable root (Overleaf's rule).
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/lattice-paper",
-    }));
+      documentPath: "main.tex",
+    })));
   });
 
   it("automatically builds after 1.2 seconds without editing", async () => {
@@ -1672,10 +1675,10 @@ describe("project workspace", () => {
     });
     const view = EditorView.findFromDOM(editorElement);
     if (!view) throw new Error("CodeMirror view was not available");
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/lattice-paper",
-    }));
+    })));
     vi.mocked(invoke).mockClear();
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nIdle build." } });
 
@@ -1684,10 +1687,10 @@ describe("project workspace", () => {
       content: "\\documentclass{article}\nIdle build.",
       projectRoot: "/tmp/lattice-paper",
     }), { timeout: 2_500 });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/lattice-paper",
-    }));
+    })));
   });
 
   it("automatically rebuilds after the active source changes on disk", async () => {
@@ -1718,18 +1721,18 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/lattice-paper",
-    }));
+    })));
     vi.mocked(invoke).mockClear();
     source = "\\documentclass{article}\nExternal edit.";
     mtimeMs = 2;
 
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/lattice-paper",
-    }), { timeout: 3_500 });
+    })), { timeout: 3_500 });
   });
 
   it("lists a work that is only cited but does not offer to open it", async () => {
@@ -3452,10 +3455,10 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/lattice-paper",
-    }));
+    })));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_compiled_pdf", {
       projectRoot: "/tmp/lattice-paper",
     }));
@@ -3574,10 +3577,10 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
     expect(zoomInput).toHaveValue(String(zoomBefore + 10));
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", {
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/lattice-paper",
-    }));
+    })));
     // Identical PDF bytes must not thrash pdf.js — keep the same document + zoom.
     expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(1);
     expect(zoomInput).toHaveValue(String(zoomBefore + 10));
@@ -3784,6 +3787,56 @@ describe("project workspace", () => {
     });
   });
 
+  it("opens a recent project in its own window and leaves this one alone", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
+      { name: "Notes", path: "/tmp/notes" },
+      { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
+    ]));
+    const notesSnapshot = {
+      root: "/tmp/notes",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "notes-id",
+        name: "Notes",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return notesSnapshot;
+      if (command === "read_project_file") return "# Private draft";
+      if (command === "open_project_window") return { label: "project-1", focusedExisting: false };
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      const view = element ? EditorView.findFromDOM(element) : null;
+      expect(view?.state.doc.toString()).toBe("# Private draft");
+    });
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Overleaf paper" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_project_window", {
+      path: "/tmp/overleaf-paper",
+    }));
+    // The point of the feature: this window keeps the project and the buffer it
+    // already had, rather than being taken over by the one just opened.
+    expect(invoke).not.toHaveBeenCalledWith("open_project", { path: "/tmp/overleaf-paper" });
+    const element = document.querySelector<HTMLElement>(".cm-editor");
+    const view = element ? EditorView.findFromDOM(element) : null;
+    expect(view?.state.doc.toString()).toBe("# Private draft");
+  });
+
   it("does not carry an open Markdown buffer into the next project", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
@@ -3848,11 +3901,15 @@ describe("project workspace", () => {
     });
     initialEditor.dispatch({ changes: { from: initialEditor.state.doc.length, insert: "\nLocal only." } });
 
+    // Driven through "Open another folder", which is the flow that still
+    // replaces the project in this window — picking a recent project now opens
+    // a window of its own and leaves this one alone.
+    vi.mocked(open).mockResolvedValue("/tmp/overleaf-paper");
     fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
       button: 0,
       pointerType: "mouse",
     });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Overleaf paper" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Open another folder" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_project", {
       path: "/tmp/overleaf-paper",
     }));
@@ -3995,11 +4052,14 @@ describe("project workspace", () => {
       projectRoot: "/tmp/overleaf-paper",
     })));
 
+    // "Open another folder" is the flow that still replaces the project in
+    // this window; a recent project now opens its own window instead.
+    vi.mocked(open).mockResolvedValue("/tmp/notes");
     fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
       button: 0,
       pointerType: "mouse",
     });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Notes" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Open another folder" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_project", { path: "/tmp/notes" }));
     await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");

@@ -84,7 +84,8 @@ import {
   type BuildPreferences,
   BUILD_PREFERENCES_KEY,
   loadRecentProjects,
-  persistRecentProjects,
+  forgetRecentProject,
+  rememberRecentProject,
   loadBuildPreferences,
   loadLastFile,
   persistLastFile,
@@ -390,6 +391,10 @@ const OnboardingTour = lazy(() =>
 const EMPTY_DIAGNOSTICS: CompileDiagnostic[] = [];
 /** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
 const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
+
+// Must match the prefix `open_project_window` puts on a window-creation
+// failure. Everything else it can fail with is the project itself.
+const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
 /** Notification source label for the live-collaboration surface. */
 const SHARE_SOURCE = "Live collaboration";
 
@@ -1694,14 +1699,10 @@ function App() {
   const shellRef = useRef<HTMLDivElement | null>(null);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
-    setRecentProjects((items) => {
-      const next = [
-        { name: snapshot.manifest.name, path: snapshot.root },
-        ...items.filter((item) => item.path !== snapshot.root),
-      ].slice(0, 8);
-      persistRecentProjects(next);
-      return next;
-    });
+    setRecentProjects(rememberRecentProject({
+      name: snapshot.manifest.name,
+      path: snapshot.root,
+    }));
   }, []);
 
   const refreshHistory = useCallback(async () => {
@@ -3113,7 +3114,12 @@ function App() {
     // synctex jump and opening the project all reach here, and each of them
     // turned a folder of Markdown notes into a red "Build failed" the reader
     // never asked for. Someone pressing Build still gets told what to add.
-    if (!projectRef.current?.manifest.rootDocuments.length) {
+    // A compilable .tex open in the editor overrides the empty manifest: the
+    // backend adopts it as the root document (Overleaf's rule), so a folder
+    // of notes that just gained its first real document builds on the spot.
+    const activeLooksCompilable = activeFileRef.current.toLowerCase().endsWith(".tex")
+      && sourceRef.current.includes("\\documentclass");
+    if (!projectRef.current?.manifest.rootDocuments.length && !activeLooksCompilable) {
       if (options?.requested) {
         setError(
           "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings.",
@@ -3151,9 +3157,15 @@ function App() {
         buildScope = { operationGeneration, previewGeneration, projectRoot };
         const compiledSource = sourceRef.current;
         const compiledSecondarySource = secondarySourceRef.current;
+        // The open file rides along so the backend can re-target the build on
+        // it when it is a compilable root — recomputed each pass because a
+        // queued rebuild may run after the editor moved to another document.
+        const documentPath = activeFileRef.current.toLowerCase().endsWith(".tex")
+          ? activeFileRef.current
+          : null;
         let result: BuildResult;
         try {
-          result = await invoke<BuildResult>("build_project", { force, projectRoot });
+          result = await invoke<BuildResult>("build_project", { force, projectRoot, documentPath });
         } catch (reason) {
           if (!scopeIsCurrent()) continue;
           throw reason;
@@ -3170,6 +3182,30 @@ function App() {
           if (!scopeIsCurrent()) continue;
         }
         setBuild(result);
+        // The backend may have adopted the open file as the manifest default
+        // root (Overleaf's rule). Mirror that into local state so the outline
+        // and the next build's guard agree without re-reading the project.
+        if (result.rootDocument) {
+          setProject((current) => {
+            if (!current || current.root !== projectRoot) return current;
+            const documents = current.manifest.rootDocuments;
+            if (documents.some((document) => document.isDefault && document.path === result.rootDocument)) {
+              return current;
+            }
+            const nextDocuments = documents.map((document) => (
+              { ...document, isDefault: document.path === result.rootDocument }
+            ));
+            if (!documents.some((document) => document.path === result.rootDocument)) {
+              const stem = result.rootDocument.split("/").pop()?.replace(/\.tex$/i, "");
+              nextDocuments.push({
+                path: result.rootDocument,
+                name: stem || result.rootDocument,
+                isDefault: true,
+              });
+            }
+            return { ...current, manifest: { ...current.manifest, rootDocuments: nextDocuments } };
+          });
+        }
         setDiagnosticBuildSource(compiledSource);
         setDiagnosticBuildSecondarySource(compiledSecondarySource);
         setDiagnosticsDismissed(false);
@@ -4822,6 +4858,29 @@ function App() {
       setProjectMenuOpen(false);
       return;
     }
+    // Another project gets its own window once this one is in use. Replacing
+    // the project in place would close editors, cancel a build and reset the
+    // agent for work the writer never asked to put away. With nothing open yet
+    // the window is empty, so it takes the project itself rather than leaving
+    // a blank window behind.
+    if (project?.root) {
+      setProjectMenuOpen(false);
+      setBusyLabel("Opening window…");
+      try {
+        await invoke("open_project_window", { path });
+      } catch (reason) {
+        const message = toMessage(reason);
+        // Only the project itself failing means the entry is worth dropping;
+        // a window that could not be created says nothing about the project.
+        if (!message.startsWith(NEW_WINDOW_FAILURE_PREFIX)) {
+          setRecentProjects(forgetRecentProject(path));
+        }
+        setError(message);
+      } finally {
+        setBusyLabel(null);
+      }
+      return;
+    }
     if (!(await save())) return;
     setBusyLabel("Switching project…");
     try {
@@ -4829,11 +4888,7 @@ function App() {
       await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
     } catch (reason) {
       cancelProjectTransition();
-      setRecentProjects((items) => {
-        const next = items.filter((item) => item.path !== path);
-        persistRecentProjects(next);
-        return next;
-      });
+      setRecentProjects(forgetRecentProject(path));
       setError(toMessage(reason));
     } finally {
       setBusyLabel(null);

@@ -129,6 +129,8 @@ export type BuildResult = {
   log: string;
   durationMs: number;
   diagnostics: CompileDiagnostic[];
+  /** Project-relative path of the document the build actually compiled. */
+  rootDocument: string;
 };
 
 export type PaperSummary = {

@@ -18,6 +18,9 @@ pub struct ActiveBuildState {
 /// Shared handle for the in-flight latexmk process group.
 pub type ActiveBuild = Arc<Mutex<ActiveBuildState>>;
 
+/// A build handle standing on its own. Each project owns one, and outside the
+/// tests they come from `ProjectResources`'s derived `Default`.
+#[cfg(test)]
 pub fn new_active_build() -> ActiveBuild {
     Arc::new(Mutex::new(ActiveBuildState::default()))
 }
@@ -134,7 +137,23 @@ pub fn clean(root: &Path) -> Result<String, String> {
     Ok(trim_log(&log))
 }
 
-pub fn build(root: &Path, force: bool, active: &ActiveBuild) -> Result<BuildResult, String> {
+pub fn build(
+    root: &Path,
+    force: bool,
+    active: &ActiveBuild,
+    open_document: Option<&str>,
+) -> Result<BuildResult, String> {
+    // Overleaf's compile rule: the file open in the editor wins when it is a
+    // compilable root itself (\documentclass) or names one via `% !TEX root`.
+    // The winner is written back as the manifest default before latexmk runs,
+    // so a chapter opened next still compiles this document, and everything
+    // that resolves the default root (PDF preview, SyncTeX, clean) agrees on
+    // what was built.
+    if let Some(open) = open_document {
+        if let Some(target) = project::resolve_compile_root(root, open) {
+            project::set_compile_root(root, &target)?;
+        }
+    }
     let started = Instant::now();
     let mut result = run_latexmk(root, force, active, started)?;
     // After fixing missing packages, latexmk often reports "Nothing to do" while still
@@ -217,7 +236,7 @@ fn run_latexmk(
         String::from_utf8_lossy(&output.stderr)
     );
     if finish_active(active) {
-        return Ok(cancelled_build(started, &log));
+        return Ok(cancelled_build(started, &log, &document.path));
     }
 
     let success = output.status.success();
@@ -263,6 +282,7 @@ fn run_latexmk(
         diagnostics,
         log: trim_log(&log),
         duration_ms: started.elapsed().as_millis(),
+        root_document: document.path.clone(),
     })
 }
 
@@ -270,7 +290,7 @@ fn run_latexmk(
 /// is usually stopped *because* it was stuck, and the last thing it printed is
 /// the only clue about where — throwing the log away left the person who
 /// stopped it with nothing to act on but the word "cancelled".
-fn cancelled_build(started: Instant, partial_log: &str) -> BuildResult {
+fn cancelled_build(started: Instant, partial_log: &str, root_document: &str) -> BuildResult {
     let elapsed = started.elapsed();
     let trimmed = partial_log.trim();
     BuildResult {
@@ -294,6 +314,7 @@ fn cancelled_build(started: Instant, partial_log: &str) -> BuildResult {
             trim_log(partial_log)
         },
         duration_ms: elapsed.as_millis(),
+        root_document: root_document.to_string(),
     }
 }
 
@@ -798,7 +819,7 @@ mod tests {
         // A build is usually stopped because it was stuck, so the last thing it
         // printed is the only clue about where it stuck.
         let partial = "Running 'pdflatex ...'\nProcessing figures/large.pdf\n";
-        let stopped = cancelled_build(Instant::now(), partial);
+        let stopped = cancelled_build(Instant::now(), partial, "main.tex");
 
         assert!(!stopped.success);
         assert!(!stopped.has_pdf);
@@ -811,7 +832,7 @@ mod tests {
         );
 
         // And a build stopped before latexmk said anything still explains itself.
-        let immediate = cancelled_build(Instant::now(), "   \n");
+        let immediate = cancelled_build(Instant::now(), "   \n", "main.tex");
         assert!(immediate.log.contains("before latexmk produced any output"));
     }
 
@@ -889,8 +910,9 @@ mod tests {
         let parent = temp_root();
         fs::create_dir_all(&parent).unwrap();
         let root = project::create(&parent, "R&D_100%").unwrap();
-        let result = build(&root, false, &new_active_build()).unwrap();
+        let result = build(&root, false, &new_active_build(), None).unwrap();
         assert!(result.success, "{}", result.log);
+        assert_eq!(result.root_document, "main.tex");
         assert!(read_compiled_pdf(&root).unwrap().starts_with(b"%PDF-"));
         fs::remove_dir_all(parent).unwrap();
     }
@@ -921,7 +943,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = build(&root, true, &new_active_build()).unwrap();
+        let result = build(&root, true, &new_active_build(), None).unwrap();
         assert!(result.success, "{}", result.log);
         let target = forward_search(&root, "references.bib", 3, 0)
             .unwrap()

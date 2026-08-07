@@ -236,6 +236,10 @@ pub struct BuildResult {
     pub log: String,
     pub duration_ms: u128,
     pub diagnostics: Vec<Diagnostic>,
+    /// Project-relative path of the document latexmk was pointed at. The build
+    /// may have re-targeted onto the open file (Overleaf's rule), and the
+    /// frontend needs to know without re-reading the manifest.
+    pub root_document: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

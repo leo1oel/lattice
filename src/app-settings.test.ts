@@ -4,10 +4,13 @@ import {
   RECENT_PROJECTS_KEY,
   TUTORIAL_SEEN_KEY,
   WORKSPACE_LAYOUT_KEY,
+  forgetRecentProject,
   hasSeenTutorial,
+  loadRecentProjects,
   loadWorkspaceLayout,
   markTutorialSeen,
   persistWorkspaceLayout,
+  rememberRecentProject,
   type WorkspaceLayout,
 } from "./app-settings";
 
@@ -93,5 +96,41 @@ describe("tutorial persistence", () => {
     }]));
     expect(hasSeenTutorial()).toBe(true);
     expect(localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("1");
+  });
+});
+
+describe("recent projects across windows", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("keeps what another window recorded while this one was open", () => {
+    // Both windows share one localStorage. This window loaded its copy before
+    // the other window opened "Notes"; writing that stale copy back is what
+    // used to make Notes vanish from the list.
+    rememberRecentProject({ name: "Paper", path: "/tmp/paper" });
+    rememberRecentProject({ name: "Notes", path: "/tmp/notes" });
+
+    const merged = rememberRecentProject({ name: "Paper", path: "/tmp/paper" });
+
+    expect(merged.map((item) => item.path)).toEqual(["/tmp/paper", "/tmp/notes"]);
+    expect(loadRecentProjects().map((item) => item.path)).toEqual(["/tmp/paper", "/tmp/notes"]);
+  });
+
+  it("does not resurrect a project another window is dropping", () => {
+    rememberRecentProject({ name: "Paper", path: "/tmp/paper" });
+    rememberRecentProject({ name: "Gone", path: "/tmp/gone" });
+
+    const remaining = forgetRecentProject("/tmp/gone");
+
+    expect(remaining.map((item) => item.path)).toEqual(["/tmp/paper"]);
+    expect(loadRecentProjects().map((item) => item.path)).toEqual(["/tmp/paper"]);
+  });
+
+  it("caps the list so it cannot grow without bound", () => {
+    for (let index = 0; index < 12; index += 1) {
+      rememberRecentProject({ name: `P${index}`, path: `/tmp/p${index}` });
+    }
+
+    expect(loadRecentProjects()).toHaveLength(8);
+    expect(loadRecentProjects()[0].path).toBe("/tmp/p11");
   });
 });

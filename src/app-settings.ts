@@ -142,6 +142,28 @@ export function persistRecentProjects(projects: RecentProject[]) {
   }
 }
 
+// Windows share one localStorage, so both of the writers below re-read it
+// instead of overwriting with the copy this window happened to load at startup.
+// Writing a stale copy back is how a project opened in one window disappeared
+// from the other window's list.
+
+/// Record a project as the most recently opened one.
+export function rememberRecentProject(entry: RecentProject): RecentProject[] {
+  const next = [
+    entry,
+    ...loadRecentProjects().filter((item) => item.path !== entry.path),
+  ].slice(0, 8);
+  persistRecentProjects(next);
+  return next;
+}
+
+/// Drop a project from the list — it could not be opened.
+export function forgetRecentProject(path: string): RecentProject[] {
+  const next = loadRecentProjects().filter((item) => item.path !== path);
+  persistRecentProjects(next);
+  return next;
+}
+
 export function hasSeenTutorial(): boolean {
   try {
     if (localStorage.getItem(TUTORIAL_SEEN_KEY) === "1") return true;
