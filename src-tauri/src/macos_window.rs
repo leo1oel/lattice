@@ -380,4 +380,26 @@ mod tests {
             "the macOS WebView must disable its opaque white backing surface"
         );
     }
+
+    #[test]
+    fn the_red_traffic_light_can_still_close_the_window() {
+        // A JS listener on tauri://close-requested makes the core prevent the
+        // native close, so the frontend's destroy() is the only thing left that
+        // can shut the window down. Without the ACL grant that call is denied
+        // and the red button does nothing at all — no error, no close.
+        let app = include_str!("../../src/App.tsx");
+        assert!(app.contains("onCloseRequested"));
+        assert!(app.contains("appWindow.destroy()"));
+        let capability: Value = serde_json::from_str(include_str!("../capabilities/default.json"))
+            .expect("valid capability file");
+        let permissions = capability["permissions"]
+            .as_array()
+            .expect("capability permissions");
+        assert!(
+            permissions
+                .iter()
+                .any(|permission| permission == "core:window:allow-destroy"),
+            "the window close handler needs core:window:allow-destroy"
+        );
+    }
 }

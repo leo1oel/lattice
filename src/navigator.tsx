@@ -1440,10 +1440,13 @@ export function Navigator(props: {
                   ? paper.title
                   : paper.arxivId
                     ? `Download arXiv ${paper.arxivId}`
-                    : `${paper.title} — no local reading available`}
+                    : paper.url
+                      ? `Download ${paper.url}`
+                      : `${paper.title} — no local reading available`}
                 className="paper-open"
-                // Knowing the preprint is as good as having it: clicking fetches.
-                disabled={fetchState === "loading" || (!locallyReadable && !paper.arxivId)}
+                // Knowing the preprint is as good as having it: clicking
+                // fetches. A cited webpage is fetchable the same way.
+                disabled={fetchState === "loading" || (!locallyReadable && !paper.arxivId && !paper.url)}
                 onClick={() => locallyReadable ? props.onPaper(paper) : props.onFetchFullText(paper)}
               >
                 <span className={`paper-state-icon ${fetchState ?? (locallyReadable ? "available" : "idle")}`}>
@@ -1453,7 +1456,7 @@ export function Navigator(props: {
                       ? <Check size={14} />
                       : locallyReadable
                         ? <BookOpen size={14} />
-                        : paper.arxivId
+                        : paper.arxivId || paper.url
                           ? <Download size={14} />
                           : <BookMarked size={14} />}
                 </span>

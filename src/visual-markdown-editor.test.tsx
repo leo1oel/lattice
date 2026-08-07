@@ -2668,11 +2668,15 @@ describe("VisualMarkdownEditor", () => {
     expect(String(onChange.mock.lastCall?.[0]).startsWith("Authored  prose\n\n")).toBe(true);
   });
 
-  it("keeps genuinely lossy Markdown source-only", async () => {
-    // A two-space-indented paragraph after a footnote definition is not a GFM
-    // continuation; its leading spaces do not survive a parse/serialize
-    // round trip, so the safety gate must keep the document source-only.
-    renderEditor("[^n]: First paragraph.\n\n  Not a continuation.");
+  // An HTML comment reaches mdast without source positions, so the parser
+  // cannot say which bytes belong to which block, and restoreUnchangedBlocks
+  // has nothing it can safely splice. The two-space-indented paragraph after
+  // the footnote definition is then a real rewrite — its leading spaces do not
+  // survive the round trip — so the gate has to keep this document source-only.
+  const UNMAPPABLE_MARKDOWN = "<!-- c -->\n\n[^n]: First paragraph.\n\n  Not a continuation.\n";
+
+  it("keeps Markdown with an unmappable block structure source-only", async () => {
+    renderEditor(UNMAPPABLE_MARKDOWN);
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "false"));
     const status = screen.getByRole("status");
@@ -2683,7 +2687,7 @@ describe("VisualMarkdownEditor", () => {
   it("explains when paper Markdown is read-only to preserve lossy syntax", async () => {
     render(
       <VisualMarkdownEditor
-        text={"[^n]: First paragraph.\n\n  Not a continuation."}
+        text={UNMAPPABLE_MARKDOWN}
         activePath=".research/papers/example/paper.md"
         optimizeForReading
         onChangeMarkdown={() => true}
@@ -2707,7 +2711,7 @@ describe("VisualMarkdownEditor", () => {
         onRedo={() => false}
       />
     );
-    const view = render(renderPaper("[^n]: First paragraph.\n\n  Not a continuation."));
+    const view = render(renderPaper(UNMAPPABLE_MARKDOWN));
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "false"));
 
@@ -2715,6 +2719,46 @@ describe("VisualMarkdownEditor", () => {
 
     await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
     expect(screen.queryByText("unsupported or lossy syntax", { exact: false })).not.toBeInTheDocument();
+  });
+
+  // Every arxiv2md paper opens on syntax the serializer would renormalize: a
+  // `## Contents` heading sitting directly on its list, a bold caption sitting
+  // directly on its table, `\*` escaping inside a caption. None of it is the
+  // reader's typing, so none of it may cost them visual editing — or rewrite
+  // the file underneath them on open.
+  it.each([
+    ["a heading tight against its list", "## Contents\n- 1 Introduction\n- 2 Approach\n"],
+    ["a caption tight against its table", "**Table 1: Caption.**\n| A | B |\n| --- | --- |\n| 1 | 2 |\n"],
+    ["a paragraph tight against its list", "Questions we answer:\n1) First\n2) Second\n"],
+    ["a stray asterisk in prose", "The authors (1* and 2*) contributed equally.\n"],
+    ["emphasis nested in a bold caption", "**Table 1: A *single* Flamingo model.**\n"],
+    ["an indented paragraph after a footnote", "[^n]: First paragraph.\n\n  Not a continuation."],
+  ])("keeps converter Markdown editable and byte-identical: %s", async (_label, markdown) => {
+    const { onChange } = renderEditor(markdown);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
+    expect(screen.queryByText("unsupported or lossy syntax", { exact: false })).not.toBeInTheDocument();
+    // Opening it may not publish a rewrite of syntax nobody touched.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("re-serializes only the edited block and leaves tight boundaries alone", async () => {
+    const { onChange } = renderEditor("## Contents\n- 1 Introduction\n\nClosing prose.\n");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    let closing = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (node.isText && node.text === "Closing prose.") closing = position;
+    });
+    editor.chain().focus().setTextSelection(closing + "Closing prose.".length).insertContent("!").run();
+
+    await waitFor(() => expect(onChange).toHaveBeenCalled(), { timeout: 2_500 });
+    // The heading keeps sitting directly on its list; only the edited
+    // paragraph went through the serializer.
+    expect(String(onChange.mock.lastCall?.[0]))
+      .toBe("## Contents\n- 1 Introduction\n\nClosing prose.!\n");
   });
 
   it("shows table controls for a collapsed cell cursor and preserves the GFM header row", async () => {

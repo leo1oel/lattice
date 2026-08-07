@@ -133,6 +133,8 @@ export type BuildResult = {
 
 export type PaperSummary = {
   arxivId: string;
+  /** The cited page for webpage references; how the row fetches when there is no arXiv id. */
+  url?: string;
   title: string;
   citationKey?: string;
   /** False for works that are only cited — there is nothing to open. */

@@ -804,6 +804,8 @@ export function DocumentCanvas(props: {
   pdfBytes?: ArrayBuffer | null;
   pdfTop?: ReactNode;
   activePaper: PaperSummary | null;
+  /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
+  papers?: PaperSummary[];
   activeAsset: AssetPreview | null;
   citationKeys: string[];
   citations: CitationInfo[];
@@ -2446,6 +2448,7 @@ export function DocumentCanvas(props: {
           onRequestViewportLock={lockMarkdownPreviewViewport}
           onOpenProjectPath={props.onOpenMarkdownPath}
           workspaceIndex={props.workspaceIndex}
+          papers={props.papers}
           macros={katexMacros}
           onChangeMarkdown={replaceVisualMarkdown}
           onUndo={undoVisualMarkdown}

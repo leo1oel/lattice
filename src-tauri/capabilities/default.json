@@ -1,10 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Capability for the main window. `allow-destroy` is required: the app listens for tauri://close-requested (to leave collaboration presence before quitting), which makes the core prevent the native close and hand the window's fate to the frontend — without the permission the red traffic light would do nothing.",
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:allow-destroy",
     "core:window:allow-start-dragging",
     "core:window:allow-set-fullscreen",
     "core:window:allow-set-min-size",

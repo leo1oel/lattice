@@ -2,6 +2,7 @@ mod alphaxiv;
 mod collab_credentials;
 mod commands;
 mod doctor;
+mod firecrawl;
 mod format_latex;
 mod fts;
 mod git;
@@ -2475,6 +2476,17 @@ async fn fetch_paper(
 }
 
 #[tauri::command]
+async fn fetch_web_reference(
+    state: tauri::State<'_, AppState>,
+    url: String,
+) -> Result<papers::FetchResult, String> {
+    let root = current_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || papers::fetch_web_reference(&root, &url))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn upgrade_bibliography(
     state: tauri::State<'_, AppState>,
     dry_run: Option<bool>,
@@ -2683,6 +2695,9 @@ enum LiteratureRequest {
         #[serde(rename = "arxivId")]
         arxiv_id: String,
     },
+    FetchWebReference {
+        url: String,
+    },
     Cite {
         query: String,
     },
@@ -2721,6 +2736,8 @@ fn run_cli() -> bool {
         } => literature::search(&query, precise, page)
             .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string())),
         LiteratureRequest::FetchPaper { arxiv_id } => papers::fetch_paper(root, &arxiv_id)
+            .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string())),
+        LiteratureRequest::FetchWebReference { url } => papers::fetch_web_reference(root, &url)
             .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string())),
         LiteratureRequest::Cite { query } => {
             papers::import_reference_with_history(root, &query, papers::HistoryMode::Defer)
@@ -2936,6 +2953,7 @@ pub fn run() {
             synctex_view,
             import_reference,
             fetch_paper,
+            fetch_web_reference,
             upgrade_bibliography,
             remove_reference,
             list_papers,

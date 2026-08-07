@@ -384,12 +384,21 @@ pub struct ImportResult {
     pub citation_key: Option<String>,
     pub citation_output: String,
     pub already_imported: bool,
+    /// Why the full text is absent although the work has an arXiv id. The
+    /// citation itself succeeded; readers (UI notice, agent) decide whether
+    /// to mention it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetch_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaperSummary {
     pub arxiv_id: String,
+    /// The cited page for webpage references — how the row offers a download
+    /// when there is no arXiv id to fetch by.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
     pub title: String,
     pub citation_key: Option<String>,
     /// False for works that are only cited — the reader has nothing to open.
@@ -413,6 +422,10 @@ pub struct CitationInfo {
     /// fetched later.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub arxiv_id: Option<String>,
+    /// The entry's `url` field. For a webpage citation this is the identity
+    /// that links it to its captured content.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

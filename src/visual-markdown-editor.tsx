@@ -6,6 +6,8 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { getMarkdownManager, parseVisualMarkdown, visualEditorExtensions } from "./visual-markdown-schema";
 import { SourceDirtyObserver } from "./visual-source-dirty-observer";
 import { visualWikiLinkSuggestion } from "./visual-wiki-link-suggestion";
+import { visualPaperCitationSuggestion } from "./visual-paper-citation-suggestion";
+import type { PaperSummary } from "./app-types";
 import type { TrackedChangeTooltipActions } from "./overleaf-track-changes";
 import type { TrackedChange } from "./use-overleaf-realtime";
 import { dispatchTagClick, visualTag } from "./visual-tag";
@@ -157,6 +159,31 @@ function visualSourceRanges(text: string, blockCount: number): VisualSourceRange
   return Array.from({ length: blockCount }, (_, index) => (
     expanded[Math.min(index, expanded.length - 1)] ?? { from: 0, to: 0 }
   ));
+}
+
+/**
+ * Top-level block ranges only when the source→block mapping is certain: one
+ * mdast child per rendered block, in document order, non-overlapping.
+ *
+ * `visualSourceRanges` deliberately degrades to a monotonic guess so scrolling
+ * still lands somewhere useful. Splicing source bytes back into the document
+ * cannot use a guess — a duplicated range would emit a block twice — so this
+ * variant reports failure instead and its callers fall back.
+ */
+function exactVisualSourceRanges(text: string, blockCount: number): VisualSourceRange[] | null {
+  const sourceNodes = getMarkdownManager().parseToEditorMdast(text).children;
+  if (sourceNodes.length !== blockCount) return null;
+  const ranges: VisualSourceRange[] = [];
+  let previousEnd = 0;
+  for (const node of sourceNodes) {
+    const from = node.position?.start.offset;
+    const to = node.position?.end.offset;
+    if (typeof from !== "number" || typeof to !== "number") return null;
+    if (from < previousEnd || to < from) return null;
+    ranges.push({ from, to });
+    previousEnd = to;
+  }
+  return ranges;
 }
 
 function sourceOffsetForRowColumn(text: string, row: number, column: number): number {
@@ -716,6 +743,8 @@ type VisualMarkdownEditorProps = {
   ) => void;
   onOpenProjectPath?: (path: string) => void;
   workspaceIndex?: MarkdownWorkspaceIndex | null;
+  /** Downloaded paper library backing the `@` citation typeahead. */
+  papers?: PaperSummary[];
   macros?: Record<string, string>;
   onUndo: () => boolean;
   onRedo: () => boolean;
@@ -773,7 +802,22 @@ function ProjectInlineImageView({ node }: NodeViewProps) {
   );
 }
 
-function restoreUnchangedMultilineBlocks(
+/**
+ * Re-emit the source bytes of every block the reader did not touch.
+ *
+ * The serializer is entitled to normalize anything it round-trips: a blank line
+ * between two blocks the converter wrote tight, `\*` around a stray asterisk,
+ * emphasis delimiters inside a bold caption. For a block nobody edited that
+ * normalization is pure damage — it rewrites the file on open — and because the
+ * eligibility probe below compares serializer output against the source, a
+ * single normalized separator disabled visual editing for the whole document.
+ * Every imported paper failed that way: `## Contents` sits directly on its list,
+ * and arxiv2md captions sit directly on their tables.
+ *
+ * Splicing the original bytes back keeps an untouched document identical, so
+ * only blocks that actually changed pay the serializer's canonical form.
+ */
+function restoreUnchangedBlocks(
   serialized: string,
   expected: string,
   currentDoc: Editor["state"]["doc"],
@@ -782,13 +826,23 @@ function restoreUnchangedMultilineBlocks(
   const textSemantics = (node: Editor["state"]["doc"]) => {
     const semantics: unknown[] = [];
     node.descendants((child) => {
-      if (!child.isText) return;
-      semantics.push([
-        child.text,
-        child.marks
-          .filter((mark) => mark.type.name !== "sourceLiteral")
-          .map((mark) => [mark.type.name, mark.attrs]),
-      ]);
+      if (child.isText) {
+        semantics.push([
+          child.text,
+          child.marks
+            .filter((mark) => mark.type.name !== "sourceLiteral")
+            .map((mark) => [mark.type.name, mark.attrs]),
+        ]);
+        return;
+      }
+      // A hard break is the one representation difference this comparison
+      // exists to forgive — the same prose carries it as a newline in the
+      // source and as a node in the document. Every other leaf is content: a
+      // tag chip, an inline-math atom or an image can be deleted without
+      // touching a character of text, and that has to read as a change or the
+      // deletion is restored away.
+      if (child.type.name === "hardBreak") return;
+      if (child.isLeaf || child.isAtom) semantics.push([child.type.name, child.attrs]);
     });
     return JSON.stringify(semantics);
   };
@@ -799,21 +853,58 @@ function restoreUnchangedMultilineBlocks(
     return serialized;
   }
   if (currentDoc.childCount !== expectedDoc.childCount) return serialized;
-  const expectedRanges = visualSourceRanges(expected, expectedDoc.childCount);
-  const serializedRanges = visualSourceRanges(serialized, currentDoc.childCount);
-  const replacements = expectedRanges.flatMap((expectedRange, index) => {
-    const source = expected.slice(expectedRange.from, expectedRange.to);
-    const target = serializedRanges[index];
-    if (!target || !/\r?\n/.test(source)) return [];
+  // A leading BOM is envelope, not content: the parser reports offsets into the
+  // body without it and preserveMarkdownEnvelope re-attaches it around whatever
+  // we return, so every offset below — and the result — works on the body.
+  const body = expected.startsWith("\uFEFF") ? expected.slice(1) : expected;
+  const isUnchanged = (index: number) => {
     const current = currentDoc.child(index);
     const original = expectedDoc.child(index);
-    const unchanged = (changedBlocks ? !changedBlocks.has(index) : false)
+    return (changedBlocks ? !changedBlocks.has(index) : false)
       || current.eq(original)
       || (current.isTextblock && current.type === original.type && (
         current.content.eq(original.content)
         || textSemantics(current) === textSemantics(original)
       ));
-    if (!unchanged) return [];
+  };
+
+  const exactExpected = exactVisualSourceRanges(body, expectedDoc.childCount);
+  const exactSerialized = exactVisualSourceRanges(serialized, currentDoc.childCount);
+  if (exactExpected && exactSerialized) {
+    const unchanged = Array.from({ length: currentDoc.childCount }, (_, index) => isUnchanged(index));
+    if (unchanged.every(Boolean)) return body;
+    const blockText = (index: number) => (unchanged[index]
+      ? body.slice(exactExpected[index]!.from, exactExpected[index]!.to)
+      : serialized.slice(exactSerialized[index]!.from, exactSerialized[index]!.to));
+    // The gap between two blocks comes from the source only when both sides
+    // still hold their source bytes. Next to an edited block the serializer
+    // decides it, so a boundary the source wrote tight can never splice a
+    // rewritten block onto its neighbour and merge the two.
+    const gapText = (index: number) => (unchanged[index] && unchanged[index - 1]
+      ? body.slice(exactExpected[index - 1]!.to, exactExpected[index]!.from)
+      : serialized.slice(exactSerialized[index - 1]!.to, exactSerialized[index]!.from));
+    const last = unchanged.length - 1;
+    let result = unchanged[0]
+      ? body.slice(0, exactExpected[0]!.from)
+      : serialized.slice(0, exactSerialized[0]!.from);
+    for (let index = 0; index <= last; index += 1) {
+      if (index > 0) result += gapText(index);
+      result += blockText(index);
+    }
+    return result + (unchanged[last]
+      ? body.slice(exactExpected[last]!.to)
+      : serialized.slice(exactSerialized[last]!.to));
+  }
+
+  // Uncertain block mapping: keep the narrower rewrite, which only ever
+  // substitutes a block whose source spans several lines.
+  const expectedRanges = visualSourceRanges(body, expectedDoc.childCount);
+  const serializedRanges = visualSourceRanges(serialized, currentDoc.childCount);
+  const replacements = expectedRanges.flatMap((expectedRange, index) => {
+    const source = body.slice(expectedRange.from, expectedRange.to);
+    const target = serializedRanges[index];
+    if (!target || !/\r?\n/.test(source)) return [];
+    if (!isUnchanged(index)) return [];
     return [{ ...target, source }];
   });
   return replacements.sort((a, b) => b.from - a.from).reduce(
@@ -829,7 +920,7 @@ function serializeMarkdown(
   expected: string,
   changedBlocks?: ReadonlySet<number>,
 ): string {
-  return restoreUnchangedMultilineBlocks(
+  return restoreUnchangedBlocks(
     getMarkdownManager().serialize(editor.getJSON()),
     expected,
     editor.state.doc,
@@ -839,14 +930,28 @@ function serializeMarkdown(
 
 function changedTopLevelBlocks(transaction: Transaction): Set<number> {
   const changed = new Set<number>();
+  const addRange = (from: number, to: number) => {
+    const max = transaction.doc.content.size;
+    const start = Math.min(Math.max(from, 0), max);
+    const end = Math.min(Math.max(to, start), max);
+    changed.add(transaction.doc.resolve(start).index(0));
+    changed.add(transaction.doc.resolve(Math.max(start, end - 1)).index(0));
+  };
   for (const step of transaction.steps) {
+    let mapped = false;
     step.getMap().forEach((_oldFrom, _oldTo, from, to) => {
-      const max = transaction.doc.content.size;
-      const start = Math.min(Math.max(from, 0), max);
-      const end = Math.min(Math.max(to, start), max);
-      changed.add(transaction.doc.resolve(start).index(0));
-      changed.add(transaction.doc.resolve(Math.max(start, end - 1)).index(0));
+      mapped = true;
+      addRange(from, to);
     });
+    if (mapped) continue;
+    // A mark step — bold, a link, an inline-math atom — rewrites content
+    // without moving anything, so its step map is empty and reports no changed
+    // block at all. Only the step itself carries the range, and since nothing
+    // moved its positions are already the ones in `transaction.doc`.
+    const range = step as unknown as { from?: unknown; to?: unknown };
+    if (typeof range.from === "number" && typeof range.to === "number") {
+      addRange(range.from, range.to);
+    }
   }
   return changed;
 }
@@ -1110,6 +1215,7 @@ export function VisualMarkdownEditor({
   onRequestViewportLock,
   onOpenProjectPath,
   workspaceIndex,
+  papers,
   macros,
   onUndo,
   onRedo,
@@ -1164,6 +1270,7 @@ export function VisualMarkdownEditor({
   const requestViewportLockRef = useRef(onRequestViewportLock);
   const openPathRef = useRef(onOpenProjectPath);
   const indexRef = useRef(workspaceIndex);
+  const papersRef = useRef(papers);
   const indexedDocumentRef = useRef<{ index: MarkdownWorkspaceIndex; path: string } | null>(null);
   const undoRef = useRef(onUndo);
   const redoRef = useRef(onRedo);
@@ -1452,9 +1559,10 @@ export function VisualMarkdownEditor({
     requestViewportLockRef.current = onRequestViewportLock;
     openPathRef.current = onOpenProjectPath;
     indexRef.current = workspaceIndex;
+    papersRef.current = papers;
     undoRef.current = onUndo;
     redoRef.current = onRedo;
-  }, [onChangeMarkdown, onOpenProjectPath, onRedo, onRequestViewportLock, onUndo, workspaceIndex]);
+  }, [onChangeMarkdown, onOpenProjectPath, onRedo, onRequestViewportLock, onUndo, papers, workspaceIndex]);
 
   useEffect(() => {
     syncPolicyRef.current = markdownPreviewSyncPolicy(text.length);
@@ -1500,6 +1608,14 @@ export function VisualMarkdownEditor({
 
   const wikiLinkSuggestion = useMemo(
     () => visualWikiLinkSuggestion(() => indexRef.current ?? null),
+    [],
+  );
+
+  const paperCitationSuggestion = useMemo(
+    () => visualPaperCitationSuggestion({
+      getPapers: () => papersRef.current ?? [],
+      getActivePath: () => activePathRef.current,
+    }),
     [],
   );
 
@@ -1651,6 +1767,7 @@ export function VisualMarkdownEditor({
       MathInputRule,
       InlineLinkInputRule,
       wikiLinkSuggestion,
+      paperCitationSuggestion,
       VisualLinkHover,
       TableRowEnter,
       canonicalHistoryShortcuts,
@@ -1991,7 +2108,7 @@ export function VisualMarkdownEditor({
       const serialized = preserveMarkdownEnvelope(
         // MarkdownManager serialization annotates its input, so keep the
         // cached parse tree pristine for this and later editor instances.
-        restoreUnchangedMultilineBlocks(
+        restoreUnchangedBlocks(
           getMarkdownManager().serialize(structuredClone(parsed.content)),
           text,
           editor.state.schema.nodeFromJSON(structuredClone(parsed.content)),

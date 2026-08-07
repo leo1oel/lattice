@@ -10,3 +10,6 @@
 /.arxiv2md_cache/
 /icons/android/
 /icons/ios/
+
+# Local-only secrets ([env] for dev builds); the repo is public.
+/.cargo/

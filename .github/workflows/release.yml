@@ -116,6 +116,10 @@ jobs:
           # The updater signing key, stored as a repo secret (see setup guide).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Shared Firecrawl key for webpage imports, baked into the binary at
+          # compile time (option_env! in firecrawl.rs). Extractable from the
+          # shipped app — acceptable for small-scale use, rotate on abuse.
+          LATTICE_FIRECRAWL_KEY: ${{ secrets.LATTICE_FIRECRAWL_KEY }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Lattice ${{ github.ref_name }}"

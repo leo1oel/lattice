@@ -44,6 +44,7 @@ import { GotoLineDialog } from "./goto-line-dialog";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { SearchPickerDialog, type SearchPickerItem } from "./search-picker-dialog";
 import { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
+import { parsePaperLinkPath } from "./paper-link";
 import type { CollabDialogMode } from "./collab-dialog";
 import { TexSetupWizard } from "./tex-setup-wizard";
 import {
@@ -1886,7 +1887,15 @@ function App() {
       const leave = controller?.leavePresence() ?? Promise.resolve();
       const deadline = new Promise<void>((resolve) => window.setTimeout(resolve, 500));
       void Promise.race([leave.catch(() => undefined), deadline]).finally(() => {
-        if (active) void appWindow.destroy();
+        if (!active) return;
+        // Preventing the close above means this call is the only thing that
+        // still closes the window: swallowing its rejection (a missing
+        // core:window:allow-destroy grant did exactly that) leaves the traffic
+        // light dead with nothing on screen to explain it.
+        void appWindow.destroy().catch((reason) => {
+          closing = false;
+          setError(`Lattice could not close its window: ${toMessage(reason)}`);
+        });
       });
     }).then((stop) => {
       if (active) unlisten = stop;
@@ -4909,7 +4918,13 @@ function App() {
     if (!trimmed) return;
     setImporting(true);
     try {
-      const result = await invoke<{ arxivId: string; title: string; citationKey?: string; alreadyImported: boolean }>("import_reference", {
+      const result = await invoke<{
+        arxivId: string;
+        title: string;
+        citationKey?: string;
+        alreadyImported: boolean;
+        fetchError?: string;
+      }>("import_reference", {
         input: trimmed,
       });
       const snapshot = await refreshProject();
@@ -4936,10 +4951,19 @@ function App() {
           }
         }
       }
+      // The citation lands even when the download does not (papers.rs commits
+      // the bibliography before fetching), so a fetch failure is a notice on a
+      // success, not an error. The converter's stderr ends with its one
+      // meaningful "Error: …" line; the Papers row keeps a Download button for
+      // retrying, which surfaces the full message.
+      const fetchNote = result.fetchError
+        ?.trim().split("\n").filter((line) => line.trim()).pop()?.replace(/^Error:\s*/, "");
       setNotice(result.alreadyImported
         ? `“${result.title}” is already in Papers${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
         : result.arxivId
-          ? `Imported “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
+          ? result.fetchError
+            ? `Cited “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}, but the full text could not be downloaded: ${fetchNote}`
+            : `Imported “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
           : `Cited “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}. No full text to open.`);
     } catch (reason) {
       setError(toMessage(reason));
@@ -5003,9 +5027,16 @@ function App() {
     const key = paperKey(paper);
     setPaperFetchStates((current) => ({ ...current, [key]: "loading" }));
     try {
-      const result = await invoke<{ arxivId: string; paperPath: string; blogPath?: string | null }>("fetch_paper", {
-        arxivId: paper.arxivId,
-      });
+      // Two fetchable shapes: an arXiv id (HTML or PDF route) and a cited
+      // webpage (Firecrawl capture). Both return the same bundle contract, so
+      // everything after this line treats them identically.
+      const result = paper.arxivId
+        ? await invoke<{ arxivId: string; paperPath: string; blogPath?: string | null }>("fetch_paper", {
+          arxivId: paper.arxivId,
+        })
+        : await invoke<{ arxivId: string; paperPath: string; blogPath?: string | null }>("fetch_web_reference", {
+          url: paper.url,
+        });
       await refreshProject();
       const fetched = (await invoke<PaperSummary[]>("list_papers"))
         .find((item) => item.arxivId === result.arxivId) ?? { ...paper, hasFullText: true };
@@ -5130,9 +5161,28 @@ function App() {
   }, [openProjectAsset]);
 
   const openMarkdownProjectPath = useCallback((path: string) => {
+    // A link into a paper's cached markdown opens the Papers reading view,
+    // not a plain editor tab: the plain tab loses the blog/full-text switch
+    // and the paper selection context the agent reads. Falls through for a
+    // paper that is no longer in the library.
+    const paperLink = parsePaperLinkPath(path);
+    if (paperLink) {
+      const paper = papers.find((item) => item.arxivId === paperLink.arxivId
+        && (item.hasFullText || item.hasBlog));
+      if (paper) {
+        void openPaper(paper, true).then((opened) => {
+          if (!opened) return;
+          // Honor the view the link named when it is locally readable;
+          // openPaper already fell back to whichever side exists.
+          if (paperLink.view === "fulltext" && opened.hasFullText) setPaperView("fulltext");
+          else if (paperLink.view === "blog" && opened.hasBlog) setPaperView("blog");
+        });
+        return;
+      }
+    }
     if (isProjectAssetFilePath(path)) openProjectAssetFromClick(path);
     else openProjectFileFromClick(path);
-  }, [openProjectAssetFromClick, openProjectFileFromClick]);
+  }, [openPaper, openProjectAssetFromClick, openProjectFileFromClick, papers]);
 
   const beginProjectFigureDrag = useCallback((path: string, label: string, event: React.PointerEvent) => {
     if (event.button !== 0) return;
@@ -7253,6 +7303,7 @@ function App() {
           <DocumentCanvas
             mode={canvasMode}
             workspaceIndex={workspaceIndex}
+            papers={papers}
             source={activePaper ? activePaperSource : source}
             markdownPreviewSource={activePaper ? activePaperPreviewSource : undefined}
             activeFile={activePaperPath ?? activeFile}

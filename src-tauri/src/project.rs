@@ -2185,6 +2185,10 @@ pub(crate) fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
                 .cloned()
                 .unwrap_or_default(),
             arxiv_id: bibliography_arxiv_id(&fields),
+            url: fields
+                .get("url")
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty()),
         });
     }
     citations

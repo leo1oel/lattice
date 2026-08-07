@@ -16,7 +16,15 @@ use uuid::Uuid;
 const PAPER_SCHEMA_VERSION: u32 = 4;
 const ASSET_MANIFEST_SCHEMA_VERSION: u32 = 1;
 const ARXIV2MD_REQUIREMENT: &str =
-    "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@a03cb7f2a4ea8b20f36e2f2ac8f53838e9d07146";
+    "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@acb75a68e408dbf6f788c64795b2aabce323f293";
+/// The converter recorded on bundles built from the PDF text layer. Like the
+/// requirement above, this string is part of cache identity: bump it together
+/// with the `anydoc` dependency so bundles built by the old version rebuild.
+const ANYDOC_CONVERTER: &str = "anydoc@0.1.7";
+/// The converter recorded on webpage captures (see firecrawl.rs). Versioned
+/// by API generation, not by crate: the scrape output changes when the
+/// service's endpoint does.
+const FIRECRAWL_CONVERTER: &str = "firecrawl-v2";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,6 +37,17 @@ struct PaperMetadata {
     complete: bool,
     #[serde(default)]
     converter: String,
+    /// What the markdown was derived from: `arxiv-html` for a LaTeXML
+    /// rendering, `arxiv-pdf` for the text-layer fallback, `web` for a
+    /// scraped page. Empty on bundles from before the field existed, which
+    /// are all HTML-derived.
+    #[serde(default)]
+    source: String,
+    /// The page a `web` bundle captured. This is the join key back to the
+    /// bibliography: a webpage citation has no arXiv id, so `list_papers`
+    /// matches its `url` field against this.
+    #[serde(default)]
+    source_url: String,
     #[serde(default)]
     paper_sha256: String,
     #[serde(default)]
@@ -146,7 +165,12 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
         parse_arxiv_id(requested).ok_or_else(|| "Enter a valid arXiv id or URL.".to_string())?;
     validate_arxiv_id(&requested)?;
     let base = arxiv_base_id(&requested).to_string();
-    let dir = project::safe_path(root, &format!(".research/papers/{base}"))?;
+    // creation_path rather than safe_path: a legacy id (`cs/9901002`) nests
+    // its bundle one level deeper, and safe_path refuses to look through an
+    // intermediate directory that does not exist yet. Legacy-era papers are
+    // exactly the ones with no HTML rendering, so before the PDF fallback no
+    // fetch had ever needed that directory.
+    let dir = project::creation_path(root, &format!(".research/papers/{base}"))?;
     let metadata_path = dir.join("metadata.json");
     let cached_metadata = fs::read_to_string(&metadata_path)
         .ok()
@@ -176,75 +200,72 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
     let output_dir = temp_root.join("output");
     fs::create_dir_all(&output_dir).map_err(err)?;
     let output_path = output_dir.join("paper.md");
-    let output = commands::ARXIV2MD
-        .command()
-        .current_dir(&output_dir)
-        .arg(&requested)
-        .arg("--frontmatter")
-        .arg("--download-assets")
-        .arg("--remove-refs")
-        .arg("--section")
-        .arg("Acknowledgements")
-        .arg("--section")
-        .arg("Acknowledgments")
-        .arg("-o")
-        .arg(&output_path)
-        .output()
-        .map_err(|e| uv_tool_spawn_error("arxiv2md", &e))?;
-    ensure_success("arxiv2md", &output)?;
-    if !output_path.is_file() {
-        return Err("arxiv2md did not produce paper.md".to_string());
-    }
-    let markdown = normalize_imported_markdown(&fs::read_to_string(&output_path).map_err(err)?);
-    fs::write(&output_path, &markdown).map_err(err)?;
-    let title = parse_title(&markdown).unwrap_or_else(|| format!("arXiv {base}"));
-    let metadata = PaperMetadata {
-        arxiv_id: base.clone(),
-        requested_arxiv_id: requested,
-        title,
-        schema_version: PAPER_SCHEMA_VERSION,
-        complete: true,
-        converter: ARXIV2MD_REQUIREMENT.to_string(),
-        paper_sha256: sha256_hex(markdown.as_bytes()),
-        asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
-    };
-    validate_paper_bundle(&output_dir, &metadata)?;
-    fs::write(
-        output_dir.join("metadata.json"),
-        format!(
-            "{}\n",
-            serde_json::to_string_pretty(&metadata).map_err(err)?
-        ),
-    )
-    .map_err(err)?;
-    if let Ok(Some(blog)) = crate::alphaxiv::fetch_overview(&base) {
-        fs::write(output_dir.join("blog.md"), blog).map_err(err)?;
-    } else if dir.join("blog.md").is_file() {
-        fs::copy(dir.join("blog.md"), output_dir.join("blog.md")).map_err(err)?;
-    }
-    if dir.join("paper.md").is_file()
-        && cached_metadata.as_ref().is_none_or(|metadata| {
-            metadata.paper_sha256.is_empty()
-                || fs::read(dir.join("paper.md"))
-                    .ok()
-                    .is_none_or(|bytes| sha256_hex(&bytes) != metadata.paper_sha256)
-        })
-    {
-        fs::copy(dir.join("paper.md"), output_dir.join("paper.legacy.md")).map_err(err)?;
-    }
-    fs::create_dir_all(dir.parent().unwrap()).map_err(err)?;
-    let backup = dir.with_extension(format!("old-{}", Uuid::new_v4()));
-    if dir.exists() {
-        fs::rename(&dir, &backup).map_err(err)?;
-    }
-    if let Err(e) = fs::rename(&output_dir, &dir) {
-        if backup.exists() {
-            let _ = fs::rename(&backup, &dir);
+    // Everything up to the atomic swap happens under temp_root. Build inside a
+    // closure so a failure on any path cannot strand a `.fetch-*` directory in
+    // the project; conversion errors were doing exactly that.
+    let build = || -> Result<(), String> {
+        let (converted, converter) = convert_paper(&requested, &base, &output_dir, &output_path)?;
+        let markdown = normalize_imported_markdown(&converted);
+        fs::write(&output_path, &markdown).map_err(err)?;
+        let title = parse_title(&markdown).unwrap_or_else(|| format!("arXiv {base}"));
+        let metadata = PaperMetadata {
+            arxiv_id: base.clone(),
+            requested_arxiv_id: requested.clone(),
+            title,
+            schema_version: PAPER_SCHEMA_VERSION,
+            complete: true,
+            converter: converter.to_string(),
+            source: if converter == ANYDOC_CONVERTER {
+                "arxiv-pdf"
+            } else {
+                "arxiv-html"
+            }
+            .to_string(),
+            source_url: String::new(),
+            paper_sha256: sha256_hex(markdown.as_bytes()),
+            asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
+        };
+        validate_paper_bundle(&output_dir, &metadata)?;
+        fs::write(
+            output_dir.join("metadata.json"),
+            format!(
+                "{}\n",
+                serde_json::to_string_pretty(&metadata).map_err(err)?
+            ),
+        )
+        .map_err(err)?;
+        if let Ok(Some(blog)) = crate::alphaxiv::fetch_overview(&base) {
+            fs::write(output_dir.join("blog.md"), blog).map_err(err)?;
+        } else if dir.join("blog.md").is_file() {
+            fs::copy(dir.join("blog.md"), output_dir.join("blog.md")).map_err(err)?;
         }
-        return Err(err(e));
-    }
-    let _ = fs::remove_dir_all(backup);
-    let _ = fs::remove_dir_all(temp_root);
+        if dir.join("paper.md").is_file()
+            && cached_metadata.as_ref().is_none_or(|metadata| {
+                metadata.paper_sha256.is_empty()
+                    || fs::read(dir.join("paper.md"))
+                        .ok()
+                        .is_none_or(|bytes| sha256_hex(&bytes) != metadata.paper_sha256)
+            })
+        {
+            fs::copy(dir.join("paper.md"), output_dir.join("paper.legacy.md")).map_err(err)?;
+        }
+        fs::create_dir_all(dir.parent().unwrap()).map_err(err)?;
+        let backup = dir.with_extension(format!("old-{}", Uuid::new_v4()));
+        if dir.exists() {
+            fs::rename(&dir, &backup).map_err(err)?;
+        }
+        if let Err(e) = fs::rename(&output_dir, &dir) {
+            if backup.exists() {
+                let _ = fs::rename(&backup, &dir);
+            }
+            return Err(err(e));
+        }
+        let _ = fs::remove_dir_all(backup);
+        Ok(())
+    };
+    let built = build();
+    let _ = fs::remove_dir_all(&temp_root);
+    built?;
     Ok(FetchResult {
         arxiv_id: base.clone(),
         paper_path: format!(".research/papers/{base}/paper.md"),
@@ -256,10 +277,249 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
     })
 }
 
-fn validate_paper_bundle(directory: &Path, metadata: &PaperMetadata) -> Result<(), String> {
-    if metadata.converter != ARXIV2MD_REQUIREMENT
-        || metadata.asset_manifest_schema_version != ASSET_MANIFEST_SCHEMA_VERSION
+/// The bundle directory name for a captured webpage: a stable digest of the
+/// URL, in a shape `validate_paper_key` can recognize. Everything downstream
+/// (tabs, read_paper, collab paths) already keys bundles by this string, so a
+/// webpage rides the same rails as an arXiv id.
+pub(crate) fn web_reference_id(url: &str) -> String {
+    format!("web-{}", &sha256_hex(url.trim().as_bytes())[..16])
+}
+
+fn is_web_url(url: &str) -> bool {
+    url.starts_with("https://") || url.starts_with("http://")
+}
+
+/// Capture a webpage as a readable bundle under `.research/papers/web-…`.
+///
+/// The same contract as an arXiv fetch — atomic swap, sha-validated bundle,
+/// honest frontmatter — with one difference: there is never a blog, so the
+/// reader shows a single content view.
+pub fn fetch_web_reference(root: &Path, url: &str) -> Result<FetchResult, String> {
+    let url = url.trim();
+    if !is_web_url(url) {
+        return Err("Enter an http(s) URL.".to_string());
+    }
+    let id = web_reference_id(url);
+    let dir = project::creation_path(root, &format!(".research/papers/{id}"))?;
+    let cached_metadata = fs::read_to_string(dir.join("metadata.json"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<PaperMetadata>(&raw).ok());
+    // A page can change under its URL, but a citation wants the text that was
+    // cited: reuse any complete capture and let deleting the bundle be the
+    // explicit way to take a fresh snapshot.
+    let valid = cached_metadata.as_ref().is_some_and(|m| {
+        m.schema_version == PAPER_SCHEMA_VERSION
+            && m.complete
+            && m.source_url == url
+            && cached_paper_has_body(&dir.join("paper.md"))
+            && validate_paper_bundle(&dir, m).is_ok()
+    });
+    if valid {
+        return Ok(FetchResult {
+            arxiv_id: id.clone(),
+            paper_path: format!(".research/papers/{id}/paper.md"),
+            blog_path: None,
+            reused: true,
+        });
+    }
+    let papers_root = project::safe_path(root, ".research/papers")?;
+    let temp_root = papers_root.join(format!(".fetch-{}", Uuid::new_v4()));
+    let output_dir = temp_root.join("output");
+    fs::create_dir_all(&output_dir).map_err(err)?;
+    let build = || -> Result<(), String> {
+        let page = crate::firecrawl::scrape(url)?;
+        let title = page
+            .title
+            .as_deref()
+            .map(str::trim)
+            .filter(|title| !title.is_empty())
+            .unwrap_or(url);
+        let markdown = normalize_imported_markdown(&format!(
+            "---\ntitle: \"{}\"\nurl: \"{}\"\nsource: \"web\"\n---\n\n{}",
+            title.replace('"', "'"),
+            url,
+            page.markdown,
+        ));
+        fs::write(output_dir.join("paper.md"), &markdown).map_err(err)?;
+        fs::create_dir_all(output_dir.join("paper_assets")).map_err(err)?;
+        fs::write(
+            output_dir.join("paper_assets/manifest.json"),
+            "{\"schema_version\":1,\"assets\":[]}\n",
+        )
+        .map_err(err)?;
+        let metadata = PaperMetadata {
+            arxiv_id: id.clone(),
+            requested_arxiv_id: id.clone(),
+            title: title.to_string(),
+            schema_version: PAPER_SCHEMA_VERSION,
+            complete: true,
+            converter: FIRECRAWL_CONVERTER.to_string(),
+            source: "web".to_string(),
+            source_url: url.to_string(),
+            paper_sha256: sha256_hex(markdown.as_bytes()),
+            asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
+        };
+        validate_paper_bundle(&output_dir, &metadata)?;
+        fs::write(
+            output_dir.join("metadata.json"),
+            format!(
+                "{}\n",
+                serde_json::to_string_pretty(&metadata).map_err(err)?
+            ),
+        )
+        .map_err(err)?;
+        let backup = dir.with_extension(format!("old-{}", Uuid::new_v4()));
+        if dir.exists() {
+            fs::rename(&dir, &backup).map_err(err)?;
+        }
+        if let Err(e) = fs::rename(&output_dir, &dir) {
+            if backup.exists() {
+                let _ = fs::rename(&backup, &dir);
+            }
+            return Err(err(e));
+        }
+        let _ = fs::remove_dir_all(backup);
+        Ok(())
+    };
+    let built = build();
+    let _ = fs::remove_dir_all(&temp_root);
+    built?;
+    Ok(FetchResult {
+        arxiv_id: id.clone(),
+        paper_path: format!(".research/papers/{id}/paper.md"),
+        blog_path: None,
+        reused: false,
+    })
+}
+
+/// Convert the requested paper to markdown, returning the raw text and the
+/// converter that produced it.
+///
+/// arXiv renders modern papers to HTML but never went back over the archive,
+/// and ar5iv covers most — not all — of the rest. A paper neither has rendered
+/// still has a PDF with a real text layer (arXiv PDFs come from pdfTeX, not
+/// scans), so the text layer is the fallback: strictly worse than a rendering,
+/// strictly better than the citation-with-no-text it used to be.
+fn convert_paper(
+    requested: &str,
+    base: &str,
+    output_dir: &Path,
+    output_path: &Path,
+) -> Result<(String, &'static str), String> {
+    let output = commands::ARXIV2MD
+        .command()
+        .current_dir(output_dir)
+        // Without this the converter caches its source HTML relative to the
+        // working directory, which is the bundle being built — every paper
+        // carried ~500 KB of its own raw HTML into the project.
+        .env("ARXIV2MD_CACHE_PATH", commands::arxiv2md_cache_dir())
+        .arg(requested)
+        .arg("--frontmatter")
+        .arg("--download-assets")
+        // Papers are read, not re-exported, and arXiv's own figures are
+        // routinely 16-bit-per-channel PNG — depth no screen can show at twice
+        // the bytes. WebP keeps plots and diagrams pixel-exact and costs a
+        // 32-paper library 34 MB of figures instead of 216 MB.
+        .arg("--compress-assets")
+        .arg("--remove-refs")
+        .arg("--section")
+        .arg("Acknowledgements")
+        .arg("--section")
+        .arg("Acknowledgments")
+        .arg("-o")
+        .arg(output_path)
+        .output()
+        .map_err(|e| uv_tool_spawn_error("arxiv2md", &e))?;
+    match ensure_success("arxiv2md", &output) {
+        Ok(()) => {
+            if !output_path.is_file() {
+                return Err("arxiv2md did not produce paper.md".to_string());
+            }
+            Ok((
+                fs::read_to_string(output_path).map_err(err)?,
+                ARXIV2MD_REQUIREMENT,
+            ))
+        }
+        Err(error) if error.contains("does not have an HTML version") => {
+            let markdown = pdf_text_markdown(requested, base).map_err(|pdf_error| {
+                format!("{error}\nThe PDF fallback also failed: {pdf_error}")
+            })?;
+            // The bundle contract requires an asset manifest; the text layer
+            // carries no extractable figures, so it is honestly empty.
+            fs::create_dir_all(output_dir.join("paper_assets")).map_err(err)?;
+            fs::write(
+                output_dir.join("paper_assets/manifest.json"),
+                "{\"schema_version\":1,\"assets\":[]}\n",
+            )
+            .map_err(err)?;
+            Ok((markdown, ANYDOC_CONVERTER))
+        }
+        Err(error) => Err(error),
+    }
+}
+
+/// The PDF text layer as markdown, with frontmatter that says what it is.
+///
+/// Honesty is the point of the frontmatter: the text layer has no figures,
+/// and its equations carry font encoding rather than LaTeX (Computer Modern
+/// renders `{W_i}` as `fWig`). Both the reader and the agent read this file
+/// raw, so the caveat rides in the file itself rather than in UI state.
+fn pdf_text_markdown(requested: &str, base: &str) -> Result<String, String> {
+    const MAX_PDF_BYTES: usize = 100 * 1024 * 1024;
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("Lattice research writer (paper import)")
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .map_err(|error| format!("Could not create the PDF download client: {error}"))?;
+    let response = client
+        .get(format!("https://arxiv.org/pdf/{requested}"))
+        .send()
+        .map_err(|error| format!("PDF download failed: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "arXiv returned HTTP {} for the PDF.",
+            response.status().as_u16()
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_PDF_BYTES as u64)
     {
+        return Err("The PDF is larger than the 100 MB conversion limit.".to_string());
+    }
+    let bytes = response
+        .bytes()
+        .map_err(|error| format!("PDF download failed: {error}"))?;
+    if bytes.len() > MAX_PDF_BYTES {
+        return Err("The PDF is larger than the 100 MB conversion limit.".to_string());
+    }
+    let body = anydoc::to_markdown_bytes(&bytes, anydoc::Format::Pdf)
+        .map_err(|error| format!("PDF conversion failed: {error}"))?;
+    if body.trim().len() < 200 {
+        return Err(
+            "The PDF has almost no text layer; a scanned paper needs OCR, which is not available."
+                .to_string(),
+        );
+    }
+    let title = body
+        .lines()
+        .find_map(|line| {
+            let text = line.trim_start_matches('#').trim();
+            (line.starts_with('#') && !text.is_empty()).then(|| text.to_string())
+        })
+        .unwrap_or_else(|| format!("arXiv {base}"));
+    Ok(format!(
+        "---\ntitle: \"{}\"\nurl: \"https://arxiv.org/abs/{base}\"\nsource: \"pdf-text-layer\"\nfidelity: \"Converted from the PDF text layer because arXiv has no HTML rendering. Figures are absent and equations may be garbled by font encoding; verify formulas against the PDF before quoting them.\"\n---\n\n{}",
+        title.replace('"', "'"),
+        body,
+    ))
+}
+
+fn validate_paper_bundle(directory: &Path, metadata: &PaperMetadata) -> Result<(), String> {
+    let known_converter = metadata.converter == ARXIV2MD_REQUIREMENT
+        || metadata.converter == ANYDOC_CONVERTER
+        || metadata.converter == FIRECRAWL_CONVERTER;
+    if !known_converter || metadata.asset_manifest_schema_version != ASSET_MANIFEST_SCHEMA_VERSION {
         return Err("The cached paper was produced by an unsupported converter.".to_string());
     }
     let paper = fs::read(directory.join("paper.md")).map_err(err)?;
@@ -348,11 +608,16 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
         // claimed the work had none and offered to download it again.
         let matched = imported
             .iter()
-            .position(|(id, _metadata, _has_full_text, _has_blog, _asset_paths)| {
+            .position(|(id, metadata, _has_full_text, _has_blog, _asset_paths)| {
                 let by_arxiv = citation.arxiv_id.as_deref().is_some_and(|cited| {
                     arxiv_base_id(cited).eq_ignore_ascii_case(arxiv_base_id(id))
                 });
-                by_arxiv
+                // A webpage citation has no arXiv id; its captured bundle
+                // remembers which URL it snapshotted instead.
+                let by_url = citation.url.as_deref().is_some_and(|cited| {
+                    !metadata.source_url.is_empty() && metadata.source_url == cited.trim()
+                });
+                by_arxiv || by_url
             })
             .map(|index| imported.remove(index));
         let title = if !citation.title.trim().is_empty() {
@@ -368,6 +633,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
                 .map(|(id, _, _, _, _)| id.clone())
                 .or(citation.arxiv_id)
                 .unwrap_or_default(),
+            url: citation.url,
             title,
             citation_key: Some(citation.key),
             has_full_text: matched
@@ -420,6 +686,8 @@ fn imported_papers(root: &Path) -> Result<Vec<ImportedPaper>, String> {
                 schema_version: 0,
                 complete: false,
                 converter: String::new(),
+                source: String::new(),
+                source_url: String::new(),
                 paper_sha256: String::new(),
                 asset_manifest_schema_version: 0,
             });
@@ -501,7 +769,7 @@ pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult
 }
 
 pub fn read_paper(root: &Path, arxiv_id: &str) -> Result<String, String> {
-    validate_arxiv_id(arxiv_id)?;
+    validate_paper_key(arxiv_id)?;
     let markdown = project::read_file(root, &format!(".research/papers/{arxiv_id}/paper.md"))?;
     if !markdown_has_body(&markdown) {
         return Err("Cached paper has no full-text body.".to_string());
@@ -533,7 +801,12 @@ fn markdown_has_body(markdown: &str) -> bool {
 /// papers imported before blogs existed, or whose import-time fetch failed) and
 /// caches it. `Ok(None)` when alphaXiv has no report for the paper.
 pub fn read_paper_blog(root: &Path, arxiv_id: &str) -> Result<Option<String>, String> {
-    validate_arxiv_id(arxiv_id)?;
+    validate_paper_key(arxiv_id)?;
+    // A webpage capture has no overview and its key means nothing to
+    // alphaXiv; asking would be a guaranteed-miss network call per open.
+    if arxiv_id.starts_with("web-") {
+        return read_paper_blog_local(root, arxiv_id);
+    }
     let blog_path = project::safe_path(root, &format!(".research/papers/{arxiv_id}/blog.md"))?;
     if blog_path.exists() {
         return fs::read_to_string(&blog_path).map(Some).map_err(err);
@@ -556,7 +829,7 @@ pub fn read_paper_blog(root: &Path, arxiv_id: &str) -> Result<Option<String>, St
 /// Read an overview only when it is already cached. Unlike `read_paper_blog`,
 /// this is safe for passive UI affordances and never performs network I/O.
 pub fn read_paper_blog_local(root: &Path, arxiv_id: &str) -> Result<Option<String>, String> {
-    validate_arxiv_id(arxiv_id)?;
+    validate_paper_key(arxiv_id)?;
     let path = project::safe_path(root, &format!(".research/papers/{arxiv_id}/blog.md"))?;
     if !path.is_file() {
         return Ok(None);
@@ -669,6 +942,17 @@ pub(crate) fn upgrade_bibliography_with_history(
     })
 }
 
+/// A bundle key under `.research/papers`: an arXiv id, or the digest name
+/// of a captured webpage. Everything that only reads bundles takes this;
+/// fetch_paper keeps the strict arXiv check because only arXiv is fetchable
+/// by id.
+fn validate_paper_key(key: &str) -> Result<(), String> {
+    if Regex::new(r"^web-[0-9a-f]{16}$").unwrap().is_match(key) {
+        return Ok(());
+    }
+    validate_arxiv_id(key)
+}
+
 fn validate_arxiv_id(arxiv_id: &str) -> Result<(), String> {
     if Regex::new(r"(?i)^\d{4}\.\d{4,5}(v\d+)?$|^[a-z-]+(?:\.[a-z]{2})?/\d{7}(v\d+)?$")
         .unwrap()
@@ -737,14 +1021,13 @@ fn import_citation(
         .filter(|title| !title.trim().is_empty())
         .or_else(|| Some(citation_key.clone()))
         .unwrap_or_else(|| query.to_string());
-    // A DOI/title may resolve to an entry carrying an arXiv eprint. Attach its
-    // cache only after bibcite has told us the identity; fetching never edits
-    // the bibliography itself.
     let resolved_arxiv = resolved_entry.arxiv_id;
-    let fetched = match resolved_arxiv.as_deref() {
-        Some(id) => Some(fetch_paper(root, id)?),
-        None => None,
-    };
+    // The bibliography is the deliverable; the fetched text is enrichment.
+    // Commit it before attempting any download: a work whose text cannot be
+    // fetched (no HTML rendering, network trouble) is still a full citation —
+    // see the note on import_reference — and failing the import after bibcite
+    // already resolved the entry threw the user's citation away over a
+    // download problem.
     if bibliography != before {
         commit_bibliography(
             root,
@@ -754,14 +1037,56 @@ fn import_citation(
             history,
         )?;
     }
+    // A DOI/title may resolve to an entry carrying an arXiv eprint. Attach its
+    // cache only after bibcite has told us the identity; fetching never edits
+    // the bibliography itself.
+    let mut fetch_error = None;
+    let fetched = match resolved_arxiv.as_deref() {
+        Some(id) => match fetch_paper(root, id) {
+            Ok(fetched) => Some(fetched),
+            Err(error) => {
+                fetch_error = Some(error);
+                None
+            }
+        },
+        // bibcite classifies what it resolved; only an actual webpage gets
+        // scraped. A DOI'd journal article also carries a `url`, but that is
+        // a publisher landing page — paywall chrome, not the work — and every
+        // scrape spends shared Firecrawl quota.
+        None if bibcite_report_source(&citation_output).as_deref() == Some("webpage") => {
+            match resolved_entry
+                .url
+                .as_deref()
+                .filter(|entry_url| is_web_url(entry_url))
+                .or_else(|| Some(query).filter(|typed| is_web_url(typed)))
+            {
+                Some(page_url) => match fetch_web_reference(root, page_url) {
+                    Ok(fetched) => Some(fetched),
+                    Err(error) => {
+                        fetch_error = Some(error);
+                        None
+                    }
+                },
+                None => None,
+            }
+        }
+        None => None,
+    };
     let _ = fs::remove_dir_all(&temp);
     Ok(ImportResult {
-        arxiv_id: resolved_arxiv.unwrap_or_default(),
+        // The fetched bundle's key when there is one — for a webpage that is
+        // the digest id, which is what the UI needs to open and share it.
+        arxiv_id: fetched
+            .as_ref()
+            .map(|item| item.arxiv_id.clone())
+            .or(resolved_arxiv)
+            .unwrap_or_default(),
         title,
         paper_path: fetched.map(|item| item.paper_path).unwrap_or_default(),
         citation_key: Some(citation_key),
         citation_output,
         already_imported,
+        fetch_error,
     })
 }
 
@@ -840,6 +1165,18 @@ fn commit_bibliography(
 ///
 /// Each balanced object is tried, newest first, so a run that reports several
 /// entries still yields the last key.
+/// bibcite's classification of what it resolved ("arxiv", "doi",
+/// "webpage", …), from the same JSON report the key comes from.
+fn bibcite_report_source(output: &str) -> Option<String> {
+    json_objects(output).into_iter().rev().find_map(|chunk| {
+        serde_json::from_str::<Value>(&chunk)
+            .ok()?
+            .get("source")
+            .and_then(Value::as_str)
+            .map(ToString::to_string)
+    })
+}
+
 fn parse_citation_key(output: &str) -> Option<String> {
     json_objects(output).into_iter().rev().find_map(|chunk| {
         serde_json::from_str::<Value>(&chunk)
@@ -1462,6 +1799,8 @@ mod tests {
             schema_version: PAPER_SCHEMA_VERSION,
             complete: true,
             converter: ARXIV2MD_REQUIREMENT.to_string(),
+            source: String::new(),
+            source_url: String::new(),
             paper_sha256: sha256_hex(markdown.as_bytes()),
             asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
         };
@@ -1475,6 +1814,168 @@ mod tests {
         assert!(result.reused);
         assert_eq!(result.arxiv_id, "1706.03762");
         fs::remove_dir_all(parent).unwrap();
+    }
+
+    /// A download failure is a note on the citation, never its undoing: the
+    /// entry must land in the bibliography exactly as it would for a work
+    /// with no full text at all (see the note on import_reference).
+    #[cfg(unix)]
+    #[test]
+    fn a_citation_survives_a_failed_full_text_download() {
+        use std::os::unix::fs::PermissionsExt;
+        let parent = std::env::temp_dir().join(format!("lattice-cite-fetch-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let tools = parent.join("tools");
+        fs::create_dir_all(&tools).unwrap();
+        let bibcite = tools.join("fake-bibcite");
+        fs::write(
+            &bibcite,
+            concat!(
+                "#!/bin/sh\n",
+                "# invoked as: fake-bibcite add --no-tidy <path> <query>\n",
+                "path=\"$3\"\n",
+                "cat >> \"$path\" <<'BIB'\n",
+                "@article{stub2024,\n",
+                "  title = {A Paper Without A Rendering},\n",
+                "  eprint = {2401.99999},\n",
+                "}\n",
+                "BIB\n",
+                "printf '{\"key\": \"stub2024\"}\\n'\n",
+            ),
+        )
+        .unwrap();
+        let arxiv2md = tools.join("fake-arxiv2md");
+        fs::write(
+            &arxiv2md,
+            concat!(
+                "#!/bin/sh\n",
+                "echo 'Error: This paper does not have an HTML version available on arXiv.' >&2\n",
+                "exit 1\n",
+            ),
+        )
+        .unwrap();
+        for tool in [&bibcite, &arxiv2md] {
+            fs::set_permissions(tool, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        // Process-wide, but nothing else in the suite spawns these tools: the
+        // other fetch/list tests are satisfied from on-disk caches.
+        std::env::set_var(commands::BIBCITE.override_env, &bibcite);
+        std::env::set_var(commands::ARXIV2MD.override_env, &arxiv2md);
+        let result = import_reference_with_history(&root, "10.1234/example", HistoryMode::Defer);
+        std::env::remove_var(commands::BIBCITE.override_env);
+        std::env::remove_var(commands::ARXIV2MD.override_env);
+
+        let result = result.unwrap();
+        assert_eq!(result.citation_key.as_deref(), Some("stub2024"));
+        assert_eq!(result.arxiv_id, "2401.99999");
+        assert!(result.paper_path.is_empty());
+        let error = result.fetch_error.expect("the failed download is reported");
+        assert!(
+            error.contains("does not have an HTML version"),
+            "got: {error}"
+        );
+        let bibliography = fs::read_to_string(root.join("references.bib")).unwrap();
+        assert!(bibliography.contains("stub2024"), "got: {bibliography}");
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    /// A webpage capture keys its bundle by URL digest; the readers accept
+    /// that key, and the bibliography join finds the bundle through the URL
+    /// its metadata remembers.
+    #[test]
+    fn webpage_captures_join_the_bibliography_by_url() {
+        let url = "https://example.com/a-blog-post";
+        let id = web_reference_id(url);
+        assert!(validate_paper_key(&id).is_ok(), "got: {id}");
+        assert!(validate_paper_key("web-not-a-digest").is_err());
+
+        let parent = std::env::temp_dir().join(format!("lattice-web-join-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let directory = root.join(".research/papers").join(&id);
+        fs::create_dir_all(directory.join("paper_assets")).unwrap();
+        let markdown =
+            "---\ntitle: \"A Blog Post\"\nsource: \"web\"\n---\n\nThe captured content.\n";
+        fs::write(directory.join("paper.md"), markdown).unwrap();
+        fs::write(
+            directory.join("paper_assets/manifest.json"),
+            "{\"schema_version\":1,\"assets\":[]}\n",
+        )
+        .unwrap();
+        let metadata = PaperMetadata {
+            arxiv_id: id.clone(),
+            requested_arxiv_id: id.clone(),
+            title: "A Blog Post".to_string(),
+            schema_version: PAPER_SCHEMA_VERSION,
+            complete: true,
+            converter: FIRECRAWL_CONVERTER.to_string(),
+            source: "web".to_string(),
+            source_url: url.to_string(),
+            paper_sha256: sha256_hex(markdown.as_bytes()),
+            asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
+        };
+        fs::write(
+            directory.join("metadata.json"),
+            serde_json::to_vec(&metadata).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            root.join("references.bib"),
+            format!(
+                "@misc{{blog2024,\n  title = {{A Blog Post}},\n  url = {{{url}}},\n  year = {{2024}}\n}}\n"
+            ),
+        )
+        .unwrap();
+
+        let papers = list_papers(&root).unwrap();
+        let entry = papers
+            .iter()
+            .find(|paper| paper.citation_key.as_deref() == Some("blog2024"))
+            .expect("the webpage citation");
+        assert_eq!(entry.arxiv_id, id, "joined to its capture: {entry:?}");
+        assert!(entry.has_full_text);
+        assert!(!entry.has_blog);
+        assert_eq!(entry.url.as_deref(), Some(url));
+        assert!(read_paper(&root, &id).unwrap().contains("captured content"));
+        // The reused-capture check accepts the bundle without refetching.
+        let reused = fetch_web_reference(&root, url).unwrap();
+        assert!(reused.reused);
+        assert_eq!(reused.arxiv_id, id);
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    /// A text-layer bundle records anydoc as its converter and carries an
+    /// empty asset manifest; revalidation must accept it, or every reopen
+    /// would refetch and reconvert the PDF.
+    #[test]
+    fn accepts_a_pdf_text_layer_bundle() {
+        let directory = std::env::temp_dir().join(format!("lattice-pdf-bundle-{}", Uuid::new_v4()));
+        fs::create_dir_all(directory.join("paper_assets")).unwrap();
+        let markdown = b"---\ntitle: \"A Paper\"\nsource: \"pdf-text-layer\"\n---\n\nBody.\n";
+        fs::write(directory.join("paper.md"), markdown).unwrap();
+        fs::write(
+            directory.join("paper_assets/manifest.json"),
+            "{\"schema_version\":1,\"assets\":[]}\n",
+        )
+        .unwrap();
+        let metadata = PaperMetadata {
+            arxiv_id: "cs/9901002".to_string(),
+            requested_arxiv_id: "cs/9901002".to_string(),
+            title: "A Paper".to_string(),
+            schema_version: PAPER_SCHEMA_VERSION,
+            complete: true,
+            converter: ANYDOC_CONVERTER.to_string(),
+            source: "arxiv-pdf".to_string(),
+            source_url: String::new(),
+            paper_sha256: sha256_hex(markdown),
+            asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
+        };
+        assert_eq!(validate_paper_bundle(&directory, &metadata), Ok(()));
+        let unknown = PaperMetadata {
+            converter: "anydoc@9.9.9".to_string(),
+            ..metadata
+        };
+        assert!(validate_paper_bundle(&directory, &unknown).is_err());
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
@@ -1491,6 +1992,8 @@ mod tests {
             schema_version: PAPER_SCHEMA_VERSION,
             complete: true,
             converter: ARXIV2MD_REQUIREMENT.to_string(),
+            source: String::new(),
+            source_url: String::new(),
             paper_sha256: sha256_hex(markdown),
             asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
         };
@@ -1525,6 +2028,8 @@ mod tests {
             schema_version: PAPER_SCHEMA_VERSION,
             complete: true,
             converter: ARXIV2MD_REQUIREMENT.to_string(),
+            source: String::new(),
+            source_url: String::new(),
             paper_sha256: sha256_hex(markdown),
             asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
         };

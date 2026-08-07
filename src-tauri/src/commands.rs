@@ -36,7 +36,7 @@ pub const BIBCITE: UvTool = UvTool {
 
 /// Converts an arXiv paper to markdown Lattice and the agent can read.
 pub const ARXIV2MD: UvTool = UvTool {
-    requirement: "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@a03cb7f2a4ea8b20f36e2f2ac8f53838e9d07146",
+    requirement: "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@acb75a68e408dbf6f788c64795b2aabce323f293",
     binary: "arxiv2md",
     override_env: "LATTICE_ARXIV2MD_BIN",
 };
@@ -69,6 +69,23 @@ pub fn uv_cache_dir() -> PathBuf {
     match env::var_os("HOME") {
         Some(home) => PathBuf::from(home).join("Library/Caches/app.leo1oel.researchwriter/uv"),
         None => PathBuf::from("/tmp/research-writer-uv-cache"),
+    }
+}
+
+/// Where arxiv2md keeps the source HTML it caches between conversions.
+///
+/// It defaults to `.arxiv2md_cache` beside the working directory, and the paper
+/// pipeline runs it inside the bundle it is building — so every fetched paper
+/// shipped a copy of its own raw HTML into the project, unreferenced by the
+/// manifest and never reused, because each fetch builds a fresh directory.
+/// Pointing it at the app's cache instead both keeps bundles clean and lets the
+/// cache do its job; arxiv2md expires it after a day and caps its own size.
+pub fn arxiv2md_cache_dir() -> PathBuf {
+    match env::var_os("HOME") {
+        Some(home) => {
+            PathBuf::from(home).join("Library/Caches/app.leo1oel.researchwriter/arxiv2md")
+        }
+        None => PathBuf::from("/tmp/research-writer-arxiv2md-cache"),
     }
 }
 
@@ -230,7 +247,21 @@ mod tests {
         assert!(BIBCITE.requirement.ends_with("@latest"));
         assert_eq!(
             ARXIV2MD.requirement,
-            "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@a03cb7f2a4ea8b20f36e2f2ac8f53838e9d07146"
+            "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@acb75a68e408dbf6f788c64795b2aabce323f293"
+        );
+    }
+
+    #[test]
+    fn the_converter_caches_its_html_outside_the_project() {
+        // arxiv2md defaults to `.arxiv2md_cache` beside the working directory,
+        // and the paper pipeline runs it inside the bundle it is building, so
+        // an unset cache path ships the raw HTML of every paper to the user.
+        let cache = arxiv2md_cache_dir();
+        assert!(cache.is_absolute(), "got: {cache:?}");
+        assert!(!cache.ends_with(".arxiv2md_cache"), "got: {cache:?}");
+        assert!(
+            std::include_str!("papers.rs").contains("\"ARXIV2MD_CACHE_PATH\""),
+            "the fetch pipeline must point the converter's cache away from the bundle"
         );
     }
 }

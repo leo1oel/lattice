@@ -1427,7 +1427,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 @starting-style { .visual-block-drag-ghost { opacity: 0; transform: scale(.97); } }
 :root[data-theme="dark"] .visual-add-block-button, :root[data-theme="dark"] .visual-drag-grip { color: oklch(.5 0 0); }
 .visual-add-block-button:focus-visible, .visual-drag-grip:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
-.visual-slash-menu-popup, .visual-wiki-link-popup, .visual-tag-popup { --visual-menu-height: 50vh; position: fixed; z-index: var(--z-radix-popper); }
+.visual-slash-menu-popup, .visual-wiki-link-popup, .visual-tag-popup, .visual-paper-citation-popup { --visual-menu-height: 50vh; position: fixed; z-index: var(--z-radix-popper); }
 [data-wiki-link] { color: var(--control-active); cursor: pointer; }
 [data-wiki-link][data-resolved="false"] { text-decoration: underline dashed; text-underline-offset: 3px; }
 .visual-link-preview-popup { position: fixed; top: 0; left: 0; z-index: var(--z-radix-popper); width: max-content; max-width: min(26rem, calc(100vw - 16px)); pointer-events: auto; }
