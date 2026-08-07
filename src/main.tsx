@@ -20,6 +20,13 @@ import { installGlobalErrorCapture } from "./global-error-capture";
 
 installGlobalErrorCapture();
 
+// Dev-only perf probe (docs/performance.md). The DEV guard makes the whole
+// branch dead code in production builds; the dynamic import keeps it out of
+// the startup chunk in dev.
+if (import.meta.env.DEV && localStorage.getItem("lattice-perf")) {
+  void import("./perf-probe").then((probe) => probe.installPerfProbe());
+}
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <>
     <RootErrorBoundary>

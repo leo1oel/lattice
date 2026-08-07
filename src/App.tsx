@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
@@ -1892,6 +1892,14 @@ function App() {
        * read-from-disk path, and left the share connected but never activated.
        */
       collabController?: CollabProjectControllerV2;
+      /**
+       * A prerequisite (the previous file's save) the load may overlap with
+       * its own disk read but must confirm before committing state. Resolving
+       * false — or rejecting — aborts the switch, preserving the old
+       * "save failure keeps the current file" semantics without paying
+       * write + read serially.
+       */
+      gate?: Promise<boolean>;
     },
   ) => {
     const loadGeneration = fileLoadGenerationRef.current + 1;
@@ -1917,7 +1925,14 @@ function App() {
     try {
       const v2 = collabV2ControllerRef.current;
       if (v2?.hasTextPath(path) && (options?.collabController === v2 || activeCollabVersion === 2 || collabSessionRef.current === v2)) {
-        const ytext = await v2.openPath(path, "main", { activateIf: isLatestLoad });
+        // The gate must settle before openPath: activation mutates the
+        // controller's activePath, which must not happen for an aborted switch.
+        if (options?.gate && !(await options.gate)) return false;
+        if (!isLatestLoad()) return false;
+        // cachedFirst: with a server-acked local snapshot the switch shows
+        // content immediately and syncs in the background; a cache miss still
+        // waits (bounded) so a fresh doc never flashes empty.
+        const ytext = await v2.openPath(path, "main", { activateIf: isLatestLoad, cachedFirst: true, timeoutMs: 8_000 });
         if (!isLatestLoad()) return false;
         const content = ytext.toString();
         setActiveFile(path);
@@ -1952,11 +1967,17 @@ function App() {
           ytext.observe(onText);
           collabDetachRef.current = () => ytext.unobserve(onText);
         }
-        await markDiskMtime(path, isLatestLoad);
+        // Purely bookkeeping for the external-change detector; nothing below
+        // depends on it, so don't hold the switch on a stat round trip
+        // (mayApply already discards stale completions).
+        void markDiskMtime(path, isLatestLoad);
         return isLatestLoad();
       }
-      const content = await invoke<string>("read_project_file", { path, projectRoot });
-      if (!isLatestLoad()) return false;
+      const [content, gateOk] = await Promise.all([
+        invoke<string>("read_project_file", { path, projectRoot }),
+        options?.gate ?? Promise.resolve(true),
+      ]);
+      if (!gateOk || !isLatestLoad()) return false;
       setActiveFile(path);
       setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
       setSource(content);
@@ -1969,8 +1990,6 @@ function App() {
       setSavedPaperBlog(null);
       showLoadedDocument();
       setError(null);
-      await markDiskMtime(path, isLatestLoad);
-      if (!isLatestLoad()) return false;
       // Where you last were in this file, unless the caller is about to send
       // you somewhere specific in it. Both land as requests the editor answers
       // on the next frame, and the restore is applied second, so asking for
@@ -1979,6 +1998,10 @@ function App() {
       if (saved) {
         setViewRestore({ path, cursor: saved.cursor, scrollTop: saved.scrollTop, id: crypto.randomUUID() });
       }
+      // The restore used to wait behind this stat; it has no bearing on
+      // cursor or scroll, so let it land whenever it lands (mayApply already
+      // discards stale completions).
+      void markDiskMtime(path, isLatestLoad);
       return true;
     } catch (reason) {
       // A document torn down while this load was still awaiting it — closing
@@ -2923,15 +2946,25 @@ function App() {
         scrollTop: current?.scrollTop ?? 0,
       });
     }
+    let gate: Promise<boolean> | undefined;
     if (
       activePaperDirty
       || source !== savedSource
       || (secondaryFile && secondarySource !== secondarySavedSource)
     ) {
-      const saved = await save();
-      if (!saved) return;
+      if (path === secondaryFile) {
+        // save() rewrites the secondary buffer's file on disk; overlapping it
+        // with the read below would hand the editor pre-save contents.
+        const saved = await save();
+        if (!saved) return;
+      } else {
+        // Otherwise the write of the old file and the read of the new one are
+        // independent — run them concurrently and let loadFile confirm the
+        // save before committing state.
+        gate = save();
+      }
     }
-    const applied = await loadFile(path, { restoreView: !line, revealSource: true });
+    const applied = await loadFile(path, { restoreView: !line, revealSource: true, gate });
     if (!applied) return;
     setFocusedPane("primary");
     if (line) {
@@ -4718,9 +4751,32 @@ function App() {
     })();
   }, [activeCollabVersion, clearCollabLocalState, refreshRecentRooms]);
 
+  /// Hand a project to a window of its own, or raise the window already
+  /// showing it. Returns the failure message so a caller that keeps a list of
+  /// projects can decide whether the project is worth forgetting.
+  const openProjectWindow = useCallback(async (path: string): Promise<string | null> => {
+    setBusyLabel("Opening window…");
+    try {
+      await invoke("open_project_window", { path });
+      return null;
+    } catch (reason) {
+      const message = toMessage(reason);
+      setError(message);
+      return message;
+    } finally {
+      setBusyLabel(null);
+    }
+  }, []);
+
   const chooseExisting = useCallback(async () => {
     const selected = await open({ directory: true, multiple: false, title: "Open a LaTeX project" });
     if (!selected) return;
+    // Same rule as the recent-projects list: a window in use keeps the project
+    // it has, and the chosen one gets a window of its own.
+    if (project?.root) {
+      await openProjectWindow(String(selected));
+      return;
+    }
     setBusyLabel("Opening project…");
     try {
       if (!(await save())) return;
@@ -4732,7 +4788,14 @@ function App() {
     } finally {
       setBusyLabel(null);
     }
-  }, [cancelProjectTransition, enterProject, save, startProjectTransition]);
+  }, [
+    cancelProjectTransition,
+    enterProject,
+    openProjectWindow,
+    project?.root,
+    save,
+    startProjectTransition,
+  ]);
 
   const createProject = useCallback(async () => {
     if (!projectName.trim()) {
@@ -4865,19 +4928,11 @@ function App() {
     // a blank window behind.
     if (project?.root) {
       setProjectMenuOpen(false);
-      setBusyLabel("Opening window…");
-      try {
-        await invoke("open_project_window", { path });
-      } catch (reason) {
-        const message = toMessage(reason);
-        // Only the project itself failing means the entry is worth dropping;
-        // a window that could not be created says nothing about the project.
-        if (!message.startsWith(NEW_WINDOW_FAILURE_PREFIX)) {
-          setRecentProjects(forgetRecentProject(path));
-        }
-        setError(message);
-      } finally {
-        setBusyLabel(null);
+      const failure = await openProjectWindow(path);
+      // Only the project itself failing means the entry is worth dropping; a
+      // window that could not be created says nothing about the project.
+      if (failure && !failure.startsWith(NEW_WINDOW_FAILURE_PREFIX)) {
+        setRecentProjects(forgetRecentProject(path));
       }
       return;
     }
@@ -4896,6 +4951,7 @@ function App() {
   }, [
     cancelProjectTransition,
     enterProject,
+    openProjectWindow,
     project?.root,
     save,
     startProjectTransition,
@@ -6749,10 +6805,18 @@ function App() {
   const rootDocumentPath = project?.manifest.rootDocuments.find((document) => document.isDefault)?.path
     ?? project?.manifest.rootDocuments[0]?.path
     ?? "";
+  // Live buffers participate in the project-wide TeX derivations below
+  // (outline, macros, labels, appendix) only for .tex files. Deriving the
+  // nullable scalars here keeps every downstream memo inert while typing
+  // Markdown — `null` is Object.is-stable across keystrokes, so the maps and
+  // the parse chains behind them stop recomputing per character. For .tex the
+  // scalar tracks `source` exactly, preserving today's behavior.
+  const activeTexSource = activeFile.endsWith(".tex") ? source : null;
+  const secondaryTexSource = secondaryFile?.endsWith(".tex") ? secondarySource : null;
   const liveOutlineSources = useMemo(() => ({
     ...outlineSources,
-    ...(activeFile.endsWith(".tex") ? { [activeFile]: source } : {}),
-  }), [activeFile, outlineSources, source]);
+    ...(activeTexSource != null ? { [activeFile]: activeTexSource } : {}),
+  }), [activeFile, activeTexSource, outlineSources]);
   useEffect(() => {
     if (!project || !outlineOpen || !rootDocumentPath) return;
     let cancelled = false;
@@ -6800,14 +6864,14 @@ function App() {
   }, [liveOutlineSources, projectPaths, rootDocumentPath]);
   const liveReferences = useMemo(() => {
     let merged = references;
-    if (activeFile.endsWith(".tex")) {
-      merged = mergeReferences(merged, activeFile, parseLocalLabels(activeFile, source));
+    if (activeTexSource != null) {
+      merged = mergeReferences(merged, activeFile, parseLocalLabels(activeFile, activeTexSource));
     }
-    if (secondaryFile?.endsWith(".tex")) {
-      merged = mergeReferences(merged, secondaryFile, parseLocalLabels(secondaryFile, secondarySource));
+    if (secondaryFile && secondaryTexSource != null) {
+      merged = mergeReferences(merged, secondaryFile, parseLocalLabels(secondaryFile, secondaryTexSource));
     }
     return merged;
-  }, [activeFile, references, secondaryFile, secondarySource, source]);
+  }, [activeFile, activeTexSource, references, secondaryFile, secondaryTexSource]);
   const goToSymbolItems = useMemo((): SearchPickerItem[] => {
     const sections = flattenOutline(outlineNodes)
       .filter((node) => node.kind !== "input")
@@ -6974,9 +7038,9 @@ function App() {
   );
   const liveSourceMap = useMemo(() => ({
     ...outlineSources,
-    ...(activeFile.endsWith(".tex") ? { [activeFile]: source } : {}),
-    ...(secondaryFile?.endsWith(".tex") ? { [secondaryFile]: secondarySource } : {}),
-  }), [activeFile, outlineSources, secondaryFile, secondarySource, source]);
+    ...(activeTexSource != null ? { [activeFile]: activeTexSource } : {}),
+    ...(secondaryFile && secondaryTexSource != null ? { [secondaryFile]: secondaryTexSource } : {}),
+  }), [activeFile, activeTexSource, outlineSources, secondaryFile, secondaryTexSource]);
   const liveMacroSources = useMemo(() => Object.values(liveSourceMap), [liveSourceMap]);
   const liveMacros = useMemo(() => parseLocalMacros(liveMacroSources), [liveMacroSources]);
   const graphicsRoots = useMemo(
@@ -6984,9 +7048,14 @@ function App() {
     [liveMacroSources],
   );
   const katexMacros = useMemo(() => katexMacrosFromSources(liveMacroSources), [liveMacroSources]);
+  // TODOs come from .md buffers too (todo_source_path on the Rust side), so
+  // this cannot ride the .tex-only scalars above. Deferring the source keeps
+  // the merge off the paint-critical path: the badge/panel may lag a
+  // keystroke under load, which is fine for a count.
+  const deferredTodoSource = useDeferredValue(source);
   const todoHits = useMemo(
-    () => mergeTodosWithBuffer(diskTodos, activeFile, source),
-    [activeFile, diskTodos, source],
+    () => mergeTodosWithBuffer(diskTodos, activeFile, deferredTodoSource),
+    [activeFile, diskTodos, deferredTodoSource],
   );
 
   // Where \appendix sits, as two scalars rather than the marker object. The

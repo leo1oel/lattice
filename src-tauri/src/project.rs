@@ -11,10 +11,12 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::Utc;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
+use std::sync::{LazyLock, Mutex};
+use std::time::SystemTime;
 use uuid::Uuid;
 use walkdir::WalkDir;
 
@@ -1172,13 +1174,22 @@ fn resolve_project_path(
 
 pub fn read_file(root: &Path, relative: &str) -> Result<String, String> {
     let path = safe_path(root, relative)?;
-    if classify_regular_file(&path)? != ContentKind::Text {
+    // One read serves classification and content; this used to read the file
+    // twice (a full classify_regular_file pass, then the content pass).
+    let metadata = fs::symlink_metadata(&path).map_err(err)?;
+    if !metadata.file_type().is_file() || metadata.len() > MAX_CLASSIFIED_TEXT_BYTES {
         return Err(
             "This is a binary or unsupported file and cannot be opened in the source editor."
                 .to_string(),
         );
     }
-    let bytes = fs::read(path).map_err(err)?;
+    let bytes = fs::read(&path).map_err(err)?;
+    if classify_file_bytes(&bytes) != ContentKind::Text {
+        return Err(
+            "This is a binary or unsupported file and cannot be opened in the source editor."
+                .to_string(),
+        );
+    }
     String::from_utf8(bytes).map_err(|_| "This is not lossless UTF-8 text.".to_string())
 }
 
@@ -3864,6 +3875,9 @@ fn coalesce_edit_transaction(
     }
     if previous.changes[0].before == change.after {
         fs::remove_file(transaction_path(root, &previous.id)?).map_err(err)?;
+        // The next-newest record is unknown without a scan; drop the memo and
+        // let the next read rediscover it lazily.
+        forget_latest_history(root);
         return Ok(CoalescedTransaction::Removed);
     }
     previous.changes[0].after = change.after.clone();
@@ -3871,10 +3885,64 @@ fn coalesce_edit_transaction(
     let path = transaction_path(root, &previous.id)?;
     let raw = serde_json::to_string_pretty(&previous).map_err(err)?;
     fs::write(path, format!("{raw}\n")).map_err(err)?;
+    remember_latest_history(root, &previous);
     Ok(CoalescedTransaction::Updated(Box::new(previous)))
 }
 
+/// Newest-history memo per project root: (record id, record timestamp).
+///
+/// `coalesce_edit_transaction` needs the newest record on every save, and
+/// rediscovering it means reading and JSON-parsing every history file (up to
+/// MAX_HISTORY_ENTRIES, each embedding full before/after file contents) —
+/// which put tens of megabytes of parsing on the save path, and dirty file
+/// switches await that save. Every in-process mutation flows through
+/// `persist_transaction`, `coalesce_edit_transaction`, or `delete_history`,
+/// which keep this memo honest; a hit still re-reads the memoized record
+/// from disk (one file, not the whole directory) and falls back to the full
+/// scan on any surprise. A second app process mutating the same project is a
+/// pre-existing race this memo does not widen.
+static LATEST_HISTORY: LazyLock<Mutex<HashMap<PathBuf, (String, String)>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn remember_latest_history(root: &Path, record: &TransactionRecord) {
+    LATEST_HISTORY.lock().unwrap().insert(
+        root.to_path_buf(),
+        (record.id.clone(), record.timestamp.clone()),
+    );
+}
+
+fn forget_latest_history(root: &Path) {
+    LATEST_HISTORY.lock().unwrap().remove(root);
+}
+
 fn latest_history_record(root: &Path) -> Result<Option<TransactionRecord>, String> {
+    let memoized = LATEST_HISTORY.lock().unwrap().get(root).cloned();
+    if let Some((id, _timestamp)) = memoized {
+        if let Some(record) = read_memoized_history_record(root, &id) {
+            return Ok(Some(record));
+        }
+        // The memoized record vanished or no longer parses — drop the memo
+        // and rediscover from the directory.
+        forget_latest_history(root);
+    }
+    let newest = scan_latest_history_record(root)?;
+    if let Some(record) = &newest {
+        remember_latest_history(root, record);
+    }
+    Ok(newest)
+}
+
+fn read_memoized_history_record(root: &Path, id: &str) -> Option<TransactionRecord> {
+    let path = transaction_path(root, id).ok()?;
+    let raw = fs::read_to_string(path).ok()?;
+    let record = serde_json::from_str::<TransactionRecord>(&raw).ok()?;
+    if !record.changes.iter().any(file_change_has_effect) {
+        return None;
+    }
+    Some(record)
+}
+
+fn scan_latest_history_record(root: &Path) -> Result<Option<TransactionRecord>, String> {
     let directory = root.join(".research/history");
     if !directory.exists() {
         return Ok(None);
@@ -4671,7 +4739,13 @@ fn collect_searchable_paths(nodes: &[FileNode], out: &mut Vec<String>) {
 }
 
 pub fn delete_history(root: &Path, transaction_id: &str) -> Result<(), String> {
-    fs::remove_file(transaction_path(root, transaction_id)?).map_err(err)
+    fs::remove_file(transaction_path(root, transaction_id)?).map_err(err)?;
+    // Only the newest record is memoized; deleting any other leaves it valid.
+    let memoized = LATEST_HISTORY.lock().unwrap().get(root).cloned();
+    if memoized.is_some_and(|(id, _)| id == transaction_id) {
+        forget_latest_history(root);
+    }
+    Ok(())
 }
 
 pub fn get_history_entry(root: &Path, transaction_id: &str) -> Result<TransactionRecord, String> {
@@ -4705,7 +4779,11 @@ fn persist_transaction(root: &Path, record: &TransactionRecord) -> Result<(), St
         &format!(".research/history/{}.json", record.id),
         format!("{raw}\n").as_bytes(),
     )?;
-    ProjectDir::open(root)?.prune_json_files(".research/history", MAX_HISTORY_ENTRIES)
+    ProjectDir::open(root)?.prune_json_files(".research/history", MAX_HISTORY_ENTRIES)?;
+    // Every caller builds the record via new_transaction (timestamp = now),
+    // so it is by construction the newest; pruning only drops the oldest.
+    remember_latest_history(root, record);
+    Ok(())
 }
 
 #[cfg(any(test, not(unix)))]
@@ -4754,14 +4832,9 @@ pub struct CollabProjectInventoryV2 {
     pub excluded: Vec<CollabInventoryExclusion>,
 }
 
-fn classify_regular_file(path: &Path) -> Result<ContentKind, String> {
-    let metadata = fs::symlink_metadata(path).map_err(err)?;
-    if !metadata.file_type().is_file() || metadata.len() > MAX_CLASSIFIED_TEXT_BYTES {
-        return Ok(ContentKind::Binary);
-    }
-    let bytes = fs::read(path).map_err(err)?;
+fn classify_file_bytes(bytes: &[u8]) -> ContentKind {
     if bytes.contains(&0) {
-        return Ok(ContentKind::Binary);
+        return ContentKind::Binary;
     }
     // Binary formats can have an ASCII-only prefix and no early NULs. Known
     // signatures keep routing content-based without trusting the extension.
@@ -4774,12 +4847,56 @@ fn classify_regular_file(path: &Path) -> Result<ContentKind, String> {
         || bytes.starts_with(b"\x7fELF")
         || (bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"))
     {
+        return ContentKind::Binary;
+    }
+    match std::str::from_utf8(bytes) {
+        Ok(decoded) if decoded.as_bytes() == bytes => ContentKind::Text,
+        _ => ContentKind::Binary,
+    }
+}
+
+fn classify_regular_file(path: &Path) -> Result<ContentKind, String> {
+    let metadata = fs::symlink_metadata(path).map_err(err)?;
+    if !metadata.file_type().is_file() || metadata.len() > MAX_CLASSIFIED_TEXT_BYTES {
         return Ok(ContentKind::Binary);
     }
-    match std::str::from_utf8(&bytes) {
-        Ok(decoded) if decoded.as_bytes() == bytes => Ok(ContentKind::Text),
-        _ => Ok(ContentKind::Binary),
+    let bytes = fs::read(path).map_err(err)?;
+    Ok(classify_file_bytes(&bytes))
+}
+
+/// (mtime, len) → kind memo consulted by `scan_files`. The frontend polls
+/// `refresh_project` every 2 seconds, and classification is the only part of
+/// the scan that reads file *contents* — without this memo the poll re-read
+/// every byte of the project each tick. Content cannot change without the
+/// metadata pair changing (`atomic_write` replaces the file, bumping mtime),
+/// so a hit is safe to trust. Keyed on absolute path; wholesale-cleared past
+/// the bound as a backstop rather than an LRU — the working set is one
+/// project tree.
+type ClassifyCacheEntry = (SystemTime, u64, ContentKind);
+static CLASSIFY_CACHE: LazyLock<Mutex<HashMap<PathBuf, ClassifyCacheEntry>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+const CLASSIFY_CACHE_MAX_ENTRIES: usize = 65_536;
+
+fn classify_regular_file_cached(
+    path: &Path,
+    metadata: &fs::Metadata,
+) -> Result<ContentKind, String> {
+    let Ok(modified) = metadata.modified() else {
+        return classify_regular_file(path);
+    };
+    let len = metadata.len();
+    if let Some((cached_mtime, cached_len, kind)) = CLASSIFY_CACHE.lock().unwrap().get(path) {
+        if *cached_mtime == modified && *cached_len == len {
+            return Ok(*kind);
+        }
     }
+    let kind = classify_regular_file(path)?;
+    let mut cache = CLASSIFY_CACHE.lock().unwrap();
+    if cache.len() >= CLASSIFY_CACHE_MAX_ENTRIES {
+        cache.clear();
+    }
+    cache.insert(path.to_path_buf(), (modified, len, kind));
+    Ok(kind)
 }
 
 fn exclusion_reason(relative: &Path, name: &str, path: &Path) -> Option<&'static str> {
@@ -4857,7 +4974,7 @@ fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
                     children,
                 });
             } else if file_type.is_file() {
-                let content_kind = classify_regular_file(&path)?;
+                let content_kind = classify_regular_file_cached(&path, &metadata)?;
                 nodes.push(FileNode {
                     name,
                     path: relative,
@@ -6694,6 +6811,60 @@ mod tests {
         assert!(transaction.is_none());
         assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), original);
         assert!(history(&root).unwrap().is_empty());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn latest_history_memo_tracks_mutations() {
+        let parent = temp_root("history-memo");
+        let root = create(&parent, "paper").unwrap();
+        // Distinct labels so the two records do not coalesce.
+        apply_transaction(
+            &root,
+            "Edit main.tex",
+            vec![("main.tex".to_string(), "% a\n".to_string())],
+        )
+        .unwrap();
+        let newest = apply_transaction(
+            &root,
+            "Update refs.bib",
+            vec![("refs.bib".to_string(), "@misc{x}\n".to_string())],
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(latest_history_record(&root).unwrap().unwrap().id, newest.id);
+        // A memo hit must agree with a cold directory scan.
+        forget_latest_history(&root);
+        assert_eq!(latest_history_record(&root).unwrap().unwrap().id, newest.id);
+        // Deleting a non-newest record leaves the memo valid.
+        let items = history(&root).unwrap();
+        let older = items.iter().find(|item| item.id != newest.id).unwrap();
+        delete_history(&root, &older.id).unwrap();
+        assert_eq!(latest_history_record(&root).unwrap().unwrap().id, newest.id);
+        // Deleting the newest invalidates it; the rescan finds nothing left.
+        delete_history(&root, &newest.id).unwrap();
+        assert!(latest_history_record(&root).unwrap().is_none());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn classification_cache_tracks_content_changes() {
+        let parent = temp_root("classify-cache");
+        let root = create(&parent, "paper").unwrap();
+        let file = root.join("note.md");
+        fs::write(&file, "text\n").unwrap();
+        let metadata = fs::symlink_metadata(&file).unwrap();
+        assert_eq!(
+            classify_regular_file_cached(&file, &metadata).unwrap(),
+            ContentKind::Text
+        );
+        // A rewrite changes (mtime, len), so the cached kind must not stick.
+        fs::write(&file, b"a\0b".as_slice()).unwrap();
+        let metadata = fs::symlink_metadata(&file).unwrap();
+        assert_eq!(
+            classify_regular_file_cached(&file, &metadata).unwrap(),
+            ContentKind::Binary
+        );
         fs::remove_dir_all(parent).unwrap();
     }
 

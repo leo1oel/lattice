@@ -43,7 +43,10 @@ import { FrozenTableHeaders } from "@ok-app/editor/extensions/frozen-table-heade
 import { FootnoteAnchorScroll } from "@ok-app/editor/extensions/footnote-anchor-scroll";
 import { FormattingShortcuts } from "@ok-app/editor/extensions/formatting-shortcuts";
 import { TabFocusTrap } from "@ok-app/editor/extensions/tab-focus-trap";
-import { HeadingAnchors } from "@ok-app/editor/extensions/heading-anchors";
+// Stateful seam, not the vendored original: upstream rebuilds its whole-doc
+// DecorationSet on every view update (caret moves included), which is
+// O(document) per keypress on large files. See the seam header for details.
+import { HeadingAnchorsStateful as HeadingAnchors } from "@ok-app/editor/extensions/heading-anchors-stateful";
 import { MathInputRule } from "@ok-app/editor/math-input-rule";
 import { InlineLinkInputRule } from "@ok-app/editor/inline-link-input-rule";
 import { setHostKatexMacros } from "@ok-app/shims/katex-macros";
@@ -132,19 +135,25 @@ function cachedVisualContent(path: string, text: string): CachedVisualDocument["
 
 type VisualSourceRange = { from: number; to: number };
 
-// One-slot parse memo. Block labeling, envelope splicing, and caret mapping
-// all parse the same one or two strings several times per publication; a
-// larger cache would only hold dead documents alive.
-let cachedMdastText: string | null = null;
-let cachedMdastChildren:
-  | ReturnType<ReturnType<typeof getMarkdownManager>["parseToEditorMdast"]>["children"]
-  | null = null;
+// Three-slot MRU parse memo. A single publication legitimately parses up to
+// three distinct strings — the canonical text, the freshly serialized draft
+// (restoreUnchangedBlocks compares both), and the caret-report snapshot — and
+// a one-slot memo thrashed between them, costing three full parses where one
+// suffices. Three slots cover exactly that working set; anything larger would
+// only hold dead document generations alive.
+const MDAST_CACHE_SLOTS = 3;
+type EditorMdastChildren =
+  ReturnType<ReturnType<typeof getMarkdownManager>["parseToEditorMdast"]>["children"];
+const mdastCache: { text: string; children: EditorMdastChildren }[] = [];
 
-function parseEditorMdastChildrenCached(
-  text: string,
-): NonNullable<typeof cachedMdastChildren> {
-  if (cachedMdastText === text && cachedMdastChildren) return cachedMdastChildren;
-  let children: NonNullable<typeof cachedMdastChildren>;
+function parseEditorMdastChildrenCached(text: string): EditorMdastChildren {
+  const hit = mdastCache.findIndex((entry) => entry.text === text);
+  if (hit !== -1) {
+    const [entry] = mdastCache.splice(hit, 1);
+    mdastCache.unshift(entry);
+    return entry.children;
+  }
+  let children: EditorMdastChildren;
   try {
     children = getMarkdownManager().parseToEditorMdast(text).children;
   } catch (error) {
@@ -162,8 +171,8 @@ function parseEditorMdastChildrenCached(
     }));
     children = [];
   }
-  cachedMdastText = text;
-  cachedMdastChildren = children;
+  mdastCache.unshift({ text, children });
+  mdastCache.length = Math.min(mdastCache.length, MDAST_CACHE_SLOTS);
   return children;
 }
 

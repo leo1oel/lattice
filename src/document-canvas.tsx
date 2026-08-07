@@ -1689,7 +1689,15 @@ export function DocumentCanvas(props: {
         )] : []),
       ];
     },
-    [editorSpellcheck, graphicsRoots, localMacros, onCreateMissingFile, onFindReferences, onGotoDefinition, onPasteImageFile, onRenameEnvironment, onRenameSymbol, onTexlabGoto, onWrapEnvironment, projectPaths, props.citationKeys, props.citations, props.onLoadReferenceImage, props.references, props.unusedCitations, props.unusedLabels, secondaryFile, secondaryKeymapExtensions, secondaryTextLanguageExtensions],
+    // Mirror the primary editor's contract above: volatile inputs (macros,
+    // graphics roots, citations/references, App-provided lambdas) are
+    // captured at reconfigure time and refreshed on file switch. Listing them
+    // here handed the memo a fresh identity every keystroke, and
+    // @uiw/react-codemirror answers a changed extensions identity with a full
+    // StateEffect.reconfigure — tearing down the entire secondary editor
+    // (language, linters, autocomplete) per character in dual/split mode.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
+    [editorSpellcheck, secondaryFile, secondaryKeymapExtensions, secondaryTextLanguageExtensions],
   );
   const insertTextAtCursor = useCallback((insert: string, cursorOffset = insert.length) => {
     const view = editorViewRef.current;

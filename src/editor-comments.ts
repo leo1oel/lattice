@@ -234,7 +234,11 @@ export function editorCommentsExtension(
       const comments = getComments?.() ?? [];
       return {
         comments,
-        decorations: buildCommentDecorations(state.doc.toString(), path, comments),
+        // Serializing the whole doc is O(document); skip it when there is
+        // nothing to anchor (the common case for most files).
+        decorations: comments.length
+          ? buildCommentDecorations(state.doc.toString(), path, comments)
+          : Decoration.none,
       };
     },
     update(value, tr) {
@@ -258,6 +262,11 @@ export function editorCommentsExtension(
       // Also rebuild when a getter is present so a reconfigure that wiped the
       // field still restores marks on the next transaction (click/type).
       if (commentsChanged || tr.docChanged) {
+        // No comments means no decorations regardless of content — return
+        // before paying doc.toString() on every keystroke of large files.
+        if (!comments.length) {
+          return value.comments.length || value.decorations.size ? { comments, decorations: Decoration.none } : value;
+        }
         return {
           comments,
           decorations: buildCommentDecorations(tr.state.doc.toString(), path, comments),

@@ -3,10 +3,12 @@ use crate::models::{
     GitDiff, GitFileDiff, GitFileStatus, GitLogEntry, GitLogFile, GitRemoteResult, GitStatus,
 };
 use crate::project;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{LazyLock, Mutex};
+use std::time::{Duration, Instant};
 
 /// File extensions the version timeline always treats as binary, so we never
 /// try to render their blobs as text diffs.
@@ -83,42 +85,68 @@ pub fn status(root: &Path) -> Result<GitStatus, String> {
     if !is_repository(root)? {
         return Ok(empty_status(true, false));
     }
-    let branch = git_output(root, &["rev-parse", "--abbrev-ref", "HEAD"])
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty() && value != "HEAD");
+    // The frontend polls this every couple of seconds, so subprocess count
+    // matters. One porcelain-v2 spawn carries branch, upstream, ahead/behind,
+    // and file status — it used to take four separate git invocations. `-z`
+    // sidesteps C-style path quoting entirely.
+    let porcelain = git_output(
+        root,
+        &["status", "--porcelain=v2", "--branch", "-z", "-uall"],
+    )?;
+    let parsed = parse_porcelain_v2(&porcelain);
+    let (remote, remote_url) = cached_remote(root);
+    Ok(GitStatus {
+        available: true,
+        repository: true,
+        branch: parsed.branch,
+        remote,
+        remote_url,
+        upstream: parsed.upstream,
+        ahead: parsed.ahead,
+        behind: parsed.behind,
+        files: parsed.files,
+    })
+}
+
+/// Remote name/URL memo with a short TTL. Remotes essentially never change
+/// mid-session (only `set_remote` edits them, and it invalidates), so the
+/// 2-second status poll does not need to re-spawn `git remote` +
+/// `git remote get-url` every tick.
+static REMOTE_CACHE: LazyLock<Mutex<HashMap<PathBuf, RemoteCacheEntry>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+const REMOTE_CACHE_TTL: Duration = Duration::from_secs(30);
+
+struct RemoteCacheEntry {
+    resolved_at: Instant,
+    remote: Option<String>,
+    remote_url: Option<String>,
+}
+
+fn cached_remote(root: &Path) -> (Option<String>, Option<String>) {
+    if let Some(entry) = REMOTE_CACHE.lock().unwrap().get(root) {
+        if entry.resolved_at.elapsed() < REMOTE_CACHE_TTL {
+            return (entry.remote.clone(), entry.remote_url.clone());
+        }
+    }
     let remote = primary_remote(root);
     let remote_url = remote
         .as_ref()
         .and_then(|name| git_output(root, &["remote", "get-url", name]).ok())
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
-    let upstream = git_output(
-        root,
-        &[
-            "rev-parse",
-            "--abbrev-ref",
-            "--symbolic-full-name",
-            "@{upstream}",
-        ],
-    )
-    .ok()
-    .map(|value| value.trim().to_string())
-    .filter(|value| !value.is_empty());
-    let (ahead, behind) = ahead_behind(root, upstream.is_some());
-    let porcelain = git_output(root, &["status", "--porcelain=v1", "-uall"])?;
-    let files = parse_porcelain(&porcelain);
-    Ok(GitStatus {
-        available: true,
-        repository: true,
-        branch,
-        remote,
-        remote_url,
-        upstream,
-        ahead,
-        behind,
-        files,
-    })
+    REMOTE_CACHE.lock().unwrap().insert(
+        root.to_path_buf(),
+        RemoteCacheEntry {
+            resolved_at: Instant::now(),
+            remote: remote.clone(),
+            remote_url: remote_url.clone(),
+        },
+    );
+    (remote, remote_url)
+}
+
+fn forget_cached_remote(root: &Path) {
+    REMOTE_CACHE.lock().unwrap().remove(root);
 }
 
 pub fn diff(root: &Path, path: &str, staged: bool) -> Result<GitDiff, String> {
@@ -216,6 +244,7 @@ pub fn set_remote(root: &Path, name: &str, url: &str) -> Result<GitStatus, Strin
     } else {
         git_run(root, &["remote", "add", &remote_name, &remote_url])?;
     }
+    forget_cached_remote(root);
     status(root)
 }
 
@@ -532,22 +561,6 @@ fn remote_exists(root: &Path, name: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn ahead_behind(root: &Path, has_upstream: bool) -> (u32, u32) {
-    if !has_upstream {
-        return (0, 0);
-    }
-    let Ok(value) = git_output(
-        root,
-        &["rev-list", "--left-right", "--count", "@{upstream}...HEAD"],
-    ) else {
-        return (0, 0);
-    };
-    let mut parts = value.split_whitespace();
-    let behind = parts.next().and_then(|part| part.parse().ok()).unwrap_or(0);
-    let ahead = parts.next().and_then(|part| part.parse().ok()).unwrap_or(0);
-    (ahead, behind)
-}
-
 fn normalize_remote_name(name: &str) -> Result<String, String> {
     let trimmed = name.trim();
     if trimmed.is_empty()
@@ -804,37 +817,107 @@ fn summarize_remote_output(action: &str, output: &str) -> String {
     }
 }
 
-fn parse_porcelain(porcelain: &str) -> Vec<GitFileStatus> {
-    let mut files = Vec::new();
-    for line in porcelain.lines() {
-        if line.len() < 4 {
+#[derive(Debug, Default)]
+struct PorcelainV2 {
+    branch: Option<String>,
+    upstream: Option<String>,
+    ahead: u32,
+    behind: u32,
+    files: Vec<GitFileStatus>,
+}
+
+/// Parse `git status --porcelain=v2 --branch -z` output. Records are
+/// NUL-terminated; a rename/copy (`2`) record's *original* path follows as
+/// its own NUL-terminated token, and paths are never quoted in `-z` mode.
+fn parse_porcelain_v2(raw: &str) -> PorcelainV2 {
+    let mut result = PorcelainV2::default();
+    let mut unborn = false;
+    let mut tokens = raw.split('\0');
+    while let Some(token) = tokens.next() {
+        if token.is_empty() {
             continue;
         }
-        let index = line.as_bytes()[0] as char;
-        let worktree = line.as_bytes()[1] as char;
-        let rest = &line[3..];
-        let path = if rest.contains(" -> ") {
-            rest.rsplit_once(" -> ")
-                .map(|(_, right)| right)
-                .unwrap_or(rest)
-        } else {
-            rest
-        }
-        .replace('\\', "/");
-        if path.is_empty() {
+        if let Some(header) = token.strip_prefix("# ") {
+            if let Some(value) = header.strip_prefix("branch.oid ") {
+                unborn = value == "(initial)";
+            } else if let Some(value) = header.strip_prefix("branch.head ") {
+                if !value.is_empty() && value != "(detached)" {
+                    result.branch = Some(value.to_string());
+                }
+            } else if let Some(value) = header.strip_prefix("branch.upstream ") {
+                if !value.is_empty() {
+                    result.upstream = Some(value.to_string());
+                }
+            } else if let Some(value) = header.strip_prefix("branch.ab ") {
+                for part in value.split_whitespace() {
+                    if let Some(ahead) = part.strip_prefix('+') {
+                        result.ahead = ahead.parse().unwrap_or(0);
+                    } else if let Some(behind) = part.strip_prefix('-') {
+                        result.behind = behind.parse().unwrap_or(0);
+                    }
+                }
+            }
             continue;
         }
-        let staged = index != ' ' && index != '?';
-        let unstaged = worktree != ' ' || index == '?';
-        let status = classify_status(index, worktree);
-        files.push(GitFileStatus {
-            path,
-            status,
-            staged,
-            unstaged,
-        });
+        let Some((kind, rest)) = token.split_once(' ') else {
+            continue;
+        };
+        match kind {
+            // 1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
+            "1" => {
+                let mut fields = rest.splitn(8, ' ');
+                let xy = fields.next().unwrap_or("");
+                let path = fields.nth(6).unwrap_or("");
+                push_v2_entry(&mut result.files, xy, path);
+            }
+            // 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path> NUL <origPath>
+            "2" => {
+                let mut fields = rest.splitn(9, ' ');
+                let xy = fields.next().unwrap_or("");
+                let path = fields.nth(7).unwrap_or("");
+                let _original = tokens.next();
+                push_v2_entry(&mut result.files, xy, path);
+            }
+            // u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>
+            "u" => {
+                let mut fields = rest.splitn(10, ' ');
+                let xy = fields.next().unwrap_or("");
+                let path = fields.nth(8).unwrap_or("");
+                push_v2_entry(&mut result.files, xy, path);
+            }
+            "?" => push_v2_entry(&mut result.files, "??", rest),
+            _ => {}
+        }
     }
-    files
+    // Match the previous behavior (`rev-parse --abbrev-ref HEAD` fails on an
+    // unborn branch): a repository with no commits reports no branch.
+    if unborn {
+        result.branch = None;
+    }
+    result
+}
+
+fn push_v2_entry(files: &mut Vec<GitFileStatus>, xy: &str, path: &str) {
+    if path.is_empty() {
+        return;
+    }
+    let mut states = xy.chars();
+    // v2 marks "unchanged" with '.'; classify_status and the staged/unstaged
+    // flags below speak the v1 dialect where that position is a space.
+    let normalize = |state: Option<char>| match state {
+        Some('.') | None => ' ',
+        Some(state) => state,
+    };
+    let index = normalize(states.next());
+    let worktree = normalize(states.next());
+    let staged = index != ' ' && index != '?';
+    let unstaged = worktree != ' ' || index == '?';
+    files.push(GitFileStatus {
+        path: path.replace('\\', "/"),
+        status: classify_status(index, worktree),
+        staged,
+        unstaged,
+    });
 }
 
 fn classify_status(index: char, worktree: char) -> String {
@@ -919,22 +1002,61 @@ mod tests {
     }
 
     #[test]
-    fn parses_porcelain_status_lines() {
-        let files = parse_porcelain(
-            " M main.tex\nA  sections/intro.tex\n?? notes.md\nR  old.tex -> new.tex\n",
-        );
-        assert_eq!(files.len(), 4);
-        assert_eq!(files[0].path, "main.tex");
-        assert!(files[0].unstaged);
-        assert!(!files[0].staged);
-        assert_eq!(files[0].status, "modified");
-        assert_eq!(files[1].path, "sections/intro.tex");
-        assert!(files[1].staged);
-        assert_eq!(files[1].status, "added");
-        assert_eq!(files[2].path, "notes.md");
-        assert_eq!(files[2].status, "untracked");
-        assert_eq!(files[3].path, "new.tex");
-        assert_eq!(files[3].status, "renamed");
+    fn parses_porcelain_v2_status() {
+        let raw = [
+            "# branch.oid deadbeef",
+            "# branch.head main",
+            "# branch.upstream origin/main",
+            "# branch.ab +2 -1",
+            "1 .M N... 100644 100644 100644 abc def main.tex",
+            "1 A. N... 000000 100644 100644 000 def sections/intro.tex",
+            "? notes.md",
+            "2 R. N... 100644 100644 100644 abc def R100 new.tex",
+            "old.tex",
+            "u UU N... 100644 100644 100644 100644 a1 b2 c3 conflicted.tex",
+            "1 .M N... 100644 100644 100644 abc def path with spaces.tex",
+        ]
+        .join("\0");
+        let parsed = parse_porcelain_v2(&raw);
+        assert_eq!(parsed.branch.as_deref(), Some("main"));
+        assert_eq!(parsed.upstream.as_deref(), Some("origin/main"));
+        assert_eq!(parsed.ahead, 2);
+        assert_eq!(parsed.behind, 1);
+        assert_eq!(parsed.files.len(), 6);
+        assert_eq!(parsed.files[0].path, "main.tex");
+        assert!(parsed.files[0].unstaged);
+        assert!(!parsed.files[0].staged);
+        assert_eq!(parsed.files[0].status, "modified");
+        assert_eq!(parsed.files[1].path, "sections/intro.tex");
+        assert!(parsed.files[1].staged);
+        assert!(!parsed.files[1].unstaged);
+        assert_eq!(parsed.files[1].status, "added");
+        assert_eq!(parsed.files[2].path, "notes.md");
+        assert_eq!(parsed.files[2].status, "untracked");
+        assert!(!parsed.files[2].staged);
+        assert!(parsed.files[2].unstaged);
+        // Renames report the new path; the original follows as its own token
+        // and must not surface as a file of its own.
+        assert_eq!(parsed.files[3].path, "new.tex");
+        assert_eq!(parsed.files[3].status, "renamed");
+        assert!(parsed.files[3].staged);
+        assert_eq!(parsed.files[4].path, "conflicted.tex");
+        assert_eq!(parsed.files[4].status, "conflict");
+        assert_eq!(parsed.files[5].path, "path with spaces.tex");
+        assert_eq!(parsed.files[5].status, "modified");
+    }
+
+    #[test]
+    fn porcelain_v2_branch_edge_cases() {
+        let detached = ["# branch.oid deadbeef", "# branch.head (detached)"].join("\0");
+        assert_eq!(parse_porcelain_v2(&detached).branch, None);
+        // An unborn branch previously surfaced as no branch (rev-parse failed).
+        let unborn = ["# branch.oid (initial)", "# branch.head main"].join("\0");
+        assert_eq!(parse_porcelain_v2(&unborn).branch, None);
+        let empty = parse_porcelain_v2("");
+        assert_eq!(empty.branch, None);
+        assert_eq!(empty.ahead, 0);
+        assert!(empty.files.is_empty());
     }
 
     #[test]

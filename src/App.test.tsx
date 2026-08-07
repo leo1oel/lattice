@@ -725,6 +725,166 @@ describe("project workspace", () => {
     });
   });
 
+  it("overlaps the pre-switch save with the next file's read and gates the commit on it", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
+      ],
+    };
+    const writeResolvers: Array<() => void> = [];
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "write_project_file") {
+        await new Promise<void>((resolve) => writeResolvers.push(resolve));
+        return undefined;
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const editorElement = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const view = EditorView.findFromDOM(editorElement);
+    if (!view) throw new Error("CodeMirror view was not available");
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nEdited." } });
+
+    fireEvent.click(await findProjectTreeItem("intro.tex"));
+    // The read of the next file starts while the previous file's write is
+    // still pending — they used to run serially.
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "read_project_file",
+      expect.objectContaining({ path: "intro.tex" }),
+    ));
+    expect(writeResolvers.length).toBeGreaterThan(0);
+    // But the switch must not commit until the save confirms.
+    expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
+    writeResolvers.splice(0).forEach((resolve) => resolve());
+    await waitFor(() => expect(screen.getByRole("tab", { name: /intro\.tex/ }))
+      .toHaveAttribute("aria-selected", "true"));
+  });
+
+  it("keeps the current document when the pre-switch save fails", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "write_project_file") throw new Error("disk full");
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const editorElement = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const view = EditorView.findFromDOM(editorElement);
+    if (!view) throw new Error("CodeMirror view was not available");
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nEdited." } });
+
+    fireEvent.click(await findProjectTreeItem("intro.tex"));
+    await expectNotification(/Could not save main\.tex/);
+    expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: /intro\.tex/ })).toBeNull();
+  });
+
+  it("serializes the switch when the target is the dirty secondary file", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "method.tex", path: "method.tex", kind: "tex", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["main.tex", "method.tex"],
+      activeFile: "main.tex",
+      activeTab: "main.tex",
+      secondaryFile: "method.tex",
+      focusedPane: "primary",
+      canvasMode: "columns",
+      documentMode: "columns",
+      paperView: "blog",
+      tabRecency: ["main.tex", "method.tex"],
+    });
+    const writeResolvers: Array<() => void> = [];
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "write_project_file") {
+        await new Promise<void>((resolve) => writeResolvers.push(resolve));
+        return undefined;
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const secondaryEditor = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(
+        ".source-editor[data-editor-pane='secondary'] .cm-editor",
+      );
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const view = EditorView.findFromDOM(secondaryEditor);
+    if (!view) throw new Error("Secondary CodeMirror view was not available");
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nEdited." } });
+    vi.mocked(invoke).mockClear();
+
+    fireEvent.click(await findProjectTreeItem("method.tex"));
+    await waitFor(() => expect(writeResolvers.length).toBeGreaterThan(0));
+    // save() rewrites method.tex itself, so the read may not start until the
+    // write has finished — otherwise the editor would load pre-save contents.
+    expect(invoke).not.toHaveBeenCalledWith(
+      "read_project_file",
+      expect.objectContaining({ path: "method.tex" }),
+    );
+    writeResolvers.splice(0).forEach((resolve) => resolve());
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "read_project_file",
+      expect.objectContaining({ path: "method.tex" }),
+    ));
+  });
+
   it("opens relative project files from Markdown previews", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -3837,6 +3997,48 @@ describe("project workspace", () => {
     expect(view?.state.doc.toString()).toBe("# Private draft");
   });
 
+  it("opens a folder chosen from the picker in its own window too", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const notesSnapshot = {
+      root: "/tmp/notes",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "notes-id",
+        name: "Notes",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return notesSnapshot;
+      if (command === "read_project_file") return "# Private draft";
+      if (command === "open_project_window") return { label: "project-1", focusedExisting: false };
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      const view = element ? EditorView.findFromDOM(element) : null;
+      expect(view?.state.doc.toString()).toBe("# Private draft");
+    });
+
+    vi.mocked(open).mockResolvedValue("/tmp/other");
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Open another folder" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_project_window", {
+      path: "/tmp/other",
+    }));
+    expect(invoke).not.toHaveBeenCalledWith("open_project", { path: "/tmp/other" });
+  });
+
   it("does not carry an open Markdown buffer into the next project", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
@@ -3874,8 +4076,8 @@ describe("project workspace", () => {
     });
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return notesSnapshot;
-      if (command === "open_project") {
-        currentRoot = String((args as { path?: string } | undefined)?.path ?? "");
+      if (command === "open_tutorial_project") {
+        currentRoot = overleafSnapshot.root;
         return overleafSnapshot;
       }
       if (command === "read_project_file") {
@@ -3901,18 +4103,16 @@ describe("project workspace", () => {
     });
     initialEditor.dispatch({ changes: { from: initialEditor.state.doc.length, insert: "\nLocal only." } });
 
-    // Driven through "Open another folder", which is the flow that still
-    // replaces the project in this window — picking a recent project now opens
-    // a window of its own and leaves this one alone.
-    vi.mocked(open).mockResolvedValue("/tmp/overleaf-paper");
+    // Driven through the tutorial, which is one of the flows that still
+    // replaces the project in this window. Choosing a project — from the
+    // recent list or a folder — now opens a window of its own instead, but
+    // every in-place switch still runs this same save/transition/enter path.
     fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
       button: 0,
       pointerType: "mouse",
     });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Open another folder" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_project", {
-      path: "/tmp/overleaf-paper",
-    }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Guided tutorial" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
     await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");
       const view = element ? EditorView.findFromDOM(element) : null;
@@ -3974,8 +4174,8 @@ describe("project workspace", () => {
     let currentRoot = overleafSnapshot.root;
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return overleafSnapshot;
-      if (command === "open_project") {
-        currentRoot = String((args as { path?: string } | undefined)?.path ?? "");
+      if (command === "open_tutorial_project") {
+        currentRoot = notesSnapshot.root;
         return notesSnapshot;
       }
       if (command === "refresh_project") {
@@ -4052,15 +4252,14 @@ describe("project workspace", () => {
       projectRoot: "/tmp/overleaf-paper",
     })));
 
-    // "Open another folder" is the flow that still replaces the project in
-    // this window; a recent project now opens its own window instead.
-    vi.mocked(open).mockResolvedValue("/tmp/notes");
+    // The tutorial is one of the flows that still replaces the project in this
+    // window; choosing a project now opens a window of its own instead.
     fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
       button: 0,
       pointerType: "mouse",
     });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Open another folder" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_project", { path: "/tmp/notes" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Guided tutorial" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
     await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-editor");
       const view = element ? EditorView.findFromDOM(element) : null;

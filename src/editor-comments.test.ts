@@ -321,4 +321,33 @@ describe("editor comments", () => {
     expect(view.dom.querySelector(".cm-editor-comment")).not.toBeNull();
     view.destroy();
   });
+
+  it("keeps the empty-comments fast path live: marks appear once comments arrive", () => {
+    // With zero comments the field skips doc serialization entirely on every
+    // doc change; this guards the transition out of that fast path.
+    const source = "alpha beta gamma";
+    const comments: ReturnType<typeof createEditorComment>[] = [];
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({
+        doc: source,
+        extensions: editorCommentsExtension("main.tex", { getComments: () => comments.filter((c) => c != null) }),
+      }),
+    });
+    view.dispatch({ changes: { from: 0, to: 0, insert: "x" } });
+    expect(view.dom.querySelector(".cm-editor-comment")).toBeNull();
+    comments.push(createEditorComment({
+      path: "main.tex",
+      source: view.state.doc.toString(),
+      from: 7,
+      to: 11,
+      body: "late",
+      authorId: "author-a",
+      authorName: "Ada",
+    }));
+    // Any transaction re-reads the getter; the marks must materialize.
+    view.dispatch({ changes: { from: 0, to: 1, insert: "" } });
+    expect(view.dom.querySelector(".cm-editor-comment")).not.toBeNull();
+    view.destroy();
+  });
 });

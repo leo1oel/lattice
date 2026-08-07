@@ -62,6 +62,8 @@ export class CollabTextClientV2 {
   get isDestroyed(): boolean { return this.destroyed; }
   get awareness(): Awareness | undefined { return this.transport?.awareness; }
   get synced(): boolean { return this.providerSynced; }
+  /** True when this device has previously reached server-durable state for the doc — i.e. the restored snapshot is a server-acked baseline, not a blank or purely local draft. Gates cached-first opens. */
+  get hasSyncedSnapshot(): boolean { return this.durableSeen; }
   waitForSynced(timeoutMs = 20_000): Promise<void> { if (this.providerSynced) return Promise.resolve(); if (this.destroyed) return Promise.reject(new ClientDestroyedErrorV2()); return new Promise((resolve, reject) => { const waiter = { resolve, reject, timer: undefined as ReturnType<typeof setTimeout> | undefined }; waiter.timer = setTimeout(() => { this.syncWaiters.delete(waiter); reject(new Error("Timed out waiting for file sync")); }, timeoutMs); this.syncWaiters.add(waiter); }); }
   get durabilityState(): TextDurabilityStateV2 { return this.outbox.length ? (this.durableSeen ? "server-durable" : (this.providerSynced ? "transport-synced" : "temporary")) : (this.durableSeen ? "clean" : "temporary"); }
   subscribeTransport(listener: () => void): () => void { this.transportListeners.add(listener); return () => this.transportListeners.delete(listener); }

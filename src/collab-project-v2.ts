@@ -488,7 +488,7 @@ export class CollabProjectControllerV2 {
     }
   }
 
-  async openPath(path: string, pin: "main" | "secondary" = "main", options: { allowCachedOffline?: boolean; timeoutMs?: number; sideload?: boolean; activateIf?: () => boolean } = {}): Promise<Y.Text> {
+  async openPath(path: string, pin: "main" | "secondary" = "main", options: { allowCachedOffline?: boolean; cachedFirst?: boolean; timeoutMs?: number; sideload?: boolean; activateIf?: () => boolean } = {}): Promise<Y.Text> {
     this.assertLiveController(); const file = this.file(path); if (!file) throw new Error(`File is not in the v2 catalog: ${path}`); if (file.state !== "live" && file.state !== "initializing") throw new Error("File is unavailable");
     let client = this.clients.get(file.fileId);
     // The provider pool evicts (destroys) unpinned clean clients without
@@ -497,7 +497,19 @@ export class CollabProjectControllerV2 {
     if (client?.isDestroyed) { this.detachDiskObserver(file.fileId); this.clients.delete(file.fileId); client = undefined; }
     if (client && client.namespace.documentEpoch !== file.documentEpoch) { client.destroy(); this.clients.delete(file.fileId); this.options.onPermanentError?.(new Error("File epoch changed; export cached recovery before reopening"), file.fileId); throw new Error("File epoch mismatch"); }
     if (!client) client = await this.openClient(file);
-    try { await client.connect(); await client.waitForSynced(options.timeoutMs); } catch (error) { if (this.destroyed || !options.allowCachedOffline) throw error; this.setStatus("offline"); }
+    const sync = () => client.connect().then(() => client.waitForSynced(options.timeoutMs));
+    if (options.cachedFirst && client.hasSyncedSnapshot) {
+      // A server-acked snapshot is already in the doc (restored from the
+      // durable store at open) — return it now instead of holding the file
+      // switch on ticket + WebSocket + sync. The connection proceeds in the
+      // background: remote diffs merge in through the binding when it lands,
+      // and failures surface as offline status, like allowCachedOffline.
+      // Server-side write gating is untouched — a 4403 close still stops the
+      // client and drops canWrite via subscribeState.
+      void sync().catch(() => { if (!this.destroyed) this.setStatus("offline"); });
+    } else {
+      try { await sync(); } catch (error) { if (this.destroyed || !options.allowCachedOffline) throw error; this.setStatus("offline"); }
+    }
     this.assertLiveController();
     const current = this.fileById(file.fileId);
     if (client.isDestroyed || !current || current.state !== "live" || current.path !== path || current.documentEpoch !== file.documentEpoch) {
