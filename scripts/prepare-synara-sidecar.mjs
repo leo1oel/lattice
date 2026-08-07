@@ -402,6 +402,20 @@ function pruneServerRuntime(stageRoot, target) {
   return removedBytes;
 }
 
+function restoreHelperExecutableBits(stageRoot, target) {
+  if (target.startsWith("x86_64-pc-windows")) return;
+  // bun installs package prebuilds without their executable bit, and only the
+  // signing pass below (skipped without APPLE_SIGNING_IDENTITY) used to put it
+  // back. node-pty execs spawn-helper for every PTY, so a dev-staged runtime
+  // shipped a helper the kernel refuses to run: every agent turn that touches
+  // a terminal dies with posix_spawnp failure.
+  for (const path of walkFiles(stageRoot)) {
+    if (path.split(/[\\/]/).at(-1) === "spawn-helper") {
+      chmodSync(path, 0o755);
+    }
+  }
+}
+
 function signMacRuntime(stageRoot, target) {
   if (!target.endsWith("-apple-darwin")) return;
   const signingIdentity = process.env.APPLE_SIGNING_IDENTITY?.trim();
@@ -552,6 +566,7 @@ try {
   await prepareNodeRuntime(stageRoot, target, release);
   const synaraVersion = installServerRuntime(stageRoot);
   const prunedBytes = pruneServerRuntime(stageRoot, target);
+  restoreHelperExecutableBits(stageRoot, target);
   signMacRuntime(stageRoot, target);
   writeFileSync(
     join(stageRoot, "manifest.json"),

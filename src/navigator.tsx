@@ -1373,8 +1373,9 @@ export function Navigator(props: {
       </ContextMenu>
     );
   };
+  // assetDropTarget "" targets the project root; only null means "no asset drag".
   return (
-    <aside className={`navigator ${props.assetDropTarget ? "asset-drag-active" : ""}`}>
+    <aside className={`navigator ${props.assetDropTarget != null ? "asset-drag-active" : ""}`}>
       {props.mode === "project" && <div className="navigator-section project-section">
         <ProjectFileTree
           key={`project-tree:${props.projectKey}:default-complete-context-v4`}

@@ -1123,6 +1123,143 @@ describe("project workspace", () => {
       .toHaveAttribute("aria-current", "page");
   });
 
+  it("routes agent review requests to the editor or the changes drawer", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        {
+          name: "sections",
+          path: "sections",
+          kind: "folder",
+          children: [{ name: "intro.tex", path: "sections/intro.tex", kind: "tex", children: [] }],
+        },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") return { success: true, hasPdf: false, log: "", durationMs: 5, diagnostics: [] };
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByRole("button", { name: "Switch project" });
+    await switchSidebarMode("Agent");
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "synara:open-review", filePath: "sections/intro.tex" },
+      }));
+    });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "read_project_file",
+      expect.objectContaining({ path: "sections/intro.tex" }),
+    ));
+    expect(screen.queryByRole("tab", { name: "Changes" })).not.toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "synara:open-review", threadId: "thread-1", turnId: "turn-9" },
+      }));
+    });
+    expect(await screen.findByRole("tab", { name: "Agent turn" })).toBeInTheDocument();
+    const reviewFrame = document.querySelector<HTMLIFrameElement>('iframe[title="Agent turn review"]');
+    expect(reviewFrame).not.toBeNull();
+    expect(reviewFrame!.src).toContain("threadId=thread-1");
+    expect(reviewFrame!.src).toContain("turnId=turn-9");
+
+    // Tabbing back to the working tree drops the pinned turn.
+    fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("tab", { name: "Agent turn" })).not.toBeInTheDocument());
+    expect(document.querySelector('iframe[title="Changes"]')).not.toBeNull();
+  });
+
+  it("rebuilds after fresh agent checkpoints but not for replayed history", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") return { success: true, hasPdf: false, log: "", durationMs: 5, diagnostics: [] };
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    const buildCalls = () =>
+      vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").length;
+    const checkpoint = (files: { path: string; additions: number; deletions: number }[]) => ({
+      id: "cp-1",
+      label: "Edited files",
+      timestamp: "2026-08-07T10:00:00.000Z",
+      threadId: "thread-1",
+      threadTitle: "Agent task",
+      turnId: "turn-1",
+      turnCount: 1,
+      checkpointRef: "ref-1",
+      files: files.map((file) => ({ ...file, kind: "modified" })),
+    });
+    const postSnapshot = (frame: HTMLIFrameElement, entries: unknown[]) => {
+      act(() => {
+        window.dispatchEvent(new MessageEvent("message", {
+          source: frame.contentWindow,
+          origin: synaraHook.runtime.origin!,
+          data: { type: "lattice:project-history", activeThreadId: "thread-1", entries },
+        }));
+      });
+    };
+
+    renderApp();
+    await screen.findByRole("button", { name: "Switch project" });
+    await switchSidebarMode("Agent");
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+
+    // The first snapshot for a thread replays its existing history; it must
+    // prime the fingerprints without scheduling a rebuild.
+    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 1, deletions: 0 }])]);
+    const baseline = buildCalls();
+    await new Promise((resolvePause) => setTimeout(resolvePause, 2_200));
+    expect(buildCalls()).toBe(baseline);
+
+    // The same checkpoint growing new file work is fresh agent editing.
+    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 5, deletions: 2 }])]);
+    await waitFor(() => expect(buildCalls()).toBe(baseline + 1), { timeout: 4_000 });
+  });
+
   it("opens a project switcher with recent and folder actions", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -2742,6 +2879,264 @@ describe("project workspace", () => {
     Reflect.deleteProperty(document, "elementFromPoint");
   });
 
+  it("relays image and PDF drops on the agent panel into the composer", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "read_agent_composer_files") {
+        return [
+          { name: "plot.png", mimeType: "image/png", bytesBase64: btoa("png-bytes") },
+          { name: "notes.md", mimeType: "text/markdown", bytesBase64: btoa("# Notes") },
+        ];
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await switchSidebarMode("Agent");
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "synara:embed-ready" },
+      }));
+    });
+    await waitFor(() => expect(frame.closest(".synara-frame-shell")).toHaveAttribute("data-ready"));
+
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => frame),
+    });
+    await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
+    act(() => {
+      webviewApi.dragDropHandler?.({
+        payload: {
+          type: "drop",
+          // A mixed figure + text-source drop: both are agent-readable, so the
+          // panel takes precedence over the project source/mixed branches.
+          paths: ["/tmp/plot.png", "/tmp/notes.md"],
+          position: { x: 100, y: 100 },
+        },
+      });
+    });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_agent_composer_files", {
+      paths: ["/tmp/plot.png", "/tmp/notes.md"],
+    }));
+    const message = await waitFor(() => {
+      const posted = postMessage.mock.calls
+        .map(([data]) => data as {
+          type?: string;
+          version?: number;
+          files?: { name: string; mimeType: string; bytes: ArrayBuffer }[];
+        })
+        .find((data) => data?.type === "lattice:composer-files");
+      expect(posted).toBeDefined();
+      return posted!;
+    });
+    expect(message.version).toBe(1);
+    expect(message.files).toHaveLength(2);
+    expect(message.files?.[0]?.name).toBe("plot.png");
+    expect(message.files?.[0]?.mimeType).toBe("image/png");
+    expect(new TextDecoder().decode(message.files![0]!.bytes)).toBe("png-bytes");
+    expect(message.files?.[1]?.name).toBe("notes.md");
+    expect(message.files?.[1]?.mimeType).toBe("text/markdown");
+    expect(new TextDecoder().decode(message.files![1]!.bytes)).toBe("# Notes");
+    expect(invoke).not.toHaveBeenCalledWith("import_project_assets", expect.anything());
+    expect(invoke).not.toHaveBeenCalledWith("import_project_sources", expect.anything());
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
+  it("imports a Finder image into the folder of the file it is dropped on", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        {
+          name: "sections",
+          path: "sections",
+          kind: "directory",
+          children: [{ name: "intro.tex", path: "sections/intro.tex", kind: "tex", children: [] }],
+        },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "import_project_files") return [{ path: "sections/plot.png", kind: "binary" }];
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    fireEvent.click(await findProjectTreeItem("sections/"));
+    const row = await findProjectTreeItem("sections/intro.tex");
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => row),
+    });
+    await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
+    act(() => {
+      webviewApi.dragDropHandler?.({
+        payload: {
+          type: "drop",
+          paths: ["/tmp/plot.png"],
+          position: { x: 100, y: 100 },
+        },
+      });
+    });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_files", {
+      paths: ["/tmp/plot.png"],
+      targetDirectory: "sections",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
+  it("imports a mixed Finder drop into the folder it lands on without opening files", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        {
+          name: "sections",
+          path: "sections",
+          kind: "directory",
+          children: [{ name: "intro.tex", path: "sections/intro.tex", kind: "tex", children: [] }],
+        },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "import_project_files") {
+        return [
+          { path: "sections/notes.md", kind: "text" },
+          { path: "sections/data.csv", kind: "text" },
+          { path: "sections/plot.png", kind: "binary" },
+        ];
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    fireEvent.click(await findProjectTreeItem("sections/"));
+    const row = await findProjectTreeItem("sections/intro.tex");
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => row),
+    });
+    await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
+    act(() => {
+      webviewApi.dragDropHandler?.({
+        payload: {
+          type: "drop",
+          // Markdown + a data file the old classifier rejected + an image,
+          // all in one drop: the tree takes any mix.
+          paths: ["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png"],
+          position: { x: 100, y: 100 },
+        },
+      });
+    });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_files", {
+      paths: ["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png"],
+      targetDirectory: "sections",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    // Filing into the tree does not open the file; editor drops do that.
+    expect(invoke).not.toHaveBeenCalledWith(
+      "read_project_file",
+      expect.objectContaining({ path: "sections/notes.md" }),
+    );
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
+  it("imports a Finder image dropped on the Project pane background into the project root", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "import_project_files") return [{ path: "plot.png", kind: "binary" }];
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await findProjectTreeItem("main.tex");
+    const pane = document.querySelector(".project-section");
+    expect(pane).not.toBeNull();
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => pane),
+    });
+    await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
+    act(() => {
+      webviewApi.dragDropHandler?.({
+        payload: {
+          type: "drop",
+          paths: ["/tmp/plot.png"],
+          position: { x: 100, y: 100 },
+        },
+      });
+    });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_files", {
+      paths: ["/tmp/plot.png"],
+      targetDirectory: "",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
   it("previews SVG figures and inserts them at the editor drop position", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -3483,6 +3878,145 @@ describe("project workspace", () => {
       const view = element ? EditorView.findFromDOM(element) : null;
       expect(view?.state.doc.toString()).toBe("\\documentclass{article}");
     });
+  });
+
+  it("does not auto-sync the next project against Overleaf when it is not linked", async () => {
+    // Switching away from a linked project has one render where the new root
+    // is in but the old link state is not yet cleared; auto-sync firing in
+    // that window raised "Sync failed: This project is not linked to an
+    // Overleaf project." at the local project.
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
+      { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
+      { name: "Notes", path: "/tmp/notes" },
+    ]));
+    const overleafSnapshot = {
+      root: "/tmp/overleaf-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "overleaf-id",
+        name: "Overleaf paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const notesSnapshot = {
+      root: "/tmp/notes",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "notes-id",
+        name: "Notes",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
+    };
+    let currentRoot = overleafSnapshot.root;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return overleafSnapshot;
+      if (command === "open_project") {
+        currentRoot = String((args as { path?: string } | undefined)?.path ?? "");
+        return notesSnapshot;
+      }
+      if (command === "refresh_project") {
+        return currentRoot === overleafSnapshot.root ? overleafSnapshot : notesSnapshot;
+      }
+      if (command === "read_project_file") {
+        const path = String((args as { path?: string } | undefined)?.path ?? "");
+        if (path === "main.tex") return "\\documentclass{article}";
+        if (path === "draft.md") return "# Local notes";
+        return "";
+      }
+      if (command === "overleaf_link") {
+        // The backend reads the link off the currently open project; a local
+        // project simply has no state file.
+        if (currentRoot !== overleafSnapshot.root) {
+          throw new Error("This project is not linked to an Overleaf project.");
+        }
+        return {
+          projectId: "ol-123",
+          projectName: "Overleaf paper",
+          host: "https://www.overleaf.com",
+          lastSync: null,
+          paused: false,
+        };
+      }
+      if (command === "overleaf_sync") {
+        return {
+          pulled: [],
+          pushed: [],
+          merged: [],
+          conflicts: [],
+          deletedLocal: [],
+          skippedRemoteDeletes: [],
+        };
+      }
+      if (command === "overleaf_probe") {
+        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+      }
+      if (command === "overleaf_rt_connect") {
+        return {
+          publicId: null,
+          rootFolderId: "root",
+          docs: [],
+          entities: [],
+          permission: "readAndWrite",
+          trackChanges: false,
+          userId: null,
+        };
+      }
+      if (command === "overleaf_status") {
+        return { connected: true, email: "me@example.com", name: "Me", host: "https://www.overleaf.com" };
+      }
+      if (
+        command === "overleaf_rt_disconnect"
+        || command === "write_project_file"
+        || command === "git_auto_commit"
+      ) return command === "git_auto_commit" ? null : undefined;
+      if (
+        command === "overleaf_chat_messages"
+        || command === "overleaf_threads"
+        || command === "overleaf_comment_anchors"
+        || command === "overleaf_change_authors"
+        || command === "overleaf_rt_connected_users"
+        || command === "list_papers"
+        || command === "list_history"
+      ) return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    // The linked project's own first-open auto-sync is the positive control:
+    // the machinery is live, and it aims at the linked root.
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_sync", expect.objectContaining({
+      projectRoot: "/tmp/overleaf-paper",
+    })));
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Notes" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_project", { path: "/tmp/notes" }));
+    await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      const view = element ? EditorView.findFromDOM(element) : null;
+      expect(view?.state.doc.toString()).toBe("# Local notes");
+    });
+    // The stale-link window has passed by the time the new project renders;
+    // give pending promises a beat and confirm nothing aimed at it.
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 0)); });
+    const syncRoots = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "overleaf_sync")
+      .map(([, callArgs]) => (callArgs as { projectRoot?: string } | undefined)?.projectRoot);
+    expect(syncRoots).toEqual(["/tmp/overleaf-paper"]);
+    const probeRoots = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "overleaf_probe")
+      .map(([, callArgs]) => (callArgs as { projectRoot?: string } | undefined)?.projectRoot);
+    expect(probeRoots).not.toContain("/tmp/notes");
   });
 
   it("does not make file switching wait for post-save project scans", async () => {

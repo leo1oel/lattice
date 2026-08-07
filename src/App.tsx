@@ -238,6 +238,7 @@ import {
   canvasContentAt,
   confirmAction,
   classifyExternalProjectDrop,
+  dropAgentPanelAt,
   dropCanvasAt,
   dropDirectoryAt,
   dropEditorAt,
@@ -276,6 +277,10 @@ import {
   LATTICE_PAPER_LIBRARY_REQUEST,
   type AgentPaperLibrarySnapshot,
 } from "./agent-paper-library";
+import {
+  buildAgentComposerFilesMessage,
+  type AgentComposerFilePayload,
+} from "./agent-composer-files";
 import { useSynaraRuntime } from "./use-synara-runtime";
 import { SynaraLoadingSurface } from "./synara-loading-surface";
 import { useSynaraNotificationBridge } from "./synara-notifications";
@@ -416,10 +421,12 @@ const EMPTY_SPELLING_WORDS: string[] = [];
 const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-mode";
 const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
 const LATTICE_AGENT_PANEL_OPENED = "lattice:agent-panel-opened";
+const LATTICE_HOST_POINTER = "lattice:host-pointer";
 const SYNARA_AGENT_PERMISSION_MODE_STATUS = "synara:agent-permission-mode";
 const SYNARA_LAYOUT_METRICS = "synara:layout-metrics";
 const SYNARA_EMBED_READY = "synara:embed-ready";
 const SYNARA_OPEN_SETTINGS = "synara:open-settings";
+const SYNARA_OPEN_REVIEW = "synara:open-review";
 const SYNARA_SIDEBAR_MINIMUM = 320;
 const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
 const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
@@ -531,6 +538,31 @@ function synaraSourceControlUrl(
     hostOrigin: window.location.origin,
     authToken,
   });
+}
+
+/** A turn's checkpoint diff, reviewable even after the working tree moved on. */
+type AgentTurnReview = { threadId: string; turnId: string; filePath: string | null };
+
+function synaraTurnReviewUrl(
+  origin: string,
+  authToken: string | null,
+  projectRoot: string,
+  theme: "light" | "dark",
+  review: AgentTurnReview,
+): string {
+  const url = new URL(synaraFrameUrl({
+    origin,
+    path: "/review",
+    workspaceRoot: projectRoot,
+    theme,
+    surface: "drawer",
+    hostOrigin: window.location.origin,
+    authToken,
+  }));
+  url.searchParams.set("threadId", review.threadId);
+  url.searchParams.set("turnId", review.turnId);
+  if (review.filePath) url.searchParams.set("filePath", review.filePath);
+  return url.toString();
 }
 
 function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<string> {
@@ -807,6 +839,7 @@ function App() {
   const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
   const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
   const [fileDropTargetPane, setFileDropTargetPane] = useState<EditorPaneId | null>(null);
+  const [agentPanelDropActive, setAgentPanelDropActive] = useState(false);
   const [figureDropRequest, setFigureDropRequest] = useState<FigureDropRequest | null>(null);
   const [figurePointerDrag, setFigurePointerDrag] = useState<FigurePointerDrag | null>(null);
   const nativeDragPathsRef = useRef<string[]>([]);
@@ -852,10 +885,26 @@ function App() {
     Record<string, AgentCheckpointHistoryEntry[]>
   >({});
   const [activeAgentHistoryThreadId, setActiveAgentHistoryThreadId] = useState<string | null>(null);
+  /**
+   * Per-checkpoint file fingerprints from agent history snapshots. Snapshots
+   * re-arrive on every thread update (and stream while a turn is still
+   * editing), so a rebuild must only follow entries whose files actually
+   * changed — and never the first snapshot of a thread, which replays history.
+   */
+  const agentCheckpointFingerprintsRef = useRef(new Map<string, string>());
+  const agentHistoryPrimedThreadsRef = useRef(new Set<string>());
+  const agentEditsBuildTimerRef = useRef<number | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
   const [gitWorkspaceView, setGitWorkspaceView] =
     useState<AgentGitWorkspaceView>("changes");
+  /**
+   * Non-null while the drawer is pinned to one agent turn's checkpoint diff.
+   * Kept separate from gitWorkspaceView: the review needs a thread + turn to
+   * mean anything, so the tab only exists while a request is present, and
+   * switching to Changes / Pull requests drops back to the working tree.
+   */
+  const [agentTurnReview, setAgentTurnReview] = useState<AgentTurnReview | null>(null);
   const [todosOpen, setTodosOpen] = useState(false);
   const [diskTodos, setDiskTodos] = useState<TodoHit[]>([]);
   const [editorComments, setEditorComments] = useState<EditorComment[]>([]);
@@ -900,7 +949,16 @@ function App() {
   const collabPeers = collabPeerList.length;
   const [collabFileCount, setCollabFileCount] = useState(0);
   const [overleafPickerOpen, setOverleafPickerOpen] = useState(false);
-  const [overleafLink, setOverleafLink] = useState<OverleafLink | null>(null);
+  // The link is stored with the root it was fetched for, and only counts while
+  // that root is still the open project. During a project switch there is one
+  // render where `project` already holds the new root but this state still
+  // holds the previous project's link; trusting the raw state in that window
+  // sent auto-sync at the new, unlinked project ("Sync failed: This project is
+  // not linked to an Overleaf project.").
+  const [overleafLinkFor, setOverleafLinkFor] = useState<{ root: string; link: OverleafLink } | null>(null);
+  const overleafLink = overleafLinkFor && overleafLinkFor.root === project?.root
+    ? overleafLinkFor.link
+    : null;
   const [overleafSyncing, setOverleafSyncing] = useState(false);
   const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
   const [overleafRemoteDelete, setOverleafRemoteDelete] = useState<OverleafRemoteDelete>(
@@ -1255,6 +1313,22 @@ function App() {
       synaraOrigin,
     );
   }, [synaraOrigin]);
+  // WebKit drops pointerleave when the cursor crosses out of the agent iframe,
+  // so hover states inside it (its overlay scrollbar) stick until the pointer
+  // returns. Any pointerover in this document means the pointer is not over
+  // the iframe; relay it, throttled, as the missing leave signal.
+  useEffect(() => {
+    if (!synaraOrigin) return;
+    let lastPost = 0;
+    const notify = () => {
+      const now = performance.now();
+      if (now - lastPost < 150) return;
+      lastPost = now;
+      postSynaraMessage({ type: LATTICE_HOST_POINTER });
+    };
+    document.addEventListener("pointerover", notify, true);
+    return () => document.removeEventListener("pointerover", notify, true);
+  }, [postSynaraMessage, synaraOrigin]);
   useEffect(() => {
     if (
       !agentHostContext ||
@@ -1355,6 +1429,26 @@ function App() {
         setSettingsOpen(true);
         return;
       }
+      if (event.data?.type === SYNARA_OPEN_REVIEW) {
+        // The embedded chat has no diff surface of its own. A file row carries
+        // its path and opens in the editor; the bare Review button opens the
+        // drawer pinned to that turn's checkpoint diff — the working tree may
+        // already be clean (undo, saved version) and would review nothing.
+        const filePath = typeof event.data.filePath === "string" ? event.data.filePath.trim() : "";
+        if (filePath && !filePath.startsWith("/") && !filePath.split("/").includes("..")) {
+          void openProjectFileRef.current(filePath);
+          return;
+        }
+        const threadId = typeof event.data.threadId === "string" ? event.data.threadId.trim() : "";
+        const turnId = typeof event.data.turnId === "string" ? event.data.turnId.trim() : "";
+        if (threadId && turnId) {
+          setAgentTurnReview({ threadId, turnId, filePath: null });
+        } else {
+          setGitWorkspaceView("changes");
+        }
+        setGitOpen(true);
+        return;
+      }
       if (event.data?.type === LATTICE_HOST_CONTEXT_REQUEST) {
         const hostContext = latestAgentHostContextRef.current;
         if (hostContext) postSynaraMessage(hostContext);
@@ -1386,6 +1480,33 @@ function App() {
           [historySnapshot.activeThreadId]: historySnapshot.entries,
         }));
         setActiveAgentHistoryThreadId(historySnapshot.activeThreadId);
+        // Agent edits land on disk without passing through the editor, so the
+        // dirty-buffer autosave path never rebuilds the PDF for them. Detect
+        // fresh checkpoint work here and rebuild once the snapshots go quiet
+        // (they stream while a turn is still editing).
+        const fingerprints = agentCheckpointFingerprintsRef.current;
+        const changedPaths: string[] = [];
+        for (const entry of historySnapshot.entries) {
+          const fingerprint = entry.files
+            .map((file) => `${file.path}\u0000${file.additions}\u0000${file.deletions}`)
+            .join("\n");
+          if (fingerprints.get(entry.id) === fingerprint) continue;
+          fingerprints.set(entry.id, fingerprint);
+          changedPaths.push(...entry.files.map((file) => file.path));
+        }
+        const primedThreads = agentHistoryPrimedThreadsRef.current;
+        if (!primedThreads.has(historySnapshot.activeThreadId)) {
+          primedThreads.add(historySnapshot.activeThreadId);
+          return;
+        }
+        const buildRelevant = changedPaths.some((path) =>
+          !path.startsWith(".research/") && !path.startsWith(".git/"));
+        if (!buildRelevant || autoBuildModeRef.current !== "automatic") return;
+        if (agentEditsBuildTimerRef.current) window.clearTimeout(agentEditsBuildTimerRef.current);
+        agentEditsBuildTimerRef.current = window.setTimeout(() => {
+          agentEditsBuildTimerRef.current = null;
+          void compileRef.current();
+        }, 1_500);
         return;
       }
       if (
@@ -1560,6 +1681,11 @@ function App() {
   const [renameError, setRenameError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
+  /** Read inside the Synara message handler, which outlives any single render. */
+  const autoBuildModeRef = useRef(buildPreferences.autoBuildMode);
+  useEffect(() => {
+    autoBuildModeRef.current = buildPreferences.autoBuildMode;
+  }, [buildPreferences.autoBuildMode]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const saveTimer = useRef<number | null>(null);
   const automaticBuildPending = useRef(false);
@@ -3135,11 +3261,13 @@ function App() {
   // "Open from Overleaf"). Drives the toolbar sync button and auto-sync.
   useEffect(() => {
     let cancelled = false;
-    setOverleafLink(null);
+    setOverleafLinkFor(null);
     if (!project?.root) return;
+    const root = project.root;
     void invoke<OverleafLink | null>("overleaf_link")
       .then((link) => {
-        if (!cancelled) setOverleafLink(activeLink(link));
+        const active = activeLink(link);
+        if (!cancelled) setOverleafLinkFor(active ? { root, link: active } : null);
       })
       .catch(() => {
         // A project without the state file is simply not linked.
@@ -3156,9 +3284,14 @@ function App() {
    * against a project that had just been unlinked.
    */
   const refreshOverleafLink = useCallback(() => {
+    const root = projectRef.current?.root;
+    if (!root) return;
     void invoke<OverleafLink | null>("overleaf_link")
-      .then((link) => setOverleafLink(link && !link.paused ? link : null))
-      .catch(() => setOverleafLink(null));
+      .then((link) => {
+        if (projectRef.current?.root !== root) return;
+        setOverleafLinkFor(link && !link.paused ? { root, link } : null);
+      })
+      .catch(() => setOverleafLinkFor(null));
   }, []);
 
   /**
@@ -3358,7 +3491,8 @@ function App() {
       }).catch(() => {});
       void invoke<OverleafLink | null>("overleaf_link")
         .then((link) => {
-          if (stillCurrent()) setOverleafLink(activeLink(link));
+          const active = activeLink(link);
+          if (stillCurrent()) setOverleafLinkFor(active ? { root: syncRoot, link: active } : null);
         })
         .catch(() => {});
     } catch (reason) {
@@ -4002,6 +4136,9 @@ function App() {
       setEditorComments([]);
       setEditorCommentsOpen(false);
       setActiveEditorCommentId(null);
+      // A pinned turn review belongs to the outgoing project's thread; keeping
+      // it would bind the drawer to a foreign thread after the switch.
+      setAgentTurnReview(null);
       setDiskTodos([]);
       setTodosOpen(false);
       setActivePaper(null);
@@ -5491,7 +5628,7 @@ function App() {
         projectRoot: project?.root,
       });
       await refreshProject();
-      trace.ok(`Imported ${imported.length} figure${imported.length === 1 ? "" : "s"} into ${targetDirectory}.`);
+      trace.ok(`Imported ${imported.length} figure${imported.length === 1 ? "" : "s"} into ${targetDirectory || "the project root"}.`);
       // A share failure raises its own notification and must survive this one.
       for (const path of imported) await shareCreatedFileWithCollabV2(path, "binary");
       return imported;
@@ -5531,6 +5668,37 @@ function App() {
     }
   }, [assetImporting, project?.root, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
 
+  /**
+   * Finder-style tree drops: any mix of files, routed by the backend on
+   * content (UTF-8 text through the transaction log, the rest copied).
+   * Returned kinds drive collab share registration per file.
+   */
+  const importProjectFiles = useCallback(async (
+    paths: string[],
+    targetDirectory = "",
+  ): Promise<string[]> => {
+    if (!paths.length || assetImporting) return [];
+    setAssetImporting(true);
+    try {
+      const imported = await invoke<{ path: string; kind: "text" | "board" | "binary" }[]>(
+        "import_project_files",
+        { paths, targetDirectory, projectRoot: project?.root },
+      );
+      await reconcileProjectTree();
+      await refreshHistory();
+      setError(null);
+      // After setError(null): a share failure must remain visible.
+      for (const file of imported) await shareCreatedFileWithCollabV2(file.path, file.kind);
+      return imported.map((file) => file.path);
+    } catch (reason) {
+      setError(toMessage(reason));
+      return [];
+    } finally {
+      setAssetImporting(false);
+      setAssetDropTarget(null);
+    }
+  }, [assetImporting, project?.root, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
+
   const chooseProjectAssets = useCallback(async (targetDirectory = "figures") => {
     const selected = await open({
       multiple: true,
@@ -5553,6 +5721,7 @@ function App() {
           setAssetDropTarget(null);
           setNativeEditorDropActive(false);
           setFileDropTargetPane(null);
+          setAgentPanelDropActive(false);
           return;
         }
         if (event.payload.type === "enter") {
@@ -5564,6 +5733,7 @@ function App() {
         const editorPosition = dropEditorAt(event.payload.position);
         const canvasTarget = dropCanvasAt(event.payload.position);
         const targetDirectory = dropDirectoryAt(event.payload.position);
+        const agentPanelTarget = dropAgentPanelAt(event.payload.position);
         const dropKind = classifyExternalProjectDrop(dragPaths);
         const editorPath = editorPosition?.pane === "secondary"
           ? secondaryFileRef.current
@@ -5573,8 +5743,11 @@ function App() {
           && dropKind === "asset"
           && /\.(?:tex|md)$/i.test(editorPath ?? ""),
         );
-        setAssetDropTarget(dropKind === "asset" ? targetDirectory : null);
+        // The tree accepts every drop kind, so the highlight only tracks
+        // geometry (null when the pointer is not over the Project tree).
+        setAssetDropTarget(targetDirectory);
         setNativeEditorDropActive(insertsIntoEditor);
+        setAgentPanelDropActive(agentPanelTarget && dropKind !== "unsupported");
         setFileDropTargetPane(
           editorPosition && (
             dropKind === "source"
@@ -5587,9 +5760,21 @@ function App() {
           setAssetDropTarget(null);
           setNativeEditorDropActive(false);
           setFileDropTargetPane(null);
+          setAgentPanelDropActive(false);
           nativeDragPathsRef.current = [];
           if (!event.payload.paths.length) return;
-          if (dropKind === "source" && (editorPosition || canvasTarget)) {
+          if (agentPanelTarget && dropKind !== "unsupported") {
+            // The agent iframe never sees native drops (Tauri intercepts
+            // them), so read the bytes here and relay them over the embed
+            // bridge into the composer, same as its "+" attachment menu.
+            // Checked ahead of the source/mixed branches: any file the agent
+            // can read (figures and text sources alike) becomes an attachment.
+            void invoke<AgentComposerFilePayload[]>("read_agent_composer_files", {
+              paths: event.payload.paths,
+            })
+              .then((files) => postSynaraMessage(buildAgentComposerFilesMessage(files)))
+              .catch((error) => setError(toMessage(error)));
+          } else if (dropKind === "source" && (editorPosition || canvasTarget)) {
             void importProjectSources(event.payload.paths).then(async (paths) => {
               for (const path of paths) {
                 await openProjectFileRef.current(
@@ -5599,8 +5784,13 @@ function App() {
                 );
               }
             });
+          } else if (targetDirectory !== null) {
+            // The Project tree takes any mix, Finder-style, into the folder
+            // under the pointer ("" is the project root). Files land without
+            // opening; editor/canvas drops import and open instead.
+            void importProjectFiles(event.payload.paths, targetDirectory);
           } else if (dropKind === "source") {
-            setError("Drop source files onto an editor to import and open them.");
+            setError("Drop source files onto an editor to open them, or into the Project pane to add them.");
           } else if (dropKind === "mixed") {
             setError("Drop source files and figures separately so Lattice knows whether to open or insert them.");
           } else if (dropKind === "unsupported") {
@@ -5617,8 +5807,7 @@ function App() {
                 });
               }
             });
-          } else if (targetDirectory) void importProjectAssets(event.payload.paths, targetDirectory);
-          else if (canvasTarget) {
+          } else if (canvasTarget) {
             void importProjectAssets(event.payload.paths, "figures").then(async (paths) => {
               for (const path of paths) await openProjectAsset(path);
             });
@@ -5638,7 +5827,7 @@ function App() {
       active = false;
       dispose?.();
     };
-  }, [importProjectAssets, importProjectSources, openProjectAsset, project]);
+  }, [importProjectAssets, importProjectFiles, importProjectSources, openProjectAsset, postSynaraMessage, project]);
 
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
     try {
@@ -7301,7 +7490,11 @@ function App() {
                 className={`sidebar-pane synara-sidebar-pane ${sidebarMode === "agent" ? "active" : ""}`}
                 aria-hidden={sidebarMode !== "agent"}
               >
-                <div className="synara-frame-shell" data-tour="agent-panel" data-ready={synaraFrameReady || undefined}>
+                <div
+                  className={`synara-frame-shell ${agentPanelDropActive ? "agent-drop-active" : ""}`}
+                  data-tour="agent-panel"
+                  data-ready={synaraFrameReady || undefined}
+                >
                   {synaraFrameMounted && synaraOrigin && (
                     <iframe
                       ref={synaraIframeRef}
@@ -7681,21 +7874,37 @@ function App() {
         >
           <div className="agent-git-workspace-header">
             <div className="agent-git-workspace-tabs" role="tablist" aria-label="Git workspace">
+              {agentTurnReview && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected
+                  className="active"
+                >
+                  Agent turn
+                </button>
+              )}
               <button
                 type="button"
                 role="tab"
-                aria-selected={gitWorkspaceView === "changes"}
-                className={gitWorkspaceView === "changes" ? "active" : ""}
-                onClick={() => setGitWorkspaceView("changes")}
+                aria-selected={!agentTurnReview && gitWorkspaceView === "changes"}
+                className={!agentTurnReview && gitWorkspaceView === "changes" ? "active" : ""}
+                onClick={() => {
+                  setAgentTurnReview(null);
+                  setGitWorkspaceView("changes");
+                }}
               >
                 Changes
               </button>
               <button
                 type="button"
                 role="tab"
-                aria-selected={gitWorkspaceView === "pull-requests"}
-                className={gitWorkspaceView === "pull-requests" ? "active" : ""}
-                onClick={() => setGitWorkspaceView("pull-requests")}
+                aria-selected={!agentTurnReview && gitWorkspaceView === "pull-requests"}
+                className={!agentTurnReview && gitWorkspaceView === "pull-requests" ? "active" : ""}
+                onClick={() => {
+                  setAgentTurnReview(null);
+                  setGitWorkspaceView("pull-requests");
+                }}
               >
                 Pull requests
               </button>
@@ -7714,14 +7923,24 @@ function App() {
               <iframe
                 ref={synaraSourceControlFrameRef}
                 className="synara-source-control-frame"
-                src={synaraSourceControlUrl(
-                  synaraOrigin,
-                  synaraRuntime.authToken,
-                  project.root,
-                  theme,
-                  gitWorkspaceView,
-                )}
-                title={gitWorkspaceView === "changes" ? "Changes" : "Pull requests"}
+                src={agentTurnReview
+                  ? synaraTurnReviewUrl(
+                    synaraOrigin,
+                    synaraRuntime.authToken,
+                    project.root,
+                    theme,
+                    agentTurnReview,
+                  )
+                  : synaraSourceControlUrl(
+                    synaraOrigin,
+                    synaraRuntime.authToken,
+                    project.root,
+                    theme,
+                    gitWorkspaceView,
+                  )}
+                title={agentTurnReview
+                  ? "Agent turn review"
+                  : gitWorkspaceView === "changes" ? "Changes" : "Pull requests"}
                 allow="clipboard-read; clipboard-write"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
               />

@@ -229,16 +229,35 @@ function closestAcrossShadow(element: Element | null, selector: string): Element
   return null;
 }
 
+function trimDirectoryPath(path: string): string {
+  return path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
+/**
+ * Resolve a native OS drop to the project directory it lands on, mirroring the
+ * tree's own row-drag semantics: a folder row is that folder, a file row is
+ * the file's parent, and the rest of the Project pane is the project root
+ * (""). Null means the drop was not over the Project pane at all.
+ */
 export function dropDirectoryAt(position: { x: number; y: number }): string | null {
   const scale = window.devicePixelRatio || 1;
   const element = deepestElementFromPoint(position.x / scale, position.y / scale);
-  const directory = closestAcrossShadow(
-    element,
-    "[data-drop-directory], [data-item-type='folder'][data-item-path]",
-  ) as HTMLElement | null;
-  const path = directory?.dataset.dropDirectory ?? directory?.dataset.itemPath;
-  if (path) return path.endsWith("/") ? path.slice(0, -1) : path;
-  return closestAcrossShadow(element, ".navigator") ? "figures" : null;
+  const explicit = closestAcrossShadow(element, "[data-drop-directory]") as HTMLElement | null;
+  const explicitPath = explicit?.dataset.dropDirectory;
+  if (explicitPath) return trimDirectoryPath(explicitPath);
+  // Flattened "a/b/c" rows keep each segment addressable; honor the one hit.
+  const segment = closestAcrossShadow(element, "[data-item-flattened-subitem]") as HTMLElement | null;
+  const segmentPath = segment?.dataset.itemFlattenedSubitem;
+  if (segmentPath?.endsWith("/")) return trimDirectoryPath(segmentPath);
+  const row = closestAcrossShadow(element, "[data-item-path]") as HTMLElement | null;
+  if (row?.dataset.itemPath) {
+    return row.dataset.itemType === "folder"
+      ? trimDirectoryPath(row.dataset.itemPath)
+      : trimDirectoryPath(row.dataset.itemParentPath ?? "");
+  }
+  // Scoped to the file-tree section: the sidebar also hosts the Papers list,
+  // where a stray drop should not silently import into the project root.
+  return closestAcrossShadow(element, ".project-section") ? "" : null;
 }
 
 export function editorPaneAt(
@@ -270,6 +289,23 @@ export function dropCanvasAt(position: { x: number; y: number }): boolean {
     x: position.x / scale,
     y: position.y / scale,
   });
+}
+
+/**
+ * The agent panel is a cross-origin iframe, so it can never receive native
+ * file drops itself; the host hit-tests its shell and relays the files over
+ * the embed bridge. The inactive pane is `visibility: hidden`, which
+ * elementFromPoint skips, so a hit implies the panel is actually showing.
+ * `data-ready` mirrors the embed handshake; before it completes the bridge
+ * would drop the message on the floor, so treat the panel as absent then.
+ */
+export function dropAgentPanelAt(position: { x: number; y: number }): boolean {
+  if (typeof document.elementFromPoint !== "function") return false;
+  const scale = window.devicePixelRatio || 1;
+  const shell = document
+    .elementFromPoint(position.x / scale, position.y / scale)
+    ?.closest<HTMLElement>(".synara-frame-shell");
+  return shell?.dataset.ready === "true";
 }
 
 export type ProjectPathChange = {

@@ -363,6 +363,18 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   opacity: 1;
   transform: none;
 }
+/* Native-drag hover cue; an ::after overlay because the embedded frame paints
+   over the shell's own box. Mirrors .source-editor.file-drop-active. */
+.synara-frame-shell.agent-drop-active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--control-active) 30%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--control-active) 4%, transparent);
+}
 .synara-loading-surface {
   position: absolute;
   inset: 0;

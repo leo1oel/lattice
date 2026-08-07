@@ -2925,12 +2925,22 @@ pub fn import_assets(
     sources: &[String],
     target_directory: &str,
 ) -> Result<Vec<String>, String> {
-    validate_user_entry(target_directory)?;
     if sources.is_empty() {
         return Err("Drop one or more image files first.".to_string());
     }
-    let target = safe_path(root, target_directory)?;
-    if !target.is_dir() {
+    // Drops land wherever the pointer was: a folder row, a file's parent
+    // folder, or the project root ("", normalized as in `import_sources`).
+    let target_directory = target_directory.trim().trim_end_matches(['/', '\\']);
+    if !target_directory.is_empty() {
+        validate_user_entry(target_directory)?;
+    }
+    let canonical_root = root.canonicalize().map_err(err)?;
+    let target = if target_directory.is_empty() {
+        canonical_root.clone()
+    } else {
+        safe_path(root, target_directory)?
+    };
+    if target.exists() && !target.is_dir() {
         return Err("Drop images onto a project folder.".to_string());
     }
 
@@ -2951,8 +2961,10 @@ pub fn import_assets(
             .ok_or_else(|| "An imported image has an invalid file name.".to_string())?;
     }
 
+    // Dropped-on folders can be brand new (the "figures" default for editor
+    // drops, or a tree folder deleted on disk mid-drag): create, don't refuse.
+    fs::create_dir_all(&target).map_err(err)?;
     let mut imported = Vec::new();
-    let canonical_root = root.canonicalize().map_err(err)?;
     for source in sources {
         let source = Path::new(source);
         let file_name = source
@@ -2970,6 +2982,77 @@ pub fn import_assets(
         );
     }
     Ok(imported)
+}
+
+/// Matches the per-file cap the embedded agent panel enforces when it
+/// validates the composer-files bridge message; keep the two in sync.
+const MAX_AGENT_COMPOSER_FILE_BYTES: u64 = 64 * 1024 * 1024;
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentComposerFile {
+    pub name: String,
+    pub mime_type: String,
+    pub bytes_base64: String,
+}
+
+/// Text mimes for the project source extensions the agent composer accepts.
+fn source_mime_type(path: &Path) -> Option<&'static str> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("md") => Some("text/markdown"),
+        Some("html") => Some("text/html"),
+        Some("tex" | "sty" | "cls") => Some("text/x-tex"),
+        Some("bib" | "bst" | "txt") => Some("text/plain"),
+        _ => None,
+    }
+}
+
+/// Read OS-dropped files for relay into the embedded agent composer. The
+/// sources are native paths outside the project root by design (Finder drops),
+/// so this mirrors `import_assets`/`import_sources` validation but never
+/// touches the project. Accepts both figure files and text source files —
+/// the composer attaches images as images and everything else as documents.
+pub fn read_agent_composer_files(sources: &[String]) -> Result<Vec<AgentComposerFile>, String> {
+    if sources.is_empty() {
+        return Err("Drop one or more files first.".to_string());
+    }
+    let mut files = Vec::new();
+    for source in sources {
+        let source = Path::new(source);
+        let mime_type = asset_mime_type(source).or_else(|| source_mime_type(source));
+        if !source.is_file() || mime_type.is_none() {
+            return Err(format!(
+                "{} is not an image, PDF, or text file the agent can read.",
+                source
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("That item")
+            ));
+        }
+        let name = source
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| "A dropped file has an invalid file name.".to_string())?;
+        if fs::metadata(source).map_err(err)?.len() > MAX_AGENT_COMPOSER_FILE_BYTES {
+            return Err(format!(
+                "{name} is larger than the 64 MB limit for agent attachments."
+            ));
+        }
+        let bytes = fs::read(source).map_err(err)?;
+        files.push(AgentComposerFile {
+            name: name.to_string(),
+            mime_type: mime_type
+                .expect("checked above before reading the file")
+                .to_string(),
+            bytes_base64: STANDARD.encode(&bytes),
+        });
+    }
+    Ok(files)
 }
 
 pub fn import_sources(
@@ -3057,6 +3140,160 @@ pub fn import_sources(
         apply_transaction(root, &label, edits)?;
     }
     Ok(imported)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportedProjectFile {
+    pub path: String,
+    /// Collab document kind for share registration: "text", "board", or "binary".
+    pub kind: String,
+}
+
+/// One Finder drop, any mix of files: content — not extension — decides the
+/// route. UTF-8 text lands through the undoable transaction log like
+/// `import_sources`; figures keep the `import_assets` copy route so collab
+/// registration stays "binary" for them (SVG is text bytes but a figure);
+/// everything else is copied verbatim. Files already inside the project are
+/// registered without copying.
+pub fn import_files(
+    root: &Path,
+    sources: &[String],
+    target_directory: &str,
+) -> Result<Vec<ImportedProjectFile>, String> {
+    if sources.is_empty() {
+        return Err("Drop one or more files first.".to_string());
+    }
+    let target_directory = target_directory.trim().trim_end_matches(['/', '\\']);
+    if !target_directory.is_empty() {
+        validate_user_entry(target_directory)?;
+    }
+    let canonical_root = root.canonicalize().map_err(err)?;
+    let target = if target_directory.is_empty() {
+        canonical_root.clone()
+    } else {
+        safe_path(root, target_directory)?
+    };
+    if target.exists() && !target.is_dir() {
+        return Err("Drop files onto a project folder.".to_string());
+    }
+
+    enum Planned {
+        Existing,
+        Text {
+            content: String,
+        },
+        Binary {
+            source: PathBuf,
+            destination: PathBuf,
+        },
+    }
+    // Plan (and read text content) before touching the project, so a bad file
+    // anywhere in the batch aborts the whole drop instead of half-landing.
+    let mut plan: Vec<(ImportedProjectFile, Planned)> = Vec::with_capacity(sources.len());
+    let mut reserved = BTreeSet::new();
+    for source in sources {
+        let requested = Path::new(source);
+        let display_name = || {
+            requested
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("That item")
+                .to_string()
+        };
+        if requested.is_dir() {
+            return Err(format!(
+                "{} is a folder; drop files instead.",
+                display_name()
+            ));
+        }
+        if !requested.is_file() {
+            return Err(format!(
+                "{} is not a file Lattice can import.",
+                display_name()
+            ));
+        }
+        let canonical_source = requested.canonicalize().map_err(err)?;
+        // classify_regular_file caps text at 8 MB, so oversized text files
+        // take the verbatim copy route rather than the transaction log.
+        let text = !is_supported_asset(&canonical_source)
+            && classify_regular_file(&canonical_source)? == ContentKind::Text;
+        let kind = if !text {
+            "binary"
+        } else if canonical_source
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("tldr"))
+        {
+            "board"
+        } else {
+            "text"
+        };
+        if let Ok(relative) = canonical_source.strip_prefix(&canonical_root) {
+            let relative = relative.to_string_lossy().replace('\\', "/");
+            validate_user_entry(&relative)?;
+            plan.push((
+                ImportedProjectFile {
+                    path: relative,
+                    kind: kind.into(),
+                },
+                Planned::Existing,
+            ));
+            continue;
+        }
+        let file_name = requested
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| "An imported file has an invalid file name.".to_string())?;
+        validate_entry_name(file_name)?;
+        let destination = available_import_path(&target, file_name, &reserved);
+        reserved.insert(destination.clone());
+        let relative = destination
+            .strip_prefix(&canonical_root)
+            .map_err(err)?
+            .to_string_lossy()
+            .replace('\\', "/");
+        let planned = if text {
+            Planned::Text {
+                content: fs::read_to_string(&canonical_source).map_err(err)?,
+            }
+        } else {
+            Planned::Binary {
+                source: canonical_source,
+                destination,
+            }
+        };
+        plan.push((
+            ImportedProjectFile {
+                path: relative,
+                kind: kind.into(),
+            },
+            planned,
+        ));
+    }
+
+    fs::create_dir_all(&target).map_err(err)?;
+    let mut edits = Vec::new();
+    for (file, planned) in &plan {
+        match planned {
+            Planned::Existing => {}
+            Planned::Text { content } => edits.push((file.path.clone(), content.clone())),
+            Planned::Binary {
+                source,
+                destination,
+            } => {
+                fs::copy(source, destination).map_err(err)?;
+            }
+        }
+    }
+    if !edits.is_empty() {
+        let label = if edits.len() == 1 {
+            format!("Import {}", edits[0].0)
+        } else {
+            format!("Import {} files", edits.len())
+        };
+        apply_transaction(root, &label, edits)?;
+    }
+    Ok(plan.into_iter().map(|(file, _)| file).collect())
 }
 
 /// Write raw bytes (base64) to a project-relative path for collab sync.
@@ -3265,7 +3502,9 @@ fn is_supported_source(path: &Path) -> bool {
             .and_then(|extension| extension.to_str())
             .map(str::to_ascii_lowercase)
             .as_deref(),
-        Some("tex" | "bib" | "md" | "txt" | "html" | "sty" | "cls" | "bst")
+        // Keep in sync with PROJECT_SOURCE_EXTENSIONS in src/app-utils.ts,
+        // which decides what the frontend offers to this import path.
+        Some("tex" | "bib" | "md" | "txt" | "html" | "sty" | "cls" | "bst" | "tldr")
     )
 }
 
@@ -5682,6 +5921,117 @@ mod tests {
     }
 
     #[test]
+    fn agent_composer_files_carry_bytes_for_figures_and_text_sources() {
+        let parent = temp_root("agent-composer-files");
+        let image = parent.join("plot.png");
+        fs::write(&image, b"png-bytes").unwrap();
+        let markdown = parent.join("notes.md");
+        fs::write(&markdown, b"# Notes").unwrap();
+
+        let files = read_agent_composer_files(&[
+            image.to_string_lossy().to_string(),
+            markdown.to_string_lossy().to_string(),
+        ])
+        .unwrap();
+        assert_eq!(files.len(), 2);
+        assert_eq!(files[0].name, "plot.png");
+        assert_eq!(files[0].mime_type, "image/png");
+        assert_eq!(files[0].bytes_base64, STANDARD.encode(b"png-bytes"));
+        assert_eq!(files[1].name, "notes.md");
+        assert_eq!(files[1].mime_type, "text/markdown");
+        assert_eq!(files[1].bytes_base64, STANDARD.encode(b"# Notes"));
+
+        let archive = parent.join("archive.zip");
+        fs::write(&archive, b"zip").unwrap();
+        let error =
+            read_agent_composer_files(&[archive.to_string_lossy().to_string()]).unwrap_err();
+        assert!(error.contains("archive.zip"), "{error}");
+        assert!(read_agent_composer_files(&[]).is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn imported_assets_follow_the_drop_target() {
+        let parent = temp_root("import-asset-targets");
+        let root = create(&parent, "paper").unwrap();
+        let source = parent.join("result.png");
+        fs::write(&source, b"png-bytes").unwrap();
+        let paths = vec![source.to_string_lossy().to_string()];
+        // Dropping on a folder the project does not have yet (opened projects
+        // are not guaranteed a "figures" skeleton) creates it.
+        assert_eq!(
+            import_assets(&root, &paths, "assets").unwrap(),
+            vec!["assets/result.png"]
+        );
+        // The Project pane background is the project root.
+        assert_eq!(
+            import_assets(&root, &paths, "").unwrap(),
+            vec!["result.png"]
+        );
+        assert_eq!(
+            import_assets(&root, &paths, "assets/").unwrap(),
+            vec!["assets/result-2.png"]
+        );
+        assert!(import_assets(&root, &paths, "main.tex").is_err());
+        assert!(import_assets(&root, &paths, ".research").is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn imported_files_route_by_content_and_keep_figures_binary() {
+        let parent = temp_root("import-any-files");
+        let root = create(&parent, "paper").unwrap();
+        let csv = parent.join("data.csv");
+        fs::write(&csv, "a,b\n1,2\n").unwrap();
+        let archive = parent.join("bundle.zip");
+        fs::write(&archive, b"PK\x03\x04rest").unwrap();
+        let board = parent.join("sketch.tldr");
+        fs::write(&board, "{\"tldrawFileFormatVersion\":1}").unwrap();
+        // Text bytes under a figure extension stay on the figure route.
+        let svg = parent.join("diagram.svg");
+        fs::write(&svg, "<svg xmlns=\"http://www.w3.org/2000/svg\"/>").unwrap();
+        let all = [&csv, &archive, &board, &svg]
+            .map(|path| path.to_string_lossy().to_string())
+            .to_vec();
+
+        let imported = import_files(&root, &all, "data").unwrap();
+        assert_eq!(
+            imported
+                .iter()
+                .map(|file| (file.path.as_str(), file.kind.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("data/data.csv", "text"),
+                ("data/bundle.zip", "binary"),
+                ("data/sketch.tldr", "board"),
+                ("data/diagram.svg", "binary"),
+            ]
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("data/data.csv")).unwrap(),
+            "a,b\n1,2\n"
+        );
+        assert!(root.join("data/bundle.zip").is_file());
+
+        // Collisions rename; files already inside the project only register.
+        assert_eq!(
+            import_files(&root, &all[..1], "data").unwrap()[0].path,
+            "data/data-2.csv"
+        );
+        let inside = root.join("data/data.csv").to_string_lossy().to_string();
+        assert_eq!(
+            import_files(&root, &[inside], "").unwrap()[0].path,
+            "data/data.csv"
+        );
+        assert!(!root.join("data.csv").exists());
+
+        assert!(import_files(&root, &[parent.to_string_lossy().to_string()], "").is_err());
+        assert!(import_files(&root, &all[..1], ".research").is_err());
+        assert!(import_files(&root, &all[..1], "main.tex").is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
     fn imported_sources_are_transactional_and_renamed_on_collision() {
         let parent = temp_root("import-sources");
         let root = create(&parent, "paper").unwrap();
@@ -5709,6 +6059,15 @@ mod tests {
             )
             .unwrap(),
             vec!["notes.tex"]
+        );
+
+        // Boards are text (tldraw JSON) and must import like other sources;
+        // the frontend offers them to this path.
+        let board = parent.join("sketch.tldr");
+        fs::write(&board, "{\"tldrawFileFormatVersion\":1}").unwrap();
+        assert_eq!(
+            import_sources(&root, &[board.to_string_lossy().to_string()], "").unwrap(),
+            vec!["sketch.tldr"]
         );
 
         let unsupported = parent.join("result.png");

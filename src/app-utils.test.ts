@@ -4,6 +4,7 @@ import {
   applyProjectPathChanges,
   canvasContentAt,
   classifyExternalProjectDrop,
+  dropAgentPanelAt,
   dropCanvasAt,
   dropDirectoryAt,
   dropEditorAt,
@@ -83,6 +84,65 @@ describe("dropDirectoryAt", () => {
     });
 
     expect(dropDirectoryAt({ x: 24, y: 40 })).toBe("figures/results");
+  });
+
+  it("targets a file row's parent folder and falls back to the project root", () => {
+    const navigator = document.createElement("aside");
+    navigator.className = "navigator";
+    const section = document.createElement("div");
+    section.className = "navigator-section project-section";
+    const host = document.createElement("file-tree-container");
+    const shadowRoot = host.attachShadow({ mode: "open" });
+    const nestedFile = document.createElement("button");
+    nestedFile.dataset.itemType = "file";
+    nestedFile.dataset.itemPath = "sections/intro.tex";
+    nestedFile.dataset.itemParentPath = "sections/";
+    const rootFile = document.createElement("button");
+    rootFile.dataset.itemType = "file";
+    rootFile.dataset.itemPath = "main.tex";
+    const background = document.createElement("div");
+    shadowRoot.append(nestedFile, rootFile, background);
+    section.append(host);
+    navigator.append(section);
+    document.body.append(navigator);
+
+    let hit: Element = nestedFile;
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => host),
+    });
+    Object.defineProperty(shadowRoot, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => hit),
+    });
+
+    expect(dropDirectoryAt({ x: 24, y: 40 })).toBe("sections");
+    hit = rootFile;
+    expect(dropDirectoryAt({ x: 24, y: 40 })).toBe("");
+    hit = background;
+    expect(dropDirectoryAt({ x: 24, y: 40 })).toBe("");
+  });
+
+  it("returns null outside the project file tree", () => {
+    const elsewhere = document.createElement("div");
+    document.body.append(elsewhere);
+    // The sidebar's Papers list is not an import target either.
+    const navigator = document.createElement("aside");
+    navigator.className = "navigator";
+    const papers = document.createElement("div");
+    papers.className = "navigator-section papers-section";
+    navigator.append(papers);
+    document.body.append(navigator);
+
+    let hit: Element = elsewhere;
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => hit),
+    });
+
+    expect(dropDirectoryAt({ x: 24, y: 40 })).toBe(null);
+    hit = papers;
+    expect(dropDirectoryAt({ x: 24, y: 40 })).toBe(null);
   });
 });
 
@@ -173,6 +233,29 @@ describe("editor file drops", () => {
 
     expect(canvasContentAt({ x: 24, y: 40 })).toBe(true);
     expect(dropCanvasAt({ x: 24, y: 40 })).toBe(true);
+  });
+
+  it("identifies the agent panel under a native drop position once its frame is ready", () => {
+    const shell = document.createElement("div");
+    shell.className = "synara-frame-shell";
+    const frame = document.createElement("div");
+    frame.className = "synara-poc-frame";
+    shell.append(frame);
+    document.body.append(shell);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => frame),
+    });
+
+    expect(dropAgentPanelAt({ x: 24, y: 40 })).toBe(false);
+    shell.dataset.ready = "true";
+    expect(dropAgentPanelAt({ x: 24, y: 40 })).toBe(true);
+
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => document.body),
+    });
+    expect(dropAgentPanelAt({ x: 24, y: 40 })).toBe(false);
   });
 });
 

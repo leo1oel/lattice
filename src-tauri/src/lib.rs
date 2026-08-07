@@ -871,6 +871,32 @@ async fn import_project_assets(
 }
 
 #[tauri::command]
+async fn read_agent_composer_files(
+    paths: Vec<String>,
+) -> Result<Vec<project::AgentComposerFile>, String> {
+    tauri::async_runtime::spawn_blocking(move || project::read_agent_composer_files(&paths))
+        .await
+        .map_err(|error| format!("Reading dropped files stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn import_project_files(
+    state: tauri::State<'_, AppState>,
+    paths: Vec<String>,
+    target_directory: String,
+    project_root: String,
+) -> Result<Vec<project::ImportedProjectFile>, String> {
+    let _lease = state.overleaf_sync_lease.read().await;
+    let root = scoped_root(&state, &project_root)
+        .map_err(|_| "The project changed before the files could be imported.".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        project::import_files(&root, &paths, &target_directory)
+    })
+    .await
+    .map_err(|error| format!("File import stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
 async fn import_project_sources(
     state: tauri::State<'_, AppState>,
     paths: Vec<String>,
@@ -2884,7 +2910,9 @@ pub fn run() {
             rename_project_entry,
             move_project_entry,
             import_project_assets,
+            import_project_files,
             import_project_sources,
+            read_agent_composer_files,
             import_clipboard_image,
             resolve_citation_query,
             read_project_asset,
