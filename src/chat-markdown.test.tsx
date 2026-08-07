@@ -128,6 +128,51 @@ describe("ChatMarkdown with CoMark", () => {
     )));
   });
 
+  it("recovers focus when a late render pass rebuilds the block after the edit closed", async () => {
+    const onReplaceBlock = vi.fn(() => true);
+    const container = await renderMarkdown("# Original", { onReplaceBlock });
+    const editButton = () => container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit heading 1 Markdown"]',
+    )!;
+    fireEvent.click(editButton());
+    const editor = await waitFor(() => container.querySelector<HTMLTextAreaElement>("textarea")!);
+    fireEvent.keyDown(editor, { key: "Escape" });
+    await waitFor(() => expect(document.activeElement).toBe(editButton()));
+
+    // Past the one-second window focus restoration used to rely on. Async
+    // highlighting can still be settling this late on a loaded CI runner, and
+    // when it lands it discards the DOM node that currently holds focus.
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
+    const stale = editButton();
+    stale.replaceWith(stale.cloneNode(true));
+    expect(document.activeElement).toBe(document.body);
+
+    await waitFor(() => expect(document.activeElement).toBe(editButton()));
+  });
+
+  it("leaves focus alone when the reader moved it away deliberately", async () => {
+    const onReplaceBlock = vi.fn(() => true);
+    const container = await renderMarkdown("# Original\n\nBody text.", { onReplaceBlock });
+    const editButton = () => container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit heading 1 Markdown"]',
+    )!;
+    fireEvent.click(editButton());
+    const editor = await waitFor(() => container.querySelector<HTMLTextAreaElement>("textarea")!);
+    fireEvent.keyDown(editor, { key: "Escape" });
+    await waitFor(() => expect(document.activeElement).toBe(editButton()));
+
+    // Blurring onto nothing puts activeElement on <body>, same as a detached
+    // node would. The heading's button is still in the document, so a later
+    // render pass must not treat this as focus to recover.
+    editButton().blur();
+    expect(document.activeElement).toBe(document.body);
+    const paragraph = container.querySelector<HTMLElement>('button[aria-label="Edit paragraph Markdown"]')!;
+    paragraph.replaceWith(paragraph.cloneNode(true));
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it("does not treat IME composition keys as edit commands", async () => {
     const onReplaceBlock = vi.fn(() => true);
     const container = await renderMarkdown("Original", { onReplaceBlock });

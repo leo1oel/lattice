@@ -23,6 +23,10 @@ import "katex/dist/katex.min.css";
 const EMPTY_MACROS: Record<string, string> = {};
 const mermaidSvgCache = new Map<string, string>();
 
+// How long focus restoration keeps watching for the block it just re-focused
+// being rebuilt underneath it. See finishAndRestoreFocus.
+const BLOCK_FOCUS_GRACE_MS = 5_000;
+
 type MarkdownBlockRange = {
   startLine: number;
   endLine: number;
@@ -109,6 +113,7 @@ function EditableMarkdownBlock({
     const finishAndRestoreFocus = (finish: () => void, cancelling = false) => {
       const root = editorRef.current?.closest(".chat-markdown");
       const host = root?.parentElement;
+      let focused: HTMLButtonElement | null = null;
       const focusEditButton = () => {
         const exact = host?.querySelector<HTMLButtonElement>(
           `.markdown-editable-block[data-source-line="${startLine}"][data-source-end-line="${endLine}"] > .markdown-block-edit-button`,
@@ -117,6 +122,7 @@ function EditableMarkdownBlock({
           `.markdown-editable-block[data-source-line="${startLine}"] > .markdown-block-edit-button`,
         );
         button?.focus();
+        focused = button ?? null;
         return Boolean(button);
       };
       cancellingRef.current = cancelling;
@@ -128,13 +134,28 @@ function EditableMarkdownBlock({
         // block and detach the button that just took focus, dropping focus to
         // <body>. Keep re-aiming at the current button for the whole grace
         // window — stopping at the first success left focus on a dead node.
-        // Focus moved deliberately to another element is left alone.
+        //
+        // The trigger is the button we focused being *detached*, not merely
+        // focus sitting on <body>: focus the reader moved away deliberately
+        // leaves that button in the document, and yanking it back would fight
+        // the user. That precision is what lets the window be generous. It
+        // used to be one second, which is a bet on how long the rebuild takes
+        // — a loaded machine loses that bet, the last pass lands after the
+        // observer has gone, and focus is stranded on <body>.
         const observer = new MutationObserver(() => {
-          const lost = document.activeElement === null || document.activeElement === document.body;
-          if (lost) focusEditButton();
+          if (!host.isConnected) {
+            observer.disconnect();
+            return;
+          }
+          const stranded = document.activeElement === null
+            || document.activeElement === document.body;
+          // focused === null means the block had not re-rendered back into a
+          // button by the time we first looked, so there is nothing to protect
+          // yet and every mutation is worth another try.
+          if (stranded && (focused === null || !focused.isConnected)) focusEditButton();
         });
         observer.observe(host, { childList: true, subtree: true });
-        window.setTimeout(() => observer.disconnect(), 1_000);
+        window.setTimeout(() => observer.disconnect(), BLOCK_FOCUS_GRACE_MS);
       });
     };
     return (
