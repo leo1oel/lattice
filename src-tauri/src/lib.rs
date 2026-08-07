@@ -2720,8 +2720,8 @@ async fn sample_screen_color(app: tauri::AppHandle) -> Result<Option<String>, St
 ///
 /// The agent runs in a sidecar process and cannot call into the app, so the
 /// app offers a private JSON dispatcher through its own executable. Keeping
-/// search, fetch, cite, upgrade, and removal here avoids a second TypeScript
-/// implementation drifting from the UI.
+/// search, fetch, cite, upgrade, removal, and the library listing here avoids
+/// a second TypeScript implementation drifting from the UI.
 ///
 /// Returns true when this was a CLI invocation and the process should exit.
 /// Must run before anything touches Tauri or AppKit.
@@ -2738,6 +2738,10 @@ enum LiteratureRequest {
     FetchPaper {
         #[serde(rename = "arxivId")]
         arxiv_id: String,
+    },
+    ListPapers {},
+    SearchLibrary {
+        query: String,
     },
     FetchWebReference {
         url: String,
@@ -2781,6 +2785,13 @@ fn run_cli() -> bool {
             .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string())),
         LiteratureRequest::FetchPaper { arxiv_id } => papers::fetch_paper(root, &arxiv_id)
             .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string())),
+        // Wrapped in objects: the gateway rejects a bare JSON array as a
+        // response envelope.
+        LiteratureRequest::ListPapers {} => {
+            papers::list_library(root).map(|papers| serde_json::json!({ "papers": papers }))
+        }
+        LiteratureRequest::SearchLibrary { query } => papers::search_library(root, &query)
+            .map(|results| serde_json::json!({ "results": results })),
         LiteratureRequest::FetchWebReference { url } => papers::fetch_web_reference(root, &url)
             .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string())),
         LiteratureRequest::Cite { query } => {
@@ -3029,4 +3040,30 @@ pub fn run() {
             app_handle.state::<synara::SynaraRuntime>().shutdown();
         }
     });
+}
+
+#[cfg(test)]
+mod literature_cli_tests {
+    use super::LiteratureRequest;
+
+    /// The gateway always sends a params object, even for tools without
+    /// arguments — the empty-struct variant must accept `{}` (a unit variant
+    /// would reject it).
+    #[test]
+    fn parses_the_argumentless_list_papers_request() {
+        let request: LiteratureRequest =
+            serde_json::from_str(r#"{"tool":"list_papers","params":{}}"#).unwrap();
+        assert!(matches!(request, LiteratureRequest::ListPapers {}));
+    }
+
+    #[test]
+    fn parses_the_search_library_request() {
+        let request: LiteratureRequest =
+            serde_json::from_str(r#"{"tool":"search_library","params":{"query":"attention"}}"#)
+                .unwrap();
+        assert!(matches!(
+            request,
+            LiteratureRequest::SearchLibrary { query } if query == "attention"
+        ));
+    }
 }

@@ -67,7 +67,15 @@ function findMirrorSource(node: MdastNode, anchor: string): MdastNode | null {
 function resolveMirror(index: MarkdownWorkspaceIndex, src: string, anchor: string) {
   const markdown = index.contentFor(src);
   if (markdown === undefined) return { kind: "missing-source" } as const;
-  const tree = getSharedMarkdownManager().parseToMdast(markdown) as MdastNode;
+  let tree: MdastNode;
+  try {
+    tree = getSharedMarkdownManager().parseToMdast(markdown) as MdastNode;
+  } catch {
+    // The raw mdast parser throws on broken MDX (an unclosed `{`); a source
+    // document the mirror cannot parse reads as missing rather than
+    // crashing the document that embeds the mirror.
+    return { kind: "missing-anchor" } as const;
+  }
   const source = findMirrorSource(tree, anchor);
   if (!source) return { kind: "missing-anchor" } as const;
   const root = { type: "root", children: source.children ?? [] };

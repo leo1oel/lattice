@@ -13,6 +13,12 @@ function inlineMathSourceRaw(source: string, start: number, end: number, value: 
   const direct = source.slice(start, end);
   if (/^\$+[^]*\$+$/.test(direct)) return direct;
 
+  // A single-line `\[…\]` display block is parsed via a length-preserving
+  // `$$` delimiter swap (latex-math-promoter.ts), so the node's source bytes
+  // are still the LaTeX form; capture them so the pristine path reproduces
+  // the file exactly. serializeInlineMath emits sourceRaw verbatim.
+  if (/^\\\[[^]*\\\]$/.test(direct)) return direct;
+
   // List indentation is omitted from some promoted text-node positions, so a
   // single-dollar math span can be displaced by a few source bytes. Recover
   // only an unambiguous nearby literal whose CommonMark-decoded body matches

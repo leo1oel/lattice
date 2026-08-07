@@ -144,7 +144,24 @@ function parseEditorMdastChildrenCached(
   text: string,
 ): NonNullable<typeof cachedMdastChildren> {
   if (cachedMdastText === text && cachedMdastChildren) return cachedMdastChildren;
-  const children = getMarkdownManager().parseToEditorMdast(text).children;
+  let children: NonNullable<typeof cachedMdastChildren>;
+  try {
+    children = getMarkdownManager().parseToEditorMdast(text).children;
+  } catch (error) {
+    // The document itself opens through parse-with-fallback, which survives
+    // MDX syntax errors, but this position probe uses the raw parser — a PDF
+    // text-layer paper with an unclosed `{` throws here and was crashing the
+    // whole editor over a scroll-sync lookup. Empty children degrade every
+    // consumer to its no-position path (top-of-document anchors, canonical
+    // serialization), which is the right trade for a document that already
+    // renders a rawMdxFallback block. Cached so one broken paper does not
+    // re-throw on every caret move.
+    console.warn(JSON.stringify({
+      event: "editor-mdast-parse-failed",
+      reason: error instanceof Error ? error.message.slice(0, 200) : String(error),
+    }));
+    children = [];
+  }
   cachedMdastText = text;
   cachedMdastChildren = children;
   return children;

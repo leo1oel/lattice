@@ -674,27 +674,54 @@ fn convert_paper(
             if !output_path.is_file() {
                 return Err("arxiv2md did not produce paper.md".to_string());
             }
-            Ok((
-                fs::read_to_string(output_path).map_err(err)?,
-                ARXIV2MD_REQUIREMENT,
-            ))
+            let converted = fs::read_to_string(output_path).map_err(err)?;
+            if markdown_has_body(&converted) {
+                return Ok((converted, ARXIV2MD_REQUIREMENT));
+            }
+            // ar5iv serves a paper its LaTeXML conversion choked on as an
+            // HTTP 200 stub ("Untitled Document", zero sections), so arxiv2md
+            // converts the stub and exits 0. The missing body is the only
+            // signal that there was never a usable HTML rendering — treat it
+            // exactly like the explicit no-HTML error.
+            pdf_fallback(
+                requested,
+                base,
+                output_dir,
+                "arxiv2md produced an empty document from a failed ar5iv rendering.",
+            )
         }
         Err(error) if error.contains("does not have an HTML version") => {
-            let markdown = pdf_text_markdown(requested, base).map_err(|pdf_error| {
-                format!("{error}\nThe PDF fallback also failed: {pdf_error}")
-            })?;
-            // The bundle contract requires an asset manifest; the text layer
-            // carries no extractable figures, so it is honestly empty.
-            fs::create_dir_all(output_dir.join("paper_assets")).map_err(err)?;
-            fs::write(
-                output_dir.join("paper_assets/manifest.json"),
-                "{\"schema_version\":1,\"assets\":[]}\n",
-            )
-            .map_err(err)?;
-            Ok((markdown, ANYDOC_CONVERTER))
+            pdf_fallback(requested, base, output_dir, &error)
         }
         Err(error) => Err(error),
     }
+}
+
+/// Build the bundle from the PDF text layer after the HTML route produced
+/// nothing usable; `html_error` says why so a double failure reports both.
+fn pdf_fallback(
+    requested: &str,
+    base: &str,
+    output_dir: &Path,
+    html_error: &str,
+) -> Result<(String, &'static str), String> {
+    let markdown = pdf_text_markdown(requested, base)
+        .map_err(|pdf_error| format!("{html_error}\nThe PDF fallback also failed: {pdf_error}"))?;
+    // The bundle contract requires an asset manifest; the text layer carries
+    // no extractable figures, so it is honestly empty. An abandoned stub
+    // conversion may have left assets behind — clear them so the bundle
+    // matches its manifest.
+    let assets_dir = output_dir.join("paper_assets");
+    if assets_dir.exists() {
+        fs::remove_dir_all(&assets_dir).map_err(err)?;
+    }
+    fs::create_dir_all(&assets_dir).map_err(err)?;
+    fs::write(
+        assets_dir.join("manifest.json"),
+        "{\"schema_version\":1,\"assets\":[]}\n",
+    )
+    .map_err(err)?;
+    Ok((markdown, ANYDOC_CONVERTER))
 }
 
 /// The PDF text layer as markdown, with frontmatter that says what it is.
@@ -1005,6 +1032,122 @@ pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult
     }
     results.truncate(60);
     Ok(results)
+}
+
+/// One library entry as the agent sees it: what the work is, how to cite it,
+/// and which cached files hold its text. Paths are workspace-relative so the
+/// agent can read them directly with its own file tools.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryPaper {
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub citation_key: Option<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub arxiv_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub full_text_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overview_path: Option<String>,
+}
+
+/// The paper library for the agent's `list_papers` tool: the same cited works
+/// the Papers panel and the composer's @-picker show, with readable cache
+/// paths attached. An entry without paths is cited but not downloaded — the
+/// agent can fetch_paper it by arXiv id.
+pub fn list_library(root: &Path) -> Result<Vec<LibraryPaper>, String> {
+    Ok(list_papers(root)?
+        .into_iter()
+        .map(|paper| {
+            let full_text_path = (paper.has_full_text && !paper.arxiv_id.is_empty())
+                .then(|| format!(".research/papers/{}/paper.md", paper.arxiv_id));
+            let overview_path = (paper.has_blog && !paper.arxiv_id.is_empty())
+                .then(|| format!(".research/papers/{}/blog.md", paper.arxiv_id));
+            LibraryPaper {
+                title: paper.title,
+                citation_key: paper.citation_key,
+                arxiv_id: paper.arxiv_id,
+                url: paper.url,
+                full_text_path,
+                overview_path,
+            }
+        })
+        .collect())
+}
+
+/// Full-text search over the cached library for the agent's `search_library`
+/// tool: cited papers' titles plus every line of their cached text. The
+/// bibliography stays authoritative here just like in `list_papers`, so text
+/// the agent fetched but never cited is not searched. A linear scan is fine at
+/// library scale; the project FTS index deliberately excludes `.research/`.
+pub fn search_library(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
+    const MAX_HITS: usize = 60;
+    const MAX_HITS_PER_PAPER: usize = 5;
+    let terms = project::search_terms(query);
+    if terms.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut results = Vec::new();
+    'papers: for paper in list_library(root)? {
+        let readable = [&paper.full_text_path, &paper.overview_path];
+        let Some(first_readable) = readable.iter().find_map(|path| path.as_deref()) else {
+            // Nothing cached: a hit could not be read, so report nothing.
+            continue;
+        };
+        let mut paper_hits = 0;
+        if project::matches_search(&paper.title, &terms) {
+            results.push(library_hit(&paper, first_readable, None, &paper.title));
+            paper_hits += 1;
+            if results.len() >= MAX_HITS {
+                break 'papers;
+            }
+        }
+        for path in readable.into_iter().flatten() {
+            let Ok(absolute) = project::safe_path(root, path) else {
+                continue;
+            };
+            let content = fs::read_to_string(absolute).unwrap_or_default();
+            for (index, line) in content.lines().enumerate() {
+                if line.trim().is_empty() || !project::matches_search(line, &terms) {
+                    continue;
+                }
+                results.push(library_hit(&paper, path, Some(index as u32 + 1), line));
+                paper_hits += 1;
+                if results.len() >= MAX_HITS {
+                    break 'papers;
+                }
+                if paper_hits >= MAX_HITS_PER_PAPER {
+                    continue 'papers;
+                }
+            }
+        }
+    }
+    Ok(results)
+}
+
+fn library_hit(
+    paper: &LibraryPaper,
+    path: &str,
+    line: Option<u32>,
+    text: &str,
+) -> ProjectSearchResult {
+    let trimmed = text.trim();
+    let snippet: String = trimmed.chars().take(180).collect();
+    ProjectSearchResult {
+        kind: "paper".to_string(),
+        path: path.to_string(),
+        title: paper.title.clone(),
+        snippet: if trimmed.chars().count() > 180 {
+            format!("{snippet}…")
+        } else {
+            snippet
+        },
+        line,
+        arxiv_id: (!paper.arxiv_id.is_empty()).then(|| paper.arxiv_id.clone()),
+        file_kind: None,
+    }
 }
 
 pub fn read_paper(root: &Path, arxiv_id: &str) -> Result<String, String> {
@@ -2075,6 +2218,94 @@ mod tests {
         let _ = fs::remove_dir_all(parent);
     }
 
+    /// The agent's library listing mirrors `list_papers` but attaches paths it
+    /// can read directly, and marks cited-but-undownloaded works by their
+    /// absence.
+    #[test]
+    fn lists_the_library_for_the_agent_with_readable_paths() {
+        let parent = std::env::temp_dir().join(format!("lattice-library-list-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  eprint = {1706.03762}\n}\n@misc{onlycited2024,\n  title = {Cited But Never Downloaded},\n  eprint = {2401.99999}\n}\n",
+        )
+        .unwrap();
+        let directory = root.join(".research/papers/1706.03762");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("paper.md"),
+            "Title: Attention Is All You Need\n",
+        )
+        .unwrap();
+        fs::write(directory.join("blog.md"), "An overview with a body.\n").unwrap();
+
+        let library = list_library(&root).unwrap();
+        assert_eq!(library.len(), 2, "got: {library:?}");
+        let cached = library
+            .iter()
+            .find(|paper| paper.arxiv_id == "1706.03762")
+            .expect("the cached paper");
+        assert_eq!(cached.citation_key.as_deref(), Some("vaswani2017attention"));
+        assert_eq!(
+            cached.full_text_path.as_deref(),
+            Some(".research/papers/1706.03762/paper.md")
+        );
+        assert_eq!(
+            cached.overview_path.as_deref(),
+            Some(".research/papers/1706.03762/blog.md")
+        );
+        let uncached = library
+            .iter()
+            .find(|paper| paper.arxiv_id == "2401.99999")
+            .expect("the cited-only work");
+        assert!(uncached.full_text_path.is_none(), "got: {uncached:?}");
+        assert!(uncached.overview_path.is_none(), "got: {uncached:?}");
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    /// `search_library` reads the cached text itself so the agent gets line
+    /// hits, and honors the same bibliography boundary as the listing.
+    #[test]
+    fn searches_cached_library_text_but_not_uncited_caches() {
+        let parent =
+            std::env::temp_dir().join(format!("lattice-library-search-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  eprint = {1706.03762}\n}\n",
+        )
+        .unwrap();
+        let directory = root.join(".research/papers/1706.03762");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("paper.md"),
+            "Title: Attention Is All You Need\n\nThe scaled dot-product attention mechanism.\n",
+        )
+        .unwrap();
+        // An uncited cache mentioning the same phrase must stay invisible.
+        let uncited = root.join(".research/papers/2401.00001");
+        fs::create_dir_all(&uncited).unwrap();
+        fs::write(
+            uncited.join("paper.md"),
+            "Another scaled dot-product variant.\n",
+        )
+        .unwrap();
+
+        let hits = search_library(&root, "scaled dot-product").unwrap();
+        assert_eq!(hits.len(), 1, "got: {hits:?}");
+        assert_eq!(hits[0].path, ".research/papers/1706.03762/paper.md");
+        assert_eq!(hits[0].line, Some(3));
+        assert!(hits[0].snippet.contains("scaled dot-product"));
+
+        // A title match reports the readable file without a line number.
+        let title_hits = search_library(&root, "attention is all you need").unwrap();
+        assert!(
+            title_hits.iter().any(|hit| hit.line.is_none()),
+            "got: {title_hits:?}"
+        );
+        let _ = fs::remove_dir_all(parent);
+    }
+
     #[test]
     fn reuses_a_complete_canonical_cache_without_spawning_a_fetch() {
         let parent =
@@ -2276,6 +2507,19 @@ mod tests {
         fs::remove_dir_all(directory).unwrap();
     }
 
+    /// The frontmatter-only file arxiv2md writes for an ar5iv failed-
+    /// conversion stub (HTTP 200, "Untitled Document", zero sections) must
+    /// read as bodyless — that is what routes an exit-0 empty conversion to
+    /// the PDF fallback instead of caching a paper with no text.
+    #[test]
+    fn ar5iv_stub_output_has_no_body() {
+        let stub = "---\ntitle: \"[2408.05088] Untitled Document\"\nurl: \"https://arxiv.org/abs/2408.05088\"\nsections: 0\nestimated_tokens: \"2\"\n---\n";
+        assert!(!markdown_has_body(stub));
+        assert!(markdown_has_body(
+            "---\ntitle: \"A Paper\"\n---\n\nA real body.\n"
+        ));
+    }
+
     #[test]
     fn rejects_paper_bundles_with_missing_or_tampered_assets() {
         let directory =
@@ -2364,6 +2608,28 @@ mod tests {
         assert!(search_papers(&root, "self-attention").unwrap().is_empty());
         assert!(search_papers(&root, "encoder free").unwrap().is_empty());
         assert!(search_papers(&root, "1706.03762").unwrap().is_empty());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    /// 2408.05088 has no arXiv HTML rendering and ar5iv serves a failed-
+    /// conversion stub for it (HTTP 200, empty body), so arxiv2md "succeeds"
+    /// with a bodyless document. The fetch must land on the PDF text layer,
+    /// not cache the stub.
+    #[test]
+    #[ignore = "requires network access"]
+    fn falls_back_to_the_pdf_text_layer_for_a_broken_ar5iv_rendering() {
+        let parent = std::env::temp_dir().join(format!("lattice-pdf-fb-{}", Uuid::new_v4()));
+        fs::create_dir_all(&parent).unwrap();
+        let root = project::create(&parent, "paper").unwrap();
+        let result = fetch_paper(&root, "2408.05088").unwrap();
+        assert_eq!(result.arxiv_id, "2408.05088");
+        let markdown = fs::read_to_string(root.join(&result.paper_path)).unwrap();
+        assert!(markdown.contains("source: \"pdf-text-layer\""));
+        assert!(markdown_has_body(&markdown));
+        // The stub conversion's leftovers are gone: the manifest is honestly
+        // empty and revalidation accepts the bundle, so a refetch reuses it.
+        let reused = fetch_paper(&root, "2408.05088").unwrap();
+        assert!(reused.reused);
         fs::remove_dir_all(parent).unwrap();
     }
 

@@ -30,6 +30,7 @@ import { highlightPromoterPlugin } from './highlight-promoter.ts';
 import { imagePromoterPlugin } from './image-promoter.ts';
 import { indentedCodePromoterPlugin } from './indented-code-promoter.ts';
 import { insertInteriorBlankRunParagraphs } from './interior-blank-runs.ts';
+import { latexMathPromoterPlugin, swapLatexDisplayMathDelimiters } from './latex-math-promoter.ts';
 import { mathPromoterPlugin } from './math-promoter.ts';
 import type { SourceDocBoundary } from './mdast-augmentation.ts';
 import { mergedPostParseWalkerPlugin } from './merged-walker.ts';
@@ -94,6 +95,9 @@ export const ACTIVE_MDAST_PLUGINS = [
   { name: 'div-align-promoter', plugin: divAlignPromoterPlugin },
   { name: 'image-promoter', plugin: imagePromoterPlugin },
   { name: 'indented-code-promoter', plugin: indentedCodePromoterPlugin },
+  // Before math-promoter so promoted `\[ … \]` blocks ride the same
+  // math → DollarMath conversion as dollar-delimited blocks.
+  { name: 'latex-math-promoter', plugin: latexMathPromoterPlugin },
   { name: 'math-promoter', plugin: mathPromoterPlugin },
   { name: 'single-dollar-math-promoter', plugin: singleDollarMathPromoterPlugin },
   { name: 'highlight-promoter', plugin: highlightPromoterPlugin },
@@ -223,7 +227,9 @@ function readDocBoundary(value: unknown): SourceDocBoundary | undefined {
 export function parseMd(rawSource: string, processor: Processor): PmNode {
   const { source: rawAfterBom, hadBom } = splitDocumentHeadBom(rawSource);
   const source = dedentBlockJsxClose(rawAfterBom);
-  const protectedFr14 = encodeBackslashEscapes(source);
+  // Length-preserving, so the original-source `file.value` swap below keeps
+  // every position honest; see latex-math-promoter.ts for the contract.
+  const protectedFr14 = encodeBackslashEscapes(swapLatexDisplayMathDelimiters(source));
   const protectedR23 = protectFromMdx(protectedFr14);
   const protected_ = encodeEntityRefs(protectedR23);
 
@@ -254,7 +260,9 @@ function parseToMdast(
 ): MdastRoot {
   const { source: rawAfterBom, hadBom } = splitDocumentHeadBom(rawSource);
   const source = dedentBlockJsxClose(rawAfterBom);
-  const protected_ = encodeEntityRefs(protectFromMdx(encodeBackslashEscapes(source)));
+  const protected_ = encodeEntityRefs(
+    protectFromMdx(encodeBackslashEscapes(swapLatexDisplayMathDelimiters(source))),
+  );
   const file = new VFile(protected_);
   const tree = processor.parse(file);
   file.value = source;

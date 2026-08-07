@@ -2963,6 +2963,112 @@ describe("VisualMarkdownEditor", () => {
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("The result is $y^3$.", "The result is $x^2$."));
   });
 
+  it("renders latex-delimited math without disabling visual editing", async () => {
+    // AI assistants emit `\[ … \]` / `\( … \)`; the chat renderer accepts
+    // them, so the document surface must too. The `=` line is load-bearing:
+    // without the display-delimiter swap it turns the formula head into a
+    // setext heading.
+    const source = "Before text.\n\n\\[\n\\mathcal{L}_{\\mathrm{tea}}\n=\n\\sum_{k\\in T} w_k\n\\]\n\nAfter \\(f_S^{\\ell}\\) math.\n";
+    const parsed = parseVisualMarkdown(source, "notes.md");
+    expect((parsed.content ?? []).map((node) => node.attrs?.componentName ?? node.type))
+      .toEqual(["paragraph", "DollarMath", "paragraph"]);
+    const math = parsed.content?.[1];
+    expect(math?.attrs?.sourceRaw).toBe("\\[\n\\mathcal{L}_{\\mathrm{tea}}\n=\n\\sum_{k\\in T} w_k\n\\]");
+    const inline = parsed.content?.[2]?.content?.find((node) => node.type === "mathInline");
+    expect(inline?.attrs?.formula).toBe("f_S^{\\ell}");
+    expect(inline?.attrs?.sourceRaw).toBe("\\(f_S^{\\ell}\\)");
+    renderEditor(source);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
+    expect(screen.queryByText(/Visual editing is unavailable/)).toBeNull();
+  });
+
+  it("preserves latex math delimiters in untouched blocks across an edit", async () => {
+    const source = "Intro paragraph.\n\n\\[\nE=mc^2\n\\]\n\nInline \\(x_i\\) math.";
+    const { onChange } = renderEditor(source);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    editor.commands.insertContentAt(1, "Reported ");
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(String(onChange.mock.lastCall?.[0])).toBe(`Reported ${source}`);
+  });
+
+  it("canonicalizes a latex inline formula to dollars when edited", async () => {
+    const { onChange } = renderEditor("The result is \\(x^2\\).");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    await waitFor(() => expect(document.querySelector(".math-inline-trigger")).not.toBeNull());
+    let atomPosition = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "mathInline") atomPosition = position;
+    });
+    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, atomPosition)));
+    const input = await screen.findByRole("textbox", { name: /formula/i });
+    fireEvent.change(input, { target: { value: "y^3" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    // The formula edit nulls sourceRaw, so the latex delimiters give way to
+    // the canonical dollar form.
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith("The result is $y^3$.", "The result is \\(x^2\\)."));
+  });
+
+  it("keeps latex delimiters inside code fences as code", () => {
+    const source = "```latex\n\\[\nE=mc^2\n\\]\n```\n";
+    const parsed = parseVisualMarkdown(source, "notes.md");
+    expect((parsed.content ?? []).map((node) => node.type)).toEqual(["codeBlock"]);
+    const serialized = preserveMarkdownEnvelope(getMarkdownManager().serialize(parsed), source);
+    expect(serialized).toBe(source);
+  });
+
+  it("promotes a single-line latex display block and round-trips its bytes", () => {
+    const source = "\\[E=mc^2\\]\n";
+    const parsed = parseVisualMarkdown(source, "notes.md");
+    const inline = parsed.content?.[0]?.content?.find((node) => node.type === "mathInline");
+    expect(inline?.attrs?.formula).toBe("E=mc^2");
+    expect(inline?.attrs?.sourceRaw).toBe("\\[E=mc^2\\]");
+    const serialized = preserveMarkdownEnvelope(getMarkdownManager().serialize(parsed), source);
+    expect(serialized).toBe(source);
+  });
+
+  it("survives a document whose raw MDX parse throws", async () => {
+    // A PDF text-layer paper can carry an unclosed `{`. parse-with-fallback
+    // recovers the document parse, but the source-range probe
+    // (parseToEditorMdast) throws raw — it must degrade, not crash the
+    // editor (it used to take the whole app down with it). Eligibility keeps
+    // making its own call from the round trip: this minimal document happens
+    // to be lossless, a real PDF paper usually is not and locks to source
+    // mode.
+    const source = "# UNIC\n\nBefore the break.\n\nvalue = {0|150|never closed\n\nAfter the break.\n";
+    renderEditor(source);
+    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(surface.textContent).toContain("Before the break."));
+    expect(surface.textContent).toContain("After the break.");
+  });
+
+  it("pairs multiple inline latex spans across a misparsed emphasis run", () => {
+    // Two subscripted spans in one paragraph: the `_` after `{supp}` and the
+    // `_` before `{\mathrm{tea}}` pair into an emphasis run that hides the
+    // first `\)` inside its children. The close scan must descend into the
+    // misparsed container — pairing with the second span's close swallowed
+    // the prose between into one broken (red) formula.
+    const source = "\\(\\mathrm{supp}_{\\mathrm{par}}\\) 问的是「**哪些权重被编辑**」；\\(\\mathrm{supp}_{\\mathrm{tea}}\\) 问的是「**哪些特征被监督**」。\n";
+    const parsed = parseVisualMarkdown(source, "notes.md");
+    const paragraph = parsed.content?.[0];
+    const formulas = (paragraph?.content ?? [])
+      .filter((node) => node.type === "mathInline")
+      .map((node) => node.attrs?.formula);
+    expect(formulas).toEqual(["\\mathrm{supp}_{\\mathrm{par}}", "\\mathrm{supp}_{\\mathrm{tea}}"]);
+    // The bold runs were authored, not misparse artifacts — they survive the
+    // unwrap as real marks.
+    const text = (paragraph?.content ?? [])
+      .map((node) => (node.type === "text" ? node.text : ""))
+      .join("");
+    expect(text).toContain("哪些权重被编辑");
+    expect(text).toContain("哪些特征被监督");
+    const serialized = preserveMarkdownEnvelope(getMarkdownManager().serialize(parsed), source);
+    expect(serialized).toBe(source);
+  });
+
   it("keeps the inline math editor open while a formula is typed character by character", async () => {
     function ControlledEditor() {
       const [text, setText] = useState("The result is $x$.");
