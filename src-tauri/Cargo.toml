@@ -20,9 +20,14 @@ tauri-build = { version = "2", features = [] }
 # Halves the release binary (measured 26.6 MB -> 12.9 MB on aarch64-darwin).
 # panic="abort" would save ~3 MB more but turns any panic into a hard crash
 # with unsaved editor state on screen, so it stays off.
+# Tuned for release *time* as well as size. Fat LTO with a single codegen unit
+# is the slowest configuration cargo has — it was taking ~20 of the release
+# workflow's ~27 minutes — and thin LTO across 16 units recovers most of its
+# size win for a fraction of the compile. `opt-level = "s"` and symbol
+# stripping, which do the bulk of the size work, are unchanged.
 [profile.release]
-codegen-units = 1
-lto = true
+codegen-units = 16
+lto = false
 opt-level = "s"
 strip = "symbols"
 
@@ -60,6 +65,9 @@ tokio = { version = "1", features = ["sync", "net", "time"] }
 keyring = { version = "3", features = ["apple-native"] }
 rustix = { version = "1", features = ["fs"] }
 anydoc = "0.1.7"
+# Already in the tree transitively; direct so paper.md normalization can slug
+# headings with the exact NFKD semantics of the editor's toWikiLinkSlug.
+unicode-normalization = "0.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

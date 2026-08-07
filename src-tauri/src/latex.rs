@@ -98,7 +98,12 @@ fn default_root_document(
         .iter()
         .find(|document| document.is_default)
         .or_else(|| manifest.root_documents.first())
-        .ok_or_else(|| "The project has no root document.".to_string())
+        // Not a failure the reader caused: a folder of notes has nothing to
+        // compile, and the way forward is to add a .tex, not to read an error.
+        .ok_or_else(|| {
+            "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings."
+                .to_string()
+        })
 }
 
 fn compiled_pdf_path(root: &Path) -> Result<PathBuf, String> {

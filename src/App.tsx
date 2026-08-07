@@ -4040,7 +4040,11 @@ function App() {
       // shared sources have synced. Building it now compiles the placeholder and
       // pops a spurious "compilation failed". The join flow defers the build and
       // triggers one once the real project has materialized (see onSynced).
-      if (!options?.deferInitialBuild) {
+      //
+      // A folder with no LaTeX in it has nothing to compile either — opening a
+      // directory of Markdown notes used to greet the reader with a build error
+      // about a root document Lattice itself had invented.
+      if (!options?.deferInitialBuild && snapshot.manifest.rootDocuments.length > 0) {
         void runBuild(false, { immediatePreview: true });
       }
       const rootDocument =
@@ -4255,7 +4259,11 @@ function App() {
         // the PDF never appears), then kick one explicitly once the project is
         // fully entered.
         await enterProject(snapshot, { deferInitialBuild: true });
-        void runBuild(false, { immediatePreview: true });
+        // Same reason enterProject checks: reopening a folder of notes at
+        // startup should not open onto a build error.
+        if (snapshot.manifest.rootDocuments.length > 0) {
+          void runBuild(false, { immediatePreview: true });
+        }
       } catch {
         cancelProjectTransition();
         // Folder gone — stay on the welcome screen.

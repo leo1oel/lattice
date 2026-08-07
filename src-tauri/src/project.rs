@@ -514,14 +514,23 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
             .and_then(|value| value.to_str())
             .unwrap_or("Research project");
         let mut manifest = default_manifest(name);
-        if let Some(relative) = detect_root_document(&root) {
-            let stem = Path::new(&relative)
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .unwrap_or("Root")
-                .to_string();
-            manifest.root_documents[0].path = relative;
-            manifest.root_documents[0].name = stem;
+        // A folder Lattice did not create may hold no LaTeX at all — a folder of
+        // Markdown notes, say. `default_manifest` names main.tex because that is
+        // what `create` writes, but claiming it here invents a root document
+        // that does not exist, and opening the folder then greeted the reader
+        // with "Root document not found: main.tex" for a project that simply has
+        // nothing to compile. Record the absence instead; callers ask.
+        match detect_root_document(&root) {
+            Some(relative) => {
+                let stem = Path::new(&relative)
+                    .file_stem()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or("Root")
+                    .to_string();
+                manifest.root_documents[0].path = relative;
+                manifest.root_documents[0].name = stem;
+            }
+            None => manifest.root_documents.clear(),
         }
         if !root.join("references.bib").exists() {
             if let Some(entry) = WalkDir::new(&root)
@@ -4658,6 +4667,44 @@ mod tests {
         let path = std::env::temp_dir().join(format!("research-writer-{label}-{}", Uuid::new_v4()));
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    #[test]
+    fn opening_a_folder_without_latex_claims_no_root_document() {
+        let parent = temp_root("markdown-only");
+        let root = parent.join("notes");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("ideas.md"), "# Ideas\n").unwrap();
+        fs::write(root.join("log.md"), "# Log\n").unwrap();
+
+        let snapshot = open(&root).unwrap();
+        // Naming main.tex here invented a document that does not exist, and the
+        // app opened onto "Root document not found: main.tex" for a folder that
+        // simply has nothing to compile.
+        assert!(
+            snapshot.manifest.root_documents.is_empty(),
+            "a folder with no .tex has no root document: {:?}",
+            snapshot.manifest.root_documents,
+        );
+
+        // Adding LaTeX later is still detected on the next open.
+        fs::write(
+            root.join("paper.tex"),
+            "\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n",
+        )
+        .unwrap();
+        fs::remove_file(root.join(MANIFEST_PATH)).unwrap();
+        let reopened = open(&root).unwrap();
+        assert_eq!(
+            reopened
+                .manifest
+                .root_documents
+                .first()
+                .map(|d| d.path.as_str()),
+            Some("paper.tex"),
+        );
+
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]
