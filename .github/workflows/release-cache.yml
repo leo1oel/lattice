@@ -1,0 +1,89 @@
+name: Release cache
+
+# Keeps a warm release-profile build of src-tauri's dependencies on the default
+# branch, for the Release workflow to restore.
+#
+# Why this exists: Actions scopes every cache entry to the ref that wrote it,
+# and Release runs on a tag. Each release is therefore a brand new scope that
+# can never see the previous release's cache — only the default branch's. The
+# only Rust cache main used to hold came from CI's `rust` job, which is a debug
+# build for the host under a different key, so every release recompiled ~500
+# dependencies from scratch: 17 minutes of a 23-minute release.
+#
+# This is a cache warmer, not a gate. It fails open — a miss only costs the
+# next release the compile it was already paying.
+on:
+  push:
+    branches: [main]
+    # Frontend-only pushes cannot change what this builds. The restore key
+    # ignores the lockfile hash, so releases still restore a cache warmed
+    # several commits ago; it only has to be refreshed when the Rust inputs
+    # actually move.
+    paths:
+      - "src-tauri/Cargo.toml"
+      - "src-tauri/Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/release-cache.yml"
+  # Actions evicts caches untouched for 7 days. Releases are less frequent than
+  # that, so refresh it on a schedule to keep releases off the cold path.
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One warm build at a time; a newer commit's cache supersedes an older one.
+concurrency:
+  group: release-cache
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          # Must stay identical to the Release workflow's. shared-key replaces
+          # the job-name component of the key, which is exactly what kept these
+          # two apart (`v0-rust-release-…` vs `v0-rust-rust-…`).
+          shared-key: aarch64-apple-darwin-release
+
+      # tauri-build compiles the resource list from tauri.conf.json, which names
+      # the sidecar runtime. Nothing here launches it.
+      - name: Stub the Synara runtime resource for compilation
+        run: |
+          mkdir -p src-tauri/synara-runtime
+          echo stub > src-tauri/synara-runtime/placeholder.txt
+
+      # generate_context! embeds the frontend at compile time. The build is
+      # cheap next to the Rust compile and removes any question of whether a
+      # missing dist/ would derail it.
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      # LATTICE_FIRECRAWL_KEY is deliberately absent. rust-cache prunes
+      # workspace crates from the target dir before saving (cache-workspace-
+      # crates defaults to false), so this crate's own artifacts — the only
+      # place an option_env! secret could land — never reach the cache. The
+      # release rebuilds them with the key.
+      - name: Warm the dependency graph
+        run: |
+          cargo build \
+            --release \
+            --target aarch64-apple-darwin \
+            --manifest-path src-tauri/Cargo.toml

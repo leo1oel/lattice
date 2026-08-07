@@ -39,6 +39,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          # Restores the warm dependency build from release-cache.yml. The key
+          # has to match that workflow's exactly, so it comes from shared-key
+          # rather than the job name — see the header there for why a tag can
+          # only ever read the default branch's cache.
+          shared-key: aarch64-apple-darwin-release
+          # Anything saved here lands in this tag's scope, which no later
+          # release can read. Skip the upload; release-cache.yml owns writing.
+          save-if: false
 
       - run: pnpm install --frozen-lockfile
 
