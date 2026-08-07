@@ -5,8 +5,27 @@ on:
     branches: [main]
   pull_request:
 
+# The frontend work is split so the wall clock is the slowest single job rather
+# than the sum of every check. `pnpm test` dominates at ~160s, so it runs alone;
+# lint and the production build together still finish well inside that, and the
+# Rust job is shorter than either. Nothing is skipped — this only stops the
+# checks from queueing behind each other.
 jobs:
-  frontend:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  lint-and-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -19,7 +38,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
-      - run: pnpm test
       - run: pnpm build
 
   rust:
@@ -32,6 +50,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          # Writing the cache costs ~25s on every run. Only the main branch can
+          # produce a cache that later runs reuse, so pull requests read it and
+          # skip the upload.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # Cargo compiles Tauri's resource manifest, but these tests never launch
       # the bundled service. The release workflow prepares the real pinned
       # runtime before packaging.

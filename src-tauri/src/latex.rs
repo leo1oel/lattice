@@ -22,10 +22,21 @@ pub fn new_active_build() -> ActiveBuild {
     Arc::new(Mutex::new(ActiveBuildState::default()))
 }
 
+/// Take the lock, recovering from poisoning.
+///
+/// The guarded state is two plain scalars, so a thread that panicked while
+/// holding this lock cannot have left them half-written — there is nothing to
+/// protect against by refusing the lock forever. Refusing it was actively
+/// harmful: `panic = "abort"` is deliberately off in this crate so an unrelated
+/// panic never kills the app with unsaved edits, which makes a poisoned mutex a
+/// reachable state, and every build after that answered "cancelled" for the
+/// rest of the session.
+fn state(active: &ActiveBuild) -> std::sync::MutexGuard<'_, ActiveBuildState> {
+    active.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 pub fn abort(active: &ActiveBuild) -> Result<bool, String> {
-    let mut guard = active
-        .lock()
-        .map_err(|_| "Build state is unavailable.".to_string())?;
+    let mut guard = state(active);
     if guard.pid.is_none() && !guard.cancelled {
         return Ok(false);
     }
@@ -51,9 +62,7 @@ fn terminate_process_group(pid: u32) {
 }
 
 fn begin_active(active: &ActiveBuild, pid: u32) -> Result<(), String> {
-    let mut guard = active
-        .lock()
-        .map_err(|_| "Build state is unavailable.".to_string())?;
+    let mut guard = state(active);
     if guard.pid.is_some() {
         return Err("A build is already running.".to_string());
     }
@@ -62,10 +71,11 @@ fn begin_active(active: &ActiveBuild, pid: u32) -> Result<(), String> {
     Ok(())
 }
 
+/// Returns whether this build was cancelled — never anything else. Reporting a
+/// build the user never stopped as cancelled hides its real outcome, log and
+/// all, which is what an unavailable lock used to do here.
 fn finish_active(active: &ActiveBuild) -> bool {
-    let Ok(mut guard) = active.lock() else {
-        return true;
-    };
+    let mut guard = state(active);
     guard.pid = None;
     let cancelled = guard.cancelled;
     guard.cancelled = false;
@@ -694,6 +704,35 @@ mod tests {
 
     fn temp_root() -> PathBuf {
         std::env::temp_dir().join(format!("lattice-latex-e2e-{}", Uuid::new_v4()))
+    }
+
+    #[test]
+    fn a_poisoned_build_lock_does_not_masquerade_as_a_cancelled_build() {
+        let active = new_active_build();
+        // `panic = "abort"` is off in this crate, so an unrelated panic taken
+        // while this lock is held poisons it for the rest of the session. That
+        // used to make every later build answer "cancelled", hiding its real
+        // result from the user with no way back but restarting the app.
+        let poisoner = Arc::clone(&active);
+        let _ = std::thread::spawn(move || {
+            let _guard = poisoner.lock().unwrap();
+            panic!("poison the build lock");
+        })
+        .join();
+        assert!(active.lock().is_err(), "the lock should now be poisoned");
+
+        assert!(!finish_active(&active), "a poisoned lock is not a cancellation");
+        assert!(!abort(&active).unwrap(), "nothing is running, so there is nothing to abort");
+
+        // And the state machine is still usable afterwards. No pid is aborted
+        // here on purpose: abort() signals a whole process group, and a made-up
+        // pid would signal whatever real group happens to hold that number.
+        begin_active(&active, std::process::id()).unwrap();
+        assert!(
+            begin_active(&active, std::process::id()).is_err(),
+            "a second build is still refused while one is registered",
+        );
+        assert!(!finish_active(&active), "an uncancelled build reports its own result");
     }
 
     #[test]
