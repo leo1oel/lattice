@@ -137,7 +137,7 @@ export function CreateProjectDialog(props: {
         <div className="modal-icon"><FileText size={20} /></div>
         <h2>Create a research project</h2>
         <p>
-          Lattice will create a {venue.label} preprint template, bibliography, project brief, and private conversation history.
+          Creates a {venue.label} preprint template with bibliography and project brief.
         </p>
         <label>
           Project name

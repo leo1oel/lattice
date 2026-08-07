@@ -154,7 +154,15 @@ class TableInsertControlsView {
         .catch(() => {});
     };
 
-    const stopAutoUpdate = autoUpdate(wrapper, container, reposition);
+    const stopAutoUpdate = autoUpdate(wrapper, container, reposition, {
+      // The overlay is absolutely positioned inside the same scrolled content
+      // as its table, so scrolling never changes their relative geometry —
+      // but the default ancestorScroll listener would re-measure every
+      // table's bars on every scroll frame (ruinous with many tables).
+      // Resizes and layout shifts still reposition via the remaining
+      // observers, and doc edits reconcile the overlay set wholesale.
+      ancestorScroll: false,
+    });
 
     // Reveal each bar when the pointer is in the table's last column / last row
     // (the edge the bar would grow). `:hover` on the bar itself (CSS) keeps it

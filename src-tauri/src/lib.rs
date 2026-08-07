@@ -2453,26 +2453,44 @@ async fn synctex_view(
         .map_err(|error| format!("The SyncTeX lookup stopped unexpectedly: {error}"))?
 }
 
+/// Announce a literature pipeline stage to the window. Best-effort: a stage
+/// the frontend never hears about only degrades the status line, never the
+/// import itself.
+fn emit_paper_progress(app: &tauri::AppHandle, stage: &str) {
+    use tauri::Emitter;
+    let _ = app.emit("paper-import-progress", stage);
+}
+
 #[tauri::command]
 async fn import_reference(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     input: String,
 ) -> Result<ImportResult, String> {
     let root = current_root(&state)?;
-    tauri::async_runtime::spawn_blocking(move || papers::import_reference(&root, &input))
-        .await
-        .map_err(|error| format!("The paper import task stopped unexpectedly: {error}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        papers::import_reference_with_progress(&root, &input, &|stage| {
+            emit_paper_progress(&app, stage);
+        })
+    })
+    .await
+    .map_err(|error| format!("The paper import task stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
 async fn fetch_paper(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     arxiv_id: String,
 ) -> Result<papers::FetchResult, String> {
     let root = current_root(&state)?;
-    tauri::async_runtime::spawn_blocking(move || papers::fetch_paper(&root, &arxiv_id))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        papers::fetch_paper_with_progress(&root, &arxiv_id, &|stage| {
+            emit_paper_progress(&app, stage);
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -2810,6 +2828,9 @@ pub fn run() {
             app.manage(AppState::from_environment());
             app.manage(synara::SynaraRuntime::new(app)?);
             synara::prewarm(app.handle().clone());
+            // After an update changed a tool pin, this rebuilds the uvx
+            // environment now instead of during the user's first import.
+            tauri::async_runtime::spawn_blocking(commands::prewarm_literature_tools);
             #[cfg(target_os = "macos")]
             {
                 macos_window::clear_launch_quarantine();

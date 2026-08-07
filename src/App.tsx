@@ -45,6 +45,7 @@ import { QuickOpenDialog } from "./quick-open-dialog";
 import { SearchPickerDialog, type SearchPickerItem } from "./search-picker-dialog";
 import { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
 import { parsePaperLinkPath } from "./paper-link";
+import { PAPER_IMPORT_PROGRESS_EVENT, paperImportStageLabel } from "./paper-import-progress";
 import type { CollabDialogMode } from "./collab-dialog";
 import { TexSetupWizard } from "./tex-setup-wizard";
 import {
@@ -824,6 +825,24 @@ function App() {
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [importInput, setImportInput] = useState("");
   const [importing, setImporting] = useState(false);
+  // Which network step the literature pipeline is in, from the backend's
+  // "paper-import-progress" events. Cleared by whichever operation owned the
+  // spinner; agent-driven imports run in a separate process and never emit.
+  const [paperImportStage, setPaperImportStage] = useState<string | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+    void listen<string>(PAPER_IMPORT_PROGRESS_EVENT, (event) => {
+      setPaperImportStage(event.payload);
+    }).then((dispose) => {
+      if (disposed) dispose();
+      else unlisten = dispose;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
   const [paperFetchStates, setPaperFetchStates] = useState<Record<string, "loading" | "success">>({});
   const paperFetchTimers = useRef<Record<string, number>>({});
   const [assetImporting, setAssetImporting] = useState(false);
@@ -2962,8 +2981,21 @@ function App() {
 
   const runBuild = useCallback(async (
     force = false,
-    options?: { immediatePreview?: boolean },
+    options?: { immediatePreview?: boolean; requested?: boolean },
   ) => {
+    // A project with no LaTeX document has nothing to compile. Autosave, a
+    // synctex jump and opening the project all reach here, and each of them
+    // turned a folder of Markdown notes into a red "Build failed" the reader
+    // never asked for. Someone pressing Build still gets told what to add.
+    if (!projectRef.current?.manifest.rootDocuments.length) {
+      if (options?.requested) {
+        setError(
+          "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings.",
+          "Build",
+        );
+      }
+      return;
+    }
     if (buildingRef.current) {
       buildQueued.current = true;
       return;
@@ -3083,7 +3115,7 @@ function App() {
 
   const compile = useCallback(async (force = false) => {
     if (!project) return;
-    await runBuild(force, { immediatePreview: true });
+    await runBuild(force, { immediatePreview: true, requested: true });
   }, [project, runBuild]);
   compileRef.current = compile;
 
@@ -3810,7 +3842,7 @@ function App() {
     try {
       await invoke("clean_project");
       setCleaning(false);
-      await runBuild(true);
+      await runBuild(true, { requested: true });
     } catch (reason) {
       setError(toMessage(reason));
       setCleaning(false);
@@ -4040,11 +4072,7 @@ function App() {
       // shared sources have synced. Building it now compiles the placeholder and
       // pops a spurious "compilation failed". The join flow defers the build and
       // triggers one once the real project has materialized (see onSynced).
-      //
-      // A folder with no LaTeX in it has nothing to compile either — opening a
-      // directory of Markdown notes used to greet the reader with a build error
-      // about a root document Lattice itself had invented.
-      if (!options?.deferInitialBuild && snapshot.manifest.rootDocuments.length > 0) {
+      if (!options?.deferInitialBuild) {
         void runBuild(false, { immediatePreview: true });
       }
       const rootDocument =
@@ -4259,11 +4287,7 @@ function App() {
         // the PDF never appears), then kick one explicitly once the project is
         // fully entered.
         await enterProject(snapshot, { deferInitialBuild: true });
-        // Same reason enterProject checks: reopening a folder of notes at
-        // startup should not open onto a build error.
-        if (snapshot.manifest.rootDocuments.length > 0) {
-          void runBuild(false, { immediatePreview: true });
-        }
+        void runBuild(false, { immediatePreview: true });
       } catch {
         cancelProjectTransition();
         // Folder gone — stay on the welcome screen.
@@ -4966,18 +4990,23 @@ function App() {
       // retrying, which surfaces the full message.
       const fetchNote = result.fetchError
         ?.trim().split("\n").filter((line) => line.trim()).pop()?.replace(/^Error:\s*/, "");
+      // "cite it with \cite{…}" over the old "as \cite{…}": the key's whole
+      // point is being pasted into the manuscript, so the notice hands over
+      // the exact command instead of assuming the reader parses BibTeX-ese.
+      const citeHint = result.citationKey ? ` — cite it with \\cite{${result.citationKey}}` : "";
       setNotice(result.alreadyImported
-        ? `“${result.title}” is already in Papers${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
+        ? `“${result.title}” is already in Papers${citeHint}.`
         : result.arxivId
           ? result.fetchError
-            ? `Cited “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}, but the full text could not be downloaded: ${fetchNote}`
-            : `Imported “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}.`
-          : `Cited “${result.title}”${result.citationKey ? ` as \\cite{${result.citationKey}}` : ""}. No full text to open.`);
+            ? `Added “${result.title}” to the bibliography${citeHint}. The full text could not be downloaded: ${fetchNote}`
+            : `Imported “${result.title}”${citeHint}.`
+          : `Added “${result.title}” to the bibliography${citeHint}. No full text to open.`);
     } catch (reason) {
       setError(toMessage(reason));
       throw reason instanceof Error ? reason : new Error(toMessage(reason));
     } finally {
       setImporting(false);
+      setPaperImportStage(null);
     }
   }, [collabSession, refreshHistory, refreshProject]);
 
@@ -5087,6 +5116,8 @@ function App() {
         return next;
       });
       setError(toMessage(reason));
+    } finally {
+      setPaperImportStage(null);
     }
   }, [collabSession, openPaper, refreshProject, tutorialActive, tutorialStep]);
 
@@ -7259,6 +7290,7 @@ function App() {
                   onDeletePaper={deletePaper}
                   onEditBibEntry={(paper) => void openEditBibEntry(paper)}
                   importInput={importInput}
+                  importStage={paperImportStage ? paperImportStageLabel(paperImportStage) : null}
                   setImportInput={setImportInput}
                   onImport={importPaper}
                   importing={importing}

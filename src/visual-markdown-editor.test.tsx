@@ -78,12 +78,12 @@ describe("VisualMarkdownEditor", () => {
     expect(markdownPreviewSyncPolicy(1_000)).toEqual({
       publicationIdleMs: 200,
       publicationMaxMs: 1_500,
-      peerScrollDelayMs: 0,
+      peerScrollSettleMs: 0,
     });
     expect(markdownPreviewSyncPolicy(LARGE_MARKDOWN_PREVIEW_THRESHOLD)).toEqual({
       publicationIdleMs: 1_000,
       publicationMaxMs: 5_000,
-      peerScrollDelayMs: 140,
+      peerScrollSettleMs: 140,
     });
   });
 

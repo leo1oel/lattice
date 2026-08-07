@@ -28,15 +28,22 @@ pub struct UvTool {
 
 /// Resolves arXiv ids, DOIs and titles to verified BibTeX, and owns the
 /// project's `.bib`.
+/// Pinned exactly, like ARXIV2MD below: `@latest` made uvx refresh PyPI
+/// metadata on every invocation, putting a network round trip (or three —
+/// add, tidy, remove each spawn their own) in front of every citation even
+/// when the cached environment was already current. With an exact pin a
+/// cached environment is reused without touching the network; the pin is
+/// bumped with app releases and `prewarm_literature_tools` rebuilds the
+/// environment right after an update instead of mid-import.
 pub const BIBCITE: UvTool = UvTool {
-    requirement: "bibcite-cli@latest",
+    requirement: "bibcite-cli==0.6.2",
     binary: "bibcite",
     override_env: "LATTICE_BIBCITE_BIN",
 };
 
 /// Converts an arXiv paper to markdown Lattice and the agent can read.
 pub const ARXIV2MD: UvTool = UvTool {
-    requirement: "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@acb75a68e408dbf6f788c64795b2aabce323f293",
+    requirement: "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@f7ac16ffd83ae063926f4e05aa5a2b2c4deafd45",
     binary: "arxiv2md",
     override_env: "LATTICE_ARXIV2MD_BIN",
 };
@@ -56,6 +63,38 @@ impl UvTool {
             .arg(self.requirement)
             .arg(self.binary);
         command
+    }
+}
+
+/// Build (or confirm) the cached environments for both literature tools so
+/// the first import after install or update does not pay the download-and-
+/// build cost while the user watches a spinner. Runs `--help` because it is
+/// the cheapest invocation that forces uvx to materialize the environment.
+/// Failures only log: the import path still builds on demand as before, and
+/// a machine without `uv` gets its real error from the first import.
+pub fn prewarm_literature_tools() {
+    for tool in [&BIBCITE, &ARXIV2MD] {
+        let started = std::time::Instant::now();
+        match tool.command().arg("--help").output() {
+            Ok(output) if output.status.success() => log::info!(
+                target: "lattice::literature",
+                "{} environment ready in {:.1}s",
+                tool.binary,
+                started.elapsed().as_secs_f32()
+            ),
+            Ok(output) => log::warn!(
+                target: "lattice::literature",
+                "{} prewarm exited with {}: {}",
+                tool.binary,
+                output.status,
+                String::from_utf8_lossy(&output.stderr).trim()
+            ),
+            Err(error) => log::warn!(
+                target: "lattice::literature",
+                "{} prewarm could not run: {error}",
+                tool.binary
+            ),
+        }
     }
 }
 
@@ -244,10 +283,13 @@ mod tests {
                 .windows(2)
                 .any(|pair| pair == ["--from", tool.requirement]));
         }
-        assert!(BIBCITE.requirement.ends_with("@latest"));
+        // An exact pin, never `@latest`: a floating requirement makes uvx
+        // refresh PyPI metadata on every bibcite invocation, which put a
+        // network round trip in front of each citation.
+        assert!(BIBCITE.requirement.starts_with("bibcite-cli=="));
         assert_eq!(
             ARXIV2MD.requirement,
-            "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@acb75a68e408dbf6f788c64795b2aabce323f293"
+            "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@f7ac16ffd83ae063926f4e05aa5a2b2c4deafd45"
         );
     }
 

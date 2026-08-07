@@ -13,10 +13,13 @@ use uuid::Uuid;
 // Schema 4 also normalizes converter block boundaries before hashing and
 // publishing the bundle, so schema-3 papers are rebuilt instead of waiting for
 // the editor to rewrite them after first open.
-const PAPER_SCHEMA_VERSION: u32 = 4;
+// Schema 5 folds ar5iv's "•" item glyphs into their bullets, rejoins
+// hard-wrapped paragraphs, and links the Contents section to its headings;
+// re-fetching a schema-4 paper re-converts it with those fixes.
+const PAPER_SCHEMA_VERSION: u32 = 5;
 const ASSET_MANIFEST_SCHEMA_VERSION: u32 = 1;
 const ARXIV2MD_REQUIREMENT: &str =
-    "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@acb75a68e408dbf6f788c64795b2aabce323f293";
+    "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@f7ac16ffd83ae063926f4e05aa5a2b2c4deafd45";
 /// The converter recorded on bundles built from the PDF text layer. Like the
 /// requirement above, this string is part of cache identity: bump it together
 /// with the `anydoc` dependency so bundles built by the old version rebuild.
@@ -56,24 +59,142 @@ struct PaperMetadata {
 
 type ImportedPaper = (String, PaperMetadata, bool, bool, Vec<String>);
 
+/// The HTML conversion carries rendering artifacts the reader would show
+/// verbatim: ar5iv's itemize glyph as list content ("- •"), prose
+/// hard-wrapped at the source's line width, and a plain-text Contents
+/// section. Fix the bytes once at import so every consumer — reader, agent,
+/// full-text search — sees clean markdown.
 fn normalize_imported_markdown(markdown: &str) -> String {
+    let collapsed = collapse_item_bullet_glyphs(markdown);
+    let unwrapped = unwrap_hard_wrapped_paragraphs(&collapsed);
+    let separated = separate_adjacent_blocks(&unwrapped);
+    link_contents_entries(&separated)
+}
+
+/// ar5iv marks every itemize entry with a literal "•" glyph, which the
+/// conversion emits as the item's entire first line. Fold the real content up
+/// into the marker so the reader shows one bullet instead of a bullet, a
+/// glyph, and a line break.
+fn collapse_item_bullet_glyphs(markdown: &str) -> String {
+    let lines = markdown.split('\n').collect::<Vec<_>>();
+    let mut out = Vec::with_capacity(lines.len());
+    let mut index = 0;
+    while index < lines.len() {
+        let line = lines[index];
+        if line.trim() == "- •" {
+            if let Some(next) = lines.get(index + 1).filter(|next| !next.trim().is_empty()) {
+                let indent = &line[..line.len() - line.trim_start().len()];
+                out.push(format!("{indent}- {}", next.trim_start()));
+                index += 2;
+                continue;
+            }
+        }
+        out.push(line.to_string());
+        index += 1;
+    }
+    out.join("\n")
+}
+
+/// Anything that must not be glued onto the previous prose line.
+fn is_block_start(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    if trimmed.is_empty() {
+        return true;
+    }
+    let ordered_item = {
+        let digits = trimmed.chars().take_while(|c| c.is_ascii_digit()).count();
+        digits > 0
+            && trimmed[digits..].starts_with(['.', ')'])
+            && trimmed[digits + 1..]
+                .chars()
+                .next()
+                .is_none_or(|c| c == ' ')
+    };
+    trimmed.starts_with('#')
+        || trimmed.starts_with("- ")
+        || trimmed == "-"
+        || trimmed.starts_with("* ")
+        || trimmed.starts_with("+ ")
+        || trimmed.starts_with('>')
+        || trimmed.starts_with('|')
+        || trimmed.starts_with('<')
+        || trimmed.starts_with("![")
+        || trimmed.starts_with("$$")
+        || trimmed.starts_with("```")
+        || trimmed.starts_with("~~~")
+        || trimmed.starts_with("---")
+        || trimmed.starts_with("===")
+        || trimmed.starts_with("___")
+        || trimmed.starts_with("[^")
+        || ordered_item
+}
+
+/// The converter hard-wraps paragraphs at the HTML source's line width, and
+/// the visual editor faithfully renders those single newlines — so one
+/// paragraph read as a stack of one-line fragments. Rejoin consecutive plain
+/// prose lines. Structural lines (headings, lists, tables, quotes, HTML
+/// anchors, math, fences), indented continuations, explicit hard breaks, and
+/// the YAML frontmatter all pass through untouched.
+fn unwrap_hard_wrapped_paragraphs(markdown: &str) -> String {
+    let lines = markdown.split('\n').collect::<Vec<_>>();
+    let mut out: Vec<String> = Vec::with_capacity(lines.len());
+    let mut index = 0;
+    if lines.first() == Some(&"---") {
+        out.push("---".to_string());
+        index = 1;
+        while index < lines.len() {
+            let line = lines[index];
+            out.push(line.to_string());
+            index += 1;
+            if line == "---" {
+                break;
+            }
+        }
+    }
+    let mut in_code = false;
+    let mut in_math = false;
+    while index < lines.len() {
+        let line = lines[index];
+        index += 1;
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code = !in_code;
+            out.push(line.to_string());
+            continue;
+        }
+        if !in_code && trimmed == "$$" {
+            in_math = !in_math;
+            out.push(line.to_string());
+            continue;
+        }
+        let continues_previous = !in_code
+            && !in_math
+            && !line.starts_with(char::is_whitespace)
+            && !is_block_start(line)
+            && out.last().is_some_and(|previous| {
+                !previous.starts_with(char::is_whitespace)
+                    && !is_block_start(previous)
+                    && !previous.ends_with("  ")
+                    && !previous.ends_with('\\')
+            });
+        if continues_previous {
+            let previous = out.last_mut().expect("checked by continues_previous");
+            previous.push(' ');
+            previous.push_str(line.trim_end());
+        } else {
+            out.push(line.to_string());
+        }
+    }
+    out.join("\n")
+}
+
+fn separate_adjacent_blocks(markdown: &str) -> String {
     let lines = markdown.split('\n').collect::<Vec<_>>();
     let mut normalized = Vec::with_capacity(lines.len() + 16);
     let mut in_display_math = false;
-    for (index, original) in lines.iter().enumerate() {
-        let previous = index
-            .checked_sub(1)
-            .and_then(|previous| lines.get(previous));
-        let line = if previous.is_some_and(|line| *line == "- •")
-            && !original.is_empty()
-            && !original.starts_with(char::is_whitespace)
-        {
-            format!("  {original}")
-        } else {
-            (*original).to_string()
-        };
-        normalized.push(line.clone());
-        if line == "$$" {
+    for (index, line) in lines.iter().enumerate() {
+        normalized.push((*line).to_string());
+        if *line == "$$" {
             in_display_math = !in_display_math;
         }
 
@@ -87,6 +208,98 @@ fn normalize_imported_markdown(markdown: &str) -> String {
         }
     }
     normalized.join("\n")
+}
+
+/// Rust twin of the vendored `toWikiLinkSlug` (open-knowledge-core
+/// utils/slug.ts): NFKD, strip combining marks, lowercase, collapse
+/// non-alphanumeric runs into single hyphens, trim edge hyphens. The two must
+/// stay in lockstep or Contents links stop landing on their headings.
+fn wiki_link_slug(text: &str) -> String {
+    use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
+    let mut slug = String::new();
+    let mut pending_hyphen = false;
+    for ch in text.trim().nfkd() {
+        if is_combining_mark(ch) {
+            continue;
+        }
+        if ch.is_alphanumeric() {
+            if pending_hyphen && !slug.is_empty() {
+                slug.push('-');
+            }
+            pending_hyphen = false;
+            slug.extend(ch.to_lowercase());
+        } else {
+            pending_hyphen = true;
+        }
+    }
+    slug
+}
+
+/// The converter's "## Contents" section lists section names as plain text.
+/// Rewrite every entry that names a real heading into an in-document link,
+/// using the same slug (and duplicate suffixing, in document order) the
+/// editor's HeadingAnchors decoration assigns — clicking an entry then
+/// scrolls the reader to that section. Entries with no matching heading stay
+/// plain text.
+fn link_contents_entries(markdown: &str) -> String {
+    let lines = markdown.split('\n').collect::<Vec<_>>();
+    let mut slug_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    let mut headings: Vec<(String, String)> = Vec::new();
+    let mut in_code = false;
+    for line in &lines {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code = !in_code;
+            continue;
+        }
+        if in_code {
+            continue;
+        }
+        let level = trimmed.chars().take_while(|c| *c == '#').count();
+        if (1..=6).contains(&level) && trimmed[level..].starts_with(' ') {
+            let text = trimmed[level + 1..].trim().to_string();
+            let base = wiki_link_slug(&text);
+            if base.is_empty() {
+                continue;
+            }
+            let count = slug_counts.entry(base.clone()).or_insert(0);
+            let slug = if *count == 0 {
+                base.clone()
+            } else {
+                format!("{base}-{count}")
+            };
+            *count += 1;
+            headings.push((text, slug));
+        }
+    }
+    let Some(contents_at) = lines.iter().position(|line| *line == "## Contents") else {
+        return markdown.to_string();
+    };
+    let mut consumed = vec![false; headings.len()];
+    let mut out: Vec<String> = lines.iter().map(|line| line.to_string()).collect();
+    for (offset, line) in lines[contents_at + 1..].iter().enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Some(text) = trimmed.strip_prefix("- ") else {
+            break;
+        };
+        let text = text.trim();
+        // Consume matches in order: the table of contents mirrors document
+        // order, so duplicate section names resolve to distinct headings.
+        let matched = headings
+            .iter()
+            .enumerate()
+            .find(|(i, (heading, _))| !consumed[*i] && heading == text);
+        if let Some((i, (_, slug))) = matched {
+            consumed[i] = true;
+            let indent = &line[..line.len() - trimmed.len()];
+            out[contents_at + 1 + offset] = format!("{indent}- [{text}](#{slug})");
+        }
+    }
+    out.join("\n")
 }
 
 #[derive(Debug, Deserialize)]
@@ -146,8 +359,16 @@ pub enum HistoryMode {
 ///
 /// A work with no full text is not a lesser citation: it appears in Papers and
 /// in the `.bib` exactly like the rest, just without anything to open.
-pub fn import_reference(root: &Path, input: &str) -> Result<ImportResult, String> {
-    import_reference_with_history(root, input, HistoryMode::Record)
+/// `progress` receives a stage id ("resolving", "fulltext", "overview")
+/// whenever the pipeline enters a network-bound step, so the UI can say what
+/// the spinner is waiting on. The agent CLI path and tests pass the no-op.
+pub fn import_reference_with_progress(
+    root: &Path,
+    input: &str,
+    progress: &dyn Fn(&str),
+) -> Result<ImportResult, String> {
+    let manifest = project::read_manifest(root)?;
+    import_citation(root, &manifest, input, HistoryMode::Record, progress)
 }
 
 pub(crate) fn import_reference_with_history(
@@ -156,11 +377,20 @@ pub(crate) fn import_reference_with_history(
     history: HistoryMode,
 ) -> Result<ImportResult, String> {
     let manifest = project::read_manifest(root)?;
-    import_citation(root, &manifest, input, history)
+    import_citation(root, &manifest, input, history, &|_| {})
 }
 
 /// Cache a complete, unfiltered arxiv2md conversion without touching the bibliography.
 pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> {
+    fetch_paper_with_progress(root, requested, &|_| {})
+}
+
+/// See `import_reference_with_progress` for the stage contract.
+pub fn fetch_paper_with_progress(
+    root: &Path,
+    requested: &str,
+    progress: &dyn Fn(&str),
+) -> Result<FetchResult, String> {
     let requested =
         parse_arxiv_id(requested).ok_or_else(|| "Enter a valid arXiv id or URL.".to_string())?;
     validate_arxiv_id(&requested)?;
@@ -194,6 +424,7 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
             reused: true,
         });
     }
+    progress("fulltext");
     let papers_root = project::safe_path(root, ".research/papers")?;
     fs::create_dir_all(&papers_root).map_err(err)?;
     let temp_root = papers_root.join(format!(".fetch-{}", Uuid::new_v4()));
@@ -204,6 +435,13 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
     // closure so a failure on any path cannot strand a `.fetch-*` directory in
     // the project; conversion errors were doing exactly that.
     let build = || -> Result<(), String> {
+        // The overview is independent of the conversion and an order of
+        // magnitude cheaper; fetching it concurrently hides its latency
+        // entirely behind arxiv2md's download-and-convert work.
+        let overview = std::thread::spawn({
+            let base = base.clone();
+            move || crate::alphaxiv::fetch_overview(&base)
+        });
         let (converted, converter) = convert_paper(&requested, &base, &output_dir, &output_path)?;
         let markdown = normalize_imported_markdown(&converted);
         fs::write(&output_path, &markdown).map_err(err)?;
@@ -234,7 +472,8 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
             ),
         )
         .map_err(err)?;
-        if let Ok(Some(blog)) = crate::alphaxiv::fetch_overview(&base) {
+        progress("overview");
+        if let Ok(Ok(Some(blog))) = overview.join() {
             fs::write(output_dir.join("blog.md"), blog).map_err(err)?;
         } else if dir.join("blog.md").is_file() {
             fs::copy(dir.join("blog.md"), output_dir.join("blog.md")).map_err(err)?;
@@ -987,6 +1226,7 @@ fn import_citation(
     manifest: &crate::models::ProjectManifest,
     query: &str,
     history: HistoryMode,
+    progress: &dyn Fn(&str),
 ) -> Result<ImportResult, String> {
     let query = query.trim();
     if query.is_empty() {
@@ -1003,6 +1243,7 @@ fn import_citation(
     };
     fs::write(&bibliography_path, &before).map_err(err)?;
 
+    progress("resolving");
     let citation_output = run_bibcite(&bibliography_path, query)?;
     let bibliography = fs::read_to_string(&bibliography_path).map_err(err)?;
     let citation_key = parse_citation_key(&citation_output)
@@ -1042,7 +1283,7 @@ fn import_citation(
     // the bibliography itself.
     let mut fetch_error = None;
     let fetched = match resolved_arxiv.as_deref() {
-        Some(id) => match fetch_paper(root, id) {
+        Some(id) => match fetch_paper_with_progress(root, id, progress) {
             Ok(fetched) => Some(fetched),
             Err(error) => {
                 fetch_error = Some(error);
@@ -1060,13 +1301,16 @@ fn import_citation(
                 .filter(|entry_url| is_web_url(entry_url))
                 .or_else(|| Some(query).filter(|typed| is_web_url(typed)))
             {
-                Some(page_url) => match fetch_web_reference(root, page_url) {
-                    Ok(fetched) => Some(fetched),
-                    Err(error) => {
-                        fetch_error = Some(error);
-                        None
+                Some(page_url) => {
+                    progress("fulltext");
+                    match fetch_web_reference(root, page_url) {
+                        Ok(fetched) => Some(fetched),
+                        Err(error) => {
+                            fetch_error = Some(error);
+                            None
+                        }
                     }
-                },
+                }
                 None => None,
             }
         }
@@ -1297,8 +1541,62 @@ mod tests {
         let source = "## Contents\n- Intro\n\n<a id=\"eq\"></a>\n$$\nx_{p} \\%\n$$\n\n- •\nContinuation with $x_{p}$\n";
         assert_eq!(
             normalize_imported_markdown(source),
-            "## Contents\n\n- Intro\n\n<a id=\"eq\"></a>\n\n$$\nx_{p} \\%\n$$\n\n- •\n  Continuation with $x_{p}$\n",
+            "## Contents\n\n- Intro\n\n<a id=\"eq\"></a>\n\n$$\nx_{p} \\%\n$$\n\n- Continuation with $x_{p}$\n",
         );
+    }
+
+    #[test]
+    fn folds_item_bullet_glyphs_into_their_markers() {
+        let source = "- •\n  $p(\\textbf{x}|c)$. First item.\n- •\n  Second item.\n  - •\n    Nested item.\n";
+        assert_eq!(
+            normalize_imported_markdown(source),
+            "- $p(\\textbf{x}|c)$. First item.\n- Second item.\n  - Nested item.\n",
+        );
+    }
+
+    #[test]
+    fn rejoins_hard_wrapped_paragraphs_but_not_structure() {
+        let source = "---\ntitle: \"T\"\nauthors: [\"A\", \"B\"]\n---\n\nOne sentence that was wrapped,\nand continues here.\nStill the same paragraph.\n\n## Heading stays\n\n- list item stays\n\n<a id=\"S1\"></a>\n\nNext paragraph after anchor,\nrejoined too.\n";
+        assert_eq!(
+            normalize_imported_markdown(source),
+            "---\ntitle: \"T\"\nauthors: [\"A\", \"B\"]\n---\n\nOne sentence that was wrapped, and continues here. Still the same paragraph.\n\n## Heading stays\n\n- list item stays\n\n<a id=\"S1\"></a>\n\nNext paragraph after anchor, rejoined too.\n",
+        );
+    }
+
+    #[test]
+    fn leaves_display_math_and_code_fences_unwrapped() {
+        let source = "Before math\n\n$$\na = b\n+ c\n$$\n\n```\nline one\nline two\n```\n";
+        assert_eq!(normalize_imported_markdown(source), source);
+    }
+
+    #[test]
+    fn links_contents_entries_to_their_headings() {
+        let source = "## Contents\n\n- 1 Introduction\n  - 1.1 Setup\n- Diffusion Models.\n- Diffusion Models.\n- No Such Section\n\n## 1 Introduction\n\n### 1.1 Setup\n\n#### Diffusion Models.\n\n#### Diffusion Models.\n";
+        let normalized = normalize_imported_markdown(source);
+        assert!(normalized.contains("- [1 Introduction](#1-introduction)"));
+        assert!(normalized.contains("  - [1.1 Setup](#1-1-setup)"));
+        // Duplicate section names consume headings in document order, with
+        // the same numeric suffixing HeadingAnchors applies.
+        assert!(normalized.contains("- [Diffusion Models.](#diffusion-models)\n"));
+        assert!(normalized.contains("- [Diffusion Models.](#diffusion-models-1)"));
+        // An entry with no matching heading stays plain text.
+        assert!(normalized.contains("- No Such Section"));
+    }
+
+    #[test]
+    fn slugs_match_the_editors_wiki_link_slugger() {
+        assert_eq!(
+            wiki_link_slug("2.1 Conditional Video Generation"),
+            "2-1-conditional-video-generation"
+        );
+        assert_eq!(wiki_link_slug("Why Video?"), "why-video");
+        assert_eq!(
+            wiki_link_slug("Simulating the SE(3) Action Space"),
+            "simulating-the-se-3-action-space"
+        );
+        // NFKD + combining-mark stripping, as in toWikiLinkSlug.
+        assert_eq!(wiki_link_slug("Café Décor"), "cafe-decor");
+        assert_eq!(wiki_link_slug("  --- "), "");
     }
 
     /// bibcite reports one indented JSON object and its diagnostics around it.
@@ -2075,7 +2373,7 @@ mod tests {
         let parent = std::env::temp_dir().join(format!("lattice-paper-e2e-{}", Uuid::new_v4()));
         fs::create_dir_all(&parent).unwrap();
         let root = project::create(&parent, "paper").unwrap();
-        let result = import_reference(&root, "1706.03762").unwrap();
+        let result = import_reference_with_progress(&root, "1706.03762", &|_| {}).unwrap();
         assert_eq!(result.arxiv_id, "1706.03762");
         assert_eq!(result.title, "Attention Is All You Need");
         assert!(root.join(&result.paper_path).exists());

@@ -26,7 +26,10 @@
  *     on PM transactions, scroller resize, chunk visibility flips, and a
  *     trailing scroll throttle for drift (skipped chunks above a table are
  *     sized by `contain-intrinsic-size` estimates, so the table's document
- *     offset can shift as chunks materialize).
+ *     offset can shift as chunks materialize). Burst-triggered passes measure
+ *     and animate only tables near the viewport; a trailing full pass
+ *     (FULL_RECONCILE_MS) reconciles the rest, so many-table documents do not
+ *     pay O(tables) per keystroke or per fallback scroll frame.
  *
  * **Why Web Animations and never `cell.style.transform = ...`:**
  * Header cells are ProseMirror-managed DOM. PM's DOMObserver watches the whole
@@ -67,6 +70,10 @@ const FROZEN_SHADOW = '0 2px 4px rgba(0, 0, 0, 0.08)';
 
 // Trailing throttle for drift recompute while scrolling (scroll-driven mode).
 const DRIFT_RECOMPUTE_MS = 150;
+
+// Trailing debounce for the full-document pass that reconciles tables the
+// near-viewport burst passes skipped.
+const FULL_RECONCILE_MS = 300;
 
 interface ScrollTimelineOptions {
   source: Element | null;
@@ -111,10 +118,22 @@ export function computeFreezeRange(
   return { startOffset, endOffset: startOffset + maxShift, maxShift };
 }
 
-interface AppliedFreeze {
-  key: string;
-  animations: Animation[];
-}
+type AppliedFreeze =
+  | {
+      kind: 'sd';
+      zIndex: string;
+      startOffset: number;
+      maxShift: number;
+      scrollMax: number;
+      animations: Animation[];
+    }
+  | { kind: 'in'; zIndex: string; shift: number; animations: Animation[] };
+
+// Reuse tolerance for the scroll-driven parameters. Sub-pixel measurement
+// jitter (async layout, fractional scroll offsets) must not cancel and
+// rebuild three animations per cell across every table in the document, and
+// a whole-pixel change is invisible in the freeze geometry.
+const FREEZE_EPSILON_PX = 2;
 
 // Last applied effect per cell. WeakMap so cells dropped by a PM re-render
 // release their entries — replacements start clean and get fresh animations
@@ -246,9 +265,16 @@ function applyScrollDrivenFreeze(
   scrollMax: number,
 ): void {
   const zIndex = cellZIndex(cell);
-  const key = `sd|${range.startOffset}|${range.maxShift}|${scrollMax}|${zIndex}`;
   const prev = appliedFreezes.get(cell);
-  if (prev?.key === key) return;
+  if (
+    prev?.kind === 'sd'
+    && prev.zIndex === zIndex
+    && Math.abs(prev.startOffset - range.startOffset) < FREEZE_EPSILON_PX
+    && Math.abs(prev.maxShift - range.maxShift) < FREEZE_EPSILON_PX
+    && Math.abs(prev.scrollMax - scrollMax) < FREEZE_EPSILON_PX
+  ) {
+    return;
+  }
   if (prev) for (const animation of prev.animations) animation.cancel();
 
   const base: ScrollDrivenAnimationOptions = { timeline, fill: 'both', easing: 'linear' };
@@ -261,7 +287,11 @@ function applyScrollDrivenFreeze(
     pseudoElement: '::before',
   });
   appliedFreezes.set(cell, {
-    key,
+    kind: 'sd',
+    zIndex,
+    startOffset: range.startOffset,
+    maxShift: range.maxShift,
+    scrollMax,
     animations: [transformAnimation, chromeAnimation, occluderAnimation],
   });
 }
@@ -269,12 +299,14 @@ function applyScrollDrivenFreeze(
 /** Fallback path (no ScrollTimeline): instant effect at the current shift. */
 function applyInstantFreeze(cell: HTMLTableCellElement, shift: number): void {
   const zIndex = cellZIndex(cell);
-  const key = `in|${shift}|${zIndex}`;
+  // Whole pixels only: this runs per scroll frame, and a fractional change
+  // in shift is invisible but would cancel and rebuild both animations.
+  const rounded = Math.round(shift);
   const prev = appliedFreezes.get(cell);
-  if (prev?.key === key) return;
+  if (prev?.kind === 'in' && prev.zIndex === zIndex && prev.shift === rounded) return;
   if (prev) for (const animation of prev.animations) animation.cancel();
   const animation = cell.animate(
-    [{ transform: `translateY(${shift}px)`, zIndex, boxShadow: FROZEN_SHADOW }],
+    [{ transform: `translateY(${rounded}px)`, zIndex, boxShadow: FROZEN_SHADOW }],
     { duration: 0, fill: 'forwards' },
   );
   const occluderAnimation = cell.animate([{ opacity: '1' }], {
@@ -282,7 +314,12 @@ function applyInstantFreeze(cell: HTMLTableCellElement, shift: number): void {
     fill: 'forwards',
     pseudoElement: '::before',
   });
-  appliedFreezes.set(cell, { key, animations: [animation, occluderAnimation] });
+  appliedFreezes.set(cell, {
+    kind: 'in',
+    zIndex,
+    shift: rounded,
+    animations: [animation, occluderAnimation],
+  });
 }
 
 function computeAndApplyFrozenHeaders(
@@ -290,13 +327,30 @@ function computeAndApplyFrozenHeaders(
   editorDom: HTMLElement,
   timeline: AnimationTimeline | null,
   onTableWrapper?: (wrapper: HTMLElement) => void,
+  nearOnly = false,
 ): void {
   const containerTop = scrollEl.getBoundingClientRect().top;
   const scrollTop = scrollEl.scrollTop;
   const scrollMax = scrollEl.scrollHeight - scrollEl.clientHeight;
+  const viewportHeight = scrollEl.clientHeight;
   const wrappers = editorDom.querySelectorAll<HTMLElement>('.tableWrapper');
   for (const wrapper of wrappers) {
     onTableWrapper?.(wrapper);
+    if (nearOnly) {
+      // A freeze is only visible while its table crosses the viewport. One
+      // wrapper rect decides relevance before the table and header
+      // measurements and any animation writes; a document of many tables
+      // pays for the handful near the viewport, not all of them. Far tables
+      // keep whatever animation they had — the caller schedules a full pass
+      // to reconcile them once the burst settles.
+      const wrapperRect = wrapper.getBoundingClientRect();
+      if (
+        wrapperRect.bottom < containerTop - viewportHeight
+        || wrapperRect.top > containerTop + viewportHeight * 2
+      ) {
+        continue;
+      }
+    }
     const table = wrapper.querySelector('table');
     if (!table) continue;
     const firstRow = table.querySelector('tbody')?.rows[0];
@@ -358,7 +412,9 @@ export const FrozenTableHeaders = Extension.create({
           let scrollEl: HTMLElement | null = null;
           let timeline: AnimationTimeline | null = null;
           let rafId: number | null = null;
+          let rafNearOnly = true;
           let driftTimer: ReturnType<typeof setTimeout> | null = null;
+          let fullReconcileTimer: ReturnType<typeof setTimeout> | null = null;
           let resizeObserver: ResizeObserver | null = null;
           let destroyed = false;
           // Wrappers whose chunk-visibility flips we listen to. Iterable so
@@ -366,22 +422,45 @@ export const FrozenTableHeaders = Extension.create({
           // wrapper anyway and the replacement is re-wired on the next pass.
           const cvWired = new Set<HTMLElement>();
 
-          const run = (): void => {
+          const run = (nearOnly: boolean): void => {
             if (destroyed || !scrollEl) return;
             computeAndApplyFrozenHeaders(
               scrollEl,
               editorView.dom as HTMLElement,
               timeline,
               wireChunkVisibility,
+              nearOnly,
             );
           };
 
-          const scheduleRun = (): void => {
+          const scheduleRun = (nearOnly = false): void => {
+            // Coalesced frames run near-only when every request this frame
+            // was near-only; one full request wins.
+            rafNearOnly &&= nearOnly;
             if (rafId != null) return;
             rafId = requestAnimationFrame(() => {
               rafId = null;
-              run();
+              const nearOnlyRun = rafNearOnly;
+              rafNearOnly = true;
+              run(nearOnlyRun);
             });
+          };
+
+          // Near-only passes leave far tables' animations stale (content
+          // growth above shifts their freeze windows). One trailing full pass
+          // reconciles everything after a burst of edits, resizes, or
+          // fallback-mode scrolling.
+          const scheduleFullReconcile = (): void => {
+            if (fullReconcileTimer != null) clearTimeout(fullReconcileTimer);
+            fullReconcileTimer = setTimeout(() => {
+              fullReconcileTimer = null;
+              run(false);
+            }, FULL_RECONCILE_MS);
+          };
+
+          const onLayoutShift = (): void => {
+            scheduleRun(true);
+            scheduleFullReconcile();
           };
 
           // Skipped chunks above a table are sized by contain-intrinsic-size
@@ -390,7 +469,7 @@ export const FrozenTableHeaders = Extension.create({
           function wireChunkVisibility(wrapper: HTMLElement): void {
             if (cvWired.has(wrapper)) return;
             cvWired.add(wrapper);
-            wrapper.addEventListener('contentvisibilityautostatechange', scheduleRun);
+            wrapper.addEventListener('contentvisibilityautostatechange', onLayoutShift);
           }
 
           const onScroll = (): void => {
@@ -400,15 +479,18 @@ export const FrozenTableHeaders = Extension.create({
               // can shift table offsets and the scroll range). Leading edge:
               // refresh once at the start of a scroll burst; trailing edge:
               // refresh after it settles.
-              if (driftTimer == null) scheduleRun();
+              if (driftTimer == null) scheduleRun(true);
               if (driftTimer != null) clearTimeout(driftTimer);
               driftTimer = setTimeout(() => {
                 driftTimer = null;
-                run();
+                run(false);
               }, DRIFT_RECOMPUTE_MS);
               return;
             }
-            scheduleRun();
+            // No compositor help: this runs per scroll frame, so it must pay
+            // only for tables near the viewport.
+            scheduleRun(true);
+            scheduleFullReconcile();
           };
 
           // Defer scroll-container lookup to after PM has mounted into the DOM.
@@ -433,7 +515,7 @@ export const FrozenTableHeaders = Extension.create({
             }
             scrollEl?.addEventListener('scroll', onScroll, { passive: true });
             if (scrollEl && typeof ResizeObserver !== 'undefined') {
-              resizeObserver = new ResizeObserver(scheduleRun);
+              resizeObserver = new ResizeObserver(onLayoutShift);
               // The scroller's box (viewport resizes, sidebar toggles) AND the
               // content (.ProseMirror): chunk materialization and async layout
               // (fonts, images) grow the content height without any PM
@@ -442,7 +524,7 @@ export const FrozenTableHeaders = Extension.create({
               resizeObserver.observe(scrollEl);
               resizeObserver.observe(editorView.dom as HTMLElement);
             }
-            run();
+            run(false);
           });
 
           return {
@@ -450,10 +532,12 @@ export const FrozenTableHeaders = Extension.create({
             // selection-only transactions cannot, and the rect reads in run()
             // force layout (including of skipped content-visibility chunks),
             // so guard on actual doc changes — same pattern as
-            // table-insert-controls.ts.
+            // table-insert-controls.ts. Typing pays only for nearby tables;
+            // the trailing full pass catches document-offset shifts below.
             update(view, prevState) {
               if (prevState.doc.eq(view.state.doc)) return;
-              run();
+              run(true);
+              scheduleFullReconcile();
             },
             destroy() {
               destroyed = true;
@@ -461,8 +545,9 @@ export const FrozenTableHeaders = Extension.create({
               resizeObserver?.disconnect();
               if (rafId != null) cancelAnimationFrame(rafId);
               if (driftTimer != null) clearTimeout(driftTimer);
+              if (fullReconcileTimer != null) clearTimeout(fullReconcileTimer);
               for (const wrapper of cvWired) {
-                wrapper.removeEventListener('contentvisibilityautostatechange', scheduleRun);
+                wrapper.removeEventListener('contentvisibilityautostatechange', onLayoutShift);
               }
               cvWired.clear();
               // Cancel lingering fill animations so a recycled DOM subtree

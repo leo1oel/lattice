@@ -57,9 +57,7 @@ export function TexSetupWizard(props: {
     try {
       await invoke("start_tex_install", { kind });
       trace.note("Installer launched in Terminal");
-      setLocalStatus(
-        "Terminal opened. When it finishes, click Recheck here. Already-installed pieces are skipped.",
-      );
+      setLocalStatus("Terminal opened. Click Recheck when it finishes.");
     } catch (reason) {
       trace.fail(reason);
     } finally {
@@ -75,12 +73,12 @@ export function TexSetupWizard(props: {
         <div className="modal-icon"><Wrench size={18} /></div>
         <h2>Install LaTeX to compile</h2>
         <p>
-          Pick one option. Lattice opens Terminal and installs everything needed for PDF compile.
+          Lattice opens Terminal and installs everything needed to compile PDFs.
         </p>
 
         {checked && !ready && (
           <InlineMessage level="error" className="tex-setup-banner">
-            LaTeX is not ready on this Mac yet. Click Install BasicTeX below (or MacTeX if you prefer the full install).
+            LaTeX is not installed on this Mac yet.
           </InlineMessage>
         )}
 
@@ -100,10 +98,7 @@ export function TexSetupWizard(props: {
             <span className="tex-setup-option-icon"><Package size={16} /></span>
             <span className="tex-setup-option-copy">
               <strong>Install BasicTeX</strong>
-              <span>
-                About {TEX_INSTALL_SIZE_HINT.basic}. Recommended for most papers.
-                Safe to click again if something is still missing.
-              </span>
+              <span>About {TEX_INSTALL_SIZE_HINT.basic}. Recommended for most papers.</span>
             </span>
             {installing === "basic" && <InfinityLoader size={16} />}
           </button>

@@ -3901,6 +3901,7 @@ dependencies = [
  "tiny_http",
  "tokio",
  "tokio-tungstenite",
+ "unicode-normalization",
  "uuid",
  "walkdir",
  "zip 8.6.0",

@@ -1694,7 +1694,7 @@ describe("project workspace", () => {
     }));
     // The DOI must not be mistaken for an arXiv id, and the message has to
     // admit there is nothing to open rather than imply a paper was fetched.
-    await expectNotification(/Cited .Deep Residual Learning.*No full text to open/);
+    await expectNotification(/Added .Deep Residual Learning.*cite it with \\cite\{he2016deep\}.*No full text to open/);
   });
 
   it("shows imported papers by title while keeping the arXiv id", async () => {

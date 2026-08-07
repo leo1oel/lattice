@@ -556,6 +556,23 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     };
 
     let mut manifest = manifest;
+    // Retire a root document that was never there. Folders opened before this
+    // check inherited `default_manifest`'s main.tex whether or not they held any
+    // LaTeX, and that written-down claim outlived the fix that stopped making
+    // it — the folder still opened onto "Root document not found: main.tex".
+    // Only a folder with no .tex anywhere qualifies: a root document that is
+    // merely absent right now (mid-checkout, renamed, on a detached branch) is
+    // still the project's, and forgetting it would lose the reader's setting.
+    if !manifest.root_documents.is_empty()
+        && !manifest
+            .root_documents
+            .iter()
+            .any(|document| safe_path(&root, &document.path).is_ok_and(|path| path.is_file()))
+        && detect_root_document(&root).is_none()
+    {
+        manifest.root_documents.clear();
+        write_manifest(&root, &manifest)?;
+    }
     if apply_tex_magic_comments(&root, &mut manifest)? {
         write_manifest(&root, &manifest)?;
     }
@@ -3080,7 +3097,12 @@ pub fn write_bytes(root: &Path, relative: &str, base64_data: &str) -> Result<(),
 
 pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
     let path = safe_path(root, relative)?;
-    if !path.is_file() || classify_regular_file(&path)? == ContentKind::Text {
+    // SVG is the one supported image format whose bytes classify as text; it
+    // is still a figure to preview, not a source file to open in an editor.
+    let svg = path
+        .extension()
+        .is_some_and(|value| value.eq_ignore_ascii_case("svg"));
+    if !path.is_file() || (!svg && classify_regular_file(&path)? == ContentKind::Text) {
         return Err("Choose a binary project file.".to_string());
     }
     let size = fs::metadata(&path).map_err(err)?.len();
@@ -4702,6 +4724,56 @@ mod tests {
                 .first()
                 .map(|d| d.path.as_str()),
             Some("paper.tex"),
+        );
+
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn reopening_retires_a_root_document_that_was_never_there() {
+        let parent = temp_root("stale-root");
+        let root = parent.join("notes");
+        fs::create_dir_all(root.join(".research")).unwrap();
+        fs::write(root.join("big.md"), "# Notes\n").unwrap();
+        // What every Markdown folder opened before the fix carries: a root
+        // document the app named for it, pointing at a file that never existed.
+        let mut stale = default_manifest("notes");
+        stale.root_documents[0].path = "main.tex".to_string();
+        write_manifest(&root, &stale).unwrap();
+
+        let snapshot = open(&root).unwrap();
+        assert!(
+            snapshot.manifest.root_documents.is_empty(),
+            "the invented root should be retired: {:?}",
+            snapshot.manifest.root_documents,
+        );
+        // And the correction is written down, not recomputed on every open.
+        assert!(read_manifest(&root).unwrap().root_documents.is_empty());
+
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn reopening_keeps_a_root_document_that_is_only_missing_right_now() {
+        let parent = temp_root("absent-root");
+        let root = parent.join("paper");
+        fs::create_dir_all(root.join(".research")).unwrap();
+        // A .tex exists, so the named root is a setting worth keeping even
+        // though that particular file is not on disk at this moment.
+        fs::write(root.join("chapter.tex"), "\\section{One}\n").unwrap();
+        let mut manifest = default_manifest("paper");
+        manifest.root_documents[0].path = "main.tex".to_string();
+        write_manifest(&root, &manifest).unwrap();
+
+        let snapshot = open(&root).unwrap();
+        assert_eq!(
+            snapshot
+                .manifest
+                .root_documents
+                .first()
+                .map(|d| d.path.as_str()),
+            Some("main.tex"),
+            "a temporarily absent root is still the project's",
         );
 
         fs::remove_dir_all(parent).unwrap();

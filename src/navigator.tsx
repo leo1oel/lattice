@@ -1356,6 +1356,8 @@ export function Navigator(props: {
   setImportInput: (value: string) => void;
   onImport: () => void;
   importing: boolean;
+  /** Human-readable pipeline stage while an import or fetch is running. */
+  importStage?: string | null;
 }) {
   const paperImportRef = useRef<HTMLInputElement | null>(null);
   const renderPaperContextMenu = (
@@ -1418,6 +1420,12 @@ export function Navigator(props: {
             </button>
           )}
         />
+        {props.importStage && (
+          <div className="paper-import-stage" role="status">
+            <InfinityLoader size={12} />
+            <span>{props.importStage}</span>
+          </div>
+        )}
         <ScrollArea
           className="paper-list"
           orientation="both"

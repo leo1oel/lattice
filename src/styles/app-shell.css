@@ -472,6 +472,18 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .papers-section .ui-search-field.import-box[data-control-size="compact"] {
   height: var(--navigation-search-height);
 }
+.paper-import-stage {
+  width: calc(100% - var(--space-6));
+  margin-block-start: var(--space-2);
+  padding-inline: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  color: var(--text-tertiary);
+  font-size: var(--type-micro-size);
+}
+.paper-import-stage svg { flex: none; }
+.paper-import-stage span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .papers-section .ui-search-field.import-box[data-control-size="compact"] .ui-search-field-input {
   font-size: var(--navigation-search-font-size);
   line-height: var(--navigation-search-line-height);

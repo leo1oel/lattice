@@ -1012,6 +1012,10 @@ export function DocumentCanvas(props: {
   const markdownPreviewViewportRef = useRef<HTMLDivElement | null>(null);
   const markdownScrollSyncSuppressedRef = useRef(false);
   const markdownPreviewViewportLockRef = useRef(0);
+  // Populated by the split scroll coordinator; poked from the primary
+  // editor's update listener so cursor motion can reveal the matching
+  // preview block (VS Code-style cursor-driven synchronization).
+  const markdownCursorRevealRef = useRef<(() => void) | null>(null);
   const markdownPreviewOverflowAnchorRef = useRef("");
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<{ pane: EditorPaneId; cursor: number } | null>(null);
@@ -1273,6 +1277,7 @@ export function DocumentCanvas(props: {
     if (range.empty) setCommentComposer(null);
     updateSelectionToolbarRef.current(viewUpdate.view, activeFileRefEditor.current);
     reportEditorPositionRef.current?.(viewUpdate.view, activeFileRefEditor.current);
+    markdownCursorRevealRef.current?.();
   }, []);
   const onSecondaryChange = useCallback((value: string) => {
     setSecondarySourceRef.current(value);
@@ -2200,11 +2205,13 @@ export function DocumentCanvas(props: {
     let editorFrame: number | null = null;
     let editorFrameMeasureAnchors = false;
     let previewFrame: number | null = null;
+    let previewFrameMeasureAnchors = false;
     let settledSyncTimer: number | null = null;
     let settledSyncOwner: "editor" | "preview" = "editor";
     let anchorsDirty = true;
     let cachedEditorToPreview: Array<{ from: number; to: number }> = [];
     let cachedPreviewToEditor: Array<{ from: number; to: number }> = [];
+    let cachedAnchorRanges: Array<{ from: number; to: number; element: HTMLElement }> = [];
     const scrollRanges = () => ({
       editor: Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight),
       preview: Math.max(0, preview.scrollHeight - preview.clientHeight),
@@ -2217,10 +2224,12 @@ export function DocumentCanvas(props: {
       );
       const previewRect = preview.getBoundingClientRect();
       const pairs: Array<{ editor: number; preview: number }> = [];
+      const ranges: Array<{ from: number; to: number; element: HTMLElement }> = [];
       for (const anchor of sourceAnchors) {
         const previewFrom = Number(anchor.dataset.sourceOffset);
         const previewTo = Number(anchor.dataset.sourceEndOffset);
         if (!Number.isFinite(previewFrom) || !Number.isFinite(previewTo)) continue;
+        ranges.push({ from: previewFrom, to: previewTo, element: anchor });
         const sourceFrom = clamp(markdownPreviewStart + previewFrom, 0, view.state.doc.length);
         const sourceTo = clamp(
           markdownPreviewStart + Math.max(previewFrom, previewTo - 1),
@@ -2244,10 +2253,34 @@ export function DocumentCanvas(props: {
       }
       cachedEditorToPreview = pairs.map((pair) => ({ from: pair.editor, to: pair.preview }));
       cachedPreviewToEditor = pairs.map((pair) => ({ from: pair.preview, to: pair.editor }));
+      cachedAnchorRanges = ranges;
       anchorsDirty = false;
     };
     const refreshAnchorsIfNeeded = () => {
       if (anchorsDirty) rebuildAnchorPairs();
+    };
+    // Measuring every anchor is O(document) and lands as a dropped frame when
+    // it runs on the scroll path. Rebuild the map ahead of time once the DOM
+    // quiets down after a publication, in idle time where available, so a
+    // burst's throttled follows can interpolate from a fresh cache and the
+    // lazy rebuild remains only a fallback.
+    let anchorPrebuild: number | null = null;
+    const usesIdleCallback = typeof window.requestIdleCallback === "function";
+    const cancelAnchorPrebuild = () => {
+      if (anchorPrebuild == null) return;
+      if (usesIdleCallback) window.cancelIdleCallback(anchorPrebuild);
+      else window.clearTimeout(anchorPrebuild);
+      anchorPrebuild = null;
+    };
+    const scheduleAnchorPrebuild = () => {
+      cancelAnchorPrebuild();
+      const run = () => {
+        anchorPrebuild = null;
+        if (anchorsDirty) rebuildAnchorPairs();
+      };
+      anchorPrebuild = usesIdleCallback
+        ? window.requestIdleCallback(run, { timeout: 1_000 })
+        : window.setTimeout(run, 200);
     };
     const syncPreviewFromEditor = (measureAnchors = true) => {
       if (scrollSyncBlocked()) return;
@@ -2272,13 +2305,13 @@ export function DocumentCanvas(props: {
       ignorePreviewScroll = true;
       preview.scrollTop = nextTop;
     };
-    const syncEditorFromPreview = () => {
+    const syncEditorFromPreview = (measureAnchors = true) => {
       if (scrollSyncBlocked()) return;
       if (ignorePreviewScroll) {
         ignorePreviewScroll = false;
         return;
       }
-      refreshAnchorsIfNeeded();
+      if (measureAnchors) refreshAnchorsIfNeeded();
       const ranges = scrollRanges();
       const editorHalf = view.scrollDOM.clientHeight / 2;
       const previewHalf = preview.clientHeight / 2;
@@ -2296,6 +2329,53 @@ export function DocumentCanvas(props: {
       view.scrollDOM.scrollTop = nextTop;
     };
 
+    // Cursor-driven reveal, VS Code style: when the source cursor lands on a
+    // block that is not visible in the preview (a click far away, a find
+    // jump, typing below the fold), bring that block to the middle of the
+    // preview viewport. A partially visible block is left alone — nudging it
+    // would fight the user's own preview scrolling, and it already shows the
+    // text being edited. Scroll gestures never arrive here; the coordinator
+    // above owns those.
+    let lastRevealHead = view.state.selection.main.head;
+    let revealTimer: number | null = null;
+    const revealPreviewAtCursor = () => {
+      if (scrollSyncBlocked()) return;
+      refreshAnchorsIfNeeded();
+      const offset = view.state.selection.main.head - markdownPreviewStart;
+      let best: { from: number; to: number; element: HTMLElement } | null = null;
+      for (const range of cachedAnchorRanges) {
+        // Half-open with a floor of one character, so a cursor on an empty
+        // block still matches it; prefer the tightest enclosing block.
+        if (offset < range.from || offset >= Math.max(range.to, range.from + 1)) continue;
+        if (!best || range.to - range.from <= best.to - best.from) best = range;
+      }
+      if (!best) return;
+      const rect = best.element.getBoundingClientRect();
+      const previewRect = preview.getBoundingClientRect();
+      if (rect.bottom > previewRect.top + 8 && rect.top < previewRect.bottom - 8) return;
+      const maxScroll = Math.max(0, preview.scrollHeight - preview.clientHeight);
+      const target = clamp(
+        preview.scrollTop + rect.top - previewRect.top - (preview.clientHeight - rect.height) / 2,
+        0,
+        maxScroll,
+      );
+      if (Math.abs(preview.scrollTop - target) <= 1) return;
+      ignorePreviewScroll = true;
+      preview.scrollTop = target;
+    };
+    const scheduleCursorReveal = () => {
+      const head = view.state.selection.main.head;
+      if (head === lastRevealHead) return;
+      lastRevealHead = head;
+      // Only cursor motion the user made in the source pane reveals; caret
+      // restores on unfocused editors (file switches, programmatic
+      // selection) must not move the preview.
+      if (!view.hasFocus) return;
+      if (revealTimer != null) window.clearTimeout(revealTimer);
+      revealTimer = window.setTimeout(revealPreviewAtCursor, 80);
+    };
+    markdownCursorRevealRef.current = scheduleCursorReveal;
+
     // Trackpad input can deliver several scroll events before the browser
     // paints. Synchronizing both panes for every event repeatedly walks and
     // measures the Markdown DOM, so coalesce each direction to one pass per
@@ -2310,49 +2390,59 @@ export function DocumentCanvas(props: {
         syncPreviewFromEditor(shouldMeasure);
       });
     };
-    const scheduleEditorFromPreview = () => {
+    const scheduleEditorFromPreview = (measureAnchors = true) => {
+      previewFrameMeasureAnchors ||= measureAnchors;
       if (previewFrame != null) return;
       previewFrame = window.requestAnimationFrame(() => {
         previewFrame = null;
-        syncEditorFromPreview();
+        const shouldMeasure = previewFrameMeasureAnchors;
+        previewFrameMeasureAnchors = false;
+        syncEditorFromPreview(shouldMeasure);
       });
     };
 
     // Large Markdown places two expensive, independently painted documents
-    // beside each other. Keep the pane under the pointer at native frame rate
-    // and reconcile its peer once the scroll burst settles. Smaller documents
-    // retain live synchronization, regardless of whether they are Paper/Blog
-    // or ordinary project Markdown.
-    const scheduleSettledSync = (owner: "editor" | "preview") => {
+    // beside each other (the split preview is a full editable ProseMirror
+    // tree, which cannot use content-visibility culling — see
+    // editor-globals.css on .ok-chunk-wrapper). The peer still follows every
+    // animation frame — anything sparser reads as stuttering during trackpad
+    // momentum — but burst follows interpolate purely from the cached anchor
+    // map, so the scroll path performs no DOM measurement. The one exact,
+    // freshly measured reconciliation runs after the gesture settles.
+    // Smaller documents may measure lazily on the scroll path itself,
+    // regardless of whether they are Paper/Blog or ordinary project Markdown.
+    const followPeer = (owner: "editor" | "preview") => {
       settledSyncOwner = owner;
+      if (owner === "editor") schedulePreviewFromEditor(false);
+      else scheduleEditorFromPreview(false);
       if (settledSyncTimer != null) window.clearTimeout(settledSyncTimer);
       settledSyncTimer = window.setTimeout(() => {
         settledSyncTimer = null;
         if (settledSyncOwner === "editor") syncPreviewFromEditor();
         else syncEditorFromPreview();
-      }, markdownSyncPolicy.peerScrollDelayMs);
+      }, markdownSyncPolicy.peerScrollSettleMs);
     };
 
     const ownEditorScroll = () => {
       if (scrollSyncBlocked()) return;
-      if (markdownSyncPolicy.peerScrollDelayMs > 0) {
+      if (markdownSyncPolicy.peerScrollSettleMs > 0) {
         if (ignoreEditorScroll) {
           ignoreEditorScroll = false;
           return;
         }
-        scheduleSettledSync("editor");
+        followPeer("editor");
       } else {
         schedulePreviewFromEditor();
       }
     };
     const ownPreviewScroll = () => {
       if (scrollSyncBlocked()) return;
-      if (markdownSyncPolicy.peerScrollDelayMs > 0) {
+      if (markdownSyncPolicy.peerScrollSettleMs > 0) {
         if (ignorePreviewScroll) {
           ignorePreviewScroll = false;
           return;
         }
-        scheduleSettledSync("preview");
+        followPeer("preview");
       } else {
         scheduleEditorFromPreview();
       }
@@ -2362,9 +2452,10 @@ export function DocumentCanvas(props: {
     const observer = new MutationObserver(() => {
       // Source labels and child nodes change after every settled visual edit.
       // Measuring every block here forces a full layout after each source
-      // publication. Mark the map stale and rebuild only when the user next
-      // scrolls either pane.
+      // publication. Mark the map stale and remeasure once the mutations
+      // stop, off the scroll path.
       anchorsDirty = true;
+      scheduleAnchorPrebuild();
     });
     observer.observe(preview, {
       attributes: true,
@@ -2374,6 +2465,7 @@ export function DocumentCanvas(props: {
     });
     const resizeObserver = new ResizeObserver(() => {
       anchorsDirty = true;
+      scheduleAnchorPrebuild();
     });
     resizeObserver.observe(preview);
     const previewContent = preview.firstElementChild;
@@ -2382,9 +2474,12 @@ export function DocumentCanvas(props: {
     // is measured lazily on the first real scroll after labels are available.
     schedulePreviewFromEditor(false);
     return () => {
+      markdownCursorRevealRef.current = null;
+      if (revealTimer != null) window.clearTimeout(revealTimer);
       if (editorFrame != null) window.cancelAnimationFrame(editorFrame);
       if (previewFrame != null) window.cancelAnimationFrame(previewFrame);
       if (settledSyncTimer != null) window.clearTimeout(settledSyncTimer);
+      cancelAnchorPrebuild();
       observer.disconnect();
       resizeObserver.disconnect();
       view.scrollDOM.removeEventListener("scroll", ownEditorScroll);
@@ -2394,7 +2489,7 @@ export function DocumentCanvas(props: {
     markdownDocument,
     markdownPreviewStart,
     markdownPreviewViewport,
-    markdownSyncPolicy.peerScrollDelayMs,
+    markdownSyncPolicy.peerScrollSettleMs,
     primaryScrollbarView,
     props.mode,
   ]);

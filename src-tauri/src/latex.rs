@@ -522,6 +522,22 @@ fn tlmgr_package_for_sty(sty: &str) -> &str {
     }
 }
 
+/// Conference styles (NeurIPS/ICML/ICLR) are not on CTAN — `tlmgr install` can
+/// never provide them. Lattice writes them into the project folder at creation,
+/// so a "not found" means the file went missing from the project, not from TeX.
+fn conference_template_venue(sty: &str) -> Option<&'static str> {
+    let lower = sty.to_ascii_lowercase();
+    if lower.starts_with("neurips") || lower.starts_with("nips") {
+        Some("NeurIPS")
+    } else if lower.starts_with("icml") {
+        Some("ICML")
+    } else if lower.starts_with("iclr") {
+        Some("ICLR")
+    } else {
+        None
+    }
+}
+
 fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     // Latexmk concatenates every pass; first-pass "undefined citation/ref" noise
     // should not inflate the warning count after a successful final run.
@@ -584,7 +600,16 @@ fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     let missing_sty = Regex::new(r"(?m)! LaTeX Error: File `([^']+\.sty)' not found\.").unwrap();
     if let Some(capture) = missing_sty.captures(log) {
         let sty = capture[1].to_string();
-        let pkg = tlmgr_package_for_sty(&sty);
+        let message = if let Some(venue) = conference_template_venue(&sty) {
+            format!(
+                "Missing style file `{sty}`. It is part of the {venue} template and belongs next to main.tex — tlmgr cannot install it. Copy it back from another copy of the project, or create a new {venue} project in Lattice and take its style file."
+            )
+        } else {
+            let pkg = tlmgr_package_for_sty(&sty);
+            format!(
+                "Missing LaTeX package `{sty}`. BasicTeX is missing extras for this template — in Terminal run: sudo tlmgr install {pkg}   (or: sudo tlmgr install collection-latexextra collection-fontsrecommended)"
+            )
+        };
         push_unique_diagnostic(
             &mut diagnostics,
             Diagnostic {
@@ -594,9 +619,7 @@ fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
                 end_line: None,
                 end_column: None,
                 level: "error".to_string(),
-                message: format!(
-                    "Missing LaTeX package `{sty}`. BasicTeX is missing extras for this template — in Terminal run: sudo tlmgr install {pkg}   (or: sudo tlmgr install collection-latexextra collection-fontsrecommended)"
-                ),
+                message,
             },
         );
     }
@@ -925,6 +948,30 @@ mod tests {
             }),
             "expected algorithms package hint, got {diagnostics:?}"
         );
+    }
+
+    #[test]
+    fn does_not_send_users_to_tlmgr_for_conference_template_styles() {
+        // NeurIPS/ICML/ICLR styles are not on CTAN; `tlmgr install neurips`
+        // fails and strands the user (they "installed everything" already).
+        for sty in ["neurips.sty", "icml2026.sty", "iclr2026_conference.sty"] {
+            let diagnostics =
+                parse_diagnostics(&format!("! LaTeX Error: File `{sty}' not found.\n"));
+            let hint = diagnostics
+                .iter()
+                .find(|item| item.message.contains(sty))
+                .unwrap_or_else(|| panic!("expected a hint for {sty}, got {diagnostics:?}"));
+            assert!(
+                !hint.message.contains("tlmgr install"),
+                "must not suggest tlmgr for {sty}: {}",
+                hint.message
+            );
+            assert!(
+                hint.message.contains("next to main.tex"),
+                "must point at the project folder for {sty}: {}",
+                hint.message
+            );
+        }
     }
 
     #[test]

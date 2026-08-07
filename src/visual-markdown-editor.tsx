@@ -64,7 +64,10 @@ import { notifyError } from "./app-notify";
 import { dismissAppToastByDedupeKey } from "./app-log-store";
 import Zoom from "react-medium-image-zoom";
 import { Check, X } from "lucide-react";
-import { markdownPreviewSyncPolicy } from "./markdown-preview-sync-policy";
+import {
+  LARGE_MARKDOWN_PREVIEW_THRESHOLD,
+  markdownPreviewSyncPolicy,
+} from "./markdown-preview-sync-policy";
 
 const EMPTY_MACROS: Record<string, string> = {};
 const VISUAL_LINK_INSERT_EVENT = "research-writer:visual-link-insert";
@@ -129,8 +132,26 @@ function cachedVisualContent(path: string, text: string): CachedVisualDocument["
 
 type VisualSourceRange = { from: number; to: number };
 
+// One-slot parse memo. Block labeling, envelope splicing, and caret mapping
+// all parse the same one or two strings several times per publication; a
+// larger cache would only hold dead documents alive.
+let cachedMdastText: string | null = null;
+let cachedMdastChildren:
+  | ReturnType<ReturnType<typeof getMarkdownManager>["parseToEditorMdast"]>["children"]
+  | null = null;
+
+function parseEditorMdastChildrenCached(
+  text: string,
+): NonNullable<typeof cachedMdastChildren> {
+  if (cachedMdastText === text && cachedMdastChildren) return cachedMdastChildren;
+  const children = getMarkdownManager().parseToEditorMdast(text).children;
+  cachedMdastText = text;
+  cachedMdastChildren = children;
+  return children;
+}
+
 function visualSourceRanges(text: string, blockCount: number): VisualSourceRange[] {
-  const sourceNodes = getMarkdownManager().parseToEditorMdast(text).children;
+  const sourceNodes = parseEditorMdastChildrenCached(text);
   const direct = sourceNodes.flatMap((node) => {
     const from = node.position?.start.offset;
     const to = node.position?.end.offset;
@@ -171,7 +192,7 @@ function visualSourceRanges(text: string, blockCount: number): VisualSourceRange
  * variant reports failure instead and its callers fall back.
  */
 function exactVisualSourceRanges(text: string, blockCount: number): VisualSourceRange[] | null {
-  const sourceNodes = getMarkdownManager().parseToEditorMdast(text).children;
+  const sourceNodes = parseEditorMdastChildrenCached(text);
   if (sourceNodes.length !== blockCount) return null;
   const ranges: VisualSourceRange[] = [];
   let previousEnd = 0;
@@ -341,12 +362,68 @@ function proseMirrorPositionForSourceOffset(
   }
 }
 
+/**
+ * Large documents cannot afford the whole-document sentinel serialization
+ * below on every caret move. When each rendered block maps exactly onto one
+ * source range, serializing only the caret's top-level block recovers the
+ * offset at a fraction of the cost. The intra-block position comes from the
+ * serializer's canonical form of that one block, so inside an edited,
+ * not-yet-published block it can drift by the serializer's normalization;
+ * the offset is clamped into the block's source range either way.
+ */
+function blockSourceOffsetForPosition(
+  editor: Editor,
+  position: number,
+  expectedMarkdown: string,
+): { markdown: string; offset: number } | null {
+  const doc = editor.state.doc;
+  const ranges = exactVisualSourceRanges(expectedMarkdown, doc.childCount);
+  if (!ranges) return null;
+  const at = Math.min(Math.max(position, 0), doc.content.size);
+  const resolved = doc.resolve(at);
+  const blockIndex = Math.min(resolved.index(0), doc.childCount - 1);
+  const range = ranges[blockIndex];
+  if (!range) return null;
+  // A caret between blocks, or on a non-text block (a horizontal rule, a
+  // selected figure), has no character-precise source position to recover.
+  if (resolved.depth === 0 || !resolved.parent.isTextblock) {
+    return { markdown: expectedMarkdown, offset: range.from };
+  }
+  try {
+    const transaction = editor.state.tr;
+    for (let depth = 1; depth <= resolved.depth; depth += 1) {
+      if (resolved.node(depth).type.name === "jsxComponent") {
+        transaction.setNodeAttribute(resolved.before(depth), "sourceDirty", true);
+      }
+    }
+    const sentinel = cursorSentinel(expectedMarkdown);
+    const marked = transaction.insertText(sentinel, at).doc;
+    if (marked.childCount !== doc.childCount) return null;
+    const serialized = getMarkdownManager().serialize({
+      type: "doc",
+      content: [marked.child(blockIndex).toJSON()],
+    });
+    const index = serialized.indexOf(sentinel);
+    if (index < 0) return null;
+    return {
+      markdown: expectedMarkdown,
+      offset: Math.min(range.from + index, range.to),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Serialize a temporary PM marker to obtain the exact canonical source caret. */
 function sourceOffsetForProseMirrorPosition(
   editor: Editor,
   position: number,
   expectedMarkdown: string,
 ): { markdown: string; offset: number } | null {
+  if (expectedMarkdown.length >= LARGE_MARKDOWN_PREVIEW_THRESHOLD) {
+    const blockScoped = blockSourceOffsetForPosition(editor, position, expectedMarkdown);
+    if (blockScoped) return blockScoped;
+  }
   const doc = editor.state.doc;
   const sentinel = cursorSentinel(`${expectedMarkdown}\n${JSON.stringify(doc.toJSON())}`);
   try {
@@ -1442,7 +1519,12 @@ export function VisualMarkdownEditor({
       trackedChangeCloseTimer.current = null;
     };
   }, [hoveredChanges]);
+  const caretReportTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reportVisualCaret = useCallback((currentEditor: Editor, expectedMarkdown: string) => {
+    if (caretReportTimer.current) {
+      clearTimeout(caretReportTimer.current);
+      caretReportTimer.current = null;
+    }
     const callback = caretChangeRef.current;
     if (!callback) return;
     const mapped = sourceOffsetForProseMirrorPosition(
@@ -1458,6 +1540,21 @@ export function VisualMarkdownEditor({
     );
     callback(caret.row, caret.column);
     sourceCaretChangeRef.current?.(mapped.offset);
+  }, []);
+  // Selection updates arrive per keystroke, and recovering a caret's source
+  // offset costs a serialization pass. Coalesce to one report per interaction
+  // pause so editor transactions themselves stay cheap; explicit callers
+  // (publication flush) still report synchronously and cancel a pending one.
+  const scheduleVisualCaretReport = useCallback((currentEditor: Editor) => {
+    if (caretReportTimer.current) clearTimeout(caretReportTimer.current);
+    caretReportTimer.current = setTimeout(() => {
+      caretReportTimer.current = null;
+      if (currentEditor.isDestroyed) return;
+      reportVisualCaret(currentEditor, acceptedMarkdown.current);
+    }, 120);
+  }, [reportVisualCaret]);
+  useEffect(() => () => {
+    if (caretReportTimer.current) clearTimeout(caretReportTimer.current);
   }, []);
   const refreshVisualPresence = useCallback((currentEditor: Editor, markdown: string) => {
     if (currentEditor.isDestroyed || !presenceWasActive.current) return;
@@ -1928,10 +2025,10 @@ export function VisualMarkdownEditor({
       localUpdateMaxTimer.current ??= setTimeout(flushPendingLocalUpdate, policy.publicationMaxMs);
     },
     onSelectionUpdate: ({ editor: currentEditor }) => {
-      reportVisualCaret(currentEditor, acceptedMarkdown.current);
+      scheduleVisualCaretReport(currentEditor);
     },
     onFocus: ({ editor: currentEditor }) => {
-      reportVisualCaret(currentEditor, acceptedMarkdown.current);
+      scheduleVisualCaretReport(currentEditor);
     },
   // Recreate only when reading-mode chrome changes. File switches reuse this
   // instance via the path-swap layout effect below — remounting TipTap is what
@@ -1955,9 +2052,21 @@ export function VisualMarkdownEditor({
       });
     };
     wireLinks();
-    const observer = new MutationObserver(wireLinks);
+    // Every transaction mutates the subtree, and each pass queries every
+    // anchor in the document. Batch bursts of mutations into one pass; a
+    // fresh link becoming clickable a beat late is imperceptible.
+    let wireTimer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new MutationObserver(() => {
+      wireTimer ??= setTimeout(() => {
+        wireTimer = null;
+        wireLinks();
+      }, 200);
+    });
     observer.observe(editor.view.dom, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (wireTimer) clearTimeout(wireTimer);
+    };
   }, [editor]);
   const reconcileCanonical = useCallback((canonical: string) => {
     if (!editor || editor.isDestroyed || canonical === acceptedMarkdown.current) return;
