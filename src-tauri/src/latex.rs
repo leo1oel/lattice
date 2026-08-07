@@ -32,9 +32,15 @@ pub fn new_active_build() -> ActiveBuild {
 /// reachable state, and every build after that answered "cancelled" for the
 /// rest of the session.
 fn state(active: &ActiveBuild) -> std::sync::MutexGuard<'_, ActiveBuildState> {
-    active
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+    active.lock().unwrap_or_else(|poisoned| {
+        // Recovering silently would leave the panic that caused this invisible,
+        // and it is the only trace of it: whatever panicked did so on a thread
+        // whose failure nothing else reports. A build report that says
+        // "cancelled" with no cancellation is how this surfaced to users, and
+        // this line is what makes the next one diagnosable from the app log.
+        log::warn!("Build state lock was poisoned by an earlier panic; recovering it");
+        poisoned.into_inner()
+    })
 }
 
 pub fn abort(active: &ActiveBuild) -> Result<bool, String> {
