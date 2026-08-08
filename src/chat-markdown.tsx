@@ -113,7 +113,6 @@ function EditableMarkdownBlock({
     const finishAndRestoreFocus = (finish: () => void, cancelling = false) => {
       const root = editorRef.current?.closest(".chat-markdown");
       const host = root?.parentElement;
-      let focused: HTMLButtonElement | null = null;
       const focusEditButton = () => {
         const exact = host?.querySelector<HTMLButtonElement>(
           `.markdown-editable-block[data-source-line="${startLine}"][data-source-end-line="${endLine}"] > .markdown-block-edit-button`,
@@ -122,7 +121,6 @@ function EditableMarkdownBlock({
           `.markdown-editable-block[data-source-line="${startLine}"] > .markdown-block-edit-button`,
         );
         button?.focus();
-        focused = button ?? null;
         return Boolean(button);
       };
       cancellingRef.current = cancelling;
@@ -135,24 +133,37 @@ function EditableMarkdownBlock({
         // <body>. Keep re-aiming at the current button for the whole grace
         // window — stopping at the first success left focus on a dead node.
         //
-        // The trigger is the button we focused being *detached*, not merely
-        // focus sitting on <body>: focus the reader moved away deliberately
-        // leaves that button in the document, and yanking it back would fight
-        // the user. That precision is what lets the window be generous. It
-        // used to be one second, which is a bet on how long the rebuild takes
-        // — a loaded machine loses that bet, the last pass lands after the
-        // observer has gone, and focus is stranded on <body>.
-        const observer = new MutationObserver(() => {
+        // The trigger is *this block* being rebuilt, not merely focus sitting
+        // on <body>. Focus the reader dropped somewhere else is theirs to
+        // keep, and yanking it back would fight them; a rebuild of the block
+        // we just aimed at is the one case where <body> means the node holding
+        // focus was thrown away. Testing the button's own liveness instead
+        // misses the pass that replaces it without our seeing it detached.
+        //
+        // That precision is what lets the window be generous. It used to be
+        // one second, which is a bet on how long the rebuild takes — a loaded
+        // machine loses that bet, the last pass lands after the observer has
+        // gone, and focus stays stranded.
+        const blockSelector =
+          `.markdown-editable-block[data-source-line="${startLine}"]`;
+        const touchesBlock = (node: Node | null): boolean => {
+          const element = node instanceof Element ? node : node?.parentElement ?? null;
+          return Boolean(
+            element?.closest(blockSelector) ?? element?.querySelector(blockSelector),
+          );
+        };
+        const observer = new MutationObserver((records) => {
           if (!host.isConnected) {
             observer.disconnect();
             return;
           }
           const stranded = document.activeElement === null
             || document.activeElement === document.body;
-          // focused === null means the block had not re-rendered back into a
-          // button by the time we first looked, so there is nothing to protect
-          // yet and every mutation is worth another try.
-          if (stranded && (focused === null || !focused.isConnected)) focusEditButton();
+          if (!stranded) return;
+          const rebuilt = records.some((record) =>
+            touchesBlock(record.target)
+            || Array.from(record.addedNodes).some(touchesBlock));
+          if (rebuilt) focusEditButton();
         });
         observer.observe(host, { childList: true, subtree: true });
         window.setTimeout(() => observer.disconnect(), BLOCK_FOCUS_GRACE_MS);
