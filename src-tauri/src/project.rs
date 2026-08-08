@@ -287,6 +287,40 @@ fn validate_new_project_name(name: &str) -> Result<&str, String> {
     Ok(safe_name)
 }
 
+/// `.gitignore` entries for what a LaTeX run leaves beside the source.
+///
+/// Version tracking is what the agent's per-turn checkpoints are built on, so
+/// anything git watches here ends up inside a turn diff. A build rewrites all
+/// of these on every compile, and they are large and machine-generated — one
+/// `main.log` ran to 50 KB — which is enough to stall the review panel while it
+/// tries to render them, and enough to bury the actual edit the turn made.
+const BUILD_ARTIFACT_IGNORE_LINES: &[&str] = &[
+    "*.aux",
+    "*.bbl",
+    "*.bcf",
+    "*.blg",
+    "*.brf",
+    "*.dvi",
+    "*.fdb_latexmk",
+    "*.fls",
+    "*.idx",
+    "*.ilg",
+    "*.ind",
+    "*.lof",
+    "*.log",
+    "*.lot",
+    "*.nav",
+    "*.out",
+    "*.run.xml",
+    "*.snm",
+    "*.synctex",
+    "*.synctex.gz",
+    "*.toc",
+    "*.vrb",
+    "*.xdv",
+    "*-SAVE-ERROR",
+];
+
 fn prepare_project_skeleton(root: &Path) -> Result<(), String> {
     if root.exists() && fs::read_dir(root).map_err(err)?.next().is_some() {
         return Err("That folder already exists and is not empty.".to_string());
@@ -297,11 +331,18 @@ fn prepare_project_skeleton(root: &Path) -> Result<(), String> {
     fs::create_dir_all(root.join(".research/licenses")).map_err(err)?;
     fs::create_dir_all(root.join("figures")).map_err(err)?;
     fs::write(root.join(".research/.gitignore"), RESEARCH_GITIGNORE).map_err(err)?;
-    fs::write(
-        root.join(".gitignore"),
-        ".research/history/\n.research/sessions/\n.research/checkpoints/\n.research/cache/\n/main.pdf\n*.aux\n*.bbl\n*.blg\n*.fdb_latexmk\n*.fls\n*.log\n*.out\n*.synctex.gz\n",
-    )
-    .map_err(err)?;
+    let ignore = [
+        ".research/history/",
+        ".research/sessions/",
+        ".research/checkpoints/",
+        ".research/cache/",
+        "/main.pdf",
+    ]
+    .into_iter()
+    .chain(BUILD_ARTIFACT_IGNORE_LINES.iter().copied())
+    .map(|line| format!("{line}\n"))
+    .collect::<String>();
+    fs::write(root.join(".gitignore"), ignore).map_err(err)?;
     Ok(())
 }
 
@@ -507,6 +548,13 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     ensure_ignore_line(&root.join(".gitignore"), ".research/checkpoints/")?;
     ensure_ignore_line(&root.join(".gitignore"), ".research/cache/")?;
     ensure_ignore_line(&root.join(".research/.gitignore"), "cache/")?;
+    // A folder Lattice did not create gets the same artifact ignores a new
+    // project is born with. Version tracking usually starts here, so without
+    // them the first commit adopts every .log and .fls in the folder, and from
+    // then on each build dirties them and each agent turn diffs them.
+    for line in BUILD_ARTIFACT_IGNORE_LINES {
+        ensure_ignore_line(&root.join(".gitignore"), line)?;
+    }
 
     let manifest = if root.join(MANIFEST_PATH).exists() {
         read_manifest(&root)?
@@ -936,6 +984,12 @@ pub fn export_project_zip(root: &Path, zip_path: &Path) -> Result<(), String> {
             "*.fls",
             "-x",
             "*.out",
+            "-x",
+            "*.bcf",
+            "-x",
+            "*.run.xml",
+            "-x",
+            "*-SAVE-ERROR",
             "-x",
             "*.synctex.gz",
             "-x",
@@ -2747,16 +2801,36 @@ fn relocate_entry(
 
 fn remove_tex_build_artifacts(root: &Path, relative: &str) -> Result<(), String> {
     let tex_path = root.join(relative);
+    // Spelled out rather than derived from BUILD_ARTIFACT_SUFFIXES: that list
+    // carries a bare `.gz` for tree-hiding purposes, and deleting someone's
+    // `main.gz` because they renamed `main.tex` would be data loss.
     for extension in [
         "pdf",
         "aux",
         "bbl",
+        "bbl-SAVE-ERROR",
+        "bcf",
+        "bcf-SAVE-ERROR",
         "blg",
+        "brf",
+        "dvi",
         "fdb_latexmk",
         "fls",
+        "idx",
+        "ilg",
+        "ind",
+        "lof",
         "log",
+        "lot",
+        "nav",
         "out",
+        "run.xml",
+        "snm",
+        "synctex",
         "synctex.gz",
+        "toc",
+        "vrb",
+        "xdv",
     ] {
         let artifact = tex_path.with_extension(extension);
         match fs::remove_file(&artifact) {
@@ -5102,14 +5176,59 @@ fn file_kind(path: &Path) -> &'static str {
     }
 }
 
+/// Files a LaTeX run drops next to the source that nobody edits by hand.
+///
+/// Kept aligned with `overleaf::ARTIFACT_SUFFIXES`: a file the sync layer
+/// refuses to upload should not sit in the tree pretending to be project
+/// content. Matched against the whole file name rather than
+/// [`Path::extension`], because the ones that used to leak through are not
+/// single extensions — biblatex writes `main.run.xml`, and latexmk parks a run
+/// it could not finish at `main.bbl-SAVE-ERROR` (its `$save_error_suffix`).
+const BUILD_ARTIFACT_SUFFIXES: &[&str] = &[
+    ".aux",
+    ".bbl",
+    ".bcf",
+    ".blg",
+    ".brf",
+    ".dvi",
+    ".fdb_latexmk",
+    ".fls",
+    // Broader than `.synctex.gz` on purpose: this is what the extension-based
+    // check it replaced already hid, and narrowing it would surface archives
+    // that no project has ever shown in the tree.
+    ".gz",
+    ".idx",
+    ".ilg",
+    ".ind",
+    ".lof",
+    ".log",
+    ".lot",
+    ".nav",
+    ".out",
+    ".run.xml",
+    ".snm",
+    ".synctex",
+    ".toc",
+    ".vrb",
+    ".xdv",
+];
+
 fn is_build_artifact(path: &Path) -> bool {
     if path.extension().is_some_and(|ext| ext == "pdf") && path.with_extension("tex").exists() {
         return true;
     }
-    matches!(
-        path.extension().and_then(|ext| ext.to_str()),
-        Some("aux" | "bbl" | "blg" | "fls" | "fdb_latexmk" | "log" | "out" | "gz")
-    )
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    let lowercased = name.to_ascii_lowercase();
+    // latexmk renames instead of deleting whenever biber leaves behind a file
+    // it cannot trust, so every suffix above has a `-SAVE-ERROR` twin.
+    let stem = lowercased
+        .strip_suffix("-save-error")
+        .unwrap_or(&lowercased);
+    BUILD_ARTIFACT_SUFFIXES
+        .iter()
+        .any(|suffix| stem.ends_with(suffix))
 }
 
 fn latex_title(name: &str) -> String {
@@ -5154,6 +5273,45 @@ mod tests {
         let path = std::env::temp_dir().join(format!("research-writer-{label}-{}", Uuid::new_v4()));
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    #[test]
+    fn opening_a_folder_ignores_the_build_artifacts_it_will_recompile() {
+        let parent = temp_root("adopted-ignores");
+        let root = parent.join("imported");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("main.tex"), "\\documentclass{article}\n").unwrap();
+        // What an Overleaf import arrives with: a .gitignore that knows nothing
+        // about LaTeX. Version tracking starts here, so without these lines the
+        // first commit adopts the artifacts and every later build dirties them.
+        fs::write(root.join(".gitignore"), "node_modules/\n").unwrap();
+
+        open(&root).unwrap();
+
+        let ignore = fs::read_to_string(root.join(".gitignore")).unwrap();
+        for line in [
+            "*.aux",
+            "*.log",
+            "*.fls",
+            "*.fdb_latexmk",
+            "*.run.xml",
+            "*-SAVE-ERROR",
+        ] {
+            assert!(
+                ignore.lines().any(|existing| existing.trim() == line),
+                "{line} missing from {ignore}"
+            );
+        }
+        // Whatever the folder already ignored is still ignored.
+        assert!(ignore
+            .lines()
+            .any(|existing| existing.trim() == "node_modules/"));
+
+        // Opening twice must not append a second copy of the same rules.
+        open(&root).unwrap();
+        let reopened = fs::read_to_string(root.join(".gitignore")).unwrap();
+        assert_eq!(reopened, ignore);
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]
@@ -5907,6 +6065,49 @@ mod tests {
         assert!(files.iter().any(|file| file.path == "main.tex"));
         assert!(!files.iter().any(|file| file.path == "main.pdf"));
         assert!(files.iter().any(|file| file.path == "reading.pdf"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn biber_and_latexmk_leftovers_are_hidden_from_the_source_tree() {
+        let root = temp_root("biber-artifacts");
+        fs::write(root.join("main.tex"), "source").unwrap();
+        fs::write(root.join("references.bib"), "@article{a,}").unwrap();
+        // biblatex writes these two on every single build.
+        fs::write(root.join("main.bcf"), "<control/>").unwrap();
+        fs::write(root.join("main.run.xml"), "<requests/>").unwrap();
+        // latexmk saves rather than deletes what it cannot trust.
+        fs::write(root.join("main.bbl-SAVE-ERROR"), "stale").unwrap();
+        fs::write(root.join("main.toc"), "contents").unwrap();
+        // A .bib is not an artifact, and neither is an .xml a human wrote.
+        fs::write(root.join("data.xml"), "<rows/>").unwrap();
+
+        let files = scan_files(&root).unwrap();
+        let visible = files
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(visible, vec!["data.xml", "main.tex", "references.bib"]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renaming_a_source_removes_its_biber_leftovers() {
+        let root = temp_root("biber-artifact-cleanup");
+        fs::write(root.join("main.tex"), "source").unwrap();
+        fs::write(root.join("main.bcf"), "<control/>").unwrap();
+        fs::write(root.join("main.run.xml"), "<requests/>").unwrap();
+        fs::write(root.join("main.bbl-SAVE-ERROR"), "stale").unwrap();
+        // Same stem, not an artifact: renaming a source must not eat it.
+        fs::write(root.join("main.gz"), b"archive").unwrap();
+
+        remove_tex_build_artifacts(&root, "main.tex").unwrap();
+
+        assert!(!root.join("main.bcf").exists());
+        assert!(!root.join("main.run.xml").exists());
+        assert!(!root.join("main.bbl-SAVE-ERROR").exists());
+        assert!(root.join("main.gz").exists());
         fs::remove_dir_all(root).unwrap();
     }
 
