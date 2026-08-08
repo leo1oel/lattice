@@ -4,8 +4,10 @@ mod commands;
 mod doctor;
 mod firecrawl;
 mod format_latex;
+mod fs_watch;
 mod fts;
 mod git;
+mod harper;
 mod latex;
 mod link_preview;
 mod literature;
@@ -234,6 +236,35 @@ mod realtime_generation_tests {
         assert!(!projects.contains_key(Path::new("/project/gone")));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn closing_the_last_window_on_a_project_stops_its_build() {
+        use std::os::unix::process::CommandExt;
+        // A process this test owns, in its own group: abort signals a whole
+        // process group, so a made-up pid would be some other program's.
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .process_group(0)
+            .spawn()
+            .expect("spawn a stand-in build");
+        let state = super::AppState::from_environment();
+        let root = PathBuf::from("/project/building");
+        state.bind_window("project-1", root.clone()).unwrap();
+        super::latex::begin_for_test(&state.project(&root).active_build, child.id()).unwrap();
+
+        state.release_window("project-1");
+        state.retire_unused_projects();
+
+        let stopped = (0..100).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            matches!(child.try_wait(), Ok(Some(_)))
+        });
+        let _ = child.kill();
+        // Without this, latexmk keeps compiling into a project no window has
+        // open, with nothing left holding a handle to stop it.
+        assert!(stopped, "the build outlived the window that started it");
+    }
+
     #[test]
     fn a_window_instruction_is_handed_over_exactly_once() {
         let state = super::AppState::from_environment();
@@ -328,6 +359,10 @@ struct ProjectResources {
     overleaf_sync_lease: Arc<tokio::sync::RwLock<()>>,
     /// Serializes project-wide create/delete/rename/move catalog mutations.
     structural_mutation: Arc<tokio::sync::Mutex<()>>,
+    /// Filesystem watcher feeding `project-fs-changed` events; replaces the
+    /// frontend's 2-second refresh poll. Dropped with the project's resources
+    /// when the last window showing it closes.
+    fs_watcher: Mutex<Option<fs_watch::ProjectWatcher>>,
 }
 
 impl AppState {
@@ -383,6 +418,10 @@ impl AppState {
             if live.contains(root) {
                 return true;
             }
+            // A build outlives the window that started it otherwise: latexmk
+            // keeps compiling into a project nobody has open, and nothing is
+            // left watching for it to finish or holding a handle to stop it.
+            let _ = latex::abort(&resources.active_build);
             if let Ok(mut pool) = resources.texlab.lock() {
                 pool.reset();
             }
@@ -1478,6 +1517,39 @@ async fn run_doctor(
     // checks when that window has nothing open yet.
     let root = state.root_for(window.label()).ok().flatten();
     run_blocking("Doctor check", move || Ok(doctor::run(root.as_deref()))).await
+}
+
+#[tauri::command]
+fn watch_project(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+) -> Result<(), String> {
+    let root = current_root(&state, &window)?;
+    let resources = state.project(&root);
+    let mut watcher = match resources.fs_watcher.lock() {
+        Ok(watcher) => watcher,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    if watcher.is_some() {
+        return Ok(());
+    }
+    *watcher = Some(fs_watch::spawn(app, root)?);
+    Ok(())
+}
+
+#[tauri::command]
+async fn harper_lint(
+    text: String,
+    project_words: Vec<String>,
+) -> Result<Vec<harper::HarperLintOut>, String> {
+    // Pure text in/out — no project state. spawn_blocking keeps the multi-
+    // hundred-millisecond lint pass off the async reactor and (unlike the
+    // old in-webview WASM path) off the UI thread entirely.
+    run_blocking("harper_lint", move || {
+        Ok(harper::lint(&text, &project_words))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -3575,6 +3647,8 @@ pub fn run() {
             abort_build,
             clean_project,
             run_doctor,
+            harper_lint,
+            watch_project,
             texlab_diagnostics,
             texlab_completion,
             texlab_hover,

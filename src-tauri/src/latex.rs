@@ -72,6 +72,15 @@ fn terminate_process_group(pid: u32) {
     }
 }
 
+/// Register an already-running process as this project's build.
+///
+/// For tests that need a build in flight without launching latexmk. They must
+/// still hand over a process they own — abort signals a whole process group.
+#[cfg(test)]
+pub fn begin_for_test(active: &ActiveBuild, pid: u32) -> Result<(), String> {
+    begin_active(active, pid)
+}
+
 fn begin_active(active: &ActiveBuild, pid: u32) -> Result<(), String> {
     let mut guard = state(active);
     if guard.pid.is_some() {
