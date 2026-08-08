@@ -152,6 +152,7 @@ const CompileDiagnosticsPanel = lazy(() =>
   import("./compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
 );
 import {
+  diagnosticsFingerprint,
   flattenProjectPaths,
   resolveDiagnosticPath,
   type CompileDiagnostic,
@@ -762,6 +763,9 @@ function App() {
   const [diagnosticBuildSecondarySource, setDiagnosticBuildSecondarySource] = useState("");
   const [diagnosticsExpanded, setDiagnosticsExpanded] = useState(false);
   const [diagnosticsDismissed, setDiagnosticsDismissed] = useState(false);
+  /** Fingerprint of the diagnostics the reader last dismissed, so an unchanged
+   *  set stays dismissed through the recompiles that autosave keeps firing. */
+  const dismissedDiagnosticsRef = useRef<string | null>(null);
   const [building, setBuilding] = useState(false);
   const [papers, setPapers] = useState<PaperSummary[]>([]);
   const [citationKeys, setCitationKeys] = useState<string[]>([]);
@@ -3266,7 +3270,12 @@ function App() {
         }
         setDiagnosticBuildSource(compiledSource);
         setDiagnosticBuildSecondarySource(compiledSecondarySource);
-        setDiagnosticsDismissed(false);
+        // Reopening the panel is for news. Autosave rebuilds after every pause
+        // in typing, and reopening unconditionally meant a warning the writer
+        // had chosen to live with returned seconds after they dismissed it, for
+        // as long as they kept writing.
+        const nextDiagnostics = diagnosticsFingerprint(result.diagnostics);
+        setDiagnosticsDismissed(nextDiagnostics === dismissedDiagnosticsRef.current);
         setDiagnosticsExpanded(!result.success || result.diagnostics.some((item) => item.level === "error"));
         if (pdfBytes) {
           // LaTeX rewrites PDF metadata on every compile, so bytes almost always
@@ -7778,7 +7787,10 @@ function App() {
                   expanded={diagnosticsExpanded}
                   onExpandedChange={setDiagnosticsExpanded}
                   onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
-                  onDismiss={() => setDiagnosticsDismissed(true)}
+                  onDismiss={() => {
+                    dismissedDiagnosticsRef.current = diagnosticsFingerprint(build.diagnostics);
+                    setDiagnosticsDismissed(true);
+                  }}
                 />
               </Suspense>
             ) : null}

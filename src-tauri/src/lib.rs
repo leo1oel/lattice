@@ -841,10 +841,24 @@ async fn open_project_window(
         .hidden_title(true)
         .build();
     match built {
-        Ok(_) => Ok(OpenedProjectWindow {
-            label,
-            focused_existing: false,
-        }),
+        Ok(created) => {
+            // Every window needs the native chrome the first one gets in
+            // `setup`: without it the traffic lights sit where AppKit put
+            // them, a few points up and to the left of where this app's
+            // titlebar wants them, and live resize shows the bare backing
+            // surface along the growing edges.
+            #[cfg(target_os = "macos")]
+            {
+                macos_window::install_traffic_light_alignment(&created);
+                macos_window::apply_window_background(&created, false);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = created;
+            Ok(OpenedProjectWindow {
+                label,
+                focused_existing: false,
+            })
+        }
         Err(error) => {
             state.release_window(&label);
             state.retire_unused_projects();
@@ -3363,37 +3377,28 @@ async fn start_tex_install(kind: String) -> Result<(), String> {
 
 /// Keep native resize backing surfaces in sync with the web app theme.
 #[tauri::command]
-fn set_window_background(app: tauri::AppHandle, dark: bool) -> Result<(), String> {
+fn set_window_background(window: tauri::WebviewWindow, dark: bool) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        use tauri::Manager;
-        let window = app
-            .get_webview_window("main")
-            .ok_or_else(|| "Main window is unavailable.".to_string())?;
         macos_window::apply_window_background(&window, dark);
         Ok(())
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (app, dark);
+        let _ = (window, dark);
         Ok(())
     }
 }
 
 #[tauri::command]
 fn align_traffic_lights(
-    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     center_from_top: f64,
 ) -> Result<Option<f64>, String> {
     #[cfg(target_os = "macos")]
     {
-        use tauri::Manager;
-        let window = app
-            .get_webview_window("main")
-            .ok_or_else(|| "Main window is unavailable.".to_string())?;
-        if std::env::var_os("LATTICE_PROBE_FULLSCREEN").is_some() {
-            log::info!(target: "lattice::probe", "frontend sent center_from_top={center_from_top:.1}");
-        }
+        // The window that measured its own titlebar, not "main" — a second
+        // window used to move the first window's buttons and never its own.
         Ok(macos_window::align_traffic_lights_to(
             &window,
             center_from_top,
@@ -3401,7 +3406,7 @@ fn align_traffic_lights(
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (app, center_from_top);
+        let _ = (window, center_from_top);
         Ok(None)
     }
 }
@@ -3578,41 +3583,6 @@ pub fn run() {
         .setup(|app| {
             log::info!(target: "lattice::app", "Lattice {} starting", app.package_info().version);
             app.manage(AppState::from_environment());
-            // TEMP-PROBE-FULLSCREEN
-            if std::env::var_os("LATTICE_PROBE_FULLSCREEN").is_some() {
-                let handle = app.handle().clone();
-                std::thread::spawn(move || {
-                    let label = std::env::var("LATTICE_PROBE_FULLSCREEN").unwrap_or_default();
-                    let label = if label == "1" { "main".to_string() } else { label };
-                    let w = loop {
-                        if let Some(w) = handle.get_webview_window(&label) { break w; }
-                        std::thread::sleep(std::time::Duration::from_millis(500));
-                    };
-                    let log = |tag: &str, w: &tauri::WebviewWindow| {
-                        let ptr = w.ns_window().unwrap() as usize;
-                        let tag = tag.to_string();
-                        let _ = w.run_on_main_thread(move || unsafe {
-                            use objc2_app_kit::{NSWindow, NSWindowButton};
-                            use objc2::rc::Retained;
-                            let win = &*(ptr as *const NSWindow);
-                            let sv = win.standardWindowButton(NSWindowButton::CloseButton)
-                                .and_then(|b| b.superview());
-                            let svp = sv.as_ref().map(|v| Retained::as_ptr(v) as usize).unwrap_or(0);
-                            let bp = win.standardWindowButton(NSWindowButton::CloseButton)
-                                .map(|b| Retained::as_ptr(&b) as usize).unwrap_or(0);
-                            use objc2_app_kit::NSView;
-                            let cb = win.standardWindowButton(NSWindowButton::CloseButton).unwrap();
-                            let f = sv.as_ref().unwrap().convertRect_toView(NSView::frame(&cb), None);
-                            log::info!(target: "lattice::probe",
-                                "{tag} [{}]: close origin x={:.1} from_top={:.1} (superview={svp:#x} btn={bp:#x})",
-                                "", f.origin.x, win.frame().size.height - (f.origin.y + f.size.height));
-                        });
-                        std::thread::sleep(std::time::Duration::from_millis(400));
-                    };
-                    std::thread::sleep(std::time::Duration::from_secs(10));
-                    log("position", &w);
-                });
-            }
             app.manage(synara::SynaraRuntime::new(app)?);
             synara::prewarm(app.handle().clone());
             // After an update changed a tool pin, this rebuilds the uvx

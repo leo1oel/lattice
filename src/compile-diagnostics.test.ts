@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   diagnosticLocationLabel,
   diagnosticMatchesFile,
+  diagnosticsFingerprint,
   editorDiagnosticsForFile,
   flattenProjectPaths,
   normalizeDiagnosticPath,
@@ -65,5 +66,28 @@ describe("compile diagnostics helpers", () => {
       severity: "warning",
       message: "Undefined reference.",
     });
+  });
+});
+
+describe("diagnosticsFingerprint", () => {
+  const warning = { level: "warning", message: "Fonts are not Times.", file: "main.tex", line: 4 };
+  const error = { level: "error", message: "Missing $.", file: "main.tex", line: 9 };
+
+  it("ignores the order latexmk happened to emit the same set in", () => {
+    expect(diagnosticsFingerprint([warning, error]))
+      .toBe(diagnosticsFingerprint([error, warning]));
+  });
+
+  it("changes when a diagnostic is added, removed or edited", () => {
+    const base = diagnosticsFingerprint([warning]);
+    expect(diagnosticsFingerprint([warning, error])).not.toBe(base);
+    expect(diagnosticsFingerprint([])).not.toBe(base);
+    expect(diagnosticsFingerprint([{ ...warning, line: 5 }])).not.toBe(base);
+    expect(diagnosticsFingerprint([{ ...warning, message: "Something else." }])).not.toBe(base);
+  });
+
+  it("keeps one dismissal valid across the rebuilds autosave fires", () => {
+    // The same unfixed warning, recompiled: the panel must stay dismissed.
+    expect(diagnosticsFingerprint([warning])).toBe(diagnosticsFingerprint([{ ...warning }]));
   });
 });
