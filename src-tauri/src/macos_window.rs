@@ -97,6 +97,7 @@ fn window_background(dark: bool) -> (f64, f64, f64) {
 #[cfg(target_os = "macos")]
 pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
     schedule_traffic_light_alignment(window);
+    install_traffic_light_layout_observers(window);
 
     // AppKit performs a final titlebar layout after the window first appears.
     // Re-read the native frames after that pass instead of assuming the first
@@ -105,6 +106,85 @@ pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(120));
         schedule_traffic_light_alignment(&delayed);
+    });
+}
+
+/// Re-apply the alignment from inside AppKit's own layout passes.
+///
+/// Positioning the buttons is a one-shot write that the next titlebar layout
+/// undoes, and a live resize runs that layout on every frame of the drag. A
+/// realign driven from the web side can only run after the gesture settles, so
+/// the buttons sat visibly at their default top-left corner for as long as the
+/// user held the mouse and jumped back on release. These observers fire on the
+/// main thread as part of the same pass that displaced them, which is early
+/// enough that the default position is never presented.
+#[cfg(target_os = "macos")]
+fn install_traffic_light_layout_observers(window: &tauri::WebviewWindow) {
+    let Ok(ptr) = window.ns_window() else {
+        return;
+    };
+    if ptr.is_null() {
+        return;
+    }
+    let ptr = ptr as usize;
+    let _ = window.run_on_main_thread(move || unsafe {
+        use block2::RcBlock;
+        use objc2::rc::Retained;
+        use objc2_app_kit::{
+            NSView, NSViewFrameDidChangeNotification, NSWindow, NSWindowButton,
+            NSWindowDidResizeNotification,
+        };
+        use objc2_foundation::{NSNotification, NSNotificationCenter};
+        use std::ptr::NonNull;
+
+        let window = &*(ptr as *const NSWindow);
+        let center = NSNotificationCenter::defaultCenter();
+
+        // Each block reads its subject back out of the notification instead of
+        // capturing a pointer: the observers are never removed, so a captured
+        // window could outlive the object it points at.
+        let on_resize = RcBlock::new(move |notification: NonNull<NSNotification>| {
+            let Some(object) = notification.as_ref().object() else {
+                return;
+            };
+            let _ =
+                align_traffic_lights_on_main(Retained::as_ptr(&object) as *mut std::ffi::c_void);
+        });
+        std::mem::forget(center.addObserverForName_object_queue_usingBlock(
+            Some(NSWindowDidResizeNotification),
+            Some(window),
+            None,
+            &on_resize,
+        ));
+
+        // The window notification alone leaves a race: AppKit may lay the
+        // titlebar out after posting it. The container's own frame change is
+        // posted by that layout, so it is the pass that would otherwise win.
+        // Moving the buttons cannot re-enter here — a subview's origin does not
+        // change its superview's frame.
+        let Some(superview) = window
+            .standardWindowButton(NSWindowButton::CloseButton)
+            .and_then(|button| button.superview())
+        else {
+            return;
+        };
+        let on_layout = RcBlock::new(move |notification: NonNull<NSNotification>| {
+            let Some(object) = notification.as_ref().object() else {
+                return;
+            };
+            let view = &*(Retained::as_ptr(&object) as *const NSView);
+            let Some(window) = view.window() else {
+                return;
+            };
+            let _ =
+                align_traffic_lights_on_main(Retained::as_ptr(&window) as *mut std::ffi::c_void);
+        });
+        std::mem::forget(center.addObserverForName_object_queue_usingBlock(
+            Some(NSViewFrameDidChangeNotification),
+            Some(&superview),
+            None,
+            &on_layout,
+        ));
     });
 }
 
