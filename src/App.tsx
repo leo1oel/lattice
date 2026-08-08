@@ -442,6 +442,7 @@ const SYNARA_LAYOUT_METRICS = "synara:layout-metrics";
 const SYNARA_EMBED_READY = "synara:embed-ready";
 const SYNARA_OPEN_SETTINGS = "synara:open-settings";
 const SYNARA_OPEN_REVIEW = "synara:open-review";
+const SYNARA_OPEN_FILE = "synara:open-file";
 const SYNARA_SIDEBAR_MINIMUM = 320;
 const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
 const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
@@ -1445,6 +1446,15 @@ function App() {
       ) {
         setSettingsTab("agent");
         setSettingsOpen(true);
+        return;
+      }
+      if (event.data?.type === SYNARA_OPEN_FILE) {
+        // A file the agent named in its answer. The panel has no editor of its
+        // own to show it in, and the one beside it is ours.
+        const path = typeof event.data.filePath === "string" ? event.data.filePath.trim() : "";
+        if (path && !path.startsWith("/") && !path.split("/").includes("..")) {
+          void openProjectFileRef.current(path);
+        }
         return;
       }
       if (event.data?.type === SYNARA_OPEN_REVIEW) {
