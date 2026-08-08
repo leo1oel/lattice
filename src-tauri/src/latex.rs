@@ -177,7 +177,34 @@ pub fn build(
             );
         }
     }
+    // A PDF built by anything else leaves latexmk with nothing to do, and
+    // `-synctex=1` never reaches the engine that way. The agent compiles with a
+    // plain `latexmk -pdf` of its own, so a project it had been working in
+    // answered every click on the PDF with "no SyncTeX data" — and pressing
+    // Build, which is what that message asks for, changed nothing. Force the
+    // one rebuild that writes it. Skipped when the run really did typeset
+    // (SyncTeX would exist) so an engine that cannot produce it is not
+    // compiled twice on every build.
+    if result.success && !force && skipped_recompile(&result.log) && synctex_missing(root) {
+        result = run_latexmk(root, true, active, started)?;
+    }
     Ok(result)
+}
+
+fn skipped_recompile(log: &str) -> bool {
+    let lower = log.to_ascii_lowercase();
+    lower.contains("nothing to do") || lower.contains("up-to-date")
+}
+
+/// Whether the compiled PDF is missing the SyncTeX file that pairs with it.
+fn synctex_missing(root: &Path) -> bool {
+    let Ok(pdf) = compiled_pdf_path(root) else {
+        return false;
+    };
+    if !pdf.is_file() {
+        return false;
+    }
+    !pdf.with_extension("synctex.gz").is_file() && !pdf.with_extension("synctex").is_file()
 }
 
 fn is_stale_previous_invocation_log(log: &str) -> bool {
@@ -1034,6 +1061,17 @@ mod tests {
             }),
             "expected algorithms package hint, got {diagnostics:?}"
         );
+    }
+
+    #[test]
+    fn a_pdf_someone_else_built_still_gets_its_synctex_written() {
+        // latexmk's answer when the PDF is already current.
+        assert!(skipped_recompile("Latexmk: Nothing to do for 'main.tex'."));
+        assert!(skipped_recompile(
+            "Latexmk: All targets (main.pdf) are up-to-date"
+        ));
+        // A run that actually typeset must not be repeated.
+        assert!(!skipped_recompile("Latexmk: applying rule 'pdflatex'..."));
     }
 
     #[test]
