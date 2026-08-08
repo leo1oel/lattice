@@ -163,6 +163,9 @@ vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
 
 function mockAppCommand(command: string, ..._args: unknown[]) {
   void _args;
+  // Every window asks for its one-shot instruction at startup; only a window
+  // opened to join a share is given one.
+  if (command === "take_pending_window_action") return null;
   if (command === "list_citation_keys") return [];
   if (command === "list_citations") return [];
   if (command === "list_references") return [];

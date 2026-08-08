@@ -235,6 +235,32 @@ mod realtime_generation_tests {
     }
 
     #[test]
+    fn a_window_instruction_is_handed_over_exactly_once() {
+        let state = super::AppState::from_environment();
+        state.set_pending_action("project-1", "join".to_string());
+
+        assert_eq!(
+            state.take_pending_action("project-1").as_deref(),
+            Some("join")
+        );
+        // A reload of that window must not rejoin the room a second time, and
+        // no other window may pick the instruction up.
+        assert_eq!(state.take_pending_action("project-1"), None);
+        assert_eq!(state.take_pending_action("project-2"), None);
+    }
+
+    #[test]
+    fn closing_a_window_discards_an_instruction_it_never_took() {
+        let state = super::AppState::from_environment();
+        state.set_pending_action("project-1", "join".to_string());
+
+        state.release_window("project-1");
+
+        // Left behind, it would be handed to whichever window reuses the label.
+        assert_eq!(state.take_pending_action("project-1"), None);
+    }
+
+    #[test]
     fn window_labels_reuse_the_lowest_free_slot() {
         let taken = ["project-1", "project-3"];
         let is_taken = |label: &str| taken.contains(&label);
@@ -274,6 +300,14 @@ struct AppState {
     roots: Mutex<HashMap<String, PathBuf>>,
     /// Resources owned by an open project rather than by the process.
     projects: Mutex<HashMap<PathBuf, Arc<ProjectResources>>>,
+    /// One-shot instruction left for a window that is being opened, taken by
+    /// that window once during startup.
+    ///
+    /// Joining a share has to hand the new window something the project on
+    /// disk cannot say: that it should connect to the room now. Routing it
+    /// through here rather than shared storage means it cannot be read twice,
+    /// cannot be picked up by the wrong window, and dies with the window.
+    pending_actions: Mutex<HashMap<String, String>>,
 }
 
 /// State that belongs to one project.
@@ -311,6 +345,7 @@ impl AppState {
         Self {
             roots: Mutex::new(roots),
             projects: Mutex::new(HashMap::new()),
+            pending_actions: Mutex::new(HashMap::new()),
         }
     }
 
@@ -388,6 +423,21 @@ impl AppState {
         if let Ok(mut roots) = self.roots.lock() {
             roots.remove(label);
         }
+        // A window that closed before startup finished never took its
+        // instruction; leaving it would hand it to whoever reuses the label.
+        if let Ok(mut pending) = self.pending_actions.lock() {
+            pending.remove(label);
+        }
+    }
+
+    fn set_pending_action(&self, label: &str, action: String) {
+        if let Ok(mut pending) = self.pending_actions.lock() {
+            pending.insert(label.to_string(), action);
+        }
+    }
+
+    fn take_pending_action(&self, label: &str) -> Option<String> {
+        self.pending_actions.lock().ok()?.remove(label)
     }
 
     /// The window currently showing `root`, if any.
@@ -546,8 +596,6 @@ async fn open_tutorial_project(
 #[tauri::command]
 async fn create_collab_join_workspace(
     app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
     room: String,
     project_name: Option<String>,
 ) -> Result<ProjectSnapshot, String> {
@@ -584,7 +632,7 @@ async fn create_collab_join_workspace(
         .path()
         .document_dir()
         .map_err(|error| format!("Could not resolve Documents folder: {error}"))?;
-    let (root, snapshot) = run_blocking("Shared workspace creation", move || {
+    let (_root, snapshot) = run_blocking("Shared workspace creation", move || {
         let parent = documents.join("Lattice Shares");
         std::fs::create_dir_all(&parent)
             .map_err(|error| format!("Could not create Lattice Shares folder: {error}"))?;
@@ -598,7 +646,6 @@ async fn create_collab_join_workspace(
         Ok((root, snapshot))
     })
     .await?;
-    set_root(&state, &window, root).await?;
     Ok(snapshot)
 }
 
@@ -682,6 +729,15 @@ struct OpenedProjectWindow {
     focused_existing: bool,
 }
 
+/// Take the one-shot instruction left for this window, if any.
+#[tauri::command]
+fn take_pending_window_action(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+) -> Option<String> {
+    state.take_pending_action(window.label())
+}
+
 /// Pick a free `project-N` label.
 ///
 /// Reusing the lowest free index rather than a running counter keeps the label
@@ -706,6 +762,7 @@ async fn open_project_window(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     path: String,
+    pending: Option<String>,
 ) -> Result<OpenedProjectWindow, String> {
     // Opened here, before any window exists, so a project that cannot be read
     // reports the failure into the window the writer is looking at rather than
@@ -717,6 +774,9 @@ async fn open_project_window(
         if let Some(existing) = app.get_webview_window(&label) {
             let _ = existing.unminimize();
             let _ = existing.set_focus();
+            // The window is already up, so it will not run startup again. The
+            // caller is told nothing was opened and acts on the instruction
+            // itself rather than having it silently dropped here.
             return Ok(OpenedProjectWindow {
                 label,
                 focused_existing: true,
@@ -728,8 +788,11 @@ async fn open_project_window(
 
     let label = next_project_window_label(|label| app.get_webview_window(label).is_some());
     // Bound before the window is built: the new window asks for its project
-    // during startup, and that request must already resolve.
+    // and its instruction during startup, and both must already resolve.
     state.bind_window(&label, root)?;
+    if let Some(pending) = pending {
+        state.set_pending_action(&label, pending);
+    }
     let built = tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::default())
         .title("Lattice")
         .inner_size(1440.0, 900.0)
@@ -3468,6 +3531,7 @@ pub fn run() {
             initial_project,
             open_project,
             open_project_window,
+            take_pending_window_action,
             import_project_zip,
             export_project_zip,
             refresh_project,

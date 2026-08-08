@@ -392,6 +392,15 @@ const EMPTY_DIAGNOSTICS: CompileDiagnostic[] = [];
 /** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
 const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
 
+/// A one-shot instruction handed to a window as it opens, for the things the
+/// project on disk cannot say. Kept narrow on purpose: the window that runs it
+/// has to be able to do so from its own startup state alone.
+type PendingWindowAction = {
+  kind: "join-collab-v2";
+  host: string;
+  projectInstanceId: string;
+};
+
 // Must match the prefix `open_project_window` puts on a window-creation
 // failure. Everything else it can fail with is the project itself.
 const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
@@ -4579,6 +4588,32 @@ function App() {
           const snapshot = await invoke<ProjectSnapshot>("create_collab_join_workspace", { room: shortRoom.slice(-6), projectName: roomName });
           record = { ...record, projectRoot: snapshot.root, title: roomName, lastUsed: Date.now() };
           rememberCollabProjectV2(record);
+          // A share is a project like any other, so it gets a window of its
+          // own rather than displacing whatever this window was working on.
+          // The new window connects to the room itself: only it can hold the
+          // controller, the workspace lease and the editor binding that
+          // joining produces. Everything it needs is already in the record it
+          // is pointed at.
+          if (project?.root) {
+            const opened = await invoke<{ focusedExisting: boolean }>("open_project_window", {
+              path: snapshot.root,
+              pending: JSON.stringify({
+                kind: "join-collab-v2",
+                host: record.host,
+                projectInstanceId: record.projectInstanceId,
+              } satisfies PendingWindowAction),
+            });
+            if (opened.focusedExisting) {
+              // The workspace was already open elsewhere and that window was
+              // raised. Only that window can join — its own controller and
+              // editor binding are what a join produces — so say so rather
+              // than joining here, which is the one place this must not land.
+              setNotice("That shared workspace is already open in another window — rejoin it there");
+            }
+            setCollabInvite("");
+            setCollabRoom("");
+            return;
+          }
           await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
           const workspaceGeneration = collabWorkspaceGenerationRef.current + 1;
           collabWorkspaceGenerationRef.current = workspaceGeneration;
@@ -4619,6 +4654,10 @@ function App() {
     }
     setError("That invite is not a v2 collaboration invite — ask the host for a fresh one from Copy invite.");
   }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabHost, collabInvite, collabName, collabRoom, enterProject, handleV2Catalog, bindJoinedDocument, loadFile, mapV2Status, project, refreshProject, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
+
+  /// Startup reads this rather than depending on `rejoinCollabProjectV2`,
+  /// whose identity churns; the boot effect must run exactly once.
+  const pendingJoinRef = useRef<((record: CollabProjectRecordV2) => void) | null>(null);
 
   const rejoinCollabProjectV2 = useCallback((record: CollabProjectRecordV2) => {
     void (async () => {
@@ -4671,6 +4710,10 @@ function App() {
       finally { setBusyLabel(null); }
     })();
   }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabName, enterProject, handleV2Catalog, bindJoinedDocument, loadFile, mapV2Status, project, refreshProject, refreshRecentRooms, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
+
+  useEffect(() => {
+    pendingJoinRef.current = rejoinCollabProjectV2;
+  }, [rejoinCollabProjectV2]);
 
   const forgetRecentProjectV2 = useCallback((record: CollabProjectRecordV2) => {
     void (async () => {
@@ -4979,9 +5022,24 @@ function App() {
     // identity churned (after every build/load), which cleared the PDF and
     // restarted compile → endless “Rendering PDF…”.
     void invoke<ProjectSnapshot | null>("initial_project")
-      .then((snapshot) => {
+      .then(async (snapshot) => {
         initialProjectProbe.resolve(Boolean(snapshot));
-        if (active && snapshot) return enterProjectRef.current?.(snapshot);
+        if (!active || !snapshot) return;
+        await enterProjectRef.current?.(snapshot);
+        if (!active) return;
+        // Taken after the project is in, because acting on it needs the
+        // window to already be showing the project it refers to. The backend
+        // hands it over once, so a reload of this window will not rejoin.
+        const raw = await invoke<string | null>("take_pending_window_action");
+        if (!active || !raw) return;
+        const action = JSON.parse(raw) as PendingWindowAction;
+        if (action.kind === "join-collab-v2") {
+          const record = loadCollabProjectsV2().find(
+            (item) => item.host === action.host
+              && item.projectInstanceId === action.projectInstanceId,
+          );
+          if (record) pendingJoinRef.current?.(record);
+        }
       })
       .catch((reason) => {
         initialProjectProbe.resolve(false);
