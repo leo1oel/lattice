@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, CircleAlert, Info } from "lucide-react";
+import { CheckCircle2, CircleAlert, Info } from "lucide-react";
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import "./chrome.css";
@@ -23,7 +23,7 @@ import "./chrome.css";
 const INLINE_MESSAGE_ICON = {
   info: Info,
   success: CheckCircle2,
-  warning: AlertTriangle,
+  warning: CircleAlert,
   error: CircleAlert,
 };
 

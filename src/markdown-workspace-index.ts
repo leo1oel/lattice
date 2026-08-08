@@ -6,6 +6,7 @@ import {
   createWorkspaceSearchCorpus,
   createWorkspaceSearchDocument,
   searchWorkspaceCorpus,
+  updateWorkspaceSearchCorpus,
   type WorkspaceSearchCorpus,
 } from "./open-knowledge-core/search/workspace-search.ts";
 import { createTagInTextRegex } from "./open-knowledge-core/markdown/tag-promotion.ts";
@@ -349,17 +350,20 @@ export class MarkdownWorkspaceIndex {
 
   private replaceDocs(docs: IndexedDoc[]): void {
     this.indexedDocs = docs;
-    this.corpus = createWorkspaceSearchCorpus(
-      docs.map((doc) =>
-        createWorkspaceSearchDocument({
-          kind: "page",
-          path: doc.docName,
-          title: doc.title,
-          content: doc.content,
-          modifiedTs: 0,
-        }),
-      ),
+    const documents = docs.map((doc) =>
+      createWorkspaceSearchDocument({
+        kind: "page",
+        path: doc.docName,
+        title: doc.title,
+        content: doc.content,
+        modifiedTs: 0,
+      }),
     );
+    // Incremental: a single edited document patches the shared BM25 index
+    // instead of re-tokenizing the whole workspace per publication. The
+    // updater diffs against the previous corpus itself and falls back to a
+    // from-scratch build for bulk changes (project open, branch switches).
+    this.corpus = updateWorkspaceSearchCorpus(this.corpus, documents).corpus;
     this.currentRevision += 1;
     for (const listener of this.listeners) listener();
   }

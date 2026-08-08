@@ -1,9 +1,19 @@
 import { forceLinting, type Action, type Diagnostic } from "@codemirror/lint";
 import { StateEffect } from "@codemirror/state";
+import { invoke } from "@tauri-apps/api/core";
 
 type HarperSuggestionSnapshot = {
   kind: "replace" | "remove" | "insert-after";
   replacement: string;
+};
+
+/** Shape of `harper_lint` results (src-tauri/src/harper.rs), spans in UTF-16 code units. */
+type HarperLintResult = {
+  start: number;
+  end: number;
+  kind: string;
+  message: string;
+  suggestions: HarperSuggestionSnapshot[];
 };
 
 export type HarperDiagnosticOptions = {
@@ -302,43 +312,20 @@ export function createHarperDiagnostic(input: {
   };
 }
 
-let linterPromise: Promise<import("harper.js").LocalLinter> | null = null;
 let loadFailureReported = false;
-let importedProjectWordsKey = "";
 let harperLintQueue: Promise<void> = Promise.resolve();
 
-async function loadHarperLinter(): Promise<import("harper.js").LocalLinter> {
-  linterPromise ??= Promise.all([import("harper.js"), import("harper.js/binary")]).then(
-    async ([harper, binaryModule]) => {
-      // Harper's module-Blob Worker never reaches its ready event in the
-      // WKWebView used by Tauri, leaving every lint request pending forever.
-      // LocalLinter uses the same offline WASM engine and completes reliably;
-      // CodeMirror already debounces calls so ordinary edits stay responsive.
-      const linter = new harper.LocalLinter({
-        binary: binaryModule.binary,
-        dialect: harper.Dialect.American,
-      });
-      await linter.setup();
-      return linter;
-    },
-  );
-  return linterPromise;
-}
-
-async function syncProjectWords(
-  linter: import("harper.js").LocalLinter,
-  words: string[],
-): Promise<void> {
-  const normalized = [...new Map(words
+/**
+ * Stable, deduplicated word list. Sorting keeps the backend's session cache
+ * key stable across callers, so the lint group only rebuilds when the
+ * dictionary genuinely changes.
+ */
+function normalizeProjectWords(words: string[]): string[] {
+  return [...new Map(words
     .map((word) => word.trim())
     .filter(Boolean)
     .map((word) => [word.toLocaleLowerCase(), word])).values()]
     .sort((left, right) => left.localeCompare(right));
-  const key = normalized.join("\n");
-  if (key === importedProjectWordsKey) return;
-  await linter.clearWords();
-  if (normalized.length) await linter.importWords(normalized);
-  importedProjectWordsKey = key;
 }
 
 async function computeHarperDiagnostics(
@@ -347,42 +334,30 @@ async function computeHarperDiagnostics(
 ): Promise<Diagnostic[]> {
   if (source.trim().length === 0) return [];
   try {
-    const [harper, linter] = await Promise.all([import("harper.js"), loadHarperLinter()]);
-    await syncProjectWords(linter, options.projectWords ?? []);
     const { prose, syntaxMask } = maskLatexForHarper(source);
-    const lints = await linter.lint(prose, { language: "plaintext", dedup: true, isolateEnglish: false });
+    // The engine is harper-core on the Rust side (src-tauri/src/harper.rs) —
+    // the same engine harper.js wrapped, but off the WebView thread entirely.
+    // The WKWebView Worker limitation that forced main-thread WASM linting no
+    // longer applies. Masking stays here so spans keep matching the document.
+    const lints = await invoke<HarperLintResult[]>("harper_lint", {
+      text: prose,
+      projectWords: normalizeProjectWords(options.projectWords ?? []),
+    });
     return lints.flatMap((lint) => {
-      const span = lint.span();
-      const from = Math.max(0, Math.min(source.length, span.start));
-      const to = Math.max(from, Math.min(source.length, span.end));
-      span.free();
+      const from = Math.max(0, Math.min(source.length, lint.start));
+      const to = Math.max(from, Math.min(source.length, lint.end));
       const problem = source.slice(from, to);
-      const lintKind = lint.lint_kind();
-      const suggestions = lint.suggestions().map((suggestion) => {
-        const kind = suggestion.kind();
-        const snapshot: HarperSuggestionSnapshot = {
-          kind: kind === harper.SuggestionKind.Remove
-            ? "remove"
-            : kind === harper.SuggestionKind.InsertAfter
-              ? "insert-after"
-              : "replace",
-          replacement: suggestion.get_replacement_text(),
-        };
-        suggestion.free();
-        return snapshot;
-      });
       const diagnostic = createHarperDiagnostic({
         from,
         to,
-        message: lint.message(),
-        kind: lintKind,
-        suggestions,
-        projectWord: (lintKind === "Spelling" || lintKind === "Typo") && /^[A-Za-z][A-Za-z'’-]*$/.test(problem)
+        message: lint.message,
+        kind: lint.kind,
+        suggestions: lint.suggestions,
+        projectWord: (lint.kind === "Spelling" || lint.kind === "Typo") && /^[A-Za-z][A-Za-z'’-]*$/.test(problem)
           ? problem
           : undefined,
         onAddProjectWord: options.onAddProjectWord,
       });
-      lint.free();
       // Masking commands with spaces preserves CodeMirror offsets, but Harper
       // can interpret a long masked command as excessive whitespace. Ignore
       // every lint that touches hidden LaTeX syntax; prose-only spans still map

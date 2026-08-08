@@ -2,6 +2,50 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { describe, expect, it, vi } from "vitest";
 
+// The engine itself now lives in Rust (src-tauri/src/harper.rs, covered by
+// cargo tests); these tests exercise the JS layer's real responsibilities —
+// masking, span filtering, action building — against a miniature engine fake
+// that mirrors harper-core's observable behavior for the fixtures below.
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async (command: string, args?: Record<string, unknown>) => {
+    if (command !== "harper_lint") throw new Error(`unexpected command ${command}`);
+    const text = String(args?.text ?? "");
+    const projectWords = (args?.projectWords as string[] | undefined ?? [])
+      .map((word) => word.toLocaleLowerCase());
+    const lints: unknown[] = [];
+    const misspelled = new Map([
+      ["introductiom", "introduction"],
+      ["sentnce", "sentence"],
+      ["yiming", "timing"],
+    ]);
+    for (const match of text.matchAll(/[A-Za-z][A-Za-z'’-]*/g)) {
+      const word = match[0].toLocaleLowerCase();
+      const replacement = misspelled.get(word);
+      if (!replacement || projectWords.includes(word)) continue;
+      lints.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        kind: "Spelling",
+        message: `Did you mean “${replacement}”?`,
+        suggestions: [{ kind: "replace", replacement }],
+      });
+    }
+    // Sentence capitalization, like harper's lint: only when the sentence
+    // actually starts the text (masked math leaves leading spaces).
+    const first = text.match(/^[a-z][A-Za-z'’-]*/);
+    if (first) {
+      lints.push({
+        start: 0,
+        end: first[0].length,
+        kind: "Capitalization",
+        message: "This sentence does not start with a capital letter",
+        suggestions: [],
+      });
+    }
+    return lints;
+  }),
+}));
+
 import {
   createHarperDiagnostic,
   harperDiagnostics,

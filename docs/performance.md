@@ -118,6 +118,39 @@ in order of value:
    intentional `react-hooks/exhaustive-deps` disables (identity stability the
    compiler cannot express yet). Resolving this needs a design, not an edit.
 
+## Library replacements (second round, August 2026)
+
+Four dependency-level replacements landed after the fix rounds above:
+
+- **`@uiw/react-codemirror` → `src/codemirror-host.tsx`** (dependency
+  removed). The wrapper serialized the whole document twice per keystroke
+  (onChange + controlled-value comparison). The host reconciles the
+  controlled value by reference — the string App stores is the one the host
+  emitted — so the per-keystroke echo is a pointer check; full-document
+  replacement runs only for genuinely external values, deferred while typing
+  or composing (IME), annotated so it never echoes back.
+- **harper.js (main-thread WASM) → `harper-core` in Rust**
+  (`src-tauri/src/harper.rs`, `harper_lint` command; harper.js dependency
+  removed). Same engine, same 2.7 line, but linting now runs in
+  `spawn_blocking` — the WebView thread pays nothing, and the WKWebView
+  Worker limitation that forced main-thread WASM is moot. Masking stays in
+  JS so spans match the CodeMirror document; Rust converts harper's
+  char-indexed spans to UTF-16 code units. The large-doc window from the
+  earlier round still bounds IPC payload size.
+- **2-second refresh poll → `notify` watcher** (`src-tauri/src/fs_watch.rs`,
+  `watch_project` command, `project-fs-changed` event). Debounced FSEvents
+  replace the poll; `.research/` churn is filtered, `.git/` events keep the
+  source-control badge fresh. The frontend keeps a 30-second fallback poll
+  for what watchers can miss.
+- **Full BM25 rebuild → incremental corpus update**
+  (`markdown-workspace-index.ts` now routes through
+  `updateWorkspaceSearchCorpus`, which patches the shared index per changed
+  document and rebuilds only for bulk changes).
+
+Considered and deliberately kept: CodeMirror 6, Yjs, pdf.js, KaTeX,
+lowlight, TipTap/ProseMirror (the split-mode cost is architectural, not the
+library — see Future directions).
+
 ## Future directions (not yet scheduled)
 
 - Editable-doc `content-visibility` experiment behind a dev flag, with

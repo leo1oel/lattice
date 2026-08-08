@@ -241,6 +241,9 @@ export function RenameDialog(props: {
   );
 }
 
+/** How many other recent projects the switcher offers before it stops. */
+const MAX_RECENT_PROJECT_ITEMS = 5;
+
 export function ProjectMenu(props: {
   currentPath: string;
   recentProjects: RecentProject[];
@@ -253,7 +256,12 @@ export function ProjectMenu(props: {
   onOpenOverleaf?: () => void;
   onSettings: () => void;
 }) {
-  const alternatives = props.recentProjects.filter((item) => item.path !== props.currentPath);
+  // The stored list runs deeper (share recovery resolves a prior root against
+  // it), but a switcher is for the few projects you move between — past five
+  // the menu turns into a scroll and "Open another folder" is the better path.
+  const alternatives = props.recentProjects
+    .filter((item) => item.path !== props.currentPath)
+    .slice(0, MAX_RECENT_PROJECT_ITEMS);
   const busy = Boolean(props.busyLabel);
   return (
     <DropdownMenuContent align="start" sideOffset={6} className="w-52">

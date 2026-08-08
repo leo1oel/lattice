@@ -1620,9 +1620,25 @@ function App() {
       }
     };
     void refreshProjectTreeState();
-    const timer = window.setInterval(() => { void refreshProjectTreeState(); }, 2000);
+    // Event-driven refresh: the Rust watcher coalesces filesystem bursts into
+    // one project-fs-changed broadcast (payload carries the root so a window
+    // showing another project ignores it). The interval is only a safety net
+    // for anything a watcher can genuinely miss (network volumes, overflow).
+    void invoke("watch_project").catch(() => {
+      // Watcher-less operation degrades to the fallback poll below.
+    });
+    let unlisten: (() => void) | null = null;
+    void listen<{ root: string }>("project-fs-changed", (event) => {
+      if (stopped || event.payload.root !== initialProject.root) return;
+      void refreshProjectTreeState();
+    }).then((dispose) => {
+      if (stopped) dispose();
+      else unlisten = dispose;
+    });
+    const timer = window.setInterval(() => { void refreshProjectTreeState(); }, 30_000);
     return () => {
       stopped = true;
+      unlisten?.();
       window.clearInterval(timer);
     };
   }, [project?.root, sidebarMode]);

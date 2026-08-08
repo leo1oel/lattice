@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  AlertTriangle,
   ChevronDown,
   ChevronUp,
   CircleAlert,
@@ -21,8 +20,8 @@ import { SlidingTabs } from "./motion";
 
 function SeverityIcon({ level }: { level: string }) {
   const severity = diagnosticSeverity(level);
-  if (severity === "error") return <CircleAlert size={15} />;
-  if (severity === "warning") return <AlertTriangle size={15} />;
+  // Errors and warnings share the glyph; the status colour carries severity.
+  if (severity === "error" || severity === "warning") return <CircleAlert size={15} />;
   return <CircleHelp size={15} />;
 }
 

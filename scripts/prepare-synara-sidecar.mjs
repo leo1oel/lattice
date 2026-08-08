@@ -242,9 +242,41 @@ function installServerRuntime(stageRoot) {
       },
     },
   );
+  silenceExpectedSessionProbeWarnings(serverRoot);
   mkdirSync(join(stageRoot, "licenses"), { recursive: true });
   cpSync(join(sourceRoot, "LICENSE"), join(stageRoot, "licenses/Synara-MIT.txt"));
   return serverPackage.version;
+}
+
+// The one thing the desktop app hands the runtime is a bare token — two UUIDs
+// with nothing between them (SYNARA_AUTH_TOKEN in synara.rs). On loopback the
+// runtime authorises that directly, comparing it to its configured token, so
+// the agent works. But the session verifier expects `payload.signature` and
+// splits on ".", so anything that also offers the bare token there is rejected
+// as "Malformed session token." — and the caller, a routine "am I signed in?"
+// probe, treats that as its normal answer and carries on.
+//
+// The layer underneath logs a warning every time regardless. At roughly two a
+// second that was 90% of a 6 MB sidecar.log, which never rotates, burying the
+// lines that do mean something.
+//
+// So drop the log for that one reason and leave every other rejection —
+// notably a bad signature — logged as before.
+function silenceExpectedSessionProbeWarnings(serverRoot) {
+  const bundle = join(serverRoot, "dist/index.mjs");
+  const source = readFileSync(bundle, "utf8");
+  const probe = 'Effect.tapError((cause) => Effect.logWarning("Rejected authenticated session credential.")';
+  const quiet = 'Effect.tapError((cause) => (cause.message === "Malformed session token." ? Effect.void : Effect.logWarning("Rejected authenticated session credential."))';
+  const count = source.split(probe).length - 1;
+  if (count !== 1) {
+    // Loud on purpose: a runtime bump that reshapes this must be re-checked,
+    // not silently left unpatched or patched twice.
+    throw new Error(
+      `Expected exactly one session-rejection log site in the Synara bundle, found ${count}. `
+        + "Re-check silenceExpectedSessionProbeWarnings against the pinned runtime.",
+    );
+  }
+  writeFileSync(bundle, source.replace(probe, quiet));
 }
 
 function runtimePlatformDirectory(target) {

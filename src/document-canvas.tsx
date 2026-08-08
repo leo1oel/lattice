@@ -9,7 +9,7 @@ import {
   type ComponentProps,
   type ReactNode,
 } from "react";
-import CodeMirror from "@uiw/react-codemirror";
+import { CodeMirrorHost as CodeMirror } from "./codemirror-host";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
 import {
   LanguageDescription,
@@ -545,14 +545,6 @@ export function interpolateScrollAnchors(
   const progress = span > 0 ? (value - lower.from) / span : 0;
   return clamp(lower.to + progress * (upper.to - lower.to), toMin, toMax);
 }
-
-const EDITOR_BASIC_SETUP = {
-  autocompletion: false,
-  lineNumbers: true,
-  foldGutter: true,
-  highlightActiveLine: true,
-  highlightActiveLineGutter: true,
-};
 
 function isLatexSourcePath(path: string): boolean {
   return /\.(?:tex|sty|cls)$/i.test(path);
@@ -1269,8 +1261,9 @@ export function DocumentCanvas(props: {
     return () => ytext.unobserve(syncPreviewSource);
   }, [activeFile, collabLive, collabSession, props.mode]);
 
-  // Stable callbacks — @uiw/react-codemirror reconfigures (destroying yCollab +
-  // comment fields) whenever onUpdate/onChange identity changes.
+  // Stable callbacks. CodeMirrorHost reads handlers through refs, so identity
+  // churn no longer forces a reconfigure (the old wrapper destroyed yCollab +
+  // comment fields on any handler identity change) — kept stable regardless.
   const onPrimaryChange = useCallback((value: string) => {
     setSourceRef.current(value);
   }, []);
@@ -1700,9 +1693,10 @@ export function DocumentCanvas(props: {
     // graphics roots, citations/references, App-provided lambdas) are
     // captured at reconfigure time and refreshed on file switch. Listing them
     // here handed the memo a fresh identity every keystroke, and
-    // @uiw/react-codemirror answers a changed extensions identity with a full
-    // StateEffect.reconfigure — tearing down the entire secondary editor
-    // (language, linters, autocomplete) per character in dual/split mode.
+    // CodeMirrorHost (like the wrapper it replaced) answers a changed
+    // extensions identity with a full StateEffect.reconfigure — which would
+    // tear down the entire secondary editor (language, linters, autocomplete)
+    // per character in dual/split mode.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
     [editorSpellcheck, secondaryFile, secondaryKeymapExtensions, secondaryTextLanguageExtensions],
   );
@@ -2651,7 +2645,6 @@ export function DocumentCanvas(props: {
             key={collabEditorKey}
             className="code-editor-root"
             value={collabLive ? mountSourceRef.current : props.source}
-            height="100%"
             editable={props.editorEditable}
             extensions={editorExtensions}
             onCreateEditor={(view) => {
@@ -2665,7 +2658,6 @@ export function DocumentCanvas(props: {
             }}
             onChange={onPrimaryChange}
             onUpdate={onPrimaryUpdate}
-            basicSetup={EDITOR_BASIC_SETUP}
           />
           <CodeMirrorScrollbar view={primaryScrollbarView} />
           {figureDropMarker && (
@@ -2904,7 +2896,6 @@ export function DocumentCanvas(props: {
           <CodeMirror
             className="code-editor-root"
             value={secondarySource}
-            height="100%"
             extensions={secondaryEditorExtensions}
             onCreateEditor={(view) => {
               secondaryViewRef.current = view;
@@ -2913,7 +2904,6 @@ export function DocumentCanvas(props: {
             }}
             onChange={onSecondaryChange}
             onUpdate={onSecondaryUpdate}
-            basicSetup={EDITOR_BASIC_SETUP}
           />
           <CodeMirrorScrollbar view={secondaryScrollbarView} />
         </div>

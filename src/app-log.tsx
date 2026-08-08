@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { AlertTriangle, CheckCircle2, CircleAlert, FolderOpen, Info } from "lucide-react";
+import { CheckCircle2, CircleAlert, FolderOpen, Info } from "lucide-react";
 import { CloseButton } from "./components/ui/icon-button";
 import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
@@ -28,10 +28,13 @@ import {
   type AppLogLevel,
 } from "./app-log-store";
 
+// One silhouette for every level: a warning triangle among three circles was
+// the only thing breaking the stack's rhythm, and severity already reads from
+// the status colour. Warning and error share the glyph on purpose.
 const LOG_ICON = {
   info: Info,
   success: CheckCircle2,
-  warning: AlertTriangle,
+  warning: CircleAlert,
   error: CircleAlert,
 };
 
