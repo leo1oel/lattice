@@ -40,7 +40,14 @@ serde_json = "1"
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "multipart", "stream"] }
+# `system-proxy` is one of reqwest's defaults, so `default-features = false`
+# silently dropped it: every request here ignored the macOS proxy settings AND
+# HTTPS_PROXY/ALL_PROXY, because reqwest reads both only under that feature.
+# The Overleaf login window is a WKWebView and honours the system proxy, so a
+# user behind one signed in fine and then watched Lattice's own call to the
+# same host fail with "error sending request". Loopback callers that must not
+# be proxied (the Synara health check) say `.no_proxy()` themselves.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "multipart", "stream", "system-proxy"] }
 uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
 walkdir = "2"
