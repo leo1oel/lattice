@@ -47,6 +47,7 @@ import { TabFocusTrap } from "@ok-app/editor/extensions/tab-focus-trap";
 // DecorationSet on every view update (caret moves included), which is
 // O(document) per keypress on large files. See the seam header for details.
 import { HeadingAnchorsStateful as HeadingAnchors } from "@ok-app/editor/extensions/heading-anchors-stateful";
+import { chunkWrapperDecorationPlugin } from "@ok-app/editor/extensions/chunk-wrapper-decoration";
 import { MathInputRule } from "@ok-app/editor/math-input-rule";
 import { InlineLinkInputRule } from "@ok-app/editor/inline-link-input-rule";
 import { setHostKatexMacros } from "@ok-app/shims/katex-macros";
@@ -132,6 +133,34 @@ function cachedVisualContent(path: string, text: string): CachedVisualDocument["
   // pristine across editor instances while still avoiding another parse.
   return structuredClone(cachedVisualDocument(path, text).content);
 }
+
+/**
+ * Run a DOM mutation with ProseMirror's DOM observer paused, restarting it
+ * even when the mutation throws. Hoisted to module scope: the try/finally
+ * would make the React Compiler bail out of the component containing it.
+ */
+function withPausedDomObserver(view: Editor["view"], apply: () => void): void {
+  const domObserver = (view as unknown as {
+    domObserver?: { flush: () => void; start: () => void; stop: () => void };
+  }).domObserver;
+  domObserver?.flush();
+  domObserver?.stop();
+  try {
+    apply();
+  } finally {
+    domObserver?.start();
+  }
+}
+
+// content-visibility chunking for read-only surfaces (see the registration
+// site for why editable docs are excluded). Stateless, so one module-level
+// extension serves every editor instance.
+const ChunkWrapperDecoration = Extension.create({
+  name: "chunkWrapperDecoration",
+  addProseMirrorPlugins() {
+    return [chunkWrapperDecorationPlugin()];
+  },
+});
 
 type VisualSourceRange = { from: number; to: number };
 
@@ -1425,7 +1454,10 @@ export function VisualMarkdownEditor({
     if (!section) return;
     const reveal = (event: Event) => revealTrackedChangesRef.current(event.target);
     const clear = () => setHoveredChanges(null);
-    const focusAnchor = (ids = hoveredChangesRef.current?.changeIds ?? []) => {
+    // Resolved in the body rather than as a default parameter: the React
+    // Compiler cannot reorder `??` expressions in default-value position.
+    const focusAnchor = (requestedIds?: string[]) => {
+      const ids = requestedIds ?? hoveredChangesRef.current?.changeIds ?? [];
       Array.from(section.querySelectorAll<HTMLElement>("[data-visual-change-id]"))
         .find((mark) => ids.includes(mark.dataset.visualChangeId ?? ""))
         ?.focus();
@@ -1592,8 +1624,11 @@ export function VisualMarkdownEditor({
   const refreshVisualTrackChanges = useCallback((
     currentEditor: Editor,
     markdown: string,
-    changes = overleafChangesRef.current,
+    requestedChanges?: TrackedChange[],
   ) => {
+    // Resolved in the body rather than as a default parameter: the React
+    // Compiler cannot reorder member expressions in default-value position.
+    const changes = requestedChanges ?? overleafChangesRef.current;
     if (currentEditor.isDestroyed || (!changes.length && !trackChangesWereActive.current)) return;
     currentEditor.view.dispatch(currentEditor.state.tr.setMeta(visualTrackChangesKey, {
       text: markdown,
@@ -1883,6 +1918,12 @@ export function VisualMarkdownEditor({
       }),
       TiptapFindReplace,
       ...(optimizeForReading ? [] : [TableInsertControls, FrozenTableHeaders]),
+      // content-visibility block chunking (skips layout/paint of off-viewport
+      // blocks) for READ-ONLY surfaces only. Editable docs deliberately opt
+      // out: deferred materialization destabilizes WebKit selection anchoring
+      // — see the .ok-chunk-wrapper comment in editor-globals.css. Extending
+      // this to editable docs is a separate, measured experiment.
+      ...(optimizeForReading ? [ChunkWrapperDecoration] : []),
       FootnoteAnchorScroll,
       FormattingShortcuts,
       TabFocusTrap,
@@ -2048,7 +2089,9 @@ export function VisualMarkdownEditor({
       if (localUpdateTimer.current) clearTimeout(localUpdateTimer.current);
       const policy = syncPolicyRef.current;
       localUpdateTimer.current = setTimeout(flushPendingLocalUpdate, policy.publicationIdleMs);
-      localUpdateMaxTimer.current ??= setTimeout(flushPendingLocalUpdate, policy.publicationMaxMs);
+      if (localUpdateMaxTimer.current === null) {
+        localUpdateMaxTimer.current = setTimeout(flushPendingLocalUpdate, policy.publicationMaxMs);
+      }
     },
     onSelectionUpdate: ({ editor: currentEditor }) => {
       scheduleVisualCaretReport(currentEditor);
@@ -2083,7 +2126,8 @@ export function VisualMarkdownEditor({
     // fresh link becoming clickable a beat late is imperceptible.
     let wireTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new MutationObserver(() => {
-      wireTimer ??= setTimeout(() => {
+      if (wireTimer !== null) return;
+      wireTimer = setTimeout(() => {
         wireTimer = null;
         wireLinks();
       }, 200);
@@ -2324,21 +2368,18 @@ export function VisualMarkdownEditor({
         sourceRanges = visualSourceRanges(text, renderedBlocks.length);
         sourceRangeBlockCount = renderedBlocks.length;
       }
+      // Non-null local so the pause callback below keeps TS's narrowing.
+      const ranges = sourceRanges;
       // Source labels are synchronization metadata, not editable document
       // attributes. Keep ProseMirror's DOM observer from reparsing the whole
       // document when these data attributes change; reparsing destroys every
       // React NodeView and visibly reloads images, Mermaid, and HTML previews.
-      const domObserver = (editor.view as unknown as {
-        domObserver?: { flush: () => void; start: () => void; stop: () => void };
-      }).domObserver;
-      domObserver?.flush();
-      domObserver?.stop();
-      try {
+      withPausedDomObserver(editor.view, () => {
         let previousOffset = 0;
         let sourceLine = 1;
         for (const [index, element] of renderedBlocks.entries()) {
           if (!(element instanceof HTMLElement)) continue;
-          const range = sourceRanges[index];
+          const range = ranges[index];
           if (!range) {
             delete element.dataset.sourceLine;
             delete element.dataset.sourceOffset;
@@ -2360,9 +2401,7 @@ export function VisualMarkdownEditor({
             element.dataset.sourceEndOffset = nextSourceEndOffset;
           }
         }
-      } finally {
-        domObserver?.start();
-      }
+      });
     };
     labelSourceBlocks();
     // A canonical source update is reconciled in a microtask above. Label the

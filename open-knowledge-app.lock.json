@@ -2,7 +2,7 @@
   "upstream": "https://github.com/inkeep/open-knowledge",
   "commit": "7120dc1f61f67468e3fda71d18390a0c6f1503e3",
   "sourceRoot": "packages/app/src",
-  "vendoredAt": "2026-08-06T07:43:50.532Z",
+  "vendoredAt": "2026-08-07T21:33:42.672Z",
   "note": "Regenerate with: node scripts/vendor-open-knowledge.mjs. Do not hand-edit vendored files; local seams live alongside but are not in this lock.",
   "files": {
     "editor/extensions/drag-handle.ts": "0d6b503700148493",
@@ -81,6 +81,8 @@
     "editor/extensions/tab-focus-trap.ts": "76268df55de60838",
     "editor/extensions/table-row-enter.ts": "54ff6d64ba476c44",
     "editor/extensions/heading-anchors.ts": "68402b3a58089842",
+    "editor/extensions/chunk-wrapper-decoration.ts": "347ab2ad9832f857",
+    "editor/extensions/chunk-wrapper-decoration.test.ts": "13773906dbfde0a8",
     "editor/extensions/wiki-link-helpers.ts": "cc4d31618c07c334",
     "editor/page-list-cache.ts": "820e6b78d3406f75",
     "editor/math-input-rule.ts": "2c63be8abe370d7a",

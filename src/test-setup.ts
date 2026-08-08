@@ -97,6 +97,16 @@ Object.defineProperty(Range.prototype, "getBoundingClientRect", {
 if (typeof globalThis.CSS === "undefined" || typeof globalThis.CSS.supports !== "function") {
   (globalThis as unknown as { CSS: unknown }).CSS = { supports: () => false };
 }
+// jsdom's CSS.supports rejects content-visibility, which would silently turn
+// the vendored chunk-wrapper-decoration plugin into a no-op at module init
+// and fail its tests. The shipping WKWebView (Safari 18+) supports it, so
+// tests should exercise the active plugin.
+{
+  const supports = globalThis.CSS.supports.bind(globalThis.CSS);
+  globalThis.CSS.supports = ((property: string, value?: string) => (
+    property === "content-visibility" ? true : supports(property as never, value as never)
+  )) as typeof globalThis.CSS.supports;
+}
 
 // Radix UI (shadcn menus/tooltips/etc.) relies on APIs jsdom doesn't implement.
 if (!("ResizeObserver" in globalThis)) {

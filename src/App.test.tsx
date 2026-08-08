@@ -430,6 +430,8 @@ describe("welcome screen", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return null;
       if (command === "create_project") return snapshot;
+      // Creation no longer binds a window; the caller places the project.
+      if (command === "open_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
       if (command === "list_papers" || command === "list_history") return [];
       if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
@@ -3992,6 +3994,56 @@ describe("project workspace", () => {
     // The point of the feature: this window keeps the project and the buffer it
     // already had, rather than being taken over by the one just opened.
     expect(invoke).not.toHaveBeenCalledWith("open_project", { path: "/tmp/overleaf-paper" });
+    const element = document.querySelector<HTMLElement>(".cm-editor");
+    const view = element ? EditorView.findFromDOM(element) : null;
+    expect(view?.state.doc.toString()).toBe("# Private draft");
+  });
+
+  it("gives a newly created project its own window when one is already open", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const notesSnapshot = {
+      root: "/tmp/notes",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "notes-id",
+        name: "Notes",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
+    };
+    const created = { ...notesSnapshot, root: "/tmp/new-paper" };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return notesSnapshot;
+      if (command === "read_project_file") return "# Private draft";
+      if (command === "create_project") return created;
+      if (command === "open_project_window") return { label: "project-1", focusedExisting: false };
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      const view = element ? EditorView.findFromDOM(element) : null;
+      expect(view?.state.doc.toString()).toBe("# Private draft");
+    });
+
+    vi.mocked(open).mockResolvedValue("/tmp");
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "New project" }));
+    fireEvent.change(await screen.findByLabelText("Project name"), { target: { value: "New paper" } });
+    fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_project_window", {
+      path: "/tmp/new-paper",
+    }));
+    // The window that was in use keeps its project and its buffer.
+    expect(invoke).not.toHaveBeenCalledWith("open_project", { path: "/tmp/new-paper" });
     const element = document.querySelector<HTMLElement>(".cm-editor");
     const view = element ? EditorView.findFromDOM(element) : null;
     expect(view?.state.doc.toString()).toBe("# Private draft");

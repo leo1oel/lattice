@@ -1241,6 +1241,39 @@ export function selectionVisibilityExtension(): Extension {
 }
 
 /** Editing behavior shared by LaTeX, Markdown, BibTeX, and plain-text files. */
+/**
+ * Above this size, Harper lints only the visible ranges (plus margin) instead
+ * of the whole document. Whole-doc linting is a main-thread WASM pass over
+ * every character on a 350 ms typing cadence — the worker escape hatch is
+ * unavailable in WKWebView (see harper-spellcheck.ts) — so a 2 MB document
+ * would otherwise stall typing. Typora-style guardrail: degrade the feature
+ * by size rather than pay for it everywhere.
+ */
+export const HARPER_WINDOW_THRESHOLD = 120_000;
+const HARPER_WINDOW_MARGIN = 2_000;
+
+/**
+ * Null → lint the whole document (small doc). Otherwise the union of visible
+ * ranges expanded by the margin and snapped outward to line boundaries.
+ * Known limitation: masking is approximate at window edges — an environment
+ * opened above the window is not seen — a bounded false-positive trade
+ * against whole-document lint cost.
+ */
+export function harperLintWindow(view: EditorView): { from: number; to: number } | null {
+  const doc = view.state.doc;
+  if (doc.length <= HARPER_WINDOW_THRESHOLD) return null;
+  let from = doc.length;
+  let to = 0;
+  for (const range of view.visibleRanges) {
+    from = Math.min(from, range.from);
+    to = Math.max(to, range.to);
+  }
+  if (to <= from) return { from: 0, to: 0 };
+  from = doc.lineAt(Math.max(0, from - HARPER_WINDOW_MARGIN)).from;
+  to = doc.lineAt(Math.min(doc.length, to + HARPER_WINDOW_MARGIN)).to;
+  return { from, to };
+}
+
 export function textEditorExtensions(
   spellcheck = false,
   liveRef?: { current: LatexEditorLiveData },
@@ -1263,12 +1296,12 @@ export function textEditorExtensions(
     tooltips({
       tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()),
     }),
-    ...(spellcheck ? [linter((view) => {
+    ...(spellcheck ? [linter(async (view) => {
       const data = liveRef?.current;
-      return harperDiagnostics(view.state.doc.toString(), {
+      const options = {
         projectWords: data?.spellingWords ?? [],
         onAddProjectWord: data?.onAddSpellingWord
-          ? async (word) => {
+          ? async (word: string) => {
               const accepted = await data.onAddSpellingWord?.(word);
               if (accepted === false) return false;
               const current = liveRef?.current;
@@ -1278,11 +1311,27 @@ export function textEditorExtensions(
               return true;
             }
           : undefined,
-      });
+      };
+      const window = harperLintWindow(view);
+      if (!window) return harperDiagnostics(view.state.doc.toString(), options);
+      if (window.to <= window.from) return [];
+      const diagnostics = await harperDiagnostics(
+        view.state.doc.sliceString(window.from, window.to),
+        options,
+      );
+      return diagnostics.map((diagnostic) => ({
+        ...diagnostic,
+        from: diagnostic.from + window.from,
+        to: diagnostic.to + window.from,
+      }));
     }, {
       delay: 350,
-      needsRefresh: (update) => update.transactions.some((transaction) =>
-        transaction.effects.some((effect) => effect.is(harperDictionaryChanged))),
+      needsRefresh: (update) => (
+        // Windowed docs re-lint as new content scrolls into the window.
+        (update.viewportChanged && update.state.doc.length > HARPER_WINDOW_THRESHOLD)
+        || update.transactions.some((transaction) =>
+          transaction.effects.some((effect) => effect.is(harperDictionaryChanged)))
+      ),
     })] : []),
     ...(onPasteImage ? [EditorView.domEventHandlers({
       paste(event) {

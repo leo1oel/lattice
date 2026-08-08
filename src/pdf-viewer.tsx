@@ -215,6 +215,136 @@ function PdfLinkLayer({
   );
 }
 
+/** Hoisted out of the component: try/finally bodies make the React Compiler bail out. */
+async function downloadCompiledPdf(
+  pdfBytes: ArrayBuffer,
+  fileName: string,
+  setSavingPdf: (value: boolean) => void,
+): Promise<void> {
+  const trace = logAction(PDF_SOURCE, "Save PDF", fileName);
+  try {
+    const destination = await saveDialog({
+      title: "Save compiled PDF",
+      defaultPath: fileName,
+      filters: [{ name: "PDF document", extensions: ["pdf"] }],
+    });
+    if (!destination) return;
+    const savedPath = await invoke<string>("save_compiled_pdf", pdfBytes, {
+      headers: { "x-pdf-destination": utf8ToBase64(destination) },
+    });
+    trace.ok(`Saved to ${savedPath}`);
+  } catch (reason) {
+    trace.fail(reason);
+  } finally {
+    setSavingPdf(false);
+  }
+}
+
+/**
+ * The page render body, hoisted out of ContinuousPdfPage's effect: its
+ * try/catch/finally made the React Compiler bail out of the whole component.
+ * Pure cut-and-paste — closure state (alive, renderTask, textLayer) arrives
+ * through the ctx accessors.
+ */
+async function renderContinuousPage(ctx: {
+  page: PDFPageProxy;
+  canvas: HTMLCanvasElement;
+  textContainer: HTMLDivElement;
+  scale: number;
+  pageNumber: number;
+  isAlive: () => boolean;
+  holdRenderTask: (task: { promise: Promise<unknown>; cancel: () => void }) => void;
+  holdTextLayer: (layer: TextLayer) => void;
+  setRendering: (value: boolean) => void;
+  setPageError: (value: string) => void;
+  setAnnotations: (items: PdfAnnotation[]) => void;
+  onTextLayerText: (page: number, text: string) => void;
+  bumpTextLayerVersion: () => void;
+}): Promise<void> {
+  const { page, canvas, textContainer, scale, pageNumber } = ctx;
+  ctx.setRendering(true);
+  ctx.setPageError("");
+  try {
+    // Preview.app looks sharp; pdf.js canvas Type1 Times needs supersampling,
+    // especially on VM displays that report devicePixelRatio=1.
+    const cssViewport = page.getViewport({ scale });
+    const pixelRatio = pdfRenderPixelRatio(window.devicePixelRatio || 1, cssViewport);
+    const viewport = page.getViewport({ scale: scale * pixelRatio });
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    canvas.style.width = `${Math.floor(cssViewport.width)}px`;
+    canvas.style.height = `${Math.floor(cssViewport.height)}px`;
+    textContainer.replaceChildren();
+    // PDF pages are static frames. Let WKWebView synchronize the canvas
+    // with its compositor so a scroll cannot expose a partially committed bitmap.
+    const context = canvas.getContext("2d", { alpha: false });
+    if (context) {
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      // High-DPI bitmap is downscaled in CSS; light smoothing keeps Type1 paths clean.
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+      context.fillStyle = "#F9F9FA";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    const renderTask = page.render({
+      canvas,
+      viewport,
+      intent: "display",
+      ...(context ? { canvasContext: context } : {}),
+    });
+    ctx.holdRenderTask(renderTask);
+    void page.getAnnotations({ intent: "display" }).then((items) => {
+      if (!ctx.isAlive()) return;
+      ctx.setAnnotations((items as PdfAnnotation[]).map((annotation) => ({
+        ...annotation,
+        rect: annotation.rect
+          ? [
+              ...cssViewport.convertToViewportPoint(annotation.rect[0], annotation.rect[1]),
+              ...cssViewport.convertToViewportPoint(annotation.rect[2], annotation.rect[3]),
+            ]
+          : undefined,
+      })));
+    }).catch(() => {
+      if (ctx.isAlive()) ctx.setAnnotations([]);
+    });
+    await renderTask.promise;
+    if (!ctx.isAlive()) return;
+    ctx.setRendering(false);
+
+    // A selectable text layer is useful, but it must not hold a scarce
+    // canvas-render slot or keep a completed page hidden behind its loader.
+    const textLayer = new TextLayer({
+      textContentSource: page.streamTextContent(),
+      container: textContainer,
+      viewport: cssViewport,
+    });
+    ctx.holdTextLayer(textLayer);
+    void textLayer.render()
+      .then(() => {
+        if (!ctx.isAlive()) return;
+        ctx.onTextLayerText(pageNumber, textContainer.textContent ?? "");
+        ctx.bumpTextLayerVersion();
+      })
+      .catch(() => {
+        // A cancelled or malformed text layer must not hide a valid canvas.
+      });
+  } catch (reason) {
+    if (!ctx.isAlive()) return;
+    const detail = message(reason);
+    const errorName = reason && typeof reason === "object" && "name" in reason
+      ? String(reason.name)
+      : "";
+    if (
+      errorName !== "RenderingCancelledException"
+      && !/messageHandler|worker is being destroyed/i.test(detail)
+    ) {
+      ctx.setPageError(detail);
+    }
+  } finally {
+    if (ctx.isAlive()) ctx.setRendering(false);
+  }
+}
+
 const ContinuousPdfPage = memo(function ContinuousPdfPage({
   documentProxy,
   pageNumber,
@@ -326,85 +456,21 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
     let textLayer: TextLayer | null = null;
     const cancelQueuedRender = renderQueue.enqueue(async () => {
       if (!alive) return;
-      setRendering(true);
-      setPageError("");
-      try {
-        // Preview.app looks sharp; pdf.js canvas Type1 Times needs supersampling,
-        // especially on VM displays that report devicePixelRatio=1.
-        const cssViewport = page.getViewport({ scale });
-        const pixelRatio = pdfRenderPixelRatio(window.devicePixelRatio || 1, cssViewport);
-        const viewport = page.getViewport({ scale: scale * pixelRatio });
-        canvas.width = Math.floor(viewport.width);
-        canvas.height = Math.floor(viewport.height);
-        canvas.style.width = `${Math.floor(cssViewport.width)}px`;
-        canvas.style.height = `${Math.floor(cssViewport.height)}px`;
-        textContainer.replaceChildren();
-        // PDF pages are static frames. Let WKWebView synchronize the canvas
-        // with its compositor so a scroll cannot expose a partially committed bitmap.
-        const context = canvas.getContext("2d", { alpha: false });
-        if (context) {
-          context.setTransform(1, 0, 0, 1, 0, 0);
-          // High-DPI bitmap is downscaled in CSS; light smoothing keeps Type1 paths clean.
-          context.imageSmoothingEnabled = true;
-          context.imageSmoothingQuality = "high";
-          context.fillStyle = "#F9F9FA";
-          context.fillRect(0, 0, canvas.width, canvas.height);
-        }
-        renderTask = page.render({
-          canvas,
-          viewport,
-          intent: "display",
-          ...(context ? { canvasContext: context } : {}),
-        });
-        void page.getAnnotations({ intent: "display" }).then((items) => {
-          if (!alive) return;
-          setAnnotations((items as PdfAnnotation[]).map((annotation) => ({
-            ...annotation,
-            rect: annotation.rect
-              ? [
-                  ...cssViewport.convertToViewportPoint(annotation.rect[0], annotation.rect[1]),
-                  ...cssViewport.convertToViewportPoint(annotation.rect[2], annotation.rect[3]),
-                ]
-              : undefined,
-          })));
-        }).catch(() => {
-          if (alive) setAnnotations([]);
-        });
-        await renderTask.promise;
-        if (!alive) return;
-        setRendering(false);
-
-        // A selectable text layer is useful, but it must not hold a scarce
-        // canvas-render slot or keep a completed page hidden behind its loader.
-        textLayer = new TextLayer({
-          textContentSource: page.streamTextContent(),
-          container: textContainer,
-          viewport: cssViewport,
-        });
-        void textLayer.render()
-          .then(() => {
-            if (!alive) return;
-            onTextLayerText(pageNumber, textContainer.textContent ?? "");
-            setTextLayerVersion((version) => version + 1);
-          })
-          .catch(() => {
-            // A cancelled or malformed text layer must not hide a valid canvas.
-          });
-      } catch (reason) {
-        if (!alive) return;
-        const detail = message(reason);
-        const errorName = reason && typeof reason === "object" && "name" in reason
-          ? String(reason.name)
-          : "";
-        if (
-          errorName !== "RenderingCancelledException"
-          && !/messageHandler|worker is being destroyed/i.test(detail)
-        ) {
-          setPageError(detail);
-        }
-      } finally {
-        if (alive) setRendering(false);
-      }
+      await renderContinuousPage({
+        page,
+        canvas,
+        textContainer,
+        scale,
+        pageNumber,
+        isAlive: () => alive,
+        holdRenderTask: (task) => { renderTask = task; },
+        holdTextLayer: (layer) => { textLayer = layer; },
+        setRendering,
+        setPageError,
+        setAnnotations,
+        onTextLayerText,
+        bumpTextLayerVersion: () => setTextLayerVersion((version) => version + 1),
+      });
     }, nearbyRef.current);
     return () => {
       alive = false;
@@ -1164,26 +1230,10 @@ export function PdfPreview({
     );
   }
 
-  const download = async () => {
+  const download = () => {
     if (!pdfBytes || savingPdf) return;
     setSavingPdf(true);
-    const trace = logAction(PDF_SOURCE, "Save PDF", fileName);
-    try {
-      const destination = await saveDialog({
-        title: "Save compiled PDF",
-        defaultPath: fileName,
-        filters: [{ name: "PDF document", extensions: ["pdf"] }],
-      });
-      if (!destination) return;
-      const savedPath = await invoke<string>("save_compiled_pdf", pdfBytes, {
-        headers: { "x-pdf-destination": utf8ToBase64(destination) },
-      });
-      trace.ok(`Saved to ${savedPath}`);
-    } catch (reason) {
-      trace.fail(reason);
-    } finally {
-      setSavingPdf(false);
-    }
+    void downloadCompiledPdf(pdfBytes, fileName, setSavingPdf);
   };
   const selectMatch = (delta: number) => {
     if (!matches.length) return;

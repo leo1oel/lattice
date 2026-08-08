@@ -27,6 +27,8 @@ import {
   sortSelectedLines,
   symbolAt,
   latexEditorExtensions,
+  harperLintWindow,
+  HARPER_WINDOW_THRESHOLD,
   latexLanguageOptions,
   selectionVisibilityExtension,
   referenceCompletionRange,
@@ -525,5 +527,35 @@ describe("LaTeX citation editing", () => {
       "\\begin{comment}\ndraft\n\\end{comment}",
     );
     expect(wrapCommentRegion("draft", 0, 5, "iffalse").insert).toBe("\\iffalse\ndraft\n\\fi");
+  });
+
+  it("windows Harper linting only above the size threshold", () => {
+    const smallView = new EditorView({
+      parent: document.body,
+      state: EditorState.create({ doc: "short document\n".repeat(10) }),
+    });
+    expect(harperLintWindow(smallView)).toBeNull();
+    smallView.destroy();
+
+    const line = "a sentence that repeats across the large fixture document\n";
+    const doc = line.repeat(Math.ceil((HARPER_WINDOW_THRESHOLD + 50_000) / line.length));
+    const largeView = new EditorView({
+      parent: document.body,
+      state: EditorState.create({ doc }),
+    });
+    const window = harperLintWindow(largeView);
+    expect(window).not.toBeNull();
+    // A strict sub-range of the document, snapped to line boundaries.
+    expect(window!.from).toBeGreaterThanOrEqual(0);
+    expect(window!.to).toBeLessThanOrEqual(doc.length);
+    expect(window!.to - window!.from).toBeLessThan(doc.length);
+    expect(largeView.state.doc.lineAt(window!.from).from).toBe(window!.from);
+    expect(largeView.state.doc.lineAt(window!.to).to).toBe(window!.to);
+    // Every visible range is covered, margins included.
+    for (const range of largeView.visibleRanges) {
+      expect(window!.from).toBeLessThanOrEqual(range.from);
+      expect(window!.to).toBeGreaterThanOrEqual(range.to);
+    }
+    largeView.destroy();
   });
 });

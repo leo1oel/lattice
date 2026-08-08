@@ -97,6 +97,27 @@ experiment behind a flag, measured before adoption.
 | --- | --- | --- | --- | --- |
 | _baseline_ | — | _fill in_ | _fill in_ | before optimization stages |
 
+## React Compiler status
+
+`scripts/react-compiler-report.mjs` prints every compiler bailout in the hot
+files; `src/react-compiler-guard.test.ts` pins per-file ceilings so new
+bailouts fail CI. As of August 2026: `editor-tabs.tsx` compiles fully; the
+syntax-level blockers (try/finally bodies, `??=`, inline `import()`,
+default-parameter `??`) were cleared from `pdf-viewer.tsx`,
+`visual-markdown-editor.tsx`, and `document-canvas.tsx`'s hooks. Remaining,
+in order of value:
+
+1. `App.tsx` — ~35 `try/finally` callback bodies plus a handful of throws
+   inside try. Recipe: hoist each body to a module-level function taking a
+   deps object, leave the `useCallback` as a thin arrow; per-file commits so
+   regressions bisect. This is the single biggest render-cost win left.
+2. Render-phase ref writes (`xRef.current = x` during render) in
+   `pdf-viewer.tsx` and `visual-markdown-editor.tsx` — convert to
+   every-commit effects, auditing each ref's consumers for ordering.
+3. `DocumentCanvas` is skipped wholesale because its extension memos carry
+   intentional `react-hooks/exhaustive-deps` disables (identity stability the
+   compiler cannot express yet). Resolving this needs a design, not an edit.
+
 ## Future directions (not yet scheduled)
 
 - Editable-doc `content-visibility` experiment behind a dev flag, with

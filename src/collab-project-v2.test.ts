@@ -110,7 +110,14 @@ describe("planCatalogDeltaV2", () => {
 });
 
 describe("v2 project presence", () => {
-  async function setupPresenceTest(options: { paths?: string[]; boardPaths?: string[]; presenceTable?: Record<string, unknown>; syncManually?: boolean } = {}) {
+  async function setupPresenceTest(options: {
+    paths?: string[];
+    boardPaths?: string[];
+    presenceTable?: Record<string, unknown>;
+    syncManually?: boolean;
+    /** Seed the durable store (e.g. a server-acked snapshot) before the controller starts. */
+    primeStore?: (store: import("./collab-text-v2-store").CollabTextDurableStoreV2) => Promise<void>;
+  } = {}) {
     vi.resetModules();
     vi.stubEnv("VITE_LATTICE_COLLAB_V2", "true");
     const { IDBFactory } = await import("fake-indexeddb");
@@ -139,6 +146,8 @@ describe("v2 project presence", () => {
     const { CollabProjectControllerV2 } = await import("./collab-project-v2");
     const peersCalls: import("./collab-session").CollabPeer[][] = [];
     const store = new (await import("./collab-text-v2-store")).CollabTextDurableStoreV2(new IDBFactory());
+    await options.primeStore?.(store);
+    const disconnectListeners: Array<(error?: unknown) => void> = [];
     const controller = await CollabProjectControllerV2.start({
       deployment: "https://collab.example", projectInstanceId: "proj",
       credentialRef: "ref", credentialStore: { get: async () => "secret" } as never,
@@ -149,7 +158,10 @@ describe("v2 project presence", () => {
         return {
           awareness,
           onCustomMessage: () => () => undefined,
-          onDisconnect: () => () => undefined,
+          onDisconnect: (listener) => {
+            disconnectListeners.push(listener);
+            return () => undefined;
+          },
           onSynced: (listener) => {
             if (options.syncManually) syncedListeners.push(listener);
             else queueMicrotask(() => listener(true));
@@ -163,7 +175,7 @@ describe("v2 project presence", () => {
       displayName: "Ada",
       onPeers: (peers) => peersCalls.push(peers),
     });
-    return { controller, presenceCalls, peersCalls, awarenesses, store, catalogValue, syncedListeners };
+    return { controller, presenceCalls, peersCalls, awarenesses, store, catalogValue, syncedListeners, disconnectListeners };
   }
 
   it("announces identity and path on awareness, merges cross-file presence, and leaves on destroy", async () => {
@@ -399,6 +411,80 @@ describe("v2 project presence", () => {
     releaseWrite();
     await flush;
     expect(flushed).toBe(true);
+    controller.destroy();
+  });
+
+  /** Seed f0 with a server-acked snapshot so the restored doc counts as durable-seen. */
+  async function primeAckedSnapshot(store: import("./collab-text-v2-store").CollabTextDurableStoreV2, text: string) {
+    const doc = new Y.Doc();
+    doc.getText("content").insert(0, text);
+    const snapshot = Y.encodeStateAsUpdate(doc);
+    const vector = Y.encodeStateVector(doc);
+    const stateVector = btoa(String.fromCharCode(...vector))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replaceAll("=", "");
+    const namespace = { deployment: "https://collab.example", projectInstanceId: "proj", fileId: "f0", documentEpoch: 1 };
+    await store.compactAck(namespace, snapshot, {
+      type: "lattice.durable-ack",
+      protocol: 2,
+      projectInstanceId: "proj",
+      fileId: "f0",
+      documentEpoch: 1,
+      contentRevision: 1,
+      snapshotGeneration: 1,
+      stateVector,
+      size: snapshot.byteLength,
+      hash: "a".repeat(64),
+    }, vector);
+  }
+
+  it("cached-first open returns the acked snapshot before the transport ever syncs", async () => {
+    const { controller, syncedListeners } = await setupPresenceTest({
+      syncManually: true,
+      primeStore: (store) => primeAckedSnapshot(store, "cached text"),
+    });
+    // syncManually means no transport ever reports synced — resolving at all
+    // proves the open did not wait on the network.
+    const ytext = await controller.openPath("paper.md", "main", { cachedFirst: true, timeoutMs: 500 });
+    expect(ytext.toString()).toBe("cached text");
+    // The background connection is still attempted (transport materializes
+    // once the ticket fetch lands).
+    await vi.waitFor(() => expect(syncedListeners.length).toBeGreaterThan(0));
+    controller.destroy();
+  });
+
+  it("cached-first open without a durable snapshot still waits for sync", async () => {
+    const { controller, syncedListeners } = await setupPresenceTest({ syncManually: true });
+    let resolved = false;
+    const opening = controller.openPath("paper.md", "main", { cachedFirst: true, timeoutMs: 5_000 })
+      .then((ytext) => { resolved = true; return ytext; });
+    await vi.waitFor(() => expect(syncedListeners.length).toBeGreaterThan(0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(resolved).toBe(false);
+    syncedListeners.forEach((listener) => listener(true));
+    await opening;
+    expect(resolved).toBe(true);
+    controller.destroy();
+  });
+
+  it("a permanent close during a cached-first session still drops canWrite", async () => {
+    const { controller, disconnectListeners } = await setupPresenceTest({
+      syncManually: true,
+      primeStore: (store) => primeAckedSnapshot(store, "cached text"),
+    });
+    const { TextClientPermanentErrorV2 } = await import("./collab-text-v2");
+    await controller.openPath("paper.md", "main", { cachedFirst: true, timeoutMs: 500 });
+    const canWrites: boolean[] = [];
+    const unsubscribe = controller.subscribeCanWrite((value) => canWrites.push(value));
+    expect(canWrites.at(-1)).toBe(true);
+    // The server's write gate closes the socket permanently (4403 maps to
+    // "revoked"); the cached-first client must stop and report read-only.
+    // Wait for the background connection to attach its transport first.
+    await vi.waitFor(() => expect(disconnectListeners.length).toBeGreaterThan(0));
+    disconnectListeners.forEach((listener) => listener(new TextClientPermanentErrorV2("revoked")));
+    await vi.waitFor(() => expect(controller.canWrite).toBe(false));
+    unsubscribe();
     controller.destroy();
   });
 });

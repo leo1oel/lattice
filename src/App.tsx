@@ -4501,20 +4501,49 @@ function App() {
     })();
   }, [cancelProjectTransition, enterProject, initialProjectProbe, runBuild, startProjectTransition]);
 
+  /// Hand a project to a window of its own, or raise the window already
+  /// showing it. Returns the failure message so a caller that keeps a list of
+  /// projects can decide whether the project is worth forgetting.
+  const openProjectWindow = useCallback(async (path: string): Promise<string | null> => {
+    setBusyLabel("Opening window…");
+    try {
+      await invoke("open_project_window", { path });
+      return null;
+    } catch (reason) {
+      const message = toMessage(reason);
+      setError(message);
+      return message;
+    } finally {
+      setBusyLabel(null);
+    }
+  }, []);
+
+  /// Show a project that was just created, imported or cloned. A window in use
+  /// keeps what it has and the project gets one of its own; an empty window
+  /// takes it in place. The backend deliberately does not bind these on
+  /// creation, so this is the only thing that decides where they land.
+  const revealNewProject = useCallback(async (root: string) => {
+    if (project?.root) {
+      await openProjectWindow(root);
+      return;
+    }
+    await enterProject(await invoke<ProjectSnapshot>("open_project", { path: root }));
+  }, [enterProject, openProjectWindow, project?.root]);
+
   const openClonedOverleafProject = useCallback(async (root: string) => {
     setBusyLabel("Opening the Overleaf project…");
+    const openHere = !project?.root;
     try {
-      if (!await startProjectTransition()) return;
-      const snapshot = await invoke<ProjectSnapshot>("open_project", { path: root });
-      await enterProject(snapshot);
+      if (openHere && !await startProjectTransition()) return;
+      await revealNewProject(root);
       setError(null);
     } catch (reason) {
-      cancelProjectTransition();
+      if (openHere) cancelProjectTransition();
       setError(toMessage(reason));
     } finally {
       setBusyLabel(null);
     }
-  }, [cancelProjectTransition, enterProject, startProjectTransition]);
+  }, [cancelProjectTransition, project?.root, revealNewProject, startProjectTransition]);
 
   const joinCollabShare = useCallback(() => {
     const v2Raw = collabInvite.trim() || collabRoom.trim();
@@ -4751,22 +4780,6 @@ function App() {
     })();
   }, [activeCollabVersion, clearCollabLocalState, refreshRecentRooms]);
 
-  /// Hand a project to a window of its own, or raise the window already
-  /// showing it. Returns the failure message so a caller that keeps a list of
-  /// projects can decide whether the project is worth forgetting.
-  const openProjectWindow = useCallback(async (path: string): Promise<string | null> => {
-    setBusyLabel("Opening window…");
-    try {
-      await invoke("open_project_window", { path });
-      return null;
-    } catch (reason) {
-      const message = toMessage(reason);
-      setError(message);
-      return message;
-    } finally {
-      setBusyLabel(null);
-    }
-  }, []);
 
   const chooseExisting = useCallback(async () => {
     const selected = await open({ directory: true, multiple: false, title: "Open a LaTeX project" });
@@ -4805,9 +4818,12 @@ function App() {
     const parent = await open({ directory: true, multiple: false, title: "Choose where to create the project" });
     if (!parent) return;
     setBusyLabel("Creating project…");
+    // Only an empty window is about to lose what it is showing, so only it has
+    // to save and take the switch lock first.
+    const openHere = !project?.root;
     try {
-      if (!(await save())) return;
-      if (!await startProjectTransition()) return;
+      if (openHere && !(await save())) return;
+      if (openHere && !await startProjectTransition()) return;
       const snapshot = await invoke<ProjectSnapshot>("create_project", {
         parent,
         name: projectName,
@@ -4815,18 +4831,19 @@ function App() {
       });
       setCreateError(null);
       setCreateOpen(false);
-      await enterProject(snapshot);
+      await revealNewProject(snapshot.root);
     } catch (reason) {
-      cancelProjectTransition();
+      if (openHere) cancelProjectTransition();
       setCreateError(toMessage(reason));
     } finally {
       setBusyLabel(null);
     }
   }, [
     cancelProjectTransition,
-    enterProject,
+    project?.root,
     projectName,
     projectVenue,
+    revealNewProject,
     save,
     startProjectTransition,
   ]);
@@ -4881,20 +4898,19 @@ function App() {
     });
     if (!parent) return;
     setBusyLabel("Importing ZIP…");
+    const openHere = !project?.root;
     try {
-      if (!(await save())) return;
-      if (!await startProjectTransition()) return;
-      await enterProject(await invoke<ProjectSnapshot>("import_project_zip", {
-        zipPath,
-        parent,
-      }));
+      if (openHere && !(await save())) return;
+      if (openHere && !await startProjectTransition()) return;
+      const snapshot = await invoke<ProjectSnapshot>("import_project_zip", { zipPath, parent });
+      await revealNewProject(snapshot.root);
     } catch (reason) {
-      cancelProjectTransition();
+      if (openHere) cancelProjectTransition();
       setError(toMessage(reason));
     } finally {
       setBusyLabel(null);
     }
-  }, [cancelProjectTransition, enterProject, save, startProjectTransition]);
+  }, [cancelProjectTransition, project?.root, revealNewProject, save, startProjectTransition]);
 
   const exportProjectZip = useCallback(async () => {
     if (!project) return;

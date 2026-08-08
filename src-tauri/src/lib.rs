@@ -495,27 +495,26 @@ where
     })?
 }
 
+/// Create a project on disk. Which window shows it is a separate decision the
+/// caller makes with `open_project` or `open_project_window` — binding it here
+/// would take the calling window's project away before it could open the new
+/// one somewhere else.
 #[tauri::command]
 async fn create_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
     parent: String,
     name: String,
     venue: Option<String>,
 ) -> Result<ProjectSnapshot, String> {
     let venue = project::Venue::parse(venue.as_deref().unwrap_or("neurips"))?;
-    let (root, snapshot) = run_blocking("Project creation", move || {
+    run_blocking("Project creation", move || {
         let root = if venue == project::Venue::Neurips {
             project::create(Path::new(&parent), &name)?
         } else {
             project::create_with_venue(Path::new(&parent), &name, venue)?
         };
-        let snapshot = project::open(&root)?;
-        Ok((root, snapshot))
+        project::open(&root)
     })
-    .await?;
-    set_root(&state, &window, root).await?;
-    Ok(snapshot)
+    .await
 }
 
 #[tauri::command]
@@ -752,19 +751,14 @@ async fn open_project_window(
     }
 }
 
+/// Unpack a project from a ZIP. As with `create_project`, placing it in a
+/// window is the caller's separate decision.
 #[tauri::command]
-async fn import_project_zip(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    zip_path: String,
-    parent: String,
-) -> Result<ProjectSnapshot, String> {
-    let snapshot = run_blocking("Project import", move || {
+async fn import_project_zip(zip_path: String, parent: String) -> Result<ProjectSnapshot, String> {
+    run_blocking("Project import", move || {
         project::import_project_zip(Path::new(&zip_path), Path::new(&parent))
     })
-    .await?;
-    set_root(&state, &window, PathBuf::from(&snapshot.root)).await?;
-    Ok(snapshot)
+    .await
 }
 
 #[tauri::command]

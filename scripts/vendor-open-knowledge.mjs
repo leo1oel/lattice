@@ -135,6 +135,11 @@ const MANIFEST = [
   "editor/extensions/tab-focus-trap.ts",
   "editor/extensions/table-row-enter.ts",
   "editor/extensions/heading-anchors.ts",
+  // content-visibility block chunking for read-only large-doc surfaces; the
+  // consuming CSS (.ok-chunk-wrapper) is already in editor-globals.css, and
+  // its '@/lib/perf' import resolves to the local lib/perf.ts seam
+  "editor/extensions/chunk-wrapper-decoration.ts",
+  "editor/extensions/chunk-wrapper-decoration.test.ts",
   "editor/extensions/wiki-link-helpers.ts",
   "editor/page-list-cache.ts",
   // typed-shorthand input rules ($…$ math, [text](url) links); their

@@ -751,6 +751,16 @@ function vimModeExtension(getCM: VimGetCM, onModeChange: (mode: string) => void)
   });
 }
 
+// Hoisted loaders: inline `import()` expressions inside a hook make the React
+// Compiler bail out of it (the same pattern App.tsx uses for lazy panels).
+const loadVimKeymapExtensions = (onVimModeChange: (mode: string) => void) =>
+  import("@replit/codemirror-vim").then((module) => [
+    module.vim({ status: false }),
+    vimModeExtension(module.getCM, onVimModeChange),
+  ]);
+const loadEmacsKeymapExtensions = () =>
+  import("@replit/codemirror-emacs").then((module) => [module.emacs()]);
+
 function useOptionalKeymapExtensions(
   keymap: EditorKeymap,
   onVimModeChange: (mode: string) => void,
@@ -768,11 +778,8 @@ function useOptionalKeymapExtensions(
     }
 
     const loading = keymap === "vim"
-      ? import("@replit/codemirror-vim").then((module) => [
-          module.vim({ status: false }),
-          vimModeExtension(module.getCM, onVimModeChange),
-        ])
-      : import("@replit/codemirror-emacs").then((module) => [module.emacs()]);
+      ? loadVimKeymapExtensions(onVimModeChange)
+      : loadEmacsKeymapExtensions();
     void loading.then((extensions) => {
       if (!disposed) setLoaded({ keymap, extensions });
     });

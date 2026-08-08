@@ -47,10 +47,15 @@ export const EditorTabs = memo(function EditorTabs(props: {
 
   // Refs so the window-level pointer handlers always see the latest props even
   // though the drag reorders the list (and re-renders) many times mid-gesture.
+  // Written from an every-commit effect (not during render): pointer events
+  // only arrive after the commit, and render-phase ref writes make the React
+  // Compiler bail out of the whole component.
   const tabsRef = useRef(props.tabs);
-  tabsRef.current = props.tabs;
   const onReorderRef = useRef(props.onReorder);
-  onReorderRef.current = props.onReorder;
+  useEffect(() => {
+    tabsRef.current = props.tabs;
+    onReorderRef.current = props.onReorder;
+  });
   const tabEls = useRef(new Map<string, HTMLElement>());
   const dragRef = useRef<{ path: string; startX: number; active: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -108,9 +113,11 @@ export const EditorTabs = memo(function EditorTabs(props: {
     if (!sameOrder(without, paths)) onReorderRef.current(without);
   }, []);
 
+  // The pointerup listener registers with { once: true }, so endDrag never
+  // has to remove it by name — a self-reference inside its own initializer
+  // that also made the React Compiler bail out of this whole component.
   const endDrag = useCallback(() => {
     window.removeEventListener("pointermove", onPointerMove);
-    window.removeEventListener("pointerup", endDrag);
     document.body.classList.remove("reordering-tabs");
     const state = dragRef.current;
     dragRef.current = null;
@@ -124,7 +131,7 @@ export const EditorTabs = memo(function EditorTabs(props: {
     if ((event.target as HTMLElement).closest(".editor-tab-close")) return;
     dragRef.current = { path, startX: event.clientX, active: false };
     window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointerup", endDrag, { once: true });
   }, [onPointerMove, endDrag]);
 
   // Clean up window listeners if unmounted mid-drag.
