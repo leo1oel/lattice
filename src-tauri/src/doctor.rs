@@ -77,6 +77,8 @@ pub fn run(root: Option<&Path>) -> DoctorReport {
                 ));
                 if manifest.venue.eq_ignore_ascii_case("icml") {
                     push_icml_packages(&mut checks);
+                } else if manifest.venue.eq_ignore_ascii_case("neurips") {
+                    push_neurips_packages(&mut checks);
                 }
             }
             Err(error) => checks.push(check("project-root", error, false)),
@@ -164,6 +166,51 @@ fn push_icml_packages(checks: &mut Vec<DoctorCheck>) {
             "icml-packages",
             format!(
                 "Missing {} — ICML Build will Emergency stop. In Terminal: sudo tlmgr install algorithms   (or click Install BasicTeX in Lattice).",
+                missing.join(", ")
+            ),
+            false,
+        ));
+    }
+}
+
+/// The NeurIPS style pulls in `lineno` and `natbib`, and the template's main.tex
+/// adds a handful more. None of them ship with bare BasicTeX, and the toolchain
+/// banner cannot speak for them: it reports that latexmk and an engine exist,
+/// which stays true while a Build dies on the first missing package.
+fn push_neurips_packages(checks: &mut Vec<DoctorCheck>) {
+    if !commands::available("kpsewhich") {
+        checks.push(check(
+            "neurips-packages",
+            "Cannot verify NeurIPS packages (kpsewhich missing). Install BasicTeX from Lattice."
+                .to_string(),
+            false,
+        ));
+        return;
+    }
+    let required = [
+        "natbib.sty",
+        "lineno.sty",
+        "environ.sty",
+        "nicefrac.sty",
+        "microtype.sty",
+        "booktabs.sty",
+    ];
+    let missing: Vec<&str> = required
+        .into_iter()
+        .filter(|name| kpsewhich(name).is_none())
+        .collect();
+    if missing.is_empty() {
+        checks.push(check(
+            "neurips-packages",
+            "NeurIPS template packages found (natbib, lineno, environ, nicefrac, microtype, booktabs)."
+                .to_string(),
+            true,
+        ));
+    } else {
+        checks.push(check(
+            "neurips-packages",
+            format!(
+                "Missing {} — NeurIPS Build will Emergency stop. In Terminal: sudo tlmgr install collection-latexextra   (or click Install BasicTeX in Lattice).",
                 missing.join(", ")
             ),
             false,

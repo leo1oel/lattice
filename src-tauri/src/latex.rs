@@ -261,7 +261,14 @@ fn run_latexmk(
             let report = pdf_fonts::inspect_pdf_bytes(bytes);
             // Only warn on conclusive failures (e.g. Computer Modern). Inconclusive
             // scans used to false-alarm on compressed pdfTeX object streams.
-            if report.conclusive && !report.ok_for_conference {
+            //
+            // And only for a document that actually typeset a conference
+            // template. The expectation being checked ("this should be Times")
+            // comes from those templates, not from the project: a plain
+            // `article` asking for `lmodern` in a NeurIPS-created project got
+            // told its deliberate font choice was wrong, on every build.
+            if report.conclusive && !report.ok_for_conference && log_loads_conference_template(&log)
+            {
                 let skipped_rebuild = log.to_ascii_lowercase().contains("nothing to do")
                     || log.to_ascii_lowercase().contains("up-to-date");
                 let message = if skipped_rebuild {
@@ -354,6 +361,40 @@ pub fn save_pdf(path: &Path, bytes: &[u8]) -> Result<String, String> {
     Ok(destination.to_string_lossy().to_string())
 }
 
+/// Turn a failed `synctex` run into one sentence a writer can act on.
+///
+/// synctex answers every failure by printing its entire command-line manual to
+/// stderr — around fifty lines of `-o page:x:y:file` grammar. Forwarding that
+/// verbatim put the whole manual page inside the editor's error strip. The one
+/// failure that actually happens has a cause worth naming instead: a PDF built
+/// by another tool carries no `.synctex.gz`, because Lattice's own build is
+/// what passes `-synctex=1`.
+fn synctex_failure(stderr: &str, lead: &str) -> String {
+    if stderr.contains("No SyncTeX available") {
+        return "This PDF has no SyncTeX data, so Lattice cannot match it to the source. \
+            PDFs compiled outside Lattice usually leave it out — press Build once, then try again."
+            .to_string();
+    }
+    let reason = stderr
+        .lines()
+        .take_while(|line| !line.trim_start().starts_with("usage:"))
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let reason = reason.trim();
+    if reason.is_empty() {
+        return lead.to_string();
+    }
+    // Any other synctex failure is still a tool message, not prose: keep it
+    // short enough to read at a glance rather than growing the strip again.
+    let mut short = reason.chars().take(200).collect::<String>();
+    if reason.chars().count() > 200 {
+        short.push('…');
+    }
+    format!("{lead} {short}")
+}
+
 pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexTarget, String> {
     if page == 0 || !x.is_finite() || !y.is_finite() || x < 0.0 || y < 0.0 {
         return Err("Invalid PDF source position.".to_string());
@@ -372,9 +413,9 @@ pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexT
         .output()
         .map_err(|error| format!("Could not start SyncTeX: {error}"))?;
     if !output.status.success() {
-        return Err(format!(
-            "SyncTeX could not locate this PDF position. {}",
-            String::from_utf8_lossy(&output.stderr).trim()
+        return Err(synctex_failure(
+            &String::from_utf8_lossy(&output.stderr),
+            "SyncTeX could not locate this PDF position.",
         ));
     }
     let (input, line) = parse_synctex_edit(&String::from_utf8_lossy(&output.stdout))?;
@@ -453,9 +494,9 @@ pub fn forward_search(
         .output()
         .map_err(|error| format!("Could not start SyncTeX: {error}"))?;
     if !output.status.success() {
-        return Err(format!(
-            "SyncTeX could not locate this source line. {}",
-            String::from_utf8_lossy(&output.stderr).trim()
+        return Err(synctex_failure(
+            &String::from_utf8_lossy(&output.stderr),
+            "SyncTeX could not locate this source line.",
         ));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -555,6 +596,20 @@ fn tlmgr_package_for_sty(sty: &str) -> &str {
 /// Conference styles (NeurIPS/ICML/ICLR) are not on CTAN — `tlmgr install` can
 /// never provide them. Lattice writes them into the project folder at creation,
 /// so a "not found" means the file went missing from the project, not from TeX.
+/// Whether this build loaded one of the conference templates.
+///
+/// The log names every style it reads, so the document that was actually
+/// typeset answers this — the project manifest cannot. A project created as
+/// NeurIPS holds whatever its author later writes in it, including documents
+/// that are not submissions at all.
+fn log_loads_conference_template(log: &str) -> bool {
+    let styles = Regex::new(r"([A-Za-z0-9_\-]+\.sty)").unwrap();
+    let loaded = styles
+        .captures_iter(log)
+        .any(|capture| conference_template_venue(&capture[1]).is_some());
+    loaded
+}
+
 fn conference_template_venue(sty: &str) -> Option<&'static str> {
     let lower = sty.to_ascii_lowercase();
     if lower.starts_with("neurips") || lower.starts_with("nips") {
@@ -979,6 +1034,49 @@ mod tests {
             }),
             "expected algorithms package hint, got {diagnostics:?}"
         );
+    }
+
+    #[test]
+    fn names_the_cause_instead_of_reprinting_the_synctex_manual() {
+        // What synctex actually writes when the PDF has no companion data.
+        let stderr = "SyncTeX ERROR: No SyncTeX available for lambda_gpu_proposal.pdf\n\
+             usage: synctex <subcommand> [options] [args]\n\
+             -o page:x:y:file\n       specify the page and coordinates\n";
+        let message = synctex_failure(stderr, "SyncTeX could not locate this PDF position.");
+        assert!(
+            !message.contains("usage:") && !message.contains("page:x:y:file"),
+            "must not paste synctex's manual into the UI: {message}"
+        );
+        assert!(
+            message.contains("Build"),
+            "must say how to fix it: {message}"
+        );
+    }
+
+    #[test]
+    fn keeps_other_synctex_failures_short_and_without_the_manual() {
+        let stderr = "SyncTeX ERROR: cannot open the file\nusage: synctex <subcommand>\n-o page";
+        let message = synctex_failure(stderr, "SyncTeX could not locate this source line.");
+        assert_eq!(
+            message,
+            "SyncTeX could not locate this source line. SyncTeX ERROR: cannot open the file"
+        );
+    }
+
+    #[test]
+    fn conference_font_expectations_only_apply_to_conference_documents() {
+        // A grant proposal that asks for Latin Modern on purpose.
+        let plain = "(./lambda_gpu_proposal.tex (/usr/local/texlive/2026basic/texmf-dist/tex/latex/lm/lmodern.sty\n\
+             (/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/microtype.sty";
+        assert!(!log_loads_conference_template(plain));
+
+        for style in ["neurips.sty", "icml2026.sty", "iclr2026_conference.sty"] {
+            let log = format!("(./main.tex (./{style}\nPackage: whatever\n");
+            assert!(
+                log_loads_conference_template(&log),
+                "{style} should count as a conference template"
+            );
+        }
     }
 
     #[test]

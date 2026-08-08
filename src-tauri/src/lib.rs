@@ -3391,6 +3391,9 @@ fn align_traffic_lights(
         let window = app
             .get_webview_window("main")
             .ok_or_else(|| "Main window is unavailable.".to_string())?;
+        if std::env::var_os("LATTICE_PROBE_FULLSCREEN").is_some() {
+            log::info!(target: "lattice::probe", "frontend sent center_from_top={center_from_top:.1}");
+        }
         Ok(macos_window::align_traffic_lights_to(
             &window,
             center_from_top,
@@ -3575,6 +3578,41 @@ pub fn run() {
         .setup(|app| {
             log::info!(target: "lattice::app", "Lattice {} starting", app.package_info().version);
             app.manage(AppState::from_environment());
+            // TEMP-PROBE-FULLSCREEN
+            if std::env::var_os("LATTICE_PROBE_FULLSCREEN").is_some() {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    let label = std::env::var("LATTICE_PROBE_FULLSCREEN").unwrap_or_default();
+                    let label = if label == "1" { "main".to_string() } else { label };
+                    let w = loop {
+                        if let Some(w) = handle.get_webview_window(&label) { break w; }
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                    };
+                    let log = |tag: &str, w: &tauri::WebviewWindow| {
+                        let ptr = w.ns_window().unwrap() as usize;
+                        let tag = tag.to_string();
+                        let _ = w.run_on_main_thread(move || unsafe {
+                            use objc2_app_kit::{NSWindow, NSWindowButton};
+                            use objc2::rc::Retained;
+                            let win = &*(ptr as *const NSWindow);
+                            let sv = win.standardWindowButton(NSWindowButton::CloseButton)
+                                .and_then(|b| b.superview());
+                            let svp = sv.as_ref().map(|v| Retained::as_ptr(v) as usize).unwrap_or(0);
+                            let bp = win.standardWindowButton(NSWindowButton::CloseButton)
+                                .map(|b| Retained::as_ptr(&b) as usize).unwrap_or(0);
+                            use objc2_app_kit::NSView;
+                            let cb = win.standardWindowButton(NSWindowButton::CloseButton).unwrap();
+                            let f = sv.as_ref().unwrap().convertRect_toView(NSView::frame(&cb), None);
+                            log::info!(target: "lattice::probe",
+                                "{tag} [{}]: close origin x={:.1} from_top={:.1} (superview={svp:#x} btn={bp:#x})",
+                                "", f.origin.x, win.frame().size.height - (f.origin.y + f.size.height));
+                        });
+                        std::thread::sleep(std::time::Duration::from_millis(400));
+                    };
+                    std::thread::sleep(std::time::Duration::from_secs(10));
+                    log("position", &w);
+                });
+            }
             app.manage(synara::SynaraRuntime::new(app)?);
             synara::prewarm(app.handle().clone());
             // After an update changed a tool pin, this rebuilds the uvx

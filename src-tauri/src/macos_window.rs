@@ -273,6 +273,15 @@ unsafe fn align_traffic_lights_on_main(ns_window: *mut std::ffi::c_void) -> Opti
         ));
     }
 
+    // TEMP-PROBE
+    if std::env::var_os("LATTICE_PROBE_FULLSCREEN").is_some() {
+        let close2 = window.standardWindowButton(NSWindowButton::CloseButton).unwrap();
+        let f = button_superview.convertRect_toView(NSView::frame(&close2), None);
+        log::info!(target: "lattice::probe",
+            "align: center_from_top={:.1} win_h={:.1} close_win_y={:.1} close_from_top={:.1}",
+            traffic_light_center_from_top(), window.frame().size.height,
+            f.origin.y, window.frame().size.height - (f.origin.y + f.size.height / 2.0));
+    }
     // Read the laid-out green button back in window coordinates — convertPoint
     // can shift origins relative to the naive LEFT_INSET + n*spacing formula.
     let zoom_in_window = button_superview.convertRect_toView(NSView::frame(&zoom), None);
