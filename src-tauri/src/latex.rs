@@ -388,6 +388,11 @@ pub fn save_pdf(path: &Path, bytes: &[u8]) -> Result<String, String> {
     Ok(destination.to_string_lossy().to_string())
 }
 
+/// Shown for either direction: without the map there is nothing to match.
+const NO_SYNCTEX_DATA: &str = "This PDF has no SyncTeX data, so Lattice cannot match it to the \
+    source. A PDF compiled outside Lattice leaves it out, and latexmk then reports nothing to do \
+    — press Build once to write it.";
+
 /// Turn a failed `synctex` run into one sentence a writer can act on.
 ///
 /// synctex answers every failure by printing its entire command-line manual to
@@ -398,9 +403,7 @@ pub fn save_pdf(path: &Path, bytes: &[u8]) -> Result<String, String> {
 /// what passes `-synctex=1`.
 fn synctex_failure(stderr: &str, lead: &str) -> String {
     if stderr.contains("No SyncTeX available") {
-        return "This PDF has no SyncTeX data, so Lattice cannot match it to the source. \
-            PDFs compiled outside Lattice usually leave it out — press Build once, then try again."
-            .to_string();
+        return NO_SYNCTEX_DATA.to_string();
     }
     let reason = stderr
         .lines()
@@ -431,6 +434,12 @@ pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexT
     let pdf_path = Path::new(&document.path).with_extension("pdf");
     if !root.join(&pdf_path).is_file() {
         return Err("Build the project before locating PDF source.".to_string());
+    }
+    // Missing SyncTeX data is not "this line is not in the PDF": the whole map
+    // is absent, and every line would answer the same. Say so once here rather
+    // than sending the reader looking for a paragraph that is on the page.
+    if synctex_missing(root) {
+        return Err(NO_SYNCTEX_DATA.to_string());
     }
     let output = commands::command("synctex")
         .current_dir(root)
@@ -488,6 +497,12 @@ pub fn forward_search(
     let pdf_path = Path::new(&document.path).with_extension("pdf");
     if !root.join(&pdf_path).is_file() {
         return Err("Build the project before locating source in the PDF.".to_string());
+    }
+    // Missing SyncTeX data is not "this line is not in the PDF": the whole map
+    // is absent, and every line would answer the same. Say so once here rather
+    // than sending the reader looking for a paragraph that is on the page.
+    if synctex_missing(root) {
+        return Err(NO_SYNCTEX_DATA.to_string());
     }
     let mut lookup_path = relative.clone();
     let mut lookup_line = line;
