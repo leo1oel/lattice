@@ -3740,24 +3740,36 @@ pub fn delete_entry(root: &Path, relative: &str) -> Result<(), String> {
     validate_user_entry(relative)?;
     let manifest = read_manifest(root)?;
     let requested = Path::new(relative);
-    let mut protected = manifest
+    // Only what a build would actually reach for. `root_documents` is not a
+    // curated list: every .tex that declares \documentclass is appended to it
+    // the first time it is open during a build, so guarding all of them meant
+    // an ordinary draft became undeletable simply because it had been compiled
+    // once — with a message about the "primary manuscript" that was not true of
+    // it.
+    let compiled = manifest
         .root_documents
         .iter()
-        .map(|document| document.path.as_str())
-        .collect::<Vec<_>>();
-    protected.push(&manifest.primary_bibliography);
-    if protected.iter().any(|path| {
+        .find(|document| document.is_default)
+        .or_else(|| manifest.root_documents.first())
+        .map(|document| document.path.as_str());
+    let protected = compiled
+        .into_iter()
+        .chain(std::iter::once(manifest.primary_bibliography.as_str()));
+    if protected.into_iter().any(|path| {
         let protected = Path::new(path);
         protected == requested || protected.starts_with(requested)
     }) {
-        return Err("The primary manuscript and bibliography cannot be deleted.".to_string());
+        return Err(
+            "The document being compiled and its bibliography cannot be deleted.".to_string(),
+        );
     }
     let path = safe_path(root, relative)?;
     if !path.exists() {
         return Err("That file or folder no longer exists.".to_string());
     }
     if path.is_dir() {
-        ProjectDir::open(root)?.remove(relative)
+        ProjectDir::open(root)?.remove(relative)?;
+        forget_deleted_root_documents(root, relative)
     } else {
         let before = fs::read_to_string(&path).ok();
         ProjectDir::open(root)?.remove(relative)?;
@@ -3773,8 +3785,28 @@ pub fn delete_entry(root: &Path, relative: &str) -> Result<(), String> {
             );
             persist_transaction(root, &record)?;
         }
-        Ok(())
+        forget_deleted_root_documents(root, relative)
     }
+}
+
+/// Drop manifest root documents whose file has just been deleted.
+///
+/// Leaving them behind pointed the manifest at a file that is gone, which the
+/// build and the SyncTeX paths both resolve through — and the entry would go on
+/// protecting a path nobody can delete or restore. The compiled document is
+/// never in here: it is refused above, so the default always survives.
+fn forget_deleted_root_documents(root: &Path, deleted: &str) -> Result<(), String> {
+    let mut manifest = read_manifest(root)?;
+    let deleted_path = Path::new(deleted);
+    let before = manifest.root_documents.len();
+    manifest.root_documents.retain(|document| {
+        let path = Path::new(&document.path);
+        !(path == deleted_path || path.starts_with(deleted_path))
+    });
+    if manifest.root_documents.len() == before {
+        return Ok(());
+    }
+    write_manifest(root, &manifest)
 }
 
 fn validate_user_entry(relative: &str) -> Result<(), String> {
@@ -6297,6 +6329,39 @@ mod tests {
         assert_eq!(loaded[0].id, "mark-1");
         assert_eq!(loaded[0].text, mark.text);
         assert!(root.join(".research/pdf-annotations.json").is_file());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn a_draft_that_was_compiled_once_can_still_be_deleted() {
+        let parent = temp_root("delete-compiled-draft");
+        let root = create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("rebuttal.tex"),
+            "\\documentclass{article}\n\\begin{document}\nB\n\\end{document}\n",
+        )
+        .unwrap();
+        // Opening it during a build registers it as a root document, which is
+        // how every compiled draft ended up permanently undeletable.
+        set_compile_root(&root, "rebuttal.tex").unwrap();
+        set_compile_root(&root, "main.tex").unwrap();
+        assert_eq!(read_manifest(&root).unwrap().root_documents.len(), 2);
+
+        delete_entry(&root, "rebuttal.tex").unwrap();
+
+        assert!(!root.join("rebuttal.tex").exists());
+        // The manifest must not keep pointing at a file that is gone.
+        let manifest = read_manifest(&root).unwrap();
+        assert_eq!(
+            manifest
+                .root_documents
+                .iter()
+                .map(|document| document.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["main.tex"]
+        );
+        // What a build would actually reach for is still refused.
+        assert!(delete_entry(&root, "main.tex").is_err());
         fs::remove_dir_all(parent).unwrap();
     }
 
