@@ -26,6 +26,7 @@
  */
 
 import { lazy, Suspense } from 'react';
+import { useNearViewport } from '../../../use-near-viewport';
 
 interface MathProps {
   formula?: string;
@@ -99,12 +100,16 @@ function MathPlaceholder(props: { formula: string; id?: string }) {
  */
 export function MathView(props: MathProps) {
   const formula = props.formula ?? '';
-  if (!formula) {
-    return <MathPlaceholder formula={formula} id={props.id} />;
-  }
+  const { nearViewport, viewportRef } = useNearViewport<HTMLDivElement>();
   return (
-    <Suspense fallback={<MathPlaceholder formula={formula} id={props.id} />}>
-      <KatexRender formula={formula} id={props.id} />
-    </Suspense>
+    <div ref={viewportRef} className="math-viewport-boundary">
+      {!formula || !nearViewport ? (
+        <MathPlaceholder formula={formula} id={props.id} />
+      ) : (
+        <Suspense fallback={<MathPlaceholder formula={formula} id={props.id} />}>
+          <KatexRender formula={formula} id={props.id} />
+        </Suspense>
+      )}
+    </div>
   );
 }

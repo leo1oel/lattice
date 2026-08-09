@@ -68,10 +68,12 @@ import { notifyError } from "./app-notify";
 import { dismissAppToastByDedupeKey } from "./app-log-store";
 import Zoom from "react-medium-image-zoom";
 import { Check, X } from "lucide-react";
+import { VisualMarkdownFindReplace } from "./visual-markdown-find-replace";
 import {
   LARGE_MARKDOWN_PREVIEW_THRESHOLD,
   markdownPreviewSyncPolicy,
 } from "./markdown-preview-sync-policy";
+import { useNearViewport } from "./use-near-viewport";
 
 const EMPTY_MACROS: Record<string, string> = {};
 const VISUAL_LINK_INSERT_EVENT = "research-writer:visual-link-insert";
@@ -152,9 +154,8 @@ function withPausedDomObserver(view: Editor["view"], apply: () => void): void {
   }
 }
 
-// content-visibility chunking for read-only surfaces (see the registration
-// site for why editable docs are excluded). Stateless, so one module-level
-// extension serves every editor instance.
+// Browser-level block culling for every visual document. Stateless, so one
+// module-level extension serves every editor instance.
 const ChunkWrapperDecoration = Extension.create({
   name: "chunkWrapperDecoration",
   addProseMirrorPlugins() {
@@ -922,14 +923,27 @@ function resolveProjectLink(activePath: string, href: string): string | null {
 }
 
 function ProjectInlineImageView({ node }: NodeViewProps) {
-  const src = useProjectImageSrc(typeof node.attrs.src === "string" ? node.attrs.src : undefined);
+  const { nearViewport, viewportRef } = useNearViewport<HTMLSpanElement>();
+  const src = useProjectImageSrc(
+    typeof node.attrs.src === "string" ? node.attrs.src : undefined,
+    nearViewport,
+  );
   const alt = typeof node.attrs.alt === "string" ? node.attrs.alt : "";
   const title = typeof node.attrs.title === "string" ? node.attrs.title : undefined;
   return (
-    <NodeViewWrapper as="span" data-image-inline-zoom data-clipboard-inline-leaf="image">
-      <Zoom wrapElement="span" zoomMargin={20} zoomImg={{ sizes: undefined }}>
-        <img src={src} alt={alt} title={title} decoding="async" />
-      </Zoom>
+    <NodeViewWrapper
+      as="span"
+      ref={viewportRef}
+      data-image-inline-zoom
+      data-clipboard-inline-leaf="image"
+    >
+      {nearViewport && src ? (
+        <Zoom wrapElement="span" zoomMargin={20} zoomImg={{ sizes: undefined }}>
+          <img src={src} alt={alt} title={title} loading="eager" decoding="async" />
+        </Zoom>
+      ) : (
+        <img src={src} alt={alt} title={title} loading="eager" decoding="async" />
+      )}
     </NodeViewWrapper>
   );
 }
@@ -1921,11 +1935,9 @@ export function VisualMarkdownEditor({
       }),
       TiptapFindReplace,
       ...(optimizeForReading ? [] : [TableInsertControls, FrozenTableHeaders]),
-      // content-visibility block chunking (skips layout/paint of off-viewport
-      // blocks) for READ-ONLY surfaces only. Editable docs deliberately opt
-      // out: deferred materialization destabilizes WebKit selection anchoring
-      // — see the .ok-chunk-wrapper comment in editor-globals.css. Extending
-      // this to editable docs is a separate, measured experiment.
+      // WebKit's selection geometry can become unstable when editable text is
+      // materialized on demand. Papers use native caret/reading chrome, while
+      // ordinary editing keeps eager text and virtualizes only heavy leaves.
       ...(optimizeForReading ? [ChunkWrapperDecoration] : []),
       FootnoteAnchorScroll,
       FormattingShortcuts,
@@ -2538,6 +2550,12 @@ export function VisualMarkdownEditor({
         openMarkdownLink(activePath, href, openPathRef.current, sectionRef.current ?? undefined);
       }}
     >
+      <VisualMarkdownFindReplace
+        key={activePath}
+        editor={editor}
+        editable={editable}
+        editorRoot={sectionRef}
+      />
       {commentComposer && (
         <div
           className="visual-comment-composer"

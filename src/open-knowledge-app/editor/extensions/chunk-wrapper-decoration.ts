@@ -33,9 +33,11 @@
  * the `::after` selection halo at `inset:-4px`, and the `.jsx-component-chrome`
  * toolbar child at `top:-11px` (all in `globals.css` §7/§7a). Decorating these
  * with `.ok-chunk-wrapper` would clip the halo (left/right) and the chrome
- * bar (top), so we skip them. JsxComponent blocks are a small fraction of
- * typical doc content; the layout-work win on the remaining 95%+ of top-level
- * blocks is essentially preserved.
+ * bar (top), so most components remain excluded. Image and math leaves are
+ * the exception: imported papers can contain hundreds of them, and their
+ * expensive decoded media / KaTeX trees stay inside the component box. They
+ * opt into containment and temporarily turn it off on hover, focus, or
+ * selection so their editing chrome can still paint outside the box.
  *
  * Marks
  * -----
@@ -96,6 +98,15 @@ export const chunkWrapperDecorationKey = new PluginKey('chunkWrapperDecoration')
 /** CSS class consumed by `.ProseMirror .ok-chunk-wrapper` in globals.css. */
 export const OK_CHUNK_WRAPPER_CLASS = 'ok-chunk-wrapper';
 
+const CONTAINABLE_JSX_COMPONENTS = new Map<string, number>([
+  ['img', 560],
+  ['CommonMarkImage', 560],
+  ['WikiEmbedImage', 560],
+  ['Math', 120],
+  ['DollarMath', 120],
+  ['MathFence', 120],
+]);
+
 let firstEmitFired = false;
 
 /**
@@ -138,12 +149,24 @@ export function chunkWrapperDecorationPlugin(): Plugin {
         state.doc.forEach((node, pos) => {
           // Skip text-only at root (rare); only emit for block children.
           if (node.isInline) return;
-          // jsxComponent paints chrome (halo, hover zone, toolbar) outside its
-          // border box; CV:auto's paint containment would clip it.
-          if (node.type.name === 'jsxComponent') return;
+          // Interactive containers paint chrome outside their border box and
+          // remain excluded. Heavy image/math leaves are safe to contain while
+          // idle; CSS releases containment whenever their chrome is active.
+          const componentName = node.type.name === 'jsxComponent'
+            ? String(node.attrs.componentName ?? '')
+            : null;
+          const intrinsicHeight = componentName
+            ? CONTAINABLE_JSX_COMPONENTS.get(componentName)
+            : undefined;
+          if (componentName && intrinsicHeight === undefined) return;
           decos.push(
             Decoration.node(pos, pos + node.nodeSize, {
-              class: OK_CHUNK_WRAPPER_CLASS,
+              class: intrinsicHeight === undefined
+                ? OK_CHUNK_WRAPPER_CLASS
+                : `${OK_CHUNK_WRAPPER_CLASS} ok-chunk-heavy-leaf`,
+              ...(intrinsicHeight === undefined
+                ? {}
+                : { style: `--ok-cv-h: ${intrinsicHeight}px` }),
             }),
           );
         });

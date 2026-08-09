@@ -1626,6 +1626,17 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .visual-node-source-actions button.primary { background: var(--control-active); color: var(--control-active-contrast); }
 .visual-node-source-actions svg { width: 13px; height: 13px; }
 .visual-node-source-hint { color: var(--text-tertiary); font-size: var(--type-nano-size); text-align: end; }
+.visual-find-anchor { position: sticky; z-index: 12; top: var(--space-3); width: 100%; height: 0; pointer-events: none; }
+.visual-find-panel { @apply smooth-shadow-ring-md; position: relative; inset-inline-end: var(--space-4); display: flex; width: min(440px, calc(100% - 2 * var(--space-4))); margin-inline-start: auto; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-chrome); background: var(--surface-panel-raised); color: var(--text-primary); pointer-events: auto; }
+.visual-find-row { display: flex; min-width: 0; align-items: center; gap: var(--space-2); }
+.visual-find-row input { min-width: 0; min-height: 30px; flex: 1; padding-inline: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-compact); outline: none; background: var(--field-control-background); color: inherit; font-size: var(--type-caption-size); }
+.visual-find-row input:focus-visible { border-color: var(--control-active-border-strong); box-shadow: 0 0 0 2px var(--control-active-soft); }
+.visual-find-count { min-width: 64px; color: var(--text-tertiary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap; }
+.visual-find-options { display: flex; align-items: center; gap: var(--space-2); }
+.visual-find-options button { min-height: 26px; padding-inline: var(--space-3); border-radius: var(--radius-compact); color: var(--text-secondary); font-size: var(--type-nano-size); }
+.visual-find-options button:hover, .visual-find-options button[aria-pressed="true"] { background: var(--control-active-soft); color: var(--text-primary); }
+.visual-replace-row { padding-block-start: var(--space-2); border-block-start: 1px solid var(--border-subtle); }
+.visual-find-panel button:focus-visible { outline: 2px solid var(--control-active-border-strong); outline-offset: 1px; }
 @media (pointer: coarse) {
   .tiptap-editor .tiptap ul[data-type="taskList"] label { min-width: 44px; min-height: 44px; }
   .visual-node-edit-button, .visual-node-source-actions button { min-height: 44px; }

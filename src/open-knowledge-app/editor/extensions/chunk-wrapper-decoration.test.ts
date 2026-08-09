@@ -186,6 +186,23 @@ describe('chunkWrapperDecorationPlugin — decoration emission', () => {
     }
   });
 
+  test('heavy image and math leaves opt into containment with realistic intrinsic heights', () => {
+    const image = schema.node('jsxComponent', { componentName: 'CommonMarkImage' });
+    const math = schema.node('jsxComponent', { componentName: 'DollarMath' });
+    const doc = schema.node('doc', null, [image, math]);
+    const specs = decorationSpecs(makeState(doc));
+
+    expect(specs).toHaveLength(2);
+    expect(specs?.[0].attrs).toMatchObject({
+      class: `${OK_CHUNK_WRAPPER_CLASS} ok-chunk-heavy-leaf`,
+      style: '--ok-cv-h: 560px',
+    });
+    expect(specs?.[1].attrs).toMatchObject({
+      class: `${OK_CHUNK_WRAPPER_CLASS} ok-chunk-heavy-leaf`,
+      style: '--ok-cv-h: 120px',
+    });
+  });
+
   test('doc of only jsxComponents — zero decorations emitted', () => {
     // Edge case: a doc where every top-level child is excluded. The plugin's
     // `decos.length === 0` branch returns null (no DecorationSet), so the

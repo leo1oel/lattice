@@ -1,6 +1,6 @@
 import { useLingui } from '@ok-app/shims/lingui-react-macro';
 import { ImageOff } from 'lucide-react';
-import type { CSSProperties, ImgHTMLAttributes } from 'react';
+import type { CSSProperties, ImgHTMLAttributes, Ref } from 'react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { OPT_OUT_ATTR } from '@ok-app/editor/clipboard/clipboard-sanitize';
 import { cn } from '@ok-app/lib/utils';
@@ -11,6 +11,7 @@ type LoadingImageProps = ImgHTMLAttributes<HTMLImageElement> & {
   loadingTestId?: string;
   slotTestId?: string;
   slotClassName?: string;
+  slotRef?: Ref<HTMLSpanElement>;
 };
 
 // Project images now remount with the same resolved data URL. Retaining the
@@ -21,13 +22,19 @@ const LOADED_IMAGE_SOURCE_LIMIT = 128;
 
 function rememberLoadedImageSource(src: string | undefined) {
   if (!src) return;
-  loadedImageSources.delete(src);
-  loadedImageSources.set(src, true);
+  const key = imageSourceCacheKey(src);
+  loadedImageSources.delete(key);
+  loadedImageSources.set(key, true);
   while (loadedImageSources.size > LOADED_IMAGE_SOURCE_LIMIT) {
     const oldest = loadedImageSources.keys().next().value;
     if (oldest === undefined) break;
     loadedImageSources.delete(oldest);
   }
+}
+
+function imageSourceCacheKey(src: string): string {
+  if (!src.startsWith('data:') || src.length <= 256) return src;
+  return `${src.slice(0, 72)}:${src.length}:${src.slice(-72)}`;
 }
 
 function hasIntrinsicDimensions(
@@ -58,6 +65,7 @@ export function LoadingImage({
   loadingTestId = 'image-loading-skeleton',
   slotTestId = 'image-slot',
   slotClassName,
+  slotRef,
   className,
   onLoad,
   onError,
@@ -68,7 +76,7 @@ export function LoadingImage({
 }: LoadingImageProps) {
   const { t } = useLingui();
   const imgRef = useRef<HTMLImageElement>(null);
-  const [loaded, setLoaded] = useState(() => Boolean(src && loadedImageSources.has(src)));
+  const [loaded, setLoaded] = useState(() => Boolean(src && loadedImageSources.has(imageSourceCacheKey(src))));
   const [hasError, setHasError] = useState(false);
   const intrinsic = hasIntrinsicDimensions(width, height);
   const slotStyle = computeSlotStyle(width, height, style);
@@ -82,7 +90,7 @@ export function LoadingImage({
   // biome-ignore lint/correctness/useExhaustiveDependencies: src drives the reactive trigger only; the effect body reads imgRef.current so biome flags src as unused.
   useLayoutEffect(() => {
     const img = imgRef.current;
-    if ((src && loadedImageSources.has(src)) || img?.complete) {
+    if (src && (loadedImageSources.has(imageSourceCacheKey(src)) || img?.complete)) {
       setLoaded(true);
     } else {
       setLoaded(false);
@@ -111,6 +119,7 @@ export function LoadingImage({
 
   return (
     <span
+      ref={slotRef}
       data-testid={slotTestId}
       data-image-error={hasError ? 'true' : undefined}
       className={cn(

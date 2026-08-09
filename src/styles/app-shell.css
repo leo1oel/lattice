@@ -305,6 +305,10 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 .sidebar-resizer::before { content: ""; position: absolute; top: 10px; bottom: 0; left: 0; width: 1px; background: transparent; transition: background var(--duration-quick), box-shadow var(--duration-quick); }
 .sidebar-resizer:hover::before, .sidebar-resizer:focus-visible::before, body.resizing-panels .sidebar-resizer::before { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
 body.resizing-panels { cursor: col-resize; user-select: none; }
+/* WKWebView can expose the iframe's default white backing layer while its
+   cross-origin surface is being retiled. Cover that transient layer with the
+   themed host surface for the duration of the drag. */
+body.resizing-panels .synara-frame-shell::before { content: ""; position: absolute; z-index: 3; inset: 0; pointer-events: none; background: var(--surface-sidebar); }
 .navigator { display: flex; flex-direction: column; overflow: hidden; }
 .sidebar-mode-header { position: relative; height: var(--navigation-header-height); flex: none; padding: 5px var(--space-4) 5px var(--space-6); display: flex; align-items: center; gap: var(--space-4); }
 .sidebar-mode-tabs { --navigation-tabs-tier-width: calc(var(--navigation-control-height) + var(--navigation-control-height) + var(--navigation-control-height) + var(--navigation-tab-gap) + var(--navigation-tab-gap)); width: var(--navigation-tabs-tier-width); min-width: var(--navigation-tabs-tier-width); padding: 0; display: flex; flex: none; gap: var(--navigation-tab-gap); overflow: visible; border-radius: var(--radius-chrome); background: transparent; }

@@ -716,6 +716,7 @@ describe("VisualMarkdownEditor", () => {
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
     const extensionNames = editor.extensionManager.extensions.map((extension) => extension.name);
+    expect(extensionNames).toContain("chunkWrapperDecoration");
     expect(extensionNames).not.toContain("frozenTableHeaders");
     expect(extensionNames).not.toContain("tableInsertControls");
     expect(extensionNames).not.toContain("visualFixedCaret");
@@ -3461,9 +3462,10 @@ describe("VisualMarkdownEditor", () => {
         onLoadAsset={onLoadAsset}
       />,
     );
-    const image = await screen.findByRole("img", { name: "Plot" });
+    await screen.findByRole("img", { name: "Plot" });
     await waitFor(() => expect(onLoadAsset).toHaveBeenCalledWith("figures/plot.png"));
-    await waitFor(() => expect(image).toHaveAttribute("src", "data:image/png;base64,cGxvdA=="));
+    await waitFor(() => expect(screen.getByRole("img", { name: "Plot" })).toHaveAttribute("src", "data:image/png;base64,cGxvdA=="));
+    const image = screen.getByRole("img", { name: "Plot" });
     expect(image).toHaveAttribute("decoding", "async");
   });
 
@@ -3678,5 +3680,43 @@ describe("VisualMarkdownEditor", () => {
     expect(String(onChange.mock.lastCall?.[0])).toContain('src="figures/plot.png"');
     expect(String(onChange.mock.lastCall?.[0])).toContain('alt="Plot"');
     expect(String(onChange.mock.lastCall?.[0])).toContain('title="Results"');
+  });
+
+  it("opens local find, highlights and navigates matches, then clears on Escape", async () => {
+    renderEditor("Alpha beta alpha.");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    fireEvent.keyDown(surface, { key: "f", metaKey: true });
+    const find = screen.getByRole("searchbox", { name: "Find" });
+    fireEvent.change(find, { target: { value: "alpha" } });
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("1 of 2"));
+    expect(document.querySelectorAll(".ok-find-match")).toHaveLength(2);
+    fireEvent.keyDown(find, { key: "Enter" });
+    expect(screen.getByRole("status")).toHaveTextContent("2 of 2");
+    fireEvent.keyDown(find, { key: "Escape" });
+    expect(screen.queryByRole("search", { name: "Find in document" })).toBeNull();
+    expect(document.querySelectorAll(".ok-find-match")).toHaveLength(0);
+    await waitFor(() => expect(document.activeElement).toBe(surface));
+  });
+
+  it("expands replace, replaces matches, and seeds a short text selection", async () => {
+    renderEditor("one two one");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => editor.commands.setTextSelection({ from: 1, to: 4 }));
+    fireEvent.keyDown(surface, { key: "f", altKey: true, metaKey: true });
+    expect(screen.getByRole("searchbox", { name: "Find" })).toHaveValue("one");
+    const replacement = screen.getByRole("textbox", { name: "Replace with" });
+    fireEvent.change(replacement, { target: { value: "three" } });
+    fireEvent.click(screen.getByRole("button", { name: "Replace all matches" }));
+    await waitFor(() => expect(editorMarkdown(editor)).toContain("three two three"));
+  });
+
+  it("does not consume project search shortcuts", () => {
+    renderEditor();
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const projectFind = new KeyboardEvent("keydown", { key: "f", metaKey: true, shiftKey: true, bubbles: true, cancelable: true });
+    surface.dispatchEvent(projectFind);
+    expect(projectFind.defaultPrevented).toBe(false);
+    expect(screen.queryByRole("search", { name: "Find in document" })).toBeNull();
   });
 });

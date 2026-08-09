@@ -41,6 +41,7 @@ import { LoadingImage } from '@ok-app/components/ui/loading-image';
 import { useProjectImageSrc } from '../../../project-image-host';
 import { useJsxComponentHost } from './jsx-host-context.tsx';
 import { ResizeHandles } from './ResizeHandles.tsx';
+import { useNearViewport } from '../../../use-near-viewport';
 
 interface ImageProps {
   src?: string;
@@ -76,16 +77,18 @@ function coerceDimension(value: number | string | undefined): number | string | 
  * camelCase at this JSX boundary.
  */
 function BareImg(props: ImageProps) {
-  const src = useProjectImageSrc(props.src);
-  return (
+  const { nearViewport, viewportRef } = useNearViewport<HTMLSpanElement>();
+  const src = useProjectImageSrc(props.src, nearViewport);
+  const image = (
     <LoadingImage
+      slotRef={viewportRef}
       src={src === undefined ? undefined : toDesktopAssetHref(src)}
       alt={props.alt ?? ''}
       width={coerceDimension(props.width)}
       height={coerceDimension(props.height)}
       title={props.title}
-      loading={resolveLoading(props.loading)}
-      srcSet={props.srcset}
+      loading={src && src !== props.src ? 'eager' : resolveLoading(props.loading)}
+      srcSet={nearViewport ? props.srcset : undefined}
       sizes={props.sizes}
       decoding={props.decoding ?? 'async'}
       fetchPriority={props.fetchpriority}
@@ -93,6 +96,11 @@ function BareImg(props: ImageProps) {
       referrerPolicy={props.referrerpolicy}
     />
   );
+  return nearViewport && src ? (
+    <Zoom wrapElement="span" zoomMargin={20} zoomImg={{ sizes: undefined }}>
+      {image}
+    </Zoom>
+  ) : image;
 }
 
 /**
@@ -156,9 +164,7 @@ export function Image(props: ImageProps) {
       style={{ width }}
       contentEditable={false}
     >
-      <Zoom wrapElement="span" zoomMargin={20} zoomImg={{ sizes: undefined }}>
-        <BareImg {...props} width={undefined} height={undefined} />
-      </Zoom>
+      <BareImg {...props} width={undefined} height={undefined} />
       {host ? (
         <ResizeHandles
           targetRef={wrapperRef}

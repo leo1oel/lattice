@@ -344,6 +344,31 @@ export function mayApplyProjectRefreshV2(options: {
     && (options.snapshotRoot === undefined || options.snapshotRoot === options.scope.expectedRoot);
 }
 
+type ReferencePreviewCacheEntry = {
+  promise: Promise<string | null>;
+  characters: number;
+};
+
+const REFERENCE_PREVIEW_CACHE_ENTRY_LIMIT = 48;
+const REFERENCE_PREVIEW_CACHE_CHARACTER_LIMIT = 24 * 1024 * 1024;
+
+function trimReferencePreviewCache(
+  cache: Map<string, ReferencePreviewCacheEntry>,
+) {
+  for (const [key] of cache) {
+    if (cache.size <= REFERENCE_PREVIEW_CACHE_ENTRY_LIMIT) break;
+    cache.delete(key);
+  }
+  let characters = 0;
+  for (const entry of cache.values()) characters += entry.characters;
+  for (const [key, entry] of cache) {
+    if (characters <= REFERENCE_PREVIEW_CACHE_CHARACTER_LIMIT) break;
+    if (entry.characters === 0) continue;
+    cache.delete(key);
+    characters -= entry.characters;
+  }
+}
+
 const SettingsDialog = lazy(() =>
   import("./settings-dialog").then((module) => ({ default: module.SettingsDialog })),
 );
@@ -836,7 +861,7 @@ function App() {
   const [wrapEnvRequest, setWrapEnvRequest] = useState<{ name: string; id: string } | null>(null);
   const [cleaning, setCleaning] = useState(false);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
-  const referencePreviewCache = useRef(new Map<string, Promise<string | null>>());
+  const referencePreviewCache = useRef(new Map<string, ReferencePreviewCacheEntry>());
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
   const [savedPaperMarkdown, setSavedPaperMarkdown] = useState("");
@@ -5581,15 +5606,35 @@ function App() {
   }, [project?.root, references]);
 
   const loadReferenceImage = useCallback((path: string) => {
-    const cached = referencePreviewCache.current.get(path);
-    if (cached) return cached;
-    const preview = invoke<AssetPreview>("read_project_asset", { path })
+    const projectRoot = project?.root ?? "";
+    const key = `${projectRoot}\0${path}`;
+    const cached = referencePreviewCache.current.get(key);
+    if (cached) {
+      referencePreviewCache.current.delete(key);
+      referencePreviewCache.current.set(key, cached);
+      return cached.promise;
+    }
+    const preview = invoke<AssetPreview>("read_project_asset", { path, projectRoot })
       .then(referenceAssetPreviewDataUrl)
+      .then((dataUrl) => {
+        const current = referencePreviewCache.current.get(key);
+        if (current?.promise === preview) {
+          current.characters = dataUrl?.length ?? 0;
+          referencePreviewCache.current.delete(key);
+          referencePreviewCache.current.set(key, current);
+          trimReferencePreviewCache(referencePreviewCache.current);
+        }
+        return dataUrl;
+      })
       .catch((reason) => {
-        referencePreviewCache.current.delete(path);
+        if (referencePreviewCache.current.get(key)?.promise === preview) {
+          referencePreviewCache.current.delete(key);
+        }
         throw reason;
       });
-    referencePreviewCache.current.set(path, preview);
+    const entry = { promise: preview, characters: 0 };
+    referencePreviewCache.current.set(key, entry);
+    trimReferencePreviewCache(referencePreviewCache.current);
     return preview;
   }, [project?.root]);
 

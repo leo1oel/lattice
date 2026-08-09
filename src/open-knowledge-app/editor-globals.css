@@ -3791,14 +3791,22 @@
   inset: 0;
   pointer-events: none;
 }
-/* Block-chunked content-visibility:auto for read-only large-doc surfaces.
-   Editable papers deliberately do not opt in: deferred materialization makes
-   content appear after the scroll gesture and destabilizes WebKit selection
-   anchoring when blocks are inserted deep in the document. */
+/* Block-chunked content-visibility:auto for visual documents. The browser
+   keeps the complete editable DOM but skips offscreen layout and paint. */
 .ProseMirror .ok-chunk-wrapper {
   content-visibility: auto;
   contain-intrinsic-inline-size: auto 0px;
   contain-intrinsic-block-size: auto var(--ok-cv-h, 80px);
+}
+
+/* Image/math JSX leaves keep all expensive paint inside their own box. Their
+   editing halo and toolbar intentionally escape it, so release containment
+   while the leaf is hovered, focused, or selected. */
+.ProseMirror .ok-chunk-heavy-leaf:hover,
+.ProseMirror .ok-chunk-heavy-leaf:focus-within,
+.ProseMirror .ok-chunk-heavy-leaf[data-selected='true'],
+.ProseMirror .ok-chunk-heavy-leaf.ProseMirror-selectednode {
+  content-visibility: visible;
 }
 
 /* Code-block wrapper needs an unclipped paint area — the block's chrome

@@ -45,6 +45,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/pop
 import { PropPanel } from '../components/PropPanel.tsx';
 import type { JsxComponentDescriptor } from '../registry/types.ts';
 import { consumeAutoOpen } from '../slash-command/component-items.tsx';
+import { useNearViewport } from '../../../use-near-viewport';
 
 /**
  * Synthetic descriptor used to drive the inline-math PropPanel. `mathInline`
@@ -146,6 +147,7 @@ export function MathInlineView({ node, selected, getPos, editor }: NodeViewProps
   const [formulaDraft, setFormulaDraft] = useState(formula);
   const displayedFormula = popoverOpen ? formulaDraft : formula;
   const wasSelected = useRef(false);
+  const { nearViewport, viewportRef } = useNearViewport<HTMLSpanElement>();
 
   const commitFormulaDraft = useCallback(() => {
     if (formulaDraft === formula) return;
@@ -228,6 +230,7 @@ export function MathInlineView({ node, selected, getPos, editor }: NodeViewProps
             data-component-type attribute consistently across all states. */}
         <PopoverTrigger asChild>
           <span
+            ref={viewportRef}
             className="math-inline-trigger"
             data-component-type="math-inline"
             // Surface the formula as a DOM attribute so the clipboard
@@ -241,7 +244,7 @@ export function MathInlineView({ node, selected, getPos, editor }: NodeViewProps
             data-formula={displayedFormula}
             {...(id ? { id } : {})}
           >
-            {displayedFormula ? (
+            {displayedFormula && (nearViewport || popoverOpen || selected) ? (
               // Block math goes through `JsxComponentView`'s
               // `ComponentErrorBoundary`; inline math is its own NodeView
               // and bypasses that path. Without this boundary, a failed
@@ -284,6 +287,8 @@ export function MathInlineView({ node, selected, getPos, editor }: NodeViewProps
                   <KatexInlineRender formula={displayedFormula} />
                 </Suspense>
               </ErrorBoundary>
+            ) : displayedFormula ? (
+              <InlineLoadingPlaceholder formula={displayedFormula} />
             ) : (
               <EmptyInlineMathPlaceholder />
             )}
