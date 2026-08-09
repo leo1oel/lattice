@@ -84,6 +84,22 @@ describe("AppToastStack", () => {
     expect(formatAppLogs()).toContain("third");
   });
 
+  it("keeps action correlation ids in the log without showing them to the user", () => {
+    render(<AppToastStack />);
+    act(() => {
+      addAppLog({
+        level: "error",
+        source: "Build",
+        title: "Build failed",
+        detail: "Undefined control sequence\n#8c4c85",
+      });
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Undefined control sequence");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("#8c4c85");
+    expect(formatAppLogs()).toContain("#8c4c85");
+  });
+
   it("stops collapsing once the toast it was folding into is gone", () => {
     render(<AppToastStack />);
     let first!: ReturnType<typeof addAppLog>;

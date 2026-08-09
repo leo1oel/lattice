@@ -6,6 +6,7 @@ import {
   diagnosticsFingerprint,
   editorDiagnosticsForFile,
   flattenProjectPaths,
+  missingTexDependencyFile,
   normalizeDiagnosticPath,
   resolveDiagnosticPath,
   sortDiagnostics,
@@ -35,6 +36,14 @@ describe("compile diagnostics helpers", () => {
     ]);
     expect(resolveDiagnosticPath("/tmp/paper/./chapters/intro.tex", files, "main.tex")).toBe("chapters/intro.tex");
     expect(resolveDiagnosticPath(undefined, files, "main.tex")).toBe("main.tex");
+  });
+
+  it("recognizes installable missing TeX dependencies without treating project templates as packages", () => {
+    expect(missingTexDependencyFile(
+      "Missing LaTeX dependency `algorithm.sty`. BasicTeX does not include every package available on Overleaf.",
+    )).toBe("algorithm.sty");
+    expect(missingTexDependencyFile("Missing style file `neurips_2026.sty`. It belongs next to main.tex."))
+      .toBeNull();
   });
 
   it("sorts errors before warnings and builds editor lint ranges", () => {

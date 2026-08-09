@@ -38,9 +38,15 @@ const LOG_ICON = {
   error: CircleAlert,
 };
 
+/** Correlation ids belong in the app log, not in user-facing notification copy. */
+function visibleToastDetail(detail: string): string {
+  return detail.replace(/(?:^|\n)#[0-9a-f]{6}$/i, "").trim();
+}
+
 function AppToast({ entry }: { entry: AppLogEntry }) {
   const Icon = LOG_ICON[entry.level];
   const options = getAppToastOptions(entry.id);
+  const detail = visibleToastDetail(entry.detail);
   const timeoutMs =
     options?.timeoutMs ?? (entry.level === "error" ? 9_000 : 6_000);
   useEffect(() => {
@@ -57,7 +63,7 @@ function AppToast({ entry }: { entry: AppLogEntry }) {
   // detail, so length has to be judged across both — a 200-character title
   // clipped to one line is the failure this replaced.
   const expanded = Boolean(
-    entry.detail.length > 72 ||
+    detail.length > 72 ||
     entry.title.length > 72 ||
     options?.copyText ||
     options?.primaryAction ||
@@ -77,7 +83,7 @@ function AppToast({ entry }: { entry: AppLogEntry }) {
       <Icon size={15} />
       <div>
         <strong>{entry.title}</strong>
-        {entry.detail && <span title={entry.detail}>{entry.detail}</span>}
+        {detail && <span title={detail}>{detail}</span>}
         {(options?.copyText ||
           options?.primaryAction ||
           options?.secondaryAction) && (

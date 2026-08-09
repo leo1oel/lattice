@@ -1,10 +1,10 @@
 //! One-click TeX install helpers for macOS (opens a Terminal `.command` script).
 
 #[cfg(target_os = "macos")]
-use std::{fs, io::Write, process::Command};
+use std::{fs::OpenOptions, io::Write, process::Command};
 
 #[cfg(target_os = "macos")]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::OpenOptionsExt;
 
 #[cfg(target_os = "macos")]
 const BASIC_SCRIPT: &str = r#"#!/bin/bash
@@ -247,6 +247,111 @@ echo ""
 read -r -p "Press Enter to close this window…"
 "#;
 
+#[cfg(target_os = "macos")]
+const DEPENDENCY_SCRIPT: &str = r#"#!/bin/bash
+set -u
+echo "=== Lattice: install missing LaTeX package ==="
+echo ""
+
+MISSING_FILE="__MISSING_FILE__"
+TLMGR=__TLMGR_PATH__
+KPSEWHICH=__KPSEWHICH_PATH__
+SEARCH_PATTERN=__SEARCH_PATTERN__
+
+if [[ ! -x "${TLMGR}" || ! -x "${KPSEWHICH}" ]]; then
+  echo "TeX Live's package manager could not be found beside the compiler Lattice uses."
+  echo "Install BasicTeX or MacTeX from Lattice first."
+  echo ""
+  read -r -p "Press Enter to close this window…"
+  exit 1
+fi
+
+echo "Looking up the TeX Live package that provides ${MISSING_FILE}…"
+SEARCH_OUTPUT="$("${TLMGR}" search --global --file "${SEARCH_PATTERN}" 2>&1)"
+SEARCH_STATUS=$?
+printf '%s\n' "${SEARCH_OUTPUT}"
+
+if [[ "${SEARCH_STATUS}" -ne 0 ]]; then
+  echo ""
+  echo "The TeX Live repository could not be searched."
+  echo "The output above usually explains whether the repository or TeX Live version needs attention."
+  echo ""
+  read -r -p "Press Enter to close this window…"
+  exit 1
+fi
+
+PACKAGE="$(printf '%s\n' "${SEARCH_OUTPUT}" | awk -v wanted="/${MISSING_FILE}" '
+  /^[[:alnum:]][[:alnum:]_.+-]*:$/ { package=$0; sub(/:$/, "", package); next }
+  /^[[:space:]]/ {
+    path=$0
+    sub(/^[[:space:]]+/, "", path)
+    if (length(path) >= length(wanted) && substr(path, length(path) - length(wanted) + 1) == wanted) {
+      if (owner != "" && owner != package) { print "__AMBIGUOUS__"; exit }
+      owner=package
+    }
+  }
+  END { if (owner != "") print owner }
+')"
+if [[ "${PACKAGE}" == "__AMBIGUOUS__"* ]]; then
+  echo ""
+  echo "More than one TeX Live package claims ${MISSING_FILE}; nothing was installed automatically."
+  echo "Review the search results above and install the appropriate package manually."
+  echo ""
+  read -r -p "Press Enter to close this window…"
+  exit 1
+elif [[ -z "${PACKAGE}" ]]; then
+  echo ""
+  echo "No TeX Live package provides ${MISSING_FILE}."
+  echo "It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder."
+  echo ""
+  read -r -p "Press Enter to close this window…"
+  exit 1
+fi
+
+echo ""
+echo "Installing TeX Live package: ${PACKAGE}"
+TEXMFROOT="$("${KPSEWHICH}" -var-value=TEXMFROOT 2>/dev/null || true)"
+if [[ -n "${TEXMFROOT}" && -w "${TEXMFROOT}" ]]; then
+  "${TLMGR}" install "${PACKAGE}"
+else
+  sudo "${TLMGR}" install "${PACKAGE}"
+fi
+
+echo ""
+if FOUND="$("${KPSEWHICH}" "${MISSING_FILE}" 2>/dev/null)" && [[ -n "${FOUND}" ]]; then
+  echo "Installed ${MISSING_FILE} → ${FOUND}"
+  echo "Return to Lattice and Build again."
+else
+  echo "The package installed, but ${MISSING_FILE} is still unavailable."
+  echo "Review the tlmgr output above or install full MacTeX from Lattice."
+fi
+echo ""
+read -r -p "Press Enter to close this window…"
+"#;
+
+#[cfg(target_os = "macos")]
+fn open_terminal_script(path: &std::path::Path, script: &str) -> Result<(), String> {
+    {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o700)
+            .open(path)
+            .map_err(|error| format!("Could not create install script: {error}"))?;
+        file.write_all(script.as_bytes())
+            .map_err(|error| format!("Could not write install script: {error}"))?;
+    }
+
+    let status = Command::new("open")
+        .arg(path)
+        .status()
+        .map_err(|error| format!("Could not open Terminal for TeX install: {error}"))?;
+    if !status.success() {
+        return Err("Could not open Terminal for TeX install.".into());
+    }
+    Ok(())
+}
+
 pub fn start_tex_install(kind: &str) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
@@ -262,28 +367,93 @@ pub fn start_tex_install(kind: &str) -> Result<(), String> {
             _ => return Err("Unknown TeX install option.".into()),
         };
 
-        let path = std::env::temp_dir().join(format!("lattice-tex-install-{label}.command"));
-        {
-            let mut file = fs::File::create(&path)
-                .map_err(|error| format!("Could not create install script: {error}"))?;
-            file.write_all(script.as_bytes())
-                .map_err(|error| format!("Could not write install script: {error}"))?;
+        let path = std::env::temp_dir().join(format!(
+            "lattice-tex-install-{label}-{}.command",
+            uuid::Uuid::new_v4().simple()
+        ));
+        open_terminal_script(&path, script)
+    }
+}
+
+pub fn start_tex_dependency_install(missing_file: &str) -> Result<(), String> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = missing_file;
+        Err("One-click TeX package install is only available on macOS.".into())
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if !valid_tex_dependency_name(missing_file) {
+            return Err("Invalid missing TeX dependency name.".into());
         }
 
-        let mut permissions = fs::metadata(&path)
-            .map_err(|error| format!("Could not read install script permissions: {error}"))?
-            .permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(&path, permissions)
-            .map_err(|error| format!("Could not make install script executable: {error}"))?;
-
-        let status = Command::new("open")
-            .arg(&path)
-            .status()
-            .map_err(|error| format!("Could not open Terminal for TeX install: {error}"))?;
-        if !status.success() {
-            return Err("Could not open Terminal for TeX install.".into());
+        let tlmgr = crate::commands::resolve("tlmgr");
+        if !tlmgr.is_file() {
+            return Err("TeX Live's package manager is not installed.".into());
         }
-        Ok(())
+        let kpsewhich = tlmgr
+            .parent()
+            .map(|parent| parent.join("kpsewhich"))
+            .filter(|path| path.is_file())
+            .ok_or_else(|| "kpsewhich was not found beside tlmgr.".to_string())?;
+        let search_pattern = format!("/{}$", regex::escape(missing_file));
+        let script = DEPENDENCY_SCRIPT
+            .replace("__MISSING_FILE__", missing_file)
+            .replace("__TLMGR_PATH__", &shell_quote(&tlmgr.to_string_lossy()))
+            .replace(
+                "__KPSEWHICH_PATH__",
+                &shell_quote(&kpsewhich.to_string_lossy()),
+            )
+            .replace("__SEARCH_PATTERN__", &shell_quote(&search_pattern));
+        let path = std::env::temp_dir().join(format!(
+            "lattice-tex-dependency-install-{}.command",
+            uuid::Uuid::new_v4().simple()
+        ));
+        open_terminal_script(&path, &script)
+    }
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+fn valid_tex_dependency_name(missing_file: &str) -> bool {
+    let valid_name = !missing_file.is_empty()
+        && missing_file
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._+-".contains(&byte));
+    let valid_extension = ["sty", "cls", "bst", "bbx", "cbx"]
+        .iter()
+        .any(|extension| missing_file.ends_with(&format!(".{extension}")));
+    valid_name && valid_extension
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dependency_installer_looks_up_the_owning_tex_live_package() {
+        assert!(DEPENDENCY_SCRIPT.contains("${TLMGR}\" search --global --file"));
+        assert!(DEPENDENCY_SCRIPT.contains("sudo \"${TLMGR}\" install \"${PACKAGE}\""));
+        assert!(DEPENDENCY_SCRIPT.contains("custom project or conference-template file"));
+    }
+
+    #[test]
+    fn dependency_name_validation_prevents_terminal_injection() {
+        assert!(valid_tex_dependency_name("algorithm.sty"));
+        assert!(valid_tex_dependency_name("biblatex-authoryear.bbx"));
+        assert!(!valid_tex_dependency_name("../../evil.sty"));
+        assert!(!valid_tex_dependency_name("evil.sty; open /tmp"));
+        assert!(!valid_tex_dependency_name("main.tex"));
+    }
+
+    #[test]
+    fn shell_paths_are_quoted_before_being_written_to_the_installer() {
+        assert_eq!(
+            shell_quote("/Users/Leo's TeX/tlmgr"),
+            "'/Users/Leo'\"'\"'s TeX/tlmgr'"
+        );
     }
 }

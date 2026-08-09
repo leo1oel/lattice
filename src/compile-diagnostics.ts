@@ -13,6 +13,13 @@ export type CompileDiagnostic = {
 
 export type DiagnosticSeverity = "error" | "warning" | "info";
 
+const MISSING_TEX_DEPENDENCY = /^Missing LaTeX (?:package|dependency) `([^`]+\.(?:sty|cls|bst|bbx|cbx))`\./i;
+
+/** A TeX file the local distribution can try to resolve through `tlmgr`. */
+export function missingTexDependencyFile(message: string): string | null {
+  return MISSING_TEX_DEPENDENCY.exec(message.trim())?.[1] ?? null;
+}
+
 export function diagnosticSeverity(level: string): DiagnosticSeverity {
   const normalized = level.trim().toLocaleLowerCase();
   if (normalized === "error" || normalized === "fatal") return "error";

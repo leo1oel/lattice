@@ -154,6 +154,7 @@ const CompileDiagnosticsPanel = lazy(() =>
 import {
   diagnosticsFingerprint,
   flattenProjectPaths,
+  missingTexDependencyFile,
   resolveDiagnosticPath,
   type CompileDiagnostic,
 } from "./compile-diagnostics";
@@ -3182,6 +3183,15 @@ function App() {
     }
   }, [openProjectFile]);
 
+  const installTexDependency = useCallback((missingFile: string) => {
+    const trace = logAction("LaTeX setup", "Install missing package", missingFile);
+    void invoke("start_tex_dependency_install", { missingFile })
+      .then(() => trace.ok("Package installer opened", {
+        detail: "Follow the Terminal steps, then Build again.",
+      }))
+      .catch((reason) => trace.fail(reason));
+  }, []);
+
   const runBuild = useCallback(async (
     force = false,
     options?: { immediatePreview?: boolean; requested?: boolean },
@@ -3322,10 +3332,19 @@ function App() {
           else pdfPreviewTimerRef.current = window.setTimeout(applyPreview, 1_200);
         }
         if (!result.success) {
-          const firstError = result.diagnostics.find((item) => item.level === "error")
+          const missingDependencyDiagnostic = result.diagnostics
+            .find((item) => missingTexDependencyFile(item.message));
+          const firstError = missingDependencyDiagnostic
+            ?? result.diagnostics.find((item) => item.level === "error")
             ?? result.diagnostics[0]
             ?? null;
-          if (firstError) void openCompileDiagnosticRef.current(firstError);
+          const missingDependency = missingDependencyDiagnostic
+            ? missingTexDependencyFile(missingDependencyDiagnostic.message)
+            : null;
+          const navigationError = result.diagnostics.find((item) => (
+            item.level === "error" && Boolean(item.file || item.line)
+          )) ?? firstError;
+          if (navigationError) void openCompileDiagnosticRef.current(navigationError);
           const failureText = [
             result.log,
             ...result.diagnostics.map((item) => item.message),
@@ -3335,6 +3354,10 @@ function App() {
             // The full log is what a bug report needs; the toast only shows the
             // first diagnostic.
             copyText: failureText,
+            primaryAction: missingDependency ? {
+              label: "Install missing package",
+              onClick: () => installTexDependency(missingDependency),
+            } : undefined,
           });
           if (isMissingTexBuildError(failureText)) setTexSetupOpen(true);
         } else {
@@ -3354,7 +3377,7 @@ function App() {
       buildingRef.current = false;
       setBuilding(false);
     }
-  }, []);
+  }, [installTexDependency]);
 
   const compile = useCallback(async (force = false) => {
     if (!project) return;
@@ -7819,6 +7842,7 @@ function App() {
                   expanded={diagnosticsExpanded}
                   onExpandedChange={setDiagnosticsExpanded}
                   onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
+                  onInstallDependency={installTexDependency}
                   onDismiss={() => {
                     dismissedDiagnosticsRef.current = diagnosticsFingerprint(build.diagnostics);
                     setDiagnosticsDismissed(true);

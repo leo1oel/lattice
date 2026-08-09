@@ -7,11 +7,13 @@ import {
   ScrollText,
 } from "lucide-react";
 import { CopyButton } from "./components/copy-button";
+import { Button } from "./components/ui/button";
 import { CloseButton } from "./components/ui/icon-button";
 import { EmptyState } from "./components/ui/empty-state";
 import {
   diagnosticLocationLabel,
   diagnosticSeverity,
+  missingTexDependencyFile,
   sortDiagnostics,
   summarizeDiagnostics,
   type CompileDiagnostic,
@@ -32,6 +34,7 @@ export function CompileDiagnosticsPanel(props: {
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   onSelect: (diagnostic: CompileDiagnostic) => void;
+  onInstallDependency: (missingFile: string) => void;
   onDismiss: () => void;
 }) {
   const diagnostics = sortDiagnostics(props.diagnostics);
@@ -87,6 +90,7 @@ export function CompileDiagnosticsPanel(props: {
                 const navigable = Boolean(diagnostic.file || diagnostic.line);
                 const key = `${severity}-${diagnostic.file ?? ""}-${diagnostic.line ?? ""}-${index}`;
                 const copyText = `${diagnosticLocationLabel(diagnostic)} ${diagnostic.message}`;
+                const missingFile = missingTexDependencyFile(diagnostic.message);
                 return (
                   <li key={key}>
                     <button
@@ -99,6 +103,16 @@ export function CompileDiagnosticsPanel(props: {
                       <span className="compile-diagnostic-location">{diagnosticLocationLabel(diagnostic)}</span>
                       <span className="compile-diagnostic-message">{diagnostic.message}</span>
                     </button>
+                    {missingFile && (
+                      <Button
+                        variant="ghost"
+                        size="compact"
+                        title={`Find and install the TeX Live package for ${missingFile}`}
+                        onClick={() => props.onInstallDependency(missingFile)}
+                      >
+                        Install
+                      </Button>
+                    )}
                     <CopyButton
                       className="compile-diagnostic-copy"
                       aria-label="Copy error message"

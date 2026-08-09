@@ -625,16 +625,6 @@ fn normalize_log_path(path: &str) -> String {
     without_dot.to_string()
 }
 
-/// Map a missing `.sty` basename to the TeX Live package name for `tlmgr install`.
-/// File names often differ from CTAN/TeX Live package ids (e.g. `algorithm.sty` → `algorithms`).
-fn tlmgr_package_for_sty(sty: &str) -> &str {
-    match sty {
-        "algorithm.sty" | "algorithmic.sty" => "algorithms",
-        "algpseudocode.sty" => "algorithmicx",
-        other => other.strip_suffix(".sty").unwrap_or(other),
-    }
-}
-
 /// Conference styles (NeurIPS/ICML/ICLR) are not on CTAN — `tlmgr install` can
 /// never provide them. Lattice writes them into the project folder at creation,
 /// so a "not found" means the file went missing from the project, not from TeX.
@@ -724,17 +714,19 @@ fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
             ),
         });
     }
-    let missing_sty = Regex::new(r"(?m)! LaTeX Error: File `([^']+\.sty)' not found\.").unwrap();
-    if let Some(capture) = missing_sty.captures(log) {
-        let sty = capture[1].to_string();
-        let message = if let Some(venue) = conference_template_venue(&sty) {
+    let missing_dependency = Regex::new(
+        r"(?m)(?:!\s*)?LaTeX Error: File [`']([^`']+\.(?:sty|cls|bst|bbx|cbx))[`'] not found\.",
+    )
+    .unwrap();
+    if let Some(capture) = missing_dependency.captures(log) {
+        let missing_file = capture[1].to_string();
+        let message = if let Some(venue) = conference_template_venue(&missing_file) {
             format!(
-                "Missing style file `{sty}`. It is part of the {venue} template and belongs next to main.tex — tlmgr cannot install it. Copy it back from another copy of the project, or create a new {venue} project in Lattice and take its style file."
+                "Missing style file `{missing_file}`. It is part of the {venue} template and belongs next to main.tex — TeX Live cannot install it. Sync or copy it back from another copy of the project."
             )
         } else {
-            let pkg = tlmgr_package_for_sty(&sty);
             format!(
-                "Missing LaTeX package `{sty}`. BasicTeX is missing extras for this template — in Terminal run: sudo tlmgr install {pkg}   (or: sudo tlmgr install collection-latexextra collection-fontsrecommended)"
+                "Missing LaTeX dependency `{missing_file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
             )
         };
         push_unique_diagnostic(
@@ -784,10 +776,17 @@ fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     }
     // Only the file-less warning loop above consulted the noise list, but the
     // same warnings also arrive with a `file:line:` prefix through the other two
-    // patterns. Filter once at the end so every producer is covered. Errors are
-    // never suppressed, however they happen to be worded.
+    // patterns. Filter once at the end so every producer is covered. LaTeX's
+    // terminal boilerplate is also suppressed: the preceding error is the
+    // actionable cause, while "Emergency stop" only says compilation ended.
     diagnostics.retain(|diagnostic| {
-        diagnostic.level == "error" || !is_pass_noise_warning(&diagnostic.message)
+        let lower = diagnostic.message.trim().to_ascii_lowercase();
+        let terminal_error = lower == "emergency stop."
+            || lower.starts_with("fatal error occurred")
+            || lower.starts_with("no output pdf file produced")
+            || lower.starts_with("==> fatal error occurred");
+        !terminal_error
+            && (diagnostic.level == "error" || !is_pass_noise_warning(&diagnostic.message))
     });
     diagnostics
 }
@@ -1067,15 +1066,50 @@ mod tests {
     }
 
     #[test]
-    fn maps_algorithm_sty_to_algorithms_tlmgr_package() {
+    fn offers_to_resolve_a_missing_tex_dependency() {
         let diagnostics = parse_diagnostics("! LaTeX Error: File `algorithm.sty' not found.\n");
         assert!(
             diagnostics.iter().any(|item| {
                 item.message.contains("algorithm.sty")
-                    && item.message.contains("tlmgr install algorithms")
+                    && item.message.contains("Install missing package")
             }),
-            "expected algorithms package hint, got {diagnostics:?}"
+            "expected a dependency repair hint, got {diagnostics:?}"
         );
+    }
+
+    #[test]
+    fn hides_latex_terminal_noise_when_reporting_a_build_failure() {
+        let diagnostics = parse_diagnostics(
+            "./main.tex:8: Emergency stop.\n\
+             ./main.tex:8:  ==> Fatal error occurred, no output PDF file produced!\n",
+        );
+        assert!(diagnostics.is_empty(), "got: {diagnostics:?}");
+    }
+
+    #[test]
+    fn recognizes_missing_classes_and_bibliography_styles() {
+        for missing in [
+            "acmart.cls",
+            "plainnat.bst",
+            "authoryear.bbx",
+            "numeric.cbx",
+        ] {
+            let diagnostics = parse_diagnostics(&format!(
+                "./main.tex:3: LaTeX Error: File `{missing}' not found.\n"
+            ));
+            let hint = diagnostics
+                .iter()
+                .find(|item| item.message.starts_with("Missing LaTeX dependency"))
+                .unwrap_or_else(|| {
+                    panic!("expected a dependency repair hint for {missing}, got {diagnostics:?}")
+                });
+            assert!(
+                hint.message
+                    .starts_with(&format!("Missing LaTeX dependency `{missing}`.")),
+                "dependency name must not retain a log quote: {}",
+                hint.message
+            );
+        }
     }
 
     #[test]
@@ -1144,7 +1178,7 @@ mod tests {
                 .find(|item| item.message.contains(sty))
                 .unwrap_or_else(|| panic!("expected a hint for {sty}, got {diagnostics:?}"));
             assert!(
-                !hint.message.contains("tlmgr install"),
+                !hint.message.contains("Install missing package"),
                 "must not suggest tlmgr for {sty}: {}",
                 hint.message
             );

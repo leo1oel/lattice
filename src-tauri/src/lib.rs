@@ -3375,6 +3375,14 @@ async fn start_tex_install(kind: String) -> Result<(), String> {
     .await
 }
 
+#[tauri::command]
+async fn start_tex_dependency_install(missing_file: String) -> Result<(), String> {
+    run_blocking("TeX package installer launch", move || {
+        tex_setup::start_tex_dependency_install(&missing_file)
+    })
+    .await
+}
+
 /// Keep native resize backing surfaces in sync with the web app theme.
 #[tauri::command]
 fn set_window_background(window: tauri::WebviewWindow, dark: bool) -> Result<(), String> {
@@ -3750,6 +3758,7 @@ pub fn run() {
             revert_history_file,
             delete_history_entry,
             start_tex_install,
+            start_tex_dependency_install,
             set_window_background,
             align_traffic_lights,
             sample_screen_color,
