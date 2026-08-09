@@ -229,6 +229,7 @@ import type {
   InsertSymbolCommand,
   DoctorReport,
   OverleafLink,
+  OverleafStatus,
   OverleafProbe,
   OverleafSyncResult,
 } from "./app-types";
@@ -250,6 +251,7 @@ import {
   isProjectAssetFilePath,
   isProjectSourceFilePath,
   isPaperTabKey,
+  overleafLinkMatchesSession,
   paperKey,
   paperTabKey,
   projectItemPath,
@@ -827,6 +829,7 @@ function App() {
   const [projectFindBusy, setProjectFindBusy] = useState(false);
   const [projectFindError, setProjectFindError] = useState<string | null>(null);
   const [projectFindHits, setProjectFindHits] = useState<ProjectFindHit[]>([]);
+  const projectFindSearchGenerationRef = useRef(0);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [gotoLineOpen, setGotoLineOpen] = useState(false);
   const [wrapEnvRequest, setWrapEnvRequest] = useState<{ name: string; id: string } | null>(null);
@@ -975,6 +978,7 @@ function App() {
   // sent auto-sync at the new, unlinked project ("Sync failed: This project is
   // not linked to an Overleaf project.").
   const [overleafLinkFor, setOverleafLinkFor] = useState<{ root: string; link: OverleafLink } | null>(null);
+  const overleafLinkLoadGenerationRef = useRef(0);
   const overleafLink = overleafLinkFor && overleafLinkFor.root === project?.root
     ? overleafLinkFor.link
     : null;
@@ -3374,13 +3378,21 @@ function App() {
   // "Open from Overleaf"). Drives the toolbar sync button and auto-sync.
   useEffect(() => {
     let cancelled = false;
+    const generation = ++overleafLinkLoadGenerationRef.current;
     setOverleafLinkFor(null);
     if (!project?.root) return;
     const root = project.root;
-    void invoke<OverleafLink | null>("overleaf_link")
-      .then((link) => {
-        const active = activeLink(link);
-        if (!cancelled) setOverleafLinkFor(active ? { root, link: active } : null);
+    void Promise.all([
+      invoke<OverleafStatus>("overleaf_status"),
+      invoke<OverleafLink | null>("overleaf_link"),
+    ])
+      .then(([status, link]) => {
+        const active = status.connected && link && overleafLinkMatchesSession(status.host, link.host)
+          ? activeLink(link)
+          : null;
+        if (!cancelled && generation === overleafLinkLoadGenerationRef.current) {
+          setOverleafLinkFor(active ? { root, link: active } : null);
+        }
       })
       .catch(() => {
         // A project without the state file is simply not linked.
@@ -3399,12 +3411,26 @@ function App() {
   const refreshOverleafLink = useCallback(() => {
     const root = projectRef.current?.root;
     if (!root) return;
-    void invoke<OverleafLink | null>("overleaf_link")
-      .then((link) => {
-        if (projectRef.current?.root !== root) return;
-        setOverleafLinkFor(link && !link.paused ? { root, link } : null);
+    const generation = ++overleafLinkLoadGenerationRef.current;
+    void Promise.all([
+      invoke<OverleafStatus>("overleaf_status"),
+      invoke<OverleafLink | null>("overleaf_link"),
+    ])
+      .then(([status, link]) => {
+        if (
+          projectRef.current?.root !== root
+          || generation !== overleafLinkLoadGenerationRef.current
+        ) return;
+        const active = status.connected && link && overleafLinkMatchesSession(status.host, link.host)
+          ? activeLink(link)
+          : null;
+        setOverleafLinkFor(active ? { root, link: active } : null);
       })
-      .catch(() => setOverleafLinkFor(null));
+      .catch(() => {
+        if (generation === overleafLinkLoadGenerationRef.current) {
+          setOverleafLinkFor(null);
+        }
+      });
   }, []);
 
   /**
@@ -3602,12 +3628,7 @@ function App() {
         author: collabName.trim() || null,
         projectRoot: syncRoot,
       }).catch(() => {});
-      void invoke<OverleafLink | null>("overleaf_link")
-        .then((link) => {
-          const active = activeLink(link);
-          if (stillCurrent()) setOverleafLinkFor(active ? { root: syncRoot, link: active } : null);
-        })
-        .catch(() => {});
+      if (stillCurrent()) refreshOverleafLink();
     } catch (reason) {
       if (stillCurrent()) trace.fail(reason);
     } finally {
@@ -3625,6 +3646,7 @@ function App() {
     compile,
     loadFile,
     project,
+    refreshOverleafLink,
     refreshProject,
     save,
     settleRemoteDeletes,
@@ -7679,7 +7701,7 @@ function App() {
                   activeFile={activeAsset || activePaper ? "" : activeFile}
                   activeAssetPath={activeAsset?.path ?? ""}
                   protectedPaths={[
-                    ...project.manifest.rootDocuments.map((document) => document.path),
+                    ...(rootDocumentPath ? [rootDocumentPath] : []),
                     project.manifest.primaryBibliography,
                   ]}
                   papers={papers}
@@ -8402,10 +8424,14 @@ function App() {
         error={projectFindError}
         hits={projectFindHits}
         onClose={() => {
+          projectFindSearchGenerationRef.current += 1;
           setProjectFindOpen(false);
+          setProjectFindBusy(false);
           setProjectFindError(null);
+          setProjectFindHits([]);
         }}
         onSearch={(query) => {
+          const generation = ++projectFindSearchGenerationRef.current;
           void (async () => {
             if (!query.trim()) {
               setProjectFindHits([]);
@@ -8417,12 +8443,16 @@ function App() {
             setProjectFindError(null);
             try {
               const results = await invoke<ProjectFindHit[]>("search_project", { query });
+              if (generation !== projectFindSearchGenerationRef.current) return;
               setProjectFindHits(results);
             } catch (reason) {
+              if (generation !== projectFindSearchGenerationRef.current) return;
               setProjectFindHits([]);
               setProjectFindError(toMessage(reason));
             } finally {
-              setProjectFindBusy(false);
+              if (generation === projectFindSearchGenerationRef.current) {
+                setProjectFindBusy(false);
+              }
             }
           })();
         }}

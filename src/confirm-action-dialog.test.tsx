@@ -37,8 +37,9 @@ describe("ConfirmActionProvider", () => {
     trigger.focus();
     fireEvent.click(trigger);
 
-    expect(await screen.findByRole("dialog", { name: "Delete “notes.tex” from this project?" }))
-      .toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Delete “notes.tex” from this project?" });
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveAccessibleDescription("This action cannot be undone.");
     expect(document.querySelector(".modal-backdrop"))
       .toHaveClass("confirm-action-backdrop");
     expect(screen.getByText("This action cannot be undone.")).toBeInTheDocument();

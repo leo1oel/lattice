@@ -50,6 +50,12 @@
   overflow-wrap: anywhere;
 }
 
+.collab-chat-latest-button {
+  display: flex;
+  width: fit-content;
+  margin: var(--space-2) auto 0;
+}
+
 .collab-chat-composer {
   flex: none;
   display: flex;

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { OverleafPickerDialog, OverleafSettingsSection } from "./overleaf-connect";
 import { AppToastStack } from "./app-log";
 import { clearAppLogs } from "./app-log-store";
-import type { OverleafProject, OverleafStatus } from "./app-types";
+import type { OverleafLink, OverleafProject, OverleafStatus } from "./app-types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
@@ -22,6 +22,13 @@ const connected: OverleafStatus = {
   email: "leo@uw.edu",
   name: "Leo",
   host: "https://www.overleaf.com",
+};
+const linkedProject: OverleafLink = {
+  projectId: "p1",
+  projectName: "Attention Paper",
+  host: "https://www.overleaf.com",
+  lastSync: "2026-07-24T00:00:00Z",
+  paused: false,
 };
 
 const projects: OverleafProject[] = [
@@ -239,18 +246,98 @@ describe("Overleaf settings section", () => {
 
   it("surfaces disconnect and lets the user reconnect", async () => {
     let current = connected;
+    const onLinkChanged = vi.fn();
+    vi.mocked(confirm).mockResolvedValue(true);
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "overleaf_status") return current;
+      if (command === "overleaf_link") return linkedProject;
       if (command === "overleaf_disconnect") {
         current = disconnected;
         return undefined;
       }
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
+    render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={onLinkChanged} />);
     expect(await screen.findByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(
+      expect.stringMatching(/Sign out of Overleaf\?[\s\S]*list your Overleaf projects[\s\S]*sync linked projects[\s\S]*live editing[\s\S]*Files already downloaded to this Mac will not be deleted/),
+      expect.objectContaining({ kind: "warning" }),
+    ));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_disconnect"));
     expect(await screen.findByRole("button", { name: /Connect to Overleaf/ })).toBeInTheDocument();
+    expect(screen.getByText(/“Attention Paper” stays linked/)).toBeInTheDocument();
+    expect(screen.getByText(/Sign in to resume syncing and live editing/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pause syncing|Resume syncing/ })).not.toBeInTheDocument();
+    expect(onLinkChanged).toHaveBeenCalled();
+  });
+
+  it("keeps the Overleaf session connected when sign-out is cancelled", async () => {
+    vi.mocked(confirm).mockResolvedValue(false);
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return connected;
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
+
+    expect(await screen.findByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_disconnect");
+    expect(screen.getByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
+  });
+
+  it("keeps a linked project inactive when the account belongs to another host", async () => {
+    const otherHost: OverleafStatus = {
+      ...connected,
+      host: "https://overleaf-b.example",
+    };
+    const selfHostedLink: OverleafLink = {
+      ...linkedProject,
+      host: "https://overleaf-a.example",
+    };
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return otherHost;
+      if (command === "overleaf_link") return selfHostedLink;
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
+
+    expect(await screen.findByText(/“Attention Paper” stays linked/)).toBeInTheDocument();
+    expect(screen.getByText(/This project uses https:\/\/overleaf-a\.example/)).toBeInTheDocument();
+    expect(screen.getByText(/Sign out above, then connect to that host/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pause syncing|Resume syncing/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps linked-project controls unavailable when connection status cannot be read", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") throw new Error("Keychain is unavailable");
+      if (command === "overleaf_link") return linkedProject;
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
+
+    expect(await screen.findByText("Keychain is unavailable")).toBeInTheDocument();
+    expect(screen.getByText(/“Attention Paper” stays linked/)).toBeInTheDocument();
+    expect(screen.getByText(/Connection status is unavailable/)).toHaveTextContent("https://www.overleaf.com");
+    expect(screen.queryByRole("button", { name: /Pause syncing|Resume syncing/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps legacy links without a stored host active on the current session", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return connected;
+      if (command === "overleaf_link") return { ...linkedProject, host: "" };
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
+
+    expect(await screen.findByText(/This project syncs with “Attention Paper”/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pause syncing" })).toBeInTheDocument();
+    expect(screen.queryByText(/This project uses \./)).not.toBeInTheDocument();
   });
 });
 

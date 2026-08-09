@@ -34,7 +34,7 @@ import {
   type OverleafProject,
   type OverleafStatus,
 } from "./app-types";
-import { confirmAction, relativeTime, toMessage } from "./app-utils";
+import { confirmAction, overleafLinkMatchesSession, relativeTime, toMessage } from "./app-utils";
 import { InlineMessage } from "./components/ui/inline-message";
 import { notifyError, notifySuccess } from "./app-notify";
 import { type OverleafRemoteDelete, type OverleafSyncMode } from "./app-settings";
@@ -189,7 +189,11 @@ export function OverleafSettingsSection(props: {
   const [host, setHost] = useState(DEFAULT_OVERLEAF_HOST);
   const [cookie, setCookie] = useState("");
   const [applying, setApplying] = useState(false);
-  const login = useOverleafLogin((session) => setStatus(session));
+  const [disconnecting, setDisconnecting] = useState(false);
+  const login = useOverleafLogin((session) => {
+    setStatus(session);
+    if (session.connected) props.onLinkChanged();
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -199,6 +203,7 @@ export function OverleafSettingsSection(props: {
       setLoadError(null);
       if (result.host) setHost(result.host);
     } catch (reason) {
+      setStatus(null);
       setLoadError(toMessage(reason));
     }
     // Whether the *open project* is tied to an Overleaf project is separate
@@ -248,7 +253,17 @@ export function OverleafSettingsSection(props: {
   }, [load]);
 
   const disconnect = async () => {
+    if (disconnecting) return;
+    setDisconnecting(true);
     try {
+      if (!await confirmAction({
+        message: "Sign out of Overleaf?\n\n"
+          + "Lattice will no longer be able to list your Overleaf projects, sync linked projects, "
+          + "or use live editing until you sign in again. Files already downloaded to this Mac "
+          + "will not be deleted.",
+        confirmLabel: "Sign out",
+        destructive: false,
+      })) return;
       await invoke("overleaf_disconnect");
       await load();
       // Signing out ends the live channel too, so the rest of the app has to
@@ -256,6 +271,8 @@ export function OverleafSettingsSection(props: {
       props.onLinkChanged();
     } catch (reason) {
       notifyError(OVERLEAF_SOURCE, "Could not disconnect from Overleaf", { detail: toMessage(reason) });
+    } finally {
+      setDisconnecting(false);
     }
   };
 
@@ -270,6 +287,7 @@ export function OverleafSettingsSection(props: {
       setStatus(result);
       if (result.connected) {
         setCookie("");
+        props.onLinkChanged();
         notifySuccess(OVERLEAF_SOURCE, `Connected to ${result.host}.`);
       } else {
         notifyError(OVERLEAF_SOURCE, "Overleaf didn’t accept that cookie. Make sure you’re signed in to Overleaf in your browser, then copy the Cookie header value again.");
@@ -279,6 +297,11 @@ export function OverleafSettingsSection(props: {
     }
     setApplying(false);
   };
+  const connectionKnown = !loading && !loadError && Boolean(status);
+  const linkedHost = link?.host.trim() || status?.host.trim() || "the linked Overleaf host";
+  const connectedToLinkedHost = Boolean(
+    connectionKnown && status?.connected && link && overleafLinkMatchesSession(status.host, link.host),
+  );
 
   return (
     <div className="settings-section">
@@ -317,7 +340,10 @@ export function OverleafSettingsSection(props: {
             <strong>Connected as {status.email ?? status.name ?? "your Overleaf account"}</strong>
             <small>{status.host}</small>
           </div>
-          <Button size="compact" onClick={() => void disconnect()}>Sign out</Button>
+          <Button size="compact" disabled={disconnecting} onClick={() => void disconnect()}>
+            {disconnecting && <InfinityLoader size={12} />}
+            Sign out
+          </Button>
         </div>
         )}
         {!loading && !loadError && status && !status.connected && (
@@ -338,25 +364,37 @@ export function OverleafSettingsSection(props: {
         {login.notice && <InlineMessage level="info" className="overleaf-inline">{login.notice}</InlineMessage>}
         {link && (
         <div className="overleaf-status-row">
-          <span className={`overleaf-dot ${link.paused ? "paused" : "connected"}`} aria-hidden="true" />
+          <span className={`overleaf-dot ${!connectedToLinkedHost || link.paused ? "paused" : "connected"}`} aria-hidden="true" />
           <div className="overleaf-status-text">
             <strong>
-              {link.paused
+              {!connectedToLinkedHost
+                ? `“${link.projectName}” stays linked`
+                : link.paused
                 ? `Syncing with “${link.projectName}” is paused`
                 : `This project syncs with “${link.projectName}”`}
             </strong>
             <small>
-              {link.paused
+              {loadError
+                ? `Connection status is unavailable. This project remains linked to ${linkedHost}; try checking the connection again above.`
+                : loading || !status
+                  ? `Checking the connection to ${linkedHost}…`
+                : !status.connected
+                ? link.paused
+                  ? `Sign in to ${linkedHost}, then resume syncing when you are ready. Local files stay on this Mac.`
+                  : `Sign in to resume syncing and live editing on ${linkedHost}. Local files stay on this Mac.`
+                : !connectedToLinkedHost
+                  ? `This project uses ${linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac.`
+                : link.paused
                 ? "Nothing is sent or fetched until you resume."
                 : link.lastSync ? `Last synced ${relativeTime(link.lastSync)}` : "Not synced yet"}
             </small>
           </div>
-          <Button
+          {connectedToLinkedHost && <Button
             size="compact"
             onClick={() => void setPaused(!link.paused)}
           >
             {link.paused ? "Resume syncing" : "Pause syncing"}
-          </Button>
+          </Button>}
         </div>
         )}
       </SettingsGroup>

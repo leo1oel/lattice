@@ -41,6 +41,116 @@ describe("CollabChatPanel", () => {
     expect(document.querySelector(".collab-chat-list")).toHaveClass("native-hover-scrollbar");
   });
 
+  it("anchors the initial conversation history to the latest message", () => {
+    const { rerender } = render(
+      <CollabChatPanel messages={[]} selfId="host-1" onSend={vi.fn()} />,
+    );
+    const list = document.querySelector(".collab-chat-list") as HTMLDivElement;
+    Object.defineProperty(list, "scrollHeight", { configurable: true, value: 600 });
+
+    rerender(<CollabChatPanel messages={[message()]} selfId="host-1" onSend={vi.fn()} />);
+
+    expect(list.scrollTop).toBe(600);
+  });
+
+  it("does not interrupt someone reading history when a new message arrives", () => {
+    const { rerender } = render(
+      <CollabChatPanel messages={[message()]} selfId="host-1" onSend={vi.fn()} />,
+    );
+    const list = document.querySelector(".collab-chat-list") as HTMLDivElement;
+    let scrollHeight = 600;
+    Object.defineProperties(list, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, get: () => scrollHeight },
+    });
+
+    list.scrollTop = 120;
+    fireEvent.scroll(list);
+    scrollHeight = 700;
+    rerender(
+      <CollabChatPanel
+        messages={[message(), message({ id: "m2", body: "A new reply" })]}
+        selfId="host-1"
+        onSend={vi.fn()}
+      />,
+    );
+
+    expect(list.scrollTop).toBe(120);
+    const jump = screen.getByRole("button", { name: "New messages · Jump to latest" });
+    fireEvent.click(jump);
+    expect(list.scrollTop).toBe(700);
+    expect(list).toHaveFocus();
+    expect(jump).not.toBeInTheDocument();
+
+    scrollHeight = 800;
+    rerender(
+      <CollabChatPanel
+        messages={[
+          message(),
+          message({ id: "m2", body: "A new reply" }),
+          message({ id: "m3", body: "Another reply" }),
+        ]}
+        selfId="host-1"
+        onSend={vi.fn()}
+      />,
+    );
+    expect(list.scrollTop).toBe(800);
+  });
+
+  it("clears the unread-history state when the conversation is reset", () => {
+    const { rerender } = render(
+      <CollabChatPanel messages={[message()]} selfId="host-1" onSend={vi.fn()} />,
+    );
+    const list = screen.getByRole("region", { name: "Chat messages" });
+    let scrollHeight = 600;
+    Object.defineProperties(list, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, get: () => scrollHeight },
+    });
+
+    list.scrollTop = 120;
+    fireEvent.scroll(list);
+    scrollHeight = 700;
+    rerender(
+      <CollabChatPanel
+        messages={[message(), message({ id: "m2", body: "A new reply" })]}
+        selfId="host-1"
+        onSend={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Jump to latest/ })).toBeInTheDocument();
+
+    rerender(<CollabChatPanel messages={[]} selfId="host-1" onSend={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
+    expect(screen.getByText("No messages yet. Say something and everyone in the room sees it.")).toBeInTheDocument();
+  });
+
+  it("continues following messages while the reader is near the bottom", () => {
+    const { rerender } = render(
+      <CollabChatPanel messages={[message()]} selfId="host-1" onSend={vi.fn()} />,
+    );
+    const list = document.querySelector(".collab-chat-list") as HTMLDivElement;
+    let scrollHeight = 600;
+    Object.defineProperties(list, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, get: () => scrollHeight },
+    });
+
+    list.scrollTop = 375;
+    fireEvent.scroll(list);
+    scrollHeight = 700;
+    rerender(
+      <CollabChatPanel
+        messages={[message(), message({ id: "m2", body: "A new reply" })]}
+        selfId="host-1"
+        onSend={vi.fn()}
+      />,
+    );
+
+    expect(list.scrollTop).toBe(700);
+    expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
+  });
+
   it("sends on Enter, clears the draft, and never sends on Shift+Enter", async () => {
     const onSend = vi.fn();
     render(<CollabChatPanel messages={[]} selfId="host-1" onSend={onSend} />);

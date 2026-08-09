@@ -45,6 +45,31 @@ export function absoluteProjectPath(projectRoot: string, relativePath: string): 
   return `${root}${separator}${path}`;
 }
 
+/**
+ * Compare the exact Overleaf origin a session belongs to with the origin a
+ * linked project recorded. A cookie from one self-hosted Overleaf instance
+ * must never be sent to another one.
+ */
+export function overleafHostsMatch(left: string, right: string): boolean {
+  const canonical = (value: string) => {
+    const trimmed = value.trim().replace(/\/+$/, "");
+    if (!trimmed) return "";
+    const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    try {
+      const url = new URL(withScheme);
+      return `${url.protocol.toLocaleLowerCase()}//${url.host.toLocaleLowerCase()}`;
+    } catch {
+      return withScheme.toLocaleLowerCase();
+    }
+  };
+  return canonical(left) === canonical(right);
+}
+
+/** Legacy links written before host persistence belong to the active session. */
+export function overleafLinkMatchesSession(sessionHost: string, linkHost: string): boolean {
+  return !linkHost.trim() || overleafHostsMatch(sessionHost, linkHost);
+}
+
 const PROJECT_SOURCE_EXTENSIONS = new Set([
   "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "tldr",
 ]);

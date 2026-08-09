@@ -12,6 +12,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SendHorizontal } from "lucide-react";
+import { Button } from "./components/ui/button";
 import { IconButton } from "./components/ui/icon-button";
 import { Textarea } from "./components/ui/textarea";
 import { resizeTextareaToContent } from "./components/ui/auto-resize-textarea";
@@ -41,8 +42,11 @@ export function CollabChatPanel(props: {
   onSend: (body: string) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [hasMessagesBelow, setHasMessagesBelow] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const nearBottomRef = useRef(true);
+  const previousMessageCountRef = useRef(0);
 
   // Grow with the text instead of scrolling inside a fixed box, the way the
   // Overleaf chat composer and the agent composer both do.
@@ -52,11 +56,32 @@ export function CollabChatPanel(props: {
     resizeTextareaToContent(composer);
   }, [draft]);
 
-  // Anchor to the newest message the way every chat does, before paint so it
-  // never looks like it scrolled.
+  // Anchor the initial history to the newest message. After that, follow only
+  // while the reader is already near the bottom; a realtime message must not
+  // pull someone away from the older part of the conversation they chose to
+  // read.
   useLayoutEffect(() => {
     const list = listRef.current;
-    if (list) list.scrollTop = list.scrollHeight;
+    if (!list) return;
+
+    const previousCount = previousMessageCountRef.current;
+    const conversationReset = props.messages.length < previousCount;
+    const receivedMessages = props.messages.length > previousCount;
+    const loadedInitialHistory = previousCount === 0 && props.messages.length > 0;
+
+    if (conversationReset || props.messages.length === 0) {
+      nearBottomRef.current = true;
+      setHasMessagesBelow(false);
+      list.scrollTop = props.messages.length > 0 ? list.scrollHeight : 0;
+    } else if (nearBottomRef.current || loadedInitialHistory) {
+      list.scrollTop = list.scrollHeight;
+      nearBottomRef.current = true;
+      setHasMessagesBelow(false);
+    } else if (receivedMessages) {
+      setHasMessagesBelow(true);
+    }
+
+    previousMessageCountRef.current = props.messages.length;
   }, [props.messages]);
 
   useEffect(() => {
@@ -74,6 +99,15 @@ export function CollabChatPanel(props: {
     composerRef.current?.focus();
   };
 
+  const scrollToLatest = () => {
+    const list = listRef.current;
+    if (!list) return;
+    list.scrollTop = list.scrollHeight;
+    nearBottomRef.current = true;
+    setHasMessagesBelow(false);
+    list.focus({ preventScroll: true });
+  };
+
   return (
     <>
       <p className="drawer-copy">
@@ -81,7 +115,20 @@ export function CollabChatPanel(props: {
         anyone who joins later sees what was already said.
       </p>
 
-      <div className="collab-chat-list native-hover-scrollbar" ref={listRef}>
+      <div
+        className="collab-chat-list native-hover-scrollbar"
+        ref={listRef}
+        role="region"
+        aria-label="Chat messages"
+        tabIndex={0}
+        onScroll={(event) => {
+          const list = event.currentTarget;
+          const distanceFromBottom = list.scrollHeight - list.clientHeight - list.scrollTop;
+          const nearBottom = distanceFromBottom <= 32;
+          nearBottomRef.current = nearBottom;
+          if (nearBottom) setHasMessagesBelow(false);
+        }}
+      >
         {!props.messages.length && (
           <p className="git-empty">No messages yet. Say something and everyone in the room sees it.</p>
         )}
@@ -110,6 +157,20 @@ export function CollabChatPanel(props: {
           );
         })}
       </div>
+
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {hasMessagesBelow ? "New messages are available." : ""}
+      </span>
+      {hasMessagesBelow && (
+        <Button
+          size="compact"
+          variant="secondary"
+          className="collab-chat-latest-button"
+          onClick={scrollToLatest}
+        >
+          New messages · Jump to latest
+        </Button>
+      )}
 
       <div className="collab-chat-composer">
         <Textarea

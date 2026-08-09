@@ -276,6 +276,9 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 .project-replace-hit { width: 100%; text-align: left; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-app); padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--gap-tight); }
 .project-replace-hit:hover { border-color: var(--border-strong); }
 .project-replace-hit.active { border-color: var(--control-active); background: var(--control-active-soft); }
+.project-find-hit-heading { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }
+.project-find-result-type { flex: 0 0 auto; color: var(--text-secondary); font-size: var(--type-nano-size); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.project-find-hit-heading .project-replace-hit-path { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-replace-hit-path { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
 .project-replace-hit-preview { color: var(--text-primary); font-size: var(--type-caption-size); font-family: var(--editor-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .project-find-papers { margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }

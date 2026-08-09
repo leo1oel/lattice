@@ -11,6 +11,8 @@ import {
   isHarperProseFilePath,
   isWindowDragExcluded,
   markdownFrontmatterEnd,
+  overleafHostsMatch,
+  overleafLinkMatchesSession,
   remapProjectPath,
   stripFrontmatter,
 } from "./app-utils";
@@ -33,6 +35,31 @@ describe("absoluteProjectPath", () => {
   it("does not duplicate a trailing root separator", () => {
     expect(absoluteProjectPath("/Users/leo/paper/", "main.tex"))
       .toBe("/Users/leo/paper/main.tex");
+  });
+});
+
+describe("overleafHostsMatch", () => {
+  it("matches harmless spelling differences on the same origin", () => {
+    expect(overleafHostsMatch("HTTPS://OVERLEAF.EXAMPLE/", "https://overleaf.example"))
+      .toBe(true);
+    expect(overleafHostsMatch("overleaf.example", "https://overleaf.example/"))
+      .toBe(true);
+  });
+
+  it("keeps scheme, host, and port boundaries distinct", () => {
+    expect(overleafHostsMatch("https://overleaf-a.example", "https://overleaf-b.example"))
+      .toBe(false);
+    expect(overleafHostsMatch("https://overleaf.example", "http://overleaf.example"))
+      .toBe(false);
+    expect(overleafHostsMatch("https://overleaf.example:8443", "https://overleaf.example"))
+      .toBe(false);
+  });
+});
+
+describe("overleafLinkMatchesSession", () => {
+  it("treats a legacy link without a stored host as belonging to the session", () => {
+    expect(overleafLinkMatchesSession("https://overleaf.example", "")).toBe(true);
+    expect(overleafHostsMatch("https://overleaf.example", "")).toBe(false);
   });
 });
 

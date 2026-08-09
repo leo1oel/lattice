@@ -2213,6 +2213,73 @@ describe("project workspace", () => {
     });
   });
 
+  it("ignores full-text search results that arrive after a newer query", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    let resolveOlder!: (hits: Array<Record<string, unknown>>) => void;
+    let resolveNewer!: (hits: Array<Record<string, unknown>>) => void;
+    const older = new Promise<Array<Record<string, unknown>>>((resolve) => {
+      resolveOlder = resolve;
+    });
+    const newer = new Promise<Array<Record<string, unknown>>>((resolve) => {
+      resolveNewer = resolve;
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "search_project") {
+        return (args as { query?: string } | undefined)?.query === "older" ? older : newer;
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    fireEvent.keyDown(window, { key: "f", metaKey: true, shiftKey: true });
+    const input = await screen.findByRole("searchbox", { name: "Find in project" });
+    fireEvent.change(input, { target: { value: "older" } });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_project", { query: "older" }));
+    fireEvent.change(input, { target: { value: "newer" } });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_project", { query: "newer" }));
+
+    await act(async () => {
+      resolveNewer([{
+        kind: "file",
+        path: "newer.tex",
+        title: "newer.tex",
+        snippet: "The current result.",
+        line: 2,
+        fileKind: "tex",
+      }]);
+      await newer;
+    });
+    expect(await screen.findByText("newer.tex:2")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveOlder([{
+        kind: "file",
+        path: "older.tex",
+        title: "older.tex",
+        snippet: "A stale result.",
+        line: 7,
+        fileKind: "tex",
+      }]);
+      await older;
+    });
+    expect(screen.queryByText("older.tex:7")).not.toBeInTheDocument();
+    expect(screen.getByText("newer.tex:2")).toBeInTheDocument();
+  });
+
   it("renames project items but keeps bibliography titles authoritative for papers", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -4558,11 +4625,18 @@ describe("project workspace", () => {
         schemaVersion: 1,
         projectId: "paper-id",
         name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        rootDocuments: [
+          { path: "main.tex", name: "Main paper", isDefault: true },
+          // Building a standalone draft registers it here, but does not make it protected.
+          { path: "notes.tex", name: "Notes", isDefault: false },
+        ],
         primaryBibliography: "references.bib",
         trusted: false,
       },
-      files: [{ name: "notes.tex", path: "notes.tex", kind: "tex", children: [] }],
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "notes.tex", path: "notes.tex", kind: "tex", children: [] },
+      ],
     };
     const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -4625,6 +4699,9 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-paper",
     }));
     expect(await findProjectTreeItem("untitled.tex")).toBeInTheDocument();
+
+    fireEvent.contextMenu(await findProjectTreeItem("main.tex"));
+    expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
 
     fireEvent.contextMenu(await findProjectTreeItem("notes.tex"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));

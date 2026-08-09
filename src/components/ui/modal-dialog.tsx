@@ -8,6 +8,7 @@ import { Dialog } from "radix-ui";
 
 export function ModalDialog(props: {
   label: string;
+  describedBy?: string;
   onClose: () => void;
   closeDisabled?: boolean;
   focusDialogOnOpen?: boolean;
@@ -82,6 +83,7 @@ export function ModalDialog(props: {
           ref={contentRef}
           className="modal-dialog-content"
           aria-label={props.label}
+          aria-describedby={props.describedBy}
           tabIndex={props.focusDialogOnOpen ? -1 : undefined}
           onOpenAutoFocus={(event) => {
             if (!props.focusDialogOnOpen) return;

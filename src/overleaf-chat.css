@@ -55,6 +55,13 @@
   overflow-wrap: anywhere;
 }
 
+.overleaf-chat-latest-button {
+  flex: none;
+  display: flex;
+  width: fit-content;
+  margin: var(--space-2) auto 0;
+}
+
 .overleaf-chat-composer {
   flex: none;
   display: flex;

@@ -70,6 +70,129 @@ describe("Overleaf chat panel", () => {
     await waitFor(() => expect(onSend).toHaveBeenCalled());
     expect((box as HTMLTextAreaElement).value).toBe("still here");
   });
+
+  it("anchors the initial conversation history to the latest message", () => {
+    const props = {
+      projectName: "Attention Paper",
+      error: null,
+      onSend: vi.fn().mockResolvedValue(undefined),
+    };
+    const { rerender } = render(
+      <OverleafChatPanel {...props} messages={[]} loading />,
+    );
+    const list = document.querySelector(".overleaf-chat-list") as HTMLDivElement;
+    Object.defineProperty(list, "scrollHeight", { configurable: true, value: 600 });
+
+    rerender(<OverleafChatPanel {...props} messages={[message()]} loading={false} />);
+
+    expect(list.scrollTop).toBe(600);
+  });
+
+  it("does not interrupt someone reading history when a new message arrives", () => {
+    const props = {
+      projectName: "Attention Paper",
+      loading: false,
+      error: null,
+      onSend: vi.fn().mockResolvedValue(undefined),
+    };
+    const { rerender } = render(<OverleafChatPanel {...props} messages={[message()]} />);
+    const list = document.querySelector(".overleaf-chat-list") as HTMLDivElement;
+    let scrollHeight = 600;
+    Object.defineProperties(list, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, get: () => scrollHeight },
+    });
+
+    list.scrollTop = 120;
+    fireEvent.scroll(list);
+    scrollHeight = 700;
+    rerender(
+      <OverleafChatPanel
+        {...props}
+        messages={[message(), message({ id: "m2", content: "A new reply" })]}
+      />,
+    );
+
+    expect(list.scrollTop).toBe(120);
+    const jump = screen.getByRole("button", { name: "New messages · Jump to latest" });
+    fireEvent.click(jump);
+    expect(list.scrollTop).toBe(700);
+    expect(list).toHaveFocus();
+    expect(jump).not.toBeInTheDocument();
+
+    scrollHeight = 800;
+    rerender(
+      <OverleafChatPanel
+        {...props}
+        messages={[
+          message(),
+          message({ id: "m2", content: "A new reply" }),
+          message({ id: "m3", content: "Another reply" }),
+        ]}
+      />,
+    );
+    expect(list.scrollTop).toBe(800);
+  });
+
+  it("clears the unread-history state when the conversation is reset", () => {
+    const props = {
+      projectName: "Attention Paper",
+      loading: false,
+      error: null,
+      onSend: vi.fn().mockResolvedValue(undefined),
+    };
+    const { rerender } = render(<OverleafChatPanel {...props} messages={[message()]} />);
+    const list = screen.getByRole("region", { name: "Overleaf chat messages" });
+    let scrollHeight = 600;
+    Object.defineProperties(list, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, get: () => scrollHeight },
+    });
+
+    list.scrollTop = 120;
+    fireEvent.scroll(list);
+    scrollHeight = 700;
+    rerender(
+      <OverleafChatPanel
+        {...props}
+        messages={[message(), message({ id: "m2", content: "A new reply" })]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Jump to latest/ })).toBeInTheDocument();
+
+    rerender(<OverleafChatPanel {...props} messages={[]} />);
+    expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
+    expect(screen.getByText("No messages yet. Say something and everyone in the project sees it.")).toBeInTheDocument();
+  });
+
+  it("continues following messages while the reader is near the bottom", () => {
+    const props = {
+      projectName: "Attention Paper",
+      loading: false,
+      error: null,
+      onSend: vi.fn().mockResolvedValue(undefined),
+    };
+    const { rerender } = render(<OverleafChatPanel {...props} messages={[message()]} />);
+    const list = document.querySelector(".overleaf-chat-list") as HTMLDivElement;
+    let scrollHeight = 600;
+    Object.defineProperties(list, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, get: () => scrollHeight },
+    });
+
+    list.scrollTop = 375;
+    fireEvent.scroll(list);
+    scrollHeight = 700;
+    rerender(
+      <OverleafChatPanel
+        {...props}
+        messages={[message(), message({ id: "m2", content: "A new reply" })]}
+      />,
+    );
+
+    expect(list.scrollTop).toBe(700);
+    expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
+  });
 });
 
 describe("useOverleafChat", () => {

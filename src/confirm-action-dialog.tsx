@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import { CircleAlert, Trash2 } from "lucide-react";
 import {
   registerConfirmActionHandler,
@@ -57,6 +57,7 @@ function confirmationCopy(options: ConfirmActionOptions): {
 }
 
 export function ConfirmActionProvider({ children }: { children: ReactNode }) {
+  const descriptionId = useId();
   const [queue, setQueue] = useState<PendingConfirmation[]>([]);
   const current = queue[0] ?? null;
 
@@ -83,6 +84,7 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
       {current && copy && (
         <ModalDialog
           label={copy.title}
+          describedBy={descriptionId}
           onClose={() => settle(false)}
           backdropClassName="confirm-action-backdrop"
         >
@@ -91,7 +93,7 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
               {copy.destructive ? <Trash2 size={19} /> : <CircleAlert size={19} />}
             </div>
             <h2>{copy.title}</h2>
-            <p>{copy.description}</p>
+            <p id={descriptionId}>{copy.description}</p>
             <div className="modal-actions">
               <Button autoFocus variant="ghost" onClick={() => settle(false)}>
                 {current.options.cancelLabel ?? "Cancel"}

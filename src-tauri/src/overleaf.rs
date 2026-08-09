@@ -398,7 +398,8 @@ pub fn normalize_host(host: &str) -> String {
     if trimmed.is_empty() {
         return DEFAULT_HOST.to_string();
     }
-    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+    let lower = trimmed.to_ascii_lowercase();
+    if lower.starts_with("http://") || lower.starts_with("https://") {
         trimmed.to_string()
     } else {
         format!("https://{trimmed}")
@@ -1292,7 +1293,7 @@ pub fn chat_messages(
 ) -> Result<Vec<OverleafMessage>, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
     let client = http_client(20)?;
     let response = client
         .get(format!(
@@ -1365,7 +1366,7 @@ pub fn send_chat_message(config_dir: &Path, root: &Path, content: &str) -> Resul
     }
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
     let client = http_client(20)?;
     let page = fetch_projects_page(&client, &host, &session.cookie)?;
     let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
@@ -1423,7 +1424,7 @@ pub struct OverleafThread {
 pub fn threads(config_dir: &Path, root: &Path) -> Result<Vec<OverleafThread>, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
     let client = http_client(20)?;
     let response = client
         .get(format!("{host}/project/{}/threads", state.project_id))
@@ -1524,7 +1525,7 @@ fn thread_request_status(
 ) -> Result<reqwest::StatusCode, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
     let client = http_client(20)?;
     let page = fetch_projects_page(&client, &host, &session.cookie)?;
     let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
@@ -1596,7 +1597,7 @@ pub fn comment_anchors(
 fn project_ranges(config_dir: &Path, root: &Path) -> Result<serde_json::Value, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
     let client = http_client(20)?;
     let response = client
         .get(format!("{host}/project/{}/ranges", state.project_id))
@@ -1836,7 +1837,7 @@ pub struct OverleafLabel {
 fn history_get(config_dir: &Path, root: &Path, path: &str) -> Result<serde_json::Value, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
     let client = http_client(30)?;
     let response = client
         .get(format!("{host}/project/{}{path}", state.project_id))
@@ -2114,7 +2115,7 @@ pub fn accept_changes(
 pub fn change_authors(config_dir: &Path, root: &Path) -> Result<serde_json::Value, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
     let client = http_client(20)?;
     let response = client
         .get(format!("{host}/project/{}/changes/users", state.project_id))
@@ -2161,7 +2162,7 @@ pub fn create_doc(
 ) -> Result<String, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
     let client = http_client(20)?;
     let page = fetch_projects_page(&client, &host, &session.cookie)?;
     let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
@@ -2199,7 +2200,7 @@ pub fn delete_entity(
     }
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
     let client = http_client(20)?;
     let page = fetch_projects_page(&client, &host, &session.cookie)?;
     let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
@@ -2234,7 +2235,7 @@ pub fn realtime_config(
     if state.paused {
         return Err(PAUSED.to_string());
     }
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
     let user_id = ensure_user_id(config_dir, &mut session);
     Ok((host, session.cookie, state.project_id, user_id))
 }
@@ -2273,11 +2274,7 @@ fn ensure_user_id(config_dir: &Path, session: &mut SessionFile) -> Option<String
 pub fn probe(config_dir: &Path, root: &Path) -> Result<OverleafProbe, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
-    let host = if state.host.trim().is_empty() {
-        session.host.clone()
-    } else {
-        state.host.clone()
-    };
+    let host = sync_host(&state, &session)?;
     let client = http_client(15)?;
     let response = client
         .get(format!(
@@ -2578,14 +2575,31 @@ fn fetch_remote_files(
         .collect())
 }
 
-/// The host this project syncs against: whatever the link recorded, falling
-/// back to the signed-in session.
-fn sync_host(state: &SyncState, session: &SessionFile) -> String {
-    if state.host.trim().is_empty() {
-        session.host.clone()
+/// The exact Overleaf origin this project belongs to.
+///
+/// A session cookie is valid only for the origin that issued it. Refuse the
+/// request before constructing an HTTP client when the globally signed-in
+/// account belongs to a different self-hosted Overleaf instance.
+fn canonical_host(host: &str) -> String {
+    let normalized = normalize_host(host);
+    reqwest::Url::parse(&normalized)
+        .map(|url| url.origin().ascii_serialization())
+        .unwrap_or_else(|_| normalized.to_ascii_lowercase())
+}
+
+fn sync_host(state: &SyncState, session: &SessionFile) -> Result<String, String> {
+    let session_host = canonical_host(&session.host);
+    let linked_host = if state.host.trim().is_empty() {
+        session_host.clone()
     } else {
-        state.host.clone()
+        canonical_host(&state.host)
+    };
+    if linked_host != session_host {
+        return Err(format!(
+            "This project is linked to {linked_host}. Sign out and connect to that Overleaf host to continue."
+        ));
     }
+    Ok(linked_host)
 }
 
 fn sync_stamp() -> String {
@@ -2654,7 +2668,7 @@ pub fn sync(
         return Err(PAUSED.to_string());
     }
     state.files.retain(|path, _| !is_excluded(path));
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
 
     let client = http_client(30)?;
     let page = fetch_projects_page(&client, &host, &session.cookie)?;
@@ -2868,7 +2882,7 @@ pub fn preview(
     let session = load_session(config_dir)?;
     let mut state = load_state(root)?;
     state.files.retain(|path, _| !is_excluded(path));
-    let host = sync_host(&state, &session);
+    let host = sync_host(&state, &session)?;
 
     let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
     let local = read_local_files(root)?.files;
@@ -3502,6 +3516,53 @@ mod tests {
             },
         )
         .unwrap();
+    }
+
+    #[test]
+    fn project_requests_reject_a_session_from_another_overleaf_host() {
+        let config = temp_dir("host-mismatch-config");
+        let root = temp_dir("host-mismatch-project");
+        write_session_file(&config, "https://overleaf-b.example");
+        seed_linked_project(
+            &root,
+            "https://overleaf-a.example",
+            &[("main.tex", b"linked project")],
+            &[("main.tex", b"linked project")],
+        );
+
+        let error =
+            realtime_config(&config, &root).expect_err("a foreign session must be rejected");
+        assert!(error.contains("https://overleaf-a.example"));
+        assert!(error.contains("Sign out and connect"));
+
+        let _ = fs::remove_dir_all(config);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn linked_host_matching_uses_url_origins() {
+        let session = SessionFile {
+            host: "HTTPS://OVERLEAF.EXAMPLE:443/".to_string(),
+            cookie: "overleaf_session2=fixture-cookie".to_string(),
+            email: None,
+            name: None,
+            user_id: None,
+        };
+        let state = SyncState {
+            host: "https://overleaf.example/project-path".to_string(),
+            project_id: "proj-1".to_string(),
+            project_name: "Test Project".to_string(),
+            last_sync: None,
+            remote_version: None,
+            permission: None,
+            files: BTreeMap::new(),
+            paused: false,
+        };
+
+        assert_eq!(
+            sync_host(&state, &session).unwrap(),
+            "https://overleaf.example"
+        );
     }
 
     fn run_sync(
@@ -4652,6 +4713,9 @@ mod tests {
         state.host = second_server.base.clone();
         state.permission = Some("readAndWrite".to_string());
         save_state(&root, &state).unwrap();
+        // The second mock server represents the same Overleaf deployment at a
+        // new test address, so move the synthetic session with the link.
+        write_session_file(&config, &second_server.base);
 
         let merged = sync(&config, &root, &BTreeSet::new()).unwrap();
 
