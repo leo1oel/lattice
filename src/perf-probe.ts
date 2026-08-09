@@ -41,7 +41,45 @@ function quantile(samples: Samples, q: number): number {
 export function installPerfProbe(): void {
   const keystrokes: Samples = [];
   const switches: Samples = [];
+  const scrollFrames = new Map<string, Samples>();
   const commands = new Map<string, CommandStats>();
+
+  // --- Markdown scroll frame cadence ------------------------------------
+  // Measurement is deliberately geometry-free: layout reads in the probe
+  // would perturb the exact path it is meant to observe.
+  let scrollFrame = 0;
+  let scrollUntil = 0;
+  let scrollLastFrame = 0;
+  let scrollSurface = "preview";
+  let scrollViewport: Element | null = null;
+  const sampleScrollFrame = (now: number) => {
+    if (scrollLastFrame > 0) {
+      const samples = scrollFrames.get(scrollSurface) ?? [];
+      samples.push(now - scrollLastFrame);
+      scrollFrames.set(scrollSurface, samples);
+    }
+    scrollLastFrame = now;
+    if (now < scrollUntil) scrollFrame = requestAnimationFrame(sampleScrollFrame);
+    else {
+      scrollFrame = 0;
+      scrollLastFrame = 0;
+    }
+  };
+  document.addEventListener("scroll", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.classList.contains("editor-doc-scroll")) return;
+    const preview = target.closest(".markdown-preview");
+    if (!preview) return;
+    if (target !== scrollViewport) {
+      scrollViewport = target;
+      scrollLastFrame = 0;
+    }
+    scrollSurface = preview.getAttribute("data-tour") === "paper-reading-view"
+      ? "paper"
+      : preview.closest(".split-canvas") ? "split-preview" : "preview";
+    scrollUntil = performance.now() + 180;
+    if (!scrollFrame) scrollFrame = requestAnimationFrame(sampleScrollFrame);
+  }, { capture: true, passive: true });
 
   const afterNextPaint = (callback: () => void) => {
     requestAnimationFrame(() => {
@@ -117,11 +155,26 @@ export function installPerfProbe(): void {
         }))
         .sort((a, b) => b["total ms"] - a["total ms"]),
     );
+    console.table(
+      [...scrollFrames.entries()].map(([surface, samples]) => ({
+        surface,
+        frames: samples.length,
+        "frame p50 ms": Number(quantile(samples, 0.5).toFixed(1)),
+        "frame p95 ms": Number(quantile(samples, 0.95).toFixed(1)),
+        "frames >33ms": samples.filter((sample) => sample > 33).length,
+      })),
+    );
   };
 
   const reset = () => {
     keystrokes.length = 0;
     switches.length = 0;
+    if (scrollFrame) cancelAnimationFrame(scrollFrame);
+    scrollFrame = 0;
+    scrollUntil = 0;
+    scrollLastFrame = 0;
+    scrollViewport = null;
+    scrollFrames.clear();
     commands.clear();
   };
 

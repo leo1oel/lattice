@@ -718,6 +718,7 @@ describe("VisualMarkdownEditor", () => {
     const extensionNames = editor.extensionManager.extensions.map((extension) => extension.name);
     expect(extensionNames).not.toContain("frozenTableHeaders");
     expect(extensionNames).not.toContain("tableInsertControls");
+    expect(extensionNames).not.toContain("visualFixedCaret");
     expect(surface).toHaveAttribute("contenteditable", "true");
   });
 

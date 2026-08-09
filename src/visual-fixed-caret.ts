@@ -18,6 +18,21 @@ export type CaretRootRect = {
   left: number;
 };
 
+export type VisualCaretScrollRefresh = "frame" | "settle";
+
+/**
+ * Inner overflow moves the native caret relative to our outer overlay and
+ * needs the next frame. Scrolling an ancestor moves both together, so doing
+ * synchronous geometry work every frame is redundant; one settled correction
+ * is enough for late content materialization and scroll anchoring.
+ */
+export function visualCaretScrollRefresh(
+  editorDom: HTMLElement,
+  target: EventTarget | null,
+): VisualCaretScrollRefresh {
+  return target instanceof Node && editorDom.contains(target) ? "frame" : "settle";
+}
+
 /**
  * Place a fixed-height caret inside the native caret line box, vertically
  * centered so headings do not stretch it.
@@ -47,10 +62,22 @@ class FixedCaretPluginView {
   private readonly caret: HTMLElement;
   private readonly host: HTMLElement;
   private movingTimer: ReturnType<typeof setTimeout> | null = null;
+  private scrollSettleTimer: ReturnType<typeof setTimeout> | null = null;
   private raf: number | null = null;
   private lastPlacement = "";
   private readonly onFocusChange = () => this.scheduleRefresh();
-  private readonly onScroll = () => this.scheduleRefresh();
+  private readonly onResize = () => this.scheduleRefresh();
+  private readonly onScroll = (event: Event) => {
+    if (visualCaretScrollRefresh(this.view.dom, event.target) === "frame") {
+      this.scheduleRefresh();
+      return;
+    }
+    if (this.scrollSettleTimer != null) clearTimeout(this.scrollSettleTimer);
+    this.scrollSettleTimer = setTimeout(() => {
+      this.scrollSettleTimer = null;
+      this.scheduleRefresh();
+    }, 120);
+  };
 
   constructor(private readonly view: EditorView) {
     this.host = caretHost(view);
@@ -68,7 +95,7 @@ class FixedCaretPluginView {
     view.dom.addEventListener("compositionend", this.onFocusChange);
     // Outer preview scrollports move the host without a PM transaction.
     window.addEventListener("scroll", this.onScroll, true);
-    window.addEventListener("resize", this.onScroll);
+    window.addEventListener("resize", this.onResize);
     this.refresh();
   }
 
@@ -78,13 +105,14 @@ class FixedCaretPluginView {
 
   destroy() {
     if (this.movingTimer != null) clearTimeout(this.movingTimer);
+    if (this.scrollSettleTimer != null) clearTimeout(this.scrollSettleTimer);
     if (this.raf != null) cancelAnimationFrame(this.raf);
     this.view.dom.removeEventListener("focus", this.onFocusChange);
     this.view.dom.removeEventListener("blur", this.onFocusChange);
     this.view.dom.removeEventListener("compositionstart", this.onFocusChange);
     this.view.dom.removeEventListener("compositionend", this.onFocusChange);
     window.removeEventListener("scroll", this.onScroll, true);
-    window.removeEventListener("resize", this.onScroll);
+    window.removeEventListener("resize", this.onResize);
     this.view.dom.removeAttribute("data-fixed-caret");
     delete this.host.dataset.visualFixedCaretHost;
     this.caret.remove();

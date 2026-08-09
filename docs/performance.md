@@ -88,6 +88,10 @@ experiment behind a flag, measured before adoption.
      `refresh_project`, `git_status`).
    - **Idle** — leave the app for 60 s; check `refresh_project` /
      `git_status` totals and Activity Monitor CPU.
+   - **Scrolling** — make a first downward pass through ordinary Preview,
+     Split Preview, and a Paper, then repeat upward and downward.
+     The report records frame p50/p95 and frames over 33 ms without reading
+     layout from the probe itself.
 4. `__latticePerf.report()` dumps everything. Record numbers in the table
    below per stage.
 

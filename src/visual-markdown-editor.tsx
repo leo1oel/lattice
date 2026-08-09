@@ -1897,7 +1897,10 @@ export function VisualMarkdownEditor({
         extension.name === "tag" ? tagWithChrome : extension,
       ),
       SourceDirtyObserver,
-      VisualFixedCaret,
+      // Reading-optimized Papers use the native caret. The fixed-height overlay
+      // needs geometry reconciliation around scrolling; omitting it keeps the
+      // large-document reader off that path without making papers read-only.
+      ...(optimizeForReading ? [] : [VisualFixedCaret]),
       VisualOverleafPresence,
       VisualOverleafTrackChanges,
       VisualEditorComments,

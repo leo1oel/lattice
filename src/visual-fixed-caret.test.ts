@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   VISUAL_FIXED_CARET_HEIGHT_PX,
+  visualCaretScrollRefresh,
   visualFixedCaretPlacement,
 } from "./visual-fixed-caret";
 
@@ -28,6 +29,20 @@ describe("visualFixedCaretPlacement", () => {
       left: 20,
       height: 18,
     });
+  });
+});
+
+describe("visualCaretScrollRefresh", () => {
+  it("defers ancestor scrolling but follows nested overflow on the next frame", () => {
+    const viewport = document.createElement("div");
+    const editor = document.createElement("div");
+    const tableScroller = document.createElement("div");
+    viewport.append(editor);
+    editor.append(tableScroller);
+
+    expect(visualCaretScrollRefresh(editor, viewport)).toBe("settle");
+    expect(visualCaretScrollRefresh(editor, document)).toBe("settle");
+    expect(visualCaretScrollRefresh(editor, tableScroller)).toBe("frame");
   });
 });
 
