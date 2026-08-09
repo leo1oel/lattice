@@ -805,6 +805,10 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .markdown-preview-content:has(> .visual-markdown-editor) { padding-inline: 0; }
 .markdown-preview-content > .visual-markdown-editor { width: 100%; min-height: 100%; margin: 0 auto; }
 .visual-markdown-editor { position: relative; }
+.visual-markdown-editor.is-document-pending { min-height: 50vh; pointer-events: none; }
+.visual-markdown-editor.is-document-pending .tiptap-editor { visibility: hidden; pointer-events: none; }
+.visual-markdown-loading { position: absolute; z-index: 5; inset: var(--space-16) 0 auto; color: var(--text-tertiary); font-size: var(--type-caption-size); text-align: center; }
+.visual-markdown-editor .math-viewport-boundary { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 .visual-markdown-editor[data-visual-fixed-caret-host="true"] { position: relative; }
 /* Native caret follows the line box (tall in headings / 1.7 body leading).
    Overlay a fixed reading-metric caret instead; match source-editor height.

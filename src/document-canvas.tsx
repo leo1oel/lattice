@@ -133,7 +133,7 @@ import {
   EXTERNAL_SCROLLBAR_TRACK_INSET,
 } from "./components/ui/external-scrollbar-geometry";
 import type { AgentHostSurface } from "./agent-host-context";
-import type { EditorCollabSession } from "./collab-session";
+import type { CollabPeer, EditorCollabSession } from "./collab-session";
 import { peerCaretOffsetsV2, publishCollabCursorV2 } from "./collab-session";
 import { collabEditorExtensions } from "./collab-editor";
 
@@ -793,6 +793,7 @@ export function DocumentCanvas(props: {
   focusedPane: EditorPaneId;
   onFocusPane: (pane: EditorPaneId) => void;
   setSource: (value: string) => void;
+  onVisualMarkdownFlushChange?: (flush: (() => void) | null) => void;
   setSelection: (value: string) => void;
   onPdfTextSelect: (value: string) => void;
   onPaperTextSelect: (value: string) => void;
@@ -888,6 +889,7 @@ export function DocumentCanvas(props: {
   onOpenMarkdownPath: (path: string) => void;
   interactivePreviewsEnabled: boolean;
   collabSession: EditorCollabSession | null;
+  collabPeers: readonly CollabPeer[];
   collabReady: boolean;
   collabEditorKey: string;
   editorEditable: boolean;
@@ -1207,23 +1209,32 @@ export function DocumentCanvas(props: {
   // Lattice collab (v2) carets for the visual editor: the same awareness room
   // the source editor's yCollab binds, resolved to row/column against the live
   // Y.Text and shifted into preview coordinates like the Overleaf carets above.
-  // Computed every render on purpose — a remote caret move pushes a peers
-  // update that re-renders us, and awareness itself is not a React dependency.
-  const collabVisualCursors: PresenceCursor[] = [];
-  if (collabLive && markdownDocument && collabSession?.boardPresenceUser) {
+  // A remote caret move publishes a fresh peer list. Memoize against that
+  // signal so unrelated App renders do not dispatch equal PM decorations.
+  const collabVisualCursors = useMemo(() => {
+    const cursors: PresenceCursor[] = [];
+    if (!collabLive || !markdownDocument || !collabSession?.boardPresenceUser) return cursors;
     const text = collabSession.ytext.toString();
     for (const caret of peerCaretOffsetsV2(collabSession)) {
       const before = text.slice(0, caret.index);
       const row = before.split("\n").length - 1;
       if (row < markdownPreviewLineOffset) continue;
-      collabVisualCursors.push({
+      cursors.push({
         name: caret.name,
         hue: hueFromColorHex(caret.color),
         row: row - markdownPreviewLineOffset,
         column: caret.index - (before.lastIndexOf("\n") + 1),
       });
     }
-  }
+    return cursors;
+    // onPeers publishes a fresh list for awareness updates, including carets.
+  }, [collabLive, collabSession, markdownDocument, markdownPreviewLineOffset, props.collabPeers, props.source]);
+  const allMarkdownVisualCursors = useMemo(
+    () => collabVisualCursors.length
+      ? [...markdownVisualCursors, ...collabVisualCursors]
+      : markdownVisualCursors,
+    [collabVisualCursors, markdownVisualCursors],
+  );
   const mountSourceRef = useRef(props.source);
   const visualSourceHistoryRef = useRef<{ path: string; undo: string[]; redo: string[] }>({
     path: activeFile,
@@ -2510,7 +2521,11 @@ export function DocumentCanvas(props: {
     <ScrollArea
       className="markdown-preview"
       data-tour={props.activePaper ? "paper-reading-view" : "markdown-visual-editor"}
-      orientation="both"
+      // The document surface itself scrolls vertically; wide tables, code and
+      // formulas own their local horizontal overflow. A second root scrollbar
+      // made Base UI run another ResizeObserver loop as lazy blocks changed
+      // size during scrolling.
+      orientation="vertical"
       // Mask gradients repaint the full editable surface while scrolling in
       // WebKit. Markdown has a persistent scrollbar, so the fade adds cost
       // without adding useful overflow information.
@@ -2555,12 +2570,13 @@ export function DocumentCanvas(props: {
           papers={props.papers}
           macros={katexMacros}
           onChangeMarkdown={replaceVisualMarkdown}
+          onFlushPendingChange={props.onVisualMarkdownFlushChange}
           onUndo={undoVisualMarkdown}
           onRedo={redoVisualMarkdown}
           onViewInSource={viewMarkdownSource}
           onImportAsset={props.onImportAsset}
           onLoadAsset={props.onLoadReferenceImage}
-          presenceCursors={collabVisualCursors.length ? [...markdownVisualCursors, ...collabVisualCursors] : markdownVisualCursors}
+          presenceCursors={allMarkdownVisualCursors}
           overleafChanges={markdownVisualChanges}
           overleafTrackChangeActions={props.overleafTrackChangeActions}
           editorComments={markdownVisualComments}

@@ -636,8 +636,6 @@ function App() {
   useEffect(() => {
     if (!project) return;
     let cancelled = false;
-    let idleCallback: number | null = null;
-    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     const paths = flattenProjectPaths(project.files);
     const canvasModule = loadDocumentCanvas();
 
@@ -657,33 +655,13 @@ function App() {
     } else {
       moduleWarmTimer = globalThis.setTimeout(warmModules, 300);
     }
-    void Promise.all([canvasModule, workspaceIndex.update(project.files)]).then(([module]) => {
-      if (cancelled) return;
-      const documents = workspaceIndex.previewDocuments();
-      let nextDocument = 0;
-      const warmNext = () => {
-        if (cancelled) return;
-        const document = documents[nextDocument++];
-        if (!document) return;
-        void module.prewarmMarkdownPreviewDocument(document.path, document.content)
-          .finally(scheduleNext);
-      };
-      const scheduleNext = () => {
-        if (cancelled || nextDocument >= documents.length) return;
-        if ("requestIdleCallback" in window) {
-          idleCallback = window.requestIdleCallback(warmNext, { timeout: 1_500 });
-        } else {
-          fallbackTimer = globalThis.setTimeout(warmNext, 120);
-        }
-      };
-      scheduleNext();
-    });
+    // Keep the lightweight search index warm, but do not parse every Markdown
+    // file into ProseMirror in the background. A project with many papers can
+    // otherwise spend hundreds of milliseconds in each "idle" callback while
+    // the user is scrolling or trying to open a file.
+    void workspaceIndex.update(project.files);
     return () => {
       cancelled = true;
-      if (idleCallback != null && "cancelIdleCallback" in window) {
-        window.cancelIdleCallback(idleCallback);
-      }
-      if (fallbackTimer != null) globalThis.clearTimeout(fallbackTimer);
       if (moduleWarmIdle != null && "cancelIdleCallback" in window) {
         window.cancelIdleCallback(moduleWarmIdle);
       }
@@ -869,6 +847,16 @@ function App() {
   // paper has no report. `paperView` picks which of blog/full-text is shown.
   const [paperBlog, setPaperBlog] = useState<string | null>(null);
   const [savedPaperBlog, setSavedPaperBlog] = useState<string | null>(null);
+  const paperMarkdownRef = useRef(paperMarkdown);
+  const savedPaperMarkdownRef = useRef(savedPaperMarkdown);
+  const paperBlogRef = useRef(paperBlog);
+  const savedPaperBlogRef = useRef(savedPaperBlog);
+  useLayoutEffect(() => {
+    paperMarkdownRef.current = paperMarkdown;
+    savedPaperMarkdownRef.current = savedPaperMarkdown;
+    paperBlogRef.current = paperBlog;
+    savedPaperBlogRef.current = savedPaperBlog;
+  }, [paperBlog, paperMarkdown, savedPaperBlog, savedPaperMarkdown]);
   const [paperView, setPaperView] = useState<"blog" | "fulltext">("blog");
   const activePaperPath = activePaper
     ? `.research/papers/${activePaper.arxivId}/${paperView === "blog" ? "blog.md" : "paper.md"}`
@@ -881,8 +869,13 @@ function App() {
     paperMarkdown !== savedPaperMarkdown || paperBlog !== savedPaperBlog
   );
   const setActivePaperSource = useCallback((value: string) => {
-    if (paperView === "blog") setPaperBlog(value);
-    else setPaperMarkdown(value);
+    if (paperView === "blog") {
+      paperBlogRef.current = value;
+      setPaperBlog(value);
+    } else {
+      paperMarkdownRef.current = value;
+      setPaperMarkdown(value);
+    }
   }, [paperView]);
   const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
   const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
@@ -898,6 +891,7 @@ function App() {
     line?: number,
     targetPane?: EditorPaneId,
   ) => Promise<void>>(async () => undefined);
+  const visualMarkdownFlushRef = useRef<(() => void) | null>(null);
   const [editorNavigation, setEditorNavigation] = useState<EditorNavigation | null>(null);
   const [projectWordCount, setProjectWordCount] = useState<WordCount | null>(null);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
@@ -1935,6 +1929,13 @@ function App() {
   const savedSourceRef = useRef(savedSource);
   sourceRef.current = source;
   savedSourceRef.current = savedSource;
+  const setPrimarySource = useCallback((value: string) => {
+    sourceRef.current = value;
+    setSource(value);
+  }, []);
+  const registerVisualMarkdownFlush = useCallback((flush: (() => void) | null) => {
+    visualMarkdownFlushRef.current = flush;
+  }, []);
 
   const markDiskMtime = useCallback(async (path: string, mayApply: () => boolean = () => true) => {
     try {
@@ -2707,36 +2708,44 @@ function App() {
     if (!project) return true;
     try {
       const workspaceLease = collabSession ? collabWorkspaceLeaseRef.current : null;
+      const primaryPath = activeFileRef.current;
+      const primarySource = sourceRef.current;
+      const primarySavedSource = savedSourceRef.current;
+      const currentPaperMarkdown = paperMarkdownRef.current;
+      const currentSavedPaperMarkdown = savedPaperMarkdownRef.current;
+      const currentPaperBlog = paperBlogRef.current;
+      const currentSavedPaperBlog = savedPaperBlogRef.current;
       let wroteTex = false;
       let wroteBib = false;
       let wrotePaper = false;
-      if (activeFile && source !== savedSource) {
-        const mutationGeneration = collabPathMutationGeneration(activeFile);
+      if (primaryPath && primarySource !== primarySavedSource) {
+        const mutationGeneration = collabPathMutationGeneration(primaryPath);
         if (workspaceLease) {
-          await collabDiskWriteQueueRef.current.run(workspaceLease, activeFile, () => (
-            mutationGeneration === collabPathMutationGeneration(activeFile)
-              ? invoke("write_project_file", { path: activeFile, content: source, projectRoot: workspaceLease.projectRoot })
+          await collabDiskWriteQueueRef.current.run(workspaceLease, primaryPath, () => (
+            mutationGeneration === collabPathMutationGeneration(primaryPath)
+              ? invoke("write_project_file", { path: primaryPath, content: primarySource, projectRoot: workspaceLease.projectRoot })
               : Promise.resolve()
           ));
         } else {
           await invoke("write_project_file", {
-            path: activeFile,
-            content: source,
+            path: primaryPath,
+            content: primarySource,
             projectRoot: project.root,
           });
         }
-        if (mutationGeneration !== collabPathMutationGeneration(activeFile)) return true;
+        if (mutationGeneration !== collabPathMutationGeneration(primaryPath)) return true;
         // Do NOT push the active buffer into Yjs here. It is already synced
         // character-by-character by yCollab. Re-publishing it as a full
         // delete+insert of the whole Y.Text on every autosave collapses remote
         // carets and bounces recompiles between peers (the "cursors freeze /
         // PDF re-renders forever" bug). The disk write + savedSource are all the
         // active file needs; non-active buffers below still push explicitly.
-        setSavedSource(source);
+        savedSourceRef.current = primarySource;
+        setSavedSource(primarySource);
         if (activeCollabVersion === 2) await collabV2ControllerRef.current?.settled();
-        await markDiskMtime(activeFile);
-        wroteTex = wroteTex || activeFile.endsWith(".tex");
-        wroteBib = wroteBib || activeFile === project.manifest.primaryBibliography;
+        await markDiskMtime(primaryPath);
+        wroteTex = wroteTex || primaryPath.endsWith(".tex");
+        wroteBib = wroteBib || primaryPath === project.manifest.primaryBibliography;
       }
       if (secondaryFile && secondarySource !== secondarySavedSource) {
         const mutationGeneration = collabPathMutationGeneration(secondaryFile);
@@ -2755,37 +2764,39 @@ function App() {
         wroteTex = wroteTex || secondaryFile.endsWith(".tex");
         wroteBib = wroteBib || secondaryFile === project.manifest.primaryBibliography;
       }
-      if (activePaper && paperMarkdown !== savedPaperMarkdown) {
+      if (activePaper && currentPaperMarkdown !== currentSavedPaperMarkdown) {
         const path = `.research/papers/${activePaper.arxivId}/paper.md`;
-        const published = await publishTextToCollabV2(path, paperMarkdown);
+        const published = await publishTextToCollabV2(path, currentPaperMarkdown);
         if (!published) {
           await invoke("write_project_file", {
             path,
-            content: paperMarkdown,
+            content: currentPaperMarkdown,
             projectRoot: project.root,
           });
         }
-        setSavedPaperMarkdown(paperMarkdown);
+        savedPaperMarkdownRef.current = currentPaperMarkdown;
+        setSavedPaperMarkdown(currentPaperMarkdown);
         wrotePaper = true;
       }
-      if (activePaper && paperBlog !== null && paperBlog !== savedPaperBlog) {
+      if (activePaper && currentPaperBlog !== null && currentPaperBlog !== currentSavedPaperBlog) {
         const path = `.research/papers/${activePaper.arxivId}/blog.md`;
-        const published = await publishTextToCollabV2(path, paperBlog);
+        const published = await publishTextToCollabV2(path, currentPaperBlog);
         if (!published) {
           await invoke("write_project_file", {
             path,
-            content: paperBlog,
+            content: currentPaperBlog,
             projectRoot: project.root,
           });
         }
-        setSavedPaperBlog(paperBlog);
+        savedPaperBlogRef.current = currentPaperBlog;
+        setSavedPaperBlog(currentPaperBlog);
         wrotePaper = true;
       }
       if (
         !wroteTex
         && !wroteBib
         && !wrotePaper
-        && source === savedSource
+        && primarySource === primarySavedSource
         && secondarySource === secondarySavedSource
       ) {
         return true;
@@ -2812,18 +2823,12 @@ function App() {
     collabPathMutationGeneration,
     collabSession,
     markDiskMtime,
-    paperBlog,
-    paperMarkdown,
     project,
     publishTextToCollabV2,
     refreshAfterSave,
-    savedPaperBlog,
-    savedPaperMarkdown,
-    savedSource,
     secondaryFile,
     secondarySavedSource,
     secondarySource,
-    source,
   ]);
 
   const secondarySourceRef = useRef(secondarySource);
@@ -3008,6 +3013,10 @@ function App() {
       }
       return;
     }
+    // Visual Markdown serialization is intentionally deferred while typing.
+    // Publish it before taking the dirty snapshot so a programmatic switch
+    // cannot apply the old document's final edit to the next file buffer.
+    visualMarkdownFlushRef.current?.();
     if (activeFile && !activePaper && !activeAsset) {
       const current = viewStateRef.current.get(activeFile);
       viewStateRef.current.set(activeFile, {
@@ -3016,9 +3025,12 @@ function App() {
       });
     }
     let gate: Promise<boolean> | undefined;
+    const primaryDirty = activePaper
+      ? paperMarkdownRef.current !== savedPaperMarkdownRef.current
+        || paperBlogRef.current !== savedPaperBlogRef.current
+      : sourceRef.current !== savedSourceRef.current;
     if (
-      activePaperDirty
-      || source !== savedSource
+      primaryDirty
       || (secondaryFile && secondarySource !== secondarySavedSource)
     ) {
       if (path === secondaryFile) {
@@ -7868,7 +7880,8 @@ function App() {
             setSecondarySource={setSecondarySource}
             focusedPane={focusedPane}
             onFocusPane={setFocusedPane}
-            setSource={activePaper ? setActivePaperSource : setSource}
+            setSource={activePaper ? setActivePaperSource : setPrimarySource}
+            onVisualMarkdownFlushChange={registerVisualMarkdownFlush}
             setSelection={(value) => reportAgentSelection(activePaper ? "paper" : "editor", value)}
             onPdfTextSelect={(value) => reportAgentSelection("pdf", value)}
             onPaperTextSelect={(value) => reportAgentSelection("paper", value)}
@@ -8049,6 +8062,7 @@ function App() {
               : collabSession
                 ? `collab:${collabSession.room}:${activeFile}:${collabReady ? "live" : "wait"}`
                 : `local:${activeFile}`}
+            collabPeers={collabPeerList}
           />
           </Suspense>
           </div>

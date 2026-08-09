@@ -28,7 +28,6 @@ import {
   VisualBlockMover,
   type PreserveVisualViewportMeta,
 } from "./visual-editor-block-controls";
-import { VisualFixedCaret } from "./visual-fixed-caret";
 import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { KeyboardNav } from "@ok-app/editor/block-ux/keyboard-nav";
@@ -867,6 +866,7 @@ type VisualMarkdownEditorProps = {
   text: string;
   activePath: string;
   onChangeMarkdown: (next: string, expected: string) => boolean;
+  onFlushPendingChange?: (flush: (() => void) | null) => void;
   optimizeForReading?: boolean;
   synchronizeSourceScroll?: boolean;
   onRequestViewportLock?: (
@@ -1356,6 +1356,7 @@ export function VisualMarkdownEditor({
   text,
   activePath,
   onChangeMarkdown,
+  onFlushPendingChange,
   optimizeForReading = false,
   synchronizeSourceScroll = true,
   onRequestViewportLock,
@@ -1381,6 +1382,7 @@ export function VisualMarkdownEditor({
   editable = true,
 }: VisualMarkdownEditorProps): JSX.Element {
   const [conflictDraft, setConflictDraft] = useState<string | null>(null);
+  const [renderedPath, setRenderedPath] = useState(activePath);
   const [eligibilityReason, setEligibilityReason] = useState<string | null>(null);
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [hoveredChanges, setHoveredChanges] = useState<{
@@ -1705,6 +1707,11 @@ export function VisualMarkdownEditor({
     conflictDraftRef.current = next;
     setConflictDraft(next);
   }, [refreshVisualPresence, reportVisualCaret]);
+  useLayoutEffect(() => {
+    if (!onFlushPendingChange) return;
+    onFlushPendingChange(flushPendingLocalUpdate);
+    return () => onFlushPendingChange(null);
+  }, [flushPendingLocalUpdate, onFlushPendingChange]);
   // `useEditor` only consumes `content` while creating the editor, but its
   // options object is evaluated on every React render. Parsing here lazily
   // avoids reparsing an entire Markdown document when editor chrome mounts or
@@ -1911,10 +1918,8 @@ export function VisualMarkdownEditor({
         extension.name === "tag" ? tagWithChrome : extension,
       ),
       SourceDirtyObserver,
-      // Reading-optimized Papers use the native caret. The fixed-height overlay
-      // needs geometry reconciliation around scrolling; omitting it keeps the
-      // large-document reader off that path without making papers read-only.
-      ...(optimizeForReading ? [] : [VisualFixedCaret]),
+      // Keep WebKit's native caret. The old fixed-height overlay listened to
+      // every ancestor scroll and forced coordsAtPos/layout work per frame.
       VisualOverleafPresence,
       VisualOverleafTrackChanges,
       VisualEditorComments,
@@ -2224,43 +2229,64 @@ export function VisualMarkdownEditor({
     if (editor && editor.isEditable !== editable) editor.setEditable(editable);
   }, [editable, editor]);
 
-  // Swap TipTap content across .md files without tearing down the editor.
-  // Runs in layout so changeRef still points at the previous file's publisher
-  // (that ref is refreshed in a later useEffect).
+  // Flush edits against the old publisher before the passive ref refresh. The
+  // actual ProseMirror replacement is scheduled as a task below: TipTap's
+  // ReactNodeViewRenderer uses flushSync while constructing NodeViews, which
+  // React explicitly forbids from inside a lifecycle method.
   useLayoutEffect(() => {
     if (!editor || editor.isDestroyed) return;
     if (activePathRef.current === activePath) return;
 
     flushPendingLocalUpdate();
-
-    activePathRef.current = activePath;
-    composing.current = false;
-    if (compositionClearTimer.current) {
-      clearTimeout(compositionClearTimer.current);
-      compositionClearTimer.current = null;
-    }
-    pendingCanonical.current = null;
-    conflictDraftRef.current = null;
-    setConflictDraft(null);
+    editor.commands.blur();
+    editor.setEditable(false);
     setHoveredChanges(null);
     setCommentComposer(null);
     setLinkPopoverOpen(false);
-    eligibilityText.current = null;
-    eligibilityRepresentedExactly.current = null;
-    editorReadyForChanges.current = false;
-
-    acceptedMarkdown.current = text;
-    incomingMarkdown.current = text;
-    setMarkdownWithoutHistory(editor, text, activePath);
-    // Fresh history so Undo cannot walk back into the previous file.
-    editor.view.updateState(EditorState.create({
-      doc: editor.state.doc,
-      plugins: editor.state.plugins,
-    }));
 
     const scroller = sectionRef.current?.closest<HTMLElement>("[data-testid='editor-scroll-container']");
     if (scroller) scroller.scrollTop = 0;
-  }, [activePath, editor, flushPendingLocalUpdate, text]);
+  }, [activePath, editor, flushPendingLocalUpdate]);
+
+  // Swap TipTap content across .md files without tearing down the editor. A
+  // zero-delay task lets React paint the lightweight opening state first and
+  // keeps TipTap's internal flushSync outside React's commit/effect stack.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (activePathRef.current === activePath) return;
+    const timer = window.setTimeout(() => {
+      if (editor.isDestroyed) return;
+
+      activePathRef.current = activePath;
+      composing.current = false;
+      if (compositionClearTimer.current) {
+        clearTimeout(compositionClearTimer.current);
+        compositionClearTimer.current = null;
+      }
+      pendingCanonical.current = null;
+      conflictDraftRef.current = null;
+      setConflictDraft(null);
+      setHoveredChanges(null);
+      setCommentComposer(null);
+      setLinkPopoverOpen(false);
+      eligibilityText.current = null;
+      eligibilityRepresentedExactly.current = null;
+      editorReadyForChanges.current = false;
+
+      acceptedMarkdown.current = text;
+      incomingMarkdown.current = text;
+      setMarkdownWithoutHistory(editor, text, activePath);
+      // Fresh history so Undo cannot walk back into the previous file.
+      editor.view.updateState(EditorState.create({
+        doc: editor.state.doc,
+        plugins: editor.state.plugins,
+      }));
+      editor.setEditable(editable);
+      setRenderedPath(activePath);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [activePath, editable, editor, renderedPath, text]);
 
   useEffect(() => {
     incomingMarkdown.current = text;
@@ -2292,6 +2318,7 @@ export function VisualMarkdownEditor({
 
   useEffect(() => {
     if (!editor) return;
+    if (renderedPath !== activePath || activePathRef.current !== activePath) return;
     if (eligibilityText.current === text) return;
     // Eligibility is a property of the source parser's round trip, not of the
     // live Editor instance. The editor can still be applying initialization or
@@ -2323,7 +2350,7 @@ export function VisualMarkdownEditor({
     const canEdit = representedExactly && editable;
     if (editor.isEditable !== canEdit) editor.setEditable(canEdit);
     editorReadyForChanges.current = true;
-  }, [activePath, editable, editor, optimizeForReading, text]);
+  }, [activePath, editable, editor, optimizeForReading, renderedPath, text]);
 
   const editorViewMounted = useEditorViewMounted(editor);
 
@@ -2532,11 +2559,13 @@ export function VisualMarkdownEditor({
     editor.commands.focus();
   };
 
+  const documentPending = renderedPath !== activePath;
   return (
     <section
       ref={attachSectionRef}
-      className={`visual-markdown-editor${optimizeForReading ? " optimize-for-reading" : ""}`}
+      className={`visual-markdown-editor${optimizeForReading ? " optimize-for-reading" : ""}${documentPending ? " is-document-pending" : ""}`}
       data-active-path={activePath}
+      aria-busy={documentPending}
       aria-label="Visual Markdown editor"
       onClickCapture={(event) => {
         const target = event.target;
@@ -2550,13 +2579,16 @@ export function VisualMarkdownEditor({
         openMarkdownLink(activePath, href, openPathRef.current, sectionRef.current ?? undefined);
       }}
     >
-      <VisualMarkdownFindReplace
+      {documentPending && (
+        <div className="visual-markdown-loading" role="status">Opening document…</div>
+      )}
+      {!documentPending && <VisualMarkdownFindReplace
         key={activePath}
         editor={editor}
         editable={editable}
         editorRoot={sectionRef}
-      />
-      {commentComposer && (
+      />}
+      {!documentPending && commentComposer && (
         <div
           className="visual-comment-composer"
           role="dialog"
@@ -2599,7 +2631,7 @@ export function VisualMarkdownEditor({
           </div>
         </div>
       )}
-      {hoveredChanges && activeHoveredChanges.length > 0 && overleafTrackChangeActions && (
+      {!documentPending && hoveredChanges && activeHoveredChanges.length > 0 && overleafTrackChangeActions && (
         <div
           id="visual-tracked-change-tooltip"
           className="visual-tracked-change-tooltip"
@@ -2645,7 +2677,7 @@ export function VisualMarkdownEditor({
           })}
         </div>
       )}
-      {eligibilityReason && (
+      {!documentPending && eligibilityReason && (
         <div className="visual-markdown-eligibility" role="status">
           {eligibilityReason}
           {onEditSource && <button type="button" onClick={onEditSource}>Edit Markdown source</button>}
@@ -2664,14 +2696,14 @@ export function VisualMarkdownEditor({
           Mermaid, and HTML views must retain their mounted DOM and state. */}
       <VisualEditorSurface
         editor={editor}
-        activePath={activePath}
+        activePath={renderedPath}
         onLoadAsset={onLoadAsset}
         workspaceIndex={workspaceIndex}
         viewInSource={viewInSource}
         editorViewMounted={editorViewMounted}
         openVisualCommentComposer={onCreateComment ? openVisualCommentComposer : null}
-        bubbleMenuHidden={linkPopoverOpen || Boolean(commentComposer)}
-        editable={editable}
+        bubbleMenuHidden={documentPending || linkPopoverOpen || Boolean(commentComposer)}
+        editable={editable && !documentPending}
         optimizeForReading={optimizeForReading}
         onLinkPopoverOpenChange={setLinkPopoverOpen}
       />

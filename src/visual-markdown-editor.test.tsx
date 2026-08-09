@@ -87,49 +87,11 @@ describe("VisualMarkdownEditor", () => {
     });
   });
 
-  it("draws a fixed-height caret that does not grow with heading line boxes", async () => {
+  it("uses WebKit's native caret without installing scroll geometry work", () => {
     renderEditor("# Title\n\nBody paragraph.");
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
-    const editor = (surface as HTMLElement & { editor: Editor }).editor;
-    let headingPos = 1;
-    editor.state.doc.descendants((node, position) => {
-      if (node.type.name === "heading") headingPos = position + 1;
-    });
-
-    const host = surface.closest<HTMLElement>(".visual-markdown-editor") ?? surface;
-    vi.spyOn(host, "getBoundingClientRect").mockReturnValue({
-      x: 0,
-      y: 0,
-      top: 0,
-      left: 0,
-      right: 400,
-      bottom: 600,
-      width: 400,
-      height: 600,
-      toJSON: () => ({}),
-    });
-    vi.spyOn(editor.view, "coordsAtPos").mockReturnValue({
-      top: 40,
-      bottom: 88,
-      left: 64,
-      right: 64,
-    });
-
-    act(() => {
-      editor.commands.focus();
-      editor.commands.setTextSelection(headingPos);
-    });
-
-    const caret = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".visual-fixed-caret");
-      expect(element).not.toBeNull();
-      expect(element?.hidden).toBe(false);
-      return element!;
-    });
-    expect(caret.style.height).toBe("22px");
-    expect(caret.style.top).toBe("53px");
-    expect(caret.style.left).toBe("64px");
-    expect(surface).toHaveAttribute("data-fixed-caret");
+    expect(document.querySelector(".visual-fixed-caret")).toBeNull();
+    expect(surface).not.toHaveAttribute("data-fixed-caret");
   });
 
   it("draws Overleaf cursors and publishes the visual caret in Markdown coordinates", async () => {
@@ -796,7 +758,7 @@ describe("VisualMarkdownEditor", () => {
     expect(onChange).toHaveBeenCalledWith("Hello final", "Hello");
   });
 
-  it("reuses the TipTap instance when switching Markdown files", () => {
+  it("reuses the TipTap instance when switching Markdown files", async () => {
     const { rerender } = render(
       <VisualMarkdownEditor
         text="Alpha document"
@@ -823,11 +785,40 @@ describe("VisualMarkdownEditor", () => {
     const nextSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const nextEditor = (nextSurface as HTMLElement & { editor: Editor }).editor;
     expect(nextEditor).toBe(editor);
-    expect(nextSurface).toHaveTextContent("Beta document");
+    expect(screen.getByLabelText("Visual Markdown editor")).toHaveAttribute("aria-busy", "true");
+    expect(nextSurface).toHaveAttribute("contenteditable", "false");
+    await waitFor(() => expect(nextSurface).toHaveTextContent("Beta document"));
     expect(nextSurface).not.toHaveTextContent("Alpha document");
+    expect(nextSurface).toHaveAttribute("contenteditable", "true");
   });
 
-  it("publishes a pending edit for the previous file when the path switches", () => {
+  it("lets the file-transition owner flush an edit before changing paths", () => {
+    const onChange = vi.fn<(next: string, expected: string) => boolean>(() => true);
+    const onFlushPendingChange = vi.fn<(flush: (() => void) | null) => void>();
+    const view = render(
+      <VisualMarkdownEditor
+        text="Alpha"
+        activePath="a.md"
+        onChangeMarkdown={onChange}
+        onFlushPendingChange={onFlushPendingChange}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => editor.commands.insertContentAt(6, " edit"));
+
+    const flush = onFlushPendingChange.mock.calls.at(-1)?.[0];
+    expect(flush).toBeTypeOf("function");
+    act(() => flush?.());
+    expect(onChange).toHaveBeenCalledWith("Alpha edit", "Alpha");
+
+    view.unmount();
+    expect(onFlushPendingChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("publishes a pending edit for the previous file when the path switches", async () => {
     const publishes: { path: string; next: string; expected: string }[] = [];
     function Harness({ path, text }: { path: string; text: string }) {
       // Recreate the publisher when the path prop changes so changeRef from the
@@ -860,11 +851,11 @@ describe("VisualMarkdownEditor", () => {
     });
 
     expect(publishes).toEqual([{ path: "a.md", next: "Alpha edit", expected: "Alpha" }]);
-    expect(screen.getByRole("textbox", { name: "Markdown document editor" }))
-      .toHaveTextContent("Beta");
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Markdown document editor" }))
+      .toHaveTextContent("Beta"));
   });
 
-  it("does not let Undo restore the previous file after a path switch", () => {
+  it("does not let Undo restore the previous file after a path switch", async () => {
     const onUndo = vi.fn(() => true);
     const { rerender } = render(
       <VisualMarkdownEditor
@@ -892,7 +883,7 @@ describe("VisualMarkdownEditor", () => {
     const nextSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const nextEditor = (nextSurface as HTMLElement & { editor: Editor }).editor;
     expect(nextEditor).toBe(editor);
-    expect(nextSurface).toHaveTextContent("Beta");
+    await waitFor(() => expect(nextSurface).toHaveTextContent("Beta"));
 
     // History is delegated to the host. After a path swap, Mod-z must not
     // walk TipTap's previous-file stack back to Alpha.
@@ -904,7 +895,7 @@ describe("VisualMarkdownEditor", () => {
     expect(nextSurface).not.toHaveTextContent("Alpha");
   });
 
-  it("swaps files that share identical body text", () => {
+  it("swaps files that share identical body text", async () => {
     const { rerender } = render(
       <VisualMarkdownEditor
         text="Same body"
@@ -930,8 +921,38 @@ describe("VisualMarkdownEditor", () => {
     );
     const nextSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
     expect((nextSurface as HTMLElement & { editor: Editor }).editor).toBe(editor);
-    expect(nextSurface).toHaveTextContent("Same body");
+    await waitFor(() => expect(nextSurface).toHaveTextContent("Same body"));
     expect(nextSurface).not.toHaveTextContent("Same body!");
+  });
+
+  it("constructs file-switch NodeViews outside React lifecycle methods", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const view = render(
+      <VisualMarkdownEditor
+        text="Alpha"
+        activePath="a.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    view.rerender(
+      <VisualMarkdownEditor
+        text="![Plot](figure.png)"
+        activePath="b.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Opening document");
+    await screen.findByRole("img", { name: "Plot" });
+    expect(consoleError.mock.calls.some((call) => String(call[0]).includes(
+      "flushSync was called from inside a lifecycle method",
+    ))).toBe(false);
+    consoleError.mockRestore();
   });
 
   it("adds a slash block without unnecessary split preview movement", async () => {

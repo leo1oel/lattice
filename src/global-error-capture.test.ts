@@ -51,6 +51,22 @@ describe("installGlobalErrorCapture", () => {
     expect(matches).toHaveLength(1);
   });
 
+  it("ignores non-fatal ResizeObserver delivery notifications", async () => {
+    const { store, capture } = await loadCapture();
+    capture.installGlobalErrorCapture();
+    const notification = new ErrorEvent("error", {
+      message: "ResizeObserver loop completed with undelivered notifications.",
+      error: new Error("browser delivery stack"),
+      cancelable: true,
+    });
+
+    window.dispatchEvent(notification);
+
+    expect(notification.defaultPrevented).toBe(true);
+    expect(store.formatAppLogs()).not.toContain("browser delivery stack");
+    expect(store.formatAppLogs()).not.toContain("ResizeObserver");
+  });
+
   it("does not recurse when the logging path itself throws", async () => {
     const { store, capture } = await loadCapture();
     capture.installGlobalErrorCapture();

@@ -6,6 +6,10 @@ import { IconButton } from "./components/ui/icon-button";
 
 type FindSnapshot = ReturnType<typeof getFindReplaceState>;
 
+function liveCommands(editor: Editor): Editor["commands"] | null {
+  return editor.isDestroyed ? null : editor.commands;
+}
+
 function selectedSingleLineText(editor: Editor): string {
   const { from, to, empty } = editor.state.selection;
   if (empty) return "";
@@ -42,7 +46,7 @@ export function VisualMarkdownFindReplace({
     setSnapshot(getFindReplaceState(editor.state));
     setOpen(true);
     setReplaceOpen((current) => current || withReplace);
-    if (!open && seed) editor.commands.setFindQuery(seed);
+    if (!open && seed) liveCommands(editor)?.setFindQuery(seed);
     requestAnimationFrame(() => {
       findInputRef.current?.focus();
       findInputRef.current?.select();
@@ -50,10 +54,10 @@ export function VisualMarkdownFindReplace({
   }, [editor, open]);
 
   const close = useCallback(() => {
-    editor.commands.clearFindMatches();
+    liveCommands(editor)?.clearFindMatches();
     setOpen(false);
     setReplaceOpen(false);
-    requestAnimationFrame(() => editor.commands.focus());
+    requestAnimationFrame(() => liveCommands(editor)?.focus());
   }, [editor]);
 
   useEffect(() => {
@@ -74,8 +78,8 @@ export function VisualMarkdownFindReplace({
       } else if (navigate) {
         event.preventDefault();
         event.stopPropagation();
-        if (event.shiftKey) editor.commands.selectPreviousFindMatch();
-        else editor.commands.selectNextFindMatch();
+        if (event.shiftKey) liveCommands(editor)?.selectPreviousFindMatch();
+        else liveCommands(editor)?.selectNextFindMatch();
       } else if (open && event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -90,8 +94,8 @@ export function VisualMarkdownFindReplace({
   const count = snapshot.matches.length;
   const resultLabel = count ? `${snapshot.activeIndex + 1} of ${count}` : snapshot.query ? "No matches" : "0 matches";
   const navigate = (previous: boolean) => previous
-    ? editor.commands.selectPreviousFindMatch()
-    : editor.commands.selectNextFindMatch();
+    ? liveCommands(editor)?.selectPreviousFindMatch()
+    : liveCommands(editor)?.selectNextFindMatch();
 
   return (
     <div className="visual-find-anchor">
@@ -104,7 +108,7 @@ export function VisualMarkdownFindReplace({
             type="search"
             placeholder="Find"
             value={snapshot.query}
-            onChange={(event) => editor.commands.setFindQuery(event.target.value)}
+            onChange={(event) => liveCommands(editor)?.setFindQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
@@ -118,16 +122,16 @@ export function VisualMarkdownFindReplace({
           <IconButton size="compact" label="Close find" onClick={close}><X aria-hidden="true" /></IconButton>
         </div>
         <div className="visual-find-options">
-          <button type="button" aria-pressed={snapshot.options.caseSensitive} onClick={() => editor.commands.setFindOptions({ caseSensitive: !snapshot.options.caseSensitive }, 0)}>Match case</button>
-          <button type="button" aria-pressed={snapshot.options.wholeWord} onClick={() => editor.commands.setFindOptions({ wholeWord: !snapshot.options.wholeWord }, 0)}>Whole word</button>
+          <button type="button" aria-pressed={snapshot.options.caseSensitive} onClick={() => liveCommands(editor)?.setFindOptions({ caseSensitive: !snapshot.options.caseSensitive }, 0)}>Match case</button>
+          <button type="button" aria-pressed={snapshot.options.wholeWord} onClick={() => liveCommands(editor)?.setFindOptions({ wholeWord: !snapshot.options.wholeWord }, 0)}>Whole word</button>
           {!replaceOpen && <button type="button" onClick={() => setReplaceOpen(true)}>Replace</button>}
         </div>
         {replaceOpen && (
           <div className="visual-find-row visual-replace-row">
             <label className="sr-only" htmlFor={`${inputId}-replace`}>Replace with</label>
             <input id={`${inputId}-replace`} placeholder="Replace with" value={replacement} onChange={(event) => setReplacement(event.target.value)} />
-            <IconButton size="compact" label="Replace current match" disabled={!editable || !count} onClick={() => editor.commands.replaceCurrentFindMatch(replacement)}><Replace aria-hidden="true" /></IconButton>
-            <IconButton size="compact" label="Replace all matches" disabled={!editable || !count} onClick={() => editor.commands.replaceAllFindMatches(replacement)}><ReplaceAll aria-hidden="true" /></IconButton>
+            <IconButton size="compact" label="Replace current match" disabled={!editable || !count} onClick={() => liveCommands(editor)?.replaceCurrentFindMatch(replacement)}><Replace aria-hidden="true" /></IconButton>
+            <IconButton size="compact" label="Replace all matches" disabled={!editable || !count} onClick={() => liveCommands(editor)?.replaceAllFindMatches(replacement)}><ReplaceAll aria-hidden="true" /></IconButton>
           </div>
         )}
       </div>

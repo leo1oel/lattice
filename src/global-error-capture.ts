@@ -7,7 +7,12 @@ let installed = false;
 let handling = false;
 
 function formatArg(value: unknown): string {
-  if (value instanceof Error) return value.stack ?? value.message;
+  if (value instanceof Error) {
+    const detail = !value.stack || value.stack.includes(value.message)
+      ? value.stack ?? value.message
+      : `${value.message}\n${value.stack}`;
+    return value.cause === undefined ? detail : `${detail}\nCaused by: ${formatArg(value.cause)}`;
+  }
   if (typeof value === "string") return value;
   try {
     return JSON.stringify(value);
@@ -28,6 +33,11 @@ function report(level: "error" | "warning", title: string, detail: string) {
   }
 }
 
+function isResizeObserverNotification(message: string): boolean {
+  return message === "ResizeObserver loop limit exceeded"
+    || message === "ResizeObserver loop completed with undelivered notifications.";
+}
+
 /**
  * Routes uncaught errors, unhandled promise rejections, and console.error/warn
  * into the app log (in-app list + on-disk file). Installed once at startup.
@@ -37,6 +47,13 @@ export function installGlobalErrorCapture(): void {
   installed = true;
 
   window.addEventListener("error", (event) => {
+    // Browsers dispatch these as window errors when resize notifications are
+    // deferred to the next frame. There is no thrown application exception;
+    // logging one on every image/formula layout pass obscures real failures.
+    if (isResizeObserverNotification(event.message)) {
+      event.preventDefault();
+      return;
+    }
     report("error", "Unexpected error", event.error ? formatArg(event.error) : event.message);
   });
   window.addEventListener("unhandledrejection", (event) => {
