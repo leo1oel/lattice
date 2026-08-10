@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-const SCHEMA_VERSION: &str = "1";
+const SCHEMA_VERSION: &str = "3";
 const MAX_HITS: usize = 200;
 const DB_RELATIVE: &str = ".research/cache/fts.sqlite";
 
@@ -117,12 +117,9 @@ fn rebuild(conn: &Connection, root: &Path) -> Result<(), String> {
         insert
             .execute(params![relative, 0i64, path_tokens])
             .map_err(sqlite_err)?;
-        for (index, line) in content.lines().enumerate() {
-            if line.trim().is_empty() {
-                continue;
-            }
+        for (line_number, line) in project::searchable_text_lines(&relative, &content) {
             insert
-                .execute(params![relative, (index + 1) as i64, line])
+                .execute(params![relative, line_number as i64, line])
                 .map_err(sqlite_err)?;
         }
     }
@@ -180,7 +177,7 @@ fn collect_searchable_nodes(nodes: &[FileNode], paths: &mut Vec<String>) {
             collect_searchable_nodes(&node.children, paths);
             continue;
         }
-        if searchable_text_path(&node.path) {
+        if project::searchable_text_path(&node.path) {
             paths.push(node.path.clone());
         }
     }
@@ -195,7 +192,10 @@ fn project_fingerprint(root: &Path) -> Result<String, String> {
             .modified()
             .ok()
             .and_then(|time| time.duration_since(SystemTime::UNIX_EPOCH).ok())
-            .map(|duration| duration.as_secs())
+            // Seconds plus file length misses rapid same-size editor saves,
+            // leaving the index unable to find a citation that is already on
+            // disk. Preserve the filesystem's full timestamp resolution.
+            .map(|duration| duration.as_nanos())
             .unwrap_or(0);
         parts.push(format!("{relative}:{modified}:{}", meta.len()));
     }
@@ -252,7 +252,9 @@ fn build_match_query(terms: &[String]) -> Result<String, String> {
     }
     Ok(terms
         .iter()
-        .map(|term| format!("\"{}\"", escape_fts_token(term)))
+        // Prefix matching is what users expect from incremental search and is
+        // especially important for BibTeX keys such as `chen2024single`.
+        .map(|term| format!("\"{}\"*", escape_fts_token(term)))
         .collect::<Vec<_>>()
         .join(" AND "))
 }
@@ -275,17 +277,6 @@ fn clip_snippet(text: &str) -> String {
     } else {
         clipped
     }
-}
-
-fn searchable_text_path(path: &str) -> bool {
-    matches!(
-        Path::new(path)
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .map(str::to_lowercase)
-            .as_deref(),
-        Some("tex" | "bib" | "sty" | "cls" | "md" | "txt" | "html")
-    )
 }
 
 fn sqlite_err(error: impl ToString) -> String {
@@ -322,13 +313,51 @@ mod tests {
 
         fs::write(
             root.join("supplement.html"),
-            "<p>A distinctive supplementary result.</p>\n",
+            "<!doctype html>\n<html>\n<head>\n<title>Private metadata title</title>\n<style>.private-style-token { color: red; }</style>\n<script>window.privateScriptToken = true;</script>\n</head>\n<body data-private-attribute-token=\"true\">\n<main><p>A distinctive supplementary result &amp; conclusion.</p></main>\n</body>\n</html>\n",
         )
         .unwrap();
-        assert!(search(&root, "supplementary result")
+        let html_hits = search(&root, "supplementary result").unwrap();
+        assert!(html_hits.iter().any(|hit| {
+            hit.path == "supplement.html"
+                && hit.line == Some(9)
+                && hit.snippet.contains("result & conclusion")
+        }));
+        for non_body_query in [
+            "private metadata title",
+            "private style token",
+            "privatescripttoken",
+            "private attribute token",
+        ] {
+            assert!(
+                search(&root, non_body_query).unwrap().is_empty(),
+                "unexpected HTML source hit for {non_body_query}"
+            );
+        }
+
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn excludes_hidden_project_files_and_directories() {
+        let parent =
+            std::env::temp_dir().join(format!("lattice-fts-hidden-{}", uuid::Uuid::new_v4()));
+        let _ = fs::create_dir_all(&parent);
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(root.join(".private-notes.md"), "hidden_root_search_token\n").unwrap();
+        fs::create_dir_all(root.join(".drafts")).unwrap();
+        fs::write(
+            root.join(".drafts/notes.md"),
+            "hidden_directory_search_token\n",
+        )
+        .unwrap();
+
+        assert!(search(&root, "hidden_root_search_token")
             .unwrap()
-            .iter()
-            .any(|hit| hit.path == "supplement.html"));
+            .is_empty());
+        assert!(search(&root, "hidden_directory_search_token")
+            .unwrap()
+            .is_empty());
+        assert!(search(&root, "private notes").unwrap().is_empty());
 
         let _ = fs::remove_dir_all(parent);
     }
@@ -351,6 +380,52 @@ mod tests {
             .iter()
             .any(|hit| hit.snippet.contains("unique_token_two")));
         assert!(search(&root, "unique_token_one").unwrap().is_empty());
+
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn finds_citation_keys_in_the_primary_bibliography() {
+        let parent =
+            std::env::temp_dir().join(format!("lattice-fts-citation-{}", uuid::Uuid::new_v4()));
+        let _ = fs::create_dir_all(&parent);
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{chen2024single, title={A Single Transformer}}\n",
+        )
+        .unwrap();
+
+        let hits = search(&root, "chen2024single").unwrap();
+        assert!(hits.iter().any(|hit| {
+            hit.path == "references.bib"
+                && hit.line == Some(1)
+                && hit.snippet.contains("chen2024single")
+        }));
+
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn finds_a_bibliography_key_from_its_prefix() {
+        let parent = std::env::temp_dir().join(format!(
+            "lattice-fts-citation-prefix-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let _ = fs::create_dir_all(&parent);
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{chen2024single, title={A Single Transformer}}\n",
+        )
+        .unwrap();
+
+        let hits = search(&root, "chen").unwrap();
+        assert!(hits.iter().any(|hit| {
+            hit.path == "references.bib"
+                && hit.line == Some(1)
+                && hit.snippet.contains("chen2024single")
+        }));
 
         let _ = fs::remove_dir_all(parent);
     }

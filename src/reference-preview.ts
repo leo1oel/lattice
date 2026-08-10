@@ -22,6 +22,10 @@ export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview)
     cMapUrl: PDF_CMAP_URL,
     cMapPacked: true,
     standardFontDataUrl: PDF_STANDARD_FONT_DATA_URL,
+    // Match the main viewer: WKWebView can silently paint embedded Type 1
+    // FontFace glyphs as blank even though PDF.js reports a successful render.
+    disableFontFace: true,
+    useSystemFonts: false,
   });
   try {
     const documentProxy = await loadingTask.promise;

@@ -16,14 +16,28 @@ pub fn search(query: &str, precise: bool, page: u32) -> Result<LiteraturePage, S
     let open = openalex::search_works(query, precise, page + 1)?;
     let has_more = open.len() as u32 >= openalex::PER_PAGE;
     let alpha = if page == 0 {
-        alphaxiv::search_works(query)?
+        alphaxiv::search_works(query)
     } else {
-        Vec::new()
+        Ok(Vec::new())
     };
     Ok(LiteraturePage {
-        hits: merge(alpha, open),
+        hits: merge_available(alpha, open),
         has_more,
     })
+}
+
+fn merge_available(
+    alpha: Result<Vec<AlphaxivWork>, String>,
+    open: Vec<OpenAlexWork>,
+) -> Vec<LiteratureHit> {
+    let alpha = alpha.unwrap_or_else(|error| {
+        // alphaXiv is an enrichment source. OpenAlex has already completed at
+        // this point, so a malformed alphaXiv snippet must not blank the whole
+        // Discover panel and hide those valid results.
+        log::warn!(target: "lattice::literature", "alphaXiv search unavailable: {error}");
+        Vec::new()
+    });
+    merge(alpha, open)
 }
 
 fn merge(alpha: Vec<AlphaxivWork>, open: Vec<OpenAlexWork>) -> Vec<LiteratureHit> {
@@ -170,5 +184,16 @@ mod tests {
         let hits = merge(vec![alpha("some-slug-id", "Slug Paper")], vec![]);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].arxiv_id, None);
+    }
+
+    #[test]
+    fn keeps_openalex_results_when_alphaxiv_is_malformed() {
+        let hits = merge_available(
+            Err("Could not parse alphaXiv response".to_string()),
+            vec![open(Some("2402.00002"), "Open Two")],
+        );
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].source, "openalex");
+        assert_eq!(hits[0].title, "Open Two");
     }
 }

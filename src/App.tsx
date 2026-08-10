@@ -77,6 +77,7 @@ import { useOverleafTrackChanges } from "./use-overleaf-track-changes";
 import { type PresenceCursor } from "./overleaf-cursors";
 import { OverleafPresenceAvatars } from "./overleaf-presence";
 import { AvatarGroup } from "./avatar-group";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { useOverleafComments, type OverleafComments } from "./use-overleaf-comments";
 import type { OverleafCollabTab } from "./overleaf-collab";
 import {
@@ -240,6 +241,7 @@ import {
   autoBuildDescription,
   beginWindowDrag,
   canvasContentAt,
+  chooseAction,
   confirmAction,
   classifyExternalProjectDrop,
   dropAgentPanelAt,
@@ -252,6 +254,7 @@ import {
   isProjectAssetFilePath,
   isProjectSourceFilePath,
   isPaperTabKey,
+  markdownFrontmatterEnd,
   overleafLinkMatchesSession,
   paperKey,
   paperTabKey,
@@ -267,6 +270,7 @@ import {
   LATTICE_RESTORE_AGENT_CHECKPOINT,
   parseAgentProjectHistorySnapshot,
   synaraFrameUrl,
+  synaraProjectRelativeFilePath,
   type AgentGitWorkspaceView,
   type AgentCheckpointHistoryEntry,
 } from "./synara-runtime";
@@ -291,11 +295,26 @@ import { SynaraLoadingSurface } from "./synara-loading-surface";
 import { useSynaraNotificationBridge } from "./synara-notifications";
 import { useSynaraConfirmationBridge } from "./synara-confirmations";
 import { logAction, notifyError, notifySuccess, notifyWarning } from "./app-notify";
+import { addAppLog } from "./app-log-store";
 import {
   APP_WINDOW_MIN_HEIGHT,
   minimumWindowWidth,
 } from "./window-layout";
 import "./App.css";
+
+type RemoveReferenceResult = {
+  key: string;
+  removed: boolean;
+  blockers: SymbolOccurrence[];
+  changedFiles: string[];
+  removedCitations: number;
+  transactionId?: string | null;
+  changes?: Array<{
+    path: string;
+    before: string;
+    after: string;
+  }>;
+};
 
 export type RemoteCollabDeleteUiPlanV2 = {
   openTabs: string[];
@@ -617,6 +636,15 @@ function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<st
   return paths;
 }
 
+function collectQuickOpenPaths(nodes: FileNode[], paths: string[] = []): string[] {
+  for (const node of nodes) {
+    const isDirectory = node.kind === "directory" || node.contentKind === "directory";
+    if (!isDirectory && node.path) paths.push(node.path);
+    if (node.children.length) collectQuickOpenPaths(node.children, paths);
+  }
+  return paths;
+}
+
 function getCurrentWindowSafely() {
   try {
     return getCurrentWindow();
@@ -625,6 +653,43 @@ function getCurrentWindowSafely() {
     // bridge should not replace the entire application with a white screen.
     return null;
   }
+}
+
+/** Let React commit an opening state and WebKit paint it before heavy sync work. */
+function afterNextPaintOpportunity(): Promise<void> {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
+  });
+}
+
+function recordNavigationTiming(
+  kind: "file" | "paper",
+  path: string,
+  startedAt: number,
+  phases: Record<string, number>,
+): void {
+  const endedAt = performance.now();
+  const detail = { kind, path, totalMs: endedAt - startedAt, ...phases };
+  try {
+    performance.measure("lattice:document-switch", {
+      start: startedAt,
+      end: endedAt,
+      detail,
+    });
+  } catch {
+    // Older WebKit builds do not support PerformanceMeasureOptions.detail.
+  }
+  if (detail.totalMs < 100) return;
+  addAppLog({
+    level: "info",
+    source: "Navigation performance",
+    title: `${kind === "paper" ? "Paper" : "File"} switch`,
+    detail: `${path}\n${Object.entries(detail)
+      .filter(([key]) => key.endsWith("Ms"))
+      .map(([key, value]) => `${key}=${Number(value).toFixed(1)}`)
+      .join(" ")}`,
+    toast: false,
+  });
 }
 
 function App() {
@@ -685,6 +750,37 @@ function App() {
   /** Resolves when the in-flight Overleaf sync has finished its disk refresh. */
   const overleafSyncSettledRef = useRef<Promise<void> | null>(null);
   const resolveOverleafSyncRef = useRef<(() => void) | null>(null);
+  const visualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
+  const saveBeforeProjectTransitionRef = useRef<() => Promise<boolean>>(async () => true);
+  const hasLateProjectTransitionEditRef = useRef<() => boolean>(() => false);
+  const [primaryOpening, setPrimaryOpening] = useState<{
+    generation: number;
+    label: string;
+  } | null>(null);
+  const previewPrewarmRef = useRef<{
+    generation: number;
+    idle: number | null;
+    timer: ReturnType<typeof setTimeout> | null;
+    target: string | null;
+    warmed: Set<string>;
+    inFlight: Set<string>;
+  }>({
+    generation: 0,
+    idle: null,
+    timer: null,
+    target: null,
+    warmed: new Set(),
+    inFlight: new Set(),
+  });
+  const cancelPreviewPrewarm = useCallback(() => {
+    const state = previewPrewarmRef.current;
+    state.generation += 1;
+    state.target = null;
+    if (state.timer != null) globalThis.clearTimeout(state.timer);
+    state.timer = null;
+    if (state.idle != null && "cancelIdleCallback" in window) window.cancelIdleCallback(state.idle);
+    state.idle = null;
+  }, []);
   useEffect(() => {
     const enableInteractivePreviews = () => {
       setPostStartupInteraction(true);
@@ -707,12 +803,14 @@ function App() {
     projectOperationGenerationRef.current += 1;
     fileLoadGenerationRef.current += 1;
     secondaryFileLoadGenerationRef.current += 1;
+    cancelPreviewPrewarm();
+    setPrimaryOpening(null);
     // A root-changing backend command may finish before React commits the new
     // snapshot. Nulling only the imperative identity closes that gap without
     // flashing the welcome screen or discarding the rendered old project.
     projectRef.current = null;
     return true;
-  }, []);
+  }, [cancelPreviewPrewarm]);
   const cancelProjectTransition = useCallback(() => {
     if (!projectRef.current) projectRef.current = projectBeforeTransitionRef.current;
     projectBeforeTransitionRef.current = null;
@@ -723,6 +821,55 @@ function App() {
     projectRef.current = project;
     projectBeforeTransitionRef.current = null;
   }, [project]);
+  const schedulePreviewPrewarm = useCallback((
+    key: string,
+    task: (isCurrent: () => boolean) => Promise<boolean>,
+  ) => {
+    const state = previewPrewarmRef.current;
+    if (state.warmed.has(key) || state.inFlight.has(key) || state.target === key) return;
+    cancelPreviewPrewarm();
+    state.target = key;
+    const generation = state.generation;
+    const isCurrent = () => (
+      previewPrewarmRef.current.generation === generation
+      && previewPrewarmRef.current.target === key
+    );
+    const run = () => {
+      state.idle = null;
+      // Intent can move again while an earlier parse is still running. Keep
+      // speculative work strictly bounded instead of allowing a fast sweep
+      // over the tree to queue a project-sized burst of parses.
+      if (!isCurrent() || state.inFlight.size >= 2) return;
+      state.inFlight.add(key);
+      void task(isCurrent).then((warmed) => {
+        if (warmed && isCurrent()) {
+          state.warmed.add(key);
+          while (state.warmed.size > 4) {
+            const oldest = state.warmed.values().next().value;
+            if (oldest === undefined) break;
+            state.warmed.delete(oldest);
+          }
+        }
+      }).catch(() => undefined).finally(() => {
+        state.inFlight.delete(key);
+      });
+    };
+    state.timer = globalThis.setTimeout(() => {
+      state.timer = null;
+      if (!isCurrent()) return;
+      if ("requestIdleCallback" in window) {
+        state.idle = window.requestIdleCallback(run, { timeout: 800 });
+      } else {
+        state.timer = globalThis.setTimeout(run, 0);
+      }
+    }, 120);
+  }, [cancelPreviewPrewarm]);
+  useEffect(() => {
+    const state = previewPrewarmRef.current;
+    cancelPreviewPrewarm();
+    state.warmed.clear();
+    return cancelPreviewPrewarm;
+  }, [cancelPreviewPrewarm, project?.root]);
   const [projectGitStatus, setProjectGitStatus] = useState<{
     projectRoot: string;
     files: GitFileStatus[];
@@ -868,6 +1015,50 @@ function App() {
   const activePaperDirty = Boolean(activePaper) && (
     paperMarkdown !== savedPaperMarkdown || paperBlog !== savedPaperBlog
   );
+  const prewarmMarkdownSource = useCallback(async (
+    path: string,
+    source: string,
+    isCurrent: () => boolean,
+  ) => {
+    if (!isCurrent()) return false;
+    const startedAt = performance.now();
+    const module = await loadDocumentCanvas();
+    if (!isCurrent()) return false;
+    await module.prewarmMarkdownPreviewDocument(path, source);
+    const endedAt = performance.now();
+    try {
+      performance.measure("lattice:markdown-prewarm", {
+        start: startedAt,
+        end: endedAt,
+        detail: { path },
+      });
+    } catch {
+      // Older WebKit builds do not support PerformanceMeasureOptions.detail.
+    }
+    return isCurrent();
+  }, []);
+  const prewarmLikelyProjectFile = useCallback((path: string) => {
+    if (!/\.mdx?$/i.test(path) || path === activeFile) return;
+    const root = projectRef.current?.root;
+    if (!root) return;
+    schedulePreviewPrewarm(`file:${root}:${path}`, async (isCurrent) => {
+      const source = await invoke<string>("read_project_file", { path, projectRoot: root });
+      if (!isCurrent() || projectRef.current?.root !== root) return false;
+      return prewarmMarkdownSource(path, source.slice(markdownFrontmatterEnd(source)), isCurrent);
+    });
+  }, [activeFile, prewarmMarkdownSource, schedulePreviewPrewarm]);
+  const prewarmLikelyPaper = useCallback((paper: PaperSummary) => {
+    if (!paper.arxivId || activePaper?.arxivId === paper.arxivId) return;
+    const root = projectRef.current?.root;
+    if (!root) return;
+    const useBlog = Boolean(paper.hasBlog && (paperView === "blog" || !paper.hasFullText));
+    const path = `.research/papers/${paper.arxivId}/${useBlog ? "blog.md" : "paper.md"}`;
+    schedulePreviewPrewarm(`paper:${root}:${path}`, async (isCurrent) => {
+      const source = await invoke<string>("read_project_file", { path, projectRoot: root });
+      if (!source || !isCurrent() || projectRef.current?.root !== root) return false;
+      return prewarmMarkdownSource(path, useBlog ? source : stripFrontmatter(source), isCurrent);
+    });
+  }, [activePaper?.arxivId, paperView, prewarmMarkdownSource, schedulePreviewPrewarm]);
   const setActivePaperSource = useCallback((value: string) => {
     if (paperView === "blog") {
       paperBlogRef.current = value;
@@ -876,6 +1067,13 @@ function App() {
       paperMarkdownRef.current = value;
       setPaperMarkdown(value);
     }
+  }, [paperView]);
+  const changePaperView = useCallback((view: "blog" | "fulltext") => {
+    if (view === paperView) return;
+    // Blog and full text are distinct editable documents. Publish the old
+    // NodeView while its path still owns the callback, then change identity.
+    if (visualMarkdownFlushRef.current?.() === false) return;
+    setPaperView(view);
   }, [paperView]);
   const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
   const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
@@ -891,7 +1089,7 @@ function App() {
     line?: number,
     targetPane?: EditorPaneId,
   ) => Promise<void>>(async () => undefined);
-  const visualMarkdownFlushRef = useRef<(() => void) | null>(null);
+  const markdownModeViewportCaptureRef = useRef<(() => void) | null>(null);
   const [editorNavigation, setEditorNavigation] = useState<EditorNavigation | null>(null);
   const [projectWordCount, setProjectWordCount] = useState<WordCount | null>(null);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
@@ -957,6 +1155,7 @@ function App() {
   const [activeEditorCommentId, setActiveEditorCommentId] = useState<string | null>(null);
   const [commentPanelFocusId, setCommentPanelFocusId] = useState<string | null>(null);
   const [commentFocusRequest, setCommentFocusRequest] = useState<{ id: string; nonce: string } | null>(null);
+  const commentOpenGenerationRef = useRef(0);
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
   const [literatureOpen, setLiteratureOpen] = useState(false);
   const [bibResolveSeed, setBibResolveSeed] = useState("");
@@ -1475,10 +1674,11 @@ function App() {
       if (event.data?.type === SYNARA_OPEN_FILE) {
         // A file the agent named in its answer. The panel has no editor of its
         // own to show it in, and the one beside it is ours.
-        const path = typeof event.data.filePath === "string" ? event.data.filePath.trim() : "";
-        if (path && !path.startsWith("/") && !path.split("/").includes("..")) {
-          void openProjectFileRef.current(path);
-        }
+        const path = synaraProjectRelativeFilePath(
+          event.data.filePath,
+          projectRef.current?.root,
+        );
+        if (path) void openProjectFileRef.current(path);
         return;
       }
       if (event.data?.type === SYNARA_OPEN_REVIEW) {
@@ -1486,8 +1686,11 @@ function App() {
         // its path and opens in the editor; the bare Review button opens the
         // drawer pinned to that turn's checkpoint diff — the working tree may
         // already be clean (undo, saved version) and would review nothing.
-        const filePath = typeof event.data.filePath === "string" ? event.data.filePath.trim() : "";
-        if (filePath && !filePath.startsWith("/") && !filePath.split("/").includes("..")) {
+        const filePath = synaraProjectRelativeFilePath(
+          event.data.filePath,
+          projectRef.current?.root,
+        );
+        if (filePath) {
           void openProjectFileRef.current(filePath);
           return;
         }
@@ -1734,6 +1937,18 @@ function App() {
         ]);
       }
     }
+    // The editor stayed live while Overleaf settled, so publish and durably
+    // save any edit (including a just-finished IME composition) made during
+    // that wait before invalidating the outgoing project's ownership.
+    if (visualMarkdownFlushRef.current?.() === false) {
+      setNotice("Finish the current text composition, then switch projects again.");
+      return false;
+    }
+    if (!(await saveBeforeProjectTransitionRef.current())) return false;
+    if (hasLateProjectTransitionEditRef.current()) {
+      setNotice("The document changed while saving. Save it, then switch projects again.");
+      return false;
+    }
     if (beginProjectTransition()) return true;
     setNotice("Overleaf sync is finishing. Try switching projects again in a moment.", "Overleaf");
     return false;
@@ -1933,8 +2148,21 @@ function App() {
     sourceRef.current = value;
     setSource(value);
   }, []);
-  const registerVisualMarkdownFlush = useCallback((flush: (() => void) | null) => {
+  const registerVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
     visualMarkdownFlushRef.current = flush;
+  }, []);
+  const registerMarkdownModeViewportCapture = useCallback((capture: (() => void) | null) => {
+    markdownModeViewportCaptureRef.current = capture;
+  }, []);
+
+  const flushAndCheckPrimaryDirty = useCallback((owner: "file" | "paper" | "asset") => {
+    if (visualMarkdownFlushRef.current?.() === false) return true;
+    if (owner === "file") return sourceRef.current !== savedSourceRef.current;
+    if (owner === "paper") {
+      return paperMarkdownRef.current !== savedPaperMarkdownRef.current
+        || paperBlogRef.current !== savedPaperBlogRef.current;
+    }
+    return false;
   }, []);
 
   const markDiskMtime = useCallback(async (path: string, mayApply: () => boolean = () => true) => {
@@ -1970,10 +2198,14 @@ function App() {
        * write + read serially.
        */
       gate?: Promise<boolean>;
+      /** Primary-surface intent reserved by a caller before it awaited save. */
+      loadGeneration?: number;
+      /** Re-check the old owner's deferred edits immediately before commit. */
+      canCommit?: () => boolean;
     },
   ) => {
-    const loadGeneration = fileLoadGenerationRef.current + 1;
-    fileLoadGenerationRef.current = loadGeneration;
+    const loadGeneration = options?.loadGeneration ?? fileLoadGenerationRef.current + 1;
+    if (options?.loadGeneration === undefined) fileLoadGenerationRef.current = loadGeneration;
     const projectRoot = options?.expectedProjectRoot ?? projectRef.current?.root;
     const projectGeneration = options?.projectGeneration ?? projectOperationGenerationRef.current;
     const isLatestLoad = () => (
@@ -1998,13 +2230,20 @@ function App() {
         // The gate must settle before openPath: activation mutates the
         // controller's activePath, which must not happen for an aborted switch.
         if (options?.gate && !(await options.gate)) return false;
-        if (!isLatestLoad()) return false;
+        if (!isLatestLoad() || options?.canCommit?.() === false) return false;
         // cachedFirst: with a server-acked local snapshot the switch shows
         // content immediately and syncs in the background; a cache miss still
         // waits (bounded) so a fresh doc never flashes empty.
-        const ytext = await v2.openPath(path, "main", { activateIf: isLatestLoad, cachedFirst: true, timeoutMs: 8_000 });
-        if (!isLatestLoad()) return false;
+        const ytext = await v2.openPath(path, "main", {
+          activateIf: () => isLatestLoad() && (options?.canCommit?.() ?? true),
+          cachedFirst: true,
+          timeoutMs: 8_000,
+        });
+        if (!isLatestLoad() || options?.canCommit?.() === false) return false;
         const content = ytext.toString();
+        sourceRef.current = content;
+        savedSourceRef.current = content;
+        activeFileRef.current = path;
         setActiveFile(path);
         setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
         setSource(content);
@@ -2047,7 +2286,10 @@ function App() {
         invoke<string>("read_project_file", { path, projectRoot }),
         options?.gate ?? Promise.resolve(true),
       ]);
-      if (!gateOk || !isLatestLoad()) return false;
+      if (!gateOk || !isLatestLoad() || options?.canCommit?.() === false) return false;
+      sourceRef.current = content;
+      savedSourceRef.current = content;
+      activeFileRef.current = path;
       setActiveFile(path);
       setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
       setSource(content);
@@ -2205,7 +2447,7 @@ function App() {
     } finally {
       collabLeavingRef.current = false;
     }
-  }, [activeCollabVersion, clearCollabLocalState, refreshProject, refreshRecentRooms]);
+  }, [activeCollabVersion, clearCollabLocalState, refreshProject]);
 
   const leaveGuestShareSession = useCallback(async (noticeText: string, restorePrior: boolean) => {
     if (collabLeavingRef.current) return;
@@ -2718,7 +2960,7 @@ function App() {
       let wroteTex = false;
       let wroteBib = false;
       let wrotePaper = false;
-      if (primaryPath && primarySource !== primarySavedSource) {
+      if (!activePaper && !activeAsset && primaryPath && primarySource !== primarySavedSource) {
         const mutationGeneration = collabPathMutationGeneration(primaryPath);
         if (workspaceLease) {
           await collabDiskWriteQueueRef.current.run(workspaceLease, primaryPath, () => (
@@ -2760,6 +3002,9 @@ function App() {
           });
         }
         if (mutationGeneration !== collabPathMutationGeneration(secondaryFile)) return true;
+        // The project-transition late-edit check runs in the same async turn
+        // as this save, before React is guaranteed to commit the state setter.
+        secondarySavedRef.current = secondarySource;
         setSecondarySavedSource(secondarySource);
         wroteTex = wroteTex || secondaryFile.endsWith(".tex");
         wroteBib = wroteBib || secondaryFile === project.manifest.primaryBibliography;
@@ -2818,6 +3063,7 @@ function App() {
     }
   }, [
     activeFile,
+    activeAsset,
     activePaper,
     activeCollabVersion,
     collabPathMutationGeneration,
@@ -2830,11 +3076,24 @@ function App() {
     secondarySavedSource,
     secondarySource,
   ]);
+  useLayoutEffect(() => {
+    saveBeforeProjectTransitionRef.current = save;
+  }, [save]);
 
   const secondarySourceRef = useRef(secondarySource);
   const secondarySavedRef = useRef(secondarySavedSource);
   secondarySourceRef.current = secondarySource;
   secondarySavedRef.current = secondarySavedSource;
+  useLayoutEffect(() => {
+    hasLateProjectTransitionEditRef.current = () => {
+      if (visualMarkdownFlushRef.current?.() === false) return true;
+      const primaryDirty = activePaper
+        ? paperMarkdownRef.current !== savedPaperMarkdownRef.current
+          || paperBlogRef.current !== savedPaperBlogRef.current
+        : !activeAsset && sourceRef.current !== savedSourceRef.current;
+      return primaryDirty || secondarySourceRef.current !== secondarySavedRef.current;
+    };
+  }, [activeAsset, activePaper]);
   const secondaryMtimeRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -2917,6 +3176,7 @@ function App() {
     line?: number,
     targetPane?: EditorPaneId,
   ) => {
+    cancelPreviewPrewarm();
     const keepDocumentMode = (mode: CanvasMode): CanvasMode => (
       mode === "pdf" || mode === "asset" ? "split" : mode
     );
@@ -3003,8 +3263,17 @@ function App() {
       }
       return;
     }
+    // Every click is a primary-surface intent, including reselecting the file
+    // already on screen. Reserving it first prevents an older Paper/asset read
+    // from replacing the surface after this click.
+    const switchStartedAt = performance.now();
+    const loadGeneration = fileLoadGenerationRef.current + 1;
+    fileLoadGenerationRef.current = loadGeneration;
     const alreadyOpen = path === activeFile && !activePaper && !activeAsset;
     if (alreadyOpen) {
+      // This intent invalidates any older Paper/file request even though it
+      // does not need its own opening UI.
+      setPrimaryOpening(null);
       setFocusedPane("primary");
       if (line) {
         setEditorNavigation({ path, line, id: crypto.randomUUID() });
@@ -3013,10 +3282,31 @@ function App() {
       }
       return;
     }
+    const clearOpening = () => setPrimaryOpening((current) => (
+      current?.generation === loadGeneration ? null : current
+    ));
+    setPrimaryOpening({
+      generation: loadGeneration,
+      label: path.split("/").at(-1) ?? path,
+    });
+    await afterNextPaintOpportunity();
+    const openingPaintMs = performance.now() - switchStartedAt;
+    if (fileLoadGenerationRef.current !== loadGeneration) {
+      clearOpening();
+      return;
+    }
+    // Reserve this user intent before save or any other await. Otherwise an
+    // older file request waiting on a write can allocate a newer generation
+    // after a later Paper/asset click and incorrectly reclaim the surface.
     // Visual Markdown serialization is intentionally deferred while typing.
     // Publish it before taking the dirty snapshot so a programmatic switch
     // cannot apply the old document's final edit to the next file buffer.
-    visualMarkdownFlushRef.current?.();
+    const flushStartedAt = performance.now();
+    if (visualMarkdownFlushRef.current?.() === false) {
+      clearOpening();
+      return;
+    }
+    const flushMs = performance.now() - flushStartedAt;
     if (activeFile && !activePaper && !activeAsset) {
       const current = viewStateRef.current.get(activeFile);
       viewStateRef.current.set(activeFile, {
@@ -3024,20 +3314,37 @@ function App() {
         scrollTop: current?.scrollTop ?? 0,
       });
     }
+    const contentLoadStartedAt = performance.now();
     let gate: Promise<boolean> | undefined;
-    const primaryDirty = activePaper
-      ? paperMarkdownRef.current !== savedPaperMarkdownRef.current
+    const primaryDirty = sourceRef.current !== savedSourceRef.current
+      || (Boolean(activePaper) && (
+        paperMarkdownRef.current !== savedPaperMarkdownRef.current
         || paperBlogRef.current !== savedPaperBlogRef.current
-      : sourceRef.current !== savedSourceRef.current;
+      ));
+    const targetAliasesDirtyPaper = Boolean(activePaper) && (
+      paperMarkdownRef.current !== savedPaperMarkdownRef.current
+      || paperBlogRef.current !== savedPaperBlogRef.current
+    ) && (
+      path === `.research/papers/${activePaper?.arxivId}/paper.md`
+      || path === `.research/papers/${activePaper?.arxivId}/blog.md`
+    );
     if (
       primaryDirty
       || (secondaryFile && secondarySource !== secondarySavedSource)
     ) {
-      if (path === secondaryFile) {
-        // save() rewrites the secondary buffer's file on disk; overlapping it
-        // with the read below would hand the editor pre-save contents.
+      if (path === secondaryFile || targetAliasesDirtyPaper) {
+        // save() rewrites this destination from either the secondary buffer or
+        // the Paper editor; overlapping it with the read below would hand the
+        // incoming editor pre-save contents after the write succeeds.
         const saved = await save();
-        if (!saved) return;
+        if (!saved) {
+          clearOpening();
+          return;
+        }
+        if (fileLoadGenerationRef.current !== loadGeneration) {
+          clearOpening();
+          return;
+        }
       } else {
         // Otherwise the write of the old file and the read of the new one are
         // independent — run them concurrently and let loadFile confirm the
@@ -3045,8 +3352,22 @@ function App() {
         gate = save();
       }
     }
-    const applied = await loadFile(path, { restoreView: !line, revealSource: true, gate });
+    const applied = await loadFile(path, {
+      restoreView: !line,
+      revealSource: true,
+      gate,
+      loadGeneration,
+      canCommit: () => !flushAndCheckPrimaryDirty(
+        activePaper ? "paper" : activeAsset ? "asset" : "file",
+      ),
+    });
+    clearOpening();
     if (!applied) return;
+    recordNavigationTiming("file", path, switchStartedAt, {
+      openingPaintMs,
+      flushMs,
+      saveAndReadMs: performance.now() - contentLoadStartedAt,
+    });
     setFocusedPane("primary");
     if (line) {
       setEditorNavigation({ path, line, id: crypto.randomUUID() });
@@ -3062,7 +3383,9 @@ function App() {
     activePaper,
     activePaperDirty,
     canvasMode,
+    cancelPreviewPrewarm,
     collabSession,
+    flushAndCheckPrimaryDirty,
     focusedPane,
     loadFile,
     project?.root,
@@ -3136,14 +3459,43 @@ function App() {
     // where an empty tab strip is meaningful because the compiled preview can
     // stand on its own.
     if (!remaining.length && canvasMode !== "pdf") return;
-    if (
+    const closingActivePaper = Boolean(
       isPaperTabKey(path)
       && activePaper
-      && paperTabKey(activePaper.arxivId) === path
-      && activePaperDirty
-      && !(await save())
-    ) {
-      return;
+      && paperTabKey(activePaper.arxivId) === path,
+    );
+    const fileFallback = [...remaining].reverse().find((key) => !isPaperTabKey(key) && !projectAssetPaths.has(key));
+    if (closingActivePaper) {
+      const loadGeneration = fileLoadGenerationRef.current + 1;
+      fileLoadGenerationRef.current = loadGeneration;
+      setPrimaryOpening(null);
+      // Deferred visual edits are not represented by activePaperDirty yet.
+      // Flush before the dirty check and keep all ownership/tab mutations
+      // behind a successful save and fallback load.
+      if (visualMarkdownFlushRef.current?.() === false) return;
+      if (
+        (paperMarkdownRef.current !== savedPaperMarkdownRef.current
+          || paperBlogRef.current !== savedPaperBlogRef.current)
+        && !(await save())
+      ) return;
+      if (fileLoadGenerationRef.current !== loadGeneration) return;
+      if (flushAndCheckPrimaryDirty("paper")) return;
+      if (fileFallback) {
+        const applied = await loadFile(fileFallback, {
+          revealSource: true,
+          loadGeneration,
+          canCommit: () => !flushAndCheckPrimaryDirty("paper"),
+        });
+        if (!applied) return;
+        setFocusedPane("primary");
+      } else {
+        setActivePaper(null);
+        setPaperMarkdown("");
+        setSavedPaperMarkdown("");
+        setPaperBlog(null);
+        setSavedPaperBlog(null);
+        setCanvasMode((mode) => mode === "pdf" ? "split" : mode);
+      }
     }
     setOpenTabs(remaining);
     tabRecency.current = tabRecency.current.filter((key) => key !== path);
@@ -3151,18 +3503,7 @@ function App() {
     closedTabsRef.current = [path, ...closedTabsRef.current.filter((item) => item !== path)].slice(0, 20);
     // The most recent still-open text file to fall back to (papers can't load
     // into the editor).
-    const fileFallback = [...remaining].reverse().find((key) => !isPaperTabKey(key) && !projectAssetPaths.has(key));
     if (isPaperTabKey(path)) {
-      // Only the paper currently on screen needs the canvas returned to the editor.
-      if (activePaper && paperTabKey(activePaper.arxivId) === path) {
-        setActivePaper(null);
-        setPaperMarkdown("");
-        setSavedPaperMarkdown("");
-        setPaperBlog(null);
-        setSavedPaperBlog(null);
-        if (fileFallback) await openProjectFile(fileFallback);
-        else setCanvasMode((mode) => mode === "pdf" ? "split" : mode);
-      }
       return;
     }
     if (projectAssetPaths.has(path)) {
@@ -3186,8 +3527,9 @@ function App() {
     activeAsset,
     activeFile,
     activePaper,
-    activePaperDirty,
     canvasMode,
+    flushAndCheckPrimaryDirty,
+    loadFile,
     openProjectFile,
     openTabs,
     projectAssetPaths,
@@ -4826,7 +5168,7 @@ function App() {
       }
       finally { setBusyLabel(null); }
     })();
-  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabName, enterProject, handleV2Catalog, bindJoinedDocument, loadFile, mapV2Status, project, refreshProject, refreshRecentRooms, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
+  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabName, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, project, refreshProject, refreshRecentRooms, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
 
   useEffect(() => {
     pendingJoinRef.current = rejoinCollabProjectV2;
@@ -5309,7 +5651,7 @@ function App() {
   }, [appearance.interfaceScale, isFullscreen, project?.manifest.name]);
 
   useEffect(() => {
-    const documentDirty = Boolean(!activePaper && activeFile && source !== savedSource);
+    const documentDirty = Boolean(!activePaper && !activeAsset && activeFile && source !== savedSource);
     if (!project || (!documentDirty && !activePaperDirty)) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     const automatic = !activePaper && buildPreferences.autoBuildMode === "automatic";
@@ -5325,6 +5667,7 @@ function App() {
     };
   }, [
     activeFile,
+    activeAsset,
     activePaper,
     activePaperDirty,
     buildPreferences.autoBuildMode,
@@ -5353,7 +5696,7 @@ function App() {
 
   const buildWhenLeavingEditor = useCallback(() => {
     if (activePaper) {
-      if (activePaperDirty) void save();
+      if (activePaperDirty || source !== savedSource) void save();
       return;
     }
     if (buildPreferences.autoBuildMode !== "automatic" || source === savedSource) return;
@@ -5459,21 +5802,90 @@ function App() {
     }
   }, [importReferenceInput, importInput]);
 
-  const openPaper = useCallback(async (paper: PaperSummary, localBlogOnly = false) => {
+  const openPaper = useCallback(async (
+    paper: PaperSummary,
+    reservedLoadGeneration?: number,
+  ) => {
+    cancelPreviewPrewarm();
+    const switchStartedAt = performance.now();
+    // Publish the old visual document while its path and setter still own the
+    // buffer. Saving first leaves TipTap's deferred final update behind; the
+    // following Paper render can then route that old update into Paper state.
+    if (
+      reservedLoadGeneration !== undefined
+      && reservedLoadGeneration !== fileLoadGenerationRef.current
+    ) return null;
+    const loadGeneration = reservedLoadGeneration ?? fileLoadGenerationRef.current + 1;
+    if (reservedLoadGeneration === undefined) fileLoadGenerationRef.current = loadGeneration;
+    const clearOpening = () => setPrimaryOpening((current) => (
+      current?.generation === loadGeneration ? null : current
+    ));
+    setPrimaryOpening({ generation: loadGeneration, label: paper.title });
+    await afterNextPaintOpportunity();
+    const openingPaintMs = performance.now() - switchStartedAt;
+    if (loadGeneration !== fileLoadGenerationRef.current) {
+      clearOpening();
+      return null;
+    }
+    const flushStartedAt = performance.now();
+    if (visualMarkdownFlushRef.current?.() === false) {
+      clearOpening();
+      return null;
+    }
+    const flushMs = performance.now() - flushStartedAt;
+    const projectRoot = projectRef.current?.root;
+    const projectGeneration = projectOperationGenerationRef.current;
+    const isLatestLoad = () => (
+      loadGeneration === fileLoadGenerationRef.current
+      && projectOperationGenerationRef.current === projectGeneration
+      && projectRef.current?.root === projectRoot
+    );
     try {
-      if (!(await save())) return;
+      const contentLoadStartedAt = performance.now();
       // Full text and the overview are independent: an arxiv2md conversion can
       // fail while alphaXiv still supplied a useful blog. Keep either readable
       // result instead of letting one rejected promise discard the other.
-      const [fullTextResult, blogResult] = await Promise.allSettled([
+      // Existing library rows must stay local on open. Refreshing alphaXiv in
+      // the foreground made a cached Paper switch wait hundreds of milliseconds
+      // (and occasionally seconds) on the network before showing local bytes.
+      const readPaper = () => Promise.allSettled([
         invoke<string>("read_paper", { arxivId: paper.arxivId }),
-        invoke<string | null>(localBlogOnly ? "read_paper_blog_local" : "read_paper_blog", { arxivId: paper.arxivId }),
+        invoke<string | null>("read_paper_blog_local", { arxivId: paper.arxivId }),
       ]);
+      const paperPath = `.research/papers/${paper.arxivId}/paper.md`;
+      const blogPath = `.research/papers/${paper.arxivId}/blog.md`;
+      const activePaperBufferDirty = paperMarkdownRef.current !== savedPaperMarkdownRef.current
+        || paperBlogRef.current !== savedPaperBlogRef.current;
+      const targetAliasesDirtyBuffer = (
+        activePaper?.arxivId === paper.arxivId && activePaperBufferDirty
+      ) || (
+        (activeFile === paperPath || activeFile === blogPath)
+        && sourceRef.current !== savedSourceRef.current
+      ) || (
+        (secondaryFile === paperPath || secondaryFile === blogPath)
+        && secondarySource !== secondarySavedSource
+      );
+      let results: Awaited<ReturnType<typeof readPaper>>;
+      if (targetAliasesDirtyBuffer) {
+        if (!(await save())) return null;
+        if (!isLatestLoad()) return null;
+        results = await readPaper();
+      } else {
+        const [saved, loaded] = await Promise.all([save(), readPaper()]);
+        if (!saved) return null;
+        results = loaded;
+      }
+      const [fullTextResult, blogResult] = results;
+      if (!isLatestLoad()) return null;
       const fullText = fullTextResult.status === "fulfilled" ? fullTextResult.value : "";
       const blog = blogResult.status === "fulfilled" ? blogResult.value : null;
       if (!fullText && !blog) {
         throw fullTextResult.status === "rejected" ? fullTextResult.reason : new Error("No readable paper content is available.");
       }
+      // The old editor stayed live while save/read ran. If it changed in that
+      // interval, keep it on screen for autosave instead of replacing it with
+      // the Paper and dropping the late edit.
+      if (flushAndCheckPrimaryDirty(activePaper ? "paper" : activeAsset ? "asset" : "file")) return null;
       setPaperMarkdown(fullText);
       setSavedPaperMarkdown(fullText);
       setPaperBlog(blog);
@@ -5492,14 +5904,37 @@ function App() {
       setCanvasMode("pdf");
       const key = paperTabKey(paper.arxivId);
       setOpenTabs((tabs) => (tabs.includes(key) ? tabs : [...tabs, key]));
+      recordNavigationTiming("paper", paper.title, switchStartedAt, {
+        openingPaintMs,
+        flushMs,
+        saveAndReadMs: performance.now() - contentLoadStartedAt,
+      });
       return { hasBlog: blog !== null, hasFullText: Boolean(fullText) };
     } catch (reason) {
-      setError(toMessage(reason));
+      if (isLatestLoad()) setError(toMessage(reason));
       return null;
+    } finally {
+      clearOpening();
     }
-  }, [save]);
+  }, [
+    activeAsset,
+    activeFile,
+    activePaper,
+    activePaperDirty,
+    cancelPreviewPrewarm,
+    flushAndCheckPrimaryDirty,
+    save,
+    secondaryFile,
+    secondarySavedSource,
+    secondarySource,
+  ]);
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
+    // Reserve the navigation when the user asks, not after a potentially slow
+    // network fetch. Any later file/Paper/asset click invalidates this token.
+    const loadGeneration = fileLoadGenerationRef.current + 1;
+    fileLoadGenerationRef.current = loadGeneration;
+    setPrimaryOpening(null);
     const key = paperKey(paper);
     setPaperFetchStates((current) => ({ ...current, [key]: "loading" }));
     try {
@@ -5543,9 +5978,11 @@ function App() {
         });
         delete paperFetchTimers.current[key];
       }, 1100);
-      const opened = await openPaper(fetched);
+      if (fileLoadGenerationRef.current !== loadGeneration) return;
+      const opened = await openPaper(fetched, loadGeneration);
+      if (!opened || fileLoadGenerationRef.current !== loadGeneration) return;
       if (tutorialActive && tutorialStep === TUTORIAL_STEPS.importVit && result.arxivId === "2010.11929") {
-        if (opened?.hasBlog) setPaperView("blog");
+        if (opened?.hasBlog) changePaperView("blog");
         setTutorialStep(opened?.hasBlog ? TUTORIAL_STEPS.paperBlog : TUTORIAL_STEPS.paperFullText);
       }
     } catch (reason) {
@@ -5554,20 +5991,33 @@ function App() {
         delete next[key];
         return next;
       });
-      setError(toMessage(reason));
+      if (fileLoadGenerationRef.current === loadGeneration) setError(toMessage(reason));
     } finally {
       setPaperImportStage(null);
     }
-  }, [collabSession, openPaper, refreshProject, tutorialActive, tutorialStep]);
+  }, [changePaperView, collabSession, openPaper, refreshProject, tutorialActive, tutorialStep]);
 
   useEffect(() => () => {
     Object.values(paperFetchTimers.current).forEach((timer) => window.clearTimeout(timer));
   }, []);
 
   const openProjectAsset = useCallback(async (path: string) => {
+    if (visualMarkdownFlushRef.current?.() === false) return false;
+    const loadGeneration = fileLoadGenerationRef.current + 1;
+    fileLoadGenerationRef.current = loadGeneration;
+    setPrimaryOpening(null);
+    const projectRoot = projectRef.current?.root;
+    const projectGeneration = projectOperationGenerationRef.current;
+    const isLatestLoad = () => (
+      loadGeneration === fileLoadGenerationRef.current
+      && projectOperationGenerationRef.current === projectGeneration
+      && projectRef.current?.root === projectRoot
+    );
     try {
-      if (!(await save())) return;
+      if (!(await save())) return false;
+      if (!isLatestLoad()) return false;
       const asset = await invoke<AssetPreview>("read_project_asset", { path });
+      if (!isLatestLoad() || flushAndCheckPrimaryDirty(activePaper ? "paper" : activeAsset ? "asset" : "file")) return false;
       setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
       setActiveAsset(asset);
       setActivePaper(null);
@@ -5577,10 +6027,12 @@ function App() {
       setSavedPaperBlog(null);
       setCanvasMode("asset");
       setError(null);
+      return true;
     } catch (reason) {
-      setError(toMessage(reason));
+      if (isLatestLoad()) setError(toMessage(reason));
+      return false;
     }
-  }, [save]);
+  }, [activeAsset, activePaper, flushAndCheckPrimaryDirty, save]);
 
   // Paper and asset tabs need their content loaded through their specialized
   // readers after the base project state exists. File tabs are restored inside
@@ -5594,9 +6046,10 @@ function App() {
         const arxivId = arxivIdFromTabKey(pending.activeTab);
         const paper = papers.find((item) => item.arxivId === arxivId);
         if (paper) {
-          await openPaper(paper, true);
+          const opened = await openPaper(paper);
+          if (!opened) return;
           if (projectRef.current?.root === pending.root) {
-            setPaperView(pending.paperView);
+            changePaperView(pending.paperView);
             setCanvasMode(
               pending.canvasMode === "source" || pending.canvasMode === "split"
                 ? pending.canvasMode
@@ -5605,13 +6058,13 @@ function App() {
           }
         }
       } else {
-        await openProjectAsset(pending.activeTab);
+        if (!(await openProjectAsset(pending.activeTab))) return;
       }
       if (projectRef.current?.root === pending.root) {
         setWorkspacePersistenceReadyRoot(pending.root);
       }
     })();
-  }, [openPaper, openProjectAsset, papers, project?.root]);
+  }, [changePaperView, openPaper, openProjectAsset, papers, project?.root]);
 
   useEffect(() => {
     referencePreviewCache.current.clear();
@@ -5631,6 +6084,13 @@ function App() {
       .then((dataUrl) => {
         const current = referencePreviewCache.current.get(key);
         if (current?.promise === preview) {
+          if (dataUrl === null) {
+            // A paper import can expose its Markdown before every extracted
+            // asset is readable. Do not memoize that transient miss forever;
+            // ProjectImageHost performs a small bounded retry sequence.
+            referencePreviewCache.current.delete(key);
+            return dataUrl;
+          }
           current.characters = dataUrl?.length ?? 0;
           referencePreviewCache.current.delete(key);
           referencePreviewCache.current.set(key, current);
@@ -5668,19 +6128,19 @@ function App() {
       const paper = papers.find((item) => item.arxivId === paperLink.arxivId
         && (item.hasFullText || item.hasBlog));
       if (paper) {
-        void openPaper(paper, true).then((opened) => {
+        void openPaper(paper).then((opened) => {
           if (!opened) return;
           // Honor the view the link named when it is locally readable;
           // openPaper already fell back to whichever side exists.
-          if (paperLink.view === "fulltext" && opened.hasFullText) setPaperView("fulltext");
-          else if (paperLink.view === "blog" && opened.hasBlog) setPaperView("blog");
+          if (paperLink.view === "fulltext" && opened.hasFullText) changePaperView("fulltext");
+          else if (paperLink.view === "blog" && opened.hasBlog) changePaperView("blog");
         });
         return;
       }
     }
     if (isProjectAssetFilePath(path)) openProjectAssetFromClick(path);
     else openProjectFileFromClick(path);
-  }, [openPaper, openProjectAssetFromClick, openProjectFileFromClick, papers]);
+  }, [changePaperView, openPaper, openProjectAssetFromClick, openProjectFileFromClick, papers]);
 
   const beginProjectFigureDrag = useCallback((path: string, label: string, event: React.PointerEvent) => {
     if (event.button !== 0) return;
@@ -5827,8 +6287,10 @@ function App() {
 
   const openDocumentMode = useCallback((mode: DocumentViewMode) => {
     void (async () => {
+      if (visualMarkdownFlushRef.current?.() === false) return;
       if (activePaperDirty && !(await save())) return;
       if (activePaper) {
+        markdownModeViewportCaptureRef.current?.();
         setCanvasMode(mode);
         return;
       }
@@ -5848,33 +6310,57 @@ function App() {
       if (mode === "dual" || mode === "columns") {
         try {
           await ensureSecondaryFile();
+          markdownModeViewportCaptureRef.current?.();
           setCanvasMode(mode);
         } catch (reason) {
           setError(toMessage(reason));
         }
         return;
       }
+      markdownModeViewportCaptureRef.current?.();
       setCanvasMode(mode);
     })();
   }, [activeFile, activePaper, activePaperDirty, ensureSecondaryFile, save]);
 
   const swapEditorPanes = useCallback(async () => {
     if (!secondaryFile || !activeFile || secondaryFile === activeFile) return;
+    const loadGeneration = fileLoadGenerationRef.current + 1;
+    fileLoadGenerationRef.current = loadGeneration;
+    setPrimaryOpening(null);
+    const projectRoot = projectRef.current?.root;
+    const projectGeneration = projectOperationGenerationRef.current;
+    const isLatestSwap = () => (
+      fileLoadGenerationRef.current === loadGeneration
+      && projectOperationGenerationRef.current === projectGeneration
+      && projectRef.current?.root === projectRoot
+    );
     try {
-      if (source !== savedSource || secondarySource !== secondarySavedSource) {
+      if (visualMarkdownFlushRef.current?.() === false) return;
+      const outgoingPrimary = sourceRef.current;
+      const outgoingSecondary = secondarySourceRef.current;
+      if (outgoingPrimary !== savedSourceRef.current || secondarySource !== secondarySavedSource) {
         if (!(await save())) return;
       }
+      if (!isLatestSwap()) return;
       const nextPrimary = secondaryFile;
       const nextSecondary = activeFile;
       // The primary pane must go through loadFile: in a v2 share it is the
       // pane bound to the controller's active doc, and a bare state swap left
       // activePath pointing at the old file — the editor unbound from yCollab
       // and keystrokes stopped syncing until the next real file switch.
-      if (!(await loadFile(nextPrimary))) return;
-      const v2 = collabV2ControllerRef.current;
-      const secondaryContent = activeCollabVersion === 2 && v2?.hasTextPath(nextSecondary)
-        ? (await v2.openPath(nextSecondary, "secondary", { sideload: true })).toString()
-        : await invoke<string>("read_project_file", { path: nextSecondary });
+      if (!(await loadFile(nextPrimary, {
+        loadGeneration,
+        canCommit: () => (
+          isLatestSwap()
+          && secondarySourceRef.current === outgoingSecondary
+          && !flushAndCheckPrimaryDirty("file")
+        ),
+      }))) return;
+      if (!isLatestSwap() || secondarySourceRef.current !== outgoingSecondary) return;
+      // This is the exact outgoing primary buffer we just flushed and saved.
+      // Re-reading it added an IPC round trip and left a stale continuation
+      // capable of committing only half of a pane swap.
+      const secondaryContent = outgoingPrimary;
       setSecondaryFile(nextSecondary);
       setSecondarySource(secondaryContent);
       setSecondarySavedSource(secondaryContent);
@@ -5894,13 +6380,12 @@ function App() {
     }
   }, [
     activeFile,
-    canvasMode,
+    flushAndCheckPrimaryDirty,
+    loadFile,
     save,
-    savedSource,
     secondaryFile,
     secondarySavedSource,
     secondarySource,
-    source,
   ]);
 
   const createProjectEntry = useCallback(async (path: string, kind: "file" | "folder") => {
@@ -5922,7 +6407,7 @@ function App() {
         if (overleafLink && overleafSyncMode === "live") {
           await overleafSyncRef.current({ auto: true });
         }
-        await loadFile(createdPath);
+        await openProjectFile(createdPath);
       }
       return createdPath;
     } catch (reason) {
@@ -5930,7 +6415,7 @@ function App() {
       throw reason;
     }
   }, [
-    loadFile,
+    openProjectFile,
     overleafLink,
     overleafSyncMode,
     project?.root,
@@ -6731,22 +7216,147 @@ function App() {
       setError("This bibliography entry has no citation key to remove.");
       return;
     }
-    if (!await confirmAction(`Remove “${paper.title}” from the bibliography? Downloaded paper files will be kept.`)) return;
+    const projectRoot = project?.root;
+    if (!projectRoot) return;
+    const projectGeneration = projectOperationGenerationRef.current;
+    const operationIsCurrent = () => (
+      projectRef.current?.root === projectRoot
+      && projectOperationGenerationRef.current === projectGeneration
+    );
     try {
+      // The blocker scan runs in Rust against durable project files. Flush the
+      // editor first so a citation removed moments ago does not survive only
+      // on disk and produce a blocker the visible document cannot find.
+      if (visualMarkdownFlushRef.current?.() === false) return;
+      if (!await save()) return;
       const bibliographyPath = project?.manifest.primaryBibliography;
-      const result = await invoke<{ removed: boolean; blockers: SymbolOccurrence[] }>("remove_reference", {
+      const preview = await invoke<RemoveReferenceResult>("remove_reference", {
         key: paper.citationKey,
+        citationMode: "preview",
+        projectRoot,
       });
+      if (!operationIsCurrent()) return;
+      let citationMode: "keep" | "remove" | undefined;
+      if (preview.blockers.length) {
+        const count = preview.blockers.length;
+        const first = preview.blockers[0];
+        const location = first ? ` The first is at ${first.path}:${first.line}.` : "";
+        const choice = await chooseAction({
+          title: `Remove “${paper.title}” from the bibliography?`,
+          message: `This entry is cited in ${count} ${count === 1 ? "place" : "places"}.${location} Keeping the citation commands will leave them unresolved. Downloaded paper files will be kept.`,
+          confirmLabel: "Remove citations too",
+          alternativeLabel: "Keep citations",
+          alternativeDestructive: true,
+          destructive: true,
+        });
+        if (choice === "cancel") return;
+        citationMode = choice === "confirm" ? "remove" : "keep";
+      } else {
+        const confirmed = await confirmAction({
+          title: `Remove “${paper.title}” from the bibliography?`,
+          message: "Downloaded paper files will be kept.",
+          confirmLabel: "Remove entry",
+          destructive: true,
+        });
+        if (!confirmed) return;
+      }
+      if (!operationIsCurrent()) return;
+      const result = await invoke<RemoveReferenceResult>("remove_reference", {
+        key: paper.citationKey,
+        ...(citationMode ? { citationMode } : {}),
+        projectRoot,
+      });
+      if (!operationIsCurrent()) return;
       if (!result.removed) {
         const first = result.blockers[0];
         setError(first
-          ? `Remove citations to \\cite{${paper.citationKey}} first (${first.path}:${first.line}).`
+          ? `The bibliography changed while removing \\cite{${paper.citationKey}} (${first.path}:${first.line}). Try again.`
           : `Could not remove \\cite{${paper.citationKey}}.`);
         return;
       }
-      if (collabSession && bibliographyPath) {
-        const content = await invoke<string>("read_project_file", { path: bibliographyPath });
-        await publishTextToCollabV2(bibliographyPath, content);
+
+      // The user or a collaborator can keep editing while the confirmation is
+      // open. Rust returns the exact input/output pair for every file so the UI
+      // can refuse to merge a stale whole-file result into a newer buffer.
+      let conflictPath: string | null = null;
+      for (const change of result.changes ?? []) {
+        if (
+          activeFileRef.current === change.path
+          && sourceRef.current !== change.before
+          && sourceRef.current !== change.after
+        ) {
+          conflictPath = change.path;
+          break;
+        }
+        if (
+          secondaryFileRef.current === change.path
+          && secondarySourceRef.current !== change.before
+          && secondarySourceRef.current !== change.after
+        ) {
+          conflictPath = change.path;
+          break;
+        }
+        const controller = collabV2ControllerRef.current;
+        if (activeCollabVersion === 2 && controller?.hasTextPath(change.path)) {
+          const ytext = await controller.openPath(change.path, "secondary", { sideload: true });
+          if (!operationIsCurrent()) return;
+          const collabText = ytext.toString();
+          if (collabText !== change.before && collabText !== change.after) {
+            conflictPath = change.path;
+            break;
+          }
+        }
+      }
+      if (conflictPath) {
+        let reverted = false;
+        if (result.transactionId) {
+          try {
+            await invoke("revert_transaction", {
+              transactionId: result.transactionId,
+              projectRoot,
+            });
+            reverted = true;
+          } catch {
+            // Revert itself is compare-and-swap guarded. If disk also changed,
+            // leave both versions intact and direct the user to History.
+          }
+        }
+        if (operationIsCurrent()) {
+          setError(reverted
+            ? `${conflictPath} changed while the reference was being removed. Nothing was removed; try again.`
+            : `${conflictPath} changed while the reference was being removed. The newer text was preserved; review the removal in History.`);
+          await refreshProject();
+          await refreshHistory();
+        }
+        return;
+      }
+
+      const changedFiles = result.changedFiles?.length
+        ? result.changedFiles
+        : bibliographyPath
+          ? [bibliographyPath]
+          : [];
+      const returnedChanges = new Map(
+        (result.changes ?? []).map((change) => [change.path, change.after]),
+      );
+      for (const path of changedFiles) {
+        const content = returnedChanges.get(path)
+          ?? await invoke<string>("read_project_file", { path, projectRoot });
+        const published = collabSession
+          ? await publishTextToCollabV2(path, content)
+          : false;
+        if (!published && path === activeFile) {
+          sourceRef.current = content;
+          savedSourceRef.current = content;
+          setSource(content);
+          setSavedSource(content);
+          await markDiskMtime(path);
+        } else if (!published && path === secondaryFile) {
+          secondarySourceRef.current = content;
+          secondarySavedRef.current = content;
+          setSecondarySource(content);
+          setSecondarySavedSource(content);
+        }
       }
       if (activePaper && paperKey(activePaper) === paperKey(paper)) {
         setActivePaper(null);
@@ -6756,12 +7366,25 @@ function App() {
         setSavedPaperBlog(null);
         setCanvasMode("split");
       }
+      setError(null);
       await refreshProject();
       await refreshHistory();
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [activePaper, collabSession, project, refreshHistory, refreshProject]);
+  }, [
+    activeFile,
+    activePaper,
+    activeCollabVersion,
+    collabSession,
+    markDiskMtime,
+    project,
+    publishTextToCollabV2,
+    refreshHistory,
+    refreshProject,
+    save,
+    secondaryFile,
+  ]);
 
   const openSettings = useCallback((tab: SettingsTab = "appearance") => {
     setSettingsTab(tab);
@@ -6774,7 +7397,7 @@ function App() {
         "Restore the project to the state before this change? The restore will be added as a new history entry.",
       )) return;
       try {
-        await invoke("revert_transaction", { transactionId: id });
+        await invoke("revert_transaction", { transactionId: id, projectRoot: project?.root });
         if (activeFile) await loadFile(activeFile);
         await refreshProject();
         await refreshHistory();
@@ -6783,7 +7406,7 @@ function App() {
         setError(toMessage(reason));
       }
     },
-    [activeFile, compile, loadFile, refreshHistory, refreshProject],
+    [activeFile, compile, loadFile, project?.root, refreshHistory, refreshProject],
   );
 
   const deleteHistory = useCallback(async (id: string) => {
@@ -7011,6 +7634,10 @@ function App() {
 
   const projectPaths = useMemo(
     () => (project ? flattenProjectPaths(project.files) : []),
+    [project],
+  );
+  const quickOpenPaths = useMemo(
+    () => (project ? collectQuickOpenPaths(project.files) : []),
     [project],
   );
   const rootDocumentPath = project?.manifest.rootDocuments.find((document) => document.isDefault)?.path
@@ -7565,7 +8192,7 @@ function App() {
             paperHasBlog={paperBlog !== null}
             paperHasFullText={Boolean(paperMarkdown)}
             onPaperView={activePaper ? (view) => {
-              setPaperView(view);
+              changePaperView(view);
               if (tutorialActive && tutorialStep === TUTORIAL_STEPS.paperBlog && view === "fulltext") {
                 setTutorialStep(TUTORIAL_STEPS.paperFullText);
               }
@@ -7734,13 +8361,15 @@ function App() {
                           <Shapes size={13} />
                         </button>
                       </Tip>
-                      <Tip label={projectSearchOpen ? "Hide file search" : "Search files"}>
+                      <Tip label="Find in project">
                         <button
-                          aria-pressed={projectSearchOpen}
-                          onPointerDown={(event) => {
-                            if (projectSearchOpen) event.preventDefault();
+                          aria-label="Find in project"
+                          onClick={() => {
+                            setProjectSearchOpen(false);
+                            setProjectFindError(null);
+                            setProjectFindHits([]);
+                            setProjectFindOpen(true);
                           }}
-                          onClick={() => setProjectSearchOpen((open) => !open)}
                         >
                           <Search size={13} />
                         </button>
@@ -7787,6 +8416,7 @@ function App() {
                   papers={papers}
                   activePaper={activePaper}
                   onFile={openProjectFileFromClick}
+                  onLikelyFile={prewarmLikelyProjectFile}
                   onAsset={openProjectAssetFromClick}
                   onBeginFigureDrag={beginProjectFigureDrag}
                   onBeginFileDrag={beginProjectFileDrag}
@@ -7805,10 +8435,11 @@ function App() {
                       && tutorialStep === TUTORIAL_STEPS.importVit
                       && paper.arxivId === "2010.11929"
                     ) {
-                      if (opened?.hasBlog) setPaperView("blog");
+                      if (opened?.hasBlog) changePaperView("blog");
                       setTutorialStep(opened?.hasBlog ? TUTORIAL_STEPS.paperBlog : TUTORIAL_STEPS.paperFullText);
                     }
                   })}
+                  onLikelyPaper={prewarmLikelyPaper}
                   onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
                   paperFetchStates={paperFetchStates}
                   onDeletePaper={deletePaper}
@@ -7866,6 +8497,12 @@ function App() {
 
         <section className="canvas-panel" data-tour="canvas">
           <div className="canvas-body">
+          {primaryOpening && (
+            <div className="primary-opening-overlay" role="status" aria-live="polite">
+              <InfinityLoader size={16} />
+              <span>Opening {primaryOpening.label}…</span>
+            </div>
+          )}
           <span className="canvas-tour-card-anchor" data-tour="canvas-tour-card-anchor" aria-hidden="true" />
           <Suspense fallback={<div className="document-canvas-loading" aria-label="Preparing editor" />}>
           <DocumentCanvas
@@ -7882,12 +8519,16 @@ function App() {
             onFocusPane={setFocusedPane}
             setSource={activePaper ? setActivePaperSource : setPrimarySource}
             onVisualMarkdownFlushChange={registerVisualMarkdownFlush}
+            onMarkdownModeViewportCaptureChange={registerMarkdownModeViewportCapture}
             setSelection={(value) => reportAgentSelection(activePaper ? "paper" : "editor", value)}
             onPdfTextSelect={(value) => reportAgentSelection("pdf", value)}
             onPaperTextSelect={(value) => reportAgentSelection("paper", value)}
             onImportAsset={importClipboardImageFile}
             onContextSurfaceActivate={activateAgentHostSurface}
-            onViewMarkdownSource={() => setCanvasMode("split")}
+            onViewMarkdownSource={() => {
+              markdownModeViewportCaptureRef.current?.();
+              setCanvasMode("split");
+            }}
             pdfUrl={pdfUrl}
             pdfBase64={null}
             pdfBytes={displayedPdfBytesRef.current}
@@ -7915,7 +8556,7 @@ function App() {
             onOpenCitation={(key) => {
               const paper = papers.find((item) => item.citationKey?.toLocaleLowerCase() === key.toLocaleLowerCase()
                 && (item.hasFullText || item.hasBlog));
-              if (paper) void openPaper(paper, true);
+              if (paper) void openPaper(paper);
             }}
             citationKeys={citationKeys}
             citations={citations}
@@ -8048,7 +8689,12 @@ function App() {
             editorEditable={
               (collabSession?.canWrite !== false && collabCanWrite)
               && (
-                overleafLink === null
+                // Papers live under .research/, which Overleaf deliberately
+                // excludes from sync. Keep collaboration read grants above,
+                // but do not let an unrelated Overleaf document's permission
+                // turn the local Paper editor read-only.
+                activePaper !== null
+                || overleafLink === null
                 || overleafRealtime.canWrite
                 || (
                   overleafRealtime.permission !== "unknown"
@@ -8351,10 +8997,16 @@ function App() {
             setCommentPanelFocusId(null);
           }}
           onOpen={(comment) => {
+            const generation = commentOpenGenerationRef.current + 1;
+            commentOpenGenerationRef.current = generation;
             setActiveEditorCommentId(comment.id);
             setEditorCommentsOpen(false);
             setCommentPanelFocusId(null);
             void openProjectFile(comment.path).then(() => {
+              if (
+                commentOpenGenerationRef.current !== generation
+                || activeFileRef.current !== comment.path
+              ) return;
               setCommentFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
             });
           }}
@@ -8441,11 +9093,13 @@ function App() {
       )}
       <QuickOpenDialog
         open={quickOpenOpen}
-        paths={projectPaths}
+        paths={quickOpenPaths}
         onClose={() => setQuickOpenOpen(false)}
+        onIntent={prewarmLikelyProjectFile}
         onOpen={(path) => {
           setQuickOpenOpen(false);
-          void openProjectFile(path);
+          if (isProjectAssetFilePath(path)) void openProjectAsset(path);
+          else void openProjectFile(path);
         }}
       />
       <SearchPickerDialog
@@ -8540,6 +9194,10 @@ function App() {
           })();
         }}
         onOpenHit={(path, line) => {
+          if (parsePaperLinkPath(path)) {
+            openMarkdownProjectPath(path);
+            return;
+          }
           void openProjectFile(path, line);
         }}
       />
@@ -8671,7 +9329,7 @@ function App() {
           { id: "ref", label: "Insert reference", detail: "⌘⇧L", group: "Edit" },
           { id: "bib", label: "Add bibliography entry", group: "Edit" },
           { id: "discover", label: "Discover literature", detail: "OpenAlex search", group: "Research" },
-          { id: "find", label: "Find in project", detail: "⌘⇧F · all .tex files", group: "Edit" },
+          { id: "find", label: "Find in project", detail: "⌘⇧F · source files and papers", group: "Edit" },
           { id: "replace", label: "Replace in project", detail: "⌘⇧H · all .tex files", group: "Edit" },
           { id: "todos", label: "Manuscript TODOs", detail: `${todoHits.length || "No"} markers`, group: "Edit" },
           { id: "checklist", label: "Submission checklist", detail: "Words / pages / TODOs", group: "Edit" },
@@ -8808,10 +9466,10 @@ function App() {
               } else if (nextStep === TUTORIAL_STEPS.workspaceActions) {
                 void openTutorialDocument("main.tex", "split");
               } else if (nextStep === TUTORIAL_STEPS.paperBlog) {
-                setPaperView("blog");
+                changePaperView("blog");
                 setTutorialStep(nextStep);
               } else if (nextStep === TUTORIAL_STEPS.paperFullText) {
-                setPaperView("fulltext");
+                changePaperView("fulltext");
                 setTutorialStep(nextStep);
               } else {
                 setTutorialStep(nextStep);

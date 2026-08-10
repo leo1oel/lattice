@@ -105,7 +105,7 @@ describe("ProjectFindDialog", () => {
     fireEvent.click(screen.getByText("Clear search"));
     expect(input).toHaveValue("");
     expect(input).toHaveFocus();
-    expect(screen.getByRole("status")).toHaveTextContent("Type to search the project.");
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
   });
 
   it("announces failures without presenting them as successful zero-result searches", () => {
@@ -171,8 +171,88 @@ describe("ProjectFindDialog", () => {
     fireEvent.keyDown(input, { key: "F3" });
 
     expect(screen.queryByText("sections/old.tex:4")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open hit" })).toBeDisabled();
     expect(onOpenHit).not.toHaveBeenCalled();
+  });
+
+  it("opens paper results by click and keyboard", () => {
+    vi.useFakeTimers();
+    const onOpenHit = vi.fn();
+    render(
+      <ProjectFindDialog
+        open
+        busy={false}
+        error={null}
+        hits={[{
+          kind: "paper",
+          path: ".research/papers/1706.03762/blog.md",
+          title: "Attention Is All You Need",
+          snippet: "A residual stream explanation.",
+          line: 12,
+        }]}
+        onClose={() => undefined}
+        onSearch={() => undefined}
+        onOpenHit={onOpenHit}
+      />,
+    );
+
+    const input = screen.getByRole("searchbox", { name: "Find in project" });
+    fireEvent.change(input, { target: { value: "residual stream" } });
+    act(() => vi.advanceTimersByTime(180));
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Open paper result: Attention Is All You Need",
+    }));
+    expect(onOpenHit).toHaveBeenLastCalledWith(
+      ".research/papers/1706.03762/blog.md",
+      12,
+    );
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onOpenHit).toHaveBeenLastCalledWith(
+      ".research/papers/1706.03762/blog.md",
+      12,
+    );
+    expect(onOpenHit).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/indexed full-text index/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open hit" })).not.toBeInTheDocument();
+  });
+
+  it("does not open a result when Enter commits a Chinese IME candidate", () => {
+    vi.useFakeTimers();
+    const onOpenHit = vi.fn();
+    render(
+      <ProjectFindDialog
+        open
+        busy={false}
+        error={null}
+        hits={[{
+          kind: "file",
+          path: "references.bib",
+          title: "references.bib",
+          snippet: "Chen, Alice",
+          line: 2,
+          fileKind: "bib",
+        }]}
+        onClose={() => undefined}
+        onSearch={() => undefined}
+        onOpenHit={onOpenHit}
+      />,
+    );
+
+    const input = screen.getByRole("searchbox", { name: "Find in project" });
+    fireEvent.change(input, { target: { value: "陈" } });
+    act(() => vi.advanceTimersByTime(180));
+    fireEvent.compositionStart(input);
+    fireEvent.compositionEnd(input);
+    fireEvent.keyDown(input, {
+      key: "Enter",
+      code: "Enter",
+      keyCode: 13,
+      isComposing: false,
+    });
+
+    expect(onOpenHit).not.toHaveBeenCalled();
+    expect(input).toBeInTheDocument();
   });
 
   it("keeps late results hidden after the search is closed and reopened", () => {
@@ -194,7 +274,7 @@ describe("ProjectFindDialog", () => {
       target: { value: "late result" },
     });
     act(() => vi.advanceTimersByTime(180));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close Find in project" }));
 
     const lateHits = [{
       kind: "file",
@@ -207,9 +287,8 @@ describe("ProjectFindDialog", () => {
     rerender(<ProjectFindDialog {...baseProps} open={false} hits={lateHits} />);
     rerender(<ProjectFindDialog {...baseProps} open hits={lateHits} />);
 
-    expect(screen.getByRole("status")).toHaveTextContent("Type to search the project.");
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
     expect(screen.queryByText("sections/late.tex:8")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open hit" })).toBeDisabled();
     fireEvent.keyDown(screen.getByRole("searchbox", { name: "Find in project" }), { key: "Enter" });
     expect(onOpenHit).not.toHaveBeenCalled();
   });

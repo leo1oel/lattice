@@ -12,6 +12,9 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Heading4,
+  Heading5,
+  Heading6,
   List,
   ListOrdered,
   ListTodo,
@@ -188,6 +191,54 @@ export function getSlashCommandItems(): SlashCommandItem[] {
           <h3 className="text-base font-semibold tracking-tight">
             <Trans>Heading 3</Trans>
           </h3>
+        ),
+      },
+    },
+    {
+      name: 'heading4',
+      label: t`Heading 4`,
+      icon: Heading4,
+      category: 'basic',
+      command: ({ chain }) => chain().toggleHeading({ level: 4 }).run(),
+      aliases: ['h4'],
+      preview: {
+        description: t`Fourth-level heading.`,
+        render: () => (
+          <h4 className="text-sm font-semibold tracking-tight">
+            <Trans>Heading 4</Trans>
+          </h4>
+        ),
+      },
+    },
+    {
+      name: 'heading5',
+      label: t`Heading 5`,
+      icon: Heading5,
+      category: 'basic',
+      command: ({ chain }) => chain().toggleHeading({ level: 5 }).run(),
+      aliases: ['h5'],
+      preview: {
+        description: t`Fifth-level heading.`,
+        render: () => (
+          <h5 className="text-sm font-semibold tracking-tight">
+            <Trans>Heading 5</Trans>
+          </h5>
+        ),
+      },
+    },
+    {
+      name: 'heading6',
+      label: t`Heading 6`,
+      icon: Heading6,
+      category: 'basic',
+      command: ({ chain }) => chain().toggleHeading({ level: 6 }).run(),
+      aliases: ['h6'],
+      preview: {
+        description: t`Sixth-level heading.`,
+        render: () => (
+          <h6 className="text-sm font-semibold tracking-tight">
+            <Trans>Heading 6</Trans>
+          </h6>
         ),
       },
     },

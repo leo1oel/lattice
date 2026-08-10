@@ -71,10 +71,74 @@ pub fn search_works(query: &str) -> Result<Vec<AlphaxivWork>, String> {
             response.status().as_u16()
         ));
     }
-    let hits: Vec<SearchHit> = response
-        .json()
-        .map_err(|error| format!("Could not parse alphaXiv response: {error}"))?;
+    let body = response
+        .bytes()
+        .map_err(|error| format!("Could not read alphaXiv response: {error}"))?;
+    let hits = parse_search_hits(&body)?;
     Ok(hits.into_iter().filter_map(map_hit).collect())
+}
+
+fn parse_search_hits(body: &[u8]) -> Result<Vec<SearchHit>, String> {
+    // Some indexed PDFs contain a dangling UTF-16 surrogate. alphaXiv emits
+    // that verbatim as (for example) `\ud835`, which is not legal JSON and
+    // made one malformed snippet discard every otherwise valid search hit.
+    // Replace only unpaired surrogate escapes; preserve valid pairs and
+    // escaped literal backslashes before asking serde to decode the response.
+    let repaired = repair_unpaired_json_surrogates(body);
+    serde_json::from_slice(&repaired)
+        .map_err(|error| format!("Could not parse alphaXiv response: {error}"))
+}
+
+fn repair_unpaired_json_surrogates(body: &[u8]) -> Vec<u8> {
+    let mut repaired = Vec::with_capacity(body.len());
+    let mut index = 0;
+    while index < body.len() {
+        if body[index] != b'\\' || body.get(index + 1) != Some(&b'u') {
+            if body[index] == b'\\' && body.get(index + 1) == Some(&b'\\') {
+                repaired.extend_from_slice(&body[index..index + 2]);
+                index += 2;
+            } else {
+                repaired.push(body[index]);
+                index += 1;
+            }
+            continue;
+        }
+        let Some(code) = json_hex_code_unit(body.get(index + 2..index + 6)) else {
+            repaired.push(body[index]);
+            index += 1;
+            continue;
+        };
+        if (0xD800..=0xDBFF).contains(&code) {
+            let paired = body.get(index + 6) == Some(&b'\\')
+                && body.get(index + 7) == Some(&b'u')
+                && json_hex_code_unit(body.get(index + 8..index + 12))
+                    .is_some_and(|low| (0xDC00..=0xDFFF).contains(&low));
+            if paired {
+                repaired.extend_from_slice(&body[index..index + 12]);
+                index += 12;
+            } else {
+                repaired.extend_from_slice(br"\uFFFD");
+                index += 6;
+            }
+        } else if (0xDC00..=0xDFFF).contains(&code) {
+            repaired.extend_from_slice(br"\uFFFD");
+            index += 6;
+        } else {
+            repaired.extend_from_slice(&body[index..index + 6]);
+            index += 6;
+        }
+    }
+    repaired
+}
+
+fn json_hex_code_unit(bytes: Option<&[u8]>) -> Option<u16> {
+    let bytes = bytes?;
+    if bytes.len() != 4 || !bytes.iter().all(u8::is_ascii_hexdigit) {
+        return None;
+    }
+    std::str::from_utf8(bytes)
+        .ok()
+        .and_then(|hex| u16::from_str_radix(hex, 16).ok())
 }
 
 /// Fetch the alphaXiv overview markdown for a paper. `Ok(None)` when alphaXiv
@@ -179,5 +243,20 @@ mod tests {
             snippets: None,
         };
         assert!(map_hit(hit).is_none());
+    }
+
+    #[test]
+    fn repairs_alpha_xivs_unpaired_json_surrogates() {
+        let body = br#"[{"paperId":"2401.12345","title":"Action + \ud835...","snippets":[{"snippet":"valid pair: \ud835\udc68; literal: \\ud835"}]}]"#;
+        let hits = parse_search_hits(body).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].title.as_deref(), Some("Action + �..."));
+        assert_eq!(
+            hits[0]
+                .snippets
+                .as_ref()
+                .and_then(|snippets| snippets[0].snippet.as_deref()),
+            Some("valid pair: 𝑨; literal: \\ud835")
+        );
     }
 }

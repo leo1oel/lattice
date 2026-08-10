@@ -3,7 +3,6 @@ import { SKIP, visit } from 'unist-util-visit';
 import type { VFile } from 'vfile';
 import { promoteInParent } from './autolink-promotion.ts';
 import { applyPositionSliceToNode } from './position-slice.ts';
-import { promoteTagsInParent } from './tag-promotion.ts';
 import { KNOWN_MDAST_TYPES, toRawMdxFallbackMdast } from './unknown-mdast-guard.ts';
 
 export function mergedPostParseWalkerPlugin() {
@@ -28,7 +27,6 @@ export function mergedPostParseWalkerPlugin() {
         const parentLike = node as Parent;
         if (parentLike.children.some((c) => c.type === 'text')) {
           promoteInParent(parentLike, source);
-          promoteTagsInParent(parentLike, source);
         }
       }
 

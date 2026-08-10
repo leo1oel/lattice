@@ -33,3 +33,38 @@ describe('Link extension round-trip', () => {
     expect(serialized.trim()).toBe(original);
   });
 });
+
+describe('inline hash round-trip', () => {
+  test('research quantity labels remain ordinary text', () => {
+    const original = 'Model statistics: #Params, #Tokens, and #Samples';
+    const parsed = mdManager.parse(original);
+
+    expect(parsed.content?.[0]?.content).toEqual([
+      { type: 'text', text: original },
+    ]);
+    expect(JSON.stringify(parsed)).not.toContain('"type":"tag"');
+    const serialized = mdManager.serialize(parsed);
+    expect(serialized.trimEnd()).toBe(original);
+    expect(serialized).not.toContain('\\#');
+  });
+});
+
+describe('document envelope round-trip', () => {
+  test('frontmatter remains an envelope instead of empty editor paragraphs', () => {
+    const original = '---\ntitle: Example\nauthors: [Ada]\n---\n\nBody.\n';
+    const parsed = mdManager.parse(original);
+
+    expect(parsed.content).toHaveLength(1);
+    expect(parsed.content?.[0]?.type).toBe('paragraph');
+    expect(mdManager.serialize(parsed)).toBe(original);
+  });
+
+  test('converter list normalization does not alter fenced code examples', () => {
+    const original = '```md\n- 1.\nCode sample.\n```\n';
+    const parsed = mdManager.parse(original);
+
+    expect(parsed.content?.[0]?.type).toBe('codeBlock');
+    expect(parsed.content?.[0]?.content?.[0]?.text).toBe('- 1.\nCode sample.');
+    expect(mdManager.serialize(parsed)).toBe(original);
+  });
+});

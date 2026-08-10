@@ -144,12 +144,12 @@ describe("MarkdownWorkspaceIndex", () => {
     expect(index.docs.map((doc) => doc.path)).toEqual(["good.md"]);
   });
 
-  test("indexes inline #tags with boundary, escape, and code-fence rules", async () => {
+  test("treats inline hashtags as body text rather than tag metadata", async () => {
     const index = new MarkdownWorkspaceIndex(
       reader({
         "a.md": [
+          "Model statistics: #Params, #Tokens, and #Samples",
           "#alpha mid#word #beta/gamma",
-          "\\#escaped and #beta",
           "`#code-span` and text",
           "```md",
           "#fenced",
@@ -159,7 +159,7 @@ describe("MarkdownWorkspaceIndex", () => {
     );
     await index.update([file("a.md")]);
 
-    expect(index.getDoc("a")?.tags.sort()).toEqual(["alpha", "beta", "beta/gamma"]);
+    expect(index.getDoc("a")?.tags).toEqual([]);
   });
 
   test("indexes frontmatter tags: flow list, scalar, and dash list shapes", async () => {
@@ -182,8 +182,8 @@ describe("MarkdownWorkspaceIndex", () => {
   test("tagSummaries rolls hierarchy prefixes up with cumulative doc counts", async () => {
     const index = new MarkdownWorkspaceIndex(
       reader({
-        "a.md": "#proj/team and #proj\n",
-        "b.md": "#proj/team again\n",
+        "a.md": "---\ntags: [proj/team, proj]\n---\nbody\n",
+        "b.md": "---\ntags: [proj/team]\n---\nbody\n",
         "c.md": "no tags\n",
       }),
     );
@@ -196,7 +196,9 @@ describe("MarkdownWorkspaceIndex", () => {
   });
 
   test("tagSummaries marks pure prefixes as non-leaf", async () => {
-    const index = new MarkdownWorkspaceIndex(reader({ "a.md": "#parent/child\n" }));
+    const index = new MarkdownWorkspaceIndex(reader({
+      "a.md": "---\ntags: [parent/child]\n---\nbody\n",
+    }));
     await index.update([file("a.md")]);
 
     expect(index.tagSummaries()).toEqual([

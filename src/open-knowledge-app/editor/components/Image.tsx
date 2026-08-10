@@ -161,6 +161,7 @@ export function Image(props: ImageProps) {
     <span
       ref={wrapperRef}
       className="ok-image-resizable"
+      data-image-size={width === undefined ? 'auto' : 'authored'}
       style={{ width }}
       contentEditable={false}
     >

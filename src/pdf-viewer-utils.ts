@@ -86,48 +86,84 @@ export const PDF_RENDER_CACHE_SIZE = 10;
 export const PDF_MAX_CANVAS_PIXELS = 2 ** 24;
 const PDF_MAX_CONCURRENT_RENDERS = 2;
 
+export const PDF_RENDER_PRIORITY = {
+  cached: 0,
+  nearby: 1,
+  current: 2,
+} as const;
+
 type PdfRenderJob = {
   cancelled: boolean;
-  priority: boolean;
+  order: number;
+  priority: number;
   started: boolean;
   run: () => Promise<void>;
 };
 
+type PdfCooperativeRenderJob = {
+  cancelled: boolean;
+  continuation: (() => void) | null;
+  order: number;
+  priority: number;
+  run: (onContinue: (continuation: () => void) => void) => Promise<void>;
+  state: "pending" | "running" | "paused" | "finished";
+};
+
 export type PdfRenderCancellation = (() => void) & {
   prioritize: () => void;
+  setPriority: (priority: number) => void;
 };
 
 /** Bound PDF.js worker pressure and put visible pages ahead of cached pages. */
 export class PdfRenderQueue {
   private active = 0;
+  private nextOrder = 0;
   private readonly pending: PdfRenderJob[] = [];
 
-  enqueue(run: () => Promise<void>, priority = false): PdfRenderCancellation {
-    const job = { cancelled: false, priority, started: false, run };
-    if (priority) {
-      const firstBackground = this.pending.findIndex((pending) => !pending.priority);
-      this.pending.splice(firstBackground < 0 ? this.pending.length : firstBackground, 0, job);
-    } else {
-      this.pending.push(job);
-    }
+  constructor(private readonly maxConcurrent = PDF_MAX_CONCURRENT_RENDERS) {}
+
+  enqueue(
+    run: () => Promise<void>,
+    priority: number = PDF_RENDER_PRIORITY.cached,
+  ): PdfRenderCancellation {
+    const job = {
+      cancelled: false,
+      order: this.nextOrder,
+      priority,
+      started: false,
+      run,
+    };
+    this.nextOrder += 1;
+    this.insert(job);
     this.drain();
     const cancel = (() => {
       job.cancelled = true;
     }) as PdfRenderCancellation;
     cancel.prioritize = () => {
-      if (job.cancelled || job.started || job.priority) return;
+      cancel.setPriority(Math.max(job.priority, PDF_RENDER_PRIORITY.nearby));
+    };
+    cancel.setPriority = (nextPriority) => {
+      if (job.cancelled || job.started || job.priority === nextPriority) return;
       const currentIndex = this.pending.indexOf(job);
       if (currentIndex < 0) return;
       this.pending.splice(currentIndex, 1);
-      job.priority = true;
-      const firstBackground = this.pending.findIndex((pending) => !pending.priority);
-      this.pending.splice(firstBackground < 0 ? this.pending.length : firstBackground, 0, job);
+      job.priority = nextPriority;
+      this.insert(job);
+      this.drain();
     };
     return cancel;
   }
 
+  private insert(job: PdfRenderJob) {
+    const index = this.pending.findIndex((pending) => (
+      pending.priority < job.priority
+      || (pending.priority === job.priority && pending.order > job.order)
+    ));
+    this.pending.splice(index < 0 ? this.pending.length : index, 0, job);
+  }
+
   private drain() {
-    while (this.active < PDF_MAX_CONCURRENT_RENDERS) {
+    while (this.active < this.maxConcurrent) {
       const job = this.pending.shift();
       if (!job) return;
       if (job.cancelled) continue;
@@ -138,6 +174,135 @@ export class PdfRenderQueue {
         this.drain();
       });
     }
+  }
+}
+
+/**
+ * Let the current page take over at PDF.js continuation boundaries without
+ * cancelling partially painted background pages. Only one canvas advances at
+ * a time; paused work resumes after every more important page is ready.
+ */
+export class PdfCooperativeRenderQueue {
+  private current: PdfCooperativeRenderJob | null = null;
+  private nextOrder = 0;
+  private readonly jobs = new Set<PdfCooperativeRenderJob>();
+
+  enqueue(
+    run: PdfCooperativeRenderJob["run"],
+    priority: number = PDF_RENDER_PRIORITY.cached,
+  ): PdfRenderCancellation {
+    const job: PdfCooperativeRenderJob = {
+      cancelled: false,
+      continuation: null,
+      order: this.nextOrder,
+      priority,
+      run,
+      state: "pending",
+    };
+    this.nextOrder += 1;
+    this.jobs.add(job);
+    this.dispatch();
+
+    const cancel = (() => {
+      if (job.cancelled || job.state === "finished") return;
+      job.cancelled = true;
+      job.continuation = null;
+      if (job.state === "pending" || job.state === "paused") {
+        job.state = "finished";
+        this.jobs.delete(job);
+        this.dispatch();
+      }
+    }) as PdfRenderCancellation;
+    cancel.prioritize = () => {
+      cancel.setPriority(Math.max(job.priority, PDF_RENDER_PRIORITY.nearby));
+    };
+    cancel.setPriority = (nextPriority) => {
+      if (job.cancelled || job.state === "finished" || job.priority === nextPriority) return;
+      job.priority = nextPriority;
+      if (
+        job.state === "running"
+        && (!this.current || job.priority > this.current.priority)
+      ) {
+        this.current = job;
+      }
+      this.dispatch();
+    };
+    return cancel;
+  }
+
+  private highestRunnable(except: PdfCooperativeRenderJob | null = null) {
+    let highest: PdfCooperativeRenderJob | null = null;
+    for (const job of this.jobs) {
+      if (
+        job === except
+        || job.cancelled
+        || (job.state !== "pending" && job.state !== "paused")
+      ) {
+        continue;
+      }
+      if (
+        !highest
+        || job.priority > highest.priority
+        || (job.priority === highest.priority && job.order < highest.order)
+      ) {
+        highest = job;
+      }
+    }
+    return highest;
+  }
+
+  private dispatch() {
+    const job = this.highestRunnable();
+    if (!job) return;
+    // A started PDF.js task may be waiting for operator-list data without
+    // touching its canvas. Let a newly visible page begin immediately; the
+    // displaced task will park itself at its next continuation boundary.
+    if (this.current && job.priority <= this.current.priority) return;
+    this.current = job;
+    job.state = "running";
+    if (job.continuation) {
+      const continuation = job.continuation;
+      job.continuation = null;
+      continuation();
+      return;
+    }
+    void job.run((continuation) => this.continueJob(job, continuation)).then(
+      () => this.finish(job),
+      () => this.finish(job),
+    );
+  }
+
+  private continueJob(job: PdfCooperativeRenderJob, continuation: () => void) {
+    if (job.cancelled || job.state === "finished") {
+      continuation();
+      return;
+    }
+    if (this.current && this.current !== job) {
+      if (this.current.priority >= job.priority) {
+        job.continuation = continuation;
+        job.state = "paused";
+        return;
+      }
+      this.current = job;
+    }
+    if (!this.current) this.current = job;
+    const next = this.highestRunnable(job);
+    if (this.current === job && next && next.priority > job.priority) {
+      job.continuation = continuation;
+      job.state = "paused";
+      this.current = null;
+      this.dispatch();
+      return;
+    }
+    continuation();
+  }
+
+  private finish(job: PdfCooperativeRenderJob) {
+    job.continuation = null;
+    job.state = "finished";
+    this.jobs.delete(job);
+    if (this.current === job) this.current = null;
+    this.dispatch();
   }
 }
 

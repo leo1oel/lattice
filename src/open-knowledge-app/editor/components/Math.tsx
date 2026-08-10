@@ -8,11 +8,9 @@
  * intentionally render-less, so a live-rendered inline math variant
  * would set a new precedent rather than follow one.
  *
- * KaTeX JS is lazy-imported on first mount via React's `lazy()` + `Suspense`.
- * KaTeX CSS is eagerly imported from `main.tsx` (~20 KB gzipped) — keeping
- * the CSS dynamic interacts poorly with Bun's test runtime (no CSS loader)
- * and the cost is small relative to the ~270 KB JS that stays lazy. Lazy
- * KaTeX holds for the dominant cost.
+ * KaTeX loads with the Visual Editor chunk. Virtualized reading keeps the
+ * number of mounted formulas bounded, while synchronous rendering prevents a
+ * source-placeholder-to-formula swap as a chunk approaches the viewport.
  *
  * On parse error: KaTeX runs with `throwOnError: false`, so invalid LaTeX
  * renders as the source string in a tagged error span (red underline). The
@@ -25,8 +23,8 @@
  * formula source bytes round-trip through the descriptor unchanged.
  */
 
-import { lazy, Suspense } from 'react';
-import { useNearViewport } from '../../../use-near-viewport';
+import katex from 'katex';
+import { getHostKatexMacros } from '@ok-app/shims/katex-macros';
 
 interface MathProps {
   formula?: string;
@@ -34,50 +32,30 @@ interface MathProps {
   language?: string;
 }
 
-/**
- * Lazy-loaded KaTeX renderer. Suspends on first mount; subsequent mounts
- * resolve synchronously from the module cache. Wrapped in a top-level
- * `lazy()` so the import only fires when a `<Math>` actually mounts —
- * documents without math pay nothing.
- */
-const KatexRender = lazy(async () => {
-  const { default: katex } = await import('katex');
-  const { getHostKatexMacros } = await import('@ok-app/shims/katex-macros');
-
-  function KatexRenderInner(props: { formula: string; id?: string }) {
-    const html = katex.renderToString(props.formula, {
-      displayMode: true,
-      throwOnError: false,
-      // Suppress KaTeX's own console warnings for unknown commands —
-      // `throwOnError: false` already routes them to inline error markup.
-      strict: 'ignore',
-      macros: getHostKatexMacros(),
-      // Defense-in-depth: blocks HTML-injecting LaTeX commands like
-      // `\href{javascript:...}`, `\htmlClass`, `\htmlStyle`. KaTeX's
-      // documented default is also `false` — declaring it explicitly
-      // documents the security posture and guards against future config
-      // mutations that might silently flip the default.
-      trust: false,
-    });
-    return (
-      <div
-        className="math math-display"
-        data-component-type="math"
-        id={props.id}
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: KaTeX renderToString returns a strict HTML-allowlist string with no script execution; this is the documented integration path.
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-    );
-  }
-
-  return { default: KatexRenderInner };
-});
+/** Synchronous inside the already-lazy Visual Editor bundle. */
+function KatexRender(props: { formula: string; id?: string }) {
+  const html = katex.renderToString(props.formula, {
+    displayMode: true,
+    throwOnError: false,
+    strict: 'ignore',
+    macros: getHostKatexMacros(),
+    trust: false,
+  });
+  return (
+    <div
+      className="math math-display"
+      data-component-type="math"
+      id={props.id}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
 
 /**
- * Renders the formula source verbatim while KaTeX loads, and as the
- * fallback for descriptors with an empty `formula` prop. Empty formulas
+ * Renders the formula source verbatim while the complete editor keeps an
+ * offscreen formula deferred, and for descriptors with an empty `formula` prop. Empty formulas
  * are valid (just-inserted descriptor before the author types) — show a
- * zero-width placeholder rather than crashing the lazy loader on `''`.
+ * zero-width placeholder rather than passing `''` to the renderer.
  */
 function MathPlaceholder(props: { formula: string; id?: string }) {
   return (
@@ -100,15 +78,12 @@ function MathPlaceholder(props: { formula: string; id?: string }) {
  */
 export function MathView(props: MathProps) {
   const formula = props.formula ?? '';
-  const { nearViewport, viewportRef } = useNearViewport<HTMLDivElement>();
   return (
-    <div ref={viewportRef} className="math-viewport-boundary">
-      {!formula || !nearViewport ? (
+    <div className="math-viewport-boundary">
+      {!formula ? (
         <MathPlaceholder formula={formula} id={props.id} />
       ) : (
-        <Suspense fallback={<MathPlaceholder formula={formula} id={props.id} />}>
-          <KatexRender formula={formula} id={props.id} />
-        </Suspense>
+        <KatexRender formula={formula} id={props.id} />
       )}
     </div>
   );

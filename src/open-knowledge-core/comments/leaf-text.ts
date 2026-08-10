@@ -4,7 +4,7 @@
  * ProseMirror's `textBetween` reads node CONTENT, and two shapes in this schema
  * keep their reader-visible text somewhere else:
  *
- *   - Inline atoms — wiki link, tag, image, inline math, footnote reference —
+ *   - Inline atoms — wiki link, image, inline math, footnote reference —
  *     hold it in attributes. They define `renderText`, but that is a TipTap
  *     concept `textBetween` never consults, and it returns a position-faithful
  *     placeholder rather than anything readable.
@@ -18,8 +18,8 @@
  * one produced no quote and the composer declined to open, and selecting PROSE
  * AROUND one produced a quote with a hole in it that the anchor resolver could
  * not find in the markdown. The second is the costly half — in a wiki-style
- * document a paragraph containing a wiki link or a tag is the common case, not
- * the exotic one.
+ * document a paragraph containing a wiki link is the common case, not the
+ * exotic one.
  *
  * The text each node yields is what a reader sees in its place, so a quote
  * reads as the passage did on screen. That is also what makes it resolvable:
@@ -95,11 +95,6 @@ export function commentLeafText(node: PMNode): string {
       return attr(node, 'alias') || attr(node, 'target');
     case 'wikiLinkEmbed':
       return attr(node, 'target');
-    // With the `#`, which IS on screen and is part of the word a reader would
-    // say they selected. It also matches the source byte-for-byte, so tags need
-    // no elastic-syntax rule at all.
-    case 'tag':
-      return `#${attr(node, 'value')}`;
     case 'mathInline':
       return attr(node, 'formula');
     case 'image':

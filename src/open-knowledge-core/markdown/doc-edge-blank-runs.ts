@@ -35,7 +35,14 @@ export function materializeDocEdgeBlankRuns(
   const head =
     children.length === 0 || boundary.leading === undefined
       ? 0
-      : applyFloor(boundary.leading.length);
+      // A leading boundary can also be a complete frontmatter region. Only a
+      // run made entirely of newlines represents empty editor paragraphs;
+      // materializing frontmatter by byte count turns a 200-byte YAML header
+      // into 200 empty paragraphs and then deletes the header from the
+      // round-trip envelope.
+      : /^\n+$/.test(boundary.leading)
+        ? applyFloor(boundary.leading.length)
+        : 0;
   const tail =
     children.length === 0 || boundary.trailing === undefined
       ? 0

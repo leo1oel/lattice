@@ -761,7 +761,7 @@ const KEYBOARD_SHORTCUT_DEFINITIONS = [
     id: 'delete-atom',
     category: 'wysiwyg',
     title: msg`Delete adjacent chip`,
-    description: msg`Delete an adjacent wiki-link or tag chip.`,
+    description: msg`Delete an adjacent wiki-link chip.`,
     scope: msg`Visual editor`,
     bindings: [
       { mac: 'Backspace', windowsLinux: 'Backspace' },
@@ -780,7 +780,7 @@ const KEYBOARD_SHORTCUT_DEFINITIONS = [
     id: 'suggestion-navigation',
     category: 'navigation',
     title: msg`Suggestion menu navigation`,
-    description: msg`Move through slash, wiki-link, tag, and path suggestions; accept or dismiss the active suggestion.`,
+    description: msg`Move through slash, wiki-link, citation, and path suggestions; accept or dismiss the active suggestion.`,
     scope: msg`Suggestion menu open`,
     bindings: [
       { mac: '↑ / ↓', windowsLinux: '↑ / ↓' },

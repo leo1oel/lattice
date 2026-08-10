@@ -9,13 +9,12 @@ import {
   updateWorkspaceSearchCorpus,
   type WorkspaceSearchCorpus,
 } from "./open-knowledge-core/search/workspace-search.ts";
-import { createTagInTextRegex } from "./open-knowledge-core/markdown/tag-promotion.ts";
 import { createCodeFenceTracker } from "./open-knowledge-core/utils/code-fence-tracker.ts";
 import { scanHeadingLine } from "./open-knowledge-core/utils/heading-scan.ts";
 import type { HeadingEntry } from "./open-knowledge-core/utils/slug.ts";
 import { expandTagToHierarchy } from "./open-knowledge-core/utils/tag-rollup.ts";
 
-/** One tag as reported to the `#` typeahead: bare name, doc-membership count, and whether it was literally authored (vs. a hierarchical rollup prefix). */
+/** One explicit frontmatter tag with its document-membership count. */
 export type TagSummaryEntry = {
   name: string;
   count: number;
@@ -28,7 +27,7 @@ export type MarkdownDocEntry = {
   title: string;
   headings: HeadingEntry[];
   outgoing: { target: string; anchor: string | null; kind: "wiki" | "md" }[];
-  /** Bare tag values authored in this doc (inline `#tag` + frontmatter `tags:`), deduped, case-sensitive. */
+  /** Bare values from YAML frontmatter `tags:`, deduped and case-sensitive. */
   tags: string[];
 };
 
@@ -86,10 +85,8 @@ function bodyLines(content: string): string[] {
 
 /**
  * Frontmatter `tags:` entries admit a leading digit (`2026` is a legitimate
- * year tag) — deliberately more permissive than the inline `#tag` grammar
- * (`INLINE_TAG_VALUE_RE`, leading letter only), because the YAML list is
- * explicit and never round-trips through prose. Mirrors upstream core's
- * `frontmatter/tags.ts` contract.
+ * year tag). The YAML list is explicit and never round-trips through prose.
+ * Mirrors upstream core's `frontmatter/tags.ts` contract.
  */
 const FRONTMATTER_TAG_VALUE_RE = /^[a-zA-Z0-9][\w/-]*$/;
 
@@ -136,30 +133,6 @@ function frontmatterTags(content: string): string[] {
   return tags;
 }
 
-/**
- * Inline `#tag` scan over one body line, mirroring `tag-promotion.ts`'s
- * boundary semantics: `#` must open the line or follow whitespace, and a
- * backslash-escaped `\#` (odd backslash run) does not count. Inline code
- * spans are blanked first so `` `#code` `` is not indexed.
- */
-const TAG_IN_TEXT_RE = createTagInTextRegex();
-function inlineTagsInLine(line: string, isInCodeFence: boolean, out: Set<string>): void {
-  if (isInCodeFence) return;
-  const text = line.replace(/`[^`]*`/g, (span) => " ".repeat(span.length));
-  // matchAll iterates a clone, so the shared regex's lastIndex is untouched.
-  for (const match of text.matchAll(TAG_IN_TEXT_RE)) {
-    const boundary = match[1] ?? "";
-    const hashIndex = match.index + boundary.length;
-    let backslashes = 0;
-    for (let cursor = hashIndex - 1; cursor >= 0 && text[cursor] === "\\"; cursor -= 1) {
-      backslashes += 1;
-    }
-    if (backslashes % 2 === 1) continue;
-    const value = match[2] ?? "";
-    if (value) out.add(value);
-  }
-}
-
 function parseDocument(path: string, content: string): IndexedDoc {
   const normalizedPath = normalizePath(path);
   const docName = docNameForPath(normalizedPath);
@@ -175,7 +148,6 @@ function parseDocument(path: string, content: string): IndexedDoc {
       const heading = scanHeadingLine(line, slugCounts);
       if (heading) headings.push(heading);
     }
-    inlineTagsInLine(line, fenced, tags);
     if (fenced) continue;
 
     for (const match of line.matchAll(WIKI_LINK_PATTERN)) {
@@ -282,9 +254,9 @@ export class MarkdownWorkspaceIndex {
   }
 
   /**
-   * Workspace tag summary for the `#` typeahead, mirroring upstream's
-   * `/api/tags` contract: one entry per authored tag AND per hierarchical
-   * rollup prefix (`proj/team` in one doc expands to `proj` + `proj/team`).
+   * Workspace tag summary for explicit frontmatter metadata: one entry per
+   * authored tag and per hierarchical rollup prefix (`proj/team` in one doc
+   * expands to `proj` + `proj/team`).
    * Counts are doc membership (a tag used twice in one doc counts once);
    * prefix entries carry the cumulative count of every tag under the branch,
    * and `isLeaf` marks entries that were literally authored.

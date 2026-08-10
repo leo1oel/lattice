@@ -35,7 +35,6 @@ export const KNOWN_MDAST_TYPES: ReadonlySet<string> = new Set([
   'mdxTextExpression',
   'wikiLink',
   'wikiLinkEmbed',
-  'tag',
   'math',
   'inlineMath',
   'mark',

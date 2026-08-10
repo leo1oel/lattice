@@ -23,10 +23,9 @@ const TAG_HIERARCHY_SEPARATOR = '/';
  * array. The original tag is always the last element when the input is
  * non-empty — callers can dedupe across docs by treating the array as a set.
  *
- * Whitespace inside segments is preserved verbatim. The promoter regex
- * (`tag-promotion.ts`) already constrains segment characters to
- * `[a-zA-Z][\w/-]*` at parse time, so callers feeding values from frontmatter
- * are responsible for their own validation — this function does not assert.
+ * Whitespace inside segments is preserved verbatim. Callers feeding values
+ * from frontmatter are responsible for validation — this function does not
+ * assert.
  */
 export function expandTagToHierarchy(tag: string): string[] {
   if (!tag) return [];

@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 type VisibilityListener = (visible: boolean) => void;
 
 type SharedObserver = {
-  observer: IntersectionObserver;
-  listeners: Map<Element, VisibilityListener>;
-  pending: Map<Element, VisibilityListener>;
+  preloadObserver: IntersectionObserver;
+  visibleObserver: IntersectionObserver;
+  listeners: Map<Element, Set<VisibilityListener>>;
+  pending: Map<VisibilityListener, Element>;
   idleHandle: number | null;
   idleKind: "idle" | "timer" | null;
 };
@@ -18,18 +19,23 @@ function scheduleMaterialization(shared: SharedObserver) {
   const materializeNext = () => {
     shared.idleHandle = null;
     shared.idleKind = null;
-    const next = shared.pending.entries().next().value as [Element, VisibilityListener] | undefined;
-    if (!next) return;
-    const [element, listener] = next;
-    shared.pending.delete(element);
-    if (shared.listeners.get(element) === listener) listener(true);
-    // One expensive image/formula per idle slice prevents a scroll boundary
-    // from committing a whole screen of KaTeX and decoded images at once.
+    const startedAt = performance.now();
+    let materialized = 0;
+    while (shared.pending.size > 0 && materialized < 4 && performance.now() - startedAt < 6) {
+      const next = shared.pending.entries().next().value as [VisibilityListener, Element] | undefined;
+      if (!next) break;
+      const [listener, element] = next;
+      shared.pending.delete(listener);
+      if (shared.listeners.get(element)?.has(listener)) listener(true);
+      materialized += 1;
+    }
+    // Bound each speculative batch, while allowing enough progress to keep
+    // formula-heavy documents ahead of ordinary trackpad scrolling.
     scheduleMaterialization(shared);
   };
   if ("requestIdleCallback" in window) {
     shared.idleKind = "idle";
-    shared.idleHandle = window.requestIdleCallback(materializeNext, { timeout: 160 });
+    shared.idleHandle = window.requestIdleCallback(materializeNext, { timeout: 50 });
   } else {
     shared.idleKind = "timer";
     shared.idleHandle = globalThis.setTimeout(materializeNext, 32);
@@ -54,34 +60,53 @@ function sharedObserver(root: Element | null, rootMargin: string): SharedObserve
   if (root && !rootedObservers.has(root)) rootedObservers.set(root, observers);
   const existing = observers.get(rootMargin);
   if (existing) return existing;
-  const listeners = new Map<Element, VisibilityListener>();
+  const listeners = new Map<Element, Set<VisibilityListener>>();
   const shared: SharedObserver = {
     listeners,
     pending: new Map(),
     idleHandle: null,
     idleKind: null,
-    observer: new IntersectionObserver((entries) => {
+    preloadObserver: new IntersectionObserver((entries) => {
       for (const entry of entries) {
-        const listener = listeners.get(entry.target);
-        if (!listener) continue;
-        if (entry.isIntersecting) shared.pending.set(entry.target, listener);
-        else {
-          shared.pending.delete(entry.target);
-          listener(false);
+        const targetListeners = listeners.get(entry.target);
+        if (!targetListeners) continue;
+        for (const listener of targetListeners) {
+          if (entry.isIntersecting) shared.pending.set(listener, entry.target);
+          else {
+            shared.pending.delete(listener);
+            listener(false);
+          }
         }
       }
       scheduleMaterialization(shared);
     }, { root, rootMargin }),
+    visibleObserver: new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const targetListeners = listeners.get(entry.target);
+        if (!targetListeners) continue;
+        // Actual viewport work overtakes speculative preloads because idle
+        // callbacks are commonly starved while WebKit handles a fling.
+        for (const listener of targetListeners) {
+          shared.pending.delete(listener);
+          listener(true);
+        }
+      }
+    }, { root }),
   };
   observers.set(rootMargin, shared);
   return shared;
 }
 
 /**
- * Defers expensive editor content until it is comfortably ahead of the
- * document viewport, then releases its decoded media / rendered formula tree
- * after it moves outside that buffer. Instances sharing a scrollport also
- * share one IntersectionObserver instead of creating hundreds for a paper.
+ * Defers expensive editor media until it is comfortably ahead of the
+ * document viewport. Buffered work is staged across idle slices, but content
+ * which reaches the real viewport bypasses that queue so a fast fling cannot
+ * expose an unloaded placeholder. Instances sharing a scrollport use one
+ * preload observer and one actual-visibility observer instead of per-image
+ * observers. Formula leaves inside a contained list item observe that item,
+ * so WebKit can preload them before it materializes the item's descendants.
+ * Recently rendered content is retained briefly for smooth scroll reversal.
  */
 export function useNearViewport<T extends Element>(rootMargin = "900px 0px") {
   const [element, setElement] = useState<T | null>(null);
@@ -91,15 +116,46 @@ export function useNearViewport<T extends Element>(rootMargin = "900px 0px") {
     if (!element || typeof IntersectionObserver === "undefined") return;
     const root = element.closest<HTMLElement>(".editor-doc-scroll");
     const shared = sharedObserver(root, rootMargin);
-    shared.listeners.set(element, setNearViewport);
-    shared.observer.observe(element);
+    // Use semantic wrappers whose identity survives decoration threshold
+    // changes. Existing NodeViews don't remount when a list gains item #20.
+    const observed = element.closest<HTMLElement>("li")
+      ?? element.closest<HTMLElement>(".jsx-component-wrapper")
+      ?? element;
+    let offscreenTimer: ReturnType<typeof setTimeout> | null = null;
+    const listener: VisibilityListener = (visible) => {
+      if (visible) {
+        if (offscreenTimer !== null) clearTimeout(offscreenTimer);
+        offscreenTimer = null;
+        setNearViewport(true);
+        return;
+      }
+      if (offscreenTimer !== null) clearTimeout(offscreenTimer);
+      offscreenTimer = setTimeout(() => {
+        offscreenTimer = null;
+        setNearViewport(false);
+      }, 3_000);
+    };
+    const targetListeners = shared.listeners.get(observed) ?? new Set<VisibilityListener>();
+    const firstForTarget = targetListeners.size === 0;
+    targetListeners.add(listener);
+    shared.listeners.set(observed, targetListeners);
+    if (firstForTarget) {
+      shared.preloadObserver.observe(observed);
+      shared.visibleObserver.observe(observed);
+    }
     return () => {
-      shared.observer.unobserve(element);
-      shared.listeners.delete(element);
-      shared.pending.delete(element);
+      if (offscreenTimer !== null) clearTimeout(offscreenTimer);
+      targetListeners.delete(listener);
+      shared.pending.delete(listener);
+      if (targetListeners.size === 0) {
+        shared.preloadObserver.unobserve(observed);
+        shared.visibleObserver.unobserve(observed);
+        shared.listeners.delete(observed);
+      }
       if (shared.listeners.size > 0) return;
       cancelMaterialization(shared);
-      shared.observer.disconnect();
+      shared.preloadObserver.disconnect();
+      shared.visibleObserver.disconnect();
       const observers = root ? rootedObservers.get(root) : viewportObservers;
       observers?.delete(rootMargin);
     };

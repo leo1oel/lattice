@@ -1,0 +1,74 @@
+diff --git a/dist/model/FileTreeController.js b/dist/model/FileTreeController.js
+index efa8b6a2fd70e0d1f1dec1d90ee87268c72f56c4..885179c0adb93d280db7b72469b3b26e7229a7cb 100644
+--- a/dist/model/FileTreeController.js
++++ b/dist/model/FileTreeController.js
+@@ -943,7 +943,7 @@ var FileTreeController = class FileTreeController {
+ 		}
+ 		const currentVisiblePaths = this.#projectionPaths;
+ 		this.#searchMatchingPaths = currentVisiblePaths.filter((path) => this.#searchMatchPathSet.has(path));
+-		if (this.#searchMode !== "hide-non-matches" || this.#searchMatchPathSet.size === 0) {
++		if (this.#searchMode !== "hide-non-matches") {
+ 			this.#searchVisibleIndices = null;
+ 			this.#searchVisiblePaths = null;
+ 			this.#searchVisibleIndexByPath = null;
+@@ -1042,7 +1042,7 @@ var FileTreeController = class FileTreeController {
+ 			focusCandidate ??= path;
+ 		}
+ 		this.#searchMatchPathSet = matchingPathSet;
+-		const searchVisiblePathSet = this.#searchMode === "hide-non-matches" && matchingPaths.length > 0 ? /* @__PURE__ */ new Set() : null;
++		const searchVisiblePathSet = this.#searchMode === "hide-non-matches" ? /* @__PURE__ */ new Set() : null;
+ 		this.#searchVisiblePathSet = searchVisiblePathSet;
+ 		const expandedPaths = this.#searchMode === "expand-matches" ? new Set(this.#searchPreviousExpandedPaths ?? []) : /* @__PURE__ */ new Set();
+ 		for (const matchingPath of matchingPaths) {
+diff --git a/dist/render/FileTreeView.js b/dist/render/FileTreeView.js
+index 7d3b818c43a7621ab9170da32b180232ed3c9472..a8d6da706dff96a9a677a9f81113d2cfa6f6f453 100644
+--- a/dist/render/FileTreeView.js
++++ b/dist/render/FileTreeView.js
+@@ -527,6 +527,8 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+ 	const rootRef = useRef(null);
+ 	const scrollRef = useRef(null);
+ 	const searchInputRef = useRef(null);
++	const searchInputComposingRef = useRef(false);
++	const searchInputCompositionClearTimerRef = useRef(null);
+ 	const rowButtonRefs = useRef(/* @__PURE__ */ new Map());
+ 	const stickyRowButtonRefs = useRef(/* @__PURE__ */ new Map());
+ 	const updateViewportRef = useRef(() => {});
+@@ -603,6 +605,21 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+ 		searchInputUserInteractedRef.current = true;
+ 		setFakeSearchFocusActive((previous) => previous ? false : previous);
+ 	}, []);
++	const markSearchInputCompositionStart = () => {
++		if (searchInputCompositionClearTimerRef.current != null) clearTimeout(searchInputCompositionClearTimerRef.current);
++		searchInputCompositionClearTimerRef.current = null;
++		searchInputComposingRef.current = true;
++	};
++	const markSearchInputCompositionEnd = () => {
++		if (searchInputCompositionClearTimerRef.current != null) clearTimeout(searchInputCompositionClearTimerRef.current);
++		searchInputCompositionClearTimerRef.current = setTimeout(() => {
++			searchInputComposingRef.current = false;
++			searchInputCompositionClearTimerRef.current = null;
++		}, 0);
++	};
++	useEffect(() => () => {
++		if (searchInputCompositionClearTimerRef.current != null) clearTimeout(searchInputCompositionClearTimerRef.current);
++	}, []);
+ 	const [layoutState, setLayoutState] = useState(() => computeFileTreeViewLayoutState({
+ 		controller,
+ 		itemHeight,
+@@ -1062,6 +1079,7 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+ 			return;
+ 		}
+ 		if (isSearchOpen) {
++			if (event.isComposing || event.keyCode === 229 || event.key === "Process" || searchInputComposingRef.current) return;
+ 			if (event.key === "Escape") {
+ 				restoreTreeFocusAfterSearchCloseRef.current = false;
+ 				restoreTreeFocusViewportOffsetRef.current = null;
+@@ -1807,6 +1825,8 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+ 					"data-file-tree-search-input": true,
+ 					"data-file-tree-search-input-fake-focus": fakeSearchFocusActive ? "true" : void 0,
+ 					value: searchValue,
++					onCompositionStart: markSearchInputCompositionStart,
++					onCompositionEnd: markSearchInputCompositionEnd,
+ 					onBlur: () => {
+ 						if (searchBlurBehavior === "retain" && !searchInputUserInteractedRef.current) return;
+ 						controller.closeSearch();

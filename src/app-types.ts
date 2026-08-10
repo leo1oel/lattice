@@ -138,6 +138,8 @@ export type PaperSummary = {
   /** The cited page for webpage references; how the row fetches when there is no arXiv id. */
   url?: string;
   title: string;
+  /** BibTeX author field, used by the local Papers filter. */
+  authors?: string;
   citationKey?: string;
   /** False for works that are only cited — there is nothing to open. */
   hasFullText: boolean;

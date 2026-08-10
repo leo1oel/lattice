@@ -5,6 +5,7 @@ import {
   normalizeSynaraOrigin,
   parseAgentProjectHistorySnapshot,
   synaraFrameUrl,
+  synaraProjectRelativeFilePath,
 } from "./synara-runtime";
 
 describe("Synara runtime URLs", () => {
@@ -36,6 +37,25 @@ describe("Synara runtime URLs", () => {
     expect(url.searchParams.get("surface")).toBe("drawer");
     expect(url.searchParams.has("token")).toBe(false);
     expect(new URLSearchParams(url.hash.slice(1)).get("lattice-auth")).toBe("secret token");
+  });
+
+  it("maps encoded absolute Agent file links back into the active project", () => {
+    const root = "/Users/leonardo/Documents/research/Native VLM";
+    expect(synaraProjectRelativeFilePath(
+      "/Users/leonardo/Documents/research/Native%20VLM/notes/vision-distillation.md",
+      root,
+    )).toBe("notes/vision-distillation.md");
+    expect(synaraProjectRelativeFilePath("notes/vision-distillation.md", root))
+      .toBe("notes/vision-distillation.md");
+  });
+
+  it("rejects Agent file links outside the active project", () => {
+    const root = "/Users/leonardo/Documents/research/Native VLM";
+    expect(synaraProjectRelativeFilePath("/Users/leonardo/Documents/other.md", root)).toBeNull();
+    expect(synaraProjectRelativeFilePath("notes/../../other.md", root)).toBeNull();
+    expect(synaraProjectRelativeFilePath("https://example.com/notes.md", root)).toBeNull();
+    expect(synaraProjectRelativeFilePath("/Users/leonardo/Documents/research/Native VLM 2/a.md", root))
+      .toBeNull();
   });
 
   it("accepts only complete Agent checkpoint history snapshots", () => {

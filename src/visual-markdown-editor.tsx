@@ -1,5 +1,13 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
-import { EditorContent, NodeViewWrapper, ReactNodeViewRenderer, useEditor, type Editor } from "@tiptap/react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
+import {
+  EditorContent,
+  NodeViewWrapper,
+  ReactNodeViewRenderer,
+  useEditor,
+  useEditorState,
+  type Editor,
+} from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import { Extension, posToDOMRect, type NodeViewProps } from "@tiptap/core";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -10,7 +18,6 @@ import { visualPaperCitationSuggestion } from "./visual-paper-citation-suggestio
 import type { PaperSummary } from "./app-types";
 import type { TrackedChangeTooltipActions } from "./overleaf-track-changes";
 import type { TrackedChange } from "./use-overleaf-realtime";
-import { dispatchTagClick, visualTag } from "./visual-tag";
 import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
 import { VisualLinkHover } from "./visual-link-hover";
 import { TableRowEnter } from "@ok-app/editor/extensions/table-row-enter";
@@ -28,7 +35,14 @@ import {
   VisualBlockMover,
   type PreserveVisualViewportMeta,
 } from "./visual-editor-block-controls";
-import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state";
+import { AllSelection, EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state";
+import type { Node as PmNode, ResolvedPos } from "@tiptap/pm/model";
+import {
+  CellSelection,
+  TableMap,
+  mergeCells as pmMergeCells,
+  splitCell as pmSplitCell,
+} from "@tiptap/pm/tables";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { KeyboardNav } from "@ok-app/editor/block-ux/keyboard-nav";
 import { SlashCommand } from "@ok-app/editor/extensions/slash-command";
@@ -46,7 +60,10 @@ import { TabFocusTrap } from "@ok-app/editor/extensions/tab-focus-trap";
 // DecorationSet on every view update (caret moves included), which is
 // O(document) per keypress on large files. See the seam header for details.
 import { HeadingAnchorsStateful as HeadingAnchors } from "@ok-app/editor/extensions/heading-anchors-stateful";
-import { chunkWrapperDecorationPlugin } from "@ok-app/editor/extensions/chunk-wrapper-decoration";
+import {
+  activeChunkDecorationPlugin,
+  chunkWrapperDecorationPlugin,
+} from "@ok-app/editor/extensions/chunk-wrapper-decoration";
 import { MathInputRule } from "@ok-app/editor/math-input-rule";
 import { InlineLinkInputRule } from "@ok-app/editor/inline-link-input-rule";
 import { setHostKatexMacros } from "@ok-app/shims/katex-macros";
@@ -57,14 +74,17 @@ import { ViewInSourceProvider } from "@ok-app/editor/bubble-menu/ViewInSourceBub
 import { EmojiInsertPopover } from "@ok-app/editor/components/EmojiInsertPopover";
 import { MirrorHostProvider } from "@ok-app/editor/components/Mirror-host";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@ok-app/components/ui/button";
 import { detectClipboardPrefillUrl } from "@ok-app/editor/clipboard/lone-url";
 import { ImageSrcFidelity } from "./open-knowledge-core/extensions/image-src-fidelity";
 import { ProjectImageHostProvider, useProjectImageSrc } from "./project-image-host";
 import type { PresenceCursor } from "./overleaf-cursors";
 import { resolveCommentAnchor, type EditorComment } from "./editor-comment-data";
 import { peerColorForKey } from "./collab-colors";
-import { notifyError } from "./app-notify";
-import { dismissAppToastByDedupeKey } from "./app-log-store";
+import { notifyError, notifyInfo } from "./app-notify";
+import { addAppLog, dismissAppToastByDedupeKey } from "./app-log-store";
+import { InlineMessage } from "./components/ui/inline-message";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import Zoom from "react-medium-image-zoom";
 import { Check, X } from "lucide-react";
 import { VisualMarkdownFindReplace } from "./visual-markdown-find-replace";
@@ -73,6 +93,17 @@ import {
   markdownPreviewSyncPolicy,
 } from "./markdown-preview-sync-policy";
 import { useNearViewport } from "./use-near-viewport";
+import {
+  buildVisualMarkdownBlockModel,
+  type VisualMarkdownBlock,
+  type VisualMarkdownBlockModel,
+} from "./visual-markdown-block-model";
+import { stripFrontmatter } from "./open-knowledge-core/extensions/frontmatter";
+import {
+  parseTableSpanLayoutMarker,
+  tableSpanLayoutForPmTable,
+} from "./open-knowledge-core/extensions/table-fidelity";
+import { DocumentHeadingRail, documentHeadingItems } from "./document-heading-rail";
 
 const EMPTY_MACROS: Record<string, string> = {};
 const VISUAL_LINK_INSERT_EVENT = "research-writer:visual-link-insert";
@@ -80,6 +111,83 @@ const VISUAL_DOCUMENT_CACHE_LIMIT = 64;
 const VISUAL_DOCUMENT_CACHE_TEXT_LIMIT = 4_000_000;
 const TRACKED_CHANGE_HOVER_RADIUS = 24;
 const TRACKED_CHANGE_CLOSE_DELAY_MS = 180;
+const VIRTUAL_BLOCK_MODEL_SOURCE_THRESHOLD = 20_000;
+const VIRTUAL_BLOCK_COUNT_THRESHOLD = 160;
+
+const ChunkWrapperDecoration = Extension.create({
+  name: "chunkWrapperDecoration",
+  addProseMirrorPlugins() {
+    return [chunkWrapperDecorationPlugin(), activeChunkDecorationPlugin()];
+  },
+});
+
+function generatedPaperContentsDecorations(doc: Editor["state"]["doc"]): DecorationSet {
+  const decorations: Decoration[] = [];
+  let position = 0;
+  for (let index = 0; index < doc.childCount - 1; index += 1) {
+    const heading = doc.child(index);
+    const list = doc.child(index + 1);
+    let hasInternalAnchor = false;
+    if (list.type.name === "list") {
+      list.descendants((node) => {
+        if (hasInternalAnchor || !node.isText) return !hasInternalAnchor;
+        hasInternalAnchor = node.marks.some((mark) => (
+          mark.type.name === "link"
+          && typeof mark.attrs.href === "string"
+          && mark.attrs.href.startsWith("#")
+        ));
+        return !hasInternalAnchor;
+      });
+    }
+    if (
+      heading.type.name === "heading"
+      && heading.attrs.level === 2
+      && heading.textContent.trim().toLocaleLowerCase() === "contents"
+      && hasInternalAnchor
+    ) {
+      decorations.push(
+        Decoration.node(position, position + heading.nodeSize, {
+          class: "visual-generated-paper-contents",
+          "aria-hidden": "true",
+        }),
+        Decoration.node(position + heading.nodeSize, position + heading.nodeSize + list.nodeSize, {
+          class: "visual-generated-paper-contents",
+          "aria-hidden": "true",
+        }),
+      );
+    }
+    position += heading.nodeSize;
+  }
+  return DecorationSet.create(doc, decorations);
+}
+
+/** Keep the imported Contents bytes editable while omitting that redundant block from paper previews. */
+const GeneratedPaperContents = Extension.create({
+  name: "generatedPaperContents",
+  addProseMirrorPlugins() {
+    return [new Plugin<DecorationSet>({
+      state: {
+        init: (_config, state) => generatedPaperContentsDecorations(state.doc),
+        apply: (transaction, value) => transaction.docChanged
+          ? generatedPaperContentsDecorations(transaction.doc)
+          : value,
+      },
+      props: {
+        decorations(state) {
+          return this.getState(state);
+        },
+      },
+    })];
+  },
+});
+
+// The vendored editor normally renders a 56px toolbar over its document
+// scroller. Lattice hosts the visual editor without that toolbar, so pin table
+// headers to the actual viewport edge and do not paint the toolbar occluder.
+const LatticeFrozenTableHeaders = FrozenTableHeaders.configure({
+  topOffset: 0,
+  occludeTop: false,
+});
 
 type CachedVisualDocument = {
   path: string;
@@ -153,15 +261,6 @@ function withPausedDomObserver(view: Editor["view"], apply: () => void): void {
   }
 }
 
-// Browser-level block culling for every visual document. Stateless, so one
-// module-level extension serves every editor instance.
-const ChunkWrapperDecoration = Extension.create({
-  name: "chunkWrapperDecoration",
-  addProseMirrorPlugins() {
-    return [chunkWrapperDecorationPlugin()];
-  },
-});
-
 type VisualSourceRange = { from: number; to: number };
 
 // Three-slot MRU parse memo. A single publication legitimately parses up to
@@ -173,18 +272,29 @@ type VisualSourceRange = { from: number; to: number };
 const MDAST_CACHE_SLOTS = 3;
 type EditorMdastChildren =
   ReturnType<ReturnType<typeof getMarkdownManager>["parseToEditorMdast"]>["children"];
-const mdastCache: { text: string; children: EditorMdastChildren }[] = [];
+type CachedEditorMdast = {
+  children: EditorMdastChildren;
+  sourceOffsetBase: number;
+};
+const mdastCache: ({ text: string } & CachedEditorMdast)[] = [];
 
-function parseEditorMdastChildrenCached(text: string): EditorMdastChildren {
+function parseEditorMdastChildrenCached(text: string): CachedEditorMdast {
   const hit = mdastCache.findIndex((entry) => entry.text === text);
   if (hit !== -1) {
     const [entry] = mdastCache.splice(hit, 1);
     mdastCache.unshift(entry);
-    return entry.children;
+    return entry;
   }
+  const bomLength = text.startsWith("\uFEFF") ? 1 : 0;
+  const withoutBom = bomLength ? text.slice(1) : text;
+  const { frontmatter, body } = stripFrontmatter(withoutBom);
+  const sourceOffsetBase = bomLength + frontmatter.length;
   let children: EditorMdastChildren;
   try {
-    children = getMarkdownManager().parseToEditorMdast(text).children;
+    // Frontmatter is document envelope, not an editor root. Parse only the
+    // body so its non-emitting YAML node cannot shift every source/root pair;
+    // ranges below add the envelope length back to the body-relative offsets.
+    children = getMarkdownManager().parseToEditorMdast(body).children;
   } catch (error) {
     // The document itself opens through parse-with-fallback, which survives
     // MDX syntax errors, but this position probe uses the raw parser — a PDF
@@ -200,17 +310,20 @@ function parseEditorMdastChildrenCached(text: string): EditorMdastChildren {
     }));
     children = [];
   }
-  mdastCache.unshift({ text, children });
+  const entry = { text, children, sourceOffsetBase };
+  mdastCache.unshift(entry);
   mdastCache.length = Math.min(mdastCache.length, MDAST_CACHE_SLOTS);
-  return children;
+  return entry;
 }
 
 function visualSourceRanges(text: string, blockCount: number): VisualSourceRange[] {
-  const sourceNodes = parseEditorMdastChildrenCached(text);
+  const { children: sourceNodes, sourceOffsetBase } = parseEditorMdastChildrenCached(text);
   const direct = sourceNodes.flatMap((node) => {
     const from = node.position?.start.offset;
     const to = node.position?.end.offset;
-    return typeof from === "number" && typeof to === "number" ? [{ from, to }] : [];
+    return typeof from === "number" && typeof to === "number"
+      ? [{ from: from + sourceOffsetBase, to: to + sourceOffsetBase }]
+      : [];
   });
   if (direct.length === blockCount) return direct;
 
@@ -246,16 +359,24 @@ function visualSourceRanges(text: string, blockCount: number): VisualSourceRange
  * cannot use a guess — a duplicated range would emit a block twice — so this
  * variant reports failure instead and its callers fall back.
  */
-function exactVisualSourceRanges(text: string, blockCount: number): VisualSourceRange[] | null {
-  const sourceNodes = parseEditorMdastChildrenCached(text);
+// eslint-disable-next-line react-refresh/only-export-components -- exported for the corruption regression test
+export function exactVisualSourceRanges(text: string, blockCount: number): VisualSourceRange[] | null {
+  const { children: sourceNodes, sourceOffsetBase } = parseEditorMdastChildrenCached(text);
   if (sourceNodes.length !== blockCount) return null;
   const ranges: VisualSourceRange[] = [];
   let previousEnd = 0;
   for (const node of sourceNodes) {
-    const from = node.position?.start.offset;
-    const to = node.position?.end.offset;
-    if (typeof from !== "number" || typeof to !== "number") return null;
+    const relativeFrom = node.position?.start.offset;
+    const relativeTo = node.position?.end.offset;
+    if (typeof relativeFrom !== "number" || typeof relativeTo !== "number") return null;
+    const from = relativeFrom + sourceOffsetBase;
+    const to = relativeTo + sourceOffsetBase;
     if (from < previousEnd || to < from) return null;
+    // Equal total counts do not prove ordinal ownership: an ignored YAML,
+    // definition, or footnote node (zero PM roots) can cancel a mixed
+    // paragraph that expands into two roots. Prove each source child owns
+    // exactly one rendered root before allowing source-byte splicing.
+    if ((parseVisualMarkdown(text.slice(from, to)).content?.length ?? 0) !== 1) return null;
     ranges.push({ from, to });
     previousEnd = to;
   }
@@ -327,7 +448,7 @@ function visualizableTableSourceOffset(text: string, sourceOffset: number): numb
   if (headerCells.length !== delimiterCells.length) return sourceOffset;
   // A dash-only body row has the same local shape. If this contiguous table
   // already has a delimiter above it, leave the body-row caret where it is.
-  let scanEnd = previousLineStart - 1;
+  let scanEnd = previousLineEnd;
   while (scanEnd >= 0) {
     const scanStart = text.lastIndexOf("\n", Math.max(0, scanEnd - 1)) + 1;
     const scanLine = text.slice(scanStart, scanEnd);
@@ -348,6 +469,348 @@ function cursorSentinel(text: string): string {
   let sentinel = "\uE000\uE001\uE002";
   while (text.includes(sentinel)) sentinel += "\uE003";
   return sentinel;
+}
+
+/**
+ * Keep an explicit span valid while probing one of its rectangular source
+ * coordinates. Every repeated coordinate receives the same sentinel at the
+ * same content-relative offset, so strict metadata validation still applies
+ * and the visual parser collapses the probes back into their one origin cell.
+ */
+function markExplicitTableSpanSource(
+  text: string,
+  sourceOffset: number,
+  sentinel: string,
+): string | null {
+  const lines = text.split("\n");
+  const starts: number[] = [];
+  let cursor = 0;
+  for (const line of lines) {
+    starts.push(cursor);
+    cursor += line.length + 1;
+  }
+  let lineIndex = 0;
+  for (let index = 1; index < starts.length && starts[index]! <= sourceOffset; index++) {
+    lineIndex = index;
+  }
+  const sourceLine = lines[lineIndex]?.replace(/\r$/, "") ?? "";
+  if (tableCellRanges(sourceLine).length === 0) return null;
+
+  let tableStart = lineIndex;
+  while (
+    tableStart > 0
+    && tableCellRanges(lines[tableStart - 1]!.replace(/\r$/, "")).length > 0
+  ) tableStart -= 1;
+  let tableEnd = lineIndex;
+  while (
+    tableEnd + 1 < lines.length
+    && tableCellRanges(lines[tableEnd + 1]!.replace(/\r$/, "")).length > 0
+  ) tableEnd += 1;
+  const delimiterLine = Array.from(
+    { length: tableEnd - tableStart + 1 },
+    (_, index) => tableStart + index,
+  ).find((index) => isTableDelimiterLine(lines[index]!.replace(/\r$/, "")));
+  if (delimiterLine === undefined || delimiterLine <= tableStart) return null;
+  const headerLine = delimiterLine - 1;
+  const logicalRow = lineIndex === headerLine
+    ? 0
+    : lineIndex > delimiterLine
+      ? lineIndex - delimiterLine
+      : -1;
+  if (logicalRow < 0) return null;
+
+  const markerPrefix = text.slice(0, starts[headerLine]);
+  const markerStart = markerPrefix.lastIndexOf("<!--");
+  if (markerStart < 0) return null;
+  const marker = markerPrefix.slice(markerStart).match(/^<!--\s*([\s\S]*?)\s*-->\s*$/);
+  const layout = marker ? parseTableSpanLayoutMarker(marker[1]!.trim()) : null;
+  if (layout === null) return null;
+
+  const sourceColumn = sourceOffset - starts[lineIndex]!;
+  const sourceRanges = tableCellRanges(sourceLine);
+  const logicalColumn = sourceRanges.findIndex(({ from, to }, index) => (
+    sourceColumn >= from && (sourceColumn < to || (index === sourceRanges.length - 1 && sourceColumn <= to))
+  ));
+  if (logicalColumn < 0) return null;
+  const span = layout.find(([row, column, rowspan, colspan]) => (
+    logicalRow >= row
+    && logicalRow < row + rowspan
+    && logicalColumn >= column
+    && logicalColumn < column + colspan
+  ));
+  if (!span) return null;
+
+  const sourceCell = sourceRanges[logicalColumn]!;
+  const sourceRaw = sourceLine.slice(sourceCell.from, sourceCell.to);
+  const sourceContentStart = sourceCell.from + sourceRaw.length - sourceRaw.trimStart().length;
+  const sourceContent = sourceRaw.trim();
+  const relativeOffset = Math.min(
+    Math.max(sourceColumn - sourceContentStart, 0),
+    sourceContent.length,
+  );
+  const insertionPoints = new Set<number>();
+  const [spanRow, spanColumn, rowspan, colspan] = span;
+  for (let row = spanRow; row < spanRow + rowspan; row++) {
+    const targetLineIndex = row === 0 ? headerLine : delimiterLine + row;
+    const targetLine = lines[targetLineIndex]?.replace(/\r$/, "");
+    if (targetLine === undefined) return null;
+    for (let column = spanColumn; column < spanColumn + colspan; column++) {
+      const cell = tableCellRanges(targetLine)[column];
+      if (!cell) return null;
+      const raw = targetLine.slice(cell.from, cell.to);
+      if (raw.trim() !== sourceContent) return null;
+      const contentStart = starts[targetLineIndex]!
+        + cell.from
+        + raw.length
+        - raw.trimStart().length;
+      insertionPoints.add(contentStart + relativeOffset);
+    }
+  }
+
+  let marked = text;
+  for (const point of [...insertionPoints].sort((left, right) => right - left)) {
+    marked = `${marked.slice(0, point)}${sentinel}${marked.slice(point)}`;
+  }
+  return marked;
+}
+
+function tableGeometrySignature(doc: Editor["state"]["doc"]): string {
+  const tables: Array<Array<Array<[string, number, number]>>> = [];
+  doc.descendants((node) => {
+    if (node.type.name !== "table") return;
+    const rows: Array<Array<[string, number, number]>> = [];
+    node.forEach((row) => {
+      const cells: Array<[string, number, number]> = [];
+      row.forEach((cell) => {
+        cells.push([
+          cell.type.name,
+          Number(cell.attrs.colspan ?? 1),
+          Number(cell.attrs.rowspan ?? 1),
+        ]);
+      });
+      rows.push(cells);
+    });
+    tables.push(rows);
+    return false;
+  });
+  return JSON.stringify(tables);
+}
+
+type TableCellContext = {
+  cell: PmNode;
+  cellPosition: number;
+  table: PmNode;
+  tablePosition: number;
+};
+
+type TableSpanControlState = "merge" | "merge-disabled" | "split" | null;
+
+function tableContextAtPosition($position: ResolvedPos): {
+  table: PmNode;
+  tablePosition: number;
+} | null {
+  for (let depth = $position.depth; depth > 0; depth--) {
+    const node = $position.node(depth);
+    if (node.type.spec.tableRole !== "table" && node.type.name !== "table") continue;
+    return { table: node, tablePosition: $position.before(depth) };
+  }
+  return null;
+}
+
+function selectedTableCellContext(state: EditorState): TableCellContext | null {
+  const { selection } = state;
+  if (selection instanceof CellSelection) {
+    if (selection.$anchorCell.pos !== selection.$headCell.pos) return null;
+    const cell = selection.$anchorCell.nodeAfter;
+    const tableContext = tableContextAtPosition(selection.$anchorCell);
+    return cell && tableContext
+      ? { ...tableContext, cell, cellPosition: selection.$anchorCell.pos }
+      : null;
+  }
+  const $from = selection.$from;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+    const role = node.type.spec.tableRole;
+    if (role !== "cell" && role !== "header_cell") continue;
+    const tableContext = tableContextAtPosition($from);
+    return tableContext
+      ? { ...tableContext, cell: node, cellPosition: $from.before(depth) }
+      : null;
+  }
+  return null;
+}
+
+function pmTableCellIsEmpty(cell: PmNode): boolean {
+  return cell.childCount === 1 && Boolean(cell.firstChild?.isTextblock)
+    && cell.firstChild!.content.size === 0;
+}
+
+function selectedCellsHaveCompatibleContent(state: EditorState): boolean {
+  const { selection } = state;
+  if (!(selection instanceof CellSelection)) return false;
+  const cells: PmNode[] = [];
+  selection.forEachCell((cell) => cells.push(cell));
+  if (cells.length < 2 || cells.some((cell) => cell.type !== cells[0]?.type)) return false;
+  const populated = cells.filter((cell) => !pmTableCellIsEmpty(cell));
+  return populated.length <= 1
+    || populated.slice(1).every((cell) => cell.content.eq(populated[0]!.content));
+}
+
+function tableSpanControlState(editor: Editor): TableSpanControlState {
+  if (!editor.isEditable) return null;
+  const { state } = editor;
+  const { selection } = state;
+  if (
+    selection instanceof CellSelection
+    && selection.$anchorCell.pos !== selection.$headCell.pos
+  ) {
+    return pmMergeCells(state) && selectedCellsHaveCompatibleContent(state)
+      ? "merge"
+      : "merge-disabled";
+  }
+  return pmSplitCell(state) ? "split" : null;
+}
+
+function markSelectedTableLayoutExplicit(transaction: Transaction): boolean {
+  const resolved = transaction.selection instanceof CellSelection
+    ? transaction.selection.$anchorCell
+    : transaction.selection.$from;
+  const context = tableContextAtPosition(resolved);
+  if (!context) return false;
+  const table = transaction.doc.nodeAt(context.tablePosition);
+  if (!table) return false;
+  transaction.setNodeMarkup(context.tablePosition, undefined, {
+    ...table.attrs,
+    sourceSpanLayout: tableSpanLayoutForPmTable(table),
+  });
+  return true;
+}
+
+function mergeSelectedTableCells(editor: Editor): void {
+  if (tableSpanControlState(editor) !== "merge") {
+    notifyInfo("Table", "Select a rectangular group of cells with matching content.");
+    return;
+  }
+  editor.chain()
+    .focus()
+    .command(({ tr }) => {
+      const { selection } = tr;
+      if (!(selection instanceof CellSelection)) return false;
+      const cells: Array<{ cell: PmNode; position: number }> = [];
+      selection.forEachCell((cell, position) => cells.push({ cell, position }));
+      const preferred = cells.find(({ cell }) => !pmTableCellIsEmpty(cell));
+      for (const { position } of cells.sort((left, right) => right.position - left.position)) {
+        if (position === preferred?.position) continue;
+        const cell = tr.doc.nodeAt(position);
+        if (!cell || pmTableCellIsEmpty(cell)) continue;
+        const emptyCell = cell.type.createAndFill(cell.attrs);
+        if (!emptyCell) return false;
+        tr.replaceWith(position + 1, position + cell.nodeSize - 1, emptyCell.content);
+      }
+      return true;
+    })
+    .mergeCells()
+    .command(({ tr }) => markSelectedTableLayoutExplicit(tr))
+    .run();
+}
+
+function splitSelectedTableCell(editor: Editor): void {
+  const target = selectedTableCellContext(editor.state);
+  if (!target || !pmSplitCell(editor.state)) return;
+  const map = TableMap.get(target.table);
+  const rect = map.findCell(target.cellPosition - target.tablePosition - 1);
+  const sourceContent = target.cell.content;
+  editor.chain()
+    .focus()
+    .splitCell()
+    .command(({ tr }) => {
+      const table = tr.doc.nodeAt(target.tablePosition);
+      if (!table) return false;
+      const splitMap = TableMap.get(table);
+      const positions = new Map<number, number>();
+      for (let row = rect.top; row < rect.bottom; row++) {
+        for (let column = rect.left; column < rect.right; column++) {
+          const relative = splitMap.map[row * splitMap.width + column];
+          if (relative != null) positions.set(target.tablePosition + 1 + relative, row);
+        }
+      }
+      for (const [position, row] of [...positions].sort((left, right) => right[0] - left[0])) {
+        const cell = tr.doc.nodeAt(position);
+        if (!cell) return false;
+        const crossesGfmHeaderBoundary = rect.top === 0 && rect.bottom > 1;
+        const expectedType = crossesGfmHeaderBoundary
+          ? tr.doc.type.schema.nodes[row === 0 ? "tableHeader" : "tableCell"]
+          : target.cell.type;
+        if (!expectedType) return false;
+        if (cell.type !== expectedType) {
+          tr.setNodeMarkup(position, expectedType, cell.attrs, cell.marks);
+        }
+        if (!cell.content.eq(sourceContent)) {
+          tr.replaceWith(position + 1, position + cell.nodeSize - 1, sourceContent);
+        }
+      }
+      return markSelectedTableLayoutExplicit(tr);
+    })
+    .run();
+}
+
+function TableSpanControls({ editor }: { editor: Editor }) {
+  const action = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => tableSpanControlState(currentEditor),
+  });
+  const mergeReasonId = useId();
+  if (!action) return null;
+  const mergeDisabled = action === "merge-disabled";
+  return (
+    <BubbleMenu
+      editor={editor}
+      pluginKey="tableSpanControls"
+      appendTo={() => document.body}
+      shouldShow={({ editor: currentEditor }) => tableSpanControlState(currentEditor) !== null}
+      updateDelay={0}
+      className="z-50 flex items-center rounded-lg border bg-background p-1 shadow-md"
+      data-testid="table-span-controls"
+    >
+      {action === "split" ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => splitSelectedTableCell(editor)}
+        >
+          Split cell
+        </Button>
+      ) : (
+        <>
+          <span
+            className="inline-flex"
+            title={mergeDisabled
+              ? "Select a rectangular group of cells with matching content"
+              : undefined}
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={mergeDisabled}
+              aria-describedby={mergeDisabled ? mergeReasonId : undefined}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => mergeSelectedTableCells(editor)}
+            >
+              Merge cells
+            </Button>
+          </span>
+          {mergeDisabled && (
+            <span id={mergeReasonId} className="sr-only">
+              Only cells with matching content, or empty cells, can be merged.
+            </span>
+          )}
+        </>
+      )}
+    </BubbleMenu>
+  );
 }
 
 /** Fence punctuation has no visual text position; do not parse it as prose. */
@@ -382,6 +845,7 @@ function proseMirrorPositionForSourceOffset(
   doc: Editor["state"]["doc"],
   text: string,
   sourceOffset: number,
+  sourcePath?: string,
 ): number | null {
   let offset = visualizableTableSourceOffset(
     text,
@@ -401,8 +865,14 @@ function proseMirrorPositionForSourceOffset(
   }
   const sentinel = cursorSentinel(text);
   try {
-    const marked = `${text.slice(0, offset)}${sentinel}${text.slice(offset)}`;
-    const parsed = doc.type.schema.nodeFromJSON(parseVisualMarkdown(marked));
+    const marked = markExplicitTableSpanSource(text, offset, sentinel)
+      ?? `${text.slice(0, offset)}${sentinel}${text.slice(offset)}`;
+    const parsed = doc.type.schema.nodeFromJSON(parseVisualMarkdown(marked, sourcePath));
+    // Inserting a marker into one coordinate covered by an inferred paper
+    // span changes the evidence used to infer that span. Do not map through a
+    // differently shaped temporary table; an omitted overlay is safer than an
+    // action painted over another cell.
+    if (tableGeometrySignature(parsed) !== tableGeometrySignature(doc)) return null;
     let position: number | null = null;
     parsed.descendants((node, nodePosition) => {
       if (!node.isText || position !== null) return;
@@ -526,7 +996,7 @@ class VisualPresenceCaret {
 
 }
 
-type VisualPresenceMeta = { text: string; cursors: PresenceCursor[] };
+type VisualPresenceMeta = { text: string; sourcePath: string; cursors: PresenceCursor[] };
 const visualPresenceKey = new PluginKey<VisualPresenceMeta & { decorations: DecorationSet }>(
   "visualOverleafPresence",
 );
@@ -534,6 +1004,7 @@ const visualPresenceKey = new PluginKey<VisualPresenceMeta & { decorations: Deco
 function visualPresenceDecorations(
   doc: Editor["state"]["doc"],
   text: string,
+  sourcePath: string,
   cursors: PresenceCursor[],
 ): DecorationSet {
   return DecorationSet.create(doc, cursors.flatMap((cursor) => {
@@ -541,6 +1012,7 @@ function visualPresenceDecorations(
       doc,
       text,
       sourceOffsetForRowColumn(text, cursor.row, cursor.column),
+      sourcePath,
     );
     return position === null ? [] : [Decoration.widget(
       position,
@@ -572,6 +1044,7 @@ const VisualOverleafPresence = Extension.create({
       state: {
         init: (): VisualPresenceMeta & { decorations: DecorationSet } => ({
           text: "",
+          sourcePath: "",
           cursors: [],
           decorations: DecorationSet.empty,
         }),
@@ -581,9 +1054,10 @@ const VisualOverleafPresence = Extension.create({
           const cursors = meta?.cursors ?? current.cursors;
           return {
             text,
+            sourcePath: meta?.sourcePath ?? current.sourcePath,
             cursors,
             decorations: meta
-              ? visualPresenceDecorations(newState.doc, text, cursors)
+              ? visualPresenceDecorations(newState.doc, text, meta.sourcePath, cursors)
               : transaction.docChanged
                 ? current.decorations.map(transaction.mapping, newState.doc)
                 : current.decorations,
@@ -597,7 +1071,7 @@ const VisualOverleafPresence = Extension.create({
   },
 });
 
-type VisualTrackChangesMeta = { text: string; changes: TrackedChange[] };
+type VisualTrackChangesMeta = { text: string; sourcePath: string; changes: TrackedChange[] };
 const visualTrackChangesKey = new PluginKey<VisualTrackChangesMeta & { decorations: DecorationSet }>(
   "visualOverleafTrackChanges",
 );
@@ -605,10 +1079,11 @@ const visualTrackChangesKey = new PluginKey<VisualTrackChangesMeta & { decoratio
 function visualTrackChangeDecorations(
   doc: Editor["state"]["doc"],
   text: string,
+  sourcePath: string,
   changes: TrackedChange[],
 ): DecorationSet {
   return DecorationSet.create(doc, changes.flatMap((change) => {
-    const from = proseMirrorPositionForSourceOffset(doc, text, change.position);
+    const from = proseMirrorPositionForSourceOffset(doc, text, change.position, sourcePath);
     if (from === null) return [];
     const color = `hsl(${change.hue}, 70%, 50%)`;
     const attributes = {
@@ -632,7 +1107,12 @@ function visualTrackChangeDecorations(
         return element;
       }, { side: -1, key: `deletion:${change.id}:${change.position}:${change.text}` })];
     }
-    const to = proseMirrorPositionForSourceOffset(doc, text, change.position + change.text.length);
+    const to = proseMirrorPositionForSourceOffset(
+      doc,
+      text,
+      change.position + change.text.length,
+      sourcePath,
+    );
     if (to === null || to <= from || text.slice(change.position, change.position + change.text.length) !== change.text) {
       return [];
     }
@@ -644,7 +1124,12 @@ function visualTrackChangeDecorations(
 
 const EMPTY_EDITOR_COMMENTS: EditorComment[] = [];
 
-type VisualCommentsMeta = { text: string; comments: EditorComment[]; activeId: string | null };
+type VisualCommentsMeta = {
+  text: string;
+  sourcePath: string;
+  comments: EditorComment[];
+  activeId: string | null;
+};
 const visualCommentsKey = new PluginKey<VisualCommentsMeta & { decorations: DecorationSet }>(
   "visualEditorComments",
 );
@@ -663,6 +1148,7 @@ const visualCommentsKey = new PluginKey<VisualCommentsMeta & { decorations: Deco
 function visualCommentDecorations(
   doc: Editor["state"]["doc"],
   text: string,
+  sourcePath: string,
   comments: EditorComment[],
   activeId: string | null,
 ): DecorationSet {
@@ -670,9 +1156,9 @@ function visualCommentDecorations(
     if (comment.resolved) return [];
     const anchor = resolveCommentAnchor(text, comment);
     if (!anchor) return [];
-    const from = proseMirrorPositionForSourceOffset(doc, text, anchor.from);
+    const from = proseMirrorPositionForSourceOffset(doc, text, anchor.from, sourcePath);
     if (from === null) return [];
-    const to = proseMirrorPositionForSourceOffset(doc, text, anchor.to);
+    const to = proseMirrorPositionForSourceOffset(doc, text, anchor.to, sourcePath);
     if (to === null || to <= from) return [];
     // Same per-author colour the source editor marks it with, so the two
     // surfaces read as one feature rather than two.
@@ -696,6 +1182,7 @@ const VisualEditorComments = Extension.create({
       state: {
         init: (): VisualCommentsMeta & { decorations: DecorationSet } => ({
           text: "",
+          sourcePath: "",
           comments: [],
           activeId: null,
           decorations: DecorationSet.empty,
@@ -703,7 +1190,16 @@ const VisualEditorComments = Extension.create({
         apply: (transaction, current, _oldState, newState) => {
           const meta = transaction.getMeta(visualCommentsKey) as VisualCommentsMeta | undefined;
           return meta
-            ? { ...meta, decorations: visualCommentDecorations(newState.doc, meta.text, meta.comments, meta.activeId) }
+            ? {
+                ...meta,
+                decorations: visualCommentDecorations(
+                  newState.doc,
+                  meta.text,
+                  meta.sourcePath,
+                  meta.comments,
+                  meta.activeId,
+                ),
+              }
             : {
                 ...current,
                 decorations: transaction.docChanged
@@ -727,13 +1223,22 @@ const VisualOverleafTrackChanges = Extension.create({
       state: {
         init: (): VisualTrackChangesMeta & { decorations: DecorationSet } => ({
           text: "",
+          sourcePath: "",
           changes: [],
           decorations: DecorationSet.empty,
         }),
         apply: (transaction, current, _oldState, newState) => {
           const meta = transaction.getMeta(visualTrackChangesKey) as VisualTrackChangesMeta | undefined;
           return meta
-            ? { ...meta, decorations: visualTrackChangeDecorations(newState.doc, meta.text, meta.changes) }
+            ? {
+                ...meta,
+                decorations: visualTrackChangeDecorations(
+                  newState.doc,
+                  meta.text,
+                  meta.sourcePath,
+                  meta.changes,
+                ),
+              }
             : {
                 ...current,
                 decorations: transaction.docChanged
@@ -866,7 +1371,7 @@ type VisualMarkdownEditorProps = {
   text: string;
   activePath: string;
   onChangeMarkdown: (next: string, expected: string) => boolean;
-  onFlushPendingChange?: (flush: (() => void) | null) => void;
+  onFlushPendingChange?: (flush: (() => boolean) | null) => void;
   optimizeForReading?: boolean;
   synchronizeSourceScroll?: boolean;
   onRequestViewportLock?: (
@@ -882,7 +1387,11 @@ type VisualMarkdownEditorProps = {
   onUndo: () => boolean;
   onRedo: () => boolean;
   onEditSource?: () => void;
-  onViewInSource?: (sourceOffset: number, viewportY?: number) => void;
+  onViewInSource?: (
+    sourceOffset: number,
+    viewportY?: number,
+    blockViewportY?: number,
+  ) => void;
   onImportAsset?: (file: File) => Promise<string | null>;
   onLoadAsset?: (path: string) => Promise<string | null>;
   presenceCursors?: PresenceCursor[];
@@ -896,6 +1405,9 @@ type VisualMarkdownEditorProps = {
   overleafTrackChangeActions?: TrackedChangeTooltipActions;
   onCreateComment?: (from: number, to: number, body: string) => void;
   editable?: boolean;
+  /** Internal handoff from the passive block viewport to the complete editor. */
+  initialHandoff?: PassiveEditorHandoff;
+  onConsumeInitialHandoff?: () => void;
 };
 
 function resolveProjectLink(activePath: string, href: string): string | null {
@@ -948,6 +1460,373 @@ function ProjectInlineImageView({ node }: NodeViewProps) {
   );
 }
 
+type PassiveVisualChunk = {
+  id: string;
+  blocks: VisualMarkdownBlock[];
+  from: number;
+  content: NonNullable<ReturnType<typeof parseVisualMarkdown>["content"]>;
+  estimatedHeight: number;
+};
+
+type PassiveEditorHandoff = {
+  sourceOffset: number;
+  clientX?: number;
+  clientY?: number;
+  blockTop?: number;
+  pointerId?: number;
+  fragment?: string;
+  navigationOnly?: boolean;
+  command?: "find" | "selectAll";
+};
+
+function passiveVisualChunks(model: VisualMarkdownBlockModel): PassiveVisualChunk[] {
+  const chunks: PassiveVisualChunk[] = [];
+  let blocks: VisualMarkdownBlock[] = [];
+  let estimatedHeight = 0;
+  const flush = () => {
+    if (!blocks.length) return;
+    chunks.push({
+      id: `${blocks[0]!.id}:${blocks.at(-1)!.id}`,
+      blocks,
+      from: blocks[0]!.from,
+      content: blocks.flatMap((block) => block.content),
+      estimatedHeight,
+    });
+    blocks = [];
+    estimatedHeight = 0;
+  };
+  for (const block of model.blocks) {
+    blocks.push(block);
+    estimatedHeight += block.estimatedHeight;
+    // Keep a heading with the block that follows it. Besides making passive
+    // reading less visually fragmented, this preserves the generated Paper
+    // Contents heading + list pair that the render-only decoration recognizes.
+    const endsWithHeading = block.content.at(-1)?.type === "heading";
+    if (!endsWithHeading && (estimatedHeight >= 720 || blocks.length >= 12)) flush();
+  }
+  flush();
+  return chunks;
+}
+
+function sourceBlockAtPointer(
+  chunk: PassiveVisualChunk,
+  target: EventTarget | null,
+): { sourceOffset: number; blockTop?: number } {
+  if (!(target instanceof Node)) return { sourceOffset: chunk.from };
+  const element = target instanceof HTMLElement ? target : target.parentElement;
+  const proseMirror = element?.closest<HTMLElement>(".ProseMirror");
+  if (!proseMirror) return { sourceOffset: chunk.from };
+  if (element === proseMirror) return { sourceOffset: chunk.from };
+  let topLevel: HTMLElement | null = element;
+  while (topLevel?.parentElement && topLevel.parentElement !== proseMirror) {
+    if (!proseMirror.contains(topLevel.parentElement)) return { sourceOffset: chunk.from };
+    topLevel = topLevel.parentElement;
+  }
+  if (topLevel?.parentElement !== proseMirror) return { sourceOffset: chunk.from };
+  const index = topLevel ? Array.from(proseMirror.children).indexOf(topLevel) : -1;
+  const block = chunk.blocks[Math.max(0, index)] ?? chunk.blocks[0];
+  return {
+    sourceOffset: block?.from ?? chunk.from,
+    ...(topLevel ? { blockTop: topLevel.getBoundingClientRect().top } : {}),
+  };
+}
+
+function MountedPassiveVisualChunk({
+  chunk,
+  index,
+  optimizeForReading,
+  onActivate,
+  onMeasure,
+}: {
+  chunk: PassiveVisualChunk;
+  index: number;
+  optimizeForReading: boolean;
+  onActivate: (handoff: PassiveEditorHandoff) => void;
+  onMeasure: (index: number, height: number, element: HTMLElement) => void;
+}) {
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const pendingLinkDragRef = useRef<{
+    handoff: PassiveEditorHandoff;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
+  const extensions = useMemo(() => visualEditorExtensions(ImageSrcFidelity.extend({
+    addNodeView() {
+      return ReactNodeViewRenderer(ProjectInlineImageView, { as: "span" });
+    },
+  })).concat(optimizeForReading ? [GeneratedPaperContents] : []), [optimizeForReading]);
+  const editor = useEditor({
+    editable: false,
+    shouldRerenderOnTransaction: false,
+    extensions,
+    content: { type: "doc", content: chunk.content },
+    editorProps: {
+      attributes: {
+        tabindex: "-1",
+      },
+    },
+  }, [chunk.id]);
+
+  useLayoutEffect(() => {
+    const element = contentRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const height = Math.ceil(element.getBoundingClientRect().height);
+      if (height > 0) onMeasure(index, height, element);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [index, onMeasure]);
+
+  useEffect(() => {
+    const clearPendingLinkDrag = () => {
+      pendingLinkDragRef.current = null;
+    };
+    const continueLinkDrag = (event: PointerEvent) => {
+      const pending = pendingLinkDragRef.current;
+      if (!pending) return;
+      if (Math.hypot(event.clientX - pending.clientX, event.clientY - pending.clientY) < 4) return;
+      pendingLinkDragRef.current = null;
+      event.preventDefault();
+      onActivate({
+        ...pending.handoff,
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+    };
+    window.addEventListener("pointermove", continueLinkDrag, { passive: false });
+    window.addEventListener("pointerup", clearPendingLinkDrag);
+    window.addEventListener("pointercancel", clearPendingLinkDrag);
+    return () => {
+      window.removeEventListener("pointermove", continueLinkDrag);
+      window.removeEventListener("pointerup", clearPendingLinkDrag);
+      window.removeEventListener("pointercancel", clearPendingLinkDrag);
+    };
+  }, [onActivate]);
+
+  if (!editor) return null;
+  return (
+    <div
+      ref={contentRef}
+      className="tiptap-editor visual-markdown-virtual-block-content"
+      data-visual-chunk-id={chunk.id}
+      onPointerDownCapture={(event) => {
+        const target = event.target;
+        if (
+          target instanceof HTMLElement
+          && target.closest("button, input, textarea, select, summary, [role='button'], [data-image-inline-zoom]")
+        ) return;
+        const source = sourceBlockAtPointer(chunk, target);
+        if (target instanceof HTMLElement && target.closest("a[href]")) {
+          pendingLinkDragRef.current = {
+            handoff: {
+              ...source,
+              pointerId: event.pointerId,
+            },
+            clientX: event.clientX,
+            clientY: event.clientY,
+          };
+          return;
+        }
+        event.preventDefault();
+        onActivate({
+          ...source,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          pointerId: event.pointerId,
+        });
+      }}
+    >
+      <EditorContent className="tiptap-editor-portal-content" editor={editor} />
+    </div>
+  );
+}
+
+function PassiveVisualMarkdownViewport({
+  model,
+  activePath,
+  optimizeForReading,
+  onActivate,
+  onLoadAsset,
+  onOpenProjectPath,
+  workspaceIndex,
+}: {
+  model: VisualMarkdownBlockModel;
+  activePath: string;
+  optimizeForReading: boolean;
+  onActivate: (handoff: PassiveEditorHandoff) => void;
+  onLoadAsset?: (path: string) => Promise<string | null>;
+  onOpenProjectPath?: (path: string) => void;
+  workspaceIndex?: MarkdownWorkspaceIndex | null;
+}) {
+  const chunks = useMemo(() => passiveVisualChunks(model), [model]);
+  const headingItems = useMemo(() => documentHeadingItems({
+    type: "doc",
+    content: model.blocks.flatMap((block) => block.content),
+  }, { hideGeneratedContents: optimizeForReading }), [model, optimizeForReading]);
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const scrollRef = useRef<HTMLElement | null>(null);
+  const scrollCompensationRef = useRef(0);
+  const [heights, setHeights] = useState(() => chunks.map((chunk) => chunk.estimatedHeight));
+  const [mountedRange, setMountedRange] = useState(() => ({
+    from: 0,
+    to: Math.min(chunks.length, 3),
+  }));
+  const updateMountedRange = useCallback(() => {
+    const section = sectionRef.current;
+    const scroller = scrollRef.current;
+    if (!section || !scroller || !chunks.length) return;
+    const sectionRect = section.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    const viewportFrom = Math.max(0, scrollerRect.top - sectionRect.top - 1_600);
+    const viewportTo = Math.max(viewportFrom, scrollerRect.bottom - sectionRect.top + 1_600);
+    let cursor = 0;
+    let from = 0;
+    while (from < heights.length && cursor + heights[from]! < viewportFrom) {
+      cursor += heights[from]!;
+      from += 1;
+    }
+    let to = from;
+    while (to < heights.length && cursor < viewportTo) {
+      cursor += heights[to]!;
+      to += 1;
+    }
+    from = Math.max(0, from - 1);
+    to = Math.min(chunks.length, Math.max(to + 1, from + 1));
+    to = Math.min(to, from + 12);
+    setMountedRange((current) => current.from === from && current.to === to ? current : { from, to });
+  }, [chunks.length, heights]);
+
+  useLayoutEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+    const scroller = section.closest<HTMLElement>(".editor-doc-scroll");
+    if (!scroller) return;
+    scrollRef.current = scroller;
+    let frame = 0;
+    const schedule = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        updateMountedRange();
+      });
+    };
+    updateMountedRange();
+    scroller.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      scrollRef.current = null;
+      scroller.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [updateMountedRange]);
+  useLayoutEffect(() => {
+    const compensation = scrollCompensationRef.current;
+    const scroller = scrollRef.current;
+    if (!compensation || !scroller) return;
+    scrollCompensationRef.current = 0;
+    scroller.scrollTop += compensation;
+  }, [heights]);
+  const measureChunk = useCallback((index: number, height: number, element: HTMLElement) => {
+    setHeights((current) => {
+      const previous = current[index];
+      if (previous == null || previous === height) return current;
+      const scroller = scrollRef.current;
+      if (scroller && element.getBoundingClientRect().bottom <= scroller.getBoundingClientRect().top) {
+        scrollCompensationRef.current += height - previous;
+      }
+      const next = [...current];
+      next[index] = height;
+      return next;
+    });
+  }, []);
+  const topHeight = heights.slice(0, mountedRange.from).reduce((sum, height) => sum + height, 0);
+  const bottomHeight = heights.slice(mountedRange.to).reduce((sum, height) => sum + height, 0);
+
+  return (
+    <section
+      ref={sectionRef}
+      className={`visual-markdown-editor visual-markdown-virtual-viewport${optimizeForReading ? " optimize-for-reading" : ""}`}
+      data-active-path={activePath}
+      data-virtualized="true"
+      aria-label="Visual Markdown editor"
+      role="document"
+      tabIndex={0}
+      onFocusCapture={(event) => {
+        const target = event.target;
+        if (target instanceof HTMLElement && target.closest(".visual-heading-rail")) return;
+        onActivate({ sourceOffset: model.blocks[0]?.from ?? 0 });
+      }}
+      onKeyDownCapture={(event) => {
+        if (!event.metaKey && !event.ctrlKey) return;
+        const key = event.key.toLocaleLowerCase();
+        if (key !== "f" && key !== "a") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onActivate({
+          sourceOffset: model.blocks[0]?.from ?? 0,
+          command: key === "f" ? "find" : "selectAll",
+        });
+      }}
+      onClickCapture={(event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const anchor = target.closest<HTMLAnchorElement>("a[href]");
+        const href = anchor?.getAttribute("href");
+        if (!anchor || !href) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const localFragment = localPaperFragment(activePath, href);
+        if (localFragment) {
+          onActivate({
+            sourceOffset: model.blocks[0]?.from ?? 0,
+            fragment: `#${encodeURIComponent(localFragment.id)}`,
+            navigationOnly: true,
+          });
+          return;
+        }
+        openMarkdownLink(activePath, href, onOpenProjectPath, sectionRef.current ?? undefined);
+      }}
+    >
+      <DocumentHeadingRail
+        items={headingItems}
+        virtualized
+        onSelect={(item) => onActivate({
+          sourceOffset: model.blocks[0]?.from ?? 0,
+          fragment: `#${encodeURIComponent(item.id)}`,
+          navigationOnly: true,
+        })}
+      />
+      <button
+        type="button"
+        className="visual-markdown-virtual-edit"
+        onClick={() => onActivate({ sourceOffset: model.blocks[0]?.from ?? 0 })}
+      >Edit document</button>
+      <ProjectImageHostProvider activePath={activePath} loadAsset={onLoadAsset}>
+        <MirrorHostProvider workspaceIndex={workspaceIndex}>
+          <TooltipProvider delayDuration={280} skipDelayDuration={400}>
+            <div aria-hidden="true" style={{ height: `${topHeight}px` }} />
+            {chunks.slice(mountedRange.from, mountedRange.to).map((chunk, offset) => (
+              <MountedPassiveVisualChunk
+                key={chunk.id}
+                chunk={chunk}
+                index={mountedRange.from + offset}
+                optimizeForReading={optimizeForReading}
+                onActivate={onActivate}
+                onMeasure={measureChunk}
+              />
+            ))}
+            <div aria-hidden="true" style={{ height: `${bottomHeight}px` }} />
+          </TooltipProvider>
+        </MirrorHostProvider>
+      </ProjectImageHostProvider>
+    </section>
+  );
+}
+
 /**
  * Re-emit the source bytes of every block the reader did not touch.
  *
@@ -963,11 +1842,13 @@ function ProjectInlineImageView({ node }: NodeViewProps) {
  * Splicing the original bytes back keeps an untouched document identical, so
  * only blocks that actually changed pay the serializer's canonical form.
  */
-function restoreUnchangedBlocks(
+// eslint-disable-next-line react-refresh/only-export-components -- exported for the corruption regression test
+export function restoreUnchangedBlocks(
   serialized: string,
   expected: string,
   currentDoc: Editor["state"]["doc"],
   changedBlocks?: ReadonlySet<number>,
+  sourcePath?: string,
 ): string {
   const textSemantics = (node: Editor["state"]["doc"]) => {
     const semantics: unknown[] = [];
@@ -984,9 +1865,9 @@ function restoreUnchangedBlocks(
       // A hard break is the one representation difference this comparison
       // exists to forgive — the same prose carries it as a newline in the
       // source and as a node in the document. Every other leaf is content: a
-      // tag chip, an inline-math atom or an image can be deleted without
-      // touching a character of text, and that has to read as a change or the
-      // deletion is restored away.
+      // inline-math atom or an image can be deleted without touching a
+      // character of text, and that has to read as a change or the deletion
+      // is restored away.
       if (child.type.name === "hardBreak") return;
       if (child.isLeaf || child.isAtom) semantics.push([child.type.name, child.attrs]);
     });
@@ -994,7 +1875,7 @@ function restoreUnchangedBlocks(
   };
   let expectedDoc: Editor["state"]["doc"];
   try {
-    expectedDoc = currentDoc.type.schema.nodeFromJSON(parseVisualMarkdown(expected));
+    expectedDoc = currentDoc.type.schema.nodeFromJSON(parseVisualMarkdown(expected, sourcePath));
   } catch {
     return serialized;
   }
@@ -1004,11 +1885,11 @@ function restoreUnchangedBlocks(
   // we return, so every offset below — and the result — works on the body.
   const body = expected.startsWith("\uFEFF") ? expected.slice(1) : expected;
   const isUnchanged = (index: number) => {
+    if (changedBlocks?.has(index)) return false;
     const current = currentDoc.child(index);
     const original = expectedDoc.child(index);
-    return (changedBlocks ? !changedBlocks.has(index) : false)
-      || current.eq(original)
-      || (current.isTextblock && current.type === original.type && (
+    return current.eq(original)
+      || (current.isTextblock && current.sameMarkup(original) && (
         current.content.eq(original.content)
         || textSemantics(current) === textSemantics(original)
       ));
@@ -1042,35 +1923,27 @@ function restoreUnchangedBlocks(
       : serialized.slice(exactSerialized[last]!.to));
   }
 
-  // Uncertain block mapping: keep the narrower rewrite, which only ever
-  // substitutes a block whose source spans several lines.
-  const expectedRanges = visualSourceRanges(body, expectedDoc.childCount);
-  const serializedRanges = visualSourceRanges(serialized, currentDoc.childCount);
-  const replacements = expectedRanges.flatMap((expectedRange, index) => {
-    const source = body.slice(expectedRange.from, expectedRange.to);
-    const target = serializedRanges[index];
-    if (!target || !/\r?\n/.test(source)) return [];
-    if (!isUnchanged(index)) return [];
-    return [{ ...target, source }];
-  });
-  return replacements.sort((a, b) => b.from - a.from).reduce(
-    (result, replacement) => (
-      result.slice(0, replacement.from) + replacement.source + result.slice(replacement.to)
-    ),
-    serialized,
-  );
+  // Never splice source through visualSourceRanges' best-effort mapping. A
+  // single MDAST node can expand into several ProseMirror roots; its repeated
+  // fallback range is useful for approximate navigation but would copy the
+  // same formula or container over later blocks during serialization. When
+  // ownership is uncertain, canonical serialization is less faithful but it
+  // cannot duplicate or replace unrelated document content.
+  return serialized;
 }
 
 function serializeMarkdown(
   editor: Editor,
   expected: string,
   changedBlocks?: ReadonlySet<number>,
+  sourcePath?: string,
 ): string {
   return restoreUnchangedBlocks(
     getMarkdownManager().serialize(editor.getJSON()),
     expected,
     editor.state.doc,
     changedBlocks,
+    sourcePath,
   );
 }
 
@@ -1275,22 +2148,81 @@ function setMarkdownWithoutHistory(editor: Editor, markdown: string, sourcePath:
     .run();
 }
 
+function paperArxivIdFromPath(activePath: string): string | null {
+  const prefix = ".research/papers/";
+  const suffix = "/paper.md";
+  const normalized = activePath.replace(/\\/g, "/");
+  if (!normalized.startsWith(prefix) || !normalized.endsWith(suffix)) return null;
+  const id = normalized.slice(prefix.length, -suffix.length);
+  return id && !id.startsWith("web-") ? id : null;
+}
+
+function baseArxivId(id: string): string {
+  return id.replace(/v\d+$/i, "");
+}
+
+/** The fragment when an arXiv URL points back into the paper already open. */
+function localPaperFragment(activePath: string, href: string): { id: string; fallbackUrl?: string } | null {
+  const paperId = paperArxivIdFromPath(activePath);
+  let fragment = href;
+  let fallbackUrl = paperId ? `https://arxiv.org/html/${paperId}${href}` : undefined;
+  if (!href.startsWith("#")) {
+    if (!paperId) return null;
+    let url: URL;
+    try {
+      url = new URL(href);
+    } catch {
+      return null;
+    }
+    if (!/^(?:www\.)?arxiv\.org$/i.test(url.hostname) || !url.pathname.startsWith("/html/") || !url.hash) {
+      return null;
+    }
+    let linkedId: string;
+    try {
+      linkedId = decodeURIComponent(url.pathname.slice("/html/".length));
+    } catch {
+      return null;
+    }
+    if (baseArxivId(linkedId).toLocaleLowerCase() !== baseArxivId(paperId).toLocaleLowerCase()) {
+      return null;
+    }
+    fragment = url.hash;
+    fallbackUrl = href;
+  }
+  if (fragment === "#") return null;
+  try {
+    return { id: decodeURIComponent(fragment.slice(1)), fallbackUrl };
+  } catch {
+    return null;
+  }
+}
+
+function markdownAnchorTarget(editorElement: HTMLElement | undefined, id: string): HTMLElement | null {
+  const elements = Array.from(editorElement?.querySelectorAll<HTMLElement>("[id]") ?? []);
+  let candidate = id;
+  while (candidate) {
+    const target = elements.find((element) => element.id === candidate);
+    if (target) return target;
+    // LaTeXML gives subfigures ids such as S7.F10.sf1 while arxiv2md keeps
+    // only the parent figure anchor. The parent is the closest honest local
+    // destination and avoids sending an otherwise readable paper to the web.
+    const separator = candidate.lastIndexOf(".");
+    candidate = separator > 0 ? candidate.slice(0, separator) : "";
+  }
+  return null;
+}
+
 function openMarkdownLink(
   activePath: string,
   href: string,
   onOpenProjectPath?: (path: string) => void,
   editorElement?: HTMLElement,
 ) {
-  if (href !== "#" && href.startsWith("#")) {
-    let id: string;
-    try {
-      id = decodeURIComponent(href.slice(1));
-    } catch {
-      return;
-    }
-    const target = Array.from(editorElement?.querySelectorAll<HTMLElement>("[id]") ?? [])
-      .find((element) => element.id === id);
-    target?.scrollIntoView({ block: "start" });
+  const localFragment = localPaperFragment(activePath, href);
+  if (localFragment) {
+    const target = markdownAnchorTarget(editorElement, localFragment.id);
+    if (target) target.scrollIntoView({ block: "start" });
+    else if (localFragment.fallbackUrl) void openUrl(localFragment.fallbackUrl).catch(() => undefined);
     return;
   }
   const path = resolveProjectLink(activePath, href);
@@ -1339,6 +2271,7 @@ const VisualEditorSurface = memo(function VisualEditorSurface({
                 </VisualCommentProvider>
               )}
               {editorViewMounted && !optimizeForReading && <TableCellHandles editor={editor} />}
+              {editorViewMounted && <TableSpanControls editor={editor} />}
               <EmojiInsertPopover />
               {editorViewMounted && (
                 <VisualLinkInsertPopover editor={editor} onOpenChange={onLinkPopoverOpenChange} />
@@ -1352,7 +2285,7 @@ const VisualEditorSurface = memo(function VisualEditorSurface({
   );
 });
 
-export function VisualMarkdownEditor({
+function CompleteVisualMarkdownEditor({
   text,
   activePath,
   onChangeMarkdown,
@@ -1363,7 +2296,6 @@ export function VisualMarkdownEditor({
   onOpenProjectPath,
   workspaceIndex,
   papers,
-  macros,
   onUndo,
   onRedo,
   onEditSource,
@@ -1380,7 +2312,13 @@ export function VisualMarkdownEditor({
   overleafTrackChangeActions,
   onCreateComment,
   editable = true,
+  initialHandoff,
+  onConsumeInitialHandoff,
 }: VisualMarkdownEditorProps): JSX.Element {
+  const headingItems = useMemo(() => documentHeadingItems(
+    cachedVisualDocument(activePath, text).content,
+    { hideGeneratedContents: optimizeForReading },
+  ), [activePath, optimizeForReading, text]);
   const [conflictDraft, setConflictDraft] = useState<string | null>(null);
   const [renderedPath, setRenderedPath] = useState(activePath);
   const [eligibilityReason, setEligibilityReason] = useState<string | null>(null);
@@ -1634,6 +2572,7 @@ export function VisualMarkdownEditor({
     if (currentEditor.isDestroyed || !presenceWasActive.current) return;
     currentEditor.view.dispatch(currentEditor.state.tr.setMeta(visualPresenceKey, {
       text: markdown,
+      sourcePath: activePathRef.current,
       cursors: presenceCursorsRef.current,
     } satisfies VisualPresenceMeta));
   }, []);
@@ -1648,17 +2587,22 @@ export function VisualMarkdownEditor({
     if (currentEditor.isDestroyed || (!changes.length && !trackChangesWereActive.current)) return;
     currentEditor.view.dispatch(currentEditor.state.tr.setMeta(visualTrackChangesKey, {
       text: markdown,
+      sourcePath: activePathRef.current,
       changes,
     } satisfies VisualTrackChangesMeta));
   }, []);
   const flushPendingLocalUpdate = useCallback(() => {
+    // WebKit can deliver the final composition transaction during blur. Do
+    // not hand document ownership to another path until compositionend has
+    // made that transaction publishable by the current editor.
+    if (conflictDraftRef.current != null || composing.current) return false;
     if (localUpdateTimer.current) clearTimeout(localUpdateTimer.current);
     if (localUpdateMaxTimer.current) clearTimeout(localUpdateMaxTimer.current);
     localUpdateTimer.current = null;
     localUpdateMaxTimer.current = null;
     const pending = pendingLocalUpdate.current;
     pendingLocalUpdate.current = null;
-    if (!pending || pending.editor.isDestroyed) return;
+    if (!pending || pending.editor.isDestroyed) return true;
     const { editor: updatedEditor, explicitReplacement, changedBlocks, viewportAnchor } = pending;
     // Initialization and canonical-reconciliation transactions are not user
     // edits. In particular, never let opening a source-only paper normalize
@@ -1666,13 +2610,13 @@ export function VisualMarkdownEditor({
     if (!explicitReplacement && (
       eligibilityText.current !== acceptedMarkdown.current
       || eligibilityRepresentedExactly.current !== true
-    )) return;
+    )) return true;
     const expected = acceptedMarkdown.current;
     const next = preserveMarkdownEnvelope(
-      serializeMarkdown(updatedEditor, expected, changedBlocks),
+      serializeMarkdown(updatedEditor, expected, changedBlocks, activePathRef.current),
       expected,
     );
-    if (next === expected) return;
+    if (next === expected) return true;
     // A deferred split publication happens after the short lock requested by
     // the original + transaction. Re-lock immediately before the source echo
     // so its CodeMirror update cannot move the preview several frames later.
@@ -1702,10 +2646,11 @@ export function VisualMarkdownEditor({
       eligibilityRepresentedExactly.current = true;
       conflictDraftRef.current = null;
       setConflictDraft(null);
-      return;
+      return true;
     }
     conflictDraftRef.current = next;
     setConflictDraft(next);
+    return false;
   }, [refreshVisualPresence, reportVisualCaret]);
   useLayoutEffect(() => {
     if (!onFlushPendingChange) return;
@@ -1717,21 +2662,18 @@ export function VisualMarkdownEditor({
   // avoids reparsing an entire Markdown document when editor chrome mounts or
   // local status changes; later source updates are reconciled below.
   const [initialContent] = useState(() => cachedVisualContent(activePath, text));
+  const getActivePath = useCallback(() => activePathRef.current, []);
+  const getWorkspaceIndex = useCallback(() => indexRef.current ?? null, []);
+  const getPapers = useCallback(() => papersRef.current ?? [], []);
   const slashSources = useMemo(
-    () => slashItemSources(onImportAsset, () => activePathRef.current),
-    [onImportAsset],
+    () => slashItemSources(onImportAsset, getActivePath),
+    [getActivePath, onImportAsset],
   );
   const imageExtension = useMemo(() => ImageSrcFidelity.extend({
     addNodeView() {
       return ReactNodeViewRenderer(ProjectInlineImageView);
     },
   }).configure({ inline: true }), []);
-
-  // Publish host KaTeX macros to the seam the vendored MathInlineView
-  // renders through (see @ok-app/shims/katex-macros).
-  useEffect(() => {
-    setHostKatexMacros(macros ?? EMPTY_MACROS);
-  }, [macros]);
 
   useEffect(() => {
     changeRef.current = onChangeMarkdown;
@@ -1786,21 +2728,16 @@ export function VisualMarkdownEditor({
   }, [slashSources]);
 
   const wikiLinkSuggestion = useMemo(
-    () => visualWikiLinkSuggestion(() => indexRef.current ?? null),
-    [],
+    () => visualWikiLinkSuggestion(getWorkspaceIndex),
+    [getWorkspaceIndex],
   );
 
   const paperCitationSuggestion = useMemo(
     () => visualPaperCitationSuggestion({
-      getPapers: () => papersRef.current ?? [],
-      getActivePath: () => activePathRef.current,
+      getPapers,
+      getActivePath,
     }),
-    [],
-  );
-
-  const tagWithChrome = useMemo(
-    () => visualTag(() => indexRef.current ?? null),
-    [],
+    [getActivePath, getPapers],
   );
 
   const canonicalHistoryShortcuts = useMemo(() => Extension.create({
@@ -1910,13 +2847,12 @@ export function VisualMarkdownEditor({
     // useEditorState; re-rendering this host per transaction feeds a
     // render→dispatch cycle that React aborts as an infinite update loop.
     shouldRerenderOnTransaction: false,
-    editable,
+    // The matching Markdown eligibility effect is the sole initial owner of
+    // editability. Starting writable leaves a gap where onUpdate correctly
+    // ignores initialization but a queued user key would be lost with it.
+    editable: false,
     extensions: [
-      ...visualEditorExtensions(imageExtension).map((extension) =>
-        // Swap core's bare `tag` atom for the app-side override (two-state
-        // chip NodeView, `#` typeahead, one-keystroke atom removal).
-        extension.name === "tag" ? tagWithChrome : extension,
-      ),
+      ...visualEditorExtensions(imageExtension),
       SourceDirtyObserver,
       // Keep WebKit's native caret. The old fixed-height overlay listened to
       // every ancestor scroll and forced coordsAtPos/layout work per frame.
@@ -1939,11 +2875,8 @@ export function VisualMarkdownEditor({
         categoryLabels: SLASH_CATEGORY_LABELS,
       }),
       TiptapFindReplace,
-      ...(optimizeForReading ? [] : [TableInsertControls, FrozenTableHeaders]),
-      // WebKit's selection geometry can become unstable when editable text is
-      // materialized on demand. Papers use native caret/reading chrome, while
-      // ordinary editing keeps eager text and virtualizes only heavy leaves.
-      ...(optimizeForReading ? [ChunkWrapperDecoration] : []),
+      ...(optimizeForReading ? [ChunkWrapperDecoration, GeneratedPaperContents] : []),
+      ...(optimizeForReading ? [] : [TableInsertControls, LatticeFrozenTableHeaders]),
       FootnoteAnchorScroll,
       FormattingShortcuts,
       TabFocusTrap,
@@ -1977,7 +2910,7 @@ export function VisualMarkdownEditor({
       handleClickOn: (view, _pos, node, nodePos, event) => {
         if (node.type.name !== "text") return false;
         const anchor = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
-        if (!anchor || anchor.hasAttribute("data-tag")) return false;
+        if (!anchor) return false;
         const href = anchor.getAttribute("href");
         if (!href) return false;
         event.preventDefault();
@@ -2064,14 +2997,6 @@ export function VisualMarkdownEditor({
           const anchor = target?.closest("a");
           if (!anchor) return false;
           event.preventDefault();
-          // Tag chips (`<a class="tag" data-tag>`) surface the upstream
-          // `ok:tag-click` event instead of link navigation — the href
-          // (`#tag/{value}`) is keyboard/right-click chrome only.
-          const tagValue = anchor.getAttribute("data-tag");
-          if (tagValue) {
-            dispatchTagClick(tagValue);
-            return true;
-          }
           const href = anchor.getAttribute("href");
           if (href) openMarkdownLink(activePathRef.current, href, openPathRef.current, view.dom);
           return true;
@@ -2123,6 +3048,73 @@ export function VisualMarkdownEditor({
   // instance via the path-swap layout effect below — remounting TipTap is what
   // made .md navigation feel slow.
   }, [optimizeForReading]);
+  const initialHandoffRef = useRef(initialHandoff);
+  useLayoutEffect(() => {
+    const requested = initialHandoffRef.current;
+    if (!editor || editor.isDestroyed || !requested) return;
+    initialHandoffRef.current = undefined;
+    queueMicrotask(() => onConsumeInitialHandoff?.());
+    if (requested.fragment) {
+      openMarkdownLink(activePath, requested.fragment, onOpenProjectPath, editor.view.dom);
+      if (requested.navigationOnly) return;
+    }
+    const position = proseMirrorPositionForSourceOffset(
+      editor.state.doc,
+      text,
+      requested.sourceOffset,
+      activePath,
+    );
+    if (position == null) return;
+    if (requested.blockTop != null) {
+      const resolved = editor.state.doc.resolve(position);
+      const topLevelPosition = resolved.depth > 0 ? resolved.before(1) : position;
+      const block = editor.view.nodeDOM(topLevelPosition);
+      const scroller = editor.view.dom.closest<HTMLElement>(".editor-doc-scroll");
+      if (block instanceof HTMLElement && scroller) {
+        scroller.scrollTop += block.getBoundingClientRect().top - requested.blockTop;
+      }
+    }
+    const pointerPosition = requested.clientX != null && requested.clientY != null
+      ? editor.view.posAtCoords({ left: requested.clientX, top: requested.clientY })?.pos
+      : undefined;
+    const selection = TextSelection.near(editor.state.doc.resolve(pointerPosition ?? position), 1);
+    editor.view.dispatch(editor.state.tr.setSelection(selection));
+    editor.commands.focus();
+    if (requested.command === "selectAll") {
+      editor.view.dispatch(editor.state.tr.setSelection(new AllSelection(editor.state.doc)));
+      return;
+    }
+    if (requested.command === "find") {
+      queueMicrotask(() => window.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "f",
+        metaKey: true,
+        bubbles: true,
+      })));
+      return;
+    }
+    if (requested.pointerId == null) return;
+    const anchor = selection.head;
+    const extendSelection = (event: PointerEvent) => {
+      if (event.pointerId !== requested.pointerId) return;
+      const head = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+      if (head == null) return;
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, anchor, head)));
+    };
+    const finishSelection = (event: PointerEvent) => {
+      if (event.pointerId !== requested.pointerId) return;
+      window.removeEventListener("pointermove", extendSelection, true);
+      window.removeEventListener("pointerup", finishSelection, true);
+      window.removeEventListener("pointercancel", finishSelection, true);
+    };
+    window.addEventListener("pointermove", extendSelection, true);
+    window.addEventListener("pointerup", finishSelection, true);
+    window.addEventListener("pointercancel", finishSelection, true);
+    return () => {
+      window.removeEventListener("pointermove", extendSelection, true);
+      window.removeEventListener("pointerup", finishSelection, true);
+      window.removeEventListener("pointercancel", finishSelection, true);
+    };
+  }, [activePath, editor, onConsumeInitialHandoff, onOpenProjectPath, text]);
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     const wired = new WeakSet<HTMLAnchorElement>();
@@ -2131,7 +3123,6 @@ export function VisualMarkdownEditor({
         if (wired.has(anchor)) return;
         wired.add(anchor);
         anchor.addEventListener("click", (event) => {
-          if (anchor.hasAttribute("data-tag")) return;
           const href = anchor.getAttribute("href");
           if (!href) return;
           event.preventDefault();
@@ -2162,7 +3153,10 @@ export function VisualMarkdownEditor({
     if (!editor || editor.isDestroyed || canonical === acceptedMarkdown.current) return;
     const base = acceptedMarkdown.current;
     const draft = conflictDraftRef.current
-      ?? preserveMarkdownEnvelope(serializeMarkdown(editor, base), base);
+      ?? preserveMarkdownEnvelope(
+        serializeMarkdown(editor, base, undefined, activePathRef.current),
+        base,
+      );
     // A document the parser cannot round-trip serializes back into something
     // unlike its own source, and the surface is read-only for exactly that
     // reason — so the difference is the round trip's drift, not the reader's
@@ -2226,7 +3220,9 @@ export function VisualMarkdownEditor({
   }, [activePath, conflictDraft, editor, onEditSource]);
 
   useEffect(() => {
-    if (editor && editor.isEditable !== editable) editor.setEditable(editable);
+    if (!editor) return;
+    const canEdit = editable && editorReadyForChanges.current;
+    if (editor.isEditable !== canEdit) editor.setEditable(canEdit);
   }, [editable, editor]);
 
   // Flush edits against the old publisher before the passive ref refresh. The
@@ -2238,6 +3234,12 @@ export function VisualMarkdownEditor({
     if (activePathRef.current === activePath) return;
 
     flushPendingLocalUpdate();
+    // The App owner has already accepted the final old-path flush before it
+    // commits a new activePath. Ignore any blur/NodeView bookkeeping emitted
+    // while this old DOM is disabled and waiting for the painted handoff;
+    // letting it repopulate pendingLocalUpdate would attach obsolete work to
+    // the incoming document generation.
+    editorReadyForChanges.current = false;
     editor.commands.blur();
     editor.setEditable(false);
     setHoveredChanges(null);
@@ -2249,43 +3251,89 @@ export function VisualMarkdownEditor({
   }, [activePath, editor, flushPendingLocalUpdate]);
 
   // Swap TipTap content across .md files without tearing down the editor. A
-  // zero-delay task lets React paint the lightweight opening state first and
-  // keeps TipTap's internal flushSync outside React's commit/effect stack.
+  // A frame followed by a task gives WebKit a real paint opportunity for the
+  // lightweight opening state. A zero-delay task alone can run before paint,
+  // leaving the old document frozen on screen throughout a long parse.
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
-    if (activePathRef.current === activePath) return;
-    const timer = window.setTimeout(() => {
-      if (editor.isDestroyed) return;
-
-      activePathRef.current = activePath;
-      composing.current = false;
-      if (compositionClearTimer.current) {
-        clearTimeout(compositionClearTimer.current);
-        compositionClearTimer.current = null;
+    if (activePathRef.current === activePath) {
+      // A rapid A → B → A navigation can cancel B's scheduled replacement
+      // after the layout effect disabled A. Restore the retained document
+      // instead of leaving its TipTap surface permanently read-only.
+      if (
+        renderedPath === activePath
+        && acceptedMarkdown.current === text
+        && eligibilityText.current === text
+      ) {
+        editorReadyForChanges.current = true;
+        const canEdit = editable && eligibilityRepresentedExactly.current === true;
+        if (editor.isEditable !== canEdit) editor.setEditable(canEdit);
       }
-      pendingCanonical.current = null;
-      conflictDraftRef.current = null;
-      setConflictDraft(null);
-      setHoveredChanges(null);
-      setCommentComposer(null);
-      setLinkPopoverOpen(false);
-      eligibilityText.current = null;
-      eligibilityRepresentedExactly.current = null;
-      editorReadyForChanges.current = false;
+      return;
+    }
+    let timer: number | null = null;
+    const frame = window.requestAnimationFrame(() => {
+      timer = window.setTimeout(() => {
+        if (editor.isDestroyed) return;
 
-      acceptedMarkdown.current = text;
-      incomingMarkdown.current = text;
-      setMarkdownWithoutHistory(editor, text, activePath);
-      // Fresh history so Undo cannot walk back into the previous file.
-      editor.view.updateState(EditorState.create({
-        doc: editor.state.doc,
-        plugins: editor.state.plugins,
-      }));
-      editor.setEditable(editable);
-      setRenderedPath(activePath);
-    }, 0);
+        activePathRef.current = activePath;
+        composing.current = false;
+        if (compositionClearTimer.current) {
+          clearTimeout(compositionClearTimer.current);
+          compositionClearTimer.current = null;
+        }
+        pendingCanonical.current = null;
+        conflictDraftRef.current = null;
+        setConflictDraft(null);
+        setHoveredChanges(null);
+        setCommentComposer(null);
+        setLinkPopoverOpen(false);
+        eligibilityText.current = null;
+        eligibilityRepresentedExactly.current = null;
+        editorReadyForChanges.current = false;
 
-    return () => window.clearTimeout(timer);
+        acceptedMarkdown.current = text;
+        incomingMarkdown.current = text;
+        const handoffStartedAt = performance.now();
+        setMarkdownWithoutHistory(editor, text, activePath);
+        const handoffEndedAt = performance.now();
+        const handoffMs = handoffEndedAt - handoffStartedAt;
+        try {
+          performance.measure("lattice:visual-markdown-handoff", {
+            start: handoffStartedAt,
+            end: handoffEndedAt,
+            detail: { path: activePath },
+          });
+        } catch {
+          // Older WebKit builds do not support PerformanceMeasureOptions.detail.
+        }
+        if (handoffMs >= 50) {
+          addAppLog({
+            level: "info",
+            source: "Navigation performance",
+            title: "Visual Markdown handoff",
+            detail: `${activePath}\nsetContentMs=${handoffMs.toFixed(1)}`,
+            toast: false,
+          });
+        }
+        // Fresh history so Undo cannot walk back into the previous file.
+        editor.view.updateState(EditorState.create({
+          doc: editor.state.doc,
+          plugins: editor.state.plugins,
+        }));
+        // Eligibility still belongs to the outgoing document. Keep the new
+        // tree inert until its round-trip check installs the matching owner;
+        // otherwise a queued key can mutate ProseMirror while onUpdate is
+        // intentionally ignoring initialization transactions.
+        editor.setEditable(false);
+        setRenderedPath(activePath);
+      }, 0);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (timer != null) window.clearTimeout(timer);
+    };
   }, [activePath, editable, editor, renderedPath, text]);
 
   useEffect(() => {
@@ -2333,6 +3381,8 @@ export function VisualMarkdownEditor({
           getMarkdownManager().serialize(structuredClone(parsed.content)),
           text,
           editor.state.schema.nodeFromJSON(structuredClone(parsed.content)),
+          undefined,
+          activePath,
         ),
         text,
       );
@@ -2366,9 +3416,10 @@ export function VisualMarkdownEditor({
     presenceWasActive.current = presenceCursors.length > 0;
     editor.view.dispatch(editor.state.tr.setMeta(visualPresenceKey, {
       text,
+      sourcePath: activePath,
       cursors: presenceCursors,
     } satisfies VisualPresenceMeta));
-  }, [editor, editorViewMounted, presenceCursors, text]);
+  }, [activePath, editor, editorViewMounted, presenceCursors, text]);
 
   useEffect(() => {
     if (!editor || !editorViewMounted || editor.isDestroyed) return;
@@ -2377,9 +3428,10 @@ export function VisualMarkdownEditor({
     trackChangesWereActive.current = overleafChanges.length > 0;
     editor.view.dispatch(editor.state.tr.setMeta(visualTrackChangesKey, {
       text,
+      sourcePath: activePath,
       changes: overleafChanges,
     } satisfies VisualTrackChangesMeta));
-  }, [editor, editorViewMounted, overleafChanges, text]);
+  }, [activePath, editor, editorViewMounted, overleafChanges, text]);
 
   useEffect(() => {
     if (!editor || !editorViewMounted || editor.isDestroyed) return;
@@ -2390,10 +3442,11 @@ export function VisualMarkdownEditor({
     commentsWereActive.current = editorComments.length > 0;
     editor.view.dispatch(editor.state.tr.setMeta(visualCommentsKey, {
       text,
+      sourcePath: activePath,
       comments: editorComments,
       activeId: activeEditorCommentId,
     } satisfies VisualCommentsMeta));
-  }, [activeEditorCommentId, editor, editorComments, editorViewMounted, text]);
+  }, [activeEditorCommentId, activePath, editor, editorComments, editorViewMounted, text]);
 
   useEffect(() => {
     if (!editor || !editorViewMounted || !synchronizeSourceScroll) return;
@@ -2471,10 +3524,12 @@ export function VisualMarkdownEditor({
 
   const viewInSource = useCallback((selectedEditor: Editor) => {
     if (!onViewInSource) return;
+    if (!flushPendingLocalUpdate()) return;
     const selection = selectedEditor.state.selection;
     const blockIndex = selection.$from.index(0);
     const renderedBlock = selectedEditor.view.dom.children[blockIndex];
     let viewportY: number | undefined;
+    let blockViewportY: number | undefined;
     try {
       const selectionCoords = selectedEditor.view.coordsAtPos(selection.from);
       const selectionCenter = (selectionCoords.top + selectionCoords.bottom) / 2;
@@ -2483,18 +3538,34 @@ export function VisualMarkdownEditor({
       // The DOM selection can briefly be unavailable while a NodeView updates.
       // Source navigation still works; it falls back to centering the target.
     }
-    const sourceOffset = renderedBlock instanceof HTMLElement
+    const viewport = selectedEditor.view.dom.closest<HTMLElement>(".editor-doc-scroll");
+    if (renderedBlock instanceof HTMLElement && viewport) {
+      const offset = renderedBlock.getBoundingClientRect().top
+        - viewport.getBoundingClientRect().top;
+      if (Number.isFinite(offset)) blockViewportY = offset;
+    }
+    const blockSourceOffset = renderedBlock instanceof HTMLElement
       ? Number(renderedBlock.dataset.sourceOffset)
       : Number.NaN;
-    if (Number.isFinite(sourceOffset)) {
-      onViewInSource(sourceOffset, viewportY);
-      return;
-    }
-    onViewInSource(
-      visualSourceRanges(acceptedMarkdown.current, selectedEditor.state.doc.childCount)[blockIndex]?.from ?? 0,
-      viewportY,
+    const mapped = sourceOffsetForProseMirrorPosition(
+      selectedEditor,
+      selection.from,
+      acceptedMarkdown.current,
     );
-  }, [onViewInSource]);
+    const sourceOffset = mapped?.markdown === acceptedMarkdown.current
+      ? mapped.offset
+      : Number.isFinite(blockSourceOffset)
+        ? blockSourceOffset
+        : visualSourceRanges(
+            acceptedMarkdown.current,
+            selectedEditor.state.doc.childCount,
+          )[blockIndex]?.from ?? 0;
+    onViewInSource(
+      sourceOffset,
+      viewportY,
+      blockViewportY,
+    );
+  }, [flushPendingLocalUpdate, onViewInSource]);
 
   const openVisualCommentComposer = useCallback(() => {
     if (!editor || !onCreateComment) return;
@@ -2571,7 +3642,7 @@ export function VisualMarkdownEditor({
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
         const anchor = target.closest<HTMLAnchorElement>("a[href]");
-        if (!anchor || anchor.hasAttribute("data-tag")) return;
+        if (!anchor) return;
         const href = anchor.getAttribute("href");
         if (!href) return;
         event.preventDefault();
@@ -2579,13 +3650,27 @@ export function VisualMarkdownEditor({
         openMarkdownLink(activePath, href, openPathRef.current, sectionRef.current ?? undefined);
       }}
     >
+      <DocumentHeadingRail
+        items={documentPending ? [] : headingItems}
+        onSelect={(item) => openMarkdownLink(
+          activePath,
+          `#${encodeURIComponent(item.id)}`,
+          openPathRef.current,
+          sectionRef.current ?? undefined,
+        )}
+      />
       {documentPending && (
-        <div className="visual-markdown-loading" role="status">Opening document…</div>
+        // App already announces the complete file-opening operation. Keep the
+        // same centered activity cue while TipTap finishes its handoff, but do
+        // not present it as a second status or repeat “Opening document”.
+        <div className="visual-markdown-loading" aria-hidden="true">
+          <InfinityLoader size={16} />
+        </div>
       )}
       {!documentPending && <VisualMarkdownFindReplace
         key={activePath}
         editor={editor}
-        editable={editable}
+        editable={editable && !eligibilityReason}
         editorRoot={sectionRef}
       />}
       {!documentPending && commentComposer && (
@@ -2678,10 +3763,10 @@ export function VisualMarkdownEditor({
         </div>
       )}
       {!documentPending && eligibilityReason && (
-        <div className="visual-markdown-eligibility" role="status">
+        <InlineMessage level="warning" className="visual-markdown-eligibility">
           {eligibilityReason}
           {onEditSource && <button type="button" onClick={onEditSource}>Edit Markdown source</button>}
-        </div>
+        </InlineMessage>
       )}
       {/* Upstream DOM shape (TiptapEditor.tsx): the .tiptap-editor grid
           directly contains the bubble menu, the table cell handle layer
@@ -2708,5 +3793,75 @@ export function VisualMarkdownEditor({
         onLinkPopoverOpenChange={setLinkPopoverOpen}
       />
     </section>
+  );
+}
+
+/**
+ * Large documents begin in a bounded, passive block viewport. The first
+ * editing or native-selection gesture hands off once to the complete editor,
+ * which remains the only writable surface until block-scoped editing owns all
+ * cross-block commands. Uncertain source ownership always keeps the complete
+ * editor.
+ */
+export function VisualMarkdownEditor(props: VisualMarkdownEditorProps): JSX.Element {
+  // Publish before either passive chunks or the complete editor can construct
+  // eager math NodeViews. The existing renderer seam is process-global.
+  setHostKatexMacros(props.macros ?? EMPTY_MACROS);
+  const [completeSession, setCompleteSession] = useState<{
+    path: string;
+    handoff: PassiveEditorHandoff | null;
+  } | null>(null);
+  const hasDocumentOverlays = (props.presenceCursors?.length ?? 0) > 0
+    || (props.overleafChanges?.length ?? 0) > 0
+    || (props.editorComments?.some((comment) => !comment.resolved) ?? false);
+  // An editable document must keep one scroll geometry from opening through
+  // the first click. Switching from estimated passive chunks to the complete
+  // TipTap tree on pointer-down changes the scroll height (and therefore the
+  // scrollbar thumb) before the clicked block can be anchored reliably.
+  const mayUsePassiveViewport = props.editable === false
+    && props.text.length >= VIRTUAL_BLOCK_MODEL_SOURCE_THRESHOLD
+    && completeSession?.path !== props.activePath
+    && !hasDocumentOverlays;
+  const model = useMemo(
+    () => mayUsePassiveViewport ? buildVisualMarkdownBlockModel(props.text, props.activePath) : null,
+    [mayUsePassiveViewport, props.activePath, props.text],
+  );
+  const usePassiveViewport = model !== null
+    && (
+      props.text.length >= LARGE_MARKDOWN_PREVIEW_THRESHOLD
+      || model.blocks.length >= VIRTUAL_BLOCK_COUNT_THRESHOLD
+    );
+  const consumeInitialHandoff = useCallback(() => {
+    setCompleteSession((current) => current ? { ...current, handoff: null } : current);
+  }, []);
+
+  if (usePassiveViewport) {
+    return (
+      <PassiveVisualMarkdownViewport
+        key={`${props.activePath}:${model.id}`}
+        model={model}
+        activePath={props.activePath}
+        optimizeForReading={Boolean(props.optimizeForReading)}
+        onLoadAsset={props.onLoadAsset}
+        onOpenProjectPath={props.onOpenProjectPath}
+        workspaceIndex={props.workspaceIndex}
+        onActivate={(handoff) => setCompleteSession({
+          path: props.activePath,
+          handoff: {
+            ...handoff,
+            sourceOffset: handoff.sourceOffset + model.sourceOffsetBase,
+          },
+        })}
+      />
+    );
+  }
+  return (
+    <CompleteVisualMarkdownEditor
+      {...props}
+      initialHandoff={completeSession?.path === props.activePath
+        ? completeSession.handoff ?? undefined
+        : undefined}
+      onConsumeInitialHandoff={consumeInitialHandoff}
+    />
   );
 }

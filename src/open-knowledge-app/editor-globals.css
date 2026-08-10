@@ -240,6 +240,13 @@
   position: relative;
 }
 
+/* Paper image auto-sizing uses cqi so its vertical limit follows the actual
+   text column in both full-width and split panes, rather than the app window. */
+.visual-markdown-editor[data-active-path^=".research/papers/"]
+  .tiptap-editor-portal-content {
+  container-type: inline-size;
+}
+
 /* Editor polish */
 .ProseMirror {
   outline: none;
@@ -522,6 +529,26 @@
 .ProseMirror h3 {
   font-size: 1.1em;
   @apply tracking-tight;
+}
+
+/* arXiv paragraph-level titles usually arrive as h4–h6. Keep them at reading
+   size, as in the paper, but preserve the typographic cue that introduces the
+   following paragraph instead of letting the reset make them look like body
+   prose. */
+.ProseMirror h4,
+.ProseMirror h5,
+.ProseMirror h6 {
+  margin-top: 0.8em;
+  margin-bottom: 0.2em;
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.ProseMirror > h4:first-child,
+.ProseMirror > h5:first-child,
+.ProseMirror > h6:first-child {
+  margin-top: 0;
 }
 
 /* Lists */
@@ -1234,6 +1261,44 @@
   margin: 0;
 }
 
+/* Unauthored paper images fit inside both the text column and a bounded
+   reading-height frame. A landscape figure can still use the full column;
+   square and portrait figures stop at 75% of that column or 60% of the
+   viewport height, whichever is smaller. These are display-only constraints:
+   the original source remains untouched and the zoom view still uses it.
+   Ordinary project Markdown retains its existing image layout, and once an
+   author drags a paper image, its persisted width owns the layout instead. */
+.visual-markdown-editor[data-active-path^=".research/papers/"]
+  .ProseMirror .ok-image-resizable[data-image-size="auto"] {
+  width: fit-content;
+}
+
+.visual-markdown-editor[data-active-path^=".research/papers/"]
+  .ProseMirror .ok-image-resizable[data-image-size="auto"] > [data-rmiz] {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+}
+
+.visual-markdown-editor[data-active-path^=".research/papers/"]
+  .ProseMirror .ok-image-resizable[data-image-size="auto"] [data-testid="image-slot"],
+.visual-markdown-editor[data-active-path^=".research/papers/"]
+  .ProseMirror .ok-image-resizable[data-image-size="auto"] img {
+  width: auto;
+  max-width: 100%;
+  max-height: 60vh;
+  max-height: min(75cqi, 60vh);
+}
+
+/* Paper images embedded within a text paragraph do not use the resizable block
+   wrapper, but should obey the same automatic reading-height constraint. */
+.visual-markdown-editor[data-active-path^=".research/papers/"]
+  .ProseMirror [data-image-inline-zoom] img {
+  width: auto;
+  max-height: 60vh;
+  max-height: min(75cqi, 60vh);
+}
+
 .ProseMirror img.ProseMirror-selectednode {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
@@ -1298,6 +1363,18 @@
   background: var(--muted);
   font-weight: 600;
   text-align: left;
+}
+
+/* Imported papers reconstruct source rowspan/colspan cells from the repeated
+   labels arxiv2md emits. Center group headings and vertically center row labels
+   so the merged geometry reads like the source table rather than a tall cell. */
+.ProseMirror th[colspan]:not([colspan="1"]) {
+  text-align: center;
+}
+
+.ProseMirror th[rowspan]:not([rowspan="1"]),
+.ProseMirror td[rowspan]:not([rowspan="1"]) {
+  vertical-align: middle;
 }
 
 .ProseMirror td > p,
@@ -1467,7 +1544,7 @@
 }
 
 /* Keyboard focus indicator — mirrors the editor-wide pattern used by
-   .tag, [data-link], a.ok-file-attachment, and task-list checkboxes.
+   [data-link], a.ok-file-attachment, and task-list checkboxes.
    The grip carries tabindex="-1" today, so the indicator only fires on
    explicit `.focus()` calls; the add button is reachable via Tab while
    its hover-only chrome is visible. */
@@ -2079,8 +2156,7 @@
 .ProseMirror .ok-image-resizable:hover .ok-resize-handle,
 .ProseMirror .ok-image-resizable:focus-within .ok-resize-handle,
 .ProseMirror .ok-codeblock-preview:hover .ok-resize-handle,
-.ProseMirror .ok-codeblock[data-cursor-inside="true"] .ok-codeblock-preview .ok-resize-handle,
-.ProseMirror .jsx-component-wrapper[data-selected="true"]:not([data-component-type="img"]):not([data-component-type="commonmarkimage"]) .ok-resize-handle {
+.ProseMirror .ok-codeblock[data-cursor-inside="true"] .ok-codeblock-preview .ok-resize-handle {
   opacity: 1;
   pointer-events: auto;
   color: var(--ring, oklch(0.55 0.18 250));
@@ -3537,7 +3613,7 @@
   color: var(--accent-foreground);
 }
 /* Keyboard focus indicator — mirrors the editor-wide pattern used by
-   .tag, [data-link], file-attachment links, and the drag-handle controls.
+   [data-link], file-attachment links, and the drag-handle controls.
    Chrome buttons are tab-reachable when the wrapper has roving tabIndex=0,
    so the focus ring is load-bearing for keyboard-only operation. */
 .jsx-chrome-btn:focus-visible {
@@ -3797,6 +3873,29 @@
   content-visibility: auto;
   contain-intrinsic-inline-size: auto 0px;
   contain-intrinsic-block-size: auto var(--ok-cv-h, 80px);
+}
+
+/* Large lists need the boundary on the list item itself: in WebKit, placing
+   it only on the editable child still lays out every marker and list item as
+   soon as the parent list intersects the viewport. */
+.ProseMirror .ok-chunk-list-item {
+  content-visibility: auto;
+  contain-intrinsic-inline-size: auto 0px;
+  contain-intrinsic-block-size: auto var(--ok-cv-h, 56px);
+}
+
+.ProseMirror .ok-chunk-list-item:hover,
+.ProseMirror .ok-chunk-list-item:focus-within,
+.ProseMirror .ok-chunk-list-item[data-selected='true'],
+.ProseMirror .ok-chunk-list-item.ProseMirror-selectednode {
+  content-visibility: visible;
+}
+
+/* The active caret/selection and IME composition path must have normal WebKit
+   geometry even while surrounding blocks remain contained. */
+.ProseMirror .ok-chunk-wrapper.ok-chunk-active,
+.ProseMirror .ok-chunk-list-item.ok-chunk-active {
+  content-visibility: visible;
 }
 
 /* Image/math JSX leaves keep all expensive paint inside their own box. Their

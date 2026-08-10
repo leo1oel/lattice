@@ -32,7 +32,6 @@ import { RawMdxFallback } from './raw-mdx-fallback.ts';
 import { SourceLiteralMark } from './source-literal-mark.ts';
 import { StrikeFidelity } from './strike-fidelity.ts';
 import { TableCellFidelity, TableFidelity, TableHeaderFidelity } from './table-fidelity.ts';
-import { Tag } from './tag.ts';
 import { ThematicBreakFidelity } from './thematic-break-fidelity.ts';
 import { UnderlineFidelity } from './underline-fidelity.ts';
 import { WikiLink } from './wiki-link.ts';
@@ -52,10 +51,6 @@ export const sharedExtensions = [
   WikiLink,
   // WikiLinkEmbed sits next to WikiLink — same priority ordering concern.
   WikiLinkEmbed,
-  // Tag — `#tagname` inline atom (Obsidian parity). Sister to WikiLink:
-  // also a custom inline atom that registers a parseHTML-friendly element
-  // (`<a data-tag>`), needs schema priority over the StarterKit Link.
-  Tag,
   // Unified list extension — single list+listItem NodeSpec (replaces the
   // BulletList/OrderedList/ListItem/TaskList/TaskItem fragmentation).
   List,

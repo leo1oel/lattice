@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import { CircleAlert, Trash2 } from "lucide-react";
 import {
   registerConfirmActionHandler,
+  type ConfirmActionChoice,
   type ConfirmActionOptions,
 } from "./app-utils";
 import { ModalDialog } from "./components/ui/modal-dialog";
@@ -13,7 +14,7 @@ import { MotionButton, PopIn } from "./motion";
 type PendingConfirmation = {
   id: number;
   options: ConfirmActionOptions;
-  resolve: (answer: boolean) => void;
+  resolve: (answer: ConfirmActionChoice) => void;
 };
 
 let nextConfirmationId = 1;
@@ -61,14 +62,14 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<PendingConfirmation[]>([]);
   const current = queue[0] ?? null;
 
-  useEffect(() => registerConfirmActionHandler((options) => new Promise<boolean>((resolve) => {
+  useEffect(() => registerConfirmActionHandler((options) => new Promise<ConfirmActionChoice>((resolve) => {
     setQueue((items) => [
       ...items,
       { id: nextConfirmationId++, options, resolve },
     ]);
   })), []);
 
-  const settle = useCallback((answer: boolean) => {
+  const settle = useCallback((answer: ConfirmActionChoice) => {
     if (!current) return;
     current.resolve(answer);
     setQueue((items) => (
@@ -85,31 +86,50 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
         <ModalDialog
           label={copy.title}
           describedBy={descriptionId}
-          onClose={() => settle(false)}
+          onClose={() => settle("cancel")}
           backdropClassName="confirm-action-backdrop"
         >
-          <PopIn className="modal confirm-action-modal" data-destructive={copy.destructive}>
+          <PopIn
+            className="modal confirm-action-modal"
+            data-destructive={copy.destructive}
+            data-has-alternative={Boolean(current.options.alternativeLabel)}
+          >
             <div className="confirm-action-icon" aria-hidden="true">
               {copy.destructive ? <Trash2 size={19} /> : <CircleAlert size={19} />}
             </div>
             <h2>{copy.title}</h2>
             <p id={descriptionId}>{copy.description}</p>
             <div className="modal-actions">
-              <Button autoFocus variant="ghost" onClick={() => settle(false)}>
+              <Button autoFocus variant="ghost" onClick={() => settle("cancel")}>
                 {current.options.cancelLabel ?? "Cancel"}
               </Button>
+              {current.options.alternativeLabel && (
+                current.options.alternativeDestructive ? (
+                  <DestructiveButton
+                    className={buttonClassName({ variant: "danger" })}
+                    iconSize={13}
+                    onClick={() => settle("alternative")}
+                  >
+                    {current.options.alternativeLabel}
+                  </DestructiveButton>
+                ) : (
+                  <Button variant="secondary" onClick={() => settle("alternative")}>
+                    {current.options.alternativeLabel}
+                  </Button>
+                )
+              )}
               {copy.destructive ? (
                 <DestructiveButton
                   className={buttonClassName({ variant: "danger" })}
                   iconSize={13}
-                  onClick={() => settle(true)}
+                  onClick={() => settle("confirm")}
                 >
                   {copy.confirmLabel}
                 </DestructiveButton>
               ) : (
                 <MotionButton
                   className={buttonClassName({ variant: "primary" })}
-                  onClick={() => settle(true)}
+                  onClick={() => settle("confirm")}
                 >
                   {copy.confirmLabel}
                 </MotionButton>

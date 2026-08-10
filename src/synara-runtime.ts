@@ -111,6 +111,69 @@ export function normalizeSynaraOrigin(value: string | null | undefined): string 
   }
 }
 
+const FILE_POSITION_SUFFIX_PATTERN = /:\d+(?::\d+)?$/;
+const WINDOWS_ABSOLUTE_PATH_PATTERN = /^[A-Za-z]:\//;
+
+function decodeFileReference(value: string): string | null {
+  if (!value.toLowerCase().startsWith("file:")) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "file:") return null;
+    const path = decodeURIComponent(url.pathname);
+    return /^\/[A-Za-z]:\//.test(path) ? path.slice(1) : path;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Convert a file reference from the embedded Agent into the project-relative
+ * path accepted by Lattice's file commands. Synara normally sends a relative
+ * path, but authored Markdown links can retain an absolute or encoded path.
+ */
+export function synaraProjectRelativeFilePath(
+  filePath: unknown,
+  projectRoot: string | null | undefined,
+): string | null {
+  if (typeof filePath !== "string" || !projectRoot?.trim()) return null;
+  const decoded = decodeFileReference(filePath.trim());
+  if (!decoded) return null;
+
+  const target = decoded
+    .replace(/\\/g, "/")
+    .replace(FILE_POSITION_SUFFIX_PATTERN, "")
+    .normalize("NFC");
+  const root = projectRoot.trim().replace(/\\/g, "/").replace(/\/+$/, "").normalize("NFC");
+  if (!root || /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(target)) return null;
+  const absolute = target.startsWith("/") || WINDOWS_ABSOLUTE_PATH_PATTERN.test(target);
+  const caseInsensitive = WINDOWS_ABSOLUTE_PATH_PATTERN.test(root);
+  const comparisonTarget = caseInsensitive ? target.toLowerCase() : target;
+  const comparisonRoot = caseInsensitive ? root.toLowerCase() : root;
+
+  let relative = target.replace(/^\.\//, "");
+  if (absolute) {
+    const prefix = `${comparisonRoot}/`;
+    if (!comparisonTarget.startsWith(prefix)) return null;
+    relative = target.slice(root.length + 1);
+  }
+  if (
+    !relative
+    || relative.includes("\0")
+    || relative.startsWith("/")
+    || WINDOWS_ABSOLUTE_PATH_PATTERN.test(relative)
+    || relative.split("/").some((part) => part === "" || part === "." || part === "..")
+  ) {
+    return null;
+  }
+  return relative;
+}
+
 export function synaraFrameUrl(input: {
   origin: string;
   path?: string;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
 import type { Editor } from "@tiptap/react";
-import { ChevronDown, ChevronUp, Replace, ReplaceAll, X } from "lucide-react";
+import { CaseSensitive, ChevronDown, ChevronUp, Replace, ReplaceAll, WholeWord, X } from "lucide-react";
 import { getFindReplaceState } from "@ok-app/editor/find-replace/tiptap-find-replace-extension";
 import { IconButton } from "./components/ui/icon-button";
 
@@ -122,9 +122,23 @@ export function VisualMarkdownFindReplace({
           <IconButton size="compact" label="Close find" onClick={close}><X aria-hidden="true" /></IconButton>
         </div>
         <div className="visual-find-options">
-          <button type="button" aria-pressed={snapshot.options.caseSensitive} onClick={() => liveCommands(editor)?.setFindOptions({ caseSensitive: !snapshot.options.caseSensitive }, 0)}>Match case</button>
-          <button type="button" aria-pressed={snapshot.options.wholeWord} onClick={() => liveCommands(editor)?.setFindOptions({ wholeWord: !snapshot.options.wholeWord }, 0)}>Whole word</button>
-          {!replaceOpen && <button type="button" onClick={() => setReplaceOpen(true)}>Replace</button>}
+          <IconButton
+            size="compact"
+            label="Match case"
+            aria-pressed={snapshot.options.caseSensitive}
+            onClick={() => liveCommands(editor)?.setFindOptions({ caseSensitive: !snapshot.options.caseSensitive }, 0)}
+          ><CaseSensitive aria-hidden="true" /></IconButton>
+          <IconButton
+            size="compact"
+            label="Whole word"
+            aria-pressed={snapshot.options.wholeWord}
+            onClick={() => liveCommands(editor)?.setFindOptions({ wholeWord: !snapshot.options.wholeWord }, 0)}
+          ><WholeWord aria-hidden="true" /></IconButton>
+          {!replaceOpen && (
+            <IconButton size="compact" label="Show replace" onClick={() => setReplaceOpen(true)}>
+              <Replace aria-hidden="true" />
+            </IconButton>
+          )}
         </div>
         {replaceOpen && (
           <div className="visual-find-row visual-replace-row">

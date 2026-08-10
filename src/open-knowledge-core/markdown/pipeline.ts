@@ -19,7 +19,7 @@ import './mdast-augmentation.ts';
 import { protectFromMdx, restoreFromMdx } from './autolink-void-html-guard.ts';
 import { encodeBackslashEscapes, restoreBackslashEscapesPlugin } from './backslash-escape-guard.ts';
 import { calloutTransformerPlugin, REMARK_GITHUB_ALERTS_OPTIONS } from './callout-transformer.ts';
-import { commentPromoterPlugin } from './comment-promoter.ts';
+import { commentPromoterPlugin, tableSpanLayoutPromoterPlugin } from './comment-promoter.ts';
 import { dedentBlockJsxClose } from './dedent-block-jsx-close.ts';
 import { detailsAccordionPromoterPlugin } from './details-accordion-promoter.ts';
 import { divAlignPromoterPlugin } from './div-align-promoter.ts';
@@ -32,14 +32,17 @@ import { indentedCodePromoterPlugin } from './indented-code-promoter.ts';
 import { insertInteriorBlankRunParagraphs } from './interior-blank-runs.ts';
 import { latexMathPromoterPlugin, swapLatexDisplayMathDelimiters } from './latex-math-promoter.ts';
 import { mathPromoterPlugin } from './math-promoter.ts';
-import type { SourceDocBoundary } from './mdast-augmentation.ts';
+import type { CommentBlockMdast, SourceDocBoundary } from './mdast-augmentation.ts';
+import {
+  normalizeTableSpanLayout,
+  serializeTableSpanLayoutMarker,
+} from '../extensions/table-fidelity.ts';
 import { mergedPostParseWalkerPlugin } from './merged-walker.ts';
 import { positionAwareBlankLineJoin } from './position-aware-join.ts';
 import { positionSlicePlugin } from './position-slice.ts';
 import { remarkMdxAgnostic } from './remark-mdx-agnostic.ts';
 import { singleDollarMathPromoterPlugin } from './single-dollar-math-promoter.ts';
 import { stripTrailingEdge } from './strip-trailing-edge.ts';
-import { remarkTags } from './tag-to-markdown.ts';
 import { underlinePromoterPlugin } from './underline-promoter.ts';
 import { voidBrPromoterPlugin } from './void-br-promoter.ts';
 import { remarkWikiLink } from './wiki-link-micromark.ts';
@@ -103,6 +106,7 @@ export const ACTIVE_MDAST_PLUGINS = [
   { name: 'highlight-promoter', plugin: highlightPromoterPlugin },
   { name: 'underline-promoter', plugin: underlinePromoterPlugin },
   { name: 'comment-promoter', plugin: commentPromoterPlugin },
+  { name: 'table-span-layout-promoter', plugin: tableSpanLayoutPromoterPlugin },
   { name: 'merged-post-parse-walker', plugin: mergedPostParseWalkerPlugin },
   // Run once more after the merged walker because that walker can replace or
   // promote nodes while traversing them; final source fidelity belongs to the
@@ -145,7 +149,6 @@ export function createSerializeProcessor(
     .use(remarkMath, { singleDollarTextMath: false })
     .use(remarkMdxAgnostic)
     .use(remarkWikiLink)
-    .use(remarkTags)
     .use(remarkStringify, {
       bullet: '-',
       fences: true,
@@ -161,6 +164,72 @@ function splitDocumentHeadBom(source: string): { source: string; hadBom: boolean
   return source.charCodeAt(0) === 0xfeff
     ? { source: source.slice(1), hadBom: true }
     : { source, hadBom: false };
+}
+
+/**
+ * Some arxiv2md versions emit checklist items as a bare ordinal, optionally
+ * wrapped in a bullet, then put the item's prose on the next unindented line:
+ *
+ *   1.
+ *   Description
+ *
+ *   - 1.
+ *   Description
+ *
+ * CommonMark parses the first form as an empty list item followed by a regular
+ * paragraph, escaping later ordinals as visible `2\.` text when serialized.
+ * It parses the second as two nested list markers. Replace the optional wrapper,
+ * an optional escaped delimiter, and the line ending with an equal-length
+ * ordered marker and spacing before parsing. Source positions still address
+ * the original bytes, while the editor receives the intended ordered list.
+ */
+function normalizeStandaloneOrderedListContinuations(source: string): string {
+  const parts = source.split(/(\r?\n)/);
+  let frontmatterFence = /^(---|\+\+\+)[ \t]*$/.exec(parts[0] ?? '')?.[1] ?? null;
+  let codeFence: { marker: string; length: number } | null = null;
+  let inDisplayMath = false;
+
+  for (let index = 0; index < parts.length; index += 2) {
+    const line = parts[index] ?? '';
+    const lineEnding = parts[index + 1] ?? '';
+    const trimmed = line.trimStart();
+    if (frontmatterFence) {
+      if (index > 0 && trimmed === frontmatterFence) frontmatterFence = null;
+      continue;
+    }
+
+    if (codeFence) {
+      const closing = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(line)?.[1];
+      if (
+        closing?.[0] === codeFence.marker
+        && closing.length >= codeFence.length
+      ) codeFence = null;
+      continue;
+    }
+    const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
+    if (opening) {
+      codeFence = { marker: opening[0]!, length: opening.length };
+      continue;
+    }
+    if (trimmed === '$$') {
+      inDisplayMath = !inDisplayMath;
+      continue;
+    }
+    if (inDisplayMath) continue;
+
+    const nextLine = parts[index + 2];
+    const match = /^([ \t]{0,3})(?:[-+*][ \t]+)?(\d{1,9})\\?([.)])[ \t]*$/.exec(line);
+    if (!match || !nextLine || !/^[\p{L}\p{N}]/u.test(nextLine)) continue;
+    const marker = `${match[1]}${match[2]}${match[3]}`;
+    const spacing = line.length + lineEnding.length - marker.length;
+    // CommonMark permits at most four spaces after an ordered marker. The
+    // converter emits either LF (three replacement spaces) or CRLF (four);
+    // leave hand-authored outliers untouched rather than changing meaning.
+    if (spacing < 1 || spacing > 4) continue;
+    parts[index] = marker + ' '.repeat(spacing);
+    parts[index + 1] = '';
+  }
+  return parts.join('');
 }
 
 const LEADING_BOUNDARY_SHAPE = /^\n+$/;
@@ -229,7 +298,8 @@ export function parseMd(rawSource: string, processor: Processor): PmNode {
   const source = dedentBlockJsxClose(rawAfterBom);
   // Length-preserving, so the original-source `file.value` swap below keeps
   // every position honest; see latex-math-promoter.ts for the contract.
-  const protectedFr14 = encodeBackslashEscapes(swapLatexDisplayMathDelimiters(source));
+  const structuralSource = normalizeStandaloneOrderedListContinuations(source);
+  const protectedFr14 = encodeBackslashEscapes(swapLatexDisplayMathDelimiters(structuralSource));
   const protectedR23 = protectFromMdx(protectedFr14);
   const protected_ = encodeEntityRefs(protectedR23);
 
@@ -260,8 +330,9 @@ function parseToMdast(
 ): MdastRoot {
   const { source: rawAfterBom, hadBom } = splitDocumentHeadBom(rawSource);
   const source = dedentBlockJsxClose(rawAfterBom);
+  const structuralSource = normalizeStandaloneOrderedListContinuations(source);
   const protected_ = encodeEntityRefs(
-    protectFromMdx(encodeBackslashEscapes(swapLatexDisplayMathDelimiters(source))),
+    protectFromMdx(encodeBackslashEscapes(swapLatexDisplayMathDelimiters(structuralSource))),
   );
   const file = new VFile(protected_);
   const tree = processor.parse(file);
@@ -273,12 +344,50 @@ function parseToMdast(
   return transformed;
 }
 
+interface MdastChildContainer {
+  children: unknown[];
+}
+
+function insertTableSpanLayoutMarkers(parent: MdastChildContainer): void {
+  const children: unknown[] = [];
+  for (const child of parent.children) {
+    const node = child as {
+      type?: string;
+      data?: { sourceSpanLayout?: unknown };
+      children?: unknown[];
+    };
+    if (node.type !== 'table' && Array.isArray(node.children)) {
+      insertTableSpanLayoutMarkers(node as MdastChildContainer);
+    }
+    if (node.type !== 'table') {
+      children.push(child);
+      continue;
+    }
+    const layout = normalizeTableSpanLayout(node.data?.sourceSpanLayout);
+    if (layout === null) {
+      children.push(child);
+      continue;
+    }
+    const comment: CommentBlockMdast = {
+      type: 'commentBlock',
+      children: [{
+        type: 'paragraph',
+        children: [{ type: 'text', value: serializeTableSpanLayoutMarker(layout) }],
+      }],
+      data: { sourceForm: 'html', sourceLayout: 'inline' },
+    };
+    children.push(comment, child);
+  }
+  parent.children = children;
+}
+
 export function serializeMd(doc: PmNode, processor: Processor, opts: SerializeMdOptions): string {
   const mdast: MdastRoot = fromProseMirror(doc, {
     schema: opts.schema,
     nodeHandlers: opts.pmNodeHandlers,
     markHandlers: opts.pmMarkHandlers,
   });
+  insertTableSpanLayoutMarkers(mdast as MdastChildContainer);
 
   mintEmptyTaskItemContent(mdast);
 

@@ -1,11 +1,13 @@
 import { EditorView as CMEditorView } from "@codemirror/view";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { CellSelection } from "@tiptap/pm/tables";
 import type { Editor } from "@tiptap/react";
 import { useMemo, useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addBlockBelow,
+  blockControlCrossAxisOffset,
   moveBlockUp,
   moveTopLevelBlock,
   PRESERVE_VISUAL_VIEWPORT_META,
@@ -15,11 +17,17 @@ import {
 import { getComponentItems, getInlineComponentItems } from "@ok-app/editor/slash-command/component-items";
 import { getEmbedStarterItems } from "@ok-app/editor/slash-command/embed-starter-items";
 const notifications = vi.hoisted(() => ({ error: vi.fn() }));
+const opener = vi.hoisted(() => ({ openUrl: vi.fn(async () => undefined) }));
 vi.mock("./app-notify", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./app-notify")>()),
   notifyError: notifications.error,
 }));
-import { VisualMarkdownEditor } from "./visual-markdown-editor";
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: opener.openUrl }));
+import {
+  exactVisualSourceRanges,
+  restoreUnchangedBlocks,
+  VisualMarkdownEditor,
+} from "./visual-markdown-editor";
 import { getMarkdownManager, parseVisualMarkdown } from "./visual-markdown-schema";
 import { canonicalizeSupportedMarkdown, preserveMarkdownEnvelope } from "./markdown-collab";
 import { tableEnterDown } from "@ok-app/editor/extensions/table-row-enter";
@@ -30,8 +38,14 @@ import {
   LARGE_MARKDOWN_PREVIEW_THRESHOLD,
   markdownPreviewSyncPolicy,
 } from "./markdown-preview-sync-policy";
+import { documentHeadingItems } from "./document-heading-rail";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  opener.openUrl.mockClear();
+  Reflect.deleteProperty(document, "elementsFromPoint");
+});
 
 function rect({ top, bottom }: { top: number; bottom: number }): DOMRect {
   return {
@@ -45,6 +59,15 @@ function rect({ top, bottom }: { top: number; bottom: number }): DOMRect {
     height: bottom - top,
     toJSON: () => ({}),
   };
+}
+
+function stubElementsFromPoint(elements: Element[]) {
+  const mock = vi.fn(() => elements);
+  Object.defineProperty(document, "elementsFromPoint", {
+    configurable: true,
+    value: mock,
+  });
+  return mock;
 }
 
 function renderEditor(
@@ -74,6 +97,16 @@ async function replaceEditorText(text: string) {
 }
 
 describe("VisualMarkdownEditor", () => {
+  it("aligns block controls to the first line of a two-line block", () => {
+    expect(blockControlCrossAxisOffset(48, 24)).toBe(2);
+    expect(blockControlCrossAxisOffset(72, 24)).toBe(2);
+    expect(blockControlCrossAxisOffset(24, 24)).toBe(2);
+  });
+
+  it("centers block controls on a divider line", () => {
+    expect(blockControlCrossAxisOffset(1, 28, "thematicBreak")).toBe(-9.5);
+  });
+
   it("uses one adaptive synchronization policy for every Markdown preview", () => {
     expect(markdownPreviewSyncPolicy(1_000)).toEqual({
       publicationIdleMs: 200,
@@ -85,6 +118,322 @@ describe("VisualMarkdownEditor", () => {
       publicationMaxMs: 5_000,
       peerScrollSettleMs: 140,
     });
+  });
+
+  it("builds an interactive section rail from rendered Markdown headings", () => {
+    renderEditor([
+      "# Example paper",
+      "",
+      "## Introduction",
+      "Opening context.",
+      "",
+      "### Setup",
+      "Experimental details.",
+      "",
+      "## Results",
+      "The result.",
+    ].join("\n"));
+
+    const navigation = screen.getByRole("navigation", { name: "Document sections" });
+    expect(within(navigation).queryByRole("button", { name: "Example paper" })).toBeNull();
+    const introduction = within(navigation).getByRole("button", { name: "Introduction" });
+    const setup = within(navigation).getByRole("button", { name: "Setup" });
+    const results = within(navigation).getByRole("button", { name: "Results" });
+    expect(introduction).toHaveAttribute("aria-current", "location");
+    expect(introduction).toHaveAttribute("tabindex", "0");
+    expect(introduction).toHaveAttribute("data-depth", "0");
+    expect(setup).toHaveAttribute("tabindex", "-1");
+    expect(setup).toHaveAttribute("data-depth", "1");
+    expect(results).toHaveAttribute("data-depth", "0");
+    expect(document.querySelector(".visual-block-controls")).not.toBeNull();
+
+    introduction.focus();
+    fireEvent.keyDown(introduction, { key: "ArrowDown" });
+    expect(setup).toHaveFocus();
+
+    vi.spyOn(navigation, "getBoundingClientRect").mockReturnValue(rect({ top: 100, bottom: 172 }));
+    fireEvent.pointerMove(navigation, { clientY: 160, pointerType: "mouse" });
+    expect(navigation.querySelector(".visual-heading-rail-preview-card")).toHaveTextContent("Results");
+
+    const target = document.getElementById("results")!;
+    const scrollIntoView = vi.spyOn(target, "scrollIntoView");
+    fireEvent.click(results);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+  });
+
+  it("keeps duplicate heading IDs aligned with the editor", () => {
+    const items = documentHeadingItems({
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Repeat" }] },
+        { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Repeat" }] },
+      ],
+    });
+
+    expect(items.map(({ id, level }) => ({ id, level }))).toEqual([
+      { id: "repeat", level: 2 },
+      { id: "repeat-1", level: 3 },
+    ]);
+  });
+
+  it("does not show a rail when a document has only one navigable section", () => {
+    renderEditor("# Example\n\n## Only section\n\nBody.");
+
+    expect(screen.queryByRole("navigation", { name: "Document sections" })).toBeNull();
+  });
+
+  it("hides a generated paper Contents block without breaking block controls", async () => {
+    const markdown = [
+      "## Contents",
+      "- [Introduction](#introduction)",
+      "- [Method](#method)",
+      "",
+      "## Introduction",
+      "Opening context.",
+      "",
+      "## Method",
+      "Experimental details.",
+    ].join("\n");
+    render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath=".research/papers/example/paper.md"
+        optimizeForReading
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const hiddenContents = document.querySelectorAll(".visual-generated-paper-contents");
+    expect(hiddenContents).toHaveLength(2);
+    expect(hiddenContents[0]).toHaveAttribute("aria-hidden", "true");
+    expect(hiddenContents[1]).toHaveAttribute("aria-hidden", "true");
+    expect(hiddenContents[0]).not.toHaveAttribute("hidden");
+    expect(hiddenContents[1]).not.toHaveAttribute("hidden");
+    expect(screen.queryByRole("button", { name: "Contents" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Introduction" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Method" })).toBeInTheDocument();
+    expect(editorMarkdown(editor)).toContain("## Contents");
+    expect(editorMarkdown(editor)).toContain("[Introduction](#introduction)");
+
+    const firstBlock = surface.firstElementChild as HTMLElement;
+    const lastBlock = surface.lastElementChild as HTMLElement;
+    const introduction = document.getElementById("introduction")!;
+    vi.spyOn(firstBlock, "getBoundingClientRect").mockReturnValue(rect({ top: 100, bottom: 104 }));
+    vi.spyOn(lastBlock, "getBoundingClientRect").mockReturnValue(rect({ top: 300, bottom: 328 }));
+    vi.spyOn(introduction, "getBoundingClientRect").mockReturnValue(rect({ top: 160, bottom: 188 }));
+    stubElementsFromPoint([introduction, surface]);
+    fireEvent.mouseMove(introduction, { clientX: 50, clientY: 174 });
+    const controls = document.querySelector<HTMLElement>(".ok-block-controls")!;
+    await waitFor(() => expect(controls.style.visibility).not.toBe("hidden"));
+    expect(controls.style.pointerEvents).toBe("auto");
+  });
+
+  it("keeps generated Paper Contents hidden across a passive viewport chunk boundary", () => {
+    const markdown = [
+      ...Array.from({ length: 11 }, (_, index) => `Preface ${index}.`),
+      "## Contents",
+      "- [Introduction](#introduction)",
+      "- [Method](#method)",
+      "## Introduction",
+      "Opening context.",
+      "## Method",
+      ...Array.from(
+        { length: 165 },
+        (_, index) => `Method detail ${index}: ${"content ".repeat(18)}`,
+      ),
+    ].join("\n\n");
+    render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath=".research/papers/example/paper.md"
+        optimizeForReading
+        editable={false}
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    expect(screen.getByRole("document", { name: "Visual Markdown editor" }))
+      .toHaveAttribute("data-virtualized", "true");
+    expect(document.querySelectorAll(".visual-generated-paper-contents")).toHaveLength(2);
+  });
+
+  it("keeps an author-written Contents section visible in ordinary Markdown", () => {
+    renderEditor([
+      "## Contents",
+      "- [Introduction](#introduction)",
+      "- [Method](#method)",
+      "",
+      "## Introduction",
+      "Opening context.",
+      "",
+      "## Method",
+      "Experimental details.",
+    ].join("\n"));
+
+    expect(document.querySelector(".visual-generated-paper-contents")).toBeNull();
+    expect(screen.getByRole("button", { name: "Contents" })).toBeInTheDocument();
+  });
+
+  it("keeps large read-only documents virtual until the complete surface is requested", async () => {
+    const onChange = vi.fn<(next: string, expected: string) => boolean>(() => true);
+    const onOpenProjectPath = vi.fn();
+    const markdown = Array.from({ length: 180 }, (_, index) => (
+      index === 0
+        ? `[Open](other.md) ${"content ".repeat(14)}`
+        : `Block ${index}: ${"content ".repeat(14)}`
+    )).join("\n\n");
+
+    render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath="large.md"
+        onChangeMarkdown={onChange}
+        onOpenProjectPath={onOpenProjectPath}
+        onUndo={() => false}
+        onRedo={() => false}
+        editable={false}
+      />,
+    );
+
+    const passive = screen.getByRole("document", { name: "Visual Markdown editor" });
+    expect(passive).toHaveAttribute("data-virtualized", "true");
+    expect(passive).toHaveTextContent("Open");
+    expect(passive.querySelectorAll("[data-visual-chunk-id]").length).toBeGreaterThan(0);
+    expect(passive.querySelectorAll("[data-visual-chunk-id]").length).toBeLessThan(10);
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("link", { name: "Open" }));
+    expect(onOpenProjectPath).toHaveBeenCalledWith("other.md");
+    expect(document.querySelector("[data-virtualized='true']")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit document" }));
+    const complete = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    expect(complete).toHaveAttribute("contenteditable", "false");
+    expect(document.querySelector("[data-virtualized='true']")).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("resolves paper fragments after activating a virtualized paper", async () => {
+    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+    const markdown = Array.from({ length: 180 }, (_, index) => {
+      if (index === 0) {
+        return `[Figure 10(a)](https://arxiv.org/html/2407.06438v3#S7.F10.sf1) ${"content ".repeat(14)}`;
+      }
+      if (index === 179) return '<a id="S7.F10"></a>\n\nFinal figure.';
+      return `Block ${index}: ${"content ".repeat(14)}`;
+    }).join("\n\n");
+
+    render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath=".research/papers/2407.06438/paper.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+        editable={false}
+      />,
+    );
+
+    expect(screen.getByRole("document", { name: "Visual Markdown editor" }))
+      .toHaveAttribute("data-virtualized", "true");
+    fireEvent.click(screen.getByRole("link", { name: "Figure 10(a)" }));
+
+    await screen.findByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" }));
+    expect(opener.openUrl).not.toHaveBeenCalled();
+    scrollIntoView.mockRestore();
+  });
+
+  it("opens arXiv when a virtualized paper has no converted fragment target", async () => {
+    const markdown = Array.from({ length: 180 }, (_, index) => (
+      index === 0
+        ? `Table [8](#A0.T8) ${"content ".repeat(14)}`
+        : `Block ${index}: ${"content ".repeat(14)}`
+    )).join("\n\n");
+
+    render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath=".research/papers/2606.11033/paper.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+        editable={false}
+      />,
+    );
+
+    expect(screen.getByRole("document", { name: "Visual Markdown editor" }))
+      .toHaveAttribute("data-virtualized", "true");
+    fireEvent.click(screen.getByRole("link", { name: "8" }));
+
+    await waitFor(() => {
+      expect(opener.openUrl).toHaveBeenCalledWith("https://arxiv.org/html/2606.11033#A0.T8");
+    });
+  });
+
+  it("keeps one scroll geometry when a large editable document is clicked", () => {
+    const markdown = Array.from({ length: 180 }, (_, index) => (
+      `Block ${index}: ${"content ".repeat(14)}`
+    )).join("\n\n");
+
+    renderEditor(markdown);
+
+    expect(screen.getByRole("textbox", { name: "Markdown document editor" }))
+      .toHaveAttribute("contenteditable", "true");
+    expect(document.querySelector("[data-virtualized='true']")).toBeNull();
+  });
+
+  it("renders passive formulas without an intermediate source placeholder", async () => {
+    class PassiveIntersectionObserver {
+      readonly root = null;
+      readonly rootMargin = "0px";
+      readonly thresholds = [0];
+      disconnect = vi.fn();
+      observe = vi.fn();
+      unobserve = vi.fn();
+      takeRecords = () => [];
+    }
+    vi.stubGlobal("IntersectionObserver", PassiveIntersectionObserver);
+    const onLoadAsset = vi.fn<() => Promise<string | null>>(async () => "data:image/png;base64,AA==");
+    const markdown = [
+      "Inline $x^2$ appears before the first scroll.",
+      "$$\n\\sum_{i=1}^{n} x_i\n$$",
+      "![Deferred](images/deferred.png)",
+      ...Array.from({ length: 180 }, (_, index) => (
+        `Block ${index}: ${"content ".repeat(14)}`
+      )),
+    ].join("\n\n");
+
+    const view = render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath="notes.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+        editable={false}
+        onLoadAsset={onLoadAsset}
+      />,
+    );
+    const passive = screen.getByRole("document", { name: "Visual Markdown editor" });
+    let sawPlaceholder = false;
+    const mutations = new MutationObserver(() => {
+      sawPlaceholder ||= passive.querySelector(".math-placeholder") !== null;
+    });
+    mutations.observe(passive, { childList: true, subtree: true });
+    expect(passive).toHaveAttribute("data-virtualized", "true");
+    await waitFor(() => expect(passive.querySelectorAll(".katex")).toHaveLength(2));
+    await Promise.resolve();
+    mutations.disconnect();
+    expect(sawPlaceholder).toBe(false);
+    expect(passive.querySelector(".math-placeholder")).toBeNull();
+    expect(onLoadAsset).not.toHaveBeenCalled();
+    view.unmount();
   });
 
   it("uses WebKit's native caret without installing scroll geometry work", () => {
@@ -663,6 +1012,58 @@ describe("VisualMarkdownEditor", () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
   });
 
+  it("keeps absolute same-paper arXiv links local and falls subfigures back to their figure", async () => {
+    const markdown = '<a id="S7.F10"></a>\n\n![Figure](paper_assets/figure.png)\n\nSee Figure [10(a)](https://arxiv.org/html/2407.06438v3#S7.F10.sf1).\n';
+    render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath=".research/papers/2407.06438/paper.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
+    const target = document.querySelector<HTMLElement>('[data-markdown-anchor][id="S7.F10"]');
+    const scrollIntoView = vi.spyOn(target!, "scrollIntoView");
+    fireEvent.click(screen.getByRole("link", { name: "10(a)" }));
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+    expect(opener.openUrl).not.toHaveBeenCalled();
+  });
+
+  it("opens arXiv at a paper fragment the converter omitted instead of doing nothing", async () => {
+    render(
+      <VisualMarkdownEditor
+        text="See Table [8](#A0.T8)."
+        activePath=".research/papers/2606.11033/paper.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("link", { name: "8" }));
+    expect(opener.openUrl).toHaveBeenCalledWith("https://arxiv.org/html/2606.11033#A0.T8");
+  });
+
+  it("keeps normal editing chrome without a scroll-triggered renderer", () => {
+    renderEditor("| Column |\n| --- |\n| Value |");
+
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const extensionNames = editor.extensionManager.extensions.map((extension) => extension.name);
+    const frozenHeaders = editor.extensionManager.extensions.find(
+      (extension) => extension.name === "frozenTableHeaders",
+    );
+    expect(extensionNames).not.toContain("chunkWrapperDecoration");
+    expect(extensionNames).toContain("frozenTableHeaders");
+    expect(extensionNames).toContain("tableInsertControls");
+    expect(frozenHeaders?.options).toMatchObject({ topOffset: 0, occludeTop: false });
+    expect(surface).toHaveAttribute("contenteditable", "true");
+  });
+
   it("keeps paper reading editable without scroll-heavy table chrome", () => {
     render(
       <VisualMarkdownEditor
@@ -794,7 +1195,7 @@ describe("VisualMarkdownEditor", () => {
 
   it("lets the file-transition owner flush an edit before changing paths", () => {
     const onChange = vi.fn<(next: string, expected: string) => boolean>(() => true);
-    const onFlushPendingChange = vi.fn<(flush: (() => void) | null) => void>();
+    const onFlushPendingChange = vi.fn<(flush: (() => boolean) | null) => void>();
     const view = render(
       <VisualMarkdownEditor
         text="Alpha"
@@ -811,11 +1212,64 @@ describe("VisualMarkdownEditor", () => {
 
     const flush = onFlushPendingChange.mock.calls.at(-1)?.[0];
     expect(flush).toBeTypeOf("function");
-    act(() => flush?.());
+    let accepted = false;
+    act(() => { accepted = flush?.() ?? false; });
+    expect(accepted).toBe(true);
     expect(onChange).toHaveBeenCalledWith("Alpha edit", "Alpha");
 
     view.unmount();
     expect(onFlushPendingChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("does not hand document ownership away during an IME composition", async () => {
+    const onFlushPendingChange = vi.fn<(flush: (() => boolean) | null) => void>();
+    render(
+      <VisualMarkdownEditor
+        text="Alpha"
+        activePath="a.md"
+        onChangeMarkdown={() => true}
+        onFlushPendingChange={onFlushPendingChange}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const flush = onFlushPendingChange.mock.calls.at(-1)?.[0];
+
+    fireEvent.compositionStart(surface);
+    expect(flush?.()).toBe(false);
+    fireEvent.compositionEnd(surface);
+    // WebKit can send the Enter that commits a candidate immediately after
+    // compositionend. Ownership remains blocked through that event turn, then
+    // becomes transferable once the composition guard clears.
+    expect(flush?.()).toBe(false);
+    await waitFor(() => expect(flush?.()).toBe(true));
+  });
+
+  it("keeps blocking ownership changes after a visual publication is rejected", () => {
+    const onFlushPendingChange = vi.fn<(flush: (() => boolean) | null) => void>();
+    render(
+      <VisualMarkdownEditor
+        text="Alpha"
+        activePath="a.md"
+        onChangeMarkdown={() => false}
+        onFlushPendingChange={onFlushPendingChange}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => editor.commands.insertContentAt(6, " edit"));
+    const flush = onFlushPendingChange.mock.calls.at(-1)?.[0];
+
+    let first = true;
+    let second = true;
+    act(() => { first = flush?.() ?? true; });
+    act(() => { second = flush?.() ?? true; });
+
+    expect(first).toBe(false);
+    expect(second).toBe(false);
   });
 
   it("publishes a pending edit for the previous file when the path switches", async () => {
@@ -921,8 +1375,29 @@ describe("VisualMarkdownEditor", () => {
     );
     const nextSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
     expect((nextSurface as HTMLElement & { editor: Editor }).editor).toBe(editor);
-    await waitFor(() => expect(nextSurface).toHaveTextContent("Same body"));
-    expect(nextSurface).not.toHaveTextContent("Same body!");
+    await waitFor(() => expect(nextSurface).not.toHaveTextContent("Same body!"));
+    expect(nextSurface).toHaveTextContent("Same body");
+  });
+
+  it("restores the retained editor when a scheduled file swap is cancelled", async () => {
+    const props = {
+      onChangeMarkdown: () => true,
+      onUndo: () => false,
+      onRedo: () => false,
+    };
+    const { rerender } = render(
+      <VisualMarkdownEditor text="Alpha" activePath="a.md" {...props} />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
+
+    rerender(<VisualMarkdownEditor text="Beta" activePath="b.md" {...props} />);
+    expect(surface).toHaveAttribute("contenteditable", "false");
+    rerender(<VisualMarkdownEditor text="Alpha" activePath="a.md" {...props} />);
+
+    await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
+    expect(surface).toHaveTextContent("Alpha");
+    expect(surface).not.toHaveTextContent("Beta");
   });
 
   it("constructs file-switch NodeViews outside React lifecycle methods", async () => {
@@ -947,7 +1422,8 @@ describe("VisualMarkdownEditor", () => {
       />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("Opening document");
+    expect(screen.queryByText("Opening document…")).toBeNull();
+    expect(document.querySelector(".visual-markdown-loading")).toHaveAttribute("aria-hidden", "true");
     await screen.findByRole("img", { name: "Plot" });
     expect(consoleError.mock.calls.some((call) => String(call[0]).includes(
       "flushSync was called from inside a lifecycle method",
@@ -995,6 +1471,10 @@ describe("VisualMarkdownEditor", () => {
     expect(localScrollWrites).toEqual([]);
     expect(editor.state.selection.$from.parent.type.name).toBe("paragraph");
     expect(editor.state.selection.$from.parent.textContent).toBe("/");
+    expect(editor.state.selection.$from.parentOffset).toBe(1);
+    expect(editor.state.selection.from).toBe(editor.state.doc.firstChild!.nodeSize + 2);
+    expect(window.getSelection()?.anchorNode?.textContent).toBe("/");
+    expect(window.getSelection()?.anchorOffset).toBe(1);
     expect(onRequestViewportLock).toHaveBeenCalledTimes(1);
     const firstAnchor = onRequestViewportLock.mock.calls[0]?.[0] as HTMLElement;
     const firstAnchorTop = onRequestViewportLock.mock.calls[0]?.[1] as number;
@@ -1020,6 +1500,30 @@ describe("VisualMarkdownEditor", () => {
     expect(deferredAnchor).toHaveTextContent("First");
     expect(deferredAnchorTop).toBe(firstAnchorTop - 36);
     await waitFor(() => expect(viewport.scrollTop).toBe(480));
+  });
+
+  it("keeps the Paper reading caret after the inserted slash", () => {
+    render(
+      <VisualMarkdownEditor
+        text="First\n\nSecond"
+        activePath=".research/papers/example/paper.md"
+        optimizeForReading
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+
+    addBlockBelow(editor, 0, editor.state.doc.firstChild!);
+
+    const inserted = surface.children[1];
+    expect(inserted).toHaveTextContent("/");
+    expect(inserted).toHaveClass("ok-chunk-wrapper", "ok-chunk-active");
+    expect(editor.state.selection.$from.parentOffset).toBe(1);
+    expect(window.getSelection()?.anchorNode?.textContent).toBe("/");
+    expect(window.getSelection()?.anchorOffset).toBe(1);
   });
 
   it("reveals an added block below the viewport with bottom breathing room", () => {
@@ -1466,6 +1970,30 @@ describe("VisualMarkdownEditor", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "bold" })).not.toBeInTheDocument());
   });
 
+  it("offers all Markdown heading levels in the contextual block menu", async () => {
+    const { onChange } = renderEditor();
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    editor.view.focus();
+    editor.view.dispatch(
+      editor.view.state.tr.setSelection(TextSelection.create(editor.view.state.doc, 1, 6)),
+    );
+
+    fireEvent.pointerDown(await screen.findByTestId("block-type-selector"), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    const menu = await screen.findByRole("menu");
+    for (const level of [4, 5, 6]) {
+      expect(within(menu).getByRole("menuitem", { name: `Heading ${level}` })).toBeInTheDocument();
+    }
+
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Heading 5" }));
+    await waitFor(() => expect(editor.isActive("heading", { level: 5 })).toBe(true));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+  });
+
   it("converts selected text to inline math from the contextual toolbar", async () => {
     const { onChange } = renderEditor("Energy is E=mc^2.");
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
@@ -1538,7 +2066,11 @@ describe("VisualMarkdownEditor", () => {
   });
 
   it("offers View in source and keeps the footnote icon legible", async () => {
-    const onViewInSource = vi.fn<(sourceOffset: number) => void>();
+    const onViewInSource = vi.fn<(
+      sourceOffset: number,
+      viewportY?: number,
+      blockViewportY?: number,
+    ) => void>();
     render(
       <VisualMarkdownEditor
         text="Hello"
@@ -1559,14 +2091,19 @@ describe("VisualMarkdownEditor", () => {
     expect(viewSource.querySelector("svg")).toHaveClass("size-4");
     expect(footnote.querySelector("svg")).toHaveClass("size-4");
     fireEvent.click(viewSource);
-    expect(onViewInSource).toHaveBeenCalledWith(0, expect.any(Number));
+    expect(onViewInSource).toHaveBeenCalledOnce();
+    expect(onViewInSource.mock.calls[0]?.[0]).toBe(0);
   });
 
   it.each([false, true])(
-    "maps View in source with exact block labels when reading optimization is %s",
+    "maps View in source to the selected text when reading optimization is %s",
     async (optimizeForReading) => {
       const markdown = "# Heading\n\nFirst paragraph.\n\nTarget paragraph.";
-      const onViewInSource = vi.fn<(sourceOffset: number) => void>();
+      const onViewInSource = vi.fn<(
+        sourceOffset: number,
+        viewportY?: number,
+        blockViewportY?: number,
+      ) => void>();
       render(
         <VisualMarkdownEditor
           text={markdown}
@@ -1586,7 +2123,7 @@ describe("VisualMarkdownEditor", () => {
       });
       editor.view.focus();
       editor.view.dispatch(editor.view.state.tr.setSelection(
-        TextSelection.create(editor.view.state.doc, targetPosition, targetPosition + 6),
+        TextSelection.create(editor.view.state.doc, targetPosition + 7, targetPosition + 16),
       ));
 
       await waitFor(() => {
@@ -1599,9 +2136,9 @@ describe("VisualMarkdownEditor", () => {
         expect(targetBlock).toHaveAttribute("data-source-end-offset", String(markdown.length));
       });
       fireEvent.click(await screen.findByRole("button", { name: "View in source Markdown" }));
-      expect(onViewInSource).toHaveBeenCalledWith(
-        markdown.indexOf("Target paragraph."),
-        expect.any(Number),
+      expect(onViewInSource).toHaveBeenCalledOnce();
+      expect(onViewInSource.mock.calls[0]?.[0]).toBe(
+        markdown.indexOf("paragraph.", markdown.indexOf("Target paragraph.")),
       );
     },
   );
@@ -1612,6 +2149,25 @@ describe("VisualMarkdownEditor", () => {
     expect(document.querySelector(".ok-add-block-btn")).toHaveAttribute("aria-label", "Add block below");
     expect(document.querySelector(".ok-drag-grip")).toHaveAttribute("aria-label", "Select block");
     expect(document.querySelector(".ok-block-controls")).toHaveAttribute("draggable", "true");
+  });
+
+  it("reveals add and drag controls when an editable document block is hovered", async () => {
+    renderEditor("First\n\nSecond");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    await waitFor(() => expect(editor.isEditable).toBe(true));
+    const firstBlock = surface.firstElementChild as HTMLElement;
+    const secondBlock = surface.lastElementChild as HTMLElement;
+    vi.spyOn(firstBlock, "getBoundingClientRect").mockReturnValue(rect({ top: 100, bottom: 128 }));
+    vi.spyOn(secondBlock, "getBoundingClientRect").mockReturnValue(rect({ top: 156, bottom: 184 }));
+    const elementsFromPoint = stubElementsFromPoint([firstBlock, surface]);
+
+    fireEvent.mouseMove(firstBlock, { clientX: 50, clientY: 112 });
+
+    const controls = document.querySelector<HTMLElement>(".ok-block-controls")!;
+    await waitFor(() => expect(controls.style.visibility).not.toBe("hidden"));
+    expect(controls.style.pointerEvents).toBe("auto");
+    expect(elementsFromPoint).toHaveBeenCalled();
   });
 
   it("deletes a selected block as one unit", async () => {
@@ -1702,17 +2258,17 @@ describe("VisualMarkdownEditor", () => {
     }
   });
 
-  it("opens a searchable slash menu and inserts the selected block", async () => {
+  it.each([2, 5])("opens a searchable slash menu and inserts Heading %i", async (level) => {
     const { onChange } = renderEditor("");
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
-    editor.chain().focus().insertContent("/h2").run();
+    editor.chain().focus().insertContent(`/h${level}`).run();
     const menu = await screen.findByRole("listbox", { name: "Slash commands" });
-    expect(menu).toHaveTextContent("Heading 2");
+    expect(menu).toHaveTextContent(`Heading ${level}`);
     expect(menu).not.toHaveTextContent("Heading 1");
-    fireEvent.mouseDown(within(menu).getByRole("option", { name: /Heading 2/ }));
-    await waitFor(() => expect(editor.isActive("heading", { level: 2 })).toBe(true));
-    expect(editor.getText()).not.toContain("/h2");
+    fireEvent.mouseDown(within(menu).getByRole("option", { name: new RegExp(`Heading ${level}`) }));
+    await waitFor(() => expect(editor.isActive("heading", { level })).toBe(true));
+    expect(editor.getText()).not.toContain(`/h${level}`);
     await waitFor(() => expect(onChange).toHaveBeenCalled(), { timeout: 2_500 });
   });
 
@@ -1723,13 +2279,16 @@ describe("VisualMarkdownEditor", () => {
     editor.chain().focus().insertContent("/").run();
     const menu = await screen.findByRole("listbox", { name: "Slash commands" });
     expect(menu.parentElement?.querySelector(".lattice-scrollbar")).toBeInTheDocument();
-    expect(within(menu).getByRole("option", { name: /Heading 3/ })).toBeInTheDocument();
+    for (const level of [1, 2, 3, 4, 5, 6]) {
+      expect(within(menu).getByRole("option", { name: new RegExp(`Heading ${level}`) })).toBeInTheDocument();
+    }
     expect(within(menu).getByRole("option", { name: /Task List/ })).toBeInTheDocument();
     expect(within(menu).getByRole("option", { name: /Code Block/ })).toBeInTheDocument();
     expect(within(menu).getByRole("option", { name: /^Table/ })).toBeInTheDocument();
     expect(within(menu).getByRole("option", { name: /^Footnote/ })).toBeInTheDocument();
     expect(within(menu).getByRole("option", { name: /Inline Math/ })).toBeInTheDocument();
     expect(within(menu).getByRole("option", { name: /^Link/ })).toBeInTheDocument();
+    expect(within(menu).queryByRole("option", { name: /^Tag/ })).not.toBeInTheDocument();
     expect(within(menu).getByRole("option", { name: /^Mermaid/ })).toBeInTheDocument();
     expect(within(menu).getByRole("option", { name: /^Image/ })).toBeInTheDocument();
     expect(within(menu).queryByRole("option", { name: /^Video/ })).not.toBeInTheDocument();
@@ -1744,7 +2303,7 @@ describe("VisualMarkdownEditor", () => {
     for (const label of ["Callout", "Accordion", "Tabs", "Image", "Video", "Audio", "PDF", "File", "Embed"]) {
       expect(componentLabels).toContain(label);
     }
-    expect(getInlineComponentItems().length).toBeGreaterThan(0);
+    expect(getInlineComponentItems().map((item) => item.name)).toEqual(["link"]);
     expect(getEmbedStarterItems().length).toBeGreaterThan(0);
   });
 
@@ -2243,89 +2802,25 @@ describe("VisualMarkdownEditor", () => {
     expect(screen.queryByRole("listbox", { name: "Path suggestions" })).not.toBeInTheDocument();
   });
 
-  it("renders a filled tag as a static chip, not an input", async () => {
-    renderEditor("A #tag");
-    const chip = await screen.findByRole("link", { name: "#tag" });
-    expect(chip).toHaveClass("tag");
-    expect(chip).toHaveAttribute("data-tag", "tag");
-    expect(chip).toHaveAttribute("href", "#tag/tag");
-    // The filled chip is read-only — editing happens by deleting the
-    // atom and re-inserting, so no inline input may remain mounted.
-    expect(screen.queryByRole("textbox", { name: "Tag value" })).not.toBeInTheDocument();
-  });
-
-  it("grows a placeholder Tag input with its draft and commits on Enter", async () => {
-    const { onChange } = renderEditor("A");
+  it("renders and edits research hashtags as ordinary text", () => {
+    const source = "Model statistics: #Params, #Tokens, and #Samples";
+    renderEditor(source);
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
-    act(() => {
-      editor.chain().focus().insertTag("").run();
-    });
-    const input = await screen.findByRole("textbox", { name: "Tag value" });
-    expect(input).toHaveAttribute("size", "8");
-    fireEvent.change(input, { target: { value: "research-notes" } });
-    expect(input).toHaveAttribute("size", String("research-notes".length));
-    // Invalid characters never enter the draft (INLINE_TAG_VALUE_RE gate).
-    fireEvent.change(input, { target: { value: "research notes!" } });
-    expect(input).toHaveValue("research-notes");
-    fireEvent.keyDown(input, { key: "Enter" });
-    await waitFor(() => expect(String(onChange.mock.lastCall?.[0])).toContain("#research-notes"));
-    // Commit returns an inline textbox-less chip to the document.
-    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Tag value" })).not.toBeInTheDocument());
-  });
 
-  it("discards an empty tag placeholder on Escape", async () => {
-    renderEditor("A");
-    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
-    const editor = (surface as HTMLElement & { editor: Editor }).editor;
-    act(() => {
-      editor.chain().focus().insertTag("").run();
-    });
-    const input = await screen.findByRole("textbox", { name: "Tag value" });
-    fireEvent.keyDown(input, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Tag value" })).not.toBeInTheDocument());
-    // The placeholder atom deleted itself, returning the document to its
-    // original state regardless of when deferred publication runs.
-    expect(editor.getText()).toBe("A");
-  });
+    expect(surface).toHaveTextContent(source);
+    expect(surface.querySelector("a.tag, [data-tag]")).toBeNull();
+    expect(editor.schema.nodes.tag).toBeUndefined();
+    expect(editorMarkdown(editor).trimEnd()).toBe(source);
+    expect(editorMarkdown(editor)).not.toContain("\\#");
 
-  it("deletes a filled tag atom with a single Backspace", async () => {
-    const { onChange } = renderEditor("A #tag");
-    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
-    const editor = (surface as HTMLElement & { editor: Editor }).editor;
     act(() => {
-      editor.chain().focus("end").run();
+      editor.chain().focus("end").insertContent(" #anything").run();
     });
-    fireEvent.keyDown(surface, { key: "Backspace" });
-    await waitFor(() => {
-      const last = String(onChange.mock.lastCall?.[0]);
-      expect(last).not.toContain("#tag");
-      expect(last.trim()).toBe("A");
-    });
-  });
-
-  it("does not offer link editing when hovering a tag chip", async () => {
-    renderEditor("A #tag");
-    const chip = await screen.findByRole("link", { name: "#tag" });
-    fireEvent.mouseOver(chip);
-    // Outlast the 300ms hover dwell; the link hover card must stay away
-    // (its Edit action opens the LINK popover, meaningless for a tag atom).
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    expect(screen.queryByRole("button", { name: "Edit link" })).not.toBeInTheDocument();
-  });
-
-  it("creates a tag through the # typeahead", async () => {
-    const { onChange } = renderEditor("See");
-    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
-    const editor = (surface as HTMLElement & { editor: Editor }).editor;
-    act(() => {
-      editor.chain().focus("end").insertContent(" #re").run();
-    });
-    const menu = await screen.findByRole("listbox", { name: "Tag suggestions" });
-    const create = await within(menu).findByRole("option", { name: /re/ });
-    fireEvent.mouseDown(create);
-    await waitFor(() => expect(surface.querySelector('a.tag[data-tag="re"]')).not.toBeNull());
-    await waitFor(() => expect(String(onChange.mock.lastCall?.[0])).toContain("#re"));
+    expect(surface).toHaveTextContent("#anything");
+    expect(screen.queryByRole("listbox", { name: "Tag suggestions" })).not.toBeInTheDocument();
+    expect(editorMarkdown(editor).trimEnd()).toBe(`${source} #anything`);
+    expect(editorMarkdown(editor)).not.toContain("\\#");
   });
 
   it("edits and removes an existing Markdown link in place", async () => {
@@ -2544,6 +3039,434 @@ describe("VisualMarkdownEditor", () => {
     expect(String(onChange.mock.lastCall?.[0])).toContain("Updated");
   });
 
+  it("renders a flattened merged paper table without dropping or shifting columns", () => {
+    const markdown = [
+      "|  | Model | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold |",
+      "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+      "|  | Model | metaclip_nps | sa1b_nps | crowded | fg_food | fg_sports_equipment | attributes | wiki_common | Avg |",
+      "| C-RADIOv4 | SO400M-VDT8 | 43.0 | 44.5 | 54.9 | 38.4 | 38.4 | 40.3 | 22.2 | 40.3 |",
+      "| C-RADIOv4 | SO400M-G | 43.8 | 45.7 | 55.9 | 40.1 | 39.8 | 41.6 | 23.1 | 41.4 |",
+    ].join("\n");
+
+    renderEditor(markdown);
+
+    const table = screen.getByRole("textbox", { name: "Markdown document editor" })
+      .querySelector<HTMLTableElement>("table")!;
+    expect(table.rows).toHaveLength(4);
+    expect(table.rows[0]?.cells).toHaveLength(10);
+    expect(table.rows[2]?.cells).toHaveLength(10);
+    expect(table.rows[3]?.cells).toHaveLength(10);
+    expect(table.rows[2]?.cells[0]).toHaveTextContent("C-RADIOv4");
+    expect(table.rows[2]?.cells[1]).toHaveTextContent("SO400M-VDT8");
+    expect(table.rows[3]?.cells[1]).toHaveTextContent("SO400M-G");
+    expect(table.rows[3]?.cells[8]).toHaveTextContent("23.1");
+    expect(table.rows[3]?.cells[9]).toHaveTextContent("41.4");
+  });
+
+  it("visually merges repeated labels in extracted-paper tables and expands them on save", async () => {
+    const markdown = [
+      "|  | Model | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold | SA-Co/Gold |",
+      "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+      "|  | Model | metaclip_nps | sa1b_nps | crowded | fg_food | fg_sports_equipment | attributes | wiki_common | Avg |",
+      "| C-RADIOv4 | SO400M-VDT8 | 43.0 | 44.5 | 54.9 | 38.4 | 38.4 | 40.3 | 22.2 | 40.3 |",
+      "| C-RADIOv4 | SO400M-G | 43.8 | 45.7 | 55.9 | 40.1 | 39.8 | 41.6 | 23.1 | 41.4 |",
+    ].join("\n");
+    const onChange = vi.fn<(next: string, expected: string) => boolean>(() => true);
+
+    render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath=".research/papers/example/paper.md"
+        optimizeForReading
+        onChangeMarkdown={onChange}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const table = surface.querySelector<HTMLTableElement>("table")!;
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    expect(table.rows).toHaveLength(4);
+    expect(table.rows[0]?.cells).toHaveLength(3);
+    expect(table.rows[0]?.cells[1]).toHaveTextContent("Model");
+    expect(table.rows[0]?.cells[1]).toHaveAttribute("rowspan", "2");
+    expect(table.rows[0]?.cells[2]).toHaveTextContent("SA-Co/Gold");
+    expect(table.rows[0]?.cells[2]).toHaveAttribute("colspan", "8");
+    expect(table.rows[2]?.cells).toHaveLength(10);
+    expect(table.rows[3]?.cells).toHaveLength(9);
+    expect(table.rows[2]?.cells[0]).toHaveTextContent("C-RADIOv4");
+    expect(table.rows[2]?.cells[0]).toHaveAttribute("rowspan", "2");
+    expect(restoreUnchangedBlocks(
+      editorMarkdown(editor),
+      markdown,
+      editor.state.doc,
+      undefined,
+      ".research/papers/example/paper.md",
+    )).toBe(markdown);
+
+    let repeatedLabelPosition = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (node.isText && node.text === "C-RADIOv4") repeatedLabelPosition = position;
+    });
+    expect(repeatedLabelPosition).toBeGreaterThan(0);
+    editor.commands.insertContentAt(repeatedLabelPosition, "Updated ");
+    expect(editorMarkdown(editor).match(/\| Updated C-RADIOv4 \|/g)).toHaveLength(2);
+    await waitFor(() => {
+      expect(String(onChange.mock.lastCall?.[0]).match(/\| Updated C-RADIOv4 \|/g))
+        .toHaveLength(2);
+    });
+  });
+
+  it("round-trips a combined inferred row and column span", () => {
+    const markdown = [
+      "| Group | Group | Metric |",
+      "| --- | --- | --- |",
+      "| Group | Group | 1 |",
+      "| Other | Variant | 2 |",
+    ].join("\n");
+
+    const parsed = parseVisualMarkdown(markdown, ".research/papers/example/paper.md");
+    const table = parsed.content?.[0];
+    const origin = table?.content?.[0]?.content?.[0];
+    expect(origin?.attrs).toMatchObject({ colspan: 2, rowspan: 2 });
+    expect(table?.content?.[0]?.content).toHaveLength(2);
+    expect(table?.content?.[1]?.content).toHaveLength(1);
+    expect(getMarkdownManager().serialize(parsed)).toBe(`${markdown}\n`);
+  });
+
+  it("honors an explicit table layout and keeps its metadata out of the document", () => {
+    const table = [
+      "| Group | Group | Metric |",
+      "| --- | --- | --- |",
+      "| A | B | 1 |",
+    ].join("\n");
+    const markdown = [
+      '<!-- lattice-table-layout:v1 {"spans":[[0,0,1,2]]} -->',
+      "",
+      table,
+    ].join("\n");
+
+    const parsed = parseVisualMarkdown(markdown, "notes.md");
+    expect(parsed.content).toHaveLength(1);
+    expect(parsed.content?.[0]?.type).toBe("table");
+    expect(parsed.content?.[0]?.content?.[0]?.content?.[0]?.attrs?.colspan).toBe(2);
+    expect(getMarkdownManager().serialize(parsed)).toBe(`${markdown}\n`);
+  });
+
+  it("uses an explicit empty layout to suppress paper span inference", () => {
+    const markdown = [
+      '<!-- lattice-table-layout:v1 {"spans":[]} -->',
+      "",
+      "| Group | Group | Metric |",
+      "| --- | --- | --- |",
+      "| Group | Group | 1 |",
+      "| Other | Variant | 2 |",
+    ].join("\n");
+
+    const parsed = parseVisualMarkdown(markdown, ".research/papers/example/paper.md");
+    expect(parsed.content).toHaveLength(1);
+    expect(parsed.content?.[0]?.content?.map((row) => row.content?.length))
+      .toEqual([3, 3, 3]);
+    expect(getMarkdownManager().serialize(parsed)).toBe(`${markdown}\n`);
+  });
+
+  it("preserves invalid table layout comments instead of dropping table content", () => {
+    const markdown = [
+      '<!-- lattice-table-layout:v1 {"spans":[[0,0,1,3]]} -->',
+      "",
+      "| A | B |",
+      "| --- | --- |",
+      "| C | D |",
+    ].join("\n");
+
+    const parsed = parseVisualMarkdown(markdown, "notes.md");
+    expect(parsed.content).toHaveLength(2);
+    expect(parsed.content?.[1]?.type).toBe("table");
+    expect(parsed.content?.[1]?.content?.map((row) => row.content?.length)).toEqual([2, 2]);
+    expect(getMarkdownManager().serialize(parsed)).toBe(`${markdown}\n`);
+  });
+
+  it("round-trips explicit layouts for tables nested in a blockquote", () => {
+    const markdown = [
+      '> <!-- lattice-table-layout:v1 {"spans":[[0,0,1,2]]} -->',
+      ">",
+      "> | Group | Group | Metric |",
+      "> | --- | --- | --- |",
+      "> | A | B | 1 |",
+    ].join("\n");
+
+    const parsed = parseVisualMarkdown(markdown, "notes.md");
+    const table = parsed.content?.[0]?.content?.[0];
+    expect(parsed.content?.[0]?.type).toBe("blockquote");
+    expect(table?.type).toBe("table");
+    expect(table?.content?.[0]?.content?.[0]?.attrs?.colspan).toBe(2);
+    const serialized = getMarkdownManager().serialize(parsed);
+    expect(serialized).toContain('> <!-- lattice-table-layout:v1 {"spans":[[0,0,1,2]]} -->');
+    expect(parseVisualMarkdown(serialized, "notes.md")
+      .content?.[0]?.content?.[0]?.content?.[0]?.content?.[0]?.attrs?.colspan).toBe(2);
+  });
+
+  it("splits an inferred paper cell and persists the explicit unmerged layout", async () => {
+    const markdown = [
+      "| Group | Group | Metric |",
+      "| --- | --- | --- |",
+      "| Group | Group | 1 |",
+      "| Other | Variant | 2 |",
+    ].join("\n");
+    render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath=".research/papers/example/paper.md"
+        optimizeForReading
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    let groupPosition = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (groupPosition < 0 && node.isText && node.text === "Group") groupPosition = position;
+    });
+    editor.commands.setTextSelection(groupPosition);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Split cell" }));
+
+    const splitHeaders = surface.querySelectorAll("tr")[0]?.querySelectorAll("th");
+    const splitBodyCells = surface.querySelectorAll("tr")[1]?.querySelectorAll("td");
+    expect(splitHeaders).toHaveLength(3);
+    expect(splitBodyCells).toHaveLength(3);
+    expect(splitHeaders?.[0]).toHaveTextContent("Group");
+    expect(splitHeaders?.[1]).toHaveTextContent("Group");
+    expect(splitBodyCells?.[0]).toHaveTextContent("Group");
+    expect(splitBodyCells?.[1]).toHaveTextContent("Group");
+    const serialized = editorMarkdown(editor);
+    expect(serialized).toContain('<!-- lattice-table-layout:v1 {"spans":[]} -->');
+    const reparsed = parseVisualMarkdown(serialized, ".research/papers/example/paper.md");
+    expect(reparsed.content?.[0]?.content?.map((row) => row.content?.length))
+      .toEqual([3, 3, 3]);
+  });
+
+  it("merges matching selected cells without duplicating their content", async () => {
+    const markdown = [
+      "| Group | Group | Metric |",
+      "| --- | --- | --- |",
+      "| A | B | 1 |",
+    ].join("\n");
+    renderEditor(markdown);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const headerPositions: number[] = [];
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "tableHeader") headerPositions.push(position);
+    });
+    editor.view.dispatch(editor.state.tr.setSelection(CellSelection.create(
+      editor.state.doc,
+      headerPositions[0]!,
+      headerPositions[1]!,
+    )));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Merge cells" }));
+
+    const headers = surface.querySelectorAll("th");
+    expect(headers).toHaveLength(2);
+    expect(headers[0]).toHaveTextContent("Group");
+    expect(headers[0]).not.toHaveTextContent("GroupGroup");
+    expect(headers[0]).toHaveAttribute("colspan", "2");
+    const serialized = editorMarkdown(editor);
+    expect(serialized).toContain('<!-- lattice-table-layout:v1 {"spans":[[0,0,1,2]]} -->');
+    expect(serialized).toContain("| Group | Group | Metric |");
+    const reparsed = parseVisualMarkdown(serialized, "notes.md");
+    expect(reparsed.content?.[0]?.content?.[0]?.content?.[0]?.attrs?.colspan).toBe(2);
+  });
+
+  it("preserves each logical column alignment when matching cells are merged", async () => {
+    const markdown = [
+      "| Group | Group | Metric |",
+      "| :--- | ---: | :---: |",
+      "| A | B | 1 |",
+    ].join("\n");
+    renderEditor(markdown);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const headerPositions: number[] = [];
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "tableHeader") headerPositions.push(position);
+    });
+    editor.view.dispatch(editor.state.tr.setSelection(CellSelection.create(
+      editor.state.doc,
+      headerPositions[0]!,
+      headerPositions[1]!,
+    )));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Merge cells" }));
+
+    expect(editorMarkdown(editor)).toContain("| :--- | ---: | :---: |");
+  });
+
+  it("disables merging cells with different non-empty content", async () => {
+    const markdown = [
+      "| Group A | Group B | Metric |",
+      "| --- | --- | --- |",
+      "| A | B | 1 |",
+    ].join("\n");
+    renderEditor(markdown);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const headerPositions: number[] = [];
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "tableHeader") headerPositions.push(position);
+    });
+    editor.view.dispatch(editor.state.tr.setSelection(CellSelection.create(
+      editor.state.doc,
+      headerPositions[0]!,
+      headerPositions[1]!,
+    )));
+
+    const merge = await screen.findByRole("button", { name: "Merge cells" });
+    const before = editorMarkdown(editor);
+    expect(merge).toBeDisabled();
+    fireEvent.click(merge);
+
+    expect(editorMarkdown(editor)).toBe(before);
+    expect(surface.querySelectorAll("th")).toHaveLength(3);
+  });
+
+  it("splits one merged cell without discarding other explicit spans", async () => {
+    const markdown = [
+      '<!-- lattice-table-layout:v1 {"spans":[[0,0,1,2],[0,2,1,2]]} -->',
+      "",
+      "| Left | Left | Right | Right |",
+      "| --- | --- | --- | --- |",
+      "| A | B | C | D |",
+    ].join("\n");
+    renderEditor(markdown);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    let leftPosition = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (leftPosition < 0 && node.isText && node.text === "Left") leftPosition = position;
+    });
+    editor.commands.setTextSelection(leftPosition);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Split cell" }));
+
+    expect(surface.querySelectorAll("th")).toHaveLength(3);
+    expect(surface.querySelectorAll("th")[2]).toHaveAttribute("colspan", "2");
+    expect(editorMarkdown(editor)).toContain(
+      '<!-- lattice-table-layout:v1 {"spans":[[0,2,1,2]]} -->',
+    );
+  });
+
+  it("leaves repeated paper data and ambiguous intersections as independent cells", () => {
+    const repeatedData = [
+      "| Run | Status | Flag A | Flag B | Score |",
+      "| --- | --- | --- | --- | --- |",
+      "| A | Passed | Yes | Yes | 1 |",
+      "| B | Passed | No | No | 2 |",
+    ].join("\n");
+    const ambiguous = [
+      "| Group | Group | Metric |",
+      "| --- | --- | --- |",
+      "| Group | Variant | 1 |",
+    ].join("\n");
+    const singleLevelDuplicateHeaders = [
+      "| Run | Score | Score |",
+      "| --- | --- | --- |",
+      "| A | 1 | 2 |",
+    ].join("\n");
+    const singleStubDuplicates = [
+      "| State | Score |",
+      "| --- | --- |",
+      "| Active | 1 |",
+      "| Active | 2 |",
+    ].join("\n");
+
+    const repeatedParsed = parseVisualMarkdown(
+      repeatedData,
+      ".research/papers/example/paper.md",
+    );
+    const ambiguousParsed = parseVisualMarkdown(
+      ambiguous,
+      ".research/papers/example/paper.md",
+    );
+    const singleLevelHeadersParsed = parseVisualMarkdown(
+      singleLevelDuplicateHeaders,
+      ".research/papers/example/paper.md",
+    );
+    const singleStubParsed = parseVisualMarkdown(
+      singleStubDuplicates,
+      ".research/papers/example/paper.md",
+    );
+    expect(repeatedParsed.content?.[0]?.content?.map((row) => row.content?.length))
+      .toEqual([5, 5, 5]);
+    expect(ambiguousParsed.content?.[0]?.content?.map((row) => row.content?.length))
+      .toEqual([3, 3]);
+    expect(singleLevelHeadersParsed.content?.[0]?.content?.map((row) => row.content?.length))
+      .toEqual([3, 3]);
+    expect(singleStubParsed.content?.[0]?.content?.map((row) => row.content?.length))
+      .toEqual([2, 2, 2]);
+    expect(getMarkdownManager().serialize(repeatedParsed)).toBe(`${repeatedData}\n`);
+    expect(getMarkdownManager().serialize(ambiguousParsed)).toBe(`${ambiguous}\n`);
+    expect(getMarkdownManager().serialize(singleLevelHeadersParsed))
+      .toBe(`${singleLevelDuplicateHeaders}\n`);
+    expect(getMarkdownManager().serialize(singleStubParsed)).toBe(`${singleStubDuplicates}\n`);
+  });
+
+  it("refuses to serialize malformed table spans", () => {
+    const parsed = parseVisualMarkdown("| A | B |\n| --- | --- |\n| C | D |", "notes.md");
+    const origin = parsed.content?.[0]?.content?.[0]?.content?.[0];
+    expect(origin).toBeDefined();
+    origin!.attrs = { ...origin!.attrs, rowspan: 3 };
+    expect(() => getMarkdownManager().serialize(parsed))
+      .toThrow("Cannot serialize malformed table spans");
+  });
+
+  it("keeps source positions after an inferred paper table aligned", async () => {
+    const markdown = [
+      "| Group | Group | Metric |",
+      "| --- | --- | --- |",
+      "| Group | Group | 1 |",
+      "",
+      "After table",
+    ].join("\n");
+
+    const { rerender } = render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath=".research/papers/example/paper.md"
+        optimizeForReading
+        presenceCursors={[{ name: "Ada", hue: 210, row: 4, column: 5 }]}
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    const caret = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".visual-overleaf-caret");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    expect(caret.closest("p")).not.toBeNull();
+    expect(caret.closest("table")).toBeNull();
+
+    rerender(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath=".research/papers/example/paper.md"
+        optimizeForReading
+        presenceCursors={[{ name: "Ada", hue: 210, row: 2, column: 12 }]}
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+    await waitFor(() => expect(document.querySelector(".visual-overleaf-caret")).toBeNull());
+  });
+
   it("draws an Overleaf cursor inside the matching visual table cell", async () => {
     render(
       <VisualMarkdownEditor
@@ -2603,6 +3526,34 @@ describe("VisualMarkdownEditor", () => {
     editor.commands.insertContent("X");
     await waitFor(() => expect(String(onChange.mock.lastCall?.[0])).toContain("XA"));
   });
+
+  it.each([3, 11])(
+    "maps an explicit merged cell cursor from source column %i to its visual origin",
+    async (column) => {
+      const markdown = [
+        '<!-- lattice-table-layout:v1 {"spans":[[0,0,1,2]]} -->',
+        "",
+        "| Group | Group | Metric |",
+        "| --- | --- | --- |",
+        "| A | B | 1 |",
+      ].join("\n");
+      render(
+        <VisualMarkdownEditor
+          text={markdown}
+          activePath="explicit-table-presence.md"
+          presenceCursors={[{ name: "Ada", hue: 210, row: 2, column }]}
+          onChangeMarkdown={() => true}
+          onUndo={() => false}
+          onRedo={() => false}
+        />,
+      );
+
+      await waitFor(() => expect(document.querySelector(".visual-overleaf-caret")).not.toBeNull());
+      const header = document.querySelector(".visual-overleaf-caret")?.closest("th");
+      expect(header).toBe(document.querySelector("th"));
+      expect(header).toHaveAttribute("colspan", "2");
+    },
+  );
 
   it("anchors an Overleaf delimiter-row cursor in the matching visual header cell", async () => {
     render(
@@ -2704,7 +3655,42 @@ describe("VisualMarkdownEditor", () => {
     await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "false"));
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent("unsupported or lossy syntax");
-    expect(status).toHaveClass("visual-markdown-eligibility");
+    expect(status).toHaveClass("visual-markdown-eligibility", "warning");
+    expect(status).not.toHaveClass("error");
+  });
+
+  it("never splices repeated best-effort ranges into an ambiguously mapped document", async () => {
+    const source = "<!-- c -->\n\n[^n]: First paragraph.\n\n  Not a continuation.\n";
+    renderEditor(source);
+    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    expect(exactVisualSourceRanges(source, editor.state.doc.childCount)).toBeNull();
+
+    const canonical = "<!-- c -->\n\n[^n]: First paragraph.\n\nNot a continuation.\n";
+    expect(restoreUnchangedBlocks(canonical, source, editor.state.doc)).toBe(canonical);
+    expect(restoreUnchangedBlocks(canonical, source, editor.state.doc)).toBe(canonical);
+  });
+
+  it("does not restore an ordinally shifted block after a non-adjacent move", async () => {
+    renderEditor("A\n\nB\n\nC\n");
+    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const moved = "B\n\nC\n\nA\n";
+    const movedDoc = editor.state.doc.type.schema.nodeFromJSON(parseVisualMarkdown(moved));
+
+    expect(restoreUnchangedBlocks(moved, "A\n\nB\n\nC\n", movedDoc, new Set([0, 2])))
+      .toBe(moved);
+  });
+
+  it("does not restore a changed heading level with unchanged text", async () => {
+    renderEditor("## Title\n");
+    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const changed = "### Title\n";
+    const changedDoc = editor.state.doc.type.schema.nodeFromJSON(parseVisualMarkdown(changed));
+
+    expect(restoreUnchangedBlocks(changed, "## Title\n", changedDoc, new Set()))
+      .toBe(changed);
   });
 
   it("explains when paper Markdown is read-only to preserve lossy syntax", async () => {
@@ -2721,6 +3707,9 @@ describe("VisualMarkdownEditor", () => {
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "false"));
     expect(screen.getByText("unsupported or lossy syntax", { exact: false })).toBeInTheDocument();
+    fireEvent.keyDown(surface, { key: "f", altKey: true, metaKey: true });
+    expect(screen.getByRole("button", { name: "Replace current match" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Replace all matches" })).toBeDisabled();
   });
 
   it("clears a stale eligibility warning after the same paper path becomes lossless", async () => {
@@ -2750,9 +3739,12 @@ describe("VisualMarkdownEditor", () => {
   // reader's typing, so none of it may cost them visual editing — or rewrite
   // the file underneath them on open.
   it.each([
+    ["frontmatter", "---\ntitle: Example\nauthors: [Ada]\n---\n\nPaper body.\n"],
     ["a heading tight against its list", "## Contents\n- 1 Introduction\n- 2 Approach\n"],
     ["a caption tight against its table", "**Table 1: Caption.**\n| A | B |\n| --- | --- |\n| 1 | 2 |\n"],
     ["a paragraph tight against its list", "Questions we answer:\n1) First\n2) Second\n"],
+    ["a converter checklist", "- 1.\nFirst answer\n- 2.\nSecond answer\n"],
+    ["bare converter ordinals", "1.\nFirst answer\n2\\.\nSecond answer\n"],
     ["a stray asterisk in prose", "The authors (1* and 2*) contributed equally.\n"],
     ["emphasis nested in a bold caption", "**Table 1: A *single* Flamingo model.**\n"],
     ["an indented paragraph after a footnote", "[^n]: First paragraph.\n\n  Not a continuation."],
@@ -2763,6 +3755,29 @@ describe("VisualMarkdownEditor", () => {
     expect(screen.queryByText("unsupported or lossy syntax", { exact: false })).not.toBeInTheDocument();
     // Opening it may not publish a rewrite of syntax nobody touched.
     await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("renders bare paper ordinals as one continuous list without visible escapes", async () => {
+    const markdown = [
+      "1.",
+      "Constrained visual capabilities.",
+      "2\\.",
+      "Challenges in efficient training and deployment.",
+      "3.",
+      "Multiple components complicate the scaling analysis.",
+      "4\\.",
+      "Limited image pre-processing flexibility.",
+      "",
+    ].join("\n");
+    const { onChange } = renderEditor(markdown);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+
+    await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
+    expect(surface.querySelectorAll("ol")).toHaveLength(1);
+    expect(surface.querySelectorAll("ol > li")).toHaveLength(4);
+    expect(surface).not.toHaveTextContent("2\\.");
+    expect(surface).not.toHaveTextContent("4\\.");
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -2925,11 +3940,58 @@ describe("VisualMarkdownEditor", () => {
   it("renders inline math without disabling visual editing", async () => {
     renderEditor("The result is $x^2$.");
     expect(screen.getByRole("textbox", { name: "Markdown document editor" })).toHaveAttribute("contenteditable", "true");
-    // Upstream MathInlineView lazily imports KaTeX and renders inside the
-    // click-to-edit trigger span.
+    // MathInlineView renders KaTeX inside the click-to-edit trigger span.
     await waitFor(() => {
       expect(document.querySelector(".math-inline-trigger .katex")).not.toBeNull();
     });
+  });
+
+  it("opens inline math properties only when the atom itself is selected", async () => {
+    renderEditor("Before $x^2$ after.");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const trigger = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".math-inline-trigger");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)));
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    });
+
+    expect(surface.firstElementChild).toHaveClass("ProseMirror-selectednode");
+    expect(trigger.closest(".math-inline-selected")).toBeNull();
+    expect(screen.queryByText("Inline Math Properties")).not.toBeInTheDocument();
+
+    let atomPosition = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "mathInline") atomPosition = position;
+    });
+    editor.view.dispatch(
+      editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, atomPosition)),
+    );
+    expect(await screen.findByText("Inline Math Properties")).toBeInTheDocument();
+  });
+
+  it("renders complete-editor math before any viewport intersection", async () => {
+    class NonIntersectingObserver {
+      readonly root = null;
+      readonly rootMargin = "0px";
+      readonly thresholds = [0];
+      disconnect = vi.fn();
+      observe = vi.fn();
+      unobserve = vi.fn();
+      takeRecords = () => [];
+    }
+    vi.stubGlobal("IntersectionObserver", NonIntersectingObserver);
+
+    renderEditor("Before $x^2$.\n\n$$\n\\sum_i x_i\n$$\n");
+    const editor = screen.getByRole("textbox", { name: "Markdown document editor" });
+    expect(editor).toHaveAttribute("contenteditable", "true");
+    await waitFor(() => expect(editor.querySelectorAll(".katex")).toHaveLength(2));
+    expect(editor.querySelector(".math-placeholder")).toBeNull();
   });
 
   it("keeps dollar-denominated prices as prose", async () => {
@@ -3647,6 +4709,7 @@ describe("VisualMarkdownEditor", () => {
     const image = await screen.findByRole("img", { name: "Plot" });
     const component = image.closest<HTMLElement>("[data-jsx-component]");
     expect(component).not.toBeNull();
+    expect(image.closest(".ok-image-resizable")).toHaveAttribute("data-image-size", "auto");
 
     fireEvent.mouseOver(component!);
     expect(screen.getByRole("button", { name: "Align center" })).toHaveAttribute(
@@ -3696,6 +4759,7 @@ describe("VisualMarkdownEditor", () => {
     fireEvent.pointerUp(window, { pointerId: 1, clientX: 400, clientY: 300 });
 
     await waitFor(() => expect(onChange).toHaveBeenCalled());
+    await waitFor(() => expect(wrapper).toHaveAttribute("data-image-size", "authored"));
     expect(String(onChange.mock.lastCall?.[0])).toContain('width={400}');
     expect(String(onChange.mock.lastCall?.[0])).not.toContain('height=');
     expect(String(onChange.mock.lastCall?.[0])).toContain('src="figures/plot.png"');

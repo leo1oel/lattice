@@ -38,10 +38,9 @@ function linkAnchor(target: EventTarget | null, root: HTMLElement): HTMLAnchorEl
   if (!(target instanceof Element)) return null;
   const anchor = target.closest<HTMLAnchorElement>("a[href]");
   if (!anchor || !root.contains(anchor)) return null;
-  // Wiki-link chips and tag atoms render as anchors but are not link
-  // marks — the hover card's Edit action opens the LINK popover, which
-  // makes no sense for either (a tag's href is `#tag/{value}` chrome).
-  if (anchor.matches(".wiki-link, [data-wiki-link], [data-tag]") || anchor.closest("[data-wiki-link]")) return null;
+  // Wiki-link chips render as anchors but are not link marks — the hover
+  // card's Edit action opens the link popover, which makes no sense for them.
+  if (anchor.matches(".wiki-link, [data-wiki-link]") || anchor.closest("[data-wiki-link]")) return null;
   return anchor;
 }
 

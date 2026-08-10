@@ -12,7 +12,6 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
 
 const HANDLE_HEIGHT = 20;
-const MAX_SINGLE_LINE_HEIGHT = 48;
 const BODY_LINE_HEIGHT = 28;
 const INSERTED_BLOCK_BOTTOM_GAP = 40;
 export const PRESERVE_VISUAL_VIEWPORT_META = "research-writer:preserve-visual-viewport";
@@ -21,6 +20,19 @@ export type PreserveVisualViewportMeta = {
   anchorTop: number | null;
   insertedPosition: number;
 };
+
+/** Align block controls to the first line, or to an atomic divider itself. */
+export function blockControlCrossAxisOffset(
+  referenceHeight: number,
+  lineHeight: number,
+  nodeType?: string,
+): number {
+  if (nodeType === "thematicBreak") return (referenceHeight - HANDLE_HEIGHT) / 2;
+  const firstLineHeight = Number.isFinite(lineHeight) && lineHeight > 0
+    ? Math.min(referenceHeight, lineHeight)
+    : Math.min(referenceHeight, BODY_LINE_HEIGHT);
+  return Math.max(0, (firstLineHeight - HANDLE_HEIGHT) / 2);
+}
 
 /** Restore the clicked block, then reveal only any new content below the viewport. */
 export function restoreVisualViewportWithReveal(
@@ -145,7 +157,11 @@ export function addBlockBelow(editor: Editor, nodePosition: number, node: ProseM
   // already at the viewport edge. Asking ProseMirror to scroll it into view
   // makes WebKit recalculate the entire editable document and can move a long
   // paper's scroll container to the top before its new block has a stable box.
-  tr.setSelection(TextSelection.near(tr.doc.resolve(insertAt + 2)));
+  // The inserted paragraph is exactly `/`: +1 enters its text and +2 is the
+  // text cursor after the slash. Use an exact text selection rather than
+  // `near`, whose fallback is allowed to choose the cursor before the slash
+  // when WebKit has not materialized the new block's DOM yet.
+  tr.setSelection(TextSelection.create(tr.doc, insertAt + 2));
   view.dispatch(tr);
   // ProseMirror's focus() uses focusPreventScroll and also synchronizes its DOM
   // selection. Viewport movement remains owned by the shared coordinator.
@@ -425,11 +441,18 @@ export const VisualBlockControls = Extension.create({
           placement: getComputedStyle(editor.view.dom).direction === "rtl" ? "right-start" : "left-start",
           strategy: "absolute",
           middleware: [
-            offset(({ rects }) => {
-              const firstLineHeight = rects.reference.height <= MAX_SINGLE_LINE_HEIGHT
-                ? rects.reference.height
-                : BODY_LINE_HEIGHT;
-              return { mainAxis: 10, crossAxis: (firstLineHeight - HANDLE_HEIGHT) / 2 };
+            offset(({ elements, rects }) => {
+              const lineHeight = elements.reference instanceof Element
+                ? Number.parseFloat(getComputedStyle(elements.reference).lineHeight)
+                : Number.NaN;
+              return {
+                mainAxis: 10,
+                crossAxis: blockControlCrossAxisOffset(
+                  rects.reference.height,
+                  lineHeight,
+                  currentNode?.type.name,
+                ),
+              };
             }),
           ],
         },

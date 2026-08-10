@@ -27,8 +27,16 @@ export function ProjectFindDialog(props: {
   const [activeIndex, setActiveIndex] = useState(0);
   const [debouncing, setDebouncing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const composingRef = useRef(false);
+  const compositionClearTimerRef = useRef<number | null>(null);
   const onSearchRef = useRef(props.onSearch);
   onSearchRef.current = props.onSearch;
+
+  useEffect(() => () => {
+    if (compositionClearTimerRef.current !== null) {
+      window.clearTimeout(compositionClearTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     if (!props.open) return;
@@ -57,6 +65,7 @@ export function ProjectFindDialog(props: {
     () => props.hits.filter((hit) => hit.kind === "paper"),
     [props.hits],
   );
+  const selectableHits = [...fileHits, ...paperHits];
 
   const close = () => {
     setDebouncing(false);
@@ -69,11 +78,9 @@ export function ProjectFindDialog(props: {
 
   const openActive = () => {
     if (!query.trim() || debouncing || props.busy || props.error) return;
-    const hit = fileHits[activeIndex] ?? paperHits[0];
+    const hit = selectableHits[activeIndex];
     if (!hit) return;
-    if (hit.kind === "file") {
-      props.onOpenHit(hit.path, hit.line ?? undefined);
-    }
+    props.onOpenHit(hit.path, hit.line ?? undefined);
   };
   const clearSearch = () => {
     setDebouncing(false);
@@ -97,59 +104,77 @@ export function ProjectFindDialog(props: {
           title="Find in project"
           onClose={close}
         />
-        <p className="drawer-copy">
-          Search `.tex`, `.bib`, and other source files with an indexed full-text index. Enter opens the selected hit; F3 / ⇧F3 cycles.
-        </p>
-        <label>
-          Query
-          <SearchField
-            ref={inputRef}
-            autoFocus
-            aria-label="Find in project"
-            value={query}
-            onChange={(event) => {
-              setDebouncing(Boolean(event.target.value.trim()));
-              setQuery(event.target.value);
-            }}
-            onClear={clearSearch}
-            placeholder="Phrase or tokens"
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                close();
-                return;
-              }
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                setActiveIndex((index) => Math.min(index + 1, Math.max(fileHits.length - 1, 0)));
-                return;
-              }
-              if (event.key === "ArrowUp") {
-                event.preventDefault();
-                setActiveIndex((index) => Math.max(index - 1, 0));
-                return;
-              }
-              if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
-                event.preventDefault();
-                openActive();
-                return;
-              }
-              if (event.key === "F3") {
-                event.preventDefault();
-                if (!query.trim() || searching || props.error) return;
-                setActiveIndex((index) => {
-                  if (!fileHits.length) return 0;
-                  const next = event.shiftKey
-                    ? (index - 1 + fileHits.length) % fileHits.length
-                    : (index + 1) % fileHits.length;
-                  const hit = fileHits[next];
-                  if (hit) props.onOpenHit(hit.path, hit.line ?? undefined);
-                  return next;
-                });
-              }
-            }}
-          />
-        </label>
+        <SearchField
+          ref={inputRef}
+          autoFocus
+          aria-label="Find in project"
+          value={query}
+          onChange={(event) => {
+            setDebouncing(Boolean(event.target.value.trim()));
+            setQuery(event.target.value);
+          }}
+          onClear={clearSearch}
+          placeholder="Phrase or tokens"
+          onCompositionStart={() => {
+            if (compositionClearTimerRef.current !== null) {
+              window.clearTimeout(compositionClearTimerRef.current);
+            }
+            compositionClearTimerRef.current = null;
+            composingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            if (compositionClearTimerRef.current !== null) {
+              window.clearTimeout(compositionClearTimerRef.current);
+            }
+            // WebKit can emit compositionend immediately before the Enter
+            // that accepted the candidate. Keep the guard for this turn.
+            compositionClearTimerRef.current = window.setTimeout(() => {
+              composingRef.current = false;
+              compositionClearTimerRef.current = null;
+            }, 0);
+          }}
+          onKeyDown={(event) => {
+            if (
+              event.nativeEvent.isComposing
+              || event.keyCode === 229
+              || event.key === "Process"
+              || composingRef.current
+            ) return;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              close();
+              return;
+            }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setActiveIndex((index) => Math.min(index + 1, Math.max(selectableHits.length - 1, 0)));
+              return;
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setActiveIndex((index) => Math.max(index - 1, 0));
+              return;
+            }
+            if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
+              event.preventDefault();
+              openActive();
+              return;
+            }
+            if (event.key === "F3") {
+              event.preventDefault();
+              if (!query.trim() || searching || props.error) return;
+              setActiveIndex((index) => {
+                if (!selectableHits.length) return 0;
+                const next = event.shiftKey
+                  ? (index - 1 + selectableHits.length) % selectableHits.length
+                  : (index + 1) % selectableHits.length;
+                const hit = selectableHits[next];
+                if (hit) props.onOpenHit(hit.path, hit.line ?? undefined);
+                return next;
+              });
+            }
+          }}
+        />
         {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
         <div className="project-replace-preview">
           <div
@@ -159,7 +184,7 @@ export function ProjectFindDialog(props: {
             aria-atomic="true"
           >
             {!query.trim()
-              ? "Type to search the project."
+              ? null
               : props.error
                 ? "Search failed."
               : searching
@@ -207,30 +232,31 @@ export function ProjectFindDialog(props: {
             <div className="project-find-papers">
               <div className="project-replace-preview-summary">Papers</div>
               <ul className="project-replace-hits">
-                {paperHits.map((hit) => (
-                  <li key={`paper:${hit.path}:${hit.title}`}>
-                    <div className="project-replace-hit">
-                      <span className="project-find-hit-heading">
-                        <span className="project-find-result-type">Paper</span>
-                        <span className="project-replace-hit-path">{hit.title}</span>
-                      </span>
-                      <span className="project-replace-hit-preview">{hit.snippet || hit.path}</span>
-                    </div>
-                  </li>
-                ))}
+                {paperHits.map((hit, index) => {
+                  const selectableIndex = fileHits.length + index;
+                  return (
+                    <li key={`paper:${hit.path}:${hit.title}`}>
+                      <button
+                        type="button"
+                        className={`project-replace-hit ${selectableIndex === activeIndex ? "active" : ""}`}
+                        aria-label={`Open paper result: ${hit.title}`}
+                        onClick={() => {
+                          setActiveIndex(selectableIndex);
+                          props.onOpenHit(hit.path, hit.line ?? undefined);
+                        }}
+                      >
+                        <span className="project-find-hit-heading">
+                          <span className="project-find-result-type">Paper</span>
+                          <span className="project-replace-hit-path">{hit.title}</span>
+                        </span>
+                        <span className="project-replace-hit-preview">{hit.snippet || hit.path}</span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
-        </div>
-        <div className="table-generator-actions">
-          <Button variant="ghost" onClick={close}>Close</Button>
-          <Button
-            variant="primary"
-            disabled={!fileHits.length || !showResults}
-            onClick={openActive}
-          >
-            Open hit
-          </Button>
         </div>
       </aside>
     </div>

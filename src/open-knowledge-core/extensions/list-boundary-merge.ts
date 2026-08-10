@@ -29,7 +29,7 @@
  * in sharedExtensions at the DEFAULT priority. At equal priority the
  * later-registered extension's key handler runs first, which is the whole
  * delivery mechanism — no priority escalation, so suggestion-layer plugins
- * (slash command, tag/wiki-link at the 200 band, precedent #48) keep their
+ * (slash command and wiki-link at the 200 band, precedent #48) keep their
  * Enter/Tab precedence untouched.
  */
 

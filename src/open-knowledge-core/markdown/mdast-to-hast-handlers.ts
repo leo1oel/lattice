@@ -9,7 +9,6 @@ import type {
   MarkMdast,
   PromotedMdastType,
   RawMdxFallbackMdast,
-  TagMdast,
   UnderlineMdast,
   WikiLinkEmbedMdast,
   WikiLinkMdast,
@@ -246,23 +245,6 @@ const commentBlockHandler: Handler = (state, node) => {
   return state.applyData(node, result);
 };
 
-const tagHandler: Handler = (state, node) => {
-  const tag = node as TagMdast;
-  const value = tag.value;
-  const result: Element = {
-    type: 'element',
-    tagName: 'a',
-    properties: {
-      className: ['tag'],
-      dataTag: value,
-      href: `#tag/${value}`,
-    },
-    children: [{ type: 'text', value: `#${value}` }],
-  };
-  state.patch(node, result);
-  return state.applyData(node, result);
-};
-
 const footnoteReferenceHandler: Handler = (state, node) => {
   const ref = node as FootnoteReference;
   const id = ref.identifier;
@@ -331,7 +313,6 @@ const promotedHandlers: Record<PromotedMdastType, Handler> = {
   rawMdxFallback: rawMdxFallbackHandler,
   mark: markHandler,
   underline: underlineHandler,
-  tag: tagHandler,
   comment: commentHandler,
   commentBlock: commentBlockHandler,
   footnoteReference: footnoteReferenceHandler,

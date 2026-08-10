@@ -12,13 +12,16 @@
  */
 
 import { Schema } from '@tiptap/pm/model';
-import { EditorState, type Plugin } from '@tiptap/pm/state';
+import { EditorState, NodeSelection, TextSelection, type Plugin } from '@tiptap/pm/state';
 import type { DecorationSet } from '@tiptap/pm/view';
 import { afterEach, describe, expect, test } from 'vitest';
 import {
   __resetFirstEmitForTesting,
+  activeChunkDecorationKey,
+  activeChunkDecorationPlugin,
   chunkWrapperDecorationKey,
   chunkWrapperDecorationPlugin,
+  LIST_ITEM_CHUNK_THRESHOLD,
   OK_CHUNK_WRAPPER_CLASS,
 } from './chunk-wrapper-decoration';
 
@@ -87,6 +90,31 @@ function makeState(doc: ReturnType<typeof schema.node>): EditorState {
     doc,
     plugins: [chunkWrapperDecorationPlugin()],
   });
+}
+
+function makeActiveState(
+  doc: ReturnType<typeof schema.node>,
+  selection = TextSelection.atStart(doc),
+): EditorState {
+  return EditorState.create({ doc, selection, plugins: [activeChunkDecorationPlugin()] });
+}
+
+function activeDecorationSpecs(state: EditorState): DecorationSpec[] {
+  const source = activeChunkDecorationKey.getState(state)?.decorations;
+  const found = source?.find() as unknown as Array<{
+    from: number;
+    to: number;
+    type: { attrs?: Record<string, string | undefined> };
+  }> | undefined;
+  return (found ?? []).map((decoration) => ({
+    from: decoration.from,
+    to: decoration.to,
+    attrs: Object.fromEntries(
+      Object.entries(decoration.type.attrs ?? {}).filter((entry): entry is [string, string] =>
+        typeof entry[1] === 'string'
+      ),
+    ),
+  }));
 }
 
 afterEach(() => {
@@ -219,7 +247,7 @@ describe('chunkWrapperDecorationPlugin — decoration emission', () => {
     expect(specs).toBeNull();
   });
 
-  test('list with multiple items — one decoration on the list, NOT per listItem (top-level only)', () => {
+  test('small list — only the top-level list gets containment', () => {
     const items = [
       schema.node('listItem', null, [schema.node('paragraph', null, [schema.text('a')])]),
       schema.node('listItem', null, [schema.node('paragraph', null, [schema.text('b')])]),
@@ -229,13 +257,118 @@ describe('chunkWrapperDecorationPlugin — decoration emission', () => {
     const doc = schema.node('doc', null, [list]);
     const state = makeState(doc);
     const specs = decorationSpecs(state);
-    // Single decoration on the list itself — listItems and inner paragraphs
-    // are NOT separately decorated. Browser containment on the list ancestor
-    // covers descendants.
     expect(specs).toHaveLength(1);
     expect(specs?.[0].attrs.class).toBe(OK_CHUNK_WRAPPER_CLASS);
     expect(specs?.[0].from).toBe(0);
     expect(specs?.[0].to).toBe(list.nodeSize);
+  });
+
+  test('large list — direct items get exact independent containment ranges', () => {
+    const items = Array.from({ length: LIST_ITEM_CHUNK_THRESHOLD }, () =>
+      schema.node('listItem', null, [schema.node('paragraph', null, [schema.text('a')])]),
+    );
+    const list = schema.node('list', null, items);
+    const specs = decorationSpecs(makeState(schema.node('doc', null, [list])));
+    const parent = specs?.find((spec) => spec.from === 0);
+    const itemSpecs = specs?.filter((spec) => spec.attrs.class === 'ok-chunk-list-item');
+
+    expect(specs).toHaveLength(LIST_ITEM_CHUNK_THRESHOLD + 1);
+    expect(parent?.attrs).toMatchObject({
+      class: OK_CHUNK_WRAPPER_CLASS,
+      style: `--ok-cv-h: ${LIST_ITEM_CHUNK_THRESHOLD * 56}px`,
+    });
+    expect(itemSpecs).toHaveLength(LIST_ITEM_CHUNK_THRESHOLD);
+    expect(itemSpecs?.[0]).toMatchObject({ from: 1, to: 6 });
+    expect(itemSpecs?.[1]).toMatchObject({ from: 6, to: 11 });
+    expect(itemSpecs?.at(-1)).toMatchObject({ from: 96, to: 101 });
+  });
+
+  test('large nested list qualifies independently of its small parent list', () => {
+    const nested = schema.node(
+      'list',
+      null,
+      Array.from({ length: LIST_ITEM_CHUNK_THRESHOLD }, () =>
+        schema.node('listItem', null, [schema.node('paragraph', null, [schema.text('n')])]),
+      ),
+    );
+    const outer = schema.node('list', null, [
+      schema.node('listItem', null, [
+        schema.node('paragraph', null, [schema.text('outer')]),
+        nested,
+      ]),
+    ]);
+    const specs = decorationSpecs(makeState(schema.node('doc', null, [outer])));
+    const parent = specs?.find((spec) => spec.from === 0);
+
+    expect(specs?.filter((spec) => spec.attrs.class === 'ok-chunk-list-item')).toHaveLength(
+      LIST_ITEM_CHUNK_THRESHOLD,
+    );
+    expect(parent?.attrs.style).toBe(`--ok-cv-h: ${LIST_ITEM_CHUNK_THRESHOLD * 56}px`);
+  });
+
+  test('top-level block reserves height for a qualifying nested list', () => {
+    const nested = schema.node(
+      'list',
+      null,
+      Array.from({ length: LIST_ITEM_CHUNK_THRESHOLD }, () =>
+        schema.node('listItem', null, [schema.node('paragraph', null, [schema.text('n')])]),
+      ),
+    );
+    const blockquote = schema.node('blockquote', null, [nested]);
+    const specs = decorationSpecs(makeState(schema.node('doc', null, [blockquote])));
+
+    expect(specs?.find((spec) => spec.from === 0)?.attrs.style).toBe(
+      `--ok-cv-h: ${LIST_ITEM_CHUNK_THRESHOLD * 56}px`,
+    );
+  });
+});
+
+describe('active chunk decorations', () => {
+  const makeListDoc = () => {
+    const list = schema.node(
+      'list',
+      null,
+      Array.from({ length: LIST_ITEM_CHUNK_THRESHOLD }, () =>
+        schema.node('listItem', null, [schema.node('paragraph', null, [schema.text('abcd')])]),
+      ),
+    );
+    return schema.node('doc', null, [list]);
+  };
+
+  test('reveals the top-level block and containing list item around a caret', () => {
+    const doc = makeListDoc();
+    const state = makeActiveState(doc, TextSelection.create(doc, 3));
+    expect(activeDecorationSpecs(state)).toEqual([
+      { from: 0, to: doc.firstChild?.nodeSize, attrs: { class: 'ok-chunk-active' } },
+      { from: 1, to: 9, attrs: { class: 'ok-chunk-active' } },
+    ]);
+  });
+
+  test('reuses active decorations while the caret stays in one item', () => {
+    const doc = makeListDoc();
+    const state = makeActiveState(doc, TextSelection.create(doc, 3));
+    const before = activeChunkDecorationKey.getState(state);
+    const next = state.apply(state.tr.setSelection(TextSelection.create(doc, 4)));
+    expect(activeChunkDecorationKey.getState(next)).toBe(before);
+  });
+
+  test('updates active items when a range crosses list-item boundaries', () => {
+    const doc = makeListDoc();
+    const state = makeActiveState(doc, TextSelection.create(doc, 3, 11));
+    expect(activeDecorationSpecs(state).map(({ from, to }) => [from, to])).toEqual([
+      [0, doc.firstChild?.nodeSize],
+      [1, 9],
+      [9, 17],
+    ]);
+  });
+
+  test('reveals a top-level NodeSelection', () => {
+    const paragraph = schema.node('paragraph', null, [schema.text('selected')]);
+    const doc = schema.node('doc', null, [paragraph]);
+    const state = makeActiveState(doc, NodeSelection.create(doc, 0));
+    expect(activeDecorationSpecs(state)).toEqual([
+      { from: 0, to: paragraph.nodeSize, attrs: { class: 'ok-chunk-active' } },
+    ]);
   });
 });
 
@@ -305,6 +438,24 @@ describe('chunkWrapperDecorationPlugin — addProseMirrorPlugins idempotence', (
     const first = decorationSpecs(state);
     const second = decorationSpecs(state);
     expect(first).toEqual(second);
+  });
+
+  test('selection-only transactions reuse the exact DecorationSet instance', () => {
+    const state = makeState(
+      schema.node('doc', null, [schema.node('paragraph', null, [schema.text('one')])]),
+    );
+    const before = chunkWrapperDecorationKey.getState(state);
+    const next = state.apply(state.tr.setMeta('selection-only', true));
+    expect(chunkWrapperDecorationKey.getState(next)).toBe(before);
+  });
+
+  test('document changes rebuild the DecorationSet', () => {
+    const state = makeState(
+      schema.node('doc', null, [schema.node('paragraph', null, [schema.text('one')])]),
+    );
+    const before = chunkWrapperDecorationKey.getState(state);
+    const next = state.apply(state.tr.insertText('!', 2));
+    expect(chunkWrapperDecorationKey.getState(next)).not.toBe(before);
   });
 });
 

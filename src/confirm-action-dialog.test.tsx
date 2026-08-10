@@ -2,7 +2,7 @@ import { useState } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { confirmAction } from "./app-utils";
+import { chooseAction, confirmAction } from "./app-utils";
 import { ConfirmActionProvider } from "./confirm-action-dialog";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
@@ -24,6 +24,30 @@ function Harness() {
         }}
       >
         Request deletion
+      </button>
+      <output>{answer}</output>
+    </ConfirmActionProvider>
+  );
+}
+
+function ChoiceHarness() {
+  const [answer, setAnswer] = useState("none");
+  return (
+    <ConfirmActionProvider>
+      <button
+        type="button"
+        onClick={() => {
+          void chooseAction({
+            title: "Remove this bibliography entry?",
+            message: "It is cited in two places.",
+            confirmLabel: "Remove citations too",
+            alternativeLabel: "Keep citations",
+            alternativeDestructive: true,
+            destructive: true,
+          }).then(setAnswer);
+        }}
+      >
+        Request choice
       </button>
       <output>{answer}</output>
     </ConfirmActionProvider>
@@ -57,6 +81,19 @@ describe("ConfirmActionProvider", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(screen.getByText("true")).toBeInTheDocument());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("returns an explicit alternative without treating dialog dismissal as that choice", async () => {
+    render(<ChoiceHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "Request choice" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Remove this bibliography entry?" });
+    expect(dialog).toHaveAccessibleDescription("It is cited in two places.");
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: "Keep citations" }));
+
+    await waitFor(() => expect(screen.getByText("alternative")).toBeInTheDocument());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

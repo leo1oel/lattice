@@ -638,7 +638,7 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     Ok(ProjectSnapshot {
         root: root.to_string_lossy().to_string(),
         manifest,
-        files: scan_files(&root)?,
+        files: scan_project_tree(&root)?,
     })
 }
 
@@ -1539,12 +1539,102 @@ fn line_snippet(source: &str, offset: usize) -> String {
     }
 }
 
-fn find_command_argument_keys(source: &str, commands: &[&str]) -> Vec<(usize, usize, String)> {
-    let mut hits = Vec::new();
+#[derive(Debug)]
+struct ParsedCommandArgument {
+    command_from: usize,
+    command_to: usize,
+    content_from: usize,
+    content_to: usize,
+    keys: Vec<(usize, usize, String)>,
+}
+
+/// Byte mask for LaTeX regions where command-looking text is literal. Symbol
+/// search and destructive citation edits must agree on this mask so examples
+/// in comments, `\verb`, and verbatim-like environments never become edits.
+fn latex_literal_mask(source: &str) -> Vec<bool> {
     let bytes = source.as_bytes();
+    let mut masked = vec![false; bytes.len()];
+
     let mut index = 0usize;
     while index < bytes.len() {
-        if bytes[index] != b'\\' {
+        if bytes[index] == b'%' {
+            let mut slashes = 0usize;
+            let mut before = index;
+            while before > 0 && bytes[before - 1] == b'\\' {
+                slashes += 1;
+                before -= 1;
+            }
+            if slashes.is_multiple_of(2) {
+                let end = source[index..]
+                    .find('\n')
+                    .map(|offset| index + offset)
+                    .unwrap_or(bytes.len());
+                masked[index..end].fill(true);
+                index = end;
+                continue;
+            }
+        }
+        index += 1;
+    }
+
+    for environment in ["verbatim", "verbatim*", "lstlisting", "minted"] {
+        let opening = format!("\\begin{{{environment}}}");
+        let closing = format!("\\end{{{environment}}}");
+        let mut cursor = 0usize;
+        while let Some(relative) = source[cursor..].find(&opening) {
+            let start = cursor + relative;
+            if masked[start] {
+                cursor = start + opening.len();
+                continue;
+            }
+            let finish = source[start + opening.len()..]
+                .find(&closing)
+                .map(|offset| start + opening.len() + offset + closing.len())
+                .unwrap_or(bytes.len());
+            masked[start..finish].fill(true);
+            cursor = finish;
+        }
+    }
+
+    let mut cursor = 0usize;
+    while let Some(relative) = source[cursor..].find("\\verb") {
+        let start = cursor + relative;
+        if masked[start] {
+            cursor = start + "\\verb".len();
+            continue;
+        }
+        let mut delimiter_at = start + "\\verb".len();
+        if bytes.get(delimiter_at) == Some(&b'*') {
+            delimiter_at += 1;
+        }
+        let Some(&delimiter) = bytes.get(delimiter_at) else {
+            break;
+        };
+        if delimiter.is_ascii_alphabetic() || delimiter.is_ascii_whitespace() {
+            cursor = delimiter_at;
+            continue;
+        }
+        let Some(relative_end) = bytes[delimiter_at + 1..]
+            .iter()
+            .position(|byte| *byte == delimiter)
+        else {
+            break;
+        };
+        let finish = delimiter_at + 1 + relative_end + 1;
+        masked[start..finish].fill(true);
+        cursor = finish;
+    }
+
+    masked
+}
+
+fn find_command_arguments(source: &str, commands: &[&str]) -> Vec<ParsedCommandArgument> {
+    let mut arguments = Vec::new();
+    let bytes = source.as_bytes();
+    let literal = latex_literal_mask(source);
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if bytes[index] != b'\\' || literal[index] {
             index += 1;
             continue;
         }
@@ -1585,6 +1675,7 @@ fn find_command_argument_keys(source: &str, commands: &[&str]) -> Vec<(usize, us
             continue;
         };
         let content_start = end - 1 - argument.len();
+        let mut keys = Vec::new();
         let parts = argument.split(',').collect::<Vec<_>>();
         let mut offset = 0usize;
         for (index_in_list, part) in parts.iter().enumerate() {
@@ -1592,20 +1683,36 @@ fn find_command_argument_keys(source: &str, commands: &[&str]) -> Vec<(usize, us
             let key = part.trim();
             if !key.is_empty() {
                 let from = content_start + offset + leading;
-                hits.push((from, from + key.len(), key.to_string()));
+                keys.push((from, from + key.len(), key.to_string()));
             }
             offset += part.len();
             if index_in_list + 1 < parts.len() {
                 offset += 1;
             }
         }
+        arguments.push(ParsedCommandArgument {
+            command_from: index,
+            command_to: end,
+            content_from: content_start,
+            content_to: end - 1,
+            keys,
+        });
         index = end;
     }
-    hits
+    arguments
+}
+
+fn find_command_argument_keys(source: &str, commands: &[&str]) -> Vec<(usize, usize, String)> {
+    find_command_arguments(source, commands)
+        .into_iter()
+        .flat_map(|argument| argument.keys)
+        .collect()
 }
 
 /// One in-place edit to a `\label`/`\cite` reference: (path, from, to, line, old, new).
 type ReferenceEdit = (String, usize, usize, u32, String, String);
+/// A whole-file citation edit: (relative path, expected contents, new contents).
+pub(crate) type PreparedFileEdit = (String, String, String);
 
 fn collect_label_edits(root: &Path, label: &str) -> Result<Vec<ReferenceEdit>, String> {
     let mut edits = Vec::new();
@@ -1670,6 +1777,64 @@ fn collect_citation_edits(root: &Path, key: &str) -> Result<Vec<ReferenceEdit>, 
         }
     }
     Ok(edits)
+}
+
+/// Build manuscript edits that remove one citation key without touching disk.
+/// Multi-key commands keep their other keys; a command whose only key is the
+/// removed one disappears entirely. The caller can commit these edits beside
+/// the bibliography update as one citation history transaction.
+pub(crate) fn remove_citation_usages(
+    root: &Path,
+    key: &str,
+) -> Result<(Vec<PreparedFileEdit>, u32), String> {
+    validate_symbol_name("citation key", key)?;
+    let key = key.trim();
+    let mut file_edits = Vec::new();
+    let mut occurrence_count = 0u32;
+    for (path, source) in iter_tex_sources(root)? {
+        let mut next = source.clone();
+        let mut arguments = find_command_arguments(&source, CITATION_COMMANDS)
+            .into_iter()
+            .filter_map(|argument| {
+                let removed = argument
+                    .keys
+                    .iter()
+                    .filter(|(_, _, found)| found.eq_ignore_ascii_case(key))
+                    .count() as u32;
+                (removed > 0).then_some((argument, removed))
+            })
+            .collect::<Vec<_>>();
+        arguments.sort_by_key(|(argument, _)| std::cmp::Reverse(argument.command_from));
+        for (argument, removed) in arguments {
+            occurrence_count += removed;
+            let remaining = argument
+                .keys
+                .iter()
+                .filter(|(_, _, found)| !found.eq_ignore_ascii_case(key))
+                .filter_map(|(from, to, _)| source.get(*from..*to))
+                .collect::<Vec<_>>();
+            if remaining.is_empty() {
+                let mut command_to = argument.command_to;
+                // Preserve one word boundary when a prose citation sat between
+                // spaces, rather than leaving a visibly doubled gap.
+                if source[..argument.command_from].ends_with(' ')
+                    && source[command_to..].starts_with(' ')
+                {
+                    command_to += 1;
+                }
+                next.replace_range(argument.command_from..command_to, "");
+            } else {
+                next.replace_range(
+                    argument.content_from..argument.content_to,
+                    &remaining.join(", "),
+                );
+            }
+        }
+        if next != source {
+            file_edits.push((path, source, next));
+        }
+    }
+    Ok((file_edits, occurrence_count))
 }
 
 fn bibliography_key_offset(source: &str, key: &str) -> Option<usize> {
@@ -2530,7 +2695,7 @@ pub fn search_files(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>
 }
 
 pub(crate) fn list_files_for_search(root: &Path) -> Result<Vec<FileNode>, String> {
-    scan_files(root)
+    scan_project_tree(root)
 }
 
 fn search_files_linear(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
@@ -2539,7 +2704,7 @@ fn search_files_linear(root: &Path, query: &str) -> Result<Vec<ProjectSearchResu
         return Ok(Vec::new());
     }
     let mut results = Vec::new();
-    search_file_nodes_multi(root, &scan_files(root)?, &terms, &mut results)?;
+    search_file_nodes_multi(root, &list_files_for_search(root)?, &terms, &mut results)?;
     results.truncate(200);
     Ok(results)
 }
@@ -2572,11 +2737,8 @@ fn search_file_nodes_multi(
                 file_kind: Some(node.kind.clone()),
             });
         }
-        if content.is_empty() {
-            continue;
-        }
-        for (index, line) in content.lines().enumerate() {
-            if !matches_search(line, terms) {
+        for (line_number, line) in searchable_text_lines(&node.path, &content) {
+            if !matches_search(&line, terms) {
                 continue;
             }
             let snippet = {
@@ -2593,7 +2755,7 @@ fn search_file_nodes_multi(
                 path: node.path.clone(),
                 title: node.name.clone(),
                 snippet,
-                line: Some((index + 1) as u32),
+                line: Some(line_number),
                 arxiv_id: None,
                 file_kind: Some(node.kind.clone()),
             });
@@ -2644,7 +2806,7 @@ pub(crate) fn matching_hit(content: &str, terms: &[String]) -> Option<(u32, Stri
     fallback
 }
 
-fn searchable_text_path(path: &str) -> bool {
+pub(crate) fn searchable_text_path(path: &str) -> bool {
     matches!(
         Path::new(path)
             .extension()
@@ -2653,6 +2815,74 @@ fn searchable_text_path(path: &str) -> bool {
             .as_deref(),
         Some("tex" | "bib" | "sty" | "cls" | "md" | "txt" | "html")
     )
+}
+
+static HTML_BODY_OPEN_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?is)<body\b[^>]*>").expect("valid HTML body regex"));
+static HTML_BODY_CLOSE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?is)</body\s*>").expect("valid HTML body regex"));
+static HTML_NON_TEXT_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?is)<!--.*?(?:-->|$)|<head\b[^>]*>.*?(?:</head\s*>|$)|<script\b[^>]*>.*?(?:</script\s*>|$)|<style\b[^>]*>.*?(?:</style\s*>|$)|<template\b[^>]*>.*?(?:</template\s*>|$)|<noscript\b[^>]*>.*?(?:</noscript\s*>|$)|<[^>]+>",
+    )
+    .expect("valid HTML visible-text regex")
+});
+
+/// Searchable source lines with HTML reduced to text a reader can see.
+/// Source line numbers stay attached so opening a result still lands in the
+/// original file rather than an intermediate plain-text representation.
+pub(crate) fn searchable_text_lines(path: &str, content: &str) -> Vec<(u32, String)> {
+    let is_html = Path::new(path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("html"));
+    if !is_html {
+        return content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| !line.trim().is_empty())
+            .map(|(index, line)| (index as u32 + 1, line.to_string()))
+            .collect();
+    }
+
+    let (body, first_line) = if let Some(open) = HTML_BODY_OPEN_RE.find(content) {
+        let after_open = &content[open.end()..];
+        let end = HTML_BODY_CLOSE_RE
+            .find(after_open)
+            .map_or(content.len(), |close| open.end() + close.start());
+        (
+            &content[open.end()..end],
+            content[..open.end()]
+                .bytes()
+                .filter(|byte| *byte == b'\n')
+                .count() as u32
+                + 1,
+        )
+    } else {
+        (content, 1)
+    };
+
+    // Replace markup with spaces instead of deleting it so line numbers and
+    // word boundaries survive multi-line comments and raw-text elements.
+    let mut visible = body.as_bytes().to_vec();
+    for found in HTML_NON_TEXT_RE.find_iter(body) {
+        for byte in &mut visible[found.range()] {
+            if !matches!(*byte, b'\n' | b'\r') {
+                *byte = b' ';
+            }
+        }
+    }
+    let visible =
+        String::from_utf8(visible).expect("replacing HTML bytes with ASCII preserves UTF-8");
+    visible
+        .lines()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            let decoded = html_escape::decode_html_entities(line);
+            let text = decoded.split_whitespace().collect::<Vec<_>>().join(" ");
+            (!text.is_empty()).then(|| (first_line + index as u32, text))
+        })
+        .collect()
 }
 
 pub fn create_entry(root: &Path, relative: &str, kind: &str) -> Result<String, String> {
@@ -3880,6 +4110,73 @@ pub fn apply_citation_transaction(
     )
 }
 
+/// Apply citation edits only if every source file still has the contents from
+/// which the edits were calculated. This prevents a delayed bibliography
+/// action from replacing manuscript changes made while its confirmation was
+/// open.
+pub fn apply_citation_transaction_checked(
+    root: &Path,
+    label: &str,
+    edits: Vec<(String, String, String)>,
+) -> Result<Option<TransactionRecord>, String> {
+    if edits.is_empty() {
+        return Err("The transaction contains no edits.".to_string());
+    }
+
+    let mut changes = Vec::with_capacity(edits.len());
+    for (relative, before, after) in edits {
+        validate_transaction_path(&relative)?;
+        let path = root.join(&relative);
+        let current = if path.exists() {
+            Some(fs::read_to_string(&path).map_err(err)?)
+        } else {
+            None
+        };
+        if current.as_deref() != Some(before.as_str()) {
+            return Err(format!(
+                "Cannot remove the reference because {relative} changed. Try again."
+            ));
+        }
+        if before != after {
+            changes.push(FileChange {
+                path: relative,
+                before: Some(before),
+                after: Some(after),
+            });
+        }
+    }
+
+    commit_transaction_changes(
+        root,
+        label,
+        changes,
+        HistoryContext {
+            actor: "citation",
+            kind: "citation",
+            source: "citation",
+            thread_id: None,
+            checkpoint_ref: None,
+            undo_of: None,
+        },
+    )
+}
+
+fn validate_transaction_path(relative: &str) -> Result<(), String> {
+    if relative.starts_with(".research/history/") {
+        return Err("History records cannot edit themselves.".to_string());
+    }
+    let relative_path = Path::new(relative);
+    if relative_path.as_os_str().is_empty()
+        || relative_path.is_absolute()
+        || relative_path
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_) | Component::CurDir))
+    {
+        return Err("The requested path is outside the project.".to_string());
+    }
+    Ok(())
+}
+
 fn apply_transaction_with_context(
     root: &Path,
     label: &str,
@@ -3892,18 +4189,8 @@ fn apply_transaction_with_context(
 
     let mut changes = Vec::with_capacity(edits.len());
     for (relative, after) in &edits {
-        if relative.starts_with(".research/history/") {
-            return Err("History records cannot edit themselves.".to_string());
-        }
+        validate_transaction_path(relative)?;
         let relative_path = Path::new(relative);
-        if relative_path.as_os_str().is_empty()
-            || relative_path.is_absolute()
-            || relative_path
-                .components()
-                .any(|component| !matches!(component, Component::Normal(_) | Component::CurDir))
-        {
-            return Err("The requested path is outside the project.".to_string());
-        }
         // This path is used only to capture the previous contents. Parent
         // creation and the mutation itself are descriptor-relative below.
         let path = root.join(relative_path);
@@ -3921,24 +4208,111 @@ fn apply_transaction_with_context(
         }
     }
 
+    commit_transaction_changes(root, label, changes, context)
+}
+
+fn rollback_transaction_files(
+    root: &Path,
+    project: &ProjectDir,
+    changes: &[FileChange],
+) -> Result<(), String> {
+    let mut failures = Vec::new();
+    for change in changes.iter().rev() {
+        let result = match &change.before {
+            Some(before) => project.atomic_write(&change.path, before.as_bytes()),
+            None if root.join(&change.path).exists() => project.remove(&change.path),
+            None => Ok(()),
+        };
+        if let Err(error) = result {
+            failures.push(format!("{}: {error}", change.path));
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(failures.join("; "))
+    }
+}
+
+fn commit_transaction_changes(
+    root: &Path,
+    label: &str,
+    changes: Vec<FileChange>,
+    context: HistoryContext,
+) -> Result<Option<TransactionRecord>, String> {
     if changes.is_empty() {
         return Ok(None);
     }
 
+    // Recheck all inputs immediately before the first write. In particular,
+    // checked citation edits may have spent time in bibcite after reading the
+    // manuscript and must not commit against a newer version.
     for change in &changes {
-        if let Some(after) = &change.after {
-            ProjectDir::open(root)?.atomic_write(&change.path, after.as_bytes())?;
+        let path = root.join(&change.path);
+        let current = if path.exists() {
+            Some(fs::read_to_string(&path).map_err(err)?)
+        } else {
+            None
+        };
+        if current != change.before {
+            return Err(format!(
+                "Cannot apply the change because {} changed. Try again.",
+                change.path
+            ));
         }
     }
 
-    match coalesce_edit_transaction(root, label, &changes, &context)? {
+    let project = ProjectDir::open(root)?;
+    let mut applied = 0usize;
+    for change in &changes {
+        if let Some(after) = &change.after {
+            if let Err(error) = project.atomic_write(&change.path, after.as_bytes()) {
+                let rollback = rollback_transaction_files(root, &project, &changes[..applied]);
+                return Err(match rollback {
+                    Ok(()) => error,
+                    Err(rollback_error) => {
+                        format!(
+                            "{error} The partial change could not be rolled back: {rollback_error}"
+                        )
+                    }
+                });
+            }
+            applied += 1;
+        }
+    }
+
+    let coalesced = match coalesce_edit_transaction(root, label, &changes, &context) {
+        Ok(result) => result,
+        Err(error) => {
+            let rollback = rollback_transaction_files(root, &project, &changes[..applied]);
+            return Err(match rollback {
+                Ok(()) => error,
+                Err(rollback_error) => {
+                    format!("{error} The file changes could not be rolled back: {rollback_error}")
+                }
+            });
+        }
+    };
+    match coalesced {
         CoalescedTransaction::NotCoalesced => {}
         CoalescedTransaction::Removed => return Ok(None),
         CoalescedTransaction::Updated(record) => return Ok(Some(*record)),
     }
 
     let record = new_transaction(label, changes, context);
-    persist_transaction(root, &record)?;
+    if let Err(error) = persist_transaction(root, &record) {
+        // `persist_transaction` may have written the record before a later
+        // pruning failure. Do not leave history claiming a rolled-back edit.
+        let _ = fs::remove_file(transaction_path(root, &record.id)?);
+        forget_latest_history(root);
+        let rollback = rollback_transaction_files(root, &project, &record.changes[..applied]);
+        return Err(match rollback {
+            Ok(()) => error,
+            Err(rollback_error) => {
+                format!("{error} The file changes could not be rolled back: {rollback_error}")
+            }
+        });
+    }
     Ok(Some(record))
 }
 
@@ -5043,8 +5417,30 @@ fn exclusion_reason(relative: &Path, name: &str, path: &Path) -> Option<&'static
     None
 }
 
-fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
-    fn visit(root: &Path, directory: &Path) -> Result<Vec<FileNode>, String> {
+fn project_tree_exclusion_reason(relative: &Path, name: &str, path: &Path) -> Option<&'static str> {
+    if let Some(reason) = exclusion_reason(relative, name, path) {
+        return Some(reason);
+    }
+    let normalized = relative.to_string_lossy().replace('\\', "/");
+    if normalized
+        .split('/')
+        .any(|segment| segment.starts_with('.'))
+        || name == "opencode.json"
+    {
+        return Some("hidden-project-config");
+    }
+    None
+}
+
+fn scan_files_with_visibility(
+    root: &Path,
+    hide_project_config: bool,
+) -> Result<Vec<FileNode>, String> {
+    fn visit(
+        root: &Path,
+        directory: &Path,
+        hide_project_config: bool,
+    ) -> Result<Vec<FileNode>, String> {
         let mut nodes = Vec::new();
         for entry in fs::read_dir(directory).map_err(err)? {
             let entry = entry.map_err(err)?;
@@ -5055,7 +5451,12 @@ fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
                 .map_err(err)?
                 .to_string_lossy()
                 .to_string();
-            if exclusion_reason(Path::new(&relative), &name, &path).is_some() {
+            let excluded = if hide_project_config {
+                project_tree_exclusion_reason(Path::new(&relative), &name, &path)
+            } else {
+                exclusion_reason(Path::new(&relative), &name, &path)
+            };
+            if excluded.is_some() {
                 continue;
             }
             let metadata = fs::symlink_metadata(&path).map_err(err)?;
@@ -5070,7 +5471,7 @@ fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
                     children: Vec::new(),
                 });
             } else if file_type.is_dir() {
-                let children = visit(root, &path)?;
+                let children = visit(root, &path, hide_project_config)?;
                 nodes.push(FileNode {
                     name,
                     path: relative,
@@ -5115,7 +5516,15 @@ fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
         });
         Ok(nodes)
     }
-    visit(root, root)
+    visit(root, root, hide_project_config)
+}
+
+fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
+    scan_files_with_visibility(root, false)
+}
+
+fn scan_project_tree(root: &Path) -> Result<Vec<FileNode>, String> {
+    scan_files_with_visibility(root, true)
 }
 
 pub fn collab_project_inventory_v2(root: &Path) -> Result<CollabProjectInventoryV2, String> {
@@ -5623,14 +6032,20 @@ mod tests {
     }
 
     #[test]
-    fn inventory_classifies_content_without_extension_and_preserves_hidden_user_files() {
+    fn inventory_classifies_content_without_extension_and_hides_project_config() {
         let root = temp_root("inventory-content");
         fs::write(root.join("README"), b"plain utf-8\r\n").unwrap();
         fs::write(root.join("known.bin"), b"still text\n").unwrap();
         fs::write(root.join(".env.example"), b"SAFE=value\n").unwrap();
+        fs::write(root.join(".okignore"), b"private\n").unwrap();
+        fs::write(root.join("opencode.json"), b"{}\n").unwrap();
         fs::write(root.join("bom.txt"), b"\xef\xbb\xbfhello\r\n").unwrap();
         fs::write(root.join("nul.txt"), b"hello\0world").unwrap();
         fs::write(root.join("unknown.dat"), [0xff, 0xfe, 0x01]).unwrap();
+        fs::create_dir_all(root.join(".ok/local")).unwrap();
+        fs::write(root.join(".ok/config.yml"), b"title: hidden\n").unwrap();
+        fs::create_dir_all(root.join(".pi/extensions")).unwrap();
+        fs::write(root.join(".pi/extensions/open-knowledge.ts"), b"hidden\n").unwrap();
         fs::create_dir_all(root.join(".research/cache")).unwrap();
         fs::write(root.join(".research/cache/private"), b"private").unwrap();
         fs::create_dir(root.join("node_modules")).unwrap();
@@ -5638,13 +6053,33 @@ mod tests {
 
         let files = scan_files(&root).unwrap();
         let node = |path: &str| files.iter().find(|node| node.path == path).unwrap();
-        for path in ["README", "known.bin", ".env.example", "bom.txt"] {
+        for path in [
+            "README",
+            "known.bin",
+            ".env.example",
+            ".okignore",
+            "opencode.json",
+            "bom.txt",
+        ] {
             assert_eq!(node(path).content_kind, "text", "{path}");
         }
         for path in ["nul.txt", "unknown.dat"] {
             assert_eq!(node(path).content_kind, "binary", "{path}");
         }
-        assert!(!files.iter().any(|node| node.path == ".research"));
+        let project_tree = scan_project_tree(&root).unwrap();
+        for hidden in [
+            ".env.example",
+            ".okignore",
+            ".ok",
+            ".pi",
+            ".research",
+            "opencode.json",
+        ] {
+            assert!(
+                !project_tree.iter().any(|node| node.path == hidden),
+                "{hidden}"
+            );
+        }
         assert!(!files.iter().any(|node| node.path == "node_modules"));
         assert_eq!(
             read_file(&root, "bom.txt").unwrap().as_bytes(),
@@ -5863,6 +6298,40 @@ mod tests {
         assert_eq!(restore.undo_of.as_deref(), Some(transaction.id.as_str()));
         assert_eq!(restore.kind.as_deref(), Some("restore"));
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn transaction_rolls_back_files_written_before_a_later_write_fails() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root("transaction-rollback");
+        let outside = temp_root("transaction-rollback-outside");
+        fs::write(root.join("first.tex"), "first before").unwrap();
+        fs::write(outside.join("second.tex"), "second before").unwrap();
+        symlink(outside.join("second.tex"), root.join("second.tex")).unwrap();
+
+        let result = apply_transaction(
+            &root,
+            "Edit two files",
+            vec![
+                ("first.tex".to_string(), "first after".to_string()),
+                ("second.tex".to_string(), "second after".to_string()),
+            ],
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            fs::read_to_string(root.join("first.tex")).unwrap(),
+            "first before"
+        );
+        assert_eq!(
+            fs::read_to_string(outside.join("second.tex")).unwrap(),
+            "second before"
+        );
+        assert!(history(&root).unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
     }
 
     #[test]
@@ -6275,6 +6744,33 @@ mod tests {
             search_files(&project, "method tex").unwrap()[0].path,
             "sections/method.tex"
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn linear_project_search_excludes_hidden_paths_and_html_source() {
+        let root = temp_root("linear-project-search-scope");
+        fs::write(
+            root.join("page.html"),
+            "<html><head><title>hidden_head_token</title></head><body><p>visible_body_token</p><script>hidden_script_token</script></body></html>\n",
+        )
+        .unwrap();
+        fs::write(root.join(".private.md"), "hidden_notes_token\n").unwrap();
+
+        let visible = search_files_linear(&root, "visible body token").unwrap();
+        assert_eq!(visible.len(), 1, "got: {visible:?}");
+        assert_eq!(visible[0].path, "page.html");
+        for excluded in [
+            "hidden head token",
+            "hidden script token",
+            "hidden notes token",
+        ] {
+            assert!(
+                search_files_linear(&root, excluded).unwrap().is_empty(),
+                "unexpected search result for {excluded}"
+            );
+        }
+
         fs::remove_dir_all(root).unwrap();
     }
 

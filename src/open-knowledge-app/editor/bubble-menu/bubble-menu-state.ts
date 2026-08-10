@@ -8,6 +8,7 @@
  */
 
 import { commentQuoteText } from '@ok-core';
+import { CellSelection } from '@tiptap/pm/tables';
 import type { Editor } from '@tiptap/react';
 import { findMarkIdAt } from '../extensions/mark-identity';
 import { getFindReplaceState } from '../find-replace/tiptap-find-replace-extension';
@@ -16,13 +17,16 @@ import { isFileNodeSelected } from './FileBubbleButtons';
 export function shouldShowBubbleMenu({ editor }: { editor: Editor }): boolean {
   if (getFindReplaceState(editor.state).query) return false;
   if (editor.isActive('codeBlock')) return false;
+  // Cell selections own a structure-specific Merge control. Inline formatting
+  // over an entire grid rectangle is ambiguous and would overlap that surface.
+  if (editor.state.selection instanceof CellSelection) return false;
   // File NodeSelection shows its download controls even though textBetween
   // is empty across a leaf atom. Images use their own hover toolbar.
   if (isFileNodeSelected(editor)) return true;
   if (editor.state.selection.empty) return false;
   const { from, to } = editor.state.selection;
   // `commentQuoteText` so a selection whose only content is an INLINE atom — a
-  // wiki link, a tag, inline math, a footnote marker — counts as text-bearing.
+  // wiki link, inline math, or a footnote marker — counts as text-bearing.
   // Those nodes report no text of their own, so the bar (and with it the "Ask
   // AI" entry) never appeared for them, and every mark this bar applies is one
   // they legally carry.

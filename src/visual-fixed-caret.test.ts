@@ -56,4 +56,20 @@ describe("visual fixed caret styles", () => {
     expect(css).toContain(".ProseMirror[data-fixed-caret] *");
     expect(css).not.toContain('[data-fixed-caret="true"]');
   });
+
+  it("replaces ProseMirror's blue selected-list border with the local selection surface", () => {
+    const css = String(readFileSync("src/styles/editor-workspace.css", "utf8"));
+    expect(css).toContain(".tiptap-editor .tiptap li.ProseMirror-selectednode");
+    expect(css).toContain(".tiptap-editor .tiptap li.ProseMirror-selectednode::after { content: none; }");
+  });
+
+  it("hides WebKit's native range paint behind the local block-selection surface", () => {
+    const css = String(readFileSync("src/styles/editor-workspace.css", "utf8"));
+    expect(css).toContain(
+      ".visual-markdown-editor .tiptap:has(.ProseMirror-selectednode)::selection",
+    );
+    expect(css).toContain(
+      ".visual-markdown-editor .tiptap:has(.ProseMirror-selectednode) *::selection { background: transparent; }",
+    );
+  });
 });

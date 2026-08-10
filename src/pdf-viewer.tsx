@@ -13,6 +13,7 @@ import {
   getDocument,
   type PDFDocumentProxy,
   type PDFPageProxy,
+  type RenderTask,
 } from "pdfjs-dist/legacy/build/pdf.mjs";
 import pdfWorker from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import {
@@ -43,14 +44,17 @@ import {
   fitPdfScale,
   normalizePdfSelection,
   parsePdfZoomPercent,
+  PdfCooperativeRenderQueue,
   PdfRenderQueue,
   pdfRenderPixelRatio,
   PDF_CMAP_URL,
   PDF_MAX_SCALE,
   PDF_MIN_SCALE,
+  PDF_RENDER_PRIORITY,
   PDF_STANDARD_FONT_DATA_URL,
   updatePdfRenderCache,
   type PdfPageSize,
+  type PdfRenderCancellation,
 } from "./pdf-viewer-utils";
 import "./pdf-viewer.css";
 import { logAction, notifyError } from "./app-notify";
@@ -65,6 +69,10 @@ const PDF_LOAD_TIMEOUT_MS = 45_000;
 const PDF_VIEW_PREFERENCE_KEY = "lattice.pdf-view-preference.v1";
 /** Quiet period a fit-mode resize waits for before re-rasterizing pages. */
 const PDF_REFIT_SETTLE_MS = 120;
+/** Keep expensive full-resolution refinement off the scrolling hot path. */
+const PDF_SCROLL_REFINE_SETTLE_MS = 120;
+/** Every quick first paint outranks every full-resolution refinement. */
+const PDF_PREVIEW_PRIORITY_OFFSET = PDF_RENDER_PRIORITY.current + 1;
 
 type PdfViewPreference = {
   fitMode: "width" | "height" | null;
@@ -240,59 +248,69 @@ async function downloadCompiledPdf(
   }
 }
 
+type PdfPageViewport = ReturnType<PDFPageProxy["getViewport"]>;
+
+async function renderPdfPageCanvas(ctx: {
+  page: PDFPageProxy;
+  canvas: HTMLCanvasElement;
+  scale: number;
+  pixelRatio: number;
+  cssViewport: PdfPageViewport;
+  holdRenderTask: (task: RenderTask) => void;
+}) {
+  const { page, canvas, scale, pixelRatio, cssViewport } = ctx;
+  const viewport = page.getViewport({ scale: scale * pixelRatio });
+  canvas.width = Math.floor(viewport.width);
+  canvas.height = Math.floor(viewport.height);
+  canvas.style.width = `${Math.floor(cssViewport.width)}px`;
+  canvas.style.height = `${Math.floor(cssViewport.height)}px`;
+  // PDF pages are static frames. Let WKWebView synchronize the canvas with its
+  // compositor so a scroll cannot expose a partially committed bitmap.
+  const context = canvas.getContext("2d", { alpha: false });
+  if (context) {
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.fillStyle = "#F9F9FA";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  const renderTask = page.render({
+    canvas,
+    viewport,
+    intent: "display",
+    ...(context ? { canvasContext: context } : {}),
+  });
+  ctx.holdRenderTask(renderTask);
+  await renderTask.promise;
+}
+
 /**
- * The page render body, hoisted out of ContinuousPdfPage's effect: its
- * try/catch/finally made the React Compiler bail out of the whole component.
- * Pure cut-and-paste — closure state (alive, renderTask, textLayer) arrives
- * through the ctx accessors.
+ * Produce a CSS-pixel preview first. Search, selection, links, and SyncTeX use
+ * separate DOM layers, so they become available without waiting for the later
+ * high-DPI refinement.
  */
-async function renderContinuousPage(ctx: {
+async function renderContinuousPagePreview(ctx: {
   page: PDFPageProxy;
   canvas: HTMLCanvasElement;
   textContainer: HTMLDivElement;
   scale: number;
+  pixelRatio: number;
   pageNumber: number;
   isAlive: () => boolean;
-  holdRenderTask: (task: { promise: Promise<unknown>; cancel: () => void }) => void;
+  holdRenderTask: (task: RenderTask) => void;
   holdTextLayer: (layer: TextLayer) => void;
   setRendering: (value: boolean) => void;
   setPageError: (value: string) => void;
   setAnnotations: (items: PdfAnnotation[]) => void;
   onTextLayerText: (page: number, text: string) => void;
   bumpTextLayerVersion: () => void;
-}): Promise<void> {
-  const { page, canvas, textContainer, scale, pageNumber } = ctx;
+}): Promise<boolean> {
+  const { page, canvas, textContainer, scale, pixelRatio, pageNumber } = ctx;
   ctx.setRendering(true);
   ctx.setPageError("");
   try {
-    // Preview.app looks sharp; pdf.js canvas Type1 Times needs supersampling,
-    // especially on VM displays that report devicePixelRatio=1.
     const cssViewport = page.getViewport({ scale });
-    const pixelRatio = pdfRenderPixelRatio(window.devicePixelRatio || 1, cssViewport);
-    const viewport = page.getViewport({ scale: scale * pixelRatio });
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    canvas.style.width = `${Math.floor(cssViewport.width)}px`;
-    canvas.style.height = `${Math.floor(cssViewport.height)}px`;
     textContainer.replaceChildren();
-    // PDF pages are static frames. Let WKWebView synchronize the canvas
-    // with its compositor so a scroll cannot expose a partially committed bitmap.
-    const context = canvas.getContext("2d", { alpha: false });
-    if (context) {
-      context.setTransform(1, 0, 0, 1, 0, 0);
-      // High-DPI bitmap is downscaled in CSS; light smoothing keeps Type1 paths clean.
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = "high";
-      context.fillStyle = "#F9F9FA";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    const renderTask = page.render({
-      canvas,
-      viewport,
-      intent: "display",
-      ...(context ? { canvasContext: context } : {}),
-    });
-    ctx.holdRenderTask(renderTask);
     void page.getAnnotations({ intent: "display" }).then((items) => {
       if (!ctx.isAlive()) return;
       ctx.setAnnotations((items as PdfAnnotation[]).map((annotation) => ({
@@ -307,8 +325,15 @@ async function renderContinuousPage(ctx: {
     }).catch(() => {
       if (ctx.isAlive()) ctx.setAnnotations([]);
     });
-    await renderTask.promise;
-    if (!ctx.isAlive()) return;
+    await renderPdfPageCanvas({
+      page,
+      canvas,
+      scale,
+      pixelRatio,
+      cssViewport,
+      holdRenderTask: ctx.holdRenderTask,
+    });
+    if (!ctx.isAlive()) return false;
     ctx.setRendering(false);
 
     // A selectable text layer is useful, but it must not hold a scarce
@@ -328,8 +353,9 @@ async function renderContinuousPage(ctx: {
       .catch(() => {
         // A cancelled or malformed text layer must not hide a valid canvas.
       });
+    return true;
   } catch (reason) {
-    if (!ctx.isAlive()) return;
+    if (!ctx.isAlive()) return false;
     const detail = message(reason);
     const errorName = reason && typeof reason === "object" && "name" in reason
       ? String(reason.name)
@@ -340,8 +366,62 @@ async function renderContinuousPage(ctx: {
     ) {
       ctx.setPageError(detail);
     }
+    return false;
   } finally {
     if (ctx.isAlive()) ctx.setRendering(false);
+  }
+}
+
+/** Render high-DPI pixels offscreen, then replace the preview in one paint. */
+async function refineContinuousPage(ctx: {
+  page: PDFPageProxy;
+  canvas: HTMLCanvasElement;
+  scale: number;
+  pixelRatio: number;
+  isAlive: () => boolean;
+  holdRenderTask: (task: RenderTask) => void;
+}): Promise<void> {
+  const offscreen = document.createElement("canvas");
+  try {
+    const cssViewport = ctx.page.getViewport({ scale: ctx.scale });
+    await renderPdfPageCanvas({
+      page: ctx.page,
+      canvas: offscreen,
+      scale: ctx.scale,
+      pixelRatio: ctx.pixelRatio,
+      cssViewport,
+      holdRenderTask: ctx.holdRenderTask,
+    });
+    if (!ctx.isAlive()) return;
+    const context = ctx.canvas.getContext("2d", { alpha: false });
+    if (!context) return;
+    // Resizing and copying happen in the same main-thread task, so the browser
+    // presents either the preview or the complete refined bitmap, never a blank
+    // or partially drawn high-resolution canvas.
+    ctx.canvas.width = offscreen.width;
+    ctx.canvas.height = offscreen.height;
+    ctx.canvas.style.width = offscreen.style.width;
+    ctx.canvas.style.height = offscreen.style.height;
+    context.drawImage(offscreen, 0, 0);
+  } catch {
+    // A valid preview is already visible. Cancellation or refinement failure
+    // must not replace it with an error or disturb its interaction layers.
+  } finally {
+    offscreen.width = 0;
+    offscreen.height = 0;
+  }
+}
+
+/** Keep cancellation try/catch out of the hot page component for React Compiler. */
+function cancelContinuousPageWork(
+  renderTask: RenderTask | null,
+  textLayer: TextLayer | null,
+) {
+  try {
+    renderTask?.cancel();
+    textLayer?.cancel();
+  } catch {
+    // Worker may already be gone during PDF rebuilds.
   }
 }
 
@@ -350,7 +430,9 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
   pageNumber,
   scale,
   active,
+  current,
   nearby,
+  scrolling,
   fallbackPageSize,
   pageAcquireQueue,
   renderQueue,
@@ -366,10 +448,12 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
   pageNumber: number;
   scale: number;
   active: boolean;
+  current: boolean;
   nearby: boolean;
+  scrolling: boolean;
   fallbackPageSize: PdfPageSize | null;
   pageAcquireQueue: PdfRenderQueue;
-  renderQueue: PdfRenderQueue;
+  renderQueue: PdfCooperativeRenderQueue;
   searchQuery: string;
   selectedSearchOccurrence: number | null;
   syncTarget: PdfSyncTarget | null;
@@ -383,18 +467,31 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
   const textLayerRef = useRef<HTMLDivElement | null>(null);
   const [page, setPage] = useState<PDFPageProxy | null>(null);
   const [annotations, setAnnotations] = useState<PdfAnnotation[]>([]);
-  const [rendering, setRendering] = useState(active);
+  // Inactive canvases are cleared to release their backing stores. Keep their
+  // next activation in loading state so a fast scroll never exposes that zero-
+  // sized canvas while its queued render is waiting to start.
+  const [rendering, setRendering] = useState(true);
+  const [previewScale, setPreviewScale] = useState<number | null>(null);
+  const [refinedScale, setRefinedScale] = useState<number | null>(null);
   const [textLayerVersion, setTextLayerVersion] = useState(0);
   const [pageError, setPageError] = useState("");
-  const nearbyRef = useRef(nearby);
-  const acquirePriorityRef = useRef(active || nearby);
-  const prioritizeAcquireRef = useRef<(() => void) | null>(null);
+  const initialPriority = current
+    ? PDF_RENDER_PRIORITY.current
+    : nearby ? PDF_RENDER_PRIORITY.nearby : PDF_RENDER_PRIORITY.cached;
+  const priorityRef = useRef(initialPriority);
+  const acquireJobRef = useRef<PdfRenderCancellation | null>(null);
+  const previewJobRef = useRef<PdfRenderCancellation | null>(null);
+  const refinementJobRef = useRef<PdfRenderCancellation | null>(null);
 
   useEffect(() => {
-    nearbyRef.current = nearby;
-    acquirePriorityRef.current = active || nearby;
-    if (active || nearby) prioritizeAcquireRef.current?.();
-  }, [active, nearby]);
+    const priority = current
+      ? PDF_RENDER_PRIORITY.current
+      : nearby ? PDF_RENDER_PRIORITY.nearby : PDF_RENDER_PRIORITY.cached;
+    priorityRef.current = priority;
+    acquireJobRef.current?.setPriority(priority);
+    previewJobRef.current?.setPriority(PDF_PREVIEW_PRIORITY_OFFSET + priority);
+    refinementJobRef.current?.setPriority(priority);
+  }, [current, nearby]);
 
   useEffect(() => {
     if (page) return;
@@ -414,11 +511,11 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
         setPageError(detail);
         setRendering(false);
       }
-    }, acquirePriorityRef.current);
-    prioritizeAcquireRef.current = cancelQueuedAcquire.prioritize;
+    }, priorityRef.current);
+    acquireJobRef.current = cancelQueuedAcquire;
     return () => {
       alive = false;
-      prioritizeAcquireRef.current = null;
+      if (acquireJobRef.current === cancelQueuedAcquire) acquireJobRef.current = null;
       cancelQueuedAcquire();
     };
   }, [documentProxy, page, pageAcquireQueue, pageNumber]);
@@ -434,11 +531,14 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
       onProximityChange(pageNumber, entries.some((entry) => entry.isIntersecting));
     }, {
       root: shell.closest(".pdf-scroll-area-viewport"),
-      rootMargin: "900px 0px",
+      // Keep roughly four pages ready in either direction. A page-relative
+      // margin scales with zoom without turning a small low-zoom document into
+      // dozens of simultaneous render candidates.
+      rootMargin: `${Math.max(900, Math.min(4_800, shell.offsetHeight * 4))}px 0px`,
     });
     observer.observe(shell);
     return () => observer.disconnect();
-  }, [onProximityChange, pageNumber]);
+  }, [onProximityChange, pageNumber, scale]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -449,21 +549,35 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
       canvas.height = 0;
       textContainer.replaceChildren();
       page.cleanup();
+      queueMicrotask(() => {
+        setRendering(true);
+        setPreviewScale(null);
+        setRefinedScale(null);
+      });
       return;
     }
     let alive = true;
-    let renderTask: { promise: Promise<unknown>; cancel: () => void } | null = null;
+    let previewTask: RenderTask | null = null;
     let textLayer: TextLayer | null = null;
-    const cancelQueuedRender = renderQueue.enqueue(async () => {
+    const cssViewport = page.getViewport({ scale });
+    const fullPixelRatio = pdfRenderPixelRatio(window.devicePixelRatio || 1, cssViewport);
+    const previewPixelRatio = Math.min(1, fullPixelRatio);
+    const cancelQueuedPreview = renderQueue.enqueue(async (onContinue) => {
       if (!alive) return;
-      await renderContinuousPage({
+      const completed = await renderContinuousPagePreview({
         page,
         canvas,
         textContainer,
         scale,
+        pixelRatio: previewPixelRatio,
         pageNumber,
         isAlive: () => alive,
-        holdRenderTask: (task) => { renderTask = task; },
+        holdRenderTask: (task) => {
+          previewTask = task;
+          task.onContinue = (continuation: () => void) => {
+            onContinue(continuation);
+          };
+        },
         holdTextLayer: (layer) => { textLayer = layer; },
         setRendering,
         setPageError,
@@ -471,18 +585,62 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
         onTextLayerText,
         bumpTextLayerVersion: () => setTextLayerVersion((version) => version + 1),
       });
-    }, nearbyRef.current);
+      if (!alive || !completed) return;
+      setPreviewScale(scale);
+      if (fullPixelRatio <= previewPixelRatio) setRefinedScale(scale);
+    }, PDF_PREVIEW_PRIORITY_OFFSET + priorityRef.current);
+    previewJobRef.current = cancelQueuedPreview;
     return () => {
       alive = false;
-      cancelQueuedRender();
-      try {
-        renderTask?.cancel();
-        textLayer?.cancel();
-      } catch {
-        // Worker may already be gone during PDF rebuilds.
-      }
+      if (previewJobRef.current === cancelQueuedPreview) previewJobRef.current = null;
+      cancelQueuedPreview();
+      cancelContinuousPageWork(previewTask, textLayer);
     };
   }, [active, onTextLayerText, page, pageNumber, renderQueue, scale]);
+
+  useEffect(() => {
+    if (
+      !active
+      || (!current && !nearby)
+      || scrolling
+      || previewScale !== scale
+      || refinedScale === scale
+    ) return;
+    const canvas = canvasRef.current;
+    if (!page || !canvas) return;
+    const cssViewport = page.getViewport({ scale });
+    const fullPixelRatio = pdfRenderPixelRatio(window.devicePixelRatio || 1, cssViewport);
+    if (fullPixelRatio <= 1) return;
+    let alive = true;
+    let refinementSettled = false;
+    let refinementTask: RenderTask | null = null;
+    const cancelQueuedRefinement = renderQueue.enqueue(async (onContinue) => {
+      await refineContinuousPage({
+        page,
+        canvas,
+        scale,
+        pixelRatio: fullPixelRatio,
+        isAlive: () => alive,
+        holdRenderTask: (task) => {
+          refinementTask = task;
+          task.onContinue = (continuation: () => void) => {
+            onContinue(continuation);
+          };
+        },
+      });
+      refinementSettled = true;
+      // A failed refinement leaves the valid preview in place. Record the
+      // attempt so a malformed page cannot retry forever while it is visible.
+      if (alive) setRefinedScale(scale);
+    }, priorityRef.current);
+    refinementJobRef.current = cancelQueuedRefinement;
+    return () => {
+      alive = false;
+      if (refinementJobRef.current === cancelQueuedRefinement) refinementJobRef.current = null;
+      cancelQueuedRefinement();
+      if (!refinementSettled) cancelContinuousPageWork(refinementTask, null);
+    };
+  }, [active, current, nearby, page, previewScale, refinedScale, renderQueue, scale, scrolling]);
 
   useEffect(() => {
     const container = textLayerRef.current;
@@ -573,7 +731,14 @@ export function PdfPreview({
   onTextSelect,
   onNumPages,
   onPageChange,
+  onDocumentData,
+  initialPage = 1,
+  showSave = true,
+  saveLabel = "Save PDF as…",
+  timeoutMessage = "PDF preview timed out. Click Build again, or open the PDF in Preview.",
   outline,
+  toolbarStart,
+  toolbarEnd,
 }: {
   url: string | null;
   pdfBase64: string | null;
@@ -587,7 +752,17 @@ export function PdfPreview({
   onTextSelect?: (text: string) => void;
   onNumPages?: (pages: number | null) => void;
   onPageChange?: (page: number) => void;
+  /** Complete bytes assembled by PDF.js after a URL load, suitable for caching. */
+  onDocumentData?: (bytes: ArrayBuffer) => void;
+  initialPage?: number;
+  showSave?: boolean;
+  saveLabel?: string;
+  timeoutMessage?: string;
   outline?: ReactNode;
+  /** Context-specific actions rendered before the page controls. */
+  toolbarStart?: ReactNode;
+  /** Context-specific icon actions rendered before the save control. */
+  toolbarEnd?: ReactNode;
 }) {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const pagesRef = useRef<HTMLDivElement | null>(null);
@@ -597,10 +772,12 @@ export function PdfPreview({
   onNumPagesRef.current = onNumPages;
   const onPageChangeRef = useRef(onPageChange);
   onPageChangeRef.current = onPageChange;
+  const onDocumentDataRef = useRef(onDocumentData);
+  onDocumentDataRef.current = onDocumentData;
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [documentGeneration, setDocumentGeneration] = useState(0);
-  const [pageNumber, setPageNumber] = useState(1);
-  const pageNumberRef = useRef(1);
+  const [pageNumber, setPageNumber] = useState(() => Math.max(1, Math.floor(initialPage)));
+  const pageNumberRef = useRef(pageNumber);
   useEffect(() => {
     pageNumberRef.current = pageNumber;
     onPageChangeRef.current?.(pageNumber);
@@ -612,8 +789,15 @@ export function PdfPreview({
   const [scale, setScale] = useState(initialViewPreference.scale);
   const [fitMode, setFitMode] = useState<"width" | "height" | null>(initialViewPreference.fitMode);
   const [pageSize, setPageSize] = useState<PdfPageSize | null>(null);
-  const [renderQueue] = useState(() => new PdfRenderQueue());
-  const pageAcquireQueue = useMemo(() => new PdfRenderQueue(), [documentGeneration]);
+  // Canvas2D executes on the WebView thread. Keep one page painting at a time
+  // so pre-rendering cannot contend with compositor scrolling; metadata/page
+  // acquisition stays two-wide because that work is handled by the PDF worker.
+  const [renderQueue] = useState(() => new PdfCooperativeRenderQueue());
+  const pageAcquireQueue = useMemo(() => {
+    // A newly loaded PDF must not wait behind page acquisitions for the old one.
+    void documentGeneration;
+    return new PdfRenderQueue(2);
+  }, [documentGeneration]);
   const [pageRenderState, setPageRenderState] = useState({
     cached: [1],
     nearby: new Set<number>(),
@@ -852,6 +1036,7 @@ export function PdfPreview({
       return;
     }
     let active = true;
+    let dataTimer: number | null = null;
     const currentBase64 = pdfBase64Ref.current;
     const currentUrl = urlRef.current;
     // Prefer in-memory bytes over blob: URLs.
@@ -863,12 +1048,19 @@ export function PdfPreview({
       cMapUrl: PDF_CMAP_URL,
       cMapPacked: true,
       standardFontDataUrl: PDF_STANDARD_FONT_DATA_URL,
+      // WKWebView can accept an embedded Type 1 font through FontFace but then
+      // paint none of its glyphs. PDF.js sees a successful font load, so the
+      // page completes without an error and only non-text vectors remain.
+      // Drawing the embedded glyph outlines bypasses that native font path while
+      // preserving the separate selectable text layer.
+      disableFontFace: true,
+      useSystemFonts: false,
     });
     const timeout = window.setTimeout(() => {
       if (!active) return;
       // Keep any already-visible PDF; only surface the error if we have nothing.
       if (!documentProxyRef.current) {
-        setPdfError("PDF preview timed out. Click Build again, or open the PDF in Preview.");
+        setPdfError(timeoutMessage);
       }
       setLoadedUrl(stableLoadKey);
       void Promise.resolve(loadingTask.destroy()).catch(() => undefined);
@@ -898,6 +1090,19 @@ export function PdfPreview({
           if (!active) return;
           const viewport = first.getViewport({ scale: 1 });
           setPageSize({ width: viewport.width, height: viewport.height });
+          if (!currentBase64 && onDocumentDataRef.current) {
+            // Let the first page win the network/render queue. PDF.js then
+            // assembles the remaining ranged response once and hands those
+            // same bytes to the app cache — no second download.
+            dataTimer = window.setTimeout(() => {
+              void pdf.getData()
+                .then((data) => {
+                  if (!active) return;
+                  onDocumentDataRef.current?.(new Uint8Array(data).buffer);
+                })
+                .catch(() => undefined);
+            }, 750);
+          }
         } catch {
           if (active) setPageSize(null);
         }
@@ -917,11 +1122,12 @@ export function PdfPreview({
     return () => {
       active = false;
       window.clearTimeout(timeout);
+      if (dataTimer !== null) window.clearTimeout(dataTimer);
       // Keep the current document on screen while a newer load is cancelled —
       // clearing it here caused endless “Rendering PDF…” during autosave builds.
       void Promise.resolve(loadingTask.destroy()).catch(() => undefined);
     };
-  }, [stableLoadKey]);
+  }, [stableLoadKey, timeoutMessage]);
 
   const applyFit = useCallback((mode: "width" | "height") => {
     const area = scrollAreaRef.current;
@@ -1117,6 +1323,9 @@ export function PdfPreview({
   const showBlockingLoader = loading && !documentProxy;
   const searchIndexing = Boolean(documentProxy && pageTexts.length !== documentProxy.numPages);
 
+  const [pdfScrolling, setPdfScrolling] = useState(false);
+  const pdfScrollingRef = useRef(false);
+  const scrollIdleTimerRef = useRef<number | null>(null);
   const currentPageFrameRef = useRef<number | null>(null);
   const findCurrentPage = useCallback(() => {
     currentPageFrameRef.current = null;
@@ -1135,10 +1344,26 @@ export function PdfPreview({
     }
   }, []);
   const updateCurrentPage = useCallback(() => {
+    if (!pdfScrollingRef.current) {
+      pdfScrollingRef.current = true;
+      setPdfScrolling(true);
+    }
+    if (scrollIdleTimerRef.current !== null) {
+      window.clearTimeout(scrollIdleTimerRef.current);
+    }
+    scrollIdleTimerRef.current = window.setTimeout(() => {
+      scrollIdleTimerRef.current = null;
+      pdfScrollingRef.current = false;
+      setPdfScrolling(false);
+    }, PDF_SCROLL_REFINE_SETTLE_MS);
     if (currentPageFrameRef.current !== null) return;
     currentPageFrameRef.current = window.requestAnimationFrame(findCurrentPage);
   }, [findCurrentPage]);
   useEffect(() => () => {
+    if (scrollIdleTimerRef.current !== null) {
+      window.clearTimeout(scrollIdleTimerRef.current);
+      scrollIdleTimerRef.current = null;
+    }
     if (currentPageFrameRef.current !== null) {
       window.cancelAnimationFrame(currentPageFrameRef.current);
       currentPageFrameRef.current = null;
@@ -1157,6 +1382,13 @@ export function PdfPreview({
       scrollArea.scrollTop = top;
     }
   }, []);
+
+  useEffect(() => {
+    if (!documentProxy || initialPage <= 1) return;
+    const target = clamp(Math.floor(initialPage), 1, documentProxy.numPages);
+    const frame = window.requestAnimationFrame(() => scrollToPage(target, "auto"));
+    return () => window.cancelAnimationFrame(frame);
+  }, [documentProxy, initialPage, scrollToPage]);
 
   const commitPageDraft = () => {
     if (cancelPageEditRef.current) {
@@ -1242,43 +1474,46 @@ export function PdfPreview({
 
   return (
     <div className="pdf-preview">
-      <div className="pdf-toolbar">
-        <div className="pdf-page-controls">
-          <Tip label="Previous page">
-            <button disabled={pageNumber <= 1} onClick={() => scrollToPage(Math.max(1, pageNumber - 1))}><ChevronLeft size={14} /></button>
-          </Tip>
-          <label className={`pdf-page-value${pageEditing ? " editing" : ""}`} title="Enter a page number">
-            <input
-              aria-label="PDF page number"
-              inputMode="numeric"
-              value={pageEditing ? pageDraft : String(pageNumber)}
-              style={{ width: pageEditing ? `${Math.max(1, pageDraft.length)}ch` : undefined }}
-              onFocus={(event) => {
-                const input = event.currentTarget;
-                cancelPageEditRef.current = false;
-                setPageEditing(true);
-                setPageDraft(String(pageNumber));
-                requestAnimationFrame(() => input.select());
-              }}
-              onChange={(event) => {
-                if (/^\d*$/.test(event.target.value)) setPageDraft(event.target.value);
-              }}
-              onBlur={commitPageDraft}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur();
-                if (event.key === "Escape") {
-                  cancelPageEditRef.current = true;
-                  event.currentTarget.blur();
-                }
-              }}
-            />
-            {pageEditing
-              ? <span className="pdf-page-total">/ {documentProxy?.numPages ?? "–"}</span>
-              : <span className="pdf-page-display" aria-hidden="true">{pageNumber} / {documentProxy?.numPages ?? "–"}</span>}
-          </label>
-          <Tip label="Next page">
-            <button disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => scrollToPage(Math.min(documentProxy?.numPages ?? pageNumber, pageNumber + 1))}><ChevronRight size={14} /></button>
-          </Tip>
+      <div className={`pdf-toolbar${toolbarStart || toolbarEnd ? " pdf-toolbar-with-context" : ""}`}>
+        <div className="pdf-navigation-controls">
+          {toolbarStart}
+          <div className="pdf-page-controls">
+            <Tip label="Previous page">
+              <button disabled={pageNumber <= 1} onClick={() => scrollToPage(Math.max(1, pageNumber - 1))}><ChevronLeft size={14} /></button>
+            </Tip>
+            <label className={`pdf-page-value${pageEditing ? " editing" : ""}`} title="Enter a page number">
+              <input
+                aria-label="PDF page number"
+                inputMode="numeric"
+                value={pageEditing ? pageDraft : String(pageNumber)}
+                style={{ width: pageEditing ? `${Math.max(1, pageDraft.length)}ch` : undefined }}
+                onFocus={(event) => {
+                  const input = event.currentTarget;
+                  cancelPageEditRef.current = false;
+                  setPageEditing(true);
+                  setPageDraft(String(pageNumber));
+                  requestAnimationFrame(() => input.select());
+                }}
+                onChange={(event) => {
+                  if (/^\d*$/.test(event.target.value)) setPageDraft(event.target.value);
+                }}
+                onBlur={commitPageDraft}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                  if (event.key === "Escape") {
+                    cancelPageEditRef.current = true;
+                    event.currentTarget.blur();
+                  }
+                }}
+              />
+              {pageEditing
+                ? <span className="pdf-page-total">/ {documentProxy?.numPages ?? "–"}</span>
+                : <span className="pdf-page-display" aria-hidden="true">{pageNumber} / {documentProxy?.numPages ?? "–"}</span>}
+            </label>
+            <Tip label="Next page">
+              <button disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => scrollToPage(Math.min(documentProxy?.numPages ?? pageNumber, pageNumber + 1))}><ChevronRight size={14} /></button>
+            </Tip>
+          </div>
         </div>
         <div className={`pdf-find-controls${outline ? "" : " without-outline"}`}>
           {outline}
@@ -1343,18 +1578,21 @@ export function PdfPreview({
           </Tip>
           <i className="pdf-fit-divider" aria-hidden="true" />
           {onForwardSync && (
-            <Tip label="Reveal cursor in PDF (⌘⇧J)">
-              <button
-                type="button"
-                disabled={!canForwardSync || locatingPdf}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={onForwardSync}
-              >
-                {locatingPdf
-                  ? <InfinityLoader size={14} />
-                  : <LocateFixed size={14} />}
-              </button>
-            </Tip>
+            <>
+              <Tip label="Reveal cursor in PDF (⌘⇧J)">
+                <button
+                  type="button"
+                  disabled={!canForwardSync || locatingPdf}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={onForwardSync}
+                >
+                  {locatingPdf
+                    ? <InfinityLoader size={14} />
+                    : <LocateFixed size={14} />}
+                </button>
+              </Tip>
+              <i className="pdf-fit-divider" aria-hidden="true" />
+            </>
           )}
           <Tip label="Fit page to width">
             <button className={fitMode === "width" ? "active" : ""} aria-pressed={fitMode === "width"} disabled={!pageSize} onClick={() => toggleFit("width")}><RectangleHorizontal size={14} /></button>
@@ -1362,9 +1600,12 @@ export function PdfPreview({
           <Tip label="Fit page to height">
             <button className={fitMode === "height" ? "active" : ""} aria-pressed={fitMode === "height"} disabled={!pageSize} onClick={() => toggleFit("height")}><RectangleVertical size={14} /></button>
           </Tip>
-          <Tip label="Save PDF as…">
-            <MotionButton disabled={!pdfBytes || savingPdf} onClick={() => void download()}>{savingPdf ? <InfinityLoader size={14} /> : <Download size={14} />}</MotionButton>
-          </Tip>
+          {toolbarEnd}
+          {showSave && (
+            <Tip label={saveLabel}>
+              <MotionButton disabled={!pdfBytes || savingPdf} onClick={() => void download()}>{savingPdf ? <InfinityLoader size={14} /> : <Download size={14} />}</MotionButton>
+            </Tip>
+          )}
         </div>
       </div>
       <ScrollArea
@@ -1390,8 +1631,10 @@ export function PdfPreview({
               documentProxy={documentProxy}
               pageNumber={page}
               scale={scale}
-              active={pageRenderState.cached.includes(page)}
+              active={pageNumber === page || pageRenderState.cached.includes(page)}
+              current={pageNumber === page}
               nearby={pageRenderState.nearby.has(page)}
+              scrolling={pdfScrolling}
               fallbackPageSize={pageSize}
               pageAcquireQueue={pageAcquireQueue}
               renderQueue={renderQueue}

@@ -17,6 +17,7 @@ import { referenceAssetPreviewDataUrl } from "./reference-preview";
 import { usePanelLayout } from "./use-panel-layout";
 import { parseVisualMarkdown } from "./visual-markdown-schema";
 import type { SynaraRuntimeInfo } from "./synara-runtime";
+import { ConfirmActionProvider } from "./confirm-action-dialog";
 
 const windowApi = vi.hoisted(() => ({
   startDragging: vi.fn(),
@@ -205,14 +206,6 @@ async function findProjectTreeItem(path: string, timeout = 1000): Promise<HTMLEl
   }, { timeout });
 }
 
-async function findProjectTreeSearchInput(): Promise<HTMLInputElement> {
-  return waitFor(() => {
-    const input = projectTreeRoot()?.querySelector<HTMLInputElement>("[data-file-tree-search-input]");
-    expect(input).not.toBeNull();
-    return input!;
-  });
-}
-
 async function findProjectTreeRenameInput(): Promise<HTMLInputElement> {
   return waitFor(() => {
     const input = projectTreeRoot()?.querySelector<HTMLInputElement>("[data-item-rename-input]");
@@ -328,6 +321,10 @@ describe("welcome screen", () => {
       base64: "JVBERi0xLjQ=",
     })).resolves.toBe(image);
 
+    expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      disableFontFace: true,
+      useSystemFonts: false,
+    }));
     expect(render).toHaveBeenCalledWith(expect.objectContaining({ background: "#F9F9FA" }));
     expect(destroy).toHaveBeenCalled();
   });
@@ -985,10 +982,18 @@ describe("project workspace", () => {
     expect(screen.getByRole("checkbox")).toBeChecked();
     expect(screen.getByRole("link", { name: "Visually edited view" })).toBeInTheDocument();
 
+    const initialSplitPreview = screen.getByTestId("editor-scroll-container");
+    editor.scrollDOM.scrollTop = 360;
+    initialSplitPreview.scrollTop = 520;
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
-    expect(document.querySelector(".source-editor .cm-editor")).not.toBeNull();
+    const editEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
+    expect(editEditorDom).not.toBeNull();
     expect(document.querySelector(".markdown-preview")).toBeNull();
+    const editEditor = editEditorDom ? EditorView.findFromDOM(editEditorDom) : null;
+    if (!editEditor) throw new Error("Markdown edit-only editor was not created.");
+    await waitFor(() => expect(editEditor.scrollDOM.scrollTop).toBe(360));
 
+    editEditor.scrollDOM.scrollTop = 420;
     fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
     const splitEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
     expect(splitEditorDom).not.toBeNull();
@@ -996,6 +1001,8 @@ describe("project workspace", () => {
     expect(screen.getByTestId("editor-scroll-container")).toHaveStyle({ overflowAnchor: "none" });
     const splitEditor = splitEditorDom ? EditorView.findFromDOM(splitEditorDom) : null;
     if (!splitEditor) throw new Error("Markdown split editor was not created.");
+    await waitFor(() => expect(splitEditor.scrollDOM.scrollTop).toBe(420));
+    await waitFor(() => expect(screen.getByTestId("editor-scroll-container").scrollTop).toBe(420));
     splitEditor.dispatch({
       changes: {
         from: 0,
@@ -1011,9 +1018,153 @@ describe("project workspace", () => {
     expect(screen.queryByRole("link", { name: "Updated native view" })).toBeNull();
     expect(await screen.findByRole("link", { name: "Updated native view" })).toBeInTheDocument();
 
+    screen.getByTestId("editor-scroll-container").scrollTop = 540;
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     await waitFor(() => expect(document.querySelector(".source-editor .cm-editor")).toBeNull());
-    expect(screen.getByTestId("editor-scroll-container").style.overflowAnchor).toBe("");
+    const previewViewport = screen.getByTestId("editor-scroll-container");
+    expect(previewViewport.style.overflowAnchor).toBe("");
+    await waitFor(() => expect(previewViewport.scrollTop).toBe(540));
+
+    // Preview and Split mount separate visual-editor roots. Ordinary toolbar
+    // switches must hand the viewport to the replacement just like the
+    // explicit View in Source action below does.
+    await act(() => new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    }));
+    const ordinaryPreviewViewport = screen.getByTestId("editor-scroll-container");
+    let ordinaryPreviewScrollTop = 560;
+    Object.defineProperty(ordinaryPreviewViewport, "scrollTop", {
+      configurable: true,
+      get: () => ordinaryPreviewViewport.isConnected ? ordinaryPreviewScrollTop : 0,
+      set: (value: number) => { ordinaryPreviewScrollTop = value; },
+    });
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
+    const ordinarySplitViewport = screen.getByTestId("editor-scroll-container");
+    await waitFor(() => expect(ordinarySplitViewport.scrollTop).toBe(560));
+    ordinarySplitViewport.scrollTop = 570;
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    await waitFor(() => expect(screen.getByTestId("editor-scroll-container").scrollTop).toBe(570));
+
+    const previewSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const previewEditor = (previewSurface as HTMLElement & { editor: TiptapEditor }).editor;
+    act(() => {
+      previewEditor.commands.setTextSelection({ from: 1, to: 8 });
+    });
+    const viewSourceButton = await screen.findByRole("button", { name: "View in source Markdown" });
+    const explicitPreviewViewport = screen.getByTestId("editor-scroll-container");
+    explicitPreviewViewport.scrollTop = 480;
+    fireEvent.click(viewSourceButton);
+    expect(await screen.findByRole("separator", { name: "Resize editor and Markdown preview" }))
+      .toBeInTheDocument();
+    const splitPreviewViewport = screen.getByTestId("editor-scroll-container");
+    expect(splitPreviewViewport).not.toBe(explicitPreviewViewport);
+    const revealedEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
+    const revealedEditor = revealedEditorDom ? EditorView.findFromDOM(revealedEditorDom) : null;
+    if (!revealedEditor) throw new Error("View in source did not mount CodeMirror.");
+    // The visual selection starts on the link's first visible character. Its
+    // exact Markdown position is after the opening `[`, rather than the old
+    // block-level fallback at offset zero.
+    await waitFor(() => expect(revealedEditor.state.selection.main.head).toBe(1));
+
+    // Exercise the settled Split geometry directly: the selected source-backed
+    // block has content center 920, while its source range has center 610.
+    // View in Source must put both at the center of their 400px viewports.
+    await act(() => new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => (
+        window.requestAnimationFrame(() => resolve())
+      )));
+    }));
+    Object.defineProperties(splitPreviewViewport, {
+      clientHeight: { configurable: true, value: 400 },
+      scrollHeight: { configurable: true, value: 2_000 },
+    });
+    Object.defineProperties(revealedEditor.scrollDOM, {
+      clientHeight: { configurable: true, value: 400 },
+      scrollHeight: { configurable: true, value: 3_000 },
+    });
+    splitPreviewViewport.scrollTop = 300;
+    const previewRectSpy = vi.spyOn(splitPreviewViewport, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 100,
+      top: 100,
+      bottom: 500,
+      left: 0,
+      right: 500,
+      width: 500,
+      height: 400,
+      toJSON: () => ({}),
+    });
+    const sourceBackedBlock = splitPreviewViewport.querySelector<HTMLElement>("[data-source-offset='0']");
+    if (!sourceBackedBlock) throw new Error("Split Preview did not publish a source-backed block.");
+    const sourceBackedBlockRectSpy = vi.spyOn(sourceBackedBlock, "getBoundingClientRect").mockImplementation(() => ({
+      x: 0,
+      y: 1_000 - splitPreviewViewport.scrollTop,
+      top: 1_000 - splitPreviewViewport.scrollTop,
+      bottom: 1_040 - splitPreviewViewport.scrollTop,
+      left: 0,
+      right: 500,
+      width: 500,
+      height: 40,
+      toJSON: () => ({}),
+    }));
+    const lineBlockSpy = vi.spyOn(revealedEditor, "lineBlockAt").mockReturnValue({
+      top: 600,
+      bottom: 620,
+    } as never);
+    const splitVisualSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const splitVisualEditor = (splitVisualSurface as HTMLElement & { editor: TiptapEditor }).editor;
+    act(() => splitVisualEditor.commands.setTextSelection({ from: 1, to: 8 }));
+    fireEvent.click(await screen.findByRole("button", { name: "View in source Markdown" }));
+    await waitFor(() => expect(revealedEditor.scrollDOM.scrollTop).toBe(410));
+    await waitFor(() => expect(splitPreviewViewport.scrollTop).toBe(720));
+    await act(() => new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => (
+        window.requestAnimationFrame(() => resolve())
+      )));
+    }));
+
+    // The first tiny source scroll must not perform a deferred correction.
+    fireEvent.scroll(revealedEditor.scrollDOM);
+    await act(() => new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    }));
+    expect(splitPreviewViewport.scrollTop).toBe(720);
+    lineBlockSpy.mockRestore();
+    previewRectSpy.mockRestore();
+    sourceBackedBlockRectSpy.mockRestore();
+
+    splitPreviewViewport.scrollTop = 580;
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    await waitFor(() => expect(document.querySelector(".source-editor .cm-editor")).toBeNull());
+    const restoredPreviewViewport = screen.getByTestId("editor-scroll-container");
+    await waitFor(() => expect(restoredPreviewViewport.scrollTop).toBe(580));
+
+    restoredPreviewViewport.scrollTop = 640;
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+    const restoredEditEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
+    const restoredEditEditor = restoredEditEditorDom ? EditorView.findFromDOM(restoredEditEditorDom) : null;
+    if (!restoredEditEditor) throw new Error("Markdown edit-only editor was not restored.");
+    await waitFor(() => expect(restoredEditEditor.scrollDOM.scrollTop).toBe(640));
+
+    Object.defineProperties(restoredEditEditor.scrollDOM, {
+      scrollHeight: { configurable: true, value: 3_000 },
+      clientHeight: { configurable: true, value: 1_000 },
+    });
+    restoredEditEditor.scrollDOM.scrollTop = 1_000;
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    const sourceMappedPreviewViewport = screen.getByTestId("editor-scroll-container");
+    // Keep the handoff pending beyond the old two-frame window, as happens
+    // while the lazy visual-editor chunk or its scroll geometry is settling.
+    await act(async () => {
+      for (let frame = 0; frame < 4; frame += 1) {
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+      }
+    });
+    Object.defineProperties(sourceMappedPreviewViewport, {
+      scrollHeight: { configurable: true, value: 5_000 },
+      clientHeight: { configurable: true, value: 1_000 },
+    });
+    await waitFor(() => expect(sourceMappedPreviewViewport.scrollTop).toBe(2_000));
     fireEvent.click(await screen.findByRole("link", { name: "Updated native view" }), { metaKey: true });
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
@@ -1288,7 +1439,7 @@ describe("project workspace", () => {
       .toHaveAttribute("aria-current", "page");
   });
 
-  it("routes agent review requests to the editor or the changes drawer", async () => {
+  it("routes agent file and review requests to the editor or the changes drawer", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -1326,6 +1477,21 @@ describe("project workspace", () => {
       expect(element).not.toBeNull();
       return element!;
     });
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: {
+          type: "synara:open-file",
+          filePath: "/tmp/lattice-paper/notes/detailed%20distillation.md",
+        },
+      }));
+    });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "read_project_file",
+      expect.objectContaining({ path: "notes/detailed distillation.md" }),
+    ));
 
     act(() => {
       window.dispatchEvent(new MessageEvent("message", {
@@ -1954,6 +2120,85 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("fetch_paper", { arxivId: "1412.6980" }));
   });
 
+  it("filters the current Papers library by metadata without starting an import", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{main}";
+      if (command === "list_papers") {
+        return [
+          {
+            arxivId: "1706.03762",
+            title: "Attention Is All You Need",
+            authors: "Ashish Vaswani and Noam Shazeer",
+            citationKey: "vaswani2017attention",
+            hasFullText: true,
+            hasBlog: false,
+          },
+          {
+            arxivId: "1412.6980",
+            title: "Adam: A Method for Stochastic Optimization",
+            authors: "Diederik P. Kingma and Jimmy Ba",
+            citationKey: "kingma2015adam",
+            hasFullText: true,
+            hasBlog: false,
+          },
+        ];
+      }
+      if (command === "search_paper_library") {
+        const query = String((args as { query?: string } | undefined)?.query ?? "");
+        return query === "scaled dot-product"
+          ? [{
+              kind: "paper",
+              path: ".research/papers/1706.03762/paper.md",
+              title: "Attention Is All You Need",
+              snippet: "The scaled dot-product attention mechanism.",
+              line: 42,
+              arxivId: "1706.03762",
+            }]
+          : [];
+      }
+      if (command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await switchSidebarMode("Papers");
+    const search = await screen.findByRole("searchbox", { name: "Search or import papers" });
+    const list = within(await screen.findByRole("list", { name: "Papers" }));
+
+    fireEvent.change(search, { target: { value: "diederik 1412" } });
+    expect(list.getByTitle("Adam: A Method for Stochastic Optimization")).toBeInTheDocument();
+    expect(list.queryByTitle("Attention Is All You Need")).not.toBeInTheDocument();
+    expect(list.getByText("1 of 2 papers")).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "vaswani attention" } });
+    expect(list.getByTitle("Attention Is All You Need")).toBeInTheDocument();
+    expect(list.queryByTitle("Adam: A Method for Stochastic Optimization")).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "scaled dot-product" } });
+    await waitFor(() => {
+      expect(list.getByTitle("Attention Is All You Need")).toBeInTheDocument();
+      expect(list.getByText("The scaled dot-product attention mechanism.")).toBeInTheDocument();
+    });
+    expect(list.queryByTitle("Adam: A Method for Stochastic Optimization")).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "missing paper" } });
+    expect(list.getByText("No matching papers")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
+  });
+
   it("adds a work with no preprint through the same box, and says there is nothing to open", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -1990,7 +2235,7 @@ describe("project workspace", () => {
 
     renderApp();
     await switchSidebarMode("Papers");
-    const box = await screen.findByPlaceholderText("arXiv id, DOI, URL, or title");
+    const box = await screen.findByPlaceholderText("Search or add by title, arXiv ID, DOI, or URL");
     fireEvent.change(box, { target: { value: "10.1109/CVPR.2016.90" } });
     fireEvent.keyDown(box, { key: "Enter" });
 
@@ -2021,6 +2266,7 @@ describe("project workspace", () => {
       if (command === "list_papers") return [{
         arxivId: "1706.03762",
         title: "Attention Is All You Need",
+        authors: "Ashish Vaswani and Noam Shazeer",
         hasFullText: true,
         hasBlog: true,
       }];
@@ -2028,7 +2274,7 @@ describe("project workspace", () => {
       if (command === "read_paper") {
         return "---\ntitle: Attention Is All You Need\nnotes: |\n  - [ ] Hidden metadata task\n---\n\n## Abstract\n\n- [ ] Review paper";
       }
-      if (command === "read_paper_blog") return "# Attention overview\n\nA concise explanation.";
+      if (command === "read_paper_blog_local") return "# Attention overview\n\nA concise explanation.";
       if (command === "write_project_file") return undefined;
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
@@ -2039,9 +2285,14 @@ describe("project workspace", () => {
     fireEvent.click(paper);
     expect(await screen.findByText("Attention Is All You Need", { selector: ".active-document span" })).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
+    expect(invoke).toHaveBeenCalledWith("read_paper_blog_local", { arxivId: "1706.03762" });
+    expect(invoke).not.toHaveBeenCalledWith("read_paper_blog", { arxivId: "1706.03762" });
     expect(document.querySelector(".paper-reader")).toBeNull();
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
     expect(await screen.findByRole("heading", { name: "Attention overview" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View original PDF" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open PDF in browser" }));
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://arxiv.org/pdf/1706.03762"));
 
     const documentView = screen.getByRole("tablist", { name: "Document view" });
     expect(within(documentView).getByRole("tab", { name: "Edit" })).toBeInTheDocument();
@@ -2071,7 +2322,15 @@ describe("project workspace", () => {
     expect(await screen.findByRole("heading", { name: "Edited overview" })).toBeInTheDocument();
 
     fireEvent.click(within(paperContent).getByRole("tab", { name: "Paper" }));
-    expect(await screen.findByRole("heading", { name: "Abstract" })).toBeInTheDocument();
+    const abstractHeading = await screen.findByRole("heading", { name: "Abstract" });
+    const paperHeader = document.querySelector<HTMLElement>(".paper-visual-header");
+    expect(paperHeader).not.toBeNull();
+    expect(within(paperHeader!).getByRole("heading", { name: "Attention Is All You Need" }))
+      .toBeInTheDocument();
+    expect(within(paperHeader!).getByText("Ashish Vaswani · Noam Shazeer"))
+      .toBeInTheDocument();
+    expect(paperHeader!.compareDocumentPosition(abstractHeading) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
     expect(screen.queryByText("title: Attention Is All You Need")).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("checkbox"));
     await waitFor(() => expect(screen.getByRole("checkbox")).toBeChecked());
@@ -2107,6 +2366,403 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByTitle("Attention Is All You Need").closest(".paper-row")).not.toHaveClass("active"));
   });
 
+  it("keeps a local Paper editable when its project is read-only on Overleaf", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-overleaf-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "overleaf-paper-id",
+        name: "Overleaf paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers") return [{
+        arxivId: "1706.03762",
+        title: "Attention Is All You Need",
+        hasFullText: true,
+        hasBlog: false,
+      }];
+      if (command === "list_history") return [];
+      if (command === "read_paper") return "## Abstract\n\nPaper content.\n\n## Method\n\nEditable notes.";
+      if (command === "read_paper_blog") return null;
+      if (command === "overleaf_link") return {
+        projectId: "ol-read-only",
+        projectName: "Overleaf paper",
+        host: "https://www.overleaf.com",
+        lastSync: null,
+        paused: false,
+      };
+      if (command === "overleaf_sync") return {
+        pulled: [],
+        pushed: [],
+        merged: [],
+        conflicts: [],
+        deletedLocal: [],
+        skippedRemoteDeletes: [],
+      };
+      if (command === "overleaf_probe") {
+        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+      }
+      if (command === "overleaf_rt_connect") return {
+        publicId: null,
+        rootFolderId: "root",
+        docs: [{ id: "main-doc", path: "main.tex" }],
+        entities: [],
+        permission: "readOnly",
+        trackChanges: false,
+        userId: null,
+      };
+      if (command === "overleaf_status") {
+        return { connected: true, email: "reader@example.com", name: "Reader", host: "https://www.overleaf.com" };
+      }
+      if (
+        command === "overleaf_rt_disconnect"
+        || command === "git_auto_commit"
+      ) return command === "git_auto_commit" ? null : undefined;
+      if (
+        command === "overleaf_chat_messages"
+        || command === "overleaf_threads"
+        || command === "overleaf_comment_anchors"
+        || command === "overleaf_change_authors"
+        || command === "overleaf_rt_connected_users"
+      ) return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_rt_connect", {
+      projectRoot: "/tmp/lattice-overleaf-paper",
+    }));
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByTitle("Attention Is All You Need"));
+
+    const paperEditor = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(paperEditor).toHaveAttribute("contenteditable", "true"));
+    expect(document.querySelector(".ok-block-controls")).not.toBeNull();
+  });
+
+  it("opens a captured webpage without offering it as an arXiv PDF", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{main}";
+      if (command === "list_papers") return [{
+        arxivId: "web-0123456789abcdef",
+        url: "https://example.com/research/article",
+        title: "A captured research article",
+        hasFullText: true,
+        hasBlog: false,
+      }];
+      if (command === "list_history") return [];
+      if (command === "read_paper") return "# A captured research article\n\nArticle content.";
+      if (command === "read_paper_blog") return null;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByTitle("A captured research article"));
+
+    const paperHeader = await waitFor(() => {
+      const header = document.querySelector<HTMLElement>(".paper-visual-header");
+      expect(header).not.toBeNull();
+      return header!;
+    });
+    expect(within(paperHeader).getByRole("heading", { name: "A captured research article" }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "View original PDF" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open article in browser" }));
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/research/article"));
+    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "read_cached_paper_pdf"))
+      .toBe(false);
+  });
+
+  it("streams an arXiv PDF once, caches its assembled bytes, and reopens the cache", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const pdfBytes = new TextEncoder().encode("%PDF-1.7 cached arXiv paper").buffer;
+    let cached = false;
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{main}";
+      if (command === "list_papers") return [{
+        arxivId: "1706.03762v7",
+        title: "Attention Is All You Need",
+        hasFullText: true,
+        hasBlog: false,
+      }];
+      if (command === "list_history") return [];
+      if (command === "read_paper") return "## Abstract\n\nPaper content.";
+      if (command === "read_paper_blog") return null;
+      if (command === "read_cached_paper_pdf") return cached ? pdfBytes : new ArrayBuffer(0);
+      if (command === "cache_paper_pdf") {
+        cached = true;
+        return undefined;
+      }
+      return mockAppCommand(command);
+    });
+    const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
+    const pdf = {
+      numPages: 1,
+      getPage: vi.fn(async () => ({
+        getViewport: () => ({
+          width: 600,
+          height: 800,
+          convertToViewportPoint: (x: number, y: number) => [x, y],
+        }),
+        render: () => renderTask,
+        streamTextContent: () => new ReadableStream(),
+        getAnnotations: async () => [],
+        cleanup: vi.fn(),
+      })),
+      getData: vi.fn(async () => new Uint8Array(pdfBytes)),
+      getDestination: vi.fn(),
+      getPageIndex: vi.fn(),
+      cleanup: vi.fn(),
+    };
+    vi.mocked(getDocument).mockImplementation(() => ({
+      promise: Promise.resolve(pdf),
+      destroy: vi.fn(),
+    }) as never);
+    const NativeURL = globalThis.URL;
+    class TestURL extends NativeURL {
+      static createObjectURL = vi.fn(() => "blob:cached-arxiv-paper");
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+
+    renderApp();
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByTitle("Attention Is All You Need"));
+    fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_cached_paper_pdf", {
+      arxivId: "1706.03762v7",
+    }));
+    await waitFor(() => expect(getDocument).toHaveBeenCalledWith(expect.objectContaining({
+      url: "https://arxiv.org/pdf/1706.03762v7",
+    })));
+    const backToPaper = await screen.findByRole("button", { name: "Back to Paper" });
+    const openInBrowser = screen.getByRole("button", { name: "Open PDF in browser" });
+    const downloadPdf = screen.getByRole("button", { name: "Download PDF" });
+    const paperPdfToolbar = backToPaper.closest(".pdf-toolbar");
+    expect(paperPdfToolbar).toContainElement(openInBrowser);
+    expect(paperPdfToolbar).toContainElement(downloadPdf);
+    expect(backToPaper.querySelector("svg")).toHaveClass("lucide-arrow-left");
+    expect(backToPaper.querySelector("svg")).toHaveAttribute("stroke-width", "2");
+    expect(document.querySelector(".paper-reader-header")).toBeNull();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "cache_paper_pdf",
+      expect.objectContaining({ byteLength: pdfBytes.byteLength }),
+      { headers: { "x-arxiv-id": "MTcwNi4wMzc2MnY3" } },
+    ), { timeout: 2_500 });
+    await waitFor(() => expect(downloadPdf).toBeEnabled());
+    fireEvent.click(openInBrowser);
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://arxiv.org/pdf/1706.03762v7"));
+
+    fireEvent.click(backToPaper);
+    expect(await screen.findByRole("heading", { name: "Abstract" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "View original PDF" }));
+
+    await waitFor(() => expect(TestURL.createObjectURL).toHaveBeenCalledOnce());
+    await waitFor(() => expect(getDocument).toHaveBeenLastCalledWith(expect.objectContaining({
+      url: "blob:cached-arxiv-paper",
+    })));
+    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "read_cached_paper_pdf"))
+      .toHaveLength(2);
+  });
+
+  it("publishes the current visual document before opening a Paper", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
+    };
+    let resolveWrite: (() => void) | null = null;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "Original notes";
+      if (command === "list_papers") return [{
+        arxivId: "2407.06438",
+        title: "Paper target",
+        hasFullText: true,
+      }];
+      if (command === "list_history") return [];
+      if (command === "read_paper") return "# Paper body";
+      if (command === "read_paper_blog") return null;
+      if (command === "write_project_file") {
+        return new Promise<void>((resolve) => { resolveWrite = resolve; });
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
+    act(() => editor.commands.insertContentAt(editor.state.doc.content.size, " updated"));
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByRole("button", { name: /Paper target.*2407\.06438/i }));
+    expect(screen.getByText("Opening Paper target…")).toBeInTheDocument();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "2407.06438" }));
+    // The target Paper read is independent of writing the outgoing notes, so
+    // both should be in flight rather than paying write latency first.
+    expect(resolveWrite).not.toBeNull();
+    act(() => resolveWrite?.());
+
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls).toContainEqual([
+      "write_project_file",
+      expect.objectContaining({
+        path: "notes.md",
+        content: expect.stringMatching(/Original notes[\s\S]*updated/),
+        projectRoot: "/tmp/lattice-paper",
+      }),
+    ]));
+    expect(await screen.findByRole("heading", { name: "Paper body" })).toBeInTheDocument();
+    expect(screen.queryByText("Original notes updated")).toBeNull();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "write_project_file",
+      expect.objectContaining({
+        path: ".research/papers/2407.06438/paper.md",
+        content: expect.stringContaining("Original notes"),
+      }),
+    );
+  });
+
+  it("keeps the current document when it is edited during a delayed Paper read", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
+    };
+    let resolvePaper: ((value: string) => void) | null = null;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "Original notes";
+      if (command === "list_papers") return [{
+        arxivId: "2407.06438",
+        title: "Delayed paper",
+        hasFullText: true,
+      }];
+      if (command === "list_history") return [];
+      if (command === "read_paper") {
+        return new Promise<string>((resolve) => { resolvePaper = resolve; });
+      }
+      if (command === "read_paper_blog") return null;
+      if (command === "write_project_file") return undefined;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByRole("button", { name: /Delayed paper.*2407\.06438/i }));
+    await waitFor(() => expect(resolvePaper).not.toBeNull());
+
+    act(() => editor.commands.insertContentAt(editor.state.doc.content.size, " late edit"));
+    act(() => resolvePaper?.("# Paper must not replace the edit"));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(editor.getText()).toMatch(/Original notes[\s\S]*late edit/);
+    expect(screen.queryByRole("heading", { name: "Paper must not replace the edit" })).toBeNull();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "write_project_file",
+      expect.objectContaining({
+        path: ".research/papers/2407.06438/paper.md",
+        content: expect.stringContaining("Original notes"),
+      }),
+    );
+  });
+
+  it("keeps only the latest Paper when overlapping reads finish out of order", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const paperResolvers = new Map<string, (value: string) => void>();
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{main}";
+      if (command === "list_papers") return [
+        { arxivId: "2407.06438", title: "First paper", hasFullText: true },
+        { arxivId: "2103.00020", title: "Second paper", hasFullText: true },
+      ];
+      if (command === "list_history") return [];
+      if (command === "read_paper") {
+        return new Promise<string>((resolve) => {
+          paperResolvers.set((args as { arxivId: string }).arxivId, resolve);
+        });
+      }
+      if (command === "read_paper_blog") return null;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByTitle("First paper"));
+    await waitFor(() => expect(paperResolvers.has("2407.06438")).toBe(true));
+    fireEvent.click(screen.getByTitle("Second paper"));
+    await waitFor(() => expect(paperResolvers.has("2103.00020")).toBe(true));
+
+    act(() => paperResolvers.get("2103.00020")?.("# Second body"));
+    expect(await screen.findByRole("heading", { name: "Second body" })).toBeInTheDocument();
+    act(() => paperResolvers.get("2407.06438")?.("# First body"));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(screen.getByText("Second paper", { selector: ".active-document span" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Second body" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "First body" })).toBeNull();
+  });
+
   it("remembers the selected paper content when reopening an article", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -2131,7 +2787,7 @@ describe("project workspace", () => {
       }];
       if (command === "list_history") return [];
       if (command === "read_paper") return "## Abstract\n\nPaper content.";
-      if (command === "read_paper_blog") return "# Attention overview\n\nBlog content.";
+      if (command === "read_paper_blog_local") return "# Attention overview\n\nBlog content.";
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
@@ -2157,8 +2813,14 @@ describe("project workspace", () => {
       .toHaveAttribute("aria-selected", "true"));
   });
 
-  it("uses Pierre path search while keeping indexed full-text search available", async () => {
-    const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
+  it("opens indexed full-text search from the Project sidebar and opens file and Blog hits", async () => {
+    const paper = {
+      arxivId: "2407.06438",
+      title: "A Single Transformer",
+      citationKey: "chen2024single",
+      hasFullText: true,
+      hasBlog: true,
+    };
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -2169,48 +2831,69 @@ describe("project workspace", () => {
         primaryBibliography: "references.bib",
         trusted: false,
       },
-      files: [{ name: "method.tex", path: "sections/method.tex", kind: "tex", children: [] }],
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
+      ],
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "line one\nline two\nA latent alignment objective.\n";
+      if (command === "read_project_file") {
+        return (args as { path: string }).path === "references.bib"
+          ? "Bibliography\n@article{chen2024single, title={A Single Transformer}}\n"
+          : "Main document\n";
+      }
       if (command === "list_papers") return [paper];
       if (command === "list_history") return [];
+      if (command === "read_paper") return "# Full paper\n\nTransformer details.";
+      if (command === "read_paper_blog_local") {
+        return "# Chen overview\n\nA residual stream explanation.";
+      }
       if (command === "search_project") return [
-        { kind: "file", path: "sections/method.tex", title: "method.tex", snippet: "A latent alignment objective.", line: 3, fileKind: "tex" },
-        { kind: "paper", path: ".research/papers/1706.03762/paper.md", title: paper.title, snippet: "The model relies entirely on self-attention.", arxivId: paper.arxivId },
+        {
+          kind: "file",
+          path: "references.bib",
+          title: "references.bib",
+          snippet: "@article{chen2024single, title={A Single Transformer}}",
+          line: 2,
+          fileKind: "bib",
+        },
+        {
+          kind: "paper",
+          path: ".research/papers/2407.06438/blog.md",
+          title: paper.title,
+          snippet: "A residual stream explanation.",
+          line: 3,
+          arxivId: paper.arxivId,
+        },
       ];
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
     renderApp();
-    const searchToggle = await screen.findByRole("button", { name: "Search files" });
-    fireEvent.click(searchToggle);
-    let input = await findProjectTreeSearchInput();
-    input.focus();
-    expect(fireEvent.pointerDown(searchToggle)).toBe(false);
-    fireEvent.click(searchToggle);
-    await waitFor(() => expect(searchToggle).toHaveAttribute("aria-pressed", "false"));
-
-    fireEvent.click(searchToggle);
-    input = await findProjectTreeSearchInput();
-    fireEvent.input(input, { target: { value: "method" } });
-    expect(await findProjectTreeItem("sections/method.tex")).toBeInTheDocument();
-    expect(invoke).not.toHaveBeenCalledWith("search_project", expect.anything());
-
-    fireEvent.keyDown(window, { key: "f", metaKey: true, shiftKey: true });
-    fireEvent.change(await screen.findByLabelText("Query"), { target: { value: "alignment" } });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_project", { query: "alignment" }));
-    expect(await screen.findByText("A latent alignment objective.", {
+    fireEvent.click(await screen.findByRole("button", { name: "Find in project" }));
+    fireEvent.change(await screen.findByRole("searchbox", { name: "Find in project" }), {
+      target: { value: "chen" },
+    });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_project", { query: "chen" }));
+    expect(await screen.findByText(/@article\{chen2024single/, {
       selector: ".project-replace-hit-preview",
     })).toBeInTheDocument();
-    expect(screen.getByText("The model relies entirely on self-attention.")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("sections/method.tex:3"));
+    fireEvent.click(screen.getByText("references.bib:2"));
     await waitFor(() => {
       const editorElement = document.querySelector<HTMLElement>(".cm-editor");
       const view = editorElement ? EditorView.findFromDOM(editorElement) : null;
-      expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(3);
+      expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(2);
     });
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Open paper result: A Single Transformer",
+    }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "read_paper_blog_local",
+      { arxivId: "2407.06438" },
+    ));
+    expect(await screen.findByRole("heading", { name: "Chen overview" })).toBeInTheDocument();
   });
 
   it("ignores full-text search results that arrive after a newer query", async () => {
@@ -3372,6 +4055,60 @@ describe("project workspace", () => {
     Reflect.deleteProperty(document, "elementFromPoint");
   });
 
+  it("limits Quick Open to files and previews SVG files as images", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        {
+          name: "figures",
+          path: "figures",
+          kind: "directory",
+          children: [
+            // Some scanners classify SVG as text. Opening is extension-based,
+            // so Quick Open must still route it to the image preview.
+            { name: "diagram.svg", path: "figures/diagram.svg", kind: "text", contentKind: "text", children: [] },
+          ],
+        },
+        { name: "empty", path: "empty", kind: "directory", contentKind: "directory", children: [] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "read_project_asset") {
+        return {
+          path: (args as { path: string }).path,
+          mimeType: "image/svg+xml",
+          base64: "PHN2Zy8+",
+        };
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByRole("tab", { name: /main\.tex/ });
+    fireEvent.keyDown(window, { key: "p", metaKey: true });
+
+    const list = await screen.findByRole("listbox");
+    expect(within(list).queryByRole("option", { name: "figures" })).toBeNull();
+    expect(within(list).queryByRole("option", { name: "empty" })).toBeNull();
+    fireEvent.click(within(list).getByRole("option", { name: "figures/diagram.svg" }));
+
+    expect(await screen.findByAltText("Preview of figures/diagram.svg")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: "figures/diagram.svg" });
+    expect(invoke).not.toHaveBeenCalledWith("read_project_file", expect.objectContaining({ path: "figures/diagram.svg" }));
+  });
+
   it("previews SVG figures and inserts them at the editor drop position", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -3493,6 +4230,10 @@ describe("project workspace", () => {
     });
     expect(await screen.findByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByLabelText("PDF page 1")).toBeInTheDocument();
+    expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      disableFontFace: true,
+      useSystemFonts: false,
+    }));
     expect(screen.getByLabelText("Search PDF").closest(".pdf-find-controls"))
       .toHaveClass("without-outline");
 
@@ -3714,7 +4455,10 @@ describe("project workspace", () => {
     await Promise.resolve();
     act(() => firstPageIntersection?.notify(true));
     await Promise.resolve();
-    expect(renderPdfPage).toHaveBeenCalledTimes(2);
+    expect(renderPdfPage.mock.calls.length).toBeGreaterThanOrEqual(2);
+    // Every page gets a quick CSS-pixel preview before an offscreen high-DPI
+    // refinement, so fast scrolling never waits on the final-quality pass.
+    await waitFor(() => expect(renderPdfPage).toHaveBeenCalledTimes(4));
     expect(renderTask.cancel).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(document.querySelector(".pdf-text-layer span")).toHaveTextContent("Attention is all you need");
@@ -3763,6 +4507,7 @@ describe("project workspace", () => {
     const revealCursor = screen.getByRole("button", { name: /Reveal cursor in PDF/i });
     const pdfZoomControls = fitWidth.closest(".pdf-zoom-controls");
     expect(pdfZoomControls).toContainElement(revealCursor);
+    expect(pdfZoomControls?.querySelectorAll(".pdf-fit-divider")).toHaveLength(2);
     const pdfButtons = Array.from(pdfZoomControls!.querySelectorAll<HTMLElement>("button"));
     expect(pdfButtons.indexOf(revealCursor)).toBeLessThan(pdfButtons.indexOf(fitWidth));
     const editorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
@@ -4494,6 +5239,134 @@ describe("project workspace", () => {
     expect(await screen.findByTitle("Remove Attention Is All You Need")).toBeInTheDocument();
   });
 
+  it("saves the visible source before checking whether a paper is still cited", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const paper = { arxivId: "2407.06438", title: "A Single Transformer", citationKey: "chen2024single", hasFullText: true };
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    let diskSource = "See \\cite{chen2024single}.\n";
+    let sourceAtPreview = "";
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") {
+        return (args as { path: string }).path === "main.tex" ? diskSource : "";
+      }
+      if (command === "write_project_file") {
+        const write = args as { path: string; content: string };
+        if (write.path === "main.tex") diskSource = write.content;
+        return undefined;
+      }
+      if (command === "list_papers") return [paper];
+      if (command === "list_history") return [];
+      if (command === "remove_reference") {
+        const citationMode = (args as { citationMode?: string }).citationMode;
+        if (citationMode === "preview") {
+          sourceAtPreview = diskSource;
+          return { key: paper.citationKey, removed: false, blockers: [], changedFiles: [], removedCitations: 0 };
+        }
+        return { key: paper.citationKey, removed: true, blockers: [], changedFiles: ["references.bib"], removedCitations: 0 };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const editorElement = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const view = EditorView.findFromDOM(editorElement);
+    if (!view) throw new Error("CodeMirror view was not available");
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "The citation was removed.\n" } });
+
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByTitle("Remove A Single Transformer"));
+    await waitFor(() => expect(sourceAtPreview).toBe("The citation was removed.\n"));
+    expect(sourceAtPreview).not.toContain("chen2024single");
+  });
+
+  it("offers cited-paper removal with and without its citation commands", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const paper = { arxivId: "2407.06438", title: "A Single Transformer", citationKey: "chen2024single", hasFullText: true };
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    let diskSource = "See \\cite{chen2024single}.\n";
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") {
+        return (args as { path: string }).path === "main.tex" ? diskSource : "";
+      }
+      if (command === "list_papers") return [paper];
+      if (command === "list_history") return [];
+      if (command === "remove_reference") {
+        const citationMode = (args as { citationMode?: string }).citationMode;
+        if (citationMode === "preview") {
+          return {
+            key: paper.citationKey,
+            removed: false,
+            blockers: [{ kind: "citation", symbol: paper.citationKey, role: "reference", path: "main.tex", line: 1, snippet: diskSource }],
+            changedFiles: [],
+            removedCitations: 0,
+          };
+        }
+        const before = diskSource;
+        if (citationMode === "remove") diskSource = "See .\n";
+        return {
+          key: paper.citationKey,
+          removed: true,
+          blockers: [],
+          changedFiles: citationMode === "remove" ? ["main.tex", "references.bib"] : ["references.bib"],
+          removedCitations: citationMode === "remove" ? 1 : 0,
+          transactionId: "remove-chen",
+          changes: citationMode === "remove"
+            ? [
+                { path: "main.tex", before, after: diskSource },
+                { path: "references.bib", before: "@article{chen2024single}\n", after: "" },
+              ]
+            : [{ path: "references.bib", before: "@article{chen2024single}\n", after: "" }],
+        };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByTitle("Remove A Single Transformer"));
+    const dialog = await screen.findByRole("dialog", { name: "Remove “A Single Transformer” from the bibliography?" });
+    expect(dialog).toHaveAccessibleDescription(/cited in 1 place.*main\.tex:1.*leave them unresolved/i);
+    fireEvent.click(screen.getByRole("button", { name: "Remove citations too" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("remove_reference", {
+      key: "chen2024single",
+      citationMode: "remove",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    await waitFor(() => {
+      const editor = document.querySelector<HTMLElement>(".cm-editor");
+      expect(editor ? EditorView.findFromDOM(editor)?.state.doc.toString() : null).toBe("See .\n");
+    });
+  });
+
   it("deletes a history entry without creating another one", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -4711,7 +5584,10 @@ describe("project workspace", () => {
     }));
     await switchSidebarMode("Papers");
     fireEvent.click(screen.getByTitle("Remove Attention Is All You Need"));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("remove_reference", { key: "vaswani2017attention" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("remove_reference", {
+      key: "vaswani2017attention",
+      projectRoot: "/tmp/lattice-paper",
+    }));
   });
 
   it("creates a board from the header button with an inline name", async () => {

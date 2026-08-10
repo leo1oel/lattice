@@ -2,6 +2,7 @@ import type { Nodes, Paragraph, PhrasingContent, Root, RootContent, Text } from 
 import { SKIP, visit } from 'unist-util-visit';
 import type { VFile } from 'vfile';
 import type { CommentBlockMdast, CommentMdast } from './mdast-augmentation.ts';
+import { parseTableSpanLayoutMarker } from '../extensions/table-fidelity.ts';
 import {
   deriveFragmentPosition,
   escapedValueOffsets,
@@ -57,6 +58,94 @@ export function commentPromoterPlugin() {
       arr.splice(index, 1, ...replacements);
       return [SKIP, index + replacements.length];
     });
+  };
+}
+
+function promotedCommentText(node: CommentBlockMdast): string {
+  const collect = (value: unknown): string => {
+    if (!value || typeof value !== 'object') return '';
+    const candidate = value as { type?: unknown; value?: unknown; children?: unknown };
+    if (
+      (candidate.type === 'mdxTextExpression' || candidate.type === 'mdxFlowExpression')
+      && typeof candidate.value === 'string'
+    ) return `{${candidate.value}}`;
+    if (typeof candidate.value === 'string') return candidate.value;
+    return Array.isArray(candidate.children) ? candidate.children.map(collect).join('') : '';
+  };
+  return collect(node).trim();
+}
+
+function tableAcceptsSpanLayout(
+  table: Extract<RootContent, { type: 'table' }>,
+  layout: ReadonlyArray<readonly [number, number, number, number]>,
+): boolean {
+  const matrix = table.children.map((row) => row.children);
+  const width = matrix[0]?.length ?? 0;
+  if (width === 0 || matrix.some((row) => row.length !== width)) return false;
+  const occupied = matrix.map(() => Array.from({ length: width }, () => false));
+  const semanticContent = (cell: (typeof matrix)[number][number]): string => JSON.stringify(
+    cell.children,
+    (key, value) => (key === 'position' ? undefined : value),
+  );
+  const isEmpty = (cell: (typeof matrix)[number][number]): boolean => cell.children.length === 0;
+  for (const [row, column, rowspan, colspan] of layout) {
+    if (row + rowspan > matrix.length || column + colspan > width) return false;
+    const origin = matrix[row]?.[column];
+    if (!origin) return false;
+    const originContent = semanticContent(origin);
+    for (let coveredRow = row; coveredRow < row + rowspan; coveredRow++) {
+      for (let coveredColumn = column; coveredColumn < column + colspan; coveredColumn++) {
+        const cell = matrix[coveredRow]?.[coveredColumn];
+        if (
+          !cell
+          || occupied[coveredRow]?.[coveredColumn]
+          || (semanticContent(cell) !== originContent && !isEmpty(cell))
+        ) return false;
+        occupied[coveredRow]![coveredColumn] = true;
+      }
+    }
+  }
+  return true;
+}
+
+function tableSpanMarkerText(candidate: RootContent | undefined): string | null {
+  if (candidate?.type === 'commentBlock') {
+    return promotedCommentText(candidate as unknown as CommentBlockMdast);
+  }
+  if (candidate?.type === 'html') return matchHtmlCommentBlock(candidate.value);
+  if (candidate?.type !== 'paragraph') return null;
+  return matchHtmlCommentBlock(promotedCommentText(candidate as unknown as CommentBlockMdast));
+}
+
+function promoteTableSpanLayoutsInChildren(children: RootContent[]): void {
+  for (let index = 0; index < children.length - 1;) {
+    const candidate = children[index];
+    const table = children[index + 1];
+    if (table?.type !== 'table') {
+      index += 1;
+      continue;
+    }
+    const markerText = tableSpanMarkerText(candidate);
+    const layout = markerText === null ? null : parseTableSpanLayoutMarker(markerText);
+    if (layout === null || !tableAcceptsSpanLayout(table, layout)) {
+      index += 1;
+      continue;
+    }
+    table.data ??= {};
+    table.data.sourceSpanLayout = layout;
+    children.splice(index, 1);
+  }
+
+  for (const child of children) {
+    if (child.type === 'table' || !('children' in child) || !Array.isArray(child.children)) continue;
+    promoteTableSpanLayoutsInChildren(child.children as RootContent[]);
+  }
+}
+
+/** Consume a machine layout comment only when it directly owns the next table. */
+export function tableSpanLayoutPromoterPlugin() {
+  return (tree: Root) => {
+    promoteTableSpanLayoutsInChildren(tree.children);
   };
 }
 

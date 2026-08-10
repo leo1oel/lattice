@@ -344,9 +344,15 @@ export type ConfirmActionOptions = {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  alternativeLabel?: string;
+  alternativeDestructive?: boolean;
 };
 
-type ConfirmActionHandler = (options: ConfirmActionOptions) => Promise<boolean>;
+export type ConfirmActionChoice = "confirm" | "alternative" | "cancel";
+
+type ConfirmActionHandler = (
+  options: ConfirmActionOptions,
+) => Promise<ConfirmActionChoice | boolean>;
 
 let confirmActionHandler: ConfirmActionHandler | null = null;
 
@@ -483,9 +489,34 @@ export async function confirmAction(
   request: string | ConfirmActionOptions,
 ): Promise<boolean> {
   const options = typeof request === "string" ? { message: request } : request;
-  if (confirmActionHandler) return confirmActionHandler(options);
+  if (confirmActionHandler) {
+    const answer = await confirmActionHandler(options);
+    return answer === true || answer === "confirm";
+  }
   return confirmDialog(options.message, {
     title: options.title ?? "Lattice",
     kind: "warning",
   });
+}
+
+/**
+ * Ask a consequential question with two explicit actions plus Cancel.
+ *
+ * The native fallback can only represent confirm/cancel. The mounted app
+ * always installs ConfirmActionProvider, which exposes the alternative; the
+ * fallback keeps scripts and isolated component tests safely cancellable.
+ */
+export async function chooseAction(
+  options: ConfirmActionOptions & { alternativeLabel: string },
+): Promise<ConfirmActionChoice> {
+  if (confirmActionHandler) {
+    const answer = await confirmActionHandler(options);
+    if (answer === true) return "confirm";
+    if (answer === false) return "cancel";
+    return answer;
+  }
+  return await confirmDialog(options.message, {
+    title: options.title ?? "Lattice",
+    kind: "warning",
+  }) ? "confirm" : "cancel";
 }

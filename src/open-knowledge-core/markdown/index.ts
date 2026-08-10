@@ -9,6 +9,7 @@ import {
 import type { Extensions, JSONContent } from '@tiptap/core';
 import { getSchema } from '@tiptap/core';
 import type { Mark as PmMark, Node as PmNode, Schema } from '@tiptap/pm/model';
+import { TableMap } from '@tiptap/pm/tables';
 import type {
   AlignType,
   Blockquote,
@@ -55,6 +56,10 @@ import {
 } from '../bridge/structural-freshness.ts';
 import type { LinkStyle } from '../extensions/link-fidelity.ts';
 import { isValidSourceLiteralRaw } from '../extensions/source-literal-mark.ts';
+import {
+  normalizeTableSpanLayout,
+  tableSpanLayoutForPmTable,
+} from '../extensions/table-fidelity.ts';
 import { createRegistry } from '../registry/index.ts';
 import type { PropDef } from '../registry/types.ts';
 import type {
@@ -437,8 +442,18 @@ function buildMdastToPmHandlers(
       const sourceDashCounts = node.data?.sourceDashCounts ?? null;
       const sourceOuterPipes = node.data?.sourceOuterPipes ?? null;
       const sourceAlignmentPadding = node.data?.sourceAlignmentPadding ?? null;
+      const sourceSpanLayout = normalizeTableSpanLayout(node.data?.sourceSpanLayout);
+      const sourceColumnAlignments = alignArray.map((align) => (
+        align === 'left' || align === 'right' || align === 'center' ? align : null
+      ));
       return n.table.createAndFill(
-        { sourceDashCounts, sourceOuterPipes, sourceAlignmentPadding },
+        {
+          sourceDashCounts,
+          sourceOuterPipes,
+          sourceAlignmentPadding,
+          sourceSpanLayout,
+          sourceColumnAlignments,
+        },
         pmRows.length > 0 ? pmRows : null,
       );
     };
@@ -806,10 +821,6 @@ function buildMdastToPmHandlers(
         const id = extractStringAttr(node, 'id');
         return n.mathInline.create({ formula, id: id ?? null });
       }
-      if (node.name === 'Tag' && n.tag) {
-        const value = extractStringAttr(node, 'value') ?? '';
-        return n.tag.create({ value });
-      }
       const inlineName = node.name ?? '';
       const inlineDescriptor = inlineName ? registry.get(inlineName) : undefined;
       if (inlineDescriptor && n.jsxInline) {
@@ -862,11 +873,6 @@ function buildMdastToPmHandlers(
         sourceAnchor: node.data?.sourceAnchor ?? null,
         sourceAlias: node.data?.sourceAlias ?? null,
       });
-  }
-
-  if (n.tag) {
-    handlers.tag = (node: { type: 'tag'; value: string }) =>
-      n.tag.createAndFill({ value: node.value });
   }
 
   if (n.wikiLinkEmbed) {
@@ -1229,12 +1235,81 @@ function buildPmToMdastHandlers(
       if (firstRow) {
         firstRow.forEach((cell) => {
           const a = cell.attrs.align;
-          align.push(a === 'left' || a === 'right' || a === 'center' ? a : null);
+          const cellAlign = a === 'left' || a === 'right' || a === 'center' ? a : null;
+          const colspan = Number.isInteger(cell.attrs.colspan) && cell.attrs.colspan > 0
+            ? cell.attrs.colspan as number
+            : 1;
+          for (let column = 0; column < colspan; column++) align.push(cellAlign);
         });
       }
-      const rows = childrenMdast.filter(
+      const sourceColumnAlignments = pmNode.attrs.sourceColumnAlignments;
+      if (
+        Array.isArray(sourceColumnAlignments)
+        && sourceColumnAlignments.length === align.length
+        && sourceColumnAlignments.every((value) => (
+          value === null || value === 'left' || value === 'right' || value === 'center'
+        ))
+      ) {
+        align.splice(0, align.length, ...sourceColumnAlignments as AlignType[]);
+      }
+      let rows = childrenMdast.filter(
         (c): c is TableRow => (c as MdastNodes).type === 'tableRow',
       );
+      const hasSpans = (() => {
+        let found = false;
+        pmNode.descendants((cell) => {
+          if (
+            (cell.type === n.tableCell || cell.type === n.tableHeader)
+            && (cell.attrs.colspan > 1 || cell.attrs.rowspan > 1)
+          ) found = true;
+          return !found;
+        });
+        return found;
+      })();
+      if (hasSpans) {
+        if (rows.length !== pmNode.childCount) {
+          throw new Error('Cannot serialize table spans: a row lost its mdast representation');
+        }
+        const map = TableMap.get(pmNode);
+        if (map.problems) {
+          throw new Error(`Cannot serialize malformed table spans: ${JSON.stringify(map.problems)}`);
+        }
+        const cellsByPosition = new Map<number, TableCell>();
+        let rowPosition = 0;
+        for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+          const pmRow = pmNode.child(rowIndex);
+          const mdastRow = rows[rowIndex];
+          if (!mdastRow || mdastRow.children.length !== pmRow.childCount) {
+            throw new Error('Cannot serialize table spans: ProseMirror and mdast rows disagree');
+          }
+          let cellPosition = rowPosition + 1;
+          for (let cellIndex = 0; cellIndex < pmRow.childCount; cellIndex++) {
+            const pmCell = pmRow.child(cellIndex);
+            const mdastCell = mdastRow.children[cellIndex];
+            if (!mdastCell) {
+              throw new Error('Cannot serialize table spans: a cell lost its mdast representation');
+            }
+            cellsByPosition.set(cellPosition, mdastCell);
+            cellPosition += pmCell.nodeSize;
+          }
+          rowPosition += pmRow.nodeSize;
+        }
+        rows = rows.map((row, rowIndex) => ({
+          ...row,
+          children: Array.from({ length: map.width }, (_, columnIndex) => {
+            const cellPosition = map.map[rowIndex * map.width + columnIndex];
+            const cell = cellPosition == null ? undefined : cellsByPosition.get(cellPosition);
+            if (!cell) {
+              throw new Error('Cannot serialize table spans: the logical grid contains a hole');
+            }
+            return {
+              ...cell,
+              children: [...cell.children],
+              ...(cell.data ? { data: { ...cell.data } } : {}),
+            };
+          }),
+        }));
+      }
       const sourceDashCounts = pmNode.attrs.sourceDashCounts;
       const tableData: NonNullable<Table['data']> = {};
       if (Array.isArray(sourceDashCounts) && sourceDashCounts.length > 0) {
@@ -1252,6 +1327,9 @@ function buildPmToMdastHandlers(
       const alignPadding = pmNode.attrs.sourceAlignmentPadding;
       if (Array.isArray(alignPadding) && alignPadding.length > 0) {
         tableData.sourceAlignmentPadding = alignPadding as Array<{ left: number; right: number }>;
+      }
+      if (pmNode.attrs.sourceSpanLayout !== null && pmNode.attrs.sourceSpanLayout !== undefined) {
+        tableData.sourceSpanLayout = tableSpanLayoutForPmTable(pmNode);
       }
       const data: Table['data'] | undefined =
         Object.keys(tableData).length > 0 ? tableData : undefined;
@@ -1470,14 +1548,6 @@ function buildPmToMdastHandlers(
         children: [{ type: 'text' as const, value: label }],
       } as unknown as MdastNodes;
     };
-  }
-
-  if (n.tag) {
-    nodeHandlers.tag = (pmNode: PmNode) =>
-      ({
-        type: 'tag' as const,
-        value: String(pmNode.attrs.value ?? ''),
-      }) as unknown as MdastNodes;
   }
 
   if (n.wikiLinkEmbed) {

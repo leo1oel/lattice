@@ -262,8 +262,8 @@
     padding: 0;
   }
 
-  /* Preflight heading normalization: upstream styles h1–h3 itself and
-   * expects h4–h6 to render as plain inherited text. */
+  /* Preflight heading normalization. editor-globals.css reapplies the visual
+   * hierarchy for h1–h6 on top of this neutral baseline. */
   :where(.tiptap-editor, [data-tippy-root], [data-suggestion-popup], [data-ok-layer-spawned], [data-ok-vendor])
     :where(h1, h2, h3, h4, h5, h6) {
     font-size: inherit;

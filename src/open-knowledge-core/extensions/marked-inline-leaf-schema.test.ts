@@ -7,7 +7,7 @@
  * sets `marks` — leaving `allowsMarkType(strong) === false`. While that holds, a
  * real editor transaction can strip a parse-produced mark (schema normalization)
  * and the user cannot apply one (`toggleBold` no-ops), so formatting on a
- * wikilink/image/tag/math/hard-break survives storage but not editing.
+ * wikilink/image/math/hard-break survives storage but not editing.
  *
  * This pins the legality itself: every inline leaf the markdown pipeline can wrap
  * in emphasis must accept those marks. See the editing/collab coverage in
@@ -22,10 +22,9 @@ import { sharedExtensions } from './shared.ts';
 const schema = getSchema(sharedExtensions);
 
 // Inline leaf/atom nodes the markdown pipeline can attach emphasis marks to via
-// `**[[a]]**`, `*![alt](x)*`, `~~$x$~~`, `**#tag**`, `**[^1]**`, `**a<br>b**`, etc.
+// `**[[a]]**`, `*![alt](x)*`, `~~$x$~~`, `**[^1]**`, `**a<br>b**`, etc.
 const MARKED_INLINE_LEAF_NODES = [
   'wikiLink',
-  'tag',
   'mathInline',
   'imageReference',
   'image',

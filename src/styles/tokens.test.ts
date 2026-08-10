@@ -295,6 +295,12 @@ describe("design token contract", () => {
     expect(appCss).not.toMatch(/\.synara-[a-z-]*\s+\.(?!synara)/)
   })
 
+  it("keeps the embedded Synara surface visible while panels resize", () => {
+    // The iframe should follow the divider continuously instead of being hidden
+    // behind a host pseudo-element for the duration of the drag.
+    expect(appCss).not.toMatch(/body\.resizing-panels\s+\.synara-frame-shell::/)
+  })
+
   it("routes the third-party file tree through override tokens", () => {
     expect(appCss).toMatch(/--trees-[a-z-]+-override:/)
     // Pierre's own class names stay out of host stylesheets.

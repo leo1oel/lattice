@@ -172,8 +172,8 @@ input[type="search"]:focus-visible {
 .editor-status-bar .status-hint kbd { font: inherit; color: var(--text-secondary); }
 .editor-status-bar .editor-breadcrumb { min-width: 0; flex: 1 1 auto; overflow: hidden; color: var(--text-secondary); text-align: center; }
 .quick-open-modal { width: min(520px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
-.quick-open-header { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; }
-.quick-open-header button { width: var(--control-size-icon); height: var(--control-size-icon); border: 0; border-radius: var(--radius-chrome); background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
+.quick-open-header { position: relative; padding: var(--space-4) var(--space-5); display: flex; align-items: center; }
+.quick-open-header::after { content: ""; position: absolute; inset-inline: var(--space-5); bottom: 0; height: 1px; background: var(--border-subtle); }
 .quick-open-list { --surface-radius: var(--radius-dialog); --surface-inset: var(--space-3); max-height: min(360px, 50vh); overflow: auto; padding: var(--surface-inset); display: grid; gap: var(--space-1); }
 .quick-open-list button { min-height: var(--control-height-default); border: 0; border-radius: var(--nested-radius); padding: 7px var(--space-5); background: transparent; color: var(--text-secondary); text-align: left; font-size: var(--type-label-size); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
 .quick-open-list button.active, .quick-open-list button:hover { background: var(--control-active-soft); color: var(--control-active); }
@@ -189,7 +189,8 @@ input[type="search"]:focus-visible {
 .cm-latex-tooltip-description { margin: 0 0 var(--space-3); }
 .cm-latex-tooltip-syntax, .cm-latex-tooltip-example { margin: 0; font-family: var(--editor-font); color: var(--text-secondary); white-space: pre-wrap; }
 .cm-latex-tooltip-package { margin-top: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); }
-.canvas-body { flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.canvas-body { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.primary-opening-overlay { position: absolute; inset: 0; z-index: var(--z-editor-popover); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: color-mix(in srgb, var(--surface-app) 82%, transparent); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); pointer-events: none; }
 .canvas-tour-card-anchor { position: fixed; right: 24px; bottom: 20px; width: 1px; height: 1px; pointer-events: none; }
 /* The titlebar overrides this height to fill its single chrome row. Keeping the
    strip's own default compact also makes the component usable in isolation. */
@@ -305,10 +306,6 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 .sidebar-resizer::before { content: ""; position: absolute; top: 10px; bottom: 0; left: 0; width: 1px; background: transparent; transition: background var(--duration-quick), box-shadow var(--duration-quick); }
 .sidebar-resizer:hover::before, .sidebar-resizer:focus-visible::before, body.resizing-panels .sidebar-resizer::before { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
 body.resizing-panels { cursor: col-resize; user-select: none; }
-/* WKWebView can expose the iframe's default white backing layer while its
-   cross-origin surface is being retiled. Cover that transient layer with the
-   themed host surface for the duration of the drag. */
-body.resizing-panels .synara-frame-shell::before { content: ""; position: absolute; z-index: 3; inset: 0; pointer-events: none; background: var(--surface-sidebar); }
 .navigator { display: flex; flex-direction: column; overflow: hidden; }
 .sidebar-mode-header { position: relative; height: var(--navigation-header-height); flex: none; padding: 5px var(--space-4) 5px var(--space-6); display: flex; align-items: center; gap: var(--space-4); }
 .sidebar-mode-tabs { --navigation-tabs-tier-width: calc(var(--navigation-control-height) + var(--navigation-control-height) + var(--navigation-control-height) + var(--navigation-tab-gap) + var(--navigation-tab-gap)); width: var(--navigation-tabs-tier-width); min-width: var(--navigation-tabs-tier-width); padding: 0; display: flex; flex: none; gap: var(--navigation-tab-gap); overflow: visible; border-radius: var(--radius-chrome); background: transparent; }

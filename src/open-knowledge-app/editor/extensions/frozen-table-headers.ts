@@ -110,11 +110,12 @@ export function computeFreezeRange(
   tableTop: number,
   tableHeight: number,
   headerHeight: number,
+  topOffset = TOOLBAR_HEIGHT,
 ): FreezeRange | null {
   const maxShift = tableHeight - headerHeight;
   if (maxShift <= 0) return null;
   // The scroll offset at which the table's top crosses the toolbar boundary.
-  const startOffset = scrollTop + tableTop - (containerTop + TOOLBAR_HEIGHT);
+  const startOffset = scrollTop + tableTop - (containerTop + topOffset);
   return { startOffset, endOffset: startOffset + maxShift, maxShift };
 }
 
@@ -263,6 +264,7 @@ function applyScrollDrivenFreeze(
   timeline: AnimationTimeline,
   range: FreezeRange,
   scrollMax: number,
+  occludeTop: boolean,
 ): void {
   const zIndex = cellZIndex(cell);
   const prev = appliedFreezes.get(cell);
@@ -282,22 +284,26 @@ function applyScrollDrivenFreeze(
   // non-composited properties demotes the whole animation to the main thread).
   const transformAnimation = cell.animate(buildShiftKeyframes(range, scrollMax), base);
   const chromeAnimation = cell.animate(buildChromeKeyframes(range, scrollMax, zIndex), base);
-  const occluderAnimation = cell.animate(buildOccluderKeyframes(range, scrollMax), {
-    ...base,
-    pseudoElement: '::before',
-  });
+  const occluderAnimation = occludeTop
+    ? cell.animate(buildOccluderKeyframes(range, scrollMax), {
+        ...base,
+        pseudoElement: '::before',
+      })
+    : null;
   appliedFreezes.set(cell, {
     kind: 'sd',
     zIndex,
     startOffset: range.startOffset,
     maxShift: range.maxShift,
     scrollMax,
-    animations: [transformAnimation, chromeAnimation, occluderAnimation],
+    animations: occluderAnimation
+      ? [transformAnimation, chromeAnimation, occluderAnimation]
+      : [transformAnimation, chromeAnimation],
   });
 }
 
 /** Fallback path (no ScrollTimeline): instant effect at the current shift. */
-function applyInstantFreeze(cell: HTMLTableCellElement, shift: number): void {
+function applyInstantFreeze(cell: HTMLTableCellElement, shift: number, occludeTop: boolean): void {
   const zIndex = cellZIndex(cell);
   // Whole pixels only: this runs per scroll frame, and a fractional change
   // in shift is invisible but would cancel and rebuild both animations.
@@ -309,16 +315,18 @@ function applyInstantFreeze(cell: HTMLTableCellElement, shift: number): void {
     [{ transform: `translateY(${rounded}px)`, zIndex, boxShadow: FROZEN_SHADOW }],
     { duration: 0, fill: 'forwards' },
   );
-  const occluderAnimation = cell.animate([{ opacity: '1' }], {
-    duration: 0,
-    fill: 'forwards',
-    pseudoElement: '::before',
-  });
+  const occluderAnimation = occludeTop
+    ? cell.animate([{ opacity: '1' }], {
+        duration: 0,
+        fill: 'forwards',
+        pseudoElement: '::before',
+      })
+    : null;
   appliedFreezes.set(cell, {
     kind: 'in',
     zIndex,
     shift: rounded,
-    animations: [animation, occluderAnimation],
+    animations: occluderAnimation ? [animation, occluderAnimation] : [animation],
   });
 }
 
@@ -326,6 +334,8 @@ function computeAndApplyFrozenHeaders(
   scrollEl: HTMLElement,
   editorDom: HTMLElement,
   timeline: AnimationTimeline | null,
+  topOffset: number,
+  occludeTop: boolean,
   onTableWrapper?: (wrapper: HTMLElement) => void,
   nearOnly = false,
 ): void {
@@ -369,6 +379,7 @@ function computeAndApplyFrozenHeaders(
       tableRect.top,
       tableRect.height,
       headerRect.height,
+      topOffset,
     );
 
     if (!range) {
@@ -383,19 +394,19 @@ function computeAndApplyFrozenHeaders(
         continue;
       }
       for (const cell of Array.from(firstRow.cells) as HTMLTableCellElement[]) {
-        applyScrollDrivenFreeze(cell, timeline, range, scrollMax);
+        applyScrollDrivenFreeze(cell, timeline, range, scrollMax, occludeTop);
       }
       continue;
     }
 
     // Fallback: compute the instantaneous shift and apply it directly.
     const shift = Math.max(0, Math.min(scrollTop - range.startOffset, range.maxShift));
-    if (shift <= 0 || tableRect.bottom <= containerTop + TOOLBAR_HEIGHT) {
+    if (shift <= 0 || tableRect.bottom <= containerTop + topOffset) {
       resetHeaderCells(firstRow);
       continue;
     }
     for (const cell of Array.from(firstRow.cells) as HTMLTableCellElement[]) {
-      applyInstantFreeze(cell, shift);
+      applyInstantFreeze(cell, shift, occludeTop);
     }
   }
 }
@@ -403,7 +414,16 @@ function computeAndApplyFrozenHeaders(
 export const FrozenTableHeaders = Extension.create({
   name: 'frozenTableHeaders',
 
+  addOptions() {
+    return {
+      topOffset: TOOLBAR_HEIGHT,
+      occludeTop: true,
+    };
+  },
+
   addProseMirrorPlugins() {
+    const topOffset = this.options.topOffset as number;
+    const occludeTop = this.options.occludeTop as boolean;
     return [
       new Plugin({
         key: new PluginKey('frozenTableHeaders'),
@@ -428,6 +448,8 @@ export const FrozenTableHeaders = Extension.create({
               scrollEl,
               editorView.dom as HTMLElement,
               timeline,
+              topOffset,
+              occludeTop,
               wireChunkVisibility,
               nearOnly,
             );

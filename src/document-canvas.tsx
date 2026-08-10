@@ -3,6 +3,7 @@ import {
   lazy,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -20,6 +21,7 @@ import {
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin } from "@codemirror/view";
+import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { bibtex } from "codemirror-lang-bib";
 import { latex } from "codemirror-lang-latex";
@@ -38,7 +40,9 @@ import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
 import { markdownPreviewSyncPolicy } from "./markdown-preview-sync-policy";
 import { restoreVisualViewportWithReveal } from "./visual-editor-block-controls";
 import {
+  ArrowLeft,
   Columns2,
+  ExternalLink,
   FileCode2,
   FileText,
   Image,
@@ -108,7 +112,8 @@ import { expandSnippetPlaceholders, nextSnippetStop, previousSnippetStop } from 
 import { MathPreview } from "./math-preview";
 import { TableGeneratorDialog } from "./table-generator-dialog";
 import type { PdfSyncTarget } from "./pdf-viewer";
-import { pdfBase64ToBytes } from "./pdf-bytes";
+import { pdfBase64ToBytes, pdfBytesToObjectUrl, utf8ToBase64 } from "./pdf-bytes";
+import { notifyError } from "./app-notify";
 import type {
   WordCount,
   EditorViewState,
@@ -428,6 +433,46 @@ function PdfPreviewLoading() {
   );
 }
 
+type PaperPdfView =
+  | { arxivId: string; status: "loading"; initialPage: number }
+  | {
+      arxivId: string;
+      status: "ready";
+      url: string;
+      objectUrl: string | null;
+      bytes: ArrayBuffer | null;
+      initialPage: number;
+    };
+
+function normalizedArxivId(value: string): string {
+  const candidate = value.trim();
+  return /^(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[a-z]{2})?\/\d{7})(?:v\d+)?$/i.test(candidate)
+    ? candidate
+    : "";
+}
+
+function encodedArxivPath(arxivId: string): string {
+  return arxivId.split("/").map(encodeURIComponent).join("/");
+}
+
+function arxivPdfUrl(arxivId: string): string {
+  return `https://arxiv.org/pdf/${encodedArxivPath(arxivId)}`;
+}
+
+function paperBrowserUrl(paper: PaperSummary): string | null {
+  const arxivId = normalizedArxivId(paper.arxivId);
+  if (arxivId) return arxivPdfUrl(arxivId);
+  if (paper.url) {
+    try {
+      const parsed = new URL(paper.url);
+      if (parsed.protocol === "https:" || parsed.protocol === "http:") return parsed.href;
+    } catch {
+      // Do not hand a malformed or unsafe bibliography URL to the OS opener.
+    }
+  }
+  return null;
+}
+
 function HtmlPreviewLoading() {
   return (
     <div className="html-preview">
@@ -544,6 +589,107 @@ export function interpolateScrollAnchors(
   const span = upper.from - lower.from;
   const progress = span > 0 ? (value - lower.from) / span : 0;
   return clamp(lower.to + progress * (upper.to - lower.to), toMin, toMax);
+}
+
+type ViewportSnapshot = {
+  scrollTop: number;
+  scrollRange: number;
+};
+
+type PreviewViewportSnapshot = ViewportSnapshot & {
+  blockIndex?: number;
+  blockViewportTop?: number;
+  blockSourceOffset?: number;
+  chunkId?: string;
+  chunkBlockIndex?: number;
+};
+
+type MarkdownModeViewportHandoff = {
+  path: string;
+  mode: CanvasMode;
+  source?: ViewportSnapshot;
+  preview?: PreviewViewportSnapshot;
+};
+
+function captureViewport(viewport: HTMLElement): ViewportSnapshot {
+  return {
+    scrollTop: viewport.scrollTop,
+    scrollRange: Math.max(0, viewport.scrollHeight - viewport.clientHeight),
+  };
+}
+
+function previewViewportBlocks(viewport: HTMLElement): HTMLElement[] {
+  return Array.from(viewport.querySelectorAll<HTMLElement>(".ProseMirror")).flatMap(
+    (proseMirror) => Array.from(proseMirror.children).filter(
+      (child): child is HTMLElement => child instanceof HTMLElement,
+    ),
+  );
+}
+
+function capturePreviewViewport(viewport: HTMLElement): PreviewViewportSnapshot {
+  const snapshot: PreviewViewportSnapshot = captureViewport(viewport);
+  const blocks = previewViewportBlocks(viewport);
+  const viewportRect = viewport.getBoundingClientRect();
+  const blockIndex = blocks.findIndex((block) => (
+    block.getBoundingClientRect().bottom > viewportRect.top
+  ));
+  const block = blocks[blockIndex];
+  if (!block) return snapshot;
+  const sourceOffset = Number(block.dataset.sourceOffset);
+  const chunk = block.closest<HTMLElement>("[data-visual-chunk-id]");
+  const chunkBlocks = chunk
+    ? Array.from(chunk.querySelector<HTMLElement>(".ProseMirror")?.children ?? [])
+    : [];
+  return {
+    ...snapshot,
+    blockIndex,
+    blockViewportTop: block.getBoundingClientRect().top - viewportRect.top,
+    ...(Number.isFinite(sourceOffset) ? { blockSourceOffset: sourceOffset } : {}),
+    ...(chunk?.dataset.visualChunkId ? {
+      chunkId: chunk.dataset.visualChunkId,
+      chunkBlockIndex: chunkBlocks.indexOf(block),
+    } : {}),
+  };
+}
+
+function restoreViewport(
+  viewport: HTMLElement,
+  snapshot: ViewportSnapshot,
+): boolean {
+  const targetRange = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+  viewport.scrollTop = snapshot.scrollRange > 0 && targetRange > 0
+    ? (snapshot.scrollTop / snapshot.scrollRange) * targetRange
+    : snapshot.scrollTop;
+  return snapshot.scrollTop <= 0 || snapshot.scrollRange <= 0 || targetRange > 0;
+}
+
+function restorePreviewViewport(
+  viewport: HTMLElement,
+  snapshot: PreviewViewportSnapshot,
+): boolean {
+  const viewportReady = restoreViewport(viewport, snapshot);
+  if (snapshot.blockIndex == null || snapshot.blockViewportTop == null) return viewportReady;
+  const blocks = previewViewportBlocks(viewport);
+  let block = snapshot.blockSourceOffset == null
+    ? null
+    : blocks.find((candidate) => Number(candidate.dataset.sourceOffset) === snapshot.blockSourceOffset) ?? null;
+  if (!block && snapshot.chunkId != null && snapshot.chunkBlockIndex != null) {
+    const chunk = Array.from(
+      viewport.querySelectorAll<HTMLElement>("[data-visual-chunk-id]"),
+    ).find((candidate) => candidate.dataset.visualChunkId === snapshot.chunkId);
+    const candidate = chunk?.querySelector<HTMLElement>(".ProseMirror")
+      ?.children[snapshot.chunkBlockIndex];
+    if (candidate instanceof HTMLElement) block = candidate;
+  }
+  if (!block && snapshot.chunkId != null) return false;
+  block ??= blocks[snapshot.blockIndex] ?? null;
+  if (!block) return false;
+  const blockViewportTop = block.getBoundingClientRect().top
+    - viewport.getBoundingClientRect().top;
+  if (Number.isFinite(blockViewportTop)) {
+    viewport.scrollTop += blockViewportTop - snapshot.blockViewportTop;
+  }
+  return viewportReady;
 }
 
 function isLatexSourcePath(path: string): boolean {
@@ -793,7 +939,8 @@ export function DocumentCanvas(props: {
   focusedPane: EditorPaneId;
   onFocusPane: (pane: EditorPaneId) => void;
   setSource: (value: string) => void;
-  onVisualMarkdownFlushChange?: (flush: (() => void) | null) => void;
+  onVisualMarkdownFlushChange?: (flush: (() => boolean) | null) => void;
+  onMarkdownModeViewportCaptureChange?: (capture: (() => void) | null) => void;
   setSelection: (value: string) => void;
   onPdfTextSelect: (value: string) => void;
   onPaperTextSelect: (value: string) => void;
@@ -958,6 +1105,107 @@ export function DocumentCanvas(props: {
     onCommentFocusHandled,
   } = props;
   const primarySurface: AgentHostSurface = props.activePaper ? "paper" : "editor";
+  const activePaperArxivId = normalizedArxivId(props.activePaper?.arxivId ?? "");
+  const activePaperBrowserUrl = useMemo(
+    () => props.activePaper ? paperBrowserUrl(props.activePaper) : null,
+    [props.activePaper],
+  );
+  const [paperPdfView, setPaperPdfView] = useState<PaperPdfView | null>(null);
+  const paperPdfRequestGenerationRef = useRef(0);
+  const paperPdfPagesRef = useRef(new Map<string, number>());
+  useEffect(() => {
+    paperPdfRequestGenerationRef.current += 1;
+    setPaperPdfView((current) => current?.arxivId === activePaperArxivId ? current : null);
+  }, [activePaperArxivId]);
+  useEffect(() => {
+    // Blog/Paper and Edit/Split/Preview remain the owners of Markdown state.
+    // Choosing one while the PDF is open exits the alternate PDF surface.
+    paperPdfRequestGenerationRef.current += 1;
+    setPaperPdfView(null);
+  }, [activeFile, props.mode]);
+  const paperPdfObjectUrl = paperPdfView?.status === "ready" ? paperPdfView.objectUrl : null;
+  useEffect(() => () => {
+    if (paperPdfObjectUrl) URL.revokeObjectURL(paperPdfObjectUrl);
+  }, [paperPdfObjectUrl]);
+  const openPaperPdf = useCallback(() => {
+    if (!activePaperArxivId) return;
+    const generation = ++paperPdfRequestGenerationRef.current;
+    const remoteUrl = arxivPdfUrl(activePaperArxivId);
+    const initialPage = paperPdfPagesRef.current.get(activePaperArxivId) ?? 1;
+    setPaperPdfView({ arxivId: activePaperArxivId, status: "loading", initialPage });
+    void invoke<ArrayBuffer>("read_cached_paper_pdf", { arxivId: activePaperArxivId })
+      .then((bytes) => {
+        if (paperPdfRequestGenerationRef.current !== generation) return;
+        if (bytes.byteLength > 0) {
+          const objectUrl = pdfBytesToObjectUrl(bytes);
+          setPaperPdfView({
+            arxivId: activePaperArxivId,
+            status: "ready",
+            url: objectUrl,
+            objectUrl,
+            bytes,
+            initialPage,
+          });
+          return;
+        }
+        setPaperPdfView({
+          arxivId: activePaperArxivId,
+          status: "ready",
+          url: remoteUrl,
+          objectUrl: null,
+          bytes: null,
+          initialPage,
+        });
+      })
+      .catch(() => {
+        // Cache availability never gates reading. A miss or cache-directory
+        // failure falls back to arXiv's ranged, CORS-enabled PDF response.
+        if (paperPdfRequestGenerationRef.current === generation) {
+          setPaperPdfView({
+            arxivId: activePaperArxivId,
+            status: "ready",
+            url: remoteUrl,
+            objectUrl: null,
+            bytes: null,
+            initialPage,
+          });
+        }
+      });
+  }, [activePaperArxivId]);
+  const closePaperPdf = useCallback(() => {
+    paperPdfRequestGenerationRef.current += 1;
+    setPaperPdfView(null);
+  }, []);
+  const cacheActivePaperPdf = useCallback((bytes: ArrayBuffer) => {
+    if (
+      !activePaperArxivId
+      || paperPdfView?.status !== "ready"
+      || paperPdfView.objectUrl
+    ) {
+      return;
+    }
+    setPaperPdfView((current) => (
+      current?.status === "ready"
+      && current.arxivId === activePaperArxivId
+      && !current.objectUrl
+        ? { ...current, bytes }
+        : current
+    ));
+    void invoke<void>("cache_paper_pdf", bytes, {
+      headers: { "x-arxiv-id": utf8ToBase64(activePaperArxivId) },
+    }).catch(() => undefined);
+  }, [activePaperArxivId, paperPdfView]);
+  const rememberPaperPdfPage = useCallback((page: number) => {
+    if (activePaperArxivId) paperPdfPagesRef.current.set(activePaperArxivId, page);
+  }, [activePaperArxivId]);
+  const openActivePaperInBrowser = useCallback(() => {
+    if (!activePaperBrowserUrl) return;
+    void openUrl(activePaperBrowserUrl).catch((reason) => {
+      notifyError("Papers", "Could not open the article in your browser", {
+        detail: reason instanceof Error ? reason.message : String(reason),
+      });
+    });
+  }, [activePaperBrowserUrl]);
   const markdownDocument = Boolean(props.activePaper) || activeFile.toLocaleLowerCase().endsWith(".md");
   const htmlDocument = !props.activePaper && isHtmlFilePath(activeFile);
   const boardDocument = !props.activePaper && activeFile.toLocaleLowerCase().endsWith(".tldr");
@@ -1012,11 +1260,18 @@ export function DocumentCanvas(props: {
   const [markdownPreviewViewport, setMarkdownPreviewViewport] = useState<HTMLDivElement | null>(null);
   const markdownPreviewViewportRef = useRef<HTMLDivElement | null>(null);
   const markdownScrollSyncSuppressedRef = useRef(false);
+  const markdownModeViewportHandoffRef = useRef<MarkdownModeViewportHandoff | null>(null);
+  const markdownModeViewportRestoreGenerationRef = useRef(0);
+  const explicitViewInSourceTransitionRef = useRef(false);
+  const explicitViewInSourceGenerationRef = useRef(0);
+  const explicitViewInSourcePendingGenerationRef = useRef<number | null>(null);
+  const markdownModeIdentityRef = useRef({ path: activeFile, mode: props.mode });
   const markdownPreviewViewportLockRef = useRef(0);
   // Populated by the split scroll coordinator; poked from the primary
   // editor's update listener so cursor motion can reveal the matching
   // preview block (VS Code-style cursor-driven synchronization).
   const markdownCursorRevealRef = useRef<(() => void) | null>(null);
+  const markdownPreviewReconcileFromSourceRef = useRef<(() => void) | null>(null);
   const markdownPreviewOverflowAnchorRef = useRef("");
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<{ pane: EditorPaneId; cursor: number } | null>(null);
@@ -1047,6 +1302,115 @@ export function DocumentCanvas(props: {
     error: string | null;
   } | null>(null);
   const commentComposerViewRef = useRef<EditorView | null>(null);
+
+  const captureMarkdownModeViewport = useCallback(() => {
+    const markdownMode = props.mode === "source" || props.mode === "split" || props.mode === "pdf";
+    if (!markdownDocument || !markdownMode) return;
+    const currentSourceView = primaryViewRef.current?.dom.isConnected
+      && primaryViewPathRef.current === activeFile
+      ? primaryViewRef.current
+      : null;
+    const currentPreview = markdownPreviewViewportRef.current?.isConnected
+      ? markdownPreviewViewportRef.current
+      : null;
+    if (!currentSourceView && !currentPreview) return;
+    markdownModeViewportHandoffRef.current = {
+      path: activeFile,
+      mode: props.mode,
+      ...(currentSourceView ? { source: captureViewport(currentSourceView.scrollDOM) } : {}),
+      ...(currentPreview ? { preview: capturePreviewViewport(currentPreview) } : {}),
+    };
+  }, [activeFile, markdownDocument, props.mode]);
+
+  useLayoutEffect(() => {
+    const register = props.onMarkdownModeViewportCaptureChange;
+    if (!register) return;
+    register(captureMarkdownModeViewport);
+    return () => register(null);
+  }, [captureMarkdownModeViewport, props.onMarkdownModeViewportCaptureChange]);
+
+  useLayoutEffect(() => {
+    const restoreGeneration = ++markdownModeViewportRestoreGenerationRef.current;
+    const markdownMode = props.mode === "source" || props.mode === "split" || props.mode === "pdf";
+    const explicitViewInSource = Boolean(
+      markdownDocument && markdownMode && explicitViewInSourceTransitionRef.current,
+    );
+    const previousIdentity = markdownModeIdentityRef.current;
+    const modeOrPathChanged = previousIdentity.path !== activeFile
+      || previousIdentity.mode !== props.mode;
+    markdownModeIdentityRef.current = { path: activeFile, mode: props.mode };
+    explicitViewInSourceTransitionRef.current = false;
+    if (modeOrPathChanged && !explicitViewInSource) {
+      explicitViewInSourceGenerationRef.current += 1;
+      explicitViewInSourcePendingGenerationRef.current = null;
+    }
+    if (!markdownDocument || !markdownMode) {
+      markdownModeViewportHandoffRef.current = null;
+      markdownScrollSyncSuppressedRef.current = false;
+      return;
+    }
+
+    const handoff = markdownModeViewportHandoffRef.current;
+    if (explicitViewInSource) markdownModeViewportHandoffRef.current = null;
+    let restoreFrame: number | null = null;
+
+    const shouldRestoreHandoff = Boolean(
+      handoff
+      && handoff.path === activeFile
+      && handoff.mode !== props.mode
+      && !explicitViewInSource
+    );
+    if (shouldRestoreHandoff && handoff) {
+      markdownScrollSyncSuppressedRef.current = true;
+      const restore = () => {
+        if (markdownModeViewportRestoreGenerationRef.current !== restoreGeneration) return false;
+        const currentSourceView = primaryViewRef.current?.dom.isConnected
+          && primaryViewPathRef.current === activeFile
+          ? primaryViewRef.current
+          : null;
+        const currentPreview = markdownPreviewViewportRef.current;
+        let ready = true;
+        if (props.mode !== "pdf") {
+          const sourceSnapshot = handoff.source ?? handoff.preview;
+          ready = Boolean(currentSourceView && sourceSnapshot
+            && restoreViewport(currentSourceView.scrollDOM, sourceSnapshot)) && ready;
+        }
+        if (props.mode !== "source") {
+          ready = Boolean(currentPreview && (
+            handoff.preview
+              ? restorePreviewViewport(currentPreview, handoff.preview)
+              : handoff.source && restoreViewport(currentPreview, handoff.source)
+          )) && ready;
+        }
+        return ready;
+      };
+      let attempts = 0;
+      let stableRestores = 0;
+      const restoreWhenReady = () => {
+        restoreFrame = null;
+        stableRestores = restore() ? stableRestores + 1 : 0;
+        attempts += 1;
+        if (stableRestores >= 3 || attempts >= 30) {
+          if (stableRestores >= 3 && markdownModeViewportHandoffRef.current === handoff) {
+            markdownModeViewportHandoffRef.current = null;
+          }
+          if (!explicitViewInSourceTransitionRef.current) {
+            markdownScrollSyncSuppressedRef.current = false;
+          }
+          return;
+        }
+        restoreFrame = window.requestAnimationFrame(restoreWhenReady);
+      };
+      restoreWhenReady();
+    } else if (!explicitViewInSource && explicitViewInSourcePendingGenerationRef.current == null) {
+      markdownScrollSyncSuppressedRef.current = false;
+    }
+
+    return () => {
+      markdownModeViewportRestoreGenerationRef.current += 1;
+      if (restoreFrame != null) window.cancelAnimationFrame(restoreFrame);
+    };
+  }, [activeFile, markdownDocument, markdownPreviewViewport, primaryScrollbarView, props.mode]);
 
   const constrainSplitRatio = useCallback((ratio: number) => {
     const width = splitRef.current?.getBoundingClientRect().width ?? 0;
@@ -2029,6 +2393,10 @@ export function DocumentCanvas(props: {
   }, [snippetStops]);
 
   const replaceVisualMarkdown = useCallback((nextBody: string, expectedBody: string) => {
+    // VisualMarkdownEditor retains the previous publisher until its layout
+    // flush. The host normally flushes before switching, but never let a late
+    // callback mutate refs or setters once another document owns the canvas.
+    if (activeFileRefEditor.current !== activeFile) return false;
     const storedView = primaryViewRef.current;
     const view = storedView?.dom.isConnected && primaryViewPathRef.current === activeFile
       ? storedView
@@ -2078,13 +2446,18 @@ export function DocumentCanvas(props: {
       }
     }
     mountSourceRef.current = nextSource;
-    setSourceRef.current(nextSource);
+    // This callback can be retained by VisualMarkdownEditor until its layout
+    // flush during a path switch. Use the setter from the render that created
+    // the callback; the mutable source-editor ref already belongs to the next
+    // document by then and can otherwise receive the previous document body.
+    props.setSource(nextSource);
     return true;
   }, [
     activeFile,
     collabReady,
     collabSession,
     markdownPreviewStart,
+    props.setSource,
   ]);
 
   const lockMarkdownPreviewViewport = useCallback((
@@ -2152,42 +2525,111 @@ export function DocumentCanvas(props: {
   }, [activeFile, collabReady, collabSession]);
 
   const onViewMarkdownSource = props.onViewMarkdownSource;
-  const viewMarkdownSource = useCallback((sourceOffset: number, viewportY?: number) => {
-    // This is an explicit cross-pane reveal, not a change of scroll ownership.
-    // Keep Preview fixed while CodeMirror moves to the corresponding source.
+  const viewMarkdownSource = useCallback((sourceOffset: number) => {
+    // This is an explicit cross-pane reveal. Preview-only and Split have
+    // different React roots, and the narrower Split preview reflows prose, so
+    // coordinates from the old Preview cannot be carried across reliably.
+    // Once both panes exist, center the same source-backed block in each pane.
+    if (props.mode !== "split") explicitViewInSourceTransitionRef.current = true;
+    const revealGeneration = ++explicitViewInSourceGenerationRef.current;
+    explicitViewInSourcePendingGenerationRef.current = revealGeneration;
+    const revealIsCurrent = () => (
+      explicitViewInSourceGenerationRef.current === revealGeneration
+      && explicitViewInSourcePendingGenerationRef.current === revealGeneration
+      && activeFileRefEditor.current === activeFile
+    );
     markdownScrollSyncSuppressedRef.current = true;
     onViewMarkdownSource();
 
     let attempts = 0;
     const releaseScrollSync = () => {
       window.requestAnimationFrame(() => {
+        if (!revealIsCurrent()) return;
         window.requestAnimationFrame(() => {
-          markdownScrollSyncSuppressedRef.current = false;
+          if (revealIsCurrent() && markdownModeIdentityRef.current.mode === "split") {
+            explicitViewInSourcePendingGenerationRef.current = null;
+            markdownScrollSyncSuppressedRef.current = false;
+            // The split coordinator's initial pass ran while the explicit
+            // two-pane centering was in progress, so it was intentionally
+            // blocked. Reconcile once against that final geometry now;
+            // otherwise the first tiny source scroll performs this alignment
+            // and visibly nudges the other pane.
+            markdownPreviewReconcileFromSourceRef.current?.();
+          }
         });
       });
     };
     const focusSource = () => {
+      if (!revealIsCurrent()) return;
       const view = primaryViewRef.current;
-      if (!view?.dom.isConnected) {
+      const preview = markdownPreviewViewportRef.current;
+      const target = preview
+        ? Array.from(preview.querySelectorAll<HTMLElement>("[data-source-offset]"))
+            .filter((element) => {
+              const from = Number(element.dataset.sourceOffset);
+              const to = Number(element.dataset.sourceEndOffset);
+              return Number.isFinite(from)
+                && Number.isFinite(to)
+                && sourceOffset >= from
+                && sourceOffset <= to;
+            })
+            .sort((left, right) => (
+              Number(left.dataset.sourceEndOffset) - Number(left.dataset.sourceOffset)
+              - (Number(right.dataset.sourceEndOffset) - Number(right.dataset.sourceOffset))
+            ))[0] ?? null
+        : null;
+      if (
+        markdownModeIdentityRef.current.mode !== "split"
+        || !view?.dom.isConnected
+        || !preview?.isConnected
+        || !target
+      ) {
         if (attempts++ < 30) window.requestAnimationFrame(focusSource);
-        else markdownScrollSyncSuppressedRef.current = false;
+        else {
+          // Source reveal remains useful even if a malformed document never
+          // receives source labels. Stop suppressing normal split scrolling.
+          if (revealIsCurrent()) {
+            explicitViewInSourcePendingGenerationRef.current = null;
+            markdownScrollSyncSuppressedRef.current = false;
+          }
+        }
         return;
       }
       const cursor = clamp(markdownPreviewStart + sourceOffset, 0, view.state.doc.length);
       view.dispatch({ selection: { anchor: cursor } });
-      const scrollRect = view.scrollDOM.getBoundingClientRect();
-      const desiredViewportY = viewportY == null
-        ? view.scrollDOM.clientHeight / 2
-        : clamp(viewportY - scrollRect.top, 0, view.scrollDOM.clientHeight);
-      const sourceBlock = view.lineBlockAt(cursor);
-      const sourceCenter = (sourceBlock.top + sourceBlock.bottom) / 2;
-      const maxScroll = Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight);
-      view.scrollDOM.scrollTop = clamp(sourceCenter - desiredViewportY, 0, maxScroll);
+      const previewFrom = Number(target.dataset.sourceOffset);
+      const previewTo = Number(target.dataset.sourceEndOffset);
+      const sourceFrom = clamp(markdownPreviewStart + previewFrom, 0, view.state.doc.length);
+      const sourceTo = clamp(
+        markdownPreviewStart + Math.max(previewFrom, previewTo - 1),
+        sourceFrom,
+        view.state.doc.length,
+      );
+      const sourceStartBlock = view.lineBlockAt(sourceFrom);
+      const sourceEndBlock = view.lineBlockAt(sourceTo);
+      const sourceCenter = (sourceStartBlock.top + sourceEndBlock.bottom) / 2;
+      const sourceMaxScroll = Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight);
+      view.scrollDOM.scrollTop = clamp(
+        sourceCenter - view.scrollDOM.clientHeight / 2,
+        0,
+        sourceMaxScroll,
+      );
+      const previewRect = preview.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const previewCenter = preview.scrollTop
+        + targetRect.top - previewRect.top
+        + targetRect.height / 2;
+      const previewMaxScroll = Math.max(0, preview.scrollHeight - preview.clientHeight);
+      preview.scrollTop = clamp(
+        previewCenter - preview.clientHeight / 2,
+        0,
+        previewMaxScroll,
+      );
       view.focus();
       releaseScrollSync();
     };
     window.requestAnimationFrame(focusSource);
-  }, [markdownPreviewStart, onViewMarkdownSource]);
+  }, [activeFile, markdownPreviewStart, onViewMarkdownSource, props.mode]);
 
   const redoVisualMarkdown = useCallback(() => {
     const storedView = primaryViewRef.current;
@@ -2228,6 +2670,8 @@ export function DocumentCanvas(props: {
     let previewFrameMeasureAnchors = false;
     let settledSyncTimer: number | null = null;
     let settledSyncOwner: "editor" | "preview" = "editor";
+    let activeScrollOwner: "editor" | "preview" | null = null;
+    let scrollOwnerTimer: number | null = null;
     let anchorsDirty = true;
     let cachedEditorToPreview: Array<{ from: number; to: number }> = [];
     let cachedPreviewToEditor: Array<{ from: number; to: number }> = [];
@@ -2238,6 +2682,14 @@ export function DocumentCanvas(props: {
     });
     const scrollSyncBlocked = () => markdownScrollSyncSuppressedRef.current
       || markdownPreviewViewportLockRef.current !== 0;
+    const holdScrollOwnership = (owner: "editor" | "preview") => {
+      activeScrollOwner = owner;
+      if (scrollOwnerTimer != null) window.clearTimeout(scrollOwnerTimer);
+      scrollOwnerTimer = window.setTimeout(() => {
+        scrollOwnerTimer = null;
+        activeScrollOwner = null;
+      }, 200);
+    };
     const rebuildAnchorPairs = () => {
       const sourceAnchors = Array.from(
         preview.querySelectorAll<HTMLElement>("[data-source-offset]"),
@@ -2303,11 +2755,11 @@ export function DocumentCanvas(props: {
         : window.setTimeout(run, 200);
     };
     const syncPreviewFromEditor = (measureAnchors = true) => {
-      if (scrollSyncBlocked()) return;
       if (ignoreEditorScroll) {
         ignoreEditorScroll = false;
         return;
       }
+      if (scrollSyncBlocked() || activeScrollOwner === "preview") return;
       if (measureAnchors) refreshAnchorsIfNeeded();
       const ranges = scrollRanges();
       const editorHalf = view.scrollDOM.clientHeight / 2;
@@ -2325,12 +2777,19 @@ export function DocumentCanvas(props: {
       ignorePreviewScroll = true;
       preview.scrollTop = nextTop;
     };
+    const reconcilePreviewFromSource = () => {
+      // Split changes the Preview width, so discard measurements from its
+      // initial mount and align with the final source/Preview geometry.
+      anchorsDirty = true;
+      syncPreviewFromEditor();
+    };
+    markdownPreviewReconcileFromSourceRef.current = reconcilePreviewFromSource;
     const syncEditorFromPreview = (measureAnchors = true) => {
-      if (scrollSyncBlocked()) return;
       if (ignorePreviewScroll) {
         ignorePreviewScroll = false;
         return;
       }
+      if (scrollSyncBlocked() || activeScrollOwner === "editor") return;
       if (measureAnchors) refreshAnchorsIfNeeded();
       const ranges = scrollRanges();
       const editorHalf = view.scrollDOM.clientHeight / 2;
@@ -2444,31 +2903,55 @@ export function DocumentCanvas(props: {
     };
 
     const ownEditorScroll = () => {
+      // scrollTop writes can coalesce into fewer events or arrive after the
+      // next frame. The one-shot ignore flag handles the normal reciprocal
+      // event; ownership also rejects a late/coalesced peer event so it cannot
+      // seize control and write back into the scrollbar the user is dragging.
+      if (ignoreEditorScroll) {
+        ignoreEditorScroll = false;
+        return;
+      }
       if (scrollSyncBlocked()) return;
+      if (activeScrollOwner === "preview") return;
+      holdScrollOwnership("editor");
       if (markdownSyncPolicy.peerScrollSettleMs > 0) {
-        if (ignoreEditorScroll) {
-          ignoreEditorScroll = false;
-          return;
-        }
         followPeer("editor");
       } else {
         schedulePreviewFromEditor();
       }
     };
     const ownPreviewScroll = () => {
+      if (ignorePreviewScroll) {
+        ignorePreviewScroll = false;
+        return;
+      }
       if (scrollSyncBlocked()) return;
+      if (activeScrollOwner === "editor") return;
+      holdScrollOwnership("preview");
       if (markdownSyncPolicy.peerScrollSettleMs > 0) {
-        if (ignorePreviewScroll) {
-          ignorePreviewScroll = false;
-          return;
-        }
         followPeer("preview");
       } else {
         scheduleEditorFromPreview();
       }
     };
+    const editorInteraction = () => {
+      ignoreEditorScroll = false;
+      holdScrollOwnership("editor");
+    };
+    const previewInteraction = () => {
+      ignorePreviewScroll = false;
+      holdScrollOwnership("preview");
+    };
+    const editorRoot = view.scrollDOM.closest<HTMLElement>(".source-editor") ?? view.scrollDOM;
+    const previewRoot = preview.closest<HTMLElement>("[data-slot='scroll-area']");
     view.scrollDOM.addEventListener("scroll", ownEditorScroll, { passive: true });
     preview.addEventListener("scroll", ownPreviewScroll, { passive: true });
+    view.scrollDOM.addEventListener("wheel", editorInteraction, { passive: true });
+    editorRoot.addEventListener("pointerdown", editorInteraction, { capture: true, passive: true });
+    view.scrollDOM.addEventListener("keydown", editorInteraction);
+    previewRoot?.addEventListener("wheel", previewInteraction, { passive: true });
+    previewRoot?.addEventListener("pointerdown", previewInteraction, { capture: true, passive: true });
+    previewRoot?.addEventListener("keydown", previewInteraction);
     const observer = new MutationObserver(() => {
       // Source labels and child nodes change after every settled visual edit.
       // Measuring every block here forces a full layout after each source
@@ -2495,15 +2978,25 @@ export function DocumentCanvas(props: {
     schedulePreviewFromEditor(false);
     return () => {
       markdownCursorRevealRef.current = null;
+      if (markdownPreviewReconcileFromSourceRef.current === reconcilePreviewFromSource) {
+        markdownPreviewReconcileFromSourceRef.current = null;
+      }
       if (revealTimer != null) window.clearTimeout(revealTimer);
       if (editorFrame != null) window.cancelAnimationFrame(editorFrame);
       if (previewFrame != null) window.cancelAnimationFrame(previewFrame);
       if (settledSyncTimer != null) window.clearTimeout(settledSyncTimer);
+      if (scrollOwnerTimer != null) window.clearTimeout(scrollOwnerTimer);
       cancelAnchorPrebuild();
       observer.disconnect();
       resizeObserver.disconnect();
       view.scrollDOM.removeEventListener("scroll", ownEditorScroll);
       preview.removeEventListener("scroll", ownPreviewScroll);
+      view.scrollDOM.removeEventListener("wheel", editorInteraction);
+      editorRoot.removeEventListener("pointerdown", editorInteraction, true);
+      view.scrollDOM.removeEventListener("keydown", editorInteraction);
+      previewRoot?.removeEventListener("wheel", previewInteraction);
+      previewRoot?.removeEventListener("pointerdown", previewInteraction, true);
+      previewRoot?.removeEventListener("keydown", previewInteraction);
     };
   }, [
     markdownDocument,
@@ -2517,6 +3010,17 @@ export function DocumentCanvas(props: {
   if (props.mode === "asset" && props.activeAsset) {
     return <ProjectAssetPreview key={props.activeAsset.path} asset={props.activeAsset} />;
   }
+  const paperFullTextHeader = props.activePaper
+    && activeFile.replace(/\\/g, "/").toLocaleLowerCase().endsWith("/paper.md") ? (
+      <header className="paper-visual-header editor-content-aligned">
+        <div>
+          <h1>{props.activePaper.title}</h1>
+          {props.activePaper.authors?.trim() && (
+            <p>{props.activePaper.authors.trim().replace(/\s+and\s+/gi, " · ")}</p>
+          )}
+        </div>
+      </header>
+    ) : null;
   const markdownPreview = (
     <ScrollArea
       className="markdown-preview"
@@ -2555,6 +3059,7 @@ export function DocumentCanvas(props: {
         );
       } : undefined}
     >
+      {paperFullTextHeader}
       <Suspense fallback={<div className="chat-markdown">Preparing preview…</div>}>
         <DeferredVisualMarkdownEditor
           text={settledPreviewText}
@@ -2611,6 +3116,86 @@ export function DocumentCanvas(props: {
       </Suspense>
     </ScrollArea>
   );
+  const paperPdfActive = Boolean(
+    props.activePaper
+    && paperPdfView
+    && paperPdfView.arxivId === activePaperArxivId,
+  );
+  const paperReturnLabel = activeFile.toLocaleLowerCase().endsWith("/blog.md") ? "Blog" : "Paper";
+  const paperBrowserActionLabel = activePaperArxivId
+    ? "Open PDF in browser"
+    : "Open article in browser";
+  const paperActions = props.activePaper && !paperPdfActive ? (
+    <div className="paper-local-actions" aria-label="Paper actions">
+      {activePaperArxivId ? (
+        <button
+          type="button"
+          className="paper-local-action"
+          aria-label="View original PDF"
+          onClick={openPaperPdf}
+        >
+          <FileText size={14} aria-hidden="true" />
+          <span>PDF</span>
+        </button>
+      ) : null}
+      {activePaperBrowserUrl ? (
+        <Tip label={paperBrowserActionLabel}>
+          <button
+            type="button"
+            className="paper-local-action paper-local-action-icon"
+            onClick={openActivePaperInBrowser}
+          >
+            <ExternalLink size={14} aria-hidden="true" />
+          </button>
+        </Tip>
+      ) : null}
+    </div>
+  ) : null;
+  const paperPdfPreview = paperPdfActive ? (
+    paperPdfView?.status === "ready" ? (
+      <div
+        className="paper-pdf-preview"
+        onPointerDownCapture={() => props.onContextSurfaceActivate("paper")}
+        onFocusCapture={() => props.onContextSurfaceActivate("paper")}
+      >
+        <Suspense fallback={<PdfPreviewLoading />}>
+          <PdfPreview
+            key={`paper-pdf:${paperPdfView.arxivId}`}
+            url={paperPdfView.url}
+            pdfBase64={null}
+            pdfBytes={paperPdfView.bytes}
+            fileName={`${paperPdfView.arxivId.replace("/", "-")}.pdf`}
+            initialPage={paperPdfView.initialPage}
+            saveLabel="Download PDF"
+            timeoutMessage="The PDF took too long to load. Try again, or open the article in your browser."
+            onTextSelect={props.onPaperTextSelect}
+            onPageChange={rememberPaperPdfPage}
+            onDocumentData={paperPdfView.objectUrl ? undefined : cacheActivePaperPdf}
+            toolbarStart={(
+              <Tip label={`Back to ${paperReturnLabel}`}>
+                <button type="button" onClick={closePaperPdf}>
+                  <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
+                </button>
+              </Tip>
+            )}
+            toolbarEnd={activePaperBrowserUrl ? (
+              <Tip label={paperBrowserActionLabel}>
+                <button type="button" onClick={openActivePaperInBrowser}>
+                  <ExternalLink size={14} aria-hidden="true" />
+                </button>
+              </Tip>
+            ) : undefined}
+          />
+        </Suspense>
+      </div>
+    ) : <PdfPreviewLoading />
+  ) : null;
+  const paperPreview = props.activePaper ? (
+    <section className="paper-reader-shell" aria-label={`${props.activePaper.title} paper reader`}>
+      {!paperPdfActive && <header className="paper-reader-header">{paperActions}</header>}
+      {paperPdfPreview ?? markdownPreview}
+    </section>
+  ) : markdownPreview;
   const showTexChrome = activeFile.endsWith(".tex");
   const editor = (
     <div className="source-workspace" data-tour="document-editor">
@@ -2817,7 +3402,7 @@ export function DocumentCanvas(props: {
       )}
     </div>
   );
-  const preview = markdownDocument ? markdownPreview : htmlDocument ? (
+  const preview = markdownDocument ? paperPreview : htmlDocument ? (
     props.interactivePreviewsEnabled
       ? <HtmlPreview key={activeFile} path={activeFile} source={props.source} />
       : <HtmlPreviewLoading />
@@ -2885,6 +3470,7 @@ export function DocumentCanvas(props: {
       </Suspense>
     );
   }
+  if (paperPdfActive) return paperPreview;
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
   if (props.mode === "dual" || props.mode === "columns") {
@@ -3206,7 +3792,8 @@ function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
       data-scrolling={scrolling || undefined}
       aria-hidden="true"
       onPointerDown={(event) => {
-        const scroller = view?.scrollDOM;
+        const scroller = event.currentTarget.parentElement
+          ?.querySelector<HTMLElement>(".cm-scroller");
         if (!scroller || !hasOverflow) return;
         event.preventDefault();
         event.stopPropagation();
@@ -3222,7 +3809,8 @@ function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
         scroller.scrollTop = ratio * (scroller.scrollHeight - scroller.clientHeight);
       }}
       onPointerMove={(event) => {
-        const scroller = view?.scrollDOM;
+        const scroller = event.currentTarget.parentElement
+          ?.querySelector<HTMLElement>(".cm-scroller");
         const drag = dragRef.current;
         if (!scroller || !drag) return;
         const trackHeight = Math.max(0, scroller.clientHeight - 8);

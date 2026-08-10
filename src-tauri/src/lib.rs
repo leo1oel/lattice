@@ -1244,7 +1244,7 @@ async fn search_project(
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || {
         let mut results = project::search_files(&root, &query)?;
-        results.extend(papers::search_papers(&root, &query)?);
+        results.extend(papers::search_library(&root, &query)?);
         Ok(results)
     })
     .await
@@ -3247,11 +3247,19 @@ async fn remove_reference(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
     key: String,
+    citation_mode: Option<String>,
+    project_root: String,
 ) -> Result<papers::RemoveResult, String> {
-    let root = current_root(&state, &window)?;
-    tauri::async_runtime::spawn_blocking(move || papers::remove_reference(&root, &key))
-        .await
-        .map_err(|e| e.to_string())?
+    let root = scoped_root(&state, &window, &project_root)?;
+    tauri::async_runtime::spawn_blocking(move || match citation_mode.as_deref() {
+        Some("preview") => papers::preview_reference_removal(&root, &key),
+        Some("keep") => papers::remove_reference_keeping_citations(&root, &key),
+        Some("remove") => papers::remove_reference_and_citations(&root, &key),
+        Some(_) => Err("Choose whether to keep or remove manuscript citations.".to_string()),
+        None => papers::remove_reference(&root, &key),
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -3263,6 +3271,65 @@ async fn list_papers(
     tauri::async_runtime::spawn_blocking(move || papers::list_papers(&root))
         .await
         .map_err(|error| format!("Paper scan stopped unexpectedly: {error}"))?
+}
+
+fn paper_pdf_cache_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_cache_dir()
+        .map(|directory| directory.join("paper-pdfs"))
+        .map_err(|error| format!("Could not resolve the paper PDF cache: {error}"))
+}
+
+#[tauri::command]
+async fn read_cached_paper_pdf(
+    app: tauri::AppHandle,
+    arxiv_id: String,
+) -> Result<tauri::ipc::Response, String> {
+    let cache_dir = paper_pdf_cache_dir(&app)?;
+    let bytes = run_blocking("Cached paper PDF read", move || {
+        papers::read_cached_pdf(&cache_dir, &arxiv_id)
+    })
+    .await?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[tauri::command]
+async fn cache_paper_pdf(
+    app: tauri::AppHandle,
+    request: tauri::ipc::Request<'_>,
+) -> Result<(), String> {
+    let encoded_id = request
+        .headers()
+        .get("x-arxiv-id")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| "The paper PDF has no arXiv id.".to_string())?;
+    let arxiv_id = String::from_utf8(
+        STANDARD
+            .decode(encoded_id)
+            .map_err(|error| format!("The arXiv id is invalid: {error}"))?,
+    )
+    .map_err(|error| format!("The arXiv id is invalid: {error}"))?;
+    let bytes = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        _ => return Err("The PDF contents were not sent as binary data.".to_string()),
+    };
+    let cache_dir = paper_pdf_cache_dir(&app)?;
+    run_blocking("Paper PDF cache write", move || {
+        papers::cache_pdf(&cache_dir, &arxiv_id, &bytes)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn search_paper_library(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    query: String,
+) -> Result<Vec<ProjectSearchResult>, String> {
+    let root = current_root(&state, &window)?;
+    tauri::async_runtime::spawn_blocking(move || papers::search_library(&root, &query))
+        .await
+        .map_err(|error| format!("Paper library search stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
@@ -3330,8 +3397,12 @@ async fn revert_transaction(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
     transaction_id: String,
+    project_root: Option<String>,
 ) -> Result<String, String> {
-    let root = current_root(&state, &window)?;
+    let root = match project_root {
+        Some(project_root) => scoped_root(&state, &window, &project_root)?,
+        None => current_root(&state, &window)?,
+    };
     run_blocking("History revert", move || {
         let record = project::revert(&root, &transaction_id)?;
         Ok(record.id)
@@ -3749,6 +3820,9 @@ pub fn run() {
             upgrade_bibliography,
             remove_reference,
             list_papers,
+            read_cached_paper_pdf,
+            cache_paper_pdf,
+            search_paper_library,
             read_paper,
             read_paper_blog,
             read_paper_blog_local,

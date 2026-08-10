@@ -190,6 +190,49 @@ describe('list pipeline round-trip (via new MarkdownManager)', () => {
     expect(hasNestedList).toBe(true);
   });
 
+  test('converter checklist continuations parse as one ordered list', () => {
+    const md = '- 1.\nFirst answer\n- 2.\nSecond answer\n';
+    const json = mdManager.parse(md);
+
+    expect(json.content).toHaveLength(1);
+    expect(json.content?.[0]?.type).toBe('list');
+    expect(json.content?.[0]?.attrs?.ordered).toBe(true);
+    expect(json.content?.[0]?.content).toHaveLength(2);
+    expect(json.content?.[0]?.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe(
+      'First answer',
+    );
+    expect(json.content?.[0]?.content?.[1]?.content?.[0]?.content?.[0]?.text).toBe(
+      'Second answer',
+    );
+  });
+
+  test('bare converter ordinals do not become empty items or visible escapes', () => {
+    const md = [
+      '1.',
+      'Constrained visual capabilities.',
+      '2\\.',
+      'Challenges in efficient training and deployment.',
+      '3.',
+      'Multiple components complicate the scaling analysis.',
+      '4\\.',
+      'Limited image pre-processing flexibility.',
+      '',
+    ].join('\n');
+    const json = mdManager.parse(md);
+
+    expect(json.content).toHaveLength(1);
+    expect(json.content?.[0]?.type).toBe('list');
+    expect(json.content?.[0]?.attrs?.ordered).toBe(true);
+    expect(json.content?.[0]?.content).toHaveLength(4);
+    expect(mdManager.serialize(json)).toBe([
+      '1. Constrained visual capabilities.',
+      '2. Challenges in efficient training and deployment.',
+      '3. Multiple components complicate the scaling analysis.',
+      '4. Limited image pre-processing flexibility.',
+      '',
+    ].join('\n'));
+  });
+
   test('bullet marker preserved via fidelity attr', () => {
     const md = '* item\n';
     const json = mdManager.parse(md);

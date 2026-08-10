@@ -630,6 +630,8 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .confirm-action-backdrop { z-index: var(--z-nested-modal-backdrop); }
 .confirm-action-backdrop + .modal-dialog-content { z-index: var(--z-nested-modal); }
 .modal { width: 390px; border-radius: var(--radius-dialog); padding: var(--space-12); text-align: left; }
+.confirm-action-modal[data-has-alternative="true"] { width: min(520px, calc(100vw - 40px)); }
+.confirm-action-modal[data-has-alternative="true"] .modal-actions { flex-wrap: wrap; }
 .create-project-modal { width: min(440px, calc(100vw - 40px)); }
 .venue-picker { margin: 14px 0 0; padding: 0; border: 0; display: grid; gap: var(--space-3); }
 .venue-picker legend { margin: 0 0 var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }

@@ -14,6 +14,7 @@ type ProjectImageResource = {
 
 const PROJECT_IMAGE_CACHE_ENTRY_LIMIT = 48;
 const PROJECT_IMAGE_CACHE_CHARACTER_LIMIT = 24 * 1024 * 1024;
+const PROJECT_IMAGE_OFFSCREEN_RETENTION_MS = 5_000;
 
 const ProjectImageHostContext = createContext<ProjectImageHostValue>({ activePath: "" });
 const projectImageResources = new WeakMap<
@@ -31,8 +32,9 @@ function trimProjectImageResources(
       resources.size <= PROJECT_IMAGE_CACHE_ENTRY_LIMIT
       && characters <= PROJECT_IMAGE_CACHE_CHARACTER_LIMIT
     ) break;
-    // Active resources are the visible working set, not retained cache. They
-    // are trimmed as soon as their final consumer leaves the near viewport.
+    // Pending resources are protected while a mounted image awaits them.
+    // Once settled, the <img> owns its data URL and the shared cache may evict
+    // the entry without making the mounted image disappear.
     if (resource.consumers > 0) continue;
     resources.delete(path);
     characters -= resource.dataUrl?.length ?? 0;
@@ -70,7 +72,6 @@ function projectImageResource(
     }),
   };
   resources.set(projectPath, resource);
-  trimProjectImageResources(resources);
   return resource;
 }
 
@@ -131,39 +132,68 @@ export function useProjectImageSrc(src: string | undefined, enabled = true): str
 
   useEffect(() => {
     if (!enabled) {
-      const timer = setTimeout(() => setLoaded(null), 0);
+      // Keep recently visited media stable during a quick scroll reversal,
+      // then release the <img> source so WebKit can discard decoded pixels.
+      const timer = setTimeout(() => setLoaded(null), PROJECT_IMAGE_OFFSCREEN_RETENTION_MS);
       return () => clearTimeout(timer);
     }
     if (!projectPath || !loadAsset) return;
-    // Own one consumer continuously until the loader, path, or viewport state
-    // changes. A resource settling must not restart this effect and briefly
-    // evict an oversized image that is still visible.
-    const pendingResource = projectImageResource(loadAsset, projectPath);
-    pendingResource.consumers += 1;
-    const resources = projectImageResources.get(loadAsset);
-    if (resources?.get(projectPath) === pendingResource) {
-      resources.delete(projectPath);
-      resources.set(projectPath, pendingResource);
-    }
     let active = true;
-    if (pendingResource.dataUrl === undefined) {
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const retryDelays = [250, 1_000];
+    let releaseCurrent: () => void = () => undefined;
+    const load = (attempt: number) => {
+      const pendingResource = projectImageResource(loadAsset, projectPath);
+      const resources = projectImageResources.get(loadAsset);
+      pendingResource.consumers += 1;
+      if (resources?.get(projectPath) === pendingResource) {
+        resources.delete(projectPath);
+        resources.set(projectPath, pendingResource);
+      }
+      let released = false;
+      const releaseResource = () => {
+        if (released) return;
+        released = true;
+        pendingResource.consumers = Math.max(0, pendingResource.consumers - 1);
+        if (pendingResource.consumers === 0 && resources?.get(projectPath) === pendingResource) {
+          trimProjectImageResources(resources);
+        }
+      };
       void pendingResource.promise.then((dataUrl) => {
-        if (active && dataUrl) setLoaded({ projectPath, loader: loadAsset, dataUrl });
-      }).catch(() => undefined);
-    }
+        releaseResource();
+        if (active && dataUrl) {
+          setLoaded({ projectPath, loader: loadAsset, dataUrl });
+          return;
+        }
+        // Tauri can transiently return null while a newly imported paper
+        // asset is still being written. Treat it like a failed read rather
+        // than caching a permanent blank image for this document session.
+        if (resources?.get(projectPath) === pendingResource) resources.delete(projectPath);
+        if (!active || attempt >= retryDelays.length) return;
+        retryTimer = setTimeout(() => {
+          releaseCurrent = load(attempt + 1);
+        }, retryDelays[attempt]);
+      }).catch(() => {
+        releaseResource();
+        if (!active || attempt >= retryDelays.length) return;
+        retryTimer = setTimeout(() => {
+          releaseCurrent = load(attempt + 1);
+        }, retryDelays[attempt]);
+      });
+      return releaseResource;
+    };
+    releaseCurrent = load(0);
     return () => {
       active = false;
-      pendingResource.consumers = Math.max(0, pendingResource.consumers - 1);
-      if (pendingResource.consumers === 0 && resources?.get(projectPath) === pendingResource) {
-        trimProjectImageResources(resources);
-      }
+      releaseCurrent();
+      if (retryTimer !== null) clearTimeout(retryTimer);
     };
   }, [enabled, loadAsset, projectPath]);
 
-  if (!enabled) return undefined;
   if (!projectPath || !loadAsset) return src;
-  if (resource?.dataUrl) return resource.dataUrl;
-  return loaded && loaded.projectPath === projectPath && loaded.loader === loadAsset
-    ? loaded.dataUrl
-    : undefined;
+  if (loaded && loaded.projectPath === projectPath && loaded.loader === loadAsset) {
+    return loaded.dataUrl;
+  }
+  if (!enabled) return undefined;
+  return resource?.dataUrl ?? undefined;
 }

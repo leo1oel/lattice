@@ -18,6 +18,9 @@ overrides:
   '@tiptap/extensions': 3.23.5
 
 patchedDependencies:
+  '@pierre/trees@1.0.0-beta.6':
+    hash: 0b3b5c9657cb6ba9fa84c150d134e22e7a6164310d2ed95d3c46d96092002e40
+    path: patches/@pierre__trees@1.0.0-beta.6.patch
   '@tiptap/react@3.23.5':
     hash: 2f6f34ee0cb8cb3039dce287c9016d83ace33206fd06e8d37ce105677ab14a71
     path: patches/@tiptap__react@3.23.5.patch
@@ -115,7 +118,7 @@ importers:
         version: 1.3.2(@shikijs/themes@4.3.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@pierre/trees':
         specifier: 1.0.0-beta.6
-        version: 1.0.0-beta.6(@pierre/theme@2.0.0)(@shikijs/themes@4.3.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(shiki@4.3.1)
+        version: 1.0.0-beta.6(patch_hash=0b3b5c9657cb6ba9fa84c150d134e22e7a6164310d2ed95d3c46d96092002e40)(@pierre/theme@2.0.0)(@shikijs/themes@4.3.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(shiki@4.3.1)
       '@replit/codemirror-emacs':
         specifier: ^6.1.0
         version: 6.1.0(@codemirror/autocomplete@6.20.3)(@codemirror/commands@6.10.4)(@codemirror/search@6.7.1)(@codemirror/state@6.7.1)(@codemirror/view@6.43.6)
@@ -5804,7 +5807,7 @@ snapshots:
       react-dom: 19.2.7(react@19.2.7)
       shiki: 4.3.1
 
-  '@pierre/trees@1.0.0-beta.6(@pierre/theme@2.0.0)(@shikijs/themes@4.3.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(shiki@4.3.1)':
+  '@pierre/trees@1.0.0-beta.6(patch_hash=0b3b5c9657cb6ba9fa84c150d134e22e7a6164310d2ed95d3c46d96092002e40)(@pierre/theme@2.0.0)(@shikijs/themes@4.3.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(shiki@4.3.1)':
     dependencies:
       '@pierre/theming': 1.0.0(@pierre/theme@2.0.0)(@shikijs/themes@4.3.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(shiki@4.3.1)
       preact: 11.0.0-beta.0

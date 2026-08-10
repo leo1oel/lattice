@@ -1,4 +1,5 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type {
   ContextMenuItem as PierreContextMenuItem,
@@ -40,6 +41,32 @@ import { toPierreGitStatus } from "./project-tree-git";
 // @pierre/trees virtualizes by a numeric item height, so this mirrors the
 // design-system `--row-height-tree` / compact 32px row role.
 const PROJECT_TREE_ITEM_HEIGHT = 32;
+
+/** Every token must occur somewhere in the paper's local library metadata. */
+function filterPapers(papers: readonly PaperSummary[], query: string): PaperSummary[] {
+  const tokens = query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return [...papers];
+  return papers.filter((paper) => {
+    const haystack = [
+      paper.title,
+      paper.authors,
+      paper.citationKey,
+      paper.arxivId,
+      paper.url,
+    ].filter(Boolean).join(" ").toLocaleLowerCase();
+    return tokens.every((token) => haystack.includes(token));
+  });
+}
+
+type PaperLibrarySearchHit = {
+  arxivId?: string | null;
+  title: string;
+  snippet: string;
+};
+
+function paperSearchIdentity(arxivId: string | null | undefined, title: string): string {
+  return arxivId || `title:${title.trim().toLocaleLowerCase()}`;
+}
 
 function readExpandedDirectories(key: string): Set<string> {
   try {
@@ -386,6 +413,7 @@ type ProjectFileTreeProps = {
   activeAssetPath: string;
   protectedPaths: string[];
   onFile: (path: string) => void;
+  onLikelyFile?: (path: string) => void;
   onAsset: (path: string) => void;
   onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onBeginFileDrag: (path: string, label: string, event: React.PointerEvent) => void;
@@ -690,6 +718,15 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
   const pendingCleanupTimersRef = useRef(new Map<string, number>());
   const pointerTreeDragRef = useRef<PointerTreeDragSession | null>(null);
   const suppressTreeClickRef = useRef(false);
+  const lastLikelyFileRef = useRef<string | null>(null);
+  const reportLikelyFile = (event: React.SyntheticEvent) => {
+    const path = findPierreItemPath(event);
+    const node = path ? tree.nodes.get(path) : null;
+    if (!node || isDirectoryNode(node) || !/\.mdx?$/i.test(node.path)) return;
+    if (lastLikelyFileRef.current === node.path) return;
+    lastLikelyFileRef.current = node.path;
+    props.onLikelyFile?.(node.path);
+  };
   const clearPendingCreation = useCallback((path: string) => {
     const normalizedPath = fromPierrePath(path);
     const pending = pendingCreationsRef.current.get(normalizedPath);
@@ -1269,6 +1306,8 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
             className="lattice-file-tree"
             model={model}
             renderContextMenu={renderContextMenu}
+            onPointerOverCapture={reportLikelyFile}
+            onFocusCapture={reportLikelyFile}
             onContextMenu={(event) => {
               const path = findPierreItemPath(event);
               const textInput = event.nativeEvent.composedPath().some(
@@ -1335,6 +1374,7 @@ export function Navigator(props: {
   papers: PaperSummary[];
   activePaper: PaperSummary | null;
   onFile: (path: string, line?: number) => void;
+  onLikelyFile?: (path: string) => void;
   onAsset: (path: string) => void;
   onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onBeginFileDrag: (path: string, label: string, event: React.PointerEvent) => void;
@@ -1348,6 +1388,7 @@ export function Navigator(props: {
   assetDropTarget: string | null;
   assetImporting: boolean;
   onPaper: (paper: PaperSummary) => void;
+  onLikelyPaper?: (paper: PaperSummary) => void;
   onFetchFullText: (paper: PaperSummary) => void;
   paperFetchStates: Record<string, "loading" | "success">;
   onDeletePaper: (paper: PaperSummary) => void;
@@ -1360,6 +1401,59 @@ export function Navigator(props: {
   importStage?: string | null;
 }) {
   const paperImportRef = useRef<HTMLInputElement | null>(null);
+  const trimmedPaperQuery = props.importInput.trim();
+  const [paperTextSearch, setPaperTextSearch] = useState<{
+    query: string;
+    hits: PaperLibrarySearchHit[];
+  }>({ query: "", hits: [] });
+  useEffect(() => {
+    if (props.mode !== "papers" || !trimmedPaperQuery) {
+      return;
+    }
+    let disposed = false;
+    const timer = window.setTimeout(() => {
+      void invoke<PaperLibrarySearchHit[]>("search_paper_library", { query: trimmedPaperQuery })
+        .then((hits) => {
+          if (!disposed) {
+            setPaperTextSearch({
+              query: trimmedPaperQuery,
+              hits: Array.isArray(hits) ? hits : [],
+            });
+          }
+        })
+        .catch(() => {
+          // Metadata filtering remains useful if the cache cannot be read.
+          if (!disposed) setPaperTextSearch({ query: trimmedPaperQuery, hits: [] });
+        });
+    }, 120);
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+    };
+  }, [props.mode, trimmedPaperQuery]);
+  const textHitByPaper = useMemo(() => {
+    const hits = paperTextSearch.query === trimmedPaperQuery ? paperTextSearch.hits : [];
+    const firstHit = new Map<string, PaperLibrarySearchHit>();
+    for (const hit of hits) {
+      const identity = paperSearchIdentity(hit.arxivId, hit.title);
+      if (!firstHit.has(identity)) firstHit.set(identity, hit);
+    }
+    return firstHit;
+  }, [paperTextSearch, trimmedPaperQuery]);
+  const filteredPapers = useMemo(() => {
+    const metadataMatches = new Set(filterPapers(props.papers, props.importInput).map(paperKey));
+    return props.papers.filter((paper) => (
+      metadataMatches.has(paperKey(paper))
+      || textHitByPaper.has(paperSearchIdentity(paper.arxivId, paper.title))
+    ));
+  }, [props.importInput, props.papers, textHitByPaper]);
+  const matchingSnippet = (paper: PaperSummary) => (
+    textHitByPaper.get(paperSearchIdentity(paper.arxivId, paper.title))?.snippet.trim()
+  );
+  const activatePaper = (paper: PaperSummary) => {
+    if (paper.hasFullText || paper.hasBlog) props.onPaper(paper);
+    else if (paper.arxivId || paper.url) props.onFetchFullText(paper);
+  };
   const renderPaperContextMenu = (
     path: string,
     children: React.ReactElement,
@@ -1389,6 +1483,7 @@ export function Navigator(props: {
           activeAssetPath={props.activeAssetPath}
           protectedPaths={props.protectedPaths}
           onFile={props.onFile}
+          onLikelyFile={props.onLikelyFile}
           onAsset={props.onAsset}
           onBeginFigureDrag={props.onBeginFigureDrag}
           onBeginFileDrag={props.onBeginFileDrag}
@@ -1406,14 +1501,19 @@ export function Navigator(props: {
       {props.mode === "papers" && <div className="navigator-section papers-section">
         <SearchField
           ref={paperImportRef}
-          aria-label="Import paper"
+          aria-label="Search or import papers"
           containerClassName="import-box"
           controlSize="compact"
-          placeholder="arXiv id, DOI, URL, or title"
+          placeholder="Search or add by title, arXiv ID, DOI, or URL"
           value={props.importInput}
           onChange={(event) => props.setImportInput(event.target.value)}
           onClear={() => props.setImportInput("")}
-          onKeyDown={(event) => event.key === "Enter" && props.onImport()}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            const localMatch = filteredPapers[0];
+            if (localMatch) activatePaper(localMatch);
+            else props.onImport();
+          }}
           showIcon={false}
           trailing={(
             <button onClick={props.onImport} disabled={props.importing || !props.importInput.trim()} title="Import paper">
@@ -1433,12 +1533,7 @@ export function Navigator(props: {
           contentClassName="paper-list-content"
           viewportProps={{ role: "list", "aria-label": "Papers" }}
         >
-          {/* Matched on the arXiv id when there is one, on the title when
-              there is not: a cited-only work carries an empty id, so comparing
-              ids alone returned the same first paper for every one of them —
-              the list showed that paper once per match and the others could
-              not be reached while a filter was active. */}
-          {props.papers.map((paper) => {
+          {filteredPapers.map((paper) => {
             const fetchState = props.paperFetchStates[paperKey(paper)];
             const locallyReadable = paper.hasFullText || paper.hasBlog;
             const row = (
@@ -1456,7 +1551,13 @@ export function Navigator(props: {
                 // Knowing the preprint is as good as having it: clicking
                 // fetches. A cited webpage is fetchable the same way.
                 disabled={fetchState === "loading" || (!locallyReadable && !paper.arxivId && !paper.url)}
-                onClick={() => locallyReadable ? props.onPaper(paper) : props.onFetchFullText(paper)}
+                onPointerEnter={() => {
+                  if (locallyReadable) props.onLikelyPaper?.(paper);
+                }}
+                onFocus={() => {
+                  if (locallyReadable) props.onLikelyPaper?.(paper);
+                }}
+                onClick={() => activatePaper(paper)}
               >
                 <span className={`paper-state-icon ${fetchState ?? (locallyReadable ? "available" : "idle")}`}>
                   {fetchState === "loading"
@@ -1469,7 +1570,10 @@ export function Navigator(props: {
                           ? <Download size={14} />
                           : <BookMarked size={14} />}
                 </span>
-                <span><strong>{paper.title}</strong><small>{paperSubtitle(paper)}</small></span>
+                <span>
+                  <strong>{paper.title}</strong>
+                  <small>{matchingSnippet(paper) || paperSubtitle(paper)}</small>
+                </span>
               </button>
               <div className="paper-row-actions">
                 {paper.citationKey && (
@@ -1500,7 +1604,19 @@ export function Navigator(props: {
               <p>Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence.</p>
             </div>
           )}
-          {!!props.papers.length && <p className="paper-list-end">{props.papers.length} paper{props.papers.length === 1 ? "" : "s"}</p>}
+          {!!props.papers.length && !filteredPapers.length && (
+            <div className="papers-empty-state">
+              <strong>No matching papers</strong>
+              <p>Use the + button to import this query if it isn't in your library yet.</p>
+            </div>
+          )}
+          {!!props.papers.length && (
+            <p className="paper-list-end">
+              {filteredPapers.length !== props.papers.length
+                ? `${filteredPapers.length} of ${props.papers.length}`
+                : props.papers.length} paper{props.papers.length === 1 ? "" : "s"}
+            </p>
+          )}
         </ScrollArea>
       </div>}
     </aside>

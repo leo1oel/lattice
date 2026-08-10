@@ -5,7 +5,7 @@ import { getEditorSourceMode } from './editor-mode-context';
 
 /**
  * The one `allow` predicate every `@tiptap/suggestion` picker in the document
- * editor uses (slash `/`, wiki-link `[[`, tag `#`).
+ * editor uses (slash `/`, wiki-link `[[`, citation `@`).
  *
  * Two refusals, both evaluated inside `@tiptap/suggestion`'s `apply()` reducer
  * so `state.active` never flips and `onStart` never mounts a popup:

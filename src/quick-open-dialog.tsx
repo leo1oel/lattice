@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CloseButton } from "./components/ui/icon-button";
 import { EmptyState } from "./components/ui/empty-state";
 import { ModalDialog } from "./components/ui/modal-dialog";
@@ -27,6 +27,7 @@ export function QuickOpenDialog(props: {
   paths: string[];
   onClose: () => void;
   onOpen: (path: string) => void;
+  onIntent?: (path: string) => void;
 }) {
   if (!props.open) return null;
   return (
@@ -35,6 +36,7 @@ export function QuickOpenDialog(props: {
       paths={props.paths}
       onClose={props.onClose}
       onOpen={props.onOpen}
+      onIntent={props.onIntent}
     />
   );
 }
@@ -43,7 +45,9 @@ function QuickOpenDialogForm(props: {
   paths: string[];
   onClose: () => void;
   onOpen: (path: string) => void;
+  onIntent?: (path: string) => void;
 }) {
+  const { onIntent } = props;
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const results = useMemo(() => {
@@ -54,6 +58,9 @@ function QuickOpenDialogForm(props: {
     return ranked.slice(0, 40).map((item) => item.path);
   }, [props.paths, query]);
   const selected = results[clamp(active, 0, Math.max(0, results.length - 1))] ?? null;
+  useEffect(() => {
+    if (selected) onIntent?.(selected);
+  }, [onIntent, selected]);
 
   return (
     <ModalDialog label="Quick open file" onClose={props.onClose}>
@@ -89,7 +96,12 @@ function QuickOpenDialogForm(props: {
               }
             }}
             trailing={
-              <CloseButton label="Close quick open" onClick={props.onClose} />
+              <CloseButton
+                label="Close quick search"
+                size="compact"
+                data-hit-area
+                onClick={props.onClose}
+              />
             }
           />
         </div>

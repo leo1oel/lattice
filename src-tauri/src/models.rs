@@ -404,6 +404,7 @@ pub struct PaperSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
     pub title: String,
+    pub authors: String,
     pub citation_key: Option<String>,
     /// False for works that are only cited — the reader has nothing to open.
     pub has_full_text: bool,

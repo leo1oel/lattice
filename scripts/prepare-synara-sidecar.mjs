@@ -66,6 +66,8 @@ function run(command, args, options = {}) {
     encoding: options.encoding ?? "utf8",
     stdio: options.stdio ?? "inherit",
     env: options.env ?? process.env,
+    // Binary Git patches easily exceed Node's 1 MiB default while fingerprinting a dirty checkout.
+    maxBuffer: options.maxBuffer ?? 64 * 1024 * 1024,
   });
 }
 

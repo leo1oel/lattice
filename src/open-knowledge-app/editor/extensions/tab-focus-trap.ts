@@ -20,10 +20,10 @@
  * Priority is set to `1` (well below stock TipTap defaults of 100 and the
  * fidelity overrides at 60) so this extension runs LAST in the keymap
  * chain. The intentional handlers — `ListItem` (sink/lift), `Table` (next
- * cell), suggestion plugins (`slash-command` / `wiki-link-suggestion` /
- * `tag-suggestion`, which intercept via `handleKeyDown` ProseMirror plugin
- * paths at higher precedence than `addKeyboardShortcuts`) — all get first
- * crack. We catch only the fall-through.
+ * cell), and suggestion plugins (`slash-command` / `wiki-link-suggestion`,
+ * which intercept via `handleKeyDown` ProseMirror plugin paths at higher
+ * precedence than `addKeyboardShortcuts`) — all get first crack. We catch only
+ * the fall-through.
  *
  * What "trap" does: `return true` from the handler so Tiptap calls
  * `preventDefault` on the underlying event. No edit, no selection change —

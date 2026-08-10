@@ -5,29 +5,36 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::fs;
+use std::fs::{self, FileTimes, OpenOptions};
 use std::path::{Component, Path, PathBuf};
 use std::process::Output;
+use std::time::SystemTime;
 use uuid::Uuid;
 
 // Schema 4 also normalizes converter block boundaries before hashing and
 // publishing the bundle, so schema-3 papers are rebuilt instead of waiting for
 // the editor to rewrite them after first open.
 // Schema 5 folds ar5iv's "•" item glyphs into their bullets, rejoins
-// hard-wrapped paragraphs, and links the Contents section to its headings;
-// re-fetching a schema-4 paper re-converts it with those fixes.
-const PAPER_SCHEMA_VERSION: u32 = 5;
+// hard-wrapped paragraphs, and links the Contents section to its headings.
+// Schema 6 also turns ar5iv's `- (1)` and `- 1.` ordered-item artifacts into
+// real Markdown ordered lists. Schema 7 accepts the unindented enumerate bodies
+// emitted by arxiv2md and keeps every prose line inside its ordered item.
+// Schema 8 rebuilds tables with merged cells so every covered Markdown slot
+// carries its row or column label, including under-counted vertical groups.
+const PAPER_SCHEMA_VERSION: u32 = 8;
 const ASSET_MANIFEST_SCHEMA_VERSION: u32 = 1;
-const ARXIV2MD_REQUIREMENT: &str =
-    "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@f7ac16ffd83ae063926f4e05aa5a2b2c4deafd45";
 /// The converter recorded on bundles built from the PDF text layer. Like the
-/// requirement above, this string is part of cache identity: bump it together
-/// with the `anydoc` dependency so bundles built by the old version rebuild.
+/// arxiv2md requirement in `commands`, this string is part of cache identity:
+/// bump it together with the `anydoc` dependency so old bundles rebuild.
 const ANYDOC_CONVERTER: &str = "anydoc@0.1.7";
 /// The converter recorded on webpage captures (see firecrawl.rs). Versioned
 /// by API generation, not by crate: the scrape output changes when the
 /// service's endpoint does.
 const FIRECRAWL_CONVERTER: &str = "firecrawl-v2";
+const ARXIV_TITLE_SEARCH_URL: &str = "https://export.arxiv.org/api/query";
+const LITERATURE_USER_AGENT: &str = "Lattice/0.1 (research writing; mailto:lattice@local)";
+const MAX_PAPER_PDF_BYTES: usize = 100 * 1024 * 1024;
+const PAPER_PDF_CACHE_BYTES: u64 = 512 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,7 +73,8 @@ type ImportedPaper = (String, PaperMetadata, bool, bool, Vec<String>);
 /// full-text search — sees clean markdown.
 fn normalize_imported_markdown(markdown: &str) -> String {
     let collapsed = collapse_item_bullet_glyphs(markdown);
-    let unwrapped = unwrap_hard_wrapped_paragraphs(&collapsed);
+    let ordered = normalize_converter_ordered_items(&collapsed);
+    let unwrapped = unwrap_hard_wrapped_paragraphs(&ordered);
     let separated = separate_adjacent_blocks(&unwrapped);
     link_contents_entries(&separated)
 }
@@ -91,6 +99,99 @@ fn collapse_item_bullet_glyphs(markdown: &str) -> String {
         }
         out.push(line.to_string());
         index += 1;
+    }
+    out.join("\n")
+}
+
+/// LaTeXML sometimes represents an enumerate label as text inside an
+/// unordered item: `- (1)` or `- 1.`, followed by an indented or unindented
+/// hard-wrapped body. Both produce a bullet and a number in the reader. Promote
+/// the number to the Markdown marker and fold every prose continuation onto
+/// the same item.
+fn normalize_converter_ordered_items(markdown: &str) -> String {
+    let lines = markdown.split('\n').collect::<Vec<_>>();
+    let mut out = Vec::with_capacity(lines.len());
+    let mut index = 0;
+    let mut in_frontmatter = lines.first() == Some(&"---");
+    let mut in_code = false;
+    while index < lines.len() {
+        let line = lines[index];
+        let trimmed = line.trim_start();
+        if in_frontmatter {
+            out.push(line.to_string());
+            index += 1;
+            if index > 1 && trimmed == "---" {
+                in_frontmatter = false;
+            }
+            continue;
+        }
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code = !in_code;
+            out.push(line.to_string());
+            index += 1;
+            continue;
+        }
+        if in_code {
+            out.push(line.to_string());
+            index += 1;
+            continue;
+        }
+        let indent = &line[..line.len() - trimmed.len()];
+        let parsed = if let Some(after_open) = trimmed.strip_prefix("- (") {
+            after_open.find(')').and_then(|close| {
+                let number = &after_open[..close];
+                let remainder = &after_open[close + 1..];
+                (!number.is_empty()
+                    && number.chars().all(|ch| ch.is_ascii_digit())
+                    && (remainder.is_empty() || remainder.starts_with(char::is_whitespace)))
+                .then_some((number, remainder))
+            })
+        } else if let Some(after_bullet) = trimmed.strip_prefix("- ") {
+            let digits = after_bullet
+                .chars()
+                .take_while(|ch| ch.is_ascii_digit())
+                .count();
+            let number = &after_bullet[..digits];
+            let after_number = &after_bullet[digits..];
+            let delimiter = after_number.chars().next();
+            let remainder = delimiter
+                .filter(|delimiter| *delimiter == '.' || *delimiter == ')')
+                .map(|delimiter| &after_number[delimiter.len_utf8()..]);
+            remainder
+                .filter(|remainder| !number.is_empty() && remainder.trim().is_empty())
+                .map(|remainder| (number, remainder))
+        } else {
+            None
+        };
+        let Some((number, remainder)) = parsed else {
+            out.push(line.to_string());
+            index += 1;
+            continue;
+        };
+
+        let mut body = remainder.trim().to_string();
+        let mut consumed = 1;
+        while let Some(next) = lines
+            .get(index + consumed)
+            .filter(|next| !next.trim().is_empty())
+        {
+            let next_trimmed = next.trim_start();
+            let next_indent = next.len() - next_trimmed.len();
+            if next_indent < indent.len() || is_block_start(next_trimmed) {
+                break;
+            }
+            if !body.is_empty() {
+                body.push(' ');
+            }
+            body.push_str(next_trimmed.trim_end());
+            consumed += 1;
+        }
+        out.push(if body.is_empty() {
+            format!("{indent}{number}.")
+        } else {
+            format!("{indent}{number}. {body}")
+        });
+        index += consumed;
     }
     out.join("\n")
 }
@@ -340,6 +441,18 @@ pub struct RemoveResult {
     pub key: String,
     pub removed: bool,
     pub blockers: Vec<crate::models::SymbolOccurrence>,
+    pub changed_files: Vec<String>,
+    pub removed_citations: u32,
+    pub transaction_id: Option<String>,
+    pub changes: Vec<ReferenceFileChange>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceFileChange {
+    pub path: String,
+    pub before: String,
+    pub after: String,
 }
 
 #[derive(Clone, Copy)]
@@ -443,7 +556,8 @@ pub fn fetch_paper_with_progress(
             move || crate::alphaxiv::fetch_overview(&base)
         });
         let (converted, converter) = convert_paper(&requested, &base, &output_dir, &output_path)?;
-        let markdown = normalize_imported_markdown(&converted);
+        let markdown =
+            localize_arxiv_fragment_links(&normalize_imported_markdown(&converted), &base);
         fs::write(&output_path, &markdown).map_err(err)?;
         let title = parse_title(&markdown).unwrap_or_else(|| format!("arXiv {base}"));
         let metadata = PaperMetadata {
@@ -478,6 +592,24 @@ pub fn fetch_paper_with_progress(
         } else if dir.join("blog.md").is_file() {
             fs::copy(dir.join("blog.md"), output_dir.join("blog.md")).map_err(err)?;
         }
+        // Atomic replacement must not erase earlier manual-version backups.
+        // If this rebuild also detects a newly modified paper below, keep that
+        // version under a fresh name rather than replacing paper.legacy.md.
+        if dir.is_dir() {
+            for entry in fs::read_dir(&dir).map_err(err)? {
+                let entry = entry.map_err(err)?;
+                let file_name = entry.file_name();
+                let Some(file_name) = file_name.to_str() else {
+                    continue;
+                };
+                if entry.file_type().map_err(err)?.is_file()
+                    && file_name.starts_with("paper.legacy")
+                    && file_name.ends_with(".md")
+                {
+                    fs::copy(entry.path(), output_dir.join(file_name)).map_err(err)?;
+                }
+            }
+        }
         if dir.join("paper.md").is_file()
             && cached_metadata.as_ref().is_none_or(|metadata| {
                 metadata.paper_sha256.is_empty()
@@ -486,7 +618,13 @@ pub fn fetch_paper_with_progress(
                         .is_none_or(|bytes| sha256_hex(&bytes) != metadata.paper_sha256)
             })
         {
-            fs::copy(dir.join("paper.md"), output_dir.join("paper.legacy.md")).map_err(err)?;
+            let default_legacy = output_dir.join("paper.legacy.md");
+            let legacy_path = if default_legacy.exists() {
+                output_dir.join(format!("paper.legacy.{}.md", Uuid::new_v4()))
+            } else {
+                default_legacy
+            };
+            fs::copy(dir.join("paper.md"), legacy_path).map_err(err)?;
         }
         fs::create_dir_all(dir.parent().unwrap()).map_err(err)?;
         let backup = dir.with_extension(format!("old-{}", Uuid::new_v4()));
@@ -676,7 +814,7 @@ fn convert_paper(
             }
             let converted = fs::read_to_string(output_path).map_err(err)?;
             if markdown_has_body(&converted) {
-                return Ok((converted, ARXIV2MD_REQUIREMENT));
+                return Ok((converted, commands::ARXIV2MD.requirement));
             }
             // ar5iv serves a paper its LaTeXML conversion choked on as an
             // HTTP 200 stub ("Untitled Document", zero sections), so arxiv2md
@@ -731,7 +869,6 @@ fn pdf_fallback(
 /// renders `{W_i}` as `fWig`). Both the reader and the agent read this file
 /// raw, so the caveat rides in the file itself rather than in UI state.
 fn pdf_text_markdown(requested: &str, base: &str) -> Result<String, String> {
-    const MAX_PDF_BYTES: usize = 100 * 1024 * 1024;
     let client = reqwest::blocking::Client::builder()
         .user_agent("Lattice research writer (paper import)")
         .timeout(std::time::Duration::from_secs(120))
@@ -749,14 +886,14 @@ fn pdf_text_markdown(requested: &str, base: &str) -> Result<String, String> {
     }
     if response
         .content_length()
-        .is_some_and(|length| length > MAX_PDF_BYTES as u64)
+        .is_some_and(|length| length > MAX_PAPER_PDF_BYTES as u64)
     {
         return Err("The PDF is larger than the 100 MB conversion limit.".to_string());
     }
     let bytes = response
         .bytes()
         .map_err(|error| format!("PDF download failed: {error}"))?;
-    if bytes.len() > MAX_PDF_BYTES {
+    if bytes.len() > MAX_PAPER_PDF_BYTES {
         return Err("The PDF is larger than the 100 MB conversion limit.".to_string());
     }
     let body = anydoc::to_markdown_bytes(&bytes, anydoc::Format::Pdf)
@@ -781,8 +918,106 @@ fn pdf_text_markdown(requested: &str, base: &str) -> Result<String, String> {
     ))
 }
 
+/// Read an arXiv PDF from the app cache and mark it as recently used.
+///
+/// The cache lives under the operating system's cache directory, never in the
+/// project. An empty response is a normal miss: the reader can start a ranged
+/// request against arXiv immediately, then populate this cache in the
+/// background once PDF.js has assembled the complete document.
+pub fn read_cached_pdf(cache_dir: &Path, arxiv_id: &str) -> Result<Vec<u8>, String> {
+    let path = cached_pdf_path(cache_dir, arxiv_id)?;
+    if !path.is_file() {
+        return Ok(Vec::new());
+    }
+    let metadata = fs::metadata(&path).map_err(err)?;
+    if metadata.len() > MAX_PAPER_PDF_BYTES as u64 {
+        let _ = fs::remove_file(&path);
+        return Ok(Vec::new());
+    }
+    let bytes = fs::read(&path).map_err(err)?;
+    if !is_pdf(&bytes) {
+        let _ = fs::remove_file(&path);
+        return Ok(Vec::new());
+    }
+    if let Ok(file) = OpenOptions::new().write(true).open(&path) {
+        let _ = file.set_times(FileTimes::new().set_modified(SystemTime::now()));
+    }
+    Ok(bytes)
+}
+
+/// Persist a PDF that PDF.js already fetched, then enforce the shared cache
+/// ceiling. This avoids a second network request while making later opens
+/// local and near-instant.
+pub fn cache_pdf(cache_dir: &Path, arxiv_id: &str, bytes: &[u8]) -> Result<(), String> {
+    if !is_pdf(bytes) {
+        return Err("The cached paper is not a valid PDF.".to_string());
+    }
+    if bytes.len() > MAX_PAPER_PDF_BYTES {
+        return Err("The PDF is larger than the 100 MB cache limit.".to_string());
+    }
+    fs::create_dir_all(cache_dir).map_err(err)?;
+    let path = cached_pdf_path(cache_dir, arxiv_id)?;
+    let temporary = cache_dir.join(format!(".{}.tmp", Uuid::new_v4()));
+    fs::write(&temporary, bytes).map_err(err)?;
+    if let Err(first_error) = fs::rename(&temporary, &path) {
+        // Unix replaces atomically; Windows does not. Keep the fallback narrow
+        // so a failure for any other reason still reports the original cause.
+        if !path.is_file() {
+            let _ = fs::remove_file(&temporary);
+            return Err(first_error.to_string());
+        }
+        fs::remove_file(&path).map_err(err)?;
+        fs::rename(&temporary, &path).map_err(err)?;
+    }
+    prune_pdf_cache(cache_dir, PAPER_PDF_CACHE_BYTES, Some(&path))
+}
+
+fn cached_pdf_path(cache_dir: &Path, arxiv_id: &str) -> Result<PathBuf, String> {
+    let normalized = arxiv_id.trim();
+    validate_arxiv_id(normalized)?;
+    // Legacy identifiers contain one slash. Replacing it keeps the complete
+    // versioned identity while ensuring the cache entry is always one file.
+    Ok(cache_dir.join(format!("{}.pdf", normalized.replace('/', "_"))))
+}
+
+fn is_pdf(bytes: &[u8]) -> bool {
+    bytes.starts_with(b"%PDF-")
+}
+
+fn prune_pdf_cache(cache_dir: &Path, limit: u64, keep: Option<&Path>) -> Result<(), String> {
+    let mut entries = fs::read_dir(cache_dir)
+        .map_err(err)?
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("pdf") {
+                return None;
+            }
+            let metadata = entry.metadata().ok()?;
+            Some((
+                path,
+                metadata.len(),
+                metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+            ))
+        })
+        .collect::<Vec<_>>();
+    let mut total = entries.iter().map(|(_, size, _)| *size).sum::<u64>();
+    entries.sort_by(|left, right| left.2.cmp(&right.2).then_with(|| left.0.cmp(&right.0)));
+    for (path, size, _) in entries {
+        if total <= limit {
+            break;
+        }
+        if keep.is_some_and(|kept| kept == path) {
+            continue;
+        }
+        fs::remove_file(path).map_err(err)?;
+        total = total.saturating_sub(size);
+    }
+    Ok(())
+}
+
 fn validate_paper_bundle(directory: &Path, metadata: &PaperMetadata) -> Result<(), String> {
-    let known_converter = metadata.converter == ARXIV2MD_REQUIREMENT
+    let known_converter = metadata.converter == commands::ARXIV2MD.requirement
         || metadata.converter == ANYDOC_CONVERTER
         || metadata.converter == FIRECRAWL_CONVERTER;
     if !known_converter || metadata.asset_manifest_schema_version != ASSET_MANIFEST_SCHEMA_VERSION {
@@ -842,6 +1077,20 @@ fn sha256_hex(bytes: &[u8]) -> String {
         })
 }
 
+/// arXiv's LaTeXML output inconsistently spells same-document links as either
+/// `#S3.F1` or a complete, versioned arXiv URL. The converter preserves that
+/// spelling, but a downloaded paper is a local document: make both source
+/// shapes use the same fragment so clicking a section, figure, or table never
+/// leaves the reader when the target was converted with it.
+fn localize_arxiv_fragment_links(markdown: &str, arxiv_id: &str) -> String {
+    let base = regex::escape(arxiv_base_id(arxiv_id));
+    let pattern = Regex::new(&format!(
+        r"(?i)https?://(?:www\.)?arxiv\.org/html/{base}(?:v\d+)?(?P<fragment>#[A-Za-z][A-Za-z0-9_.:%-]*)"
+    ))
+    .unwrap();
+    pattern.replace_all(markdown, "$fragment").into_owned()
+}
+
 pub(crate) fn arxiv_base_id(arxiv_id: &str) -> &str {
     match arxiv_id.rsplit_once('v') {
         Some((base, version))
@@ -868,23 +1117,32 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
         fs::read_to_string(project::safe_path(root, &manifest.primary_bibliography)?)
             .unwrap_or_default();
     for citation in project::parse_bibliography(&bibliography) {
-        // Join on either identifier. Keying on the citation key alone missed
-        // every paper whose metadata.json predates that field or whose key was
-        // later rewritten: the fetched text sat right there while the row
-        // claimed the work had none and offered to download it again.
-        let matched = imported
-            .iter()
-            .position(|(id, metadata, _has_full_text, _has_blog, _asset_paths)| {
-                let by_arxiv = citation.arxiv_id.as_deref().is_some_and(|cited| {
-                    arxiv_base_id(cited).eq_ignore_ascii_case(arxiv_base_id(id))
-                });
-                // A webpage citation has no arXiv id; its captured bundle
-                // remembers which URL it snapshotted instead.
-                let by_url = citation.url.as_deref().is_some_and(|cited| {
-                    !metadata.source_url.is_empty() && metadata.source_url == cited.trim()
-                });
-                by_arxiv || by_url
+        // Prefer an explicit arXiv identity, then an arXiv bundle with the same
+        // title, and only then a captured webpage. The title bridge matters for
+        // published DBLP/OpenReview entries written without an eprint: once a
+        // later title import discovers the preprint, its full text must replace
+        // the old landing-page capture in the reader.
+        let by_arxiv = imported.iter().position(|(id, _, _, _, _)| {
+            citation
+                .arxiv_id
+                .as_deref()
+                .is_some_and(|cited| arxiv_base_id(cited).eq_ignore_ascii_case(arxiv_base_id(id)))
+        });
+        let by_title = imported.iter().position(|(_, metadata, _, _, _)| {
+            metadata.source != "web"
+                && !metadata.title.is_empty()
+                && paper_titles_match(&citation.title, &metadata.title)
+        });
+        // A webpage citation has no arXiv id; its captured bundle remembers
+        // which URL it snapshotted instead.
+        let by_url = imported.iter().position(|(_, metadata, _, _, _)| {
+            citation.url.as_deref().is_some_and(|cited| {
+                !metadata.source_url.is_empty() && metadata.source_url == cited.trim()
             })
+        });
+        let matched = by_arxiv
+            .or(by_title)
+            .or(by_url)
             .map(|index| imported.remove(index));
         let title = if !citation.title.trim().is_empty() {
             citation.title.clone()
@@ -901,6 +1159,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
                 .unwrap_or_default(),
             url: citation.url,
             title,
+            authors: citation.authors,
             citation_key: Some(citation.key),
             has_full_text: matched
                 .as_ref()
@@ -1009,29 +1268,6 @@ fn paper_cache_directories(directory: &Path) -> Result<Vec<PathBuf>, String> {
         }
     }
     Ok(found)
-}
-
-pub fn search_papers(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
-    let terms = project::search_terms(query);
-    if terms.is_empty() {
-        return Ok(Vec::new());
-    }
-    let mut results = Vec::new();
-    for paper in list_papers(root)? {
-        if project::matches_search(&paper.title, &terms) {
-            results.push(ProjectSearchResult {
-                kind: "paper".to_string(),
-                path: format!(".research/papers/{}/paper.md", paper.arxiv_id),
-                title: paper.title,
-                snippet: String::new(),
-                line: None,
-                arxiv_id: Some(paper.arxiv_id),
-                file_kind: None,
-            });
-        }
-    }
-    results.truncate(60);
-    Ok(results)
 }
 
 /// One library entry as the agent sees it: what the work is, how to cite it,
@@ -1224,21 +1460,59 @@ pub fn remove_reference(root: &Path, key: &str) -> Result<RemoveResult, String> 
     remove_reference_with_history(root, key, HistoryMode::Record)
 }
 
+/// Inspect a removal without changing the bibliography or manuscript.
+pub fn preview_reference_removal(root: &Path, key: &str) -> Result<RemoveResult, String> {
+    remove_reference_with_mode(root, key, HistoryMode::Record, CitationRemovalMode::Preview)
+}
+
+/// Remove the bibliography entry even when manuscript citations remain.
+pub fn remove_reference_keeping_citations(root: &Path, key: &str) -> Result<RemoveResult, String> {
+    remove_reference_with_mode(root, key, HistoryMode::Record, CitationRemovalMode::Keep)
+}
+
+/// Remove manuscript citations and their bibliography entry together.
+pub fn remove_reference_and_citations(root: &Path, key: &str) -> Result<RemoveResult, String> {
+    remove_reference_with_mode(root, key, HistoryMode::Record, CitationRemovalMode::Remove)
+}
+
+#[derive(Clone, Copy)]
+enum CitationRemovalMode {
+    Block,
+    Preview,
+    Keep,
+    Remove,
+}
+
 pub(crate) fn remove_reference_with_history(
     root: &Path,
     key: &str,
     history: HistoryMode,
+) -> Result<RemoveResult, String> {
+    remove_reference_with_mode(root, key, history, CitationRemovalMode::Block)
+}
+
+fn remove_reference_with_mode(
+    root: &Path,
+    key: &str,
+    history: HistoryMode,
+    mode: CitationRemovalMode,
 ) -> Result<RemoveResult, String> {
     let key = key.trim();
     if key.is_empty() {
         return Err("Enter a citation key to remove.".to_string());
     }
     let blockers = citation_blockers(root, key)?;
-    if !blockers.is_empty() {
+    if matches!(mode, CitationRemovalMode::Preview)
+        || (!blockers.is_empty() && matches!(mode, CitationRemovalMode::Block))
+    {
         return Ok(RemoveResult {
             key: key.to_string(),
             removed: false,
             blockers,
+            changed_files: Vec::new(),
+            removed_citations: 0,
+            transaction_id: None,
+            changes: Vec::new(),
         });
     }
     let manifest = project::read_manifest(root)?;
@@ -1256,17 +1530,55 @@ pub(crate) fn remove_reference_with_history(
     run_bibcite_remove(&copy, &exact_key)?;
     let after = fs::read_to_string(&copy).map_err(err)?;
     let _ = fs::remove_dir_all(temp);
-    commit_bibliography(
-        root,
-        &manifest.primary_bibliography,
-        &after,
-        &format!("Remove {exact_key}"),
-        history,
-    )?;
+    let (mut file_edits, removed_citations) = if matches!(mode, CitationRemovalMode::Remove) {
+        project::remove_citation_usages(root, &exact_key)?
+    } else {
+        (Vec::new(), 0)
+    };
+    file_edits.push((manifest.primary_bibliography.clone(), before, after));
+    let changed_files = file_edits
+        .iter()
+        .map(|(relative, _, _)| relative.clone())
+        .collect::<Vec<_>>();
+    let changes = file_edits
+        .iter()
+        .map(|(relative, before, after)| ReferenceFileChange {
+            path: relative.clone(),
+            before: before.clone(),
+            after: after.clone(),
+        })
+        .collect::<Vec<_>>();
+    let transaction_id = match history {
+        HistoryMode::Record => project::apply_citation_transaction_checked(
+            root,
+            &format!("Remove {exact_key}"),
+            file_edits,
+        )?
+        .map(|record| record.id),
+        HistoryMode::Defer => {
+            for (relative, before, _) in &file_edits {
+                let current =
+                    fs::read_to_string(project::safe_path(root, relative)?).map_err(err)?;
+                if current != *before {
+                    return Err(format!(
+                        "Cannot remove the reference because {relative} changed. Try again."
+                    ));
+                }
+            }
+            for (relative, _, contents) in file_edits {
+                fs::write(project::safe_path(root, &relative)?, contents).map_err(err)?;
+            }
+            None
+        }
+    };
     Ok(RemoveResult {
         key: exact_key,
         removed: true,
         blockers: Vec::new(),
+        changed_files,
+        removed_citations,
+        transaction_id,
+        changes,
     })
 }
 
@@ -1362,6 +1674,106 @@ fn parse_arxiv_id(input: &str) -> Option<String> {
         .map(|value| value.as_str().to_string())
 }
 
+/// Prefer an arXiv identity for a title before asking bibcite to choose the
+/// canonical publication record. Published DBLP/OpenReview records often omit
+/// their preprint id; once bibcite writes that record there is no reliable way
+/// to join a downloaded arXiv bundle back to it. Resolving the title first lets
+/// bibcite keep the published venue while carrying `eprint` and the arXiv URL.
+fn bibcite_query_for_input(
+    query: &str,
+    resolver: &dyn Fn(&str) -> Result<Option<String>, String>,
+) -> String {
+    if is_web_url(query) || query.split_whitespace().count() < 3 {
+        return query.to_string();
+    }
+    match resolver(query) {
+        Ok(Some(arxiv_id)) => arxiv_base_id(&arxiv_id).to_string(),
+        Ok(None) => query.to_string(),
+        Err(error) => {
+            // arXiv lookup is enrichment. A transient API failure must not
+            // prevent bibcite from adding a DOI, book, or web-only work.
+            log::debug!(
+                target: "lattice::literature",
+                "arXiv title lookup failed; falling back to bibcite: {error}"
+            );
+            query.to_string()
+        }
+    }
+}
+
+fn resolve_arxiv_title(title: &str) -> Result<Option<String>, String> {
+    let search = format!("ti:\"{}\"", title.trim());
+    let url = format!(
+        "{ARXIV_TITLE_SEARCH_URL}?search_query={}&start=0&max_results=5",
+        crate::openalex::urlencoding(&search)
+    );
+    let client = reqwest::blocking::Client::builder()
+        .user_agent(LITERATURE_USER_AGENT)
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|error| format!("Could not create arXiv client: {error}"))?;
+    let response = client
+        .get(url)
+        .send()
+        .map_err(|error| format!("arXiv title lookup failed: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "arXiv title lookup returned HTTP {}.",
+            response.status().as_u16()
+        ));
+    }
+    let feed = response
+        .text()
+        .map_err(|error| format!("Could not read the arXiv title lookup: {error}"))?;
+    Ok(arxiv_id_from_title_feed(&feed, title))
+}
+
+/// Read only the two Atom fields needed here. Keeping this parser narrow avoids
+/// shipping an XML stack for one response while still checking the returned
+/// title instead of trusting the search ranking.
+fn arxiv_id_from_title_feed(feed: &str, requested_title: &str) -> Option<String> {
+    let entries = Regex::new(r"(?s)<entry>(.*?)</entry>").ok()?;
+    let title = Regex::new(r"(?s)<title>(.*?)</title>").ok()?;
+    let id = Regex::new(r"(?s)<id>(.*?)</id>").ok()?;
+    let matched = entries.captures_iter(feed).find_map(|entry| {
+        let body = entry.get(1)?.as_str();
+        let candidate_title = title.captures(body)?.get(1)?.as_str();
+        let candidate_title = html_escape::decode_html_entities(candidate_title);
+        if !paper_titles_match(requested_title, &candidate_title) {
+            return None;
+        }
+        let candidate_id = id.captures(body)?.get(1)?.as_str();
+        parse_arxiv_id(candidate_id).map(|value| arxiv_base_id(&value).to_string())
+    });
+    matched
+}
+
+fn paper_titles_match(requested: &str, candidate: &str) -> bool {
+    fn normalize(value: &str) -> String {
+        value
+            .split(|character: char| !character.is_alphanumeric())
+            .filter(|part| !part.is_empty())
+            .map(|part| part.to_lowercase())
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    let requested = normalize(requested);
+    let candidate = normalize(candidate);
+    if requested.is_empty() || candidate.is_empty() {
+        return false;
+    }
+    if candidate == requested {
+        return true;
+    }
+    // arXiv commonly prefixes the publication title with an acronym, as in
+    // "SOLO: A Single Transformer …". Accept that small prefix, but not a
+    // generic query that merely happens to be a suffix of another title.
+    candidate
+        .strip_suffix(&format!(" {requested}"))
+        .is_some_and(|prefix| prefix.split_whitespace().count() <= 3)
+}
+
 /// Everything that is not an arXiv paper: resolve it, write the `.bib` entry,
 /// and stop there. There is no text to fetch and none is pretended.
 fn import_citation(
@@ -1387,7 +1799,9 @@ fn import_citation(
     fs::write(&bibliography_path, &before).map_err(err)?;
 
     progress("resolving");
-    let citation_output = run_bibcite(&bibliography_path, query)?;
+    let bibcite_query = bibcite_query_for_input(query, &resolve_arxiv_title);
+    let preferred_arxiv = parse_arxiv_id(&bibcite_query);
+    let citation_output = run_bibcite(&bibliography_path, &bibcite_query)?;
     let bibliography = fs::read_to_string(&bibliography_path).map_err(err)?;
     let citation_key = parse_citation_key(&citation_output)
         .ok_or_else(|| "bibcite did not return a citation key.".to_string())?;
@@ -1405,7 +1819,10 @@ fn import_citation(
         .filter(|title| !title.trim().is_empty())
         .or_else(|| Some(citation_key.clone()))
         .unwrap_or_else(|| query.to_string());
-    let resolved_arxiv = resolved_entry.arxiv_id;
+    // bibcite deliberately preserves an existing entry verbatim. If that old
+    // record came from OpenReview without an eprint, retain the arXiv identity
+    // found from the title so re-importing repairs the missing full text too.
+    let resolved_arxiv = resolved_entry.arxiv_id.or(preferred_arxiv);
     // The bibliography is the deliverable; the fetched text is enrichment.
     // Commit it before attempting any download: a work whose text cannot be
     // fetched (no HTML rendering, network trouble) is still a full citation —
@@ -1679,6 +2096,41 @@ Install it from Settings → TeX doctor → Open install guide (or run `brew ins
 mod tests {
     use super::*;
 
+    // Tool binary overrides are process-wide environment variables. Serialize
+    // the tests that invoke bibcite with the one test that replaces it with a
+    // fixture binary, or parallel test execution can edit an unrelated
+    // bibliography through the fixture's deliberately narrow CLI contract.
+    static TOOL_OVERRIDE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn paper_pdf_cache_is_bounded_and_rejects_non_pdf_data() {
+        let directory =
+            std::env::temp_dir().join(format!("lattice-paper-pdf-cache-{}", Uuid::new_v4()));
+        let first = directory.join("first.pdf");
+        let second = directory.join("second.pdf");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(&first, b"12345678").unwrap();
+        fs::write(&second, b"abcdefgh").unwrap();
+        OpenOptions::new()
+            .write(true)
+            .open(&first)
+            .unwrap()
+            .set_times(FileTimes::new().set_modified(SystemTime::UNIX_EPOCH))
+            .unwrap();
+
+        prune_pdf_cache(&directory, 8, Some(&second)).unwrap();
+        assert!(!first.exists());
+        assert!(second.exists());
+
+        let pdf = b"%PDF-1.7 cached paper";
+        cache_pdf(&directory, "1706.03762v7", pdf).unwrap();
+        assert_eq!(read_cached_pdf(&directory, "1706.03762v7").unwrap(), pdf);
+        assert!(cache_pdf(&directory, "1706.03762", b"not a pdf").is_err());
+        assert!(cache_pdf(&directory, "../../escape", pdf).is_err());
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
     #[test]
     fn normalizes_converter_block_structure_without_touching_latex() {
         let source = "## Contents\n- Intro\n\n<a id=\"eq\"></a>\n$$\nx_{p} \\%\n$$\n\n- •\nContinuation with $x_{p}$\n";
@@ -1689,12 +2141,60 @@ mod tests {
     }
 
     #[test]
+    fn same_paper_arxiv_links_become_local_fragments() {
+        let markdown = concat!(
+            "See [Figure 10(a)](https://arxiv.org/html/2407.06438v3#S7.F10.sf1), ",
+            "[the paper](https://arxiv.org/html/2407.06438v3), and ",
+            "[another paper](https://arxiv.org/html/2407.00001#S1).\n",
+        );
+        assert_eq!(
+            localize_arxiv_fragment_links(markdown, "2407.06438"),
+            concat!(
+                "See [Figure 10(a)](#S7.F10.sf1), ",
+                "[the paper](https://arxiv.org/html/2407.06438v3), and ",
+                "[another paper](https://arxiv.org/html/2407.00001#S1).\n",
+            )
+        );
+    }
+
+    #[test]
     fn folds_item_bullet_glyphs_into_their_markers() {
         let source = "- •\n  $p(\\textbf{x}|c)$. First item.\n- •\n  Second item.\n  - •\n    Nested item.\n";
         assert_eq!(
             normalize_imported_markdown(source),
             "- $p(\\textbf{x}|c)$. First item.\n- Second item.\n  - Nested item.\n",
         );
+    }
+
+    #[test]
+    fn promotes_parenthesized_enumerate_glyphs_instead_of_nesting_two_lists() {
+        let source = "- (1)\nConstrained visual capabilities:\nThe visual capacities are limited.\nDue to their smaller size, they can be a bottleneck.\n- (2)\nChallenges in efficient training and deployment:\nThe heterogeneous architecture reduces efficiency.\n\n- (aside) This remains a bullet.\n";
+        assert_eq!(
+            normalize_imported_markdown(source),
+            "1. Constrained visual capabilities: The visual capacities are limited. Due to their smaller size, they can be a bottleneck.\n2. Challenges in efficient training and deployment: The heterogeneous architecture reduces efficiency.\n\n- (aside) This remains a bullet.\n",
+        );
+
+        let indented =
+            "- •\n  (1)\n  Constrained visual capabilities.\n2. Existing ordered item.\n";
+        assert_eq!(
+            normalize_imported_markdown(indented),
+            "1. Constrained visual capabilities.\n2. Existing ordered item.\n",
+        );
+
+        let source_samples = "---\nexample:\n  - (3)\n---\n\n```md\n- (4)\n  Code sample.\n```\n";
+        assert_eq!(normalize_imported_markdown(source_samples), source_samples);
+    }
+
+    #[test]
+    fn promotes_standalone_bullet_ordinals_to_one_ordered_list() {
+        let source = "- 1.\nFirst answer.\n- 2.\nSecond answer.\n";
+        assert_eq!(
+            normalize_imported_markdown(source),
+            "1. First answer.\n2. Second answer.\n",
+        );
+
+        let source_samples = "---\nexample: - 3.\n---\n\n```md\n- 4.\nCode sample.\n```\n";
+        assert_eq!(normalize_imported_markdown(source_samples), source_samples);
     }
 
     #[test]
@@ -1783,6 +2283,52 @@ mod tests {
         );
         assert_eq!(parse_arxiv_id("2401.12345v2").unwrap(), "2401.12345v2");
         assert_eq!(parse_arxiv_id("not a paper"), None);
+    }
+
+    #[test]
+    fn resolves_a_publication_title_to_its_arxiv_record() {
+        let feed = concat!(
+            "<feed>",
+            "<entry><id>http://arxiv.org/abs/2501.00001v1</id>",
+            "<title>A Different Paper</title></entry>",
+            "<entry><id>http://arxiv.org/abs/2407.06438v3</id>",
+            "<title>SOLO: A Single Transformer for Scalable Vision-Language Modeling</title>",
+            "</entry></feed>",
+        );
+        assert_eq!(
+            arxiv_id_from_title_feed(
+                feed,
+                "A Single Transformer for Scalable Vision-Language Modeling"
+            )
+            .as_deref(),
+            Some("2407.06438")
+        );
+        assert_eq!(
+            arxiv_id_from_title_feed(feed, "A Different Transformer"),
+            None
+        );
+    }
+
+    #[test]
+    fn title_imports_prefer_a_resolved_arxiv_id_but_other_queries_fall_back() {
+        let title = "A Single Transformer for Scalable Vision-Language Modeling";
+        assert_eq!(
+            bibcite_query_for_input(title, &|query| {
+                assert_eq!(query, title);
+                Ok(Some("2407.06438v3".to_string()))
+            }),
+            "2407.06438"
+        );
+        assert_eq!(
+            bibcite_query_for_input(title, &|_| Err("offline".to_string())),
+            title
+        );
+        assert_eq!(
+            bibcite_query_for_input("https://openreview.net/forum?id=nuzFG0Rbhy", &|_| {
+                panic!("URLs must go directly to bibcite")
+            }),
+            "https://openreview.net/forum?id=nuzFG0Rbhy"
+        );
     }
 
     /// Anything that is not an arXiv paper has to reach bibcite untouched.
@@ -1907,8 +2453,8 @@ mod tests {
         // Two citations; only the first was ever fetched.
         fs::write(
             root.join("references.bib"),
-            "@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  eprint = {1706.03762}\n}\n\
-             @article{kingma2015adam,\n  title = {Adam: A Method for Stochastic Optimization},\n  eprint = {1412.6980}\n}\n",
+            "@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  author = {Ashish Vaswani and Noam Shazeer},\n  eprint = {1706.03762}\n}\n\
+             @article{kingma2015adam,\n  title = {Adam: A Method for Stochastic Optimization},\n  author = {Diederik P. Kingma and Jimmy Ba},\n  eprint = {1412.6980}\n}\n",
         )
         .unwrap();
         let directory = root.join(".research/papers/1706.03762");
@@ -1935,6 +2481,7 @@ mod tests {
         assert!(!adam.has_full_text);
         assert!(!adam.has_blog);
         assert_eq!(adam.title, "Adam: A Method for Stochastic Optimization");
+        assert_eq!(adam.authors, "Diederik P. Kingma and Jimmy Ba");
         // Its arXiv id came off the bibliography, so the text can be fetched later.
         assert_eq!(adam.arxiv_id, "1412.6980");
 
@@ -1946,6 +2493,79 @@ mod tests {
         assert!(attention.has_blog);
         assert_eq!(attention.arxiv_id, "1706.03762");
 
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn an_arxiv_title_match_replaces_an_openreview_capture() {
+        let parent =
+            std::env::temp_dir().join(format!("lattice-paper-title-join-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let title = "A Single Transformer for Scalable Vision-Language Modeling";
+        let openreview = "https://openreview.net/forum?id=nuzFG0Rbhy";
+        fs::write(
+            root.join("references.bib"),
+            format!(
+                "@article{{chen2024single,\n  title = {{{title}}},\n  url = {{{openreview}}}\n}}\n"
+            ),
+        )
+        .unwrap();
+
+        let web_id = web_reference_id(openreview);
+        let web = root.join(".research/papers").join(&web_id);
+        fs::create_dir_all(&web).unwrap();
+        fs::write(
+            web.join("paper.md"),
+            format!("# {title}\n\nOpenReview page."),
+        )
+        .unwrap();
+        fs::write(
+            web.join("metadata.json"),
+            serde_json::to_vec(&PaperMetadata {
+                arxiv_id: web_id,
+                requested_arxiv_id: String::new(),
+                title: title.to_string(),
+                schema_version: PAPER_SCHEMA_VERSION,
+                complete: true,
+                converter: FIRECRAWL_CONVERTER.to_string(),
+                source: "web".to_string(),
+                source_url: openreview.to_string(),
+                paper_sha256: String::new(),
+                asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        let arxiv = root.join(".research/papers/2407.06438");
+        fs::create_dir_all(&arxiv).unwrap();
+        fs::write(
+            arxiv.join("paper.md"),
+            format!("# SOLO: {title}\n\nThe arXiv full text."),
+        )
+        .unwrap();
+        fs::write(
+            arxiv.join("metadata.json"),
+            serde_json::to_vec(&PaperMetadata {
+                arxiv_id: "2407.06438".to_string(),
+                requested_arxiv_id: "2407.06438v3".to_string(),
+                title: format!("SOLO: {title}"),
+                schema_version: PAPER_SCHEMA_VERSION,
+                complete: true,
+                converter: commands::ARXIV2MD.requirement.to_string(),
+                source: "arxiv-html".to_string(),
+                source_url: String::new(),
+                paper_sha256: String::new(),
+                asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers.len(), 1);
+        assert_eq!(papers[0].arxiv_id, "2407.06438");
+        assert!(papers[0].has_full_text);
         let _ = fs::remove_dir_all(parent);
     }
 
@@ -1972,6 +2592,7 @@ mod tests {
 
     #[test]
     fn remove_is_blocked_by_nocite_and_preserves_the_cache() {
+        let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
         let parent = std::env::temp_dir().join(format!("lattice-paper-blocker-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
         fs::write(root.join("main.tex"), "\\nocite{KEEP}\n").unwrap();
@@ -1991,6 +2612,90 @@ mod tests {
         assert!(fs::read_to_string(root.join("references.bib"))
             .unwrap()
             .contains("keep"));
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn remove_can_keep_or_delete_manuscript_citations() {
+        let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
+        let parent =
+            std::env::temp_dir().join(format!("lattice-paper-remove-cites-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let manuscript = concat!(
+            "% Example only: \\cite{target}\n",
+            "Inline example: \\verb|\\cite{target}|.\n",
+            "\\begin{verbatim}\n\\cite{target}\n\\end{verbatim}\n",
+            "Before \\citep[see][p. 2]{first, TARGET, last} after.\n",
+            "Solo \\textcite*{target} remains grammatical.\n",
+        );
+        fs::write(root.join("main.tex"), manuscript).unwrap();
+        fs::write(
+            root.join("references.bib"),
+            concat!(
+                "@article{first, title={First}}\n",
+                "@article{target, title={Target}, eprint={2401.00001}}\n",
+                "@article{last, title={Last}}\n",
+            ),
+        )
+        .unwrap();
+        let cache = root.join(".research/papers/2401.00001");
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(cache.join("paper.md"), "cached").unwrap();
+
+        let preview = preview_reference_removal(&root, "target").unwrap();
+        assert!(!preview.removed);
+        assert_eq!(preview.blockers.len(), 2);
+        assert_eq!(
+            fs::read_to_string(root.join("main.tex")).unwrap(),
+            manuscript
+        );
+
+        let result = remove_reference_and_citations(&root, "target").unwrap();
+        assert!(result.removed);
+        assert_eq!(result.removed_citations, 2);
+        assert_eq!(result.changed_files, ["main.tex", "references.bib"]);
+        let main = fs::read_to_string(root.join("main.tex")).unwrap();
+        assert!(main.contains("% Example only: \\cite{target}"));
+        assert!(main.contains("\\verb|\\cite{target}|"));
+        assert!(main.contains("\\begin{verbatim}\n\\cite{target}\n\\end{verbatim}"));
+        assert!(main.contains("\\citep[see][p. 2]{first, last}"));
+        assert!(main.contains("Solo remains grammatical."));
+        assert!(!fs::read_to_string(root.join("references.bib"))
+            .unwrap()
+            .contains("target"));
+        assert!(cache.join("paper.md").is_file());
+        let history = project::history(&root).unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].files, vec!["main.tex", "references.bib"]);
+
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn remove_can_leave_citations_unresolved_when_requested() {
+        let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
+        let parent =
+            std::env::temp_dir().join(format!("lattice-paper-keep-cites-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(root.join("main.tex"), "See \\cite{keep}.\n").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{keep, title={Keep the citation command}}\n",
+        )
+        .unwrap();
+
+        let result = remove_reference_keeping_citations(&root, "keep").unwrap();
+        assert!(result.removed);
+        assert_eq!(result.removed_citations, 0);
+        assert_eq!(result.changed_files, ["references.bib"]);
+        assert_eq!(
+            fs::read_to_string(root.join("main.tex")).unwrap(),
+            "See \\cite{keep}.\n"
+        );
+        assert!(!fs::read_to_string(root.join("references.bib"))
+            .unwrap()
+            .contains("keep"));
+
         let _ = fs::remove_dir_all(parent);
     }
 
@@ -2282,6 +2987,11 @@ mod tests {
             "Title: Attention Is All You Need\n\nThe scaled dot-product attention mechanism.\n",
         )
         .unwrap();
+        fs::write(
+            directory.join("blog.md"),
+            "# Overview\n\nA residual stream explanation for practitioners.\n",
+        )
+        .unwrap();
         // An uncited cache mentioning the same phrase must stay invisible.
         let uncited = root.join(".research/papers/2401.00001");
         fs::create_dir_all(&uncited).unwrap();
@@ -2296,6 +3006,11 @@ mod tests {
         assert_eq!(hits[0].path, ".research/papers/1706.03762/paper.md");
         assert_eq!(hits[0].line, Some(3));
         assert!(hits[0].snippet.contains("scaled dot-product"));
+
+        let blog_hits = search_library(&root, "residual stream").unwrap();
+        assert_eq!(blog_hits.len(), 1, "got: {blog_hits:?}");
+        assert_eq!(blog_hits[0].path, ".research/papers/1706.03762/blog.md");
+        assert_eq!(blog_hits[0].line, Some(3));
 
         // A title match reports the readable file without a line number.
         let title_hits = search_library(&root, "attention is all you need").unwrap();
@@ -2327,7 +3042,7 @@ mod tests {
             title: "Attention Is All You Need".to_string(),
             schema_version: PAPER_SCHEMA_VERSION,
             complete: true,
-            converter: ARXIV2MD_REQUIREMENT.to_string(),
+            converter: commands::ARXIV2MD.requirement.to_string(),
             source: String::new(),
             source_url: String::new(),
             paper_sha256: sha256_hex(markdown.as_bytes()),
@@ -2352,6 +3067,7 @@ mod tests {
     #[test]
     fn a_citation_survives_a_failed_full_text_download() {
         use std::os::unix::fs::PermissionsExt;
+        let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
         let parent = std::env::temp_dir().join(format!("lattice-cite-fetch-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
         let tools = parent.join("tools");
@@ -2533,7 +3249,7 @@ mod tests {
             title: "Paper".to_string(),
             schema_version: PAPER_SCHEMA_VERSION,
             complete: true,
-            converter: ARXIV2MD_REQUIREMENT.to_string(),
+            converter: commands::ARXIV2MD.requirement.to_string(),
             source: String::new(),
             source_url: String::new(),
             paper_sha256: sha256_hex(markdown),
@@ -2569,7 +3285,7 @@ mod tests {
             title: "Paper".to_string(),
             schema_version: PAPER_SCHEMA_VERSION,
             complete: true,
-            converter: ARXIV2MD_REQUIREMENT.to_string(),
+            converter: commands::ARXIV2MD.requirement.to_string(),
             source: String::new(),
             source_url: String::new(),
             paper_sha256: sha256_hex(markdown),
@@ -2577,38 +3293,6 @@ mod tests {
         };
         assert!(validate_paper_bundle(&directory, &metadata).is_err());
         let _ = fs::remove_dir_all(directory);
-    }
-
-    #[test]
-    fn paper_search_matches_only_titles() {
-        let parent = std::env::temp_dir().join(format!("lattice-paper-search-{}", Uuid::new_v4()));
-        let root = project::create(&parent, "paper").unwrap();
-        let directory = root.join(".research/papers/1706.03762");
-        fs::create_dir_all(&directory).unwrap();
-        fs::write(
-            directory.join("paper.md"),
-            "Title: Attention Is All You Need\nThe encoder-free model relies entirely on self-attention.\n",
-        )
-        .unwrap();
-        fs::write(
-            directory.join("metadata.json"),
-            r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
-        )
-        .unwrap();
-        fs::write(
-            root.join("references.bib"),
-            "@article{vaswani2017attention, title={Attention Is All You Need}, eprint={1706.03762}}\n",
-        )
-        .unwrap();
-
-        let results = search_papers(&root, "attention need").unwrap();
-
-        assert_eq!(results[0].arxiv_id.as_deref(), Some("1706.03762"));
-        assert!(results[0].snippet.is_empty());
-        assert!(search_papers(&root, "self-attention").unwrap().is_empty());
-        assert!(search_papers(&root, "encoder free").unwrap().is_empty());
-        assert!(search_papers(&root, "1706.03762").unwrap().is_empty());
-        fs::remove_dir_all(parent).unwrap();
     }
 
     /// 2408.05088 has no arXiv HTML rendering and ar5iv serves a failed-

@@ -11,7 +11,7 @@
     "prepare:runtime": "pnpm prepare:synara",
     "prepare:runtime:dev": "pnpm prepare:synara:dev",
     "check": "pnpm lint && pnpm test && pnpm build && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings",
-    "lint": "eslint src --max-warnings 139",
+    "lint": "eslint src --max-warnings 136",
     "test": "vitest run",
     "preview": "vite preview",
     "tauri": "tauri",
@@ -197,6 +197,7 @@
       "@tiptap/extensions": "3.23.5"
     },
     "patchedDependencies": {
+      "@pierre/trees@1.0.0-beta.6": "patches/@pierre__trees@1.0.0-beta.6.patch",
       "@tiptap/react@3.23.5": "patches/@tiptap__react@3.23.5.patch"
     }
   }

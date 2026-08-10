@@ -23,9 +23,9 @@
  * `<Math>` slash-insert.
  *
  * Block math (`<MathView>` in `editor/components/Math.tsx`) and inline
- * math share the same KaTeX dependency — KaTeX JS is lazy and singleton-
- * cached after first import; KaTeX CSS is eager from `main.tsx` so
- * inline-flow rendering doesn't pay per-instance flash-of-unstyled-math.
+ * math share the same KaTeX dependency in the lazy Visual Editor bundle.
+ * Rendering itself is synchronous so virtual chunks never paint the source
+ * placeholder for one frame before replacing it with KaTeX.
  *
  * `displayMode: false` is the inline-flow rendering mode (KaTeX wraps
  * output in `<span class="katex">`). `throwOnError: false` keeps
@@ -37,15 +37,16 @@ import { incrementJsxRenderFailure } from '@ok-core';
 import { Trans } from '@ok-app/shims/lingui-react-macro';
 import type { NodeViewProps } from '@tiptap/core';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
-import { NodeViewWrapper } from '@tiptap/react';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { NodeViewWrapper, useEditorState } from '@tiptap/react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Button } from '../../components/ui/button.tsx';
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover.tsx';
 import { PropPanel } from '../components/PropPanel.tsx';
 import type { JsxComponentDescriptor } from '../registry/types.ts';
 import { consumeAutoOpen } from '../slash-command/component-items.tsx';
-import { useNearViewport } from '../../../use-near-viewport';
+import katex from 'katex';
+import { getHostKatexMacros } from '@ok-app/shims/katex-macros';
 
 /**
  * Synthetic descriptor used to drive the inline-math PropPanel. `mathInline`
@@ -78,34 +79,21 @@ const inlineMathDescriptor = {
   ],
 } as unknown as JsxComponentDescriptor;
 
-const KatexInlineRender = lazy(async () => {
-  const { default: katex } = await import('katex');
-  const { getHostKatexMacros } = await import('@ok-app/shims/katex-macros');
-
-  function KatexInlineInner(props: { formula: string }) {
-    const html = katex.renderToString(props.formula, {
-      displayMode: false,
-      throwOnError: false,
-      strict: 'ignore',
-      macros: getHostKatexMacros(),
-      // Defense-in-depth, matching Math.tsx — blocks HTML-injecting LaTeX
-      // commands like `\href{javascript:...}`, `\htmlClass`, `\htmlStyle`.
-      // KaTeX's documented default is also `false`; explicit declaration
-      // keeps the security posture consistent across both renderers and
-      // guards against future config mutations.
-      trust: false,
-    });
-    return (
-      <span
-        className="math math-inline"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: KaTeX renderToString returns a strict HTML-allowlist string with no script execution; this is the documented integration path.
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-    );
-  }
-
-  return { default: KatexInlineInner };
-});
+function KatexInlineRender(props: { formula: string }) {
+  const html = katex.renderToString(props.formula, {
+    displayMode: false,
+    throwOnError: false,
+    strict: 'ignore',
+    macros: getHostKatexMacros(),
+    trust: false,
+  });
+  return (
+    <span
+      className="math math-inline"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
 
 /**
  * Visible empty-state placeholder for atoms with no formula yet (post-
@@ -126,28 +114,28 @@ function EmptyInlineMathPlaceholder() {
   );
 }
 
-/**
- * Loading-state placeholder shown while KaTeX is lazy-importing or
- * before the dynamic import resolves. Renders the formula source
- * verbatim so a network-stalled lazy import still shows the user's
- * input rather than a blank gap.
- */
-function InlineLoadingPlaceholder(props: { formula: string }) {
-  return (
-    <span className="math math-inline math-placeholder" data-component-type="math-inline">
-      {props.formula}
-    </span>
-  );
-}
-
-export function MathInlineView({ node, selected, getPos, editor }: NodeViewProps) {
+export function MathInlineView({ node, getPos, editor }: NodeViewProps) {
   const formula = typeof node.attrs.formula === 'string' ? node.attrs.formula : '';
   const id = typeof node.attrs.id === 'string' ? node.attrs.id : undefined;
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [formulaDraft, setFormulaDraft] = useState(formula);
   const displayedFormula = popoverOpen ? formulaDraft : formula;
   const wasSelected = useRef(false);
-  const { nearViewport, viewportRef } = useNearViewport<HTMLSpanElement>();
+  const isSoleSelection = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => {
+      const selection = currentEditor.state.selection;
+      if (!(selection instanceof NodeSelection)) return false;
+      try {
+        const pos = typeof getPos === 'function' ? getPos() : undefined;
+        return typeof pos === 'number'
+          && selection.from === pos
+          && selection.to === pos + node.nodeSize;
+      } catch {
+        return false;
+      }
+    },
+  });
 
   const commitFormulaDraft = useCallback(() => {
     if (formulaDraft === formula) return;
@@ -185,19 +173,15 @@ export function MathInlineView({ node, selected, getPos, editor }: NodeViewProps
   //      this branch covers selection-only changes that bypass those and
   //      commits the current draft before closing.
   //
-  // Gate on `editor.state.selection instanceof NodeSelection` not the
-  // raw `selected` prop. TipTap's `selected` is `true` for any inline
-  // atom whose position falls inside the editor's current selection
-  // range — including TextSelection (drag-select across the atom) and
-  // AllSelection (Cmd+A). Without the NodeSelection gate, every math
-  // atom in the doc opens its popover on every Cmd+A, hijacking focus
-  // away from the user's text-selection drag. The popover is only
-  // intended to open as the result of an explicit single-atom click or
-  // the slash-insert programmatic NodeSelection — both of which are
-  // NodeSelection events.
+  // TipTap's raw `selected` prop is true whenever a selection fully covers
+  // this atom. That includes a NodeSelection on its containing paragraph, a
+  // TextSelection across it, and AllSelection. Subscribe to editor state and
+  // require exact from/to bounds instead: only a NodeSelection whose target is
+  // this atom may open its properties. The subscription is load-bearing when
+  // selection moves directly from an enclosing block to the atom — TipTap's
+  // broad `selected` prop stays true across that transition and does not cause
+  // a NodeView prop update by itself.
   useEffect(() => {
-    const isSoleSelection = selected && editor.state.selection instanceof NodeSelection;
-
     if (isSoleSelection && !wasSelected.current) {
       const pos = typeof getPos === 'function' ? (getPos() ?? 0) : 0;
       consumeAutoOpen(pos);
@@ -207,10 +191,10 @@ export function MathInlineView({ node, selected, getPos, editor }: NodeViewProps
       closePopover();
     }
     wasSelected.current = isSoleSelection;
-  }, [selected, getPos, editor, formula, closePopover]);
+  }, [isSoleSelection, getPos, formula, closePopover]);
 
   return (
-    <NodeViewWrapper as="span" className={selected ? 'math-inline-selected' : undefined}>
+    <NodeViewWrapper as="span" className={isSoleSelection ? 'math-inline-selected' : undefined}>
       <Popover
         open={popoverOpen}
         onOpenChange={(open) => {
@@ -230,7 +214,6 @@ export function MathInlineView({ node, selected, getPos, editor }: NodeViewProps
             data-component-type attribute consistently across all states. */}
         <PopoverTrigger asChild>
           <span
-            ref={viewportRef}
             className="math-inline-trigger"
             data-component-type="math-inline"
             // Surface the formula as a DOM attribute so the clipboard
@@ -244,16 +227,15 @@ export function MathInlineView({ node, selected, getPos, editor }: NodeViewProps
             data-formula={displayedFormula}
             {...(id ? { id } : {})}
           >
-            {displayedFormula && (nearViewport || popoverOpen || selected) ? (
+            {displayedFormula ? (
               // Block math goes through `JsxComponentView`'s
               // `ComponentErrorBoundary`; inline math is its own NodeView
-              // and bypasses that path. Without this boundary, a failed
-              // KaTeX dynamic import (CDN 404, CSP violation, transient
-              // network) would propagate up to `DocumentErrorBoundary` and
+              // and bypasses that path. Without this boundary, an unexpected
+              // KaTeX rendering error would propagate up to `DocumentErrorBoundary` and
               // crash the entire document — block math would degrade
               // gracefully, inline math would not. `resetKeys={[formula]}`
-              // lets a follow-up edit retry the lazy import without an
-              // editor restart. Fallback shows the formula source so the
+              // lets a follow-up edit retry rendering without an editor
+              // restart. Fallback shows the formula source so the
               // author still sees what they typed.
               <ErrorBoundary
                 resetKeys={[displayedFormula]}
@@ -283,12 +265,8 @@ export function MathInlineView({ node, selected, getPos, editor }: NodeViewProps
                   <span className="math math-inline math-error">{displayedFormula}</span>
                 )}
               >
-                <Suspense fallback={<InlineLoadingPlaceholder formula={displayedFormula} />}>
-                  <KatexInlineRender formula={displayedFormula} />
-                </Suspense>
+                <KatexInlineRender formula={displayedFormula} />
               </ErrorBoundary>
-            ) : displayedFormula ? (
-              <InlineLoadingPlaceholder formula={displayedFormula} />
             ) : (
               <EmptyInlineMathPlaceholder />
             )}

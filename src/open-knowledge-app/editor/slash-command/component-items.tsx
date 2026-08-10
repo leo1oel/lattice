@@ -20,7 +20,7 @@ import type { MessageDescriptor } from '@ok-app/shims/lingui-core';
 import { msg, t } from '@ok-app/shims/lingui-core-macro';
 import { Trans } from '@ok-app/shims/lingui-react-macro';
 import type { Editor } from '@tiptap/react';
-import { CopyPlus, ExternalLink, FileUp, Hash, Link2 } from 'lucide-react';
+import { CopyPlus, ExternalLink, FileUp, Link2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { setPendingLinkEdit } from '../extensions/link-edit-autoopen';
 import { findMarkIdAt } from '../extensions/mark-identity';
@@ -702,23 +702,7 @@ function openFilePickerAndUpload({ editor }: SlashCommandContext): void {
   input.click();
 }
 
-/**
- * Slash-menu items for inline-only PM atoms. Block components flow
- * through the descriptor registry (`getComponentItems()`); inline atoms
- * like `tag` aren't in the registry — they map directly to PM nodes
- * via the `mdxJsxTextElement` short-circuit in `markdown/index.ts` —
- * so their slash entries are hand-authored here.
- *
- * The `Tag` entry inserts an empty `tag` atom; the NodeView's
- * placeholder state then takes over with an auto-focused inline input
- * (see `editor/components/TagView.tsx`). No PropPanel popover, no
- * `setPendingAutoOpen` plumbing — focus management lives in the
- * NodeView's mount effect, not in a queued auto-open flag.
- *
- * This is one of two insertion paths to a filled tag atom; the other
- * is the inline `#` typeahead (`tag-suggestion.ts`), which lands a
- * pre-filled atom and never touches the placeholder state.
- */
+/** Slash-menu items for inline editor content. */
 export function getInlineComponentItems(): SlashCommandItem[] {
   return [
     {
@@ -780,41 +764,6 @@ export function getInlineComponentItems(): SlashCommandItem[] {
             getInteractionLayer(editor).setActiveNode(markId);
           });
         });
-      },
-    },
-    {
-      name: 'component-Tag',
-      label: t`Tag`,
-      icon: Hash,
-      category: 'content',
-      aliases: ['#', 'hashtag', 'label'],
-      description: 'Inline tag (`#tagname`) for cross-doc linking',
-      preview: {
-        description: t`Inline hashtag for cross-doc grouping.`,
-        // Hand-built `<a className="tag">` mirroring TagView's
-        // `RenderedTagChip` shape — using the real RenderedTagChip
-        // would require an `<a>` href + click handler that misfires in
-        // the slash menu's preview frame, where the menu intercepts
-        // mousedown to keep editor focus.
-        render: () => (
-          <p className="text-sm leading-7">
-            <Trans>
-              See{' '}
-              {/* biome-ignore lint/a11y/useValidAnchor: preview mockup of an <a className="tag"> — no real navigation target needed inside the slash menu's pointer-events-none preview frame */}
-              <a className="tag pointer-events-none">#design-docs</a> for the latest specs.
-            </Trans>
-          </p>
-        ),
-      },
-      command: ({ chain }) => {
-        // Insert an empty `tag` atom WITHOUT a leading `focus()`.
-        // The NodeView's mount effect (deferred via rAF) pulls focus
-        // into the placeholder's inline input on the next frame; an
-        // explicit editor-focus here would race with that and leave
-        // the cursor past the atom instead. Insertion proceeds even
-        // without the explicit focus because PM's selection is still
-        // valid from the slash command's own match range.
-        chain().insertTag('').run();
       },
     },
   ];

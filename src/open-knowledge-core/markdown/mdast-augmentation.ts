@@ -8,7 +8,6 @@ export const PROMOTED_MDAST_TYPES = [
   'rawMdxFallback',
   'mark',
   'underline',
-  'tag',
   'comment',
   'commentBlock',
   'footnoteReference',
@@ -106,13 +105,6 @@ export interface UnderlineMdast {
   position?: Position;
 }
 
-export interface TagMdast {
-  type: 'tag';
-  value: string;
-  data?: { sourceRaw?: string; [key: string]: unknown };
-  position?: Position;
-}
-
 export interface SourceDocBoundary {
   bom?: true;
   leading?: string;
@@ -193,6 +185,7 @@ declare module 'mdast' {
     sourceDashCounts?: number[];
     sourceOuterPipes?: { leading: boolean; trailing: boolean };
     sourceAlignmentPadding?: Array<{ left: number; right: number }>;
+    sourceSpanLayout?: Array<[number, number, number, number]>;
   }
   interface TableCellData {
     sourcePadding?: { left: number; right: number };
@@ -207,7 +200,6 @@ declare module 'mdast' {
     wikiLinkEmbed: WikiLinkEmbedMdast;
     mark: MarkMdast;
     underline: UnderlineMdast;
-    tag: TagMdast;
     comment: CommentMdast;
     commentBlock: CommentBlockMdast;
   }
