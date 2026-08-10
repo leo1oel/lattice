@@ -140,6 +140,10 @@ jobs:
 
             Already running Lattice? It updates itself automatically — no need to
             re-download.
+          # Append GitHub's changelog from the previous release. The install
+          # guidance above is prepended, so every release has both user-facing
+          # instructions and a version-specific change summary.
+          generateReleaseNotes: true
           # Keep the release private until the signed artifacts pass Gatekeeper
           # and notarization-ticket verification below.
           releaseDraft: true
