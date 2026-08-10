@@ -18,6 +18,64 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Release notes compare this tag with its nearest released ancestor.
+          fetch-depth: 0
+
+      - name: Prepare version-specific release notes
+        id: release-notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          notes_path="$RUNNER_TEMP/release-notes.md"
+          previous_tag=""
+          if previous_tag="$(
+            git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null
+          )"; then
+            range="$previous_tag..$GITHUB_REF_NAME"
+          else
+            range="$GITHUB_REF_NAME"
+          fi
+
+          printf '## Changes in %s\n\n' "$GITHUB_REF_NAME" > "$notes_path"
+          change_count=0
+          while IFS=$'\t' read -r hash subject; do
+            # The version-only commit adds no useful information for users.
+            [[ "$subject" == "Release v"* ]] && continue
+            printf -- '- %s (`%s`)\n' "$subject" "$hash" >> "$notes_path"
+            ((change_count += 1))
+          done < <(
+            git log --reverse --no-merges --format=$'%h\t%s' "$range"
+          )
+          if ((change_count == 0)); then
+            printf -- '- Maintenance release.\n' >> "$notes_path"
+          fi
+
+          cat >> "$notes_path" <<'EOF'
+
+          ## Install (Apple Silicon Mac)
+
+          Download the **.dmg** below, open it, and drag Lattice to Applications.
+
+          Lattice is signed with an Apple Developer ID and notarized by Apple.
+
+          Already running Lattice? It updates itself automatically — no need to
+          re-download.
+          EOF
+
+          if [[ -n "$previous_tag" ]]; then
+            printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
+              "$GITHUB_REPOSITORY" "$previous_tag" "$GITHUB_REF_NAME" \
+              >> "$notes_path"
+          fi
+
+          delimiter="LATTICE_RELEASE_NOTES_${GITHUB_RUN_ID}"
+          {
+            printf 'body<<%s\n' "$delimiter"
+            cat "$notes_path"
+            printf '%s\n' "$delimiter"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v6
         with:
@@ -131,19 +189,9 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Lattice ${{ github.ref_name }}"
-          releaseBody: |
-            ## Install (Apple Silicon Mac)
-
-            Download the **.dmg** below, open it, and drag Lattice to Applications.
-
-            Lattice is signed with an Apple Developer ID and notarized by Apple.
-
-            Already running Lattice? It updates itself automatically — no need to
-            re-download.
-          # Append GitHub's changelog from the previous release. The install
-          # guidance above is prepended, so every release has both user-facing
-          # instructions and a version-specific change summary.
-          generateReleaseNotes: true
+          # Generated from the actual commit range so direct commits are listed
+          # too; GitHub's automatic notes only describe merged pull requests.
+          releaseBody: ${{ steps.release-notes.outputs.body }}
           # Keep the release private until the signed artifacts pass Gatekeeper
           # and notarization-ticket verification below.
           releaseDraft: true
