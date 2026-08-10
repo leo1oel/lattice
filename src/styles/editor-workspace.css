@@ -854,33 +854,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .visual-markdown-editor.is-document-pending .tiptap-editor { visibility: hidden; pointer-events: none; }
 .visual-markdown-loading { position: absolute; z-index: 5; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); }
 .visual-markdown-editor .math-viewport-boundary { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
-.visual-markdown-editor[data-visual-fixed-caret-host="true"] { position: relative; }
-/* Native caret follows the line box (tall in headings / 1.7 body leading).
-   Overlay a fixed reading-metric caret instead; match source-editor height.
-   WebKit resolves caret-color from the text node, so transparent must reach
-   descendants — not only the contenteditable root. */
-.tiptap-editor .ProseMirror[data-fixed-caret],
-.tiptap-editor .ProseMirror[data-fixed-caret] * {
-  caret-color: transparent;
-}
-.visual-fixed-caret {
-  position: absolute;
-  z-index: 5;
-  top: 0;
-  left: 0;
-  width: var(--editor-caret-width);
-  height: var(--type-reading-line-height);
-  margin-left: calc(var(--editor-caret-width) / -2);
-  background: var(--control-active);
-  pointer-events: none;
-  user-select: none;
-  animation: visual-fixed-caret-blink 1.06s steps(1, end) infinite;
-}
-.visual-fixed-caret[data-moving] { animation: none; opacity: 1; }
-@keyframes visual-fixed-caret-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
-}
 .visual-overleaf-caret { position: relative; display: inline; margin-left: -1px; border-left: 2px solid; pointer-events: none; user-select: none; }
 .visual-overleaf-caret * { pointer-events: none; user-select: none; }
 .visual-overleaf-caret-dot { position: absolute; top: -3px; left: -4px; width: 6px; height: 6px; border-radius: 50%; }

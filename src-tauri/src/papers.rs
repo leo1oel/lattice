@@ -3104,11 +3104,20 @@ mod tests {
         }
         // Process-wide, but nothing else in the suite spawns these tools: the
         // other fetch/list tests are satisfied from on-disk caches.
+        let previous_bibcite = std::env::var_os(commands::BIBCITE.override_env);
+        let previous_arxiv2md = std::env::var_os(commands::ARXIV2MD.override_env);
         std::env::set_var(commands::BIBCITE.override_env, &bibcite);
         std::env::set_var(commands::ARXIV2MD.override_env, &arxiv2md);
         let result = import_reference_with_history(&root, "10.1234/example", HistoryMode::Defer);
-        std::env::remove_var(commands::BIBCITE.override_env);
-        std::env::remove_var(commands::ARXIV2MD.override_env);
+        for (name, previous) in [
+            (commands::BIBCITE.override_env, previous_bibcite),
+            (commands::ARXIV2MD.override_env, previous_arxiv2md),
+        ] {
+            match previous {
+                Some(value) => std::env::set_var(name, value),
+                None => std::env::remove_var(name),
+            }
+        }
 
         let result = result.unwrap();
         assert_eq!(result.citation_key.as_deref(), Some("stub2024"));

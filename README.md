@@ -143,7 +143,7 @@ Harper · SQLite FTS5
 
 ### Prerequisites
 
-- Node.js 22 and pnpm 10
+- Node.js 22.13 or later and pnpm 10
 - Stable Rust with `rustfmt` and `clippy`
 - The [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/)
 - A TeX distribution with `latexmk` for compile flows

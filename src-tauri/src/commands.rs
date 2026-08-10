@@ -56,6 +56,10 @@ impl UvTool {
             command.env("PATH", child_path());
             return command;
         }
+        self.uvx_command()
+    }
+
+    fn uvx_command(&self) -> Command {
         let mut command = command("uvx");
         command
             .env("UV_CACHE_DIR", uv_cache_dir())
@@ -274,7 +278,10 @@ mod tests {
     #[test]
     fn python_tools_use_their_explicit_requirements() {
         for tool in [&BIBCITE, &ARXIV2MD] {
-            let command = tool.command();
+            // Inspect the managed path directly: process-wide development
+            // overrides may be active in parallel tests that exercise a
+            // fixture binary, but they do not change this contract.
+            let command = tool.uvx_command();
             let args: Vec<_> = command
                 .get_args()
                 .map(|arg| arg.to_string_lossy().into_owned())

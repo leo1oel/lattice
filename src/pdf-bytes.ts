@@ -16,10 +16,6 @@ export function pdfBase64ToBytes(base64: string): Uint8Array {
   return bytes;
 }
 
-export function pdfBase64ToObjectUrl(base64: string): string {
-  return URL.createObjectURL(new Blob([pdfBase64ToBytes(base64)], { type: "application/pdf" }));
-}
-
 /** Cheap fingerprint so identical binary rebuilds do not reload pdf.js. */
 export function pdfBytesFingerprint(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);

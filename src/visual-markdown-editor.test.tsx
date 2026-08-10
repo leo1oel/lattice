@@ -436,13 +436,6 @@ describe("VisualMarkdownEditor", () => {
     view.unmount();
   });
 
-  it("uses WebKit's native caret without installing scroll geometry work", () => {
-    renderEditor("# Title\n\nBody paragraph.");
-    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
-    expect(document.querySelector(".visual-fixed-caret")).toBeNull();
-    expect(surface).not.toHaveAttribute("data-fixed-caret");
-  });
-
   it("draws Overleaf cursors and publishes the visual caret in Markdown coordinates", async () => {
     const onCaretChange = vi.fn();
     const onSourceCaretChange = vi.fn();
@@ -1082,7 +1075,6 @@ describe("VisualMarkdownEditor", () => {
     expect(extensionNames).toContain("chunkWrapperDecoration");
     expect(extensionNames).not.toContain("frozenTableHeaders");
     expect(extensionNames).not.toContain("tableInsertControls");
-    expect(extensionNames).not.toContain("visualFixedCaret");
     expect(surface).toHaveAttribute("contenteditable", "true");
   });
 

@@ -247,7 +247,7 @@ echo ""
 read -r -p "Press Enter to close this window…"
 "#;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 const DEPENDENCY_SCRIPT: &str = r#"#!/bin/bash
 set -u
 echo "=== Lattice: install missing LaTeX package ==="
@@ -414,10 +414,12 @@ pub fn start_tex_dependency_install(missing_file: &str) -> Result<(), String> {
     }
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn valid_tex_dependency_name(missing_file: &str) -> bool {
     let valid_name = !missing_file.is_empty()
         && missing_file
