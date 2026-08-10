@@ -142,7 +142,13 @@ import { CollabProjectControllerV2, type CollabMaterializeCallbacksV2, type Coll
 import { isClientDestroyedErrorV2, TextClientPermanentErrorV2 } from "./collab-text-v2";
 import { collabCommentsMap, readCollabComments, seedCollabCommentsFromContent, writeCollabComments } from "./collab-comments";
 import type { CatalogV2 } from "../protocol/collab-v2";
-import { parsePreferredCollabInvitation, readRememberedV2Credential, requireRememberedV2Credential } from "./collab-app-v2";
+import {
+  mayApplyProjectRefreshV2,
+  parsePreferredCollabInvitation,
+  planRemoteCollabDeleteUiV2,
+  readRememberedV2Credential,
+  requireRememberedV2Credential,
+} from "./collab-app-v2";
 import {
   forgetCollabProjectV2,
   loadCollabProjectsV2,
@@ -315,53 +321,6 @@ type RemoveReferenceResult = {
     after: string;
   }>;
 };
-
-export type RemoteCollabDeleteUiPlanV2 = {
-  openTabs: string[];
-  tabRecency: string[];
-  deletedActive: boolean;
-  deletedSecondary: boolean;
-  replacement: string | null;
-};
-
-/** Pure UI transition for a catalog-authoritative remote deletion. */
-export function planRemoteCollabDeleteUiV2(options: {
-  path: string;
-  activeFile: string;
-  secondaryFile: string | null;
-  openTabs: string[];
-  tabRecency: string[];
-  liveTextPaths: string[];
-  preferredPaths?: string[];
-}): RemoteCollabDeleteUiPlanV2 {
-  const deletedActive = options.activeFile === options.path;
-  const liveTextPaths = options.liveTextPaths.filter((path) => path !== options.path);
-  const replacement = deletedActive
-    ? (options.preferredPaths?.find((path) => liveTextPaths.includes(path)) ?? liveTextPaths[0] ?? null)
-    : null;
-  return {
-    openTabs: options.openTabs.filter((path) => path !== options.path),
-    tabRecency: options.tabRecency.filter((path) => path !== options.path),
-    deletedActive,
-    deletedSecondary: options.secondaryFile === options.path,
-    replacement,
-  };
-}
-
-export function mayApplyProjectRefreshV2(options: {
-  refreshGeneration: number;
-  currentRefreshGeneration: number;
-  scope?: { expectedRoot: string; generation: number };
-  currentProjectGeneration: number;
-  currentRoot?: string;
-  snapshotRoot?: string;
-}): boolean {
-  if (options.refreshGeneration !== options.currentRefreshGeneration) return false;
-  if (!options.scope) return true;
-  return options.currentProjectGeneration === options.scope.generation
-    && options.currentRoot === options.scope.expectedRoot
-    && (options.snapshotRoot === undefined || options.snapshotRoot === options.scope.expectedRoot);
-}
 
 type ReferencePreviewCacheEntry = {
   promise: Promise<string | null>;

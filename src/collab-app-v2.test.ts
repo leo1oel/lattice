@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { collabV2Inventory, parsePreferredCollabInvitation, readRememberedV2Credential, requireRememberedV2Credential, shouldCreateCollabV2 } from "./collab-app-v2";
+import {
+  collabV2Inventory,
+  mayApplyProjectRefreshV2,
+  parsePreferredCollabInvitation,
+  planRemoteCollabDeleteUiV2,
+  readRememberedV2Credential,
+  requireRememberedV2Credential,
+  shouldCreateCollabV2,
+} from "./collab-app-v2";
 import { MemoryCollabCredentialStore } from "./collab-credentials";
 import { formatCollabInvitationV2 } from "./collab-invitation-v2";
 
@@ -36,5 +44,71 @@ describe("App v2 collaboration routing", () => {
       { path: "nested/a.md", kind: "text" }, { path: "nested/a.txt", kind: "text" },
       { path: "nested/a.json", kind: "text" }, { path: "nested/data.unknown", kind: "binary" },
     ]);
+  });
+
+  it("closes a remotely deleted background tab without disturbing the active document", () => {
+    expect(planRemoteCollabDeleteUiV2({
+      path: "notes.md",
+      activeFile: "paper.md",
+      secondaryFile: null,
+      openTabs: ["paper.md", "notes.md"],
+      tabRecency: ["notes.md", "paper.md"],
+      liveTextPaths: ["paper.md"],
+    })).toEqual({
+      openTabs: ["paper.md"],
+      tabRecency: ["paper.md"],
+      deletedActive: false,
+      deletedSecondary: false,
+      replacement: null,
+    });
+  });
+
+  it("clears a deleted secondary document and selects the preferred active replacement", () => {
+    const secondary = planRemoteCollabDeleteUiV2({
+      path: "side.md",
+      activeFile: "paper.md",
+      secondaryFile: "side.md",
+      openTabs: ["paper.md", "side.md"],
+      tabRecency: ["side.md", "paper.md"],
+      liveTextPaths: ["paper.md"],
+    });
+    expect(secondary.deletedSecondary).toBe(true);
+    expect(secondary.deletedActive).toBe(false);
+
+    expect(planRemoteCollabDeleteUiV2({
+      path: "paper.md",
+      activeFile: "paper.md",
+      secondaryFile: null,
+      openTabs: ["paper.md", "appendix.md"],
+      tabRecency: ["paper.md", "appendix.md"],
+      liveTextPaths: ["appendix.md", "index.md"],
+      preferredPaths: ["index.md", "appendix.md"],
+    })).toEqual({
+      openTabs: ["appendix.md"],
+      tabRecency: ["appendix.md"],
+      deletedActive: true,
+      deletedSecondary: false,
+      replacement: "index.md",
+    });
+  });
+
+  it("rejects a project refresh superseded by deletion or a project switch", () => {
+    const scope = { expectedRoot: "/tmp/project", generation: 4 };
+    expect(mayApplyProjectRefreshV2({
+      refreshGeneration: 8,
+      currentRefreshGeneration: 9,
+      scope,
+      currentProjectGeneration: 4,
+      currentRoot: "/tmp/project",
+      snapshotRoot: "/tmp/project",
+    })).toBe(false);
+    expect(mayApplyProjectRefreshV2({
+      refreshGeneration: 9,
+      currentRefreshGeneration: 9,
+      scope,
+      currentProjectGeneration: 4,
+      currentRoot: "/tmp/project",
+      snapshotRoot: "/tmp/project",
+    })).toBe(true);
   });
 });

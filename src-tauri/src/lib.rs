@@ -832,14 +832,16 @@ async fn open_project_window(
     if let Some(pending) = pending {
         state.set_pending_action(&label, pending);
     }
-    let built = tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::default())
+    let builder = tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::default())
         .title("Lattice")
         .inner_size(1440.0, 900.0)
         .min_inner_size(1302.0, 680.0)
-        .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF))
+        .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF));
+    #[cfg(target_os = "macos")]
+    let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .hidden_title(true)
-        .build();
+        .hidden_title(true);
+    let built = builder.build();
     match built {
         Ok(created) => {
             // Every window needs the native chrome the first one gets in

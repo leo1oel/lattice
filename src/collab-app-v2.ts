@@ -4,6 +4,54 @@ import type { CollabCredentialStore } from "./collab-credentials";
 import type { CollabProjectRecordV2 } from "./collab-rooms";
 import { parseCollabInvitationV2, type CollabInvitationV2 } from "./collab-invitation-v2";
 
+type RemoteCollabDeleteUiPlanV2 = {
+  openTabs: string[];
+  tabRecency: string[];
+  deletedActive: boolean;
+  deletedSecondary: boolean;
+  replacement: string | null;
+};
+
+/** Pure UI transition for a catalog-authoritative remote deletion. */
+export function planRemoteCollabDeleteUiV2(options: {
+  path: string;
+  activeFile: string;
+  secondaryFile: string | null;
+  openTabs: string[];
+  tabRecency: string[];
+  liveTextPaths: string[];
+  preferredPaths?: string[];
+}): RemoteCollabDeleteUiPlanV2 {
+  const deletedActive = options.activeFile === options.path;
+  const liveTextPaths = options.liveTextPaths.filter((path) => path !== options.path);
+  const replacement = deletedActive
+    ? (options.preferredPaths?.find((path) => liveTextPaths.includes(path)) ?? liveTextPaths[0] ?? null)
+    : null;
+  return {
+    openTabs: options.openTabs.filter((path) => path !== options.path),
+    tabRecency: options.tabRecency.filter((path) => path !== options.path),
+    deletedActive,
+    deletedSecondary: options.secondaryFile === options.path,
+    replacement,
+  };
+}
+
+/** Reject stale project snapshots after a refresh or project switch. */
+export function mayApplyProjectRefreshV2(options: {
+  refreshGeneration: number;
+  currentRefreshGeneration: number;
+  scope?: { expectedRoot: string; generation: number };
+  currentProjectGeneration: number;
+  currentRoot?: string;
+  snapshotRoot?: string;
+}): boolean {
+  if (options.refreshGeneration !== options.currentRefreshGeneration) return false;
+  if (!options.scope) return true;
+  return options.currentProjectGeneration === options.scope.generation
+    && options.currentRoot === options.scope.expectedRoot
+    && (options.snapshotRoot === undefined || options.snapshotRoot === options.scope.expectedRoot);
+}
+
 export function shouldCreateCollabV2(policy: CollabFeaturePolicy): boolean {
   return policy.allowCreateV2 && policy.preferV2ForNewProjects;
 }

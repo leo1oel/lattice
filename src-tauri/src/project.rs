@@ -1113,13 +1113,16 @@ pub fn read_manifest(root: &Path) -> Result<ProjectManifest, String> {
     serde_json::from_str(&raw).map_err(err)
 }
 
-pub fn write_manifest(root: &Path, manifest: &ProjectManifest) -> Result<(), String> {
-    let path = root.join(MANIFEST_PATH);
+fn write_pretty_json<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(err)?;
     }
-    let raw = serde_json::to_string_pretty(manifest).map_err(err)?;
+    let raw = serde_json::to_string_pretty(value).map_err(err)?;
     fs::write(path, format!("{raw}\n")).map_err(err)
+}
+
+pub fn write_manifest(root: &Path, manifest: &ProjectManifest) -> Result<(), String> {
+    write_pretty_json(&root.join(MANIFEST_PATH), manifest)
 }
 
 pub fn read_pdf_marks(root: &Path) -> Result<Vec<PdfMark>, String> {
@@ -1133,16 +1136,11 @@ pub fn read_pdf_marks(root: &Path) -> Result<Vec<PdfMark>, String> {
 }
 
 pub fn write_pdf_marks(root: &Path, annotations: Vec<PdfMark>) -> Result<(), String> {
-    let path = root.join(PDF_MARKS_PATH);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(err)?;
-    }
     let file = PdfMarksFile {
         schema_version: 1,
         annotations,
     };
-    let raw = serde_json::to_string_pretty(&file).map_err(err)?;
-    fs::write(path, format!("{raw}\n")).map_err(err)
+    write_pretty_json(&root.join(PDF_MARKS_PATH), &file)
 }
 
 pub fn read_editor_comments(root: &Path) -> Result<Vec<EditorComment>, String> {
@@ -1156,16 +1154,11 @@ pub fn read_editor_comments(root: &Path) -> Result<Vec<EditorComment>, String> {
 }
 
 pub fn write_editor_comments(root: &Path, comments: Vec<EditorComment>) -> Result<(), String> {
-    let path = root.join(EDITOR_COMMENTS_PATH);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(err)?;
-    }
     let file = EditorCommentsFile {
         schema_version: 1,
         comments,
     };
-    let raw = serde_json::to_string_pretty(&file).map_err(err)?;
-    fs::write(path, format!("{raw}\n")).map_err(err)
+    write_pretty_json(&root.join(EDITOR_COMMENTS_PATH), &file)
 }
 
 pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
@@ -6824,7 +6817,9 @@ mod tests {
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].id, "mark-1");
         assert_eq!(loaded[0].text, mark.text);
-        assert!(root.join(".research/pdf-annotations.json").is_file());
+        let stored = fs::read_to_string(root.join(PDF_MARKS_PATH)).unwrap();
+        assert!(stored.starts_with("{\n  \"schemaVersion\": 1,"));
+        assert!(stored.ends_with("\n}\n"));
         fs::remove_dir_all(parent).unwrap();
     }
 
