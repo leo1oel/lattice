@@ -2102,6 +2102,85 @@ mod tests {
     // bibliography through the fixture's deliberately narrow CLI contract.
     static TOOL_OVERRIDE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+    #[cfg(unix)]
+    struct ScopedToolOverride {
+        name: &'static str,
+        previous: Option<std::ffi::OsString>,
+    }
+
+    #[cfg(unix)]
+    impl ScopedToolOverride {
+        fn set(name: &'static str, path: &Path) -> Self {
+            let previous = std::env::var_os(name);
+            std::env::set_var(name, path);
+            Self { name, previous }
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for ScopedToolOverride {
+        fn drop(&mut self) {
+            match self.previous.take() {
+                Some(value) => std::env::set_var(self.name, value),
+                None => std::env::remove_var(self.name),
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    fn write_test_tool(path: &Path, contents: &str) {
+        use std::os::unix::fs::PermissionsExt;
+
+        fs::write(path, contents).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// `bibcite` is an integration boundary, not the behavior under test in
+    /// the project-transaction cases below. Keep those tests hermetic while
+    /// preserving the exact add/remove/tidy command shapes production uses.
+    #[cfg(unix)]
+    fn fake_bibcite(parent: &Path) -> PathBuf {
+        let path = parent.join("fake-bibcite");
+        write_test_tool(
+            &path,
+            concat!(
+                "#!/bin/sh\n",
+                "set -eu\n",
+                "case \"$1\" in\n",
+                "  add)\n",
+                "    path=\"$3\"\n",
+                "    cat >> \"$path\" <<'BIB'\n",
+                "@article{stub2024,\n",
+                "  title = {A Paper Without A Rendering},\n",
+                "  eprint = {2401.99999},\n",
+                "}\n",
+                "BIB\n",
+                "    printf '{\"key\": \"stub2024\"}\\n'\n",
+                "    ;;\n",
+                "  remove)\n",
+                "    path=\"$3\"\n",
+                "    key=\"$4\"\n",
+                "    awk -v key=\"$key\" '\n",
+                "      {\n",
+                "        line = tolower($0)\n",
+                "        open = index(line, \"{\")\n",
+                "        tail = substr(line, open + 1)\n",
+                "        comma = index(tail, \",\")\n",
+                "        if (open > 0 && comma > 0 && substr(tail, 1, comma - 1) == tolower(key)) next\n",
+                "        print\n",
+                "      }\n",
+                "    ' \"$path\" > \"$path.tmp\"\n",
+                "    mv \"$path.tmp\" \"$path\"\n",
+                "    printf '{\"key\": \"%s\"}\\n' \"$key\"\n",
+                "    ;;\n",
+                "  tidy) ;;\n",
+                "  *) exit 2 ;;\n",
+                "esac\n",
+            ),
+        );
+        path
+    }
+
     #[test]
     fn paper_pdf_cache_is_bounded_and_rejects_non_pdf_data() {
         let directory =
@@ -2592,7 +2671,6 @@ mod tests {
 
     #[test]
     fn remove_is_blocked_by_nocite_and_preserves_the_cache() {
-        let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
         let parent = std::env::temp_dir().join(format!("lattice-paper-blocker-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
         fs::write(root.join("main.tex"), "\\nocite{KEEP}\n").unwrap();
@@ -2615,11 +2693,15 @@ mod tests {
         let _ = fs::remove_dir_all(parent);
     }
 
+    #[cfg(unix)]
     #[test]
     fn remove_can_keep_or_delete_manuscript_citations() {
         let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
         let parent =
             std::env::temp_dir().join(format!("lattice-paper-remove-cites-{}", Uuid::new_v4()));
+        fs::create_dir_all(&parent).unwrap();
+        let bibcite = fake_bibcite(&parent);
+        let _bibcite_override = ScopedToolOverride::set(commands::BIBCITE.override_env, &bibcite);
         let root = project::create(&parent, "paper").unwrap();
         let manuscript = concat!(
             "% Example only: \\cite{target}\n",
@@ -2671,11 +2753,15 @@ mod tests {
         let _ = fs::remove_dir_all(parent);
     }
 
+    #[cfg(unix)]
     #[test]
     fn remove_can_leave_citations_unresolved_when_requested() {
         let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
         let parent =
             std::env::temp_dir().join(format!("lattice-paper-keep-cites-{}", Uuid::new_v4()));
+        fs::create_dir_all(&parent).unwrap();
+        let bibcite = fake_bibcite(&parent);
+        let _bibcite_override = ScopedToolOverride::set(commands::BIBCITE.override_env, &bibcite);
         let root = project::create(&parent, "paper").unwrap();
         fs::write(root.join("main.tex"), "See \\cite{keep}.\n").unwrap();
         fs::write(
@@ -3066,58 +3152,27 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_citation_survives_a_failed_full_text_download() {
-        use std::os::unix::fs::PermissionsExt;
         let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
         let parent = std::env::temp_dir().join(format!("lattice-cite-fetch-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
         let tools = parent.join("tools");
         fs::create_dir_all(&tools).unwrap();
-        let bibcite = tools.join("fake-bibcite");
-        fs::write(
-            &bibcite,
-            concat!(
-                "#!/bin/sh\n",
-                "# invoked as: fake-bibcite add --no-tidy <path> <query>\n",
-                "path=\"$3\"\n",
-                "cat >> \"$path\" <<'BIB'\n",
-                "@article{stub2024,\n",
-                "  title = {A Paper Without A Rendering},\n",
-                "  eprint = {2401.99999},\n",
-                "}\n",
-                "BIB\n",
-                "printf '{\"key\": \"stub2024\"}\\n'\n",
-            ),
-        )
-        .unwrap();
+        let bibcite = fake_bibcite(&tools);
         let arxiv2md = tools.join("fake-arxiv2md");
-        fs::write(
+        write_test_tool(
             &arxiv2md,
             concat!(
                 "#!/bin/sh\n",
                 "echo 'Error: This paper does not have an HTML version available on arXiv.' >&2\n",
                 "exit 1\n",
             ),
-        )
-        .unwrap();
-        for tool in [&bibcite, &arxiv2md] {
-            fs::set_permissions(tool, fs::Permissions::from_mode(0o755)).unwrap();
-        }
+        );
         // Process-wide, but nothing else in the suite spawns these tools: the
         // other fetch/list tests are satisfied from on-disk caches.
-        let previous_bibcite = std::env::var_os(commands::BIBCITE.override_env);
-        let previous_arxiv2md = std::env::var_os(commands::ARXIV2MD.override_env);
-        std::env::set_var(commands::BIBCITE.override_env, &bibcite);
-        std::env::set_var(commands::ARXIV2MD.override_env, &arxiv2md);
+        let _bibcite_override = ScopedToolOverride::set(commands::BIBCITE.override_env, &bibcite);
+        let _arxiv2md_override =
+            ScopedToolOverride::set(commands::ARXIV2MD.override_env, &arxiv2md);
         let result = import_reference_with_history(&root, "10.1234/example", HistoryMode::Defer);
-        for (name, previous) in [
-            (commands::BIBCITE.override_env, previous_bibcite),
-            (commands::ARXIV2MD.override_env, previous_arxiv2md),
-        ] {
-            match previous {
-                Some(value) => std::env::set_var(name, value),
-                None => std::env::remove_var(name),
-            }
-        }
 
         let result = result.unwrap();
         assert_eq!(result.citation_key.as_deref(), Some("stub2024"));
