@@ -5,6 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+pub const MANAGED_UV_VERSION: &str = "0.12.3";
+
 pub fn command(name: &str) -> Command {
     let mut command = Command::new(resolve(name));
     command.env("PATH", child_path());
@@ -50,18 +52,28 @@ pub const ARXIV2MD: UvTool = UvTool {
 
 impl UvTool {
     /// A command that refreshes and runs the newest stable tool release.
-    pub fn command(&self) -> Command {
+    pub fn command(&self) -> Result<Command, String> {
         if let Some(path) = env::var_os(self.override_env).filter(|value| !value.is_empty()) {
             let mut command = Command::new(path);
             command.env("PATH", child_path());
-            return command;
+            return Ok(command);
         }
         self.uvx_command()
     }
 
-    fn uvx_command(&self) -> Command {
-        let mut command = command("uvx");
+    fn uvx_command(&self) -> Result<Command, String> {
+        // Validate the complete managed pair before every literature-tool
+        // launch. Generic command resolution must never fall back to a stale
+        // Homebrew/PATH uvx after setup has promised an app-owned version.
+        managed_uv_tool_status("uv")?;
+        let uvx = managed_uv_tool_status("uvx")?;
+        Ok(self.configured_uvx_command(uvx))
+    }
+
+    fn configured_uvx_command(&self, uvx: PathBuf) -> Command {
+        let mut command = Command::new(uvx);
         command
+            .env("PATH", child_path())
             .env("UV_CACHE_DIR", uv_cache_dir())
             .arg("--from")
             .arg(self.requirement)
@@ -79,7 +91,13 @@ impl UvTool {
 pub fn prewarm_literature_tools() {
     for tool in [&BIBCITE, &ARXIV2MD] {
         let started = std::time::Instant::now();
-        match tool.command().arg("--help").output() {
+        let result = tool.command().and_then(|mut command| {
+            command
+                .arg("--help")
+                .output()
+                .map_err(|error| error.to_string())
+        });
+        match result {
             Ok(output) if output.status.success() => log::info!(
                 target: "lattice::literature",
                 "{} environment ready in {:.1}s",
@@ -132,6 +150,65 @@ pub fn arxiv2md_cache_dir() -> PathBuf {
     }
 }
 
+/// Lattice-owned command-line tools that should not depend on Homebrew or the
+/// environment inherited by a GUI launch.
+pub fn managed_tools_dir() -> Option<PathBuf> {
+    env::var_os("HOME").map(|home| {
+        PathBuf::from(home)
+            .join("Library/Application Support/app.leo1oel.researchwriter/bin")
+            .join(format!("uv-{MANAGED_UV_VERSION}"))
+    })
+}
+
+pub fn managed_uv_tool_status(name: &str) -> Result<PathBuf, String> {
+    if !matches!(name, "uv" | "uvx") {
+        return Err(format!("{name} is not a managed uv executable."));
+    }
+    let path = managed_tools_dir()
+        .ok_or_else(|| "Could not locate your macOS Application Support folder.".to_string())?
+        .join(name);
+    uv_tool_status_at(&path, name)?;
+    Ok(path)
+}
+
+pub(crate) fn uv_tool_status_at(path: &Path, name: &str) -> Result<(), String> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("{} is not installed: {error}", path.display()))?;
+    if !metadata.file_type().is_file() || metadata.file_type().is_symlink() || !is_executable(path)
+    {
+        return Err(format!(
+            "{} is not a regular executable file.",
+            path.display()
+        ));
+    }
+    let output = Command::new(path)
+        .arg("--version")
+        .output()
+        .map_err(|error| format!("{} could not run: {error}", path.display()))?;
+    if !output.status.success() {
+        return Err(format!(
+            "{} exited with {}: {}",
+            path.display(),
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    let version_line = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let mut fields = version_line.split_whitespace();
+    if fields.next() != Some(name) || fields.next() != Some(MANAGED_UV_VERSION) {
+        return Err(format!(
+            "{} reported {version_line:?}; Lattice requires {name} {MANAGED_UV_VERSION}.",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
 pub fn resolve(name: &str) -> PathBuf {
     command_directories()
         .into_iter()
@@ -168,6 +245,9 @@ fn child_path() -> OsString {
 
 fn command_directories() -> Vec<PathBuf> {
     let mut directories = Vec::new();
+    // App-owned tools must win over stale Homebrew, shell PATH, and any
+    // unrelated executable that happens to live in a TeX tree.
+    directories.extend(managed_tools_dir());
     // Prefer known TeX locations first — GUI-launched apps often have a minimal PATH
     // that never includes /Library/TeX/texbin even after MacTeX/BasicTeX install.
     // Rediscover each call so Recheck works without quitting after a fresh install.
@@ -273,6 +353,11 @@ mod tests {
             .get_envs()
             .find_map(|(name, value)| (name == "PATH").then_some(value).flatten())
             .unwrap();
+        assert_eq!(
+            env::split_paths(path).next(),
+            managed_tools_dir(),
+            "Lattice-owned tools must have PATH precedence"
+        );
         assert!(env::split_paths(path).any(|entry| entry == Path::new("/Library/TeX/texbin")));
     }
 
@@ -308,7 +393,9 @@ mod tests {
             // Inspect the managed path directly: process-wide development
             // overrides may be active in parallel tests that exercise a
             // fixture binary, but they do not change this contract.
-            let command = tool.uvx_command();
+            let managed_uvx = PathBuf::from("/lattice-managed/uvx");
+            let command = tool.configured_uvx_command(managed_uvx.clone());
+            assert_eq!(command.get_program(), managed_uvx);
             let args: Vec<_> = command
                 .get_args()
                 .map(|arg| arg.to_string_lossy().into_owned())

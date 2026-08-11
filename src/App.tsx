@@ -50,7 +50,7 @@ import type { CollabDialogMode } from "./collab-dialog";
 import { TexSetupWizard } from "./tex-setup-wizard";
 import {
   isMissingTexBuildError,
-  isTexToolchainMissing,
+  isRequiredSetupMissing,
 } from "./tex-setup";
 import {
   assertCollabWorkspaceLease,
@@ -5488,7 +5488,7 @@ function App() {
         .then((report) => {
           if (!active || generation !== doctorGenerationRef.current) return;
           setDoctorReport(report);
-          if (isTexToolchainMissing(report)) {
+          if (isRequiredSetupMissing(report)) {
             setTexSetupOpen(true);
           }
         })
@@ -7130,7 +7130,7 @@ function App() {
       const report = await invoke<DoctorReport>("run_doctor");
       if (generation !== doctorGenerationRef.current) return null;
       setDoctorReport(report);
-      const missing = isTexToolchainMissing(report);
+      const missing = isRequiredSetupMissing(report);
       if (options?.openWizardIfMissing && missing) setTexSetupOpen(true);
       return report;
     } catch (reason) {

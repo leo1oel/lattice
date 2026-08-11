@@ -3442,10 +3442,11 @@ async fn delete_history_entry(
 
 #[tauri::command]
 async fn start_tex_install(
+    mode: tex_setup::TexInstallMode,
     on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
 ) -> Result<(), String> {
     run_blocking("TeX installer launch", move || {
-        tex_setup::start_tex_install(on_progress)
+        tex_setup::start_tex_install(mode, on_progress)
     })
     .await
 }

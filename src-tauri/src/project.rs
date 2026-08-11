@@ -3160,8 +3160,8 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
 }
 
 fn run_bibcite_get(query: &str) -> Result<std::process::Output, String> {
-    commands::BIBCITE
-        .command()
+    let mut command = commands::BIBCITE.command()?;
+    command
         .args(["get", "--json", query])
         .output()
         .map_err(|error| crate::papers::uv_tool_spawn_error("bibcite", &error))

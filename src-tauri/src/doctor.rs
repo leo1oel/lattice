@@ -6,12 +6,22 @@ use std::path::Path;
 
 pub fn run(root: Option<&Path>) -> DoctorReport {
     let mut checks = Vec::new();
-    push_tool(&mut checks, "latexmk", "LaTeX build driver");
-    push_tool(&mut checks, "pdflatex", "pdfLaTeX engine");
-    push_tool(&mut checks, "xelatex", "XeLaTeX engine");
-    push_tool(&mut checks, "lualatex", "LuaLaTeX engine");
-    push_tool(&mut checks, "synctex", "SyncTeX bidirectional search");
-    push_tool(&mut checks, "bibtex", "BibTeX bibliography processor");
+    push_runnable_tool(&mut checks, "latexmk", "-version", "LaTeX build driver");
+    push_runnable_tool(&mut checks, "pdflatex", "--version", "pdfLaTeX engine");
+    push_runnable_tool(&mut checks, "xelatex", "--version", "XeLaTeX engine");
+    push_runnable_tool(&mut checks, "lualatex", "--version", "LuaLaTeX engine");
+    push_runnable_tool(
+        &mut checks,
+        "synctex",
+        "help",
+        "SyncTeX bidirectional search",
+    );
+    push_runnable_tool(
+        &mut checks,
+        "bibtex",
+        "--version",
+        "BibTeX bibliography processor",
+    );
     push_tool(&mut checks, "biber", "Biber bibliography processor");
     push_tool(
         &mut checks,
@@ -28,10 +38,15 @@ pub fn run(root: Option<&Path>) -> DoctorReport {
         "texcount",
         "TeXcount body word counts (optional status bar)",
     );
-    push_tool(
+    push_managed_uv_tool(
         &mut checks,
         "uv",
         "Python tooling used for literature and bibliography tools",
+    );
+    push_managed_uv_tool(
+        &mut checks,
+        "uvx",
+        "Runner used for Lattice's pinned literature tools",
     );
 
     if let Some(root) = root {
@@ -108,9 +123,16 @@ pub fn run(root: Option<&Path>) -> DoctorReport {
     push_conference_fonts(&mut checks);
     push_project_pdf_fonts(&mut checks, root);
 
-    let required_ok = ["latexmk", "synctex", "bibtex"]
-        .into_iter()
-        .all(|name| checks.iter().any(|item| item.name == name && item.ok))
+    let required_ok = [
+        "latexmk",
+        "synctex",
+        "bibtex",
+        "uv",
+        "uvx",
+        "conference-fonts",
+    ]
+    .into_iter()
+    .all(|name| checks.iter().any(|item| item.name == name && item.ok))
         && checks.iter().any(|item| {
             matches!(item.name.as_str(), "pdflatex" | "xelatex" | "lualatex") && item.ok
         });
@@ -134,6 +156,31 @@ fn push_tool(checks: &mut Vec<DoctorCheck>, name: &str, detail: &str) {
         },
         ok,
     ));
+}
+
+fn push_runnable_tool(checks: &mut Vec<DoctorCheck>, name: &str, version_arg: &str, detail: &str) {
+    let path = commands::resolve(name);
+    let result = commands::command(name).arg(version_arg).output();
+    let (ok, suffix) = match result {
+        Ok(output) if output.status.success() => (true, path.display().to_string()),
+        Ok(output) => (
+            false,
+            format!(
+                "{} could not run: {}",
+                path.display(),
+                String::from_utf8_lossy(&output.stderr).trim()
+            ),
+        ),
+        Err(error) => (false, format!("{} could not run: {error}", path.display())),
+    };
+    checks.push(check(name, format!("{detail}: {suffix}"), ok));
+}
+
+fn push_managed_uv_tool(checks: &mut Vec<DoctorCheck>, name: &str, detail: &str) {
+    match commands::managed_uv_tool_status(name) {
+        Ok(path) => checks.push(check(name, format!("{detail}: {}", path.display()), true)),
+        Err(error) => checks.push(check(name, format!("{detail}: {error}"), false)),
+    }
 }
 
 /// ICML style requires `algorithms` (algorithm.sty + algorithmic.sty). Bare BasicTeX
@@ -324,10 +371,10 @@ fn kpsewhich(name: &str) -> Option<std::path::PathBuf> {
     }
     let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if path.is_empty() {
-        None
-    } else {
-        Some(std::path::PathBuf::from(path))
+        return None;
     }
+    let path = std::path::PathBuf::from(path);
+    std::fs::File::open(&path).ok().map(|_| path)
 }
 
 fn check(name: &str, detail: String, ok: bool) -> DoctorCheck {

@@ -5,11 +5,12 @@ export type DoctorReportLike = { ok: boolean; summary: string; checks: DoctorChe
 export const TEX_INSTALL_SIZE_HINT = "1 GB";
 
 export type TexInstallProgress = {
-  stage: "downloading" | "authorizing" | "installing-base" | "installing-packages" | "verifying" | "complete";
+  stage: "downloading" | "authorizing" | "installing-base" | "installing-packages" | "installing-tools" | "verifying" | "complete";
   progress: number;
 };
 
 const REQUIRED_ALWAYS = ["latexmk", "synctex", "bibtex"] as const;
+const REQUIRED_APP_TOOLS = ["uv", "uvx"] as const;
 
 function toolOk(report: DoctorReportLike, name: string): boolean {
   return report.checks.some((check) => check.name === name && check.ok);
@@ -36,9 +37,22 @@ export function isTexToolchainMissing(report: DoctorReportLike | null | undefine
 export function isConferenceFontsMissing(report: DoctorReportLike | null | undefined): boolean {
   if (!report) return false;
   const fonts = report.checks.find((check) => check.name === "conference-fonts");
-  // Older builds had no font check — don't claim missing.
-  if (!fonts) return false;
-  return !fonts.ok;
+  return fonts?.ok !== true;
+}
+
+export function missingRequiredToolNames(
+  report: DoctorReportLike | null | undefined,
+): string[] {
+  if (!report) return [];
+  return REQUIRED_APP_TOOLS.filter((name) => !toolOk(report, name));
+}
+
+export function isRequiredSetupMissing(
+  report: DoctorReportLike | null | undefined,
+): boolean {
+  return isTexToolchainMissing(report)
+    || isConferenceFontsMissing(report)
+    || missingRequiredToolNames(report).length > 0;
 }
 
 export function isMissingTexBuildError(message: string): boolean {

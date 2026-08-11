@@ -761,7 +761,7 @@ export function SettingsDialog(props: {
                       </ul>
                       <div className="settings-api-actions">
                         <Button onClick={props.onOpenTexSetup}>
-                          Open install guide
+                          Install required tools
                         </Button>
                         <CopyButton className={buttonClassName()} onCopy={props.onCopyDoctorSummary} title="Copy summary">
                           Copy summary
@@ -778,7 +778,7 @@ export function SettingsDialog(props: {
                       />
                       <div className="settings-api-actions">
                         <Button onClick={props.onOpenTexSetup}>
-                          Open install guide
+                          Install required tools
                         </Button>
                       </div>
                     </>

@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isConferenceFontsMissing,
   isMissingTexBuildError,
+  isRequiredSetupMissing,
   isTexToolchainMissing,
+  missingRequiredToolNames,
   missingTexToolNames,
 } from "./tex-setup";
 import { TexSetupWizard } from "./tex-setup-wizard";
@@ -83,9 +85,14 @@ describe("tex setup wizard helpers", () => {
     };
     expect(isTexToolchainMissing(report)).toBe(false);
     expect(isConferenceFontsMissing(report)).toBe(true);
+    expect(isConferenceFontsMissing({
+      ok: false,
+      summary: "font check absent",
+      checks: [],
+    })).toBe(true);
   });
 
-  it("offers only the mandatory BasicTeX install action", () => {
+  it("offers one managed install action when only uv is missing", () => {
     const onClose = vi.fn();
     render(
       <TexSetupWizard
@@ -94,8 +101,13 @@ describe("tex setup wizard helpers", () => {
           ok: false,
           summary: "missing",
           checks: [
-            { name: "latexmk", detail: "missing", ok: false },
-            { name: "pdflatex", detail: "missing", ok: false },
+            { name: "latexmk", detail: "ok", ok: true },
+            { name: "pdflatex", detail: "ok", ok: true },
+            { name: "synctex", detail: "ok", ok: true },
+            { name: "bibtex", detail: "ok", ok: true },
+            { name: "conference-fonts", detail: "ok", ok: true },
+            { name: "uv", detail: "missing", ok: false },
+            { name: "uvx", detail: "missing", ok: false },
           ],
         }}
         checking={false}
@@ -105,9 +117,25 @@ describe("tex setup wizard helpers", () => {
     );
 
     expect(screen.getAllByRole("button")).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Install Basic TeX" })).toBeEnabled();
-    expect(screen.getByText(/about 1 GB after installation and can take up to 15 minutes/))
+    expect(screen.getByRole("button", { name: "Install required tools" })).toBeEnabled();
+    expect(screen.getByText(/verified download uses about 45 MB/))
       .toBeInTheDocument();
+    expect(isRequiredSetupMissing({
+      ok: false,
+      summary: "uv missing",
+      checks: [
+        { name: "uv", detail: "missing", ok: false },
+        { name: "uvx", detail: "missing", ok: false },
+      ],
+    })).toBe(true);
+    expect(missingRequiredToolNames({
+      ok: false,
+      summary: "uv missing",
+      checks: [
+        { name: "uv", detail: "missing", ok: false },
+        { name: "uvx", detail: "missing", ok: false },
+      ],
+    })).toEqual(["uv", "uvx"]);
     expect(screen.queryByText("Install MacTeX (full)")).not.toBeInTheDocument();
     expect(screen.queryByText("Skip for now")).not.toBeInTheDocument();
     expect(screen.queryByText("Recheck")).not.toBeInTheDocument();
@@ -115,6 +143,12 @@ describe("tex setup wizard helpers", () => {
 
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Install required tools" }));
+    expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", {
+      mode: "toolsOnly",
+      onProgress: expect.anything(),
+    });
   });
 
   it("renders backend installation progress and closes only after verification", async () => {
@@ -132,6 +166,8 @@ describe("tex setup wizard helpers", () => {
         { name: "synctex", detail: "ok", ok: true },
         { name: "bibtex", detail: "ok", ok: true },
         { name: "conference-fonts", detail: "ok", ok: true },
+        { name: "uv", detail: "ok", ok: true },
+        { name: "uvx", detail: "ok", ok: true },
       ],
     }));
     render(
@@ -150,6 +186,7 @@ describe("tex setup wizard helpers", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Install Basic TeX" }));
     expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", {
+      mode: "full",
       onProgress: expect.anything(),
     });
     expect(document.querySelector(".tex-setup-install-loader")).not.toBeNull();

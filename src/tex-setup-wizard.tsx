@@ -3,8 +3,9 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { Wrench } from "lucide-react";
 import {
   isConferenceFontsMissing,
-  isTexToolchainMissing,
   missingTexToolNames,
+  missingRequiredToolNames,
+  isRequiredSetupMissing,
   TEX_INSTALL_SIZE_HINT,
   type DoctorReportLike,
   type TexInstallProgress,
@@ -25,6 +26,7 @@ const INSTALL_STAGE_LABEL: Record<TexInstallProgress["stage"], string> = {
   authorizing: "Waiting for administrator approval…",
   "installing-base": "Installing BasicTeX…",
   "installing-packages": "Installing LaTeX packages…",
+  "installing-tools": "Installing required tools…",
   verifying: "Verifying installation…",
   complete: "Finishing setup…",
 };
@@ -34,6 +36,7 @@ const INSTALL_STAGE_DETAIL: Record<TexInstallProgress["stage"], string> = {
   authorizing: "Approve the macOS prompt to continue.",
   "installing-base": "This step may take a minute.",
   "installing-packages": "This is the longest step and can take up to 15 minutes.",
+  "installing-tools": "Installing uv for paper imports and bibliography tools.",
   verifying: "Almost done.",
   complete: "Setup is complete.",
 };
@@ -53,8 +56,12 @@ export function TexSetupWizard(props: {
   const [installError, setInstallError] = useState<string | null>(null);
 
   const { checking, onClose, open } = props;
-  const toolsReady = props.report !== null && !isTexToolchainMissing(props.report);
-  const ready = toolsReady && !isConferenceFontsMissing(props.report);
+  const missingPaperTools = missingRequiredToolNames(props.report);
+  const paperToolsOnly = props.report !== null
+    && missingPaperTools.length > 0
+    && missingTexToolNames(props.report).length === 0
+    && !isConferenceFontsMissing(props.report);
+  const ready = props.report !== null && !isRequiredSetupMissing(props.report);
 
   useEffect(() => {
     if (open && ready && !checking && !installing) onClose();
@@ -67,27 +74,42 @@ export function TexSetupWizard(props: {
   const startInstall = async () => {
     setInstalling(true);
     setInstallError(null);
-    setInstallProgress({ stage: "downloading", progress: 0 });
-    const trace = logAction(TEX_SETUP_SOURCE, "Install BasicTeX");
+    setInstallProgress({ stage: paperToolsOnly ? "installing-tools" : "downloading", progress: 0 });
+    const trace = logAction(
+      TEX_SETUP_SOURCE,
+      paperToolsOnly ? "Install required paper tools" : "Install BasicTeX",
+    );
     try {
       const onProgress = new Channel<TexInstallProgress>();
       onProgress.onmessage = (progress) => setInstallProgress(progress);
-      await invoke("start_tex_install", { onProgress });
+      await invoke("start_tex_install", {
+        mode: paperToolsOnly ? "toolsOnly" : "full",
+        onProgress,
+      });
       setInstallProgress({ stage: "complete", progress: 1 });
       const report = await props.onRecheck();
       if (!report) {
-        throw new Error("BasicTeX finished installing, but Lattice could not run the final verification.");
+        throw new Error(
+          `${paperToolsOnly ? "The required tools" : "BasicTeX"} finished installing, but Lattice could not run the final verification.`,
+        );
       }
-      const missingTools = missingTexToolNames(report);
+      const missingTools = [
+        ...missingTexToolNames(report),
+        ...missingRequiredToolNames(report),
+      ];
       const fontCheck = report.checks.find((check) => check.name === "conference-fonts");
-      if (missingTools.length > 0 || (fontCheck && !fontCheck.ok)) {
+      if (missingTools.length > 0 || fontCheck?.ok !== true) {
         const issues = [
           ...(missingTools.length > 0 ? [`Missing tools: ${missingTools.join(", ")}`] : []),
-          ...((fontCheck && !fontCheck.ok) ? [fontCheck.detail] : []),
+          ...(fontCheck?.ok !== true
+            ? [fontCheck?.detail ?? "Conference font verification is missing."]
+            : []),
         ];
-        throw new Error(`BasicTeX finished installing, but Lattice could not verify:\n${issues.join("\n")}`);
+        throw new Error(
+          `${paperToolsOnly ? "The required tools" : "BasicTeX"} finished installing, but Lattice could not verify:\n${issues.join("\n")}`,
+        );
       }
-      trace.ok("BasicTeX installed");
+      trace.ok(paperToolsOnly ? "Required paper tools installed" : "BasicTeX installed");
       props.onClose();
     } catch (reason) {
       setInstallError(toMessage(reason));
@@ -105,18 +127,27 @@ export function TexSetupWizard(props: {
         className="modal tex-setup-modal"
       >
         <div className="modal-icon"><Wrench size={18} /></div>
-        <h2>Install LaTeX to compile</h2>
-        <p>
-          BasicTeX is required to compile PDFs. It uses about {TEX_INSTALL_SIZE_HINT} after
-          {" "}installation and can take up to 15 minutes.
-        </p>
+        <h2>{paperToolsOnly ? "Install required paper tools" : "Install LaTeX to compile"}</h2>
+        {paperToolsOnly ? (
+          <p>
+            Lattice needs uv to add papers and manage bibliographies. The verified download
+            {" "}uses about 45 MB and usually installs in under a minute.
+          </p>
+        ) : (
+          <p>
+            BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after
+            {" "}installation. Initial setup can take up to 15 minutes.
+          </p>
+        )}
 
         {installing && (
           <div className="tex-setup-progress-block" aria-live="polite">
             <div
               className="tex-setup-progress"
               role="progressbar"
-              aria-label="BasicTeX installation progress"
+              aria-label={paperToolsOnly
+                ? "Required tools installation progress"
+                : "BasicTeX installation progress"}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={percent}
@@ -143,7 +174,7 @@ export function TexSetupWizard(props: {
           disabled={busy || ready}
         >
           {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
-          Install Basic TeX
+          {paperToolsOnly ? "Install required tools" : "Install Basic TeX"}
         </MotionButton>
       </PopIn>
     </ModalDialog>

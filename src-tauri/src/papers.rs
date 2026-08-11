@@ -783,8 +783,8 @@ fn convert_paper(
     output_dir: &Path,
     output_path: &Path,
 ) -> Result<(String, &'static str), String> {
-    let output = commands::ARXIV2MD
-        .command()
+    let mut command = commands::ARXIV2MD.command()?;
+    let output = command
         .current_dir(output_dir)
         // Without this the converter caches its source HTML relative to the
         // working directory, which is the bundle being built — every paper
@@ -1605,7 +1605,7 @@ pub(crate) fn upgrade_bibliography_with_history(
     fs::create_dir_all(&temp).map_err(err)?;
     let copy = temp.join("references.bib");
     fs::write(&copy, &before).map_err(err)?;
-    let mut command = commands::BIBCITE.command();
+    let mut command = commands::BIBCITE.command()?;
     command.arg("upgrade").arg("--no-tidy").arg(&copy);
     if dry_run {
         command.arg("--dry-run");
@@ -1895,8 +1895,8 @@ fn import_citation(
 }
 
 fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
-    let output = commands::BIBCITE
-        .command()
+    let mut command = commands::BIBCITE.command()?;
+    let output = command
         .arg("add")
         .arg("--no-tidy")
         .arg(path)
@@ -1912,8 +1912,8 @@ fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
 }
 
 fn run_bibcite_remove(path: &PathBuf, key: &str) -> Result<(), String> {
-    let output = commands::BIBCITE
-        .command()
+    let mut command = commands::BIBCITE.command()?;
+    let output = command
         .arg("remove")
         .arg("--no-tidy")
         .arg(path)
@@ -1927,8 +1927,8 @@ fn run_bibcite_remove(path: &PathBuf, key: &str) -> Result<(), String> {
 }
 
 fn run_bibcite_tidy(path: &Path) -> Result<(), String> {
-    let output = commands::BIBCITE
-        .command()
+    let mut command = commands::BIBCITE.command()?;
+    let output = command
         .arg("tidy")
         .arg(path)
         .output()
@@ -2084,8 +2084,8 @@ fn err(error: impl std::fmt::Display) -> String {
 /// baffling, so point the user straight at the installer.
 pub(crate) fn uv_tool_spawn_error(tool: &str, error: &std::io::Error) -> String {
     if error.kind() == std::io::ErrorKind::NotFound {
-        "Adding arXiv papers needs the `uv` tool, which isn't installed yet. \
-Install it from Settings → TeX doctor → Open install guide (or run `brew install uv`), then try again."
+        "Lattice's required `uv` tool is not available yet. \
+Open Settings → TeX doctor → Install required tools, then try again."
             .to_string()
     } else {
         format!("Could not start {tool}: {error}")
