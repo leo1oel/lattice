@@ -1263,7 +1263,7 @@
 
 /* Unauthored paper images fit inside both the text column and a bounded
    reading-height frame. A landscape figure can still use the full column;
-   square and portrait figures stop at 75% of that column or 60% of the
+   square and portrait figures stop at 60% of that column or 60% of the
    viewport height, whichever is smaller. These are display-only constraints:
    the original source remains untouched and the zoom view still uses it.
    Ordinary project Markdown retains its existing image layout, and once an
@@ -1287,7 +1287,7 @@
   width: auto;
   max-width: 100%;
   max-height: 60vh;
-  max-height: min(75cqi, 60vh);
+  max-height: min(60cqi, 60vh);
 }
 
 /* Paper images embedded within a text paragraph do not use the resizable block
@@ -1296,7 +1296,7 @@
   .ProseMirror [data-image-inline-zoom] img {
   width: auto;
   max-height: 60vh;
-  max-height: min(75cqi, 60vh);
+  max-height: min(60cqi, 60vh);
 }
 
 .ProseMirror img.ProseMirror-selectednode {

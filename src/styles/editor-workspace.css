@@ -1282,6 +1282,13 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .visual-table-cell-controls button:disabled { opacity: .38; }
 .visual-table-cell-controls button:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
 .visual-table-cell-controls button svg { width: 13px; height: 13px; }
+.visual-table-span-controls { @apply smooth-shadow-ring-md; z-index: var(--z-selection-toolbar); display: flex; align-items: center; gap: var(--space-1); padding: 3px; border: 0; border-radius: var(--radius-panel); background: var(--surface-panel-raised); color: var(--text-secondary); }
+.visual-table-span-controls [data-slot="button"] { min-height: 28px; gap: var(--space-2); padding: 0 7px; border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); font: var(--type-micro-size)/1 var(--ui-font); transform: none; }
+.visual-table-span-controls [data-slot="button"]:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
+.visual-table-span-controls [data-slot="button"]:active:not(:disabled) { scale: .96; }
+.visual-table-span-controls [data-slot="button"]:disabled { opacity: .38; }
+.visual-table-span-controls [data-slot="button"]:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
+.visual-table-span-controls [data-slot="button"] svg { width: 14px; height: 14px; stroke-width: 1.8; }
 .visual-block-controls { position: absolute; z-index: var(--z-editor-popover); display: flex; align-items: center; gap: var(--space-1); height: 20px; user-select: none; transition: opacity var(--duration-quick) var(--ease-out); }
 .visual-block-controls[style*="visibility: hidden"], .visual-block-controls[style*="visibility:hidden"] { opacity: 0; }
 .visual-add-block-button, .visual-drag-grip { position: relative; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: oklch(.72 0 0); transition: background-color var(--duration-quick) var(--ease-out); }

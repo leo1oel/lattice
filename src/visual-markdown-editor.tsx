@@ -86,7 +86,7 @@ import { addAppLog, dismissAppToastByDedupeKey } from "./app-log-store";
 import { InlineMessage } from "./components/ui/inline-message";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import Zoom from "react-medium-image-zoom";
-import { Check, X } from "lucide-react";
+import { Check, TableCellsMerge, TableCellsSplit, X } from "lucide-react";
 import { VisualMarkdownFindReplace } from "./visual-markdown-find-replace";
 import {
   LARGE_MARKDOWN_PREVIEW_THRESHOLD,
@@ -645,15 +645,14 @@ function pmTableCellIsEmpty(cell: PmNode): boolean {
     && cell.firstChild!.content.size === 0;
 }
 
-function selectedCellsHaveCompatibleContent(state: EditorState): boolean {
+function selectedCellsRepeatPopulatedContent(state: EditorState): boolean {
   const { selection } = state;
   if (!(selection instanceof CellSelection)) return false;
   const cells: PmNode[] = [];
   selection.forEachCell((cell) => cells.push(cell));
-  if (cells.length < 2 || cells.some((cell) => cell.type !== cells[0]?.type)) return false;
   const populated = cells.filter((cell) => !pmTableCellIsEmpty(cell));
-  return populated.length <= 1
-    || populated.slice(1).every((cell) => cell.content.eq(populated[0]!.content));
+  return populated.length > 1
+    && populated.slice(1).every((cell) => cell.content.eq(populated[0]!.content));
 }
 
 function tableSpanControlState(editor: Editor): TableSpanControlState {
@@ -664,9 +663,7 @@ function tableSpanControlState(editor: Editor): TableSpanControlState {
     selection instanceof CellSelection
     && selection.$anchorCell.pos !== selection.$headCell.pos
   ) {
-    return pmMergeCells(state) && selectedCellsHaveCompatibleContent(state)
-      ? "merge"
-      : "merge-disabled";
+    return pmMergeCells(state) ? "merge" : "merge-disabled";
   }
   return pmSplitCell(state) ? "split" : null;
 }
@@ -688,12 +685,18 @@ function markSelectedTableLayoutExplicit(transaction: Transaction): boolean {
 
 function mergeSelectedTableCells(editor: Editor): void {
   if (tableSpanControlState(editor) !== "merge") {
-    notifyInfo("Table", "Select a rectangular group of cells with matching content.");
+    notifyInfo("Table", "Select a complete rectangular group of cells.");
     return;
   }
+  const deduplicateRepeatedContent = selectedCellsRepeatPopulatedContent(editor.state);
   editor.chain()
     .focus()
     .command(({ tr }) => {
+      // ProseMirror preserves different cell contents as separate blocks in
+      // the merged cell. Only clear duplicates when every populated cell is
+      // identical, which keeps extracted-paper labels from becoming
+      // "GroupGroupGroup" while allowing an arbitrary rectangular selection.
+      if (!deduplicateRepeatedContent) return true;
       const { selection } = tr;
       if (!(selection instanceof CellSelection)) return false;
       const cells: Array<{ cell: PmNode; position: number }> = [];
@@ -769,7 +772,7 @@ function TableSpanControls({ editor }: { editor: Editor }) {
       appendTo={() => document.body}
       shouldShow={({ editor: currentEditor }) => tableSpanControlState(currentEditor) !== null}
       updateDelay={0}
-      className="z-50 flex items-center rounded-lg border bg-background p-1 shadow-md"
+      className="visual-table-span-controls"
       data-testid="table-span-controls"
     >
       {action === "split" ? (
@@ -780,6 +783,7 @@ function TableSpanControls({ editor }: { editor: Editor }) {
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => splitSelectedTableCell(editor)}
         >
+          <TableCellsSplit aria-hidden />
           Split cell
         </Button>
       ) : (
@@ -787,7 +791,7 @@ function TableSpanControls({ editor }: { editor: Editor }) {
           <span
             className="inline-flex"
             title={mergeDisabled
-              ? "Select a rectangular group of cells with matching content"
+              ? "Select a complete rectangular group of cells"
               : undefined}
           >
             <Button
@@ -799,12 +803,13 @@ function TableSpanControls({ editor }: { editor: Editor }) {
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => mergeSelectedTableCells(editor)}
             >
+              <TableCellsMerge aria-hidden />
               Merge cells
             </Button>
           </span>
           {mergeDisabled && (
             <span id={mergeReasonId} className="sr-only">
-              Only cells with matching content, or empty cells, can be merged.
+              Only a complete rectangular group of cells can be merged.
             </span>
           )}
         </>
@@ -2240,7 +2245,6 @@ const VisualEditorSurface = memo(function VisualEditorSurface({
   openVisualCommentComposer,
   bubbleMenuHidden,
   editable,
-  optimizeForReading,
   onLinkPopoverOpenChange,
 }: {
   editor: Editor;
@@ -2252,7 +2256,6 @@ const VisualEditorSurface = memo(function VisualEditorSurface({
   openVisualCommentComposer: (() => void) | null;
   bubbleMenuHidden: boolean;
   editable: boolean;
-  optimizeForReading: boolean;
   onLinkPopoverOpenChange: (open: boolean) => void;
 }) {
   return (
@@ -2270,7 +2273,7 @@ const VisualEditorSurface = memo(function VisualEditorSurface({
                   />
                 </VisualCommentProvider>
               )}
-              {editorViewMounted && !optimizeForReading && <TableCellHandles editor={editor} />}
+              {editorViewMounted && <TableCellHandles editor={editor} />}
               {editorViewMounted && <TableSpanControls editor={editor} />}
               <EmojiInsertPopover />
               {editorViewMounted && (
@@ -3789,7 +3792,6 @@ function CompleteVisualMarkdownEditor({
         openVisualCommentComposer={onCreateComment ? openVisualCommentComposer : null}
         bubbleMenuHidden={documentPending || linkPopoverOpen || Boolean(commentComposer)}
         editable={editable && !documentPending}
-        optimizeForReading={optimizeForReading}
         onLinkPopoverOpenChange={setLinkPopoverOpen}
       />
     </section>

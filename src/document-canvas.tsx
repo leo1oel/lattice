@@ -3060,7 +3060,9 @@ export function DocumentCanvas(props: {
       } : undefined}
     >
       {paperFullTextHeader}
-      <Suspense fallback={<div className="chat-markdown">Preparing preview…</div>}>
+      <Suspense fallback={props.activePaper ? null : (
+        <div className="chat-markdown">Preparing preview…</div>
+      )}>
         <DeferredVisualMarkdownEditor
           text={settledPreviewText}
           activePath={props.activeFile}

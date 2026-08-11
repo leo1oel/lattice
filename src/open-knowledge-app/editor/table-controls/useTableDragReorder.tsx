@@ -17,9 +17,9 @@
  *      the click; otherwise → open the menu manually via `setOpen(true)`.
  *
  * The reorder is a single ProseMirror transaction that rebuilds the table
- * with the moved row / column at the new index. This works for GFM tables
- * (rectangular, no colspan / rowspan) — the same rectangularity assumption
- * TableCellHandles' geometry logic already relies on.
+ * with the moved row / column at the new index. This works for rectangular
+ * GFM tables; callers disable the gesture when colspan/rowspan is present and
+ * leave the handle available as a normal menu trigger.
  *
  * **Row 0 is the markdown header — positional, not per-cell.** The OK
  * markdown pipeline treats row 0 as the header on every path
@@ -60,6 +60,10 @@ interface UseTableDragReorderOptions {
   /** The active cell whose column / row this handle belongs to — the source
    * of the drag. Used to resolve the source index + the containing table. */
   anchor: HTMLTableCellElement;
+  /** Reordering rebuilds a rectangular GFM table and is unsafe when the
+   * visual table currently contains colspan/rowspan. The handle remains a
+   * clickable menu trigger while this is false. */
+  enabled?: boolean;
   /** Called on pointerup when the gesture stayed under the drag threshold
    * (a click). The consumer opens its controlled Radix menu here since the
    * hook refused Radix's own pointerdown open request. Kept in a ref so a
@@ -100,6 +104,7 @@ export function useTableDragReorder({
   editor,
   axis,
   anchor,
+  enabled = true,
   onClickGesture,
 }: UseTableDragReorderOptions): UseTableDragReorderResult {
   // Ref rather than state — the pointerdown / move / up handlers all read
@@ -154,7 +159,7 @@ export function useTableDragReorder({
 
   const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     // Left-button only. Right / middle / touch-hold shouldn't reorder.
-    if (event.button !== 0) return;
+    if (!enabled || event.button !== 0) return;
 
     // Abort any lingering gesture from a previous pointerdown that never got
     // its pointerup (browser bug, focus-stealing dev-tools, etc.). Idempotent

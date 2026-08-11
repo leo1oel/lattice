@@ -1,7 +1,7 @@
 import { EditorView as CMEditorView } from "@codemirror/view";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
-import { CellSelection } from "@tiptap/pm/tables";
+import { CellSelection, TableMap } from "@tiptap/pm/tables";
 import type { Editor } from "@tiptap/react";
 import { useMemo, useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -1057,7 +1057,7 @@ describe("VisualMarkdownEditor", () => {
     expect(surface).toHaveAttribute("contenteditable", "true");
   });
 
-  it("keeps paper reading editable without scroll-heavy table chrome", () => {
+  it("keeps paper reading editable with lightweight table cell handles", async () => {
     render(
       <VisualMarkdownEditor
         text={"| Column |\n| --- |\n| Value |"}
@@ -1076,6 +1076,14 @@ describe("VisualMarkdownEditor", () => {
     expect(extensionNames).not.toContain("frozenTableHeaders");
     expect(extensionNames).not.toContain("tableInsertControls");
     expect(surface).toHaveAttribute("contenteditable", "true");
+    let valuePosition = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (node.isText && node.text === "Value") valuePosition = position;
+    });
+    act(() => {
+      editor.chain().focus().setTextSelection(valuePosition).run();
+    });
+    expect(await screen.findAllByTestId("table-cell-handle")).toHaveLength(2);
   });
 
   it("coalesces rapid reading-preview edits before serializing the document", async () => {
@@ -3260,13 +3268,23 @@ describe("VisualMarkdownEditor", () => {
       headerPositions[1]!,
     )));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Merge cells" }));
+    const merge = await screen.findByRole("button", { name: "Merge cells" });
+    expect(merge.closest("[data-testid='table-span-controls']"))
+      .toHaveClass("visual-table-span-controls");
+    expect(merge.querySelector("svg")).toBeInTheDocument();
+    fireEvent.click(merge);
 
     const headers = surface.querySelectorAll("th");
     expect(headers).toHaveLength(2);
     expect(headers[0]).toHaveTextContent("Group");
     expect(headers[0]).not.toHaveTextContent("GroupGroup");
     expect(headers[0]).toHaveAttribute("colspan", "2");
+    await waitFor(() => {
+      const handleButtons = screen.getAllByTestId("table-cell-handle")
+        .map((handle) => handle.querySelector("button"));
+      expect(handleButtons).toHaveLength(2);
+      for (const button of handleButtons) expect(button).toHaveClass("cursor-default");
+    });
     const serialized = editorMarkdown(editor);
     expect(serialized).toContain('<!-- lattice-table-layout:v1 {"spans":[[0,0,1,2]]} -->');
     expect(serialized).toContain("| Group | Group | Metric |");
@@ -3298,11 +3316,11 @@ describe("VisualMarkdownEditor", () => {
     expect(editorMarkdown(editor)).toContain("| :--- | ---: | :---: |");
   });
 
-  it("disables merging cells with different non-empty content", async () => {
+  it("merges five selected cells and preserves every distinct value", async () => {
     const markdown = [
-      "| Group A | Group B | Metric |",
-      "| --- | --- | --- |",
-      "| A | B | 1 |",
+      "| One | Two | Three | Four | Five | Tail |",
+      "| --- | --- | --- | --- | --- | --- |",
+      "| A | B | C | D | E | F |",
     ].join("\n");
     renderEditor(markdown);
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
@@ -3314,16 +3332,60 @@ describe("VisualMarkdownEditor", () => {
     editor.view.dispatch(editor.state.tr.setSelection(CellSelection.create(
       editor.state.doc,
       headerPositions[0]!,
-      headerPositions[1]!,
+      headerPositions[4]!,
     )));
 
     const merge = await screen.findByRole("button", { name: "Merge cells" });
-    const before = editorMarkdown(editor);
-    expect(merge).toBeDisabled();
+    expect(merge).toBeEnabled();
     fireEvent.click(merge);
 
-    expect(editorMarkdown(editor)).toBe(before);
-    expect(surface.querySelectorAll("th")).toHaveLength(3);
+    const headers = surface.querySelectorAll("th");
+    expect(headers).toHaveLength(2);
+    expect(headers[0]).toHaveAttribute("colspan", "5");
+    for (const value of ["One", "Two", "Three", "Four", "Five"]) {
+      expect(headers[0]).toHaveTextContent(value);
+    }
+    const serialized = editorMarkdown(editor);
+    expect(serialized).toContain('<!-- lattice-table-layout:v1 {"spans":[[0,0,1,5]]} -->');
+    for (const value of ["One", "Two", "Three", "Four", "Five"]) {
+      expect(serialized).toContain(value);
+    }
+  });
+
+  it("merges a four-cell rectangle across the header boundary", async () => {
+    const markdown = [
+      "| Left | Right | Tail |",
+      "| --- | --- | --- |",
+      "| Lower left | Lower right | Value |",
+      "| A | B | C |",
+    ].join("\n");
+    renderEditor(markdown);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const cellPositions: number[] = [];
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "tableHeader" || node.type.name === "tableCell") {
+        cellPositions.push(position);
+      }
+    });
+    editor.view.dispatch(editor.state.tr.setSelection(CellSelection.create(
+      editor.state.doc,
+      cellPositions[0]!,
+      cellPositions[4]!,
+    )));
+
+    const merge = await screen.findByRole("button", { name: "Merge cells" });
+    expect(merge).toBeEnabled();
+    fireEvent.click(merge);
+
+    const merged = surface.querySelector("th");
+    expect(merged).toHaveAttribute("colspan", "2");
+    expect(merged).toHaveAttribute("rowspan", "2");
+    for (const value of ["Left", "Right", "Lower left", "Lower right"]) {
+      expect(merged).toHaveTextContent(value);
+    }
+    expect(editorMarkdown(editor))
+      .toContain('<!-- lattice-table-layout:v1 {"spans":[[0,0,2,2]]} -->');
   });
 
   it("splits one merged cell without discarding other explicit spans", async () => {
@@ -3823,6 +3885,52 @@ describe("VisualMarkdownEditor", () => {
       () => expect(String(onChange.mock.lastCall?.[0])).toMatch(/\| Left\s+\| Right\s+\|\n\| -+ \| -+ \|/),
       { timeout: 2_500 },
     );
+  });
+
+  it("anchors handles to logical columns and keeps merged tables out of rectangular drag reorder", async () => {
+    const markdown = [
+      '<!-- lattice-table-layout:v1 {"spans":[[0,0,1,2]]} -->',
+      "",
+      "| Group | Group | Metric |",
+      "| --- | --- | --- |",
+      "| A | B | 1 |",
+    ].join("\n");
+    renderEditor(markdown);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    let secondColumn = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (node.isText && node.text === "B") secondColumn = position;
+    });
+    act(() => {
+      editor.chain().focus().setTextSelection(secondColumn).run();
+    });
+
+    const handles = await screen.findAllByTestId("table-cell-handle");
+    const columnOptions = handles[0]?.querySelector<HTMLButtonElement>("button");
+    if (!columnOptions) throw new Error("Expected the column options control");
+    // Drag reorder still assumes one PM cell per grid slot. The menu stays
+    // available, but merged tables must not advertise or enter that gesture.
+    expect(columnOptions).toHaveClass("cursor-default");
+    expect(columnOptions).not.toHaveClass("cursor-grab");
+    fireEvent.pointerDown(columnOptions, { button: 0 });
+    fireEvent.pointerUp(document);
+    await screen.findByRole("menuitem", { name: "Insert column left" });
+
+    const selection = editor.state.selection;
+    expect(selection).toBeInstanceOf(CellSelection);
+    if (!(selection instanceof CellSelection)) throw new Error("Expected a table cell selection");
+    const table = selection.$anchorCell.node(-1);
+    const tableStart = selection.$anchorCell.start(-1);
+    const map = TableMap.get(table);
+    const rect = map.rectBetween(
+      selection.$anchorCell.pos - tableStart,
+      selection.$headCell.pos - tableStart,
+    );
+    // The second logical column is covered by the merged header at columns
+    // 0..2, so the safe axis selection expands to that origin cell. The old
+    // DOM cellIndex path incorrectly anchored this handle to Metric (2..3).
+    expect(rect).toMatchObject({ left: 0, right: 2 });
   });
 
   it("uses Enter to move down a table column and appends a row at the bottom", async () => {
