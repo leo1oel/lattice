@@ -4,6 +4,7 @@ import { Wrench } from "lucide-react";
 import {
   isConferenceFontsMissing,
   isTexToolchainMissing,
+  missingTexToolNames,
   TEX_INSTALL_SIZE_HINT,
   type DoctorReportLike,
   type TexInstallProgress,
@@ -32,7 +33,7 @@ const INSTALL_STAGE_DETAIL: Record<TexInstallProgress["stage"], string> = {
   downloading: "Download time depends on your connection.",
   authorizing: "Approve the macOS prompt to continue.",
   "installing-base": "This step may take a minute.",
-  "installing-packages": "This is the longest step and can take several minutes.",
+  "installing-packages": "This is the longest step and can take up to 15 minutes.",
   verifying: "Almost done.",
   complete: "Setup is complete.",
 };
@@ -74,8 +75,17 @@ export function TexSetupWizard(props: {
       await invoke("start_tex_install", { onProgress });
       setInstallProgress({ stage: "complete", progress: 1 });
       const report = await props.onRecheck();
-      if (!report || isTexToolchainMissing(report) || isConferenceFontsMissing(report)) {
-        throw new Error("BasicTeX finished installing, but Lattice could not verify the LaTeX tools.");
+      if (!report) {
+        throw new Error("BasicTeX finished installing, but Lattice could not run the final verification.");
+      }
+      const missingTools = missingTexToolNames(report);
+      const fontCheck = report.checks.find((check) => check.name === "conference-fonts");
+      if (missingTools.length > 0 || (fontCheck && !fontCheck.ok)) {
+        const issues = [
+          ...(missingTools.length > 0 ? [`Missing tools: ${missingTools.join(", ")}`] : []),
+          ...((fontCheck && !fontCheck.ok) ? [fontCheck.detail] : []),
+        ];
+        throw new Error(`BasicTeX finished installing, but Lattice could not verify:\n${issues.join("\n")}`);
       }
       trace.ok("BasicTeX installed");
       props.onClose();
@@ -97,8 +107,8 @@ export function TexSetupWizard(props: {
         <div className="modal-icon"><Wrench size={18} /></div>
         <h2>Install LaTeX to compile</h2>
         <p>
-          BasicTeX is required to compile PDFs. Installation uses about {TEX_INSTALL_SIZE_HINT}
-          {" "}and usually takes around 5 minutes.
+          BasicTeX is required to compile PDFs. It uses about {TEX_INSTALL_SIZE_HINT} after
+          {" "}installation and can take up to 15 minutes.
         </p>
 
         {installing && (

@@ -146,8 +146,18 @@ pub fn available(name: &str) -> bool {
 
 fn is_executable(path: &Path) -> bool {
     match fs::metadata(path) {
-        Ok(meta) => meta.is_file(),
+        Ok(meta) if meta.is_file() => {
+            #[cfg(unix)]
+            {
+                rustix::fs::access(path, rustix::fs::Access::EXEC_OK).is_ok()
+            }
+            #[cfg(not(unix))]
+            {
+                true
+            }
+        }
         Err(_) => false,
+        _ => false,
     }
 }
 
@@ -273,6 +283,23 @@ mod tests {
             assert_eq!(resolve("latexmk"), latexmk);
             assert!(available("latexmk"));
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn availability_requires_permission_to_execute() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = std::env::temp_dir().join(format!(
+            "lattice-command-permission-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        fs::write(&path, "#!/bin/sh\nexit 0\n").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(!is_executable(&path));
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(is_executable(&path));
+        fs::remove_file(path).unwrap();
     }
 
     #[test]

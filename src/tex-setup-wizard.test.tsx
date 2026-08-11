@@ -106,7 +106,8 @@ describe("tex setup wizard helpers", () => {
 
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Install Basic TeX" })).toBeEnabled();
-    expect(screen.getByText(/usually takes around 5 minutes/)).toBeInTheDocument();
+    expect(screen.getByText(/about 1 GB after installation and can take up to 15 minutes/))
+      .toBeInTheDocument();
     expect(screen.queryByText("Install MacTeX (full)")).not.toBeInTheDocument();
     expect(screen.queryByText("Skip for now")).not.toBeInTheDocument();
     expect(screen.queryByText("Recheck")).not.toBeInTheDocument();
@@ -164,11 +165,41 @@ describe("tex setup wizard helpers", () => {
     act(() => {
       tauri.channel?.onmessage?.({ stage: "installing-packages", progress: 0.82 });
     });
-    expect(screen.getByText("This is the longest step and can take several minutes."))
+    expect(screen.getByText("This is the longest step and can take up to 15 minutes."))
       .toBeInTheDocument();
 
     await act(async () => finishInstall());
     expect(onRecheck).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("shows the concrete doctor failure and keeps install available", async () => {
+    tauri.invoke.mockResolvedValue(undefined);
+    render(
+      <TexSetupWizard
+        open
+        report={{
+          ok: false,
+          summary: "missing",
+          checks: [{ name: "latexmk", detail: "missing", ok: false }],
+        }}
+        checking={false}
+        onClose={vi.fn()}
+        onRecheck={vi.fn(async () => ({
+          ok: false,
+          summary: "permissions",
+          checks: [
+            { name: "latexmk", detail: "Permission denied", ok: false },
+            { name: "conference-fonts", detail: "Missing uhvr8a.pfb — Permission denied", ok: false },
+          ],
+        }))}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Install Basic TeX" }));
+
+    expect(await screen.findByText(/Missing tools: latexmk/)).toBeInTheDocument();
+    expect(screen.getByText(/Missing uhvr8a\.pfb — Permission denied/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Install Basic TeX" })).toBeEnabled();
   });
 });

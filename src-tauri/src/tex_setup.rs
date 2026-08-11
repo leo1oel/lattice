@@ -80,6 +80,36 @@ status() {
   printf '%s\n' "$1" > "${STATUS}"
 }
 
+EXPECTED_TEXMFROOT="/usr/local/texlive/2026basic"
+repair_basictex_permissions() {
+  local texmfroot
+  local owner_uid
+
+  if ! texmfroot="$("${TEXBIN}/kpsewhich" -var-value=TEXMFROOT 2>/dev/null)"; then
+    return 0
+  fi
+  if [[ "${texmfroot}" != "${EXPECTED_TEXMFROOT}" ]]; then
+    return 0
+  fi
+
+  CURRENT_STEP="Repairing BasicTeX permissions"
+  if [[ -L "${EXPECTED_TEXMFROOT}" ]]; then
+    echo "Refusing to repair a symbolic-link BasicTeX installation root: ${EXPECTED_TEXMFROOT}"
+    false
+  fi
+  if [[ ! -d "${EXPECTED_TEXMFROOT}" ]]; then
+    echo "BasicTeX reported ${EXPECTED_TEXMFROOT}, but it is not a directory."
+    false
+  fi
+  owner_uid="$(/usr/bin/stat -f '%u' "${EXPECTED_TEXMFROOT}")"
+  if [[ "${owner_uid}" != "0" ]]; then
+    echo "Refusing to repair a BasicTeX tree not owned by root: ${EXPECTED_TEXMFROOT}"
+    false
+  fi
+
+  /bin/chmod -R -P a+rX "${EXPECTED_TEXMFROOT}"
+}
+
 if [[ "${INSTALL_BASE}" == "1" ]]; then
   /bin/cp "${SOURCE_PACKAGE}" "${PACKAGE}"
   ACTUAL_SHA256="$(/usr/bin/shasum -a 256 "${PACKAGE}" | /usr/bin/awk '{print $1}')"
@@ -87,6 +117,13 @@ if [[ "${INSTALL_BASE}" == "1" ]]; then
     echo "The privileged BasicTeX package failed its security check."
     false
   fi
+fi
+
+# The private package copy and log stay protected, but system TeX files must
+# be readable and executable by the signed-in user who runs Lattice.
+umask 022
+
+if [[ "${INSTALL_BASE}" == "1" ]]; then
   CURRENT_STEP="Installing BasicTeX"
   status installing-base
   /usr/sbin/installer -pkg "${PACKAGE}" -target /
@@ -97,6 +134,7 @@ if [[ ! -x "${TEXBIN}/tlmgr" ]]; then
   false
 fi
 
+repair_basictex_permissions
 CURRENT_STEP="Updating the TeX Live package manager"
 status installing-packages
 "${TEXBIN}/tlmgr" update --self
@@ -131,19 +169,6 @@ fi
 
 CURRENT_STEP="Verifying the LaTeX installation"
 status verifying
-for tool in latexmk pdflatex synctex bibtex; do
-  if [[ ! -x "${TEXBIN}/${tool}" ]]; then
-    echo "Required LaTeX tool is missing: ${tool}"
-    false
-  fi
-done
-for f in t1ptm.fd ptmr8t.tfm t1phv.fd utmr8a.pfb utmb8a.pfb uhvr8a.pfb; do
-  if ! path="$("${TEXBIN}/kpsewhich" "$f" 2>/dev/null)" || [[ -z "${path}" ]]; then
-    echo "Required conference font is missing: ${f}"
-    false
-  fi
-done
-status complete
 "#;
 
 #[derive(Clone, Serialize)]
@@ -325,6 +350,77 @@ fn install_error(stderr: &str) -> String {
 }
 
 #[cfg(target_os = "macos")]
+fn command_failure_detail(output: &std::process::Output) -> String {
+    String::from_utf8_lossy(&output.stderr)
+        .lines()
+        .chain(String::from_utf8_lossy(&output.stdout).lines())
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or("No error detail was reported.")
+        .to_string()
+}
+
+#[cfg(target_os = "macos")]
+fn verify_tex_install_as_current_user() -> Result<(), String> {
+    let required_tools = [
+        ("latexmk", "-version"),
+        ("pdflatex", "--version"),
+        ("synctex", "help"),
+        ("bibtex", "--version"),
+        ("biber", "--version"),
+        ("texcount", "-version"),
+        ("kpsewhich", "--version"),
+    ];
+    for (tool, version_arg) in required_tools {
+        let mut command = crate::commands::command(tool);
+        let resolved = command.get_program().to_string_lossy().into_owned();
+        let output = command.arg(version_arg).output().map_err(|error| {
+            format!(
+                "BasicTeX was installed, but Lattice could not run {tool} as your macOS user.\nResolved tool: {resolved}\n{error}"
+            )
+        })?;
+        if !output.status.success() {
+            return Err(format!(
+                "BasicTeX was installed, but {tool} failed its user-level verification.\nResolved tool: {resolved}\n{}",
+                command_failure_detail(&output)
+            ));
+        }
+    }
+
+    for required_file in [
+        "t1ptm.fd",
+        "ptmr8t.tfm",
+        "t1phv.fd",
+        "utmr8a.pfb",
+        "utmb8a.pfb",
+        "uhvr8a.pfb",
+    ] {
+        let output = crate::commands::command("kpsewhich")
+            .arg(required_file)
+            .output()
+            .map_err(|error| {
+                format!(
+                    "BasicTeX was installed, but Lattice could not look up required file {required_file}.\n{error}"
+                )
+            })?;
+        let resolved = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !output.status.success() || resolved.is_empty() {
+            return Err(format!(
+                "BasicTeX was installed, but required file {required_file} could not be found.\n{}",
+                command_failure_detail(&output)
+            ));
+        }
+        fs::File::open(&resolved).map_err(|error| {
+            format!(
+                "BasicTeX was installed, but Lattice could not read required file {required_file}.\nResolved file: {resolved}\n{error}"
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
 fn run_basic_tex_installer(
     command: &str,
     status_path: &Path,
@@ -373,7 +469,6 @@ fn run_basic_tex_installer(
     if !exit.success() {
         return Err(install_error(&stderr));
     }
-    send_progress(on_progress, "complete", 1.0);
     Ok(())
 }
 
@@ -547,7 +642,11 @@ pub fn start_tex_install(on_progress: Channel<TexInstallProgress>) -> Result<(),
             .replace("__EXPECTED_SHA256__", BASIC_TEX_SHA256)
             .replace("__INSTALL_BASE__", if install_base { "1" } else { "0" });
         let command = format!("/bin/bash -c {}", shell_quote(&script));
-        run_basic_tex_installer(&command, &status_path, &on_progress)
+        run_basic_tex_installer(&command, &status_path, &on_progress)?;
+        send_progress(&on_progress, "verifying", 0.95);
+        verify_tex_install_as_current_user()?;
+        send_progress(&on_progress, "complete", 1.0);
+        Ok(())
     }
 }
 
@@ -622,9 +721,23 @@ mod tests {
         assert!(BASIC_SCRIPT.contains("status installing-base"));
         assert!(BASIC_SCRIPT.contains("status installing-packages"));
         assert!(BASIC_SCRIPT.contains("status verifying"));
+        assert!(!BASIC_SCRIPT.contains("status complete"));
         assert!(BASIC_SCRIPT.contains("installing-packages ${BASH_REMATCH[1]}"));
         assert!(BASIC_SCRIPT.contains("shasum -a 256"));
         assert!(BASIC_SCRIPT.contains("/bin/mkdir -m 711"));
+        let private_umask = BASIC_SCRIPT.find("umask 077").unwrap();
+        let package_copy = BASIC_SCRIPT.find("/bin/cp").unwrap();
+        let public_umask = BASIC_SCRIPT.find("umask 022").unwrap();
+        let package_install = BASIC_SCRIPT.find("/usr/sbin/installer").unwrap();
+        let tlmgr_update = BASIC_SCRIPT.find("\"${TEXBIN}/tlmgr\" update").unwrap();
+        assert!(private_umask < package_copy);
+        assert!(package_copy < public_umask);
+        assert!(public_umask < package_install);
+        assert!(public_umask < tlmgr_update);
+        assert!(BASIC_SCRIPT.contains("EXPECTED_TEXMFROOT=\"/usr/local/texlive/2026basic\""));
+        assert!(BASIC_SCRIPT.contains("[[ -L \"${EXPECTED_TEXMFROOT}\" ]]"));
+        assert!(BASIC_SCRIPT.contains("owner_uid=\"$(/usr/bin/stat -f '%u'"));
+        assert!(BASIC_SCRIPT.contains("/bin/chmod -R -P a+rX \"${EXPECTED_TEXMFROOT}\""));
         assert!(BASIC_SCRIPT.contains("  psnfss \\\n"));
         assert!(!BASIC_SCRIPT.contains("  mathptmx \\\n"));
         assert!(!BASIC_SCRIPT.contains("brew install"));
