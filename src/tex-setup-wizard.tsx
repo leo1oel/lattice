@@ -1,150 +1,127 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { Package, Wrench } from "lucide-react";
+import { Channel, invoke } from "@tauri-apps/api/core";
+import { Wrench } from "lucide-react";
 import {
   isConferenceFontsMissing,
   isTexToolchainMissing,
   TEX_INSTALL_SIZE_HINT,
   type DoctorReportLike,
+  type TexInstallProgress,
 } from "./tex-setup";
 import { MotionButton, PopIn } from "./motion";
-import { Button } from "./components/ui/button";
-import { InfinityLoader, ReloadButton } from "./components/ui/activity-icons";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { buttonClassName } from "./components/ui/button-styles";
 import { ModalDialog } from "./components/ui/modal-dialog";
 import { InlineMessage } from "./components/ui/inline-message";
 import { logAction } from "./app-notify";
+import { toMessage } from "./app-utils";
 
 /** Notification source label for the LaTeX install wizard. */
 const TEX_SETUP_SOURCE = "LaTeX setup";
 
-type InstallKind = "basic" | "full";
+const INSTALL_STAGE_LABEL: Record<TexInstallProgress["stage"], string> = {
+  downloading: "Downloading BasicTeX…",
+  authorizing: "Waiting for administrator approval…",
+  "installing-base": "Installing BasicTeX…",
+  "installing-packages": "Installing LaTeX packages…",
+  verifying: "Verifying installation…",
+  complete: "Finishing setup…",
+};
 
 export function TexSetupWizard(props: {
   open: boolean;
   report: DoctorReportLike | null;
   checking: boolean;
-  statusMessage: string | null;
   onClose: () => void;
-  onDismiss: () => void;
-  onRecheck: () => void | Promise<void>;
+  onRecheck: () => Promise<DoctorReportLike | null>;
 }) {
-  const [installing, setInstalling] = useState<InstallKind | null>(null);
-  const [localStatus, setLocalStatus] = useState<string | null>(null);
+  const [installing, setInstalling] = useState(false);
+  const [installProgress, setInstallProgress] = useState<TexInstallProgress>({
+    stage: "downloading",
+    progress: 0,
+  });
+  const [installError, setInstallError] = useState<string | null>(null);
+
+  const { checking, onClose, open } = props;
+  const toolsReady = props.report !== null && !isTexToolchainMissing(props.report);
+  const ready = toolsReady && !isConferenceFontsMissing(props.report);
 
   useEffect(() => {
-    if (!props.open) {
-      setInstalling(null);
-      setLocalStatus(null);
-    }
-  }, [props.open]);
-
-  useEffect(() => {
-    setLocalStatus(props.statusMessage);
-  }, [props.statusMessage]);
+    if (open && ready && !checking && !installing) onClose();
+  }, [checking, installing, onClose, open, ready]);
 
   if (!props.open) return null;
 
-  const toolsReady = props.report !== null && !isTexToolchainMissing(props.report);
-  const fontsMissing = isConferenceFontsMissing(props.report);
-  const ready = toolsReady && !fontsMissing;
-  const busy = props.checking || installing !== null;
-  const checked = props.report !== null && !props.checking;
+  const busy = props.checking || installing;
 
-  const startInstall = async (kind: InstallKind) => {
-    setInstalling(kind);
-    const trace = logAction(TEX_SETUP_SOURCE, "Install LaTeX", kind);
+  const startInstall = async () => {
+    setInstalling(true);
+    setInstallError(null);
+    setInstallProgress({ stage: "downloading", progress: 0 });
+    const trace = logAction(TEX_SETUP_SOURCE, "Install BasicTeX");
     try {
-      await invoke("start_tex_install", { kind });
-      trace.note("Installer launched in Terminal");
-      setLocalStatus("Terminal opened. Click Recheck when it finishes.");
+      const onProgress = new Channel<TexInstallProgress>();
+      onProgress.onmessage = (progress) => setInstallProgress(progress);
+      await invoke("start_tex_install", { onProgress });
+      setInstallProgress({ stage: "complete", progress: 1 });
+      const report = await props.onRecheck();
+      if (!report || isTexToolchainMissing(report) || isConferenceFontsMissing(report)) {
+        throw new Error("BasicTeX finished installing, but Lattice could not verify the LaTeX tools.");
+      }
+      trace.ok("BasicTeX installed");
+      props.onClose();
     } catch (reason) {
+      setInstallError(toMessage(reason));
       trace.fail(reason);
     } finally {
-      setInstalling(null);
+      setInstalling(false);
     }
   };
 
+  const percent = Math.round(installProgress.progress * 100);
+
   return (
-    <ModalDialog label="Install LaTeX tools" onClose={props.onClose} closeDisabled={busy} backdropClassName="tex-setup-backdrop">
+    <ModalDialog label="Install LaTeX tools" onClose={props.onClose} closeDisabled backdropClassName="tex-setup-backdrop">
       <PopIn
         className="modal tex-setup-modal"
       >
         <div className="modal-icon"><Wrench size={18} /></div>
         <h2>Install LaTeX to compile</h2>
         <p>
-          Lattice opens Terminal and installs everything needed to compile PDFs.
+          BasicTeX is required to compile PDFs in Lattice and uses about {TEX_INSTALL_SIZE_HINT}.
         </p>
 
-        {checked && !ready && (
-          <InlineMessage level="error" className="tex-setup-banner">
-            LaTeX is not installed on this Mac yet.
+        {installing && (
+          <div className="tex-setup-progress-block" aria-live="polite">
+            <div
+              className="tex-setup-progress"
+              role="progressbar"
+              aria-label="BasicTeX installation progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+            >
+              <div className="tex-setup-progress-fill" style={{ width: `${percent}%` }} />
+            </div>
+            <span>{INSTALL_STAGE_LABEL[installProgress.stage]} {percent}%</span>
+          </div>
+        )}
+
+        {installError && (
+          <InlineMessage level="error" className="tex-setup-status">
+            {installError}
           </InlineMessage>
         )}
 
-        {checked && ready && (
-          <InlineMessage level="success" className="tex-setup-banner">
-            LaTeX is ready. You can Build from the title bar.
-          </InlineMessage>
-        )}
-
-        <div className="tex-setup-options">
-          <button
-            type="button"
-            className="tex-setup-option"
-            disabled={busy}
-            onClick={() => { void startInstall("basic"); }}
-          >
-            <span className="tex-setup-option-icon"><Package size={16} /></span>
-            <span className="tex-setup-option-copy">
-              <strong>Install BasicTeX</strong>
-              <span>About {TEX_INSTALL_SIZE_HINT.basic}. Recommended for most papers.</span>
-            </span>
-            {installing === "basic" && <InfinityLoader size={16} />}
-          </button>
-          <button
-            type="button"
-            className="tex-setup-option"
-            disabled={busy}
-            onClick={() => { void startInstall("full"); }}
-          >
-            <span className="tex-setup-option-icon"><Package size={16} /></span>
-            <span className="tex-setup-option-copy">
-              <strong>Install MacTeX (full)</strong>
-              <span>About {TEX_INSTALL_SIZE_HINT.full}. Full TeX Live install.</span>
-            </span>
-            {installing === "full" && <InfinityLoader size={16} />}
-          </button>
-        </div>
-
-        {(localStatus || props.checking) && (
-          <InlineMessage level={ready ? "success" : "info"} className="tex-setup-status">
-            {props.checking && !localStatus ? "Checking…" : localStatus}
-          </InlineMessage>
-        )}
-
-        <div className="modal-actions tex-setup-actions">
-          {!ready && (
-            <Button variant="ghost" onClick={props.onDismiss} disabled={busy}>
-              Skip for now
-            </Button>
-          )}
-          <ReloadButton
-            onClick={() => { void props.onRecheck(); }}
-            busy={props.checking}
-            disabled={busy}
-          >
-            Recheck
-          </ReloadButton>
-          <MotionButton
-            type="button"
-            className={buttonClassName({ variant: "primary" })}
-            onClick={props.onClose}
-            disabled={busy}
-          >
-            {ready ? "Done" : "Close"}
-          </MotionButton>
-        </div>
+        <MotionButton
+          type="button"
+          className={buttonClassName({ variant: "primary", className: "tex-setup-install" })}
+          onClick={() => { void startInstall(); }}
+          disabled={busy || ready}
+        >
+          {installing && <InfinityLoader size={16} />}
+          Install Basic TeX
+        </MotionButton>
       </PopIn>
     </ModalDialog>
   );

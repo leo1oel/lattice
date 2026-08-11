@@ -1,86 +1,95 @@
-//! One-click TeX install helpers for macOS (opens a Terminal `.command` script).
+//! One-click TeX install helpers for macOS.
+
+use serde::Serialize;
+use tauri::ipc::Channel;
 
 #[cfg(target_os = "macos")]
-use std::{fs::OpenOptions, io::Write, process::Command};
+use sha2::{Digest, Sha256};
+#[cfg(target_os = "macos")]
+use std::{
+    fs::{self, OpenOptions},
+    io::{Read, Write},
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
+    time::Duration,
+};
 
 #[cfg(target_os = "macos")]
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
+const BASIC_TEX_URL: &str =
+    "https://mirror.ctan.org/systems/mac/mactex/mactex-basictex-20260301.pkg";
+#[cfg(any(target_os = "macos", test))]
+const BASIC_TEX_SHA256: &str = "19164fbfef08c30fd433f59203c8804abbbd685d3a344ef7f0ba8c1fd4157cb3";
+#[cfg(any(target_os = "macos", test))]
+const BASIC_TEX_YEAR: i32 = 2026;
+#[cfg(any(target_os = "macos", test))]
 const BASIC_SCRIPT: &str = r#"#!/bin/bash
 set -euo pipefail
-echo "=== Lattice: BasicTeX install ==="
-echo ""
-
-ensure_brew() {
-  if command -v brew >/dev/null 2>&1; then
-    return 0
-  fi
-  echo "Homebrew not found. Installing Homebrew first…"
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  if [[ -x /opt/homebrew/bin/brew ]]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-  elif [[ -x /usr/local/bin/brew ]]; then
-    eval "$(/usr/local/bin/brew shellenv)"
-  fi
-  if ! command -v brew >/dev/null 2>&1; then
-    echo "Could not find brew after install. Open a new Terminal window and try again."
-    exit 1
-  fi
-}
-
-ensure_brew
-
-# Optional editor/research helpers the TeX doctor reports: texlab (LaTeX
-# language server) and uv (literature fetching + bibliography management).
-# Installed FIRST, before the TeX steps that can abort on a tlmgr/font error,
-# so they land regardless of how the TeX install goes. Each is `|| echo`-guarded
-# so a failure here never aborts the run.
-echo "Installing optional editor/research tools (texlab, uv) — safe to skip if these fail…"
-brew install texlab || echo "  (skipped texlab — install later with: brew install texlab)"
-brew install uv || echo "  (skipped uv — install later with: brew install uv)"
-
-echo ""
-echo "Installing / repairing BasicTeX (safe if already installed)…"
-echo "This also installs latexmk + conference fonts/packages."
-brew install --cask basictex
-
-eval "$(/usr/libexec/path_helper -s)" 2>/dev/null || true
-export PATH="/Library/TeX/texbin:${PATH}"
+SOURCE_PACKAGE=__SOURCE_PACKAGE__
+ROOT=__ROOT_PATH__
+EXPECTED_SHA256=__EXPECTED_SHA256__
+INSTALL_BASE=__INSTALL_BASE__
 TEXBIN="/Library/TeX/texbin"
+PACKAGE="${ROOT}/BasicTeX.pkg"
+STATUS="${ROOT}/status"
+LOG="${ROOT}/install.log"
 
-wait_for_tex() {
-  local tool="$1"
-  if [[ -x "${TEXBIN}/${tool}" ]]; then
-    return 0
-  fi
-  echo "Waiting for ${TEXBIN}/${tool}…"
-  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-    [[ -x "${TEXBIN}/${tool}" ]] && return 0
-    sleep 2
-  done
-  return 1
-}
-
-if ! wait_for_tex tlmgr; then
-  echo "BasicTeX is marked installed, but ${TEXBIN}/tlmgr is missing."
-  echo "Trying a clean reinstall of the BasicTeX package…"
-  brew reinstall --cask basictex
-  eval "$(/usr/libexec/path_helper -s)" 2>/dev/null || true
-  export PATH="/Library/TeX/texbin:${PATH}"
-fi
-if ! wait_for_tex tlmgr; then
-  echo "Still no ${TEXBIN}/tlmgr. Run: ls -la /Library/TeX/texbin"
+umask 077
+if ! /bin/mkdir -m 711 "${ROOT}"; then
+  echo "Could not create the privileged BasicTeX installer folder." >&2
   exit 1
 fi
+: > "${STATUS}"
+/bin/chmod 644 "${STATUS}"
+: > "${LOG}"
+exec 3>&2
 
-echo ""
-echo "Installing latexmk + conference fonts/packages (admin password may be required)…"
-echo "Already-installed packages are skipped — re-running this button is fine."
-sudo "${TEXBIN}/tlmgr" update --self
-# latexmk is intentionally NOT in the BasicTeX base package.
-# tex-gyre / helvetic / courier / times keep NeurIPS/ICML Times+Helvetica looking sharp.
-sudo "${TEXBIN}/tlmgr" install \
+cleanup() {
+  /bin/rm -rf "${ROOT}"
+}
+
+fail() {
+  code=$?
+  trap - ERR EXIT
+  set +e
+  /usr/bin/tail -n 6 "${LOG}" >&3
+  cleanup
+  exit "${code}"
+}
+
+trap fail ERR
+trap cleanup EXIT
+exec > "${LOG}" 2>&1
+
+status() {
+  printf '%s\n' "$1" > "${STATUS}"
+}
+
+if [[ "${INSTALL_BASE}" == "1" ]]; then
+  /bin/cp "${SOURCE_PACKAGE}" "${PACKAGE}"
+  ACTUAL_SHA256="$(/usr/bin/shasum -a 256 "${PACKAGE}" | /usr/bin/awk '{print $1}')"
+  if [[ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]]; then
+    echo "The privileged BasicTeX package failed its security check."
+    false
+  fi
+  status installing-base
+  /usr/sbin/installer -pkg "${PACKAGE}" -target /
+fi
+
+if [[ ! -x "${TEXBIN}/tlmgr" ]]; then
+  echo "BasicTeX installed, but ${TEXBIN}/tlmgr is missing."
+  false
+fi
+
+status installing-packages
+"${TEXBIN}/tlmgr" update --self
+# latexmk is intentionally not part of the BasicTeX base package. The
+# collections and Type1 fonts cover Lattice's bundled conference templates.
+"${TEXBIN}/tlmgr" install \
   latexmk \
   biber \
   texcount \
@@ -96,156 +105,256 @@ sudo "${TEXBIN}/tlmgr" install \
   cmap \
   csquotes
 
-# ICML templates need algorithm.sty / algorithmic.sty (TeX Live package: algorithms).
-if path="$("${TEXBIN}/kpsewhich" "algorithm.sty" 2>/dev/null)" && [[ -n "$path" ]]; then
-  echo "  OK  algorithm.sty → $path"
-else
-  echo "  MISSING  algorithm.sty — installing algorithms again…"
-  sudo "${TEXBIN}/tlmgr" install algorithms || true
-fi
-
-# Refresh font maps so PDF preview picks up the new Type1 faces.
 if [[ -x "${TEXBIN}/updmap-sys" ]]; then
-  echo "Refreshing font maps (updmap-sys)…"
-  sudo "${TEXBIN}/updmap-sys" || true
+  "${TEXBIN}/updmap-sys"
 fi
 
-if [[ ! -x "${TEXBIN}/latexmk" ]]; then
-  echo ""
-  echo "FAILED: latexmk is still missing after tlmgr install."
-  exit 1
-fi
-
-echo ""
-echo "Verifying conference fonts (NeurIPS/ICML Times + Helvetica Type1)…"
-FONT_FAIL=0
-for f in t1ptm.fd ptmr8t.tfm t1phv.fd utmr8a.pfb utmb8a.pfb uhvr8a.pfb; do
-  if path="$("${TEXBIN}/kpsewhich" "$f" 2>/dev/null)" && [[ -n "$path" ]]; then
-    echo "  OK  $f → $path"
-  else
-    echo "  MISSING  $f"
-    FONT_FAIL=1
+status verifying
+for tool in latexmk pdflatex synctex bibtex; do
+  if [[ ! -x "${TEXBIN}/${tool}" ]]; then
+    echo "Required LaTeX tool is missing: ${tool}"
+    false
   fi
 done
-
-if [[ "$FONT_FAIL" -ne 0 ]]; then
-  echo ""
-  echo "FAILED: fonts are incomplete. Scroll up for tlmgr errors, then click Install BasicTeX again in Lattice."
-  exit 1
-fi
-
-echo ""
-echo "Compiling a tiny NeurIPS-style probe (no poppler needed)…"
-PROBE="$(mktemp -d)/probe"
-mkdir -p "$(dirname "$PROBE")"
-cat > "${PROBE}.tex" <<'TEX'
-\documentclass{article}
-\usepackage[T1]{fontenc}
-\usepackage{times}
-\begin{document}
-NeurIPS font probe.
-\end{document}
-TEX
-if "${TEXBIN}/pdflatex" -interaction=nonstopmode -output-directory "$(dirname "$PROBE")" "${PROBE}.tex" >/tmp/lattice-font-probe.log 2>&1 \
-  && python3 - "$PROBE.pdf" <<'PY'
-import re, sys
-from pathlib import Path
-data = Path(sys.argv[1]).read_bytes()
-names = sorted({m.decode("latin1", "replace").rsplit("+", 1)[-1]
-                for m in re.findall(rb"/BaseFont\s*/([^\s/]+)", data)})
-print("Embedded fonts:", ", ".join(names) or "(none)")
-ok = any("NimbusRom" in n or "Times" in n for n in names)
-sys.exit(0 if ok else 1)
-PY
-then
-  echo "PROBE OK — PDF embeds Times/NimbusRom."
-else
-  echo "PROBE WARNING — Type1 files exist but probe PDF did not embed Times."
-  echo "See /tmp/lattice-font-probe.log"
-fi
-
-echo ""
-echo "FONTS OK — Type1 Times/Helvetica outlines are present."
-echo "Lattice will re-check the real paper PDF on Build / Recheck (no pdffonts install)."
-echo "Verified tools:"
-ls -la "${TEXBIN}/latexmk" "${TEXBIN}/pdflatex" "${TEXBIN}/synctex" "${TEXBIN}/bibtex"
-echo ""
-echo "Go back to Lattice → click Recheck → Shift-click Build (clean rebuild)."
-echo ""
-read -r -p "Press Enter to close this window…"
+for f in t1ptm.fd ptmr8t.tfm t1phv.fd utmr8a.pfb utmb8a.pfb uhvr8a.pfb; do
+  if ! path="$("${TEXBIN}/kpsewhich" "$f" 2>/dev/null)" || [[ -z "${path}" ]]; then
+    echo "Required conference font is missing: ${f}"
+    false
+  fi
+done
+status complete
 "#;
 
-#[cfg(target_os = "macos")]
-const FULL_SCRIPT: &str = r#"#!/bin/bash
-set -euo pipefail
-echo "=== Lattice: MacTeX full install (~4 GB) ==="
-echo "This takes a while. Leave this window open."
-echo ""
-
-ensure_brew() {
-  if command -v brew >/dev/null 2>&1; then
-    return 0
-  fi
-  echo "Homebrew not found. Installing Homebrew first…"
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  if [[ -x /opt/homebrew/bin/brew ]]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-  elif [[ -x /usr/local/bin/brew ]]; then
-    eval "$(/usr/local/bin/brew shellenv)"
-  fi
-  if ! command -v brew >/dev/null 2>&1; then
-    echo "Could not find brew after install. Open a new Terminal window and try again."
-    exit 1
-  fi
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TexInstallProgress {
+    stage: String,
+    progress: f64,
 }
 
-ensure_brew
+#[cfg(target_os = "macos")]
+static TEX_INSTALL_RUNNING: AtomicBool = AtomicBool::new(false);
 
-# Optional editor/research helpers the TeX doctor reports (MacTeX already ships
-# biber + texcount): texlab (LaTeX language server) and uv (literature fetching
-# + bibliography management). Installed FIRST so they land even if the long
-# MacTeX install hits trouble. `|| echo`-guarded.
-echo "Installing optional editor/research tools (texlab, uv) — safe to skip if these fail…"
-brew install texlab || echo "  (skipped texlab — install later with: brew install texlab)"
-brew install uv || echo "  (skipped uv — install later with: brew install uv)"
+#[cfg(target_os = "macos")]
+struct TexInstallGuard;
 
-echo ""
-echo "Installing MacTeX…"
-brew install --cask mactex
+#[cfg(target_os = "macos")]
+impl TexInstallGuard {
+    fn acquire() -> Result<Self, String> {
+        TEX_INSTALL_RUNNING
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map(|_| Self)
+            .map_err(|_| "BasicTeX is already being installed in another Lattice window.".into())
+    }
+}
 
-eval "$(/usr/libexec/path_helper -s)" 2>/dev/null || true
-export PATH="/Library/TeX/texbin:${PATH}"
-TEXBIN="/Library/TeX/texbin"
-if [[ ! -x "${TEXBIN}/latexmk" ]]; then
-  echo "FAILED: MacTeX finished but latexmk is missing."
-  exit 1
-fi
+#[cfg(target_os = "macos")]
+impl Drop for TexInstallGuard {
+    fn drop(&mut self) {
+        TEX_INSTALL_RUNNING.store(false, Ordering::Release);
+    }
+}
 
-echo ""
-echo "Verifying conference fonts (Type1 outlines)…"
-FONT_FAIL=0
-for f in t1ptm.fd ptmr8t.tfm t1phv.fd utmr8a.pfb utmb8a.pfb uhvr8a.pfb; do
-  if path="$("${TEXBIN}/kpsewhich" "$f" 2>/dev/null)" && [[ -n "$path" ]]; then
-    echo "  OK  $f → $path"
-  else
-    echo "  MISSING  $f"
-    FONT_FAIL=1
-  fi
-done
-if [[ "$FONT_FAIL" -ne 0 ]]; then
-  echo "FAILED: fonts incomplete after MacTeX install."
-  exit 1
-fi
+#[cfg(target_os = "macos")]
+struct TexInstallWorkspace(PathBuf);
 
-echo ""
-echo "FONTS OK — Type1 Times/Helvetica outlines are present."
-echo "Lattice checks the paper PDF on Build / Recheck (no pdffonts needed)."
-ls -la "${TEXBIN}/latexmk" "${TEXBIN}/pdflatex" "${TEXBIN}/synctex" "${TEXBIN}/bibtex"
-echo ""
-echo "Go back to Lattice → Recheck → Shift-click Build."
-echo ""
-read -r -p "Press Enter to close this window…"
-"#;
+#[cfg(target_os = "macos")]
+impl TexInstallWorkspace {
+    fn create() -> Result<Self, String> {
+        let path = std::env::temp_dir().join(format!(
+            "lattice-basictex-install-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        fs::create_dir(&path)
+            .map_err(|error| format!("Could not create the BasicTeX installer folder: {error}"))?;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
+            .map_err(|error| format!("Could not secure the BasicTeX installer folder: {error}"))?;
+        Ok(Self(path))
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl Drop for TexInstallWorkspace {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn send_progress(channel: &Channel<TexInstallProgress>, stage: &str, progress: f64) {
+    let _ = channel.send(TexInstallProgress {
+        stage: stage.to_string(),
+        progress,
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn create_private_file(path: &Path) -> Result<std::fs::File, String> {
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)
+        .map_err(|error| format!("Could not create {}: {error}", path.display()))
+}
+
+#[cfg(target_os = "macos")]
+fn download_basic_tex(
+    path: &Path,
+    on_progress: &Channel<TexInstallProgress>,
+) -> Result<(), String> {
+    send_progress(on_progress, "downloading", 0.01);
+    let client = reqwest::blocking::Client::builder()
+        .connect_timeout(Duration::from_secs(20))
+        .timeout(Duration::from_secs(30 * 60))
+        .user_agent(format!("Lattice/{}", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|error| format!("Could not initialize the BasicTeX download: {error}"))?;
+    let mut response = client
+        .get(BASIC_TEX_URL)
+        .send()
+        .and_then(reqwest::blocking::Response::error_for_status)
+        .map_err(|error| format!("Could not download BasicTeX: {error}"))?;
+    let total = response.content_length();
+    let mut file = create_private_file(path)?;
+    let mut hasher = Sha256::new();
+    let mut downloaded = 0_u64;
+    let mut last_percent = 0_u64;
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let read = response
+            .read(&mut buffer)
+            .map_err(|error| format!("The BasicTeX download was interrupted: {error}"))?;
+        if read == 0 {
+            break;
+        }
+        file.write_all(&buffer[..read])
+            .map_err(|error| format!("Could not save the BasicTeX download: {error}"))?;
+        hasher.update(&buffer[..read]);
+        downloaded += read as u64;
+        if let Some(total) = total.filter(|total| *total > 0) {
+            let percent = (downloaded.saturating_mul(55) / total).min(55);
+            if percent > last_percent {
+                last_percent = percent;
+                send_progress(on_progress, "downloading", percent as f64 / 100.0);
+            }
+        }
+    }
+    file.flush()
+        .map_err(|error| format!("Could not finish saving BasicTeX: {error}"))?;
+    let actual = format!("{:x}", hasher.finalize());
+    if actual != BASIC_TEX_SHA256 {
+        return Err("The downloaded BasicTeX package failed its security check.".into());
+    }
+    send_progress(on_progress, "downloading", 0.55);
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn installer_stage_progress(stage: &str) -> Option<f64> {
+    match stage {
+        "installing-base" => Some(0.68),
+        "installing-packages" => Some(0.82),
+        "verifying" => Some(0.95),
+        "complete" => Some(1.0),
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn install_error(stderr: &str) -> String {
+    if stderr.contains("User canceled") || stderr.contains("(-128)") {
+        return "Administrator approval is required to install BasicTeX.".into();
+    }
+    let detail = stderr
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .rev()
+        .take(6)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join("\n");
+    if detail.is_empty() {
+        "BasicTeX installation failed. Please try again.".into()
+    } else {
+        format!("BasicTeX installation failed.\n{detail}")
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn run_basic_tex_installer(
+    command: &str,
+    status_path: &Path,
+    on_progress: &Channel<TexInstallProgress>,
+) -> Result<(), String> {
+    send_progress(on_progress, "authorizing", 0.58);
+    let mut child = Command::new("/usr/bin/osascript")
+        .args([
+            "-e",
+            "on run argv",
+            "-e",
+            "do shell script (item 1 of argv) with administrator privileges",
+            "-e",
+            "end run",
+        ])
+        .arg(command)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Could not request permission to install BasicTeX: {error}"))?;
+
+    let mut last_stage = String::new();
+    let exit = loop {
+        let stage = fs::read_to_string(status_path).unwrap_or_default();
+        let stage = stage.trim();
+        if stage != last_stage {
+            if let Some(progress) = installer_stage_progress(stage) {
+                send_progress(on_progress, stage, progress);
+            }
+            last_stage = stage.to_string();
+        }
+        if let Some(exit) = child
+            .try_wait()
+            .map_err(|error| format!("Could not monitor the BasicTeX installer: {error}"))?
+        {
+            break exit;
+        }
+        thread::sleep(Duration::from_millis(250));
+    };
+
+    let mut stderr = String::new();
+    if let Some(mut pipe) = child.stderr.take() {
+        let _ = pipe.read_to_string(&mut stderr);
+    }
+    if !exit.success() {
+        return Err(install_error(&stderr));
+    }
+    send_progress(on_progress, "complete", 1.0);
+    Ok(())
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn tex_live_year(version_output: &str) -> Option<i32> {
+    version_output
+        .split_once("TeX Live")?
+        .1
+        .split(|character: char| !character.is_ascii_digit())
+        .find(|part| part.len() == 4)
+        .and_then(|year| year.parse().ok())
+}
+
+#[cfg(target_os = "macos")]
+fn active_tex_live_year(tlmgr: &Path) -> Option<i32> {
+    let output = Command::new(tlmgr).arg("--version").output().ok()?;
+    let version = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    tex_live_year(&version)
+}
 
 #[cfg(any(target_os = "macos", test))]
 const DEPENDENCY_SCRIPT: &str = r#"#!/bin/bash
@@ -260,7 +369,7 @@ SEARCH_PATTERN=__SEARCH_PATTERN__
 
 if [[ ! -x "${TLMGR}" || ! -x "${KPSEWHICH}" ]]; then
   echo "TeX Live's package manager could not be found beside the compiler Lattice uses."
-  echo "Install BasicTeX or MacTeX from Lattice first."
+  echo "Install BasicTeX from Lattice first."
   echo ""
   read -r -p "Press Enter to close this window…"
   exit 1
@@ -323,7 +432,7 @@ if FOUND="$("${KPSEWHICH}" "${MISSING_FILE}" 2>/dev/null)" && [[ -n "${FOUND}" ]
   echo "Return to Lattice and Build again."
 else
   echo "The package installed, but ${MISSING_FILE} is still unavailable."
-  echo "Review the tlmgr output above or install full MacTeX from Lattice."
+  echo "Review the tlmgr output above for more details."
 fi
 echo ""
 read -r -p "Press Enter to close this window…"
@@ -352,26 +461,51 @@ fn open_terminal_script(path: &std::path::Path, script: &str) -> Result<(), Stri
     Ok(())
 }
 
-pub fn start_tex_install(kind: &str) -> Result<(), String> {
+pub fn start_tex_install(on_progress: Channel<TexInstallProgress>) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = kind;
+        let _ = on_progress;
         Err("One-click TeX install is only available on macOS.".into())
     }
 
     #[cfg(target_os = "macos")]
     {
-        let (label, script) = match kind {
-            "basic" => ("basic", BASIC_SCRIPT),
-            "full" => ("full", FULL_SCRIPT),
-            _ => return Err("Unknown TeX install option.".into()),
-        };
-
-        let path = std::env::temp_dir().join(format!(
-            "lattice-tex-install-{label}-{}.command",
+        let _install_guard = TexInstallGuard::acquire()?;
+        let workspace = TexInstallWorkspace::create()?;
+        let package_path = workspace.0.join("BasicTeX.pkg");
+        let root_path = PathBuf::from("/private/var/tmp").join(format!(
+            "lattice-basictex-root-{}",
             uuid::Uuid::new_v4().simple()
         ));
-        open_terminal_script(&path, script)
+        let status_path = root_path.join("status");
+        let tlmgr = Path::new("/Library/TeX/texbin/tlmgr");
+        let install_base = active_tex_live_year(tlmgr).is_none_or(|year| year < BASIC_TEX_YEAR);
+        if install_base {
+            let current_year = chrono::Utc::now()
+                .format("%Y")
+                .to_string()
+                .parse::<i32>()
+                .unwrap_or(BASIC_TEX_YEAR);
+            if current_year > BASIC_TEX_YEAR {
+                return Err(format!(
+                    "This Lattice version includes BasicTeX {BASIC_TEX_YEAR}. Update Lattice to install the current BasicTeX release."
+                ));
+            }
+            download_basic_tex(&package_path, &on_progress)?;
+        } else {
+            send_progress(&on_progress, "downloading", 0.55);
+        }
+
+        let script = BASIC_SCRIPT
+            .replace(
+                "__SOURCE_PACKAGE__",
+                &shell_quote(&package_path.to_string_lossy()),
+            )
+            .replace("__ROOT_PATH__", &shell_quote(&root_path.to_string_lossy()))
+            .replace("__EXPECTED_SHA256__", BASIC_TEX_SHA256)
+            .replace("__INSTALL_BASE__", if install_base { "1" } else { "0" });
+        let command = format!("/bin/bash -c {}", shell_quote(&script));
+        run_basic_tex_installer(&command, &status_path, &on_progress)
     }
 }
 
@@ -434,6 +568,32 @@ fn valid_tex_dependency_name(missing_file: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn basic_installer_is_pinned_and_reports_native_progress() {
+        assert!(BASIC_TEX_URL.starts_with("https://mirror.ctan.org/"));
+        assert_eq!(BASIC_TEX_YEAR, 2026);
+        assert_eq!(BASIC_TEX_SHA256.len(), 64);
+        assert!(BASIC_TEX_SHA256
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit()));
+        assert!(BASIC_SCRIPT.contains("status installing-base"));
+        assert!(BASIC_SCRIPT.contains("status installing-packages"));
+        assert!(BASIC_SCRIPT.contains("status verifying"));
+        assert!(BASIC_SCRIPT.contains("shasum -a 256"));
+        assert!(BASIC_SCRIPT.contains("/bin/mkdir -m 711"));
+        assert!(!BASIC_SCRIPT.contains("brew install"));
+        assert!(!BASIC_SCRIPT.contains("sudo"));
+    }
+
+    #[test]
+    fn tex_live_release_is_read_from_tlmgr_output() {
+        assert_eq!(
+            tex_live_year("tlmgr revision 76773 (2025-11-06 15:48:23 +0100)\nTeX Live (https://tug.org/texlive) version 2026"),
+            Some(2026)
+        );
+        assert_eq!(tex_live_year("tlmgr is unavailable"), None);
+    }
 
     #[test]
     fn dependency_installer_looks_up_the_owning_tex_live_package() {

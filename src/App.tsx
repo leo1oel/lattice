@@ -49,11 +49,8 @@ import { PAPER_IMPORT_PROGRESS_EVENT, paperImportStageLabel } from "./paper-impo
 import type { CollabDialogMode } from "./collab-dialog";
 import { TexSetupWizard } from "./tex-setup-wizard";
 import {
-  dismissTexSetup,
-  isConferenceFontsMissing,
   isMissingTexBuildError,
   isTexToolchainMissing,
-  wasTexSetupDismissed,
 } from "./tex-setup";
 import {
   assertCollabWorkspaceLease,
@@ -1274,8 +1271,8 @@ function App() {
   const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
   const [doctorBusy, setDoctorBusy] = useState(false);
   const [doctorNotice, setDoctorNotice] = useState("");
+  const doctorGenerationRef = useRef(0);
   const [texSetupOpen, setTexSetupOpen] = useState(false);
-  const [texSetupStatus, setTexSetupStatus] = useState<string | null>(null);
   const closedTabsRef = useRef<string[]>([]);
   const [outlineSources, setOutlineSources] = useState<Record<string, string>>({});
   const [referenceHits, setReferenceHits] = useState<{
@@ -3697,7 +3694,12 @@ function App() {
               onClick: () => installTexDependency(missingDependency),
             } : undefined,
           });
-          if (isMissingTexBuildError(failureText)) setTexSetupOpen(true);
+          if (isMissingTexBuildError(failureText)) {
+            doctorGenerationRef.current += 1;
+            setDoctorReport(null);
+            setDoctorBusy(false);
+            setTexSetupOpen(true);
+          }
         } else {
           // A rebuild that succeeds retracts the previous failure instead of
           // leaving it on screen to time out on its own.
@@ -3709,7 +3711,12 @@ function App() {
       if (scopeIsCurrent()) {
         const message = toMessage(reason);
         trace.fail(reason);
-        if (isMissingTexBuildError(message)) setTexSetupOpen(true);
+        if (isMissingTexBuildError(message)) {
+          doctorGenerationRef.current += 1;
+          setDoctorReport(null);
+          setDoctorBusy(false);
+          setTexSetupOpen(true);
+        }
       }
     } finally {
       buildingRef.current = false;
@@ -5476,11 +5483,12 @@ function App() {
     // nothing needs its report during first paint. The timeout keeps the
     // setup wizard appearing within a few seconds on a missing toolchain.
     const runDoctor = () => {
+      const generation = ++doctorGenerationRef.current;
       void invoke<DoctorReport>("run_doctor")
         .then((report) => {
-          if (!active) return;
+          if (!active || generation !== doctorGenerationRef.current) return;
           setDoctorReport(report);
-          if (isTexToolchainMissing(report) && !wasTexSetupDismissed()) {
+          if (isTexToolchainMissing(report)) {
             setTexSetupOpen(true);
           }
         })
@@ -7114,37 +7122,28 @@ function App() {
 
   const runDoctor = useCallback(async (options?: {
     openWizardIfMissing?: boolean;
-    fromRecheck?: boolean;
   }) => {
+    const generation = ++doctorGenerationRef.current;
     setDoctorBusy(true);
     setDoctorNotice("");
-    if (options?.fromRecheck) setTexSetupStatus("Checking…");
     try {
       const report = await invoke<DoctorReport>("run_doctor");
+      if (generation !== doctorGenerationRef.current) return null;
       setDoctorReport(report);
       const missing = isTexToolchainMissing(report);
-      const fontsMissing = isConferenceFontsMissing(report);
       if (options?.openWizardIfMissing && missing) setTexSetupOpen(true);
-      if (options?.fromRecheck) {
-        setTexSetupStatus(
-          missing || fontsMissing
-            ? "Still not ready. Finish the Terminal install, then Recheck."
-            : "LaTeX is ready. You can Build now.",
-        );
-      }
       return report;
     } catch (reason) {
+      if (generation !== doctorGenerationRef.current) return null;
       const message = toMessage(reason);
       setDoctorNotice(message);
-      if (options?.fromRecheck) setTexSetupStatus(message);
       return null;
     } finally {
-      setDoctorBusy(false);
+      if (generation === doctorGenerationRef.current) setDoctorBusy(false);
     }
   }, []);
 
   const openTexSetupWizard = useCallback(() => {
-    setTexSetupStatus(null);
     setTexSetupOpen(true);
     void runDoctor();
   }, [runDoctor]);
@@ -8072,13 +8071,8 @@ function App() {
           open={texSetupOpen}
           report={doctorReport}
           checking={doctorBusy}
-          statusMessage={texSetupStatus}
           onClose={() => setTexSetupOpen(false)}
-          onDismiss={() => {
-            dismissTexSetup();
-            setTexSetupOpen(false);
-          }}
-          onRecheck={() => { void runDoctor({ openWizardIfMissing: true, fromRecheck: true }); }}
+          onRecheck={() => runDoctor({ openWizardIfMissing: true })}
         />
       </>
     );
@@ -8733,13 +8727,8 @@ function App() {
         open={texSetupOpen}
         report={doctorReport}
         checking={doctorBusy}
-        statusMessage={texSetupStatus}
         onClose={() => setTexSetupOpen(false)}
-        onDismiss={() => {
-          dismissTexSetup();
-          setTexSetupOpen(false);
-        }}
-        onRecheck={() => { void runDoctor({ openWizardIfMissing: true, fromRecheck: true }); }}
+        onRecheck={() => runDoctor({ openWizardIfMissing: true })}
       />
 
       {figurePointerDrag && (

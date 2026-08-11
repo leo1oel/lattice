@@ -5,85 +5,49 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.tex-setup-modal > p { margin-bottom: 14px; }
-/* Structure, icon and colour come from `.ui-inline-message`; only the plate
-   that lifts the wizard's headline status off the dialog is local. */
-.tex-setup-banner {
-  margin: 0 0 14px;
-  padding: var(--space-5) var(--space-6);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-panel);
-  font-size: var(--type-label-size);
-  line-height: 1.45;
-}
-.tex-setup-banner.error {
-  border-color: color-mix(in srgb, var(--status-danger) 28%, var(--border-subtle));
-  background: color-mix(in srgb, var(--status-danger) 8%, var(--surface-app));
-}
-.tex-setup-banner.success {
-  border-color: color-mix(in srgb, var(--status-success) 28%, var(--border-subtle));
-  background: color-mix(in srgb, var(--status-success) 10%, var(--surface-app));
-}
-.tex-setup-options {
-  display: grid;
-  gap: var(--space-5);
-  margin: 0 0 14px;
-}
-.tex-setup-option {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: var(--space-6);
-  align-items: center;
+.tex-setup-modal > p { margin-bottom: var(--space-8); }
+.tex-setup-install {
   width: 100%;
-  margin: 0;
-  padding: var(--space-6) 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 11px;
-  background: var(--surface-app);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color var(--duration-quick) var(--ease-default), background var(--duration-quick) var(--ease-default);
+  justify-content: center;
+  gap: var(--space-3);
 }
-.tex-setup-option:hover:not(:disabled) {
-  border-color: var(--control-active-border-strong);
-  background: color-mix(in srgb, var(--control-active) 6%, var(--surface-app));
-}
-.tex-setup-option:disabled { opacity: .65; cursor: default; }
-.tex-setup-option-icon {
+.tex-setup-progress-block {
   display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--control-active) 12%, var(--surface-app));
-  color: var(--control-active);
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
 }
-.tex-setup-option-copy {
-  display: grid;
-  gap: var(--gap-tight);
-  min-width: 0;
-}
-.tex-setup-option-copy strong {
-  font-size: var(--type-body-size);
-  font-weight: 650;
-  color: var(--text-primary);
-}
-.tex-setup-option-copy span {
-  font-size: var(--type-caption-size);
-  line-height: 1.45;
+.tex-setup-progress-block > span {
   color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
-.tex-setup-actions { margin-top: var(--space-2); flex-wrap: wrap; }
+.tex-setup-progress {
+  height: var(--space-3);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--border-subtle);
+}
+.tex-setup-progress-fill {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--control-active);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+.tex-setup-progress-fill::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface-app) 35%, transparent), transparent);
+  animation: tex-setup-progress-shimmer 1.4s linear infinite;
+  content: "";
+  transform: translateX(-100%);
+}
 .tex-setup-status {
-  margin: 0 0 var(--space-6);
+  margin: 0 0 var(--space-8);
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-control);
   line-height: 1.45;
-  background: color-mix(in srgb, var(--control-active) 10%, var(--surface-app));
-}
-.tex-setup-status.success {
-  background: color-mix(in srgb, var(--status-success) 14%, var(--surface-app));
 }
 .tex-setup-inline {
   display: inline;
@@ -91,6 +55,9 @@
   border-radius: var(--radius-compact);
   background: color-mix(in srgb, var(--text-primary) 6%, var(--surface-app));
   font-size: var(--type-micro-size);
+}
+@keyframes tex-setup-progress-shimmer {
+  to { transform: translateX(100%); }
 }
 
 .collab-modal {
