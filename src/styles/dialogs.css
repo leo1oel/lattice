@@ -11,14 +11,27 @@
   justify-content: center;
   gap: var(--space-3);
 }
+.tex-setup-install .tex-setup-install-loader > img {
+  filter: invert(1);
+  opacity: 1;
+}
 .tex-setup-progress-block {
   display: grid;
   gap: var(--space-4);
   margin-bottom: var(--space-8);
 }
-.tex-setup-progress-block > span {
+.tex-setup-progress-copy {
+  display: grid;
+  gap: var(--space-2);
+}
+.tex-setup-progress-copy > span {
   color: var(--text-secondary);
   font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.tex-setup-progress-copy > small {
+  color: var(--text-tertiary);
+  font-size: var(--type-micro-size);
   line-height: var(--type-caption-line-height);
 }
 .tex-setup-progress {

@@ -106,6 +106,7 @@ describe("tex setup wizard helpers", () => {
 
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Install Basic TeX" })).toBeEnabled();
+    expect(screen.getByText(/usually takes around 5 minutes/)).toBeInTheDocument();
     expect(screen.queryByText("Install MacTeX (full)")).not.toBeInTheDocument();
     expect(screen.queryByText("Skip for now")).not.toBeInTheDocument();
     expect(screen.queryByText("Recheck")).not.toBeInTheDocument();
@@ -150,6 +151,7 @@ describe("tex setup wizard helpers", () => {
     expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", {
       onProgress: expect.anything(),
     });
+    expect(document.querySelector(".tex-setup-install-loader")).not.toBeNull();
     expect(onClose).not.toHaveBeenCalled();
 
     act(() => {
@@ -158,6 +160,12 @@ describe("tex setup wizard helpers", () => {
     expect(screen.getByRole("progressbar", { name: "BasicTeX installation progress" }))
       .toHaveAttribute("aria-valuenow", "37");
     expect(document.querySelector(".tex-setup-progress-fill")).toHaveStyle({ width: "37%" });
+
+    act(() => {
+      tauri.channel?.onmessage?.({ stage: "installing-packages", progress: 0.82 });
+    });
+    expect(screen.getByText("This is the longest step and can take several minutes."))
+      .toBeInTheDocument();
 
     await act(async () => finishInstall());
     expect(onRecheck).toHaveBeenCalledOnce();

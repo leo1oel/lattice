@@ -28,6 +28,15 @@ const INSTALL_STAGE_LABEL: Record<TexInstallProgress["stage"], string> = {
   complete: "Finishing setup…",
 };
 
+const INSTALL_STAGE_DETAIL: Record<TexInstallProgress["stage"], string> = {
+  downloading: "Download time depends on your connection.",
+  authorizing: "Approve the macOS prompt to continue.",
+  "installing-base": "This step may take a minute.",
+  "installing-packages": "This is the longest step and can take several minutes.",
+  verifying: "Almost done.",
+  complete: "Setup is complete.",
+};
+
 export function TexSetupWizard(props: {
   open: boolean;
   report: DoctorReportLike | null;
@@ -88,7 +97,8 @@ export function TexSetupWizard(props: {
         <div className="modal-icon"><Wrench size={18} /></div>
         <h2>Install LaTeX to compile</h2>
         <p>
-          BasicTeX is required to compile PDFs in Lattice and uses about {TEX_INSTALL_SIZE_HINT}.
+          BasicTeX is required to compile PDFs. Installation uses about {TEX_INSTALL_SIZE_HINT}
+          {" "}and usually takes around 5 minutes.
         </p>
 
         {installing && (
@@ -103,7 +113,10 @@ export function TexSetupWizard(props: {
             >
               <div className="tex-setup-progress-fill" style={{ width: `${percent}%` }} />
             </div>
-            <span>{INSTALL_STAGE_LABEL[installProgress.stage]} {percent}%</span>
+            <div className="tex-setup-progress-copy">
+              <span>{INSTALL_STAGE_LABEL[installProgress.stage]} {percent}%</span>
+              <small>{INSTALL_STAGE_DETAIL[installProgress.stage]}</small>
+            </div>
           </div>
         )}
 
@@ -119,7 +132,7 @@ export function TexSetupWizard(props: {
           onClick={() => { void startInstall(); }}
           disabled={busy || ready}
         >
-          {installing && <InfinityLoader size={16} />}
+          {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
           Install Basic TeX
         </MotionButton>
       </PopIn>

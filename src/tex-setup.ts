@@ -2,7 +2,7 @@ export type DoctorCheckLike = { name: string; detail: string; ok: boolean };
 export type DoctorReportLike = { ok: boolean; summary: string; checks: DoctorCheckLike[] };
 
 /** Rough installed size after our one-click scripts finish. */
-export const TEX_INSTALL_SIZE_HINT = "~1.2 GB";
+export const TEX_INSTALL_SIZE_HINT = "1.2 GB";
 
 export type TexInstallProgress = {
   stage: "downloading" | "authorizing" | "installing-base" | "installing-packages" | "verifying" | "complete";

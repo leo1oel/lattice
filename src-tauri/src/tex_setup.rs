@@ -37,6 +37,7 @@ TEXBIN="/Library/TeX/texbin"
 PACKAGE="${ROOT}/BasicTeX.pkg"
 STATUS="${ROOT}/status"
 LOG="${ROOT}/install.log"
+CURRENT_STEP="Preparing the BasicTeX installation"
 
 umask 077
 if ! /bin/mkdir -m 711 "${ROOT}"; then
@@ -56,7 +57,17 @@ fail() {
   code=$?
   trap - ERR EXIT
   set +e
-  /usr/bin/tail -n 6 "${LOG}" >&3
+  printf '%s failed.\n' "${CURRENT_STEP}" >&3
+  DIAGNOSTIC="$(
+    /usr/bin/grep -Eai 'not present|not found|failed|failure|error|cannot|could not|unavailable' "${LOG}" \
+      | /usr/bin/grep -Ev 'An error has occurred|See above messages|Exiting' \
+      | /usr/bin/tail -n 4
+  )"
+  if [[ -n "${DIAGNOSTIC}" ]]; then
+    printf '%s\n' "${DIAGNOSTIC}" >&3
+  else
+    /usr/bin/tail -n 8 "${LOG}" >&3
+  fi
   cleanup
   exit "${code}"
 }
@@ -76,6 +87,7 @@ if [[ "${INSTALL_BASE}" == "1" ]]; then
     echo "The privileged BasicTeX package failed its security check."
     false
   fi
+  CURRENT_STEP="Installing BasicTeX"
   status installing-base
   /usr/sbin/installer -pkg "${PACKAGE}" -target /
 fi
@@ -85,10 +97,12 @@ if [[ ! -x "${TEXBIN}/tlmgr" ]]; then
   false
 fi
 
+CURRENT_STEP="Updating the TeX Live package manager"
 status installing-packages
 "${TEXBIN}/tlmgr" update --self
 # latexmk is intentionally not part of the BasicTeX base package. The
 # collections and Type1 fonts cover Lattice's bundled conference templates.
+CURRENT_STEP="Installing the required LaTeX packages"
 "${TEXBIN}/tlmgr" install \
   latexmk \
   biber \
@@ -101,14 +115,21 @@ status installing-packages
   helvetic \
   courier \
   times \
-  mathptmx \
+  psnfss \
   cmap \
-  csquotes
+  csquotes 2>&1 | while IFS= read -r line; do
+    printf '%s\n' "${line}"
+    if [[ "${line}" =~ ^\[([0-9]+)/([0-9]+), ]]; then
+      status "installing-packages ${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+    fi
+  done
 
 if [[ -x "${TEXBIN}/updmap-sys" ]]; then
+  CURRENT_STEP="Refreshing the TeX font maps"
   "${TEXBIN}/updmap-sys"
 fi
 
+CURRENT_STEP="Verifying the LaTeX installation"
 status verifying
 for tool in latexmk pdflatex synctex bibtex; do
   if [[ ! -x "${TEXBIN}/${tool}" ]]; then
@@ -250,30 +271,50 @@ fn download_basic_tex(
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 fn installer_stage_progress(stage: &str) -> Option<f64> {
-    match stage {
+    let mut parts = stage.split_whitespace();
+    match parts.next()? {
         "installing-base" => Some(0.68),
-        "installing-packages" => Some(0.82),
+        "installing-packages" => {
+            let completed = parts.next().and_then(|value| value.parse::<f64>().ok());
+            let total = parts.next().and_then(|value| value.parse::<f64>().ok());
+            match (completed, total) {
+                (Some(completed), Some(total)) if total > 0.0 => {
+                    Some(0.72 + (completed / total).clamp(0.0, 1.0) * 0.21)
+                }
+                _ => Some(0.72),
+            }
+        }
         "verifying" => Some(0.95),
         "complete" => Some(1.0),
         _ => None,
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 fn install_error(stderr: &str) -> String {
     if stderr.contains("User canceled") || stderr.contains("(-128)") {
         return "Administrator approval is required to install BasicTeX.".into();
     }
-    let detail = stderr
+    let raw_detail = stderr.trim();
+    let detail = raw_detail
+        .split_once("execution error:")
+        .map_or(raw_detail, |(_, detail)| detail)
+        .trim();
+    let detail = detail
+        .rsplit_once(" (")
+        .filter(|(_, status)| {
+            status.strip_suffix(')').is_some_and(|code| {
+                code.bytes()
+                    .all(|byte| byte.is_ascii_digit() || byte == b'-')
+            })
+        })
+        .map_or(detail, |(detail, _)| detail);
+    let detail = detail
         .lines()
         .filter(|line| !line.trim().is_empty())
-        .rev()
-        .take(6)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
+        .take(8)
         .collect::<Vec<_>>()
         .join("\n");
     if detail.is_empty() {
@@ -307,13 +348,14 @@ fn run_basic_tex_installer(
 
     let mut last_stage = String::new();
     let exit = loop {
-        let stage = fs::read_to_string(status_path).unwrap_or_default();
-        let stage = stage.trim();
-        if stage != last_stage {
-            if let Some(progress) = installer_stage_progress(stage) {
+        let status = fs::read_to_string(status_path).unwrap_or_default();
+        let status = status.trim();
+        if status != last_stage {
+            if let Some(progress) = installer_stage_progress(status) {
+                let stage = status.split_whitespace().next().unwrap_or(status);
                 send_progress(on_progress, stage, progress);
             }
-            last_stage = stage.to_string();
+            last_stage = status.to_string();
         }
         if let Some(exit) = child
             .try_wait()
@@ -580,10 +622,37 @@ mod tests {
         assert!(BASIC_SCRIPT.contains("status installing-base"));
         assert!(BASIC_SCRIPT.contains("status installing-packages"));
         assert!(BASIC_SCRIPT.contains("status verifying"));
+        assert!(BASIC_SCRIPT.contains("installing-packages ${BASH_REMATCH[1]}"));
         assert!(BASIC_SCRIPT.contains("shasum -a 256"));
         assert!(BASIC_SCRIPT.contains("/bin/mkdir -m 711"));
+        assert!(BASIC_SCRIPT.contains("  psnfss \\\n"));
+        assert!(!BASIC_SCRIPT.contains("  mathptmx \\\n"));
         assert!(!BASIC_SCRIPT.contains("brew install"));
         assert!(!BASIC_SCRIPT.contains("sudo"));
+    }
+
+    #[test]
+    fn package_install_progress_advances_with_tlmgr_output() {
+        assert_eq!(installer_stage_progress("installing-packages"), Some(0.72));
+        assert_eq!(
+            installer_stage_progress("installing-packages 5 10"),
+            Some(0.825)
+        );
+        assert_eq!(
+            installer_stage_progress("installing-packages 10 10"),
+            Some(0.9299999999999999)
+        );
+    }
+
+    #[test]
+    fn installer_errors_keep_the_useful_detail_without_applescript_noise() {
+        let error = install_error(
+            "7:75: execution error: Installing the required LaTeX packages failed.\n\
+             tlmgr: package example not present in repository. (1)\n",
+        );
+        assert!(error.contains("package example not present in repository"));
+        assert!(!error.contains("execution error"));
+        assert!(!error.ends_with("(1)"));
     }
 
     #[test]
