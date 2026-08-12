@@ -123,9 +123,10 @@ describe("ChatMarkdown with CoMark", () => {
     fireEvent.keyDown(editor, { key: "Escape" });
     expect(onReplaceBlock).not.toHaveBeenCalled();
     expect(await waitFor(() => container.querySelector("h1")?.textContent)).toBe("Original");
-    await waitFor(() => expect(document.activeElement).toBe(container.querySelector(
-      'button[aria-label="Edit heading 1 Markdown"]',
-    )));
+    await waitFor(() => {
+      expect(container.contains(document.activeElement)).toBe(true);
+      expect(document.activeElement).toHaveAttribute("aria-label", "Edit heading 1 Markdown");
+    });
   });
 
   it("recovers focus when a late render pass rebuilds the block after the edit closed", async () => {

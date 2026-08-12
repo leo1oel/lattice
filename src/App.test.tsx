@@ -635,17 +635,18 @@ describe("project workspace", () => {
     localStorage.setItem("lattice.split-ratio.v1", "0.7");
 
     renderApp();
-    const documentView = await screen.findByRole("tablist", { name: "Document view" });
+    await screen.findByRole("tablist", { name: "Document view" });
+    const documentView = () => within(screen.getByRole("tablist", { name: "Document view" }));
     expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
 
-    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    fireEvent.click(documentView().getByRole("tab", { name: "Preview" }));
     expect(screen.queryByRole("button", { name: "Open source beside preview" })).toBeNull();
-    fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
+    fireEvent.click(documentView().getByRole("tab", { name: "Split" }));
     expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
       .toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open source beside preview" })).toBeNull();
 
-    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+    fireEvent.click(documentView().getByRole("tab", { name: "Edit" }));
     expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
     fireEvent.click(await findProjectTreeItem("intro.tex"));
     await waitFor(() => expect(screen.getByRole("tab", { name: /intro\.tex/ }))
@@ -681,20 +682,20 @@ describe("project workspace", () => {
     expect(localStorage.getItem("lattice.split-ratio.v1")).toBe("0.5");
     expect(document.querySelector(".dual-pane-label")).toBeNull();
     expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
-    expect(within(documentView).getByRole("tab", { name: "Edit" }))
+    expect(documentView().getByRole("tab", { name: "Edit" }))
       .toHaveAttribute("aria-selected", "true");
 
-    fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
+    fireEvent.click(documentView().getByRole("tab", { name: "Split" }));
     expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
       .toBeInTheDocument();
-    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    fireEvent.click(documentView().getByRole("tab", { name: "Preview" }));
     await waitFor(() => expect(document.querySelector(".source-editor")).toBeNull());
 
-    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+    fireEvent.click(documentView().getByRole("tab", { name: "Edit" }));
     await waitFor(() => expect(document.querySelector(
       ".source-editor[data-editor-pane='secondary'] .cm-content",
     )).toHaveTextContent("content:main.tex"));
-    expect(within(documentView).getByRole("tab", { name: "Edit" }))
+    expect(documentView().getByRole("tab", { name: "Edit" }))
       .toHaveAttribute("aria-selected", "true");
   });
 
@@ -795,10 +796,11 @@ describe("project workspace", () => {
         .toHaveTextContent("@article{lattice");
       expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
         .toHaveTextContent("\\documentclass{article}");
+      expect(screen.getByRole("tab", { name: /main\.tex/ }))
+        .toHaveAttribute("aria-selected", "true");
     });
     expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
       .toContain("0.65fr");
-    expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
 
     fireEvent.click(screen.getByRole("tab", { name: "Split" }));
     expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
