@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type {
@@ -1253,8 +1254,32 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     const protectedEntry = props.protectedPaths.some(
       (protectedPath) => protectedPath === path || protectedPath.startsWith(`${path}/`),
     );
-    return (
-      <div className="file-tree-context-menu" data-file-tree-context-menu-root="true" role="menu">
+    const menuLeft = context.anchorRect.right + 4;
+    const menuTop = context.anchorRect.top;
+    // Pierre normally mounts this menu inside the tree's Shadow DOM. Portal it
+    // out of the sidebar stacking context so older WKWebViews cannot composite
+    // the neighbouring editor above the part that extends past the sidebar.
+    return createPortal(
+      <div
+        ref={(menu) => {
+          const bounds = menu?.getBoundingClientRect();
+          if (!menu || !bounds) return;
+          const viewportInset = 8;
+          const maxLeft = Math.max(viewportInset, window.innerWidth - bounds.width - viewportInset);
+          const maxTop = Math.max(viewportInset, window.innerHeight - bounds.height - viewportInset);
+          menu.style.left = `${Math.min(Math.max(viewportInset, menuLeft), maxLeft)}px`;
+          menu.style.top = `${Math.min(Math.max(viewportInset, menuTop), maxTop)}px`;
+        }}
+        className="file-tree-context-menu"
+        data-file-tree-context-menu-root="true"
+        role="menu"
+        style={{
+          left: menuLeft,
+          position: "fixed",
+          top: menuTop,
+          zIndex: "var(--z-radix-popper)",
+        }}
+      >
         <button role="menuitem" onClick={() => closeThen(context, () => beginInlineCreate(targetDirectory, "file"))}>
           <FilePlus size={14} />New file
         </button>
@@ -1294,7 +1319,8 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
             {pendingCreation ? "Cancel creation" : "Delete"}
           </DestructiveButton>
         )}
-      </div>
+      </div>,
+      document.body,
     );
   };
 

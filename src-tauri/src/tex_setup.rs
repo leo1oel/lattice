@@ -154,13 +154,57 @@ if [[ ! -x "${TEXBIN}/tlmgr" ]]; then
 fi
 
 repair_basictex_permissions
+
+# mirror.ctan.org can redirect to a mirror that is unreachable from the
+# current network. Preserve a repository the user configured, then try two
+# direct CTAN mirrors that are reachable from mainland China. --repository is
+# per-command, so a fallback does not permanently rewrite their TeX setup.
+TEX_REPOSITORIES=(
+  ""
+  "https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet"
+  "https://mirrors.ustc.edu.cn/CTAN/systems/texlive/tlnet"
+)
+TEX_REPOSITORY=""
+tlmgr_with_fallback() {
+  local repository
+  local label
+  local candidates=()
+
+  if [[ -n "${TEX_REPOSITORY}" ]]; then
+    candidates+=("${TEX_REPOSITORY}")
+  fi
+  for repository in "${TEX_REPOSITORIES[@]}"; do
+    if [[ -z "${TEX_REPOSITORY}" || "${repository}" != "${TEX_REPOSITORY}" ]]; then
+      candidates+=("${repository}")
+    fi
+  done
+
+  for repository in "${candidates[@]}"; do
+    if [[ -n "${repository}" ]]; then
+      if "${TEXBIN}/tlmgr" --repository "${repository}" "$@"; then
+        TEX_REPOSITORY="${repository}"
+        return 0
+      fi
+      label="${repository}"
+    else
+      if "${TEXBIN}/tlmgr" "$@"; then
+        TEX_REPOSITORY=""
+        return 0
+      fi
+      label="the configured TeX Live repository"
+    fi
+    echo "TeX Live repository unavailable: ${label}"
+  done
+  return 1
+}
+
 CURRENT_STEP="Updating the TeX Live package manager"
 status installing-packages
-"${TEXBIN}/tlmgr" update --self
+tlmgr_with_fallback update --self
 # latexmk is intentionally not part of the BasicTeX base package. The
 # collections and Type1 fonts cover Lattice's bundled conference templates.
 CURRENT_STEP="Installing the required LaTeX packages"
-"${TEXBIN}/tlmgr" install \
+tlmgr_with_fallback install \
   latexmk \
   biber \
   texcount \
@@ -629,6 +673,12 @@ fn install_error(stderr: &str) -> String {
         .join("\n");
     if detail.is_empty() {
         "BasicTeX installation failed. Please try again.".into()
+    } else if detail.starts_with("Updating the TeX Live package manager failed.")
+        || detail.starts_with("Installing the required LaTeX packages failed.")
+    {
+        format!(
+            "BasicTeX is installed, but Lattice could not finish installing the required LaTeX packages.\n{detail}"
+        )
     } else {
         format!("BasicTeX installation failed.\n{detail}")
     }
@@ -1066,11 +1116,16 @@ mod tests {
         let package_copy = BASIC_SCRIPT.find("/bin/cp").unwrap();
         let public_umask = BASIC_SCRIPT.find("umask 022").unwrap();
         let package_install = BASIC_SCRIPT.find("/usr/sbin/installer").unwrap();
-        let tlmgr_update = BASIC_SCRIPT.find("\"${TEXBIN}/tlmgr\" update").unwrap();
+        let tlmgr_update = BASIC_SCRIPT
+            .find("tlmgr_with_fallback update --self")
+            .unwrap();
         assert!(private_umask < package_copy);
         assert!(package_copy < public_umask);
         assert!(public_umask < package_install);
         assert!(public_umask < tlmgr_update);
+        assert!(BASIC_SCRIPT.contains("mirrors.tuna.tsinghua.edu.cn/CTAN"));
+        assert!(BASIC_SCRIPT.contains("mirrors.ustc.edu.cn/CTAN"));
+        assert!(BASIC_SCRIPT.contains("--repository \"${repository}\""));
         assert!(BASIC_SCRIPT.contains("EXPECTED_TEXMFROOT=\"/usr/local/texlive/2026basic\""));
         assert!(BASIC_SCRIPT.contains("[[ -L \"${EXPECTED_TEXMFROOT}\" ]]"));
         assert!(BASIC_SCRIPT.contains("owner_uid=\"$(/usr/bin/stat -f '%u'"));
@@ -1184,9 +1239,21 @@ mod tests {
             "7:75: execution error: Installing the required LaTeX packages failed.\n\
              tlmgr: package example not present in repository. (1)\n",
         );
+        assert!(error.starts_with("BasicTeX is installed"));
         assert!(error.contains("package example not present in repository"));
         assert!(!error.contains("execution error"));
         assert!(!error.ends_with("(1)"));
+    }
+
+    #[test]
+    fn repository_failures_do_not_claim_basictex_itself_failed() {
+        let error = install_error(
+            "7:75: execution error: Updating the TeX Live package manager failed.\n\
+             /Library/TeX/texbin/tlmgr: TLPDB::from_file could not get texlive.tlpdb. (1)\n",
+        );
+        assert!(error.starts_with("BasicTeX is installed"));
+        assert!(!error.starts_with("BasicTeX installation failed"));
+        assert!(error.contains("TLPDB::from_file"));
     }
 
     #[test]

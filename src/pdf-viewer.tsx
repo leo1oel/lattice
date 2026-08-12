@@ -35,7 +35,12 @@ import { Tip } from "./components/icon-tip";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { ScrollArea } from "./components/ui/scroll-area";
 import { SearchField } from "./components/ui/search-field";
-import { pdfBase64Fingerprint, pdfBase64ToBytes, utf8ToBase64 } from "./pdf-bytes";
+import {
+  pdfBase64Fingerprint,
+  pdfBase64ToBytes,
+  pdfBytesFingerprint,
+  utf8ToBase64,
+} from "./pdf-bytes";
 import { MotionButton } from "./motion";
 import {
   annotationBounds,
@@ -1001,15 +1006,19 @@ export function PdfPreview({
     area.scrollTop = (area.scrollTop + anchor.y) * ratio - anchor.y;
   }, [scale]);
 
-  const loadKey = pdfBase64
-    ? `b64:${pdfBase64Fingerprint(pdfBase64)}`
-    : (url ? `url:${url}` : "");
+  // Local PDFs already have complete bytes. Avoid asking an older WKWebView
+  // worker to fetch the blob: URL; remote URLs must stay URL-backed so PDF.js
+  // can keep using range requests and stream the first page.
+  const byteSource = pdfBytes && (!url || url.startsWith("blob:")) ? pdfBytes : null;
+  const loadKey = byteSource
+    ? `bytes:${pdfBytesFingerprint(byteSource)}`
+    : pdfBase64
+      ? `b64:${pdfBase64Fingerprint(pdfBase64)}`
+      : (url ? `url:${url}` : "");
   const documentProxyRef = useRef<PDFDocumentProxy | null>(null);
   documentProxyRef.current = documentProxy;
-  const pdfBase64Ref = useRef(pdfBase64);
-  pdfBase64Ref.current = pdfBase64;
-  const urlRef = useRef(url);
-  urlRef.current = url;
+  const pdfSourceRef = useRef({ byteSource, pdfBase64, url });
+  pdfSourceRef.current = { byteSource, pdfBase64, url };
   // Coalesce rapid rebuild fingerprints before calling getDocument — otherwise
   // each latexmk metadata change cancels the previous load and the first paint
   // never finishes (“Rendering PDF…” forever).
@@ -1037,12 +1046,18 @@ export function PdfPreview({
     }
     let active = true;
     let dataTimer: number | null = null;
-    const currentBase64 = pdfBase64Ref.current;
-    const currentUrl = urlRef.current;
-    // Prefer in-memory bytes over blob: URLs.
-    const source = currentBase64
-      ? { data: pdfBase64ToBytes(currentBase64) }
-      : { url: currentUrl! };
+    const {
+      byteSource: currentBytes,
+      pdfBase64: currentBase64,
+      url: currentUrl,
+    } = pdfSourceRef.current;
+    const source = currentBytes
+      // PDF.js transfers this buffer to its worker. Send a copy so saving the
+      // PDF later does not receive a detached, zero-byte original.
+      ? { data: new Uint8Array(currentBytes.slice(0)) }
+      : currentBase64
+        ? { data: pdfBase64ToBytes(currentBase64) }
+        : { url: currentUrl! };
     const loadingTask = getDocument({
       ...source,
       cMapUrl: PDF_CMAP_URL,
@@ -1090,7 +1105,7 @@ export function PdfPreview({
           if (!active) return;
           const viewport = first.getViewport({ scale: 1 });
           setPageSize({ width: viewport.width, height: viewport.height });
-          if (!currentBase64 && onDocumentDataRef.current) {
+          if (!currentBytes && !currentBase64 && onDocumentDataRef.current) {
             // Let the first page win the network/render queue. PDF.js then
             // assembles the remaining ranged response once and hands those
             // same bytes to the app cache — no second download.
@@ -1440,7 +1455,7 @@ export function PdfPreview({
     [documentProxy],
   );
 
-  if (!url) {
+  if (!loadKey) {
     return (
       <div className="pdf-preview">
         <div className="pdf-toolbar pdf-toolbar-empty">

@@ -2524,9 +2524,15 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "View original PDF" }));
 
     await waitFor(() => expect(TestURL.createObjectURL).toHaveBeenCalledOnce());
-    await waitFor(() => expect(getDocument).toHaveBeenLastCalledWith(expect.objectContaining({
-      url: "blob:cached-arxiv-paper",
-    })));
+    await waitFor(() => {
+      const cachedSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as {
+        data?: Uint8Array;
+        url?: string;
+      } | undefined;
+      expect(cachedSource?.data).toBeInstanceOf(Uint8Array);
+      expect(cachedSource?.data?.byteLength).toBe(pdfBytes.byteLength);
+      expect(cachedSource?.url).toBeUndefined();
+    });
     expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "read_cached_paper_pdf"))
       .toHaveLength(2);
   });
@@ -2920,7 +2926,10 @@ describe("project workspace", () => {
     renderApp();
 
     fireEvent.contextMenu(await findProjectTreeItem("main.tex"));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
+    const fileMenu = await screen.findByRole("menu");
+    expect(fileMenu.parentElement).toBe(document.body);
+    expect(fileMenu).toHaveStyle({ position: "fixed" });
+    fireEvent.click(within(fileMenu).getByRole("menuitem", { name: "Rename" }));
     const renameInput = await findProjectTreeRenameInput();
     fireEvent.input(renameInput, { target: { value: "paper" } });
     fireEvent.keyDown(renameInput, { key: "Enter" });
@@ -4367,6 +4376,15 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_compiled_pdf", {
       projectRoot: "/tmp/lattice-paper",
     }));
+    await waitFor(() => {
+      const compiledSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as {
+        data?: Uint8Array;
+        url?: string;
+      } | undefined;
+      expect(compiledSource?.data).toBeInstanceOf(Uint8Array);
+      expect(compiledSource?.data?.byteLength).toBe(8);
+      expect(compiledSource?.url).toBeUndefined();
+    });
     const savePdf = await screen.findByRole("button", { name: "Save PDF as…" });
     const pdfScrollArea = document.querySelector(".pdf-scroll-area")!;
     const pdfViewport = pdfScrollArea.querySelector("[data-slot='scroll-area-viewport']");
