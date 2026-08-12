@@ -668,7 +668,12 @@ describe("project workspace", () => {
       toJSON: () => ({}),
     } as DOMRect);
     const mainTab = screen.getByRole("tab", { name: /main\.tex/ }).closest(".editor-tab") as HTMLElement;
-    fireEvent.pointerDown(mainTab, { button: 0, clientX: 120, clientY: 16 });
+    fireEvent.pointerDown(mainTab, {
+      button: 0,
+      pointerType: "mouse",
+      clientX: 120,
+      clientY: 16,
+    });
     fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
     expect(document.querySelector(".editor-tab-split-drop-preview"))
       .toHaveTextContent("Open on right");
@@ -748,7 +753,12 @@ describe("project workspace", () => {
       toJSON: () => ({}),
     } as DOMRect);
     const mainTab = screen.getByRole("tab", { name: /main\.tex/ }).closest(".editor-tab") as HTMLElement;
-    fireEvent.pointerDown(mainTab, { button: 0, clientX: 120, clientY: 16 });
+    fireEvent.pointerDown(mainTab, {
+      button: 0,
+      pointerType: "mouse",
+      clientX: 120,
+      clientY: 16,
+    });
     fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
     fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
 
@@ -868,7 +878,13 @@ describe("project workspace", () => {
       y: 40,
       toJSON: () => ({}),
     } as DOMRect);
-    fireEvent.pointerDown(introTab, { button: 0, pointerId: 9, clientX: 120, clientY: 16 });
+    fireEvent.pointerDown(introTab, {
+      button: 0,
+      pointerId: 9,
+      pointerType: "mouse",
+      clientX: 120,
+      clientY: 16,
+    });
     fireEvent.pointerMove(window, { pointerId: 9, clientX: 850, clientY: 300 });
     fireEvent.pointerUp(window, { pointerId: 9, clientX: 850, clientY: 300 });
     await waitFor(() => expect(resolveSplitRead).not.toBeNull());
