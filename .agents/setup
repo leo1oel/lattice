@@ -111,9 +111,13 @@ finish_step
 start_step "Installing locked Lattice dependencies"
 pnpm install --frozen-lockfile
 pnpm --dir collab-server install --frozen-lockfile
+bun_bin="$repo_root/node_modules/.bin/bun"
+if ! "$bun_bin" --version >/dev/null 2>&1; then
+  node node_modules/bun/install.js
+fi
 finish_step
 
-start_step "Preparing the pinned Synara runtime"
+start_step "Installing pinned Synara dependencies"
 synara_repository="$(node -p "require('./scripts/synara-runtime.json').repository")"
 synara_revision="$(node -p "require('./scripts/synara-runtime.json').revision")"
 synara_source="${SYNARA_SOURCE_DIR:-$(node -p "require('./scripts/synara-runtime.json').sourceDirectory")}"
@@ -150,9 +154,16 @@ fi
 
 (
   cd "$synara_source"
-  "$repo_root/node_modules/.bin/bun" install --frozen-lockfile
+  "$bun_bin" install --frozen-lockfile
 )
-pnpm prepare:synara:dev
+
+# Cargo compiles Tauri's resource manifest even when tests never launch the
+# sidecar. The desktop dev/build commands replace this stub with the real
+# pinned runtime through their beforeDevCommand/beforeBuildCommand hooks.
+if [[ ! -e src-tauri/synara-runtime/manifest.json ]]; then
+  mkdir -p src-tauri/synara-runtime
+  printf 'stub\n' > src-tauri/synara-runtime/placeholder.txt
+fi
 finish_step
 
 start_step "Fetching Rust crates"

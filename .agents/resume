@@ -20,12 +20,15 @@ for path in \
   node_modules \
   collab-server/node_modules \
   "$synara_source/node_modules" \
-  src-tauri/synara-runtime/manifest.json \
   "$HOME/.cargo/bin/cargo"; do
   if [[ ! -e "$path" ]]; then
     echo "Missing $path; rerun .agents/setup." >&2
     exit 1
   fi
 done
+if [[ ! -e src-tauri/synara-runtime/manifest.json && ! -e src-tauri/synara-runtime/placeholder.txt ]]; then
+  echo "Missing the Synara runtime resource stub; rerun .agents/setup." >&2
+  exit 1
+fi
 
 echo "Orb dependencies are ready; no services need restarting."
