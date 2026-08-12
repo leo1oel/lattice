@@ -312,7 +312,7 @@ export function Pdf(props: PdfProps) {
           if (!ctx) continue;
           // Reset transform so re-renders don't compound the dpr scale.
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          activeRenderTask = page.render({ canvas, canvasContext: ctx, viewport });
+          activeRenderTask = page.render({ canvasContext: ctx, viewport });
           await activeRenderTask.promise;
           activeRenderTask = null;
         }
@@ -374,7 +374,7 @@ export function Pdf(props: PdfProps) {
           const ctx = canvas.getContext('2d');
           if (!ctx) continue;
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          activeRenderTask = page.render({ canvas, canvasContext: ctx, viewport });
+          activeRenderTask = page.render({ canvasContext: ctx, viewport });
           await activeRenderTask.promise;
           activeRenderTask = null;
         }

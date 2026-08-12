@@ -122,7 +122,7 @@
     "micromark-util-sanitize-uri": "^2.0.1",
     "micromark-util-types": "^2.0.2",
     "motion": "^12.42.2",
-    "pdfjs-dist": "^6.1.200",
+    "pdfjs-dist": "4.9.155",
     "radix-ui": "^1.6.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

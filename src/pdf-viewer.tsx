@@ -280,10 +280,12 @@ async function renderPdfPageCanvas(ctx: {
     context.fillRect(0, 0, canvas.width, canvas.height);
   }
   const renderTask = page.render({
-    canvas,
+    // PDF.js 4.9 renders glyph commands directly into this 2D context. Keep
+    // this pre-Path2D glyph API: later PDF.js releases can complete without
+    // painting visible pixels in the WKWebView shipped with macOS 14.2.
+    canvasContext: context as CanvasRenderingContext2D,
     viewport,
     intent: "display",
-    ...(context ? { canvasContext: context } : {}),
   });
   ctx.holdRenderTask(renderTask);
   await renderTask.promise;

@@ -36,7 +36,12 @@ export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview)
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.floor(viewport.width));
     canvas.height = Math.max(1, Math.floor(viewport.height));
-    await page.render({ canvas, viewport, background: "#F9F9FA" }).promise;
+    const canvasContext = canvas.getContext("2d");
+    await page.render({
+      canvasContext: canvasContext as CanvasRenderingContext2D,
+      viewport,
+      background: "#F9F9FA",
+    }).promise;
     return canvas.toDataURL("image/png");
   } finally {
     await loadingTask.destroy();
