@@ -7,19 +7,19 @@
 
 .sliding-tab {
   position: relative;
-  border: none;
+  border: var(--sliding-tab-border, none);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--sliding-tab-color, var(--text-secondary));
   cursor: pointer;
   transition: color var(--duration-quick) var(--ease-default);
 }
 
 .sliding-tab:hover {
-  color: var(--text-primary);
+  color: var(--sliding-tab-hover-color, var(--text-primary));
 }
 
 .sliding-tab.active {
-  color: var(--text-primary);
+  color: var(--sliding-tab-active-color, var(--text-primary));
 }
 
 .sliding-tab-pill {

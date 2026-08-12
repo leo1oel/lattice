@@ -715,7 +715,6 @@ export function OverleafPickerDialog(props: {
         )}
         {!statusLoading && !statusError && status?.connected && (
           <>
-            <p>Pick a project to download. Lattice keeps a local copy you can edit offline and sync back to Overleaf later.</p>
             <div className="overleaf-picker-controls">
               <SearchField
                 aria-label="Search Overleaf projects"
@@ -828,9 +827,6 @@ export function OverleafPickerDialog(props: {
                 <span>Downloading {cloning.name} from Overleaf… this can take a minute for large projects.</span>
               </div>
             )}
-            <p className="overleaf-footer-note">
-              Changes sync when you press the sync button in the toolbar — Lattice keeps a local copy that works offline.
-            </p>
           </>
         )}
       </div>

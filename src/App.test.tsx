@@ -590,22 +590,305 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByRole("tab", { name: /references\.bib/ }))
       .toHaveAttribute("aria-selected", "true"));
     await waitFor(() => expect(document.querySelector(".source-editor")).not.toBeNull());
+    expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Split editor right" })).toBeInTheDocument();
 
     fireEvent.click(await findProjectTreeItem("main.tex"));
     await waitFor(() => expect(document.querySelector(".source-editor")).toBeNull());
 
-    fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Document view" }))
+      .getByRole("tab", { name: "Split" }));
     fireEvent.click(await findProjectTreeItem("conference.sty"));
     await waitFor(() => expect(screen.getByRole("tab", { name: /conference\.sty/ }))
       .toHaveAttribute("aria-selected", "true"));
     await waitFor(() => expect(document.querySelector(".source-editor")).not.toBeNull());
+    expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Split editor right" })).toBeInTheDocument();
 
     fireEvent.click(await findProjectTreeItem("main.tex"));
     expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
       .toBeInTheDocument();
   });
 
-  it("restores tab order, active pane, and column layout after relaunch", async () => {
+  it("uses document modes for previewable files and accepts a tab on the canvas edge", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    localStorage.setItem("lattice.split-ratio.v1", "0.7");
+
+    renderApp();
+    const documentView = await screen.findByRole("tablist", { name: "Document view" });
+    expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    expect(screen.queryByRole("button", { name: "Open source beside preview" })).toBeNull();
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
+    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open source beside preview" })).toBeNull();
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+    expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
+    fireEvent.click(await findProjectTreeItem("intro.tex"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /intro\.tex/ }))
+      .toHaveAttribute("aria-selected", "true"));
+    fireEvent.click(await findProjectTreeItem("main.tex"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /main\.tex/ }))
+      .toHaveAttribute("aria-selected", "true"));
+
+    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const mainTab = screen.getByRole("tab", { name: /main\.tex/ }).closest(".editor-tab") as HTMLElement;
+    fireEvent.pointerDown(mainTab, { button: 0, clientX: 120, clientY: 16 });
+    fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
+    expect(document.querySelector(".editor-tab-split-drop-preview"))
+      .toHaveTextContent("Open on right");
+    fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
+
+    await waitFor(() => expect(document.querySelector(
+      ".source-editor[data-editor-pane='secondary'] .cm-content",
+    )).toHaveTextContent("content:main.tex"));
+    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
+      .toBe("minmax(220px, 0.5fr) 1px minmax(220px, 0.5fr)");
+    expect(localStorage.getItem("lattice.split-ratio.v1")).toBe("0.5");
+    expect(document.querySelector(".dual-pane-label")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
+    expect(within(documentView).getByRole("tab", { name: "Edit" }))
+      .toHaveAttribute("aria-selected", "true");
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
+    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
+      .toBeInTheDocument();
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    await waitFor(() => expect(document.querySelector(".source-editor")).toBeNull());
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+    await waitFor(() => expect(document.querySelector(
+      ".source-editor[data-editor-pane='secondary'] .cm-content",
+    )).toHaveTextContent("content:main.tex"));
+    expect(within(documentView).getByRole("tab", { name: "Edit" }))
+      .toHaveAttribute("aria-selected", "true");
+  });
+
+  it("previews a document focused in the right pane and restores the dual layout", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        const path = (args as { path: string }).path;
+        return path === "main.tex"
+          ? "\\documentclass{article}"
+          : "@article{lattice, title={Lattice}}";
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    fireEvent.click(await findProjectTreeItem("references.bib"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /references\.bib/ }))
+      .toHaveAttribute("aria-selected", "true"));
+    fireEvent.click(await findProjectTreeItem("main.tex"));
+    const documentView = await screen.findByRole("tablist", { name: "Document view" });
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+
+    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const mainTab = screen.getByRole("tab", { name: /main\.tex/ }).closest(".editor-tab") as HTMLElement;
+    fireEvent.pointerDown(mainTab, { button: 0, clientX: 120, clientY: 16 });
+    fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
+    fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
+
+    await waitFor(() => {
+      expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+        .toHaveTextContent("@article{lattice");
+      expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+        .toHaveTextContent("\\documentclass{article}");
+    });
+    const dualCanvas = document.querySelector<HTMLElement>(".dual-canvas")!;
+    vi.spyOn(dualCanvas, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      right: 1000,
+      width: 1000,
+      top: 0,
+      bottom: 700,
+      height: 700,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize dual source panes" }));
+    fireEvent.pointerMove(window, { clientX: 650 });
+    fireEvent.pointerUp(window, { clientX: 650 });
+    expect(localStorage.getItem("lattice.split-ratio.v1")).toBe("0.65");
+    expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tablist", { name: "Document view" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Preview" }));
+    await waitFor(() => expect(document.querySelector(".dual-pane-preview .pdf-column"))
+      .toBeInTheDocument());
+    expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+      .toHaveTextContent("@article{lattice");
+    expect(document.querySelector(".source-editor[data-editor-pane='primary']"))
+      .toBeNull();
+    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
+      .toContain("0.65fr");
+    expect(document.querySelector(".active-document")).toHaveTextContent("main.tex");
+    expect(screen.getByRole("tab", { name: "Preview" }))
+      .toHaveAttribute("aria-selected", "true");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
+    await waitFor(() => {
+      expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+        .toHaveTextContent("@article{lattice");
+      expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+        .toHaveTextContent("\\documentclass{article}");
+    });
+    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
+      .toContain("0.65fr");
+    expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Split" }));
+    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
+      .toBeInTheDocument();
+    expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+      .toHaveTextContent("\\documentclass{article}");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
+    await waitFor(() => {
+      expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+        .toHaveTextContent("@article{lattice");
+      expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+        .toHaveTextContent("\\documentclass{article}");
+    });
+    expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("keeps the current editor when an active-tab split loses a race with a late edit", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
+      ],
+    };
+    let resolveSplitRead: ((content: string) => void) | null = null;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        const path = (args as { path: string }).path;
+        if (path === "intro.tex") {
+          return new Promise<string>((resolve) => {
+            resolveSplitRead = resolve;
+          });
+        }
+        return `content:${path}`;
+      }
+      if (command === "write_project_file") return undefined;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const documentView = await screen.findByRole("tablist", { name: "Document view" });
+    const introTab = await findProjectTreeItem("intro.tex");
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+
+    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fireEvent.pointerDown(introTab, { button: 0, pointerId: 9, clientX: 120, clientY: 16 });
+    fireEvent.pointerMove(window, { pointerId: 9, clientX: 850, clientY: 300 });
+    fireEvent.pointerUp(window, { pointerId: 9, clientX: 850, clientY: 300 });
+    await waitFor(() => expect(resolveSplitRead).not.toBeNull());
+
+    const editorElement = document.querySelector<HTMLElement>(
+      ".source-editor[data-editor-pane='primary'] .cm-editor",
+    );
+    const editor = editorElement ? EditorView.findFromDOM(editorElement) : null;
+    if (!editor) throw new Error("Primary CodeMirror view was not available");
+    act(() => editor.dispatch({
+      changes: { from: editor.state.doc.length, insert: "\nEdited while splitting." },
+    }));
+    act(() => resolveSplitRead?.("content:intro.tex"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: /intro\.tex/ })).toHaveAttribute("aria-selected", "true");
+      expect(editor.state.doc.toString()).toContain("Edited while splitting.");
+      expect(document.querySelector(".dual-canvas")).not.toBeNull();
+    });
+  });
+
+  it("restores tab order and active pane while migrating the old three-column layout", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -644,11 +927,14 @@ describe("project workspace", () => {
 
     renderApp();
 
-    await waitFor(() => expect(document.querySelector(".columns-canvas")).toBeInTheDocument());
+    await waitFor(() => expect(document.querySelector(".dual-canvas")).toBeInTheDocument());
+    expect(document.querySelector(".columns-canvas")).toBeNull();
     expect(Array.from(document.querySelectorAll<HTMLElement>(".editor-tab"))
       .map((tab) => tab.dataset.tabPath)).toEqual(["intro.tex", "main.tex", "method.tex"]);
     expect(screen.getByRole("tab", { name: /method\.tex/ })).toHaveAttribute("aria-selected", "true");
-    expect(document.querySelector(".dual-pane-label")).toHaveTextContent("method.tex");
+    expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+      .toHaveTextContent("content:method.tex");
+    expect(document.querySelector(".dual-pane-label")).toBeNull();
     expect(invoke).toHaveBeenCalledWith("read_project_file", {
       path: "main.tex",
       projectRoot: "/tmp/lattice-paper",
@@ -774,8 +1060,8 @@ describe("project workspace", () => {
       activeTab: "main.tex",
       secondaryFile: "method.tex",
       focusedPane: "primary",
-      canvasMode: "columns",
-      documentMode: "columns",
+      canvasMode: "dual",
+      documentMode: "dual",
       paperView: "blog",
       tabRecency: ["main.tex", "method.tex"],
     });
@@ -1446,6 +1732,12 @@ describe("project workspace", () => {
       }));
     });
     expect(await screen.findByRole("tab", { name: "Agent turn" })).toBeInTheDocument();
+    const gitWorkspaceTabs = screen.getByRole("tablist", { name: "Git workspace" });
+    expect(gitWorkspaceTabs).toHaveClass("drawer-view-tabs");
+    expect(screen.getByRole("tab", { name: "Changes" }))
+      .toHaveClass("drawer-view-tab");
+    expect(screen.getByRole("tab", { name: "Changes" }))
+      .not.toHaveClass("ui-compact-selectable");
     const reviewFrame = document.querySelector<HTMLIFrameElement>('iframe[title="Agent turn review"]');
     expect(reviewFrame).not.toBeNull();
     expect(reviewFrame!.src).toContain("threadId=thread-1");
@@ -2114,6 +2406,10 @@ describe("project workspace", () => {
     expect(list.getByTitle("Adam: A Method for Stochastic Optimization")).toBeInTheDocument();
     expect(list.queryByTitle("Attention Is All You Need")).not.toBeInTheDocument();
     expect(list.getByText("1 of 2 papers")).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "https://arxiv.org/pdf/1706.03762" } });
+    expect(list.getByTitle("Attention Is All You Need")).toBeInTheDocument();
+    expect(list.queryByTitle("Adam: A Method for Stochastic Optimization")).not.toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: "vaswani attention" } });
     expect(list.getByTitle("Attention Is All You Need")).toBeInTheDocument();
@@ -3471,6 +3767,18 @@ describe("project workspace", () => {
       expect(content).not.toBeNull();
       return content!;
     });
+    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
     Object.defineProperty(document, "elementFromPoint", {
       configurable: true,
       value: vi.fn(() => editorContent),
@@ -3484,18 +3792,36 @@ describe("project workspace", () => {
       pointerType: "mouse",
     });
     fireEvent.pointerMove(window, {
-      clientX: 100,
-      clientY: 100,
+      clientX: 250,
+      clientY: 300,
       pointerId: 41,
       pointerType: "mouse",
     });
     expect(projectTreeRoot()?.querySelector('[data-lattice-pointer-drag-preview="true"]'))
       .not.toBeNull();
     expect(document.querySelector(".source-editor")).toHaveClass("file-drop-active");
+    expect(document.querySelector(".editor-tab-split-drop-preview"))
+      .toHaveAttribute("data-drop-zone", "left");
+    fireEvent.pointerMove(window, {
+      clientX: 600,
+      clientY: 300,
+      pointerId: 41,
+      pointerType: "mouse",
+    });
+    expect(document.querySelector(".editor-tab-split-drop-preview"))
+      .toHaveAttribute("data-drop-zone", "center");
+    fireEvent.pointerMove(window, {
+      clientX: 850,
+      clientY: 300,
+      pointerId: 41,
+      pointerType: "mouse",
+    });
+    expect(document.querySelector(".editor-tab-split-drop-preview"))
+      .toHaveAttribute("data-drop-zone", "right");
 
     fireEvent.pointerUp(window, {
-      clientX: 100,
-      clientY: 100,
+      clientX: 850,
+      clientY: 300,
       pointerId: 41,
       pointerType: "mouse",
     });
@@ -3505,11 +3831,14 @@ describe("project workspace", () => {
     }));
     expect(await screen.findByRole("tab", { name: /references\.bib/ }))
       .toHaveAttribute("aria-selected", "true");
-    const bibliographyEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
+    const bibliographyEditorDom = document.querySelector<HTMLElement>(
+      ".source-editor[data-editor-pane='secondary'] .cm-editor",
+    );
     const bibliographyEditor = bibliographyEditorDom ? EditorView.findFromDOM(bibliographyEditorDom) : null;
     expect(bibliographyEditor && syntaxTree(bibliographyEditor.state).toString())
       .toContain("Entry(EntryType");
     expect(document.querySelector(".source-editor")).not.toHaveClass("file-drop-active");
+    expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
   });
 
   it("opens a dropped project file in the editor pane under the pointer", async () => {
@@ -3546,6 +3875,8 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByRole("tab", { name: /draft\.tex/ }))
       .toHaveAttribute("aria-selected", "true"));
     fireEvent.click(await findProjectTreeItem("main.tex"));
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Document view" }))
+      .getByRole("tab", { name: "Edit" }));
     fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
     fireEvent.click(await screen.findByRole("option", { name: /Dual source view/ }));
     const secondaryEditor = await waitFor(() => {
@@ -3554,6 +3885,38 @@ describe("project workspace", () => {
       return editor!;
     });
     const secondaryContent = secondaryEditor.querySelector<HTMLElement>(".cm-content")!;
+    const dualCanvas = document.querySelector<HTMLElement>(".dual-canvas")!;
+    vi.spyOn(dualCanvas, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      right: 1000,
+      width: 1000,
+      top: 0,
+      bottom: 700,
+      height: 700,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize dual source panes" }), {
+      clientX: 460,
+    });
+    fireEvent.pointerMove(window, { clientX: 700 });
+    fireEvent.pointerUp(window, { clientX: 700 });
+    expect(localStorage.getItem("lattice.split-ratio.v1")).toBe("0.7");
+    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
+      .toContain("0.7fr");
+    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      right: 1000,
+      width: 1000,
+      top: 0,
+      bottom: 700,
+      height: 700,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
     Object.defineProperty(document, "elementFromPoint", {
       configurable: true,
       value: vi.fn(() => secondaryContent),
@@ -3568,26 +3931,88 @@ describe("project workspace", () => {
       pointerType: "mouse",
     });
     fireEvent.pointerMove(window, {
-      clientX: 500,
+      clientX: 850,
       clientY: 100,
       pointerId: 42,
       pointerType: "mouse",
     });
     expect(secondaryEditor).toHaveClass("file-drop-active");
     fireEvent.pointerUp(window, {
-      clientX: 500,
+      clientX: 850,
       clientY: 100,
       pointerId: 42,
       pointerType: "mouse",
     });
 
-    await waitFor(() => expect(document.querySelector(".dual-pane-label"))
-      .toHaveTextContent("references.bib"));
+    await waitFor(() => expect(document.querySelector(
+      ".source-editor[data-editor-pane='secondary'] .cm-content",
+    )).toHaveTextContent("@article{lattice"));
+    expect(localStorage.getItem("lattice.split-ratio.v1")).toBe("0.7");
+    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
+      .toContain("0.7fr");
+    expect(document.querySelector(".dual-pane-label")).toBeNull();
     const primaryEditorDom = document.querySelector<HTMLElement>(
       ".source-editor[data-editor-pane='primary'] .cm-editor",
     );
     expect(primaryEditorDom && EditorView.findFromDOM(primaryEditorDom)?.state.doc.toString())
       .toContain("\\documentclass{article}");
+
+    fireEvent.pointerDown(await findProjectTreeItem("draft.tex"), {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 43,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(window, {
+      clientX: 100,
+      clientY: 100,
+      pointerId: 43,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerUp(window, {
+      clientX: 100,
+      clientY: 100,
+      pointerId: 43,
+      pointerType: "mouse",
+    });
+    await waitFor(() => {
+      const primary = document.querySelector<HTMLElement>(
+        ".source-editor[data-editor-pane='primary'] .cm-editor",
+      );
+      expect(primary && EditorView.findFromDOM(primary)?.state.doc.toString())
+        .toContain("\\section{Draft}");
+      const secondary = document.querySelector<HTMLElement>(
+        ".source-editor[data-editor-pane='secondary'] .cm-editor",
+      );
+      expect(secondary && EditorView.findFromDOM(secondary)?.state.doc.toString())
+        .toContain("@article{lattice");
+      expect(document.querySelectorAll(".dual-canvas .source-editor[data-editor-pane]")).toHaveLength(2);
+    });
+
+    fireEvent.pointerDown(await findProjectTreeItem("main.tex"), {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 44,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(window, {
+      clientX: 500,
+      clientY: 100,
+      pointerId: 44,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerUp(window, {
+      clientX: 500,
+      clientY: 100,
+      pointerId: 44,
+      pointerType: "mouse",
+    });
+    await waitFor(() => {
+      expect(document.querySelector(".dual-canvas")).toBeNull();
+      expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
+    });
   });
 
   it("imports a Finder source file into the project before opening it", async () => {
@@ -4050,7 +4475,7 @@ describe("project workspace", () => {
     expect(invoke).not.toHaveBeenCalledWith("read_project_file", expect.objectContaining({ path: "figures/diagram.svg" }));
   });
 
-  it("previews SVG figures and inserts them at the editor drop position", async () => {
+  it("previews SVG and PDF figures and lets their drops replace split panes", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -4145,6 +4570,18 @@ describe("project workspace", () => {
 
     const pdfRow = await findProjectTreeItem("figures/result.pdf");
     const svgPreview = screen.getByAltText("Preview of figures/native-umm.svg");
+    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      right: 1000,
+      width: 1000,
+      top: 0,
+      bottom: 700,
+      height: 700,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
     Object.defineProperty(document, "elementFromPoint", {
       configurable: true,
       value: vi.fn(() => svgPreview),
@@ -4162,7 +4599,7 @@ describe("project workspace", () => {
       clientX: 100,
       clientY: 100,
     });
-    expect(document.querySelector(".figure-drag-ghost")).toHaveClass("ready");
+    expect(document.querySelector(".figure-drag-ghost")).toBeInTheDocument();
     fireEvent.pointerUp(window, {
       pointerId: 2,
       pointerType: "mouse",
@@ -4177,13 +4614,13 @@ describe("project workspace", () => {
     }));
     expect(screen.getByLabelText("Search PDF").closest(".pdf-find-controls"))
       .toHaveClass("without-outline");
+    expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
+    expect(await screen.findByRole("separator", { name: "Resize dual source panes" }))
+      .toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
-    const editorElement = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    fireEvent.click(screen.getByRole("tab", { name: /main\.tex/ }));
+    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
     const content = document.querySelector<HTMLElement>(".cm-content")!;
     Object.defineProperty(document, "elementFromPoint", { configurable: true, value: vi.fn(() => content) });
     fireEvent.pointerDown(await findProjectTreeItem("figures/native-umm.svg"), {
@@ -4198,69 +4635,18 @@ describe("project workspace", () => {
       clientY: 100,
     });
     expect(document.querySelector(".figure-drag-ghost")).toHaveTextContent("native-umm.svg");
-    expect(document.querySelector(".figure-drop-line")).toHaveTextContent(/Insert above line \d+/);
-    expect(document.querySelector(".source-editor")).not.toHaveTextContent("Insert figure here");
+    expect(document.querySelector(".editor-tab-split-drop-preview"))
+      .toHaveAttribute("data-drop-zone", "left");
     fireEvent.pointerUp(window, {
       pointerType: "mouse",
       clientX: 100,
       clientY: 100,
     });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("prepare_latex_figure", {
-      path: "figures/native-umm.svg",
-      projectRoot: "/tmp/lattice-paper",
-    }));
-    const figureDialog = await screen.findByLabelText("Insert figure");
-    fireEvent.click(within(figureDialog).getByRole("button", { name: "Insert" }));
-    await waitFor(() => {
-      const view = EditorView.findFromDOM(editorElement);
-      expect(view?.state.doc.toString()).toContain("\\includegraphics[width=\\linewidth]{\\detokenize{figures/native-umm-converted.pdf}}");
-    });
-
-    fireEvent.click(await findProjectTreeItem("method.md"));
-    const methodTab = await screen.findByRole("tab", { name: /method\.md/ });
-    await waitFor(() => expect(methodTab).toHaveAttribute("aria-selected", "true"));
-    const documentView = screen.getByRole("tablist", { name: "Document view" });
-    const editTab = await waitFor(
-      () => within(documentView).getByRole("tab", { name: "Edit" }),
-      { timeout: 5_000 },
-    );
-    fireEvent.click(editTab);
-    const markdownEditor = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      expect(element).not.toBeNull();
-      return element!;
-    });
-    const markdownContent = document.querySelector<HTMLElement>(".cm-content")!;
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => markdownContent),
-    });
-    fireEvent.pointerDown(await findProjectTreeItem("figures/native-umm.svg"), {
-      button: 0,
-      pointerId: 3,
-      pointerType: "mouse",
-      clientX: 10,
-      clientY: 10,
-    });
-    fireEvent.pointerMove(window, {
-      pointerId: 3,
-      pointerType: "mouse",
-      clientX: 100,
-      clientY: 100,
-    });
-    fireEvent.pointerUp(window, {
-      pointerId: 3,
-      pointerType: "mouse",
-      clientX: 100,
-      clientY: 100,
-    });
-    await waitFor(() => {
-      const view = EditorView.findFromDOM(markdownEditor);
-      expect(view?.state.doc.toString()).toContain("![native umm](<figures/native-umm.svg>)");
-    });
-    expect(screen.queryByLabelText("Insert figure")).not.toBeInTheDocument();
-    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "prepare_latex_figure"))
-      .toHaveLength(1);
+    await waitFor(() => expect(assetTab).toHaveAttribute("aria-selected", "true"));
+    expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+      .toHaveTextContent("\\documentclass{article}");
+    expect(document.querySelector(".dual-pane-label")).toBeNull();
+    expect(vi.mocked(invoke)).not.toHaveBeenCalledWith("prepare_latex_figure", expect.anything());
     Reflect.deleteProperty(document, "elementFromPoint");
   });
 
@@ -5434,11 +5820,25 @@ describe("project workspace", () => {
     const palette = await screen.findByLabelText("Insert LaTeX snippets");
     expect(palette).toHaveClass("resizable-drawer");
     expect(within(palette).getByRole("separator", { name: "Resize right panel" })).toBeInTheDocument();
-    expect(palette).toHaveTextContent("Pick a symbol or snippet");
     expect(within(palette).getByRole("button", { name: /Alpha/i })).toBeInTheDocument();
     fireEvent.click(within(palette).getByRole("tab", { name: "Greek" }));
     expect(palette.querySelector(".sliding-tab-underline")).not.toBeInTheDocument();
+    expect(within(palette).getByRole("tab", { name: "Greek" })).toHaveAttribute("aria-selected", "true");
+    expect(within(palette).getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "false");
     expect(within(palette).getByRole("button", { name: /Capital omega/i })).toBeInTheDocument();
+
+    const documentView = screen.getByRole("tablist", { name: "Document view" });
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
+        .not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Insert LaTeX snippets")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+    expect(await screen.findByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
+      .toBeInTheDocument();
+    expect(screen.queryByLabelText("Insert LaTeX snippets")).not.toBeInTheDocument();
   });
 
   it("creates and deletes project entries and imported papers", async () => {

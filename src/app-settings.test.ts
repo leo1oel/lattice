@@ -20,8 +20,8 @@ const layout: WorkspaceLayout = {
   activeTab: "sections/method.tex",
   secondaryFile: "sections/method.tex",
   focusedPane: "secondary",
-  canvasMode: "columns",
-  documentMode: "columns",
+  canvasMode: "dual",
+  documentMode: "dual",
   paperView: "fulltext",
   tabRecency: ["sections/method.tex", "main.tex", "figures/model.png"],
 };
@@ -70,6 +70,18 @@ describe("workspace layout persistence", () => {
 
     expect(loadWorkspaceLayout("/papers/markdown")?.canvasMode).toBe("pdf");
     expect(loadWorkspaceLayout("/papers/imported")?.canvasMode).toBe("pdf");
+  });
+
+  it("migrates the former three-column layout to two editor panes", () => {
+    localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify({
+      "/papers/alpha": { ...layout, canvasMode: "columns", documentMode: "columns" },
+    }));
+
+    expect(loadWorkspaceLayout("/papers/alpha")).toEqual({
+      ...layout,
+      canvasMode: "dual",
+      documentMode: "dual",
+    });
   });
 
   it("treats corrupt storage as an empty workspace history", () => {

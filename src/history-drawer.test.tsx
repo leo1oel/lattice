@@ -72,6 +72,20 @@ describe("HistoryDrawer", () => {
       .toBe(header);
   });
 
+  it("uses the shared flat drawer tabs rather than button-like selected controls", () => {
+    mockBackend();
+    const { container } = render(<HistoryDrawer {...required} />);
+
+    expect(container.querySelector(".versions-tabs")).toHaveClass("drawer-view-tabs");
+    expect(container.querySelector(".versions-tabs")).toHaveStyle({
+      paddingBottom: "var(--space-3)",
+    });
+    expect(container.querySelector(".sliding-tab-underline")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
+    expect(container.querySelector(".sliding-tab-underline")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Changes" })).toHaveClass("drawer-view-tab", "active");
+  });
+
   it("falls back off the remembered Overleaf tab for an unlinked project", () => {
     mockBackend();
     // The tab choice is remembered across opens for the session, so pick it

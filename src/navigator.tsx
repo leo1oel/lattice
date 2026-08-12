@@ -36,6 +36,7 @@ import { ExternalScrollbar } from "./components/ui/external-scrollbar";
 import { SearchField } from "./components/ui/search-field";
 import { absoluteProjectPath, paperKey, paperSubtitle } from "./app-utils";
 import type { FileNode, GitFileStatus, PaperSummary } from "./app-types";
+import { baseArxivId } from "./arxiv-id";
 import { PROJECT_FILE_TREE_ICONS } from "./project-file-icons";
 import { toPierreGitStatus } from "./project-tree-git";
 
@@ -43,9 +44,16 @@ import { toPierreGitStatus } from "./project-tree-git";
 // design-system `--row-height-tree` / compact 32px row role.
 const PROJECT_TREE_ITEM_HEIGHT = 32;
 
-/** Every token must occur somewhere in the paper's local library metadata. */
+/**
+ * Every token must occur somewhere in the paper's local library metadata.
+ * arXiv URLs and versioned IDs reduce to the versionless ID stored by imports.
+ */
 function filterPapers(papers: readonly PaperSummary[], query: string): PaperSummary[] {
-  const tokens = query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const tokens = query.toLocaleLowerCase().split(/\s+/).filter(Boolean).map((token) => {
+    const arxivId = /\b(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?\/\d{7}(?:v\d+)?)\b/i
+      .exec(token)?.[1];
+    return arxivId ? baseArxivId(arxivId) : token;
+  });
   if (!tokens.length) return [...papers];
   return papers.filter((paper) => {
     const haystack = [

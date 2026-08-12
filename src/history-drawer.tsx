@@ -243,9 +243,9 @@ export function HistoryDrawer(props: {
           value={tab}
           onChange={(next) => selectTab(next as HistoryTab)}
           ariaLabel="History views"
-          variant="underline"
-          className="versions-tabs"
-          tabClassName="versions-tab"
+          variant="none"
+          className="versions-tabs drawer-view-tabs"
+          tabClassName="drawer-view-tab"
           items={[
             { value: "changes", label: "Changes" },
             { value: "versions", label: "Versions" },
@@ -275,11 +275,7 @@ export function HistoryDrawer(props: {
         )}
         {tab === "changes" && (
           <>
-            <p className="drawer-copy">
-              Changes from you, the Agent, and citation tools share one timeline. Restoring a
-              local change creates a new history entry, so the original record stays available.
-            </p>
-            <div className="history-filters" aria-label="Filter project changes">
+            <div className="history-filters" role="group" aria-label="Filter project changes">
               {([
                 ["all", "All"],
                 ["user", "You"],
@@ -289,7 +285,7 @@ export function HistoryDrawer(props: {
                 <button
                   type="button"
                   key={value}
-                  className={filter === value ? "active" : ""}
+                  className={`ui-compact-selectable${filter === value ? " active" : ""}`}
                   aria-pressed={filter === value}
                   onClick={() => setFilter(value)}
                 >
@@ -351,13 +347,13 @@ export function HistoryDrawer(props: {
                           {entry && entry.id === item.id && (
                             <>
                               {entry.changes.length > 1 && (
-                                <div className="history-file-tabs">
+                                <div className="history-file-tabs" role="group" aria-label="Files in this change">
                                   {entry.changes.map((change, index) => (
                                     <button
                                       key={`${change.path}:${index}`}
                                       type="button"
-                                      className={index === activeChangeIndex ? "active" : ""}
-                                      aria-current={index === activeChangeIndex ? "true" : undefined}
+                                      className={`ui-compact-selectable${index === activeChangeIndex ? " active" : ""}`}
+                                      aria-pressed={index === activeChangeIndex}
                                       onClick={() => {
                                         codeViewRef.current?.scrollTo({
                                           type: "item",

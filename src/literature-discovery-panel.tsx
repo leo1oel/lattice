@@ -196,9 +196,6 @@ export function LiteratureDiscoveryPanel(props: {
           title="Discover literature"
           onClose={props.onClose}
         />
-        <p className="drawer-copy">
-          Search alphaXiv full text and OpenAlex citations. Results may include arXiv papers, published works, and web sources; adding one resolves it into the bibliography.
-        </p>
         <form
           className="literature-search"
           onSubmit={(event) => {

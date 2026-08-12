@@ -7,6 +7,8 @@ const read = (file: string) => String(readFileSync(file, "utf8"))
 
 const foundations = read("src/styles/foundations.css")
 const dialogs = read("src/styles/dialogs.css")
+const chrome = read("src/components/ui/chrome.css")
+const workspacePanels = read("src/styles/workspace-panels.css")
 const settingsDialog = read("src/settings-dialog.tsx")
 const APP_CSS_FILES = new Set([
   "src/App.css",
@@ -157,6 +159,36 @@ describe("design token contract", () => {
     expect(foundations).toMatch(/--settings-control-font-weight: var\(--type-body-weight\)/)
     expect(dialogs).toContain('[data-slot="select-content"][data-settings-control="true"]')
     expect(settingsDialog.match(/data-settings-control="true"/g)).toHaveLength(5)
+  })
+
+  it("shares the soft selected state across compact sidebar selectors", () => {
+    expect(chrome).toMatch(
+      /\.ui-compact-selectable:is\([^}]+\) \{[^}]*background: var\(--control-active-soft\);[^}]*color: var\(--control-active\)/,
+    )
+    expect(chrome).not.toMatch(/\.ui-compact-selectable[^}]*\{[^}]*background: var\(--control-active\);/)
+
+    for (const file of [
+      "src/insert-palette.tsx",
+      "src/editor-comments-panel.tsx",
+      "src/history-drawer.tsx",
+      "src/overleaf-comments.tsx",
+    ]) {
+      expect(read(file), file).toContain("ui-compact-selectable")
+    }
+  })
+
+  it("shares flat drawer-view tabs between Project history and Git workspace", () => {
+    expect(read("src/App.tsx")).toContain('tabClassName="drawer-view-tab"')
+    expect(read("src/history-drawer.tsx")).toContain('tabClassName="drawer-view-tab"')
+    expect(workspacePanels).toMatch(
+      /\.drawer-view-tab \{[^}]*border: 0;[^}]*background: transparent;/,
+    )
+    expect(workspacePanels).toMatch(
+      /\.drawer-view-tab\.active \{[^}]*color: var\(--text-primary\);[^}]*background: transparent;/,
+    )
+    expect(workspacePanels).toMatch(
+      /\.agent-git-workspace-header \{[^}]*padding: 0 var\(--space-4\);/,
+    )
   })
 
   it("draws keyboard focus exactly once", () => {

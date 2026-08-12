@@ -289,7 +289,9 @@ export function editorPaneAt(
   position: { x: number; y: number },
 ): EditorPaneId | null {
   if (typeof document.elementFromPoint !== "function") return null;
-  const editor = document.elementFromPoint(position.x, position.y)?.closest<HTMLElement>(".source-editor");
+  const editor = document.elementFromPoint(position.x, position.y)?.closest<HTMLElement>(
+    ".source-editor[data-editor-pane], .dual-empty[data-editor-pane]",
+  );
   if (!editor) return null;
   return editor.dataset.editorPane === "secondary" ? "secondary" : "primary";
 }

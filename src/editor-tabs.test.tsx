@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EditorTabs } from "./editor-tabs";
+import { EditorTabs, editorDropPreviewAt } from "./editor-tabs";
 
 afterEach(() => {
   cleanup();
@@ -161,6 +161,184 @@ describe("EditorTabs", () => {
     fireEvent.pointerMove(window, { clientX: 10 });
     fireEvent.pointerUp(window, { clientX: 10 });
     expect(onReorder).toHaveBeenLastCalledWith(["c.tex", "a.tex", "b.tex"]);
+  });
+
+  it("reports the selected left, center, or right drop zone", () => {
+    const onDropTab = vi.fn();
+    const { container } = render(
+      <>
+        <EditorTabs
+          tabs={[{ path: "main.tex" }, { path: "sections/intro.tex" }]}
+          activePath="main.tex"
+          onDropTab={onDropTab}
+          onSelect={vi.fn()}
+          onClose={vi.fn()}
+          onReorder={vi.fn()}
+        />
+        <div className="canvas-body" />
+      </>,
+    );
+    const canvas = container.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const introTab = screen.getByRole("tab", { name: /intro\.tex/i }).closest(".editor-tab") as HTMLElement;
+    fireEvent.pointerDown(introTab, { button: 0, clientX: 150, clientY: 16 });
+    fireEvent.pointerMove(window, { clientX: 250, clientY: 300 });
+    expect(document.querySelector(".editor-tab-split-drop-preview"))
+      .toHaveAttribute("data-drop-zone", "left");
+    expect(document.querySelector(".editor-tab-split-drop-target"))
+      .toHaveAttribute("data-drop-target", "left");
+    fireEvent.pointerMove(window, { clientX: 600, clientY: 300 });
+    expect(document.querySelector(".editor-tab-split-drop-preview"))
+      .toHaveAttribute("data-drop-zone", "center");
+    expect(document.querySelector(".editor-tab-split-drop-target"))
+      .toHaveAttribute("data-drop-target", "center");
+    fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
+    expect(document.querySelector(".editor-tab-split-drop-preview"))
+      .toHaveAttribute("data-drop-zone", "right");
+    fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
+    expect(onDropTab).toHaveBeenCalledWith("sections/intro.tex", "right");
+    expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
+  });
+
+  it("uses the live split divider for full-bleed left and right targets", () => {
+    const { container } = render(
+      <div className="canvas-body">
+        <div className="split-canvas">
+          <div />
+          <div className="split-resizer" />
+          <div />
+        </div>
+      </div>,
+    );
+    const canvas = container.querySelector<HTMLElement>(".canvas-body")!;
+    const divider = container.querySelector<HTMLElement>(".split-resizer")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    vi.spyOn(divider, "getBoundingClientRect").mockReturnValue({
+      left: 720,
+      right: 721,
+      width: 1,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 720,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    expect(editorDropPreviewAt("main.tex", 250, 300)).toMatchObject({
+      zone: "left",
+      dividerLeft: 520,
+      dividerRight: 521,
+      width: 800,
+      height: 600,
+    });
+    expect(editorDropPreviewAt("main.tex", 900, 300)).toMatchObject({
+      zone: "right",
+      dividerLeft: 520,
+      dividerRight: 521,
+    });
+  });
+
+  it("reports active-tab drops so the owner can move or replace panes safely", () => {
+    const onDropTab = vi.fn();
+    const { container } = render(
+      <>
+        <EditorTabs
+          tabs={[{ path: "main.tex" }, { path: "sections/intro.tex" }]}
+          activePath="main.tex"
+          onDropTab={onDropTab}
+          onSelect={vi.fn()}
+          onClose={vi.fn()}
+          onReorder={vi.fn()}
+        />
+        <div className="canvas-body" />
+      </>,
+    );
+    const canvas = container.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const mainTab = screen.getByRole("tab", { name: /main\.tex/i }).closest(".editor-tab") as HTMLElement;
+    fireEvent.pointerDown(mainTab, { button: 0, clientX: 50, clientY: 16 });
+    fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
+    fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
+    expect(onDropTab).toHaveBeenCalledWith("main.tex", "right");
+    expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
+  });
+
+  it("cancels a pending drop when the layout stops accepting file drops", () => {
+    const onDropTab = vi.fn();
+    const commonProps = {
+      tabs: [{ path: "main.tex" }, { path: "sections/intro.tex" }],
+      activePath: "main.tex",
+      onSelect: vi.fn(),
+      onClose: vi.fn(),
+      onReorder: vi.fn(),
+    };
+    const { container, rerender } = render(
+      <>
+        <EditorTabs
+          {...commonProps}
+          onDropTab={onDropTab}
+        />
+        <div className="canvas-body" />
+      </>,
+    );
+    const canvas = container.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const introTab = screen.getByRole("tab", { name: /intro\.tex/i }).closest(".editor-tab") as HTMLElement;
+    fireEvent.pointerDown(introTab, { button: 0, pointerId: 7, clientX: 150, clientY: 16 });
+    fireEvent.pointerMove(window, { pointerId: 7, clientX: 850, clientY: 300 });
+    expect(document.querySelector(".editor-tab-split-drop-preview")).not.toBeNull();
+
+    rerender(
+      <>
+        <EditorTabs {...commonProps} />
+        <div className="canvas-body" />
+      </>,
+    );
+    expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
+    fireEvent.pointerUp(window, { pointerId: 7, clientX: 850, clientY: 300 });
+    expect(onDropTab).not.toHaveBeenCalled();
+    expect(document.body).not.toHaveClass("reordering-tabs");
   });
 
   it("does not reorder or select on a plain click (no drag)", () => {

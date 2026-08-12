@@ -1,5 +1,7 @@
 .split-canvas { min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
 .split-canvas > .source-workspace, .split-canvas > .pdf-column, .split-canvas > .markdown-preview, .split-canvas > .html-preview { min-width: 0; min-height: 0; overflow: hidden; }
+.dual-pane-preview { min-width: 0; min-height: 0; display: flex; overflow: hidden; }
+.dual-pane-preview > .pdf-column, .dual-pane-preview > .markdown-preview, .dual-pane-preview > .html-preview { flex: 1 1 0; width: 100%; min-width: 0; min-height: 0; }
 .source-workspace, .source-editor, .pdf-preview, .pdf-column, .html-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .canvas-panel > .source-workspace, .canvas-panel > .source-editor, .canvas-panel > .pdf-preview, .canvas-panel > .pdf-column, .canvas-panel > .split-canvas, .canvas-panel > .markdown-preview, .canvas-panel > .html-preview, .canvas-panel > .asset-preview, .canvas-panel > .paper-reader-shell,
 .canvas-body > .source-workspace, .canvas-body > .source-editor, .canvas-body > .pdf-preview, .canvas-body > .pdf-column, .canvas-body > .split-canvas, .canvas-body > .markdown-preview, .canvas-body > .html-preview, .canvas-body > .asset-preview, .canvas-body > .paper-reader-shell { flex: 1 1 0; width: 100%; max-width: 100%; min-width: 0; height: 0; }
@@ -238,6 +240,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .editor-comments-drawer { width: min(420px, 100%); }
 .editor-comments-drawer .pdf-marks-toolbar {
   gap: var(--drawer-section-gap);
+  margin-top: var(--drawer-content-inset);
   margin-bottom: var(--drawer-section-gap);
 }
 .editor-comments-drawer .ui-empty-state[data-density="compact"] {

@@ -148,14 +148,6 @@
 .overleaf-loading svg,
 .overleaf-progress svg { flex: none; color: var(--control-active); }
 .overleaf-empty { margin: 18px 0 var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.55; }
-.overleaf-footer-note {
-  margin: 14px 0 0;
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--border-subtle);
-  color: var(--text-tertiary);
-  font-size: var(--type-micro-size);
-  line-height: 1.5;
-}
 
 .overleaf-preference-group {
   min-inline-size: 0;

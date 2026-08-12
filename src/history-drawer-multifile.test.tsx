@@ -141,13 +141,13 @@ describe("HistoryDrawer multi-file review", () => {
     expect(onRevertFile).toHaveBeenCalledWith("tx-1", "methods.tex");
 
     fireEvent.click(screen.getByRole("button", { name: "main.tex" }));
-    expect(screen.getByRole("button", { name: "main.tex" })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: "main.tex" })).toHaveAttribute("aria-pressed", "true");
     const codeView = screen.getByTestId("history-code-view");
     pierreState.itemTops.set("history:tx-1:0", 0);
     pierreState.itemTops.set("history:tx-1:1", 80);
     pierreState.scrollTop = 81;
     fireEvent.scroll(codeView);
-    expect(screen.getByRole("button", { name: "methods.tex" })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: "methods.tex" })).toHaveAttribute("aria-pressed", "true");
 
     pierreState.scrollTo.mockClear();
     fireEvent.click(screen.getByRole("tab", { name: "Versions" }));

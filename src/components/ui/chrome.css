@@ -152,6 +152,50 @@
   cursor: not-allowed;
 }
 
+/* Shared visual language for dense selectors. Interaction semantics stay with
+   the caller, so tabs, radio-like filters, and toggle buttons can share one
+   geometry and state treatment without sharing behavior. */
+.ui-compact-selectable {
+  --sliding-tab-border: 1px solid var(--border-subtle);
+  --sliding-tab-color: var(--text-secondary);
+  --sliding-tab-hover-color: var(--text-primary);
+  --sliding-tab-active-color: var(--control-active);
+  height: var(--control-height-segmented-compact);
+  padding: 0 var(--pad-inline-control);
+  border: var(--sliding-tab-border);
+  border-radius: var(--radius-icon);
+  background: transparent;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--type-micro-size);
+  line-height: var(--type-micro-line-height);
+  font-weight: var(--weight-semibold);
+  transition: color var(--duration-quick) var(--ease-default),
+    border-color var(--duration-quick) var(--ease-default),
+    background-color var(--duration-quick) var(--ease-default),
+    opacity var(--duration-quick) var(--ease-default);
+}
+
+.ui-compact-selectable:hover:not(:disabled):not(.active):not([aria-selected="true"]):not([aria-pressed="true"]):not([aria-checked="true"]) {
+  border-color: var(--border-strong);
+  background: var(--control-hover-surface);
+  color: var(--text-primary);
+}
+
+.ui-compact-selectable:is(.active, [aria-selected="true"], [aria-pressed="true"], [aria-checked="true"]) {
+  border-color: var(--control-active-border);
+  background: var(--control-active-soft);
+  color: var(--control-active);
+}
+
+.ui-compact-selectable:disabled {
+  opacity: var(--control-disabled-opacity);
+  cursor: not-allowed;
+}
+
 .ui-badge {
   min-width: 0;
   height: var(--badge-height);

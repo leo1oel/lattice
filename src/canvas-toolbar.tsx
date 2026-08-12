@@ -1,6 +1,7 @@
 import {
   BookOpen,
   Cloud,
+  Columns2,
   FileCode2,
   Image,
   MessagesSquare,
@@ -8,7 +9,7 @@ import {
   Redo2,
   Undo2,
 } from "lucide-react";
-import { memo, useMemo, useRef, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Tip } from "./components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "./app-types";
 import { AnimatedProductIcon } from "./animated-icons/product-animated-icon";
@@ -40,7 +41,10 @@ function overleafChannelLabel(
 
 type CanvasToolbarProps = {
   mode: CanvasMode;
+  selectedDocumentViewMode?: DocumentViewMode;
   setMode: (mode: DocumentViewMode) => void;
+  supportsDocumentViewModes: boolean;
+  onSplit?: () => void;
   markdown: boolean;
   html: boolean;
   paperView?: "blog" | "fulltext";
@@ -87,7 +91,11 @@ type CanvasToolbarProps = {
 
 const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarProps) {
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
-  const switcherMode = props.mode === "dual" || props.mode === "columns" ? "split" : props.mode;
+  // Two editable files are still an Edit view. "Split" in this control has
+  // always meant source + rendered preview, so marking a dual editor as Split
+  // left no visible way to bring the compiled PDF back beside the source.
+  const switcherMode = props.selectedDocumentViewMode
+    ?? (props.mode === "dual" || props.mode === "columns" ? "source" : props.mode);
   const showOverleafOnline = Boolean(props.overleafLinked && (
     props.overleafSyncing || props.overleafLiveEditing || props.overleafChannel === "live"
   ));
@@ -95,35 +103,37 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
     <div className="canvas-toolbar">
       <div className="active-document"><ActiveIcon size={14} /><span>{props.activePath}</span>{props.activeKind === "document" && props.dirty && <i />}</div>
       <div className="canvas-mode-controls" data-tour="document-view">
-        <SegmentedControl
-          value={switcherMode}
-          onChange={(mode) => {
-            if (mode === "source" || mode === "split" || mode === "pdf") props.setMode(mode);
-          }}
-          ariaLabel="Document view"
-          className="canvas-view-switcher"
-          items={[
-            {
-              value: "source",
-              label: "Edit",
-              title: props.markdown ? "Edit Markdown" : props.html ? "Edit HTML" : "Edit source",
-            },
-            {
-              value: "split",
-              label: "Split",
-              title: props.markdown
-                ? "Edit and preview Markdown"
-                : props.html
-                  ? "Edit and preview HTML"
-                  : "Edit source and preview PDF",
-            },
-            {
-              value: "pdf",
-              label: "Preview",
-              title: props.markdown ? "Preview Markdown" : props.html ? "Preview HTML" : "Preview PDF",
-            },
-          ]}
-        />
+        {props.supportsDocumentViewModes ? (
+          <SegmentedControl
+            value={switcherMode}
+            onChange={(mode) => {
+              if (mode === "source" || mode === "split" || mode === "pdf") props.setMode(mode);
+            }}
+            ariaLabel="Document view"
+            className="canvas-view-switcher"
+            items={[
+              {
+                value: "source",
+                label: "Edit",
+                title: props.markdown ? "Edit Markdown" : props.html ? "Edit HTML" : "Edit source",
+              },
+              {
+                value: "split",
+                label: "Split",
+                title: props.markdown
+                  ? "Edit and preview Markdown"
+                  : props.html
+                    ? "Edit and preview HTML"
+                    : "Edit source and preview PDF",
+              },
+              {
+                value: "pdf",
+                label: "Preview",
+                title: props.markdown ? "Preview Markdown" : props.html ? "Preview HTML" : "Preview PDF",
+              },
+            ]}
+          />
+        ) : null}
         {props.activeKind === "paper"
           && props.paperView
           && props.onPaperView
@@ -154,6 +164,17 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 <Redo2 size={14} />
               </button>
             </Tip>
+          </>
+        )}
+        {props.onSplit && (
+          <Tip label="Split editor right">
+            <button type="button" onClick={props.onSplit}>
+              <Columns2 size={14} />
+            </button>
+          </Tip>
+        )}
+        {props.activeKind === "document" && (
+          <>
             {props.canInsert && <Tip label="Insert snippet or symbol (⌘⇧I)">
               <button type="button" onClick={props.onInsert}>
                 <Omega size={14} />
@@ -261,9 +282,12 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
  */
 export function CanvasToolbar(props: CanvasToolbarProps) {
   const latest = useRef(props);
-  latest.current = props;
+  useEffect(() => {
+    latest.current = props;
+  });
   const stable = useMemo(() => ({
     setMode: (mode: DocumentViewMode) => latest.current.setMode(mode),
+    onSplit: () => latest.current.onSplit?.(),
     onPaperView: (view: "blog" | "fulltext") => latest.current.onPaperView?.(view),
     onNavigateBack: () => latest.current.onNavigateBack(),
     onNavigateForward: () => latest.current.onNavigateForward(),
@@ -280,6 +304,7 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
     <CanvasToolbarView
       {...props}
       setMode={stable.setMode}
+      onSplit={props.onSplit ? stable.onSplit : undefined}
       onPaperView={props.onPaperView ? stable.onPaperView : undefined}
       onNavigateBack={stable.onNavigateBack}
       onNavigateForward={stable.onNavigateForward}

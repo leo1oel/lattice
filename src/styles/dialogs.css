@@ -80,13 +80,12 @@
   max-height: calc(100vh - 32px);
   overflow-y: auto;
 }
-/* One vertical rhythm for the drawer form: intro, fields, rooms, actions. */
+/* One vertical rhythm for the drawer form: fields, rooms, actions. */
 .modal.collab-drawer-content {
   display: flex;
   flex-direction: column;
   gap: var(--drawer-section-gap);
 }
-.modal.collab-drawer-content > p { margin: 0; }
 .collab-modal .ui-textarea { min-height: 72px; }
 .collab-mode-switch { width: 100%; margin: 0; }
 .collab-field { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
@@ -312,9 +311,6 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 }
 .insert-palette-search { margin-bottom: var(--drawer-section-gap); }
 .insert-palette-tabs { flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--drawer-section-gap); }
-.insert-palette-tab { height: var(--control-size-icon-compact); border: 1px solid var(--border-subtle); border-radius: var(--radius-icon); padding: 0 var(--space-4); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); }
-.insert-palette-tab.active { border-color: var(--control-active-border); color: var(--control-active); }
-.insert-palette-tab:hover { background: var(--control-active-soft); color: var(--control-active); }
 .insert-palette-groups { display: grid; gap: var(--space-8); }
 .insert-palette-groups h3 { margin: 0 0 var(--space-4); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; display: flex; align-items: center; gap: var(--space-3); }
 .insert-palette-groups h3 small { color: var(--text-tertiary); font-size: var(--type-nano-size); font-weight: 600; letter-spacing: 0; text-transform: none; }
@@ -341,23 +337,11 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .welcome-content h1 { margin: 0; font-family: "Instrument Serif", Georgia, serif; font-size: clamp(42px, 6vw, 68px); line-height: 1.02; font-weight: 400; letter-spacing: -.025em; text-wrap: balance; }
 .welcome-copy { max-width: 470px; margin: 19px 0 26px; color: var(--text-secondary); font-size: var(--type-reading-size); line-height: 1.65; text-wrap: pretty; }
 .dual-canvas .dual-primary { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.dual-canvas .dual-primary.focused .source-editor,
-.dual-canvas .dual-pane.focused .source-editor {
-  outline: 1px solid var(--control-active-border);
-}
 .dual-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--editor-bg); }
-.dual-pane-label {
-  height: 28px;
-  padding: 0 var(--space-5);
-  border-bottom: 1px solid var(--border-subtle);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--text-secondary);
-  font-size: var(--type-micro-size);
-  font-weight: 600;
-}
 .dual-pane .source-editor { flex: 1; min-height: 0; }
+.dual-canvas .asset-pane { overflow: hidden; background: var(--surface-panel); }
+.dual-canvas .asset-pane > .asset-preview { flex: 1 1 0; min-width: 0; min-height: 0; }
+.dual-canvas .asset-pane.focused { outline: 1px solid var(--control-active-border); outline-offset: -1px; }
 .dual-empty {
   min-height: 0;
   display: grid;
@@ -369,6 +353,8 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
   padding: var(--space-12);
   background: var(--surface-panel);
 }
+.dual-empty.focused { outline: 1px solid var(--control-active-border); outline-offset: -1px; }
+.dual-empty:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
 .dual-empty p { margin: 0; max-width: 220px; line-height: 1.45; }
 .columns-canvas > .pdf-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .editor-tab.beside:not(.active) button[role="tab"] { color: var(--control-active); }

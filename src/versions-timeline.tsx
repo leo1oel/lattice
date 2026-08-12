@@ -436,11 +436,7 @@ export function VersionsTimeline(props: {
  * dark themes both work.
  */
 export const versionsTimelineCss = `
-.versions-tabs { display: flex; gap: var(--space-1); margin-top: var(--space-4); border-bottom: 1px solid var(--border-subtle); }
-.versions-tab { height: 28px; padding: 0 var(--space-5); background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: 600; border-bottom: 2px solid transparent; border-radius: var(--radius-icon); }
-.versions-tab:hover { color: var(--text-primary); background: var(--border-subtle); }
-/* The accent rule is the sliding indicator, not a static border. */
-.versions-tab.active { color: var(--text-primary); }
+.versions-tabs { margin-top: var(--space-4); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
 .versions-loading, .versions-note { margin: 14px 0 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
 .versions-loading { display: flex; align-items: center; gap: var(--space-3); }
 /* Appearance is owned by \`.ui-inline-message\`; only the spacing is local. */

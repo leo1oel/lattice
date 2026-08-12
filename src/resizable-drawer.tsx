@@ -9,8 +9,6 @@ import {
 } from "react";
 import "./components/ui/scroll-area.css";
 
-const DRAWER_WIDTH_KEY = "lattice.right-drawer-width.v1";
-const DEFAULT_DRAWER_WIDTH = 460;
 const MIN_DRAWER_WIDTH = 320;
 const MIN_WORKSPACE_WIDTH = 320;
 
@@ -21,21 +19,7 @@ function clampDrawerWidth(width: number) {
   );
 }
 
-function loadDrawerWidth() {
-  try {
-    return clampDrawerWidth(Number(localStorage.getItem(DRAWER_WIDTH_KEY)) || DEFAULT_DRAWER_WIDTH);
-  } catch {
-    return clampDrawerWidth(DEFAULT_DRAWER_WIDTH);
-  }
-}
-
-function persistDrawerWidth(width: number) {
-  try {
-    localStorage.setItem(DRAWER_WIDTH_KEY, String(width));
-  } catch {
-    // Resizing remains available for the current session when storage is unavailable.
-  }
-}
+const defaultDrawerWidth = () => clampDrawerWidth(window.innerWidth / 3);
 
 export function ResizableDrawer(props: {
   children: ReactNode;
@@ -46,16 +30,12 @@ export function ResizableDrawer(props: {
   onClose: () => void;
   onScroll?: UIEventHandler<HTMLElement>;
 }) {
-  const [width, setWidth] = useState(loadDrawerWidth);
+  const [width, setWidth] = useState(defaultDrawerWidth);
   const [resizing, setResizing] = useState(false);
   const finishResizeRef = useRef<(() => void) | null>(null);
 
   const fitToWindow = useCallback(() => {
-    setWidth((current) => {
-      const next = clampDrawerWidth(current);
-      if (next !== current) persistDrawerWidth(next);
-      return next;
-    });
+    setWidth((current) => clampDrawerWidth(current));
   }, []);
 
   useEffect(() => {
@@ -100,7 +80,6 @@ export function ResizableDrawer(props: {
       window.removeEventListener("blur", finish);
       target.removeEventListener("lostpointercapture", finish);
       if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId);
-      persistDrawerWidth(latest);
       if (finishResizeRef.current === finish) finishResizeRef.current = null;
     };
 
@@ -144,7 +123,6 @@ export function ResizableDrawer(props: {
             event.preventDefault();
             const next = clampDrawerWidth(width + (event.key === "ArrowLeft" ? 16 : -16));
             setWidth(next);
-            persistDrawerWidth(next);
           }}
         />
         {props.children}

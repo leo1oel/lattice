@@ -81,6 +81,8 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
   const storedCanvasMode = typeof storedCanvasModeValue === "string" ? storedCanvasModeValue : "";
   const canvasMode: WorkspaceCanvasMode = storedCanvasMode === "markdown-preview" || storedCanvasMode === "paper"
     ? "pdf"
+    : storedCanvasMode === "columns"
+      ? "dual"
     : WORKSPACE_CANVAS_MODES.has(storedCanvasMode as WorkspaceCanvasMode)
       ? storedCanvasMode as WorkspaceCanvasMode
       : "split";
@@ -88,7 +90,9 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
   const storedDocumentMode = typeof storedDocumentModeValue === "string"
     ? storedDocumentModeValue
     : "";
-  const documentMode = WORKSPACE_CANVAS_MODES.has(storedDocumentMode as WorkspaceCanvasMode)
+  const documentMode = storedDocumentMode === "columns"
+    ? "dual"
+    : WORKSPACE_CANVAS_MODES.has(storedDocumentMode as WorkspaceCanvasMode)
     && storedDocumentMode !== "asset"
     ? storedDocumentMode as Exclude<WorkspaceCanvasMode, "asset">
     : canvasMode === "asset"

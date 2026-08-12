@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CanvasToolbar } from "./canvas-toolbar";
 
@@ -7,6 +7,7 @@ afterEach(cleanup);
 const baseProps = {
   mode: "source" as const,
   setMode: vi.fn(),
+  supportsDocumentViewModes: true,
   markdown: false,
   html: false,
   activePath: "main.tex",
@@ -63,6 +64,37 @@ describe("CanvasToolbar insert action", () => {
 
     rerender(<CanvasToolbar {...baseProps} activePath="sketch.tldr" canInsert={false} />);
     expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).not.toBeInTheDocument();
+  });
+});
+
+describe("CanvasToolbar document views", () => {
+  it("presents two editable panes as Edit rather than source-and-preview Split", () => {
+    render(<CanvasToolbar {...baseProps} mode="dual" />);
+    expect(screen.getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Split" })).toHaveAttribute("aria-selected", "false");
+  });
+
+  it("replaces unsupported file view modes with one split action", () => {
+    const onSplit = vi.fn();
+    const { rerender } = render(<CanvasToolbar {...baseProps} />);
+    expect(screen.getByRole("tablist", { name: "Document view" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Split editor right" })).not.toBeInTheDocument();
+
+    rerender(
+      <CanvasToolbar
+        {...baseProps}
+        activePath="references.bib"
+        supportsDocumentViewModes={false}
+        onSplit={onSplit}
+      />,
+    );
+    expect(screen.queryByRole("tablist", { name: "Document view" })).not.toBeInTheDocument();
+    const split = screen.getByRole("button", { name: "Split editor right" });
+    expect(split).toBe(screen.getByRole("button", { name: "Go forward (⌘])" }).nextElementSibling);
+    expect(split.textContent).toBe("");
+    expect(split.querySelector(".lucide-columns-2")).not.toBeNull();
+    fireEvent.click(split);
+    expect(onSplit).toHaveBeenCalledTimes(1);
   });
 });
 

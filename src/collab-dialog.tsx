@@ -189,12 +189,6 @@ export function CollabDialog(props: {
         onClose={props.onClose}
       />
       <div className="modal collab-modal collab-drawer-content">
-        <p>
-          Share sources, figures, papers, and comments in real time — including each other’s
-          named cursors in the editor. Joining opens a new folder under Documents/Lattice Shares;
-          your other local projects are never modified. Rebuild the PDF locally after sync.
-        </p>
-
         {!live && !props.joinOnly ? (
           <SegmentedControl
             value={mode}

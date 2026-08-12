@@ -66,9 +66,6 @@ export function EditorCommentsPanel(props: {
           title="Editor comments"
           onClose={props.onClose}
         />
-        <p className="drawer-copy">
-          Select text in the source editor, then add a comment. Comments sync with collaborators and stay in the project after you leave.
-        </p>
         <div className="pdf-marks-toolbar">
           <SearchField
             aria-label="Filter editor comments"
@@ -77,17 +74,19 @@ export function EditorCommentsPanel(props: {
             onChange={(event) => setFilter(event.target.value)}
             onClear={() => setFilter("")}
           />
-          <div className="pdf-marks-kind-filter">
+          <div className="pdf-marks-kind-filter" role="group" aria-label="Comment visibility">
             <button
               type="button"
-              className={!showResolved ? "active" : ""}
+              className={`ui-compact-selectable${!showResolved ? " active" : ""}`}
+              aria-pressed={!showResolved}
               onClick={() => setShowResolved(false)}
             >
               Open
             </button>
             <button
               type="button"
-              className={showResolved ? "active" : ""}
+              className={`ui-compact-selectable${showResolved ? " active" : ""}`}
+              aria-pressed={showResolved}
               onClick={() => setShowResolved(true)}
             >
               Include resolved

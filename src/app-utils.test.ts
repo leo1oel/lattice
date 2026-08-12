@@ -246,6 +246,23 @@ describe("editor file drops", () => {
     });
   });
 
+  it("treats an empty secondary editor as a file drop target", () => {
+    const editor = document.createElement("div");
+    editor.className = "dual-empty";
+    editor.dataset.editorPane = "secondary";
+    document.body.append(editor);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => editor),
+    });
+
+    expect(dropEditorAt({ x: 24, y: 40 })).toEqual({
+      x: 24,
+      y: 40,
+      pane: "secondary",
+    });
+  });
+
   it("identifies the document canvas for pointer and native drop coordinates", () => {
     const canvas = document.createElement("div");
     canvas.className = "canvas-body";

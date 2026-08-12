@@ -305,17 +305,23 @@ export function OverleafCommentsPanel(props: {
       {props.error && <InlineMessage level="error" className="overleaf-chat-inline">{props.error}</InlineMessage>}
 
       {resolvedCount > 0 && (
-        <div className="pdf-marks-kind-filter overleaf-thread-filter">
+        <div
+          className="pdf-marks-kind-filter overleaf-thread-filter"
+          role="group"
+          aria-label="Comment visibility"
+        >
           <button
             type="button"
-            className={!showResolved ? "active" : ""}
+            className={`ui-compact-selectable${!showResolved ? " active" : ""}`}
+            aria-pressed={!showResolved}
             onClick={() => setShowResolved(false)}
           >
             Open
           </button>
           <button
             type="button"
-            className={showResolved ? "active" : ""}
+            className={`ui-compact-selectable${showResolved ? " active" : ""}`}
+            aria-pressed={showResolved}
             onClick={() => setShowResolved(true)}
           >
             Include resolved ({resolvedCount})

@@ -61,6 +61,28 @@ describe("shared surface contracts", () => {
     expect(appCss).not.toContain(".collab-advanced-toggle")
   })
 
+  it("keeps drawer controls clear of surrounding dividers", () => {
+    expect(appCss).toMatch(
+      /\.history-filters \{[^}]*margin:\s*var\(--space-6\) 0/,
+    )
+    expect(appCss).toMatch(
+      /\.insert-palette-scroll-content \{[^}]*padding-top:\s*var\(--drawer-content-inset\)/,
+    )
+    expect(appCss).toMatch(
+      /\.editor-comments-drawer \.pdf-marks-toolbar \{[^}]*margin-top:\s*var\(--drawer-content-inset\)/,
+    )
+    expect(appCss).toMatch(
+      /\.literature-search \{[^}]*margin:\s*var\(--drawer-content-inset\) 0 var\(--drawer-section-gap\)/,
+    )
+  })
+
+  it("keeps bibliography form sections from touching", () => {
+    expect(appCss).toMatch(
+      /\.table-generator, \.project-replace, \.bib-entry-dialog \{[^}]*gap:\s*var\(--space-6\)/,
+    )
+    expect(appCss).not.toContain(".bib-entry-dialog { gap: 0; }")
+  })
+
   it("keeps shared-room sideways overflow inside the Lattice scrollbar", () => {
     expect(appCss).toMatch(
       /\.collab-recent-scroll \{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*min-width:\s*0/,

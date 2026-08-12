@@ -194,8 +194,9 @@ input[type="search"]:focus-visible {
 .canvas-tour-card-anchor { position: fixed; right: 24px; bottom: 20px; width: 1px; height: 1px; pointer-events: none; }
 /* The titlebar overrides this height to fill its single chrome row. Keeping the
    strip's own default compact also makes the component usable in isolation. */
-.editor-tabs { position: relative; flex: 0 0 auto; min-width: 0; width: 100%; max-width: 100%; height: var(--tab-strip-height); border-bottom: 1px solid var(--border-subtle); background: var(--surface-panel); overflow: hidden; }
-.editor-tabs-scroll, .editor-tabs-viewport { min-width: 0; width: 100%; height: 100%; }
+.editor-tabs { position: relative; flex: 0 0 auto; min-width: 0; width: 100%; max-width: 100%; height: var(--tab-strip-height); border-bottom: 1px solid var(--border-subtle); background: var(--surface-panel); display: flex; overflow: hidden; }
+.editor-tabs-scroll { min-width: 0; width: auto; height: 100%; flex: 1 1 0; }
+.editor-tabs-viewport { min-width: 0; width: 100%; height: 100%; }
 .editor-tabs-viewport > [data-slot="scroll-area-content-shell"] { width: 100%; min-width: 100% !important; height: 100%; }
 .editor-tabs-content { width: 100%; min-width: 0; height: 100%; padding: 0 var(--space-4) 0 0; display: flex; align-items: stretch; gap: var(--space-1); }
 .editor-tab { --tab-surface: transparent; position: relative; isolation: isolate; flex: 1 1 var(--tab-basis); min-width: var(--tab-min-width); max-width: var(--tab-max-width); display: flex; align-items: stretch; border: 1px solid transparent; border-bottom: 0; border-radius: var(--tab-radius); background: var(--tab-surface); cursor: grab; overflow: hidden; }
@@ -205,6 +206,11 @@ input[type="search"]:focus-visible {
 /* While a tab is being dragged, the whole strip shows the grab cursor and stops
    selecting text under the pointer. */
 body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user-select: none; }
+.editor-tab-split-drop-preview { position: fixed; z-index: var(--z-editor-overlay); overflow: hidden; pointer-events: none; }
+.editor-tab-split-drop-target { position: absolute; top: 0; left: 0; overflow: hidden; border: 1px solid var(--control-active-border-strong); background: oklch(0 0 0 / 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-app) 20%, transparent); will-change: transform, width, height; }
+.editor-tab-split-drop-label { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; }
+.editor-tab-split-drop-label-content { padding: var(--space-3) var(--space-4); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-primary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); box-shadow: 0 1px 8px oklch(0 0 0 / 16%); }
+.editor-tab-split-drop-label-content svg { color: var(--control-active); opacity: .9; }
 .editor-tab > button[role="tab"] { height: 100%; min-width: 0; padding: 0 7px 0 9px; border: 0; background: transparent; color: var(--text-secondary); display: inline-flex; flex: 1 1 auto; align-items: center; justify-content: flex-start; gap: var(--space-3); font-size: var(--type-caption-size); text-align: left; overflow: hidden; }
 .editor-tab > button[role="tab"] span { min-width: 0; flex: 1 1 auto; overflow: hidden; white-space: nowrap; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-label-fade-width)), transparent); mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-label-fade-width)), transparent); }
 .editor-tab.active > button[role="tab"] { color: var(--text-primary); font-weight: var(--weight-semibold); }
@@ -220,7 +226,7 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 @container (max-width: 560px) { .editor-status-bar .status-hint { display: none; } }
 @container (max-width: 460px) { .editor-status-bar .status-todos { display: none; } }
 .table-generator, .project-replace, .bib-entry-dialog { width: min(480px, 100%); display: flex; flex-direction: column; gap: var(--space-6); }
-.bib-entry-dialog { gap: 0; }
+.bib-entry-dialog > .drawer-copy { margin: 0; }
 .bib-entry-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
 .bib-entry-form label { display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; font-family: var(--ui-font); }
 .bib-entry-form .bib-resolve-field { grid-column: 1 / -1; }

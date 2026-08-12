@@ -929,6 +929,7 @@ function useOptionalKeymapExtensions(
 
 export function DocumentCanvas(props: {
   mode: CanvasMode;
+  dualPreviewSide?: "left" | "right" | null;
   workspaceIndex?: MarkdownWorkspaceIndex | null;
   source: string;
   markdownPreviewSource?: string;
@@ -938,6 +939,7 @@ export function DocumentCanvas(props: {
   setSecondarySource: (value: string) => void;
   focusedPane: EditorPaneId;
   onFocusPane: (pane: EditorPaneId) => void;
+  dualRatioResetGeneration: number;
   setSource: (value: string) => void;
   onVisualMarkdownFlushChange?: (flush: (() => boolean) | null) => void;
   onMarkdownModeViewportCaptureChange?: (capture: (() => void) | null) => void;
@@ -954,6 +956,7 @@ export function DocumentCanvas(props: {
   /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
   papers?: PaperSummary[];
   activeAsset: AssetPreview | null;
+  secondaryAsset: AssetPreview | null;
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
@@ -1276,6 +1279,7 @@ export function DocumentCanvas(props: {
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<{ pane: EditorPaneId; cursor: number } | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
+  const handledDualRatioResetRef = useRef(props.dualRatioResetGeneration);
   const [columnsPdfRatio, setColumnsPdfRatio] = useState(loadColumnsPdfRatio);
   const [figureDropActive, setFigureDropActive] = useState(false);
   const [figureDropMarker, setFigureDropMarker] = useState<{ top: number; line: number } | null>(null);
@@ -1328,6 +1332,16 @@ export function DocumentCanvas(props: {
     register(captureMarkdownModeViewport);
     return () => register(null);
   }, [captureMarkdownModeViewport, props.onMarkdownModeViewportCaptureChange]);
+
+  useLayoutEffect(() => {
+    if (
+      props.mode !== "dual"
+      || handledDualRatioResetRef.current === props.dualRatioResetGeneration
+    ) return;
+    handledDualRatioResetRef.current = props.dualRatioResetGeneration;
+    setSplitRatio(0.5);
+    persistSplitRatio(0.5);
+  }, [props.dualRatioResetGeneration, props.mode]);
 
   useLayoutEffect(() => {
     const restoreGeneration = ++markdownModeViewportRestoreGenerationRef.current;
@@ -3404,7 +3418,9 @@ export function DocumentCanvas(props: {
       )}
     </div>
   );
-  const preview = markdownDocument ? paperPreview : htmlDocument ? (
+  const preview = props.activeAsset ? (
+    <ProjectAssetPreview key={props.activeAsset.path} asset={props.activeAsset} />
+  ) : markdownDocument ? paperPreview : htmlDocument ? (
     props.interactivePreviewsEnabled
       ? <HtmlPreview key={activeFile} path={activeFile} source={props.source} />
       : <HtmlPreviewLoading />
@@ -3428,7 +3444,7 @@ export function DocumentCanvas(props: {
           // Reverse-jump to source only when the editor is visible (split/dual/
           // columns). In PDF-only view there's nothing to jump to, so clicks stay
           // inert and the synctex cursor is off.
-          onSource={props.mode === "pdf" ? undefined : props.onPdfSource}
+          onSource={props.mode === "pdf" || props.dualPreviewSide ? undefined : props.onPdfSource}
           onTextSelect={props.onPdfTextSelect}
           onNumPages={props.onPdfPageCount}
           onPageChange={props.onPdfPageChange}
@@ -3476,7 +3492,22 @@ export function DocumentCanvas(props: {
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
   if (props.mode === "dual" || props.mode === "columns") {
-    const dualSecondary = secondaryFile ? (
+    const focusSecondaryPane = () => {
+      props.onContextSurfaceActivate("editor");
+      focusedPaneRef.current = "secondary";
+      onFocusPane("secondary");
+    };
+    const dualSecondary = props.secondaryAsset ? (
+      <div
+        className={`dual-pane asset-pane ${focusedPane === "secondary" ? "focused" : ""}`}
+        data-editor-pane="secondary"
+        tabIndex={0}
+        onPointerDownCapture={focusSecondaryPane}
+        onFocus={focusSecondaryPane}
+      >
+        <ProjectAssetPreview asset={props.secondaryAsset} />
+      </div>
+    ) : secondaryFile ? (
       <div
         className={`source-main dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
         onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
@@ -3492,7 +3523,6 @@ export function DocumentCanvas(props: {
           if (secondaryViewRef.current) editorViewRef.current = secondaryViewRef.current;
         }}
       >
-        <div className="dual-pane-label"><FileCode2 size={12} /><span>{secondaryFile}</span></div>
         <div
           className={`source-editor ${props.fileDropTargetPane === "secondary" ? "file-drop-active" : ""}`}
           data-editor-pane="secondary"
@@ -3513,9 +3543,16 @@ export function DocumentCanvas(props: {
         </div>
       </div>
     ) : (
-      <div className="dual-empty">
+      <div
+        className={`dual-empty ${focusedPane === "secondary" ? "focused" : ""}`}
+        data-editor-pane="secondary"
+        tabIndex={0}
+        aria-label="Empty secondary editor"
+        onPointerDownCapture={focusSecondaryPane}
+        onFocus={focusSecondaryPane}
+      >
         <Columns2 size={18} />
-        <p>Use Dual source view from the command palette to open a second file here.</p>
+        <p>Open or drag a file here.</p>
       </div>
     );
     const editorsShare = 1 - columnsPdfRatio;
@@ -3564,7 +3601,23 @@ export function DocumentCanvas(props: {
       window.addEventListener("pointermove", handleMove);
       window.addEventListener("pointerup", handleUp);
     };
-    const primaryPane = (
+    const primaryPane = props.activeAsset ? (
+      <div
+        className={`dual-primary asset-pane ${focusedPane === "primary" ? "focused" : ""}`}
+        data-editor-pane="primary"
+        tabIndex={0}
+        onPointerDownCapture={() => {
+          props.onContextSurfaceActivate("editor");
+          onFocusPane("primary");
+        }}
+        onFocus={() => {
+          props.onContextSurfaceActivate("editor");
+          onFocusPane("primary");
+        }}
+      >
+        <ProjectAssetPreview asset={props.activeAsset} />
+      </div>
+    ) : (
       <div
         className={`dual-primary ${focusedPane === "primary" ? "focused" : ""}`}
         onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
@@ -3575,6 +3628,23 @@ export function DocumentCanvas(props: {
         }}
       >
         {editor}
+      </div>
+    );
+    const dualPreviewPane = (
+      <div
+        className="dual-pane-preview"
+        data-editor-pane="primary"
+        tabIndex={0}
+        onPointerDownCapture={() => {
+          focusedPaneRef.current = "primary";
+          onFocusPane("primary");
+        }}
+        onFocusCapture={() => {
+          focusedPaneRef.current = "primary";
+          onFocusPane("primary");
+        }}
+      >
+        {preview}
       </div>
     );
     const editorResizer = (
@@ -3612,15 +3682,21 @@ export function DocumentCanvas(props: {
         </div>
       );
     }
+    const leftPane = props.dualPreviewSide === "left"
+      ? dualPreviewPane
+      : props.dualPreviewSide === "right"
+        ? dualSecondary
+        : primaryPane;
+    const rightPane = props.dualPreviewSide === "right" ? dualPreviewPane : dualSecondary;
     return (
       <div
         ref={splitRef}
         className="split-canvas dual-canvas"
         style={{ gridTemplateColumns: `minmax(220px, ${splitRatio}fr) 1px minmax(220px, ${1 - splitRatio}fr)` }}
       >
-        {primaryPane}
+        {leftPane}
         {editorResizer}
-        {dualSecondary}
+        {rightPane}
       </div>
     );
   }
@@ -3678,11 +3754,13 @@ export function DocumentCanvas(props: {
       <div
         className="split-resizer"
         role="separator"
-        aria-label={markdownDocument
-          ? "Resize editor and Markdown preview"
-          : htmlDocument
-            ? "Resize editor and HTML preview"
-            : "Resize editor and PDF preview"}
+        aria-label={props.activeAsset
+          ? "Resize editor and asset preview"
+          : markdownDocument
+            ? "Resize editor and Markdown preview"
+            : htmlDocument
+              ? "Resize editor and HTML preview"
+              : "Resize editor and PDF preview"}
         aria-orientation="vertical"
         aria-valuemin={20}
         aria-valuemax={80}

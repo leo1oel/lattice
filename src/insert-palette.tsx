@@ -98,7 +98,6 @@ export function InsertPalette(props: {
         contentClassName="insert-palette-scroll-content"
         fadeEdges={false}
       >
-        <p className="drawer-copy">Pick a symbol or snippet. Each tile shows what it looks like, a short description, and the LaTeX that will be inserted.</p>
         <SearchField
           autoFocus
           aria-label="Filter snippets"
@@ -114,7 +113,7 @@ export function InsertPalette(props: {
           ariaLabel="Insert categories"
           variant="none"
           className="insert-palette-tabs"
-          tabClassName="insert-palette-tab"
+          tabClassName="insert-palette-tab ui-compact-selectable"
           items={[
             { value: "All", label: "All" },
             ...INSERT_GROUPS.map((name) => ({ value: name, label: name })),

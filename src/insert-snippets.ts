@@ -115,13 +115,13 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
   env(
     "env-figure",
     "Figure",
-    "Floating figure with image, caption, and label",
+    "Floating figure with image, caption, and label (requires graphicx)",
     "\\begin{figure}[t]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{${1:path/to/figure.pdf}}\n  \\caption{${2:Caption}}\n  \\label{${3:fig:name}}\n\\end{figure}\n",
   ),
   env(
     "env-table",
     "Table",
-    "Floating table with booktabs-style rows",
+    "Floating table with ruled rows (requires booktabs)",
     "\\begin{table}[t]\n  \\centering\n  \\caption{${1:Caption}}\n  \\label{${2:tab:name}}\n  \\begin{tabular}{lcc}\n    \\toprule\n    Method & Score & Notes \\\\\n    \\midrule\n    Ours & 90 &  \\\\\n    \\bottomrule\n  \\end{tabular}\n\\end{table}\n",
   ),
   env(
@@ -211,14 +211,14 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
     "Itemize",
     "Bulleted list",
     "\\begin{itemize}\n  \\item \n\\end{itemize}\n",
-    22,
+    24,
   ),
   env(
     "env-enumerate",
     "Enumerate",
     "Numbered list",
     "\\begin{enumerate}\n  \\item \n\\end{enumerate}\n",
-    24,
+    26,
   ),
   env(
     "env-description",
@@ -244,14 +244,14 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
   env(
     "env-theorem",
     "Theorem",
-    "Theorem block (requires amsthm)",
+    "Theorem block (requires amsthm and a \\newtheorem declaration)",
     "\\begin{theorem}\n  \n\\end{theorem}\n",
     16,
   ),
   env(
     "env-proof",
     "Proof",
-    "Proof environment",
+    "Proof environment (requires amsthm)",
     "\\begin{proof}\n  \n\\end{proof}\n",
     14,
   ),
@@ -265,9 +265,9 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
   env(
     "env-algorithm",
     "Algorithm",
-    "Algorithm block (algorithm2e / algorithmicx style)",
+    "Algorithm block (requires algorithm and algpseudocode)",
     "\\begin{algorithm}\n  \\caption{Caption}\n  \\label{alg:name}\n  \\begin{algorithmic}[1]\n    \\State \n  \\end{algorithmic}\n\\end{algorithm}\n",
-    95,
+    93,
   ),
   env(
     "env-lstlisting",
@@ -281,7 +281,7 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
     "Minipage",
     "Side-by-side column block",
     "\\begin{minipage}{0.48\\linewidth}\n  \n\\end{minipage}\n",
-    36,
+    35,
   ),
   env(
     "env-center",
@@ -298,11 +298,11 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
   structure("sec-label", "Label", "Cross-reference label", "\\label{}", 7),
   structure("sec-ref", "Reference", "Reference an existing label", "\\ref{}", 5),
   structure("sec-eqref", "Equation reference", "Reference an equation label", "\\eqref{}", 7),
-  structure("sec-cite", "Citation", "Bibliographic citation", "\\citep{}", 6),
+  structure("sec-cite", "Citation", "Bibliographic citation (requires natbib or compatible package)", "\\citep{}", 7),
   structure("sec-textbf", "Bold", "Bold text command", "\\textbf{}", 8),
   structure("sec-emph", "Emphasis", "Emphasized text command", "\\emph{}", 6),
   structure("sec-footnote", "Footnote", "Footnote at the cursor", "\\footnote{}", 10),
-  structure("sec-includegraphics", "Include graphics", "Insert an image path", "\\includegraphics[width=\\linewidth]{}", 34),
+  structure("sec-includegraphics", "Include graphics", "Insert an image path (requires graphicx)", "\\includegraphics[width=\\linewidth]{}", 35),
   structure("sec-input", "Input file", "Inline another TeX file", "\\input{}", 7),
   structure("sec-include", "Include file", "Include another TeX file", "\\include{}", 9),
 
@@ -482,6 +482,9 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
   ...[
     ["\\emptyset", "∅", "Empty set"],
     ["\\varnothing", "∅", "Empty set (variant)"],
+  ].map(([command, glyph, name]) => op(command, glyph, name, "Sets")),
+
+  ...[
     ["\\infty", "∞", "Infinity"],
     ["\\nabla", "∇", "Nabla / del"],
     ["\\partial", "∂", "Partial derivative"],
@@ -502,7 +505,7 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
     ["\\flat", "♭", "Flat"],
     ["\\natural", "♮", "Natural"],
     ["\\sharp", "♯", "Sharp"],
-  ].map(([command, glyph, name]) => op(command, glyph, name, "Sets")),
+  ].map(([command, glyph, name]) => op(command, glyph, name, "Symbols")),
 
   ...[
     ["\\langle", "⟨", "Left angle bracket"],
@@ -541,6 +544,16 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
     mathPreview: preview,
   })),
 
+  {
+    id: "symbols-degree",
+    group: "Symbols",
+    label: "^{\\circ}",
+    detail: "Degree",
+    insert: "^{\\circ}",
+    glyph: "°",
+    mathPreview: "90^{\\circ}",
+  },
+
   ...[
     ["\\ell", "ℓ", "Script l"],
     ["\\hbar", "ℏ", "H-bar / reduced Planck"],
@@ -555,7 +568,6 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
     ["\\daleth", "ℸ", "Daleth"],
     ["\\prime", "′", "Prime"],
     ["\\backprime", "‵", "Back prime"],
-    ["\\degree", "°", "Degree"],
     ["\\% ", "%", "Percent"],
     ["\\&", "&", "Ampersand"],
     ["\\_", "_", "Underscore"],

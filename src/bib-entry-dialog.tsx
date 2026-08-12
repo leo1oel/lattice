@@ -150,11 +150,11 @@ export function BibEntryDialog(props: {
           title={heading}
           onClose={props.onClose}
         />
-        <p className="drawer-copy">
-          {editing
-            ? "Pick a venue to set its canonical name and entry type, or edit any field by hand."
-            : "Resolve a DOI, arXiv id, or title with bibcite, or fill the fields by hand. Optionally insert a cite command at the cursor."}
-        </p>
+        {editing && (
+          <p className="drawer-copy">
+            Pick a venue to set its canonical name and entry type, or edit any field by hand.
+          </p>
+        )}
         <div className="bib-entry-form">
         {!editing && props.onResolve && (
           <label className="bib-resolve-field">
