@@ -85,7 +85,7 @@ understand, making literature review and writing part of the same workflow.
 
 ## Get started
 
-Official builds currently support **Apple Silicon Macs running macOS 11 or
+Official builds currently support **Apple Silicon Macs running macOS 14 or
 later**. Downloads are signed and notarized by Apple and update automatically.
 
 1. **[Download the latest release](https://github.com/leo1oel/lattice/releases/latest)**,

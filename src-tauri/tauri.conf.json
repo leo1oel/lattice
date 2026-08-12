@@ -45,7 +45,7 @@
       "src/embedded_skills/"
     ],
     "macOS": {
-      "minimumSystemVersion": "11.0",
+      "minimumSystemVersion": "14.0",
       "signingIdentity": "-",
       "entitlements": "Entitlements.plist"
     },
