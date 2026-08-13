@@ -1059,6 +1059,7 @@ function App() {
     line?: number,
     targetPane?: EditorPaneId,
   ) => Promise<void>>(async () => undefined);
+  const openMarkdownProjectPathRef = useRef<(path: string) => void>(() => undefined);
   const dropProjectPathRef = useRef<(path: string, zone: EditorDropZone) => Promise<void>>(
     async () => undefined,
   );
@@ -1679,12 +1680,13 @@ function App() {
       }
       if (event.data?.type === SYNARA_OPEN_FILE) {
         // A file the agent named in its answer. The panel has no editor of its
-        // own to show it in, and the one beside it is ours.
+        // own to show it in, and the one beside it is ours. Route cached Paper
+        // markdown through the reader just like links inside our own preview.
         const path = synaraProjectRelativeFilePath(
           event.data.filePath,
           projectRef.current?.root,
         );
-        if (path) void openProjectFileRef.current(path);
+        if (path) openMarkdownProjectPathRef.current(path);
         return;
       }
       if (event.data?.type === SYNARA_OPEN_REVIEW) {
@@ -6452,6 +6454,9 @@ function App() {
     if (isProjectAssetFilePath(path)) openProjectAssetFromClick(path);
     else openProjectFileFromClick(path);
   }, [changePaperView, openPaper, openProjectAssetFromClick, openProjectFileFromClick, papers]);
+  useEffect(() => {
+    openMarkdownProjectPathRef.current = openMarkdownProjectPath;
+  }, [openMarkdownProjectPath]);
 
   const beginProjectFigureDrag = useCallback((path: string, label: string, event: React.PointerEvent) => {
     if (event.button !== 0) return;

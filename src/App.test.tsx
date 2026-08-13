@@ -1675,7 +1675,7 @@ describe("project workspace", () => {
       .toHaveAttribute("aria-current", "page");
   });
 
-  it("routes agent file and review requests to the editor or the changes drawer", async () => {
+  it("routes agent paper, file, and review requests to their native surfaces", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -1700,13 +1700,24 @@ describe("project workspace", () => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
       if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
-      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "list_papers") return [{
+        arxivId: "1706.03762",
+        title: "Attention Is All You Need",
+        authors: "Ashish Vaswani and Noam Shazeer",
+        hasFullText: true,
+        hasBlog: false,
+      }];
+      if (command === "read_paper") return "---\ntitle: Attention Is All You Need\n---\n\n## Abstract\n\nPaper content.";
+      if (command === "read_paper_blog_local") return null;
+      if (command === "list_history") return [];
       if (command === "build_project") return { success: true, hasPdf: false, log: "", durationMs: 5, diagnostics: [] };
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
     renderApp();
     await screen.findByRole("button", { name: "Switch project" });
+    await switchSidebarMode("Papers");
+    await screen.findByTitle("Attention Is All You Need");
     await switchSidebarMode("Agent");
     const frame = await waitFor(() => {
       const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
@@ -1728,6 +1739,21 @@ describe("project workspace", () => {
       "read_project_file",
       expect.objectContaining({ path: "notes/detailed distillation.md" }),
     ));
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: {
+          type: "synara:open-file",
+          filePath: "/tmp/lattice-paper/.research/papers/1706.03762/paper.md",
+        },
+      }));
+    });
+    expect(await screen.findByRole("heading", { name: "Attention Is All You Need" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View original PDF" })).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
 
     act(() => {
       window.dispatchEvent(new MessageEvent("message", {
