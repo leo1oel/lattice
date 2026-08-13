@@ -4,8 +4,10 @@ import {
   closestPdfPageIndex,
   findPdfMatches,
   fitPdfScale,
+  layoutPdfPages,
   normalizePdfSelection,
   parsePdfZoomPercent,
+  pdfPageWindow,
   PdfCooperativeRenderQueue,
   PdfRenderQueue,
   PDF_MAX_CANVAS_PIXELS,
@@ -36,6 +38,40 @@ describe("PDF viewer helpers", () => {
     expect(find(99_999)).toBe(127);
     expect(reads).toBeLessThan(55);
     expect(closestPdfPageIndex(0, () => ({ top: 0, bottom: 0 }), 0)).toBe(-1);
+  });
+
+  it("keeps a very large document's mounted page work bounded", () => {
+    const geometry = layoutPdfPages(
+      10_000,
+      new Map(),
+      { width: 612, height: 792 },
+      1,
+    );
+    const window = pdfPageWindow(geometry.pages, 4_050_000, 1_200, 5_000);
+    expect(window.end - window.start).toBeLessThanOrEqual(10);
+    expect(window.start).toBeLessThanOrEqual(5_000);
+    expect(window.end).toBeGreaterThan(5_000);
+  });
+
+  it("lays out mixed and rotated pages with stable exact offsets and jumps", () => {
+    const sizes = new Map([
+      [2, { width: 792, height: 612 }],
+      [3, { width: 500, height: 1_000 }],
+    ]);
+    const geometry = layoutPdfPages(4, sizes, { width: 612, height: 792 }, 1.5);
+    expect(geometry.pages).toEqual([
+      { top: 0, bottom: 1_188, width: 918, height: 1_188 },
+      { top: 1_206, bottom: 2_124, width: 1_188, height: 918 },
+      { top: 2_142, bottom: 3_642, width: 750, height: 1_500 },
+      { top: 3_660, bottom: 4_848, width: 918, height: 1_188 },
+    ]);
+    expect(closestPdfPageIndex(
+      geometry.pages.length,
+      (index) => geometry.pages[index],
+      geometry.pages[2].top + 200,
+    )).toBe(2);
+    expect(pdfPageWindow(geometry.pages, geometry.pages[2].top, 800, 2))
+      .toEqual({ start: 0, end: 4 });
   });
 
   it("limits concurrent page renders and keeps visible pages in arrival order", async () => {

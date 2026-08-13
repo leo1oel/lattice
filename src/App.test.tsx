@@ -4757,29 +4757,6 @@ describe("project workspace", () => {
   });
 
   it("renders every PDF page in one continuous themed reader", async () => {
-    const intersections: Array<{
-      element: Element;
-      notify: (isIntersecting: boolean) => void;
-    }> = [];
-    class TestIntersectionObserver {
-      constructor(private readonly callback: IntersectionObserverCallback) {}
-      observe(element: Element) {
-        intersections.push({
-          element,
-          notify: (isIntersecting) => this.callback(
-            [{ isIntersecting } as IntersectionObserverEntry],
-            this as unknown as IntersectionObserver,
-          ),
-        });
-      }
-      disconnect() {}
-      unobserve() {}
-      takeRecords() { return []; }
-      readonly root = null;
-      readonly rootMargin = "900px 0px";
-      readonly thresholds = [0];
-    }
-    vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -4893,19 +4870,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled());
     expect(await screen.findByLabelText("PDF page 1")).toBeInTheDocument();
     expect(await screen.findByLabelText("PDF page 2")).toBeInTheDocument();
-    act(() => {
-      for (const intersection of intersections) intersection.notify(true);
-    });
     await waitFor(() => expect(renderPdfPage).toHaveBeenCalledTimes(2));
-    const firstPageIntersection = intersections.find(
-      ({ element }) => (element as HTMLElement).dataset.pdfPage === "1",
-    );
-    expect(firstPageIntersection).toBeDefined();
-    act(() => firstPageIntersection?.notify(false));
-    await Promise.resolve();
-    act(() => firstPageIntersection?.notify(true));
-    await Promise.resolve();
-    expect(renderPdfPage.mock.calls.length).toBeGreaterThanOrEqual(2);
     // Every page gets a quick CSS-pixel preview before an offscreen high-DPI
     // refinement, so fast scrolling never waits on the final-quality pass.
     await waitFor(() => expect(renderPdfPage).toHaveBeenCalledTimes(4));

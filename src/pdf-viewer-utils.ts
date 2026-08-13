@@ -57,6 +57,75 @@ export type PdfPageSize = { width: number; height: number };
 
 export type PdfPageRect = { top: number; bottom: number };
 
+export const PDF_RENDER_CACHE_SIZE = 10;
+
+export type PdfPageGeometry = PdfPageRect & PdfPageSize;
+
+export type PdfDocumentGeometry = {
+  pages: PdfPageGeometry[];
+  height: number;
+  width: number;
+};
+
+export type PdfPageWindow = { start: number; end: number };
+
+/**
+ * Lay out every lightweight page shell without touching PDF.js. Known page
+ * sizes replace the fallback independently, so rotated and mixed-size pages
+ * retain exact offsets as their metadata is discovered.
+ */
+export function layoutPdfPages(
+  pageCount: number,
+  pageSizes: ReadonlyMap<number, PdfPageSize>,
+  fallbackPageSize: PdfPageSize,
+  scale: number,
+  gap = 18,
+): PdfDocumentGeometry {
+  const pages: PdfPageGeometry[] = [];
+  let top = 0;
+  let width = 0;
+  for (let index = 0; index < pageCount; index += 1) {
+    const size = pageSizes.get(index + 1) ?? fallbackPageSize;
+    const pageWidth = Math.floor(size.width * scale);
+    const pageHeight = Math.floor(size.height * scale);
+    pages.push({ top, bottom: top + pageHeight, width: pageWidth, height: pageHeight });
+    width = Math.max(width, pageWidth);
+    top += pageHeight + (index + 1 < pageCount ? gap : 0);
+  }
+  return { pages, height: top, width };
+}
+
+/** Return a capped visible + page-count overscan window (zero-based, end exclusive). */
+export function pdfPageWindow(
+  pages: PdfPageRect[],
+  viewportTop: number,
+  viewportHeight: number,
+  focusIndex: number,
+  overscan = 3,
+  limit = PDF_RENDER_CACHE_SIZE,
+): PdfPageWindow {
+  if (!pages.length || limit <= 0) return { start: 0, end: 0 };
+  const boundedFocus = Math.min(pages.length - 1, Math.max(0, focusIndex));
+  const viewportBottom = viewportTop + Math.max(0, viewportHeight);
+  const firstVisible = closestPdfPageIndex(
+    pages.length,
+    (index) => pages[index],
+    viewportTop,
+  );
+  let lastVisible = firstVisible;
+  while (lastVisible + 1 < pages.length && pages[lastVisible + 1].top <= viewportBottom) {
+    lastVisible += 1;
+  }
+  let start = Math.max(0, Math.min(firstVisible, boundedFocus) - overscan);
+  let end = Math.min(pages.length, Math.max(lastVisible, boundedFocus) + overscan + 1);
+  if (end - start > limit) {
+    start = Math.max(0, boundedFocus - Math.floor((limit - 1) / 2));
+    end = Math.min(pages.length, start + limit);
+    start = Math.max(0, end - limit);
+  }
+  return { start, end };
+}
+
 /** Find the first closest ordered page shell, preserving document-order ties. */
 export function closestPdfPageIndex(
   pageCount: number,
@@ -82,7 +151,6 @@ export function closestPdfPageIndex(
 
 export const PDF_MIN_SCALE = 0.3;
 export const PDF_MAX_SCALE = 5;
-export const PDF_RENDER_CACHE_SIZE = 10;
 export const PDF_MAX_CANVAS_PIXELS = 2 ** 24;
 const PDF_MAX_CONCURRENT_RENDERS = 2;
 
