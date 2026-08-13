@@ -136,6 +136,7 @@ import { createProjectV2 } from "./collab-import-v2";
 import { CollabControlErrorV2, CollabControlV2Client } from "./collab-control-v2";
 import { acceptCollabInvitationV2 } from "./collab-join-v2";
 import { CollabProjectControllerV2, type CollabMaterializeCallbacksV2, type CollabProjectStatusV2 } from "./collab-project-v2";
+import { mapCollabProjectStatusV2 } from "./collab-status";
 import { isClientDestroyedErrorV2, TextClientPermanentErrorV2 } from "./collab-text-v2";
 import { collabCommentsMap, readCollabComments, seedCollabCommentsFromContent, writeCollabComments } from "./collab-comments";
 import type { CatalogV2 } from "../protocol/collab-v2";
@@ -651,29 +652,6 @@ function recordNavigationTiming(
       .join(" ")}`,
     toast: false,
   });
-}
-
-export function mapCollabProjectStatusV2(status: CollabProjectStatusV2): {
-  status: CollabStatus;
-  detail: string | null;
-} {
-  switch (status) {
-    case "server-received":
-    case "durable":
-      return { status: "synced", detail: null };
-    case "syncing":
-      return { status: "connecting", detail: "Syncing changes…" };
-    case "importing":
-      return { status: "connecting", detail: "Importing all project files…" };
-    case "offline":
-      return { status: "disconnected", detail: "Offline" };
-    case "read-only":
-      return { status: "disconnected", detail: "Collaboration is read-only" };
-    case "closed":
-      return { status: "disconnected", detail: "This shared project is closed" };
-    case "error":
-      return { status: "error", detail: "Collaboration failed" };
-  }
 }
 
 function App() {
