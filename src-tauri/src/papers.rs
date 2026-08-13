@@ -1116,7 +1116,12 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
     let bibliography =
         fs::read_to_string(project::safe_path(root, &manifest.primary_bibliography)?)
             .unwrap_or_default();
-    for citation in project::parse_bibliography(&bibliography) {
+    let citations = project::parse_bibliography(&bibliography);
+    let citation_health = crate::citation_health::lookup(
+        root,
+        citations.iter().filter_map(|citation| citation.doi.clone()),
+    );
+    for citation in citations {
         // Prefer an explicit arXiv identity, then an arXiv bundle with the same
         // title, and only then a captured webpage. The title bridge matters for
         // published DBLP/OpenReview entries written without an eprint: once a
@@ -1157,6 +1162,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
                 .map(|(id, _, _, _, _)| id.clone())
                 .or(citation.arxiv_id)
                 .unwrap_or_default(),
+            doi: citation.doi.clone(),
             url: citation.url,
             title,
             authors: citation.authors,
@@ -1170,6 +1176,11 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             asset_paths: matched
                 .map(|(_, _, _, _, asset_paths)| asset_paths)
                 .unwrap_or_default(),
+            citation_health: citation
+                .doi
+                .as_ref()
+                .and_then(|doi| citation_health.get(doi))
+                .cloned(),
         });
     }
     // The bibliography is strictly authoritative; unclaimed cache entries stay hidden.
@@ -1282,7 +1293,11 @@ pub struct LibraryPaper {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub arxiv_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub doi: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub citation_health: Option<crate::citation_health::CitationHealth>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub full_text_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1305,7 +1320,9 @@ pub fn list_library(root: &Path) -> Result<Vec<LibraryPaper>, String> {
                 title: paper.title,
                 citation_key: paper.citation_key,
                 arxiv_id: paper.arxiv_id,
+                doi: paper.doi,
                 url: paper.url,
+                citation_health: paper.citation_health,
                 full_text_path,
                 overview_path,
             }
@@ -3051,6 +3068,58 @@ mod tests {
             .expect("the cited-only work");
         assert!(uncached.full_text_path.is_none(), "got: {uncached:?}");
         assert!(uncached.overview_path.is_none(), "got: {uncached:?}");
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn preserves_normalized_doi_and_cached_health_in_papers_and_agent_library() {
+        let parent = std::env::temp_dir().join(format!("lattice-health-list-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@article{historical, title={Historical result}, doi={https://doi.org/10.1234/EXAMPLE}}\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join(".research/cache")).unwrap();
+        fs::write(
+            root.join(".research/cache/citation-health-v1.json"),
+            r#"{
+              "schema": 1,
+              "entries": {
+                "10.1234/example": {
+                  "checked_at_epoch": 9999999999,
+                  "health": {
+                    "kind": "expressionOfConcern",
+                    "updateType": "expression_of_concern",
+                    "source": "publisher",
+                    "date": "2024-04-01",
+                    "link": "https://doi.org/10.5555/notice",
+                    "checkedAt": "2026-08-13T12:00:00Z"
+                  }
+                }
+              }
+            }"#,
+        )
+        .unwrap();
+
+        let papers = list_papers(&root).unwrap();
+        assert_eq!(papers[0].doi.as_deref(), Some("10.1234/example"));
+        assert_eq!(
+            papers[0]
+                .citation_health
+                .as_ref()
+                .map(|health| health.kind.as_str()),
+            Some("expressionOfConcern")
+        );
+        let library = list_library(&root).unwrap();
+        assert_eq!(library[0].doi.as_deref(), Some("10.1234/example"));
+        assert_eq!(
+            library[0]
+                .citation_health
+                .as_ref()
+                .and_then(|health| health.link.as_deref()),
+            Some("https://doi.org/10.5555/notice")
+        );
         let _ = fs::remove_dir_all(parent);
     }
 

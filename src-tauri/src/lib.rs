@@ -1,4 +1,5 @@
 mod alphaxiv;
+mod citation_health;
 mod collab_credentials;
 mod commands;
 mod doctor;

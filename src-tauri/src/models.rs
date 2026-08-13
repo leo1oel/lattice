@@ -399,6 +399,9 @@ pub struct ImportResult {
 #[serde(rename_all = "camelCase")]
 pub struct PaperSummary {
     pub arxiv_id: String,
+    /// Normalized DOI from the authoritative bibliography entry.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doi: Option<String>,
     /// The cited page for webpage references — how the row offers a download
     /// when there is no arXiv id to fetch by.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -413,6 +416,10 @@ pub struct PaperSummary {
     /// Converter-owned files needed to render figures in the paper reader.
     #[serde(default)]
     pub asset_paths: Vec<String>,
+    /// Crossref's DOI-exact update metadata. This is advisory: citations are
+    /// never removed or blocked based on it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub citation_health: Option<crate::citation_health::CitationHealth>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -427,6 +434,9 @@ pub struct CitationInfo {
     /// fetched later.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub arxiv_id: Option<String>,
+    /// DOI normalized for exact metadata lookups (lowercase, without a resolver URL).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doi: Option<String>,
     /// The entry's `url` field. For a webpage citation this is the identity
     /// that links it to its captured content.
     #[serde(skip_serializing_if = "Option::is_none")]

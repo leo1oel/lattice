@@ -558,12 +558,16 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 /* Visible face stays 22px; a ::after expands the hit area to the 32px row height
    without colliding with neighbouring rows (40px would overlap). */
 .paper-row-actions { align-self: stretch; flex: none; padding-inline-end: var(--space-2); display: flex; align-items: center; }
-.row-delete, .row-edit-bib { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; opacity: 0; }
-.row-delete::after, .row-edit-bib::after { content: ""; position: absolute; inset: -5px; }
-.row-delete svg, .row-edit-bib svg { stroke-width: 1.5; }
+.row-delete, .row-edit-bib { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; }
+.row-delete, .row-edit-bib { opacity: 0; }
+.row-delete::after, .row-edit-bib::after, .row-citation-health::after { content: ""; position: absolute; inset: -5px; }
+.row-delete svg, .row-edit-bib svg, .row-citation-health svg { stroke-width: 1.5; }
 .paper-row:hover .row-delete, .paper-row:hover .row-edit-bib, .paper-row.active .row-delete, .paper-row.active .row-edit-bib { opacity: 1; }
 .row-edit-bib:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }
 .row-delete:hover { background: color-mix(in srgb, var(--status-danger) 10%, transparent) !important; color: var(--status-danger) !important; }
+.row-citation-health { position: relative; width: 22px; height: 22px; flex: none; padding: 0; border-radius: var(--radius-compact); background: transparent; color: var(--status-warning); display: grid; place-items: center; }
+.row-citation-health:hover { background: color-mix(in srgb, var(--status-warning) 10%, transparent); }
+.paper-row.citation-retracted .row-citation-health { color: var(--status-danger); }
 .paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
 .paper-row { width: 100%; border-radius: var(--radius-icon); display: flex; align-items: center; color: var(--text-secondary); }
@@ -579,6 +583,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .paper-list strong, .paper-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paper-list strong { color: inherit; font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-regular); }
 .paper-list small { margin-top: var(--space-1); color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
+.paper-list .paper-citation-health { color: var(--status-warning); }
+.paper-row.citation-retracted .paper-citation-health { color: var(--status-danger); }
 .paper-list-end { margin: var(--space-6) 7px var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); text-align: center; }
 .empty-note { margin: 7px; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.5; }
 .papers-empty-state { margin: 14px 7px; padding: 14px var(--space-6); border: 1px dashed var(--border-strong); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--editor-bg) 55%, transparent); text-align: center; }

@@ -96,9 +96,7 @@ fn map_work(work: WorkPayload) -> Option<OpenAlexWork> {
     let doi = work
         .doi
         .or_else(|| work.ids.as_ref().and_then(|ids| ids.doi.clone()))
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .map(|value| value.trim_start_matches("https://doi.org/").to_string());
+        .and_then(|value| crate::project::normalize_doi(&value));
     let arxiv_id = doi.as_ref().and_then(|value| arxiv_id_from_doi(value));
     let authors = work
         .authorships
@@ -192,6 +190,6 @@ mod tests {
         let work = map_work(payload).unwrap();
         assert_eq!(work.arxiv_id.as_deref(), Some("1706.03762"));
         assert_eq!(work.authors, vec!["Ashish Vaswani".to_string()]);
-        assert_eq!(work.doi.as_deref(), Some("10.48550/arXiv.1706.03762"));
+        assert_eq!(work.doi.as_deref(), Some("10.48550/arxiv.1706.03762"));
     }
 }

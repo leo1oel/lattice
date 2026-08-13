@@ -2450,6 +2450,66 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("fetch_paper", { arxivId: "1412.6980" }));
   });
 
+  it("warns about DOI-exact citation updates and opens the Crossref notice", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{main}";
+      if (command === "list_papers") return [{
+        arxivId: "",
+        doi: "10.1234/example",
+        title: "A historically important result",
+        citationKey: "example2020",
+        hasFullText: false,
+        hasBlog: false,
+        citationHealth: {
+          kind: "retracted",
+          updateType: "retraction",
+          source: "retraction-watch",
+          date: "2023-09-17",
+          link: "https://doi.org/10.5555/retraction-notice",
+          checkedAt: "2026-08-13T12:00:00Z",
+        },
+      }, {
+        arxivId: "",
+        doi: "10.1234/no-updates",
+        title: "No registered update",
+        citationKey: "current2024",
+        hasFullText: false,
+        hasBlog: false,
+        citationHealth: {
+          kind: "unknown",
+          source: "crossref",
+          checkedAt: "2026-08-13T12:00:00Z",
+        },
+      }];
+      if (command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await switchSidebarMode("Papers");
+    const warning = await screen.findByRole("status");
+    expect(warning).toHaveTextContent("Retracted · Retraction Watch · 2023-09-17");
+    expect(screen.queryByText(/No Crossref update metadata found/, { selector: ".paper-citation-health" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Retracted · Retraction Watch · 2023-09-17. Open notice",
+    }));
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://doi.org/10.5555/retraction-notice"));
+  });
+
   it("filters the current Papers library by metadata without starting an import", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",

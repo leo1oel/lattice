@@ -2543,6 +2543,7 @@ pub(crate) fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
                 .cloned()
                 .unwrap_or_default(),
             arxiv_id: bibliography_arxiv_id(&fields),
+            doi: fields.get("doi").and_then(|value| normalize_doi(value)),
             url: fields
                 .get("url")
                 .map(|value| value.trim().to_string())
@@ -2550,6 +2551,29 @@ pub(crate) fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
         });
     }
     citations
+}
+
+/// Canonical DOI spelling used as the cache and Crossref lookup identity.
+/// DOI matching is case-insensitive; resolver prefixes are presentation only.
+pub(crate) fn normalize_doi(value: &str) -> Option<String> {
+    let mut value = value.trim();
+    for prefix in [
+        "https://doi.org/",
+        "http://doi.org/",
+        "http://dx.doi.org/",
+        "doi:",
+    ] {
+        if value
+            .get(..prefix.len())
+            .is_some_and(|start| start.eq_ignore_ascii_case(prefix))
+        {
+            value = value[prefix.len()..].trim();
+            break;
+        }
+    }
+    let value = value.to_ascii_lowercase();
+    let valid = Regex::new(r"^10\.\d{4,9}/\S+$").ok()?;
+    valid.is_match(&value).then_some(value)
 }
 
 /// arXiv preprints reach a .bib in several shapes. Extract them all here so

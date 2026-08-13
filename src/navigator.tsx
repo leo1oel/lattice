@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type {
   ContextMenuItem as PierreContextMenuItem,
   ContextMenuOpenContext as PierreContextMenuOpenContext,
@@ -22,6 +23,7 @@ import {
   ImagePlus,
   Pencil,
   Plus,
+  TriangleAlert,
 } from "lucide-react";
 import {
   ContextMenu,
@@ -61,10 +63,41 @@ function filterPapers(papers: readonly PaperSummary[], query: string): PaperSumm
       paper.authors,
       paper.citationKey,
       paper.arxivId,
+      paper.doi,
       paper.url,
     ].filter(Boolean).join(" ").toLocaleLowerCase();
     return tokens.every((token) => haystack.includes(token));
   });
+}
+
+function citationHealthLabel(paper: PaperSummary): string | null {
+  const health = paper.citationHealth;
+  if (!health || health.kind === "unknown" || health.kind === "unavailable") return null;
+  const kind = {
+    retracted: "Retracted",
+    expressionOfConcern: "Expression of concern",
+    corrected: "Correction/update",
+    replaced: "Replacement/new version",
+  }[health.kind];
+  const source = health.source === "retraction-watch"
+    ? "Retraction Watch"
+    : health.source === "publisher"
+      ? "Publisher"
+      : health.source;
+  return [kind, source, health.date, health.stale ? "cached" : null].filter(Boolean).join(" · ");
+}
+
+function citationHealthTitle(paper: PaperSummary): string | undefined {
+  const health = paper.citationHealth;
+  if (!health) return undefined;
+  const warning = citationHealthLabel(paper);
+  if (warning) {
+    const updateType = health.updateType?.replaceAll("_", " ");
+    return [warning, updateType && `Crossref type: ${updateType}`].filter(Boolean).join(". ");
+  }
+  if (health.kind === "unavailable") return "Crossref citation-health metadata is currently unavailable";
+  if (health.updateType) return `Crossref reports update type: ${health.updateType.replaceAll("_", " ")}`;
+  return `No Crossref update metadata found (checked ${health.checkedAt.slice(0, 10)})`;
 }
 
 type PaperLibrarySearchHit = {
@@ -1570,8 +1603,13 @@ export function Navigator(props: {
           {filteredPapers.map((paper) => {
             const fetchState = props.paperFetchStates[paperKey(paper)];
             const locallyReadable = paper.hasFullText || paper.hasBlog;
+            const healthLabel = citationHealthLabel(paper);
+            const healthTitle = citationHealthTitle(paper);
             const row = (
-              <div className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}>
+              <div
+                className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}
+                data-citation-health={paper.citationHealth?.kind}
+              >
               <button
                 data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
                 title={locallyReadable
@@ -1607,9 +1645,20 @@ export function Navigator(props: {
                 <span>
                   <strong>{paper.title}</strong>
                   <small>{matchingSnippet(paper) || paperSubtitle(paper)}</small>
+                  {healthLabel && <small className="paper-citation-health" role="status">{healthLabel}</small>}
                 </span>
               </button>
               <div className="paper-row-actions">
+                {healthLabel && paper.citationHealth?.link && (
+                  <button
+                    className="row-citation-health"
+                    title={`${healthTitle}. Open notice`}
+                    aria-label={`${healthLabel}. Open notice`}
+                    onClick={() => void openUrl(paper.citationHealth!.link!).catch(() => undefined)}
+                  >
+                    <TriangleAlert size={12} />
+                  </button>
+                )}
                 {paper.citationKey && (
                   <button className="row-edit-bib" title="Edit bibliography entry" onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
                 )}
@@ -1620,6 +1669,7 @@ export function Navigator(props: {
                   onClick={() => props.onDeletePaper(paper)}
                 />
               </div>
+              {!healthLabel && healthTitle && <span className="sr-only">{healthTitle}</span>}
               </div>
             );
             // A cited-only paper has no local file to act on, so it stays bare;

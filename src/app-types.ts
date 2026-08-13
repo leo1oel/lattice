@@ -135,6 +135,8 @@ export type BuildResult = {
 
 export type PaperSummary = {
   arxivId: string;
+  /** Normalized DOI from the authoritative bibliography entry. */
+  doi?: string;
   /** The cited page for webpage references; how the row fetches when there is no arXiv id. */
   url?: string;
   title: string;
@@ -147,6 +149,18 @@ export type PaperSummary = {
   hasBlog: boolean;
   /** Converter-owned files needed to render figures in the paper reader. */
   assetPaths?: string[];
+  /** Advisory DOI-exact update metadata from Crossref. */
+  citationHealth?: CitationHealth;
+};
+
+export type CitationHealth = {
+  kind: "retracted" | "expressionOfConcern" | "corrected" | "replaced" | "unknown" | "unavailable";
+  updateType?: string;
+  source?: string;
+  date?: string;
+  link?: string;
+  checkedAt: string;
+  stale?: boolean;
 };
 
 export type RenameTarget =
