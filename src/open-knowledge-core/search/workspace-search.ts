@@ -1,4 +1,5 @@
 import { type AnyOrama, count, create, insertMultiple, removeMultiple, search } from '@orama/orama';
+import { tokenizer as oramaTokenizer } from '@orama/orama/components';
 import { isHiddenDocName } from '../util/doc-name.ts';
 
 export type WorkspaceSearchKind = 'page' | 'folder' | 'file';
@@ -178,6 +179,34 @@ type WorkspaceSearchIndex = AnyOrama;
 
 const workspaceSearchIndexes = new WeakMap<WorkspaceSearchCorpus, WorkspaceSearchIndex>();
 
+const DROPPED_SCRIPT_CHAR = /[^\P{L}a-zàèéìòóù]|[^\P{Nd}0-9]|\p{Nl}/iu;
+
+const WORD_SEGMENTER = (() => {
+  const Ctor = (globalThis as { Intl: { Segmenter?: typeof Intl.Segmenter } }).Intl.Segmenter;
+  return Ctor ? new Ctor('en', { granularity: 'word' }) : null;
+})();
+
+function createWorkspaceSearchTokenizer() {
+  const base = oramaTokenizer.createTokenizer({ language: 'english' });
+  const baseTokenize = base.tokenize.bind(base);
+  base.tokenize = (input, language, prop, withCache) => {
+    const tokens = baseTokenize(input, language, prop, withCache);
+    if (!WORD_SEGMENTER || typeof input !== 'string') return tokens;
+    if (!DROPPED_SCRIPT_CHAR.test(input)) return tokens;
+    const seen = new Set(tokens);
+    for (const { segment, isWordLike } of WORD_SEGMENTER.segment(input)) {
+      if (!isWordLike || !DROPPED_SCRIPT_CHAR.test(segment)) continue;
+      const token = segment.toLowerCase();
+      if (!seen.has(token)) {
+        seen.add(token);
+        tokens.push(token);
+      }
+    }
+    return tokens;
+  };
+  return base;
+}
+
 function clampLimit(limit: number | undefined): number {
   if (limit === undefined || !Number.isFinite(limit)) return DEFAULT_WORKSPACE_SEARCH_LIMIT;
   return Math.max(1, Math.min(MAX_WORKSPACE_SEARCH_LIMIT, Math.trunc(limit)));
@@ -256,7 +285,10 @@ export function createWorkspaceSearchDocument(input: {
 function createWorkspaceSearchIndex(
   documents: readonly WorkspaceSearchDocument[],
 ): WorkspaceSearchIndex {
-  const db = create({ schema: WORKSPACE_SEARCH_SCHEMA });
+  const db = create({
+    schema: WORKSPACE_SEARCH_SCHEMA,
+    components: { tokenizer: createWorkspaceSearchTokenizer() },
+  });
   if (documents.length > 0) {
     insertMultiple(db, documents as WorkspaceSearchDocument[]);
   }
@@ -663,9 +695,16 @@ function searchBoost(
   return { title: 8, name: 7, path: 5, pathSegments: 4 };
 }
 
+const DENSE_SCRIPT_CHAR =
+  /[฀-๿ក-៿　-〿぀-ゟ゠-ヿ㐀-䶿一-鿿\uf900-﫿＀-￯\u1100-\u11ff\u3130-\u318f\ua960-\ua97f\uac00-\ud7ff]/;
+
 function toleranceFor(intent: WorkspaceSearchIntent, query: string): number {
   const normalizedQuery = normalize(query);
   if (normalizedQuery.length < 4) return 0;
+  // Orama takes one tolerance for the whole query, so a mixed-script query
+  // gives up typo tolerance on its Latin half too — worth it to keep the
+  // exact match on top.
+  if (DENSE_SCRIPT_CHAR.test(normalizedQuery)) return 0;
   return intent === 'full_text' ? 1 : 0;
 }
 

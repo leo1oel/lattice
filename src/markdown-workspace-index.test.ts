@@ -91,6 +91,20 @@ describe("MarkdownWorkspaceIndex", () => {
     expect(index.searchPages("", 2).map((doc) => doc.docName)).toEqual(["z", "a"]);
   });
 
+  test("autocompletes non-Latin and mixed-script page titles", async () => {
+    const index = new MarkdownWorkspaceIndex(
+      reader({
+        "zh.md": "# 量子计算研究",
+        "mixed.md": "# Project 東京 Notes",
+        "other.md": "# Project Notes",
+      }),
+    );
+    await index.update([file("zh.md"), file("mixed.md"), file("other.md")]);
+
+    expect(index.searchPages("量子计算").map((doc) => doc.docName)).toEqual(["zh"]);
+    expect(index.searchPages("project 東京")[0]?.docName).toBe("mixed");
+  });
+
   test("applies live content changes to headings and backlinks", async () => {
     const index = new MarkdownWorkspaceIndex(
       reader({ "source.md": "# Old", "target.md": "# Target" }),
