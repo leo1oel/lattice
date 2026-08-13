@@ -653,6 +653,29 @@ function recordNavigationTiming(
   });
 }
 
+export function mapCollabProjectStatusV2(status: CollabProjectStatusV2): {
+  status: CollabStatus;
+  detail: string | null;
+} {
+  switch (status) {
+    case "server-received":
+    case "durable":
+      return { status: "synced", detail: null };
+    case "syncing":
+      return { status: "connecting", detail: "Syncing changes…" };
+    case "importing":
+      return { status: "connecting", detail: "Importing all project files…" };
+    case "offline":
+      return { status: "disconnected", detail: "Offline" };
+    case "read-only":
+      return { status: "disconnected", detail: "Collaboration is read-only" };
+    case "closed":
+      return { status: "disconnected", detail: "This shared project is closed" };
+    case "error":
+      return { status: "error", detail: "Collaboration failed" };
+  }
+}
+
 function App() {
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
   const workspaceIndex = useMemo(
@@ -878,6 +901,8 @@ function App() {
   // Read by the presence hook, which must not re-subscribe on every keystroke.
   const editorPositionRef = useRef<EditorPosition | null>(null);
   editorPositionRef.current = editorPosition;
+  const forwardSyncGenerationRef = useRef(0);
+  const outlineSyncGenerationRef = useRef(0);
   const [pdfSyncTarget, setPdfSyncTarget] = useState<PdfSyncTarget | null>(null);
   const [locatingPdf, setLocatingPdf] = useState(false);
   const [build, setBuild] = useState<BuildResult | null>(null);
@@ -1981,7 +2006,8 @@ function App() {
   const saveTimer = useRef<number | null>(null);
   const automaticBuildPending = useRef(false);
   const buildingRef = useRef(false);
-  const buildQueued = useRef(false);
+  // null means no queued build; false/true retain the strongest pending intent.
+  const queuedBuildForceRef = useRef<boolean | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
@@ -2571,9 +2597,9 @@ function App() {
     // status changes during openPath must not erase it or expose the live card
     // before setup has actually finished.
     if (collabStartingRef.current) return;
-    const mapped: CollabStatus = status === "error" ? "error" : status === "durable" || status === "server-received" ? "synced" : "connecting";
-    setCollabStatus(mapped);
-    setCollabStatusDetail(status === "importing" ? "Importing all project files…" : null);
+    const mapped = mapCollabProjectStatusV2(status);
+    setCollabStatus(mapped.status);
+    setCollabStatusDetail(mapped.detail);
   }, []);
 
   /**
@@ -3622,7 +3648,7 @@ function App() {
       return;
     }
     if (buildingRef.current) {
-      buildQueued.current = true;
+      queuedBuildForceRef.current = (queuedBuildForceRef.current ?? false) || force;
       return;
     }
     buildingRef.current = true;
@@ -3630,7 +3656,6 @@ function App() {
     // One action name for both variants, so a clean rebuild that succeeds still
     // retracts the ordinary build's failure toast; "clean" lives in the detail.
     const trace = logAction("Build", "Build", force ? "clean rebuild" : undefined);
-    const immediatePreview = options?.immediatePreview ?? force;
     let buildScope: {
       operationGeneration: number;
       previewGeneration: number;
@@ -3641,8 +3666,16 @@ function App() {
       && previewGenerationRef.current === buildScope.previewGeneration
       && projectRef.current?.root === buildScope.projectRoot);
     try {
+      let currentForce = force;
+      const takeQueuedBuild = () => {
+        const queuedForce = queuedBuildForceRef.current;
+        if (queuedForce === null) return false;
+        currentForce = queuedForce;
+        return true;
+      };
       do {
-        buildQueued.current = false;
+        queuedBuildForceRef.current = null;
+        const immediatePreview = options?.immediatePreview ?? currentForce;
         const previewGeneration = previewGenerationRef.current;
         const operationGeneration = projectOperationGenerationRef.current;
         const projectRoot = projectRef.current?.root;
@@ -3658,7 +3691,7 @@ function App() {
           : null;
         let result: BuildResult;
         try {
-          result = await invoke<BuildResult>("build_project", { force, projectRoot, documentPath });
+          result = await invoke<BuildResult>("build_project", { force: currentForce, projectRoot, documentPath });
         } catch (reason) {
           if (!scopeIsCurrent()) continue;
           throw reason;
@@ -3778,7 +3811,7 @@ function App() {
           trace.clear();
           trace.note(`Build succeeded in ${(result.durationMs / 1000).toFixed(1)}s`);
         }
-      } while (buildQueued.current);
+      } while (takeQueuedBuild());
     } catch (reason) {
       if (scopeIsCurrent()) {
         const message = toMessage(reason);
@@ -4545,7 +4578,13 @@ function App() {
   }, [building, cleaning, project]);
 
   const cleanAndRebuild = useCallback(async () => {
-    if (!project || cleaning || building) return;
+    if (!project || cleaning) return;
+    // The active build owns the backend until it settles. Preserve the clean
+    // rebuild intent in its queue rather than cleaning files out from under it.
+    if (buildingRef.current) {
+      await runBuild(true, { requested: true });
+      return;
+    }
     if (!await confirmAction("Delete auxiliary files and rebuild the PDF?")) return;
     setCleaning(true);
     try {
@@ -4556,21 +4595,36 @@ function App() {
       setError(toMessage(reason));
       setCleaning(false);
     }
-  }, [building, cleaning, project, runBuild]);
+  }, [cleaning, project, runBuild]);
 
   const revealSourceInPdf = useCallback(async () => {
     if (!editorPosition || locatingPdf) return;
     const position = editorPosition;
+    const requestGeneration = forwardSyncGenerationRef.current + 1;
+    forwardSyncGenerationRef.current = requestGeneration;
+    const projectGeneration = projectOperationGenerationRef.current;
+    const projectRoot = projectRef.current?.root;
+    const isCurrentRequest = () => (
+      forwardSyncGenerationRef.current === requestGeneration
+      && projectOperationGenerationRef.current === projectGeneration
+      && projectRef.current?.root === projectRoot
+      && editorPositionRef.current?.path === position.path
+      && editorPositionRef.current?.line === position.line
+      && editorPositionRef.current?.column === position.column
+    );
     setWarning(null);
     setLocatingPdf(true);
     try {
       if (!(await save())) return;
+      if (!isCurrentRequest()) return;
       if (source !== savedSource || !pdfUrl) await runBuild();
+      if (!isCurrentRequest()) return;
       const target = await invoke<PdfSyncResponse | null>("synctex_view", {
         path: position.path,
         line: position.line,
         column: position.column,
       });
+      if (!isCurrentRequest()) return;
       if (!target) {
         setError(null);
         setNotice(null);
@@ -4586,6 +4640,7 @@ function App() {
       });
       setError(null);
     } catch (reason) {
+      if (!isCurrentRequest()) return;
       const message = toMessage(reason);
       if (message === "This bibliography entry is not included in the compiled PDF.") {
         setError(null);
@@ -4596,19 +4651,35 @@ function App() {
         setError(message);
       }
     } finally {
-      setLocatingPdf(false);
+      if (forwardSyncGenerationRef.current === requestGeneration) setLocatingPdf(false);
     }
   }, [editorPosition, locatingPdf, pdfUrl, runBuild, save, savedSource, source]);
 
   const navigateOutline = useCallback(async (path: string, line: number) => {
+    const requestGeneration = outlineSyncGenerationRef.current + 1;
+    outlineSyncGenerationRef.current = requestGeneration;
+    const projectGeneration = projectOperationGenerationRef.current;
+    const projectRoot = projectRef.current?.root;
+    const isCurrentRequest = (checkPosition = true) => (
+      outlineSyncGenerationRef.current === requestGeneration
+      && projectOperationGenerationRef.current === projectGeneration
+      && projectRef.current?.root === projectRoot
+      && activeFileRef.current === path
+      && (!checkPosition || (
+        editorPositionRef.current?.path === path
+        && editorPositionRef.current?.line === line
+      ))
+    );
     setOutlineOpen(false);
     await openProjectFile(path, line);
+    if (!isCurrentRequest(false)) return;
     try {
       const target = await invoke<PdfSyncResponse | null>("synctex_view", {
         path,
         line,
         column: 0,
       });
+      if (!isCurrentRequest()) return;
       if (target) setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
       setCanvasMode((mode) => (
         mode === "source" || mode === "dual" || mode === "columns" ? "split" : mode
@@ -7119,6 +7190,7 @@ function App() {
   }, []);
 
   const handleEditorPosition = useCallback((position: EditorPosition) => {
+    editorPositionRef.current = position;
     setEditorPosition((current) => (
       current
       && current.path === position.path

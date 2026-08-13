@@ -9,7 +9,7 @@ import type { Editor as TiptapEditor } from "@tiptap/react";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import App from "./App";
+import App, { mapCollabProjectStatusV2 } from "./App";
 import { clearAppLogs, formatAppLogs } from "./app-log-store";
 import { persistWorkspaceLayout } from "./app-settings";
 import { loadTextLanguageExtensions } from "./document-canvas";
@@ -18,6 +18,7 @@ import { usePanelLayout } from "./use-panel-layout";
 import { parseVisualMarkdown } from "./visual-markdown-schema";
 import type { SynaraRuntimeInfo } from "./synara-runtime";
 import { ConfirmActionProvider } from "./confirm-action-dialog";
+import type { CollabProjectStatusV2 } from "./collab-project-v2";
 
 const windowApi = vi.hoisted(() => ({
   startDragging: vi.fn(),
@@ -188,6 +189,21 @@ afterEach(() => {
 function renderApp() {
   return render(<App />);
 }
+
+describe("collaboration status mapping", () => {
+  it.each<[CollabProjectStatusV2, ReturnType<typeof mapCollabProjectStatusV2>]>([
+    ["syncing", { status: "connecting", detail: "Syncing changes…" }],
+    ["server-received", { status: "synced", detail: null }],
+    ["durable", { status: "synced", detail: null }],
+    ["offline", { status: "disconnected", detail: "Offline" }],
+    ["read-only", { status: "disconnected", detail: "Collaboration is read-only" }],
+    ["importing", { status: "connecting", detail: "Importing all project files…" }],
+    ["closed", { status: "disconnected", detail: "This shared project is closed" }],
+    ["error", { status: "error", detail: "Collaboration failed" }],
+  ])("maps %s truthfully", (status, expected) => {
+    expect(mapCollabProjectStatusV2(status)).toEqual(expected);
+  });
+});
 
 /**
  * `main.tsx` mounts the toast stack beside `<App />`, not inside it, so a test
@@ -384,6 +400,52 @@ describe("welcome screen", () => {
       projectRoot: "/tmp/research/New paper",
     })));
     expect(await screen.findByRole("button", { name: "Switch project" })).toHaveTextContent("New paper");
+  });
+
+  it("preserves a forced build queued behind an ordinary build", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const success = { success: true, hasPdf: false, log: "", durationMs: 1, diagnostics: [] };
+    let resolveOrdinaryBuild!: (result: typeof success) => void;
+    const ordinaryBuild = new Promise<typeof success>((resolve) => {
+      resolveOrdinaryBuild = resolve;
+    });
+    let buildCalls = 0;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") {
+        buildCalls += 1;
+        return buildCalls === 1 ? ordinaryBuild : success;
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByRole("button", { name: "Stop" });
+    await waitFor(() => expect(buildCalls).toBe(1));
+
+    fireEvent.keyDown(window, { key: "p", ctrlKey: true, shiftKey: true });
+    fireEvent.click(await screen.findByRole("option", { name: /Clean rebuild/i }));
+    expect(buildCalls).toBe(1);
+    resolveOrdinaryBuild(success);
+
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "build_project")).toHaveLength(2));
+    expect(vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "build_project")[1]?.[1])
+      .toEqual(expect.objectContaining({ force: true }));
   });
 
   it("shows an existing compiled PDF without waiting for the initial build", async () => {
@@ -4768,6 +4830,8 @@ describe("project workspace", () => {
     vi.stubGlobal("URL", TestURL);
     vi.mocked(save).mockResolvedValue("/tmp/exported-paper.pdf");
     let forwardSyncFailure: string | null = null;
+    let delayForwardSync = false;
+    let resolveForwardSync!: (target: { page: number; x: number; y: number; width: number; height: number }) => void;
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
@@ -4786,6 +4850,12 @@ describe("project workspace", () => {
       if (command === "synctex_edit") return { path: "main.tex", line: 1 };
       if (command === "synctex_view") {
         const syncArgs = args as Record<string, unknown> | undefined;
+        if (delayForwardSync && syncArgs?.path === "main.tex") {
+          delayForwardSync = false;
+          return new Promise((resolve) => {
+            resolveForwardSync = resolve;
+          });
+        }
         if (
           forwardSyncFailure
           && syncArgs?.path === "main.tex"
@@ -4906,11 +4976,23 @@ describe("project workspace", () => {
       })),
     });
     expect(fireEvent.mouseDown(revealCursor)).toBe(false);
+    delayForwardSync = true;
     fireEvent.click(revealCursor);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("synctex_view", {
       path: "main.tex",
       line: 1,
       column: 0,
+    }));
+    editorView.dispatch({ selection: { anchor: 5 } });
+    resolveForwardSync({ page: 1, x: 72, y: 96, width: 120, height: 14 });
+    await waitFor(() => expect(revealCursor).toBeEnabled());
+    expect(screen.queryByLabelText("Source location in PDF")).not.toBeInTheDocument();
+
+    fireEvent.click(revealCursor);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("synctex_view", {
+      path: "main.tex",
+      line: 1,
+      column: 5,
     }));
     expect(await screen.findByLabelText("Source location in PDF")).toBeInTheDocument();
     expect(revealReconfigurations).toBe(0);
@@ -5810,6 +5892,7 @@ describe("project workspace", () => {
         children: [{ name: "introduction.tex", path: "sections/introduction.tex", kind: "tex", children: [] }],
       }],
     };
+    const syncResolvers: Array<(target: { page: number; x: number; y: number; width: number; height: number }) => void> = [];
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") {
@@ -5820,22 +5903,48 @@ describe("project workspace", () => {
       }
       if (command === "list_papers" || command === "list_history") return [];
       if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 1, diagnostics: [] };
+      if (command === "synctex_view") {
+        return new Promise((resolve) => syncResolvers.push(resolve));
+      }
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
     renderApp();
     expect(await screen.findByLabelText("Show document outline")).toBeInTheDocument();
-    fireEvent.click(screen.getByTitle("Show outline"));
+    fireEvent.click(await screen.findByTitle("Show outline"));
     expect(await screen.findByLabelText("Document outline")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /Background/i })).toBeInTheDocument();
     expect(screen.queryByText("sections/introduction.tex")).not.toBeInTheDocument();
     expect(screen.queryByText("\\input{sections/introduction.tex}")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Results/i }));
-    await waitFor(() => {
+    const editorView = await waitFor(() => {
       const editorElement = document.querySelector<HTMLElement>(".cm-editor");
       const view = editorElement ? EditorView.findFromDOM(editorElement) : null;
       expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(5);
+      return view!;
     });
+    await waitFor(() => expect(syncResolvers).toHaveLength(1));
+
+    // Moving the caret invalidates the outstanding outline-driven SyncTeX
+    // response, so it must not install a PDF navigation target.
+    const randomUUID = vi.spyOn(crypto, "randomUUID");
+    editorView.dispatch({ selection: { anchor: editorView.state.doc.line(3).from } });
+    const idsBeforeStaleResponse = randomUUID.mock.calls.length;
+    syncResolvers[0]({ page: 1, x: 72, y: 96, width: 120, height: 14 });
+    await act(async () => { await Promise.resolve(); });
+    expect(randomUUID).toHaveBeenCalledTimes(idsBeforeStaleResponse);
+
+    fireEvent.click(await screen.findByTitle("Show outline"));
+    fireEvent.click(await screen.findByRole("button", { name: /Results/i }));
+    await waitFor(() => expect(syncResolvers).toHaveLength(2));
+    await waitFor(() => {
+      const currentEditor = document.querySelector<HTMLElement>(".cm-editor");
+      const currentView = currentEditor ? EditorView.findFromDOM(currentEditor) : null;
+      expect(currentView?.state.doc.lineAt(currentView.state.selection.main.head).number).toBe(5);
+    });
+    const idsBeforeLatestResponse = randomUUID.mock.calls.length;
+    syncResolvers[1]({ page: 2, x: 72, y: 96, width: 120, height: 14 });
+    await waitFor(() => expect(randomUUID).toHaveBeenCalledTimes(idsBeforeLatestResponse + 1));
   });
 
   it("opens a rich insert palette with previews", { timeout: 20000 }, async () => {
