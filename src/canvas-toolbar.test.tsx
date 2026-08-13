@@ -29,6 +29,44 @@ const baseProps = {
 };
 
 describe("CanvasToolbar Overleaf status", () => {
+  it("keeps sync primary while exposing the current and other Overleaf projects", async () => {
+    const onSync = vi.fn();
+    const onOpenCurrent = vi.fn();
+    const onOpenOther = vi.fn();
+    render(
+      <CanvasToolbar
+        {...baseProps}
+        overleafLinked
+        overleafProjectName="Attention Paper"
+        onOverleafSync={onSync}
+        onOverleafOpenCurrent={onOpenCurrent}
+        onOverleafOpen={onOpenOther}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync with Overleaf" }));
+    expect(onSync).toHaveBeenCalledOnce();
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Overleaf project actions" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
+    const openCurrent = screen.getByRole("menuitem", { name: "Open in Overleaf" });
+    expect(openCurrent).toHaveClass("overleaf-toolbar-menu-item");
+    fireEvent.click(openCurrent);
+    expect(onOpenCurrent).toHaveBeenCalledOnce();
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Overleaf project actions" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    const openOther = screen.getByRole("menuitem", { name: "Open another Overleaf project" });
+    expect(openOther).toHaveClass("overleaf-toolbar-menu-item");
+    fireEvent.click(openOther);
+    expect(onOpenOther).toHaveBeenCalledOnce();
+  });
+
   it("shows a non-layout-shifting online dot for live editing and active syncs", () => {
     const { rerender } = render(
       <CanvasToolbar {...baseProps} overleafLinked overleafChannel="live" onOverleafSync={vi.fn()} />,

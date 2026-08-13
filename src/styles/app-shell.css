@@ -703,6 +703,10 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .canvas-actions button { width: 28px; height: 28px; border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--text-secondary); position: relative; }
 .canvas-actions button:hover:not(:disabled) { background: var(--border-subtle); color: var(--text-primary); }
 .canvas-actions button.active { background: var(--control-active-soft); color: var(--control-active); }
+.overleaf-toolbar-group { display: flex; align-items: center; flex: none; }
+.canvas-actions .overleaf-toolbar-group .overleaf-toolbar-primary { border-radius: var(--radius-icon) 0 0 var(--radius-icon); }
+.canvas-actions .overleaf-toolbar-group .overleaf-toolbar-menu-button { width: 18px; border-radius: 0 var(--radius-icon) var(--radius-icon) 0; }
+.overleaf-toolbar-menu-item { font-size: var(--type-label-size); line-height: var(--type-label-line-height); white-space: nowrap; }
 .animated-product-icon, .animated-product-icon > span, .animated-product-icon > span > div, .animated-product-icon svg { display: block; line-height: 0; }
 .canvas-actions .animated-product-icon--chat .ct-pop > path { stroke-width: 21.333; }
 .canvas-actions .animated-product-icon--git-branch .lg-branch { stroke-width: 20; }

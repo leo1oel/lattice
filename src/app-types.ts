@@ -308,8 +308,11 @@ export type OverleafSyncResult = {
   conflicts: OverleafConflict[];
   deletedLocal: string[];
   skippedRemoteDeletes: string[];
+  /** App-owned transient paths that should be removed without prompting. */
+  automaticRemoteDeletes?: string[];
   /** Left behind for being bigger than Overleaf will take. */
   skippedLarge?: string[];
+  readOnly?: boolean;
 };
 
 // ---- Git version timeline ------------------------------------------------

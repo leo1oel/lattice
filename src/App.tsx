@@ -4,7 +4,7 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import {
   BookMarked,
@@ -3842,7 +3842,10 @@ function App() {
           ? activeLink(link)
           : null;
         if (!cancelled && generation === overleafLinkLoadGenerationRef.current) {
-          setOverleafLinkFor(active ? { root, link: active } : null);
+          setOverleafLinkFor(active ? {
+            root,
+            link: { ...active, host: active.host.trim() || status.host.trim() },
+          } : null);
         }
       })
       .catch(() => {
@@ -3875,7 +3878,10 @@ function App() {
         const active = status.connected && link && overleafLinkMatchesSession(status.host, link.host)
           ? activeLink(link)
           : null;
-        setOverleafLinkFor(active ? { root, link: active } : null);
+        setOverleafLinkFor(active ? {
+          root,
+          link: { ...active, host: active.host.trim() || status.host.trim() },
+        } : null);
       })
       .catch(() => {
         if (generation === overleafLinkLoadGenerationRef.current) {
@@ -3884,19 +3890,36 @@ function App() {
       });
   }, []);
 
+  const openCurrentOverleafProject = useCallback(() => {
+    if (!overleafLink) return;
+    try {
+      const url = new URL(overleafLink.host);
+      url.pathname = `/project/${encodeURIComponent(overleafLink.projectId)}`;
+      url.search = "";
+      url.hash = "";
+      void openUrl(url.toString()).catch((reason) => {
+        setError(`Could not open the project on Overleaf: ${toMessage(reason)}`);
+      });
+    } catch {
+      setError("Could not open the project because its Overleaf host is invalid.");
+    }
+  }, [overleafLink]);
+
   /**
    * Deal with files that are gone here but still on Overleaf.
    *
-   * Deleting from a shared project is not something to infer from a missing
-   * file, so this obeys the setting: leave them, remove them, or ask. Removing
-   * needs the entity's Overleaf id, which only the realtime channel knows —
-   * without it there is nothing to name in the request, so the ask is skipped
-   * rather than offered and then failed.
+   * Deleting an ordinary file from a shared project is not something to infer
+   * from its absence, so this obeys the setting: leave it, remove it, or ask.
+   * App-owned transient paths bypass that policy and are cleaned silently.
+   * Removing either kind needs the entity's Overleaf id, which only the
+   * realtime channel knows — without it there is nothing to name in the
+   * request, so the action waits for a later sync.
    */
   const settleRemoteDeletes = useCallback(async (
     paths: string[],
     projectRoot: string,
     generation: number,
+    automatic = false,
   ) => {
     const stillCurrent = () => (
       projectOperationGenerationRef.current === generation
@@ -3904,14 +3927,14 @@ function App() {
     );
     if (!stillCurrent()) return;
     const policy = overleafRemoteDeleteRef.current;
-    if (policy === "never") return;
+    if (!automatic && policy === "never") return;
     const known = paths
       .map((path) => ({ path, entity: overleafEntitiesRef.current.get(path) }))
       .filter((entry): entry is { path: string; entity: { id: string; kind: string } } => (
         entry.entity !== undefined
       ));
     if (!known.length) return;
-    if (policy === "ask") {
+    if (!automatic && policy === "ask") {
       const names = known.map((entry) => entry.path).join(", ");
       const removeThem = await confirmAction(
         `${names} ${known.length === 1 ? "is" : "are"} gone here but still on Overleaf.\n\n`
@@ -3934,7 +3957,7 @@ function App() {
         return;
       }
     }
-    if (stillCurrent()) {
+    if (stillCurrent() && !automatic) {
       setNotice(`Removed ${known.length} file${known.length === 1 ? "" : "s"} from Overleaf too`);
     }
   }, []);
@@ -3966,6 +3989,19 @@ function App() {
         live: overleafLivePathsRef.current,
       });
       if (!stillCurrent()) return;
+      // PDF inspection generates contact sheets and page renders under this
+      // app-owned folder. Old versions uploaded them as project files; remove
+      // that legacy folder silently and never mix it into the user's ordinary
+      // remote-delete preference.
+      if (result.automaticRemoteDeletes?.length && !result.readOnly) {
+        await settleRemoteDeletes(
+          result.automaticRemoteDeletes,
+          syncRoot,
+          syncGeneration,
+          true,
+        );
+        if (!stillCurrent()) return;
+      }
       // A file gone from here is still on Overleaf, because syncing has never
       // removed anything from a shared project on its own. What should happen
       // instead is a decision only the user can make, so it is a setting.
@@ -8792,6 +8828,7 @@ function App() {
             overleafLiveEditing={overleafRealtime.liveFile}
             overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
             overleafChannelDetail={overleafRealtime.detail}
+            overleafProjectName={overleafLink?.projectName}
             overleafPresence={overleafPresence.peers.length ? (
               <OverleafPresenceAvatars
                 peers={overleafPresence.peers}
@@ -8806,6 +8843,10 @@ function App() {
               if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
               else void runOverleafSync();
             }}
+            onOverleafOpenCurrent={overleafLink ? () => {
+              if (tutorialActive) return;
+              openCurrentOverleafProject();
+            } : undefined}
             onOverleafOpen={() => {
               if (tutorialActive) return;
               setOverleafPickerOpen(true);

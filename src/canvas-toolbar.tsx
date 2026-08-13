@@ -1,7 +1,9 @@
 import {
   BookOpen,
+  ChevronDown,
   Cloud,
   Columns2,
+  ExternalLink,
   FileCode2,
   Image,
   MessagesSquare,
@@ -14,6 +16,14 @@ import { Tip } from "./components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "./app-types";
 import { AnimatedProductIcon } from "./animated-icons/product-animated-icon";
 import { InfinityLoader } from "./components/ui/activity-icons";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./components/ui/dropdown-menu";
 import { SegmentedControl } from "./components/ui/segmented-control";
 
 /**
@@ -80,6 +90,11 @@ type CanvasToolbarProps = {
   /** Why the channel is not carrying this file, when there is a reason. */
   overleafChannelDetail?: string | null;
   onOverleafSync?: () => void;
+  /** Name shown atop the linked-project actions menu. */
+  overleafProjectName?: string;
+  /** Open the linked project in Overleaf's web interface. */
+  onOverleafOpenCurrent?: () => void;
+  /** Browse projects in the connected Overleaf account. */
   onOverleafOpen?: () => void;
   /** Open comments plus unread chat: what is waiting on you in the project. */
   overleafUnreadChat?: number;
@@ -210,34 +225,74 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           </>
         )}
         {(props.onOverleafSync || props.onOverleafOpen) && (
-          <Tip label={props.overleafLinked
-            ? (props.overleafSyncing
-              ? "Syncing with Overleaf…"
-              : props.overleafPending
-                ? "New changes on Overleaf — click to bring them in"
-                : props.overleafLiveEditing
-                  ? "Editing live with Overleaf · click to sync everything else"
-                  : overleafChannelLabel(props.overleafChannel, props.overleafChannelDetail))
-            : "Open a project from Overleaf"}
-          >
-            <button
-              data-tour="overleaf"
-              className={props.overleafLinked ? "history-button active" : "history-button"}
-              disabled={props.overleafSyncing}
-              onClick={props.overleafLinked ? props.onOverleafSync : props.onOverleafOpen}
+          <div className={props.overleafLinked ? "overleaf-toolbar-group" : undefined}>
+            <Tip label={props.overleafLinked
+              ? (props.overleafSyncing
+                ? "Syncing with Overleaf…"
+                : props.overleafPending
+                  ? "New changes on Overleaf — click to bring them in"
+                  : props.overleafLiveEditing
+                    ? "Editing live with Overleaf · click to sync everything else"
+                    : overleafChannelLabel(props.overleafChannel, props.overleafChannelDetail))
+              : "Open a project from Overleaf"}
             >
-              {props.overleafSyncing
-                ? <InfinityLoader size={14} />
-                : props.overleafLinked
-                  ? <AnimatedProductIcon source="provided" kind="cloud-upload-outline" size={14} />
-                  : <Cloud size={14} />}
-              {showOverleafOnline
-                ? <em className="overleaf-status-dot" aria-hidden="true" />
-                : props.overleafPending && !props.overleafSyncing
-                  ? <em className="collab-peer-badge">•</em>
-                  : null}
-            </button>
-          </Tip>
+              <button
+                data-tour="overleaf"
+                className={props.overleafLinked
+                  ? "history-button active overleaf-toolbar-primary"
+                  : "history-button"}
+                disabled={props.overleafSyncing}
+                onClick={props.overleafLinked ? props.onOverleafSync : props.onOverleafOpen}
+              >
+                {props.overleafSyncing
+                  ? <InfinityLoader size={14} />
+                  : props.overleafLinked
+                    ? <AnimatedProductIcon source="provided" kind="cloud-upload-outline" size={14} />
+                    : <Cloud size={14} />}
+                {showOverleafOnline
+                  ? <em className="overleaf-status-dot" aria-hidden="true" />
+                  : props.overleafPending && !props.overleafSyncing
+                    ? <em className="collab-peer-badge">•</em>
+                    : null}
+              </button>
+            </Tip>
+            {props.overleafLinked && props.onOverleafOpenCurrent && props.onOverleafOpen && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="history-button active overleaf-toolbar-menu-button"
+                    aria-label="Overleaf project actions"
+                    title="Overleaf project actions"
+                  >
+                    <ChevronDown size={10} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={6} className="w-64">
+                  {props.overleafProjectName && (
+                    <>
+                      <DropdownMenuLabel className="truncate" title={props.overleafProjectName}>
+                        {props.overleafProjectName}
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem
+                    className="overleaf-toolbar-menu-item"
+                    onSelect={props.onOverleafOpenCurrent}
+                  >
+                    <ExternalLink /> Open in Overleaf
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="overleaf-toolbar-menu-item"
+                    onSelect={props.onOverleafOpen}
+                  >
+                    <Cloud /> Open another Overleaf project
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         )}
         {props.overleafLinked && props.onOverleafChat && (
           <Tip label={props.overleafUnreadChat
@@ -297,6 +352,7 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
     onGit: () => latest.current.onGit(),
     onComments: () => latest.current.onComments(),
     onOverleafSync: () => latest.current.onOverleafSync?.(),
+    onOverleafOpenCurrent: () => latest.current.onOverleafOpenCurrent?.(),
     onOverleafOpen: () => latest.current.onOverleafOpen?.(),
     onOverleafChat: () => latest.current.onOverleafChat?.(),
   }), []);
@@ -314,6 +370,7 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
       onGit={stable.onGit}
       onComments={stable.onComments}
       onOverleafSync={props.onOverleafSync ? stable.onOverleafSync : undefined}
+      onOverleafOpenCurrent={props.onOverleafOpenCurrent ? stable.onOverleafOpenCurrent : undefined}
       onOverleafOpen={props.onOverleafOpen ? stable.onOverleafOpen : undefined}
       onOverleafChat={props.onOverleafChat ? stable.onOverleafChat : undefined}
     />

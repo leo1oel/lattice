@@ -2842,6 +2842,197 @@ describe("project workspace", () => {
     expect(document.querySelector(".ok-block-controls")).not.toBeNull();
   });
 
+  it("opens the linked project on its Overleaf host and keeps the project picker available", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
+    const snapshot = {
+      root: "/tmp/lattice-overleaf-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "overleaf-paper-id",
+        name: "Overleaf paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "overleaf_link") return {
+        projectId: "ol/project id",
+        projectName: "Overleaf paper",
+        // Legacy links did not persist the host, so the active account is the
+        // source of truth for where their web project lives.
+        host: "",
+        lastSync: null,
+        paused: false,
+      };
+      if (command === "overleaf_status") {
+        return {
+          connected: true,
+          email: "writer@example.com",
+          name: "Writer",
+          host: "https://overleaf.example.edu/",
+        };
+      }
+      if (command === "overleaf_sync") return {
+        pulled: [],
+        pushed: [],
+        merged: [],
+        conflicts: [],
+        deletedLocal: [],
+        skippedRemoteDeletes: [],
+        automaticRemoteDeletes: [],
+        readOnly: false,
+      };
+      if (command === "overleaf_probe") {
+        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+      }
+      if (command === "overleaf_rt_connect") return {
+        publicId: null,
+        rootFolderId: "root",
+        docs: [{ id: "main-doc", path: "main.tex" }],
+        entities: [],
+        permission: "readAndWrite",
+        trackChanges: false,
+        userId: null,
+      };
+      if (command === "overleaf_list_projects") return [];
+      if (command === "overleaf_rt_disconnect") return undefined;
+      if (command === "git_auto_commit") return null;
+      if (
+        command === "overleaf_chat_messages"
+        || command === "overleaf_threads"
+        || command === "overleaf_comment_anchors"
+        || command === "overleaf_change_authors"
+        || command === "overleaf_rt_connected_users"
+      ) return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const actions = await screen.findByRole("button", { name: "Overleaf project actions" });
+    fireEvent.pointerDown(actions, { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Open in Overleaf" }));
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith(
+      "https://overleaf.example.edu/project/ol%2Fproject%20id",
+    ));
+
+    fireEvent.pointerDown(actions, { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Open another Overleaf project" }));
+    expect(await screen.findByLabelText("Open from Overleaf")).toBeInTheDocument();
+    expect(await screen.findByText("No projects in this account yet. Create one on Overleaf and it will appear here."))
+      .toBeInTheDocument();
+  });
+
+  it("silently removes legacy app-owned intermediates from Overleaf", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const snapshot = {
+      root: "/tmp/lattice-overleaf-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "overleaf-paper-id",
+        name: "Overleaf paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    let syncCount = 0;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "overleaf_link") return {
+        projectId: "ol-project",
+        projectName: "Overleaf paper",
+        host: "https://www.overleaf.com",
+        lastSync: null,
+        paused: false,
+      };
+      if (command === "overleaf_status") {
+        return { connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" };
+      }
+      if (command === "overleaf_sync") {
+        syncCount += 1;
+        return {
+          pulled: [],
+          pushed: [],
+          merged: [],
+          conflicts: [],
+          deletedLocal: [],
+          skippedRemoteDeletes: [],
+          automaticRemoteDeletes: syncCount > 1
+            ? ["lambda_gpu_proposal.bbl-SAVE-ERROR", "tmp/pdfs"]
+            : [],
+          readOnly: false,
+        };
+      }
+      if (command === "overleaf_probe") {
+        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+      }
+      if (command === "overleaf_rt_connect") return {
+        publicId: null,
+        rootFolderId: "root",
+        docs: [{ id: "main-doc", path: "main.tex" }],
+        entities: [
+          { id: "tmp-folder", path: "tmp", kind: "folder" },
+          { id: "pdfs-folder", path: "tmp/pdfs", kind: "folder" },
+          {
+            id: "save-error-file",
+            path: "lambda_gpu_proposal.bbl-SAVE-ERROR",
+            kind: "file",
+          },
+        ],
+        permission: "readAndWrite",
+        trackChanges: false,
+        userId: null,
+      };
+      if (
+        command === "overleaf_rt_disconnect"
+        || command === "overleaf_delete_entity"
+      ) return undefined;
+      if (command === "git_auto_commit") return null;
+      if (
+        command === "overleaf_chat_messages"
+        || command === "overleaf_threads"
+        || command === "overleaf_comment_anchors"
+        || command === "overleaf_change_authors"
+        || command === "overleaf_rt_connected_users"
+      ) return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_rt_connect", {
+      projectRoot: "/tmp/lattice-overleaf-paper",
+    }));
+    await waitFor(() => expect(syncCount).toBe(1));
+    const syncButton = await waitFor(() => {
+      const button = document.querySelector<HTMLButtonElement>("button[data-tour='overleaf']");
+      expect(button).not.toBeNull();
+      expect(button).not.toBeDisabled();
+      return button!;
+    });
+    fireEvent.click(syncButton);
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_delete_entity", {
+      projectRoot: "/tmp/lattice-overleaf-paper",
+      kind: "folder",
+      entityId: "pdfs-folder",
+    }));
+    expect(invoke).toHaveBeenCalledWith("overleaf_delete_entity", {
+      projectRoot: "/tmp/lattice-overleaf-paper",
+      kind: "file",
+      entityId: "save-error-file",
+    });
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",

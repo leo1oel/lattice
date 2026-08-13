@@ -145,6 +145,10 @@ pub struct OverleafSyncResult {
     pub conflicts: Vec<OverleafConflict>,
     pub deleted_local: Vec<String>,
     pub skipped_remote_deletes: Vec<String>,
+    /// App-owned transient paths that should be removed remotely without
+    /// applying the user's deletion policy for ordinary project files.
+    #[serde(default)]
+    pub automatic_remote_deletes: Vec<String>,
     /// Files left alone because they are bigger than Overleaf will take.
     /// Reported rather than dropped quietly: to the writer they look synced.
     #[serde(default)]
@@ -617,8 +621,32 @@ fn sha256_hex(bytes: &[u8]) -> String {
     })
 }
 
+const TRANSIENT_PDF_RENDER_DIRECTORY: &str = "tmp/pdfs";
+const TRANSIENT_PDF_RENDER_PREFIX: &str = "tmp/pdfs/";
+
+fn is_transient_pdf_render_path(path: &str) -> bool {
+    path == TRANSIENT_PDF_RENDER_DIRECTORY || path.starts_with(TRANSIENT_PDF_RENDER_PREFIX)
+}
+
+fn is_latex_save_error_path(path: &str) -> bool {
+    let file_name = path.rsplit('/').next().unwrap_or(path);
+    let lower = file_name.to_ascii_lowercase();
+    let lower = lower.strip_suffix("(busy)").unwrap_or(&lower);
+    let Some(stem) = lower.strip_suffix("-save-error") else {
+        return false;
+    };
+    ARTIFACT_SUFFIXES
+        .iter()
+        .any(|suffix| stem.ends_with(suffix))
+}
+
 /// Paths (forward-slash relative) that never participate in sync.
 fn is_excluded(path: &str) -> bool {
+    // Agent PDF rendering uses this local workspace for contact sheets and
+    // page images. These are reproducible intermediates, not project assets.
+    if is_transient_pdf_render_path(path) {
+        return true;
+    }
     // Legacy `.omp/` folders may hold MCP server config, whose `env` is where
     // someone puts an API key. Uploading it would hand that key to everyone on
     // the Overleaf project and write it into the project's history.
@@ -636,6 +664,12 @@ fn is_excluded(path: &str) -> bool {
     // compare two versions here. Uploading them puts a duplicate of the paper
     // in front of everyone on Overleaf, where it competes with the real file.
     if is_conflict_copy(file_name) {
+        return true;
+    }
+    // latexmk saves a generated file under this suffix when it cannot trust
+    // the result of a failed Biber or engine run. It is the same disposable
+    // artifact as the underlying `.bbl`, `.bcf`, etc., not project source.
+    if is_latex_save_error_path(path) {
         return true;
     }
     // A compile that is still running leaves half-written artifacts named
@@ -799,6 +833,11 @@ struct LocalFiles {
     oversized: Vec<String>,
 }
 
+struct RemoteFiles {
+    files: BTreeMap<String, Vec<u8>>,
+    automatic_remote_deletes: Vec<String>,
+}
+
 /// Walk the project and load every syncable file (path → bytes).
 fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
     let mut files = BTreeMap::new();
@@ -808,7 +847,12 @@ fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
             return true;
         }
         let name = e.file_name().to_string_lossy();
-        !(e.file_type().is_dir() && (name == ".git" || name == ".research" || name == ".omp"))
+        !(e.file_type().is_dir()
+            && (name == ".git"
+                || name == ".research"
+                || name == ".omp"
+                || relative_slash_path(root, e.path())
+                    .is_some_and(|path| is_transient_pdf_render_path(&path))))
     });
     for entry in walker {
         let entry = entry.map_err(err)?;
@@ -1249,6 +1293,12 @@ pub fn clone_project(
     fs::create_dir_all(&root).map_err(err)?;
     let mut files = BTreeMap::new();
     for (rel, data) in &entries {
+        // Old Lattice versions could upload local PDF-render intermediates and
+        // failed-build outputs. Do not materialize either when cloning the
+        // Overleaf project; a later sync asks the live tree to remove them.
+        if is_transient_pdf_render_path(rel) || is_latex_save_error_path(rel) {
+            continue;
+        }
         write_local_file(&root, rel, data)?;
         if !is_excluded(rel) {
             files.insert(rel.clone(), sha256_hex(data));
@@ -2562,17 +2612,34 @@ fn plan_sync(
 
 /// The remote snapshot a sync or preview works from: the project zip, minus
 /// everything that never syncs.
-fn fetch_remote_files(
-    host: &str,
-    cookie: &str,
-    project_id: &str,
-) -> Result<BTreeMap<String, Vec<u8>>, String> {
+fn fetch_remote_files(host: &str, cookie: &str, project_id: &str) -> Result<RemoteFiles, String> {
     let zip_client = http_client(120)?;
     let zip_bytes = download_project_zip(&zip_client, host, cookie, project_id)?;
-    Ok(read_zip_entries(&zip_bytes)?
+    let entries = read_zip_entries(&zip_bytes)?;
+    // The realtime tree owns entity ids, so the sync cannot delete these
+    // itself. Return app-owned leftovers for the frontend to remove; collapse
+    // PDF renders to their stable parent folder so cleanup takes one request.
+    // Until deletion succeeds, filtering below also prevents a pull.
+    let mut automatic_remote_deletes = entries
+        .keys()
+        .filter(|path| is_latex_save_error_path(path))
+        .cloned()
+        .collect::<Vec<_>>();
+    if entries
+        .keys()
+        .any(|path| is_transient_pdf_render_path(path))
+    {
+        automatic_remote_deletes.push(TRANSIENT_PDF_RENDER_DIRECTORY.to_string());
+    }
+    automatic_remote_deletes.sort();
+    let files = entries
         .into_iter()
         .filter(|(path, _)| !is_excluded(path))
-        .collect())
+        .collect();
+    Ok(RemoteFiles {
+        files,
+        automatic_remote_deletes,
+    })
 }
 
 /// The exact Overleaf origin this project belongs to.
@@ -2678,7 +2745,10 @@ pub fn sync(
     // just before uploading tells us whether anyone edited in the meantime.
     let remote_version_before =
         fetch_remote_version(&client, &host, &session.cookie, &state.project_id);
-    let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
+    let RemoteFiles {
+        files: remote,
+        automatic_remote_deletes,
+    } = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
     let LocalFiles {
         files: local,
         oversized,
@@ -2688,6 +2758,7 @@ pub fn sync(
 
     let mut result = OverleafSyncResult {
         skipped_large: oversized,
+        automatic_remote_deletes,
         ..Default::default()
     };
     let mut new_files = plan.files;
@@ -2884,7 +2955,7 @@ pub fn preview(
     state.files.retain(|path, _| !is_excluded(path));
     let host = sync_host(&state, &session)?;
 
-    let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
+    let remote = fetch_remote_files(&host, &session.cookie, &state.project_id)?.files;
     let local = read_local_files(root)?.files;
     let plan = plan_sync(root, &state, &remote, &local, live, &sync_stamp())?;
 
@@ -3780,6 +3851,14 @@ mod tests {
             ("refs.bib", b"@article{a}".as_slice()),
             ("figures/fig1.pdf", b"%PDF-1.5 fake".as_slice()),
             ("nested/chapter.tex", b"\\section{One}".as_slice()),
+            (
+                "lambda_gpu_proposal.bbl-SAVE-ERROR",
+                b"failed bibliography output".as_slice(),
+            ),
+            (
+                "tmp/pdfs/full-appendix/page-01.png",
+                b"temporary preview".as_slice(),
+            ),
         ]);
         let server = start_server(projects_page_html(), zip);
         let config = temp_dir("clone-config");
@@ -3800,6 +3879,8 @@ mod tests {
             read_local(&root, "figures/fig1.pdf").unwrap(),
             b"%PDF-1.5 fake"
         );
+        assert!(read_local(&root, "lambda_gpu_proposal.bbl-SAVE-ERROR").is_none());
+        assert!(read_local(&root, "tmp/pdfs/full-appendix/page-01.png").is_none());
 
         let state = load_state(&root).unwrap();
         assert_eq!(state.project_id, "proj-1");
@@ -4396,6 +4477,10 @@ mod tests {
                 (".DS_Store", b"finder noise".as_slice()),
                 ("main.pdf", b"%PDF compiled output".as_slice()),
                 ("main.synctex.gz", b"synctex".as_slice()),
+                (
+                    "tmp/pdfs/full-appendix/render-1.png",
+                    b"temporary preview".as_slice(),
+                ),
             ],
             &[("main.tex", base)],
         );
@@ -4407,6 +4492,45 @@ mod tests {
         // Excluded files stay untouched on disk.
         assert!(read_local(&root, "main.log").is_some());
         assert!(read_local(&root, "main.pdf").is_some());
+        assert!(read_local(&root, "tmp/pdfs/full-appendix/render-1.png").is_some());
+    }
+
+    #[test]
+    fn overleaf_sync_requests_silent_cleanup_for_legacy_transient_files() {
+        let base = b"body".as_slice();
+        let preview = b"temporary preview".as_slice();
+        let save_error = b"failed bibliography output".as_slice();
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[
+                ("lambda_gpu_proposal.bbl-SAVE-ERROR", save_error),
+                ("main.tex", base),
+                ("tmp/pdfs/full-appendix/page-01.png", preview),
+                ("tmp/pdfs/gallery-page-10.png", preview),
+            ]),
+        );
+        let (root, result) = run_sync(
+            &server,
+            &[("main.tex", base)],
+            &[
+                ("lambda_gpu_proposal.bbl-SAVE-ERROR", save_error),
+                ("main.tex", base),
+                ("tmp/pdfs/full-appendix/page-01.png", preview),
+            ],
+        );
+
+        assert_eq!(
+            result.automatic_remote_deletes,
+            vec!["lambda_gpu_proposal.bbl-SAVE-ERROR", "tmp/pdfs"]
+        );
+        assert!(result.skipped_remote_deletes.is_empty());
+        assert!(result.pulled.is_empty());
+        assert!(result.pushed.is_empty());
+        assert!(read_local(&root, "lambda_gpu_proposal.bbl-SAVE-ERROR").is_none());
+        assert!(read_local(&root, "tmp/pdfs/full-appendix/page-01.png").is_none());
+        assert!(!state_files(&root)
+            .keys()
+            .any(|path| path.starts_with("tmp/pdfs/")));
     }
 
     // ---- preview (dry run) --------------------------------------------------
@@ -4798,13 +4922,17 @@ mod tests {
         assert!(is_excluded("main.aux"));
         assert!(is_excluded("main.synctex.gz"));
         assert!(is_excluded("main.pdf")); // compiled output at root
-                                          // Real uploads seen on overleaf.com: a sync caught mid-compile picked
-                                          // up synctex's half-written files and put them in the project history.
+        assert!(is_excluded("tmp/pdfs/full-appendix/render-1.png"));
+        assert!(is_excluded("tmp/pdfs"));
+        assert!(!is_excluded("tmp/notes.tex"));
+        // Real uploads seen on overleaf.com: a sync caught mid-compile picked
+        // up synctex's half-written files and put them in the project history.
         assert!(is_excluded("main.synctex(busy)"));
         assert!(is_excluded("main.synctex.gz(busy)"));
         assert!(is_excluded("nested/chapter.synctex"));
         assert!(is_excluded("main.run.xml"));
         assert!(is_excluded("main.bcf"));
+        assert!(is_excluded("lambda_gpu_proposal.bbl-SAVE-ERROR"));
         // A source file whose name merely ends in "(busy)" is still source.
         assert!(!is_excluded("notes(busy).tex"));
         assert!(!is_excluded("figures/fig1.pdf")); // figure pdfs sync
