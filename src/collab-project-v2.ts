@@ -145,6 +145,9 @@ export class CollabProjectControllerV2 {
   private firstFileOpened = false;
   private statusValue: CollabProjectStatusV2 = "syncing";
   private credential = "";
+  private readonly durableStore: CollabTextDurableStoreV2;
+  /** True while catalogValue came from IndexedDB rather than this session's coordinator. */
+  private catalogOffline = false;
   private materializeLease?: CollabMaterializeLeaseV2;
   private materializeContext?: { lease: CollabMaterializeLeaseV2; callbacks: CollabMaterializeCallbacksV2 };
   private binaryClient?: CollabBinaryV2Client;
@@ -205,6 +208,7 @@ export class CollabProjectControllerV2 {
 
   private constructor(private readonly options: CollabProjectV2Options, private readonly startedAt: number) {
     this.room = options.projectInstanceId; this.host = options.deployment;
+    this.durableStore = options.store ?? new CollabTextDurableStoreV2();
     this.pool = new CollabTextProviderPoolV2(options.poolCapacity ?? 8, options.now);
   }
 
@@ -215,7 +219,15 @@ export class CollabProjectControllerV2 {
     controller.control = new CollabControlV2Client(options.deployment, options.projectInstanceId, credential);
     controller.credential = credential;
     try { await controller.refetchCatalog(); options.diagnostics?.({ name: "join_latency", at: now(), durationMs: now() - controller.startedAt }); }
-    catch (error) { controller.setStatus("offline"); throw error; }
+    catch (error) {
+      if (!isTransientCatalogFailure(error)) { controller.setStatus("offline"); throw error; }
+      const cached = await controller.durableStore.loadCatalog(options.deployment, options.projectInstanceId).catch(() => undefined);
+      if (!cached) { controller.setStatus("offline"); throw error; }
+      controller.catalogValue = cached;
+      controller.catalogOffline = true;
+      options.onCatalog?.(cached);
+      controller.setStatus("offline");
+    }
     controller.startEventsPolling(options.eventsPollIntervalMs ?? 3_000);
     return controller;
   }
@@ -330,7 +342,10 @@ export class CollabProjectControllerV2 {
     const catalog = await this.control.catalog();
     this.assertLiveController();
     if (catalog.projectInstanceId !== this.options.projectInstanceId) throw new Error("Catalog project identity mismatch");
+    await this.durableStore.persistCatalog(this.options.deployment, this.options.projectInstanceId, catalog);
+    this.assertLiveController();
     this.catalogValue = catalog;
+    this.catalogOffline = false;
     this.reconcileDiskObservers();
     this.options.onCatalog?.(catalog);
     this.setStatus(catalog.lifecycle === "importing" ? "importing" : catalog.lifecycle === "closed" ? "closed" : "syncing");
@@ -400,7 +415,16 @@ export class CollabProjectControllerV2 {
     if (this.destroyed || this.eventsPolling) return;
     if (this.catalogValue?.lifecycle === "closed") { this.stopEventsPolling(); return; }
     this.eventsPolling = true;
-    try { await this.heartbeatPresence(); await this.fetchEvents(); }
+    try {
+      if (this.catalogOffline) {
+        const previous = this.catalogValue;
+        await this.refetchCatalog();
+        await this.reconcileCatalogDelta(previous);
+      } else {
+        await this.heartbeatPresence();
+        await this.fetchEvents();
+      }
+    }
     catch { this.options.diagnostics?.({ name: "events_poll_error", at: (this.options.now ?? Date.now)() }); }
     finally { this.eventsPolling = false; }
   }
@@ -498,7 +522,7 @@ export class CollabProjectControllerV2 {
     if (client && client.namespace.documentEpoch !== file.documentEpoch) { client.destroy(); this.clients.delete(file.fileId); this.options.onPermanentError?.(new Error("File epoch changed; export cached recovery before reopening"), file.fileId); throw new Error("File epoch mismatch"); }
     if (!client) client = await this.openClient(file);
     const sync = () => client.connect().then(() => client.waitForSynced(options.timeoutMs));
-    if (options.cachedFirst && client.hasSyncedSnapshot) {
+    if ((options.cachedFirst || this.catalogOffline) && client.hasSyncedSnapshot) {
       // A server-acked snapshot is already in the doc (restored from the
       // durable store at open) — return it now instead of holding the file
       // switch on ticket + WebSocket + sync. The connection proceeds in the
@@ -546,7 +570,7 @@ export class CollabProjectControllerV2 {
         documentEpoch: file.documentEpoch,
       };
       const opened = await CollabTextClientV2.open(namespace, {
-        store: this.options.store ?? new CollabTextDurableStoreV2(),
+        store: this.durableStore,
         issueTicket: (identity) => this.issueTicket(identity),
         transportFactory: this.options.transportFactory ?? createYPartyTransportV2({ host: this.options.deployment }),
         reconnect: this.options.reconnectPolicy,
@@ -702,6 +726,7 @@ export class CollabProjectControllerV2 {
    * host-ready flow. Read-only actors cannot create.
    */
   async create(path: string, kind: "text" | "binary" | "board", options: { seedText?: string; timeoutMs?: number; adoptExisting?: boolean } = {}): Promise<boolean> {
+    this.assertCatalogOnline();
     if ((this.options.permission ?? "write") === "read") throw new Error("Read-only collaborators cannot create files");
     const lease = this.requireLease();
     // Mirror the server's ensurePathFree: only states that still occupy the
@@ -787,8 +812,9 @@ export class CollabProjectControllerV2 {
     return createdByThisClient;
   }
 
-  async rename(oldPath: string, newPath: string, local: CollabLocalMutationsV2): Promise<string> { const file = this.file(oldPath); if (!file) throw new Error("Unknown catalog path"); const lease = this.requireLease(); const fileId = file.fileId; return this.enqueueFile(fileId, async () => { this.checkLease(lease); this.locallyRenamed.set(fileId, newPath); try { const result = await this.control.operation<{ catalogRevision: number }>("rename", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, fileId, path: newPath }); this.catalogValue.catalogRevision = result.catalogRevision; this.renamePath(oldPath, newPath); this.checkLease(lease); try { const actual = await local.rename(oldPath, newPath, lease.projectRoot); this.checkLease(lease); return actual || newPath; } catch (error) { await this.refetchCatalog().catch(() => undefined); throw error; } } finally { this.locallyRenamed.delete(fileId); } }); }
+  async rename(oldPath: string, newPath: string, local: CollabLocalMutationsV2): Promise<string> { this.assertCatalogOnline(); const file = this.file(oldPath); if (!file) throw new Error("Unknown catalog path"); const lease = this.requireLease(); const fileId = file.fileId; return this.enqueueFile(fileId, async () => { this.checkLease(lease); this.locallyRenamed.set(fileId, newPath); try { const result = await this.control.operation<{ catalogRevision: number }>("rename", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, fileId, path: newPath }); this.catalogValue.catalogRevision = result.catalogRevision; this.renamePath(oldPath, newPath); this.checkLease(lease); try { const actual = await local.rename(oldPath, newPath, lease.projectRoot); this.checkLease(lease); return actual || newPath; } catch (error) { await this.refetchCatalog().catch(() => undefined); throw error; } } finally { this.locallyRenamed.delete(fileId); } }); }
   async createInvitation(permission: "read" | "write"): Promise<string> {
+    this.assertCatalogOnline();
     const guestSecret = randomSecret(); const salt = randomSecret();
     const hash = await sha256(`${salt}:${guestSecret}`);
     await this.control.operation("grants", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, permission, guestSecretHash: { salt, hash } });
@@ -798,8 +824,8 @@ export class CollabProjectControllerV2 {
     return formatCollabInvitationV2({ version: 2, deployment: new URL(this.options.deployment).origin + "/", projectInstanceId: this.options.projectInstanceId, guestSecret, permission });
   }
   listGrants(): Promise<Array<{ grantId: string; permission: "read" | "write"; revoked: boolean }>> { return this.control.grants(); }
-  async revoke(grantId: string): Promise<void> { const result = await this.control.operation<OperationResultV2>("revoke", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, grantId }); this.catalogValue.catalogRevision = result.catalogRevision; }
-  async delete(path: string, local: CollabLocalMutationsV2): Promise<void> { const file = this.file(path); if (!file) throw new Error("Unknown catalog path"); const lease = this.requireLease(); await this.enqueueFile(file.fileId, async () => { this.checkLease(lease); this.locallyDeleted.add(file.fileId); try { await this.control.operation("delete-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, fileId: file.fileId }); await this.refetchCatalog(); this.detachDiskObserver(file.fileId); this.checkLease(lease); await local.delete(path, lease.projectRoot); this.checkLease(lease); } finally { this.locallyDeleted.delete(file.fileId); } }); }
+  async revoke(grantId: string): Promise<void> { this.assertCatalogOnline(); const result = await this.control.operation<OperationResultV2>("revoke", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, grantId }); this.catalogValue.catalogRevision = result.catalogRevision; }
+  async delete(path: string, local: CollabLocalMutationsV2): Promise<void> { this.assertCatalogOnline(); const file = this.file(path); if (!file) throw new Error("Unknown catalog path"); const lease = this.requireLease(); await this.enqueueFile(file.fileId, async () => { this.checkLease(lease); this.locallyDeleted.add(file.fileId); try { await this.control.operation("delete-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, fileId: file.fileId }); await this.refetchCatalog(); this.detachDiskObserver(file.fileId); this.checkLease(lease); await local.delete(path, lease.projectRoot); this.checkLease(lease); } finally { this.locallyDeleted.delete(file.fileId); } }); }
   async settled(): Promise<void> { await this.activeClient?.settled(); }
   async flush(): Promise<void> {
     while (this.diskObserverFlushes.size > 0 || this.pendingDiskWrites.size > 0) {
@@ -865,6 +891,7 @@ export class CollabProjectControllerV2 {
     return { rootPath: lease.projectRoot, openPath, textCount: textFiles.length, binaryCount: files.length - textFiles.length, fileCount: files.length };
   }
   async close(): Promise<void> {
+    this.assertCatalogOnline();
     if (this.catalogValue.lifecycle === "closing" || this.catalogValue.lifecycle === "closed") return;
     const result = await this.control.operation<OperationResultV2>("close-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision });
     this.catalogValue.catalogRevision = result.catalogRevision;
@@ -1032,6 +1059,7 @@ export class CollabProjectControllerV2 {
     this.setStatus(state === "server-durable" || state === "clean" ? "durable" : "syncing");
   }
   private setStatus(status: CollabProjectStatusV2): void { if (this.destroyed || this.statusValue === status) return; this.statusValue = status; this.options.onStatus?.(status); }
+  private assertCatalogOnline(): void { if (this.catalogOffline) throw new Error("Collaboration catalog is offline; project changes are unavailable until reconnection"); }
   private assertLiveController(): void { if (this.destroyed) throw new Error("Controller is destroyed"); }
 }
 
@@ -1044,3 +1072,7 @@ function chooseRootTextPath(files: CatalogFileV2[]): string {
     ?? "";
 }
 function binaryConflictPath(path: string, conflictId: string): string { const dot = path.lastIndexOf("."); const suffix = `.conflict-${conflictId.slice(0, 8)}`; return dot > path.lastIndexOf("/") ? `${path.slice(0, dot)}${suffix}${path.slice(dot)}` : `${path}${suffix}`; }
+function isTransientCatalogFailure(error: unknown): boolean {
+  return error instanceof TypeError
+    || (error instanceof CollabControlErrorV2 && (error.status === 408 || error.status === 429 || error.status >= 500));
+}

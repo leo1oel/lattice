@@ -109,6 +109,199 @@ describe("planCatalogDeltaV2", () => {
   });
 });
 
+describe("v2 offline catalog reopening", () => {
+  const deployment = "https://collab.example";
+  const projectInstanceId = "proj";
+  const namespace = { deployment, projectInstanceId, fileId: "f0", documentEpoch: 1 };
+
+  function sharedCatalog(overrides: Partial<CatalogV2> = {}): CatalogV2 {
+    return {
+      protocol: 2,
+      projectInstanceId,
+      lifecycle: "live",
+      catalogRevision: 1,
+      snapshotGeneration: 1,
+      workspaceLeaseGeneration: 1,
+      authorityEpoch: 1,
+      files: [file({ fileId: "f0", path: "paper.md" })],
+      ...overrides,
+    };
+  }
+
+  async function primeText(store: import("./collab-text-v2-store").CollabTextDurableStoreV2, text: string) {
+    const doc = new Y.Doc();
+    doc.getText("content").insert(0, text);
+    const snapshot = Y.encodeStateAsUpdate(doc);
+    const vector = Y.encodeStateVector(doc);
+    const stateVector = btoa(String.fromCharCode(...vector))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replaceAll("=", "");
+    await store.compactAck(namespace, snapshot, {
+      type: "lattice.durable-ack", protocol: 2, projectInstanceId, fileId: "f0", documentEpoch: 1,
+      contentRevision: 1, snapshotGeneration: 1, stateVector, size: snapshot.byteLength, hash: "a".repeat(64),
+    }, vector);
+    doc.destroy();
+  }
+
+  async function startController(options: {
+    store: import("./collab-text-v2-store").CollabTextDurableStoreV2;
+    fetchMock: ReturnType<typeof vi.fn>;
+    credential?: string;
+    statuses?: string[];
+  }) {
+    vi.stubGlobal("fetch", options.fetchMock);
+    const { CollabProjectControllerV2 } = await import("./collab-project-v2");
+    return CollabProjectControllerV2.start({
+      deployment, projectInstanceId, credentialRef: "ref",
+      credentialStore: { get: async () => options.credential ?? "secret" } as never,
+      store: options.store,
+      transportFactory: ({ doc }) => ({
+        onCustomMessage: () => () => undefined,
+        onDisconnect: () => () => undefined,
+        onSynced: (listener) => { queueMicrotask(() => listener(true)); return () => undefined; },
+        clearAwareness: () => undefined,
+        destroy: () => doc.destroy(),
+      }),
+      eventsPollIntervalMs: 60_000,
+      onStatus: (status) => options.statuses?.push(status),
+    });
+  }
+
+  it("cold-opens a validated catalog and durable text while clearly offline", async () => {
+    const { IDBFactory } = await import("fake-indexeddb");
+    const store = new (await import("./collab-text-v2-store")).CollabTextDurableStoreV2(new IDBFactory());
+    await store.persistCatalog(deployment, projectInstanceId, sharedCatalog());
+    await primeText(store, "cached text");
+    const statuses: string[] = [];
+    const fetchMock = vi.fn(async (_url: string) => { throw new TypeError("Failed to fetch"); });
+
+    const controller = await startController({ store, fetchMock, statuses });
+    expect(controller.status).toBe("offline");
+    expect(statuses).toContain("offline");
+    expect(controller.catalogTextPaths()).toEqual(["paper.md"]);
+    const text = await controller.openPath("paper.md");
+    expect(text.toString()).toBe("cached text");
+
+    text.insert(text.length, " draft");
+    await controller.settled();
+    expect((await store.load(namespace))?.outbox).toHaveLength(1);
+    await expect(controller.create("new.md", "text")).rejects.toThrow("catalog is offline");
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/create"))).toBe(false);
+    controller.destroy();
+  });
+
+  it("fails with the network error when there is no valid cache or credential", async () => {
+    const { IDBFactory } = await import("fake-indexeddb");
+    const { CollabTextDurableStoreV2 } = await import("./collab-text-v2-store");
+    const offline = vi.fn(async () => { throw new TypeError("cold launch offline"); });
+    await expect(startController({ store: new CollabTextDurableStoreV2(new IDBFactory()), fetchMock: offline }))
+      .rejects.toThrow("cold launch offline");
+
+    const cached = new CollabTextDurableStoreV2(new IDBFactory());
+    await cached.persistCatalog(deployment, projectInstanceId, sharedCatalog());
+    const fetchMock = vi.fn();
+    await expect(startController({ store: cached, fetchMock, credential: "" }))
+      .rejects.toThrow("Collaboration credential is unavailable");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not cross project or deployment identity boundaries", async () => {
+    const { IDBFactory } = await import("fake-indexeddb");
+    const { CollabTextDurableStoreV2 } = await import("./collab-text-v2-store");
+    const store = new CollabTextDurableStoreV2(new IDBFactory());
+    await store.persistCatalog("https://other.example", projectInstanceId, sharedCatalog());
+    await store.persistCatalog(deployment, "other-project", sharedCatalog({ projectInstanceId: "other-project" }));
+    const offline = vi.fn(async () => { throw new TypeError("wrong identity offline"); });
+    await expect(startController({ store, fetchMock: offline })).rejects.toThrow("wrong identity offline");
+  });
+
+  it("fails closed on stale-schema and malformed catalog snapshots", async () => {
+    const { IDBFactory } = await import("fake-indexeddb");
+    const idb = new IDBFactory();
+    const store = new (await import("./collab-text-v2-store")).CollabTextDurableStoreV2(idb);
+    await store.persistCatalog(deployment, projectInstanceId, sharedCatalog());
+    const key = [deployment, projectInstanceId].map(encodeURIComponent).join("|");
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = idb.open("lattice-collab-text-v2", 3);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("catalogs", "readwrite");
+      tx.objectStore("catalogs").put({ key, version: 0, deployment, projectInstanceId, catalog: sharedCatalog() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+    const offline = vi.fn(async () => { throw new TypeError("stale schema offline"); });
+    await expect(startController({ store, fetchMock: offline })).rejects.toThrow("stale schema offline");
+
+    const malformedDb = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = idb.open("lattice-collab-text-v2", 3);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = malformedDb.transaction("catalogs", "readwrite");
+      tx.objectStore("catalogs").put({
+        key, version: 1, deployment, projectInstanceId,
+        catalog: { ...sharedCatalog(), files: [{ ...sharedCatalog().files[0], documentEpoch: 0 }] },
+      });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    malformedDb.close();
+    const malformed = vi.fn(async () => { throw new TypeError("malformed snapshot offline"); });
+    await expect(startController({ store, fetchMock: malformed })).rejects.toThrow("malformed snapshot offline");
+  });
+
+  it("refetches and reconciles the live epoch and path without clearing the old text outbox", async () => {
+    const { IDBFactory } = await import("fake-indexeddb");
+    const store = new (await import("./collab-text-v2-store")).CollabTextDurableStoreV2(new IDBFactory());
+    await store.persistCatalog(deployment, projectInstanceId, sharedCatalog());
+    await primeText(store, "cached");
+    let online = false;
+    const live = sharedCatalog({
+      catalogRevision: 2,
+      files: [file({ fileId: "f0", path: "renamed.md", documentEpoch: 2 })],
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (!online) throw new TypeError("offline");
+      const respond = (value: unknown) => new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } });
+      if (url.endsWith("/catalog")) return respond(live);
+      if (url.endsWith("/tickets")) return respond({ ticket: "ticket" });
+      if (url.endsWith("/presence")) return respond({ protocol: 2, presence: {} });
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    const controller = await startController({ store, fetchMock });
+    const cached = await controller.openPath("paper.md");
+    cached.insert(cached.length, " draft");
+    await controller.settled();
+    expect((await store.load(namespace))?.outbox).toHaveLength(1);
+    const writes: string[] = [];
+    const deletes: string[] = [];
+    controller.bindWorkspace(
+      { projectRoot: "/tmp/proj", isCurrent: () => true },
+      {
+        writeText: async (path) => { writes.push(path); },
+        writeBytes: async () => undefined,
+        delete: async (path) => { deletes.push(path); },
+      },
+    );
+
+    online = true;
+    await (controller as unknown as { pollEvents(): Promise<void> }).pollEvents();
+    expect(controller.status).toBe("syncing");
+    expect(controller.catalogTextPaths()).toEqual(["renamed.md"]);
+    expect(writes).toContain("renamed.md");
+    expect(deletes).toContain("paper.md");
+    expect((await store.load(namespace))?.outbox).toHaveLength(1);
+    expect((await store.loadCatalog(deployment, projectInstanceId))?.catalogRevision).toBe(2);
+    controller.destroy();
+  });
+});
+
 describe("v2 project presence", () => {
   async function setupPresenceTest(options: {
     paths?: string[];

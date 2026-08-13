@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { isDurableAckV2, type DurableAckV2 } from "../protocol/collab-v2";
+import { isCatalogV2, isDurableAckV2, type CatalogV2, type DurableAckV2 } from "../protocol/collab-v2";
 
 export type TextNamespaceV2 = { deployment: string; projectInstanceId: string; fileId: string; documentEpoch: number };
 export type OutboxEntryV2 = { id: string; update: Uint8Array; createdAt: number };
@@ -16,7 +16,9 @@ const STORE = "documents";
 /** One record per unsent local update, so a keystroke never rewrites the snapshot record. */
 const OUTBOX_STORE = "outbox";
 const OUTBOX_DOC_INDEX = "byDoc";
-const DB_VERSION = 2;
+const CATALOG_STORE = "catalogs";
+const CATALOG_SNAPSHOT_VERSION = 1 as const;
+const DB_VERSION = 3;
 
 const EMPTY_SNAPSHOT = (() => { const doc = new Y.Doc(); const update = Y.encodeStateAsUpdate(doc); doc.destroy(); return update; })();
 
@@ -25,6 +27,18 @@ export function textNamespaceKey(namespace: TextNamespaceV2): string {
 }
 
 type StoredOutboxRecordV2 = { key: string; doc: string; entry: OutboxEntryV2 };
+type StoredCatalogSnapshotV2 = {
+  key: string;
+  version: typeof CATALOG_SNAPSHOT_VERSION;
+  deployment: string;
+  projectInstanceId: string;
+  catalog: CatalogV2;
+};
+
+function normalizedDeployment(deployment: string): string { return deployment.replace(/\/$/, ""); }
+function catalogSnapshotKey(deployment: string, projectInstanceId: string): string {
+  return [normalizedDeployment(deployment), projectInstanceId].map(encodeURIComponent).join("|");
+}
 
 export class CollabTextDurableStoreV2 {
   private readonly tails = new Map<string, Promise<unknown>>();
@@ -112,6 +126,51 @@ export class CollabTextDurableStoreV2 {
 
   async export(namespace: TextNamespaceV2): Promise<DurableTextRecordV2 | undefined> { const key = textNamespaceKey(namespace); return this.serial(key, () => this.readValidated(key, namespace)); }
 
+  /** Persist only a catalog that has passed the wire validator and matches this durable identity. */
+  async persistCatalog(deployment: string, projectInstanceId: string, catalog: CatalogV2): Promise<void> {
+    if (!isCatalogV2(catalog) || catalog.projectInstanceId !== projectInstanceId) throw new Error("Invalid catalog snapshot");
+    const key = catalogSnapshotKey(deployment, projectInstanceId);
+    const value: StoredCatalogSnapshotV2 = {
+      key,
+      version: CATALOG_SNAPSHOT_VERSION,
+      deployment: normalizedDeployment(deployment),
+      projectInstanceId,
+      catalog: structuredClone(catalog),
+    };
+    await this.serial(`catalog:${key}`, async () => {
+      const db = await this.db();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(CATALOG_STORE, "readwrite");
+        tx.objectStore(CATALOG_STORE).put(value);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+      db.close();
+    });
+  }
+
+  /** Invalid, stale-version, or differently bound records are indistinguishable from no cache. */
+  async loadCatalog(deployment: string, projectInstanceId: string): Promise<CatalogV2 | undefined> {
+    const key = catalogSnapshotKey(deployment, projectInstanceId);
+    return this.serial(`catalog:${key}`, async () => {
+      const db = await this.db();
+      const raw = await new Promise<unknown>((resolve, reject) => {
+        const request = db.transaction(CATALOG_STORE).objectStore(CATALOG_STORE).get(key);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      }).finally(() => db.close());
+      if (!raw || typeof raw !== "object") return undefined;
+      const record = raw as Partial<StoredCatalogSnapshotV2>;
+      if (record.key !== key || record.version !== CATALOG_SNAPSHOT_VERSION
+        || record.deployment !== normalizedDeployment(deployment)
+        || record.projectInstanceId !== projectInstanceId
+        || !isCatalogV2(record.catalog)
+        || record.catalog.projectInstanceId !== projectInstanceId) return undefined;
+      return structuredClone(record.catalog);
+    });
+  }
+
   private async db(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = this.indexedDB.open(DB_NAME, DB_VERSION);
@@ -122,6 +181,7 @@ export class CollabTextDurableStoreV2 {
           const store = db.createObjectStore(OUTBOX_STORE, { keyPath: "key" });
           store.createIndex(OUTBOX_DOC_INDEX, "doc", { unique: false });
         }
+        if (!db.objectStoreNames.contains(CATALOG_STORE)) db.createObjectStore(CATALOG_STORE, { keyPath: "key" });
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
