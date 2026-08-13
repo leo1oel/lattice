@@ -3591,19 +3591,21 @@ pub struct ImportedProjectFile {
     pub kind: String,
 }
 
-/// One Finder drop, any mix of files: content — not extension — decides the
-/// route. UTF-8 text lands through the undoable transaction log like
-/// `import_sources`; figures keep the `import_assets` copy route so collab
-/// registration stays "binary" for them (SVG is text bytes but a figure);
-/// everything else is copied verbatim. Files already inside the project are
-/// registered without copying.
+/// One Finder drop, any mix of files and folders. Folder imports preserve their
+/// hierarchy under one collision-free top-level name; hidden entries are
+/// omitted and symbolic links are not followed. Content — not extension —
+/// decides each file's route. UTF-8 text lands through the undoable transaction
+/// log like `import_sources`; figures keep the `import_assets` copy route so
+/// collab registration stays "binary" for them (SVG is text bytes but a
+/// figure); everything else is copied verbatim. Files already inside the
+/// project are registered without copying.
 pub fn import_files(
     root: &Path,
     sources: &[String],
     target_directory: &str,
 ) -> Result<Vec<ImportedProjectFile>, String> {
     if sources.is_empty() {
-        return Err("Drop one or more files first.".to_string());
+        return Err("Drop one or more files or folders first.".to_string());
     }
     let target_directory = target_directory.trim().trim_end_matches(['/', '\\']);
     if !target_directory.is_empty() {
@@ -3616,7 +3618,7 @@ pub fn import_files(
         safe_path(root, target_directory)?
     };
     if target.exists() && !target.is_dir() {
-        return Err("Drop files onto a project folder.".to_string());
+        return Err("Drop files and folders onto a project folder.".to_string());
     }
 
     enum Planned {
@@ -3629,9 +3631,104 @@ pub fn import_files(
             destination: PathBuf,
         },
     }
-    // Plan (and read text content) before touching the project, so a bad file
+
+    fn plan_file(
+        source: &Path,
+        destination: Option<PathBuf>,
+        canonical_root: &Path,
+        plan: &mut Vec<(ImportedProjectFile, Planned)>,
+    ) -> Result<(), String> {
+        // classify_regular_file caps text at 8 MB, so oversized text files
+        // take the verbatim copy route rather than the transaction log.
+        let text =
+            !is_supported_asset(source) && classify_regular_file(source)? == ContentKind::Text;
+        let kind = if !text {
+            "binary"
+        } else if source
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("tldr"))
+        {
+            "board"
+        } else {
+            "text"
+        };
+        let project_path = destination.as_deref().unwrap_or(source);
+        let relative = project_path
+            .strip_prefix(canonical_root)
+            .map_err(err)?
+            .to_string_lossy()
+            .replace('\\', "/");
+        validate_user_entry(&relative)?;
+        let planned = match destination {
+            None => Planned::Existing,
+            Some(_) if text => Planned::Text {
+                content: fs::read_to_string(source).map_err(err)?,
+            },
+            Some(destination) => Planned::Binary {
+                source: source.to_path_buf(),
+                destination,
+            },
+        };
+        plan.push((
+            ImportedProjectFile {
+                path: relative,
+                kind: kind.into(),
+            },
+            planned,
+        ));
+        Ok(())
+    }
+
+    fn plan_directory(
+        source: &Path,
+        destination: Option<&Path>,
+        canonical_root: &Path,
+        directories: &mut Vec<PathBuf>,
+        plan: &mut Vec<(ImportedProjectFile, Planned)>,
+    ) -> Result<(), String> {
+        if let Some(destination) = destination {
+            directories.push(destination.to_path_buf());
+        }
+        // Hidden files cannot be addressed in the Project tree and commonly
+        // include large VCS/cache state. Symlinks are emitted by WalkDir but
+        // never traversed, keeping a dropped folder within its visible tree.
+        let walker = WalkDir::new(source)
+            .follow_links(false)
+            .sort_by_file_name()
+            .into_iter()
+            .filter_entry(|entry| {
+                entry.depth() == 0 || !entry.file_name().to_string_lossy().starts_with('.')
+            });
+        for entry in walker.skip(1) {
+            let entry = entry.map_err(err)?;
+            let metadata = fs::symlink_metadata(entry.path()).map_err(err)?;
+            if metadata.file_type().is_symlink() {
+                continue;
+            }
+            let name = entry
+                .file_name()
+                .to_str()
+                .ok_or_else(|| "An imported folder contains an invalid file name.".to_string())?;
+            validate_entry_name(name)?;
+            let suffix = entry.path().strip_prefix(source).map_err(err)?;
+            let entry_destination = destination.map(|target| target.join(suffix));
+            if metadata.file_type().is_dir() {
+                if let Some(entry_destination) = entry_destination {
+                    directories.push(entry_destination);
+                }
+            } else if metadata.file_type().is_file() {
+                plan_file(entry.path(), entry_destination, canonical_root, plan)?;
+            } else {
+                return Err(format!("{name} is not a regular file Lattice can import."));
+            }
+        }
+        Ok(())
+    }
+
+    // Plan (and read text content) before touching the project, so a bad entry
     // anywhere in the batch aborts the whole drop instead of half-landing.
     let mut plan: Vec<(ImportedProjectFile, Planned)> = Vec::with_capacity(sources.len());
+    let mut directories = Vec::new();
     let mut reserved = BTreeSet::new();
     for source in sources {
         let requested = Path::new(source);
@@ -3642,43 +3739,39 @@ pub fn import_files(
                 .unwrap_or("That item")
                 .to_string()
         };
-        if requested.is_dir() {
+        let metadata = fs::symlink_metadata(requested).map_err(err)?;
+        if metadata.file_type().is_symlink() {
             return Err(format!(
-                "{} is a folder; drop files instead.",
+                "{} is a symbolic link and cannot be imported.",
                 display_name()
             ));
         }
-        if !requested.is_file() {
+        if !metadata.file_type().is_file() && !metadata.file_type().is_dir() {
             return Err(format!(
-                "{} is not a file Lattice can import.",
+                "{} is not a regular file or folder Lattice can import.",
                 display_name()
             ));
         }
         let canonical_source = requested.canonicalize().map_err(err)?;
-        // classify_regular_file caps text at 8 MB, so oversized text files
-        // take the verbatim copy route rather than the transaction log.
-        let text = !is_supported_asset(&canonical_source)
-            && classify_regular_file(&canonical_source)? == ContentKind::Text;
-        let kind = if !text {
-            "binary"
-        } else if canonical_source
-            .extension()
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("tldr"))
-        {
-            "board"
-        } else {
-            "text"
-        };
-        if let Ok(relative) = canonical_source.strip_prefix(&canonical_root) {
-            let relative = relative.to_string_lossy().replace('\\', "/");
-            validate_user_entry(&relative)?;
-            plan.push((
-                ImportedProjectFile {
-                    path: relative,
-                    kind: kind.into(),
-                },
-                Planned::Existing,
-            ));
+        let inside_project = canonical_source.starts_with(&canonical_root);
+        if inside_project {
+            if metadata.file_type().is_dir() {
+                let relative = canonical_source
+                    .strip_prefix(&canonical_root)
+                    .map_err(err)?
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                validate_user_entry(&relative)?;
+                plan_directory(
+                    &canonical_source,
+                    None,
+                    &canonical_root,
+                    &mut directories,
+                    &mut plan,
+                )?;
+            } else {
+                plan_file(&canonical_source, None, &canonical_root, &mut plan)?;
+            }
             continue;
         }
         let file_name = requested
@@ -3686,33 +3779,40 @@ pub fn import_files(
             .and_then(|name| name.to_str())
             .ok_or_else(|| "An imported file has an invalid file name.".to_string())?;
         validate_entry_name(file_name)?;
-        let destination = available_import_path(&target, file_name, &reserved);
-        reserved.insert(destination.clone());
-        let relative = destination
-            .strip_prefix(&canonical_root)
-            .map_err(err)?
-            .to_string_lossy()
-            .replace('\\', "/");
-        let planned = if text {
-            Planned::Text {
-                content: fs::read_to_string(&canonical_source).map_err(err)?,
+        let destination = if metadata.file_type().is_dir() {
+            if canonical_root.starts_with(&canonical_source) {
+                return Err(format!(
+                    "{} contains the current project and cannot be imported into it.",
+                    display_name()
+                ));
             }
+            available_import_directory_path(&target, file_name, &reserved)
         } else {
-            Planned::Binary {
-                source: canonical_source,
-                destination,
-            }
+            available_import_path(&target, file_name, &reserved)
         };
-        plan.push((
-            ImportedProjectFile {
-                path: relative,
-                kind: kind.into(),
-            },
-            planned,
-        ));
+        reserved.insert(destination.clone());
+        if metadata.file_type().is_dir() {
+            plan_directory(
+                &canonical_source,
+                Some(&destination),
+                &canonical_root,
+                &mut directories,
+                &mut plan,
+            )?;
+        } else {
+            plan_file(
+                &canonical_source,
+                Some(destination),
+                &canonical_root,
+                &mut plan,
+            )?;
+        }
     }
 
     fs::create_dir_all(&target).map_err(err)?;
+    for directory in directories {
+        fs::create_dir_all(directory).map_err(err)?;
+    }
     let mut edits = Vec::new();
     for (file, planned) in &plan {
         match planned {
@@ -3920,6 +4020,24 @@ fn available_import_path(
             Some(extension) => directory.join(format!("{stem}-{suffix}.{extension}")),
             None => directory.join(format!("{stem}-{suffix}")),
         };
+        if !candidate.exists() && !reserved.contains(&candidate) {
+            return candidate;
+        }
+    }
+    unreachable!()
+}
+
+fn available_import_directory_path(
+    directory: &Path,
+    directory_name: &str,
+    reserved: &BTreeSet<PathBuf>,
+) -> PathBuf {
+    let requested = directory.join(directory_name);
+    if !requested.exists() && !reserved.contains(&requested) {
+        return requested;
+    }
+    for suffix in 2.. {
+        let candidate = directory.join(format!("{directory_name}-{suffix}"));
         if !candidate.exists() && !reserved.contains(&candidate) {
             return candidate;
         }
@@ -7138,9 +7256,83 @@ mod tests {
         );
         assert!(!root.join("data.csv").exists());
 
-        assert!(import_files(&root, &[parent.to_string_lossy().to_string()], "").is_err());
         assert!(import_files(&root, &all[..1], ".research").is_err());
         assert!(import_files(&root, &all[..1], "main.tex").is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn imported_folders_preserve_visible_hierarchy_and_rename_collisions() {
+        let parent = temp_root("import-folder");
+        let root = create(&parent, "paper").unwrap();
+        let source = parent.join("dataset.v1");
+        fs::create_dir_all(source.join("nested/empty")).unwrap();
+        fs::create_dir_all(source.join(".cache")).unwrap();
+        fs::write(source.join("README.md"), "# Dataset\n").unwrap();
+        fs::write(source.join("nested/results.csv"), "score\n1\n").unwrap();
+        fs::write(source.join("nested/archive.zip"), b"PK\x03\x04rest").unwrap();
+        fs::write(source.join(".DS_Store"), b"metadata").unwrap();
+        fs::write(source.join(".cache/private.txt"), "private").unwrap();
+
+        let paths = vec![source.to_string_lossy().to_string()];
+        let imported = import_files(&root, &paths, "sections").unwrap();
+        assert_eq!(
+            imported
+                .iter()
+                .map(|file| (file.path.as_str(), file.kind.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("sections/dataset.v1/README.md", "text"),
+                ("sections/dataset.v1/nested/archive.zip", "binary"),
+                ("sections/dataset.v1/nested/results.csv", "text"),
+            ]
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("sections/dataset.v1/nested/results.csv")).unwrap(),
+            "score\n1\n"
+        );
+        assert!(root.join("sections/dataset.v1/nested/empty").is_dir());
+        assert!(!root.join("sections/dataset.v1/.DS_Store").exists());
+        assert!(!root.join("sections/dataset.v1/.cache").exists());
+
+        let imported_again = import_files(&root, &paths, "sections").unwrap();
+        assert!(imported_again
+            .iter()
+            .all(|file| file.path.starts_with("sections/dataset.v1-2/")));
+        assert!(root.join("sections/dataset.v1-2/nested/empty").is_dir());
+
+        let error = import_files(&root, &[parent.to_string_lossy().to_string()], "").unwrap_err();
+        assert!(error.contains("contains the current project"), "{error}");
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn imported_folders_do_not_follow_symbolic_links() {
+        use std::os::unix::fs::symlink;
+
+        let parent = temp_root("import-folder-symlinks");
+        let root = create(&parent, "paper").unwrap();
+        let source = parent.join("dataset");
+        let outside = parent.join("outside");
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(source.join("visible.txt"), "visible").unwrap();
+        fs::write(outside.join("secret.txt"), "secret").unwrap();
+        symlink(&outside, source.join("linked-directory")).unwrap();
+        symlink(outside.join("secret.txt"), source.join("linked-file")).unwrap();
+
+        let imported = import_files(&root, &[source.to_string_lossy().to_string()], "").unwrap();
+        assert_eq!(imported.len(), 1);
+        assert_eq!(imported[0].path, "dataset/visible.txt");
+        assert!(!root.join("dataset/linked-directory").exists());
+        assert!(!root.join("dataset/linked-file").exists());
+
+        let top_level_link = parent.join("linked-dataset");
+        symlink(&source, &top_level_link).unwrap();
+        let error =
+            import_files(&root, &[top_level_link.to_string_lossy().to_string()], "").unwrap_err();
+        assert!(error.contains("symbolic link"), "{error}");
         fs::remove_dir_all(parent).unwrap();
     }
 

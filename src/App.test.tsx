@@ -4471,7 +4471,7 @@ describe("project workspace", () => {
     Reflect.deleteProperty(document, "elementFromPoint");
   });
 
-  it("imports a mixed Finder drop into the folder it lands on without opening files", async () => {
+  it("imports a mixed Finder file and folder drop where it lands without opening files", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -4500,6 +4500,7 @@ describe("project workspace", () => {
           { path: "sections/notes.md", kind: "text" },
           { path: "sections/data.csv", kind: "text" },
           { path: "sections/plot.png", kind: "binary" },
+          { path: "sections/tables/results.csv", kind: "text" },
         ];
       }
       if (command === "list_papers" || command === "list_history") return [];
@@ -4518,16 +4519,16 @@ describe("project workspace", () => {
       webviewApi.dragDropHandler?.({
         payload: {
           type: "drop",
-          // Markdown + a data file the old classifier rejected + an image,
-          // all in one drop: the tree takes any mix.
-          paths: ["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png"],
+          // Markdown + a data file the old classifier rejected + an image +
+          // a folder, all in one drop: the tree takes any mix.
+          paths: ["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png", "/tmp/tables"],
           position: { x: 100, y: 100 },
         },
       });
     });
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_files", {
-      paths: ["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png"],
+      paths: ["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png", "/tmp/tables"],
       targetDirectory: "sections",
       projectRoot: "/tmp/lattice-paper",
     }));

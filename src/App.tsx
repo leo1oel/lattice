@@ -7006,9 +7006,9 @@ function App() {
   }, [assetImporting, project?.root, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
 
   /**
-   * Finder-style tree drops: any mix of files, routed by the backend on
-   * content (UTF-8 text through the transaction log, the rest copied).
-   * Returned kinds drive collab share registration per file.
+   * Finder-style tree drops: any mix of files and folders, routed by the
+   * backend on content (UTF-8 text through the transaction log, the rest
+   * copied). Returned file kinds drive collab share registration per file.
    */
   const importProjectFiles = useCallback(async (
     paths: string[],
@@ -7123,8 +7123,8 @@ function App() {
             });
           } else if (targetDirectory !== null) {
             // The Project tree takes any mix, Finder-style, into the folder
-            // under the pointer ("" is the project root). Files land without
-            // opening; editor/canvas drops import and open instead.
+            // under the pointer ("" is the project root). Imported files land
+            // without opening; editor/canvas drops import and open instead.
             void importProjectFiles(event.payload.paths, targetDirectory);
           } else if (dropKind === "source") {
             setError("Drop source files onto an editor to open them, or into the Project pane to add them.");
