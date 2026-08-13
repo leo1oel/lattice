@@ -50,10 +50,19 @@ if (next === current) {
 pkg.version = next;
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
-// tauri.conf.json — same, targeting the top-level "version".
-const conf = JSON.parse(readFileSync(confPath, "utf8"));
-conf.version = next;
-writeFileSync(confPath, JSON.stringify(conf, null, 2) + "\n");
+// tauri.conf.json — replace only the top-level field. Parsing and stringifying
+// the whole file would reformat deliberately compact nested arrays such as the
+// CSP source lists, burying a one-line release bump in an unrelated diff.
+const conf = readFileSync(confPath, "utf8");
+let confVersionReplaced = false;
+const nextConf = conf.replace(/^(  "version": )"[^"]*",$/m, (_, prefix) => {
+  confVersionReplaced = true;
+  return `${prefix}"${next}",`;
+});
+if (!confVersionReplaced) {
+  throw new Error(`Could not find the top-level version field in ${confPath}.`);
+}
+writeFileSync(confPath, nextConf);
 
 // Cargo.toml — replace the first `version = "..."` line (the [package] one).
 const cargo = readFileSync(cargoPath, "utf8");
