@@ -39,6 +39,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
+use tauri_plugin_opener::OpenerExt;
 
 #[derive(Default)]
 struct OverleafRealtimeState {
@@ -1897,6 +1898,22 @@ fn get_app_log_dir(app: tauri::AppHandle) -> Result<String, String> {
     Ok(dir.to_string_lossy().to_string())
 }
 
+/// Open only Lattice's log directory from the privileged side. Granting the
+/// WebView opener:allow-open-path would let compromised frontend code launch
+/// any local path through its registered application.
+#[tauri::command]
+fn open_app_log_dir(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|error| format!("Could not resolve the log folder: {error}"))?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|error| format!("Could not create the log folder: {error}"))?;
+    app.opener()
+        .open_path(dir.to_string_lossy(), None::<&str>)
+        .map_err(|error| format!("Could not open the log folder: {error}"))
+}
+
 #[tauri::command]
 async fn overleaf_status(app: tauri::AppHandle) -> Result<overleaf::OverleafStatus, String> {
     let config = overleaf_config_dir(&app)?;
@@ -3691,6 +3708,7 @@ pub fn run() {
             create_project,
             open_tutorial_project,
             get_app_log_dir,
+            open_app_log_dir,
             create_collab_join_workspace,
             initial_project,
             open_project,

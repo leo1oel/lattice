@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { openPath } from "@tauri-apps/plugin-opener";
 import { CheckCircle2, CircleAlert, FolderOpen, Info } from "lucide-react";
 import { CloseButton } from "./components/ui/icon-button";
 import { EmptyState } from "./components/ui/empty-state";
@@ -160,7 +159,9 @@ export function AppLogsSettings() {
   const copy = () => void navigator.clipboard.writeText(logText);
   const openLogFolder = () => {
     if (!logDir) return;
-    void openPath(logDir);
+    // Keep arbitrary filesystem paths out of the WebView's opener authority.
+    // The backend resolves and opens only Lattice's own log directory.
+    void invoke("open_app_log_dir");
   };
   return (
     <div className="settings-section app-logs-settings">
