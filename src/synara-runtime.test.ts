@@ -27,6 +27,9 @@ describe("Synara runtime URLs", () => {
       .toBeNull();
     expect(parseAgentCompileResultMessage({ ...message, rootDocument: "./main.tex" })).toBeNull();
     expect(parseAgentCompileResultMessage({ ...message, rootDocument: "file:main.tex" })).toBeNull();
+    expect(parseAgentCompileResultMessage({ ...message, turnId: `turn\0other` })).toBeNull();
+    expect(parseAgentCompileResultMessage({ ...message, threadId: "x".repeat(513) })).toBeNull();
+    expect(parseAgentCompileResultMessage({ ...message, compiledAt: "2026-02-30T00:00:00.000Z" })).toBeNull();
   });
   it("maps the native Git workspace tabs to embedded routes", () => {
     expect(agentGitWorkspacePath("changes")).toBe("/source-control");
@@ -98,6 +101,10 @@ describe("Synara runtime URLs", () => {
     expect(parseAgentProjectHistorySnapshot({
       ...snapshot,
       entries: [{ ...snapshot.entries[0], turnCount: -1 }],
+    })).toBeNull();
+    expect(parseAgentProjectHistorySnapshot({
+      ...snapshot,
+      entries: [{ ...snapshot.entries[0], threadId: "thread\0other" }],
     })).toBeNull();
   });
 });

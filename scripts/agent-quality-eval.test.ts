@@ -8,7 +8,7 @@ describe("agent quality eval", () => {
     const evidenceId = "a".repeat(64);
     expect(evaluateTrace(base([
       { type: "turn.context", ...ids, allowedPaths: ["main.tex", "refs.bib"] },
-      { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceIds: [evidenceId] } },
+      { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceAccess: "fulltext", evidenceIds: [evidenceId] } },
       { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
       { type: "checkpoint", ...ids, status: "success", checkpointRef: "cp", files: [{ path: "main.tex" }, { path: "refs.bib" }] },
       { type: "compile", ...ids, checkpointRef: "cp", success: true },
@@ -68,7 +68,7 @@ describe("agent quality eval", () => {
     const paperB = "b".repeat(64);
     const result = evaluateTrace(base([
       { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
-      { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceIds: [paperA] } },
+      { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceAccess: "fulltext", evidenceIds: [paperA] } },
       { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [paperB] } },
     ]));
     expect(result.violations).toEqual([
@@ -80,9 +80,40 @@ describe("agent quality eval", () => {
     const evidenceId = "a".repeat(64);
     expect(evaluateTrace(base([
       { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
-      { type: "tool", ...ids, tool: { name: "Read", status: "success", evidenceIds: [evidenceId] } },
+      { type: "tool", ...ids, tool: { name: "Read", status: "success", evidenceAccess: "fulltext", evidenceIds: [evidenceId] } },
       { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
     ])).pass).toBe(true);
+  });
+  it("rejects untrusted or malformed evidence claims", () => {
+    const ids = { threadId: "t", turnId: "u" };
+    const evidenceId = "a".repeat(64);
+    const untrustedRead = evaluateTrace(base([
+      { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
+      { type: "tool", ...ids, tool: { name: "Read", status: "success", evidenceIds: [evidenceId] } },
+      { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
+    ]));
+    expect(untrustedRead.violations.map((item: { rule: string }) => item.rule))
+      .toContain("metadata-not-evidence");
+
+    const selfAttestingCitation = evaluateTrace(base([
+      { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
+      { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceAccess: "fulltext", evidenceIds: [evidenceId] } },
+    ]));
+    expect(selfAttestingCitation.violations.map((item: { rule: string }) => item.rule))
+      .toContain("metadata-not-evidence");
+
+    const malformed = evaluateTrace(base([
+      { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId, "invalid"] } },
+    ]));
+    expect(malformed.violations.map((item: { rule: string }) => item.rule)).toContain("schema");
+  });
+  it("rejects correlation identifiers that could collide across turns", () => {
+    const result = evaluateTrace(base([
+      { type: "turn.started", threadId: "a", turnId: "b\0c" },
+      { type: "turn.started", threadId: "a\0b", turnId: "c" },
+    ]));
+    expect(result.violations.map((item: { rule: string }) => item.rule))
+      .toEqual(["schema", "schema"]);
   });
   it("treats a stop request as terminal and correlates recovery by checkpoint count", () => {
     const ids = { threadId: "t", turnId: "u" };

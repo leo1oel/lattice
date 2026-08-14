@@ -4,11 +4,24 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const BROKERS = new Set(["cite", "upgrade_bibliography", "remove_reference"]);
-const FULL_TEXT_TOOLS = new Set(["fetch_paper", "fetch_web_reference", "read_cached_paper", "read_paper"]);
+const FULL_TEXT_TOOLS = new Set([
+  "fetch_paper",
+  "fetch_web_reference",
+  "read_cached_paper",
+  "read_paper",
+  "read",
+  "read_file",
+]);
 
-function key(record) { return `${record.threadId}\0${record.turnId}`; }
 function successfulTool(record, names) {
   return record.type === "tool" && names.has(record.tool?.name) && record.tool?.status === "success";
+}
+
+function correlationId(value) {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= 512
+    && /^[A-Za-z0-9][A-Za-z0-9._:@/+-]*$/.test(value);
 }
 
 function projectPath(value) {
@@ -20,18 +33,27 @@ function projectPath(value) {
   return normalized;
 }
 
-function evidenceIds(record) {
+function evidenceState(record) {
   const values = record.type === "tool" ? record.tool?.evidenceIds : record.evidenceIds;
-  return Array.isArray(values)
-    ? [...new Set(values.filter((value) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value)))]
-    : [];
+  if (values === undefined) return { valid: true, ids: [] };
+  if (!Array.isArray(values)
+    || values.some((value) => typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value))) {
+    return { valid: false, ids: [] };
+  }
+  return { valid: true, ids: [...new Set(values)] };
+}
+
+function evidenceIds(record) {
+  return evidenceState(record).ids;
 }
 
 function successfulFullTextTool(record) {
-  if (record.type !== "tool" || record.tool?.status !== "success") return false;
+  if (record.type !== "tool" || record.tool?.status !== "success"
+    || record.tool?.evidenceAccess !== "fulltext" || evidenceIds(record).length === 0) {
+    return false;
+  }
   const name = typeof record.tool.name === "string" ? record.tool.name.toLowerCase() : "";
-  return FULL_TEXT_TOOLS.has(name)
-    || ((name === "read" || name === "read_file") && evidenceIds(record).length > 0);
+  return FULL_TEXT_TOOLS.has(name);
 }
 
 export function evaluateTrace(trace) {
@@ -42,16 +64,21 @@ export function evaluateTrace(trace) {
   const turns = new Map();
   trace.records.forEach((record, index) => {
     if (!record || typeof record !== "object" || typeof record.type !== "string"
-      || typeof record.threadId !== "string" || typeof record.turnId !== "string") {
+      || !correlationId(record.threadId) || !correlationId(record.turnId)) {
       violations.push({ rule: "schema", index, message: "Record requires type, threadId and turnId" });
       return;
     }
-    const bucket = turns.get(key(record)) ?? [];
+    if (!evidenceState(record).valid) {
+      violations.push({ rule: "schema", index, message: "evidenceIds must contain only lowercase SHA-256 hashes" });
+    }
+    const threadTurns = turns.get(record.threadId) ?? new Map();
+    const bucket = threadTurns.get(record.turnId) ?? [];
     bucket.push({ ...record, index });
-    turns.set(key(record), bucket);
+    threadTurns.set(record.turnId, bucket);
+    turns.set(record.threadId, threadTurns);
   });
 
-  for (const records of turns.values()) {
+  for (const records of [...turns.values()].flatMap((threadTurns) => [...threadTurns.values()])) {
     const contexts = records.filter((record) => record.type === "turn.context");
     const checkpoints = records.filter((record) => record.type === "checkpoint" && record.status === "success");
     const rawAllowed = contexts.length === 1 && Array.isArray(contexts[0].allowedPaths)
@@ -78,8 +105,7 @@ export function evaluateTrace(trace) {
       }
       if ((record.type === "stop" && record.status === "requested")
         || (record.type === "turn.completed" && record.status === "stopped")) stopped = true;
-      if (successfulFullTextTool(record)
-        || (record.type === "tool" && record.tool?.cache === "fulltext" && record.tool?.status === "success")) {
+      if (successfulFullTextTool(record)) {
         for (const id of evidenceIds(record)) fullTextEvidence.add(id);
       }
       if (successfulTool(record, BROKERS)) {

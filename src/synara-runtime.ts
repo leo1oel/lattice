@@ -46,11 +46,12 @@ export function parseAgentCompileResultMessage(value: unknown): AgentCompileResu
     : item.rootDocument;
   const allowedKeys = new Set(["type", "version", "threadId", "turnId", "checkpointRef", "compiledAt", "success", "durationMs", "rootDocument", "diagnostics"]);
   const allowedDiagnosticKeys = new Set(["errors", "warnings"]);
-  const stringFields = [item.threadId, item.turnId, item.checkpointRef];
   if (Object.keys(item).some((key) => !allowedKeys.has(key))
     || item.type !== LATTICE_AGENT_COMPILE_RESULT || item.version !== 1
-    || stringFields.some((field) => typeof field !== "string" || !field)
-    || typeof item.compiledAt !== "string" || !Number.isFinite(Date.parse(item.compiledAt))
+    || !boundedCorrelationId(item.threadId)
+    || !boundedCorrelationId(item.turnId)
+    || !boundedCorrelationId(item.checkpointRef)
+    || !strictUtcTimestamp(item.compiledAt)
     || typeof item.success !== "boolean"
     || !(item.durationMs === null || (typeof item.durationMs === "number" && Number.isFinite(item.durationMs) && item.durationMs >= 0))
     || !(rootDocument === null || (typeof rootDocument === "string" && rootDocument.length > 0
@@ -113,6 +114,24 @@ function finiteNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
+function boundedCorrelationId(value: unknown): value is string {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= 512
+    && /^[A-Za-z0-9][A-Za-z0-9._:@/+-]*$/.test(value);
+}
+
+function strictUtcTimestamp(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 32
+    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) {
+    return false;
+  }
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return false;
+  const canonical = new Date(timestamp).toISOString();
+  return value === canonical || value === canonical.replace(".000Z", "Z");
+}
+
 function agentCheckpointFileSummary(value: unknown): value is AgentCheckpointFileSummary {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -126,14 +145,14 @@ function agentCheckpointFileSummary(value: unknown): value is AgentCheckpointFil
 function agentCheckpointHistoryEntry(value: unknown): value is AgentCheckpointHistoryEntry {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
-  return typeof candidate.id === "string"
+  return boundedCorrelationId(candidate.id)
     && typeof candidate.label === "string"
     && typeof candidate.timestamp === "string"
-    && typeof candidate.threadId === "string"
+    && boundedCorrelationId(candidate.threadId)
     && typeof candidate.threadTitle === "string"
-    && typeof candidate.turnId === "string"
+    && boundedCorrelationId(candidate.turnId)
     && finiteNonNegativeInteger(candidate.turnCount)
-    && typeof candidate.checkpointRef === "string"
+    && boundedCorrelationId(candidate.checkpointRef)
     && Array.isArray(candidate.files)
     && candidate.files.every(agentCheckpointFileSummary);
 }
@@ -145,7 +164,7 @@ export function parseAgentProjectHistorySnapshot(
   const candidate = value as Record<string, unknown>;
   if (
     candidate.type !== LATTICE_PROJECT_HISTORY
-    || typeof candidate.activeThreadId !== "string"
+    || !boundedCorrelationId(candidate.activeThreadId)
     || !Array.isArray(candidate.entries)
     || !candidate.entries.every(agentCheckpointHistoryEntry)
   ) {

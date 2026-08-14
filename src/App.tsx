@@ -1245,12 +1245,14 @@ function App() {
   const agentCheckpointFingerprintsRef = useRef(new Map<string, string>());
   const agentHistoryPrimedThreadsRef = useRef(new Set<string>());
   const agentEditsBuildTimerRef = useRef<number | null>(null);
+  const queuedAgentCompileBuildRef = useRef(false);
   const pendingAgentCompileResultsRef = useRef(new Map<string, {
     threadId: string; turnId: string; checkpointRef: string;
   }>());
   useEffect(() => {
     agentCheckpointFingerprintsRef.current.clear();
     agentHistoryPrimedThreadsRef.current.clear();
+    queuedAgentCompileBuildRef.current = false;
     pendingAgentCompileResultsRef.current.clear();
     if (agentEditsBuildTimerRef.current !== null) {
       window.clearTimeout(agentEditsBuildTimerRef.current);
@@ -1437,6 +1439,7 @@ function App() {
     options?: { skipCollabLifecycle?: boolean; deferInitialBuild?: boolean },
   ) => Promise<void>) | null>(null);
   const compileRef = useRef<(force?: boolean) => Promise<void>>(async () => undefined);
+  const compileAgentCheckpointRef = useRef<() => Promise<void>>(async () => undefined);
   const activeFileRef = useRef(activeFile);
   const secondaryFileRef = useRef(secondaryFile);
   const activeAssetRef = useRef(activeAsset);
@@ -1942,7 +1945,7 @@ function App() {
         agentEditsBuildTimerRef.current = window.setTimeout(() => {
           agentEditsBuildTimerRef.current = null;
           if (projectRef.current?.root !== scheduledProjectRoot) return;
-          void compileRef.current();
+          void compileAgentCheckpointRef.current();
         }, 1_500);
         return;
       }
@@ -3835,7 +3838,12 @@ function App() {
 
   const runBuild = useCallback(async (
     force = false,
-    options?: { immediatePreview?: boolean; requested?: boolean; sound?: boolean },
+    options?: {
+      immediatePreview?: boolean;
+      requested?: boolean;
+      sound?: boolean;
+      consumeAgentAssociations?: boolean;
+    },
   ) => {
     // A project with no LaTeX document has nothing to compile. Autosave, a
     // synctex jump and opening the project all reach here, and each of them
@@ -3847,9 +3855,11 @@ function App() {
     const activeLooksCompilable = activeFileRef.current.toLowerCase().endsWith(".tex")
       && sourceRef.current.includes("\\documentclass");
     if (!projectRef.current?.manifest.rootDocuments.length && !activeLooksCompilable) {
-      const associations = [...pendingAgentCompileResultsRef.current.values()];
-      pendingAgentCompileResultsRef.current.clear();
-      relayAgentCompileResults(associations, null);
+      if (options?.consumeAgentAssociations) {
+        const associations = [...pendingAgentCompileResultsRef.current.values()];
+        pendingAgentCompileResultsRef.current.clear();
+        relayAgentCompileResults(associations, null);
+      }
       if (options?.requested) {
         setError(
           "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings.",
@@ -3861,6 +3871,8 @@ function App() {
     if (buildingRef.current) {
       queuedBuildForceRef.current = (queuedBuildForceRef.current ?? false) || force;
       queuedBuildSoundRef.current = queuedBuildSoundRef.current || options?.sound === true;
+      queuedAgentCompileBuildRef.current = queuedAgentCompileBuildRef.current
+        || options?.consumeAgentAssociations === true;
       return;
     }
     buildingRef.current = true;
@@ -3878,8 +3890,10 @@ function App() {
       && previewGenerationRef.current === buildScope.previewGeneration
       && projectRef.current?.root === buildScope.projectRoot);
     let shouldPlayCompletionSound = options?.sound === true;
+    let shouldConsumeAgentAssociations = options?.consumeAgentAssociations === true;
     let completionSound: "build-succeeded" | "build-failed" | null = null;
     queuedBuildSoundRef.current = false;
+    queuedAgentCompileBuildRef.current = false;
     try {
       let currentForce = force;
       const takeQueuedBuild = () => {
@@ -3887,7 +3901,9 @@ function App() {
         if (queuedForce === null) return false;
         currentForce = queuedForce;
         shouldPlayCompletionSound = shouldPlayCompletionSound || queuedBuildSoundRef.current;
+        shouldConsumeAgentAssociations = queuedAgentCompileBuildRef.current;
         queuedBuildSoundRef.current = false;
+        queuedAgentCompileBuildRef.current = false;
         return true;
       };
       do {
@@ -3895,8 +3911,10 @@ function App() {
         // Associate only work present at the start of this pass. A checkpoint
         // arriving during an in-flight build remains pending for the queued
         // pass, rather than being credited to stale output.
-        const agentCompileAssociations = [...pendingAgentCompileResultsRef.current.values()];
-        pendingAgentCompileResultsRef.current.clear();
+        const agentCompileAssociations = shouldConsumeAgentAssociations
+          ? [...pendingAgentCompileResultsRef.current.values()]
+          : [];
+        if (shouldConsumeAgentAssociations) pendingAgentCompileResultsRef.current.clear();
         const immediatePreview = options?.immediatePreview ?? currentForce;
         const previewGeneration = previewGenerationRef.current;
         const operationGeneration = projectOperationGenerationRef.current;
@@ -4064,6 +4082,15 @@ function App() {
     await runBuild(force, { immediatePreview: true, requested: true, sound });
   }, [project, runBuild]);
   compileRef.current = compile;
+  const compileAgentCheckpoint = useCallback(async () => {
+    if (!project) return;
+    await runBuild(false, {
+      immediatePreview: true,
+      requested: true,
+      consumeAgentAssociations: true,
+    });
+  }, [project, runBuild]);
+  compileAgentCheckpointRef.current = compileAgentCheckpoint;
 
   // ---- Overleaf bridge -----------------------------------------------------
 

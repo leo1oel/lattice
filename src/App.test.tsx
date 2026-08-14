@@ -2079,20 +2079,28 @@ describe("project workspace", () => {
         name: "Tutorial paper",
       },
     };
+    const buildResult = {
+      success: true,
+      hasPdf: false,
+      log: "",
+      durationMs: 5,
+      rootDocument: "/private/outside/main.tex",
+      diagnostics: [],
+    };
+    let deferNextBuild = false;
+    let resolveDeferredBuild: (() => void) | null = null;
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "open_tutorial_project") return tutorialSnapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
       if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
       if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") return {
-        success: true,
-        hasPdf: false,
-        log: "",
-        durationMs: 5,
-        rootDocument: "/private/outside/main.tex",
-        diagnostics: [],
-      };
+      if (command === "build_project") {
+        if (!deferNextBuild) return buildResult;
+        deferNextBuild = false;
+        await new Promise<void>((resolveBuild) => { resolveDeferredBuild = resolveBuild; });
+        return buildResult;
+      }
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
     const buildCalls = () =>
@@ -2152,11 +2160,38 @@ describe("project workspace", () => {
       }),
       synaraHook.runtime.origin,
     ));
+    const agentCompileRelays = () => postMessage.mock.calls.filter(([message]) => (
+      (message as { type?: string }).type === "lattice:agent-compile-result"
+    )).length;
+    const relaysAfterFirstCheckpoint = agentCompileRelays();
+
+    // A manual build during the checkpoint debounce must not consume its
+    // association. The dedicated automatic pass still runs and owns the relay.
+    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 9, deletions: 2 }])]);
+    fireEvent.click(screen.getByRole("button", { name: "Build" }));
+    await waitFor(() => expect(buildCalls()).toBe(baseline + 2));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Build" })).toBeEnabled());
+    expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint);
+    await waitFor(() => expect(buildCalls()).toBe(baseline + 3), { timeout: 4_000 });
+    await waitFor(() => expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 1));
+
+    // A checkpoint that arrives during an in-flight manual build queues its
+    // own pass; it must not be credited to the older output.
+    deferNextBuild = true;
+    fireEvent.click(screen.getByRole("button", { name: "Build" }));
+    await waitFor(() => expect(buildCalls()).toBe(baseline + 4));
+    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 13, deletions: 2 }])]);
+    await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
+    expect(buildCalls()).toBe(baseline + 4);
+    expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 1);
+    resolveDeferredBuild?.();
+    await waitFor(() => expect(buildCalls()).toBe(baseline + 5));
+    await waitFor(() => expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 2));
 
     // A pending debounce and its per-thread freshness state belong to this
     // project. Switching in place must cancel them; otherwise the old timer
     // compiles the new project and its first history replay looks fresh.
-    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 9, deletions: 2 }])]);
+    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 17, deletions: 2 }])]);
     fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
       button: 0,
       pointerType: "mouse",
