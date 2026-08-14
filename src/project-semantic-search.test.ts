@@ -126,7 +126,7 @@ describe("project semantic search fusion", () => {
   });
 
   it("does not drop lexical documents when semantic ranking is active", () => {
-    const lexical = Array.from({ length: 120 }, (_, index): ProjectFindHit => ({
+    const lexical = Array.from({ length: 200 }, (_, index): ProjectFindHit => ({
       kind: "file",
       path: `notes/note-${index}.tex`,
       title: `Note ${index}`,
@@ -134,6 +134,14 @@ describe("project semantic search fusion", () => {
       line: index + 1,
       fileKind: "tex",
     }));
+    lexical.push({
+      kind: "paper",
+      path: ".research/papers/2401.00001/paper.md",
+      title: "A matching paper",
+      snippet: "shared lexical phrase in the paper library",
+      line: 12,
+      fileKind: "md",
+    });
     const fused = fuseProjectSearchHits(
       lexical,
       "shared lexical phrase",

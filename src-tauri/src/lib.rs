@@ -1311,9 +1311,13 @@ async fn semantic_search_project(
 ) -> Result<semantic_search::SemanticSearchResponse, String> {
     let root = scoped_root(&state, &window, &project_root)?;
     let search = Arc::clone(&state.project(&root).semantic_search);
-    tauri::async_runtime::spawn_blocking(move || semantic_search::search(&search, &query))
-        .await
-        .map_err(|error| format!("Local semantic search stopped unexpectedly: {error}"))
+    let response =
+        tauri::async_runtime::spawn_blocking(move || semantic_search::search(&search, &query))
+            .await
+            .map_err(|error| format!("Local semantic search stopped unexpectedly: {error}"))?;
+    scoped_root(&state, &window, &project_root)
+        .map_err(|_| "The project changed before local semantic search finished.".to_string())?;
+    Ok(response)
 }
 
 #[tauri::command]

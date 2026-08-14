@@ -49,8 +49,6 @@ export const DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS: LocalSemanticSearchStatus = 
   generation: 0,
 };
 
-const MAX_FUSED_HITS = 200;
-
 /** Tiny/punctuation-only inputs stay on the instant lexical path. */
 export function semanticQueryEligible(query: string): boolean {
   const normalized = query.trim();
@@ -106,7 +104,7 @@ export function fuseProjectSearchHits(
     intent: "full_text",
     ranking: "relevance",
     // Semantic ranking must not make existing lexical documents disappear.
-    // The final UI cap still bounds output, but the seam sees every FTS path.
+    // The seam sees every FTS path; any internal ranking cap is restored below.
     limit: documents.length,
     semantic: { scores, candidateLimit: semantic.candidates.length },
   });
@@ -133,17 +131,17 @@ export function fuseProjectSearchHits(
         });
       }
     }
-    if (fused.length >= MAX_FUSED_HITS) break;
   }
   // workspace-search intentionally caps its own result set. Preserve any
   // remaining FTS documents in their original lexical order rather than
-  // allowing opt-in semantic ranking to hide an existing search result.
+  // allowing opt-in semantic ranking to hide an existing search result. The
+  // backend already bounds lexical and semantic candidates, so preserving all
+  // lexical hits remains finite without a second, lower frontend cap.
   for (const [path, lexical] of lexicalByPath) {
     if (emittedPaths.has(path)) continue;
     fused.push(...lexical);
-    if (fused.length >= MAX_FUSED_HITS) break;
   }
-  return fused.slice(0, MAX_FUSED_HITS);
+  return fused;
 }
 
 export function localSemanticStatusLabel(status: LocalSemanticSearchStatus): string {

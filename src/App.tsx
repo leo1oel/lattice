@@ -96,6 +96,7 @@ import {
   persistOverleafRemoteDelete,
   loadOverleafSyncMode,
   persistOverleafSyncMode,
+  LOCAL_SEMANTIC_SEARCH_KEY,
   loadLocalSemanticSearchEnabled,
   persistLocalSemanticSearchEnabled,
   hasSeenTutorial,
@@ -975,6 +976,19 @@ function App() {
   );
   const [semanticIndexRevision, setSemanticIndexRevision] = useState(0);
   const semanticReindexTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    const syncPreference = (event: StorageEvent) => {
+      if (event.key !== LOCAL_SEMANTIC_SEARCH_KEY) return;
+      const enabled = event.newValue === "1";
+      setLocalSemanticSearchEnabled(enabled);
+      const projectRoot = projectRef.current?.root;
+      if (!enabled && projectRoot) {
+        void invoke("semantic_search_cancel", { projectRoot }).catch(() => undefined);
+      }
+    };
+    window.addEventListener("storage", syncPreference);
+    return () => window.removeEventListener("storage", syncPreference);
+  }, []);
   const requestSemanticReindex = useCallback(() => {
     if (!localSemanticSearchEnabled) return;
     if (semanticReindexTimerRef.current !== null) {
@@ -1046,7 +1060,6 @@ function App() {
       setLocalSemanticSearchStatus(DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS);
     } else if (!localSemanticSearchEnabled) {
       setLocalSemanticSearchStatus(DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS);
-      void invoke("semantic_search_cancel", { projectRoot }).catch(() => undefined);
     } else {
       setLocalSemanticSearchStatus((current) => ({
         ...current,
@@ -8284,6 +8297,13 @@ function App() {
         onLocalSemanticSearchEnabledChange={(enabled) => {
           setLocalSemanticSearchEnabled(enabled);
           persistLocalSemanticSearchEnabled(enabled);
+          const projectRoot = projectRef.current?.root;
+          if (!enabled && projectRoot) {
+            // The preference is app-global. Other windows mirror this choice
+            // through the storage event and clear indexes for their own open
+            // projects; this window clears the project where the choice began.
+            void invoke("semantic_search_cancel", { projectRoot }).catch(() => undefined);
+          }
         }}
         theme={theme}
         setTheme={setTheme}
@@ -9931,10 +9951,15 @@ function App() {
             }
             setProjectFindBusy(true);
             setProjectFindError(null);
+            const projectRoot = projectRef.current?.root;
+            const projectGeneration = projectOperationGenerationRef.current;
+            if (!projectRoot) {
+              setProjectFindHits([]);
+              setProjectFindBusy(false);
+              return;
+            }
             try {
-              const projectRoot = projectRef.current?.root;
               const semanticPromise = localSemanticSearchEnabled
-                && projectRoot
                 && semanticQueryEligible(query)
                 ? invoke<LocalSemanticSearchResponse>("semantic_search_project", {
                     projectRoot,
@@ -9945,11 +9970,19 @@ function App() {
                 invoke<ProjectFindHit[]>("search_project", { query }),
                 semanticPromise,
               ]);
-              if (generation !== projectFindSearchGenerationRef.current) return;
+              if (
+                generation !== projectFindSearchGenerationRef.current
+                || projectGeneration !== projectOperationGenerationRef.current
+                || projectRef.current?.root !== projectRoot
+              ) return;
               if (semantic) setLocalSemanticSearchStatus(semantic.status);
               setProjectFindHits(fuseProjectSearchHits(results, query, semantic));
             } catch (reason) {
-              if (generation !== projectFindSearchGenerationRef.current) return;
+              if (
+                generation !== projectFindSearchGenerationRef.current
+                || projectGeneration !== projectOperationGenerationRef.current
+                || projectRef.current?.root !== projectRoot
+              ) return;
               setProjectFindHits([]);
               setProjectFindError(toMessage(reason));
             } finally {

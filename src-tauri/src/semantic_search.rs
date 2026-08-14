@@ -22,6 +22,7 @@ const MAX_SOURCE_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_BLOCK_CHARS: usize = 1_200;
 const MAX_SNIPPET_CHARS: usize = 220;
 const MAX_SEMANTIC_CANDIDATES: usize = 24;
+const MAX_EMBEDDING_DIMENSION: usize = 16_384;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -207,6 +208,15 @@ impl SemanticSearch {
         let state = lock_unpoisoned(&self.inner);
         (state.status.clone(), state.index.clone())
     }
+
+    fn index_is_current(&self, generation: u64, index: &Arc<SemanticIndex>) -> bool {
+        let state = lock_unpoisoned(&self.inner);
+        state.generation == generation
+            && state
+                .index
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, index))
+    }
 }
 
 fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -334,6 +344,16 @@ pub fn search(search: &SemanticSearch, query: &str) -> SemanticSearchResponse {
             .then_with(|| left.path.cmp(&right.path))
     });
     candidates.truncate(MAX_SEMANTIC_CANDIDATES);
+    // A project switch, opt-out, or newer index generation may race this
+    // blocking query after it snapshots the old Arc. Never publish paths or
+    // snippets from an index that is no longer the current project resource.
+    if !search.index_is_current(status.generation, &index) {
+        return SemanticSearchResponse {
+            status: search.status(),
+            applied: false,
+            candidates: Vec::new(),
+        };
+    }
     SemanticSearchResponse {
         status,
         applied: !candidates.is_empty(),
@@ -403,29 +423,33 @@ struct SystemEmbeddingProvider {
 #[cfg(target_os = "macos")]
 impl SystemEmbeddingProvider {
     fn load() -> Result<Self, ProviderFailure> {
+        use objc2::rc::autoreleasepool;
         use objc2_natural_language::{NLEmbedding, NLLanguageEnglish};
-        let language = unsafe { NLLanguageEnglish }.ok_or_else(|| {
-            ProviderFailure::Unavailable(
-                "Apple's English sentence embedding is not available on this Mac.".to_string(),
-            )
-        })?;
-        let embedding =
-            unsafe { NLEmbedding::sentenceEmbeddingForLanguage(language) }.ok_or_else(|| {
+        autoreleasepool(|_| {
+            let language = unsafe { NLLanguageEnglish }.ok_or_else(|| {
                 ProviderFailure::Unavailable(
                     "Apple's English sentence embedding is not available on this Mac.".to_string(),
                 )
             })?;
-        let dimension = unsafe { embedding.dimension() } as usize;
-        let revision = unsafe { embedding.revision() };
-        if dimension == 0 || dimension > 16_384 {
-            return Err(ProviderFailure::Unavailable(
-                "Apple's sentence embedding reported an invalid vector size.".to_string(),
-            ));
-        }
-        Ok(Self {
-            embedding,
-            model_version: format!("apple-nl-sentence-en-r{revision}"),
-            dimension,
+            let embedding = unsafe { NLEmbedding::sentenceEmbeddingForLanguage(language) }
+                .ok_or_else(|| {
+                    ProviderFailure::Unavailable(
+                        "Apple's English sentence embedding is not available on this Mac."
+                            .to_string(),
+                    )
+                })?;
+            let dimension = unsafe { embedding.dimension() } as usize;
+            let revision = unsafe { embedding.revision() };
+            if dimension == 0 || dimension > MAX_EMBEDDING_DIMENSION {
+                return Err(ProviderFailure::Unavailable(
+                    "Apple's sentence embedding reported an invalid vector size.".to_string(),
+                ));
+            }
+            Ok(Self {
+                embedding,
+                model_version: format!("apple-nl-sentence-en-r{revision}"),
+                dimension,
+            })
         })
     }
 }
@@ -437,24 +461,27 @@ impl LocalEmbeddingProvider for SystemEmbeddingProvider {
     }
 
     fn embed(&self, text: &str) -> Result<Vec<f32>, ProviderFailure> {
+        use objc2::rc::autoreleasepool;
         use objc2_foundation::NSString;
         use std::ptr::NonNull;
 
-        let input = NSString::from_str(text);
-        let mut vector = vec![0.0_f32; self.dimension];
-        let output = NonNull::new(vector.as_mut_ptr()).ok_or_else(|| {
-            ProviderFailure::Unavailable("Could not allocate an embedding vector.".to_string())
-        })?;
-        // SAFETY: `output` points to exactly `self.dimension` writable f32s,
-        // which is the size reported by this immutable NLEmbedding instance.
-        // `input` and the allocation remain alive for the duration of the call.
-        if unsafe { self.embedding.getVector_forString(output, &input) } {
-            Ok(vector)
-        } else {
-            Err(ProviderFailure::Text(
-                "Apple's sentence model could not embed this text.".to_string(),
-            ))
-        }
+        autoreleasepool(|_| {
+            let input = NSString::from_str(text);
+            let mut vector = vec![0.0_f32; self.dimension];
+            let output = NonNull::new(vector.as_mut_ptr()).ok_or_else(|| {
+                ProviderFailure::Unavailable("Could not allocate an embedding vector.".to_string())
+            })?;
+            // SAFETY: `output` points to exactly `self.dimension` writable f32s,
+            // which is the size reported by this immutable NLEmbedding instance.
+            // `input` and the allocation remain alive for the duration of the call.
+            if unsafe { self.embedding.getVector_forString(output, &input) } {
+                Ok(vector)
+            } else {
+                Err(ProviderFailure::Text(
+                    "Apple's sentence model could not embed this text.".to_string(),
+                ))
+            }
+        })
     }
 }
 
@@ -650,7 +677,14 @@ impl EmbeddingCache {
         };
         let dimension = row.get::<_, i64>(0).map_err(cache_error)?;
         let bytes = row.get::<_, Vec<u8>>(1).map_err(cache_error)?;
-        if dimension <= 0 || bytes.len() != dimension as usize * std::mem::size_of::<f32>() {
+        let Ok(dimension) = usize::try_from(dimension) else {
+            return Ok(None);
+        };
+        let expected_bytes = dimension.checked_mul(std::mem::size_of::<f32>());
+        if dimension == 0
+            || dimension > MAX_EMBEDDING_DIMENSION
+            || expected_bytes != Some(bytes.len())
+        {
             return Ok(None);
         }
         let vector = bytes
@@ -1306,6 +1340,48 @@ mod tests {
         search.cancel();
         assert_eq!(search.status().state, "disabled");
         assert!(search.status().generation > second_generation);
+    }
+
+    #[test]
+    fn cancelled_index_snapshots_cannot_publish_candidates() {
+        let search = SemanticSearch::default();
+        let index = Arc::new(SemanticIndex {
+            model_version: "test-v1".to_string(),
+            dimension: 4,
+            indexed_files: 1,
+            chunks: Vec::new(),
+        });
+        let generation = {
+            let mut state = lock_unpoisoned(&search.inner);
+            state.generation = 7;
+            state.status.generation = 7;
+            state.index = Some(Arc::clone(&index));
+            state.generation
+        };
+        assert!(search.index_is_current(generation, &index));
+
+        search.cancel();
+        assert!(!search.index_is_current(generation, &index));
+    }
+
+    #[test]
+    fn malformed_cache_dimensions_are_ignored_without_overflow() {
+        let root = temp_dir("cache-dimension");
+        let cache_path = root.join("cache.sqlite3");
+        let cache = EmbeddingCache::open(&cache_path).unwrap();
+        cache
+            .connection
+            .execute(
+                "INSERT INTO embeddings_v1
+                 (model_version, normalized_text_hash, dimension, vector)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params!["test-v1", "hash", i64::MAX, vec![0_u8; 4]],
+            )
+            .unwrap();
+
+        assert!(cache.get("test-v1", "hash").unwrap().is_none());
+        drop(cache);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

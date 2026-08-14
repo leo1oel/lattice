@@ -7,11 +7,11 @@
 //! and one `project-fs-changed` event tells every window showing that root
 //! to refresh. The frontend keeps a slow fallback poll as a safety net.
 //!
-//! `.research/` churn is filtered out — the app's own state writes (history
-//! records, FTS index, caches) fire on every save and are invisible to the
-//! project tree anyway (`scan_files` excludes them). `.git/` events stay:
-//! they are how commits and stages reach the source-control badge without
-//! polling.
+//! `.research/` churn is filtered out except for cached paper prose used by
+//! local semantic search. App state writes (history, FTS indexes, caches) fire
+//! on every save and are invisible to the project tree anyway (`scan_files`
+//! excludes them). `.git/` events stay: they are how commits and stages reach
+//! the source-control badge without polling.
 
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
@@ -43,7 +43,13 @@ fn relevant(event: &Event, root: &Path) -> bool {
             // as relevant rather than silently dropping a real change.
             Err(_) => return true,
         };
-        !relative.starts_with(".research")
+        if !relative.starts_with(".research") {
+            return true;
+        }
+        relative.starts_with(Path::new(".research").join("papers"))
+            && relative.file_name().is_some_and(|name| {
+                name.eq_ignore_ascii_case("paper.md") || name.eq_ignore_ascii_case("blog.md")
+            })
     })
 }
 
@@ -100,6 +106,14 @@ mod tests {
         assert!(relevant(&event_for(vec![root.join(".git/index")]), &root));
         assert!(!relevant(
             &event_for(vec![root.join(".research/history/x.json")]),
+            &root
+        ));
+        assert!(relevant(
+            &event_for(vec![root.join(".research/papers/2401.00001/paper.md")]),
+            &root
+        ));
+        assert!(relevant(
+            &event_for(vec![root.join(".research/papers/2401.00001/blog.md")]),
             &root
         ));
         // Mixed bursts stay relevant if any path matters.
