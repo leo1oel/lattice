@@ -96,6 +96,8 @@ import {
   persistOverleafRemoteDelete,
   loadOverleafSyncMode,
   persistOverleafSyncMode,
+  loadLocalSemanticSearchEnabled,
+  persistLocalSemanticSearchEnabled,
   hasSeenTutorial,
   markTutorialSeen,
 } from "./app-settings";
@@ -200,6 +202,13 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
+import {
+  DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
+  fuseProjectSearchHits,
+  semanticQueryEligible,
+  type LocalSemanticSearchResponse,
+  type LocalSemanticSearchStatus,
+} from "./project-semantic-search";
 import { ResizableDrawer } from "./resizable-drawer";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "./project-replace-dialog";
 const LiteratureDiscoveryPanel = lazy(() =>
@@ -958,6 +967,109 @@ function App() {
   const [projectFindError, setProjectFindError] = useState<string | null>(null);
   const [projectFindHits, setProjectFindHits] = useState<ProjectFindHit[]>([]);
   const projectFindSearchGenerationRef = useRef(0);
+  const [localSemanticSearchEnabled, setLocalSemanticSearchEnabled] = useState(
+    loadLocalSemanticSearchEnabled,
+  );
+  const [localSemanticSearchStatus, setLocalSemanticSearchStatus] = useState(
+    DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
+  );
+  const [semanticIndexRevision, setSemanticIndexRevision] = useState(0);
+  const semanticReindexTimerRef = useRef<number | null>(null);
+  const requestSemanticReindex = useCallback(() => {
+    if (!localSemanticSearchEnabled) return;
+    if (semanticReindexTimerRef.current !== null) {
+      window.clearTimeout(semanticReindexTimerRef.current);
+    }
+    // Filesystem events are already coalesced, but one save/build can still
+    // produce several bursts. A trailing request avoids repeatedly cancelling
+    // and restarting the background generation while files are settling.
+    semanticReindexTimerRef.current = window.setTimeout(() => {
+      semanticReindexTimerRef.current = null;
+      setSemanticIndexRevision((revision) => revision + 1);
+    }, 750);
+  }, [localSemanticSearchEnabled]);
+  useEffect(() => () => {
+    if (semanticReindexTimerRef.current !== null) {
+      window.clearTimeout(semanticReindexTimerRef.current);
+      semanticReindexTimerRef.current = null;
+    }
+  }, [localSemanticSearchEnabled, project?.root]);
+  useEffect(() => {
+    const projectRoot = project?.root;
+    if (!localSemanticSearchEnabled || !projectRoot) return;
+    let stopped = false;
+    let unlisten: (() => void) | null = null;
+    // Semantic freshness must not depend on whether the Project sidebar is
+    // visible. Reuse the existing root watcher, but keep this listener separate
+    // from tree refreshes so ordinary source edits only schedule background work.
+    void invoke("watch_project").catch(() => undefined);
+    void listen<{ root: string }>("project-fs-changed", (event) => {
+      if (!stopped && event.payload.root === projectRoot) requestSemanticReindex();
+    }).then((dispose) => {
+      if (stopped) dispose();
+      else unlisten = dispose;
+    });
+    return () => {
+      stopped = true;
+      unlisten?.();
+    };
+  }, [localSemanticSearchEnabled, project?.root, requestSemanticReindex]);
+  const semanticIndexEffectGenerationRef = useRef(0);
+  useEffect(() => {
+    const effectGeneration = ++semanticIndexEffectGenerationRef.current;
+    const projectRoot = project?.root;
+    let stopped = false;
+    let pollTimer: number | null = null;
+    const isCurrent = () => (
+      !stopped && effectGeneration === semanticIndexEffectGenerationRef.current
+    );
+    const acceptStatus = (status: LocalSemanticSearchStatus | null | undefined) => {
+      if (!isCurrent() || !status || typeof status.state !== "string") return;
+      setLocalSemanticSearchStatus(status);
+      if (status.state === "indexing") {
+        pollTimer = window.setTimeout(() => {
+          void invoke<LocalSemanticSearchStatus>("semantic_search_status", { projectRoot })
+            .then(acceptStatus)
+            .catch(() => {
+              if (!isCurrent()) return;
+              setLocalSemanticSearchStatus((current) => ({
+                ...current,
+                state: "error",
+                detail: "The local semantic index could not be checked.",
+              }));
+            });
+        }, 500);
+      }
+    };
+
+    if (!projectRoot) {
+      setLocalSemanticSearchStatus(DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS);
+    } else if (!localSemanticSearchEnabled) {
+      setLocalSemanticSearchStatus(DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS);
+      void invoke("semantic_search_cancel", { projectRoot }).catch(() => undefined);
+    } else {
+      setLocalSemanticSearchStatus((current) => ({
+        ...current,
+        state: "indexing",
+        detail: "Building an on-device index in the background.",
+      }));
+      void invoke<LocalSemanticSearchStatus>("semantic_search_start_index", { projectRoot })
+        .then(acceptStatus)
+        .catch((reason) => {
+          if (!isCurrent()) return;
+          setLocalSemanticSearchStatus({
+            ...DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
+            state: "error",
+            detail: toMessage(reason),
+          });
+        });
+    }
+
+    return () => {
+      stopped = true;
+      if (pollTimer !== null) window.clearTimeout(pollTimer);
+    };
+  }, [localSemanticSearchEnabled, project?.root, semanticIndexRevision]);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [gotoLineOpen, setGotoLineOpen] = useState(false);
   const [wrapEnvRequest, setWrapEnvRequest] = useState<{ name: string; id: string } | null>(null);
@@ -3005,6 +3117,7 @@ function App() {
       let wroteTex = false;
       let wroteBib = false;
       let wrotePaper = false;
+      let wroteSemanticSource = false;
       if (!activePaper && !activeAsset && primaryPath && primarySource !== primarySavedSource) {
         const mutationGeneration = collabPathMutationGeneration(primaryPath);
         if (workspaceLease) {
@@ -3033,6 +3146,7 @@ function App() {
         await markDiskMtime(primaryPath);
         wroteTex = wroteTex || primaryPath.endsWith(".tex");
         wroteBib = wroteBib || primaryPath === project.manifest.primaryBibliography;
+        wroteSemanticSource = /\.(?:md|mdx|tex)$/i.test(primaryPath);
       }
       if (secondaryPath && currentSecondarySource !== currentSecondarySavedSource) {
         const mutationGeneration = collabPathMutationGeneration(secondaryPath);
@@ -3057,6 +3171,7 @@ function App() {
         setSecondarySavedSource(currentSecondarySource);
         wroteTex = wroteTex || secondaryPath.endsWith(".tex");
         wroteBib = wroteBib || secondaryPath === project.manifest.primaryBibliography;
+        wroteSemanticSource = wroteSemanticSource || /\.(?:md|mdx|tex)$/i.test(secondaryPath);
       }
       if (activePaper && currentPaperMarkdown !== currentSavedPaperMarkdown) {
         const path = `.research/papers/${activePaper.arxivId}/paper.md`;
@@ -3071,6 +3186,7 @@ function App() {
         savedPaperMarkdownRef.current = currentPaperMarkdown;
         setSavedPaperMarkdown(currentPaperMarkdown);
         wrotePaper = true;
+        wroteSemanticSource = true;
       }
       if (activePaper && currentPaperBlog !== null && currentPaperBlog !== currentSavedPaperBlog) {
         const path = `.research/papers/${activePaper.arxivId}/blog.md`;
@@ -3085,6 +3201,7 @@ function App() {
         savedPaperBlogRef.current = currentPaperBlog;
         setSavedPaperBlog(currentPaperBlog);
         wrotePaper = true;
+        wroteSemanticSource = true;
       }
       if (
         !wroteTex
@@ -3100,6 +3217,7 @@ function App() {
       // useful, but making file switches and builds wait on six independent
       // project scans turned every save into a visible pause.
       refreshAfterSave(project.root, wroteTex, wroteBib);
+      if (wroteSemanticSource) requestSemanticReindex();
       return true;
     } catch (reason) {
       // Autosave runs constantly, so this path gets a plain notification rather
@@ -3121,6 +3239,7 @@ function App() {
     project,
     publishTextToCollabV2,
     refreshAfterSave,
+    requestSemanticReindex,
   ]);
   useLayoutEffect(() => {
     saveBeforeProjectTransitionRef.current = save;
@@ -8160,6 +8279,12 @@ function App() {
         building={building}
         appearance={appearance}
         setAppearance={setAppearance}
+        localSemanticSearchEnabled={localSemanticSearchEnabled}
+        localSemanticSearchStatus={localSemanticSearchStatus}
+        onLocalSemanticSearchEnabledChange={(enabled) => {
+          setLocalSemanticSearchEnabled(enabled);
+          persistLocalSemanticSearchEnabled(enabled);
+        }}
         theme={theme}
         setTheme={setTheme}
         buildPreferences={buildPreferences}
@@ -9786,6 +9911,8 @@ function App() {
         busy={projectFindBusy}
         error={projectFindError}
         hits={projectFindHits}
+        semanticEnabled={localSemanticSearchEnabled}
+        semanticStatus={localSemanticSearchStatus}
         onClose={() => {
           projectFindSearchGenerationRef.current += 1;
           setProjectFindOpen(false);
@@ -9805,9 +9932,22 @@ function App() {
             setProjectFindBusy(true);
             setProjectFindError(null);
             try {
-              const results = await invoke<ProjectFindHit[]>("search_project", { query });
+              const projectRoot = projectRef.current?.root;
+              const semanticPromise = localSemanticSearchEnabled
+                && projectRoot
+                && semanticQueryEligible(query)
+                ? invoke<LocalSemanticSearchResponse>("semantic_search_project", {
+                    projectRoot,
+                    query,
+                  }).catch(() => null)
+                : Promise.resolve(null);
+              const [results, semantic] = await Promise.all([
+                invoke<ProjectFindHit[]>("search_project", { query }),
+                semanticPromise,
+              ]);
               if (generation !== projectFindSearchGenerationRef.current) return;
-              setProjectFindHits(results);
+              if (semantic) setLocalSemanticSearchStatus(semantic.status);
+              setProjectFindHits(fuseProjectSearchHits(results, query, semantic));
             } catch (reason) {
               if (generation !== projectFindSearchGenerationRef.current) return;
               setProjectFindHits([]);

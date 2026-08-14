@@ -78,6 +78,50 @@ describe("ProjectFindDialog", () => {
     expect(screen.getByText("Paper")).toBeInTheDocument();
   });
 
+  it("reports on-device readiness and labels semantic-only results", () => {
+    vi.useFakeTimers();
+    render(
+      <ProjectFindDialog
+        open
+        busy={false}
+        error={null}
+        semanticEnabled
+        semanticStatus={{
+          state: "ready",
+          detail: "On-device",
+          modelVersion: "apple-nl-sentence-en-r1",
+          indexedFiles: 3,
+          indexedChunks: 8,
+          cachedChunks: 8,
+          totalChunks: 8,
+          generation: 1,
+        }}
+        hits={[{
+          kind: "file",
+          path: "sections/security.tex",
+          title: "Security",
+          snippet: "Expired credentials are rotated after authorization fails.",
+          line: 4,
+          fileKind: "tex",
+          semantic: true,
+        }]}
+        onClose={() => undefined}
+        onSearch={() => undefined}
+        onOpenHit={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Find in project" }), {
+      target: { value: "authentication retries" },
+    });
+    act(() => vi.advanceTimersByTime(180));
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "On-device semantic index ready · 3 files",
+    );
+    expect(screen.getByText("Semantic match")).toBeInTheDocument();
+  });
+
   it("shows a useful zero-result state and clears back to the search field", () => {
     vi.useFakeTimers();
     const onSearch = vi.fn();

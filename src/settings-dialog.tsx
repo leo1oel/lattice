@@ -62,6 +62,7 @@ import { useSynaraNotificationBridge } from "./synara-notifications";
 import { useSynaraConfirmationBridge } from "./synara-confirmations";
 import { SynaraLoadingSurface } from "./synara-loading-surface";
 import { InlineMessage } from "./components/ui/inline-message";
+import type { LocalSemanticSearchStatus } from "./project-semantic-search";
 import {
   applySynaraSettingsHeight,
   isSettingsViewportNearBottom,
@@ -119,6 +120,24 @@ const SYNARA_OPEN_EXTERNAL = "synara:open-external";
 const SYNARA_SHOW_IN_FOLDER = "synara:show-in-folder";
 const SYNARA_EMBED_READY = "synara:embed-ready";
 
+function localSemanticSearchDetail(
+  enabled: boolean,
+  status: LocalSemanticSearchStatus,
+): string {
+  const privacy = "Apple’s built-in English sentence model runs on-device; source text never leaves this Mac and no model is downloaded.";
+  if (!enabled) return `Off by default. ${privacy}`;
+  if (status.state === "indexing") {
+    return `${status.totalChunks ? `Indexing ${status.totalChunks} prose blocks in the background. ` : "Starting the background index. "}${privacy}`;
+  }
+  if (status.state === "ready") {
+    return `Ready for ${status.indexedFiles} file${status.indexedFiles === 1 ? "" : "s"} (${status.indexedChunks} blocks). ${privacy}`;
+  }
+  if (status.state === "unavailable" || status.state === "error") {
+    return `${status.detail ?? "The local model is unavailable."} Find in project will stay lexical.`;
+  }
+  return privacy;
+}
+
 async function openTrustedSynaraSkillsFolder(): Promise<void> {
   await invoke("synara_open_skills_folder");
 }
@@ -139,6 +158,9 @@ export function SettingsDialog(props: {
   onOverleafSyncModeChange: (mode: OverleafSyncMode) => void;
   appearance: AppearanceSettings;
   setAppearance: (appearance: AppearanceSettings) => void;
+  localSemanticSearchEnabled: boolean;
+  localSemanticSearchStatus: LocalSemanticSearchStatus;
+  onLocalSemanticSearchEnabledChange: (enabled: boolean) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
   buildPreferences: BuildPreferences;
@@ -595,6 +617,17 @@ export function SettingsDialog(props: {
                       <output htmlFor="max-open-tabs">{props.appearance.maxOpenTabs}</output>
                     </div>
                   </SettingsRow>
+                </SettingsGroup>
+                <SettingsGroup title="Search">
+                  <SwitchField
+                    label="Local semantic search"
+                    description={localSemanticSearchDetail(
+                      props.localSemanticSearchEnabled,
+                      props.localSemanticSearchStatus,
+                    )}
+                    checked={props.localSemanticSearchEnabled}
+                    onChange={props.onLocalSemanticSearchEnabledChange}
+                  />
                 </SettingsGroup>
                 <SettingsGroup title="Spelling">
                   <SwitchField

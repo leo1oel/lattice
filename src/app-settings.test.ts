@@ -2,13 +2,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   RECENT_PROJECTS_KEY,
+  LOCAL_SEMANTIC_SEARCH_KEY,
   TUTORIAL_SEEN_KEY,
   WORKSPACE_LAYOUT_KEY,
   forgetRecentProject,
   hasSeenTutorial,
+  loadLocalSemanticSearchEnabled,
   loadRecentProjects,
   loadWorkspaceLayout,
   markTutorialSeen,
+  persistLocalSemanticSearchEnabled,
   persistWorkspaceLayout,
   rememberRecentProject,
   type WorkspaceLayout,
@@ -108,6 +111,21 @@ describe("tutorial persistence", () => {
     }]));
     expect(hasSeenTutorial()).toBe(true);
     expect(localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("1");
+  });
+});
+
+describe("local semantic search opt-in", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("is disabled until the user explicitly enables it", () => {
+    expect(loadLocalSemanticSearchEnabled()).toBe(false);
+    expect(localStorage.getItem(LOCAL_SEMANTIC_SEARCH_KEY)).toBeNull();
+
+    persistLocalSemanticSearchEnabled(true);
+    expect(loadLocalSemanticSearchEnabled()).toBe(true);
+
+    persistLocalSemanticSearchEnabled(false);
+    expect(loadLocalSemanticSearchEnabled()).toBe(false);
   });
 });
 

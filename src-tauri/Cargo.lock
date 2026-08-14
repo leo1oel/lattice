@@ -5252,6 +5252,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "objc2-natural-language"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43f3395c4eda23486f1ca42da8256021a99cf94ebe3cf189bfafeb7e197f8a6d"
+dependencies = [
+ "objc2",
+ "objc2-foundation",
+]
+
+[[package]]
 name = "objc2-osa-kit"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6257,6 +6267,7 @@ dependencies = [
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
+ "objc2-natural-language",
  "objc2-web-kit",
  "regex",
  "reqwest 0.12.28",

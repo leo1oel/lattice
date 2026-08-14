@@ -31,6 +31,7 @@ export const PAPER_READING_WIDTH_KEY = "lattice.paper-reading-width";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 export const WORKSPACE_LAYOUT_MAX = 60;
 export const TUTORIAL_SEEN_KEY = "lattice.tutorial-seen.v1";
+export const LOCAL_SEMANTIC_SEARCH_KEY = "lattice.local-semantic-search.v1";
 
 export type WorkspaceCanvasMode =
   | "source"
@@ -188,6 +189,27 @@ export function markTutorialSeen() {
     localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
   } catch {
     // The tutorial still works for this session when preferences cannot persist.
+  }
+}
+
+/**
+ * Semantic indexing is privacy-default, not merely local-default: it remains
+ * off until the user explicitly opts in. The production provider is the Mac's
+ * built-in sentence model and never sends source text to a network service.
+ */
+export function loadLocalSemanticSearchEnabled(): boolean {
+  try {
+    return localStorage.getItem(LOCAL_SEMANTIC_SEARCH_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function persistLocalSemanticSearchEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(LOCAL_SEMANTIC_SEARCH_KEY, enabled ? "1" : "0");
+  } catch {
+    // The explicit choice still applies for this session without storage.
   }
 }
 

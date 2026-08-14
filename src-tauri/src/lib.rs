@@ -22,6 +22,7 @@ mod papers;
 mod pdf_fonts;
 mod project;
 mod project_fs;
+mod semantic_search;
 mod synara;
 mod tex_setup;
 mod texcount;
@@ -354,6 +355,9 @@ struct AppState {
 struct ProjectResources {
     active_build: latex::ActiveBuild,
     texlab: Arc<Mutex<texlab::TexlabPool>>,
+    /// Opt-in, on-device semantic index. The model never sees network I/O and
+    /// the worker is cancelled when this project no longer belongs to a window.
+    semantic_search: Arc<semantic_search::SemanticSearch>,
     /// Live connection to Overleaf's editing channel, when one is open.
     realtime: Arc<Mutex<OverleafRealtimeState>>,
     /// Serializes a whole ZIP sync against document join/leave and outgoing
@@ -427,6 +431,7 @@ impl AppState {
             if let Ok(mut pool) = resources.texlab.lock() {
                 pool.reset();
             }
+            resources.semantic_search.cancel();
             let client = resources
                 .realtime
                 .lock()
@@ -1253,6 +1258,62 @@ async fn search_project(
     })
     .await
     .map_err(|error| format!("Project search stopped unexpectedly: {error}"))?
+}
+
+fn semantic_search_cache_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| format!("Could not resolve the local cache folder: {error}"))?
+        .join("semantic-search")
+        .join("embeddings-v1.sqlite3"))
+}
+
+#[tauri::command]
+fn semantic_search_start_index(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+) -> Result<semantic_search::SemanticSearchStatus, String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    let search = Arc::clone(&state.project(&root).semantic_search);
+    semantic_search::start_index(Arc::clone(&search), root, semantic_search_cache_path(&app)?);
+    Ok(search.status())
+}
+
+#[tauri::command]
+fn semantic_search_status(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+) -> Result<semantic_search::SemanticSearchStatus, String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    Ok(state.project(&root).semantic_search.status())
+}
+
+#[tauri::command]
+fn semantic_search_cancel(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+) -> Result<semantic_search::SemanticSearchStatus, String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    Ok(state.project(&root).semantic_search.cancel())
+}
+
+#[tauri::command]
+async fn semantic_search_project(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+    query: String,
+) -> Result<semantic_search::SemanticSearchResponse, String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    let search = Arc::clone(&state.project(&root).semantic_search);
+    tauri::async_runtime::spawn_blocking(move || semantic_search::search(&search, &query))
+        .await
+        .map_err(|error| format!("Local semantic search stopped unexpectedly: {error}"))
 }
 
 #[tauri::command]
@@ -3741,6 +3802,10 @@ pub fn run() {
             rename_label,
             rename_citation_key,
             search_project,
+            semantic_search_start_index,
+            semantic_search_status,
+            semantic_search_cancel,
+            semantic_search_project,
             create_project_entry,
             delete_project_entry,
             rename_project_entry,

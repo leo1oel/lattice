@@ -104,6 +104,14 @@ objc2-web-kit = { version = "0.3", default-features = false, features = [
   "objc2-app-kit",
   "WKWebView",
 ] }
+# Compile-time bindings only: the sentence model and inference runtime are
+# supplied by macOS's NaturalLanguage framework, so no model/native runtime is
+# added to the app bundle and both Apple Silicon and Intel use the OS copy.
+objc2-natural-language = { version = "0.3", default-features = false, features = [
+  "std",
+  "NLEmbedding",
+  "NLLanguage",
+] }
 block2 = "0.6"
 
 [dev-dependencies]

@@ -4,6 +4,11 @@ import { Button } from "./components/ui/button";
 import { EmptyState } from "./components/ui/empty-state";
 import { PanelHeader } from "./components/ui/panel-header";
 import { SearchField } from "./components/ui/search-field";
+import {
+  DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
+  localSemanticStatusLabel,
+  type LocalSemanticSearchStatus,
+} from "./project-semantic-search";
 
 export type ProjectFindHit = {
   kind: string;
@@ -12,6 +17,8 @@ export type ProjectFindHit = {
   snippet: string;
   line?: number | null;
   fileKind?: string | null;
+  /** True only for a vector-only result with no FTS line hit. */
+  semantic?: boolean;
 };
 
 export function ProjectFindDialog(props: {
@@ -19,6 +26,8 @@ export function ProjectFindDialog(props: {
   busy: boolean;
   error: string | null;
   hits: ProjectFindHit[];
+  semanticEnabled?: boolean;
+  semanticStatus?: LocalSemanticSearchStatus;
   onClose: () => void;
   onSearch: (query: string) => void;
   onOpenHit: (path: string, line?: number) => void;
@@ -192,6 +201,13 @@ export function ProjectFindDialog(props: {
                 : `${fileHits.length} hit${fileHits.length === 1 ? "" : "s"}${
                   paperHits.length ? ` · ${paperHits.length} paper${paperHits.length === 1 ? "" : "s"}` : ""
                 }`}
+            {props.semanticEnabled && (
+              <span className="project-find-semantic-status">
+                {localSemanticStatusLabel(
+                  props.semanticStatus ?? DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
+                )}
+              </span>
+            )}
           </div>
           {query.trim() && !searching && !props.error && !hasResults && (
             <EmptyState
@@ -216,7 +232,11 @@ export function ProjectFindDialog(props: {
                   >
                     <span className="project-find-hit-heading">
                       <span className="project-find-result-type">
-                        {hit.fileKind ? `${hit.fileKind.toLocaleUpperCase()} file` : "File"}
+                        {hit.semantic
+                          ? "Semantic match"
+                          : hit.fileKind
+                            ? `${hit.fileKind.toLocaleUpperCase()} file`
+                            : "File"}
                       </span>
                       <span className="project-replace-hit-path">
                         {hit.path}{hit.line ? `:${hit.line}` : ""}
@@ -246,7 +266,9 @@ export function ProjectFindDialog(props: {
                         }}
                       >
                         <span className="project-find-hit-heading">
-                          <span className="project-find-result-type">Paper</span>
+                          <span className="project-find-result-type">
+                            {hit.semantic ? "Paper · semantic" : "Paper"}
+                          </span>
                           <span className="project-replace-hit-path">{hit.title}</span>
                         </span>
                         <span className="project-replace-hit-preview">{hit.snippet || hit.path}</span>

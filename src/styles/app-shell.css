@@ -279,7 +279,8 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 .bib-resolve-row .ui-input,
 .bib-resolve-row .ui-search-field { flex: 1; }
 .project-replace-preview { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; flex: 1; }
-.project-replace-preview-summary { color: var(--text-secondary); font-size: var(--type-caption-size); }
+.project-replace-preview-summary { color: var(--text-secondary); font-size: var(--type-caption-size); display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
+.project-find-semantic-status { color: var(--text-tertiary); }
 .project-replace-hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); overflow: auto; max-height: min(46vh, 360px); }
 .project-replace-hit { width: 100%; text-align: left; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-app); padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--gap-tight); }
 .project-replace-hit:hover { border-color: var(--border-strong); }
