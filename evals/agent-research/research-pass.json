@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "expected": "pass",
+  "records": [
+    {"type":"turn.context","threadId":"research","turnId":"1","allowedPaths":["main.tex","references.bib"]},
+    {"type":"turn.started","threadId":"research","turnId":"1"},
+    {"type":"tool","threadId":"research","turnId":"1","tool":{"name":"search_literature","status":"success","inputHash":"query-redacted"}},
+    {"type":"tool","threadId":"research","turnId":"1","tool":{"name":"fetch_paper","status":"success","outputHash":"paper-redacted"}},
+    {"type":"tool","threadId":"research","turnId":"1","tool":{"name":"cite","status":"success","paths":["references.bib"]}},
+    {"type":"permission","threadId":"research","turnId":"1","requestId":"p1","status":"requested"},
+    {"type":"permission","threadId":"research","turnId":"1","requestId":"p1","status":"resolved"},
+    {"type":"checkpoint","threadId":"research","turnId":"1","status":"success","checkpointRef":"refs/lattice/checkpoints/1","files":[{"path":"main.tex"},{"path":"references.bib"}]},
+    {"type":"compile","threadId":"research","turnId":"1","checkpointRef":"refs/lattice/checkpoints/1","success":true},
+    {"type":"session","threadId":"research","turnId":"1","action":"recovery","checkpointRef":"refs/lattice/checkpoints/1"},
+    {"type":"session","threadId":"research","turnId":"1","action":"resume","checkpointRef":"refs/lattice/checkpoints/1"},
+    {"type":"turn.completed","threadId":"research","turnId":"1","status":"completed","groundedClaims":1}
+  ]
+}

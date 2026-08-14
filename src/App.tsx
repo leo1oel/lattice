@@ -287,12 +287,14 @@ import {
 } from "./app-utils";
 import {
   agentGitWorkspacePath,
+  LATTICE_AGENT_COMPILE_RESULT,
   LATTICE_RESTORE_AGENT_CHECKPOINT,
   parseAgentProjectHistorySnapshot,
   synaraFrameUrl,
   synaraProjectRelativeFilePath,
   type AgentGitWorkspaceView,
   type AgentCheckpointHistoryEntry,
+  type AgentCompileResultMessage,
 } from "./synara-runtime";
 import {
   buildAgentHostContext,
@@ -1242,6 +1244,12 @@ function App() {
   const agentCheckpointFingerprintsRef = useRef(new Map<string, string>());
   const agentHistoryPrimedThreadsRef = useRef(new Set<string>());
   const agentEditsBuildTimerRef = useRef<number | null>(null);
+  const pendingAgentCompileResultsRef = useRef(new Map<string, {
+    threadId: string; turnId: string; checkpointRef: string;
+  }>());
+  useEffect(() => {
+    pendingAgentCompileResultsRef.current.clear();
+  }, [project?.root]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
   const [gitWorkspaceView, setGitWorkspaceView] =
@@ -1891,23 +1899,30 @@ function App() {
         // fresh checkpoint work here and rebuild once the snapshots go quiet
         // (they stream while a turn is still editing).
         const fingerprints = agentCheckpointFingerprintsRef.current;
-        const changedPaths: string[] = [];
+        const changedEntries: AgentCheckpointHistoryEntry[] = [];
         for (const entry of historySnapshot.entries) {
           const fingerprint = entry.files
             .map((file) => `${file.path}\u0000${file.additions}\u0000${file.deletions}`)
             .join("\n");
           if (fingerprints.get(entry.id) === fingerprint) continue;
           fingerprints.set(entry.id, fingerprint);
-          changedPaths.push(...entry.files.map((file) => file.path));
+          changedEntries.push(entry);
         }
         const primedThreads = agentHistoryPrimedThreadsRef.current;
         if (!primedThreads.has(historySnapshot.activeThreadId)) {
           primedThreads.add(historySnapshot.activeThreadId);
           return;
         }
-        const buildRelevant = changedPaths.some((path) =>
-          !path.startsWith(".research/") && !path.startsWith(".git/"));
-        if (!buildRelevant || autoBuildModeRef.current !== "automatic") return;
+        const buildRelevantEntries = changedEntries.filter((entry) => entry.files.some((file) =>
+          !file.path.startsWith(".research/") && !file.path.startsWith(".git/")));
+        if (!buildRelevantEntries.length || autoBuildModeRef.current !== "automatic") return;
+        for (const entry of buildRelevantEntries) {
+          pendingAgentCompileResultsRef.current.set(entry.id, {
+            threadId: entry.threadId,
+            turnId: entry.turnId,
+            checkpointRef: entry.checkpointRef,
+          });
+        }
         if (agentEditsBuildTimerRef.current) window.clearTimeout(agentEditsBuildTimerRef.current);
         agentEditsBuildTimerRef.current = window.setTimeout(() => {
           agentEditsBuildTimerRef.current = null;
@@ -3776,6 +3791,29 @@ function App() {
       .catch((reason) => trace.fail(reason));
   }, []);
 
+  const relayAgentCompileResults = useCallback((
+    associations: Array<{ threadId: string; turnId: string; checkpointRef: string }>,
+    result: BuildResult | null,
+  ) => {
+    const diagnostics = result?.diagnostics ?? [];
+    for (const association of associations) {
+      const message: AgentCompileResultMessage = {
+        type: LATTICE_AGENT_COMPILE_RESULT,
+        version: 1,
+        ...association,
+        compiledAt: new Date().toISOString(),
+        success: result?.success ?? false,
+        durationMs: result?.durationMs ?? null,
+        rootDocument: result?.rootDocument || null,
+        diagnostics: {
+          errors: diagnostics.filter((item) => item.level === "error").length,
+          warnings: diagnostics.filter((item) => item.level === "warning").length,
+        },
+      };
+      postSynaraMessage(message);
+    }
+  }, [postSynaraMessage]);
+
   const runBuild = useCallback(async (
     force = false,
     options?: { immediatePreview?: boolean; requested?: boolean; sound?: boolean },
@@ -3790,6 +3828,9 @@ function App() {
     const activeLooksCompilable = activeFileRef.current.toLowerCase().endsWith(".tex")
       && sourceRef.current.includes("\\documentclass");
     if (!projectRef.current?.manifest.rootDocuments.length && !activeLooksCompilable) {
+      const associations = [...pendingAgentCompileResultsRef.current.values()];
+      pendingAgentCompileResultsRef.current.clear();
+      relayAgentCompileResults(associations, null);
       if (options?.requested) {
         setError(
           "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings.",
@@ -3832,6 +3873,11 @@ function App() {
       };
       do {
         queuedBuildForceRef.current = null;
+        // Associate only work present at the start of this pass. A checkpoint
+        // arriving during an in-flight build remains pending for the queued
+        // pass, rather than being credited to stale output.
+        const agentCompileAssociations = [...pendingAgentCompileResultsRef.current.values()];
+        pendingAgentCompileResultsRef.current.clear();
         const immediatePreview = options?.immediatePreview ?? currentForce;
         const previewGeneration = previewGenerationRef.current;
         const operationGeneration = projectOperationGenerationRef.current;
@@ -3851,9 +3897,11 @@ function App() {
           result = await invoke<BuildResult>("build_project", { force: currentForce, projectRoot, documentPath });
         } catch (reason) {
           if (!scopeIsCurrent()) continue;
+          relayAgentCompileResults(agentCompileAssociations, null);
           throw reason;
         }
         if (!scopeIsCurrent()) continue;
+        relayAgentCompileResults(agentCompileAssociations, result);
         let pdfBytes: ArrayBuffer | null = null;
         if (result.hasPdf) {
           try {
@@ -3990,7 +4038,7 @@ function App() {
         playInterfaceSound(completionSound);
       }
     }
-  }, [installTexDependency]);
+  }, [installTexDependency, relayAgentCompileResults]);
 
   const compile = useCallback(async (force = false, sound = false) => {
     if (!project) return;

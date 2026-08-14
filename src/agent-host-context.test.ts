@@ -16,9 +16,11 @@ describe("agent host context", () => {
       selection: "related work",
       selectionSource: "editor",
       activeSurface: "editor",
+      now: () => new Date("2026-08-14T10:00:00.000Z"),
     })).toEqual({
       type: LATTICE_HOST_CONTEXT,
       version: 1,
+      capturedAt: "2026-08-14T10:00:00.000Z",
       workspaceRoot: "/tmp/paper",
       activeSurface: "editor",
       editor: {
@@ -81,5 +83,18 @@ describe("agent host context", () => {
       editor: { path: "main.tex", line: 12, column: 3 },
       pdf: { page: 6, pageCount: 9 },
     });
+  });
+
+  it("reports only the omitted selection length while keeping model text at 12k", () => {
+    const context = buildAgentHostContext({
+      workspaceRoot: "/tmp/paper", activeFile: "main.tex", secondaryFile: null,
+      editorPosition: { path: "main.tex", line: 1, column: 0 }, activePaper: null,
+      canvasMode: "split", paperView: "blog", pdfPage: 1, pdfPageCount: 1,
+      selection: "x".repeat(12_019), selectionSource: "editor", activeSurface: "editor",
+      now: () => new Date("2026-08-14T10:00:00Z"),
+    });
+    expect(context.editor?.selection).toHaveLength(12_000);
+    expect(context.editor?.selectionOmittedChars).toBe(19);
+    expect(context.capturedAt).toBe("2026-08-14T10:00:00.000Z");
   });
 });

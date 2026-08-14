@@ -1,14 +1,27 @@
 import { describe, expect, it } from "vitest";
 import {
   agentGitWorkspacePath,
+  LATTICE_AGENT_COMPILE_RESULT,
   LATTICE_PROJECT_HISTORY,
   normalizeSynaraOrigin,
   parseAgentProjectHistorySnapshot,
+  parseAgentCompileResultMessage,
   synaraFrameUrl,
   synaraProjectRelativeFilePath,
 } from "./synara-runtime";
 
 describe("Synara runtime URLs", () => {
+  it("accepts only strict, redacted compile result relays", () => {
+    const message = { type: LATTICE_AGENT_COMPILE_RESULT, version: 1, threadId: "t", turnId: "u",
+      checkpointRef: "refs/lattice/checkpoints/u", compiledAt: "2026-08-14T10:00:00Z",
+      success: true, durationMs: 120, rootDocument: "main.tex", diagnostics: { errors: 0, warnings: 2 } };
+    expect(parseAgentCompileResultMessage(message)).toEqual(message);
+    expect(parseAgentCompileResultMessage({ ...message, workspaceRoot: "/secret" })).toBeNull();
+    expect(parseAgentCompileResultMessage({ ...message, diagnostics: { errors: 0, warnings: 0, buildLog: "secret" } })).toBeNull();
+    expect(parseAgentCompileResultMessage({ ...message, durationMs: -1 })).toBeNull();
+    expect(parseAgentCompileResultMessage({ ...message, rootDocument: "/secret/main.tex" })).toBeNull();
+    expect(parseAgentCompileResultMessage({ ...message, rootDocument: "../secret.tex" })).toBeNull();
+  });
   it("maps the native Git workspace tabs to embedded routes", () => {
     expect(agentGitWorkspacePath("changes")).toBe("/source-control");
     expect(agentGitWorkspacePath("pull-requests")).toBe("/pull-requests/");

@@ -12,6 +12,7 @@ export type AgentHostSurface = "editor" | "pdf" | "paper";
 export interface AgentHostContextSnapshot {
   type: typeof LATTICE_HOST_CONTEXT;
   version: 1;
+  capturedAt: string;
   workspaceRoot: string;
   activeSurface: AgentHostSurface;
   editor?: {
@@ -20,11 +21,13 @@ export interface AgentHostContextSnapshot {
     column: number;
     secondaryPath?: string;
     selection?: string;
+    selectionOmittedChars?: number;
   };
   pdf?: {
     page: number;
     pageCount: number | null;
     selection?: string;
+    selectionOmittedChars?: number;
   };
   paper?: {
     title: string;
@@ -33,15 +36,18 @@ export interface AgentHostContextSnapshot {
     path: string;
     view: "blog" | "fulltext";
     selection?: string;
+    selectionOmittedChars?: number;
   };
 }
 
-function boundedSelection(value: string): string | undefined {
+function boundedSelection(value: string): { selection?: string; selectionOmittedChars?: number } {
   const normalized = value.trim();
-  if (!normalized) return undefined;
-  return normalized.length <= MAX_SELECTION_LENGTH
-    ? normalized
-    : `${normalized.slice(0, MAX_SELECTION_LENGTH)}…`;
+  if (!normalized) return {};
+  if (normalized.length <= MAX_SELECTION_LENGTH) return { selection: normalized };
+  return {
+    selection: normalized.slice(0, MAX_SELECTION_LENGTH),
+    selectionOmittedChars: normalized.length - MAX_SELECTION_LENGTH,
+  };
 }
 
 export function buildAgentHostContext(input: {
@@ -57,8 +63,13 @@ export function buildAgentHostContext(input: {
   selection: string;
   selectionSource: AgentHostSurface | null;
   activeSurface: AgentHostSurface;
+  now?: () => Date;
 }): AgentHostContextSnapshot {
-  const selection = boundedSelection(input.selection);
+  const bounded = boundedSelection(input.selection);
+  const selected = (surface: AgentHostSurface) => (
+    input.selectionSource === surface ? bounded : {}
+  );
+  const capturedAt = (input.now ?? (() => new Date()))().toISOString();
   if (input.activePaper) {
     const paperPath = `.research/papers/${input.activePaper.arxivId}/${
       input.paperView === "blog" ? "blog.md" : "paper.md"
@@ -66,6 +77,7 @@ export function buildAgentHostContext(input: {
     return {
       type: LATTICE_HOST_CONTEXT,
       version: 1,
+      capturedAt,
       workspaceRoot: input.workspaceRoot,
       activeSurface: "paper",
       paper: {
@@ -76,7 +88,7 @@ export function buildAgentHostContext(input: {
           : {}),
         path: paperPath,
         view: input.paperView,
-        ...(input.selectionSource === "paper" && selection ? { selection } : {}),
+        ...selected("paper"),
       },
     };
   }
@@ -87,13 +99,13 @@ export function buildAgentHostContext(input: {
         line: Math.max(1, Math.floor(input.editorPosition.line)),
         column: Math.max(0, Math.floor(input.editorPosition.column)),
         ...(input.secondaryFile ? { secondaryPath: input.secondaryFile } : {}),
-        ...(input.selectionSource === "editor" && selection ? { selection } : {}),
+        ...selected("editor"),
       }
     : undefined;
   const pdf = {
     page: Math.max(1, Math.floor(input.pdfPage)),
     pageCount: input.pdfPageCount,
-    ...(input.selectionSource === "pdf" && selection ? { selection } : {}),
+    ...selected("pdf"),
   };
 
   const activeSurface: AgentHostSurface =
@@ -101,6 +113,7 @@ export function buildAgentHostContext(input: {
   return {
     type: LATTICE_HOST_CONTEXT,
     version: 1,
+    capturedAt,
     workspaceRoot: input.workspaceRoot,
     activeSurface,
     ...(editor ? { editor } : {}),

@@ -24,6 +24,12 @@ The model-visible boundary is genuinely confined to the host profile: agent, pro
 checkpoint, and protocol implementations still come from Synara, and no upstream tool handler is
 reimplemented.
 
+Ownership stays split at that boundary. Synara owns provider adapters, turns, checkpoints, and the
+provider-facing trace producer. Lattice owns live editor host context, literature/canvas brokers,
+and the host-side compile bridge. In particular, Lattice does not copy a provider adapter. Host
+context snapshots remain version 1 and include a capture time plus an omission count when an
+explicit selection is truncated to the 12,000-character model limit.
+
 The fork as a whole is **not** small. Measured against `upstream/main` at v0.7.0 it is 213 files
 (46 added, 167 modified), roughly +14.5k/-9.7k lines. Beyond the host-profile seam it also carries
 embedded-workspace UI, a skills manager, source-control and provider-health surfaces, and the
@@ -119,6 +125,29 @@ Lattice does not copy checkpoint contents into `.research/history`. A checkpoint
 task stays visible but cannot be restored until that task is open. See
 [`project-history-architecture.md`](./project-history-architecture.md) for the schema and migration
 decision.
+
+For a new build-relevant Agent checkpoint, automatic-build mode waits for the build pass containing
+those disk changes and relays `lattice:agent-compile-result` to the owning task and turn. The message
+contains only checkpoint identity, timing, success, project-relative root document, and aggregate
+error/warning counts. It never includes the build log, diagnostic text, paper content, or absolute
+workspace root.
+
+## Offline quality evaluation
+
+Run `pnpm eval:agent` to replay the checked-in schema-version-1 research fixtures, or pass one or
+more JSON/NDJSON trace paths after `--`. The harness correlates records by task and turn and exits
+successfully only when every fixture's declared expected pass/fail outcome matches. It is entirely
+offline: it does not contact a provider or the literature network. Vitest exercises individual
+rules and malformed input in `scripts/agent-quality-eval.test.ts`.
+
+Quality traces are content-minimized by default: record event types, status, hashes, paths, counts,
+and correlation identifiers rather than prompts, model output, paper text, or tool payload content.
+Synara writes the private, rotating NDJSON seam under its state log directory at
+`agent-quality/agent-quality.ndjson`. It identifies the stable provider-session policy/tool prefix
+separately from each turn's dynamic Lattice context manifest, so cache analysis does not require
+moving live editor or paper context into the stable prefix.
+Cache telemetry is provider-reported when available and otherwise explicitly unavailable; it must
+not be interpreted as a complete account of a provider's cache behavior.
 
 ## Build and release
 

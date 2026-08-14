@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "expected": "fail",
+  "records": [
+    {"type":"turn.context","threadId":"bad","turnId":"1","allowedPaths":["main.tex","references.bib"]},
+    {"type":"tool","threadId":"bad","turnId":"1","tool":{"name":"search_literature","status":"success"}},
+    {"type":"checkpoint","threadId":"bad","turnId":"1","status":"success","checkpointRef":"cp-bib","files":[{"path":"references.bib"}]},
+    {"type":"tool","threadId":"bad","turnId":"1","tool":{"name":"cite","status":"success"}},
+    {"type":"permission","threadId":"bad","turnId":"1","requestId":"unresolved","status":"requested"},
+    {"type":"checkpoint","threadId":"bad","turnId":"1","status":"success","checkpointRef":"cp-bad","files":[{"path":"main.tex"},{"path":"private/notes.txt"}]},
+    {"type":"session","threadId":"bad","turnId":"1","action":"recovery"},
+    {"type":"turn.completed","threadId":"bad","turnId":"1","status":"stopped"},
+    {"type":"tool","threadId":"bad","turnId":"1","tool":{"name":"read_paper","status":"success"}}
+  ]
+}

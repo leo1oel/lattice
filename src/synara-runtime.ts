@@ -22,6 +22,45 @@ export const EMPTY_SYNARA_RUNTIME: SynaraRuntimeInfo = {
 
 export const LATTICE_PROJECT_HISTORY = "lattice:project-history";
 export const LATTICE_RESTORE_AGENT_CHECKPOINT = "lattice:restore-agent-checkpoint";
+export const LATTICE_AGENT_COMPILE_RESULT = "lattice:agent-compile-result";
+
+export interface AgentCompileResultMessage {
+  type: typeof LATTICE_AGENT_COMPILE_RESULT;
+  version: 1;
+  threadId: string;
+  turnId: string;
+  checkpointRef: string;
+  compiledAt: string;
+  success: boolean;
+  durationMs: number | null;
+  rootDocument: string | null;
+  diagnostics: { errors: number; warnings: number };
+}
+
+export function parseAgentCompileResultMessage(value: unknown): AgentCompileResultMessage | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  const diagnostics = item.diagnostics as Record<string, unknown> | null;
+  const rootDocument = typeof item.rootDocument === "string"
+    ? item.rootDocument.replace(/\\/g, "/")
+    : item.rootDocument;
+  const allowedKeys = new Set(["type", "version", "threadId", "turnId", "checkpointRef", "compiledAt", "success", "durationMs", "rootDocument", "diagnostics"]);
+  const allowedDiagnosticKeys = new Set(["errors", "warnings"]);
+  const stringFields = [item.threadId, item.turnId, item.checkpointRef];
+  if (Object.keys(item).some((key) => !allowedKeys.has(key))
+    || item.type !== LATTICE_AGENT_COMPILE_RESULT || item.version !== 1
+    || stringFields.some((field) => typeof field !== "string" || !field)
+    || typeof item.compiledAt !== "string" || !Number.isFinite(Date.parse(item.compiledAt))
+    || typeof item.success !== "boolean"
+    || !(item.durationMs === null || (typeof item.durationMs === "number" && Number.isFinite(item.durationMs) && item.durationMs >= 0))
+    || !(rootDocument === null || (typeof rootDocument === "string" && rootDocument.length > 0
+      && !rootDocument.startsWith("/") && !WINDOWS_ABSOLUTE_PATH_PATTERN.test(rootDocument)
+      && !rootDocument.split("/").includes("..")))
+    || !diagnostics || Object.keys(diagnostics).some((key) => !allowedDiagnosticKeys.has(key))
+    || !finiteNonNegativeInteger(diagnostics.errors)
+    || !finiteNonNegativeInteger(diagnostics.warnings)) return null;
+  return value as AgentCompileResultMessage;
+}
 
 export type AgentGitWorkspaceView = "changes" | "pull-requests";
 

@@ -18,7 +18,8 @@
     "collab:dev": "pnpm --dir collab-server run dev",
     "collab:deploy": "pnpm --dir collab-server run deploy",
     "collab:login": "pnpm --dir collab-server run login",
-    "verify:overleaf": "node scripts/verify-overleaf.mjs"
+    "verify:overleaf": "node scripts/verify-overleaf.mjs",
+    "eval:agent": "node scripts/agent-quality-eval.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -2102,6 +2102,7 @@ describe("project workspace", () => {
       expect(element).not.toBeNull();
       return element!;
     });
+    const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
 
     // The first snapshot for a thread replays its existing history; it must
     // prime the fingerprints without scheduling a rebuild.
@@ -2113,6 +2114,19 @@ describe("project workspace", () => {
     // The same checkpoint growing new file work is fresh agent editing.
     postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 5, deletions: 2 }])]);
     await waitFor(() => expect(buildCalls()).toBe(baseline + 1), { timeout: 4_000 });
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "lattice:agent-compile-result",
+        version: 1,
+        threadId: "thread-1",
+        turnId: "turn-1",
+        checkpointRef: "ref-1",
+        success: true,
+        durationMs: 5,
+        diagnostics: { errors: 0, warnings: 0 },
+      }),
+      synaraHook.runtime.origin,
+    ));
   });
 
   it("opens a project switcher with recent and folder actions", async () => {
