@@ -209,13 +209,22 @@ impl SemanticSearch {
         (state.status.clone(), state.index.clone())
     }
 
-    fn index_is_current(&self, generation: u64, index: &Arc<SemanticIndex>) -> bool {
+    fn status_for_snapshot(
+        &self,
+        status: SemanticSearchStatus,
+        index: Option<&Arc<SemanticIndex>>,
+    ) -> (SemanticSearchStatus, bool) {
         let state = lock_unpoisoned(&self.inner);
-        state.generation == generation
-            && state
-                .index
-                .as_ref()
-                .is_some_and(|current| Arc::ptr_eq(current, index))
+        let index_matches = match (index, state.index.as_ref()) {
+            (Some(index), Some(current)) => Arc::ptr_eq(index, current),
+            (None, None) => true,
+            _ => false,
+        };
+        if state.generation == status.generation && index_matches {
+            (status, true)
+        } else {
+            (state.status.clone(), false)
+        }
     }
 }
 
@@ -244,26 +253,14 @@ pub fn start_index(search: Arc<SemanticSearch>, root: PathBuf, cache_path: PathB
 pub fn search(search: &SemanticSearch, query: &str) -> SemanticSearchResponse {
     let (mut status, index) = search.snapshot();
     let Some(index) = index else {
-        return SemanticSearchResponse {
-            status,
-            applied: false,
-            candidates: Vec::new(),
-        };
+        return fallback_response(search, status, None);
     };
     if index.chunks.is_empty() {
-        return SemanticSearchResponse {
-            status,
-            applied: false,
-            candidates: Vec::new(),
-        };
+        return fallback_response(search, status, Some(&index));
     }
     let normalized = normalize_embedding_text(query);
     if normalized.is_empty() {
-        return SemanticSearchResponse {
-            status,
-            applied: false,
-            candidates: Vec::new(),
-        };
+        return fallback_response(search, status, Some(&index));
     }
 
     let provider = match SystemEmbeddingProvider::load() {
@@ -271,11 +268,7 @@ pub fn search(search: &SemanticSearch, query: &str) -> SemanticSearchResponse {
         Err(error) => {
             status.state = "unavailable".to_string();
             status.detail = Some(error.detail().to_string());
-            return SemanticSearchResponse {
-                status,
-                applied: false,
-                candidates: Vec::new(),
-            };
+            return fallback_response(search, status, Some(&index));
         }
     };
     if provider.model_version() != index.model_version {
@@ -284,11 +277,7 @@ pub fn search(search: &SemanticSearch, query: &str) -> SemanticSearchResponse {
             "The system embedding model changed; showing lexical results until the local index is rebuilt."
                 .to_string(),
         );
-        return SemanticSearchResponse {
-            status,
-            applied: false,
-            candidates: Vec::new(),
-        };
+        return fallback_response(search, status, Some(&index));
     }
     let query_vector = match provider.embed(&normalized).and_then(normalize_vector) {
         Ok(vector) if vector.len() == index.dimension => vector,
@@ -297,20 +286,12 @@ pub fn search(search: &SemanticSearch, query: &str) -> SemanticSearchResponse {
             status.detail = Some(
                 "The system embedding dimension changed; showing lexical results.".to_string(),
             );
-            return SemanticSearchResponse {
-                status,
-                applied: false,
-                candidates: Vec::new(),
-            };
+            return fallback_response(search, status, Some(&index));
         }
         Err(error) => {
             status.state = "unavailable".to_string();
             status.detail = Some(format!("{} Showing lexical results.", error.detail()));
-            return SemanticSearchResponse {
-                status,
-                applied: false,
-                candidates: Vec::new(),
-            };
+            return fallback_response(search, status, Some(&index));
         }
     };
 
@@ -347,9 +328,10 @@ pub fn search(search: &SemanticSearch, query: &str) -> SemanticSearchResponse {
     // A project switch, opt-out, or newer index generation may race this
     // blocking query after it snapshots the old Arc. Never publish paths or
     // snippets from an index that is no longer the current project resource.
-    if !search.index_is_current(status.generation, &index) {
+    let (status, current) = search.status_for_snapshot(status, Some(&index));
+    if !current {
         return SemanticSearchResponse {
-            status: search.status(),
+            status,
             applied: false,
             candidates: Vec::new(),
         };
@@ -358,6 +340,19 @@ pub fn search(search: &SemanticSearch, query: &str) -> SemanticSearchResponse {
         status,
         applied: !candidates.is_empty(),
         candidates,
+    }
+}
+
+fn fallback_response(
+    search: &SemanticSearch,
+    status: SemanticSearchStatus,
+    index: Option<&Arc<SemanticIndex>>,
+) -> SemanticSearchResponse {
+    let (status, _) = search.status_for_snapshot(status, index);
+    SemanticSearchResponse {
+        status,
+        applied: false,
+        candidates: Vec::new(),
     }
 }
 
@@ -1351,17 +1346,23 @@ mod tests {
             indexed_files: 1,
             chunks: Vec::new(),
         });
-        let generation = {
+        {
             let mut state = lock_unpoisoned(&search.inner);
             state.generation = 7;
             state.status.generation = 7;
             state.index = Some(Arc::clone(&index));
-            state.generation
-        };
-        assert!(search.index_is_current(generation, &index));
+        }
 
+        let stale_status = search.status();
+        assert!(
+            search
+                .status_for_snapshot(stale_status.clone(), Some(&index))
+                .1
+        );
         search.cancel();
-        assert!(!search.index_is_current(generation, &index));
+        let response = fallback_response(&search, stale_status, Some(&index));
+        assert_eq!(response.status.state, "disabled");
+        assert_eq!(response.status.generation, search.status().generation);
     }
 
     #[test]

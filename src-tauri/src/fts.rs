@@ -3,6 +3,7 @@ use crate::project;
 use rusqlite::{params, Connection, ErrorCode, OptionalExtension};
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex, Weak};
 use std::time::{Duration, SystemTime};
@@ -207,9 +208,7 @@ fn rebuild(conn: &mut Connection, root: &Path) -> IndexResult<()> {
 fn index_file(conn: &Connection, root: &Path, relative: &str) -> IndexResult<()> {
     delete_file(conn, relative)?;
     let absolute = project::safe_path(root, relative).map_err(IndexError::other)?;
-    let content = fs::read_to_string(&absolute).unwrap_or_default();
-    let metadata = fs::metadata(&absolute).map_err(IndexError::other)?;
-    let (modified_ns, size) = file_stamp(&metadata);
+    let (content, (modified_ns, size)) = read_stable_source(&absolute)?;
     conn.execute(
         "INSERT INTO indexed_files(path, modified_ns, size) VALUES (?1, ?2, ?3)",
         params![relative, modified_ns, size],
@@ -221,6 +220,46 @@ fn index_file(conn: &Connection, root: &Path, relative: &str) -> IndexResult<()>
         insert.execute(params![relative, line_number as i64, line])?;
     }
     Ok(())
+}
+
+/// Read content and its stamp from the same file generation. Atomic-save tools
+/// can replace a path between opening it and the final path metadata check;
+/// recording the replacement's stamp beside the old bytes would make
+/// reconciliation trust a stale index forever. A short bounded retry is
+/// sufficient after the watcher debounce and keeps a constantly changing file
+/// from blocking the batch.
+fn read_stable_source(path: &Path) -> IndexResult<(String, (i64, i64))> {
+    for _ in 0..3 {
+        let mut file = fs::File::open(path).map_err(IndexError::other)?;
+        let before = file.metadata().map_err(IndexError::other)?;
+        let before_stamp = file_stamp(&before);
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).map_err(IndexError::other)?;
+        let content = String::from_utf8(bytes).unwrap_or_default();
+        let after = fs::metadata(path).map_err(IndexError::other)?;
+        if same_file_generation(&before, &after) {
+            return Ok((content, before_stamp));
+        }
+    }
+    Err(IndexError::other(format!(
+        "{} kept changing while it was indexed",
+        path.display()
+    )))
+}
+
+fn same_file_generation(before: &fs::Metadata, after: &fs::Metadata) -> bool {
+    if file_stamp(before) != file_stamp(after) {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        before.dev() == after.dev() && before.ino() == after.ino()
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
 }
 
 fn append_path_matches(

@@ -17,7 +17,7 @@ use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::Emitter;
 
 /// Quiet period before a burst of events becomes one refresh.
@@ -93,13 +93,17 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
         if let Err(error) = crate::fts::reconcile(&root) {
             eprintln!("Could not reconcile the project search index: {error}");
         }
+        let mut next_reconcile = Instant::now() + RECONCILE_INTERVAL;
         loop {
-            let first = match receiver.recv_timeout(RECONCILE_INTERVAL) {
+            let first = match receiver
+                .recv_timeout(next_reconcile.saturating_duration_since(Instant::now()))
+            {
                 Ok(batch) => batch,
                 Err(RecvTimeoutError::Timeout) => {
                     if let Err(error) = crate::fts::reconcile(&root) {
                         eprintln!("Could not reconcile the project search index: {error}");
                     }
+                    next_reconcile = Instant::now() + RECONCILE_INTERVAL;
                     continue;
                 }
                 Err(RecvTimeoutError::Disconnected) => return,
@@ -108,12 +112,23 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
             let mut reconcile = first.reconcile;
             // Drain the burst: keep absorbing events until things go quiet.
             loop {
-                match receiver.recv_timeout(Duration::from_millis(DEBOUNCE_MS)) {
+                let until_reconcile = next_reconcile.saturating_duration_since(Instant::now());
+                let timeout = Duration::from_millis(DEBOUNCE_MS).min(until_reconcile);
+                match receiver.recv_timeout(timeout) {
                     Ok(batch) => {
                         paths.extend(batch.paths);
                         reconcile |= batch.reconcile;
+                        if Instant::now() >= next_reconcile {
+                            reconcile = true;
+                            break;
+                        }
                     }
-                    Err(RecvTimeoutError::Timeout) => break,
+                    Err(RecvTimeoutError::Timeout) => {
+                        if Instant::now() >= next_reconcile {
+                            reconcile = true;
+                        }
+                        break;
+                    }
                     Err(RecvTimeoutError::Disconnected) => return,
                 }
             }
@@ -124,6 +139,9 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
             };
             if let Err(error) = update {
                 eprintln!("Could not update the project search index: {error}");
+            }
+            if reconcile {
+                next_reconcile = Instant::now() + RECONCILE_INTERVAL;
             }
             // Broadcast; each window filters by its own project root.
             let _ = app.emit("project-fs-changed", payload.clone());
