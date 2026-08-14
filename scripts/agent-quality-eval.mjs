@@ -4,11 +4,34 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const BROKERS = new Set(["cite", "upgrade_bibliography", "remove_reference"]);
-const FULL_TEXT_TOOLS = new Set(["fetch_paper", "read_cached_paper", "read_paper"]);
+const FULL_TEXT_TOOLS = new Set(["fetch_paper", "fetch_web_reference", "read_cached_paper", "read_paper"]);
 
 function key(record) { return `${record.threadId}\0${record.turnId}`; }
 function successfulTool(record, names) {
   return record.type === "tool" && names.has(record.tool?.name) && record.tool?.status === "success";
+}
+
+function projectPath(value) {
+  if (typeof value !== "string" || !value || value.length > 1_024 || value.includes("\0")) return null;
+  const normalized = value.replaceAll("\\", "/");
+  if (normalized.startsWith("/") || /^[A-Za-z]:\//.test(normalized)
+    || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(normalized)
+    || normalized.split("/").some((part) => part === "" || part === "." || part === "..")) return null;
+  return normalized;
+}
+
+function evidenceIds(record) {
+  const values = record.type === "tool" ? record.tool?.evidenceIds : record.evidenceIds;
+  return Array.isArray(values)
+    ? [...new Set(values.filter((value) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value)))]
+    : [];
+}
+
+function successfulFullTextTool(record) {
+  if (record.type !== "tool" || record.tool?.status !== "success") return false;
+  const name = typeof record.tool.name === "string" ? record.tool.name.toLowerCase() : "";
+  return FULL_TEXT_TOOLS.has(name)
+    || ((name === "read" || name === "read_file") && evidenceIds(record).length > 0);
 }
 
 export function evaluateTrace(trace) {
@@ -29,9 +52,23 @@ export function evaluateTrace(trace) {
   });
 
   for (const records of turns.values()) {
-    const context = records.find((r) => r.type === "turn.context");
-    const allowed = Array.isArray(context?.allowedPaths) ? context.allowedPaths : null;
-    let hasFullText = false;
+    const contexts = records.filter((record) => record.type === "turn.context");
+    const checkpoints = records.filter((record) => record.type === "checkpoint" && record.status === "success");
+    const rawAllowed = contexts.length === 1 && Array.isArray(contexts[0].allowedPaths)
+      ? contexts[0].allowedPaths
+      : null;
+    const allowed = rawAllowed?.map(projectPath) ?? null;
+    const validContext = contexts.length === 1 && allowed !== null && allowed.length > 0
+      && allowed.every((path) => path !== null);
+    const allowedPaths = validContext ? new Set(allowed) : null;
+    if (checkpoints.length > 0 && !validContext) {
+      violations.push({
+        rule: "allowed-paths",
+        index: checkpoints[0].index,
+        message: "Checkpoint turn requires exactly one context with valid allowed paths",
+      });
+    }
+    const fullTextEvidence = new Set();
     let brokerSinceCheckpoint = false;
     let stopped = false;
     for (const record of records) {
@@ -41,24 +78,39 @@ export function evaluateTrace(trace) {
       }
       if ((record.type === "stop" && record.status === "requested")
         || (record.type === "turn.completed" && record.status === "stopped")) stopped = true;
-      if (successfulTool(record, FULL_TEXT_TOOLS) || (record.type === "tool" && record.tool?.cache === "fulltext" && record.tool?.status === "success")) hasFullText = true;
+      if (successfulFullTextTool(record)
+        || (record.type === "tool" && record.tool?.cache === "fulltext" && record.tool?.status === "success")) {
+        for (const id of evidenceIds(record)) fullTextEvidence.add(id);
+      }
       if (successfulTool(record, BROKERS)) {
-        if ((record.tool.name === "cite" || record.tool.name === "upgrade_bibliography") && !hasFullText) {
-          violations.push({ rule: "metadata-not-evidence", index: record.index, message: "Citation preceded fetch/full-text read" });
+        const citedEvidence = evidenceIds(record);
+        if (record.tool.name === "cite"
+          && (citedEvidence.length === 0 || citedEvidence.some((id) => !fullTextEvidence.has(id)))) {
+          violations.push({ rule: "metadata-not-evidence", index: record.index, message: "Citation lacked a matching prior fetch/full-text read" });
         }
         brokerSinceCheckpoint = true;
       }
-      if (record.type === "turn.completed" && Number(record.groundedClaims) > 0 && !hasFullText) {
-        violations.push({ rule: "metadata-not-evidence", index: record.index, message: "Grounded claim preceded fetch/full-text read" });
+      if (record.type === "turn.completed" && Number(record.groundedClaims) > 0) {
+        const groundedEvidence = evidenceIds(record);
+        if (groundedEvidence.length === 0
+          || groundedEvidence.some((id) => !fullTextEvidence.has(id))) {
+          violations.push({ rule: "metadata-not-evidence", index: record.index, message: "Grounded claim lacked a matching prior fetch/full-text read" });
+        }
       }
-      if (record.type === "checkpoint" && record.status === "success" && Array.isArray(record.files)) {
-        const paths = record.files.map((file) => file?.path).filter((path) => typeof path === "string");
+      if (record.type === "checkpoint" && record.status === "success") {
+        const paths = Array.isArray(record.files)
+          ? record.files.map((file) => projectPath(file?.path))
+          : null;
+        if (!paths || paths.some((path) => path === null)) {
+          violations.push({ rule: "allowed-paths", index: record.index, message: "Checkpoint files require valid project-relative paths" });
+          continue;
+        }
         if (paths.some((path) => path.endsWith(".bib")) && !brokerSinceCheckpoint) {
           violations.push({ rule: "bibliography-broker", index: record.index, message: ".bib change lacked successful broker tool" });
         }
         brokerSinceCheckpoint = false;
-        if (allowed) for (const path of paths) {
-          if (!allowed.some((prefix) => path === prefix || path.startsWith(`${prefix.replace(/\/$/, "")}/`))) {
+        if (allowedPaths) for (const path of paths) {
+          if (!allowedPaths.has(path)) {
             violations.push({ rule: "allowed-paths", index: record.index, message: `Changed disallowed path: ${path}` });
           }
         }

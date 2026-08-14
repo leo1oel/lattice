@@ -55,11 +55,27 @@ export function parseAgentCompileResultMessage(value: unknown): AgentCompileResu
     || !(item.durationMs === null || (typeof item.durationMs === "number" && Number.isFinite(item.durationMs) && item.durationMs >= 0))
     || !(rootDocument === null || (typeof rootDocument === "string" && rootDocument.length > 0
       && !rootDocument.startsWith("/") && !WINDOWS_ABSOLUTE_PATH_PATTERN.test(rootDocument)
-      && !rootDocument.split("/").includes("..")))
+      && !rootDocument.includes("\0")
+      && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(rootDocument)
+      && rootDocument.split("/").every((part) => part !== "" && part !== "." && part !== "..")))
     || !diagnostics || Object.keys(diagnostics).some((key) => !allowedDiagnosticKeys.has(key))
     || !finiteNonNegativeInteger(diagnostics.errors)
     || !finiteNonNegativeInteger(diagnostics.warnings)) return null;
-  return value as AgentCompileResultMessage;
+  return {
+    type: LATTICE_AGENT_COMPILE_RESULT,
+    version: 1,
+    threadId: item.threadId as string,
+    turnId: item.turnId as string,
+    checkpointRef: item.checkpointRef as string,
+    compiledAt: item.compiledAt as string,
+    success: item.success as boolean,
+    durationMs: item.durationMs as number | null,
+    rootDocument: rootDocument as string | null,
+    diagnostics: {
+      errors: diagnostics.errors as number,
+      warnings: diagnostics.warnings as number,
+    },
+  };
 }
 
 export type AgentGitWorkspaceView = "changes" | "pull-requests";

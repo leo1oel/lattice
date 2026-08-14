@@ -21,6 +21,12 @@ describe("Synara runtime URLs", () => {
     expect(parseAgentCompileResultMessage({ ...message, durationMs: -1 })).toBeNull();
     expect(parseAgentCompileResultMessage({ ...message, rootDocument: "/secret/main.tex" })).toBeNull();
     expect(parseAgentCompileResultMessage({ ...message, rootDocument: "../secret.tex" })).toBeNull();
+    expect(parseAgentCompileResultMessage({ ...message, rootDocument: "sections\\main.tex" }))
+      .toEqual({ ...message, rootDocument: "sections/main.tex" });
+    expect(parseAgentCompileResultMessage({ ...message, rootDocument: "sections//main.tex" }))
+      .toBeNull();
+    expect(parseAgentCompileResultMessage({ ...message, rootDocument: "./main.tex" })).toBeNull();
+    expect(parseAgentCompileResultMessage({ ...message, rootDocument: "file:main.tex" })).toBeNull();
   });
   it("maps the native Git workspace tabs to embedded routes", () => {
     expect(agentGitWorkspacePath("changes")).toBe("/source-control");

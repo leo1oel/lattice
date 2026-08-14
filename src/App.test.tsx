@@ -1966,7 +1966,14 @@ describe("project workspace", () => {
       if (command === "read_paper") return "---\ntitle: Attention Is All You Need\n---\n\n## Abstract\n\nPaper content.";
       if (command === "read_paper_blog_local") return null;
       if (command === "list_history") return [];
-      if (command === "build_project") return { success: true, hasPdf: false, log: "", durationMs: 5, diagnostics: [] };
+      if (command === "build_project") return {
+        success: true,
+        hasPdf: false,
+        log: "",
+        durationMs: 5,
+        rootDocument: "/private/outside/main.tex",
+        diagnostics: [],
+      };
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
@@ -2063,12 +2070,29 @@ describe("project workspace", () => {
       },
       files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
     };
+    const tutorialSnapshot = {
+      ...snapshot,
+      root: "/tmp/tutorial-paper",
+      manifest: {
+        ...snapshot.manifest,
+        projectId: "tutorial-id",
+        name: "Tutorial paper",
+      },
+    };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
+      if (command === "open_tutorial_project") return tutorialSnapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
       if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
       if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") return { success: true, hasPdf: false, log: "", durationMs: 5, diagnostics: [] };
+      if (command === "build_project") return {
+        success: true,
+        hasPdf: false,
+        log: "",
+        durationMs: 5,
+        rootDocument: "/private/outside/main.tex",
+        diagnostics: [],
+      };
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
     const buildCalls = () =>
@@ -2123,10 +2147,43 @@ describe("project workspace", () => {
         checkpointRef: "ref-1",
         success: true,
         durationMs: 5,
+        rootDocument: null,
         diagnostics: { errors: 0, warnings: 0 },
       }),
       synaraHook.runtime.origin,
     ));
+
+    // A pending debounce and its per-thread freshness state belong to this
+    // project. Switching in place must cancel them; otherwise the old timer
+    // compiles the new project and its first history replay looks fresh.
+    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 9, deletions: 2 }])]);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Guided tutorial" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
+      command === "build_project"
+      && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
+      .toHaveLength(1));
+    await new Promise((resolvePause) => setTimeout(resolvePause, 2_000));
+    expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
+      command === "build_project"
+      && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
+      .toHaveLength(1);
+
+    const tutorialFrame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    postSnapshot(tutorialFrame, [checkpoint([{ path: "sections/intro.tex", additions: 10, deletions: 2 }])]);
+    await new Promise((resolvePause) => setTimeout(resolvePause, 2_000));
+    expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
+      command === "build_project"
+      && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
+      .toHaveLength(1);
   });
 
   it("opens a project switcher with recent and folder actions", async () => {

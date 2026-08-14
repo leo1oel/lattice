@@ -289,6 +289,7 @@ import {
   agentGitWorkspacePath,
   LATTICE_AGENT_COMPILE_RESULT,
   LATTICE_RESTORE_AGENT_CHECKPOINT,
+  parseAgentCompileResultMessage,
   parseAgentProjectHistorySnapshot,
   synaraFrameUrl,
   synaraProjectRelativeFilePath,
@@ -1248,7 +1249,19 @@ function App() {
     threadId: string; turnId: string; checkpointRef: string;
   }>());
   useEffect(() => {
+    agentCheckpointFingerprintsRef.current.clear();
+    agentHistoryPrimedThreadsRef.current.clear();
     pendingAgentCompileResultsRef.current.clear();
+    if (agentEditsBuildTimerRef.current !== null) {
+      window.clearTimeout(agentEditsBuildTimerRef.current);
+      agentEditsBuildTimerRef.current = null;
+    }
+    return () => {
+      if (agentEditsBuildTimerRef.current !== null) {
+        window.clearTimeout(agentEditsBuildTimerRef.current);
+        agentEditsBuildTimerRef.current = null;
+      }
+    };
   }, [project?.root]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
@@ -1901,11 +1914,12 @@ function App() {
         const fingerprints = agentCheckpointFingerprintsRef.current;
         const changedEntries: AgentCheckpointHistoryEntry[] = [];
         for (const entry of historySnapshot.entries) {
+          const entryKey = `${entry.threadId}\u0000${entry.id}`;
           const fingerprint = entry.files
             .map((file) => `${file.path}\u0000${file.additions}\u0000${file.deletions}`)
             .join("\n");
-          if (fingerprints.get(entry.id) === fingerprint) continue;
-          fingerprints.set(entry.id, fingerprint);
+          if (fingerprints.get(entryKey) === fingerprint) continue;
+          fingerprints.set(entryKey, fingerprint);
           changedEntries.push(entry);
         }
         const primedThreads = agentHistoryPrimedThreadsRef.current;
@@ -1917,15 +1931,17 @@ function App() {
           !file.path.startsWith(".research/") && !file.path.startsWith(".git/")));
         if (!buildRelevantEntries.length || autoBuildModeRef.current !== "automatic") return;
         for (const entry of buildRelevantEntries) {
-          pendingAgentCompileResultsRef.current.set(entry.id, {
+          pendingAgentCompileResultsRef.current.set(`${entry.threadId}\u0000${entry.id}`, {
             threadId: entry.threadId,
             turnId: entry.turnId,
             checkpointRef: entry.checkpointRef,
           });
         }
         if (agentEditsBuildTimerRef.current) window.clearTimeout(agentEditsBuildTimerRef.current);
+        const scheduledProjectRoot = projectRef.current?.root;
         agentEditsBuildTimerRef.current = window.setTimeout(() => {
           agentEditsBuildTimerRef.current = null;
+          if (projectRef.current?.root !== scheduledProjectRoot) return;
           void compileRef.current();
         }, 1_500);
         return;
@@ -3797,20 +3813,23 @@ function App() {
   ) => {
     const diagnostics = result?.diagnostics ?? [];
     for (const association of associations) {
-      const message: AgentCompileResultMessage = {
+      const rootDocument = result?.rootDocument
+        ? synaraProjectRelativeFilePath(result.rootDocument, projectRef.current?.root)
+        : null;
+      const message = parseAgentCompileResultMessage({
         type: LATTICE_AGENT_COMPILE_RESULT,
         version: 1,
         ...association,
         compiledAt: new Date().toISOString(),
         success: result?.success ?? false,
         durationMs: result?.durationMs ?? null,
-        rootDocument: result?.rootDocument || null,
+        rootDocument,
         diagnostics: {
           errors: diagnostics.filter((item) => item.level === "error").length,
           warnings: diagnostics.filter((item) => item.level === "warning").length,
         },
-      };
-      postSynaraMessage(message);
+      } satisfies AgentCompileResultMessage);
+      if (message) postSynaraMessage(message);
     }
   }, [postSynaraMessage]);
 
