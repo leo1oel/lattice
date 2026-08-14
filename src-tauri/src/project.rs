@@ -3043,6 +3043,10 @@ fn relocate_entry(
             }
         }
     }
+    refresh_search_index(
+        root,
+        &[root.join(relative), root.join(destination_relative)],
+    );
     Ok(destination_relative.to_string())
 }
 
@@ -4134,10 +4138,12 @@ pub fn delete_entry(root: &Path, relative: &str) -> Result<(), String> {
     }
     if path.is_dir() {
         ProjectDir::open(root)?.remove(relative)?;
+        refresh_search_index(root, &[root.join(relative)]);
         forget_deleted_root_documents(root, relative)
     } else {
         let before = fs::read_to_string(&path).ok();
         ProjectDir::open(root)?.remove(relative)?;
+        refresh_search_index(root, &[root.join(relative)]);
         if let Some(before) = before {
             let record = new_transaction(
                 &format!("Delete {relative}"),
@@ -4430,8 +4436,14 @@ fn commit_transaction_changes(
     };
     match coalesced {
         CoalescedTransaction::NotCoalesced => {}
-        CoalescedTransaction::Removed => return Ok(None),
-        CoalescedTransaction::Updated(record) => return Ok(Some(*record)),
+        CoalescedTransaction::Removed => {
+            refresh_search_index_for_changes(root, &changes);
+            return Ok(None);
+        }
+        CoalescedTransaction::Updated(record) => {
+            refresh_search_index_for_changes(root, &changes);
+            return Ok(Some(*record));
+        }
     }
 
     let record = new_transaction(label, changes, context);
@@ -4448,7 +4460,23 @@ fn commit_transaction_changes(
             }
         });
     }
+    refresh_search_index_for_changes(root, &record.changes);
     Ok(Some(record))
+}
+
+fn refresh_search_index_for_changes(root: &Path, changes: &[FileChange]) {
+    let paths = changes
+        .iter()
+        .filter(|change| file_change_has_effect(change))
+        .map(|change| root.join(&change.path))
+        .collect::<Vec<_>>();
+    refresh_search_index(root, &paths);
+}
+
+fn refresh_search_index(root: &Path, paths: &[PathBuf]) {
+    if let Err(error) = crate::fts::update_paths(root, paths) {
+        eprintln!("Could not update the project search index: {error}");
+    }
 }
 
 enum CoalescedTransaction {
@@ -5565,6 +5593,13 @@ fn project_tree_exclusion_reason(relative: &Path, name: &str, path: &Path) -> Op
         return Some("hidden-project-config");
     }
     None
+}
+
+pub(crate) fn project_tree_path_visible(root: &Path, relative: &Path) -> bool {
+    let Some(name) = relative.file_name() else {
+        return false;
+    };
+    project_tree_exclusion_reason(relative, &name.to_string_lossy(), &root.join(relative)).is_none()
 }
 
 fn scan_files_with_visibility(

@@ -22,6 +22,14 @@ use tauri::Emitter;
 
 /// Quiet period before a burst of events becomes one refresh.
 const DEBOUNCE_MS: u64 = 300;
+/// A bounded, off-search-path scan catches events missed by the OS watcher and
+/// changes made while Lattice was not running.
+const RECONCILE_INTERVAL: Duration = Duration::from_secs(60);
+
+struct WatchBatch {
+    paths: Vec<PathBuf>,
+    reconcile: bool,
+}
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,14 +62,21 @@ fn relevant(event: &Event, root: &Path) -> bool {
 }
 
 pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, String> {
-    let (sender, receiver) = mpsc::channel::<()>();
+    let (sender, receiver) = mpsc::channel::<WatchBatch>();
     let filter_root = root.clone();
     let mut watcher = notify::recommended_watcher(move |event: Result<Event, notify::Error>| {
-        let Ok(event) = event else { return };
-        if !relevant(&event, &filter_root) {
-            return;
-        }
-        let _ = sender.send(());
+        let batch = match event {
+            Ok(event) if relevant(&event, &filter_root) => WatchBatch {
+                paths: event.paths,
+                reconcile: false,
+            },
+            Ok(_) => return,
+            Err(_) => WatchBatch {
+                paths: Vec::new(),
+                reconcile: true,
+            },
+        };
+        let _ = sender.send(batch);
     })
     .map_err(|error| error.to_string())?;
     watcher
@@ -72,14 +87,43 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
         root: root.to_string_lossy().to_string(),
     };
     std::thread::spawn(move || {
-        while receiver.recv().is_ok() {
+        // Reconcile an existing index once after attaching the watcher. This
+        // catches edits made while the project was closed without delaying
+        // either project open or the first search.
+        if let Err(error) = crate::fts::reconcile(&root) {
+            eprintln!("Could not reconcile the project search index: {error}");
+        }
+        loop {
+            let first = match receiver.recv_timeout(RECONCILE_INTERVAL) {
+                Ok(batch) => batch,
+                Err(RecvTimeoutError::Timeout) => {
+                    if let Err(error) = crate::fts::reconcile(&root) {
+                        eprintln!("Could not reconcile the project search index: {error}");
+                    }
+                    continue;
+                }
+                Err(RecvTimeoutError::Disconnected) => return,
+            };
+            let mut paths = first.paths;
+            let mut reconcile = first.reconcile;
             // Drain the burst: keep absorbing events until things go quiet.
             loop {
                 match receiver.recv_timeout(Duration::from_millis(DEBOUNCE_MS)) {
-                    Ok(()) => continue,
+                    Ok(batch) => {
+                        paths.extend(batch.paths);
+                        reconcile |= batch.reconcile;
+                    }
                     Err(RecvTimeoutError::Timeout) => break,
                     Err(RecvTimeoutError::Disconnected) => return,
                 }
+            }
+            let update = if reconcile {
+                crate::fts::reconcile(&root)
+            } else {
+                crate::fts::update_paths(&root, &paths)
+            };
+            if let Err(error) = update {
+                eprintln!("Could not update the project search index: {error}");
             }
             // Broadcast; each window filters by its own project root.
             let _ = app.emit("project-fs-changed", payload.clone());
