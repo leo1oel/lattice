@@ -1451,8 +1451,11 @@ function App() {
     snapshot: ProjectSnapshot,
     options?: { skipCollabLifecycle?: boolean; deferInitialBuild?: boolean },
   ) => Promise<void>) | null>(null);
-  const compileRef = useRef<(force?: boolean) => Promise<void>>(async () => undefined);
-  const compileAgentCheckpointRef = useRef<() => Promise<void>>(async () => undefined);
+  const compileRef = useRef<(
+    force?: boolean,
+    sound?: boolean,
+    options?: { consumeAgentAssociations?: boolean },
+  ) => Promise<void>>(async () => undefined);
   const activeFileRef = useRef(activeFile);
   const secondaryFileRef = useRef(secondaryFile);
   const activeAssetRef = useRef(activeAsset);
@@ -1958,7 +1961,7 @@ function App() {
         agentEditsBuildTimerRef.current = window.setTimeout(() => {
           agentEditsBuildTimerRef.current = null;
           if (projectRef.current?.root !== scheduledProjectRoot) return;
-          void compileAgentCheckpointRef.current();
+          void compileRef.current(false, false, { consumeAgentAssociations: true });
         }, 1_500);
         return;
       }
@@ -2174,15 +2177,6 @@ function App() {
   const saveTimer = useRef<number | null>(null);
   const automaticBuildPending = useRef(false);
   const buildingRef = useRef(false);
-  const runBuildRef = useRef<(
-    force?: boolean,
-    options?: {
-      immediatePreview?: boolean;
-      requested?: boolean;
-      sound?: boolean;
-      consumeAgentAssociations?: boolean;
-    },
-  ) => Promise<void>>(async () => undefined);
   const shellRef = useRef<HTMLDivElement | null>(null);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
@@ -3853,7 +3847,7 @@ function App() {
     }
   }, [postSynaraMessage]);
 
-  const runBuild = useCallback(async (
+  const runBuild = useCallback(async function runBuild(
     force = false,
     options?: {
       immediatePreview?: boolean;
@@ -3861,7 +3855,7 @@ function App() {
       sound?: boolean;
       consumeAgentAssociations?: boolean;
     },
-  ) => {
+  ) {
     // A project with no LaTeX document has nothing to compile. Autosave, a
     // synctex jump and opening the project all reach here, and each of them
     // turned a folder of Markdown notes into a red "Build failed" the reader
@@ -4104,7 +4098,7 @@ function App() {
       // the captured pass only after releasing the in-flight lock, and only if
       // its immutable project scope still owns the active root.
       if (queuedBuild && scopeIsCurrent()) {
-        void runBuildRef.current(queuedBuild.force, {
+        void runBuild(queuedBuild.force, {
           immediatePreview: options?.immediatePreview ?? queuedBuild.force,
           sound: queuedBuild.sound,
           consumeAgentAssociations: queuedBuild.consumeAgentAssociations,
@@ -4112,22 +4106,21 @@ function App() {
       }
     }
   }, [installTexDependency, relayAgentCompileResults]);
-  runBuildRef.current = runBuild;
 
-  const compile = useCallback(async (force = false, sound = false) => {
+  const compile = useCallback(async (
+    force = false,
+    sound = false,
+    options?: { consumeAgentAssociations?: boolean },
+  ) => {
     if (!project) return;
-    await runBuild(force, { immediatePreview: true, requested: true, sound });
-  }, [project, runBuild]);
-  compileRef.current = compile;
-  const compileAgentCheckpoint = useCallback(async () => {
-    if (!project) return;
-    await runBuild(false, {
+    await runBuild(force, {
       immediatePreview: true,
       requested: true,
-      consumeAgentAssociations: true,
+      sound,
+      consumeAgentAssociations: options?.consumeAgentAssociations,
     });
   }, [project, runBuild]);
-  compileAgentCheckpointRef.current = compileAgentCheckpoint;
+  compileRef.current = compile;
 
   // ---- Overleaf bridge -----------------------------------------------------
 
