@@ -2,7 +2,7 @@
   "repository": "https://github.com/leo1oel/synara.git",
   "upstream": "https://github.com/Emanuele-web04/synara.git",
   "branch": "review/upstream-reliability-fixes",
-  "revision": "bc338e36598d06df3c1f409c1cac64c7d06a17d7",
+  "revision": "2ec5164f63c04a830e5564de45e7df8d56509901",
   "sourceDirectory": "../synara-poc",
   "nodeVersion": "24.13.0"
 }

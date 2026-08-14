@@ -5,7 +5,7 @@
     {"type":"turn.context","threadId":"research","turnId":"1","allowedPaths":["main.tex","references.bib"]},
     {"type":"turn.started","threadId":"research","turnId":"1"},
     {"type":"tool","threadId":"research","turnId":"1","tool":{"name":"search_literature","status":"success","inputHash":"query-redacted"}},
-    {"type":"tool","threadId":"research","turnId":"1","tool":{"name":"fetch_paper","status":"success","evidenceAccess":"fulltext","outputHash":"paper-redacted","evidenceIds":["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}},
+    {"type":"tool","threadId":"research","turnId":"1","tool":{"name":"fetch_paper","status":"success","evidenceAccess":"fulltext","evidenceProvenance":"normalized-tool-completion","outputHash":"paper-redacted","evidenceIds":["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}},
     {"type":"tool","threadId":"research","turnId":"1","tool":{"name":"cite","status":"success","paths":["references.bib"],"evidenceIds":["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}},
     {"type":"permission","threadId":"research","turnId":"1","requestId":"p1","status":"requested"},
     {"type":"permission","threadId":"research","turnId":"1","requestId":"p1","status":"resolved"},

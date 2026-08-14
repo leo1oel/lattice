@@ -8,7 +8,7 @@ describe("agent quality eval", () => {
     const evidenceId = "a".repeat(64);
     expect(evaluateTrace(base([
       { type: "turn.context", ...ids, allowedPaths: ["main.tex", "refs.bib"] },
-      { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceAccess: "fulltext", evidenceIds: [evidenceId] } },
+      { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceAccess: "fulltext", evidenceProvenance: "normalized-tool-completion", evidenceIds: [evidenceId] } },
       { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
       { type: "checkpoint", ...ids, status: "success", checkpointRef: "cp", files: [{ path: "main.tex" }, { path: "refs.bib" }] },
       { type: "compile", ...ids, checkpointRef: "cp", success: true },
@@ -68,7 +68,7 @@ describe("agent quality eval", () => {
     const paperB = "b".repeat(64);
     const result = evaluateTrace(base([
       { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
-      { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceAccess: "fulltext", evidenceIds: [paperA] } },
+      { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceAccess: "fulltext", evidenceProvenance: "normalized-tool-completion", evidenceIds: [paperA] } },
       { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [paperB] } },
     ]));
     expect(result.violations).toEqual([
@@ -80,7 +80,7 @@ describe("agent quality eval", () => {
     const evidenceId = "a".repeat(64);
     expect(evaluateTrace(base([
       { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
-      { type: "tool", ...ids, tool: { name: "Read", status: "success", evidenceAccess: "fulltext", evidenceIds: [evidenceId] } },
+      { type: "tool", ...ids, tool: { name: "Read", status: "success", evidenceAccess: "fulltext", evidenceProvenance: "normalized-cached-paper-path", evidenceIds: [evidenceId] } },
       { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
     ])).pass).toBe(true);
   });
@@ -93,6 +93,14 @@ describe("agent quality eval", () => {
       { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
     ]));
     expect(untrustedRead.violations.map((item: { rule: string }) => item.rule))
+      .toContain("metadata-not-evidence");
+
+    const selfAttestingRead = evaluateTrace(base([
+      { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
+      { type: "tool", ...ids, tool: { name: "Read", status: "success", evidenceAccess: "fulltext", evidenceIds: [evidenceId] } },
+      { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
+    ]));
+    expect(selfAttestingRead.violations.map((item: { rule: string }) => item.rule))
       .toContain("metadata-not-evidence");
 
     const selfAttestingCitation = evaluateTrace(base([
@@ -114,6 +122,26 @@ describe("agent quality eval", () => {
     ]));
     expect(result.violations.map((item: { rule: string }) => item.rule))
       .toEqual(["schema", "schema"]);
+  });
+  it("requires a valid checkpoint reference on both sides of compile correlation", () => {
+    const ids = { threadId: "t", turnId: "u" };
+    for (const records of [
+      [
+        { type: "checkpoint", ...ids, status: "success", files: [{ path: "main.tex" }] },
+        { type: "compile", ...ids, success: true },
+      ],
+      [
+        { type: "checkpoint", ...ids, status: "success", checkpointRef: "cp", files: [{ path: "main.tex" }] },
+        { type: "compile", ...ids, success: true },
+      ],
+      [
+        { type: "checkpoint", ...ids, status: "success", checkpointRef: "cp", files: [{ path: "main.tex" }] },
+        { type: "compile", ...ids, checkpointRef: "other", success: true },
+      ],
+    ]) {
+      expect(evaluateTrace(base(records)).violations.map((item: { rule: string }) => item.rule))
+        .toContain("compile-after-tex");
+    }
   });
   it("treats a stop request as terminal and correlates recovery by checkpoint count", () => {
     const ids = { threadId: "t", turnId: "u" };

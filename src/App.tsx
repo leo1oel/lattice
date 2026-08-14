@@ -728,6 +728,38 @@ function App() {
   const secondaryFileLoadGenerationRef = useRef(0);
   const documentViewGenerationRef = useRef(0);
   const projectBeforeTransitionRef = useRef<ProjectSnapshot | null>(null);
+  /**
+   * Per-checkpoint file fingerprints from agent history snapshots. Snapshots
+   * re-arrive on every thread update (and stream while a turn is still
+   * editing), so a rebuild must only follow entries whose files actually
+   * changed — and never the first snapshot of a thread, which replays history.
+   */
+  const agentCheckpointFingerprintsRef = useRef(new Map<string, string>());
+  const agentHistoryPrimedThreadsRef = useRef(new Set<string>());
+  const agentEditsBuildTimerRef = useRef<number | null>(null);
+  const queuedAgentCompileBuildRef = useRef(false);
+  const pendingAgentCompileResultsRef = useRef(new Map<string, {
+    threadId: string; turnId: string; checkpointRef: string;
+  }>());
+  // null means no queued build; false/true retain the strongest pending intent.
+  const queuedBuildForceRef = useRef<boolean | null>(null);
+  // A manual request made during an automatic build still deserves one outcome
+  // cue after the queued pass; automatic builds by themselves remain silent.
+  const queuedBuildSoundRef = useRef(false);
+  const resetAgentCompileTracking = useCallback((cancelQueuedBuild = false) => {
+    agentCheckpointFingerprintsRef.current.clear();
+    agentHistoryPrimedThreadsRef.current.clear();
+    queuedAgentCompileBuildRef.current = false;
+    pendingAgentCompileResultsRef.current.clear();
+    if (cancelQueuedBuild) {
+      queuedBuildForceRef.current = null;
+      queuedBuildSoundRef.current = false;
+    }
+    if (agentEditsBuildTimerRef.current !== null) {
+      window.clearTimeout(agentEditsBuildTimerRef.current);
+      agentEditsBuildTimerRef.current = null;
+    }
+  }, []);
   const overleafSyncingRef = useRef(false);
   /** Resolves when the in-flight Overleaf sync has finished its disk refresh. */
   const overleafSyncSettledRef = useRef<Promise<void> | null>(null);
@@ -785,6 +817,7 @@ function App() {
     projectOperationGenerationRef.current += 1;
     fileLoadGenerationRef.current += 1;
     secondaryFileLoadGenerationRef.current += 1;
+    resetAgentCompileTracking(true);
     cancelPreviewPrewarm();
     setPrimaryOpening(null);
     // A root-changing backend command may finish before React commits the new
@@ -792,7 +825,7 @@ function App() {
     // flashing the welcome screen or discarding the rendered old project.
     projectRef.current = null;
     return true;
-  }, [cancelPreviewPrewarm]);
+  }, [cancelPreviewPrewarm, resetAgentCompileTracking]);
   const cancelProjectTransition = useCallback(() => {
     if (!projectRef.current) projectRef.current = projectBeforeTransitionRef.current;
     projectBeforeTransitionRef.current = null;
@@ -1236,35 +1269,15 @@ function App() {
     Record<string, AgentCheckpointHistoryEntry[]>
   >({});
   const [activeAgentHistoryThreadId, setActiveAgentHistoryThreadId] = useState<string | null>(null);
-  /**
-   * Per-checkpoint file fingerprints from agent history snapshots. Snapshots
-   * re-arrive on every thread update (and stream while a turn is still
-   * editing), so a rebuild must only follow entries whose files actually
-   * changed — and never the first snapshot of a thread, which replays history.
-   */
-  const agentCheckpointFingerprintsRef = useRef(new Map<string, string>());
-  const agentHistoryPrimedThreadsRef = useRef(new Set<string>());
-  const agentEditsBuildTimerRef = useRef<number | null>(null);
-  const queuedAgentCompileBuildRef = useRef(false);
-  const pendingAgentCompileResultsRef = useRef(new Map<string, {
-    threadId: string; turnId: string; checkpointRef: string;
-  }>());
   useEffect(() => {
-    agentCheckpointFingerprintsRef.current.clear();
-    agentHistoryPrimedThreadsRef.current.clear();
-    queuedAgentCompileBuildRef.current = false;
-    pendingAgentCompileResultsRef.current.clear();
-    if (agentEditsBuildTimerRef.current !== null) {
-      window.clearTimeout(agentEditsBuildTimerRef.current);
-      agentEditsBuildTimerRef.current = null;
-    }
-    return () => {
-      if (agentEditsBuildTimerRef.current !== null) {
-        window.clearTimeout(agentEditsBuildTimerRef.current);
-        agentEditsBuildTimerRef.current = null;
-      }
-    };
-  }, [project?.root]);
+    resetAgentCompileTracking();
+    return () => resetAgentCompileTracking();
+  }, [project?.root, resetAgentCompileTracking]);
+  useEffect(() => () => {
+    projectOperationGenerationRef.current += 1;
+    resetAgentCompileTracking(true);
+    projectRef.current = null;
+  }, [resetAgentCompileTracking]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
   const [gitWorkspaceView, setGitWorkspaceView] =
@@ -2161,11 +2174,15 @@ function App() {
   const saveTimer = useRef<number | null>(null);
   const automaticBuildPending = useRef(false);
   const buildingRef = useRef(false);
-  // null means no queued build; false/true retain the strongest pending intent.
-  const queuedBuildForceRef = useRef<boolean | null>(null);
-  // A manual request made during an automatic build still deserves one outcome
-  // cue after the queued pass; automatic builds by themselves remain silent.
-  const queuedBuildSoundRef = useRef(false);
+  const runBuildRef = useRef<(
+    force?: boolean,
+    options?: {
+      immediatePreview?: boolean;
+      requested?: boolean;
+      sound?: boolean;
+      consumeAgentAssociations?: boolean;
+    },
+  ) => Promise<void>>(async () => undefined);
   const shellRef = useRef<HTMLDivElement | null>(null);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
@@ -4069,13 +4086,33 @@ function App() {
         }
       }
     } finally {
+      const queuedForce = queuedBuildForceRef.current;
+      const queuedBuild = queuedForce === null ? null : {
+        force: queuedForce,
+        sound: queuedBuildSoundRef.current,
+        consumeAgentAssociations: queuedAgentCompileBuildRef.current,
+      };
+      queuedBuildForceRef.current = null;
+      queuedBuildSoundRef.current = false;
+      queuedAgentCompileBuildRef.current = false;
       buildingRef.current = false;
       setBuilding(false);
       if (shouldPlayCompletionSound && completionSound && scopeIsCurrent()) {
         playInterfaceSound(completionSound);
       }
+      // A backend rejection skips the loop's takeQueuedBuild() condition. Start
+      // the captured pass only after releasing the in-flight lock, and only if
+      // its immutable project scope still owns the active root.
+      if (queuedBuild && scopeIsCurrent()) {
+        void runBuildRef.current(queuedBuild.force, {
+          immediatePreview: options?.immediatePreview ?? queuedBuild.force,
+          sound: queuedBuild.sound,
+          consumeAgentAssociations: queuedBuild.consumeAgentAssociations,
+        });
+      }
     }
   }, [installTexDependency, relayAgentCompileResults]);
+  runBuildRef.current = runBuild;
 
   const compile = useCallback(async (force = false, sound = false) => {
     if (!project) return;

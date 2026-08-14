@@ -106,5 +106,18 @@ describe("Synara runtime URLs", () => {
       ...snapshot,
       entries: [{ ...snapshot.entries[0], threadId: "thread\0other" }],
     })).toBeNull();
+    expect(parseAgentProjectHistorySnapshot({
+      ...snapshot,
+      entries: [{ ...snapshot.entries[0], timestamp: "2026-02-30T12:00:00Z" }],
+    })).toBeNull();
+    for (const path of ["../outside.tex", "/tmp/main.tex", "C:/private/main.tex", "file:main.tex", "notes\\main.tex"]) {
+      expect(parseAgentProjectHistorySnapshot({
+        ...snapshot,
+        entries: [{
+          ...snapshot.entries[0],
+          files: [{ ...snapshot.entries[0].files[0], path }],
+        }],
+      })).toBeNull();
+    }
   });
 });

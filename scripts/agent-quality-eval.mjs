@@ -53,7 +53,10 @@ function successfulFullTextTool(record) {
     return false;
   }
   const name = typeof record.tool.name === "string" ? record.tool.name.toLowerCase() : "";
-  return FULL_TEXT_TOOLS.has(name);
+  if (!FULL_TEXT_TOOLS.has(name)) return false;
+  return ["read", "read_file"].includes(name)
+    ? record.tool.evidenceProvenance === "normalized-cached-paper-path"
+    : record.tool.evidenceProvenance === "normalized-tool-completion";
 }
 
 export function evaluateTrace(trace) {
@@ -141,8 +144,10 @@ export function evaluateTrace(trace) {
           }
         }
         if (paths.some((path) => path.endsWith(".tex"))) {
-          const compile = records.find((candidate) => candidate.index > record.index && candidate.type === "compile"
-            && candidate.checkpointRef === record.checkpointRef && candidate.success === true);
+          const checkpointRef = correlationId(record.checkpointRef) ? record.checkpointRef : null;
+          const compile = checkpointRef && records.find((candidate) => candidate.index > record.index
+            && candidate.type === "compile" && correlationId(candidate.checkpointRef)
+            && candidate.checkpointRef === checkpointRef && candidate.success === true);
           if (!compile) violations.push({ rule: "compile-after-tex", index: record.index, message: ".tex checkpoint lacked successful associated compile" });
         }
       }

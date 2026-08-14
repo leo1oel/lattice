@@ -2088,7 +2088,10 @@ describe("project workspace", () => {
       diagnostics: [],
     };
     let deferNextBuild = false;
-    let resolveDeferredBuild: (() => void) | null = null;
+    let nextBuildHasPdf = false;
+    let deferNextPdfRead = false;
+    const deferredBuild: { settle: ((reason?: Error) => void) | null } = { settle: null };
+    const deferredPdfRead: { settle: ((reason?: Error) => void) | null } = { settle: null };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "open_tutorial_project") return tutorialSnapshot;
@@ -2096,10 +2099,24 @@ describe("project workspace", () => {
       if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
       if (command === "list_papers" || command === "list_history") return [];
       if (command === "build_project") {
-        if (!deferNextBuild) return buildResult;
-        deferNextBuild = false;
-        await new Promise<void>((resolveBuild) => { resolveDeferredBuild = resolveBuild; });
-        return buildResult;
+        const result = nextBuildHasPdf ? { ...buildResult, hasPdf: true } : buildResult;
+        nextBuildHasPdf = false;
+        if (deferNextBuild) {
+          deferNextBuild = false;
+          await new Promise<void>((resolveBuild, rejectBuild) => {
+            deferredBuild.settle = (reason) => (reason ? rejectBuild(reason) : resolveBuild());
+          });
+          deferredBuild.settle = null;
+        }
+        return result;
+      }
+      if (command === "read_compiled_pdf" && deferNextPdfRead) {
+        deferNextPdfRead = false;
+        await new Promise<void>((resolveRead, rejectRead) => {
+          deferredPdfRead.settle = (reason) => (reason ? rejectRead(reason) : resolveRead());
+        });
+        deferredPdfRead.settle = null;
+        return new ArrayBuffer(8);
       }
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
@@ -2126,7 +2143,7 @@ describe("project workspace", () => {
       });
     };
 
-    renderApp();
+    const view = renderApp();
     await screen.findByRole("button", { name: "Switch project" });
     await switchSidebarMode("Agent");
     const frame = await waitFor(() => {
@@ -2184,20 +2201,48 @@ describe("project workspace", () => {
     await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
     expect(buildCalls()).toBe(baseline + 4);
     expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 1);
-    resolveDeferredBuild?.();
+    deferredBuild.settle?.();
     await waitFor(() => expect(buildCalls()).toBe(baseline + 5));
     await waitFor(() => expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 2));
 
-    // A pending debounce and its per-thread freshness state belong to this
-    // project. Switching in place must cancel them; otherwise the old timer
-    // compiles the new project and its first history replay looks fresh.
+    // A rejected backend build used to skip the loop condition and strand the
+    // checkpoint pass forever. The queued owner must still run and relay.
+    deferNextBuild = true;
+    fireEvent.click(screen.getByRole("button", { name: "Build" }));
+    await waitFor(() => expect(buildCalls()).toBe(baseline + 6));
+    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 15, deletions: 2 }])]);
+    await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
+    deferredBuild.settle?.(new Error("build rejected"));
+    await waitFor(() => expect(buildCalls()).toBe(baseline + 7));
+    await waitFor(() => expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 3));
+
+    // Reading a newly compiled PDF can reject independently of compilation.
+    // That failure must not prevent a checkpoint queued during the read.
+    nextBuildHasPdf = true;
+    deferNextPdfRead = true;
+    fireEvent.click(screen.getByRole("button", { name: "Build" }));
+    await waitFor(() => expect(deferredPdfRead.settle).not.toBeNull());
+    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 16, deletions: 2 }])]);
+    await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
+    deferredPdfRead.settle?.(new Error("PDF read rejected"));
+    await waitFor(() => expect(buildCalls()).toBe(baseline + 9));
+    await waitFor(() => expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 4));
+
+    // Queued work and its associations belong to an immutable project scope.
+    // Switching while the old manual build is in flight must cancel the queued
+    // checkpoint instead of compiling the incoming project under the old turn.
+    deferNextBuild = true;
+    fireEvent.click(screen.getByRole("button", { name: "Build" }));
+    await waitFor(() => expect(buildCalls()).toBe(baseline + 10));
     postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 17, deletions: 2 }])]);
+    await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
     fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
       button: 0,
       pointerType: "mouse",
     });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Guided tutorial" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
+    deferredBuild.settle?.();
     await waitFor(() => expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
       command === "build_project"
       && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
@@ -2219,7 +2264,25 @@ describe("project workspace", () => {
       command === "build_project"
       && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
       .toHaveLength(1);
-  });
+
+    // Unmount is another ownership boundary: resolving an old build afterward
+    // must not launch its queued checkpoint pass against a dead window.
+    deferNextBuild = true;
+    fireEvent.click(screen.getByRole("button", { name: "Build" }));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
+      command === "build_project"
+      && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
+      .toHaveLength(2));
+    postSnapshot(tutorialFrame, [checkpoint([{ path: "sections/intro.tex", additions: 14, deletions: 2 }])]);
+    await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
+    view.unmount();
+    deferredBuild.settle?.();
+    await new Promise((resolvePause) => setTimeout(resolvePause, 100));
+    expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
+      command === "build_project"
+      && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
+      .toHaveLength(2);
+  }, 40_000);
 
   it("opens a project switcher with recent and folder actions", async () => {
     const snapshot = {

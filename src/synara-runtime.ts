@@ -54,11 +54,7 @@ export function parseAgentCompileResultMessage(value: unknown): AgentCompileResu
     || !strictUtcTimestamp(item.compiledAt)
     || typeof item.success !== "boolean"
     || !(item.durationMs === null || (typeof item.durationMs === "number" && Number.isFinite(item.durationMs) && item.durationMs >= 0))
-    || !(rootDocument === null || (typeof rootDocument === "string" && rootDocument.length > 0
-      && !rootDocument.startsWith("/") && !WINDOWS_ABSOLUTE_PATH_PATTERN.test(rootDocument)
-      && !rootDocument.includes("\0")
-      && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(rootDocument)
-      && rootDocument.split("/").every((part) => part !== "" && part !== "." && part !== "..")))
+    || !(rootDocument === null || projectRelativePath(rootDocument))
     || !diagnostics || Object.keys(diagnostics).some((key) => !allowedDiagnosticKeys.has(key))
     || !finiteNonNegativeInteger(diagnostics.errors)
     || !finiteNonNegativeInteger(diagnostics.warnings)) return null;
@@ -121,6 +117,18 @@ function boundedCorrelationId(value: unknown): value is string {
     && /^[A-Za-z0-9][A-Za-z0-9._:@/+-]*$/.test(value);
 }
 
+function projectRelativePath(value: unknown): value is string {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= 1_024
+    && !value.includes("\0")
+    && !value.includes("\\")
+    && !value.startsWith("/")
+    && !WINDOWS_ABSOLUTE_PATH_PATTERN.test(value)
+    && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)
+    && value.split("/").every((part) => part !== "" && part !== "." && part !== "..");
+}
+
 function strictUtcTimestamp(value: unknown): value is string {
   if (typeof value !== "string" || value.length > 32
     || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) {
@@ -135,8 +143,7 @@ function strictUtcTimestamp(value: unknown): value is string {
 function agentCheckpointFileSummary(value: unknown): value is AgentCheckpointFileSummary {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
-  return typeof candidate.path === "string"
-    && candidate.path.length > 0
+  return projectRelativePath(candidate.path)
     && typeof candidate.kind === "string"
     && finiteNonNegativeInteger(candidate.additions)
     && finiteNonNegativeInteger(candidate.deletions);
@@ -147,7 +154,7 @@ function agentCheckpointHistoryEntry(value: unknown): value is AgentCheckpointHi
   const candidate = value as Record<string, unknown>;
   return boundedCorrelationId(candidate.id)
     && typeof candidate.label === "string"
-    && typeof candidate.timestamp === "string"
+    && strictUtcTimestamp(candidate.timestamp)
     && boundedCorrelationId(candidate.threadId)
     && typeof candidate.threadTitle === "string"
     && boundedCorrelationId(candidate.turnId)
