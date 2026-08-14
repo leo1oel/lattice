@@ -42,17 +42,18 @@ input[type="search"]:focus-visible {
  *
  * Keyboard focus is different: it must always be visible, so `:focus-visible`
  * draws one product ring for controls in the Tab order. Radix menu items expose
- * focus through their active-row fill, while the project switcher uses its
- * chrome-hover fill; outlining either one can leave a stray black frame when
- * WebKit restores focus after app activation. Radix also temporarily focuses
- * dialog surfaces with `tabindex="-1"`; those composites already expose focus
- * through their active row or modal context. Text entry is excluded because a
- * field already answers with its own border treatment (see the
+ * focus through their active-row fill, while the project switcher and the
+ * Overleaf split-menu trigger use a chrome fill. Outlining those composite
+ * controls can leave a stray black frame when WebKit restores focus after app
+ * activation. Radix also temporarily focuses dialog surfaces with
+ * `tabindex="-1"`; those composites already expose focus through their active
+ * row or modal context. Text entry is excluded because a field already answers
+ * with its own border treatment (see the
  * `--field-control-*` contract), and doubling the two reads as an error state. */
 :where(button, a, input, textarea, select, [role="button"], [tabindex]):focus {
   outline: none;
 }
-:where(button:not(.project-title), a, select, [role="button"], [tabindex]:not(.ProseMirror):not([tabindex="-1"]):not([role="menuitem"])):focus-visible {
+:where(button:not(.project-title):not(.overleaf-toolbar-menu-button), a, select, [role="button"], [tabindex]:not(.ProseMirror):not([tabindex="-1"]):not([role="menuitem"])):focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
@@ -190,7 +191,7 @@ input[type="search"]:focus-visible {
 .cm-latex-tooltip-syntax, .cm-latex-tooltip-example { margin: 0; font-family: var(--editor-font); color: var(--text-secondary); white-space: pre-wrap; }
 .cm-latex-tooltip-package { margin-top: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .canvas-body { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
-.primary-opening-overlay { position: absolute; inset: 0; z-index: var(--z-editor-popover); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: color-mix(in srgb, var(--surface-app) 82%, transparent); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); pointer-events: none; }
+.primary-opening-overlay { position: absolute; inset: 0; z-index: var(--z-editor-popover); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: color-mix(in srgb, var(--surface-app) 82%, transparent); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); cursor: progress; }
 .canvas-tour-card-anchor { position: fixed; right: 24px; bottom: 20px; width: 1px; height: 1px; pointer-events: none; }
 /* The titlebar overrides this height to fill its single chrome row. Keeping the
    strip's own default compact also makes the component usable in isolation. */
@@ -706,6 +707,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .overleaf-toolbar-group { display: flex; align-items: center; flex: none; }
 .canvas-actions .overleaf-toolbar-group .overleaf-toolbar-primary { border-radius: var(--radius-icon) 0 0 var(--radius-icon); }
 .canvas-actions .overleaf-toolbar-group .overleaf-toolbar-menu-button { width: 18px; border-radius: 0 var(--radius-icon) var(--radius-icon) 0; }
+.canvas-actions .overleaf-toolbar-menu-button:focus-visible { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .overleaf-toolbar-menu-item { font-size: var(--type-label-size); line-height: var(--type-label-line-height); white-space: nowrap; }
 .animated-product-icon, .animated-product-icon > span, .animated-product-icon > span > div, .animated-product-icon svg { display: block; line-height: 0; }
 .canvas-actions .animated-product-icon--chat .ct-pop > path { stroke-width: 21.333; }

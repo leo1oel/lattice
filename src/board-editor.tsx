@@ -34,6 +34,10 @@ export type BoardEditorProps = {
   onChange: (next: string) => void;
   /** v2 collab: bridge the store into the file's Y.Doc instead of onChange. */
   collab?: BoardCollabBinding | null;
+  /** Publish a pending debounced serialization before switching or closing panes. */
+  onFlushPendingChange?: (flush: (() => boolean) | null) => void;
+  /** Only the focused board owns the global Agent canvas tool adapter. */
+  active?: boolean;
 };
 
 /**
@@ -55,10 +59,17 @@ export function mergeExternalBoardSource(store: TLStore, source: string): boolea
   return true;
 }
 
-export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
+export function BoardEditor({
+  source,
+  onChange,
+  collab,
+  onFlushPendingChange,
+  active = true,
+}: BoardEditorProps) {
   const onChangeRef = useRef(onChange);
   const editorRef = useRef<Editor | null>(null);
   const unregisterAgentAdapterRef = useRef<(() => void) | null>(null);
+  const flushPendingChangeRef = useRef<() => void>(() => {});
   const canWriteRef = useRef(collab?.canWrite !== false);
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -73,6 +84,25 @@ export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
     unregisterAgentAdapterRef.current = null;
     editorRef.current = null;
   }, []);
+  useLayoutEffect(() => {
+    if (!onFlushPendingChange) return;
+    const flush = () => {
+      flushPendingChangeRef.current();
+      return true;
+    };
+    onFlushPendingChange(flush);
+    return () => onFlushPendingChange(null);
+  }, [onFlushPendingChange]);
+  useLayoutEffect(() => {
+    unregisterAgentAdapterRef.current?.();
+    unregisterAgentAdapterRef.current = null;
+    const editor = editorRef.current;
+    if (active && editor) {
+      unregisterAgentAdapterRef.current = registerAgentCanvasAdapter(
+        createTldrawAgentCanvasAdapter(editor, () => canWriteRef.current),
+      );
+    }
+  }, [active]);
   // The store is created once per mount (the canvas keys this component by
   // file path). Collab mode starts empty: attachBoardBridge seeds records
   // from the doc's imported content and pulls the doc-authoritative state.
@@ -104,13 +134,20 @@ export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
 
   // Local mode: debounce-serialize edits out; merge external source changes in.
   useEffect(() => {
-    if (collabDoc) return;
+    if (collabDoc) {
+      flushPendingChangeRef.current = () => {};
+      return;
+    }
     let timer: number | null = null;
     const flush = () => {
+      if (timer != null) window.clearTimeout(timer);
       timer = null;
       const json = serializeBoard(store.allRecords());
       lastSerializedRef.current = json;
       onChangeRef.current(json);
+    };
+    flushPendingChangeRef.current = () => {
+      if (timer != null) flush();
     };
     const unlisten = store.listen(() => {
       if (timer == null) timer = window.setTimeout(flush, SERIALIZE_DEBOUNCE_MS);
@@ -122,6 +159,7 @@ export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
         window.clearTimeout(timer);
         flush();
       }
+      flushPendingChangeRef.current = () => {};
     };
   }, [store, collabDoc]);
 
@@ -154,9 +192,11 @@ export function BoardEditor({ source, onChange, collab }: BoardEditorProps) {
             });
           }
           unregisterAgentAdapterRef.current?.();
-          unregisterAgentAdapterRef.current = registerAgentCanvasAdapter(
-            createTldrawAgentCanvasAdapter(editor, () => canWriteRef.current),
-          );
+          unregisterAgentAdapterRef.current = active
+            ? registerAgentCanvasAdapter(
+              createTldrawAgentCanvasAdapter(editor, () => canWriteRef.current),
+            )
+            : null;
         }}
       />
     </div>

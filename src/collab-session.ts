@@ -52,6 +52,12 @@ export type EditorCollabSession = {
   destroy: () => void;
   /** Identity for board cursor presence. */
   boardPresenceUser?: { id: string; name: string; color: string };
+  /** A sideloaded board keeps its own Y.Doc when it is shown in the other pane. */
+  boardDocumentForPath?: (path: string) => {
+    doc: Y.Doc;
+    awareness: import("y-protocols/awareness").Awareness | null;
+    canWrite: boolean;
+  } | null;
   /** Whether this actor may mutate the active collaborative document. */
   canWrite?: boolean;
   /** Observe live permission loss such as grant revocation. */

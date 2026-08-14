@@ -50,6 +50,10 @@ const synaraHook = vi.hoisted(() => ({
   retry: vi.fn(),
   enabledCalls: [] as boolean[],
 }));
+const interfaceSounds = vi.hoisted(() => ({
+  configure: vi.fn(),
+  play: vi.fn(),
+}));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
 vi.mock("@tauri-apps/api/webview", () => ({
@@ -77,6 +81,10 @@ vi.mock("./use-synara-runtime", () => ({
     synaraHook.enabledCalls.push(enabled);
     return synaraHook;
   },
+}));
+vi.mock("./interface-sounds", () => ({
+  configureInterfaceSounds: interfaceSounds.configure,
+  playInterfaceSound: interfaceSounds.play,
 }));
 vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
   GlobalWorkerOptions: {},
@@ -562,6 +570,19 @@ describe("welcome screen", () => {
     await waitFor(() => expect(localStorage.getItem("lattice.appearance.v5")).toContain('"editorSpellcheck":true'));
   });
 
+  it("lets the user mute the small set of interface sounds", async () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    const soundToggle = await screen.findByLabelText("Interface sounds");
+    expect(soundToggle).toBeChecked();
+    fireEvent.click(soundToggle);
+
+    await waitFor(() => expect(localStorage.getItem("lattice.appearance.v5"))
+      .toContain('"interfaceSounds":false'));
+    expect(interfaceSounds.configure).toHaveBeenLastCalledWith(false);
+  });
+
   it("keeps an explicitly selected manual build preference", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     renderApp();
@@ -853,9 +874,9 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Preview" }));
     await waitFor(() => expect(document.querySelector(".dual-pane-preview .pdf-column"))
       .toBeInTheDocument());
-    expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+    expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
       .toHaveTextContent("@article{lattice");
-    expect(document.querySelector(".source-editor[data-editor-pane='primary']"))
+    expect(document.querySelector(".source-editor[data-editor-pane='secondary']"))
       .toBeNull();
     expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
       .toContain("0.65fr");
@@ -889,6 +910,178 @@ describe("project workspace", () => {
         .toHaveTextContent("\\documentclass{article}");
     });
     expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("previews each Markdown pane independently and allows both previews", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "left.md", path: "left.md", kind: "markdown", children: [] },
+        { name: "right.md", path: "right.md", kind: "markdown", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["left.md", "right.md"],
+      activeFile: "left.md",
+      activeTab: "left.md",
+      secondaryFile: "right.md",
+      focusedPane: "primary",
+      canvasMode: "dual",
+      documentMode: "dual",
+      paperView: "blog",
+      tabRecency: ["left.md", "right.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        return (args as { path: string }).path === "left.md"
+          ? "# Left notes"
+          : "# Right notes";
+      }
+      if (command === "write_project_file") return undefined;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const documentView = await screen.findByRole("tablist", { name: "Document view" });
+    await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2));
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    await waitFor(() => expect(screen.getAllByRole("textbox", { name: "Markdown document editor" }))
+      .toHaveLength(1));
+    expect(Array.from(document.querySelectorAll<HTMLElement>(".visual-markdown-editor"))
+      .map((editor) => editor.dataset.activePath)).toEqual(["left.md"]);
+    const rightSource = document.querySelector<HTMLElement>(
+      ".source-editor[data-editor-pane='secondary'] .cm-content",
+    );
+    expect(rightSource).toHaveTextContent("# Right notes");
+
+    fireEvent.focus(rightSource!);
+    await waitFor(() => expect(within(documentView).getByRole("tab", { name: "Edit" }))
+      .toHaveAttribute("aria-selected", "true"));
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+
+    await waitFor(() => expect(Array.from(
+      document.querySelectorAll<HTMLElement>(".visual-markdown-editor"),
+    ).map((editor) => editor.dataset.activePath)).toEqual(["left.md", "right.md"]));
+    expect(screen.getAllByRole("textbox", { name: "Markdown document editor" }))
+      .toHaveLength(2);
+    expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(0);
+
+    const rightPreview = screen.getAllByRole("textbox", { name: "Markdown document editor" })[1];
+    const rightVisualEditor = (rightPreview as HTMLElement & { editor: TiptapEditor }).editor;
+    act(() => {
+      rightVisualEditor.commands.setContent(parseVisualMarkdown("# Right preview edit"));
+    });
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
+    await waitFor(() => expect(Array.from(
+      document.querySelectorAll<HTMLElement>(".visual-markdown-editor"),
+    ).map((editor) => editor.dataset.activePath)).toEqual(["left.md"]));
+    expect(document.querySelector(
+      ".source-editor[data-editor-pane='secondary'] .cm-content",
+    )).toHaveTextContent("# Right preview edit");
+  });
+
+  it("closes a two-file split while keeping the focused file open", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "left.md", path: "left.md", kind: "markdown", children: [] },
+        { name: "right.md", path: "right.md", kind: "markdown", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["left.md", "right.md"],
+      activeFile: "left.md",
+      activeTab: "right.md",
+      secondaryFile: "right.md",
+      focusedPane: "secondary",
+      canvasMode: "dual",
+      documentMode: "dual",
+      paperView: "blog",
+      tabRecency: ["right.md", "left.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `# ${(args as { path: string }).path}`;
+      if (command === "write_project_file") return undefined;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2));
+    fireEvent.click(screen.getByRole("button", { name: "Close split" }));
+
+    await waitFor(() => expect(document.querySelector(".dual-canvas")).toBeNull());
+    expect(document.querySelector(".source-editor .cm-content")).toHaveTextContent("# right.md");
+    expect(screen.getByRole("tab", { name: /right\.md/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /left\.md/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close split" })).toBeNull();
+  });
+
+  it("renders a board canvas rather than its JSON in the secondary split pane", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "sketch.tldr", path: "sketch.tldr", kind: "board", children: [] },
+        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["sketch.tldr", "notes.md"],
+      activeFile: "notes.md",
+      activeTab: "sketch.tldr",
+      secondaryFile: "sketch.tldr",
+      focusedPane: "secondary",
+      canvasMode: "dual",
+      documentMode: "dual",
+      paperView: "blog",
+      tabRecency: ["sketch.tldr", "notes.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        return (args as { path: string }).path.endsWith(".tldr")
+          ? "{\"tldrawFileFormatVersion\":1,\"records\":[]}"
+          : "# Notes";
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const secondaryBoard = await screen.findByTestId("board-editor-mock");
+    expect(secondaryBoard.closest("[data-editor-pane='secondary']")).not.toBeNull();
+    expect(document.querySelector(".dual-canvas")).not.toBeNull();
+    expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+      .toHaveTextContent("# Notes");
   });
 
   it("keeps the current editor when an active-tab split loses a race with a late edit", async () => {
@@ -2353,6 +2546,7 @@ describe("project workspace", () => {
       force: false,
       projectRoot: "/tmp/lattice-paper",
     })));
+    expect(interfaceSounds.play).not.toHaveBeenCalled();
   });
 
   it("automatically rebuilds after the active source changes on disk", async () => {
@@ -2395,6 +2589,7 @@ describe("project workspace", () => {
       force: false,
       projectRoot: "/tmp/lattice-paper",
     })), { timeout: 3_500 });
+    expect(interfaceSounds.play).not.toHaveBeenCalled();
   });
 
   it("lists a work that is only cited but does not offer to open it", async () => {
@@ -3353,6 +3548,76 @@ describe("project workspace", () => {
     expect(screen.getByText("Second paper", { selector: ".active-document span" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Second body" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "First body" })).toBeNull();
+  });
+
+  it("cancels a pending Paper when the user opens a local file in the secondary pane", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "right.tex", path: "right.tex", kind: "tex", children: [] },
+        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["main.tex", "right.tex"],
+      activeFile: "main.tex",
+      activeTab: "right.tex",
+      secondaryFile: "right.tex",
+      focusedPane: "secondary",
+      canvasMode: "dual",
+      documentMode: "dual",
+      paperView: "blog",
+      tabRecency: ["right.tex", "main.tex"],
+    });
+    let resolvePaper!: (value: string) => void;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        return `content:${(args as { path: string }).path}`;
+      }
+      if (command === "list_papers") return [{
+        arxivId: "2407.06438",
+        title: "Delayed paper",
+        hasFullText: true,
+      }];
+      if (command === "list_history") return [];
+      if (command === "read_paper") {
+        return new Promise<string>((resolve) => { resolvePaper = resolve; });
+      }
+      if (command === "read_paper_blog_local") return null;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(document.querySelectorAll(".dual-canvas .source-editor"))
+      .toHaveLength(2));
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByTitle("Delayed paper"));
+    await waitFor(() => expect(resolvePaper).toBeTypeOf("function"));
+    expect(screen.getByText("Opening Delayed paper…")).toBeInTheDocument();
+
+    await switchSidebarMode("Project");
+    fireEvent.click(await findProjectTreeItem("notes.md"));
+    await waitFor(() => expect(document.querySelector(
+      ".source-editor[data-editor-pane='secondary'] .cm-content",
+    )).toHaveTextContent("content:notes.md"));
+    expect(screen.queryByText("Opening Delayed paper…")).toBeNull();
+
+    act(() => resolvePaper("# Paper must stay closed"));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(document.querySelectorAll(".dual-canvas .source-editor")).toHaveLength(2);
+    expect(screen.getByRole("tab", { name: /notes\.md/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("heading", { name: "Paper must stay closed" })).toBeNull();
   });
 
   it("remembers the selected paper content when reopening an article", async () => {
@@ -5233,11 +5498,13 @@ describe("project workspace", () => {
     const zoomBefore = Number(zoomInput.value);
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
     expect(zoomInput).toHaveValue(String(zoomBefore + 10));
+    const buildsBeforeManualRequest = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "build_project").length;
+    interfaceSounds.play.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
-      force: false,
-      projectRoot: "/tmp/lattice-paper",
-    })));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "build_project")).toHaveLength(buildsBeforeManualRequest + 1));
+    await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("build-succeeded"));
     // Identical PDF bytes must not thrash pdf.js — keep the same document + zoom.
     expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(1);
     expect(zoomInput).toHaveValue(String(zoomBefore + 10));
@@ -5310,6 +5577,14 @@ describe("project workspace", () => {
 
     renderApp();
     const diagnosticsPanel = await screen.findByLabelText("Compile diagnostics");
+    // Initial and autosave builds are intentionally silent, even on failure.
+    expect(interfaceSounds.play).not.toHaveBeenCalled();
+    const buildsBeforeManualRequest = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "build_project").length;
+    fireEvent.click(screen.getByRole("button", { name: "Build" }));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "build_project")).toHaveLength(buildsBeforeManualRequest + 1));
+    await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("build-failed"));
     expect(diagnosticsPanel.closest(".pdf-column")).toBeInTheDocument();
     expect(diagnosticsPanel.parentElement).not.toHaveClass("workspace");
     expect(screen.getByText("1 error")).toBeInTheDocument();

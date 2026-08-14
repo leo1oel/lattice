@@ -1,6 +1,6 @@
 import { EditorView as CMEditorView } from "@codemirror/view";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { AllSelection, NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { CellSelection, TableMap } from "@tiptap/pm/tables";
 import type { Editor } from "@tiptap/react";
 import { useMemo, useRef, useState } from "react";
@@ -4092,6 +4092,68 @@ describe("VisualMarkdownEditor", () => {
     expect(editor).toHaveAttribute("contenteditable", "true");
     await waitFor(() => expect(editor.querySelectorAll(".katex")).toHaveLength(2));
     expect(editor.querySelector(".math-placeholder")).toBeNull();
+  });
+
+  it("preserves block-math formulas when copied between visual editors", async () => {
+    render(
+      <>
+        <VisualMarkdownEditor
+          text={"$$\nE=mc^2\n$$"}
+          activePath="source.md"
+          onChangeMarkdown={() => true}
+          onUndo={() => false}
+          onRedo={() => false}
+        />
+        <VisualMarkdownEditor
+          text="Destination"
+          activePath="destination.md"
+          onChangeMarkdown={() => true}
+          onUndo={() => false}
+          onRedo={() => false}
+        />
+      </>,
+    );
+    const [sourceSurface, destinationSurface] = screen.getAllByRole("textbox", {
+      name: "Markdown document editor",
+    });
+    await waitFor(() => {
+      expect(sourceSurface).toHaveAttribute("contenteditable", "true");
+      expect(destinationSurface).toHaveAttribute("contenteditable", "true");
+    });
+    const sourceEditor = (sourceSurface as HTMLElement & { editor: Editor }).editor;
+    const destinationEditor = (destinationSurface as HTMLElement & { editor: Editor }).editor;
+    const sourceMath = sourceEditor.state.doc.firstChild!;
+    sourceEditor.view.dispatch(sourceEditor.state.tr.setNodeMarkup(0, null, {
+      ...sourceMath.attrs,
+      props: { ...sourceMath.attrs.props, formula: "E=mc^3" },
+      sourceDirty: true,
+    }));
+    sourceEditor.view.dispatch(
+      sourceEditor.state.tr.setSelection(NodeSelection.create(sourceEditor.state.doc, 0)),
+    );
+
+    const clipboard = new Map<string, string>();
+    const clipboardData = {
+      clearData: () => clipboard.clear(),
+      getData: (type: string) => clipboard.get(type) ?? "",
+      setData: (type: string, value: string) => {
+        clipboard.set(type, value);
+      },
+    } as unknown as DataTransfer;
+    fireEvent.copy(sourceSurface, { clipboardData });
+    expect(clipboard.get("text/html")).toContain('data-component-name="DollarMath"');
+
+    destinationEditor.view.dispatch(
+      destinationEditor.state.tr.setSelection(new AllSelection(destinationEditor.state.doc)),
+    );
+    fireEvent.paste(destinationSurface, { clipboardData });
+
+    const pasted = destinationEditor.state.doc.firstChild;
+    expect(pasted?.type.name).toBe("jsxComponent");
+    expect(pasted?.attrs.componentName).toBe("DollarMath");
+    expect(pasted?.attrs.props).toMatchObject({ formula: "E=mc^3" });
+    expect(pasted?.attrs.sourceDirty).toBe(true);
+    expect(editorMarkdown(destinationEditor)).toContain("E=mc^3");
   });
 
   it("keeps dollar-denominated prices as prose", async () => {

@@ -662,6 +662,22 @@ export class CollabProjectControllerV2 {
     return this.boardPresenceUserValue;
   }
 
+  boardDocumentForPath(path: string): {
+    doc: Y.Doc;
+    awareness: Awareness | null;
+    canWrite: boolean;
+  } | null {
+    const file = this.file(path);
+    if (!file || file.kind !== "board" || file.state !== "live") return null;
+    const client = this.clients.get(file.fileId);
+    if (!client || client.isDestroyed) return null;
+    return {
+      doc: client.doc,
+      awareness: client.awareness ?? null,
+      canWrite: (this.options.permission ?? "write") !== "read" && !client.isStopped,
+    };
+  }
+
   /** Same-file awareness peers merged with cross-file coordinator presence. */
   private pushPeers(): void {
     const onPeers = this.options.onPeers;

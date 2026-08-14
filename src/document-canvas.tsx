@@ -554,6 +554,113 @@ function useSettledPreviewText(
   return settled;
 }
 
+function SecondaryMarkdownPreview(props: {
+  path: string;
+  source: string;
+  onChange: (next: string) => void;
+  onFlushPendingChange: (flush: (() => boolean) | null) => void;
+  onEditSource: () => void;
+  onOpenProjectPath: (path: string) => void;
+  workspaceIndex?: MarkdownWorkspaceIndex | null;
+  papers?: PaperSummary[];
+  macros: Record<string, string>;
+  onImportAsset?: (file: File) => Promise<string | null>;
+  onLoadAsset: (path: string) => Promise<string | null>;
+  editable: boolean;
+  onCaretChange: (row: number, column: number) => void;
+}) {
+  const sourceRef = useRef(props.source);
+  const onChangeRef = useRef(props.onChange);
+  const [visualEchoSource, setVisualEchoSource] = useState<string | null>(null);
+  const historyRef = useRef<{ undo: string[]; redo: string[] }>({ undo: [], redo: [] });
+  useLayoutEffect(() => {
+    sourceRef.current = props.source;
+    onChangeRef.current = props.onChange;
+  }, [props.onChange, props.source]);
+
+  const previewStart = markdownFrontmatterEnd(props.source);
+  const previewText = props.source.slice(previewStart);
+  const syncPolicy = markdownPreviewSyncPolicy(previewText.length);
+  const settledText = useSettledPreviewText(
+    previewText,
+    props.source === visualEchoSource,
+    props.path,
+    syncPolicy.publicationIdleMs,
+    syncPolicy.publicationMaxMs,
+  );
+  const lineOffset = props.source.slice(0, previewStart).split("\n").length - 1;
+
+  const publishSource = useCallback((nextSource: string) => {
+    sourceRef.current = nextSource;
+    setVisualEchoSource(nextSource);
+    onChangeRef.current(nextSource);
+  }, []);
+  const replaceMarkdown = useCallback((nextBody: string, expectedBody: string) => {
+    const source = sourceRef.current;
+    const from = markdownFrontmatterEnd(source);
+    if (source.slice(from) !== expectedBody) return false;
+    const insert = expectedBody.includes("\r\n")
+      ? nextBody.replace(/\r?\n/g, "\r\n")
+      : nextBody;
+    const prefix = source.slice(0, from);
+    const separator = expectedBody === "" && insert !== "" && prefix !== "" && !/\r?\n$/.test(prefix)
+      ? (source.includes("\r\n") ? "\r\n" : "\n")
+      : "";
+    const nextSource = `${prefix}${separator}${insert}`;
+    historyRef.current.undo.push(source);
+    historyRef.current.redo = [];
+    publishSource(nextSource);
+    return true;
+  }, [publishSource]);
+  const undo = useCallback(() => {
+    const previous = historyRef.current.undo.pop();
+    if (previous === undefined) return false;
+    historyRef.current.redo.push(sourceRef.current);
+    publishSource(previous);
+    return true;
+  }, [publishSource]);
+  const redo = useCallback(() => {
+    const next = historyRef.current.redo.pop();
+    if (next === undefined) return false;
+    historyRef.current.undo.push(sourceRef.current);
+    publishSource(next);
+    return true;
+  }, [publishSource]);
+
+  return (
+    <ScrollArea
+      className="markdown-preview secondary-markdown-preview"
+      orientation="vertical"
+      fadeEdges={false}
+      contentClassName="markdown-preview-content"
+      viewportClassName="editor-doc-scroll"
+      viewportProps={{ "data-testid": "editor-scroll-container" }}
+    >
+      <Suspense fallback={<div className="chat-markdown">Preparing preview…</div>}>
+        <DeferredVisualMarkdownEditor
+          text={settledText}
+          activePath={props.path}
+          synchronizeSourceScroll={false}
+          onOpenProjectPath={props.onOpenProjectPath}
+          workspaceIndex={props.workspaceIndex}
+          papers={props.papers}
+          macros={props.macros}
+          onChangeMarkdown={replaceMarkdown}
+          onFlushPendingChange={props.onFlushPendingChange}
+          onUndo={undo}
+          onRedo={redo}
+          onEditSource={props.onEditSource}
+          onViewInSource={props.onEditSource}
+          onImportAsset={props.onImportAsset}
+          onLoadAsset={props.onLoadAsset}
+          editable={props.editable}
+          onCaretChange={(row, column) => props.onCaretChange(row + lineOffset, column)}
+        />
+      </Suspense>
+    </ScrollArea>
+  );
+}
+
 export function interpolateScrollAnchors(
   value: number,
   pairs: Array<{ from: number; to: number }>,
@@ -929,7 +1036,7 @@ function useOptionalKeymapExtensions(
 
 export function DocumentCanvas(props: {
   mode: CanvasMode;
-  dualPreviewSide?: "left" | "right" | null;
+  dualPreviewPanes?: { primary: boolean; secondary: boolean };
   workspaceIndex?: MarkdownWorkspaceIndex | null;
   source: string;
   markdownPreviewSource?: string;
@@ -1107,6 +1214,23 @@ export function DocumentCanvas(props: {
     commentFocusRequest,
     onCommentFocusHandled,
   } = props;
+  const primaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
+  const secondaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
+  const registerPrimaryVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
+    primaryVisualMarkdownFlushRef.current = flush;
+  }, []);
+  const registerSecondaryVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
+    secondaryVisualMarkdownFlushRef.current = flush;
+  }, []);
+  useLayoutEffect(() => {
+    if (!props.onVisualMarkdownFlushChange) return;
+    const flushVisualMarkdown = () => {
+      if (primaryVisualMarkdownFlushRef.current?.() === false) return false;
+      return secondaryVisualMarkdownFlushRef.current?.() !== false;
+    };
+    props.onVisualMarkdownFlushChange(flushVisualMarkdown);
+    return () => props.onVisualMarkdownFlushChange?.(null);
+  }, [props.onVisualMarkdownFlushChange]);
   const primarySurface: AgentHostSurface = props.activePaper ? "paper" : "editor";
   const activePaperArxivId = normalizedArxivId(props.activePaper?.arxivId ?? "");
   const activePaperBrowserUrl = useMemo(
@@ -3091,7 +3215,7 @@ export function DocumentCanvas(props: {
           papers={props.papers}
           macros={katexMacros}
           onChangeMarkdown={replaceVisualMarkdown}
-          onFlushPendingChange={props.onVisualMarkdownFlushChange}
+          onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
           onUndo={undoVisualMarkdown}
           onRedo={redoVisualMarkdown}
           onViewInSource={viewMarkdownSource}
@@ -3418,13 +3542,7 @@ export function DocumentCanvas(props: {
       )}
     </div>
   );
-  const preview = props.activeAsset ? (
-    <ProjectAssetPreview key={props.activeAsset.path} asset={props.activeAsset} />
-  ) : markdownDocument ? paperPreview : htmlDocument ? (
-    props.interactivePreviewsEnabled
-      ? <HtmlPreview key={activeFile} path={activeFile} source={props.source} />
-      : <HtmlPreviewLoading />
-  ) : (
+  const pdfPreview = (
     <div
       className="pdf-column"
       data-tour="document-preview"
@@ -3444,7 +3562,9 @@ export function DocumentCanvas(props: {
           // Reverse-jump to source only when the editor is visible (split/dual/
           // columns). In PDF-only view there's nothing to jump to, so clicks stay
           // inert and the synctex cursor is off.
-          onSource={props.mode === "pdf" || props.dualPreviewSide ? undefined : props.onPdfSource}
+          onSource={props.mode === "pdf" || props.dualPreviewPanes?.primary || props.dualPreviewPanes?.secondary
+            ? undefined
+            : props.onPdfSource}
           onTextSelect={props.onPdfTextSelect}
           onNumPages={props.onPdfPageCount}
           onPageChange={props.onPdfPageChange}
@@ -3463,13 +3583,24 @@ export function DocumentCanvas(props: {
       </Suspense>
     </div>
   );
-  if (boardDocument) {
-    // collab preview. Remount per file so each board gets a fresh store. In a
-    // v2 collab session (boardPresenceUser is v2-only) the store bridges into
-    // the file's Y.Doc (records sync + cursor presence); v1 and local files
-    // serialize back through setSource.
+  const preview = props.activeAsset ? (
+    <ProjectAssetPreview key={props.activeAsset.path} asset={props.activeAsset} />
+  ) : markdownDocument ? paperPreview : htmlDocument ? (
+    props.interactivePreviewsEnabled
+      ? <HtmlPreview key={activeFile} path={activeFile} source={props.source} />
+      : <HtmlPreviewLoading />
+  ) : pdfPreview;
+  const boardCollabForPath = (path: string) => {
     const session = props.collabSession;
-    const collab = props.collabReady && session?.boardPresenceUser && session.activePath === activeFile
+    if (!props.collabReady || !session?.boardPresenceUser) return null;
+    const sideloaded = session.boardDocumentForPath?.(path);
+    if (sideloaded) {
+      return {
+        ...sideloaded,
+        user: session.boardPresenceUser,
+      };
+    }
+    return session.activePath === path
       ? {
         doc: session.doc,
         awareness: session.provider.awareness,
@@ -3477,13 +3608,19 @@ export function DocumentCanvas(props: {
         canWrite: session.canWrite !== false,
       }
       : null;
+  };
+  if (boardDocument && props.mode !== "dual" && props.mode !== "columns") {
+    // Remount per file so each board gets a fresh store. In v2 collaboration
+    // the path-specific Y.Doc carries records; local and v1 boards serialize
+    // back through the source buffer before a document switch.
     return (
       <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label="Preparing board editor" />}>
         <BoardEditor
           key={activeFile}
           source={props.source}
           onChange={(next) => setSourceRef.current(next)}
-          collab={collab}
+          collab={boardCollabForPath(activeFile)}
+          onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
         />
       </Suspense>
     );
@@ -3494,6 +3631,11 @@ export function DocumentCanvas(props: {
   if (props.mode === "dual" || props.mode === "columns") {
     const focusSecondaryPane = () => {
       props.onContextSurfaceActivate("editor");
+      if (selectionToolbarOwnerRef.current?.pane !== "secondary") {
+        selectionToolbarOwnerRef.current = null;
+        setSelectionToolbarPane(null);
+        setSelectionToolbarPosition(null);
+      }
       focusedPaneRef.current = "secondary";
       onFocusPane("secondary");
     };
@@ -3506,6 +3648,25 @@ export function DocumentCanvas(props: {
         onFocus={focusSecondaryPane}
       >
         <ProjectAssetPreview asset={props.secondaryAsset} />
+      </div>
+    ) : secondaryFile?.toLocaleLowerCase().endsWith(".tldr") ? (
+      <div
+        className={`dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
+        data-editor-pane="secondary"
+        tabIndex={0}
+        onPointerDownCapture={focusSecondaryPane}
+        onFocusCapture={focusSecondaryPane}
+      >
+        <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label="Preparing board editor" />}>
+          <BoardEditor
+            key={secondaryFile}
+            source={secondarySource}
+            onChange={(next) => setSecondarySourceRef.current(next)}
+            collab={boardCollabForPath(secondaryFile)}
+            onFlushPendingChange={registerSecondaryVisualMarkdownFlush}
+            active={focusedPane === "secondary"}
+          />
+        </Suspense>
       </div>
     ) : secondaryFile ? (
       <div
@@ -3553,6 +3714,43 @@ export function DocumentCanvas(props: {
       >
         <Columns2 size={18} />
         <p>Open or drag a file here.</p>
+      </div>
+    );
+    const secondaryPreviewContent = secondaryFile?.toLocaleLowerCase().endsWith(".md") ? (
+      <SecondaryMarkdownPreview
+        key={secondaryFile}
+        path={secondaryFile}
+        source={secondarySource}
+        onChange={(next) => setSecondarySourceRef.current(next)}
+        onFlushPendingChange={registerSecondaryVisualMarkdownFlush}
+        onEditSource={props.onViewMarkdownSource}
+        onOpenProjectPath={props.onOpenMarkdownPath}
+        workspaceIndex={props.workspaceIndex}
+        papers={props.papers}
+        macros={katexMacros}
+        onImportAsset={props.onImportAsset}
+        onLoadAsset={props.onLoadReferenceImage}
+        editable={props.editorEditable}
+        onCaretChange={(row, column) => {
+          const line = row + 1;
+          setStatusPosition({ line, column });
+          props.onEditorPosition({ path: secondaryFile, line, column });
+        }}
+      />
+    ) : secondaryFile && isHtmlFilePath(secondaryFile) ? (
+      props.interactivePreviewsEnabled
+        ? <HtmlPreview key={secondaryFile} path={secondaryFile} source={secondarySource} />
+        : <HtmlPreviewLoading />
+    ) : pdfPreview;
+    const dualSecondaryPreview = (
+      <div
+        className={`dual-pane-preview dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
+        data-editor-pane="secondary"
+        tabIndex={0}
+        onPointerDownCapture={focusSecondaryPane}
+        onFocusCapture={focusSecondaryPane}
+      >
+        {secondaryPreviewContent}
       </div>
     );
     const editorsShare = 1 - columnsPdfRatio;
@@ -3617,6 +3815,33 @@ export function DocumentCanvas(props: {
       >
         <ProjectAssetPreview asset={props.activeAsset} />
       </div>
+    ) : boardDocument ? (
+      <div
+        className={`dual-primary ${focusedPane === "primary" ? "focused" : ""}`}
+        data-editor-pane="primary"
+        tabIndex={0}
+        onPointerDownCapture={() => {
+          props.onContextSurfaceActivate("editor");
+          focusedPaneRef.current = "primary";
+          onFocusPane("primary");
+        }}
+        onFocusCapture={() => {
+          props.onContextSurfaceActivate("editor");
+          focusedPaneRef.current = "primary";
+          onFocusPane("primary");
+        }}
+      >
+        <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label="Preparing board editor" />}>
+          <BoardEditor
+            key={activeFile}
+            source={props.source}
+            onChange={(next) => setSourceRef.current(next)}
+            collab={boardCollabForPath(activeFile)}
+            onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
+            active={focusedPane === "primary"}
+          />
+        </Suspense>
+      </div>
     ) : (
       <div
         className={`dual-primary ${focusedPane === "primary" ? "focused" : ""}`}
@@ -3630,9 +3855,9 @@ export function DocumentCanvas(props: {
         {editor}
       </div>
     );
-    const dualPreviewPane = (
+    const dualPrimaryPreview = (
       <div
-        className="dual-pane-preview"
+        className={`dual-pane-preview dual-primary ${focusedPane === "primary" ? "focused" : ""}`}
         data-editor-pane="primary"
         tabIndex={0}
         onPointerDownCapture={() => {
@@ -3647,6 +3872,10 @@ export function DocumentCanvas(props: {
         {preview}
       </div>
     );
+    const visiblePrimaryPane = props.dualPreviewPanes?.primary ? dualPrimaryPreview : primaryPane;
+    const visibleSecondaryPane = props.dualPreviewPanes?.secondary
+      ? dualSecondaryPreview
+      : dualSecondary;
     const editorResizer = (
       <div
         className="split-resizer"
@@ -3666,9 +3895,9 @@ export function DocumentCanvas(props: {
             gridTemplateColumns: `minmax(160px, ${splitRatio * editorsShare}fr) 1px minmax(160px, ${(1 - splitRatio) * editorsShare}fr) 1px minmax(${SPLIT_PDF_MIN_WIDTH}px, ${columnsPdfRatio}fr)`,
           }}
         >
-          {primaryPane}
+          {visiblePrimaryPane}
           {editorResizer}
-          {dualSecondary}
+          {visibleSecondaryPane}
           <div
             className="split-resizer"
             role="separator"
@@ -3682,21 +3911,15 @@ export function DocumentCanvas(props: {
         </div>
       );
     }
-    const leftPane = props.dualPreviewSide === "left"
-      ? dualPreviewPane
-      : props.dualPreviewSide === "right"
-        ? dualSecondary
-        : primaryPane;
-    const rightPane = props.dualPreviewSide === "right" ? dualPreviewPane : dualSecondary;
     return (
       <div
         ref={splitRef}
         className="split-canvas dual-canvas"
         style={{ gridTemplateColumns: `minmax(220px, ${splitRatio}fr) 1px minmax(220px, ${1 - splitRatio}fr)` }}
       >
-        {leftPane}
+        {visiblePrimaryPane}
         {editorResizer}
-        {rightPane}
+        {visibleSecondaryPane}
       </div>
     );
   }

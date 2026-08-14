@@ -8,6 +8,7 @@ import {
   Image,
   MessagesSquare,
   Omega,
+  PanelRightClose,
   Redo2,
   Undo2,
 } from "lucide-react";
@@ -55,6 +56,7 @@ type CanvasToolbarProps = {
   setMode: (mode: DocumentViewMode) => void;
   supportsDocumentViewModes: boolean;
   onSplit?: () => void;
+  onCloseSplit?: () => void;
   markdown: boolean;
   html: boolean;
   paperView?: "blog" | "fulltext";
@@ -185,6 +187,13 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           <Tip label="Split editor right">
             <button type="button" onClick={props.onSplit}>
               <Columns2 size={14} />
+            </button>
+          </Tip>
+        )}
+        {props.onCloseSplit && (
+          <Tip label="Close split">
+            <button type="button" onClick={props.onCloseSplit}>
+              <PanelRightClose size={14} />
             </button>
           </Tip>
         )}
@@ -343,6 +352,7 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
   const stable = useMemo(() => ({
     setMode: (mode: DocumentViewMode) => latest.current.setMode(mode),
     onSplit: () => latest.current.onSplit?.(),
+    onCloseSplit: () => latest.current.onCloseSplit?.(),
     onPaperView: (view: "blog" | "fulltext") => latest.current.onPaperView?.(view),
     onNavigateBack: () => latest.current.onNavigateBack(),
     onNavigateForward: () => latest.current.onNavigateForward(),
@@ -361,6 +371,7 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
       {...props}
       setMode={stable.setMode}
       onSplit={props.onSplit ? stable.onSplit : undefined}
+      onCloseSplit={props.onCloseSplit ? stable.onCloseSplit : undefined}
       onPaperView={props.onPaperView ? stable.onPaperView : undefined}
       onNavigateBack={stable.onNavigateBack}
       onNavigateForward={stable.onNavigateForward}

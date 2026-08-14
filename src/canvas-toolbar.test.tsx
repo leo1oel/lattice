@@ -134,6 +134,15 @@ describe("CanvasToolbar document views", () => {
     fireEvent.click(split);
     expect(onSplit).toHaveBeenCalledTimes(1);
   });
+
+  it("exposes an explicit action for closing a two-file split", () => {
+    const onCloseSplit = vi.fn();
+    render(<CanvasToolbar {...baseProps} mode="dual" onCloseSplit={onCloseSplit} />);
+
+    const close = screen.getByRole("button", { name: "Close split" });
+    fireEvent.click(close);
+    expect(onCloseSplit).toHaveBeenCalledOnce();
+  });
 });
 
 describe("CanvasToolbar collaboration status", () => {

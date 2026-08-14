@@ -542,6 +542,17 @@ export function SettingsDialog(props: {
                     </div>
                   </SettingsRow>
                 </SettingsGroup>
+                <SettingsGroup title="Feedback">
+                  <SwitchField
+                    label="Interface sounds"
+                    description="Plays quiet cues when a requested build or collaboration setup finishes."
+                    checked={props.appearance.interfaceSounds}
+                    onChange={(interfaceSounds) => props.setAppearance({
+                      ...props.appearance,
+                      interfaceSounds,
+                    })}
+                  />
+                </SettingsGroup>
               </div>
             )}
             {props.tab === "editor" && (

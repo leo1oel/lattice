@@ -333,6 +333,7 @@ export type AppearanceSettings = {
   editorFontSize: number;
   editorKeymap: EditorKeymap;
   editorSpellcheck: boolean;
+  interfaceSounds: boolean;
   maxOpenTabs: number;
 };
 
@@ -349,6 +350,7 @@ export function loadAppearance(): AppearanceSettings {
     editorFontSize: 14,
     editorKeymap: "default",
     editorSpellcheck: false,
+    interfaceSounds: true,
     maxOpenTabs: 5,
   };
   try {
@@ -382,6 +384,7 @@ export function loadAppearance(): AppearanceSettings {
           ? "emacs"
           : "default",
       editorSpellcheck: value?.editorSpellcheck === true,
+      interfaceSounds: value?.interfaceSounds !== false,
       maxOpenTabs: clamp(Math.round(Number(value?.maxOpenTabs) || defaults.maxOpenTabs), 1, MAX_OPEN_TABS),
     };
   } catch {
