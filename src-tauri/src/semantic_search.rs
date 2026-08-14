@@ -433,7 +433,7 @@ impl SystemEmbeddingProvider {
                             .to_string(),
                     )
                 })?;
-            let dimension = unsafe { embedding.dimension() } as usize;
+            let dimension = unsafe { embedding.dimension() };
             let revision = unsafe { embedding.revision() };
             if dimension == 0 || dimension > MAX_EMBEDDING_DIMENSION {
                 return Err(ProviderFailure::Unavailable(
