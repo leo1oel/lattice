@@ -13,6 +13,7 @@ type SharedObserver = {
 
 const rootedObservers = new WeakMap<Element, Map<string, SharedObserver>>();
 const viewportObservers = new Map<string, SharedObserver>();
+const scheduleTimer = (callback: () => void, delay: number): number => window.setTimeout(callback, delay);
 
 function scheduleMaterialization(shared: SharedObserver) {
   if (shared.idleHandle != null || shared.pending.size === 0) return;
@@ -38,7 +39,7 @@ function scheduleMaterialization(shared: SharedObserver) {
     shared.idleHandle = window.requestIdleCallback(materializeNext, { timeout: 50 });
   } else {
     shared.idleKind = "timer";
-    shared.idleHandle = globalThis.setTimeout(materializeNext, 32);
+    shared.idleHandle = scheduleTimer(materializeNext, 32);
   }
 }
 

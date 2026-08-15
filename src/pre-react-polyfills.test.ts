@@ -1,6 +1,4 @@
-// @ts-expect-error no Node types in this browser-targeted project
 import { readFileSync } from "node:fs";
-// @ts-expect-error no Node types in this browser-targeted project
 import { createContext, runInContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 

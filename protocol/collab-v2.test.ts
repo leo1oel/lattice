@@ -6,6 +6,7 @@ const valid = { protocol: 2, projectInstanceId: "project", lifecycle: "live", ca
 describe("isCatalogV2", () => {
   it("accepts a complete catalog and fails closed for malformed lifecycle fields and files", () => {
     expect(isCatalogV2(valid)).toBe(true);
+    expect(isCatalogV2({ ...valid, files: [{ ...valid.files[0], path: "data.lattice-sheet", kind: "spreadsheet" }] })).toBe(true);
     for (const bad of [
       { ...valid, catalogRevision: -1 },
       { ...valid, snapshotGeneration: undefined },

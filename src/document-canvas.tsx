@@ -141,6 +141,7 @@ import type { AgentHostSurface } from "./agent-host-context";
 import type { CollabPeer, EditorCollabSession } from "./collab-session";
 import { peerCaretOffsetsV2, publishCollabCursorV2 } from "./collab-session";
 import { collabEditorExtensions } from "./collab-editor";
+import { isSpreadsheetPath } from "./spreadsheet-types";
 
 const loadPdfPreviewModule = () => import("./pdf-viewer");
 let visualMarkdownEditorWarmed = false;
@@ -151,6 +152,7 @@ const loadVisualMarkdownEditorModule = () => import("./visual-markdown-editor").
   return module;
 });
 const loadBoardEditorModule = () => import("./board-editor");
+const loadSpreadsheetEditorModule = () => import("./spreadsheet-editor");
 
 const PdfPreview = lazy(() => loadPdfPreviewModule().then((module) => ({
   default: module.PdfPreview,
@@ -160,6 +162,9 @@ const VisualMarkdownEditor = lazy(() => loadVisualMarkdownEditorModule().then((m
 })));
 const BoardEditor = lazy(() => loadBoardEditorModule().then((module) => ({
   default: module.BoardEditor,
+})));
+const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module) => ({
+  default: module.SpreadsheetEditor,
 })));
 
 function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
@@ -939,6 +944,9 @@ export async function prewarmProjectPreviewModules(paths: readonly string[]): Pr
       board.createBoardStore("");
     }));
   }
+  if (normalized.some(isSpreadsheetPath)) {
+    work.push(loadSpreadsheetEditorModule());
+  }
   await Promise.allSettled(work);
 }
 
@@ -1048,6 +1056,7 @@ export function DocumentCanvas(props: {
   onFocusPane: (pane: EditorPaneId) => void;
   dualRatioResetGeneration: number;
   setSource: (value: string) => void;
+  onSave: () => Promise<boolean>;
   onVisualMarkdownFlushChange?: (flush: (() => boolean) | null) => void;
   onMarkdownModeViewportCaptureChange?: (capture: (() => void) | null) => void;
   setSelection: (value: string) => void;
@@ -1336,6 +1345,7 @@ export function DocumentCanvas(props: {
   const markdownDocument = Boolean(props.activePaper) || activeFile.toLocaleLowerCase().endsWith(".md");
   const htmlDocument = !props.activePaper && isHtmlFilePath(activeFile);
   const boardDocument = !props.activePaper && activeFile.toLocaleLowerCase().endsWith(".tldr");
+  const spreadsheetDocument = !props.activePaper && isSpreadsheetPath(activeFile);
   const explicitPreviewStart = props.markdownPreviewSource !== undefined && props.source.endsWith(props.markdownPreviewSource)
     ? props.source.length - props.markdownPreviewSource.length
     : 0;
@@ -3609,6 +3619,31 @@ export function DocumentCanvas(props: {
       }
       : null;
   };
+  const spreadsheetCollabForPath = (path: string) => {
+    const session = props.collabSession;
+    if (!props.collabReady || !session?.boardPresenceUser) return null;
+    const commit = async () => {
+      await session.settled?.();
+      await session.flush?.();
+    };
+    const sideloaded = session.spreadsheetDocumentForPath?.(path);
+    if (sideloaded) {
+      return {
+        ...sideloaded,
+        user: session.boardPresenceUser,
+        commit,
+      };
+    }
+    return session.activePath === path
+      ? {
+        doc: session.doc,
+        awareness: session.provider.awareness,
+        user: session.boardPresenceUser,
+        canWrite: session.canWrite !== false,
+        commit,
+      }
+      : null;
+  };
   if (boardDocument && props.mode !== "dual" && props.mode !== "columns") {
     // Remount per file so each board gets a fresh store. In v2 collaboration
     // the path-specific Y.Doc carries records; local and v1 boards serialize
@@ -3620,6 +3655,21 @@ export function DocumentCanvas(props: {
           source={props.source}
           onChange={(next) => setSourceRef.current(next)}
           collab={boardCollabForPath(activeFile)}
+          onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
+        />
+      </Suspense>
+    );
+  }
+  if (spreadsheetDocument && props.mode !== "dual" && props.mode !== "columns") {
+    return (
+      <Suspense fallback={<div className="spreadsheet-editor-root" aria-busy="true" aria-label="Preparing spreadsheet editor" />}>
+        <SpreadsheetEditor
+          key={activeFile}
+          path={activeFile}
+          source={props.source}
+          onChange={(next) => setSourceRef.current(next)}
+          onPersist={props.onSave}
+          collab={spreadsheetCollabForPath(activeFile)}
           onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
         />
       </Suspense>
@@ -3663,6 +3713,27 @@ export function DocumentCanvas(props: {
             source={secondarySource}
             onChange={(next) => setSecondarySourceRef.current(next)}
             collab={boardCollabForPath(secondaryFile)}
+            onFlushPendingChange={registerSecondaryVisualMarkdownFlush}
+            active={focusedPane === "secondary"}
+          />
+        </Suspense>
+      </div>
+    ) : secondaryFile && isSpreadsheetPath(secondaryFile) ? (
+      <div
+        className={`dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
+        data-editor-pane="secondary"
+        tabIndex={0}
+        onPointerDownCapture={focusSecondaryPane}
+        onFocusCapture={focusSecondaryPane}
+      >
+        <Suspense fallback={<div className="spreadsheet-editor-root" aria-busy="true" aria-label="Preparing spreadsheet editor" />}>
+          <SpreadsheetEditor
+            key={secondaryFile}
+            path={secondaryFile}
+            source={secondarySource}
+            onChange={(next) => setSecondarySourceRef.current(next)}
+            onPersist={props.onSave}
+            collab={spreadsheetCollabForPath(secondaryFile)}
             onFlushPendingChange={registerSecondaryVisualMarkdownFlush}
             active={focusedPane === "secondary"}
           />
@@ -3815,7 +3886,7 @@ export function DocumentCanvas(props: {
       >
         <ProjectAssetPreview asset={props.activeAsset} />
       </div>
-    ) : boardDocument ? (
+    ) : boardDocument || spreadsheetDocument ? (
       <div
         className={`dual-primary ${focusedPane === "primary" ? "focused" : ""}`}
         data-editor-pane="primary"
@@ -3831,15 +3902,28 @@ export function DocumentCanvas(props: {
           onFocusPane("primary");
         }}
       >
-        <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label="Preparing board editor" />}>
-          <BoardEditor
-            key={activeFile}
-            source={props.source}
-            onChange={(next) => setSourceRef.current(next)}
-            collab={boardCollabForPath(activeFile)}
-            onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
-            active={focusedPane === "primary"}
-          />
+        <Suspense fallback={<div className={boardDocument ? "board-editor-root" : "spreadsheet-editor-root"} aria-busy="true" aria-label={boardDocument ? "Preparing board editor" : "Preparing spreadsheet editor"} />}>
+          {boardDocument ? (
+            <BoardEditor
+              key={activeFile}
+              source={props.source}
+              onChange={(next) => setSourceRef.current(next)}
+              collab={boardCollabForPath(activeFile)}
+              onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
+              active={focusedPane === "primary"}
+            />
+          ) : (
+            <SpreadsheetEditor
+              key={activeFile}
+              path={activeFile}
+              source={props.source}
+              onChange={(next) => setSourceRef.current(next)}
+              onPersist={props.onSave}
+              collab={spreadsheetCollabForPath(activeFile)}
+              onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
+              active={focusedPane === "primary"}
+            />
+          )}
         </Suspense>
       </div>
     ) : (

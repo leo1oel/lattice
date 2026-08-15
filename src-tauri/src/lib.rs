@@ -27,6 +27,7 @@ mod synara;
 mod tex_setup;
 mod texcount;
 mod texlab;
+mod xlsx;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use models::{
@@ -3227,6 +3228,29 @@ async fn save_compiled_pdf(request: tauri::ipc::Request<'_>) -> Result<String, S
 }
 
 #[tauri::command]
+async fn save_xlsx(request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let destination = request
+        .headers()
+        .get("x-xlsx-destination")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| "Choose where to export the Excel workbook.".to_string())?;
+    let path = String::from_utf8(
+        STANDARD
+            .decode(destination)
+            .map_err(|error| format!("The Excel destination is invalid: {error}"))?,
+    )
+    .map_err(|error| format!("The Excel destination is invalid: {error}"))?;
+    let bytes = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        _ => return Err("The Excel workbook was not sent as binary data.".to_string()),
+    };
+    run_blocking("Excel workbook save", move || {
+        xlsx::save_xlsx(Path::new(&path), &bytes)
+    })
+    .await
+}
+
+#[tauri::command]
 async fn synctex_edit(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
@@ -3905,6 +3929,7 @@ pub fn run() {
             save_editor_comments,
             read_compiled_pdf,
             save_compiled_pdf,
+            save_xlsx,
             synctex_edit,
             synctex_view,
             import_reference,

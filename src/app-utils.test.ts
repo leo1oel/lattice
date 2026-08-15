@@ -9,6 +9,7 @@ import {
   dropDirectoryAt,
   dropEditorAt,
   isHarperProseFilePath,
+  isProjectSourceFilePath,
   isWindowDragExcluded,
   markdownFrontmatterEnd,
   overleafHostsMatch,
@@ -35,6 +36,13 @@ describe("absoluteProjectPath", () => {
   it("does not duplicate a trailing root separator", () => {
     expect(absoluteProjectPath("/Users/leo/paper/", "main.tex"))
       .toBe("/Users/leo/paper/main.tex");
+  });
+});
+
+describe("isProjectSourceFilePath", () => {
+  it("recognizes native spreadsheets as importable project sources", () => {
+    expect(isProjectSourceFilePath("tables/results.lattice-sheet")).toBe(true);
+    expect(isProjectSourceFilePath("tables/results.LATTICE-SHEET")).toBe(true);
   });
 });
 

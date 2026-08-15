@@ -1,4 +1,3 @@
-// @ts-expect-error Node types are not part of the browser application build.
 import { readFileSync } from "node:fs";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";

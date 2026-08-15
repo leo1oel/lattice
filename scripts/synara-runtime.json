@@ -1,8 +1,8 @@
 {
   "repository": "https://github.com/leo1oel/synara.git",
   "upstream": "https://github.com/Emanuele-web04/synara.git",
-  "branch": "review/upstream-reliability-fixes",
-  "revision": "2ec5164f63c04a830e5564de45e7df8d56509901",
+  "branch": "amp/lattice-spreadsheet-tools-v223",
+  "revision": "fcb59bf655be7bcad905691ddb1516ceca183df1",
   "sourceDirectory": "../synara-poc",
   "nodeVersion": "24.13.0"
 }

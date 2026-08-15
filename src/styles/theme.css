@@ -126,13 +126,15 @@ textarea {
    * pseudo-elements; the query is false in WebKit either way it answers.
    */
   @supports not selector(::-webkit-scrollbar) {
-    * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-primary) 8%, transparent) transparent; }
+    * { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+    *:hover, *:focus-within { scrollbar-color: color-mix(in srgb, var(--text-primary) 12%, transparent) transparent; }
   }
   *::-webkit-scrollbar { width: 10px; height: 10px; }
   *::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
-  *::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--text-primary) 8%, transparent); background-clip: content-box; }
+  *::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: var(--radius-pill); background: transparent; background-clip: content-box; }
   *::-webkit-scrollbar-thumb:vertical { border-right-width: 5px; border-left-width: 1px; }
   *::-webkit-scrollbar-thumb:horizontal { border-top-width: 1px; border-bottom-width: 5px; }
+  *:hover::-webkit-scrollbar-thumb, *:focus-within::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--text-primary) 12%, transparent); }
   *::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--text-primary) 12%, transparent); }
   *::-webkit-scrollbar-thumb:vertical:hover { border-right-width: 4px; border-left-width: 0; }
   *::-webkit-scrollbar-thumb:horizontal:hover { border-top-width: 0; border-bottom-width: 4px; }

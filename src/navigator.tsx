@@ -448,6 +448,8 @@ type ProjectFileTreeProps = {
   searchOpen: boolean;
   /** Incrementing signal from the header "New board" button. */
   boardCreateRequest?: number;
+  /** Incrementing signal from the header "New spreadsheet" button. */
+  spreadsheetCreateRequest?: number;
   onSearchOpenChange: (open: boolean) => void;
   files: FileNode[];
   gitStatus: GitFileStatus[];
@@ -1281,6 +1283,14 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     beginInlineCreate("", "file", "tldr");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- beginInlineCreate reads live refs/model
   }, [boardCreateRequest]);
+  const spreadsheetCreateRequest = props.spreadsheetCreateRequest ?? 0;
+  const handledSpreadsheetCreateRequestRef = useRef(spreadsheetCreateRequest);
+  useEffect(() => {
+    if (spreadsheetCreateRequest === handledSpreadsheetCreateRequestRef.current) return;
+    handledSpreadsheetCreateRequestRef.current = spreadsheetCreateRequest;
+    beginInlineCreate("", "file", "lattice-sheet");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- beginInlineCreate reads live refs/model
+  }, [spreadsheetCreateRequest]);
   const renderContextMenu = (
     item: PierreContextMenuItem,
     context: PierreContextMenuOpenContext,
@@ -1433,6 +1443,7 @@ export function Navigator(props: {
   searchOpen: boolean;
   onSearchOpenChange: (open: boolean) => void;
   boardCreateRequest?: number;
+  spreadsheetCreateRequest?: number;
   files: FileNode[];
   gitStatus: GitFileStatus[];
   activeFile: string;
@@ -1543,6 +1554,7 @@ export function Navigator(props: {
           projectKey={props.projectKey}
           searchOpen={props.searchOpen}
           boardCreateRequest={props.boardCreateRequest}
+          spreadsheetCreateRequest={props.spreadsheetCreateRequest}
           onSearchOpenChange={props.onSearchOpenChange}
           files={props.files}
           gitStatus={props.gitStatus}

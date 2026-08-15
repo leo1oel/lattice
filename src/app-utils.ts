@@ -71,7 +71,7 @@ export function overleafLinkMatchesSession(sessionHost: string, linkHost: string
 }
 
 const PROJECT_SOURCE_EXTENSIONS = new Set([
-  "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "tldr",
+  "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "tldr", "lattice-sheet",
 ]);
 const PROJECT_ASSET_EXTENSIONS = new Set(["png", "jpg", "jpeg", "pdf", "svg", "eps", "webp"]);
 

@@ -306,6 +306,7 @@ describe("v2 project presence", () => {
   async function setupPresenceTest(options: {
     paths?: string[];
     boardPaths?: string[];
+    spreadsheetPaths?: string[];
     presenceTable?: Record<string, unknown>;
     syncManually?: boolean;
     /** Seed the durable store (e.g. a server-acked snapshot) before the controller starts. */
@@ -322,6 +323,7 @@ describe("v2 project presence", () => {
       files: [
         ...paths.map((path, index) => ({ fileId: `f${index}`, path, kind: "text", state: "live", documentEpoch: 1 })),
         ...(options.boardPaths ?? []).map((path, index) => ({ fileId: `b${index}`, path, kind: "board", state: "live", documentEpoch: 1 })),
+        ...(options.spreadsheetPaths ?? []).map((path, index) => ({ fileId: `s${index}`, path, kind: "spreadsheet", state: "live", documentEpoch: 1 })),
       ],
     };
     const presenceCalls: Array<Record<string, unknown>> = [];
@@ -384,6 +386,56 @@ describe("v2 project presence", () => {
     await vi.waitFor(() => expect(presenceCalls.some((call) => call.name === "Ada" && call.path === "paper.md")).toBe(true));
     controller.destroy();
     await vi.waitFor(() => expect(presenceCalls.some((call) => call.leave === true)).toBe(true));
+  });
+
+  it("exposes a live spreadsheet Y.Doc without accepting other catalog kinds", async () => {
+    const { controller } = await setupPresenceTest({ spreadsheetPaths: ["data.lattice-sheet"] });
+    expect(controller.hasSpreadsheetPath("data.lattice-sheet")).toBe(true);
+    expect(controller.hasSpreadsheetPath("paper.md")).toBe(false);
+    expect(controller.spreadsheetDocumentForPath("data.lattice-sheet")).toBeNull();
+    await controller.openPath("data.lattice-sheet");
+    expect(controller.spreadsheetDocumentForPath("data.lattice-sheet")?.doc).toBeDefined();
+    expect(controller.spreadsheetDocumentForPath("paper.md")).toBeNull();
+    controller.destroy();
+  });
+
+  it("materializes local and remote structured spreadsheet edits instead of the empty content text", async () => {
+    const { controller } = await setupPresenceTest({ spreadsheetPaths: ["data.lattice-sheet"] });
+    const writes: Array<{ path: string; content: string }> = [];
+    controller.bindWorkspace(
+      { projectRoot: "/tmp/proj", isCurrent: () => true },
+      {
+        writeText: async (path, content) => { writes.push({ path, content }); },
+        writeBytes: async () => undefined,
+      },
+    );
+    await controller.openPath("data.lattice-sheet");
+    const { applySpreadsheetBatch } = await import("./spreadsheet-operations");
+    const { seedSpreadsheetDoc } = await import("./spreadsheet-yjs");
+    seedSpreadsheetDoc(controller.doc);
+    await controller.flush();
+    writes.length = 0;
+
+    applySpreadsheetBatch(controller.doc, {
+      operations: [{ type: "set_values", range: "A1", values: [["local"]] }],
+    });
+    await controller.flush();
+    expect(writes.at(-1)?.path).toBe("data.lattice-sheet");
+    expect(writes.at(-1)?.content).toContain('"local"');
+    expect(controller.doc.getText("content").toString()).toBe("");
+
+    const peer = new Y.Doc();
+    Y.applyUpdate(peer, Y.encodeStateAsUpdate(controller.doc));
+    const peerBefore = Y.encodeStateVector(peer);
+    applySpreadsheetBatch(peer, {
+      operations: [{ type: "set_values", range: "B1", values: [["remote"]] }],
+    });
+    Y.applyUpdate(controller.doc, Y.encodeStateAsUpdate(peer, peerBefore));
+    await controller.flush();
+    const materialized = writes.at(-1)?.content ?? "";
+    expect(materialized).toContain('"local"');
+    expect(materialized).toContain('"remote"');
+    controller.destroy();
   });
 
   it("does not double-count a same-file peer visible in both awareness and presence", async () => {

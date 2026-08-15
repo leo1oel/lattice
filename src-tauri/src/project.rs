@@ -3591,7 +3591,7 @@ pub fn import_sources(
 #[serde(rename_all = "camelCase")]
 pub struct ImportedProjectFile {
     pub path: String,
-    /// Collab document kind for share registration: "text", "board", or "binary".
+    /// Collab document kind for share registration: "text", "board", "spreadsheet", or "binary".
     pub kind: String,
 }
 
@@ -3653,6 +3653,11 @@ pub fn import_files(
             .is_some_and(|extension| extension.eq_ignore_ascii_case("tldr"))
         {
             "board"
+        } else if source
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("lattice-sheet"))
+        {
+            "spreadsheet"
         } else {
             "text"
         };
@@ -4067,7 +4072,18 @@ fn is_supported_source(path: &Path) -> bool {
             .as_deref(),
         // Keep in sync with PROJECT_SOURCE_EXTENSIONS in src/app-utils.ts,
         // which decides what the frontend offers to this import path.
-        Some("tex" | "bib" | "md" | "txt" | "html" | "sty" | "cls" | "bst" | "tldr")
+        Some(
+            "tex"
+                | "bib"
+                | "md"
+                | "txt"
+                | "html"
+                | "sty"
+                | "cls"
+                | "bst"
+                | "tldr"
+                | "lattice-sheet"
+        )
     )
 }
 
@@ -4078,13 +4094,13 @@ fn normalize_source_path(relative: &str) -> Result<String, String> {
         Some(extension)
             if matches!(
                 extension.to_ascii_lowercase().as_str(),
-                "tex" | "bib" | "md" | "sty" | "cls" | "txt" | "html" | "tldr"
+                "tex" | "bib" | "md" | "sty" | "cls" | "txt" | "html" | "tldr" | "lattice-sheet"
             ) =>
         {
             Ok(path.to_string_lossy().to_string())
         }
         _ => Err(
-            "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, or .tldr."
+            "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tldr, or .lattice-sheet."
                 .to_string(),
         ),
     }
@@ -4100,7 +4116,7 @@ fn seed_content_for_path(path: &str) -> String {
         Some("bib") => "% Bibliography\n".to_string(),
         Some("md") => "# Notes\n".to_string(),
         Some("sty" | "cls") => "% Package\n".to_string(),
-        Some("txt" | "html" | "tldr") => String::new(),
+        Some("txt" | "html" | "tldr" | "lattice-sheet") => String::new(),
         _ => "% New LaTeX file\n".to_string(),
     }
 }
@@ -5781,6 +5797,7 @@ fn file_kind(path: &Path) -> &'static str {
         Some("bib") => "bib",
         Some("md") => "markdown",
         Some("tldr") => "tldr",
+        Some("lattice-sheet") => "spreadsheet",
         Some("bst") => "text",
         Some("png" | "jpg" | "jpeg" | "pdf" | "svg" | "eps" | "webp") => "figure",
         _ => "text",
@@ -7080,6 +7097,23 @@ mod tests {
             .unwrap()
             .iter()
             .any(|node| node.path == "sketch.tldr" && node.kind == "tldr"));
+        assert_eq!(
+            create_entry(&root, "data.lattice-sheet", "file").unwrap(),
+            "data.lattice-sheet"
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("data.lattice-sheet")).unwrap(),
+            ""
+        );
+        assert!(scan_files(&root)
+            .unwrap()
+            .iter()
+            .any(|node| node.path == "data.lattice-sheet" && node.kind == "spreadsheet"));
+        assert!(collab_project_inventory_v2(&root)
+            .unwrap()
+            .files
+            .iter()
+            .any(|file| file.path == "data.lattice-sheet" && file.content_kind == "text"));
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -7253,10 +7287,12 @@ mod tests {
         fs::write(&archive, b"PK\x03\x04rest").unwrap();
         let board = parent.join("sketch.tldr");
         fs::write(&board, "{\"tldrawFileFormatVersion\":1}").unwrap();
+        let spreadsheet = parent.join("data.lattice-sheet");
+        fs::write(&spreadsheet, "{}\n").unwrap();
         // Text bytes under a figure extension stay on the figure route.
         let svg = parent.join("diagram.svg");
         fs::write(&svg, "<svg xmlns=\"http://www.w3.org/2000/svg\"/>").unwrap();
-        let all = [&csv, &archive, &board, &svg]
+        let all = [&csv, &archive, &board, &spreadsheet, &svg]
             .map(|path| path.to_string_lossy().to_string())
             .to_vec();
 
@@ -7270,6 +7306,7 @@ mod tests {
                 ("data/data.csv", "text"),
                 ("data/bundle.zip", "binary"),
                 ("data/sketch.tldr", "board"),
+                ("data/data.lattice-sheet", "spreadsheet"),
                 ("data/diagram.svg", "binary"),
             ]
         );
@@ -7408,6 +7445,12 @@ mod tests {
         assert_eq!(
             import_sources(&root, &[board.to_string_lossy().to_string()], "").unwrap(),
             vec!["sketch.tldr"]
+        );
+        let spreadsheet = parent.join("data.lattice-sheet");
+        fs::write(&spreadsheet, "{}\n").unwrap();
+        assert_eq!(
+            import_sources(&root, &[spreadsheet.to_string_lossy().to_string()], "",).unwrap(),
+            vec!["data.lattice-sheet"]
         );
 
         let unsupported = parent.join("result.png");

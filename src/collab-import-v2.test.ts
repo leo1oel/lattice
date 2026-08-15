@@ -11,7 +11,7 @@ function json(value: unknown, status = 200): Response {
 
 describe("createProjectV2", () => {
   it("reads and uploads text files concurrently without refetching the catalog after every file", async () => {
-    const paths = Array.from({ length: 12 }, (_, index) => `chapter-${index}.md`);
+    const paths = ["data.lattice-sheet", ...Array.from({ length: 11 }, (_, index) => `chapter-${index}.md`)];
     let activeReads = 0; let maxReads = 0; let activeUploads = 0; let maxUploads = 0; let catalogRequests = 0;
     let catalog: CatalogV2 | undefined;
     let manifest: Omit<ImportFileV2, "bytes" | "contentType">[] = [];
@@ -61,6 +61,7 @@ describe("createProjectV2", () => {
 
     expect(maxReads).toBe(8);
     expect(JSON.parse(String(fetcher.mock.calls.find(([input]) => String(input).endsWith("/bootstrap"))?.[1]?.body)).projectName).toBe("Attention Paper");
+    expect(manifest.find((file) => file.path === "data.lattice-sheet")?.kind).toBe("spreadsheet");
     expect(maxUploads).toBe(8);
     expect(catalogRequests).toBe(3);
     expect(preparationProgress.at(-1)).toEqual([paths.length, paths.length]);

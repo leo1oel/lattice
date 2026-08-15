@@ -6,6 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import * as Y from "yjs";
 import {
   BookMarked,
   BookOpen,
@@ -22,6 +23,7 @@ import {
   Shapes,
   Shield,
   ShieldCheck,
+  Table2,
   Hand,
   Square,
   X,
@@ -109,6 +111,13 @@ import {
   executeAgentCanvasToolRequest,
   parseAgentCanvasToolRequest,
 } from "./agent-canvas-tools";
+import {
+  executeAgentSpreadsheetToolRequest,
+  parseAgentSpreadsheetToolRequest,
+  registerAgentSpreadsheetDocumentResolver,
+} from "./agent-spreadsheet-tools";
+import { isSpreadsheetPath } from "./spreadsheet-types";
+import { seedSpreadsheetDoc, spreadsheetDocContent } from "./spreadsheet-yjs";
 const EditorCommentsPanel = lazy(() =>
   import("./editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
 );
@@ -1492,6 +1501,47 @@ function App() {
     return collabSession?.subscribeCanWrite?.(setCollabCanWrite);
   }, [collabSession]);
   projectRootRef.current = project?.root ?? null;
+  useEffect(() => registerAgentSpreadsheetDocumentResolver(async (path) => {
+    const controller = collabV2ControllerRef.current;
+    if (activeCollabVersion === 2) {
+      // A live shared project is catalog-authoritative. Falling through to the
+      // local filesystem for an unshared or differently-typed path would let
+      // the Agent create edits that collaborators can never receive.
+      if (!controller) return null;
+      if (!controller.hasSpreadsheetPath(path)) return null;
+      await controller.openPath(path, "secondary", { sideload: true });
+      const binding = controller.spreadsheetDocumentForPath(path);
+      if (!binding) return null;
+      return {
+        doc: binding.doc,
+        canWrite: binding.canWrite && collabCanWrite,
+        awareness: binding.awareness,
+        path,
+        commit: async () => {
+          await controller.settled();
+          await controller.flush();
+        },
+      };
+    }
+
+    const projectRoot = projectRootRef.current;
+    if (!projectRoot) return null;
+    const content = await invoke<string>("read_project_file", { path, projectRoot });
+    const doc = new Y.Doc();
+    if (content) doc.getText("content").insert(0, content);
+    seedSpreadsheetDoc(doc);
+    return {
+      doc,
+      canWrite: true,
+      path,
+      commit: () => invoke<void>("write_project_file", {
+        path,
+        content: spreadsheetDocContent(doc),
+        projectRoot,
+      }),
+      dispose: () => doc.destroy(),
+    };
+  }), [activeCollabVersion, collabCanWrite]);
   const [citeInsertRequest, setCiteInsertRequest] = useState<{ key: string; command: InsertSymbolCommand; id: string } | null>(null);
   const [bibEntryOpen, setBibEntryOpen] = useState(false);
   const [bibEntryBusy, setBibEntryBusy] = useState(false);
@@ -1602,6 +1652,7 @@ function App() {
   }, [project?.root, sidebarMode, sidebarOpen]);
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const [boardCreateRequest, setBoardCreateRequest] = useState(0);
+  const [spreadsheetCreateRequest, setSpreadsheetCreateRequest] = useState(0);
   const synaraIframeRef = useRef<HTMLIFrameElement>(null);
   const synaraSourceControlFrameRef = useRef<HTMLIFrameElement>(null);
   useSynaraNotificationBridge({
@@ -1917,6 +1968,11 @@ function App() {
       const canvasRequest = parseAgentCanvasToolRequest(event.data);
       if (canvasRequest) {
         void executeAgentCanvasToolRequest(canvasRequest).then(postSynaraMessage);
+        return;
+      }
+      const spreadsheetRequest = parseAgentSpreadsheetToolRequest(event.data);
+      if (spreadsheetRequest) {
+        void executeAgentSpreadsheetToolRequest(spreadsheetRequest).then(postSynaraMessage);
         return;
       }
       const historySnapshot = parseAgentProjectHistorySnapshot(event.data);
@@ -2475,9 +2531,9 @@ function App() {
             .then(() => { if (lease.isCurrent() && generation === collabPathMutationGeneration(path)) setSavedSource(remote); })
             .catch((reason) => { if (lease.isCurrent()) setError(toMessage(reason)); });
         };
-        if (path.toLocaleLowerCase().endsWith(".tldr")) {
-          // The v2 controller owns board materialization for both local and
-          // remote record edits; a second active-file observer duplicates writes.
+        if (path.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(path)) {
+          // The v2 controller owns structured-document materialization for
+          // both local and remote edits; a second observer duplicates writes.
           collabDetachRef.current = null;
         } else {
           const onText = (_event: unknown, transaction: { local: boolean }) => {
@@ -2922,7 +2978,7 @@ function App() {
    */
   const publishTextToCollabV2 = useCallback(async (path: string, content: string, expectedMutationGeneration = collabPathMutationGeneration(path)): Promise<boolean> => {
     const controller = collabV2ControllerRef.current;
-    if (activeCollabVersion !== 2 || !controller || path.toLocaleLowerCase().endsWith(".tldr")) return false;
+    if (activeCollabVersion !== 2 || !controller || path.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(path)) return false;
     if (!controller.hasTextPath(path)) return false;
     const ytext = await controller.openPath(path, "secondary", { sideload: true });
     // Minimal-span merge, not delete-all + insert-all: a peer's concurrent
@@ -2950,7 +3006,7 @@ function App() {
    * outside a share; on failure the file stays local-only (the pre-existing
    * behavior) and the user gets a warning naming the file.
    */
-  const shareCreatedFileWithCollabV2 = useCallback(async (path: string, kind: "text" | "binary" | "board") => {
+  const shareCreatedFileWithCollabV2 = useCallback(async (path: string, kind: "text" | "binary" | "board" | "spreadsheet") => {
     const controller = collabV2ControllerRef.current;
     if (activeCollabVersion !== 2 || !controller) return;
     try {
@@ -2971,10 +3027,10 @@ function App() {
         await controller.replaceBinary(path, bytes, asset.mimeType, conflictWriter);
       } else {
         const seed = await invoke<string>("read_project_file", { path });
-        // Boards keep live state in the doc's records, not the content text,
-        // so an import over a shared .tldr leaves the shared doc as-is.
+        // Structured editors keep live state beside the content text, so an
+        // import over an existing live document leaves its shared doc as-is.
         if (controller.hasTextPath(path)) {
-          if (kind !== "board") await publishTextToCollabV2(path, seed);
+          if (kind === "text") await publishTextToCollabV2(path, seed);
         } else {
           await controller.create(path, kind, { seedText: seed });
         }
@@ -7260,7 +7316,14 @@ function App() {
       if (kind === "file") {
         // Mid-share creates must join the v2 catalog before loadFile, so the
         // editor binds the shared doc instead of a local-only file.
-        await shareCreatedFileWithCollabV2(createdPath, createdPath.toLocaleLowerCase().endsWith(".tldr") ? "board" : "text");
+        await shareCreatedFileWithCollabV2(
+          createdPath,
+          createdPath.toLocaleLowerCase().endsWith(".tldr")
+            ? "board"
+            : isSpreadsheetPath(createdPath)
+              ? "spreadsheet"
+              : "text",
+        );
         // A local-only file has no Overleaf document id and therefore cannot
         // join realtime editing. Upload it before opening the editor so the
         // first keystroke does not have to wait for a later full-sync timer.
@@ -7324,7 +7387,14 @@ function App() {
       await refreshHistory();
       setError(null);
       // After setError(null): a share failure must remain visible.
-      for (const path of imported) await shareCreatedFileWithCollabV2(path, path.toLocaleLowerCase().endsWith(".tldr") ? "board" : "text");
+      for (const path of imported) await shareCreatedFileWithCollabV2(
+        path,
+        path.toLocaleLowerCase().endsWith(".tldr")
+          ? "board"
+          : isSpreadsheetPath(path)
+            ? "spreadsheet"
+            : "text",
+      );
       return imported;
     } catch (reason) {
       setError(toMessage(reason));
@@ -7347,7 +7417,7 @@ function App() {
     if (!paths.length || assetImporting) return [];
     setAssetImporting(true);
     try {
-      const imported = await invoke<{ path: string; kind: "text" | "board" | "binary" }[]>(
+      const imported = await invoke<{ path: string; kind: "text" | "board" | "spreadsheet" | "binary" }[]>(
         "import_project_files",
         { paths, targetDirectory, projectRoot: project?.root },
       );
@@ -9263,6 +9333,14 @@ function App() {
                 <div ref={sidebarModeActionsRef} className="sidebar-mode-actions">
                   {sidebarMode === "project" && (
                     <>
+                      <Tip label="New spreadsheet">
+                        <button
+                          aria-label="New spreadsheet"
+                          onClick={() => setSpreadsheetCreateRequest((request) => request + 1)}
+                        >
+                          <Table2 size={13} />
+                        </button>
+                      </Tip>
                       <Tip label="New board">
                         <button
                           aria-label="New board"
@@ -9314,6 +9392,7 @@ function App() {
                   projectKey={project.root}
                   searchOpen={projectSearchOpen}
                   boardCreateRequest={boardCreateRequest}
+                  spreadsheetCreateRequest={spreadsheetCreateRequest}
                   onSearchOpenChange={setProjectSearchOpen}
                   files={project.files}
                   gitStatus={projectGitStatus.projectRoot === project.root ? projectGitStatus.files : []}
@@ -9430,6 +9509,7 @@ function App() {
             onFocusPane={setFocusedPane}
             dualRatioResetGeneration={dualRatioResetGeneration}
             setSource={activePaper ? setActivePaperSource : setPrimarySource}
+            onSave={save}
             onVisualMarkdownFlushChange={registerVisualMarkdownFlush}
             onMarkdownModeViewportCaptureChange={registerMarkdownModeViewportCapture}
             setSelection={(value) => reportAgentSelection(activePaper ? "paper" : "editor", value)}

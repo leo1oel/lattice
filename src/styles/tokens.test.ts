@@ -1,5 +1,4 @@
 // Vitest empties CSS imports, so read the stylesheets off disk.
-// @ts-expect-error no Node types in this project
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 
@@ -307,7 +306,7 @@ describe("design token contract", () => {
     // resizer and the vendor component write the property on the element, and an
     // inline value beats every selector there is.
     const FOREIGN =
-      /cm-|data-slot|data-type=|data-lattice|data-virtualizer|data-unmodified|data-code|data-error-wrapper|trees-|diffs-|katex|shiki|react-joyride|:host|prefers-reduced-motion|reordering-tabs|split-canvas|data-file-tree|\brow-(?:cite|delete|edit-bib)\b/
+      /cm-|data-slot|data-type=|data-lattice|data-virtualizer|data-unmodified|data-code|data-error-wrapper|trees-|diffs-|katex|shiki|react-joyride|spreadsheet-univer-host|:host|prefers-reduced-motion|reordering-tabs|split-canvas|data-file-tree|\brow-(?:cite|delete|edit-bib)\b/
 
     const offenders: string[] = []
     for (const { file, rules } of sources) {

@@ -1,8 +1,5 @@
 // Vitest replaces every CSS import with an empty string — `?raw` included —
-// so these stylesheet-wide invariants have to read the files off disk. `src/`
-// is browser-only by convention and the repo carries no `@types/node`, hence
-// the suppression (`vite.config.ts` does the same for `process`).
-// @ts-expect-error no Node types in this project
+// so these stylesheet-wide invariants have to read the files off disk.
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import motionOwner from "./popup-motion.ts?raw"

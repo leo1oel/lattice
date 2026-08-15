@@ -50,7 +50,7 @@ type BinaryGcResult = { scanned: number; deleted: number; orphanBacklog: number;
 type PendingFileWork = { kind: "delete" | "close" | "revoke"; fileId: string; documentEpoch: number; authorityEpoch: number; operationId?: string; grantId?: string; grantEpoch?: number; attempts?: number; lastAttemptAt?: number };
 type DurableMetadata = { documentEpoch: number; contentRevision: number; snapshotGeneration: number; size: number; hash: string; stateVector: string };
 type TextInitializer = { grantId: string; operationId: string; size: number; hash: string; completed?: boolean };
-type ImportManifestEntry = { fileId: string; path: string; kind: "text" | "binary" | "board"; size: number; hash: string };
+type ImportManifestEntry = { fileId: string; path: string; kind: "text" | "binary" | "board" | "spreadsheet"; size: number; hash: string };
 /**
  * `permission` is stamped from the authenticated actor, never from the request
  * body: "who started this share" is the one presence field a client must not be
@@ -700,7 +700,7 @@ export class ProjectCoordinatorV2 extends DurableObject {
     const file = this.state.files.find((item) => item.fileId === fileId);
     const metadata = this.state.durableMetadata?.[fileId];
     const replay = file?.state === "live" && metadata?.size === size && metadata.hash === hash;
-    if (!file || (file.state !== "initializing" && !replay) || file.documentEpoch !== documentEpoch || (file.kind !== "text" && file.kind !== "board")) return false;
+    if (!file || (file.state !== "initializing" && !replay) || file.documentEpoch !== documentEpoch || (file.kind !== "text" && file.kind !== "board" && file.kind !== "spreadsheet")) return false;
     if (this.state.lifecycle === "live") {
       const actor = await this.authenticateCredential(credential);
       const initializer = this.state.textInitializers?.[fileId];
@@ -712,7 +712,7 @@ export class ProjectCoordinatorV2 extends DurableObject {
     }
     if (this.state.lifecycle !== "importing" || !await verify(credential, this.state.host)) return false;
     const entry = this.state.import?.entries.find((item) => item.fileId === fileId);
-    return !!entry && (entry.kind === "text" || entry.kind === "board") && entry.size === size && entry.hash === hash;
+    return !!entry && (entry.kind === "text" || entry.kind === "board" || entry.kind === "spreadsheet") && entry.size === size && entry.hash === hash;
   }
 
   async completeTextImport(fileId: string, documentEpoch: number, size: number, hash: string): Promise<boolean> {
@@ -720,10 +720,10 @@ export class ProjectCoordinatorV2 extends DurableObject {
     const file = this.state.files.find((item) => item.fileId === fileId);
     const entry = this.state.import?.entries.find((item) => item.fileId === fileId);
     const metadata = this.state.durableMetadata?.[fileId];
-    if (!file || file.documentEpoch !== documentEpoch || (file.kind !== "text" && file.kind !== "board")) return false;
+    if (!file || file.documentEpoch !== documentEpoch || (file.kind !== "text" && file.kind !== "board" && file.kind !== "spreadsheet")) return false;
     if (file.state === "live") return metadata?.size === size && metadata.hash === hash;
     if (file.state !== "initializing") return false;
-    if (this.state.lifecycle === "importing" && (!entry || (entry.kind !== "text" && entry.kind !== "board") || entry.size !== size || entry.hash !== hash)) return false;
+    if (this.state.lifecycle === "importing" && (!entry || (entry.kind !== "text" && entry.kind !== "board" && entry.kind !== "spreadsheet") || entry.size !== size || entry.hash !== hash)) return false;
     const initializer = this.state.textInitializers?.[fileId];
     if (this.state.lifecycle === "live" && (!initializer || initializer.size !== size || initializer.hash !== hash)) return false;
     if (!metadata) return false;
@@ -893,7 +893,7 @@ function parseImportManifest(value: unknown): ImportManifestEntry[] {
     if (!raw || typeof raw !== "object") throw new Error("Invalid import manifest entry");
     const item = raw as Record<string, unknown>;
     const kind = item.kind;
-    if (kind !== "text" && kind !== "binary" && kind !== "board") throw new Error("Invalid import file kind");
+    if (kind !== "text" && kind !== "binary" && kind !== "board" && kind !== "spreadsheet") throw new Error("Invalid import file kind");
     if (!isSha256(item.hash) || !isBinarySize(item.size)) throw new Error("Invalid import content identity");
     return { fileId: requiredString(item.fileId, "fileId"), path: canonicalPath(item.path), kind: kind as ImportManifestEntry["kind"], size: Number(item.size), hash: item.hash };
   });
@@ -903,7 +903,7 @@ function parseImportManifest(value: unknown): ImportManifestEntry[] {
   return entries;
 }
 function requiredString(v: unknown, name: string): string { if (typeof v !== "string" || !v) throw new Error(`${name} is required`); return v; }
-function requiredFileKind(v: unknown): CatalogFileV2["kind"] { if (v !== "text" && v !== "binary" && v !== "board") throw new Error("kind must be text, binary, or board"); return v; }
+function requiredFileKind(v: unknown): CatalogFileV2["kind"] { if (v !== "text" && v !== "binary" && v !== "board" && v !== "spreadsheet") throw new Error("kind must be text, binary, board, or spreadsheet"); return v; }
 function requiredInteger(v: unknown, name: string): number { if (!Number.isSafeInteger(v) || Number(v) < 0) throw new Error(`${name} must be a non-negative integer`); return Number(v); }
 function strongSecret(v: unknown, name = "hostSecret"): string { const s = requiredString(v, name); if (new TextEncoder().encode(s).length < 32) throw new Error("Secret must have at least 256 bits of encoded entropy material"); return s; }
 function secretHash(value: unknown): SecretHash {

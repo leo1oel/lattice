@@ -24,8 +24,8 @@ export type GrantPermission = "read" | "write" | "host";
 export type CatalogFileV2 = {
   fileId: string;
   path: string;
-  /** Boards sync like text (same Y.Doc rooms); the kind only routes clients to the right editor. */
-  kind: "text" | "binary" | "board";
+  /** Structured documents sync like text (same Y.Doc rooms); the kind only routes clients to the right editor. */
+  kind: "text" | "binary" | "board" | "spreadsheet";
   state: FileLifecycle;
   documentEpoch: number;
   contentRevision?: number;
@@ -146,7 +146,7 @@ export function isCatalogV2(value: unknown): value is CatalogV2 {
     const file = entry as Partial<CatalogFileV2>;
     return typeof file.fileId === "string" && file.fileId.length > 0
       && typeof file.path === "string" && file.path.length > 0
-      && (file.kind === "text" || file.kind === "binary" || file.kind === "board")
+      && (file.kind === "text" || file.kind === "binary" || file.kind === "board" || file.kind === "spreadsheet")
       && ["initializing", "live", "preparing-delete", "deleting", "tombstoned", "purging"].includes(file.state ?? "")
       && Number.isSafeInteger(file.documentEpoch) && Number(file.documentEpoch) > 0
       && (file.contentRevision === undefined || isRevision(file.contentRevision))

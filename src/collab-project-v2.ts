@@ -335,6 +335,10 @@ export class CollabProjectControllerV2 {
   catalogFiles(): CatalogFileV2[] { return this.catalogValue.files.map((file) => ({ ...file })); }
   catalogTextPaths(): string[] { return this.catalogValue.files.filter((file) => file.state === "live" && file.kind !== "binary").map((file) => file.path); }
   hasTextPath(path: string): boolean { return this.catalogTextPaths().includes(path); }
+  hasSpreadsheetPath(path: string): boolean {
+    const file = this.file(path);
+    return file?.state === "live" && file.kind === "spreadsheet";
+  }
   setAwarenessPath(path: string): void { const state = this.provider.awareness.getLocalState() ?? {}; this.provider.awareness.setLocalState({ ...state, path }); }
 
   async refetchCatalog(): Promise<CatalogV2> {
@@ -477,6 +481,8 @@ export class CollabProjectControllerV2 {
           const client = this.clients.get(file.fileId);
           const content = file.kind === "board" && client
             ? (await import("./board-yjs-bridge")).boardDocContent(client.doc)
+            : file.kind === "spreadsheet" && client
+              ? (await import("./spreadsheet-yjs")).spreadsheetDocContent(client.doc)
             : ytext.toString();
           await callbacks.writeText(file.path, content, lease.projectRoot);
           if (client) this.attachDiskObserver(file, client, lease, callbacks);
@@ -678,6 +684,22 @@ export class CollabProjectControllerV2 {
     };
   }
 
+  spreadsheetDocumentForPath(path: string): {
+    doc: Y.Doc;
+    awareness: Awareness | null;
+    canWrite: boolean;
+  } | null {
+    const file = this.file(path);
+    if (!file || file.kind !== "spreadsheet" || file.state !== "live") return null;
+    const client = this.clients.get(file.fileId);
+    if (!client || client.isDestroyed) return null;
+    return {
+      doc: client.doc,
+      awareness: client.awareness ?? null,
+      canWrite: (this.options.permission ?? "write") !== "read" && !client.isStopped,
+    };
+  }
+
   /** Same-file awareness peers merged with cross-file coordinator presence. */
   private pushPeers(): void {
     const onPeers = this.options.onPeers;
@@ -741,7 +763,7 @@ export class CollabProjectControllerV2 {
    * room between catalog publication and seeding. Binary files retain the
    * host-ready flow. Read-only actors cannot create.
    */
-  async create(path: string, kind: "text" | "binary" | "board", options: { seedText?: string; timeoutMs?: number; adoptExisting?: boolean } = {}): Promise<boolean> {
+  async create(path: string, kind: "text" | "binary" | "board" | "spreadsheet", options: { seedText?: string; timeoutMs?: number; adoptExisting?: boolean } = {}): Promise<boolean> {
     this.assertCatalogOnline();
     if ((this.options.permission ?? "write") === "read") throw new Error("Read-only collaborators cannot create files");
     const lease = this.requireLease();
@@ -842,7 +864,9 @@ export class CollabProjectControllerV2 {
   listGrants(): Promise<Array<{ grantId: string; permission: "read" | "write"; revoked: boolean }>> { return this.control.grants(); }
   async revoke(grantId: string): Promise<void> { this.assertCatalogOnline(); const result = await this.control.operation<OperationResultV2>("revoke", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, grantId }); this.catalogValue.catalogRevision = result.catalogRevision; }
   async delete(path: string, local: CollabLocalMutationsV2): Promise<void> { this.assertCatalogOnline(); const file = this.file(path); if (!file) throw new Error("Unknown catalog path"); const lease = this.requireLease(); await this.enqueueFile(file.fileId, async () => { this.checkLease(lease); this.locallyDeleted.add(file.fileId); try { await this.control.operation("delete-begin", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, fileId: file.fileId }); await this.refetchCatalog(); this.detachDiskObserver(file.fileId); this.checkLease(lease); await local.delete(path, lease.projectRoot); this.checkLease(lease); } finally { this.locallyDeleted.delete(file.fileId); } }); }
-  async settled(): Promise<void> { await this.activeClient?.settled(); }
+  async settled(): Promise<void> {
+    await Promise.all([...this.clients.values()].map((client) => client.settled()));
+  }
   async flush(): Promise<void> {
     while (this.diskObserverFlushes.size > 0 || this.pendingDiskWrites.size > 0) {
       const flushes = [...this.diskObserverFlushes.values()];
@@ -890,6 +914,8 @@ export class CollabProjectControllerV2 {
           const client = this.clients.get(file.fileId);
           const content = file.kind === "board" && client
             ? (await import("./board-yjs-bridge")).boardDocContent(client.doc)
+            : file.kind === "spreadsheet" && client
+              ? (await import("./spreadsheet-yjs")).spreadsheetDocContent(client.doc)
             : text.toString();
           await this.enqueueFile(file.fileId, () => callbacks.writeText(file.path, content, lease.projectRoot));
           if (client) this.attachDiskObserver(file, client, lease, callbacks);
@@ -948,10 +974,9 @@ export class CollabProjectControllerV2 {
   private attachDiskObserver(file: CatalogFileV2, client: CollabTextClientV2, lease: CollabMaterializeLeaseV2, callbacks: CollabMaterializeCallbacksV2): void {
     if (this.diskObservers.has(file.fileId)) return;
     const fileId = file.fileId; const documentEpoch = file.documentEpoch;
-    // Boards keep live state in the records map, so watching only the content
-    // Y.Text would mirror the stale import forever; boardDocContent serializes
-    // records on demand. The serializer is lazily imported so tldraw stays out
-    // of the main bundle.
+    // Boards and spreadsheets keep live state in structured Y types, so
+    // watching only the content Y.Text would mirror the stale import forever.
+    // Their serializers are lazy so editor dependencies stay out of startup.
     const write = async () => {
       if (!lease.isCurrent()) return;
       await this.enqueueFile(fileId, async () => {
@@ -960,19 +985,20 @@ export class CollabProjectControllerV2 {
         if (!current || current.state !== "live" || current.documentEpoch !== documentEpoch) { this.detachDiskObserver(fileId); return; }
         const path = current.path;
         this.checkLease(lease);
-        // Comments and boards keep their live state beside the "content" text
-        // (a Y.Map / a records map), so mirroring that text would write the
-        // workspace file empty. Both serialize on demand instead.
+        // Structured documents keep their live state beside the "content"
+        // text, so they serialize the converged Y.Doc on demand instead.
         const content = file.kind === "board"
           ? (await import("./board-yjs-bridge")).boardDocContent(client.doc)
-          : current.path === EDITOR_COMMENTS_PATH
-            ? (await import("./collab-comments")).collabCommentsContent(client.doc)
-            : client.doc.getText("content").toString();
+          : file.kind === "spreadsheet"
+            ? (await import("./spreadsheet-yjs")).spreadsheetDocContent(client.doc)
+            : current.path === EDITOR_COMMENTS_PATH
+              ? (await import("./collab-comments")).collabCommentsContent(client.doc)
+              : client.doc.getText("content").toString();
         await callbacks.writeText(path, content, lease.projectRoot);
         this.checkLease(lease);
       });
     };
-    if (file.kind === "board" || file.path === EDITOR_COMMENTS_PATH) {
+    if (file.kind === "board" || file.kind === "spreadsheet" || file.path === EDITOR_COMMENTS_PATH) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const pendingWrites = new Set<Promise<void>>();
       const startWrite = () => {
@@ -1001,8 +1027,8 @@ export class CollabProjectControllerV2 {
         }
       };
       this.diskObserverFlushes.set(fileId, flush);
-      // Both local and remote record edits must reach the workspace .tldr.
-      // Coalesce pointer-frequency drawing updates into one latest-state write.
+      // Both local and remote structured edits must reach the workspace file.
+      // Coalesce frequent updates into one latest-state write.
       const onUpdate = () => scheduleWrite();
       client.doc.on("update", onUpdate);
       // Initial sync completes before this observer is attached. Persist the

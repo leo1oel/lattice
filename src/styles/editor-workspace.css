@@ -1573,6 +1573,142 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 /* Keep tldraw's high internal layers below app-level right drawers. */
 .board-editor-root { position: relative; isolation: isolate; flex: 1 1 0; min-width: 0; min-height: 0; overflow: hidden; }
 
+.spreadsheet-editor-root {
+  position: relative;
+  isolation: isolate;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-color: var(--border-subtle);
+  outline-color: var(--text-tertiary);
+  background: var(--editor-bg);
+  color: var(--text-primary);
+  font-family: var(--ui-font);
+  font-size: var(--editor-font-size);
+  font-weight: var(--weight-regular);
+}
+.spreadsheet-editor-error {
+  display: grid;
+  place-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  color: var(--text-secondary);
+  text-align: center;
+}
+.spreadsheet-editor-error strong { color: var(--text-primary); }
+.spreadsheet-univer-host { position: absolute; inset: 0; background: var(--editor-bg); color: inherit; font: inherit; }
+.spreadsheet-univer-host [data-u-comp="workbench-layout"],
+.spreadsheet-univer-host button,
+.spreadsheet-univer-host input,
+.spreadsheet-univer-host textarea { font-family: inherit; }
+/* Give the compact ribbon and the canvas row/column headers the same slightly
+   deeper neutral, while leaving the worksheet and formula input near-white. */
+.spreadsheet-univer-host [data-u-comp="ribbon-header-menu"] + div:has(> [data-u-comp="ribbon-toolbar"]) {
+  background: #F4F4F5;
+}
+:root[data-theme="dark"] .spreadsheet-univer-host [data-u-comp="ribbon-header-menu"] + div:has(> [data-u-comp="ribbon-toolbar"]) {
+  background: #18181A;
+}
+/* Univer centers the toolbar in the row's content box, which excludes its 1px
+   bottom divider. Half a pixel restores equal visible space above and below. */
+.spreadsheet-univer-host [data-u-comp="ribbon-toolbar"] { translate: 0 .5px; }
+/* Univer's filled glyphs look optically larger than Lattice's 14px toolbar
+   strokes at the same 16px box. Keep the 24px hit targets and reduce only the
+   artwork. Its disabled history color otherwise resolves to a 9% border token,
+   which makes Undo and Redo nearly disappear instead of reading as disabled. */
+.spreadsheet-univer-host [data-u-comp="ribbon-toolbar"] svg {
+  display: block;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  align-self: center;
+}
+.spreadsheet-univer-host [data-u-comp="ribbon-toolbar"] :is(
+  .univerjs-icon-font-color-double-icon,
+  .univerjs-icon-paint-bucket-double-icon
+) {
+  width: 16px;
+  height: 16px;
+}
+.spreadsheet-univer-host [data-u-comp="ribbon-toolbar"] .univerjs-icon-paint-bucket-double-icon {
+  translate: -3% 0;
+}
+.spreadsheet-univer-host [data-u-comp="ribbon-toolbar"] .univerjs-icon-paint-bucket-double-icon path:last-child {
+  stroke: var(--border-strong);
+  stroke-width: .5;
+}
+.spreadsheet-univer-host [data-u-comp="ribbon-toolbar"] :is(
+  button,
+  .univer-toolbar-button-selector-main,
+  .univer-toolbar-button-selector-trigger
+) {
+  align-items: center;
+  justify-content: center;
+}
+.spreadsheet-univer-host [data-u-comp="ribbon-toolbar"] :is(
+  button:not(:disabled),
+  .univer-toolbar-button-selector-root,
+  .univer-toolbar-selector-root
+):hover {
+  background: var(--toolbar-hover-surface) !important;
+}
+.spreadsheet-univer-host [data-u-comp="ribbon-toolbar"] .univer-toolbar-button-selector-root:hover > :is(
+  .univer-toolbar-button-selector-main,
+  .univer-toolbar-button-selector-trigger
+) {
+  background: transparent !important;
+}
+.spreadsheet-univer-host [data-u-comp="ribbon-toolbar"] :is(
+  [data-u-command="univer.command.undo"],
+  [data-u-command="univer.command.redo"]
+):disabled {
+  color: color-mix(in srgb, var(--text-primary) 32%, transparent) !important;
+}
+/* Univer compresses the name input to 15px with vertical padding while the
+   adjacent formula editor occupies the full 27px row. Let both controls use
+   that full row and replace their stark white fill with Lattice's softer
+   formula surface. The canvas bitmap is updated alongside this CSS in the
+   spreadsheet render-appearance bridge. */
+.spreadsheet-univer-host [data-u-comp="formula-bar"] { background: #FAFAFA !important; }
+.spreadsheet-univer-host [data-u-comp="defined-name"] { padding-block: 0 !important; }
+.spreadsheet-univer-host [data-u-comp="defined-name"] input,
+.spreadsheet-univer-host [data-u-comp="formula-bar"] canvas { background: #FAFAFA !important; }
+:root[data-theme="dark"] .spreadsheet-univer-host [data-u-comp="formula-bar"],
+:root[data-theme="dark"] .spreadsheet-univer-host [data-u-comp="defined-name"] input,
+:root[data-theme="dark"] .spreadsheet-univer-host [data-u-comp="formula-bar"] canvas { background: var(--editor-bg) !important; }
+/* Univer portals tooltips directly under body. Remap its dark tooltip utility
+   slots to the same adaptive popover surface used by Lattice's icon tips. */
+body > [role="tooltip"].univer-bg-gray-700 {
+  --univer-gray-700: var(--surface-panel-raised);
+  --univer-gray-100: var(--surface-panel-raised);
+  --univer-white: var(--text-primary);
+  --univer-gray-900: var(--text-primary);
+  font-family: var(--ui-font);
+}
+/* Lattice's toolbar tips are plain floating rectangles. Univer portals a
+   second rotated square after the label to make a speech-bubble arrow. */
+body > [role="tooltip"].univer-bg-gray-700 > div + div { display: none; }
+:root[data-theme="dark"] .spreadsheet-univer-host .univer-text-white,
+:root[data-theme="dark"] .spreadsheet-univer-host [class*="dark:!univer-text-white"],
+:root[data-theme="dark"] .spreadsheet-univer-host [class*="dark:!univer-fill-white"] { --univer-white: var(--text-primary); }
+:root[data-theme="dark"] .spreadsheet-univer-host .univer-text-gray-200,
+:root[data-theme="dark"] .spreadsheet-univer-host [class*="dark:!univer-text-gray-200"] { --univer-gray-200: var(--text-primary); }
+.spreadsheet-remote-presence { display: flex; align-items: flex-start; pointer-events: none; }
+.spreadsheet-remote-presence svg { display: block; width: 18px; height: 22px; flex: none; }
+.spreadsheet-remote-presence span {
+  max-width: 180px;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-compact);
+  color: white;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* tldraw's rich-text editor also uses ProseMirror. The Markdown editor's
    unscoped `.ProseMirror` rules add a 200px minimum height, gutter offsets,
    and paragraph spacing that make a shape label jump upward and clip its

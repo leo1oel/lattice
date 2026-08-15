@@ -49,11 +49,19 @@ export type EditorCollabSession = {
   fileCount: () => number;
   /** Flush pending workspace materialization before ending or switching sessions. */
   flush?: () => Promise<void>;
+  /** Wait until every open file client has persisted and sent its pending Yjs updates. */
+  settled?: () => Promise<void>;
   destroy: () => void;
   /** Identity for board cursor presence. */
   boardPresenceUser?: { id: string; name: string; color: string };
   /** A sideloaded board keeps its own Y.Doc when it is shown in the other pane. */
   boardDocumentForPath?: (path: string) => {
+    doc: Y.Doc;
+    awareness: import("y-protocols/awareness").Awareness | null;
+    canWrite: boolean;
+  } | null;
+  /** A sideloaded spreadsheet keeps its structured Y.Doc in its file client. */
+  spreadsheetDocumentForPath?: (path: string) => {
     doc: Y.Doc;
     awareness: import("y-protocols/awareness").Awareness | null;
     canWrite: boolean;

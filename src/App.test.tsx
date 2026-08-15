@@ -76,6 +76,7 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
 // The board creation flow opens the .tldr in the canvas; mounting the real
 // Tldraw editor needs browser canvas APIs jsdom doesn't have.
 vi.mock("./board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
+vi.mock("./spreadsheet-editor", () => ({ SpreadsheetEditor: () => <div data-testid="spreadsheet-editor-mock" /> }));
 vi.mock("./use-synara-runtime", () => ({
   useSynaraRuntime: (enabled = true) => {
     synaraHook.enabledCalls.push(enabled);
@@ -6789,6 +6790,44 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-paper",
     }));
     expect(await screen.findByTestId("board-editor-mock")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
+      .not.toBeInTheDocument();
+  });
+
+  it("creates a spreadsheet from the header button with an inline name", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "notes.tex", path: "notes.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "";
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
+      if (command === "create_project_entry") return (args as { path: string }).path;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByLabelText("Project files");
+    fireEvent.click(screen.getByRole("button", { name: "New spreadsheet" }));
+    const nameInput = await findProjectTreeRenameInput();
+    expect(nameInput).toHaveValue("untitled");
+    fireEvent.input(nameInput, { target: { value: "results" } });
+    fireEvent.keyDown(nameInput, { key: "Enter" });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", {
+      path: "results.lattice-sheet",
+      kind: "file",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
       .not.toBeInTheDocument();
   });

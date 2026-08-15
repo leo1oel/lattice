@@ -1,5 +1,4 @@
 // Vitest empties CSS imports, so read the files off disk.
-// @ts-expect-error no Node types in this project
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 
@@ -102,12 +101,53 @@ describe("shared surface contracts", () => {
     expect(borderedSurfaces).not.toContain(".settings-modal")
   })
 
-  it("keeps menu viewports free of layout-taking scrollbars", () => {
-    expect(menuSurface).toContain("[scrollbar-width:none]")
-    expect(surfacesCss).toContain('[data-slot="dropdown-menu-content"]')
-    expect(surfacesCss).toContain("scrollbar-width: none")
-    expect(surfacesCss).toMatch(
-      /\[data-slot="dropdown-menu-content"\]::-webkit-scrollbar[\s\S]*width:\s*0/,
+  it("lets menu viewports inherit the app scrollbar", () => {
+    expect(menuSurface).not.toContain("scrollbar-width:none")
+    expect(surfacesCss).not.toContain('[data-slot="dropdown-menu-content"]::-webkit-scrollbar')
+  })
+
+  it("keeps the spreadsheet formula controls level and off pure white", () => {
+    expect(appCss).toMatch(
+      /\[data-u-comp="defined-name"\] \{ padding-block: 0 !important; \}/,
+    )
+    expect(appCss).toMatch(
+      /\[data-u-comp="defined-name"\] input,[^}]+background: #FAFAFA !important;/,
+    )
+  })
+
+  it("gives the spreadsheet ribbon a slightly deeper neutral surface", () => {
+    expect(appCss).toMatch(
+      /\[data-u-comp="ribbon-header-menu"\] \+ div:has\(> \[data-u-comp="ribbon-toolbar"\]\) \{\s*background: #F4F4F5;/,
+    )
+  })
+
+  it("matches spreadsheet toolbar artwork to Lattice icon sizing", () => {
+    expect(appCss).toContain(
+      '.spreadsheet-univer-host [data-u-comp="ribbon-toolbar"] { translate: 0 .5px; }',
+    )
+    expect(appCss).toMatch(
+      /\[data-u-comp="ribbon-toolbar"\] svg \{[^}]*display: block;[^}]*width: 14px;\s*height: 14px;[^}]*align-self: center;/,
+    )
+    expect(appCss).toMatch(
+      /\.univerjs-icon-font-color-double-icon,[\s\S]+\.univerjs-icon-paint-bucket-double-icon[\s\S]+\{\s*width: 16px;\s*height: 16px;/,
+    )
+    expect(appCss).toMatch(
+      /\.univerjs-icon-paint-bucket-double-icon \{\s*translate: -3% 0;/,
+    )
+    expect(appCss).toMatch(
+      /\.univerjs-icon-paint-bucket-double-icon path:last-child \{\s*stroke: var\(--border-strong\);\s*stroke-width: \.5;/,
+    )
+    expect(appCss).toMatch(
+      /button:not\(:disabled\),[\s\S]+\.univer-toolbar-button-selector-root,[\s\S]+\.univer-toolbar-selector-root[\s\S]+:hover \{\s*background: var\(--toolbar-hover-surface\) !important;/,
+    )
+    expect(appCss).toMatch(
+      /\[data-u-command="univer\.command\.undo"\],[\s\S]+\[data-u-command="univer\.command\.redo"\][\s\S]+:disabled \{\s*color: color-mix\(in srgb, var\(--text-primary\) 32%, transparent\) !important;/,
+    )
+  })
+
+  it("removes the speech-bubble arrow from Univer tooltips", () => {
+    expect(appCss).toContain(
+      'body > [role="tooltip"].univer-bg-gray-700 > div + div { display: none; }',
     )
   })
 

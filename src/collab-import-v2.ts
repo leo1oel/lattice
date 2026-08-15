@@ -3,7 +3,7 @@ import type { CollabCredentialStore } from "./collab-credentials";
 import { createCredentialRef } from "./collab-credentials";
 import { loadCollabFeaturePolicy, type CollabFeaturePolicy } from "./collab-feature-policy";
 
-export type ImportFileV2 = { fileId: string; path: string; kind: "text" | "binary" | "board"; size: number; hash: string; bytes: Uint8Array; contentType?: string };
+export type ImportFileV2 = { fileId: string; path: string; kind: "text" | "binary" | "board" | "spreadsheet"; size: number; hash: string; bytes: Uint8Array; contentType?: string };
 export type NativeImportSourceV2 = { inventory(): Promise<Array<{ path: string; kind?: "text" | "binary" }>>; read(path: string): Promise<Uint8Array> };
 export type ImportProjectRecordV2 = { version: 2; deployment: string; projectInstanceId: string; credentialRef: string };
 export type ImportResumeV2 = { projectInstanceId: string; credentialRef: string; manifestHash: string; operationId: string; fileIds: Record<string, string>; completed: string[]; error: string };
@@ -71,7 +71,7 @@ async function buildFiles(source: NativeImportSourceV2, resumedIds: Record<strin
   let completed = 0; onProgress?.(completed, entries.length);
   const out: ImportFileV2[] = [];
   for (let offset = 0; offset < entries.length; offset += IMPORT_CONCURRENCY) {
-    out.push(...await Promise.all(entries.slice(offset, offset + IMPORT_CONCURRENCY).map(async (item) => { const bytes = await source.read(item.path); const kind = item.kind ?? (isUtf8(bytes) ? "text" : "binary"); const file = { fileId: resumedIds[item.path] ?? await stableFileId(item.path), path: item.path, kind: kind === "text" && item.path.toLocaleLowerCase("en-US").endsWith(".tldr") ? "board" as const : kind, size: bytes.length, hash: await sha(bytes), bytes, contentType: kind === "binary" ? "application/octet-stream" : undefined }; onProgress?.(++completed, entries.length); return file; })));
+    out.push(...await Promise.all(entries.slice(offset, offset + IMPORT_CONCURRENCY).map(async (item) => { const bytes = await source.read(item.path); const kind = item.kind ?? (isUtf8(bytes) ? "text" : "binary"); const lowerPath = item.path.toLocaleLowerCase("en-US"); const catalogKind = kind === "text" && lowerPath.endsWith(".tldr") ? "board" as const : kind === "text" && lowerPath.endsWith(".lattice-sheet") ? "spreadsheet" as const : kind; const file = { fileId: resumedIds[item.path] ?? await stableFileId(item.path), path: item.path, kind: catalogKind, size: bytes.length, hash: await sha(bytes), bytes, contentType: kind === "binary" ? "application/octet-stream" : undefined }; onProgress?.(++completed, entries.length); return file; })));
   }
   return out.sort((a,b) => a.path.localeCompare(b.path));
 }
