@@ -31,6 +31,12 @@ const sourceRoot = resolve(
 const runtimeRoot = join(projectRoot, "src-tauri/synara-runtime");
 const cacheRoot = join(projectRoot, "node_modules/.cache/lattice/synara");
 const npmCache = join(projectRoot, "node_modules/.cache/lattice/npm");
+const deviceHelperFiles = [
+  "build.sh",
+  "device-helper.sb",
+  "Sources/DeviceHelper-Bridging-Header.h",
+  "Sources/main.swift",
+];
 
 const nodeArchives = {
   "aarch64-apple-darwin": {
@@ -124,6 +130,30 @@ function walkFiles(root, output = []) {
     else if (entry.isFile()) output.push(path);
   }
   return output;
+}
+
+function hasDeviceHelperSources(root, target) {
+  if (!deviceHelperFiles.every((path) => existsSync(join(root, path)))) return false;
+  return (
+    target.startsWith("x86_64-pc-windows") ||
+    (statSync(join(root, "build.sh")).mode & 0o111) !== 0
+  );
+}
+
+function deviceHelperTreeMatches(source, candidate, target) {
+  if (!hasDeviceHelperSources(candidate, target)) return false;
+  const relativeFiles = (root) => walkFiles(root).map((path) => relative(root, path)).sort();
+  const sourceFiles = relativeFiles(source);
+  const candidateFiles = relativeFiles(candidate);
+  return (
+    sourceFiles.length > 0 &&
+    sourceFiles.length === candidateFiles.length &&
+    sourceFiles.every(
+      (path, index) =>
+        path === candidateFiles[index] &&
+        readFileSync(join(source, path)).equals(readFileSync(join(candidate, path))),
+    )
+  );
 }
 
 async function download(url, output) {
@@ -438,6 +468,7 @@ function pruneServerRuntime(stageRoot, target) {
 
 function restoreHelperExecutableBits(stageRoot, target) {
   if (target.startsWith("x86_64-pc-windows")) return;
+  chmodSync(join(stageRoot, "server/dist/device-helper/build.sh"), 0o755);
   // bun installs package prebuilds without their executable bit, and only the
   // signing pass below (skipped without APPLE_SIGNING_IDENTITY) used to put it
   // back. node-pty execs spawn-helper for every PTY, so a dev-staged runtime
@@ -516,6 +547,7 @@ const buildKey = createHash("sha256")
   .update(readFileSync(fileURLToPath(import.meta.url)))
   .digest("hex");
 const existingManifestPath = join(runtimeRoot, "manifest.json");
+const sourceDeviceHelperRoot = join(sourceRoot, "apps/server/native/device-helper");
 if (existsSync(existingManifestPath)) {
   const existingManifest = JSON.parse(readFileSync(existingManifestPath, "utf8"));
   const executableName = target.includes("windows") ? "node.exe" : "node";
@@ -523,7 +555,12 @@ if (existsSync(existingManifestPath)) {
     existingManifest.buildKey === buildKey &&
     existsSync(join(runtimeRoot, "bin", executableName)) &&
     existsSync(join(runtimeRoot, "server/dist/index.mjs")) &&
-    existsSync(join(runtimeRoot, "server/dist/client/index.html"))
+    existsSync(join(runtimeRoot, "server/dist/client/index.html")) &&
+    deviceHelperTreeMatches(
+      sourceDeviceHelperRoot,
+      join(runtimeRoot, "server/dist/device-helper"),
+      target,
+    )
   ) {
     console.log(
       `Synara runtime ${existingManifest.synaraVersion} is already prepared for ${target}.`,
@@ -578,6 +615,17 @@ const buildStartedAt = Date.now();
 buildWorkspace("apps/web");
 buildWorkspace("apps/server");
 
+// Device input, accessibility, and video use a native helper compiled against
+// the user's Xcode on first attach. The server build must stage its sources
+// beside the bundle; otherwise the pane appears normally but attach fails only
+// in the packaged app, where the repository fallback path does not exist.
+const builtDeviceHelperRoot = join(sourceRoot, "apps/server/dist/device-helper");
+if (!deviceHelperTreeMatches(sourceDeviceHelperRoot, builtDeviceHelperRoot, target)) {
+  throw new Error(
+    "The Synara build did not stage the complete iOS device helper source tree under apps/server/dist/device-helper.",
+  );
+}
+
 // Belt and braces: even with a working build command, refuse to stage artifacts
 // the build did not just write. Staging stale bytes under a fresh revision is
 // far worse than failing here.
@@ -599,8 +647,12 @@ const stageRoot = mkdtempSync(join(dirname(runtimeRoot), ".synara-runtime-"));
 try {
   await prepareNodeRuntime(stageRoot, target, release);
   const synaraVersion = installServerRuntime(stageRoot);
-  const prunedBytes = pruneServerRuntime(stageRoot, target);
   restoreHelperExecutableBits(stageRoot, target);
+  const stagedDeviceHelperRoot = join(stageRoot, "server/dist/device-helper");
+  if (!deviceHelperTreeMatches(sourceDeviceHelperRoot, stagedDeviceHelperRoot, target)) {
+    throw new Error("The staged Synara runtime is missing part of the iOS device helper source tree.");
+  }
+  const prunedBytes = pruneServerRuntime(stageRoot, target);
   signMacRuntime(stageRoot, target);
   writeFileSync(
     join(stageRoot, "manifest.json"),
@@ -611,6 +663,7 @@ try {
         nodeVersion: runtimeConfig.nodeVersion,
         synaraVersion,
         synaraRevision: dirtyStatus ? `${head}+dirty` : head,
+        deviceHelperSource: "server/dist/device-helper",
         sourceRepository: runtimeConfig.repository,
         upstreamRepository: runtimeConfig.upstream,
       },

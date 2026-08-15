@@ -1,8 +1,8 @@
 {
   "repository": "https://github.com/leo1oel/synara.git",
   "upstream": "https://github.com/Emanuele-web04/synara.git",
-  "branch": "amp/lattice-spreadsheet-tools-v223",
-  "revision": "fcb59bf655be7bcad905691ddb1516ceca183df1",
-  "sourceDirectory": "../synara-poc",
+  "branch": "amp/lattice-v0.7.2-sync",
+  "revision": "f6763d8446f002332558f90018e25c4f9d0d6bb6",
+  "sourceDirectory": "../synara-v072-sync",
   "nodeVersion": "24.13.0"
 }

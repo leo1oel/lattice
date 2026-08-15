@@ -299,6 +299,11 @@ impl SynaraRuntime {
             // Keep the fork's upstream runtime intact while selecting Lattice's
             // model-facing prompt, MCP catalog, and bibliography boundary.
             .env("AGENT_HOST_PROFILE", "lattice")
+            // Device control is a separate host-owned entitlement. It must not
+            // be inferred from a provider's Full Access mode or from embedding
+            // the web UI; the Lattice shell grants it only because it packages
+            // and exposes the simulator pane alongside the agent runtime.
+            .env("LATTICE_DEVICE_CONTROL_ENABLED", "true")
             .envs(
                 std::env::current_exe()
                     .ok()
