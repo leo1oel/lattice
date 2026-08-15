@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
+import tutorialSpreadsheetSource from "../src-tauri/templates/tutorial/attention-results.lattice-sheet?raw";
 import {
   applySpreadsheetBatch,
   parseA1Range,
@@ -36,6 +37,36 @@ function latticeRowId(data: Record<string, unknown>): unknown {
 }
 
 describe("spreadsheet Yjs model", () => {
+  it("loads the tutorial workbook with editable data and formulas", () => {
+    const parsed = parseSpreadsheetFile(tutorialSpreadsheetSource);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.workbook.name).toBe("Attention experiment results");
+    const sheet = parsed!.workbook.sheets.results;
+    expect(sheet.name).toBe("Illustrative results");
+    expect(sheet).toMatchObject({ rowCount: 1000, columnCount: 52 });
+    expect(sheet.cellData[0][0]).toMatchObject({ v: "Attention experiment results", s: "title" });
+    expect(sheet.cellData[2][2]).toMatchObject({ v: 0.764, s: "percent" });
+    expect(sheet.cellData[7][2]).toMatchObject({ f: "=AVERAGE(C3:C6)", s: "summaryPercent" });
+    expect(sheet.cellData[10]).toMatchObject({
+      0: { v: "Bold", s: "demoBold" },
+      1: { v: "Italic", s: "demoItalic" },
+      2: { v: "Underline", s: "demoUnderline" },
+      3: { v: "Courier New", s: "demoFont" },
+      4: { v: "Merged cells", s: "demoMerged" },
+    });
+    expect(sheet.mergeData).toContainEqual({ startRow: 10, startColumn: 4, endRow: 10, endColumn: 5 });
+    expect(parsed!.workbook.styles).toMatchObject({
+      title: { bl: 1, ff: "Georgia" },
+      demoItalic: { it: 1 },
+      demoUnderline: { ul: { s: 1 } },
+      demoFont: { ff: "Courier New" },
+    });
+
+    const doc = new Y.Doc();
+    reconcileSpreadsheetDoc(doc, parsed!.workbook);
+    expect(spreadsheetSnapshotFromDoc(doc).sheets.results.cellData[7][2].f).toBe("=AVERAGE(C3:C6)");
+  });
+
   it("round-trips the native file format and structured document", () => {
     const file = createDefaultSpreadsheet("Experiment data");
     file.workbook.sheets[file.workbook.sheetOrder[0]].cellData[0] = {

@@ -350,7 +350,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .sidebar-provider-select:hover, .sidebar-provider-select[data-state="open"] { background: var(--navigation-action-hover-surface); color: var(--text-primary); }
 .sidebar-provider-select span { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; text-align: right; }
 .sidebar-provider-select svg { width: 13px; height: 13px; flex: none; color: var(--text-tertiary); }
-.sidebar-mode-actions { position: absolute; top: 50%; right: 8px; min-width: 0; height: 29px; transform: translateY(-50%); display: flex; align-items: center; justify-content: flex-end; gap: var(--gap-hairline); }
+.sidebar-mode-actions { position: absolute; top: 50%; right: 8px; min-width: var(--navigation-mode-actions-reserved-width); height: 29px; transform: translateY(-50%); display: flex; align-items: center; justify-content: flex-end; gap: var(--gap-hairline); }
 .sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select) { width: var(--navigation-action-size); height: var(--navigation-action-size); border-radius: var(--radius-icon); background: transparent; color: var(--text-tertiary); display: grid; place-items: center; }
 .sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select):hover:not(:disabled), .sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select)[aria-pressed="true"] { background: var(--navigation-action-hover-surface); color: var(--text-primary); }
 .sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select):disabled { opacity: .4; }

@@ -475,7 +475,7 @@ const SYNARA_EMBED_READY = "synara:embed-ready";
 const SYNARA_OPEN_SETTINGS = "synara:open-settings";
 const SYNARA_OPEN_REVIEW = "synara:open-review";
 const SYNARA_OPEN_FILE = "synara:open-file";
-const SYNARA_SIDEBAR_MINIMUM = 320;
+const SYNARA_SIDEBAR_MINIMUM = 310;
 const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
 const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
 
@@ -10440,7 +10440,7 @@ function App() {
             onSelectTutorialFile={(path, nextStep) => {
               const mode: CanvasMode = path.endsWith(".html")
                 ? "pdf"
-                : path.endsWith(".tldr")
+                : path.endsWith(".tldr") || path.endsWith(".lattice-sheet")
                   ? "source"
                   : "split";
               void openProjectFile(path).then(() => {
@@ -10472,6 +10472,8 @@ function App() {
                 void openTutorialDocument("attention-demo.html", "pdf");
               } else if (nextStep === TUTORIAL_STEPS.board) {
                 void openTutorialDocument("attention-map.tldr", "source");
+              } else if (nextStep === TUTORIAL_STEPS.spreadsheet || nextStep === TUTORIAL_STEPS.spreadsheetTools) {
+                void openTutorialDocument("attention-results.lattice-sheet", "source");
               } else if (nextStep === TUTORIAL_STEPS.workspaceActions) {
                 void openTutorialDocument("main.tex", "split");
               } else if (nextStep === TUTORIAL_STEPS.paperBlog) {

@@ -1,0 +1,186 @@
+{
+  "format": "lattice-spreadsheet",
+  "version": 1,
+  "workbook": {
+    "id": "tutorial_attention_results",
+    "name": "Attention experiment results",
+    "appVersion": "0.25.1",
+    "locale": "enUS",
+    "styles": {
+      "title": {
+        "bl": 1,
+        "ff": "Georgia",
+        "fs": 16,
+        "bg": { "rgb": "#475569" },
+        "cl": { "rgb": "#FFFFFF" },
+        "ht": 2,
+        "vt": 2
+      },
+      "header": {
+        "bl": 1,
+        "ff": "Inter Variable",
+        "bg": { "rgb": "#DCE3EA" },
+        "cl": { "rgb": "#1F2937" },
+        "ht": 2,
+        "vt": 2
+      },
+      "percent": {
+        "n": { "pattern": "0.0%" }
+      },
+      "summary": {
+        "bl": 1,
+        "bg": { "rgb": "#E2E8F0" }
+      },
+      "summaryPercent": {
+        "bl": 1,
+        "bg": { "rgb": "#E2E8F0" },
+        "n": { "pattern": "0.0%" }
+      },
+      "section": {
+        "bl": 1,
+        "ff": "Inter Variable",
+        "bg": { "rgb": "#CBD5E1" },
+        "cl": { "rgb": "#1F2937" },
+        "ht": 2
+      },
+      "demoBold": {
+        "bl": 1,
+        "bg": { "rgb": "#FEF3C7" }
+      },
+      "demoItalic": {
+        "it": 1,
+        "bg": { "rgb": "#DBEAFE" }
+      },
+      "demoUnderline": {
+        "ul": { "s": 1 },
+        "bg": { "rgb": "#DCFCE7" }
+      },
+      "demoFont": {
+        "ff": "Courier New",
+        "bg": { "rgb": "#FCE7F3" }
+      },
+      "demoMerged": {
+        "bl": 1,
+        "it": 1,
+        "bg": { "rgb": "#EDE9FE" },
+        "cl": { "rgb": "#5B21B6" },
+        "ht": 2
+      },
+      "note": {
+        "it": 1,
+        "fs": 9,
+        "cl": { "rgb": "#64748B" }
+      }
+    },
+    "sheetOrder": ["results"],
+    "sheets": {
+      "results": {
+        "id": "results",
+        "name": "Illustrative results",
+        "rowCount": 1000,
+        "columnCount": 52,
+        "cellData": {
+          "0": {
+            "0": { "v": "Attention experiment results", "t": 1, "s": "title" }
+          },
+          "1": {
+            "0": { "v": "Configuration", "t": 1, "s": "header" },
+            "1": { "v": "Heads", "t": 1, "s": "header" },
+            "2": { "v": "Accuracy", "t": 1, "s": "header" },
+            "3": { "v": "Latency (ms)", "t": 1, "s": "header" },
+            "4": { "v": "Throughput", "t": 1, "s": "header" },
+            "5": { "v": "vs. baseline", "t": 1, "s": "header" }
+          },
+          "2": {
+            "0": { "v": "Baseline" },
+            "1": { "v": 1 },
+            "2": { "v": 0.764, "s": "percent" },
+            "3": { "v": 12.8 },
+            "4": { "v": 780 },
+            "5": { "f": "=C3/$C$3", "s": "percent" }
+          },
+          "3": {
+            "0": { "v": "Two heads" },
+            "1": { "v": 2 },
+            "2": { "v": 0.772, "s": "percent" },
+            "3": { "v": 13.1 },
+            "4": { "v": 752 },
+            "5": { "f": "=C4/$C$3", "s": "percent" }
+          },
+          "4": {
+            "0": { "v": "Four heads" },
+            "1": { "v": 4 },
+            "2": { "v": 0.786, "s": "percent" },
+            "3": { "v": 13.7 },
+            "4": { "v": 721 },
+            "5": { "f": "=C5/$C$3", "s": "percent" }
+          },
+          "5": {
+            "0": { "v": "Eight heads" },
+            "1": { "v": 8 },
+            "2": { "v": 0.791, "s": "percent" },
+            "3": { "v": 14.4 },
+            "4": { "v": 684 },
+            "5": { "f": "=C6/$C$3", "s": "percent" }
+          },
+          "7": {
+            "0": { "v": "Mean", "s": "summary" },
+            "1": { "f": "=AVERAGE(B3:B6)", "s": "summary" },
+            "2": { "f": "=AVERAGE(C3:C6)", "s": "summaryPercent" },
+            "3": { "f": "=AVERAGE(D3:D6)", "s": "summary" },
+            "4": { "f": "=AVERAGE(E3:E6)", "s": "summary" },
+            "5": { "f": "=AVERAGE(F3:F6)", "s": "summaryPercent" }
+          },
+          "9": {
+            "0": { "v": "Formatting examples", "t": 1, "s": "section" }
+          },
+          "10": {
+            "0": { "v": "Bold", "s": "demoBold" },
+            "1": { "v": "Italic", "s": "demoItalic" },
+            "2": { "v": "Underline", "s": "demoUnderline" },
+            "3": { "v": "Courier New", "s": "demoFont" },
+            "4": { "v": "Merged cells", "s": "demoMerged" }
+          },
+          "12": {
+            "0": { "v": "Edit a cell, or ask Agent to update C3:C6.", "s": "note" }
+          }
+        },
+        "rowData": {
+          "0": { "h": 34 },
+          "9": { "h": 26 }
+        },
+        "columnData": {
+          "0": { "w": 168 },
+          "1": { "w": 72 },
+          "2": { "w": 96 },
+          "3": { "w": 112 },
+          "4": { "w": 104 },
+          "5": { "w": 112 }
+        },
+        "mergeData": [
+          { "startRow": 0, "startColumn": 0, "endRow": 0, "endColumn": 5 },
+          { "startRow": 9, "startColumn": 0, "endRow": 9, "endColumn": 5 },
+          { "startRow": 10, "startColumn": 4, "endRow": 10, "endColumn": 5 },
+          { "startRow": 12, "startColumn": 0, "endRow": 12, "endColumn": 5 }
+        ],
+        "tabColor": "",
+        "hidden": 0,
+        "freeze": {
+          "xSplit": 0,
+          "ySplit": 2,
+          "startRow": 2,
+          "startColumn": 0
+        },
+        "zoomRatio": 1,
+        "scrollTop": 0,
+        "scrollLeft": 0,
+        "defaultColumnWidth": 88,
+        "defaultRowHeight": 24,
+        "rowHeader": { "width": 46 },
+        "columnHeader": { "height": 24 },
+        "showGridlines": 1,
+        "rightToLeft": 0
+      }
+    }
+  }
+}

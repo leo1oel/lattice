@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
-import { createDefaultSpreadsheet } from "./spreadsheet-yjs";
+import tutorialSpreadsheetSource from "../src-tauri/templates/tutorial/attention-results.lattice-sheet?raw";
+import { createDefaultSpreadsheet, parseSpreadsheetFile } from "./spreadsheet-yjs";
 import { spreadsheetWorkbookToXlsx } from "./spreadsheet-xlsx";
 
 describe("spreadsheetWorkbookToXlsx", () => {
@@ -44,5 +45,23 @@ describe("spreadsheetWorkbookToXlsx", () => {
     expect(exported?.getRow(1).height).toBe(24);
     expect(exported?.getColumn(1).width).toBe(20);
     expect(exported?.getCell("B1").isMerged).toBe(true);
+  });
+
+  it("preserves the tutorial workbook's formatting showcase", async () => {
+    const source = parseSpreadsheetFile(tutorialSpreadsheetSource)?.workbook;
+    expect(source).toBeDefined();
+    const bytes = await spreadsheetWorkbookToXlsx(source!);
+
+    const reloaded = new ExcelJS.Workbook();
+    await reloaded.xlsx.load(bytes as unknown as ExcelJS.Buffer);
+    const exported = reloaded.getWorksheet("Illustrative results");
+    expect(exported).toBeDefined();
+    expect(exported?.getCell("A1").font).toMatchObject({ name: "Georgia", size: 16, bold: true });
+    expect(exported?.getCell("F1").isMerged).toBe(true);
+    expect(exported?.getCell("A11").font.bold).toBe(true);
+    expect(exported?.getCell("B11").font.italic).toBe(true);
+    expect(exported?.getCell("C11").font.underline).toBe(true);
+    expect(exported?.getCell("D11").font.name).toBe("Courier New");
+    expect(exported?.getCell("F11").isMerged).toBe(true);
   });
 });

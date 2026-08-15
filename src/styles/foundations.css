@@ -232,6 +232,9 @@
   --navigation-tab-expanded-width: 85px;
   --navigation-tab-gap: var(--space-4);
   --navigation-mode-actions-gap: var(--space-4);
+  /* Project owns the widest action group at three controls. Reserve that same
+     width in every mode so switching modes cannot change the tab label tier. */
+  --navigation-mode-actions-reserved-width: calc(var(--navigation-action-size) + var(--navigation-action-size) + var(--navigation-action-size) + var(--gap-hairline) + var(--gap-hairline));
   --navigation-search-height: var(--search-control-height);
   --navigation-search-font-size: var(--type-label-size);
   --navigation-search-line-height: var(--type-project-tree-line-height);

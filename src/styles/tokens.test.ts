@@ -143,6 +143,13 @@ describe("design token contract", () => {
     expect(foundations).toMatch(/--titlebar-height: 40px/)
   })
 
+  it("reserves one action width across sidebar modes", () => {
+    expect(foundations).toMatch(/--navigation-mode-actions-reserved-width: calc\(/)
+    expect(appCss).toMatch(
+      /\.sidebar-mode-actions \{[^}]*min-width: var\(--navigation-mode-actions-reserved-width\)/,
+    )
+  })
+
   it("keeps single-line controls on the 28px compact and 30px default scale", () => {
     expect(foundations).toMatch(/--control-height-compact: 28px/)
     expect(foundations).toMatch(/--control-height-default: 30px/)

@@ -45,6 +45,8 @@ const TUTORIAL_MAIN: &str = include_str!("../templates/tutorial/main.tex");
 const TUTORIAL_NOTES: &str = include_str!("../templates/tutorial/notes.md");
 const TUTORIAL_HTML: &str = include_str!("../templates/tutorial/attention-demo.html");
 const TUTORIAL_BOARD: &str = include_str!("../templates/tutorial/attention-map.tldr");
+const TUTORIAL_SPREADSHEET: &str =
+    include_str!("../templates/tutorial/attention-results.lattice-sheet");
 const TUTORIAL_TOML: &str = include_str!("../templates/tutorial/project.toml");
 const TUTORIAL_REFERENCES: &str = include_str!("../templates/tutorial/references.bib");
 const TUTORIAL_FIGURE_ATTRIBUTION: &str =
@@ -398,13 +400,18 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
     .map_err(err)?;
     fs::write(
         root.join(".research/tutorial.json"),
-        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 5\n}\n",
+        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 6\n}\n",
     )
     .map_err(err)?;
     fs::write(root.join("main.tex"), TUTORIAL_MAIN).map_err(err)?;
     fs::write(root.join("notes.md"), TUTORIAL_NOTES).map_err(err)?;
     fs::write(root.join("attention-demo.html"), TUTORIAL_HTML).map_err(err)?;
     fs::write(root.join("attention-map.tldr"), TUTORIAL_BOARD).map_err(err)?;
+    fs::write(
+        root.join("attention-results.lattice-sheet"),
+        TUTORIAL_SPREADSHEET,
+    )
+    .map_err(err)?;
     fs::write(root.join("project.toml"), TUTORIAL_TOML).map_err(err)?;
     fs::write(root.join("references.bib"), TUTORIAL_REFERENCES).map_err(err)?;
     install_tutorial_assets(&root)?;
@@ -6144,6 +6151,25 @@ mod tests {
         assert!(root.join("notes.md").is_file());
         assert!(root.join("attention-demo.html").is_file());
         assert!(root.join("attention-map.tldr").is_file());
+        assert!(root.join("attention-results.lattice-sheet").is_file());
+        let spreadsheet: serde_json::Value = serde_json::from_slice(
+            &fs::read(root.join("attention-results.lattice-sheet")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(spreadsheet["format"], "lattice-spreadsheet");
+        assert_eq!(spreadsheet["version"], 1);
+        assert_eq!(
+            spreadsheet["workbook"]["sheets"]["results"]["rowCount"],
+            1000
+        );
+        assert_eq!(
+            spreadsheet["workbook"]["sheets"]["results"]["columnCount"],
+            52
+        );
+        assert_eq!(
+            spreadsheet["workbook"]["sheets"]["results"]["cellData"]["7"]["2"]["f"],
+            "=AVERAGE(C3:C6)"
+        );
         let board: serde_json::Value =
             serde_json::from_slice(&fs::read(root.join("attention-map.tldr")).unwrap()).unwrap();
         assert_eq!(board["tldrawFileFormatVersion"], 1);

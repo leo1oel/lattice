@@ -440,6 +440,25 @@ export function OnboardingTour(props: {
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
     },
     {
+      id: "spreadsheet",
+      target: '[data-tour="canvas-tour-card-anchor"]',
+      spotlightTarget: '[data-tour="spreadsheet-workspace"]',
+      title: "Analyze results in a live spreadsheet",
+      content: "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live.",
+      buttons: READING_BUTTONS,
+      placement: "top-end",
+      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
+    },
+    {
+      id: "spreadsheet-tools",
+      target: '[data-u-comp="ribbon-toolbar"]',
+      title: "Formulas, Excel export, and Agent edits",
+      content: "Use Formulas, export as .xlsx, or ask Agent to read and update ranges, formulas, and formatting.",
+      buttons: READING_BUTTONS,
+      placement: "bottom-start",
+      spotlightPadding: 5,
+    },
+    {
       id: "workspace-actions",
       target: '[data-tour="workspace-actions"]',
       title: "Sharing and history live in this row",
@@ -510,7 +529,7 @@ export function OnboardingTour(props: {
       id: "agent",
       target: '[data-tour="agent-panel"]',
       title: "An agent that has already read your project",
-      content: "It sees your manuscript, notes, and downloaded papers, so you can ask it to draft a section or check a claim against a source. Skills and MCP servers add more tools.",
+      content: "It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools.",
       buttons: READING_BUTTONS,
       placement: "right-start",
     },
@@ -549,7 +568,8 @@ export function OnboardingTour(props: {
         [TUTORIAL_STEPS.viewModes]: { path: "notes.md", step: TUTORIAL_STEPS.markdown },
         [TUTORIAL_STEPS.markdownVisual]: { path: "attention-demo.html", step: TUTORIAL_STEPS.html },
         [TUTORIAL_STEPS.html]: { path: "attention-map.tldr", step: TUTORIAL_STEPS.board },
-        [TUTORIAL_STEPS.board]: { path: "main.tex", step: TUTORIAL_STEPS.workspaceActions },
+        [TUTORIAL_STEPS.board]: { path: "attention-results.lattice-sheet", step: TUTORIAL_STEPS.spreadsheet },
+        [TUTORIAL_STEPS.spreadsheetTools]: { path: "main.tex", step: TUTORIAL_STEPS.workspaceActions },
       } as Record<number, { path: string; step: number }>)[event.index];
       if (fileTransition) {
         if (event.index === TUTORIAL_STEPS.markdownVisual) closeMarkdownSlashMenu();
@@ -618,6 +638,10 @@ export function OnboardingTour(props: {
         primaryColor: "var(--control-active)",
         showProgress: true,
         skipBeacon: true,
+        // The app shell and every tour target already fit the WebView. Letting
+        // Joyride center a target's internal scroll parent also scrolls the
+        // document in WebKit, shifting the entire fixed-height app offscreen.
+        skipScroll: true,
         spotlightPadding: 8,
         spotlightRadius: 10,
         targetWaitTimeout: 4_000,
