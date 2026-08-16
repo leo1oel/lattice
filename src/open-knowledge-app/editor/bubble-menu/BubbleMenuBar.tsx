@@ -29,6 +29,8 @@ export function BubbleMenuBar({
   const menuRef = useRef<HTMLDivElement>(null);
   const [tooltipKey, setTooltipKey] = useState(0);
   const stopAutoUpdateRef = useRef<(() => void) | null>(null);
+  const editorElement = editor.options.element;
+  const editorDocument = editorElement instanceof Element ? editorElement.ownerDocument : document;
 
   // File NodeSelection swaps the bar to its download controls. Images own
   // alignment in their hover toolbar, so selecting one does not open this
@@ -100,7 +102,7 @@ export function BubbleMenuBar({
       data-testid="bubble-menu-bar"
       data-ok-vendor=""
       data-suppressed={hidden ? '' : undefined}
-      appendTo={() => document.body}
+      appendTo={() => editorDocument.body}
       shouldShow={shouldShowBubbleMenu}
       updateDelay={250}
       // flip/shift/hide mirror the autoUpdate loop above: the plugin runs its
