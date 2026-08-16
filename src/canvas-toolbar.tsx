@@ -13,6 +13,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Tip } from "./components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "./app-types";
 import { AnimatedProductIcon } from "./animated-icons/product-animated-icon";
@@ -37,17 +38,24 @@ import { SegmentedControl } from "./components/ui/segmented-control";
 function overleafChannelLabel(
   channel: "off" | "connecting" | "live" | "error" | undefined,
   detail: string | null | undefined,
+  labels: {
+    connecting: string;
+    error: (detail: string | null | undefined) => string;
+    live: string;
+    liveDetail: string;
+    sync: string;
+  },
 ) {
   if (channel === "connecting") {
-    return detail || "Connecting to Overleaf's live channel…";
+    return detail || labels.connecting;
   }
   if (channel === "error") {
-    return `Live editing unavailable${detail ? ` (${detail})` : ""} · syncing instead`;
+    return labels.error(detail);
   }
   if (channel === "live") {
-    return detail ? `${detail} · click to sync` : "Connected live · click to sync everything";
+    return detail ? `${detail} · ${labels.liveDetail}` : labels.live;
   }
-  return "Sync with Overleaf";
+  return labels.sync;
 }
 
 type CanvasToolbarProps = {
@@ -107,6 +115,7 @@ type CanvasToolbarProps = {
 };
 
 const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarProps) {
+  const { t } = useLingui();
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
   // Two editable files are still an Edit view. "Split" in this control has
   // always meant source + rendered preview, so marking a dual editor as Split
@@ -126,27 +135,27 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
             onChange={(mode) => {
               if (mode === "source" || mode === "split" || mode === "pdf") props.setMode(mode);
             }}
-            ariaLabel="Document view"
+            ariaLabel={t`Document view`}
             className="canvas-view-switcher"
             items={[
               {
                 value: "source",
-                label: "Edit",
-                title: props.markdown ? "Edit Markdown" : props.html ? "Edit HTML" : "Edit source",
+                label: t`Edit`,
+                title: props.markdown ? t`Edit Markdown` : props.html ? t`Edit HTML` : t`Edit source`,
               },
               {
                 value: "split",
-                label: "Split",
+                label: t`Split`,
                 title: props.markdown
-                  ? "Edit and preview Markdown"
+                  ? t`Edit and preview Markdown`
                   : props.html
-                    ? "Edit and preview HTML"
-                    : "Edit source and preview PDF",
+                    ? t`Edit and preview HTML`
+                    : t`Edit source and preview PDF`,
               },
               {
                 value: "pdf",
-                label: "Preview",
-                title: props.markdown ? "Preview Markdown" : props.html ? "Preview HTML" : "Preview PDF",
+                label: t`Preview`,
+                title: props.markdown ? t`Preview Markdown` : props.html ? t`Preview HTML` : t`Preview PDF`,
               },
             ]}
           />
@@ -159,11 +168,11 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           <SegmentedControl
             value={props.paperView}
             onChange={props.onPaperView}
-            ariaLabel="Paper content"
+            ariaLabel={t`Paper content`}
             className="paper-content-switcher"
             items={[
-              { value: "blog", label: "Blog", title: "Open the paper overview", dataTour: "paper-blog" },
-              { value: "fulltext", label: "Paper", title: "Open the full paper Markdown", dataTour: "paper-fulltext" },
+              { value: "blog", label: t`Blog`, title: t`Open the paper overview`, dataTour: "paper-blog" },
+              { value: "fulltext", label: t`Paper`, title: t`Open the full paper Markdown`, dataTour: "paper-fulltext" },
             ]}
           />
         )}
@@ -171,12 +180,12 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
       <div className="canvas-actions" data-tour="workspace-actions">
         {props.activeKind === "document" && (
           <>
-            <Tip label="Go back (⌘[)">
+            <Tip label={t`Go back (⌘[)`}>
               <button type="button" disabled={!props.canNavigateBack} onClick={props.onNavigateBack}>
                 <Undo2 size={14} />
               </button>
             </Tip>
-            <Tip label="Go forward (⌘])">
+            <Tip label={t`Go forward (⌘])`}>
               <button type="button" disabled={!props.canNavigateForward} onClick={props.onNavigateForward}>
                 <Redo2 size={14} />
               </button>
@@ -184,14 +193,14 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           </>
         )}
         {props.onSplit && (
-          <Tip label="Split editor right">
+          <Tip label={t`Split editor right`}>
             <button type="button" onClick={props.onSplit}>
               <Columns2 size={14} />
             </button>
           </Tip>
         )}
         {props.onCloseSplit && (
-          <Tip label="Close split">
+          <Tip label={t`Close split`}>
             <button type="button" onClick={props.onCloseSplit}>
               <PanelRightClose size={14} />
             </button>
@@ -199,12 +208,12 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         )}
         {props.activeKind === "document" && (
           <>
-            {props.canInsert && <Tip label="Insert snippet or symbol (⌘⇧I)">
+            {props.canInsert && <Tip label={t`Insert snippet or symbol (⌘⇧I)`}>
               <button type="button" onClick={props.onInsert}>
                 <Omega size={14} />
               </button>
             </Tip>}
-            <Tip label="Editor comments">
+            <Tip label={t`Editor comments`}>
               <button
                 type="button"
                 className={props.commentCount ? "active" : ""}
@@ -216,9 +225,11 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
             </Tip>
             <Tip label={props.collabLive
               ? (props.collabPeers > 0
-                ? `Live · ${props.collabPeers} other${props.collabPeers === 1 ? "" : "s"}`
-                : "Live collaboration · just you")
-              : "Live collaboration"}
+                ? props.collabPeers === 1
+                  ? t({ message: `Live · ${{ count: props.collabPeers }} other` })
+                  : t({ message: `Live · ${{ count: props.collabPeers }} others` })
+                : t`Live collaboration · just you`)
+              : t`Live collaboration`}
             >
               <button
                 type="button"
@@ -237,13 +248,21 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           <div className={props.overleafLinked ? "overleaf-toolbar-group" : undefined}>
             <Tip label={props.overleafLinked
               ? (props.overleafSyncing
-                ? "Syncing with Overleaf…"
+                ? t`Syncing with Overleaf…`
                 : props.overleafPending
-                  ? "New changes on Overleaf — click to bring them in"
+                  ? t`New changes on Overleaf — click to bring them in`
                   : props.overleafLiveEditing
-                    ? "Editing live with Overleaf · click to sync everything else"
-                    : overleafChannelLabel(props.overleafChannel, props.overleafChannelDetail))
-              : "Open a project from Overleaf"}
+                    ? t`Editing live with Overleaf · click to sync everything else`
+                    : overleafChannelLabel(props.overleafChannel, props.overleafChannelDetail, {
+                      connecting: t`Connecting to Overleaf's live channel…`,
+                      error: (detail) => detail
+                        ? t({ message: `Live editing unavailable (${detail}) · syncing instead` })
+                        : t`Live editing unavailable · syncing instead`,
+                      live: t`Connected live · click to sync everything`,
+                      liveDetail: t`click to sync`,
+                      sync: t`Sync with Overleaf`,
+                    }))
+              : t`Open a project from Overleaf`}
             >
               <button
                 data-tour="overleaf"
@@ -271,8 +290,8 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                   <button
                     type="button"
                     className="history-button active overleaf-toolbar-menu-button"
-                    aria-label="Overleaf project actions"
-                    title="Overleaf project actions"
+                    aria-label={t`Overleaf project actions`}
+                    title={t`Overleaf project actions`}
                   >
                     <ChevronDown size={10} />
                   </button>
@@ -290,13 +309,13 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                     className="overleaf-toolbar-menu-item"
                     onSelect={props.onOverleafOpenCurrent}
                   >
-                    <ExternalLink /> Open in Overleaf
+                    <ExternalLink /> {t`Open in Overleaf`}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="overleaf-toolbar-menu-item"
                     onSelect={props.onOverleafOpen}
                   >
-                    <Cloud /> Open another Overleaf project
+                    <Cloud /> {t`Open another Overleaf project`}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -305,8 +324,8 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         )}
         {props.overleafLinked && props.onOverleafChat && (
           <Tip label={props.overleafUnreadChat
-            ? `Overleaf comments and chat · ${props.overleafUnreadChat} waiting`
-            : "Overleaf comments and chat"}
+            ? t({ message: `Overleaf comments and chat · ${{ count: props.overleafUnreadChat }} waiting` })
+            : t`Overleaf comments and chat`}
           >
             <button
               type="button"
@@ -321,12 +340,12 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           </Tip>
         )}
         {props.overleafPresence}
-        <Tip label="Git status and commit">
+        <Tip label={t`Git status and commit`}>
           <button className="history-button" data-tour="git" onClick={props.onGit}>
             <AnimatedProductIcon kind="git-branch" size={15} />
           </button>
         </Tip>
-        <Tip label="Project history">
+        <Tip label={t`Project history`}>
           <button className="history-button" onClick={props.onHistory}>
             <AnimatedProductIcon kind="clock-back" size={15} />
           </button>

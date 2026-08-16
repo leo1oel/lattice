@@ -6,6 +6,7 @@ import {
   hueFromColorHex,
   measureCursorLabelPlacements,
   overleafCursorsExtension,
+  presenceCursorColor,
   posForRowColumn,
   setOverleafCursorsEffect,
   type PresenceCursor,
@@ -22,6 +23,13 @@ describe("hueFromColorHex", () => {
   it("falls back for greys and malformed input", () => {
     expect(hueFromColorHex("#888888")).toBe(0);
     expect(hueFromColorHex("not-a-color")).toBe(210);
+  });
+});
+
+describe("presenceCursorColor", () => {
+  it("keeps an exact collaboration color and falls back to the provider hue", () => {
+    expect(presenceCursorColor({ color: "#0E7490", hue: 188 })).toBe("#0E7490");
+    expect(presenceCursorColor({ color: "invalid", hue: 188 })).toBe("hsl(188, 70%, 50%)");
   });
 });
 
@@ -80,6 +88,20 @@ describe("overleafCursorsExtension", () => {
     view.dispatch({ effects: setOverleafCursorsEffect.of([cursor({ row: 1, column: 1 })]) });
     const label = view.dom.querySelector(".cm-overleaf-caret-label");
     expect(label?.textContent).toBe("Ada Lovelace");
+    view.destroy();
+  });
+
+  it("paints an exact collaboration color instead of rebuilding it from hue", () => {
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({ doc: "alpha", extensions: overleafCursorsExtension() }),
+    });
+
+    view.dispatch({ effects: setOverleafCursorsEffect.of([cursor({ color: "#0E7490" })]) });
+
+    expect(view.dom.querySelector<HTMLElement>(".cm-overleaf-caret-label")).toHaveStyle({
+      backgroundColor: "#0E7490",
+    });
     view.destroy();
   });
 

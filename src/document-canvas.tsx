@@ -10,6 +10,7 @@ import {
   type ComponentProps,
   type ReactNode,
 } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { CodeMirrorHost as CodeMirror } from "./codemirror-host";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
 import {
@@ -168,6 +169,7 @@ const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module)
 })));
 
 function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
+  const { t } = useLingui();
   const [ready, setReady] = useState(visualMarkdownEditorWarmed);
   useEffect(() => {
     if (ready) return;
@@ -178,7 +180,7 @@ function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdow
     if (ready) visualMarkdownEditorWarmed = true;
   }, [ready]);
   if (!ready) {
-    return <div className="visual-markdown-preparing" aria-busy="true" aria-label="Preparing Markdown editor" />;
+    return <div className="visual-markdown-preparing" aria-busy="true" aria-label={t`Preparing Markdown editor`} />;
   }
   return <VisualMarkdownEditor {...props} />;
 }
@@ -194,6 +196,7 @@ const HTML_PREVIEW_SCROLLBAR_STYLES = `
 }`;
 
 function HtmlPreview({ path, source }: { path: string; source: string }) {
+  const { t } = useLingui();
   const [previewSource, setPreviewSource] = useState(source);
   const [scrollMetrics, setScrollMetrics] = useState({
     clientHeight: 0,
@@ -286,7 +289,7 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
       const href = link.getAttribute("href")?.trim() ?? "";
       if (/^(?:#|\/\/|[a-z][a-z0-9+.-]*:)/i.test(href)) continue;
       link.removeAttribute("href");
-      if (!link.title) link.title = "Relative project links are unavailable in this preview";
+      if (!link.title) link.title = t`Relative project links are unavailable in this preview`;
     }
     const fragmentNavigation = document.createElement("script");
     fragmentNavigation.dataset.latticePreview = "fragment-navigation";
@@ -297,7 +300,7 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
     scrollbarBridge.textContent = `(()=>{const type=${JSON.stringify(HTML_PREVIEW_SCROLL)};const setType=${JSON.stringify(HTML_PREVIEW_SET_SCROLL_TOP)};let frame=0;const send=()=>{frame=0;const root=document.scrollingElement||document.documentElement;parent.postMessage({type,clientHeight:root.clientHeight,scrollHeight:root.scrollHeight,scrollTop:root.scrollTop},"*")};const schedule=()=>{if(!frame)frame=requestAnimationFrame(send)};window.addEventListener("scroll",schedule,{passive:true});window.addEventListener("resize",schedule,{passive:true});window.addEventListener("message",(event)=>{if(event.source!==parent||!event.data||event.data.type!==setType||typeof event.data.scrollTop!=="number")return;const root=document.scrollingElement||document.documentElement;root.scrollTop=event.data.scrollTop;schedule()});new ResizeObserver(schedule).observe(document.documentElement);new ResizeObserver(schedule).observe(document.body);new MutationObserver(schedule).observe(document.documentElement,{attributes:true,childList:true,subtree:true});schedule()})();`;
     document.body.append(scrollbarBridge);
     return `<!doctype html>${document.documentElement.outerHTML}`;
-  }, [previewSource]);
+  }, [previewSource, t]);
 
   const setScrollTop = (scrollTop: number) => {
     frameRef.current?.contentWindow?.postMessage({
@@ -330,7 +333,7 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
       <iframe
         ref={frameRef}
         className="html-preview-frame"
-        title={`HTML preview for ${path}`}
+        title={t({ message: `HTML preview for ${{ path }}` })}
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         srcDoc={html}
@@ -428,11 +431,12 @@ function minimalTextChange(previous: string, next: string, offset: number) {
 }
 
 function PdfPreviewLoading() {
+  const { t } = useLingui();
   return (
     <div className="pdf-preview">
       <div className="pdf-placeholder">
         <FileText size={28} />
-        <p>Preparing PDF preview…</p>
+        <p>{t`Preparing PDF preview…`}</p>
       </div>
     </div>
   );
@@ -479,11 +483,12 @@ function paperBrowserUrl(paper: PaperSummary): string | null {
 }
 
 function HtmlPreviewLoading() {
+  const { t } = useLingui();
   return (
     <div className="html-preview">
       <div className="pdf-placeholder">
         <FileCode2 size={28} />
-        <p>Preparing HTML preview…</p>
+        <p>{t`Preparing HTML preview…`}</p>
       </div>
     </div>
   );
@@ -574,6 +579,7 @@ function SecondaryMarkdownPreview(props: {
   editable: boolean;
   onCaretChange: (row: number, column: number) => void;
 }) {
+  const { t } = useLingui();
   const sourceRef = useRef(props.source);
   const onChangeRef = useRef(props.onChange);
   const [visualEchoSource, setVisualEchoSource] = useState<string | null>(null);
@@ -641,7 +647,7 @@ function SecondaryMarkdownPreview(props: {
       viewportClassName="editor-doc-scroll"
       viewportProps={{ "data-testid": "editor-scroll-container" }}
     >
-      <Suspense fallback={<div className="chat-markdown">Preparing preview…</div>}>
+      <Suspense fallback={<div className="chat-markdown">{t`Preparing preview…`}</div>}>
         <DeferredVisualMarkdownEditor
           text={settledText}
           activePath={props.path}
@@ -1223,6 +1229,7 @@ export function DocumentCanvas(props: {
     commentFocusRequest,
     onCommentFocusHandled,
   } = props;
+  const { t } = useLingui();
   const primaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
   const secondaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
   const registerPrimaryVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
@@ -1337,11 +1344,11 @@ export function DocumentCanvas(props: {
   const openActivePaperInBrowser = useCallback(() => {
     if (!activePaperBrowserUrl) return;
     void openUrl(activePaperBrowserUrl).catch((reason) => {
-      notifyError("Papers", "Could not open the article in your browser", {
+      notifyError(t`Papers`, t`Could not open the article in your browser`, {
         detail: reason instanceof Error ? reason.message : String(reason),
       });
     });
-  }, [activePaperBrowserUrl]);
+  }, [activePaperBrowserUrl, t]);
   const markdownDocument = Boolean(props.activePaper) || activeFile.toLocaleLowerCase().endsWith(".md");
   const htmlDocument = !props.activePaper && isHtmlFilePath(activeFile);
   const boardDocument = !props.activePaper && activeFile.toLocaleLowerCase().endsWith(".tldr");
@@ -1734,6 +1741,7 @@ export function DocumentCanvas(props: {
       cursors.push({
         name: caret.name,
         hue: hueFromColorHex(caret.color),
+        color: caret.color,
         row: row - markdownPreviewLineOffset,
         column: caret.index - (before.lastIndexOf("\n") + 1),
       });
@@ -2036,7 +2044,7 @@ export function DocumentCanvas(props: {
     if (!range) {
       setCommentComposer((current) => current ? {
         ...current,
-        error: "The selected text changed. Select it again before commenting.",
+        error: t`The selected text changed. Select it again before commenting.`,
       } : current);
       return;
     }
@@ -2053,7 +2061,7 @@ export function DocumentCanvas(props: {
     onCreateEditorComment(comment);
     setCommentComposer(null);
     commentComposerViewRef.current?.focus();
-  }, [activeFile, commentAuthorId, commentAuthorName, commentComposer, editorSource, onCreateEditorComment]);
+  }, [activeFile, commentAuthorId, commentAuthorName, commentComposer, editorSource, onCreateEditorComment, t]);
   const closeCommentComposer = useCallback(() => {
     setCommentComposer(null);
     commentComposerViewRef.current?.focus();
@@ -3209,7 +3217,7 @@ export function DocumentCanvas(props: {
     >
       {paperFullTextHeader}
       <Suspense fallback={props.activePaper ? null : (
-        <div className="chat-markdown">Preparing preview…</div>
+        <div className="chat-markdown">{t`Preparing preview…`}</div>
       )}>
         <DeferredVisualMarkdownEditor
           text={settledPreviewText}
@@ -3271,21 +3279,21 @@ export function DocumentCanvas(props: {
     && paperPdfView
     && paperPdfView.arxivId === activePaperArxivId,
   );
-  const paperReturnLabel = activeFile.toLocaleLowerCase().endsWith("/blog.md") ? "Blog" : "Paper";
+  const paperReturnLabel = activeFile.toLocaleLowerCase().endsWith("/blog.md") ? t`Blog` : t`Paper`;
   const paperBrowserActionLabel = activePaperArxivId
-    ? "Open PDF in browser"
-    : "Open article in browser";
+    ? t`Open PDF in browser`
+    : t`Open article in browser`;
   const paperActions = props.activePaper && !paperPdfActive ? (
-    <div className="paper-local-actions" aria-label="Paper actions">
+    <div className="paper-local-actions" aria-label={t`Paper actions`}>
       {activePaperArxivId ? (
         <button
           type="button"
           className="paper-local-action"
-          aria-label="View original PDF"
+          aria-label={t`View original PDF`}
           onClick={openPaperPdf}
         >
           <FileText size={14} aria-hidden="true" />
-          <span>PDF</span>
+          <span>{t`PDF`}</span>
         </button>
       ) : null}
       {activePaperBrowserUrl ? (
@@ -3316,13 +3324,13 @@ export function DocumentCanvas(props: {
             pdfBytes={paperPdfView.bytes}
             fileName={`${paperPdfView.arxivId.replace("/", "-")}.pdf`}
             initialPage={paperPdfView.initialPage}
-            saveLabel="Download PDF"
-            timeoutMessage="The PDF took too long to load. Try again, or open the article in your browser."
+            saveLabel={t`Download PDF`}
+            timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
             onTextSelect={props.onPaperTextSelect}
             onPageChange={rememberPaperPdfPage}
             onDocumentData={paperPdfView.objectUrl ? undefined : cacheActivePaperPdf}
             toolbarStart={(
-              <Tip label={`Back to ${paperReturnLabel}`}>
+              <Tip label={t({ message: `Back to ${{ view: paperReturnLabel }}` })}>
                 <button type="button" onClick={closePaperPdf}>
                   <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
                 </button>
@@ -3341,7 +3349,7 @@ export function DocumentCanvas(props: {
     ) : <PdfPreviewLoading />
   ) : null;
   const paperPreview = props.activePaper ? (
-    <section className="paper-reader-shell" aria-label={`${props.activePaper.title} paper reader`}>
+    <section className="paper-reader-shell" aria-label={t({ message: `${{ title: props.activePaper.title }} paper reader` })}>
       {!paperPdfActive && <header className="paper-reader-header">{paperActions}</header>}
       {paperPdfPreview ?? markdownPreview}
     </section>
@@ -3413,21 +3421,21 @@ export function DocumentCanvas(props: {
           <CodeMirrorScrollbar view={primaryScrollbarView} />
           {figureDropMarker && (
             <div className="figure-drop-line" style={{ top: figureDropMarker.top }}>
-              <span>Insert above line {figureDropMarker.line}</span>
+              <span>{t({ message: `Insert above line ${{ line: figureDropMarker.line }}` })}</span>
             </div>
           )}
           {commentComposer && (
             <div
               className="editor-comment-popover"
               role="dialog"
-              aria-label="Add comment"
+              aria-label={t`Add comment`}
               onMouseDown={(event) => event.stopPropagation()}
             >
               <p className="editor-comment-quote">{commentComposer.quote}</p>
               <Textarea
                 autoFocus
                 rows={3}
-                placeholder="Leave a comment for collaborators…"
+                placeholder={t`Leave a comment for collaborators…`}
                 value={commentComposer.body}
                 onChange={(event) => setCommentComposer((current) => (
                   current ? { ...current, body: event.target.value } : current
@@ -3445,14 +3453,14 @@ export function DocumentCanvas(props: {
               />
               {commentComposer.error && <p role="alert" className="visual-node-source-error">{commentComposer.error}</p>}
               <div className="editor-comment-popover-actions">
-                <button type="button" onClick={closeCommentComposer}>Cancel</button>
+                <button type="button" onClick={closeCommentComposer}>{t`Cancel`}</button>
                 <button
                   type="button"
                   className="primary"
                   disabled={!commentComposer.body.trim()}
                   onClick={saveCommentComposer}
                 >
-                  Add comment
+                  {t`Add comment`}
                 </button>
               </div>
             </div>
@@ -3461,12 +3469,12 @@ export function DocumentCanvas(props: {
         {showTexChrome && focusedPane === "primary" && (
           <MathPreview source={focusedSource} cursor={cursorOffset} macros={katexMacros} />
         )}
-        <div className="editor-status-bar" aria-label="Editor status">
-          <button type="button" className="status-goto" title="Go to line (⌘G)" onClick={onGotoLineRequest}>
-            Ln {statusPosition.line}, Col {statusPosition.column + 1}
+        <div className="editor-status-bar" aria-label={t`Editor status`}>
+          <button type="button" className="status-goto" title={t`Go to line (⌘G)`} onClick={onGotoLineRequest}>
+            {t({ message: `Ln ${{ line: statusPosition.line }}, Col ${{ column: statusPosition.column + 1 }}` })}
           </button>
           {editorKeymap === "vim" && (
-            <span className="status-vim-mode" aria-live="polite" title="Vim mode">
+            <span className="status-vim-mode" aria-live="polite" title={t`Vim mode`}>
               --{focusedVimMode.toUpperCase()}--
             </span>
           )}
@@ -3477,7 +3485,7 @@ export function DocumentCanvas(props: {
                   {index > 0 && <i aria-hidden="true">›</i>}
                   <button
                     type="button"
-                    title={`Go to ${node.title}`}
+                    title={t({ message: `Go to ${{ title: node.title }}` })}
                     onClick={() => onOutlineNavigate(node.path || focusedPath, node.line)}
                   >
                     {node.title}
@@ -3486,42 +3494,42 @@ export function DocumentCanvas(props: {
               ))}
             </span>
           )}
-          <span className="status-hint" title="Editor shortcuts">
+          <span className="status-hint" title={t`Editor shortcuts`}>
             {buildDiagnostics.length > 0
-              ? <><kbd>F8</kbd> next · <kbd>⇧F8</kbd> prev</>
-              : <><kbd>⌘F</kbd> find · <kbd>⌘/</kbd> comment · <kbd>⌘⇧I</kbd> insert</>}
+              ? <><kbd>F8</kbd> {t`next`} · <kbd>⇧F8</kbd> {t`previous`}</>
+              : <><kbd>⌘F</kbd> {t`find`} · <kbd>⌘/</kbd> {t`comment`} · <kbd>⌘⇧I</kbd> {t`insert`}</>}
           </span>
           <button
             type="button"
             className={`status-todos${commentsForActiveFile.some((comment) => !comment.resolved) ? " has-todos" : ""}`}
-            title="Editor comments"
+            title={t`Editor comments`}
             onClick={onOpenEditorComments}
           >
             <MessageSquareText size={12} />
             {commentsForActiveFile.filter((comment) => !comment.resolved).length
-              ? `${commentsForActiveFile.filter((comment) => !comment.resolved).length} comments`
-              : "Comments"}
+              ? t({ message: `${{ count: commentsForActiveFile.filter((comment) => !comment.resolved).length }} comments` })
+              : t`Comments`}
           </button>
           <button
             type="button"
             className={`status-todos${props.todoCount ? " has-todos" : ""}`}
-            title="Manuscript TODOs"
+            title={t`Manuscript TODOs`}
             onClick={props.onOpenTodos}
           >
             <ListTodo size={12} />
-            {props.todoCount ? `${props.todoCount} TODO` : "TODOs"}
+            {props.todoCount ? t({ message: `${{ count: props.todoCount }} TODO` }) : t`TODOs`}
           </button>
           <span
             className="status-body-words"
             title={props.projectWordCount
-              ? `Body words (${props.projectWordCount.source === "texcount" ? "texcount" : "estimate"}): text ${props.projectWordCount.text}, headers ${props.projectWordCount.headers}, captions ${props.projectWordCount.captions}`
-              : "Body word count unavailable"}
+              ? t({ message: `Body words (${{ source: props.projectWordCount.source === "texcount" ? "texcount" : t`estimate` }}): text ${{ text: props.projectWordCount.text }}, headers ${{ headers: props.projectWordCount.headers }}, captions ${{ captions: props.projectWordCount.captions }}` })
+              : t`Body word count unavailable`}
           >
             {selectedText
-              ? `Sel ${selectionStats.words.toLocaleString()} words · ${selectionStats.chars.toLocaleString()} chars · ${selectionStats.lines.toLocaleString()} lines`
+              ? t({ message: `Sel ${{ words: selectionStats.words.toLocaleString() }} words · ${{ chars: selectionStats.chars.toLocaleString() }} chars · ${{ lines: selectionStats.lines.toLocaleString() }} lines` })
               : props.projectWordCount
-                ? `Body ${props.projectWordCount.total.toLocaleString()} · raw ${wordCount.toLocaleString()} · ${focusedSource.length.toLocaleString()} chars`
-                : `${wordCount.toLocaleString()} words · ${focusedSource.length.toLocaleString()} chars`}
+                ? t({ message: `Body ${{ body: props.projectWordCount.total.toLocaleString() }} · raw ${{ raw: wordCount.toLocaleString() }} · ${{ chars: focusedSource.length.toLocaleString() }} chars` })
+                : t({ message: `${{ words: wordCount.toLocaleString() }} words · ${{ chars: focusedSource.length.toLocaleString() }} chars` })}
           </span>
         </div>
       </div>
@@ -3649,7 +3657,7 @@ export function DocumentCanvas(props: {
     // the path-specific Y.Doc carries records; local and v1 boards serialize
     // back through the source buffer before a document switch.
     return (
-      <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label="Preparing board editor" />}>
+      <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label={t`Preparing board editor`} />}>
         <BoardEditor
           key={activeFile}
           source={props.source}
@@ -3662,7 +3670,7 @@ export function DocumentCanvas(props: {
   }
   if (spreadsheetDocument && props.mode !== "dual" && props.mode !== "columns") {
     return (
-      <Suspense fallback={<div className="spreadsheet-editor-root" aria-busy="true" aria-label="Preparing spreadsheet editor" />}>
+      <Suspense fallback={<div className="spreadsheet-editor-root" aria-busy="true" aria-label={t`Preparing spreadsheet editor`} />}>
         <SpreadsheetEditor
           key={activeFile}
           path={activeFile}
@@ -3707,7 +3715,7 @@ export function DocumentCanvas(props: {
         onPointerDownCapture={focusSecondaryPane}
         onFocusCapture={focusSecondaryPane}
       >
-        <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label="Preparing board editor" />}>
+        <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label={t`Preparing board editor`} />}>
           <BoardEditor
             key={secondaryFile}
             source={secondarySource}
@@ -3726,7 +3734,7 @@ export function DocumentCanvas(props: {
         onPointerDownCapture={focusSecondaryPane}
         onFocusCapture={focusSecondaryPane}
       >
-        <Suspense fallback={<div className="spreadsheet-editor-root" aria-busy="true" aria-label="Preparing spreadsheet editor" />}>
+        <Suspense fallback={<div className="spreadsheet-editor-root" aria-busy="true" aria-label={t`Preparing spreadsheet editor`} />}>
           <SpreadsheetEditor
             key={secondaryFile}
             path={secondaryFile}
@@ -3779,12 +3787,12 @@ export function DocumentCanvas(props: {
         className={`dual-empty ${focusedPane === "secondary" ? "focused" : ""}`}
         data-editor-pane="secondary"
         tabIndex={0}
-        aria-label="Empty secondary editor"
+        aria-label={t`Empty secondary editor`}
         onPointerDownCapture={focusSecondaryPane}
         onFocus={focusSecondaryPane}
       >
         <Columns2 size={18} />
-        <p>Open or drag a file here.</p>
+        <p>{t`Open or drag a file here.`}</p>
       </div>
     );
     const secondaryPreviewContent = secondaryFile?.toLocaleLowerCase().endsWith(".md") ? (
@@ -3902,7 +3910,7 @@ export function DocumentCanvas(props: {
           onFocusPane("primary");
         }}
       >
-        <Suspense fallback={<div className={boardDocument ? "board-editor-root" : "spreadsheet-editor-root"} aria-busy="true" aria-label={boardDocument ? "Preparing board editor" : "Preparing spreadsheet editor"} />}>
+        <Suspense fallback={<div className={boardDocument ? "board-editor-root" : "spreadsheet-editor-root"} aria-busy="true" aria-label={boardDocument ? t`Preparing board editor` : t`Preparing spreadsheet editor`} />}>
           {boardDocument ? (
             <BoardEditor
               key={activeFile}
@@ -3964,7 +3972,7 @@ export function DocumentCanvas(props: {
       <div
         className="split-resizer"
         role="separator"
-        aria-label="Resize dual source panes"
+        aria-label={t`Resize dual source panes`}
         aria-orientation="vertical"
         tabIndex={0}
         onPointerDown={beginDualResize}
@@ -3985,7 +3993,7 @@ export function DocumentCanvas(props: {
           <div
             className="split-resizer"
             role="separator"
-            aria-label="Resize PDF pane"
+            aria-label={t`Resize PDF pane`}
             aria-orientation="vertical"
             aria-valuenow={Math.round(columnsPdfRatio * 100)}
             tabIndex={0}
@@ -4062,12 +4070,12 @@ export function DocumentCanvas(props: {
         className="split-resizer"
         role="separator"
         aria-label={props.activeAsset
-          ? "Resize editor and asset preview"
+          ? t`Resize editor and asset preview`
           : markdownDocument
-            ? "Resize editor and Markdown preview"
+            ? t`Resize editor and Markdown preview`
             : htmlDocument
-              ? "Resize editor and HTML preview"
-              : "Resize editor and PDF preview"}
+              ? t`Resize editor and HTML preview`
+              : t`Resize editor and PDF preview`}
         aria-orientation="vertical"
         aria-valuemin={20}
         aria-valuemax={80}
@@ -4215,6 +4223,7 @@ function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
 }
 
 function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
+  const { t } = useLingui();
   const url = `data:${asset.mimeType};base64,${asset.base64}`;
   const [scale, setScale] = useState(1);
   const [zoomDraft, setZoomDraft] = useState("100");
@@ -4265,10 +4274,10 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
       <div className="asset-preview-heading">
         <Image size={14} />
         <span>{asset.path}</span>
-        <small>Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it.</small>
+        <small>{t`Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it.`}</small>
         {asset.mimeType.startsWith("image/") && (
           <div className="asset-preview-zoom-controls">
-            <Tip label="Zoom out">
+            <Tip label={t`Zoom out`}>
               <button
                 type="button"
                 disabled={scale <= imageMinScale}
@@ -4280,10 +4289,10 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
             <label
               ref={zoomLabelRef}
               className="asset-preview-zoom-value"
-              title="Enter a zoom percentage or scroll to zoom"
+              title={t`Enter a zoom percentage or scroll to zoom`}
             >
               <input
-                aria-label="Image zoom percentage"
+                aria-label={t`Image zoom percentage`}
                 inputMode="decimal"
                 value={zoomEditing ? zoomDraft : String(Math.round(scale * 100))}
                 onFocus={(event) => {
@@ -4300,7 +4309,7 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
               />
               <span aria-hidden="true">%</span>
             </label>
-            <Tip label="Zoom in">
+            <Tip label={t`Zoom in`}>
               <button
                 type="button"
                 disabled={scale >= imageMaxScale}
@@ -4319,8 +4328,8 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
         viewportRef={stageViewportRef}
       >
         {asset.mimeType.startsWith("image/")
-          ? <img src={url} alt={`Preview of ${asset.path}`} style={{ zoom: scale }} />
-          : <div className="asset-preview-unsupported"><FileText size={28} /><p>This format cannot be rendered in the preview.</p></div>}
+          ? <img src={url} alt={t({ message: `Preview of ${{ path: asset.path }}` })} style={{ zoom: scale }} />
+          : <div className="asset-preview-unsupported"><FileText size={28} /><p>{t`This format cannot be rendered in the preview.`}</p></div>}
       </ScrollArea>
     </div>
   );

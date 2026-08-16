@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLingui } from "@lingui/react";
 import { Tldraw, type Editor, type TLStore } from "tldraw";
 import "tldraw/tldraw.css";
 import type * as Y from "yjs";
@@ -66,6 +67,8 @@ export function BoardEditor({
   onFlushPendingChange,
   active = true,
 }: BoardEditorProps) {
+  const { i18n } = useLingui();
+  const tldrawLocale = i18n.locale === "zh-CN" ? "zh-cn" : "en";
   const onChangeRef = useRef(onChange);
   const editorRef = useRef<Editor | null>(null);
   const unregisterAgentAdapterRef = useRef<(() => void) | null>(null);
@@ -78,6 +81,9 @@ export function BoardEditor({
     canWriteRef.current = collab?.canWrite !== false;
     editorRef.current?.updateInstanceState({ isReadonly: !canWriteRef.current });
   }, [collab?.canWrite]);
+  useLayoutEffect(() => {
+    editorRef.current?.user.updateUserPreferences({ locale: tldrawLocale });
+  }, [tldrawLocale]);
   useLayoutEffect(() => () => {
     canWriteRef.current = false;
     unregisterAgentAdapterRef.current?.();
@@ -174,17 +180,12 @@ export function BoardEditor({
       <Tldraw
         store={store}
         licenseKey={LICENSE_KEY}
-        locale="en"
+        locale={tldrawLocale}
         onMount={(editor) => {
           editorRef.current = editor;
-          // The `locale` prop above only reaches the provider wrapping the
-          // loading UI. Every menu inside the board reads
-          // `editor.user.getLocale()` instead, which falls back to the
-          // browser's language and left the board in Chinese on a
-          // Chinese-language machine while the rest of Lattice stayed English.
-          // This is a global tldraw preference, so setting it on mount covers
-          // the tutorial board and every board created later.
-          editor.user.updateUserPreferences({ locale: "en" });
+          // Menus read the editor preference as well as the provider locale.
+          // Keep both aligned with Lattice instead of the browser language.
+          editor.user.updateUserPreferences({ locale: tldrawLocale });
           editor.updateInstanceState({ isReadonly: !canWrite });
           if (editor.getCurrentPageShapes().length > 0) {
             window.requestAnimationFrame(() => {

@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  APPEARANCE_KEY,
   RECENT_PROJECTS_KEY,
   LOCAL_SEMANTIC_SEARCH_KEY,
   TUTORIAL_SEEN_KEY,
   WORKSPACE_LAYOUT_KEY,
   forgetRecentProject,
   hasSeenTutorial,
+  loadAppearance,
   loadLocalSemanticSearchEnabled,
   loadRecentProjects,
   loadWorkspaceLayout,
@@ -14,6 +16,7 @@ import {
   persistLocalSemanticSearchEnabled,
   persistWorkspaceLayout,
   rememberRecentProject,
+  resolveAppLocale,
   type WorkspaceLayout,
 } from "./app-settings";
 
@@ -28,6 +31,37 @@ const layout: WorkspaceLayout = {
   paperView: "fulltext",
   tabRecency: ["sections/method.tex", "main.tex", "figures/model.png"],
 };
+
+describe("interface language persistence", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("defaults to the system and restores explicit overrides", () => {
+    expect(loadAppearance().interfaceLanguage).toBe("system");
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    expect(loadAppearance().interfaceLanguage).toBe("zh-CN");
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: "en" }));
+    expect(loadAppearance().interfaceLanguage).toBe("en");
+  });
+
+  it("follows Chinese system locales and falls back to English", () => {
+    expect(resolveAppLocale("system", ["zh-CN"])).toBe("zh-CN");
+    expect(resolveAppLocale("system", ["zh-Hans"])).toBe("zh-CN");
+    expect(resolveAppLocale("system", ["zh-TW"])).toBe("zh-CN");
+    expect(resolveAppLocale("system", ["fr-FR", "zh-HK"])).toBe("zh-CN");
+    expect(resolveAppLocale("system", ["en-US"])).toBe("en");
+    expect(resolveAppLocale("system", ["fr-FR"])).toBe("en");
+  });
+
+  it("keeps explicit choices when they differ from the system language", () => {
+    expect(resolveAppLocale("en", ["zh-CN"])).toBe("en");
+    expect(resolveAppLocale("zh-CN", ["en-US"])).toBe("zh-CN");
+  });
+
+  it("returns to following the system for unsupported stored locales", () => {
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: "fr" }));
+    expect(loadAppearance().interfaceLanguage).toBe("system");
+  });
+});
 
 describe("workspace layout persistence", () => {
   beforeEach(() => localStorage.clear());

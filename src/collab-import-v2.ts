@@ -33,7 +33,19 @@ async function run(options: ImportV2Options): Promise<ImportProjectRecordV2> {
     const plain = files.map(({ bytes: _bytes, contentType: _type, ...entry }) => entry); const computedManifestHash = await canonicalImportManifestHash(plain); if (manifestHash && manifestHash !== computedManifestHash) throw new Error("resume_manifest_changed"); manifestHash = computedManifestHash;
     remoteRequestStarted = true;
     let catalog = await getCatalog(fetcher, options.deployment, id, secret).catch(() => undefined);
-    if (!catalog) { const response = await jsonFetch(fetcher, projectUrl(options.deployment, id, "bootstrap"), { projectInstanceId: id, projectName: options.projectName, hostSecret: secret, importManifest: plain, expectedManifestHash: manifestHash, operationId: importOperationId }); if (!response.ok) throw new Error("v2_bootstrap_failed"); catalog = await response.json() as CatalogV2; }
+    if (!catalog) {
+      const response = await jsonFetch(fetcher, projectUrl(options.deployment, id, "bootstrap"), { projectInstanceId: id, projectName: options.projectName, hostSecret: secret, importManifest: plain, expectedManifestHash: manifestHash, operationId: importOperationId });
+      if (!response.ok) {
+        let detail = response.statusText || "unknown_error";
+        try {
+          const body = await response.json() as { error?: unknown; message?: unknown };
+          const code = typeof body.error === "string" && body.error ? body.error : detail;
+          detail = typeof body.message === "string" && body.message ? `${code}: ${body.message}` : code;
+        } catch { /* preserve the HTTP fallback */ }
+        throw new Error(`v2_bootstrap_failed: ${detail} (${response.status})`);
+      }
+      catalog = await response.json() as CatalogV2;
+    }
     if (catalog.lifecycle === "live") { await options.onRecord({ version: 2, deployment: options.deployment, projectInstanceId: id, credentialRef }); return { version: 2, deployment: options.deployment, projectInstanceId: id, credentialRef }; }
     let progress = 0;
     const pending = files.filter((file) => {
@@ -53,12 +65,17 @@ async function run(options: ImportV2Options): Promise<ImportProjectRecordV2> {
       if (failed?.status === "rejected") throw failed.reason;
     }
     if (textFiles.length) catalog = await getCatalog(fetcher, options.deployment, id, secret);
-    for (const file of pending.filter((entry) => entry.kind === "binary")) {
-      const operationId = `import_${file.fileId}`.replace(/[^A-Za-z0-9_-]/g, "_");
-      await putBinary(fetcher, options.deployment, id, secret, file, catalog.catalogRevision, operationId);
-      completed.push(file.fileId); options.onProgress?.(++progress, files.length);
-      catalog = await getCatalog(fetcher, options.deployment, id, secret);
+    const binaryFiles = pending.filter((entry) => entry.kind === "binary");
+    for (let offset = 0; offset < binaryFiles.length; offset += IMPORT_CONCURRENCY) {
+      const results = await Promise.allSettled(binaryFiles.slice(offset, offset + IMPORT_CONCURRENCY).map(async (file) => {
+        const operationId = `import_${file.fileId}`.replace(/[^A-Za-z0-9_-]/g, "_");
+        await putBinary(fetcher, options.deployment, id, secret, file, catalog!.catalogRevision, operationId);
+        completed.push(file.fileId); options.onProgress?.(++progress, files.length);
+      }));
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed?.status === "rejected") throw failed.reason;
     }
+    if (binaryFiles.length) catalog = await getCatalog(fetcher, options.deployment, id, secret);
     verifyCatalog(catalog, plain); const finalized = await jsonFetch(fetcher, projectUrl(options.deployment, id, "import-finalize"), { operationId: `finalize_${importOperationId}`, expectedCatalogRevision: catalog.catalogRevision, importOperationId, expectedManifestHash: manifestHash }, secret); if (!finalized.ok) throw new Error("v2_finalize_failed");
     catalog = await getCatalog(fetcher, options.deployment, id, secret); if (catalog.lifecycle !== "live") throw new Error("v2_not_live");
     const record = { version: 2 as const, deployment: options.deployment, projectInstanceId: id, credentialRef }; await options.onRecord(record); return record;

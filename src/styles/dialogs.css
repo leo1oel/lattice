@@ -93,13 +93,19 @@
 .collab-recent { margin: 0; min-width: 0; }
 .collab-recent-title { margin: 0 0 var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 650; }
 /* Lattice thumbs (4px, hover-reveal). Clamp the root width so sideways overflow
-   scrolls inside ScrollArea — without that, the drawer grows and shows a native bar. */
+   scrolls inside ScrollArea — without that, the drawer grows and shows a native bar.
+   The right and bottom padding are dedicated scrollbar tracks, keeping both thumbs
+   outside room cards and their actions instead of painting over them. */
 .collab-recent-scroll {
-  max-height: 168px;
+  max-height: calc(168px + var(--space-5));
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  padding-right: var(--space-5);
+  padding-bottom: var(--space-5);
 }
+.collab-recent-scroll > .lattice-scrollbar[data-orientation="vertical"] { height: calc(100% - var(--space-5)); }
+.collab-recent-scroll > .lattice-scrollbar[data-orientation="horizontal"] { width: calc(100% - var(--space-5)); }
 .collab-recent-scroll-content {
   width: max-content;
   min-width: 100%;
@@ -117,10 +123,12 @@
 .collab-recent-item {
   flex: 1 1 auto;
   min-width: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
   align-items: center;
-  gap: var(--space-4);
-  padding: 0 var(--space-5);
+  column-gap: var(--space-4);
+  row-gap: var(--gap-hairline);
+  padding: var(--space-2) var(--space-5);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
   background: var(--surface-panel);
@@ -132,10 +140,11 @@
   background: var(--control-active-soft);
   border-color: var(--control-active-border);
 }
-.collab-recent-role { flex: none; display: inline-flex; color: var(--control-active); }
+.collab-recent-role { grid-row: 1 / span 2; display: inline-flex; color: var(--control-active); }
 .collab-recent-role[data-role="guest"] { color: var(--text-secondary); }
 .collab-recent-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-semibold); }
-.collab-recent-code { flex: none; color: var(--text-tertiary); font-size: var(--type-micro-size); font-family: var(--editor-font); }
+.collab-recent-time { color: var(--text-secondary); font-size: var(--type-micro-size); white-space: nowrap; }
+.collab-recent-code { grid-column: 2 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); font-family: var(--editor-font); }
 .collab-recent-forget { flex: none; }
 .collab-status-line {
   margin: 0;

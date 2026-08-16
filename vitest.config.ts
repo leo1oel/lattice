@@ -1,9 +1,13 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { lingui } from "@lingui/vite-plugin";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({ babel: { plugins: ["@lingui/babel-plugin-lingui-macro"] } }),
+    lingui(),
+  ],
   resolve: {
     // Keep the `@/…` alias in sync with vite.config.ts / tsconfig so tests can
     // import shadcn/ui components the same way the app does.

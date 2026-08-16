@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowRight, MousePointer2, Sparkles } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ACTIONS,
@@ -56,6 +57,7 @@ function roundedSpotlightPath(rect: DOMRect, padding = 8, radius = 10): string {
   const right = Math.min(window.innerWidth, rect.right + padding);
   const bottom = Math.min(window.innerHeight, rect.bottom + padding);
   const corner = Math.min(radius, (right - left) / 2, (bottom - top) / 2);
+  /* eslint-disable lingui/no-unlocalized-strings -- SVG path command syntax. */
   return [
     `M ${left + corner} ${top}`,
     `H ${right - corner}`,
@@ -69,6 +71,7 @@ function roundedSpotlightPath(rect: DOMRect, padding = 8, radius = 10): string {
     "Z",
   ].join(" ");
 }
+/* eslint-enable lingui/no-unlocalized-strings */
 
 function projectTreeFile(path: string): HTMLElement | null {
   const root = document.querySelector("file-tree-container.lattice-file-tree")?.shadowRoot;
@@ -110,6 +113,7 @@ function closeMarkdownSlashMenu() {
 }
 
 function LatticeTourTooltip(props: TooltipRenderProps) {
+  const { t } = useLingui();
   const { backProps, index, isLastStep, primaryProps, size, skipProps, step } = props;
   const canGoBack = step.buttons.includes("back") && index > 0;
   const canContinue = step.buttons.includes("primary");
@@ -129,10 +133,10 @@ function LatticeTourTooltip(props: TooltipRenderProps) {
         <span className="lattice-tour-mark" aria-hidden="true"><Sparkles size={15} /></span>
         <span className="lattice-tour-kicker">{index + 1} / {size}</span>
         {canSkip && (
-          <button className="lattice-tour-skip" type="button" {...skipProps}>Skip tutorial</button>
+          <button className="lattice-tour-skip" type="button" {...skipProps}>{t`Skip tutorial`}</button>
         )}
       </header>
-      <progress className="lattice-tour-progress" max={size} value={index + 1} aria-label={`Tutorial progress: step ${index + 1} of ${size}`} />
+      <progress className="lattice-tour-progress" max={size} value={index + 1} aria-label={t`Tutorial progress: step ${index + 1} of ${size}`} />
       <div className="lattice-tour-body">
         {step.title && <h2 id="lattice-tour-title">{step.title}</h2>}
         <div id="lattice-tour-content" className="lattice-tour-copy">{step.content}</div>
@@ -147,12 +151,12 @@ function LatticeTourTooltip(props: TooltipRenderProps) {
         <footer className="lattice-tour-footer">
           {canGoBack ? (
             <button className="lattice-tour-button secondary" type="button" {...backProps}>
-              <ArrowLeft size={14} aria-hidden="true" /> Back
+              <ArrowLeft size={14} aria-hidden="true" /> {t`Back`}
             </button>
           ) : <span />}
           {canContinue && (
             <button className="lattice-tour-button primary" type="button" {...primaryProps}>
-              {isLastStep ? "Finish" : "Continue"}
+              {isLastStep ? t`Finish` : t`Continue`}
               {!isLastStep && <ArrowRight size={14} aria-hidden="true" />}
             </button>
           )}
@@ -170,6 +174,7 @@ export function OnboardingTour(props: {
   onComplete: () => void;
   onSelectTutorialFile: (path: string, stepIndex: number) => void;
 }) {
+  const { t } = useLingui();
   const pointerTimersRef = useRef<number[]>([]);
   const pointerRunningRef = useRef(false);
   const [recoveryToken, setRecoveryToken] = useState(0);
@@ -367,16 +372,16 @@ export function OnboardingTour(props: {
       id: "welcome",
       target: "body",
       placement: "center",
-      title: "Welcome to Lattice",
-      content: "We opened a real project for you — the “Attention Is All You Need” paper — so you can try each feature on real files as we go. Skip whenever you like.",
+      title: t`Welcome to Lattice`,
+      content: t`We opened a real project for you — the “Attention Is All You Need” paper — so you can try each feature on real files as we go. Skip whenever you like.`,
       buttons: ["skip", "primary"],
     },
     {
       id: "latex",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="split-workspace"]',
-      title: "Your LaTeX and your PDF, side by side",
-      content: "Type in main.tex on the left. Lattice saves, compiles, and refreshes the PDF on the right on its own — there is no build button to hunt for.",
+      title: t`Your LaTeX and your PDF, side by side`,
+      content: t`Type in main.tex on the left. Lattice saves, compiles, and refreshes the PDF on the right on its own — there is no build button to hunt for.`,
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -384,16 +389,16 @@ export function OnboardingTour(props: {
     {
       id: "project-files",
       target: '[data-tour="project-panel"]',
-      title: "Everything for the paper lives in one folder",
-      content: "LaTeX, notes, figures, boards, and the papers you cite. Click any file in the tree to open it here.",
+      title: t`Everything for the paper lives in one folder`,
+      content: t`LaTeX, notes, figures, boards, and the papers you cite. Click any file in the tree to open it here.`,
       buttons: READING_BUTTONS,
       placement: "right-start",
     },
     {
       id: "view-modes",
       target: '[data-tour="document-view"]',
-      title: "Three ways to look at a document",
-      content: "Edit for the source, Split for both, Preview for the finished result. Switch at any time.",
+      title: t`Three ways to look at a document`,
+      content: t`Edit for the source, Split for both, Preview for the finished result. Switch at any time.`,
       buttons: READING_BUTTONS,
       placement: "bottom",
       spotlightPadding: 5,
@@ -402,8 +407,8 @@ export function OnboardingTour(props: {
       id: "markdown",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="split-workspace"]',
-      title: "Notes and drafts in Markdown",
-      content: "Not every file has to be LaTeX. notes.md gets the same live preview — source on the left, formatted on the right.",
+      title: t`Notes and drafts in Markdown`,
+      content: t`Not every file has to be LaTeX. notes.md gets the same live preview — source on the left, formatted on the right.`,
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -412,9 +417,9 @@ export function OnboardingTour(props: {
       id: "markdown-visual",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="markdown-visual-editor"]',
-      title: "The preview is editable too",
-      content: "Click into the formatted side and type — no Markdown syntax needed. Press / on an empty line to drop in headings, tables, math, or images.",
-      data: { action: "Try typing / in the visual editor" },
+      title: t`The preview is editable too`,
+      content: t`Click into the formatted side and type — no Markdown syntax needed. Press / on an empty line to drop in headings, tables, math, or images.`,
+      data: { action: t`Try typing / in the visual editor` },
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -423,8 +428,8 @@ export function OnboardingTour(props: {
       id: "html",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="document-preview"]',
-      title: "Run interactive explanations",
-      content: "HTML files render live right here — handy for demos and figures you want to poke at instead of only look at.",
+      title: t`Run interactive explanations`,
+      content: t`HTML files render live right here — handy for demos and figures you want to poke at instead of only look at.`,
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -433,8 +438,8 @@ export function OnboardingTour(props: {
       id: "board",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="board-workspace"]',
-      title: "Think visually on a board",
-      content: "An infinite canvas for diagrams, arrows, and freehand notes. This one maps how attention flows, and every shape on it is editable.",
+      title: t`Think visually on a board`,
+      content: t`An infinite canvas for diagrams, arrows, and freehand notes. This one maps how attention flows, and every shape on it is editable.`,
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -443,8 +448,8 @@ export function OnboardingTour(props: {
       id: "spreadsheet",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="spreadsheet-workspace"]',
-      title: "Analyze results in a live spreadsheet",
-      content: "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live.",
+      title: t`Analyze results in a live spreadsheet`,
+      content: t`Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live.`,
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -452,8 +457,8 @@ export function OnboardingTour(props: {
     {
       id: "spreadsheet-tools",
       target: '[data-u-comp="ribbon-toolbar"]',
-      title: "Formulas, Excel export, and Agent edits",
-      content: "Use Formulas, export as .xlsx, or ask Agent to read and update ranges, formulas, and formatting.",
+      title: t`Formulas, Excel export, and Agent edits`,
+      content: t`Use Formulas, export as .xlsx, or ask Agent to read and update ranges, formulas, and formatting.`,
       buttons: READING_BUTTONS,
       placement: "bottom-start",
       spotlightPadding: 5,
@@ -461,17 +466,17 @@ export function OnboardingTour(props: {
     {
       id: "workspace-actions",
       target: '[data-tour="workspace-actions"]',
-      title: "Sharing and history live in this row",
-      content: "Leave comments on a draft, share the project live with a co-author, sync a linked Overleaf project, commit to Git, or open the full version history — one button each, no terminal.",
+      title: t`Sharing and history live in this row`,
+      content: t`Leave comments on a draft, share the project live with a co-author, sync a linked Overleaf project, commit to Git, or open the full version history — one button each, no terminal.`,
       buttons: READING_BUTTONS,
       placement: "bottom-end",
     },
     {
       id: "open-papers",
       target: '[data-tour="papers-tab"]',
-      title: "Your sources live in the project too",
-      content: "Switch to Papers to see what this manuscript cites.",
-      data: { action: "Click Papers" },
+      title: t`Your sources live in the project too`,
+      content: t`Switch to Papers to see what this manuscript cites.`,
+      data: { action: t`Click Papers` },
       buttons: ACTION_BUTTONS,
       placement: "bottom",
       disableFocusTrap: true,
@@ -479,17 +484,17 @@ export function OnboardingTour(props: {
     {
       id: "papers",
       target: '[data-tour="project-panel"]',
-      title: "Your .bib file, as a readable library",
-      content: "Every entry from the bibliography shows up here. Anything with an arXiv ID can be downloaded in full with one click.",
+      title: t`Your .bib file, as a readable library`,
+      content: t`Every entry from the bibliography shows up here. Anything with an arXiv ID can be downloaded in full with one click.`,
       buttons: READING_BUTTONS,
       placement: "right-start",
     },
     {
       id: "import-vit",
       target: '[data-tour="tutorial-vit-paper"]',
-      title: "Let's download one of them",
-      content: "Lattice fetches the full text, the figures, and the metadata, then keeps them attached to the citation.",
-      data: { action: "Click “An Image is Worth 16×16 Words”" },
+      title: t`Let's download one of them`,
+      content: t`Lattice fetches the full text, the figures, and the metadata, then keeps them attached to the citation.`,
+      data: { action: t`Click “An Image is Worth 16×16 Words”` },
       buttons: ACTION_BUTTONS,
       placement: "right-start",
       disableFocusTrap: true,
@@ -497,9 +502,9 @@ export function OnboardingTour(props: {
     {
       id: "paper-blog",
       target: '[data-tour="paper-fulltext"]',
-      title: "Get the gist before you dive in",
-      content: "Blog view is a generated, illustrated walkthrough of the paper — enough to tell whether it deserves a full read.",
-      data: { action: "Click Paper to read the full text" },
+      title: t`Get the gist before you dive in`,
+      content: t`Blog view is a generated, illustrated walkthrough of the paper — enough to tell whether it deserves a full read.`,
+      data: { action: t`Click Paper to read the full text` },
       buttons: ACTION_BUTTONS,
       placement: "bottom",
       disableFocusTrap: true,
@@ -509,8 +514,8 @@ export function OnboardingTour(props: {
       id: "paper-full-text",
       target: '[data-tour="canvas-tour-card-anchor"]',
       spotlightTarget: '[data-tour="paper-reading-view"]',
-      title: "Then read the real thing, right here",
-      content: "Paper view keeps the complete text, sections, equations, and figures as structured Markdown — searchable, quotable, and next to your draft.",
+      title: t`Then read the real thing, right here`,
+      content: t`Paper view keeps the complete text, sections, equations, and figures as structured Markdown — searchable, quotable, and next to your draft.`,
       buttons: READING_BUTTONS,
       placement: "top-end",
       floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
@@ -518,9 +523,9 @@ export function OnboardingTour(props: {
     {
       id: "open-agent",
       target: '[data-tour="agent-tab"]',
-      title: "Last stop: your writing agent",
-      content: "Open the Agent tab. Codex, Claude, and other providers all plug in here.",
-      data: { action: "Click Agent" },
+      title: t`Last stop: your writing agent`,
+      content: t`Open the Agent tab. Codex, Claude, and other providers all plug in here.`,
+      data: { action: t`Click Agent` },
       buttons: ACTION_BUTTONS,
       placement: "bottom",
       disableFocusTrap: true,
@@ -528,13 +533,13 @@ export function OnboardingTour(props: {
     {
       id: "agent",
       target: '[data-tour="agent-panel"]',
-      title: "An agent that has already read your project",
-      content: "It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools.",
+      title: t`An agent that has already read your project`,
+      content: t`It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools.`,
       buttons: READING_BUTTONS,
       placement: "right-start",
     },
     ];
-  }, []);
+  }, [t]);
 
   const handleEvent = (event: EventData) => {
     if (event.status === STATUS.SKIPPED || event.action === ACTIONS.SKIP) {
@@ -628,7 +633,7 @@ export function OnboardingTour(props: {
       onEvent={handleEvent}
       tooltipComponent={LatticeTourTooltip}
       floatingOptions={{ hideArrow: true }}
-      locale={{ back: "Back", last: "Finish", next: "Continue", skip: "Skip tutorial" }}
+      locale={{ back: t`Back`, last: t`Finish`, next: t`Continue`, skip: t`Skip tutorial` }}
       options={{
         arrowColor: "var(--surface-panel-raised)",
         backgroundColor: "var(--surface-panel-raised)",

@@ -1,7 +1,35 @@
 import "@testing-library/jest-dom/vitest";
 // Re-exported by the React bindings, which are the direct dependency here.
 import { configure } from "@testing-library/react";
+import { createElement, useSyncExternalStore } from "react";
 import { afterEach, vi } from "vitest";
+import { activateAppLocale, i18n } from "./i18n";
+
+await activateAppLocale("en");
+
+// Unit tests render feature components directly rather than mounting main.tsx.
+// Give Lingui macros the same active instance without requiring every existing
+// test to repeat an I18nProvider wrapper.
+vi.mock("@lingui/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@lingui/react")>();
+  const { TransNoContext } = await import("@lingui/react/server");
+  const lingui = { i18n, _: i18n._.bind(i18n), defaultComponent: undefined };
+  return {
+    ...actual,
+    useLingui: () => {
+      useSyncExternalStore(
+        (onStoreChange) => i18n.on("change", onStoreChange),
+        () => i18n.locale,
+        () => i18n.locale,
+      );
+      return lingui;
+    },
+    Trans: (props: Parameters<typeof TransNoContext>[0]) => createElement(TransNoContext, {
+      ...props,
+      lingui,
+    }),
+  };
+});
 
 // Much of the app is behind `lazy()`, so the first `findBy…` for one of those
 // components is really waiting on a dynamic import. The default second is
@@ -21,8 +49,9 @@ vi.mock("@tauri-apps/plugin-log", () => ({
   error: vi.fn(async () => undefined),
 }));
 
-afterEach(() => {
+afterEach(async () => {
   vi.useRealTimers();
+  if (i18n.locale !== "en") await activateAppLocale("en");
 });
 
 // A few test files (vendored Open Knowledge core suites) opt into the node

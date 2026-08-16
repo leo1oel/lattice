@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ComponentType } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
+import { Awareness } from "y-protocols/awareness";
 import type {
   LatticeSpreadsheetFile,
   SpreadsheetCellData,
@@ -200,7 +202,7 @@ vi.mock("@univerjs/core", () => ({
   BorderStyleTypes: { THIN: 1 },
   DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY: "UNIVER_FORMULA_BAR",
   IConfirmService: Symbol("IConfirmService"),
-  LocaleType: { EN_US: "enUS" },
+  LocaleType: { EN_US: "enUS", ZH_CN: "zhCN" },
   LogLevel: { WARN: 2 },
   ThemeService: class {},
   Univer: class {
@@ -249,6 +251,7 @@ vi.mock("@univerjs/preset-sheets-core", () => ({
 }));
 
 vi.mock("@univerjs/preset-sheets-core/locales/en-US", () => ({ default: {} }));
+vi.mock("@univerjs/preset-sheets-core/locales/zh-CN", () => ({ default: {} }));
 
 import { SpreadsheetEditor } from "./spreadsheet-editor";
 import { ConfirmActionProvider } from "./confirm-action-dialog";
@@ -636,6 +639,57 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     expect(replacement.setActiveSheet).toHaveBeenCalled();
     expect(localOrigins).toEqual([]);
     view.unmount();
+    doc.destroy();
+  });
+
+  it("anchors a remote pointer inside its actual zero-based cell", async () => {
+    const doc = new Y.Doc();
+    seedSpreadsheetDoc(doc);
+    const awareness = new Awareness(doc);
+    const view = render(
+      <SpreadsheetEditor
+        path="shared.lattice-sheet"
+        source=""
+        onChange={vi.fn()}
+        onPersist={async () => true}
+        collab={{
+          doc,
+          awareness,
+          user: { id: "local", name: "Ada", color: "#123456" },
+          canWrite: true,
+        }}
+      />,
+    );
+    const workbook = univerMock.workbooks[0];
+    const markerRange = mockRange("C4");
+    const getRange = vi.spyOn(workbook.sheet, "getRange").mockReturnValue(markerRange);
+
+    act(() => {
+      awareness.states.set(999, {
+        user: { id: "remote", name: "Bo", color: "#654321" },
+        spreadsheetPresence: {
+          path: "shared.lattice-sheet",
+          sheetId: workbook.sheet.getSheetId(),
+          selections: [],
+          pointer: { row: 3, column: 2, xRatio: 0.5, yRatio: 0.5 },
+        },
+      });
+      awareness.emit("change", [{ added: [999], updated: [], removed: [] }, "remote"]);
+    });
+
+    await waitFor(() => expect(markerRange.attachPopup).toHaveBeenCalledOnce());
+    expect(getRange).toHaveBeenCalledWith(3, 2);
+    const options = markerRange.attachPopup.mock.calls[0]![0] as {
+      componentKey: ComponentType<{ popup: { extraProps?: { color?: string; name?: string } } }>;
+      extraProps: { color: string; name: string };
+    };
+    const Popup = options.componentKey;
+    const popup = render(<Popup popup={{ extraProps: options.extraProps }} />);
+    expect(popup.container.firstChild).toHaveStyle({ transform: "translateY(100%)" });
+
+    popup.unmount();
+    view.unmount();
+    awareness.destroy();
     doc.destroy();
   });
 });

@@ -8,7 +8,9 @@ import {
   THEME_KEY,
   loadAppearance,
   loadTheme,
+  resolveAppLocale,
 } from "./app-settings";
+import { activateAppLocale, i18n } from "./i18n";
 import { FIXED_UI_FONT } from "./available-fonts";
 
 export type Appearance = {
@@ -26,6 +28,7 @@ export type Appearance = {
 export function useAppearance(): Appearance {
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [appearance, setAppearance] = useState<AppearanceSettings>(loadAppearance);
+  const appLocale = resolveAppLocale(appearance.interfaceLanguage);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -38,6 +41,13 @@ export function useAppearance(): Appearance {
       // Theme changes still apply for the current session without storage.
     }
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.lang = appLocale;
+    if (i18n.locale !== appLocale) {
+      void activateAppLocale(appLocale);
+    }
+  }, [appLocale]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--ui-font", FIXED_UI_FONT);

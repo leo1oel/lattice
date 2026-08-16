@@ -1,7 +1,7 @@
 /**
  * Other people's carets, drawn in the editor.
  *
- * This owns exactly one thing: turning `{name, hue, row, column}` into a thin
+ * This owns exactly one thing: turning a presence coordinate and color into a thin
  * caret with an always-visible name tag, in the style of this app's own live
  * collaboration cursors. It knows nothing about Overleaf, sockets, or where
  * the list comes from — the caller (the presence hook, filtered to whichever
@@ -16,9 +16,17 @@ import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } fr
 export type PresenceCursor = {
   name: string;
   hue: number;
+  /** Exact collaborator color when the provider supplies one; hue is the fallback. */
+  color?: string;
   row: number;
   column: number;
 };
+
+export function presenceCursorColor(cursor: Pick<PresenceCursor, "color" | "hue">): string {
+  return cursor.color && /^#[0-9a-f]{6}$/i.test(cursor.color)
+    ? cursor.color
+    : `hsl(${cursor.hue}, 70%, 50%)`;
+}
 
 /** PresenceCursor speaks HSL hues; collab peers carry hex colors. */
 export function hueFromColorHex(hex: string): number {
@@ -131,7 +139,7 @@ export function buildPresenceCursorDecorations(doc: Text, cursors: PresenceCurso
   if (!cursors.length) return Decoration.none;
   return Decoration.set(
     cursors.map((cursor) => Decoration.widget({
-      widget: new PresenceCaretWidget(cursor.name, `hsl(${cursor.hue}, 70%, 50%)`),
+      widget: new PresenceCaretWidget(cursor.name, presenceCursorColor(cursor)),
       side: 1,
     }).range(posForRowColumn(doc, cursor.row, cursor.column))),
     true,

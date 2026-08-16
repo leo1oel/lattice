@@ -13,6 +13,7 @@ import App from "./App";
 import { clearAppLogs, formatAppLogs } from "./app-log-store";
 import { persistWorkspaceLayout } from "./app-settings";
 import { mapCollabProjectStatusV2 } from "./collab-status";
+import { formatCollabInvitationV2 } from "./collab-invitation-v2";
 import { loadTextLanguageExtensions } from "./document-canvas";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 import { usePanelLayout } from "./use-panel-layout";
@@ -54,7 +55,7 @@ const interfaceSounds = vi.hoisted(() => ({
   configure: vi.fn(),
   play: vi.fn(),
 }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
 vi.mock("@tauri-apps/api/webview", () => ({
   getCurrentWebview: () => ({
@@ -538,6 +539,25 @@ describe("welcome screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Providers" }));
     expect(screen.getByText("Open a project to manage Agent settings.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
+  });
+
+  it("switches the app chrome and settings to Simplified Chinese and persists the choice", async () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    expect(screen.getByLabelText("Interface language")).toHaveTextContent("Follow system (default)");
+    await chooseOption("Interface language", "Simplified Chinese");
+
+    await waitFor(() => expect(document.documentElement.lang).toBe("zh-CN"));
+    expect(await screen.findByRole("dialog", { name: "设置" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "设置分区" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "外观" })).toBeInTheDocument();
+    expect(screen.getByText("选择菜单、设置和帮助文字所使用的语言。")).toBeInTheDocument();
+    expect(localStorage.getItem("lattice.appearance.v5")).toContain('"interfaceLanguage":"zh-CN"');
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭设置" }));
+    expect(await screen.findByRole("heading", { name: "以证据书写研究。" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
   });
 
   it("keeps Settings draggable from its header and the top window strip", async () => {
@@ -5937,6 +5957,70 @@ describe("project workspace", () => {
     const element = document.querySelector<HTMLElement>(".cm-editor");
     const view = element ? EditorView.findFromDOM(element) : null;
     expect(view?.state.doc.toString()).toBe("# Private draft");
+  });
+
+  it("joins a live collaboration in the current window", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.collab.name", "Ada");
+    const notesSnapshot = {
+      root: "/tmp/notes",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "notes-id",
+        name: "Notes",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
+    };
+    const sharedSnapshot = {
+      ...notesSnapshot,
+      root: "/tmp/Lattice Shares/Shared room",
+      manifest: { ...notesSnapshot.manifest, projectId: "shared-id", name: "Shared room" },
+      files: [],
+    };
+    const projectInstanceId = "project_1234567890abcdef1234567890abcdef";
+    const invitation = formatCollabInvitationV2({
+      version: 2,
+      deployment: "https://collab.example",
+      projectInstanceId,
+      guestSecret: "A".repeat(43),
+      permission: "write",
+      projectName: "Shared room",
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      protocol: 2,
+      projectInstanceId,
+      name: "Shared room",
+      lifecycle: "live",
+      catalogRevision: 1,
+      snapshotGeneration: 0,
+      workspaceLeaseGeneration: 0,
+      authorityEpoch: 1,
+      files: [],
+    }), { headers: { "content-type": "application/json" } })));
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return notesSnapshot;
+      if (command === "read_project_file") return "# Private draft";
+      if (command === "put_collab_credential") return undefined;
+      if (command === "create_collab_join_workspace") return sharedSnapshot;
+      if (command === "open_project") throw new Error("stop after binding the current window");
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
+    fireEvent.click(document.querySelector<HTMLElement>('[data-tour="collaboration"]')!);
+    fireEvent.click(await screen.findByRole("tab", { name: "Join" }));
+    fireEvent.change(screen.getByLabelText("Collab invite"), { target: { value: invitation } });
+    fireEvent.click(screen.getByRole("button", { name: "Join share" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_project", {
+      path: sharedSnapshot.root,
+    }));
+    expect(invoke).not.toHaveBeenCalledWith("open_project_window", expect.anything());
   });
 
   it("gives a newly created project its own window when one is already open", async () => {

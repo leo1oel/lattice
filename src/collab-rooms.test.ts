@@ -41,4 +41,27 @@ describe("v2 project memory", () => {
     rememberCollabProjectV2({ version: 2, projectInstanceId: "project-3", host, credentialRef: "cred-host", permission: "host", title: "Paper", projectRoot: "/a", lastUsed: 2 });
     expect(loadCollabProjectsV2()[0]).toMatchObject({ permission: "host", credentialRef: "cred-host" });
   });
+
+  it("sorts by stable creation time instead of moving a rejoined room to the top", () => {
+    rememberCollabProjectV2({ version: 2, projectInstanceId: "older", host, credentialRef: "cred-old", permission: "host", title: "Older", projectRoot: "/old", createdAt: 10, lastUsed: 10 });
+    rememberCollabProjectV2({ version: 2, projectInstanceId: "newer", host, credentialRef: "cred-new", permission: "host", title: "Newer", projectRoot: "/new", createdAt: 20, lastUsed: 20 });
+    rememberCollabProjectV2({ version: 2, projectInstanceId: "older", host, credentialRef: "cred-old", permission: "host", title: "Older", projectRoot: "/old", createdAt: 30, lastUsed: 30 });
+
+    const records = loadCollabProjectsV2();
+    expect(records.map((record) => record.projectInstanceId)).toEqual(["newer", "older"]);
+    expect(records.find((record) => record.projectInstanceId === "older")?.createdAt).toBe(10);
+  });
+
+  it("uses last-used as the creation time for records saved before creation time existed", () => {
+    localStorage.setItem(PROJECTS_V2_KEY, JSON.stringify([
+      { version: 2, projectInstanceId: "older", host, credentialRef: "cred-old", permission: "host", title: "Older", projectRoot: "/old", lastUsed: 10 },
+      { version: 2, projectInstanceId: "newer", host, credentialRef: "cred-new", permission: "host", title: "Newer", projectRoot: "/new", lastUsed: 20 },
+    ]));
+
+    const records = loadCollabProjectsV2();
+    expect(records.map((record) => [record.projectInstanceId, record.createdAt])).toEqual([
+      ["newer", 20],
+      ["older", 10],
+    ]);
+  });
 });

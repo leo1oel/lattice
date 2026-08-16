@@ -486,7 +486,7 @@ describe("v2 project presence", () => {
     controller.destroy();
   });
 
-  it("rejects shared waiters cleanly when a file is renamed during synchronization", async () => {
+  it("rejects the stale path and reconnects a current path after a rename during synchronization", async () => {
     const { controller, catalogValue, syncedListeners } = await setupPresenceTest({ syncManually: true });
     const oldPath = controller.openPath("paper.md");
     await vi.waitFor(() => expect(syncedListeners).toHaveLength(1));
@@ -497,14 +497,46 @@ describe("v2 project presence", () => {
     syncedListeners[0]!(true);
 
     await expect(oldPath).rejects.toThrow("File changed while opening");
-    await expect(newPath).rejects.toThrow("File changed while opening");
     expect(controller.activePath).toBe("");
-
-    const retry = controller.openPath("renamed.md");
     await vi.waitFor(() => expect(syncedListeners).toHaveLength(2));
     syncedListeners[1]!(true);
-    await expect(retry).resolves.toBeDefined();
+    await expect(newPath).resolves.toBeDefined();
     expect(controller.activePath).toBe("renamed.md");
+    controller.destroy();
+  });
+
+  it("retries a stable file when its pooled client is evicted just after synchronization", async () => {
+    const { controller, syncedListeners } = await setupPresenceTest({ syncManually: true });
+    const opening = controller.openPath("paper.md");
+    await vi.waitFor(() => expect(syncedListeners).toHaveLength(1));
+    const clients = (controller as unknown as {
+      clients: Map<string, { destroy(): void }>;
+    }).clients;
+
+    syncedListeners[0]!(true);
+    clients.get("f0")!.destroy();
+
+    await vi.waitFor(() => expect(syncedListeners).toHaveLength(2));
+    syncedListeners[1]!(true);
+    await expect(opening).resolves.toBeDefined();
+    expect(controller.activePath).toBe("paper.md");
+    controller.destroy();
+  });
+
+  it("retries a stable file when its pooled client is evicted while waiting for synchronization", async () => {
+    const { controller, syncedListeners } = await setupPresenceTest({ syncManually: true });
+    const opening = controller.openPath("paper.md");
+    await vi.waitFor(() => expect(syncedListeners).toHaveLength(1));
+    const clients = (controller as unknown as {
+      clients: Map<string, { destroy(): void }>;
+    }).clients;
+
+    clients.get("f0")!.destroy();
+
+    await vi.waitFor(() => expect(syncedListeners).toHaveLength(2));
+    syncedListeners[1]!(true);
+    await expect(opening).resolves.toBeDefined();
+    expect(controller.activePath).toBe("paper.md");
     controller.destroy();
   });
 

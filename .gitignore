@@ -12,6 +12,8 @@ dist
 dist-ssr
 public/pdfjs
 *.local
+src/locales/**/*.js
+src/locales/**/*.js.map
 src-tauri/synara-runtime/
 .agents/artifacts/
 .agents/skills/

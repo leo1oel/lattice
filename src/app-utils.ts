@@ -9,7 +9,6 @@
  */
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
-import type { AutoBuildMode } from "./app-settings";
 import type {
   PaperSummary,
   CiteCommand,
@@ -203,20 +202,6 @@ export function toggleWindowFullscreen(event: React.MouseEvent<HTMLElement>) {
 
 export function toMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
-}
-
-export function autoBuildTitle(mode: AutoBuildMode): string {
-  if (mode === "automatic") return "Build automatically";
-  return "Build only when requested";
-}
-
-export function autoBuildDetail(mode: AutoBuildMode): string {
-  if (mode === "automatic") return "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds.";
-  return "Use the Build button or Command-S. Source changes are still saved automatically.";
-}
-
-export function autoBuildDescription(mode: AutoBuildMode): string {
-  return `${autoBuildTitle(mode)} · Command-S builds now`;
 }
 
 export function relativeTime(timestamp: string): string {

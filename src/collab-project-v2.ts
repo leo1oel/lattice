@@ -4,7 +4,7 @@ import type { CatalogFileV2, CatalogV2, ProjectLifecycle } from "../protocol/col
 import { CollabControlErrorV2, CollabControlV2Client, type PresenceEntryV2 } from "./collab-control-v2";
 import type { CollabCredentialStore } from "./collab-credentials";
 import { CollabTextDurableStoreV2, type TextNamespaceV2 } from "./collab-text-v2-store";
-import { CollabTextClientV2, CollabTextProviderPoolV2, createYPartyTransportV2, type ReconnectPolicyV2, type TextDurabilityStateV2, type TextTransportFactoryV2 } from "./collab-text-v2";
+import { CollabTextClientV2, CollabTextProviderPoolV2, createYPartyTransportV2, isClientDestroyedErrorV2, type ReconnectPolicyV2, type TextDurabilityStateV2, type TextTransportFactoryV2 } from "./collab-text-v2";
 import type { CollabDiagnosticSinkV2 } from "./collab-diagnostics-v2";
 import { CollabBinaryV2Client, type BinaryReplaceResult } from "./collab-binary-v2";
 import { formatCollabInvitationV2 } from "./collab-invitation-v2";
@@ -43,6 +43,7 @@ export type CollabMaterializeCallbacksV2 = {
   rename?(oldPath: string, newPath: string, projectRoot: string): Promise<string | void>;
   concurrency?: number;
 };
+type OpenPathOptionsV2 = { allowCachedOffline?: boolean; cachedFirst?: boolean; timeoutMs?: number; sideload?: boolean; activateIf?: () => boolean };
 export type CollabLocalMutationsV2 = {
   rename(oldPath: string, newPath: string, projectRoot: string): Promise<string | void>;
   delete(path: string, projectRoot: string): Promise<void>;
@@ -518,7 +519,11 @@ export class CollabProjectControllerV2 {
     }
   }
 
-  async openPath(path: string, pin: "main" | "secondary" = "main", options: { allowCachedOffline?: boolean; cachedFirst?: boolean; timeoutMs?: number; sideload?: boolean; activateIf?: () => boolean } = {}): Promise<Y.Text> {
+  async openPath(path: string, pin: "main" | "secondary" = "main", options: OpenPathOptionsV2 = {}): Promise<Y.Text> {
+    return this.openPathAttempt(path, pin, options, true);
+  }
+
+  private async openPathAttempt(path: string, pin: "main" | "secondary", options: OpenPathOptionsV2, retryEvictedClient: boolean): Promise<Y.Text> {
     this.assertLiveController(); const file = this.file(path); if (!file) throw new Error(`File is not in the v2 catalog: ${path}`); if (file.state !== "live" && file.state !== "initializing") throw new Error("File is unavailable");
     let client = this.clients.get(file.fileId);
     // The provider pool evicts (destroys) unpinned clean clients without
@@ -538,15 +543,36 @@ export class CollabProjectControllerV2 {
       // client and drops canWrite via subscribeState.
       void sync().catch(() => { if (!this.destroyed) this.setStatus("offline"); });
     } else {
-      try { await sync(); } catch (error) { if (this.destroyed || !options.allowCachedOffline) throw error; this.setStatus("offline"); }
+      try {
+        await sync();
+      } catch (error) {
+        if (!this.destroyed && isClientDestroyedErrorV2(error)) {
+          const current = this.fileById(file.fileId);
+          const catalogChanged = !current || current.state !== "live" || current.path !== path || current.documentEpoch !== file.documentEpoch;
+          this.detachDiskObserver(file.fileId);
+          if (this.clients.get(file.fileId) === client) this.clients.delete(file.fileId);
+          this.pool.remove(client);
+          client.destroy();
+          if (!catalogChanged && retryEvictedClient) return this.openPathAttempt(path, pin, options, false);
+          throw new Error("File changed while opening", { cause: error });
+        }
+        if (this.destroyed || !options.allowCachedOffline) throw error;
+        this.setStatus("offline");
+      }
     }
     this.assertLiveController();
     const current = this.fileById(file.fileId);
-    if (client.isDestroyed || !current || current.state !== "live" || current.path !== path || current.documentEpoch !== file.documentEpoch) {
+    const catalogChanged = !current || current.state !== "live" || current.path !== path || current.documentEpoch !== file.documentEpoch;
+    if (client.isDestroyed || catalogChanged) {
+      const retry = client.isDestroyed && !catalogChanged && retryEvictedClient;
       this.detachDiskObserver(file.fileId);
       if (this.clients.get(file.fileId) === client) this.clients.delete(file.fileId);
       this.pool.remove(client);
       client.destroy();
+      // A clean sideload may be evicted between the provider's sync event and
+      // this continuation. Reopen once when the catalog identity is unchanged;
+      // real renames, deletes and epoch changes must still fail closed.
+      if (retry) return this.openPathAttempt(path, pin, options, false);
       throw new Error("File changed while opening");
     }
     // (Re)mirroring onto disk: a resurrected client needs a fresh observer on

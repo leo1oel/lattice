@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import lingui from "eslint-plugin-lingui";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
@@ -9,6 +10,15 @@ export default tseslint.config(
   { ignores: ["dist", "src-tauri/target", "src/open-knowledge-core", "src/open-knowledge-app"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+      },
+    },
+  },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
@@ -25,6 +35,7 @@ export default tseslint.config(
       },
     },
     plugins: {
+      lingui,
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
     },
@@ -46,6 +57,53 @@ export default tseslint.config(
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_",
       }],
+    },
+  },
+  {
+    // Start strict enforcement at each migrated UI boundary. Lingui's strict
+    // catalog compilation catches missing Chinese entries; this rule catches
+    // visible strings that were never added to a catalog in the first place.
+    files: [
+      "src/settings-dialog.tsx",
+      "src/project-dialogs.tsx",
+      "src/navigator.tsx",
+      "src/canvas-toolbar.tsx",
+      "src/document-canvas.tsx",
+      "src/onboarding-tour.tsx",
+      "src/collab-dialog.tsx",
+      "src/tex-setup-wizard.tsx",
+      "src/pdf-viewer.tsx",
+    ],
+    rules: {
+      "lingui/no-unlocalized-strings": [
+        "error",
+        {
+          ignore: [
+            "^(?:LATTICE|NeurIPS|ICML|ICLR|Vim|Emacs|MCP|Overleaf|BasicTeX|pdfLaTeX|XeLaTeX|LuaLaTeX)$",
+            "^[a-z][a-z0-9:+./_-]*$",
+            // Stable implementation syntax: selectors/CSS, LaTeX insertion
+            // templates, CSS transforms, and generated local paper paths.
+            "^(?:[.#:\\[].*|.*\\[.*\\].*|@media .*|document\\..*|\\(\\(\\)=>.*|<!doctype html>.*|\\(prefers-reduced-motion: reduce\\)|\\\\(?:textbf|textit|underline|sout|colorbox|begin|end|href).*|%(?:5C|7B|7D)|(?:translate|scale|minmax)\\(.*|.*(?:px|ms|fr) .*|opacity 60ms ease-out|box-shadow 60ms ease-out|\\.research/papers/.*|/(?:paper|blog)\\.md|figure\\.pdf|data:.*|markdown-preview secondary-markdown-preview|@replit/codemirror-vim|F8|⇧F8|⌘F|⌘/|⌘⇧I)$",
+            "^(?:M .*|H .*|Q .*|V .*|Z|viewBox|Escape|var\\(--(?:surface-panel-raised|control-active|text-primary)\\)|rgb\\(8 10 14 / 0\\.48\\)|2d|pdf-search disabled|modal tex-setup-modal)$",
+          ],
+          ignoreNames: [
+            "path",
+            "source",
+            "HTML_PREVIEW_SCROLLBAR_STYLES",
+            "PIERRE_TREE_CSS",
+            "nextTransform",
+            "PDF_SOURCE",
+            "TEX_SETUP_SOURCE",
+            "roundedSpotlightPath",
+            "updatePaperBlogSpotlight",
+            "renderPdfPageCanvas",
+            "refineContinuousPageCanvas",
+            "trace",
+            "mode",
+            "backdropClassName",
+          ],
+        },
+      ],
     },
   },
 );

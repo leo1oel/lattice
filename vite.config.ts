@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { lingui } from "@lingui/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 
 // @ts-expect-error process is a nodejs global
@@ -122,7 +123,12 @@ export default defineConfig(async () => ({
     // React Compiler auto-memoizes components it can prove safe, and silently
     // skips the rest (e.g. anything the react-hooks lint still flags), so it is
     // safe to enable across the app before every warning is cleaned up.
-    react({ babel: { plugins: [["babel-plugin-react-compiler", { target: "19" }]] } }),
+    // Lingui macros must expand first so the compiler sees ordinary React.
+    react({ babel: { plugins: [
+      "@lingui/babel-plugin-lingui-macro",
+      ["babel-plugin-react-compiler", { target: "19" }],
+    ] } }),
+    lingui(),
     tailwindcss(),
     pdfjsAssetsPlugin(),
     shikiTrim.plugin,

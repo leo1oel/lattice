@@ -183,15 +183,12 @@ describe("CollabDialog chat tab", () => {
     expect(screen.queryByText("Mine")).not.toBeInTheDocument();
   });
 
-  it("lets a host rename or close a remembered room without rejoining it", () => {
+  it("lets a host rename or close a remembered room, but not remove a live room from the list", () => {
     const room = { version: 2 as const, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "host" as const, title: "Paper", projectRoot: "/paper", lastUsed: 1 };
     const onRenameProjectV2 = vi.fn(); const onCloseProjectV2 = vi.fn(); const onForgetProjectV2 = vi.fn();
     render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[room]} onRenameProjectV2={onRenameProjectV2} onCloseProjectV2={onCloseProjectV2} onForgetProjectV2={onForgetProjectV2} />);
-    // Close is a host's proper exit, but it cannot be the only one: a room the
-    // server already reclaimed can never be closed, and the row would be stuck
-    // in the list for good. The handler warns before forgetting one.
-    fireEvent.click(screen.getByLabelText("Remove project_12345678 from recent shares"));
-    expect(onForgetProjectV2).toHaveBeenCalledWith(room);
+    expect(screen.queryByLabelText("Remove project_12345678 from recent shares")).not.toBeInTheDocument();
+    expect(onForgetProjectV2).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Rename" }));
     const renameInput = screen.getByLabelText("Rename Paper");
     fireEvent.change(renameInput, { target: { value: "Final paper" } });
@@ -199,6 +196,21 @@ describe("CollabDialog chat tab", () => {
     expect(onRenameProjectV2).toHaveBeenCalledWith(room, "Final paper");
     fireEvent.click(screen.getByRole("button", { name: "Close for everyone" }));
     expect(onCloseProjectV2).toHaveBeenCalledWith(room);
+  });
+
+  it("orders remembered rooms by creation time and shows their localized age", () => {
+    const now = Date.now();
+    const older = { version: 2 as const, projectInstanceId: "project_older123", host: "https://sync.example", credentialRef: "cred_old", permission: "host" as const, title: "Older paper", projectRoot: "/older", createdAt: now - 26 * 60 * 60 * 1000, lastUsed: now };
+    const newer = { version: 2 as const, projectInstanceId: "project_newer123", host: "https://sync.example", credentialRef: "cred_new", permission: "host" as const, title: "Newer paper", projectRoot: "/newer", createdAt: now - 2 * 60 * 60 * 1000, lastUsed: now - 60_000 };
+
+    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[older, newer]} />);
+
+    expect(screen.getAllByTitle(/^Rejoin /).map((row) => row.getAttribute("title"))).toEqual([
+      "Rejoin Newer paper",
+      "Rejoin Older paper",
+    ]);
+    expect(screen.getByText("2 hours ago")).toBeInTheDocument();
+    expect(screen.getByText("yesterday")).toBeInTheDocument();
   });
 
   it("cancels an in-progress room rename without calling the handler", () => {

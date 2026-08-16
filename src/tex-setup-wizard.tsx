@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { Wrench } from "lucide-react";
 import {
@@ -21,26 +22,6 @@ import { toMessage } from "./app-utils";
 /** Notification source label for the LaTeX install wizard. */
 const TEX_SETUP_SOURCE = "LaTeX setup";
 
-const INSTALL_STAGE_LABEL: Record<TexInstallProgress["stage"], string> = {
-  downloading: "Downloading BasicTeX…",
-  authorizing: "Waiting for administrator approval…",
-  "installing-base": "Installing BasicTeX…",
-  "installing-packages": "Installing LaTeX packages…",
-  "installing-tools": "Installing required tools…",
-  verifying: "Verifying installation…",
-  complete: "Finishing setup…",
-};
-
-const INSTALL_STAGE_DETAIL: Record<TexInstallProgress["stage"], string> = {
-  downloading: "Download time depends on your connection.",
-  authorizing: "Approve the macOS prompt to continue.",
-  "installing-base": "This step may take a minute.",
-  "installing-packages": "This is the longest step and can take up to 15 minutes.",
-  "installing-tools": "Installing uv for paper imports and bibliography tools.",
-  verifying: "Almost done.",
-  complete: "Setup is complete.",
-};
-
 export function TexSetupWizard(props: {
   open: boolean;
   report: DoctorReportLike | null;
@@ -48,6 +29,26 @@ export function TexSetupWizard(props: {
   onClose: () => void;
   onRecheck: () => Promise<DoctorReportLike | null>;
 }) {
+  const { t } = useLingui();
+  const installStageLabel: Record<TexInstallProgress["stage"], string> = {
+    downloading: t`Downloading BasicTeX…`,
+    authorizing: t`Waiting for administrator approval…`,
+    "installing-base": t`Installing BasicTeX…`,
+    "installing-packages": t`Installing LaTeX packages…`,
+    "installing-tools": t`Installing required tools…`,
+    verifying: t`Verifying installation…`,
+    complete: t`Finishing setup…`,
+  };
+
+  const installStageDetail: Record<TexInstallProgress["stage"], string> = {
+    downloading: t`Download time depends on your connection.`,
+    authorizing: t`Approve the macOS prompt to continue.`,
+    "installing-base": t`This step may take a minute.`,
+    "installing-packages": t`This is the longest step and can take up to 15 minutes.`,
+    "installing-tools": t`Installing uv for paper imports and bibliography tools.`,
+    verifying: t`Almost done.`,
+    complete: t`Setup is complete.`,
+  };
   const [installing, setInstalling] = useState(false);
   const [installProgress, setInstallProgress] = useState<TexInstallProgress>({
     stage: "downloading",
@@ -77,7 +78,7 @@ export function TexSetupWizard(props: {
     setInstallProgress({ stage: paperToolsOnly ? "installing-tools" : "downloading", progress: 0 });
     const trace = logAction(
       TEX_SETUP_SOURCE,
-      paperToolsOnly ? "Install required paper tools" : "Install BasicTeX",
+      paperToolsOnly ? t`Install required paper tools` : t`Install BasicTeX`,
     );
     try {
       const onProgress = new Channel<TexInstallProgress>();
@@ -87,10 +88,13 @@ export function TexSetupWizard(props: {
         onProgress,
       });
       setInstallProgress({ stage: "complete", progress: 1 });
+      const installedProduct = paperToolsOnly ? t`The required tools` : "BasicTeX";
       const report = await props.onRecheck();
       if (!report) {
         throw new Error(
-          `${paperToolsOnly ? "The required tools" : "BasicTeX"} finished installing, but Lattice could not run the final verification.`,
+          t({
+            message: `${installedProduct} finished installing, but Lattice could not run the final verification.`,
+          }),
         );
       }
       const missingTools = [
@@ -100,16 +104,18 @@ export function TexSetupWizard(props: {
       const fontCheck = report.checks.find((check) => check.name === "conference-fonts");
       if (missingTools.length > 0 || fontCheck?.ok !== true) {
         const issues = [
-          ...(missingTools.length > 0 ? [`Missing tools: ${missingTools.join(", ")}`] : []),
+          ...(missingTools.length > 0 ? [t`Missing tools: ${missingTools.join(", ")}`] : []),
           ...(fontCheck?.ok !== true
-            ? [fontCheck?.detail ?? "Conference font verification is missing."]
+            ? [fontCheck?.detail ?? t`Conference font verification is missing.`]
             : []),
         ];
         throw new Error(
-          `${paperToolsOnly ? "The required tools" : "BasicTeX"} finished installing, but Lattice could not verify:\n${issues.join("\n")}`,
+          t({
+            message: `${installedProduct} finished installing, but Lattice could not verify:\n${issues.join("\n")}`,
+          }),
         );
       }
-      trace.ok(paperToolsOnly ? "Required paper tools installed" : "BasicTeX installed");
+      trace.ok(paperToolsOnly ? t`Required paper tools installed` : t`BasicTeX installed`);
       props.onClose();
     } catch (reason) {
       setInstallError(toMessage(reason));
@@ -122,21 +128,19 @@ export function TexSetupWizard(props: {
   const percent = Math.round(installProgress.progress * 100);
 
   return (
-    <ModalDialog label="Install LaTeX tools" onClose={props.onClose} closeDisabled backdropClassName="tex-setup-backdrop">
+    <ModalDialog label={t`Install LaTeX tools`} onClose={props.onClose} closeDisabled backdropClassName="tex-setup-backdrop">
       <PopIn
         className="modal tex-setup-modal"
       >
         <div className="modal-icon"><Wrench size={18} /></div>
-        <h2>{paperToolsOnly ? "Install required paper tools" : "Install LaTeX to compile"}</h2>
+        <h2>{paperToolsOnly ? t`Install required paper tools` : t`Install LaTeX to compile`}</h2>
         {paperToolsOnly ? (
           <p>
-            Lattice needs uv to add papers and manage bibliographies. The verified download
-            {" "}uses about 45 MB and usually installs in under a minute.
+            {t({ message: "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute." })}
           </p>
         ) : (
           <p>
-            BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after
-            {" "}installation. Initial setup can take up to 15 minutes.
+            {t({ message: `BasicTeX and Lattice’s required paper tools use about ${TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes.` })}
           </p>
         )}
 
@@ -146,8 +150,8 @@ export function TexSetupWizard(props: {
               className="tex-setup-progress"
               role="progressbar"
               aria-label={paperToolsOnly
-                ? "Required tools installation progress"
-                : "BasicTeX installation progress"}
+                ? t`Required tools installation progress`
+                : t`BasicTeX installation progress`}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={percent}
@@ -155,8 +159,8 @@ export function TexSetupWizard(props: {
               <div className="tex-setup-progress-fill" style={{ width: `${percent}%` }} />
             </div>
             <div className="tex-setup-progress-copy">
-              <span>{INSTALL_STAGE_LABEL[installProgress.stage]} {percent}%</span>
-              <small>{INSTALL_STAGE_DETAIL[installProgress.stage]}</small>
+              <span>{installStageLabel[installProgress.stage]} {percent}%</span>
+              <small>{installStageDetail[installProgress.stage]}</small>
             </div>
           </div>
         )}
@@ -174,7 +178,7 @@ export function TexSetupWizard(props: {
           disabled={busy || ready}
         >
           {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
-          {paperToolsOnly ? "Install required tools" : "Install Basic TeX"}
+          {paperToolsOnly ? t`Install required tools` : t`Install Basic TeX`}
         </MotionButton>
       </PopIn>
     </ModalDialog>

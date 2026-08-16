@@ -82,12 +82,18 @@ describe("shared surface contracts", () => {
     expect(appCss).not.toContain(".bib-entry-dialog { gap: 0; }")
   })
 
-  it("keeps shared-room sideways overflow inside the Lattice scrollbar", () => {
+  it("keeps shared-room overflow inside dedicated Lattice scrollbar tracks", () => {
     expect(appCss).toMatch(
-      /\.collab-recent-scroll \{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*min-width:\s*0/,
+      /\.collab-recent-scroll \{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*min-width:\s*0;[^}]*padding-right:\s*var\(--space-5\);[^}]*padding-bottom:\s*var\(--space-5\)/,
     )
     expect(appCss).toMatch(
       /\.collab-recent-scroll-content \{[^}]*width:\s*max-content;[^}]*min-width:\s*100%/,
+    )
+    expect(appCss).toMatch(
+      /\.collab-recent-scroll > \.lattice-scrollbar\[data-orientation="vertical"\] \{[^}]*height:\s*calc\(100% - var\(--space-5\)\)/,
+    )
+    expect(appCss).toMatch(
+      /\.collab-recent-scroll > \.lattice-scrollbar\[data-orientation="horizontal"\] \{[^}]*width:\s*calc\(100% - var\(--space-5\)\)/,
     )
   })
 

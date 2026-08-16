@@ -13,6 +13,7 @@ describe("acceptCollabInvitationV2", () => {
     const record = await acceptCollabInvitationV2(raw, store, { now: 7 });
     expect(record?.credentialRef).toMatch(/^cred_/);
     expect(await store.get(record!.credentialRef!, record!.projectInstanceId, record!.host)).toBe(secret);
+    expect(record).toMatchObject({ createdAt: 7, lastUsed: 7 });
     expect(JSON.stringify(loadCollabProjectsV2())).not.toContain(secret);
     expect(localStorage.getItem("lattice.collab.projects.v2")).not.toContain(secret);
   });

@@ -6,6 +6,7 @@ import "./polyfills";
 import "react-medium-image-zoom/dist/styles.css";
 import "./index.css";
 import ReactDOM from "react-dom/client";
+import { I18nProvider } from "@lingui/react";
 import "@fontsource-variable/inter";
 import "./assets/fonts/ioskeley-mono/ioskeley-mono.css";
 import "@fontsource/instrument-serif/400.css";
@@ -17,6 +18,8 @@ import { RootErrorBoundary } from "./root-error-boundary";
 import { AppToastStack } from "./app-log";
 import { ConfirmActionProvider } from "./confirm-action-dialog";
 import { installGlobalErrorCapture } from "./global-error-capture";
+import { loadAppearance, resolveAppLocale } from "./app-settings";
+import { activateAppLocale, i18n } from "./i18n";
 
 installGlobalErrorCapture();
 
@@ -27,17 +30,22 @@ if (import.meta.env.DEV && localStorage.getItem("lattice-perf")) {
   void import("./perf-probe").then((probe) => probe.installPerfProbe());
 }
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <>
-    <RootErrorBoundary>
-      <UpdaterProvider>
-        <ConfirmActionProvider>
-          <App />
-          <UpdateBanner corner="top-right" />
-          <AppToastStack />
-        </ConfirmActionProvider>
-      </UpdaterProvider>
-    </RootErrorBoundary>
-    {import.meta.env.DEV && <InterfaceKit />}
-  </>,
-);
+async function startApp() {
+  await activateAppLocale(resolveAppLocale(loadAppearance().interfaceLanguage));
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <I18nProvider i18n={i18n}>
+      <RootErrorBoundary>
+        <UpdaterProvider>
+          <ConfirmActionProvider>
+            <App />
+            <UpdateBanner corner="top-right" />
+            <AppToastStack />
+          </ConfirmActionProvider>
+        </UpdaterProvider>
+      </RootErrorBoundary>
+      {import.meta.env.DEV && <InterfaceKit />}
+    </I18nProvider>,
+  );
+}
+
+void startApp();

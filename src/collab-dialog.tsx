@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Check, Copy, Radio, X } from "lucide-react";
 import { IconSwap, MotionButton } from "./motion";
 import { confirmAction } from "./app-utils";
@@ -21,6 +22,17 @@ import { ResizableDrawer } from "./resizable-drawer";
 export type CollabDialogMode = "start" | "join";
 /** Which half of the live card is showing. Chat only exists once a room is live. */
 type CollabLiveTab = "status" | "chat";
+
+function roomRelativeTime(timestamp: number, locale: string, now = Date.now()): string {
+  const elapsed = Math.max(0, now - timestamp);
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (elapsed < 60_000) return formatter.format(0, "second");
+  if (elapsed < 3_600_000) return formatter.format(-Math.floor(elapsed / 60_000), "minute");
+  if (elapsed < 86_400_000) return formatter.format(-Math.floor(elapsed / 3_600_000), "hour");
+  if (elapsed < 30 * 86_400_000) return formatter.format(-Math.floor(elapsed / 86_400_000), "day");
+  if (elapsed < 365 * 86_400_000) return formatter.format(-Math.floor(elapsed / (30 * 86_400_000)), "month");
+  return formatter.format(-Math.floor(elapsed / (365 * 86_400_000)), "year");
+}
 
 export function CollabDialog(props: {
   open: boolean;
@@ -71,6 +83,7 @@ export function CollabDialog(props: {
   /** Fires whenever the chat tab is the visible one while the dialog is open, to clear the badge. */
   onChatOpen?: () => void;
 }) {
+  const { i18n, t } = useLingui();
   const [copied, setCopied] = useState(false);
   const [removingPeer, setRemovingPeer] = useState<string | null>(null);
   const [liveTab, setLiveTab] = useState<CollabLiveTab>("status");
@@ -105,15 +118,22 @@ export function CollabDialog(props: {
   // tab you are on says which one you mean: Start sharing lists the rooms you
   // can reopen and end, Join lists the ones you can go back into. One combined
   // list under Start sharing offered to "start" a room you are only a guest in.
-  const recentRooms = (props.recentProjectsV2 ?? []).filter((record) => (
-    mode === "start" ? record.permission === "host" : record.permission !== "host"
-  ));
-  const recentRoomsTitle = mode === "start" ? "Rooms you host" : "Rooms you joined";
+  const recentRooms = (props.recentProjectsV2 ?? [])
+    .filter((record) => (
+      mode === "start" ? record.permission === "host" : record.permission !== "host"
+    ))
+    .sort((left, right) => (
+      (right.createdAt ?? right.lastUsed) - (left.createdAt ?? left.lastUsed)
+    ));
+  const recentRoomsTitle = mode === "start" ? t`Rooms you host` : t`Rooms you joined`;
   const othersLabel = props.peerCount === 0
-    ? "just you"
+    ? t`just you`
     : props.peerCount === 1
-      ? "1 other"
-      : `${props.peerCount} others`;
+      ? t`1 other`
+      : t`${props.peerCount} others`;
+  const roleLabel = props.role === "guest" ? t`Joined` : t`Sharing`;
+  const fileCountLabel = props.fileCount === 1 ? t`1 file` : t`${props.fileCount} files`;
+  const connectedRoomLabel = props.connectedRoom ?? "";
 
   const copyInvite = async () => {
     // `false` means the copy failed (and was surfaced by the handler) — the
@@ -138,7 +158,9 @@ export function CollabDialog(props: {
 
   const stopSharing = async () => {
     const ok = await confirmAction(
-      "Stop sharing for everyone?\n\nCollaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite.",
+      t({
+        message: "Stop sharing for everyone?\n\nCollaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite.",
+      }),
     );
     if (!ok) return;
     props.onDisconnect();
@@ -146,7 +168,10 @@ export function CollabDialog(props: {
 
   const removePeer = async (peer: CollabPeer) => {
     if (!peer.grantId || !props.onRemovePeer) return;
-    if (!await confirmAction(`Remove ${peer.name}?\n\nThey will lose access immediately. Anyone who joined with the same invite will also lose access.`)) return;
+    const removeConfirmation = t({
+      message: `Remove ${peer.name}?\n\nThey will lose access immediately. Anyone who joined with the same invite will also lose access.`,
+    });
+    if (!await confirmAction(removeConfirmation)) return;
     setRemovingPeer(peer.grantId);
     try {
       await props.onRemovePeer(peer);
@@ -179,13 +204,13 @@ export function CollabDialog(props: {
     <ResizableDrawer
       className="collab-drawer"
       dataTour="collaboration-panel"
-      ariaLabel="Live collaboration"
+      ariaLabel={t`Live collaboration`}
       onClose={props.onClose}
     >
       <PanelHeader
         className="drawer-header"
         icon={<Radio size={16} />}
-        title="Live collaboration"
+        title={t`Live collaboration`}
         onClose={props.onClose}
       />
       <div className="modal collab-modal collab-drawer-content">
@@ -193,41 +218,41 @@ export function CollabDialog(props: {
           <SegmentedControl
             value={mode}
             onChange={props.onModeChange}
-            ariaLabel="Share mode"
+            ariaLabel={t`Share mode`}
             size="default"
             tone="accent"
             className="collab-mode-switch"
             items={[
-              { value: "start", label: "Start sharing" },
-              { value: "join", label: "Join" },
+              { value: "start", label: t`Start sharing` },
+              { value: "join", label: t`Join` },
             ]}
           />
         ) : null}
 
         <div className="collab-field">
           <label>
-            Your name
+            {t`Your name`}
             <Input
               controlSize="form"
-              aria-label="Collab display name"
-              placeholder="Ada"
+              aria-label={t`Collab display name`}
+              placeholder={t`Ada`}
               value={props.displayName}
               disabled={live}
               onChange={(event) => props.onDisplayNameChange(event.target.value)}
             />
           </label>
           {!live && !nameReady ? (
-            <p className="collab-help collab-name-help">Enter your name so others can see who is editing.</p>
+            <p className="collab-help collab-name-help">{t`Enter your name so others can see who is editing.`}</p>
           ) : null}
         </div>
 
         {!live && mode === "start" && !props.joinOnly ? (
           <label>
-            Room name
+            {t`Room name`}
             <Input
               controlSize="form"
-              aria-label="Collab room name"
-              placeholder="Attention paper"
+              aria-label={t`Collab room name`}
+              placeholder={t`Attention paper`}
               value={props.projectName}
               maxLength={80}
               onChange={(event) => props.onProjectNameChange(event.target.value)}
@@ -254,6 +279,7 @@ export function CollabDialog(props: {
               <ul className="collab-recent-list">
                 {recentRooms.map((record) => {
                   const renaming = renamingId === record.projectInstanceId;
+                  const createdAt = record.createdAt ?? record.lastUsed;
                   return (
                     <li key={`v2:${record.host}:${record.projectInstanceId}`} className="collab-recent-row">
                       {renaming ? (
@@ -266,7 +292,7 @@ export function CollabDialog(props: {
                         >
                           <Input
                             controlSize="compact"
-                            aria-label={`Rename ${record.title}`}
+                            aria-label={t`Rename ${record.title}`}
                             value={renameDraft}
                             maxLength={80}
                             autoFocus
@@ -278,39 +304,40 @@ export function CollabDialog(props: {
                               }
                             }}
                           />
-                          <Button size="compact" type="submit">Save</Button>
-                          <Button size="compact" variant="ghost" type="button" onClick={cancelRename}>Cancel</Button>
+                          <Button size="compact" type="submit">{t`Save`}</Button>
+                          <Button size="compact" variant="ghost" type="button" onClick={cancelRename}>{t`Cancel`}</Button>
                         </form>
                       ) : (
                         <>
-                          <button type="button" className={rowClassName("data", "collab-recent-item")} onClick={() => props.onRejoinProjectV2?.(record)} title={`Rejoin ${record.title}`}>
-                            <span className="collab-recent-role" data-role={record.permission}>{record.permission === "host" ? "host" : "joined"}</span>
+                          <button type="button" className={rowClassName("data", "collab-recent-item")} onClick={() => props.onRejoinProjectV2?.(record)} title={t`Rejoin ${record.title}`}>
+                            <span className="collab-recent-role" data-role={record.permission}>{record.permission === "host" ? t`host` : t`joined`}</span>
                             <span className="collab-recent-name">{record.title}</span>
+                            <time
+                              className="collab-recent-time"
+                              dateTime={new Date(createdAt).toISOString()}
+                              title={new Date(createdAt).toLocaleString(i18n.locale)}
+                            >
+                              {roomRelativeTime(createdAt, i18n.locale)}
+                            </time>
                             <span className="collab-recent-code">{record.projectInstanceId} · {record.permission}</span>
                           </button>
                           {record.permission === "host" ? (
                             <>
-                              <Button size="compact" variant="ghost" onClick={() => beginRename(record)}>Rename</Button>
+                              <Button size="compact" variant="ghost" onClick={() => beginRename(record)}>{t`Rename`}</Button>
                               {/* The only way to end a room you left. Styled as the destructive action it is. */}
                               <Button
                                 size="compact"
                                 variant="danger"
-                                title={`End “${record.title}” for everyone and remove it from this Mac`}
+                                title={t`End “${record.title}” for everyone and remove it from this Mac`}
                                 onClick={() => props.onCloseProjectV2?.(record)}
                               >
-                                Close for everyone
+                                {t`Close for everyone`}
                               </Button>
                             </>
                           ) : null}
-                          {/*
-                            Close is the right exit for a room you host, but it
-                            cannot be the only one: a room the server has
-                            already reclaimed can never be closed, and without
-                            this the row was stuck in the list for good. The
-                            handler warns a host that removing the entry leaves
-                            the room running.
-                          */}
-                          <IconButton size="compact" tooltip={false} className="collab-recent-forget" label={`Remove ${record.projectInstanceId} from recent shares`} onClick={() => props.onForgetProjectV2?.(record)}><X size={12} /></IconButton>
+                          {record.permission === "host" ? null : (
+                            <IconButton size="compact" tooltip={false} className="collab-recent-forget" label={t`Remove ${record.projectInstanceId} from recent shares`} onClick={() => props.onForgetProjectV2?.(record)}><X size={12} /></IconButton>
+                          )}
                         </>
                       )}
                     </li>
@@ -324,11 +351,11 @@ export function CollabDialog(props: {
         {!live && mode === "join" ? (
           <div className="collab-mode-panel">
             <label>
-              Invite link
+              {t`Invite link`}
               <Textarea
-                aria-label="Collab invite"
+                aria-label={t`Collab invite`}
                 className="native-hover-scrollbar"
-                placeholder="Paste the full invite from Copy invite"
+                placeholder={t`Paste the full invite from Copy invite`}
                 value={props.inviteText}
                 rows={3}
                 onChange={(event) => props.onInviteChange(event.target.value)}
@@ -343,13 +370,13 @@ export function CollabDialog(props: {
               <SegmentedControl
                 value={liveTab}
                 onChange={setLiveTab}
-                ariaLabel="Live collaboration view"
+                ariaLabel={t`Live collaboration view`}
                 className="collab-live-tabs"
                 items={[
-                  { value: "status", label: "status" },
+                  { value: "status", label: t`status` },
                   {
                     value: "chat",
-                    label: <>chat{(props.chatUnread ?? 0) > 0
+                    label: <>{t`chat`}{(props.chatUnread ?? 0) > 0
                       ? <em className="collab-peer-badge">{props.chatUnread}</em>
                       : null}</>,
                   },
@@ -369,8 +396,8 @@ export function CollabDialog(props: {
                   {props.status === "connecting" && <InfinityLoader size={12} />}
                   <span>
                     {props.status === "synced"
-                      ? `${props.role === "guest" ? "Joined" : "Sharing"} · all project files · ${props.fileCount} files · ${othersLabel} · ${props.connectedRoom}`
-                      : props.statusDetail || "Connecting…"}
+                      ? t({ message: `${roleLabel} · all project files · ${fileCountLabel} · ${othersLabel} · ${connectedRoomLabel}` })
+                      : props.statusDetail || t`Connecting…`}
                   </span>
                 </div>
                 {props.role === "host" ? (
@@ -380,7 +407,7 @@ export function CollabDialog(props: {
                       <IconSwap swapKey={copied ? "check" : "copy"}>
                         {copied ? <Check size={14} /> : <Copy size={14} />}
                       </IconSwap>
-                      {copied ? "Copied" : "Copy invite"}
+                      {copied ? t`Copied` : t`Copy invite`}
                     </button>
                   </>
                 ) : null}
@@ -392,19 +419,19 @@ export function CollabDialog(props: {
                   table, which stamps the authenticated permission server-side.
                 */}
                 <div className="collab-participants">
-                  <div className="collab-participants-title">In this room</div>
+                  <div className="collab-participants-title">{t`In this room`}</div>
                   <ul className="collab-participants-list">
                     <li className="collab-participant-row">
                       <span className="collab-participant-name">
-                        {props.displayName.trim() || "You"} <span className="collab-participant-you">(you)</span>
-                        {props.role === "host" ? <em className="collab-participant-role">host</em> : null}
+                        {props.displayName.trim() || t`You`} <span className="collab-participant-you">{t`(you)`}</span>
+                        {props.role === "host" ? <em className="collab-participant-role">{t`host`}</em> : null}
                       </span>
                     </li>
                     {(props.peers ?? []).map((peer) => (
                       <li key={peer.clientId} className="collab-participant-row">
                         <span className="collab-participant-name">
                           {peer.name}
-                          {peer.permission === "host" ? <em className="collab-participant-role">host</em> : null}
+                          {peer.permission === "host" ? <em className="collab-participant-role">{t`host`}</em> : null}
                         </span>
                         {peer.path ? <span className="collab-participant-path">{peer.path}</span> : null}
                         {peer.grantId && props.role === "host" && props.onRemovePeer ? (
@@ -413,10 +440,10 @@ export function CollabDialog(props: {
                             variant="ghost"
                             className="collab-remove-peer"
                             disabled={removingPeer === peer.grantId}
-                            aria-label={`Remove ${peer.name} from this share`}
+                            aria-label={t`Remove ${peer.name} from this share`}
                             onClick={() => { void removePeer(peer); }}
                           >
-                            {removingPeer === peer.grantId ? "Removing…" : "Remove"}
+                            {removingPeer === peer.grantId ? t`Removing…` : t`Remove`}
                           </Button>
                         ) : null}
                       </li>
@@ -425,30 +452,27 @@ export function CollabDialog(props: {
                 </div>
                 {props.role === "guest" ? (
                   <p className="collab-help">
-                    You are in a shared workspace. Leave share returns you to your previous project;
-                    the host keeps sharing.
+                    {t({ message: "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing." })}
                   </p>
                 ) : (
                   <>
                     <p className="collab-help">
                       {localHost
-                        ? "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely."
-                        : "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."}
+                        ? t`This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely.`
+                        : t`Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them.`}
                     </p>
                     <p className="collab-help">
-                      You started this share. <strong>Leave share</strong> (or switching projects) only
-                      disconnects you — the room keeps running and you can rejoin it from Your shared
-                      rooms. <strong>Stop sharing</strong> ends it for everyone.
+                      {t`You started this share. `}<strong>{t`Leave share`}</strong>{t({ message: " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. " })}<strong>{t`Stop sharing`}</strong>{t` ends it for everyone.`}
                     </p>
                   </>
                 )}
                 {props.onInstallTex ? (
                   <p className="collab-help">
-                    Compile/PDF stays on each Mac.{" "}
+                    {t`Compile/PDF stays on each Mac. `}
                     <Button size="compact" variant="ghost" className="collab-inline-link" onClick={props.onInstallTex}>
-                      Install LaTeX tools
+                      {t`Install LaTeX tools`}
                     </Button>
-                    {" "}if Build fails on a blank machine.
+                    {t` if Build fails on a blank machine.`}
                   </p>
                 ) : null}
               </>
@@ -457,18 +481,18 @@ export function CollabDialog(props: {
         ) : starting ? (
           <div className="collab-status-line" data-status={props.status} role="status" aria-live="polite">
             <InfinityLoader size={12} />
-            <span>{props.statusDetail || "Connecting…"}</span>
+            <span>{props.statusDetail || t`Connecting…`}</span>
           </div>
         ) : props.status === "error" ? (
           <div className="collab-status-line" data-status={props.status} role="status">
-            <span>{props.statusDetail || "Connection failed"}</span>
+            <span>{props.statusDetail || t`Connection failed`}</span>
           </div>
         ) : null}
 
         <div className="modal-actions">
           {starting ? (
             <MotionButton type="button" className={buttonClassName({ variant: "primary" })} onClick={props.onDisconnect}>
-              Cancel
+              {t`Cancel`}
             </MotionButton>
           ) : live ? (
             <>
@@ -483,11 +507,11 @@ export function CollabDialog(props: {
                 className={buttonClassName({ variant: props.role === "host" ? "secondary" : "primary" })}
                 onClick={() => void leaveShare()}
               >
-                Leave share
+                {t`Leave share`}
               </MotionButton>
               {props.role === "host" ? (
                 <MotionButton type="button" className={buttonClassName({ variant: "danger" })} onClick={() => void stopSharing()}>
-                  Stop sharing
+                  {t`Stop sharing`}
                 </MotionButton>
               ) : null}
             </>
@@ -498,7 +522,7 @@ export function CollabDialog(props: {
               disabled={!nameReady || !roomNameReady}
               onClick={props.onStartShare}
             >
-              Start sharing
+              {t`Start sharing`}
             </MotionButton>
           ) : (
             <MotionButton
@@ -507,7 +531,7 @@ export function CollabDialog(props: {
               disabled={!nameReady}
               onClick={props.onJoinShare}
             >
-              Join share
+              {t`Join share`}
             </MotionButton>
           )}
         </div>

@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -188,8 +189,9 @@ function PdfLinkLayer({
   annotations: PdfAnnotation[];
   onDestination: (destination: string | unknown[]) => void;
 }) {
+  const { t } = useLingui();
   return (
-    <div className="pdf-annotation-layer" aria-label="PDF links">
+    <div className="pdf-annotation-layer" aria-label={t`PDF links`}>
       {annotations.flatMap((annotation, index) => {
         const bounds = annotation.rect ? annotationBounds(annotation.rect, 1) : null;
         if (!bounds || bounds.width <= 0 || bounds.height <= 0) return [];
@@ -218,7 +220,7 @@ function PdfLinkLayer({
             <button
               key={annotation.id ?? index}
               className="pdf-link-annotation"
-              title={annotation.title ?? "Go to linked PDF location"}
+              title={annotation.title ?? t`Go to linked PDF location`}
               style={style}
               onClick={() => onDestination(annotation.dest!)}
             />
@@ -235,19 +237,25 @@ async function downloadCompiledPdf(
   pdfBytes: ArrayBuffer,
   fileName: string,
   setSavingPdf: (value: boolean) => void,
+  labels: {
+    title: string;
+    document: string;
+    action: string;
+    saved: (path: string) => string;
+  },
 ): Promise<void> {
-  const trace = logAction(PDF_SOURCE, "Save PDF", fileName);
+  const trace = logAction(PDF_SOURCE, labels.action, fileName);
   try {
     const destination = await saveDialog({
-      title: "Save compiled PDF",
+      title: labels.title,
       defaultPath: fileName,
-      filters: [{ name: "PDF document", extensions: ["pdf"] }],
+      filters: [{ name: labels.document, extensions: ["pdf"] }],
     });
     if (!destination) return;
     const savedPath = await invoke<string>("save_compiled_pdf", pdfBytes, {
       headers: { "x-pdf-destination": utf8ToBase64(destination) },
     });
-    trace.ok(`Saved to ${savedPath}`);
+    trace.ok(labels.saved(savedPath));
   } catch (reason) {
     trace.fail(reason);
   } finally {
@@ -465,6 +473,7 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
   onSource?: (page: number, x: number, y: number) => void;
   onDestination: (destination: string | unknown[]) => void;
 }) {
+  const { t } = useLingui();
   const shellRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
@@ -660,7 +669,7 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
         ref={canvasRef}
         className={onSource ? "synctex-enabled" : ""}
         onDoubleClick={revealSourceFromCanvas}
-        aria-label={`PDF page ${pageNumber}`}
+        aria-label={t`PDF page ${pageNumber}`}
       />
       <div
         ref={textLayerRef}
@@ -678,11 +687,11 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
             width: Math.max(18, pageSyncTarget.width * scale),
             height: Math.max(12, pageSyncTarget.height * scale),
           }}
-          aria-label="Source location in PDF"
+          aria-label={t`Source location in PDF`}
         />
       )}
       {rendering && <div className="pdf-page-skeleton" aria-hidden="true" />}
-      {pageError && <div className="pdf-page-error">Could not render page {pageNumber}. {pageError}</div>}
+      {pageError && <div className="pdf-page-error">{t`Could not render page ${pageNumber}. ${pageError}`}</div>}
     </div>
   );
 });
@@ -703,8 +712,8 @@ export function PdfPreview({
   onDocumentData,
   initialPage = 1,
   showSave = true,
-  saveLabel = "Save PDF as…",
-  timeoutMessage = "PDF preview timed out. Click Build again, or open the PDF in Preview.",
+  saveLabel,
+  timeoutMessage,
   outline,
   toolbarStart,
   toolbarEnd,
@@ -733,6 +742,9 @@ export function PdfPreview({
   /** Context-specific icon actions rendered before the save control. */
   toolbarEnd?: ReactNode;
 }) {
+  const { t } = useLingui();
+  const effectiveSaveLabel = saveLabel ?? t`Save PDF as…`;
+  const effectiveTimeoutMessage = timeoutMessage ?? t`PDF preview timed out. Click Build again, or open the PDF in Preview.`;
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const pagesRef = useRef<HTMLDivElement | null>(null);
   const onTextSelectRef = useRef(onTextSelect);
@@ -1039,7 +1051,7 @@ export function PdfPreview({
       if (!active) return;
       // Keep any already-visible PDF; only surface the error if we have nothing.
       if (!documentProxyRef.current) {
-        setPdfError(timeoutMessage);
+        setPdfError(effectiveTimeoutMessage);
       }
       setLoadedUrl(stableLoadKey);
       void Promise.resolve(loadingTask.destroy()).catch(() => undefined);
@@ -1113,7 +1125,7 @@ export function PdfPreview({
       // clearing it here caused endless “Rendering PDF…” during autosave builds.
       void Promise.resolve(loadingTask.destroy()).catch(() => undefined);
     };
-  }, [stableLoadKey, timeoutMessage]);
+  }, [stableLoadKey, effectiveTimeoutMessage]);
 
   const applyFit = useCallback((mode: "width" | "height") => {
     const area = scrollAreaRef.current;
@@ -1234,7 +1246,7 @@ export function PdfPreview({
             (result): result is PromiseRejectedResult => result.status === "rejected",
           );
           if (firstFailure && !texts.some((text) => text.trim())) {
-            setSearchError(`Search unavailable: ${message(firstFailure.reason)}`);
+            setSearchError(t`Search unavailable: ${message(firstFailure.reason)}`);
           } else {
             // A malformed page must not disable search for every other page.
             setSearchError("");
@@ -1245,14 +1257,14 @@ export function PdfPreview({
           const detail = message(reason);
           if (/messageHandler|worker is being destroyed/i.test(detail)) return;
           setPageTexts(Array.from({ length: documentProxy.numPages }, () => ""));
-          setSearchError(`Search unavailable: ${detail}`);
+          setSearchError(t`Search unavailable: ${detail}`);
         });
     }, 350);
     return () => {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [documentProxy, searchIndexRequested]);
+  }, [documentProxy, searchIndexRequested, t]);
 
   const storeRenderedPageText = useCallback((page: number, text: string) => {
     if (!documentProxy || !text.trim()) return;
@@ -1468,9 +1480,9 @@ export function PdfPreview({
         : await documentProxy.getPageIndex(reference);
       scrollToPage(pageIndex + 1);
     } catch (reason) {
-      notifyError(PDF_SOURCE, "Could not open PDF link", { detail: message(reason) });
+      notifyError(PDF_SOURCE, t`Could not open PDF link`, { detail: message(reason) });
     }
-  }, [documentProxy, scrollToPage]);
+  }, [documentProxy, scrollToPage, t]);
   const pages = useMemo(
     () => documentProxy
       ? Array.from({ length: documentProxy.numPages }, (_, index) => index + 1)
@@ -1486,16 +1498,16 @@ export function PdfPreview({
           <div className={`pdf-find-controls${outline ? "" : " without-outline"}`}>
             {outline}
             <SearchField
-              aria-label="Search PDF"
+              aria-label={t`Search PDF`}
               containerClassName="pdf-search disabled"
               controlSize="compact"
-              placeholder="Find in PDF"
+              placeholder={t`Find in PDF`}
               disabled
             />
           </div>
           <div className="pdf-zoom-controls" />
         </div>
-        <div className="pdf-placeholder"><FileText size={28} /><p>Build the project to preview the paper.</p></div>
+        <div className="pdf-placeholder"><FileText size={28} /><p>{t`Build the project to preview the paper.`}</p></div>
       </div>
     );
   }
@@ -1503,7 +1515,12 @@ export function PdfPreview({
   const download = () => {
     if (!pdfBytes || savingPdf) return;
     setSavingPdf(true);
-    void downloadCompiledPdf(pdfBytes, fileName, setSavingPdf);
+    void downloadCompiledPdf(pdfBytes, fileName, setSavingPdf, {
+      title: t`Save compiled PDF`,
+      document: t`PDF document`,
+      action: t`Save PDF`,
+      saved: (path) => t`Saved to ${path}`,
+    });
   };
   const selectMatch = (delta: number) => {
     if (!matches.length) return;
@@ -1516,12 +1533,12 @@ export function PdfPreview({
         <div className="pdf-navigation-controls">
           {toolbarStart}
           <div className="pdf-page-controls">
-            <Tip label="Previous page">
+            <Tip label={t`Previous page`}>
               <button disabled={pageNumber <= 1} onClick={() => scrollToPage(Math.max(1, pageNumber - 1))}><ChevronLeft size={14} /></button>
             </Tip>
-            <label className={`pdf-page-value${pageEditing ? " editing" : ""}`} title="Enter a page number">
+            <label className={`pdf-page-value${pageEditing ? " editing" : ""}`} title={t`Enter a page number`}>
               <input
-                aria-label="PDF page number"
+                aria-label={t`PDF page number`}
                 inputMode="numeric"
                 value={pageEditing ? pageDraft : String(pageNumber)}
                 style={{ width: pageEditing ? `${Math.max(1, pageDraft.length)}ch` : undefined }}
@@ -1548,7 +1565,7 @@ export function PdfPreview({
                 ? <span className="pdf-page-total">/ {documentProxy?.numPages ?? "–"}</span>
                 : <span className="pdf-page-display" aria-hidden="true">{pageNumber} / {documentProxy?.numPages ?? "–"}</span>}
             </label>
-            <Tip label="Next page">
+            <Tip label={t`Next page`}>
               <button disabled={!documentProxy || pageNumber >= documentProxy.numPages} onClick={() => scrollToPage(Math.min(documentProxy?.numPages ?? pageNumber, pageNumber + 1))}><ChevronRight size={14} /></button>
             </Tip>
           </div>
@@ -1556,12 +1573,12 @@ export function PdfPreview({
         <div className={`pdf-find-controls${outline ? "" : " without-outline"}`}>
           {outline}
           <SearchField
-            aria-label="Search PDF"
+            aria-label={t`Search PDF`}
             containerClassName="pdf-search"
             controlSize="compact"
             showIcon={!searchQuery}
             value={searchQuery}
-            placeholder="Find in PDF"
+            placeholder={t`Find in PDF`}
             onChange={(event) => {
               const query = event.target.value;
               setSearchQuery(query);
@@ -1570,14 +1587,14 @@ export function PdfPreview({
             }}
             trailing={searchQuery ? (
               <>
-                <small className="pdf-search-position" aria-live="polite" title={searchError || undefined}>{searchError ? "Unavailable" : searchIndexing ? "Indexing…" : matches.length ? `${selectedMatchIndex + 1} / ${matches.length}` : "0 / 0"}</small>
-                <Tip label="Previous search result">
+                <small className="pdf-search-position" aria-live="polite" title={searchError || undefined}>{searchError ? t`Unavailable` : searchIndexing ? t`Indexing…` : matches.length ? `${selectedMatchIndex + 1} / ${matches.length}` : "0 / 0"}</small>
+                <Tip label={t`Previous search result`}>
                   <button type="button" disabled={!matches.length} onClick={() => selectMatch(-1)}><ChevronUp size={12} /></button>
                 </Tip>
-                <Tip label="Next search result">
+                <Tip label={t`Next search result`}>
                   <button type="button" disabled={!matches.length} onClick={() => selectMatch(1)}><ChevronDown size={12} /></button>
                 </Tip>
-                <Tip label="Clear PDF search">
+                <Tip label={t`Clear PDF search`}>
                   <button type="button" onClick={() => setSearchQuery("")}><X size={12} /></button>
                 </Tip>
               </>
@@ -1585,16 +1602,16 @@ export function PdfPreview({
           />
         </div>
         <div className="pdf-zoom-controls">
-          <Tip label="Zoom out">
+          <Tip label={t`Zoom out`}>
             <button disabled={scale <= PDF_MIN_SCALE} onClick={() => updateManualScale((value) => clamp(Number((value - 0.1).toFixed(1)), PDF_MIN_SCALE, PDF_MAX_SCALE))}><ZoomOut size={14} /></button>
           </Tip>
           <label
             ref={zoomValueLabelRef}
             className="pdf-zoom-value"
-            title="Enter a zoom percentage or scroll to zoom"
+            title={t`Enter a zoom percentage or scroll to zoom`}
           >
             <input
-              aria-label="PDF zoom percentage"
+              aria-label={t`PDF zoom percentage`}
               inputMode="decimal"
               value={zoomEditing ? zoomDraft : String(Math.round(scale * 100))}
               onFocus={(event) => {
@@ -1611,13 +1628,13 @@ export function PdfPreview({
             />
             <span>%</span>
           </label>
-          <Tip label="Zoom in">
+          <Tip label={t`Zoom in`}>
             <button disabled={scale >= PDF_MAX_SCALE} onClick={() => updateManualScale((value) => clamp(Number((value + 0.1).toFixed(1)), PDF_MIN_SCALE, PDF_MAX_SCALE))}><ZoomIn size={14} /></button>
           </Tip>
           <i className="pdf-fit-divider" aria-hidden="true" />
           {onForwardSync && (
             <>
-              <Tip label="Reveal cursor in PDF (⌘⇧J)">
+              <Tip label={t`Reveal cursor in PDF (⌘⇧J)`}>
                 <button
                   type="button"
                   disabled={!canForwardSync || locatingPdf}
@@ -1632,15 +1649,15 @@ export function PdfPreview({
               <i className="pdf-fit-divider" aria-hidden="true" />
             </>
           )}
-          <Tip label="Fit page to width">
+          <Tip label={t`Fit page to width`}>
             <button className={fitMode === "width" ? "active" : ""} aria-pressed={fitMode === "width"} disabled={!pageSize} onClick={() => toggleFit("width")}><RectangleHorizontal size={14} /></button>
           </Tip>
-          <Tip label="Fit page to height">
+          <Tip label={t`Fit page to height`}>
             <button className={fitMode === "height" ? "active" : ""} aria-pressed={fitMode === "height"} disabled={!pageSize} onClick={() => toggleFit("height")}><RectangleVertical size={14} /></button>
           </Tip>
           {toolbarEnd}
           {showSave && (
-            <Tip label={saveLabel}>
+            <Tip label={effectiveSaveLabel}>
               <MotionButton disabled={!pdfBytes || savingPdf} onClick={() => void download()}>{savingPdf ? <InfinityLoader size={14} /> : <Download size={14} />}</MotionButton>
             </Tip>
           )}
@@ -1694,8 +1711,8 @@ export function PdfPreview({
               </div>
             );
           })}</div>}
-        {showBlockingLoader && <div className="pdf-loading smooth-shadow-ring-md"><InfinityLoader size={17} /> Rendering PDF…</div>}
-        {loading && documentProxy ? <div className="pdf-loading pdf-loading-quiet smooth-shadow-ring-md"><InfinityLoader size={14} /> Updating…</div> : null}
+        {showBlockingLoader && <div className="pdf-loading smooth-shadow-ring-md"><InfinityLoader size={17} /> {t`Rendering PDF…`}</div>}
+        {loading && documentProxy ? <div className="pdf-loading pdf-loading-quiet smooth-shadow-ring-md"><InfinityLoader size={14} /> {t`Updating…`}</div> : null}
       </ScrollArea>
     </div>
   );

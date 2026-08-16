@@ -1,0 +1,2235 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-08-15 00:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+"Project-Id-Version: Lattice\n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/collab-dialog.tsx:465
+msgid " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. "
+msgstr " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. "
+
+#: src/collab-dialog.tsx:465
+msgid " ends it for everyone."
+msgstr " ends it for everyone."
+
+#: src/collab-dialog.tsx:475
+msgid " if Build fails on a blank machine."
+msgstr " if Build fails on a blank machine."
+
+#: src/collab-dialog.tsx:426
+msgid "(you)"
+msgstr "(you)"
+
+#. placeholder {0}: peer.name
+#. placeholder {1}: peer.path
+#: src/App.tsx:9184
+msgid "{0} · {1} — click to follow"
+msgstr "{0} · {1} — click to follow"
+
+#. placeholder {0}: props.fileCount
+#: src/collab-dialog.tsx:135
+msgid "{0} files"
+msgstr "{0} files"
+
+#. placeholder {0}: todoHits.length || t`No`
+#: src/App.tsx:10331
+msgid "{0} markers"
+msgstr "{0} markers"
+
+#. placeholder {0}: props.peerCount
+#: src/collab-dialog.tsx:133
+msgid "{0} others"
+msgstr "{0} others"
+
+#. placeholder {0}: collabSession.room
+#: src/App.tsx:10317
+msgid "{collabPeers} connected · {0}"
+msgstr "{collabPeers} connected · {0}"
+
+#: src/document-canvas.tsx:3510
+msgid "{count} comments"
+msgstr "{count} comments"
+
+#: src/navigator.tsx:1729
+msgid "{count} papers"
+msgstr "{count} papers"
+
+#: src/document-canvas.tsx:3520
+msgid "{count} TODO"
+msgstr "{count} TODO"
+
+#: src/settings-dialog.tsx:435
+msgid "{detail} Find in project will stay lexical."
+msgstr "{detail} Find in project will stay lexical."
+
+#: src/navigator.tsx:1726
+msgid "{filtered} of {total} papers"
+msgstr "{filtered} of {total} papers"
+
+#: src/tex-setup-wizard.tsx:95
+msgid "{installedProduct} finished installing, but Lattice could not run the final verification."
+msgstr "{installedProduct} finished installing, but Lattice could not run the final verification."
+
+#. placeholder {0}: issues.join("\n")
+#: src/tex-setup-wizard.tsx:113
+msgid "{installedProduct} finished installing, but Lattice could not verify:\n"
+"{0}"
+msgstr "{installedProduct} finished installing, but Lattice could not verify:\n"
+"{0}"
+
+#: src/navigator.tsx:1679
+#: src/navigator.tsx:1680
+msgid "{notice}. Open notice"
+msgstr "{notice}. Open notice"
+
+#: src/collab-dialog.tsx:399
+msgid "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
+msgstr "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
+
+#: src/navigator.tsx:1645
+msgid "{title} — no local reading available"
+msgstr "{title} — no local reading available"
+
+#: src/document-canvas.tsx:3352
+msgid "{title} paper reader"
+msgstr "{title} paper reader"
+
+#: src/document-canvas.tsx:3532
+msgid "{words} words · {chars} chars"
+msgstr "{words} words · {chars} chars"
+
+#: src/App.tsx:10326
+msgid "⌘⇧F · source files and papers"
+msgstr "⌘⇧F · source files and papers"
+
+#: src/App.tsx:10327
+msgid "⌘⇧H · all .tex files"
+msgstr "⌘⇧H · all .tex files"
+
+#: src/collab-dialog.tsx:135
+msgid "1 file"
+msgstr "1 file"
+
+#: src/navigator.tsx:1725
+msgid "1 of {total} papers"
+msgstr "1 of {total} papers"
+
+#: src/collab-dialog.tsx:132
+msgid "1 other"
+msgstr "1 other"
+
+#: src/navigator.tsx:1728
+msgid "1 paper"
+msgstr "1 paper"
+
+#: src/project-dialogs.tsx:62
+msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected."
+msgstr "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected."
+
+#: src/collab-dialog.tsx:238
+msgid "Ada"
+msgstr "Ada"
+
+#: src/settings-dialog.tsx:686
+msgid "Add"
+msgstr "Add"
+
+#: src/App.tsx:9357
+#: src/App.tsx:10324
+msgid "Add bibliography entry"
+msgstr "Add bibliography entry"
+
+#: src/document-canvas.tsx:3431
+#: src/document-canvas.tsx:3463
+msgid "Add comment"
+msgstr "Add comment"
+
+#: src/settings-dialog.tsx:679
+msgid "Add project term"
+msgstr "Add project term"
+
+#: src/navigator.tsx:1711
+msgid "Add your first paper"
+msgstr "Add your first paper"
+
+#: src/App.tsx:9313
+#: src/App.tsx:9313
+#: src/App.tsx:9447
+#: src/settings-dialog.tsx:143
+#: src/settings-dialog.tsx:445
+msgid "Agent"
+msgstr "Agent"
+
+#: src/App.tsx:9853
+msgid "Agent turn"
+msgstr "Agent turn"
+
+#: src/App.tsx:9890
+msgid "Agent turn review"
+msgstr "Agent turn review"
+
+#: src/settings-dialog.tsx:759
+msgid "Allow external commands"
+msgstr "Allow external commands"
+
+#: src/tex-setup-wizard.tsx:49
+msgid "Almost done."
+msgstr "Almost done."
+
+#: src/onboarding-tour.tsx:536
+msgid "An agent that has already read your project"
+msgstr "An agent that has already read your project"
+
+#: src/onboarding-tour.tsx:442
+msgid "An infinite canvas for diagrams, arrows, and freehand notes. This one maps how attention flows, and every shape on it is editable."
+msgstr "An infinite canvas for diagrams, arrows, and freehand notes. This one maps how attention flows, and every shape on it is editable."
+
+#: src/onboarding-tour.tsx:451
+msgid "Analyze results in a live spreadsheet"
+msgstr "Analyze results in a live spreadsheet"
+
+#: src/settings-dialog.tsx:767
+msgid "App updates"
+msgstr "App updates"
+
+#: src/settings-dialog.tsx:138
+#: src/settings-dialog.tsx:546
+msgid "Appearance"
+msgstr "Appearance"
+
+#: src/settings-dialog.tsx:417
+msgid "Apple’s built-in English sentence model runs on-device; source text never leaves this Mac and no model is downloaded."
+msgstr "Apple’s built-in English sentence model runs on-device; source text never leaves this Mac and no model is downloaded."
+
+#: src/settings-dialog.tsx:588
+msgid "Applies to the LaTeX source editor only."
+msgstr "Applies to the LaTeX source editor only."
+
+#: src/tex-setup-wizard.tsx:45
+msgid "Approve the macOS prompt to continue."
+msgstr "Approve the macOS prompt to continue."
+
+#: src/collab-dialog.tsx:255
+msgid "Attention paper"
+msgstr "Attention paper"
+
+#: src/settings-dialog.tsx:724
+msgid "Automatic"
+msgstr "Automatic"
+
+#: src/settings-dialog.tsx:715
+#: src/settings-dialog.tsx:721
+msgid "Automatic build"
+msgstr "Automatic build"
+
+#: src/settings-dialog.tsx:769
+#: src/settings-dialog.tsx:773
+msgid "Automatic updates"
+msgstr "Automatic updates"
+
+#: src/settings-dialog.tsx:729
+msgid "Auxiliary files"
+msgstr "Auxiliary files"
+
+#: src/onboarding-tour.tsx:154
+#: src/onboarding-tour.tsx:636
+msgid "Back"
+msgstr "Back"
+
+#: src/document-canvas.tsx:3333
+msgid "Back to {view}"
+msgstr "Back to {view}"
+
+#: src/tex-setup-wizard.tsx:143
+msgid "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes."
+msgstr "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes."
+
+#: src/tex-setup-wizard.tsx:154
+msgid "BasicTeX installation progress"
+msgstr "BasicTeX installation progress"
+
+#: src/tex-setup-wizard.tsx:118
+msgid "BasicTeX installed"
+msgstr "BasicTeX installed"
+
+#: src/canvas-toolbar.tsx:174
+#: src/document-canvas.tsx:3282
+msgid "Blog"
+msgstr "Blog"
+
+#: src/onboarding-tour.tsx:506
+msgid "Blog view is a generated, illustrated walkthrough of the paper — enough to tell whether it deserves a full read."
+msgstr "Blog view is a generated, illustrated walkthrough of the paper — enough to tell whether it deserves a full read."
+
+#: src/document-canvas.tsx:3531
+msgid "Body {body} · raw {raw} · {chars} chars"
+msgstr "Body {body} · raw {raw} · {chars} chars"
+
+#: src/document-canvas.tsx:3526
+msgid "Body word count unavailable"
+msgstr "Body word count unavailable"
+
+#: src/document-canvas.tsx:3525
+msgid "Body words ({source}): text {text}, headers {headers}, captions {captions}"
+msgstr "Body words ({source}): text {text}, headers {headers}, captions {captions}"
+
+#: src/App.tsx:9260
+#: src/App.tsx:9271
+#: src/App.tsx:10295
+#: src/App.tsx:10296
+#: src/App.tsx:10297
+#: src/App.tsx:10298
+msgid "Build"
+msgstr "Build"
+
+#: src/App.tsx:9256
+msgid "Build automatically · Command-S builds now. Shift-click for clean rebuild."
+msgstr "Build automatically · Command-S builds now. Shift-click for clean rebuild."
+
+#: src/App.tsx:9257
+msgid "Build only when requested · Command-S builds now. Shift-click for clean rebuild."
+msgstr "Build only when requested · Command-S builds now. Shift-click for clean rebuild."
+
+#: src/App.tsx:10295
+msgid "Build project"
+msgstr "Build project"
+
+#: src/pdf-viewer.tsx:1510
+msgid "Build the project to preview the paper."
+msgstr "Build the project to preview the paper."
+
+#: src/settings-dialog.tsx:713
+msgid "Builds"
+msgstr "Builds"
+
+#: src/navigator.tsx:1627
+msgid "cached"
+msgstr "cached"
+
+#: src/collab-dialog.tsx:308
+#: src/collab-dialog.tsx:495
+#: src/document-canvas.tsx:3456
+#: src/project-dialogs.tsx:171
+#: src/project-dialogs.tsx:236
+msgid "Cancel"
+msgstr "Cancel"
+
+#: src/navigator.tsx:1375
+msgid "Cancel creation"
+msgstr "Cancel creation"
+
+#: src/App.tsx:9854
+#: src/App.tsx:9891
+msgid "Changes"
+msgstr "Changes"
+
+#: src/collab-dialog.tsx:379
+msgid "chat"
+msgstr "chat"
+
+#: src/settings-dialog.tsx:787
+msgid "Check for updates"
+msgstr "Check for updates"
+
+#: src/settings-dialog.tsx:660
+msgid "Check spelling in prose"
+msgstr "Check spelling in prose"
+
+#: src/settings-dialog.tsx:413
+msgid "Check your connection and try again."
+msgstr "Check your connection and try again."
+
+#: src/navigator.tsx:1628
+msgid "checked"
+msgstr "checked"
+
+#: src/settings-dialog.tsx:863
+msgid "Checking local tools…"
+msgstr "Checking local tools…"
+
+#: src/settings-dialog.tsx:787
+msgid "Checking…"
+msgstr "Checking…"
+
+#: src/settings-dialog.tsx:661
+msgid "Checks English spelling and grammar as you type with Harper."
+msgstr "Checks English spelling and grammar as you type with Harper."
+
+#: src/settings-dialog.tsx:810
+msgid "Checks local LaTeX tools, SyncTeX, bibliography processors, editor helpers, and conference fonts."
+msgstr "Checks local LaTeX tools, SyncTeX, bibliography processors, editor helpers, and conference fonts."
+
+#: src/project-dialogs.tsx:172
+msgid "Choose location"
+msgstr "Choose location"
+
+#: src/settings-dialog.tsx:552
+msgid "Choose the language used for menus, settings, and help text."
+msgstr "Choose the language used for menus, settings, and help text."
+
+#: src/settings-dialog.tsx:573
+msgid "Choose the theme for Lattice on this device."
+msgstr "Choose the theme for Lattice on this device."
+
+#: src/settings-dialog.tsx:737
+msgid "Clean"
+msgstr "Clean"
+
+#: src/App.tsx:10297
+msgid "Clean aux files"
+msgstr "Clean aux files"
+
+#: src/App.tsx:10296
+msgid "Clean rebuild"
+msgstr "Clean rebuild"
+
+#: src/settings-dialog.tsx:737
+msgid "Cleaning…"
+msgstr "Cleaning…"
+
+#: src/pdf-viewer.tsx:1597
+msgid "Clear PDF search"
+msgstr "Clear PDF search"
+
+#: src/onboarding-tour.tsx:497
+msgid "Click “An Image is Worth 16×16 Words”"
+msgstr "Click “An Image is Worth 16×16 Words”"
+
+#: src/onboarding-tour.tsx:528
+msgid "Click Agent"
+msgstr "Click Agent"
+
+#: src/onboarding-tour.tsx:421
+msgid "Click into the formatted side and type — no Markdown syntax needed. Press / on an empty line to drop in headings, tables, math, or images."
+msgstr "Click into the formatted side and type — no Markdown syntax needed. Press / on an empty line to drop in headings, tables, math, or images."
+
+#: src/onboarding-tour.tsx:507
+msgid "Click Paper to read the full text"
+msgstr "Click Paper to read the full text"
+
+#: src/onboarding-tour.tsx:479
+msgid "Click Papers"
+msgstr "Click Papers"
+
+#: src/canvas-toolbar.tsx:262
+msgid "click to sync"
+msgstr "click to sync"
+
+#: src/App.tsx:9862
+msgid "Close"
+msgstr "Close"
+
+#: src/collab-dialog.tsx:334
+msgid "Close for everyone"
+msgstr "Close for everyone"
+
+#: src/App.tsx:9861
+msgid "Close Git workspace"
+msgstr "Close Git workspace"
+
+#: src/settings-dialog.tsx:461
+msgid "Close settings"
+msgstr "Close settings"
+
+#: src/canvas-toolbar.tsx:203
+msgid "Close split"
+msgstr "Close split"
+
+#: src/collab-dialog.tsx:237
+msgid "Collab display name"
+msgstr "Collab display name"
+
+#: src/collab-dialog.tsx:356
+msgid "Collab invite"
+msgstr "Collab invite"
+
+#: src/collab-dialog.tsx:254
+msgid "Collab room name"
+msgstr "Collab room name"
+
+#: src/settings-dialog.tsx:572
+#: src/settings-dialog.tsx:576
+msgid "Color theme"
+msgstr "Color theme"
+
+#: src/App.tsx:10292
+msgid "Command palette"
+msgstr "Command palette"
+
+#: src/document-canvas.tsx:3500
+msgid "comment"
+msgstr "comment"
+
+#: src/document-canvas.tsx:3511
+msgid "Comments"
+msgstr "Comments"
+
+#: src/settings-dialog.tsx:743
+#: src/settings-dialog.tsx:750
+msgid "Compile engine"
+msgstr "Compile engine"
+
+#: src/App.tsx:10295
+msgid "Compile LaTeX"
+msgstr "Compile LaTeX"
+
+#: src/collab-dialog.tsx:471
+msgid "Compile/PDF stays on each Mac. "
+msgstr "Compile/PDF stays on each Mac. "
+
+#: src/tex-setup-wizard.tsx:109
+msgid "Conference font verification is missing."
+msgstr "Conference font verification is missing."
+
+#: src/canvas-toolbar.tsx:261
+msgid "Connected live · click to sync everything"
+msgstr "Connected live · click to sync everything"
+
+#: src/canvas-toolbar.tsx:257
+msgid "Connecting to Overleaf's live channel…"
+msgstr "Connecting to Overleaf's live channel…"
+
+#: src/collab-dialog.tsx:400
+#: src/collab-dialog.tsx:484
+msgid "Connecting…"
+msgstr "Connecting…"
+
+#: src/collab-dialog.tsx:488
+msgid "Connection failed"
+msgstr "Connection failed"
+
+#: src/onboarding-tour.tsx:159
+#: src/onboarding-tour.tsx:636
+msgid "Continue"
+msgstr "Continue"
+
+#: src/collab-dialog.tsx:410
+msgid "Copied"
+msgstr "Copied"
+
+#: src/collab-dialog.tsx:410
+msgid "Copy invite"
+msgstr "Copy invite"
+
+#: src/navigator.tsx:1352
+msgid "Copy path"
+msgstr "Copy path"
+
+#: src/settings-dialog.tsx:838
+#: src/settings-dialog.tsx:839
+msgid "Copy summary"
+msgstr "Copy summary"
+
+#: src/navigator.tsx:1625
+msgid "Correction/update"
+msgstr "Correction/update"
+
+#: src/pdf-viewer.tsx:1483
+msgid "Could not open PDF link"
+msgstr "Could not open PDF link"
+
+#: src/document-canvas.tsx:1347
+msgid "Could not open the article in your browser"
+msgstr "Could not open the article in your browser"
+
+#: src/pdf-viewer.tsx:694
+msgid "Could not render page {pageNumber}. {pageError}"
+msgstr "Could not render page {pageNumber}. {pageError}"
+
+#: src/settings-dialog.tsx:406
+msgid "Couldn’t check for updates"
+msgstr "Couldn’t check for updates"
+
+#: src/project-dialogs.tsx:138
+#: src/project-dialogs.tsx:141
+msgid "Create a research project"
+msgstr "Create a research project"
+
+#. placeholder {0}: venue.label
+#: src/project-dialogs.tsx:143
+msgid "Creates a {0} preprint template with bibliography and project brief."
+msgstr "Creates a {0} preprint template with bibliography and project brief."
+
+#: src/navigator.tsx:1627
+msgid "Crossref citation-health metadata is currently unavailable"
+msgstr "Crossref citation-health metadata is currently unavailable"
+
+#: src/navigator.tsx:1628
+msgid "Crossref reports update type"
+msgstr "Crossref reports update type"
+
+#: src/navigator.tsx:1627
+msgid "Crossref type"
+msgstr "Crossref type"
+
+#: src/settings-dialog.tsx:579
+msgid "Dark"
+msgstr "Dark"
+
+#: src/settings-dialog.tsx:633
+msgid "Default"
+msgstr "Default"
+
+#: src/navigator.tsx:1375
+msgid "Delete"
+msgstr "Delete"
+
+#: src/settings-dialog.tsx:157
+msgid "Diagnostics"
+msgstr "Diagnostics"
+
+#: src/App.tsx:9352
+#: src/App.tsx:9353
+#: src/App.tsx:10325
+msgid "Discover literature"
+msgstr "Discover literature"
+
+#: src/settings-dialog.tsx:584
+msgid "Display"
+msgstr "Display"
+
+#: src/canvas-toolbar.tsx:138
+msgid "Document view"
+msgstr "Document view"
+
+#: src/navigator.tsx:1644
+msgid "Download {url}"
+msgstr "Download {url}"
+
+#: src/navigator.tsx:1642
+msgid "Download arXiv {id}"
+msgstr "Download arXiv {id}"
+
+#: src/document-canvas.tsx:3327
+msgid "Download PDF"
+msgstr "Download PDF"
+
+#: src/tex-setup-wizard.tsx:44
+msgid "Download time depends on your connection."
+msgstr "Download time depends on your connection."
+
+#: src/tex-setup-wizard.tsx:34
+msgid "Downloading BasicTeX…"
+msgstr "Downloading BasicTeX…"
+
+#: src/settings-dialog.tsx:402
+msgid "Downloading update…"
+msgstr "Downloading update…"
+
+#: src/document-canvas.tsx:4277
+msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it."
+msgstr "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it."
+
+#: src/App.tsx:10304
+msgid "Dual source view"
+msgstr "Dual source view"
+
+#: src/settings-dialog.tsx:680
+msgid "e.g. Lattice"
+msgstr "e.g. Lattice"
+
+#: src/App.tsx:10311
+#: src/App.tsx:10319
+#: src/App.tsx:10321
+#: src/App.tsx:10322
+#: src/App.tsx:10323
+#: src/App.tsx:10324
+#: src/App.tsx:10326
+#: src/App.tsx:10327
+#: src/App.tsx:10332
+#: src/App.tsx:10334
+#: src/App.tsx:10335
+#: src/App.tsx:10336
+#: src/canvas-toolbar.tsx:143
+msgid "Edit"
+msgstr "Edit"
+
+#: src/canvas-toolbar.tsx:152
+msgid "Edit and preview HTML"
+msgstr "Edit and preview HTML"
+
+#: src/canvas-toolbar.tsx:150
+msgid "Edit and preview Markdown"
+msgstr "Edit and preview Markdown"
+
+#: src/navigator.tsx:1687
+msgid "Edit bibliography entry"
+msgstr "Edit bibliography entry"
+
+#: src/onboarding-tour.tsx:452
+msgid "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
+msgstr "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
+
+#: src/onboarding-tour.tsx:401
+msgid "Edit for the source, Split for both, Preview for the finished result. Switch at any time."
+msgstr "Edit for the source, Split for both, Preview for the finished result. Switch at any time."
+
+#: src/canvas-toolbar.tsx:144
+msgid "Edit HTML"
+msgstr "Edit HTML"
+
+#: src/canvas-toolbar.tsx:144
+msgid "Edit Markdown"
+msgstr "Edit Markdown"
+
+#: src/canvas-toolbar.tsx:144
+msgid "Edit source"
+msgstr "Edit source"
+
+#: src/canvas-toolbar.tsx:153
+msgid "Edit source and preview PDF"
+msgstr "Edit source and preview PDF"
+
+#: src/settings-dialog.tsx:615
+msgid "Editing"
+msgstr "Editing"
+
+#: src/canvas-toolbar.tsx:255
+msgid "Editing live with Overleaf · click to sync everything else"
+msgstr "Editing live with Overleaf · click to sync everything else"
+
+#: src/settings-dialog.tsx:139
+#: src/settings-dialog.tsx:612
+msgid "Editor & builds"
+msgstr "Editor & builds"
+
+#: src/canvas-toolbar.tsx:216
+#: src/document-canvas.tsx:3505
+msgid "Editor comments"
+msgstr "Editor comments"
+
+#: src/settings-dialog.tsx:587
+msgid "Editor font size"
+msgstr "Editor font size"
+
+#: src/settings-dialog.tsx:617
+#: src/settings-dialog.tsx:631
+msgid "Editor keymap"
+msgstr "Editor keymap"
+
+#: src/document-canvas.tsx:3497
+msgid "Editor shortcuts"
+msgstr "Editor shortcuts"
+
+#: src/document-canvas.tsx:3472
+msgid "Editor status"
+msgstr "Editor status"
+
+#: src/document-canvas.tsx:3790
+msgid "Empty secondary editor"
+msgstr "Empty secondary editor"
+
+#. placeholder {0}: record.title
+#: src/collab-dialog.tsx:331
+msgid "End “{0}” for everyone and remove it from this Mac"
+msgstr "End “{0}” for everyone and remove it from this Mac"
+
+#: src/settings-dialog.tsx:564
+msgid "English"
+msgstr "English"
+
+#: src/pdf-viewer.tsx:1539
+msgid "Enter a page number"
+msgstr "Enter a page number"
+
+#: src/document-canvas.tsx:4292
+#: src/pdf-viewer.tsx:1611
+msgid "Enter a zoom percentage or scroll to zoom"
+msgstr "Enter a zoom percentage or scroll to zoom"
+
+#: src/collab-dialog.tsx:245
+msgid "Enter your name so others can see who is editing."
+msgstr "Enter your name so others can see who is editing."
+
+#: src/document-canvas.tsx:3525
+msgid "estimate"
+msgstr "estimate"
+
+#: src/onboarding-tour.tsx:488
+msgid "Every entry from the bibliography shows up here. Anything with an arXiv ID can be downloaded in full with one click."
+msgstr "Every entry from the bibliography shows up here. Anything with an arXiv ID can be downloaded in full with one click."
+
+#: src/onboarding-tour.tsx:392
+msgid "Everything for the paper lives in one folder"
+msgstr "Everything for the paper lives in one folder"
+
+#: src/App.tsx:10338
+msgid "Export project ZIP"
+msgstr "Export project ZIP"
+
+#: src/project-dialogs.tsx:295
+msgid "Export ZIP"
+msgstr "Export ZIP"
+
+#: src/navigator.tsx:1625
+msgid "Expression of concern"
+msgstr "Expression of concern"
+
+#: src/settings-dialog.tsx:596
+msgid "Feedback"
+msgstr "Feedback"
+
+#: src/document-canvas.tsx:3500
+msgid "find"
+msgstr "find"
+
+#: src/pdf-viewer.tsx:1504
+#: src/pdf-viewer.tsx:1581
+msgid "Find in PDF"
+msgstr "Find in PDF"
+
+#: src/App.tsx:9335
+#: src/App.tsx:9337
+#: src/App.tsx:10326
+msgid "Find in project"
+msgstr "Find in project"
+
+#: src/onboarding-tour.tsx:159
+#: src/onboarding-tour.tsx:636
+msgid "Finish"
+msgstr "Finish"
+
+#: src/tex-setup-wizard.tsx:40
+msgid "Finishing setup…"
+msgstr "Finishing setup…"
+
+#: src/pdf-viewer.tsx:1655
+msgid "Fit page to height"
+msgstr "Fit page to height"
+
+#: src/pdf-viewer.tsx:1652
+msgid "Fit page to width"
+msgstr "Fit page to width"
+
+#: src/settings-dialog.tsx:563
+msgid "Follow system (default)"
+msgstr "Follow system (default)"
+
+#: src/App.tsx:10336
+msgid "Format document"
+msgstr "Format document"
+
+#: src/onboarding-tour.tsx:460
+msgid "Formulas, Excel export, and Agent edits"
+msgstr "Formulas, Excel export, and Agent edits"
+
+#: src/settings-dialog.tsx:136
+msgid "General"
+msgstr "General"
+
+#: src/onboarding-tour.tsx:505
+msgid "Get the gist before you dive in"
+msgstr "Get the gist before you dive in"
+
+#: src/canvas-toolbar.tsx:343
+msgid "Git status and commit"
+msgstr "Git status and commit"
+
+#: src/App.tsx:9848
+msgid "Git workspace"
+msgstr "Git workspace"
+
+#: src/canvas-toolbar.tsx:183
+msgid "Go back (⌘[)"
+msgstr "Go back (⌘[)"
+
+#: src/canvas-toolbar.tsx:188
+msgid "Go forward (⌘])"
+msgstr "Go forward (⌘])"
+
+#: src/document-canvas.tsx:3488
+msgid "Go to {title}"
+msgstr "Go to {title}"
+
+#: src/App.tsx:10301
+msgid "Go to line"
+msgstr "Go to line"
+
+#: src/document-canvas.tsx:3473
+msgid "Go to line (⌘G)"
+msgstr "Go to line (⌘G)"
+
+#: src/pdf-viewer.tsx:223
+msgid "Go to linked PDF location"
+msgstr "Go to linked PDF location"
+
+#: src/App.tsx:10069
+msgid "Go to section or label…"
+msgstr "Go to section or label…"
+
+#: src/App.tsx:10068
+#: src/App.tsx:10302
+msgid "Go to symbol"
+msgstr "Go to symbol"
+
+#: src/App.tsx:10321
+msgid "Grid generator"
+msgstr "Grid generator"
+
+#: src/project-dialogs.tsx:84
+#: src/project-dialogs.tsx:298
+msgid "Guided tutorial"
+msgstr "Guided tutorial"
+
+#: src/App.tsx:9070
+msgid "Hide sidebar"
+msgstr "Hide sidebar"
+
+#: src/collab-dialog.tsx:313
+#: src/collab-dialog.tsx:427
+#: src/collab-dialog.tsx:434
+msgid "host"
+msgstr "host"
+
+#: src/onboarding-tour.tsx:432
+msgid "HTML files render live right here — handy for demos and figures you want to poke at instead of only look at."
+msgstr "HTML files render live right here — handy for demos and figures you want to poke at instead of only look at."
+
+#: src/document-canvas.tsx:336
+msgid "HTML preview for {path}"
+msgstr "HTML preview for {path}"
+
+#: src/document-canvas.tsx:4295
+msgid "Image zoom percentage"
+msgstr "Image zoom percentage"
+
+#: src/navigator.tsx:1363
+msgid "Import images here"
+msgstr "Import images here"
+
+#: src/navigator.tsx:1604
+msgid "Import paper"
+msgstr "Import paper"
+
+#: src/project-dialogs.tsx:94
+msgid "Import ZIP"
+msgstr "Import ZIP"
+
+#: src/collab-dialog.tsx:422
+msgid "In this room"
+msgstr "In this room"
+
+#. placeholder {0}: status.totalChunks
+#: src/settings-dialog.tsx:425
+msgid "Indexing {0} prose blocks in the background. {semanticSearchPrivacy}"
+msgstr "Indexing {0} prose blocks in the background. {semanticSearchPrivacy}"
+
+#: src/pdf-viewer.tsx:1590
+msgid "Indexing…"
+msgstr "Indexing…"
+
+#: src/document-canvas.tsx:3500
+msgid "insert"
+msgstr "insert"
+
+#: src/App.tsx:10086
+msgid "Insert \\cite{…}"
+msgstr "Insert \\cite{…}"
+
+#: src/App.tsx:10098
+msgid "Insert \\ref{…}"
+msgstr "Insert \\ref{…}"
+
+#: src/document-canvas.tsx:3424
+msgid "Insert above line {line}"
+msgstr "Insert above line {line}"
+
+#: src/App.tsx:10085
+#: src/App.tsx:10322
+msgid "Insert citation"
+msgstr "Insert citation"
+
+#: src/App.tsx:10097
+#: src/App.tsx:10323
+msgid "Insert reference"
+msgstr "Insert reference"
+
+#: src/App.tsx:10311
+msgid "Insert snippet"
+msgstr "Insert snippet"
+
+#: src/canvas-toolbar.tsx:211
+msgid "Insert snippet or symbol (⌘⇧I)"
+msgstr "Insert snippet or symbol (⌘⇧I)"
+
+#: src/App.tsx:10321
+msgid "Insert table"
+msgstr "Insert table"
+
+#: src/settings-dialog.tsx:776
+msgid "Install automatically"
+msgstr "Install automatically"
+
+#: src/tex-setup-wizard.tsx:181
+msgid "Install Basic TeX"
+msgstr "Install Basic TeX"
+
+#: src/tex-setup-wizard.tsx:81
+msgid "Install BasicTeX"
+msgstr "Install BasicTeX"
+
+#: src/tex-setup-wizard.tsx:136
+msgid "Install LaTeX to compile"
+msgstr "Install LaTeX to compile"
+
+#: src/collab-dialog.tsx:473
+#: src/tex-setup-wizard.tsx:131
+msgid "Install LaTeX tools"
+msgstr "Install LaTeX tools"
+
+#: src/project-dialogs.tsx:101
+msgid "Install LaTeX tools (needed to compile PDFs)"
+msgstr "Install LaTeX tools (needed to compile PDFs)"
+
+#: src/tex-setup-wizard.tsx:81
+#: src/tex-setup-wizard.tsx:136
+msgid "Install required paper tools"
+msgstr "Install required paper tools"
+
+#: src/settings-dialog.tsx:836
+#: src/settings-dialog.tsx:853
+#: src/tex-setup-wizard.tsx:181
+msgid "Install required tools"
+msgstr "Install required tools"
+
+#: src/tex-setup-wizard.tsx:36
+msgid "Installing BasicTeX…"
+msgstr "Installing BasicTeX…"
+
+#: src/tex-setup-wizard.tsx:37
+msgid "Installing LaTeX packages…"
+msgstr "Installing LaTeX packages…"
+
+#: src/tex-setup-wizard.tsx:38
+msgid "Installing required tools…"
+msgstr "Installing required tools…"
+
+#: src/settings-dialog.tsx:404
+msgid "Installing update…"
+msgstr "Installing update…"
+
+#: src/tex-setup-wizard.tsx:48
+msgid "Installing uv for paper imports and bibliography tools."
+msgstr "Installing uv for paper imports and bibliography tools."
+
+#: src/settings-dialog.tsx:151
+msgid "Integrations"
+msgstr "Integrations"
+
+#: src/settings-dialog.tsx:551
+#: src/settings-dialog.tsx:561
+msgid "Interface language"
+msgstr "Interface language"
+
+#: src/settings-dialog.tsx:598
+msgid "Interface sounds"
+msgstr "Interface sounds"
+
+#: src/collab-dialog.tsx:354
+msgid "Invite link"
+msgstr "Invite link"
+
+#: src/onboarding-tour.tsx:537
+msgid "It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools."
+msgstr "It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools."
+
+#: src/collab-dialog.tsx:227
+msgid "Join"
+msgstr "Join"
+
+#: src/collab-dialog.tsx:534
+#: src/project-dialogs.tsx:97
+msgid "Join share"
+msgstr "Join share"
+
+#: src/collab-dialog.tsx:313
+msgid "joined"
+msgstr "joined"
+
+#: src/collab-dialog.tsx:134
+msgid "Joined"
+msgstr "Joined"
+
+#: src/App.tsx:10299
+msgid "Jump to PDF"
+msgstr "Jump to PDF"
+
+#: src/collab-dialog.tsx:130
+msgid "just you"
+msgstr "just you"
+
+#: src/settings-dialog.tsx:549
+msgid "Language"
+msgstr "Language"
+
+#: src/onboarding-tour.tsx:526
+msgid "Last stop: your writing agent"
+msgstr "Last stop: your writing agent"
+
+#: src/onboarding-tour.tsx:393
+msgid "LaTeX, notes, figures, boards, and the papers you cite. Click any file in the tree to open it here."
+msgstr "LaTeX, notes, figures, boards, and the papers you cite. Click any file in the tree to open it here."
+
+#: src/App.tsx:10296
+msgid "latexmk -c then -g"
+msgstr "latexmk -c then -g"
+
+#: src/settings-dialog.tsx:415
+msgid "Lattice checks in the background and installs updates on its own."
+msgstr "Lattice checks in the background and installs updates on its own."
+
+#: src/settings-dialog.tsx:416
+msgid "Lattice checks in the background; you decide when to install."
+msgstr "Lattice checks in the background; you decide when to install."
+
+#: src/settings-dialog.tsx:642
+msgid "Lattice closes the least recently used tab past this count."
+msgstr "Lattice closes the least recently used tab past this count."
+
+#: src/onboarding-tour.tsx:496
+msgid "Lattice fetches the full text, the figures, and the metadata, then keeps them attached to the citation."
+msgstr "Lattice fetches the full text, the figures, and the metadata, then keeps them attached to the citation."
+
+#: src/tex-setup-wizard.tsx:139
+msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute."
+msgstr "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute."
+
+#: src/settings-dialog.tsx:717
+msgid "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds."
+msgstr "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds."
+
+#: src/App.tsx:10339
+msgid "Learn Lattice with the Understanding Attention sample project"
+msgstr "Learn Lattice with the Understanding Attention sample project"
+
+#: src/document-canvas.tsx:3438
+msgid "Leave a comment for collaborators…"
+msgstr "Leave a comment for collaborators…"
+
+#: src/onboarding-tour.tsx:470
+msgid "Leave comments on a draft, share the project live with a co-author, sync a linked Overleaf project, commit to Git, or open the full version history — one button each, no terminal."
+msgstr "Leave comments on a draft, share the project live with a co-author, sync a linked Overleaf project, commit to Git, or open the full version history — one button each, no terminal."
+
+#: src/collab-dialog.tsx:465
+#: src/collab-dialog.tsx:510
+msgid "Leave share"
+msgstr "Leave share"
+
+#: src/onboarding-tour.tsx:495
+msgid "Let's download one of them"
+msgstr "Let's download one of them"
+
+#: src/settings-dialog.tsx:760
+msgid "Lets trusted projects run external tools during builds."
+msgstr "Lets trusted projects run external tools during builds."
+
+#: src/settings-dialog.tsx:578
+msgid "Light"
+msgstr "Light"
+
+#: src/canvas-toolbar.tsx:229
+msgid "Live · {count} other"
+msgstr "Live · {count} other"
+
+#: src/canvas-toolbar.tsx:230
+msgid "Live · {count} others"
+msgstr "Live · {count} others"
+
+#: src/canvas-toolbar.tsx:232
+#: src/collab-dialog.tsx:207
+#: src/collab-dialog.tsx:213
+msgid "Live collaboration"
+msgstr "Live collaboration"
+
+#: src/canvas-toolbar.tsx:231
+msgid "Live collaboration · just you"
+msgstr "Live collaboration · just you"
+
+#: src/collab-dialog.tsx:373
+msgid "Live collaboration view"
+msgstr "Live collaboration view"
+
+#: src/canvas-toolbar.tsx:260
+msgid "Live editing unavailable · syncing instead"
+msgstr "Live editing unavailable · syncing instead"
+
+#: src/canvas-toolbar.tsx:259
+msgid "Live editing unavailable ({detail}) · syncing instead"
+msgstr "Live editing unavailable ({detail}) · syncing instead"
+
+#: src/App.tsx:10315
+msgid "Live sharing…"
+msgstr "Live sharing…"
+
+#: src/document-canvas.tsx:3474
+msgid "Ln {line}, Col {column}"
+msgstr "Ln {line}, Col {column}"
+
+#: src/settings-dialog.tsx:524
+msgid "Loading settings…"
+msgstr "Loading settings…"
+
+#: src/settings-dialog.tsx:652
+msgid "Local semantic search"
+msgstr "Local semantic search"
+
+#: src/settings-dialog.tsx:160
+msgid "Logs"
+msgstr "Logs"
+
+#: src/settings-dialog.tsx:723
+msgid "Manual only"
+msgstr "Manual only"
+
+#: src/App.tsx:10330
+#: src/document-canvas.tsx:3516
+msgid "Manuscript TODOs"
+msgstr "Manuscript TODOs"
+
+#: src/settings-dialog.tsx:641
+msgid "Max open tabs"
+msgstr "Max open tabs"
+
+#: src/settings-dialog.tsx:146
+#: src/settings-dialog.tsx:444
+msgid "MCP"
+msgstr "MCP"
+
+#: src/settings-dialog.tsx:824
+msgid "Missing required tools"
+msgstr "Missing required tools"
+
+#. placeholder {0}: missingTools.join(", ")
+#: src/tex-setup-wizard.tsx:107
+msgid "Missing tools: {0}"
+msgstr "Missing tools: {0}"
+
+#: src/project-dialogs.tsx:222
+msgid "Name"
+msgstr "Name"
+
+#: src/App.tsx:10299
+#: src/App.tsx:10300
+#: src/App.tsx:10301
+#: src/App.tsx:10302
+msgid "Navigate"
+msgstr "Navigate"
+
+#: src/App.tsx:9327
+#: src/App.tsx:9329
+msgid "New board"
+msgstr "New board"
+
+#: src/canvas-toolbar.tsx:253
+msgid "New changes on Overleaf — click to bring them in"
+msgstr "New changes on Overleaf — click to bring them in"
+
+#: src/navigator.tsx:1340
+#: src/navigator.tsx:1435
+msgid "New file"
+msgstr "New file"
+
+#: src/navigator.tsx:1343
+#: src/navigator.tsx:1438
+msgid "New folder"
+msgstr "New folder"
+
+#: src/project-dialogs.tsx:226
+msgid "New name"
+msgstr "New name"
+
+#: src/project-dialogs.tsx:70
+#: src/project-dialogs.tsx:289
+msgid "New project"
+msgstr "New project"
+
+#: src/App.tsx:9319
+#: src/App.tsx:9321
+msgid "New spreadsheet"
+msgstr "New spreadsheet"
+
+#: src/settings-dialog.tsx:410
+msgid "New versions install automatically"
+msgstr "New versions install automatically"
+
+#: src/document-canvas.tsx:3499
+msgid "next"
+msgstr "next"
+
+#: src/pdf-viewer.tsx:1568
+msgid "Next page"
+msgstr "Next page"
+
+#: src/pdf-viewer.tsx:1594
+msgid "Next search result"
+msgstr "Next search result"
+
+#: src/App.tsx:10331
+msgid "No"
+msgstr "No"
+
+#: src/navigator.tsx:1628
+msgid "No Crossref update metadata found"
+msgstr "No Crossref update metadata found"
+
+#: src/navigator.tsx:1717
+msgid "No matching papers"
+msgstr "No matching papers"
+
+#: src/project-dialogs.tsx:283
+msgid "No other recent projects yet."
+msgstr "No other recent projects yet."
+
+#: src/settings-dialog.tsx:708
+msgid "No project terms added."
+msgstr "No project terms added."
+
+#: src/onboarding-tour.tsx:411
+msgid "Not every file has to be LaTeX. notes.md gets the same live preview — source on the left, formatted on the right."
+msgstr "Not every file has to be LaTeX. notes.md gets the same live preview — source on the left, formatted on the right."
+
+#: src/onboarding-tour.tsx:410
+msgid "Notes and drafts in Markdown"
+msgstr "Notes and drafts in Markdown"
+
+#: src/settings-dialog.tsx:775
+msgid "Notify me (manual)"
+msgstr "Notify me (manual)"
+
+#: src/settings-dialog.tsx:421
+msgid "Off by default. {semanticSearchPrivacy}"
+msgstr "Off by default. {semanticSearchPrivacy}"
+
+#: src/project-dialogs.tsx:163
+msgid "Official 2026 conference style"
+msgstr "Official 2026 conference style"
+
+#: src/project-dialogs.tsx:164
+msgid "Official 2026 style, preprint option"
+msgstr "Official 2026 style, preprint option"
+
+#: src/canvas-toolbar.tsx:265
+msgid "Open a project from Overleaf"
+msgstr "Open a project from Overleaf"
+
+#: src/settings-dialog.tsx:673
+msgid "Open a project to add its names, acronyms, and technical terms."
+msgstr "Open a project to add its names, acronyms, and technical terms."
+
+#: src/settings-dialog.tsx:533
+msgid "Open a project to manage Agent settings."
+msgstr "Open a project to manage Agent settings."
+
+#: src/project-dialogs.tsx:287
+msgid "Open another folder"
+msgstr "Open another folder"
+
+#: src/canvas-toolbar.tsx:318
+msgid "Open another Overleaf project"
+msgstr "Open another Overleaf project"
+
+#: src/document-canvas.tsx:3285
+msgid "Open article in browser"
+msgstr "Open article in browser"
+
+#: src/project-dialogs.tsx:77
+msgid "Open folder"
+msgstr "Open folder"
+
+#: src/project-dialogs.tsx:90
+#: src/project-dialogs.tsx:292
+msgid "Open from Overleaf"
+msgstr "Open from Overleaf"
+
+#: src/App.tsx:10339
+msgid "Open guided tutorial"
+msgstr "Open guided tutorial"
+
+#: src/canvas-toolbar.tsx:312
+msgid "Open in Overleaf"
+msgstr "Open in Overleaf"
+
+#: src/document-canvas.tsx:3795
+msgid "Open or drag a file here."
+msgstr "Open or drag a file here."
+
+#: src/document-canvas.tsx:3284
+msgid "Open PDF in browser"
+msgstr "Open PDF in browser"
+
+#: src/App.tsx:10337
+msgid "Open project history"
+msgstr "Open project history"
+
+#: src/App.tsx:10341
+msgid "Open settings"
+msgstr "Open settings"
+
+#: src/onboarding-tour.tsx:527
+msgid "Open the Agent tab. Codex, Claude, and other providers all plug in here."
+msgstr "Open the Agent tab. Codex, Claude, and other providers all plug in here."
+
+#: src/canvas-toolbar.tsx:175
+msgid "Open the full paper Markdown"
+msgstr "Open the full paper Markdown"
+
+#: src/canvas-toolbar.tsx:174
+msgid "Open the paper overview"
+msgstr "Open the paper overview"
+
+#: src/App.tsx:10325
+msgid "OpenAlex search"
+msgstr "OpenAlex search"
+
+#. placeholder {0}: primaryOpening.label
+#: src/App.tsx:9476
+msgid "Opening {0}…"
+msgstr "Opening {0}…"
+
+#: src/settings-dialog.tsx:153
+msgid "Overleaf"
+msgstr "Overleaf"
+
+#: src/App.tsx:10338
+msgid "Overleaf / arXiv source pack"
+msgstr "Overleaf / arXiv source pack"
+
+#: src/canvas-toolbar.tsx:328
+msgid "Overleaf comments and chat"
+msgstr "Overleaf comments and chat"
+
+#: src/canvas-toolbar.tsx:327
+msgid "Overleaf comments and chat · {count} waiting"
+msgstr "Overleaf comments and chat · {count} waiting"
+
+#: src/canvas-toolbar.tsx:293
+#: src/canvas-toolbar.tsx:294
+msgid "Overleaf project actions"
+msgstr "Overleaf project actions"
+
+#: src/canvas-toolbar.tsx:175
+#: src/document-canvas.tsx:3282
+msgid "Paper"
+msgstr "Paper"
+
+#: src/document-canvas.tsx:3287
+msgid "Paper actions"
+msgstr "Paper actions"
+
+#: src/canvas-toolbar.tsx:171
+msgid "Paper content"
+msgstr "Paper content"
+
+#: src/onboarding-tour.tsx:518
+msgid "Paper view keeps the complete text, sections, equations, and figures as structured Markdown — searchable, quotable, and next to your draft."
+msgstr "Paper view keeps the complete text, sections, equations, and figures as structured Markdown — searchable, quotable, and next to your draft."
+
+#: src/App.tsx:9312
+#: src/App.tsx:9312
+#: src/document-canvas.tsx:1347
+#: src/navigator.tsx:1619
+msgid "Papers"
+msgstr "Papers"
+
+#: src/navigator.tsx:1712
+msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence."
+msgstr "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence."
+
+#: src/App.tsx:10335
+msgid "Paste clipboard image as figure"
+msgstr "Paste clipboard image as figure"
+
+#: src/collab-dialog.tsx:358
+msgid "Paste the full invite from Copy invite"
+msgstr "Paste the full invite from Copy invite"
+
+#: src/document-canvas.tsx:3296
+msgid "PDF"
+msgstr "PDF"
+
+#: src/pdf-viewer.tsx:1520
+msgid "PDF document"
+msgstr "PDF document"
+
+#: src/pdf-viewer.tsx:194
+msgid "PDF links"
+msgstr "PDF links"
+
+#: src/pdf-viewer.tsx:672
+msgid "PDF page {pageNumber}"
+msgstr "PDF page {pageNumber}"
+
+#: src/pdf-viewer.tsx:1541
+msgid "PDF page number"
+msgstr "PDF page number"
+
+#: src/pdf-viewer.tsx:747
+msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
+msgstr "PDF preview timed out. Click Build again, or open the PDF in Preview."
+
+#: src/pdf-viewer.tsx:1614
+msgid "PDF zoom percentage"
+msgstr "PDF zoom percentage"
+
+#: src/App.tsx:9176
+msgid "People in this session"
+msgstr "People in this session"
+
+#: src/settings-dialog.tsx:599
+msgid "Plays quiet cues when a requested build or collaboration setup finishes."
+msgstr "Plays quiet cues when a requested build or collaboration setup finishes."
+
+#: src/document-canvas.tsx:3660
+#: src/document-canvas.tsx:3718
+#: src/document-canvas.tsx:3913
+msgid "Preparing board editor"
+msgstr "Preparing board editor"
+
+#: src/App.tsx:9480
+msgid "Preparing editor"
+msgstr "Preparing editor"
+
+#: src/document-canvas.tsx:491
+msgid "Preparing HTML preview…"
+msgstr "Preparing HTML preview…"
+
+#: src/document-canvas.tsx:183
+msgid "Preparing Markdown editor"
+msgstr "Preparing Markdown editor"
+
+#: src/document-canvas.tsx:439
+msgid "Preparing PDF preview…"
+msgstr "Preparing PDF preview…"
+
+#: src/document-canvas.tsx:650
+#: src/document-canvas.tsx:3220
+msgid "Preparing preview…"
+msgstr "Preparing preview…"
+
+#: src/document-canvas.tsx:3673
+#: src/document-canvas.tsx:3737
+#: src/document-canvas.tsx:3913
+msgid "Preparing spreadsheet editor"
+msgstr "Preparing spreadsheet editor"
+
+#: src/canvas-toolbar.tsx:157
+msgid "Preview"
+msgstr "Preview"
+
+#: src/canvas-toolbar.tsx:158
+msgid "Preview HTML"
+msgstr "Preview HTML"
+
+#: src/canvas-toolbar.tsx:158
+msgid "Preview Markdown"
+msgstr "Preview Markdown"
+
+#: src/document-canvas.tsx:4331
+msgid "Preview of {path}"
+msgstr "Preview of {path}"
+
+#: src/canvas-toolbar.tsx:158
+msgid "Preview PDF"
+msgstr "Preview PDF"
+
+#: src/document-canvas.tsx:3499
+msgid "previous"
+msgstr "previous"
+
+#: src/pdf-viewer.tsx:1536
+msgid "Previous page"
+msgstr "Previous page"
+
+#: src/pdf-viewer.tsx:1591
+msgid "Previous search result"
+msgstr "Previous search result"
+
+#: src/App.tsx:9311
+#: src/App.tsx:9311
+#: src/App.tsx:10337
+#: src/App.tsx:10338
+#: src/App.tsx:10339
+#: src/App.tsx:10340
+#: src/App.tsx:10341
+msgid "Project"
+msgstr "Project"
+
+#: src/settings-dialog.tsx:670
+msgid "Project dictionary"
+msgstr "Project dictionary"
+
+#: src/settings-dialog.tsx:690
+msgid "Project dictionary terms"
+msgstr "Project dictionary terms"
+
+#: src/navigator.tsx:1386
+msgid "Project files"
+msgstr "Project files"
+
+#: src/canvas-toolbar.tsx:348
+msgid "Project history"
+msgstr "Project history"
+
+#: src/project-dialogs.tsx:146
+msgid "Project name"
+msgstr "Project name"
+
+#: src/settings-dialog.tsx:145
+#: src/settings-dialog.tsx:440
+msgid "Providers"
+msgstr "Providers"
+
+#: src/navigator.tsx:1626
+msgid "Publisher"
+msgstr "Publisher"
+
+#: src/App.tsx:9855
+#: src/App.tsx:9891
+msgid "Pull requests"
+msgstr "Pull requests"
+
+#: src/App.tsx:10300
+msgid "Quick open file"
+msgstr "Quick open file"
+
+#. placeholder {0}: status.indexedFiles
+#. placeholder {1}: status.indexedChunks
+#: src/settings-dialog.tsx:431
+msgid "Ready for {0} files ({1} blocks). {semanticSearchPrivacy}"
+msgstr "Ready for {0} files ({1} blocks). {semanticSearchPrivacy}"
+
+#. placeholder {0}: status.indexedChunks
+#: src/settings-dialog.tsx:430
+msgid "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
+msgstr "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
+
+#: src/settings-dialog.tsx:824
+msgid "Ready to compile"
+msgstr "Ready to compile"
+
+#: src/project-dialogs.tsx:275
+msgid "Recent projects"
+msgstr "Recent projects"
+
+#. placeholder {0}: record.title
+#: src/collab-dialog.tsx:312
+msgid "Rejoin {0}"
+msgstr "Rejoin {0}"
+
+#: src/document-canvas.tsx:292
+msgid "Relative project links are unavailable in this preview"
+msgstr "Relative project links are unavailable in this preview"
+
+#: src/collab-dialog.tsx:446
+msgid "Remove"
+msgstr "Remove"
+
+#. placeholder {0}: record.projectInstanceId
+#: src/collab-dialog.tsx:339
+msgid "Remove {0} from recent shares"
+msgstr "Remove {0} from recent shares"
+
+#. placeholder {0}: peer.name
+#: src/collab-dialog.tsx:443
+msgid "Remove {0} from this share"
+msgstr "Remove {0} from this share"
+
+#. placeholder {0}: peer.name
+#: src/collab-dialog.tsx:171
+msgid "Remove {0}?\n"
+"\n"
+"They will lose access immediately. Anyone who joined with the same invite will also lose access."
+msgstr "Remove {0}?\n"
+"\n"
+"They will lose access immediately. Anyone who joined with the same invite will also lose access."
+
+#: src/navigator.tsx:1691
+msgid "Remove {title}"
+msgstr "Remove {title}"
+
+#: src/settings-dialog.tsx:697
+msgid "Remove {word} from project dictionary"
+msgstr "Remove {word} from project dictionary"
+
+#: src/settings-dialog.tsx:730
+msgid "Removes .aux, .log, and other build leftovers from this project."
+msgstr "Removes .aux, .log, and other build leftovers from this project."
+
+#: src/collab-dialog.tsx:446
+msgid "Removing…"
+msgstr "Removing…"
+
+#: src/collab-dialog.tsx:326
+#: src/navigator.tsx:1346
+#: src/project-dialogs.tsx:242
+msgid "Rename"
+msgstr "Rename"
+
+#. placeholder {0}: record.title
+#: src/collab-dialog.tsx:295
+msgid "Rename {0}"
+msgstr "Rename {0}"
+
+#: src/project-dialogs.tsx:198
+msgid "Rename citation key"
+msgstr "Rename citation key"
+
+#: src/project-dialogs.tsx:200
+msgid "Rename environment"
+msgstr "Rename environment"
+
+#: src/project-dialogs.tsx:196
+msgid "Rename label"
+msgstr "Rename label"
+
+#: src/project-dialogs.tsx:207
+msgid "Renames the matching \\begin and \\end pair under the cursor."
+msgstr "Renames the matching \\begin and \\end pair under the cursor."
+
+#: src/project-dialogs.tsx:242
+msgid "Renaming…"
+msgstr "Renaming…"
+
+#: src/pdf-viewer.tsx:1714
+msgid "Rendering PDF…"
+msgstr "Rendering PDF…"
+
+#: src/App.tsx:10327
+msgid "Replace in project"
+msgstr "Replace in project"
+
+#: src/navigator.tsx:1626
+msgid "Replacement/new version"
+msgstr "Replacement/new version"
+
+#: src/tex-setup-wizard.tsx:118
+msgid "Required paper tools installed"
+msgstr "Required paper tools installed"
+
+#: src/tex-setup-wizard.tsx:153
+msgid "Required tools installation progress"
+msgstr "Required tools installation progress"
+
+#: src/App.tsx:10325
+msgid "Research"
+msgstr "Research"
+
+#: src/project-dialogs.tsx:60
+msgid "Research, written with evidence."
+msgstr "Research, written with evidence."
+
+#: src/document-canvas.tsx:3975
+msgid "Resize dual source panes"
+msgstr "Resize dual source panes"
+
+#: src/document-canvas.tsx:4073
+msgid "Resize editor and asset preview"
+msgstr "Resize editor and asset preview"
+
+#: src/document-canvas.tsx:4077
+msgid "Resize editor and HTML preview"
+msgstr "Resize editor and HTML preview"
+
+#: src/document-canvas.tsx:4075
+msgid "Resize editor and Markdown preview"
+msgstr "Resize editor and Markdown preview"
+
+#: src/document-canvas.tsx:4078
+msgid "Resize editor and PDF preview"
+msgstr "Resize editor and PDF preview"
+
+#: src/document-canvas.tsx:3996
+msgid "Resize PDF pane"
+msgstr "Resize PDF pane"
+
+#: src/App.tsx:9463
+msgid "Resize workspace sidebar"
+msgstr "Resize workspace sidebar"
+
+#: src/navigator.tsx:1625
+msgid "Retracted"
+msgstr "Retracted"
+
+#: src/navigator.tsx:1626
+msgid "Retraction Watch"
+msgstr "Retraction Watch"
+
+#: src/pdf-viewer.tsx:1637
+msgid "Reveal cursor in PDF (⌘⇧J)"
+msgstr "Reveal cursor in PDF (⌘⇧J)"
+
+#: src/collab-dialog.tsx:251
+msgid "Room name"
+msgstr "Room name"
+
+#: src/collab-dialog.tsx:128
+msgid "Rooms you host"
+msgstr "Rooms you host"
+
+#: src/collab-dialog.tsx:128
+msgid "Rooms you joined"
+msgstr "Rooms you joined"
+
+#: src/App.tsx:10293
+msgid "Run a command…"
+msgstr "Run a command…"
+
+#: src/onboarding-tour.tsx:431
+msgid "Run interactive explanations"
+msgstr "Run interactive explanations"
+
+#: src/App.tsx:10340
+#: src/settings-dialog.tsx:813
+msgid "Run TeX doctor"
+msgstr "Run TeX doctor"
+
+#: src/settings-dialog.tsx:849
+msgid "Run the doctor to inspect this Mac’s TeX toolchain."
+msgstr "Run the doctor to inspect this Mac’s TeX toolchain."
+
+#: src/collab-dialog.tsx:307
+msgid "Save"
+msgstr "Save"
+
+#: src/pdf-viewer.tsx:1519
+msgid "Save compiled PDF"
+msgstr "Save compiled PDF"
+
+#: src/pdf-viewer.tsx:1521
+msgid "Save PDF"
+msgstr "Save PDF"
+
+#: src/pdf-viewer.tsx:746
+msgid "Save PDF as…"
+msgstr "Save PDF as…"
+
+#: src/pdf-viewer.tsx:1522
+msgid "Saved to {path}"
+msgstr "Saved to {path}"
+
+#: src/settings-dialog.tsx:650
+msgid "Search"
+msgstr "Search"
+
+#: src/navigator.tsx:1592
+msgid "Search or add by title, arXiv ID, DOI, or URL"
+msgstr "Search or add by title, arXiv ID, DOI, or URL"
+
+#: src/navigator.tsx:1589
+msgid "Search or import papers"
+msgstr "Search or import papers"
+
+#: src/pdf-viewer.tsx:1501
+#: src/pdf-viewer.tsx:1576
+msgid "Search PDF"
+msgstr "Search PDF"
+
+#. placeholder {0}: message(firstFailure.reason)
+#: src/pdf-viewer.tsx:1249
+msgid "Search unavailable: {0}"
+msgstr "Search unavailable: {0}"
+
+#: src/pdf-viewer.tsx:1260
+msgid "Search unavailable: {detail}"
+msgstr "Search unavailable: {detail}"
+
+#: src/document-canvas.tsx:3529
+msgid "Sel {words} words · {chars} chars · {lines} lines"
+msgstr "Sel {words} words · {chars} chars · {lines} lines"
+
+#: src/collab-dialog.tsx:462
+msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
+msgstr "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
+
+#: src/settings-dialog.tsx:613
+msgid "Set the editor keymap and build behavior."
+msgstr "Set the editor keymap and build behavior."
+
+#: src/project-dialogs.tsx:54
+#: src/project-dialogs.tsx:300
+#: src/settings-dialog.tsx:448
+#: src/settings-dialog.tsx:460
+msgid "Settings"
+msgstr "Settings"
+
+#: src/settings-dialog.tsx:467
+msgid "Settings sections"
+msgstr "Settings sections"
+
+#: src/tex-setup-wizard.tsx:50
+msgid "Setup is complete."
+msgstr "Setup is complete."
+
+#: src/App.tsx:10318
+msgid "Share invite with a collaborator"
+msgstr "Share invite with a collaborator"
+
+#: src/collab-dialog.tsx:221
+msgid "Share mode"
+msgstr "Share mode"
+
+#: src/collab-dialog.tsx:134
+msgid "Sharing"
+msgstr "Sharing"
+
+#: src/onboarding-tour.tsx:469
+msgid "Sharing and history live in this row"
+msgstr "Sharing and history live in this row"
+
+#: src/navigator.tsx:1355
+#: src/navigator.tsx:1549
+msgid "Show in Finder"
+msgstr "Show in Finder"
+
+#: src/App.tsx:9070
+msgid "Show sidebar"
+msgstr "Show sidebar"
+
+#: src/App.tsx:9308
+msgid "Sidebar mode"
+msgstr "Sidebar mode"
+
+#: src/settings-dialog.tsx:565
+msgid "Simplified Chinese"
+msgstr "Simplified Chinese"
+
+#: src/settings-dialog.tsx:147
+#: src/settings-dialog.tsx:442
+msgid "Skills"
+msgstr "Skills"
+
+#: src/onboarding-tour.tsx:136
+#: src/onboarding-tour.tsx:636
+msgid "Skip tutorial"
+msgstr "Skip tutorial"
+
+#: src/App.tsx:10306
+msgid "Source + PDF"
+msgstr "Source + PDF"
+
+#: src/pdf-viewer.tsx:690
+msgid "Source location in PDF"
+msgstr "Source location in PDF"
+
+#: src/settings-dialog.tsx:658
+msgid "Spelling"
+msgstr "Spelling"
+
+#: src/App.tsx:10306
+msgid "split"
+msgstr "split"
+
+#: src/canvas-toolbar.tsx:148
+msgid "Split"
+msgstr "Split"
+
+#: src/canvas-toolbar.tsx:196
+msgid "Split editor right"
+msgstr "Split editor right"
+
+#: src/App.tsx:10315
+msgid "Start / join live sharing"
+msgstr "Start / join live sharing"
+
+#: src/collab-dialog.tsx:226
+#: src/collab-dialog.tsx:525
+msgid "Start sharing"
+msgstr "Start sharing"
+
+#: src/settings-dialog.tsx:426
+msgid "Starting the background index. {semanticSearchPrivacy}"
+msgstr "Starting the background index. {semanticSearchPrivacy}"
+
+#: src/collab-dialog.tsx:376
+msgid "status"
+msgstr "status"
+
+#: src/App.tsx:9251
+msgid "Stop"
+msgstr "Stop"
+
+#: src/App.tsx:10298
+msgid "Stop build"
+msgstr "Stop build"
+
+#: src/collab-dialog.tsx:465
+#: src/collab-dialog.tsx:514
+msgid "Stop sharing"
+msgstr "Stop sharing"
+
+#: src/collab-dialog.tsx:161
+msgid "Stop sharing for everyone?\n"
+"\n"
+"Collaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite."
+msgstr "Stop sharing for everyone?\n"
+"\n"
+"Collaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite."
+
+#: src/App.tsx:9244
+msgid "Stop the current LaTeX build"
+msgstr "Stop the current LaTeX build"
+
+#: src/App.tsx:10334
+msgid "Submission checklist"
+msgstr "Submission checklist"
+
+#: src/App.tsx:10308
+msgid "Swap editor panes"
+msgstr "Swap editor panes"
+
+#: src/App.tsx:9084
+msgid "Switch project"
+msgstr "Switch project"
+
+#: src/onboarding-tour.tsx:478
+msgid "Switch to Papers to see what this manuscript cites."
+msgstr "Switch to Papers to see what this manuscript cites."
+
+#: src/settings-dialog.tsx:515
+msgid "Synara {synaraSettingsLabel} settings"
+msgstr "Synara {synaraSettingsLabel} settings"
+
+#: src/canvas-toolbar.tsx:263
+msgid "Sync with Overleaf"
+msgstr "Sync with Overleaf"
+
+#: src/canvas-toolbar.tsx:251
+msgid "Syncing with Overleaf…"
+msgstr "Syncing with Overleaf…"
+
+#: src/settings-dialog.tsx:672
+msgid "Terms Harper should accept in this project."
+msgstr "Terms Harper should accept in this project."
+
+#: src/settings-dialog.tsx:159
+#: src/settings-dialog.tsx:809
+msgid "TeX doctor"
+msgstr "TeX doctor"
+
+#: src/settings-dialog.tsx:434
+msgid "The local model is unavailable."
+msgstr "The local model is unavailable."
+
+#: src/document-canvas.tsx:3328
+msgid "The PDF took too long to load. Try again, or open the article in your browser."
+msgstr "The PDF took too long to load. Try again, or open the article in your browser."
+
+#: src/onboarding-tour.tsx:420
+msgid "The preview is editable too"
+msgstr "The preview is editable too"
+
+#: src/tex-setup-wizard.tsx:91
+msgid "The required tools"
+msgstr "The required tools"
+
+#: src/document-canvas.tsx:2047
+msgid "The selected text changed. Select it again before commenting."
+msgstr "The selected text changed. Select it again before commenting."
+
+#: src/settings-dialog.tsx:570
+msgid "Theme"
+msgstr "Theme"
+
+#: src/onboarding-tour.tsx:517
+msgid "Then read the real thing, right here"
+msgstr "Then read the real thing, right here"
+
+#: src/settings-dialog.tsx:547
+msgid "These preferences apply across every project on this Mac."
+msgstr "These preferences apply across every project on this Mac."
+
+#: src/onboarding-tour.tsx:441
+msgid "Think visually on a board"
+msgstr "Think visually on a board"
+
+#: src/document-canvas.tsx:4332
+msgid "This format cannot be rendered in the preview."
+msgstr "This format cannot be rendered in the preview."
+
+#: src/tex-setup-wizard.tsx:47
+msgid "This is the longest step and can take up to 15 minutes."
+msgstr "This is the longest step and can take up to 15 minutes."
+
+#: src/collab-dialog.tsx:461
+msgid "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely."
+msgstr "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely."
+
+#: src/tex-setup-wizard.tsx:46
+msgid "This step may take a minute."
+msgstr "This step may take a minute."
+
+#: src/onboarding-tour.tsx:400
+msgid "Three ways to look at a document"
+msgstr "Three ways to look at a document"
+
+#: src/document-canvas.tsx:3520
+msgid "TODOs"
+msgstr "TODOs"
+
+#: src/settings-dialog.tsx:820
+msgid "Toolchain status"
+msgstr "Toolchain status"
+
+#: src/onboarding-tour.tsx:422
+msgid "Try typing / in the visual editor"
+msgstr "Try typing / in the visual editor"
+
+#. placeholder {0}: index + 1
+#: src/onboarding-tour.tsx:139
+msgid "Tutorial progress: step {0} of {size}"
+msgstr "Tutorial progress: step {0} of {size}"
+
+#: src/App.tsx:10304
+msgid "Two files side by side"
+msgstr "Two files side by side"
+
+#: src/onboarding-tour.tsx:384
+msgid "Type in main.tex on the left. Lattice saves, compiles, and refreshes the PDF on the right on its own — there is no build button to hunt for."
+msgstr "Type in main.tex on the left. Lattice saves, compiles, and refreshes the PDF on the right on its own — there is no build button to hunt for."
+
+#: src/pdf-viewer.tsx:1590
+msgid "Unavailable"
+msgstr "Unavailable"
+
+#: src/project-dialogs.tsx:203
+msgid "Updates every \\label and \\ref/\\cref occurrence across the project."
+msgstr "Updates every \\label and \\ref/\\cref occurrence across the project."
+
+#: src/project-dialogs.tsx:205
+msgid "Updates the bibliography entry and every \\cite occurrence across the project."
+msgstr "Updates the bibliography entry and every \\cite occurrence across the project."
+
+#: src/pdf-viewer.tsx:1715
+msgid "Updating…"
+msgstr "Updating…"
+
+#: src/onboarding-tour.tsx:461
+msgid "Use Formulas, export as .xlsx, or ask Agent to read and update ranges, formulas, and formatting."
+msgstr "Use Formulas, export as .xlsx, or ask Agent to read and update ranges, formulas, and formatting."
+
+#: src/navigator.tsx:1718
+msgid "Use the + button to import this query if it isn't in your library yet."
+msgstr "Use the + button to import this query if it isn't in your library yet."
+
+#: src/settings-dialog.tsx:718
+msgid "Use the Build button or Command-S. Source changes are still saved automatically."
+msgstr "Use the Build button or Command-S. Source changes are still saved automatically."
+
+#: src/project-dialogs.tsx:149
+#: src/project-dialogs.tsx:150
+msgid "Venue template"
+msgstr "Venue template"
+
+#: src/tex-setup-wizard.tsx:39
+msgid "Verifying installation…"
+msgstr "Verifying installation…"
+
+#: src/settings-dialog.tsx:780
+msgid "Version"
+msgstr "Version"
+
+#. placeholder {0}: updater.version ?? ""
+#: src/settings-dialog.tsx:400
+msgid "Version {0} is ready to install"
+msgstr "Version {0} is ready to install"
+
+#: src/App.tsx:10304
+#: src/App.tsx:10306
+#: src/App.tsx:10308
+msgid "View"
+msgstr "View"
+
+#: src/document-canvas.tsx:3292
+msgid "View original PDF"
+msgstr "View original PDF"
+
+#: src/settings-dialog.tsx:618
+msgid "Vim and Emacs keep their modal bindings inside the editor only."
+msgstr "Vim and Emacs keep their modal bindings inside the editor only."
+
+#: src/document-canvas.tsx:3477
+msgid "Vim mode"
+msgstr "Vim mode"
+
+#: src/tex-setup-wizard.tsx:35
+msgid "Waiting for administrator approval…"
+msgstr "Waiting for administrator approval…"
+
+#: src/onboarding-tour.tsx:376
+msgid "We opened a real project for you — the “Attention Is All You Need” paper — so you can try each feature on real files as we go. Skip whenever you like."
+msgstr "We opened a real project for you — the “Attention Is All You Need” paper — so you can try each feature on real files as we go. Skip whenever you like."
+
+#: src/onboarding-tour.tsx:375
+msgid "Welcome to Lattice"
+msgstr "Welcome to Lattice"
+
+#: src/App.tsx:10334
+msgid "Words / pages / TODOs"
+msgstr "Words / pages / TODOs"
+
+#: src/project-dialogs.tsx:201
+msgid "Wrap in environment"
+msgstr "Wrap in environment"
+
+#: src/project-dialogs.tsx:208
+msgid "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
+msgstr "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
+
+#: src/settings-dialog.tsx:744
+msgid "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence."
+msgstr "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence."
+
+#: src/collab-dialog.tsx:426
+msgid "You"
+msgstr "You"
+
+#: src/collab-dialog.tsx:455
+msgid "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing."
+msgstr "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing."
+
+#: src/collab-dialog.tsx:465
+msgid "You started this share. "
+msgstr "You started this share. "
+
+#: src/settings-dialog.tsx:411
+msgid "You’ll be notified when a new version is ready"
+msgstr "You’ll be notified when a new version is ready"
+
+#: src/settings-dialog.tsx:408
+msgid "You’re on the latest version"
+msgstr "You’re on the latest version"
+
+#: src/onboarding-tour.tsx:487
+msgid "Your .bib file, as a readable library"
+msgstr "Your .bib file, as a readable library"
+
+#: src/onboarding-tour.tsx:383
+msgid "Your LaTeX and your PDF, side by side"
+msgstr "Your LaTeX and your PDF, side by side"
+
+#: src/collab-dialog.tsx:234
+msgid "Your name"
+msgstr "Your name"
+
+#: src/onboarding-tour.tsx:477
+msgid "Your sources live in the project too"
+msgstr "Your sources live in the project too"
+
+#: src/document-canvas.tsx:4312
+#: src/pdf-viewer.tsx:1631
+msgid "Zoom in"
+msgstr "Zoom in"
+
+#: src/document-canvas.tsx:4280
+#: src/pdf-viewer.tsx:1605
+msgid "Zoom out"
+msgstr "Zoom out"

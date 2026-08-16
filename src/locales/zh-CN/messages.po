@@ -1,0 +1,2231 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-08-15 00:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: zh-CN\n"
+"Project-Id-Version: Lattice\n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/collab-dialog.tsx:465
+msgid " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. "
+msgstr "（或切换项目）只会断开你的连接——房间会继续运行，你可以从“你共享的房间”重新加入。"
+
+#: src/collab-dialog.tsx:465
+msgid " ends it for everyone."
+msgstr " 会为所有人结束共享。"
+
+#: src/collab-dialog.tsx:475
+msgid " if Build fails on a blank machine."
+msgstr " 如果在新 Mac 上构建失败，请安装。"
+
+#: src/collab-dialog.tsx:426
+msgid "(you)"
+msgstr "（你）"
+
+#. placeholder {0}: peer.name
+#. placeholder {1}: peer.path
+#: src/App.tsx:9184
+msgid "{0} · {1} — click to follow"
+msgstr "{0} · {1} — 点击跟随"
+
+#. placeholder {0}: props.fileCount
+#: src/collab-dialog.tsx:135
+msgid "{0} files"
+msgstr "{0} 个文件"
+
+#. placeholder {0}: todoHits.length || t`No`
+#: src/App.tsx:10331
+msgid "{0} markers"
+msgstr "{0} 个标记"
+
+#. placeholder {0}: props.peerCount
+#: src/collab-dialog.tsx:133
+msgid "{0} others"
+msgstr "其他 {0} 人"
+
+#. placeholder {0}: collabSession.room
+#: src/App.tsx:10317
+msgid "{collabPeers} connected · {0}"
+msgstr "{collabPeers} 人已连接 · {0}"
+
+#: src/document-canvas.tsx:3510
+msgid "{count} comments"
+msgstr "{count} 条评论"
+
+#: src/navigator.tsx:1729
+msgid "{count} papers"
+msgstr "{count} 篇论文"
+
+#: src/document-canvas.tsx:3520
+msgid "{count} TODO"
+msgstr "{count} 项待办"
+
+#: src/settings-dialog.tsx:435
+msgid "{detail} Find in project will stay lexical."
+msgstr "{detail}“在项目中查找”将继续使用关键词匹配。"
+
+#: src/navigator.tsx:1726
+msgid "{filtered} of {total} papers"
+msgstr "显示 {filtered} / {total} 篇论文"
+
+#: src/tex-setup-wizard.tsx:95
+msgid "{installedProduct} finished installing, but Lattice could not run the final verification."
+msgstr "{installedProduct} 安装完成，但 Lattice 无法运行最终验证。"
+
+#. placeholder {0}: issues.join("\n")
+#: src/tex-setup-wizard.tsx:113
+msgid "{installedProduct} finished installing, but Lattice could not verify:\n"
+"{0}"
+msgstr "{installedProduct} 安装完成，但 Lattice 无法验证：\n"
+"{0}"
+
+#: src/navigator.tsx:1679
+#: src/navigator.tsx:1680
+msgid "{notice}. Open notice"
+msgstr "{notice}。打开通知"
+
+#: src/collab-dialog.tsx:399
+msgid "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
+msgstr "{roleLabel} · 所有项目文件 · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
+
+#: src/navigator.tsx:1645
+msgid "{title} — no local reading available"
+msgstr "{title} — 暂无本地可读内容"
+
+#: src/document-canvas.tsx:3352
+msgid "{title} paper reader"
+msgstr "{title} 论文阅读器"
+
+#: src/document-canvas.tsx:3532
+msgid "{words} words · {chars} chars"
+msgstr "{words} 词 · {chars} 字符"
+
+#: src/App.tsx:10326
+msgid "⌘⇧F · source files and papers"
+msgstr "⌘⇧F · 源文件和论文"
+
+#: src/App.tsx:10327
+msgid "⌘⇧H · all .tex files"
+msgstr "⌘⇧H · 所有 .tex 文件"
+
+#: src/collab-dialog.tsx:135
+msgid "1 file"
+msgstr "1 个文件"
+
+#: src/navigator.tsx:1725
+msgid "1 of {total} papers"
+msgstr "共 {total} 篇论文，显示 1 篇"
+
+#: src/collab-dialog.tsx:132
+msgid "1 other"
+msgstr "另外 1 人"
+
+#: src/navigator.tsx:1728
+msgid "1 paper"
+msgstr "1 篇论文"
+
+#: src/project-dialogs.tsx:62
+msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected."
+msgstr "一个本地优先的 LaTeX 工作空间，让写作助手、资料来源、手稿和渲染后的论文保持关联。"
+
+#: src/collab-dialog.tsx:238
+msgid "Ada"
+msgstr "Ada"
+
+#: src/settings-dialog.tsx:686
+msgid "Add"
+msgstr "添加"
+
+#: src/App.tsx:9357
+#: src/App.tsx:10324
+msgid "Add bibliography entry"
+msgstr "添加参考文献条目"
+
+#: src/document-canvas.tsx:3431
+#: src/document-canvas.tsx:3463
+msgid "Add comment"
+msgstr "添加评论"
+
+#: src/settings-dialog.tsx:679
+msgid "Add project term"
+msgstr "添加项目术语"
+
+#: src/navigator.tsx:1711
+msgid "Add your first paper"
+msgstr "添加第一篇论文"
+
+#: src/App.tsx:9313
+#: src/App.tsx:9313
+#: src/App.tsx:9447
+#: src/settings-dialog.tsx:143
+#: src/settings-dialog.tsx:445
+msgid "Agent"
+msgstr "智能助手"
+
+#: src/App.tsx:9853
+msgid "Agent turn"
+msgstr "助手轮次"
+
+#: src/App.tsx:9890
+msgid "Agent turn review"
+msgstr "助手轮次审查"
+
+#: src/settings-dialog.tsx:759
+msgid "Allow external commands"
+msgstr "允许外部命令"
+
+#: src/tex-setup-wizard.tsx:49
+msgid "Almost done."
+msgstr "即将完成。"
+
+#: src/onboarding-tour.tsx:536
+msgid "An agent that has already read your project"
+msgstr "一个已经读过你项目的 Agent"
+
+#: src/onboarding-tour.tsx:442
+msgid "An infinite canvas for diagrams, arrows, and freehand notes. This one maps how attention flows, and every shape on it is editable."
+msgstr "用无限画布绘制图表、箭头和手写笔记。这个画板展示了注意力如何流动，其中每个形状都可以编辑。"
+
+#: src/onboarding-tour.tsx:451
+msgid "Analyze results in a live spreadsheet"
+msgstr "在实时电子表格中分析结果"
+
+#: src/settings-dialog.tsx:767
+msgid "App updates"
+msgstr "应用更新"
+
+#: src/settings-dialog.tsx:138
+#: src/settings-dialog.tsx:546
+msgid "Appearance"
+msgstr "外观"
+
+#: src/settings-dialog.tsx:417
+msgid "Apple’s built-in English sentence model runs on-device; source text never leaves this Mac and no model is downloaded."
+msgstr "Apple 内置的英文句子模型在设备上运行；源文本不会离开这台 Mac，也无需下载模型。"
+
+#: src/settings-dialog.tsx:588
+msgid "Applies to the LaTeX source editor only."
+msgstr "仅应用于 LaTeX 源码编辑器。"
+
+#: src/tex-setup-wizard.tsx:45
+msgid "Approve the macOS prompt to continue."
+msgstr "批准 macOS 提示以继续。"
+
+#: src/collab-dialog.tsx:255
+msgid "Attention paper"
+msgstr "注意力论文"
+
+#: src/settings-dialog.tsx:724
+msgid "Automatic"
+msgstr "自动"
+
+#: src/settings-dialog.tsx:715
+#: src/settings-dialog.tsx:721
+msgid "Automatic build"
+msgstr "自动构建"
+
+#: src/settings-dialog.tsx:769
+#: src/settings-dialog.tsx:773
+msgid "Automatic updates"
+msgstr "自动更新"
+
+#: src/settings-dialog.tsx:729
+msgid "Auxiliary files"
+msgstr "辅助文件"
+
+#: src/onboarding-tour.tsx:154
+#: src/onboarding-tour.tsx:636
+msgid "Back"
+msgstr "返回"
+
+#: src/document-canvas.tsx:3333
+msgid "Back to {view}"
+msgstr "返回{view}"
+
+#: src/tex-setup-wizard.tsx:143
+msgid "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes."
+msgstr "BasicTeX 和 Lattice 所需的论文工具安装后约占用 {TEX_INSTALL_SIZE_HINT}。初始设置最多可能需要 15 分钟。"
+
+#: src/tex-setup-wizard.tsx:154
+msgid "BasicTeX installation progress"
+msgstr "BasicTeX 安装进度"
+
+#: src/tex-setup-wizard.tsx:118
+msgid "BasicTeX installed"
+msgstr "BasicTeX 已安装"
+
+#: src/canvas-toolbar.tsx:174
+#: src/document-canvas.tsx:3282
+msgid "Blog"
+msgstr "概览"
+
+#: src/onboarding-tour.tsx:506
+msgid "Blog view is a generated, illustrated walkthrough of the paper — enough to tell whether it deserves a full read."
+msgstr "博客视图是自动生成、配有插图的论文导读，足以帮助你判断是否值得阅读全文。"
+
+#: src/document-canvas.tsx:3531
+msgid "Body {body} · raw {raw} · {chars} chars"
+msgstr "正文 {body} · 原始 {raw} · {chars} 字符"
+
+#: src/document-canvas.tsx:3526
+msgid "Body word count unavailable"
+msgstr "正文词数不可用"
+
+#: src/document-canvas.tsx:3525
+msgid "Body words ({source}): text {text}, headers {headers}, captions {captions}"
+msgstr "正文词数（{source}）：文本 {text}，标题 {headers}，图注 {captions}"
+
+#: src/App.tsx:9260
+#: src/App.tsx:9271
+#: src/App.tsx:10295
+#: src/App.tsx:10296
+#: src/App.tsx:10297
+#: src/App.tsx:10298
+msgid "Build"
+msgstr "构建"
+
+#: src/App.tsx:9256
+msgid "Build automatically · Command-S builds now. Shift-click for clean rebuild."
+msgstr "自动构建 · Command-S 立即构建。按住 Shift 点击可执行全新重建。"
+
+#: src/App.tsx:9257
+msgid "Build only when requested · Command-S builds now. Shift-click for clean rebuild."
+msgstr "仅在请求时构建 · Command-S 立即构建。按住 Shift 点击可执行全新重建。"
+
+#: src/App.tsx:10295
+msgid "Build project"
+msgstr "构建项目"
+
+#: src/pdf-viewer.tsx:1510
+msgid "Build the project to preview the paper."
+msgstr "构建项目以预览论文。"
+
+#: src/settings-dialog.tsx:713
+msgid "Builds"
+msgstr "构建"
+
+#: src/navigator.tsx:1627
+msgid "cached"
+msgstr "缓存"
+
+#: src/collab-dialog.tsx:308
+#: src/collab-dialog.tsx:495
+#: src/document-canvas.tsx:3456
+#: src/project-dialogs.tsx:171
+#: src/project-dialogs.tsx:236
+msgid "Cancel"
+msgstr "取消"
+
+#: src/navigator.tsx:1375
+msgid "Cancel creation"
+msgstr "取消创建"
+
+#: src/App.tsx:9854
+#: src/App.tsx:9891
+msgid "Changes"
+msgstr "更改"
+
+#: src/collab-dialog.tsx:379
+msgid "chat"
+msgstr "聊天"
+
+#: src/settings-dialog.tsx:787
+msgid "Check for updates"
+msgstr "检查更新"
+
+#: src/settings-dialog.tsx:660
+msgid "Check spelling in prose"
+msgstr "检查正文拼写"
+
+#: src/settings-dialog.tsx:413
+msgid "Check your connection and try again."
+msgstr "请检查网络连接后重试。"
+
+#: src/navigator.tsx:1628
+msgid "checked"
+msgstr "检查于"
+
+#: src/settings-dialog.tsx:863
+msgid "Checking local tools…"
+msgstr "正在检查本地工具…"
+
+#: src/settings-dialog.tsx:787
+msgid "Checking…"
+msgstr "正在检查…"
+
+#: src/settings-dialog.tsx:661
+msgid "Checks English spelling and grammar as you type with Harper."
+msgstr "使用 Harper 在输入时检查英文拼写和语法。"
+
+#: src/settings-dialog.tsx:810
+msgid "Checks local LaTeX tools, SyncTeX, bibliography processors, editor helpers, and conference fonts."
+msgstr "检查本地 LaTeX 工具、SyncTeX、参考文献处理器、编辑器辅助工具和会议字体。"
+
+#: src/project-dialogs.tsx:172
+msgid "Choose location"
+msgstr "选择位置"
+
+#: src/settings-dialog.tsx:552
+msgid "Choose the language used for menus, settings, and help text."
+msgstr "选择菜单、设置和帮助文字所使用的语言。"
+
+#: src/settings-dialog.tsx:573
+msgid "Choose the theme for Lattice on this device."
+msgstr "选择这台设备上 Lattice 使用的主题。"
+
+#: src/settings-dialog.tsx:737
+msgid "Clean"
+msgstr "清理"
+
+#: src/App.tsx:10297
+msgid "Clean aux files"
+msgstr "清理辅助文件"
+
+#: src/App.tsx:10296
+msgid "Clean rebuild"
+msgstr "全新重建"
+
+#: src/settings-dialog.tsx:737
+msgid "Cleaning…"
+msgstr "正在清理…"
+
+#: src/pdf-viewer.tsx:1597
+msgid "Clear PDF search"
+msgstr "清除 PDF 搜索"
+
+#: src/onboarding-tour.tsx:497
+msgid "Click “An Image is Worth 16×16 Words”"
+msgstr "点击“An Image is Worth 16×16 Words”"
+
+#: src/onboarding-tour.tsx:528
+msgid "Click Agent"
+msgstr "点击 Agent"
+
+#: src/onboarding-tour.tsx:421
+msgid "Click into the formatted side and type — no Markdown syntax needed. Press / on an empty line to drop in headings, tables, math, or images."
+msgstr "点击格式化视图并直接输入，无需 Markdown 语法。在空行中按 / 可插入标题、表格、数学公式或图片。"
+
+#: src/onboarding-tour.tsx:507
+msgid "Click Paper to read the full text"
+msgstr "点击“论文”阅读全文"
+
+#: src/onboarding-tour.tsx:479
+msgid "Click Papers"
+msgstr "点击“论文”"
+
+#: src/canvas-toolbar.tsx:262
+msgid "click to sync"
+msgstr "点按以同步"
+
+#: src/App.tsx:9862
+msgid "Close"
+msgstr "关闭"
+
+#: src/collab-dialog.tsx:334
+msgid "Close for everyone"
+msgstr "为所有人关闭"
+
+#: src/App.tsx:9861
+msgid "Close Git workspace"
+msgstr "关闭 Git 工作区"
+
+#: src/settings-dialog.tsx:461
+msgid "Close settings"
+msgstr "关闭设置"
+
+#: src/canvas-toolbar.tsx:203
+msgid "Close split"
+msgstr "关闭分栏"
+
+#: src/collab-dialog.tsx:237
+msgid "Collab display name"
+msgstr "协作显示名称"
+
+#: src/collab-dialog.tsx:356
+msgid "Collab invite"
+msgstr "协作邀请"
+
+#: src/collab-dialog.tsx:254
+msgid "Collab room name"
+msgstr "协作房间名称"
+
+#: src/settings-dialog.tsx:572
+#: src/settings-dialog.tsx:576
+msgid "Color theme"
+msgstr "颜色主题"
+
+#: src/App.tsx:10292
+msgid "Command palette"
+msgstr "命令面板"
+
+#: src/document-canvas.tsx:3500
+msgid "comment"
+msgstr "评论"
+
+#: src/document-canvas.tsx:3511
+msgid "Comments"
+msgstr "评论"
+
+#: src/settings-dialog.tsx:743
+#: src/settings-dialog.tsx:750
+msgid "Compile engine"
+msgstr "编译引擎"
+
+#: src/App.tsx:10295
+msgid "Compile LaTeX"
+msgstr "编译 LaTeX"
+
+#: src/collab-dialog.tsx:471
+msgid "Compile/PDF stays on each Mac. "
+msgstr "编译/PDF 处理在每台 Mac 上独立进行。"
+
+#: src/tex-setup-wizard.tsx:109
+msgid "Conference font verification is missing."
+msgstr "缺少会议字体验证。"
+
+#: src/canvas-toolbar.tsx:261
+msgid "Connected live · click to sync everything"
+msgstr "已实时连接 · 点按以同步全部内容"
+
+#: src/canvas-toolbar.tsx:257
+msgid "Connecting to Overleaf's live channel…"
+msgstr "正在连接 Overleaf 实时通道…"
+
+#: src/collab-dialog.tsx:400
+#: src/collab-dialog.tsx:484
+msgid "Connecting…"
+msgstr "正在连接…"
+
+#: src/collab-dialog.tsx:488
+msgid "Connection failed"
+msgstr "连接失败"
+
+#: src/onboarding-tour.tsx:159
+#: src/onboarding-tour.tsx:636
+msgid "Continue"
+msgstr "继续"
+
+#: src/collab-dialog.tsx:410
+msgid "Copied"
+msgstr "已复制"
+
+#: src/collab-dialog.tsx:410
+msgid "Copy invite"
+msgstr "复制邀请"
+
+#: src/navigator.tsx:1352
+msgid "Copy path"
+msgstr "复制路径"
+
+#: src/settings-dialog.tsx:838
+#: src/settings-dialog.tsx:839
+msgid "Copy summary"
+msgstr "复制摘要"
+
+#: src/navigator.tsx:1625
+msgid "Correction/update"
+msgstr "更正/更新"
+
+#: src/pdf-viewer.tsx:1483
+msgid "Could not open PDF link"
+msgstr "无法打开 PDF 链接"
+
+#: src/document-canvas.tsx:1347
+msgid "Could not open the article in your browser"
+msgstr "无法在浏览器中打开文章"
+
+#: src/pdf-viewer.tsx:694
+msgid "Could not render page {pageNumber}. {pageError}"
+msgstr "无法渲染第 {pageNumber} 页。{pageError}"
+
+#: src/settings-dialog.tsx:406
+msgid "Couldn’t check for updates"
+msgstr "无法检查更新"
+
+#: src/project-dialogs.tsx:138
+#: src/project-dialogs.tsx:141
+msgid "Create a research project"
+msgstr "创建研究项目"
+
+#. placeholder {0}: venue.label
+#: src/project-dialogs.tsx:143
+msgid "Creates a {0} preprint template with bibliography and project brief."
+msgstr "创建包含参考文献和项目简介的 {0} 预印本模板。"
+
+#: src/navigator.tsx:1627
+msgid "Crossref citation-health metadata is currently unavailable"
+msgstr "Crossref 引用状态元数据当前不可用"
+
+#: src/navigator.tsx:1628
+msgid "Crossref reports update type"
+msgstr "Crossref 报告的更新类型"
+
+#: src/navigator.tsx:1627
+msgid "Crossref type"
+msgstr "Crossref 类型"
+
+#: src/settings-dialog.tsx:579
+msgid "Dark"
+msgstr "深色"
+
+#: src/settings-dialog.tsx:633
+msgid "Default"
+msgstr "默认"
+
+#: src/navigator.tsx:1375
+msgid "Delete"
+msgstr "删除"
+
+#: src/settings-dialog.tsx:157
+msgid "Diagnostics"
+msgstr "诊断"
+
+#: src/App.tsx:9352
+#: src/App.tsx:9353
+#: src/App.tsx:10325
+msgid "Discover literature"
+msgstr "发现文献"
+
+#: src/settings-dialog.tsx:584
+msgid "Display"
+msgstr "显示"
+
+#: src/canvas-toolbar.tsx:138
+msgid "Document view"
+msgstr "文稿视图"
+
+#: src/navigator.tsx:1644
+msgid "Download {url}"
+msgstr "下载 {url}"
+
+#: src/navigator.tsx:1642
+msgid "Download arXiv {id}"
+msgstr "下载 arXiv {id}"
+
+#: src/document-canvas.tsx:3327
+msgid "Download PDF"
+msgstr "下载 PDF"
+
+#: src/tex-setup-wizard.tsx:44
+msgid "Download time depends on your connection."
+msgstr "下载时间取决于你的网络连接。"
+
+#: src/tex-setup-wizard.tsx:34
+msgid "Downloading BasicTeX…"
+msgstr "正在下载 BasicTeX…"
+
+#: src/settings-dialog.tsx:402
+msgid "Downloading update…"
+msgstr "正在下载更新…"
+
+#: src/document-canvas.tsx:4277
+msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it."
+msgstr "将项目文件拖到此处打开，或将此文件拖入 TeX 或 Markdown 编辑器以插入。"
+
+#: src/App.tsx:10304
+msgid "Dual source view"
+msgstr "双源码视图"
+
+#: src/settings-dialog.tsx:680
+msgid "e.g. Lattice"
+msgstr "例如 Lattice"
+
+#: src/App.tsx:10311
+#: src/App.tsx:10319
+#: src/App.tsx:10321
+#: src/App.tsx:10322
+#: src/App.tsx:10323
+#: src/App.tsx:10324
+#: src/App.tsx:10326
+#: src/App.tsx:10327
+#: src/App.tsx:10332
+#: src/App.tsx:10334
+#: src/App.tsx:10335
+#: src/App.tsx:10336
+#: src/canvas-toolbar.tsx:143
+msgid "Edit"
+msgstr "编辑"
+
+#: src/canvas-toolbar.tsx:152
+msgid "Edit and preview HTML"
+msgstr "编辑并预览 HTML"
+
+#: src/canvas-toolbar.tsx:150
+msgid "Edit and preview Markdown"
+msgstr "编辑并预览 Markdown"
+
+#: src/navigator.tsx:1687
+msgid "Edit bibliography entry"
+msgstr "编辑参考文献条目"
+
+#: src/onboarding-tour.tsx:452
+msgid "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
+msgstr "直接编辑单元格和公式。在共享项目中，合作者的选区和指针会实时显示。"
+
+#: src/onboarding-tour.tsx:401
+msgid "Edit for the source, Split for both, Preview for the finished result. Switch at any time."
+msgstr "“编辑”显示源文件，“拆分”同时显示两者，“预览”显示最终结果。你可以随时切换。"
+
+#: src/canvas-toolbar.tsx:144
+msgid "Edit HTML"
+msgstr "编辑 HTML"
+
+#: src/canvas-toolbar.tsx:144
+msgid "Edit Markdown"
+msgstr "编辑 Markdown"
+
+#: src/canvas-toolbar.tsx:144
+msgid "Edit source"
+msgstr "编辑源文件"
+
+#: src/canvas-toolbar.tsx:153
+msgid "Edit source and preview PDF"
+msgstr "编辑源文件并预览 PDF"
+
+#: src/settings-dialog.tsx:615
+msgid "Editing"
+msgstr "编辑"
+
+#: src/canvas-toolbar.tsx:255
+msgid "Editing live with Overleaf · click to sync everything else"
+msgstr "正在与 Overleaf 实时编辑 · 点按以同步其他内容"
+
+#: src/settings-dialog.tsx:139
+#: src/settings-dialog.tsx:612
+msgid "Editor & builds"
+msgstr "编辑器与构建"
+
+#: src/canvas-toolbar.tsx:216
+#: src/document-canvas.tsx:3505
+msgid "Editor comments"
+msgstr "编辑器评论"
+
+#: src/settings-dialog.tsx:587
+msgid "Editor font size"
+msgstr "编辑器字号"
+
+#: src/settings-dialog.tsx:617
+#: src/settings-dialog.tsx:631
+msgid "Editor keymap"
+msgstr "编辑器键位"
+
+#: src/document-canvas.tsx:3497
+msgid "Editor shortcuts"
+msgstr "编辑器快捷键"
+
+#: src/document-canvas.tsx:3472
+msgid "Editor status"
+msgstr "编辑器状态"
+
+#: src/document-canvas.tsx:3790
+msgid "Empty secondary editor"
+msgstr "空白副编辑器"
+
+#. placeholder {0}: record.title
+#: src/collab-dialog.tsx:331
+msgid "End “{0}” for everyone and remove it from this Mac"
+msgstr "为所有人结束“{0}”并将其从这台 Mac 移除"
+
+#: src/settings-dialog.tsx:564
+msgid "English"
+msgstr "英文"
+
+#: src/pdf-viewer.tsx:1539
+msgid "Enter a page number"
+msgstr "输入页码"
+
+#: src/document-canvas.tsx:4292
+#: src/pdf-viewer.tsx:1611
+msgid "Enter a zoom percentage or scroll to zoom"
+msgstr "输入缩放百分比或滚动缩放"
+
+#: src/collab-dialog.tsx:245
+msgid "Enter your name so others can see who is editing."
+msgstr "输入你的姓名，让其他人知道谁正在编辑。"
+
+#: src/document-canvas.tsx:3525
+msgid "estimate"
+msgstr "估算"
+
+#: src/onboarding-tour.tsx:488
+msgid "Every entry from the bibliography shows up here. Anything with an arXiv ID can be downloaded in full with one click."
+msgstr "参考文献库中的每个条目都会显示在这里。含 arXiv ID 的条目可以一键下载全文。"
+
+#: src/onboarding-tour.tsx:392
+msgid "Everything for the paper lives in one folder"
+msgstr "论文所需的一切都在一个文件夹中"
+
+#: src/App.tsx:10338
+msgid "Export project ZIP"
+msgstr "导出项目 ZIP"
+
+#: src/project-dialogs.tsx:295
+msgid "Export ZIP"
+msgstr "导出 ZIP"
+
+#: src/navigator.tsx:1625
+msgid "Expression of concern"
+msgstr "关注声明"
+
+#: src/settings-dialog.tsx:596
+msgid "Feedback"
+msgstr "反馈"
+
+#: src/document-canvas.tsx:3500
+msgid "find"
+msgstr "查找"
+
+#: src/pdf-viewer.tsx:1504
+#: src/pdf-viewer.tsx:1581
+msgid "Find in PDF"
+msgstr "在 PDF 中查找"
+
+#: src/App.tsx:9335
+#: src/App.tsx:9337
+#: src/App.tsx:10326
+msgid "Find in project"
+msgstr "在项目中查找"
+
+#: src/onboarding-tour.tsx:159
+#: src/onboarding-tour.tsx:636
+msgid "Finish"
+msgstr "完成"
+
+#: src/tex-setup-wizard.tsx:40
+msgid "Finishing setup…"
+msgstr "正在完成设置…"
+
+#: src/pdf-viewer.tsx:1655
+msgid "Fit page to height"
+msgstr "适合页面高度"
+
+#: src/pdf-viewer.tsx:1652
+msgid "Fit page to width"
+msgstr "适合页面宽度"
+
+#: src/settings-dialog.tsx:563
+msgid "Follow system (default)"
+msgstr "跟随系统（默认）"
+
+#: src/App.tsx:10336
+msgid "Format document"
+msgstr "格式化文档"
+
+#: src/onboarding-tour.tsx:460
+msgid "Formulas, Excel export, and Agent edits"
+msgstr "公式、Excel 导出和 Agent 编辑"
+
+#: src/settings-dialog.tsx:136
+msgid "General"
+msgstr "通用"
+
+#: src/onboarding-tour.tsx:505
+msgid "Get the gist before you dive in"
+msgstr "深入阅读前先了解要点"
+
+#: src/canvas-toolbar.tsx:343
+msgid "Git status and commit"
+msgstr "Git 状态与提交"
+
+#: src/App.tsx:9848
+msgid "Git workspace"
+msgstr "Git 工作区"
+
+#: src/canvas-toolbar.tsx:183
+msgid "Go back (⌘[)"
+msgstr "后退 (⌘[)"
+
+#: src/canvas-toolbar.tsx:188
+msgid "Go forward (⌘])"
+msgstr "前进 (⌘])"
+
+#: src/document-canvas.tsx:3488
+msgid "Go to {title}"
+msgstr "前往 {title}"
+
+#: src/App.tsx:10301
+msgid "Go to line"
+msgstr "跳转到行"
+
+#: src/document-canvas.tsx:3473
+msgid "Go to line (⌘G)"
+msgstr "前往行 (⌘G)"
+
+#: src/pdf-viewer.tsx:223
+msgid "Go to linked PDF location"
+msgstr "前往 PDF 中的链接位置"
+
+#: src/App.tsx:10069
+msgid "Go to section or label…"
+msgstr "跳转到章节或标签…"
+
+#: src/App.tsx:10068
+#: src/App.tsx:10302
+msgid "Go to symbol"
+msgstr "跳转到符号"
+
+#: src/App.tsx:10321
+msgid "Grid generator"
+msgstr "网格生成器"
+
+#: src/project-dialogs.tsx:84
+#: src/project-dialogs.tsx:298
+msgid "Guided tutorial"
+msgstr "引导式教程"
+
+#: src/App.tsx:9070
+msgid "Hide sidebar"
+msgstr "隐藏侧边栏"
+
+#: src/collab-dialog.tsx:313
+#: src/collab-dialog.tsx:427
+#: src/collab-dialog.tsx:434
+msgid "host"
+msgstr "主持人"
+
+#: src/onboarding-tour.tsx:432
+msgid "HTML files render live right here — handy for demos and figures you want to poke at instead of only look at."
+msgstr "HTML 文件会直接在这里实时渲染，非常适合制作可交互的演示和图表。"
+
+#: src/document-canvas.tsx:336
+msgid "HTML preview for {path}"
+msgstr "{path} 的 HTML 预览"
+
+#: src/document-canvas.tsx:4295
+msgid "Image zoom percentage"
+msgstr "图像缩放百分比"
+
+#: src/navigator.tsx:1363
+msgid "Import images here"
+msgstr "将图像导入此处"
+
+#: src/navigator.tsx:1604
+msgid "Import paper"
+msgstr "导入论文"
+
+#: src/project-dialogs.tsx:94
+msgid "Import ZIP"
+msgstr "导入 ZIP"
+
+#: src/collab-dialog.tsx:422
+msgid "In this room"
+msgstr "此房间中的成员"
+
+#. placeholder {0}: status.totalChunks
+#: src/settings-dialog.tsx:425
+msgid "Indexing {0} prose blocks in the background. {semanticSearchPrivacy}"
+msgstr "正在后台索引 {0} 个正文块。{semanticSearchPrivacy}"
+
+#: src/pdf-viewer.tsx:1590
+msgid "Indexing…"
+msgstr "正在建立索引…"
+
+#: src/document-canvas.tsx:3500
+msgid "insert"
+msgstr "插入"
+
+#: src/App.tsx:10086
+msgid "Insert \\cite{…}"
+msgstr "插入 \\cite{…}"
+
+#: src/App.tsx:10098
+msgid "Insert \\ref{…}"
+msgstr "插入 \\ref{…}"
+
+#: src/document-canvas.tsx:3424
+msgid "Insert above line {line}"
+msgstr "在第 {line} 行上方插入"
+
+#: src/App.tsx:10085
+#: src/App.tsx:10322
+msgid "Insert citation"
+msgstr "插入引用"
+
+#: src/App.tsx:10097
+#: src/App.tsx:10323
+msgid "Insert reference"
+msgstr "插入交叉引用"
+
+#: src/App.tsx:10311
+msgid "Insert snippet"
+msgstr "插入片段"
+
+#: src/canvas-toolbar.tsx:211
+msgid "Insert snippet or symbol (⌘⇧I)"
+msgstr "插入片段或符号 (⌘⇧I)"
+
+#: src/App.tsx:10321
+msgid "Insert table"
+msgstr "插入表格"
+
+#: src/settings-dialog.tsx:776
+msgid "Install automatically"
+msgstr "自动安装"
+
+#: src/tex-setup-wizard.tsx:181
+msgid "Install Basic TeX"
+msgstr "安装 Basic TeX"
+
+#: src/tex-setup-wizard.tsx:81
+msgid "Install BasicTeX"
+msgstr "安装 BasicTeX"
+
+#: src/tex-setup-wizard.tsx:136
+msgid "Install LaTeX to compile"
+msgstr "安装 LaTeX 以进行编译"
+
+#: src/collab-dialog.tsx:473
+#: src/tex-setup-wizard.tsx:131
+msgid "Install LaTeX tools"
+msgstr "安装 LaTeX 工具"
+
+#: src/project-dialogs.tsx:101
+msgid "Install LaTeX tools (needed to compile PDFs)"
+msgstr "安装 LaTeX 工具（编译 PDF 时需要）"
+
+#: src/tex-setup-wizard.tsx:81
+#: src/tex-setup-wizard.tsx:136
+msgid "Install required paper tools"
+msgstr "安装所需的论文工具"
+
+#: src/settings-dialog.tsx:836
+#: src/settings-dialog.tsx:853
+#: src/tex-setup-wizard.tsx:181
+msgid "Install required tools"
+msgstr "安装所需工具"
+
+#: src/tex-setup-wizard.tsx:36
+msgid "Installing BasicTeX…"
+msgstr "正在安装 BasicTeX…"
+
+#: src/tex-setup-wizard.tsx:37
+msgid "Installing LaTeX packages…"
+msgstr "正在安装 LaTeX 软件包…"
+
+#: src/tex-setup-wizard.tsx:38
+msgid "Installing required tools…"
+msgstr "正在安装所需工具…"
+
+#: src/settings-dialog.tsx:404
+msgid "Installing update…"
+msgstr "正在安装更新…"
+
+#: src/tex-setup-wizard.tsx:48
+msgid "Installing uv for paper imports and bibliography tools."
+msgstr "正在安装用于导入论文和管理参考文献的 uv。"
+
+#: src/settings-dialog.tsx:151
+msgid "Integrations"
+msgstr "集成"
+
+#: src/settings-dialog.tsx:551
+#: src/settings-dialog.tsx:561
+msgid "Interface language"
+msgstr "界面语言"
+
+#: src/settings-dialog.tsx:598
+msgid "Interface sounds"
+msgstr "界面音效"
+
+#: src/collab-dialog.tsx:354
+msgid "Invite link"
+msgstr "邀请链接"
+
+#: src/onboarding-tour.tsx:537
+msgid "It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools."
+msgstr "它可以读取你的稿件、笔记、已下载论文和电子表格。你可以让它起草章节、对照来源核查论断，或读取并更新 attention-results.lattice-sheet 中的单元格区域。技能和 MCP 服务器还能扩展更多工具。"
+
+#: src/collab-dialog.tsx:227
+msgid "Join"
+msgstr "加入"
+
+#: src/collab-dialog.tsx:534
+#: src/project-dialogs.tsx:97
+msgid "Join share"
+msgstr "加入共享"
+
+#: src/collab-dialog.tsx:313
+msgid "joined"
+msgstr "已加入"
+
+#: src/collab-dialog.tsx:134
+msgid "Joined"
+msgstr "已加入"
+
+#: src/App.tsx:10299
+msgid "Jump to PDF"
+msgstr "跳转到 PDF"
+
+#: src/collab-dialog.tsx:130
+msgid "just you"
+msgstr "只有你"
+
+#: src/settings-dialog.tsx:549
+msgid "Language"
+msgstr "语言"
+
+#: src/onboarding-tour.tsx:526
+msgid "Last stop: your writing agent"
+msgstr "最后一站：你的写作 Agent"
+
+#: src/onboarding-tour.tsx:393
+msgid "LaTeX, notes, figures, boards, and the papers you cite. Click any file in the tree to open it here."
+msgstr "LaTeX、笔记、图片、画板和引用的论文都在这里。点击文件树中的任意文件即可在此打开。"
+
+#: src/App.tsx:10296
+msgid "latexmk -c then -g"
+msgstr "先运行 latexmk -c，再运行 -g"
+
+#: src/settings-dialog.tsx:415
+msgid "Lattice checks in the background and installs updates on its own."
+msgstr "Lattice 会在后台检查并自动安装更新。"
+
+#: src/settings-dialog.tsx:416
+msgid "Lattice checks in the background; you decide when to install."
+msgstr "Lattice 会在后台检查更新，由你决定何时安装。"
+
+#: src/settings-dialog.tsx:642
+msgid "Lattice closes the least recently used tab past this count."
+msgstr "超过此数量后，Lattice 会关闭最久未使用的标签页。"
+
+#: src/onboarding-tour.tsx:496
+msgid "Lattice fetches the full text, the figures, and the metadata, then keeps them attached to the citation."
+msgstr "Lattice 会获取全文、图片和元数据，并将它们附加到引文中。"
+
+#: src/tex-setup-wizard.tsx:139
+msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute."
+msgstr "Lattice 需要 uv 来添加论文和管理参考文献。经验证的下载约为 45 MB，通常不到一分钟即可安装。"
+
+#: src/settings-dialog.tsx:717
+msgid "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds."
+msgstr "离开编辑器或停止输入 1.2 秒后，Lattice 会保存并构建。"
+
+#: src/App.tsx:10339
+msgid "Learn Lattice with the Understanding Attention sample project"
+msgstr "通过 Understanding Attention 示例项目学习 Lattice"
+
+#: src/document-canvas.tsx:3438
+msgid "Leave a comment for collaborators…"
+msgstr "给协作者留言…"
+
+#: src/onboarding-tour.tsx:470
+msgid "Leave comments on a draft, share the project live with a co-author, sync a linked Overleaf project, commit to Git, or open the full version history — one button each, no terminal."
+msgstr "评论草稿、与合作者实时共享项目、同步关联的 Overleaf 项目、提交到 Git 或打开完整版本历史——每项操作各有一个按钮，无需终端。"
+
+#: src/collab-dialog.tsx:465
+#: src/collab-dialog.tsx:510
+msgid "Leave share"
+msgstr "离开共享"
+
+#: src/onboarding-tour.tsx:495
+msgid "Let's download one of them"
+msgstr "来下载其中一篇"
+
+#: src/settings-dialog.tsx:760
+msgid "Lets trusted projects run external tools during builds."
+msgstr "允许受信任的项目在构建时运行外部工具。"
+
+#: src/settings-dialog.tsx:578
+msgid "Light"
+msgstr "浅色"
+
+#: src/canvas-toolbar.tsx:229
+msgid "Live · {count} other"
+msgstr "实时 · 另有 {count} 人"
+
+#: src/canvas-toolbar.tsx:230
+msgid "Live · {count} others"
+msgstr "实时 · 另有 {count} 人"
+
+#: src/canvas-toolbar.tsx:232
+#: src/collab-dialog.tsx:207
+#: src/collab-dialog.tsx:213
+msgid "Live collaboration"
+msgstr "实时协作"
+
+#: src/canvas-toolbar.tsx:231
+msgid "Live collaboration · just you"
+msgstr "实时协作 · 仅你一人"
+
+#: src/collab-dialog.tsx:373
+msgid "Live collaboration view"
+msgstr "实时协作视图"
+
+#: src/canvas-toolbar.tsx:260
+msgid "Live editing unavailable · syncing instead"
+msgstr "实时编辑不可用 · 改为同步"
+
+#: src/canvas-toolbar.tsx:259
+msgid "Live editing unavailable ({detail}) · syncing instead"
+msgstr "实时编辑不可用（{detail}）· 将改用同步"
+
+#: src/App.tsx:10315
+msgid "Live sharing…"
+msgstr "实时共享…"
+
+#: src/document-canvas.tsx:3474
+msgid "Ln {line}, Col {column}"
+msgstr "第 {line} 行，第 {column} 列"
+
+#: src/settings-dialog.tsx:524
+msgid "Loading settings…"
+msgstr "正在加载设置…"
+
+#: src/settings-dialog.tsx:652
+msgid "Local semantic search"
+msgstr "本地语义搜索"
+
+#: src/settings-dialog.tsx:160
+msgid "Logs"
+msgstr "日志"
+
+#: src/settings-dialog.tsx:723
+msgid "Manual only"
+msgstr "仅手动"
+
+#: src/App.tsx:10330
+#: src/document-canvas.tsx:3516
+msgid "Manuscript TODOs"
+msgstr "手稿待办事项"
+
+#: src/settings-dialog.tsx:641
+msgid "Max open tabs"
+msgstr "最多打开的标签页"
+
+#: src/settings-dialog.tsx:146
+#: src/settings-dialog.tsx:444
+msgid "MCP"
+msgstr "MCP"
+
+#: src/settings-dialog.tsx:824
+msgid "Missing required tools"
+msgstr "缺少所需工具"
+
+#. placeholder {0}: missingTools.join(", ")
+#: src/tex-setup-wizard.tsx:107
+msgid "Missing tools: {0}"
+msgstr "缺少工具：{0}"
+
+#: src/project-dialogs.tsx:222
+msgid "Name"
+msgstr "名称"
+
+#: src/App.tsx:10299
+#: src/App.tsx:10300
+#: src/App.tsx:10301
+#: src/App.tsx:10302
+msgid "Navigate"
+msgstr "导航"
+
+#: src/App.tsx:9327
+#: src/App.tsx:9329
+msgid "New board"
+msgstr "新建白板"
+
+#: src/canvas-toolbar.tsx:253
+msgid "New changes on Overleaf — click to bring them in"
+msgstr "Overleaf 上有新更改 — 点按以拉取"
+
+#: src/navigator.tsx:1340
+#: src/navigator.tsx:1435
+msgid "New file"
+msgstr "新建文件"
+
+#: src/navigator.tsx:1343
+#: src/navigator.tsx:1438
+msgid "New folder"
+msgstr "新建文件夹"
+
+#: src/project-dialogs.tsx:226
+msgid "New name"
+msgstr "新名称"
+
+#: src/project-dialogs.tsx:70
+#: src/project-dialogs.tsx:289
+msgid "New project"
+msgstr "新建项目"
+
+#: src/App.tsx:9319
+#: src/App.tsx:9321
+msgid "New spreadsheet"
+msgstr "新建电子表格"
+
+#: src/settings-dialog.tsx:410
+msgid "New versions install automatically"
+msgstr "新版本会自动安装"
+
+#: src/document-canvas.tsx:3499
+msgid "next"
+msgstr "下一个"
+
+#: src/pdf-viewer.tsx:1568
+msgid "Next page"
+msgstr "下一页"
+
+#: src/pdf-viewer.tsx:1594
+msgid "Next search result"
+msgstr "下一个搜索结果"
+
+#: src/App.tsx:10331
+msgid "No"
+msgstr "无"
+
+#: src/navigator.tsx:1628
+msgid "No Crossref update metadata found"
+msgstr "未找到 Crossref 更新元数据"
+
+#: src/navigator.tsx:1717
+msgid "No matching papers"
+msgstr "没有匹配的论文"
+
+#: src/project-dialogs.tsx:283
+msgid "No other recent projects yet."
+msgstr "尚无其他最近使用的项目。"
+
+#: src/settings-dialog.tsx:708
+msgid "No project terms added."
+msgstr "尚未添加项目术语。"
+
+#: src/onboarding-tour.tsx:411
+msgid "Not every file has to be LaTeX. notes.md gets the same live preview — source on the left, formatted on the right."
+msgstr "并非所有文件都必须使用 LaTeX。notes.md 同样提供实时预览——左侧是源文件，右侧是格式化结果。"
+
+#: src/onboarding-tour.tsx:410
+msgid "Notes and drafts in Markdown"
+msgstr "Markdown 笔记和草稿"
+
+#: src/settings-dialog.tsx:775
+msgid "Notify me (manual)"
+msgstr "通知我（手动安装）"
+
+#: src/settings-dialog.tsx:421
+msgid "Off by default. {semanticSearchPrivacy}"
+msgstr "默认关闭。{semanticSearchPrivacy}"
+
+#: src/project-dialogs.tsx:163
+msgid "Official 2026 conference style"
+msgstr "官方 2026 年会议样式"
+
+#: src/project-dialogs.tsx:164
+msgid "Official 2026 style, preprint option"
+msgstr "官方 2026 年样式，包含预印本选项"
+
+#: src/canvas-toolbar.tsx:265
+msgid "Open a project from Overleaf"
+msgstr "从 Overleaf 打开项目"
+
+#: src/settings-dialog.tsx:673
+msgid "Open a project to add its names, acronyms, and technical terms."
+msgstr "打开项目后，可添加其中的名称、缩写和技术术语。"
+
+#: src/settings-dialog.tsx:533
+msgid "Open a project to manage Agent settings."
+msgstr "打开项目以管理智能助手设置。"
+
+#: src/project-dialogs.tsx:287
+msgid "Open another folder"
+msgstr "打开其他文件夹"
+
+#: src/canvas-toolbar.tsx:318
+msgid "Open another Overleaf project"
+msgstr "打开另一个 Overleaf 项目"
+
+#: src/document-canvas.tsx:3285
+msgid "Open article in browser"
+msgstr "在浏览器中打开文章"
+
+#: src/project-dialogs.tsx:77
+msgid "Open folder"
+msgstr "打开文件夹"
+
+#: src/project-dialogs.tsx:90
+#: src/project-dialogs.tsx:292
+msgid "Open from Overleaf"
+msgstr "从 Overleaf 打开"
+
+#: src/App.tsx:10339
+msgid "Open guided tutorial"
+msgstr "打开引导式教程"
+
+#: src/canvas-toolbar.tsx:312
+msgid "Open in Overleaf"
+msgstr "在 Overleaf 中打开"
+
+#: src/document-canvas.tsx:3795
+msgid "Open or drag a file here."
+msgstr "在此打开或拖入文件。"
+
+#: src/document-canvas.tsx:3284
+msgid "Open PDF in browser"
+msgstr "在浏览器中打开 PDF"
+
+#: src/App.tsx:10337
+msgid "Open project history"
+msgstr "打开项目历史"
+
+#: src/App.tsx:10341
+msgid "Open settings"
+msgstr "打开设置"
+
+#: src/onboarding-tour.tsx:527
+msgid "Open the Agent tab. Codex, Claude, and other providers all plug in here."
+msgstr "打开 Agent 标签页。Codex、Claude 和其他提供商都可以接入这里。"
+
+#: src/canvas-toolbar.tsx:175
+msgid "Open the full paper Markdown"
+msgstr "打开论文全文 Markdown"
+
+#: src/canvas-toolbar.tsx:174
+msgid "Open the paper overview"
+msgstr "打开论文概览"
+
+#: src/App.tsx:10325
+msgid "OpenAlex search"
+msgstr "OpenAlex 搜索"
+
+#. placeholder {0}: primaryOpening.label
+#: src/App.tsx:9476
+msgid "Opening {0}…"
+msgstr "正在打开{0}…"
+
+#: src/settings-dialog.tsx:153
+msgid "Overleaf"
+msgstr "Overleaf"
+
+#: src/App.tsx:10338
+msgid "Overleaf / arXiv source pack"
+msgstr "Overleaf / arXiv 源文件包"
+
+#: src/canvas-toolbar.tsx:328
+msgid "Overleaf comments and chat"
+msgstr "Overleaf 评论与聊天"
+
+#: src/canvas-toolbar.tsx:327
+msgid "Overleaf comments and chat · {count} waiting"
+msgstr "Overleaf 评论与聊天 · {count} 条待处理"
+
+#: src/canvas-toolbar.tsx:293
+#: src/canvas-toolbar.tsx:294
+msgid "Overleaf project actions"
+msgstr "Overleaf 项目操作"
+
+#: src/canvas-toolbar.tsx:175
+#: src/document-canvas.tsx:3282
+msgid "Paper"
+msgstr "论文"
+
+#: src/document-canvas.tsx:3287
+msgid "Paper actions"
+msgstr "论文操作"
+
+#: src/canvas-toolbar.tsx:171
+msgid "Paper content"
+msgstr "论文内容"
+
+#: src/onboarding-tour.tsx:518
+msgid "Paper view keeps the complete text, sections, equations, and figures as structured Markdown — searchable, quotable, and next to your draft."
+msgstr "论文视图以结构化 Markdown 保留完整文本、章节、公式和图片，支持搜索和引用，并与草稿并排显示。"
+
+#: src/App.tsx:9312
+#: src/App.tsx:9312
+#: src/document-canvas.tsx:1347
+#: src/navigator.tsx:1619
+msgid "Papers"
+msgstr "论文"
+
+#: src/navigator.tsx:1712
+msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence."
+msgstr "在上方粘贴 arXiv ID、DOI、URL 或标题，为智能体提供项目证据。"
+
+#: src/App.tsx:10335
+msgid "Paste clipboard image as figure"
+msgstr "将剪贴板图像粘贴为插图"
+
+#: src/collab-dialog.tsx:358
+msgid "Paste the full invite from Copy invite"
+msgstr "粘贴通过“复制邀请”获得的完整邀请"
+
+#: src/document-canvas.tsx:3296
+msgid "PDF"
+msgstr "PDF"
+
+#: src/pdf-viewer.tsx:1520
+msgid "PDF document"
+msgstr "PDF 文档"
+
+#: src/pdf-viewer.tsx:194
+msgid "PDF links"
+msgstr "PDF 链接"
+
+#: src/pdf-viewer.tsx:672
+msgid "PDF page {pageNumber}"
+msgstr "PDF 第 {pageNumber} 页"
+
+#: src/pdf-viewer.tsx:1541
+msgid "PDF page number"
+msgstr "PDF 页码"
+
+#: src/pdf-viewer.tsx:747
+msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
+msgstr "PDF 预览超时。请再次点击“构建”，或在“预览”中打开 PDF。"
+
+#: src/pdf-viewer.tsx:1614
+msgid "PDF zoom percentage"
+msgstr "PDF 缩放百分比"
+
+#: src/App.tsx:9176
+msgid "People in this session"
+msgstr "此会话中的成员"
+
+#: src/settings-dialog.tsx:599
+msgid "Plays quiet cues when a requested build or collaboration setup finishes."
+msgstr "请求的构建或协作设置完成时播放轻微提示音。"
+
+#: src/document-canvas.tsx:3660
+#: src/document-canvas.tsx:3718
+#: src/document-canvas.tsx:3913
+msgid "Preparing board editor"
+msgstr "正在准备白板编辑器"
+
+#: src/App.tsx:9480
+msgid "Preparing editor"
+msgstr "正在准备编辑器"
+
+#: src/document-canvas.tsx:491
+msgid "Preparing HTML preview…"
+msgstr "正在准备 HTML 预览…"
+
+#: src/document-canvas.tsx:183
+msgid "Preparing Markdown editor"
+msgstr "正在准备 Markdown 编辑器"
+
+#: src/document-canvas.tsx:439
+msgid "Preparing PDF preview…"
+msgstr "正在准备 PDF 预览…"
+
+#: src/document-canvas.tsx:650
+#: src/document-canvas.tsx:3220
+msgid "Preparing preview…"
+msgstr "正在准备预览…"
+
+#: src/document-canvas.tsx:3673
+#: src/document-canvas.tsx:3737
+#: src/document-canvas.tsx:3913
+msgid "Preparing spreadsheet editor"
+msgstr "正在准备电子表格编辑器"
+
+#: src/canvas-toolbar.tsx:157
+msgid "Preview"
+msgstr "预览"
+
+#: src/canvas-toolbar.tsx:158
+msgid "Preview HTML"
+msgstr "预览 HTML"
+
+#: src/canvas-toolbar.tsx:158
+msgid "Preview Markdown"
+msgstr "预览 Markdown"
+
+#: src/document-canvas.tsx:4331
+msgid "Preview of {path}"
+msgstr "{path} 的预览"
+
+#: src/canvas-toolbar.tsx:158
+msgid "Preview PDF"
+msgstr "预览 PDF"
+
+#: src/document-canvas.tsx:3499
+msgid "previous"
+msgstr "上一个"
+
+#: src/pdf-viewer.tsx:1536
+msgid "Previous page"
+msgstr "上一页"
+
+#: src/pdf-viewer.tsx:1591
+msgid "Previous search result"
+msgstr "上一个搜索结果"
+
+#: src/App.tsx:9311
+#: src/App.tsx:9311
+#: src/App.tsx:10337
+#: src/App.tsx:10338
+#: src/App.tsx:10339
+#: src/App.tsx:10340
+#: src/App.tsx:10341
+msgid "Project"
+msgstr "项目"
+
+#: src/settings-dialog.tsx:670
+msgid "Project dictionary"
+msgstr "项目词典"
+
+#: src/settings-dialog.tsx:690
+msgid "Project dictionary terms"
+msgstr "项目词典术语"
+
+#: src/navigator.tsx:1386
+msgid "Project files"
+msgstr "项目文件"
+
+#: src/canvas-toolbar.tsx:348
+msgid "Project history"
+msgstr "项目历史"
+
+#: src/project-dialogs.tsx:146
+msgid "Project name"
+msgstr "项目名称"
+
+#: src/settings-dialog.tsx:145
+#: src/settings-dialog.tsx:440
+msgid "Providers"
+msgstr "模型服务商"
+
+#: src/navigator.tsx:1626
+msgid "Publisher"
+msgstr "出版商"
+
+#: src/App.tsx:9855
+#: src/App.tsx:9891
+msgid "Pull requests"
+msgstr "拉取请求"
+
+#: src/App.tsx:10300
+msgid "Quick open file"
+msgstr "快速打开文件"
+
+#. placeholder {0}: status.indexedFiles
+#. placeholder {1}: status.indexedChunks
+#: src/settings-dialog.tsx:431
+msgid "Ready for {0} files ({1} blocks). {semanticSearchPrivacy}"
+msgstr "已为 {0} 个文件建立索引（{1} 个内容块）。{semanticSearchPrivacy}"
+
+#. placeholder {0}: status.indexedChunks
+#: src/settings-dialog.tsx:430
+msgid "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
+msgstr "已为 1 个文件建立索引（{0} 个内容块）。{semanticSearchPrivacy}"
+
+#: src/settings-dialog.tsx:824
+msgid "Ready to compile"
+msgstr "可以编译"
+
+#: src/project-dialogs.tsx:275
+msgid "Recent projects"
+msgstr "最近使用的项目"
+
+#. placeholder {0}: record.title
+#: src/collab-dialog.tsx:312
+msgid "Rejoin {0}"
+msgstr "重新加入 {0}"
+
+#: src/document-canvas.tsx:292
+msgid "Relative project links are unavailable in this preview"
+msgstr "此预览中无法使用项目相对链接"
+
+#: src/collab-dialog.tsx:446
+msgid "Remove"
+msgstr "移除"
+
+#. placeholder {0}: record.projectInstanceId
+#: src/collab-dialog.tsx:339
+msgid "Remove {0} from recent shares"
+msgstr "从最近共享中移除 {0}"
+
+#. placeholder {0}: peer.name
+#: src/collab-dialog.tsx:443
+msgid "Remove {0} from this share"
+msgstr "从此共享中移除 {0}"
+
+#. placeholder {0}: peer.name
+#: src/collab-dialog.tsx:171
+msgid "Remove {0}?\n"
+"\n"
+"They will lose access immediately. Anyone who joined with the same invite will also lose access."
+msgstr "移除 {0}？\\n\\n他们将立即失去访问权限。使用同一邀请加入的任何人也会失去访问权限。"
+
+#: src/navigator.tsx:1691
+msgid "Remove {title}"
+msgstr "移除 {title}"
+
+#: src/settings-dialog.tsx:697
+msgid "Remove {word} from project dictionary"
+msgstr "从项目词典中移除 {word}"
+
+#: src/settings-dialog.tsx:730
+msgid "Removes .aux, .log, and other build leftovers from this project."
+msgstr "移除此项目中的 .aux、.log 和其他构建残留文件。"
+
+#: src/collab-dialog.tsx:446
+msgid "Removing…"
+msgstr "正在移除…"
+
+#: src/collab-dialog.tsx:326
+#: src/navigator.tsx:1346
+#: src/project-dialogs.tsx:242
+msgid "Rename"
+msgstr "重命名"
+
+#. placeholder {0}: record.title
+#: src/collab-dialog.tsx:295
+msgid "Rename {0}"
+msgstr "重命名 {0}"
+
+#: src/project-dialogs.tsx:198
+msgid "Rename citation key"
+msgstr "重命名引用键"
+
+#: src/project-dialogs.tsx:200
+msgid "Rename environment"
+msgstr "重命名环境"
+
+#: src/project-dialogs.tsx:196
+msgid "Rename label"
+msgstr "重命名标签"
+
+#: src/project-dialogs.tsx:207
+msgid "Renames the matching \\begin and \\end pair under the cursor."
+msgstr "重命名光标处匹配的 \\begin 和 \\end。"
+
+#: src/project-dialogs.tsx:242
+msgid "Renaming…"
+msgstr "正在重命名…"
+
+#: src/pdf-viewer.tsx:1714
+msgid "Rendering PDF…"
+msgstr "正在渲染 PDF…"
+
+#: src/App.tsx:10327
+msgid "Replace in project"
+msgstr "在项目中替换"
+
+#: src/navigator.tsx:1626
+msgid "Replacement/new version"
+msgstr "替代版本/新版本"
+
+#: src/tex-setup-wizard.tsx:118
+msgid "Required paper tools installed"
+msgstr "所需的论文工具已安装"
+
+#: src/tex-setup-wizard.tsx:153
+msgid "Required tools installation progress"
+msgstr "所需工具安装进度"
+
+#: src/App.tsx:10325
+msgid "Research"
+msgstr "研究"
+
+#: src/project-dialogs.tsx:60
+msgid "Research, written with evidence."
+msgstr "以证据书写研究。"
+
+#: src/document-canvas.tsx:3975
+msgid "Resize dual source panes"
+msgstr "调整双源文件窗格大小"
+
+#: src/document-canvas.tsx:4073
+msgid "Resize editor and asset preview"
+msgstr "调整编辑器与资源预览大小"
+
+#: src/document-canvas.tsx:4077
+msgid "Resize editor and HTML preview"
+msgstr "调整编辑器与 HTML 预览大小"
+
+#: src/document-canvas.tsx:4075
+msgid "Resize editor and Markdown preview"
+msgstr "调整编辑器与 Markdown 预览大小"
+
+#: src/document-canvas.tsx:4078
+msgid "Resize editor and PDF preview"
+msgstr "调整编辑器与 PDF 预览大小"
+
+#: src/document-canvas.tsx:3996
+msgid "Resize PDF pane"
+msgstr "调整 PDF 窗格大小"
+
+#: src/App.tsx:9463
+msgid "Resize workspace sidebar"
+msgstr "调整工作区侧边栏大小"
+
+#: src/navigator.tsx:1625
+msgid "Retracted"
+msgstr "已撤稿"
+
+#: src/navigator.tsx:1626
+msgid "Retraction Watch"
+msgstr "Retraction Watch"
+
+#: src/pdf-viewer.tsx:1637
+msgid "Reveal cursor in PDF (⌘⇧J)"
+msgstr "在 PDF 中显示光标位置 (⌘⇧J)"
+
+#: src/collab-dialog.tsx:251
+msgid "Room name"
+msgstr "房间名称"
+
+#: src/collab-dialog.tsx:128
+msgid "Rooms you host"
+msgstr "你主持的房间"
+
+#: src/collab-dialog.tsx:128
+msgid "Rooms you joined"
+msgstr "你加入的房间"
+
+#: src/App.tsx:10293
+msgid "Run a command…"
+msgstr "运行命令…"
+
+#: src/onboarding-tour.tsx:431
+msgid "Run interactive explanations"
+msgstr "运行交互式讲解"
+
+#: src/App.tsx:10340
+#: src/settings-dialog.tsx:813
+msgid "Run TeX doctor"
+msgstr "运行 TeX 诊断"
+
+#: src/settings-dialog.tsx:849
+msgid "Run the doctor to inspect this Mac’s TeX toolchain."
+msgstr "运行诊断以检查这台 Mac 上的 TeX 工具链。"
+
+#: src/collab-dialog.tsx:307
+msgid "Save"
+msgstr "保存"
+
+#: src/pdf-viewer.tsx:1519
+msgid "Save compiled PDF"
+msgstr "保存已编译的 PDF"
+
+#: src/pdf-viewer.tsx:1521
+msgid "Save PDF"
+msgstr "保存 PDF"
+
+#: src/pdf-viewer.tsx:746
+msgid "Save PDF as…"
+msgstr "将 PDF 另存为…"
+
+#: src/pdf-viewer.tsx:1522
+msgid "Saved to {path}"
+msgstr "已保存到 {path}"
+
+#: src/settings-dialog.tsx:650
+msgid "Search"
+msgstr "搜索"
+
+#: src/navigator.tsx:1592
+msgid "Search or add by title, arXiv ID, DOI, or URL"
+msgstr "按标题、arXiv ID、DOI 或 URL 搜索或添加"
+
+#: src/navigator.tsx:1589
+msgid "Search or import papers"
+msgstr "搜索或导入论文"
+
+#: src/pdf-viewer.tsx:1501
+#: src/pdf-viewer.tsx:1576
+msgid "Search PDF"
+msgstr "搜索 PDF"
+
+#. placeholder {0}: message(firstFailure.reason)
+#: src/pdf-viewer.tsx:1249
+msgid "Search unavailable: {0}"
+msgstr "搜索不可用：{0}"
+
+#: src/pdf-viewer.tsx:1260
+msgid "Search unavailable: {detail}"
+msgstr "搜索不可用：{detail}"
+
+#: src/document-canvas.tsx:3529
+msgid "Sel {words} words · {chars} chars · {lines} lines"
+msgstr "选区 {words} 词 · {chars} 字符 · {lines} 行"
+
+#: src/collab-dialog.tsx:462
+msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
+msgstr "发送上方邀请。对方依次打开“实时协作”→“加入”→粘贴→“加入共享”。Lattice 会在其 Documents/Lattice Shares 下打开一个新文件夹。"
+
+#: src/settings-dialog.tsx:613
+msgid "Set the editor keymap and build behavior."
+msgstr "设置编辑器键位和构建行为。"
+
+#: src/project-dialogs.tsx:54
+#: src/project-dialogs.tsx:300
+#: src/settings-dialog.tsx:448
+#: src/settings-dialog.tsx:460
+msgid "Settings"
+msgstr "设置"
+
+#: src/settings-dialog.tsx:467
+msgid "Settings sections"
+msgstr "设置分区"
+
+#: src/tex-setup-wizard.tsx:50
+msgid "Setup is complete."
+msgstr "设置已完成。"
+
+#: src/App.tsx:10318
+msgid "Share invite with a collaborator"
+msgstr "与协作者分享邀请"
+
+#: src/collab-dialog.tsx:221
+msgid "Share mode"
+msgstr "共享模式"
+
+#: src/collab-dialog.tsx:134
+msgid "Sharing"
+msgstr "正在共享"
+
+#: src/onboarding-tour.tsx:469
+msgid "Sharing and history live in this row"
+msgstr "共享和历史记录都在这一行"
+
+#: src/navigator.tsx:1355
+#: src/navigator.tsx:1549
+msgid "Show in Finder"
+msgstr "在访达中显示"
+
+#: src/App.tsx:9070
+msgid "Show sidebar"
+msgstr "显示侧边栏"
+
+#: src/App.tsx:9308
+msgid "Sidebar mode"
+msgstr "侧边栏模式"
+
+#: src/settings-dialog.tsx:565
+msgid "Simplified Chinese"
+msgstr "简体中文"
+
+#: src/settings-dialog.tsx:147
+#: src/settings-dialog.tsx:442
+msgid "Skills"
+msgstr "技能"
+
+#: src/onboarding-tour.tsx:136
+#: src/onboarding-tour.tsx:636
+msgid "Skip tutorial"
+msgstr "跳过教程"
+
+#: src/App.tsx:10306
+msgid "Source + PDF"
+msgstr "源码 + PDF"
+
+#: src/pdf-viewer.tsx:690
+msgid "Source location in PDF"
+msgstr "PDF 中的源位置"
+
+#: src/settings-dialog.tsx:658
+msgid "Spelling"
+msgstr "拼写"
+
+#: src/App.tsx:10306
+msgid "split"
+msgstr "拆分视图"
+
+#: src/canvas-toolbar.tsx:148
+msgid "Split"
+msgstr "分栏"
+
+#: src/canvas-toolbar.tsx:196
+msgid "Split editor right"
+msgstr "向右分栏编辑器"
+
+#: src/App.tsx:10315
+msgid "Start / join live sharing"
+msgstr "开始或加入实时共享"
+
+#: src/collab-dialog.tsx:226
+#: src/collab-dialog.tsx:525
+msgid "Start sharing"
+msgstr "开始共享"
+
+#: src/settings-dialog.tsx:426
+msgid "Starting the background index. {semanticSearchPrivacy}"
+msgstr "正在启动后台索引。{semanticSearchPrivacy}"
+
+#: src/collab-dialog.tsx:376
+msgid "status"
+msgstr "状态"
+
+#: src/App.tsx:9251
+msgid "Stop"
+msgstr "停止"
+
+#: src/App.tsx:10298
+msgid "Stop build"
+msgstr "停止构建"
+
+#: src/collab-dialog.tsx:465
+#: src/collab-dialog.tsx:514
+msgid "Stop sharing"
+msgstr "停止共享"
+
+#: src/collab-dialog.tsx:161
+msgid "Stop sharing for everyone?\n"
+"\n"
+"Collaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite."
+msgstr "停止所有人的共享？\\n\\n协作者将断开连接并返回之前的项目。此操作无法撤销——重新打开房间需要发送新邀请。"
+
+#: src/App.tsx:9244
+msgid "Stop the current LaTeX build"
+msgstr "停止当前 LaTeX 构建"
+
+#: src/App.tsx:10334
+msgid "Submission checklist"
+msgstr "投稿检查清单"
+
+#: src/App.tsx:10308
+msgid "Swap editor panes"
+msgstr "交换编辑器窗格"
+
+#: src/App.tsx:9084
+msgid "Switch project"
+msgstr "切换项目"
+
+#: src/onboarding-tour.tsx:478
+msgid "Switch to Papers to see what this manuscript cites."
+msgstr "切换到“论文”查看此稿件引用的来源。"
+
+#: src/settings-dialog.tsx:515
+msgid "Synara {synaraSettingsLabel} settings"
+msgstr "Synara {synaraSettingsLabel}设置"
+
+#: src/canvas-toolbar.tsx:263
+msgid "Sync with Overleaf"
+msgstr "与 Overleaf 同步"
+
+#: src/canvas-toolbar.tsx:251
+msgid "Syncing with Overleaf…"
+msgstr "正在与 Overleaf 同步…"
+
+#: src/settings-dialog.tsx:672
+msgid "Terms Harper should accept in this project."
+msgstr "Harper 在此项目中应接受的术语。"
+
+#: src/settings-dialog.tsx:159
+#: src/settings-dialog.tsx:809
+msgid "TeX doctor"
+msgstr "TeX 诊断"
+
+#: src/settings-dialog.tsx:434
+msgid "The local model is unavailable."
+msgstr "本地模型不可用。"
+
+#: src/document-canvas.tsx:3328
+msgid "The PDF took too long to load. Try again, or open the article in your browser."
+msgstr "PDF 加载时间过长。请重试，或在浏览器中打开文章。"
+
+#: src/onboarding-tour.tsx:420
+msgid "The preview is editable too"
+msgstr "预览也可以编辑"
+
+#: src/tex-setup-wizard.tsx:91
+msgid "The required tools"
+msgstr "所需工具"
+
+#: src/document-canvas.tsx:2047
+msgid "The selected text changed. Select it again before commenting."
+msgstr "所选文本已更改。请重新选择后再评论。"
+
+#: src/settings-dialog.tsx:570
+msgid "Theme"
+msgstr "主题"
+
+#: src/onboarding-tour.tsx:517
+msgid "Then read the real thing, right here"
+msgstr "然后就在这里阅读原文"
+
+#: src/settings-dialog.tsx:547
+msgid "These preferences apply across every project on this Mac."
+msgstr "这些偏好设置会应用于这台 Mac 上的所有项目。"
+
+#: src/onboarding-tour.tsx:441
+msgid "Think visually on a board"
+msgstr "在画板上进行可视化思考"
+
+#: src/document-canvas.tsx:4332
+msgid "This format cannot be rendered in the preview."
+msgstr "此格式无法在预览中渲染。"
+
+#: src/tex-setup-wizard.tsx:47
+msgid "This is the longest step and can take up to 15 minutes."
+msgstr "这是耗时最长的一步，最多可能需要 15 分钟。"
+
+#: src/collab-dialog.tsx:461
+msgid "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely."
+msgstr "此会话使用本地同步主机，因此只有你网络中的用户可以加入。若要远程协作，请使用配置了公共同步主机的构建版本。"
+
+#: src/tex-setup-wizard.tsx:46
+msgid "This step may take a minute."
+msgstr "此步骤可能需要一分钟。"
+
+#: src/onboarding-tour.tsx:400
+msgid "Three ways to look at a document"
+msgstr "查看文档的三种方式"
+
+#: src/document-canvas.tsx:3520
+msgid "TODOs"
+msgstr "待办"
+
+#: src/settings-dialog.tsx:820
+msgid "Toolchain status"
+msgstr "工具链状态"
+
+#: src/onboarding-tour.tsx:422
+msgid "Try typing / in the visual editor"
+msgstr "尝试在可视化编辑器中输入 /"
+
+#. placeholder {0}: index + 1
+#: src/onboarding-tour.tsx:139
+msgid "Tutorial progress: step {0} of {size}"
+msgstr "教程进度：第 {0} 步，共 {size} 步"
+
+#: src/App.tsx:10304
+msgid "Two files side by side"
+msgstr "并排显示两个文件"
+
+#: src/onboarding-tour.tsx:384
+msgid "Type in main.tex on the left. Lattice saves, compiles, and refreshes the PDF on the right on its own — there is no build button to hunt for."
+msgstr "在左侧的 main.tex 中输入。Lattice 会自动保存、编译并刷新右侧 PDF，无需寻找构建按钮。"
+
+#: src/pdf-viewer.tsx:1590
+msgid "Unavailable"
+msgstr "不可用"
+
+#: src/project-dialogs.tsx:203
+msgid "Updates every \\label and \\ref/\\cref occurrence across the project."
+msgstr "更新整个项目中的每个 \\label 和 \\ref/\\cref。"
+
+#: src/project-dialogs.tsx:205
+msgid "Updates the bibliography entry and every \\cite occurrence across the project."
+msgstr "更新参考文献条目以及整个项目中的每个 \\cite。"
+
+#: src/pdf-viewer.tsx:1715
+msgid "Updating…"
+msgstr "正在更新…"
+
+#: src/onboarding-tour.tsx:461
+msgid "Use Formulas, export as .xlsx, or ask Agent to read and update ranges, formulas, and formatting."
+msgstr "使用“公式”、导出为 .xlsx，或让 Agent 读取和更新区域、公式及格式。"
+
+#: src/navigator.tsx:1718
+msgid "Use the + button to import this query if it isn't in your library yet."
+msgstr "如果资料库中尚无此内容，请使用 + 按钮导入当前查询。"
+
+#: src/settings-dialog.tsx:718
+msgid "Use the Build button or Command-S. Source changes are still saved automatically."
+msgstr "使用“构建”按钮或 Command-S。源码更改仍会自动保存。"
+
+#: src/project-dialogs.tsx:149
+#: src/project-dialogs.tsx:150
+msgid "Venue template"
+msgstr "会议模板"
+
+#: src/tex-setup-wizard.tsx:39
+msgid "Verifying installation…"
+msgstr "正在验证安装…"
+
+#: src/settings-dialog.tsx:780
+msgid "Version"
+msgstr "版本"
+
+#. placeholder {0}: updater.version ?? ""
+#: src/settings-dialog.tsx:400
+msgid "Version {0} is ready to install"
+msgstr "版本 {0} 已可安装"
+
+#: src/App.tsx:10304
+#: src/App.tsx:10306
+#: src/App.tsx:10308
+msgid "View"
+msgstr "视图"
+
+#: src/document-canvas.tsx:3292
+msgid "View original PDF"
+msgstr "查看原始 PDF"
+
+#: src/settings-dialog.tsx:618
+msgid "Vim and Emacs keep their modal bindings inside the editor only."
+msgstr "Vim 和 Emacs 的模式键位仅在编辑器内生效。"
+
+#: src/document-canvas.tsx:3477
+msgid "Vim mode"
+msgstr "Vim 模式"
+
+#: src/tex-setup-wizard.tsx:35
+msgid "Waiting for administrator approval…"
+msgstr "正在等待管理员批准…"
+
+#: src/onboarding-tour.tsx:376
+msgid "We opened a real project for you — the “Attention Is All You Need” paper — so you can try each feature on real files as we go. Skip whenever you like."
+msgstr "我们为你打开了一个真实项目——“Attention Is All You Need”论文——你可以跟随教程在真实文件上体验各项功能。随时可以跳过。"
+
+#: src/onboarding-tour.tsx:375
+msgid "Welcome to Lattice"
+msgstr "欢迎使用 Lattice"
+
+#: src/App.tsx:10334
+msgid "Words / pages / TODOs"
+msgstr "字数 / 页数 / 待办事项"
+
+#: src/project-dialogs.tsx:201
+msgid "Wrap in environment"
+msgstr "包裹在环境中"
+
+#: src/project-dialogs.tsx:208
+msgid "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
+msgstr "将当前选区（或空光标）包裹在 \\begin{…}/\\end{…} 中。"
+
+#: src/settings-dialog.tsx:744
+msgid "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence."
+msgstr "XeLaTeX 和 LuaLaTeX 支持系统字体。项目中的 latexmkrc 优先级更高。"
+
+#: src/collab-dialog.tsx:426
+msgid "You"
+msgstr "你"
+
+#: src/collab-dialog.tsx:455
+msgid "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing."
+msgstr "你正在共享工作区中。“离开共享”会返回之前的项目；主持人会继续共享。"
+
+#: src/collab-dialog.tsx:465
+msgid "You started this share. "
+msgstr "你发起了此共享。"
+
+#: src/settings-dialog.tsx:411
+msgid "You’ll be notified when a new version is ready"
+msgstr "新版本可用时会通知你"
+
+#: src/settings-dialog.tsx:408
+msgid "You’re on the latest version"
+msgstr "当前已是最新版本"
+
+#: src/onboarding-tour.tsx:487
+msgid "Your .bib file, as a readable library"
+msgstr "将 .bib 文件作为易读的文献库"
+
+#: src/onboarding-tour.tsx:383
+msgid "Your LaTeX and your PDF, side by side"
+msgstr "LaTeX 和 PDF 并排显示"
+
+#: src/collab-dialog.tsx:234
+msgid "Your name"
+msgstr "你的姓名"
+
+#: src/onboarding-tour.tsx:477
+msgid "Your sources live in the project too"
+msgstr "你的来源也保存在项目中"
+
+#: src/document-canvas.tsx:4312
+#: src/pdf-viewer.tsx:1631
+msgid "Zoom in"
+msgstr "放大"
+
+#: src/document-canvas.tsx:4280
+#: src/pdf-viewer.tsx:1605
+msgid "Zoom out"
+msgstr "缩小"

@@ -13,6 +13,8 @@
 import { DEFAULT_UI_FONT, DEFAULT_EDITOR_FONT, EDITOR_FONT_OPTIONS, resolveFontValue } from "./available-fonts";
 
 export type Theme = "light" | "dark";
+export type AppLocale = "en" | "zh-CN";
+export type InterfaceLanguage = "system" | AppLocale;
 export type RecentProject = { name: string; path: string };
 export type AutoBuildMode = "manual" | "automatic";
 export type BuildPreferences = { autoBuildMode: AutoBuildMode };
@@ -349,6 +351,7 @@ export function persistSidebarWidth(width: number) {
 
 type EditorKeymap = "default" | "vim" | "emacs";
 export type AppearanceSettings = {
+  interfaceLanguage: InterfaceLanguage;
   uiFont: string;
   interfaceScale: number;
   editorFont: string;
@@ -364,8 +367,27 @@ export const LEGACY_APPEARANCE_KEY = "lattice.appearance.v4";
 export const MAX_OPEN_TABS = 12;
 const OLDER_APPEARANCE_KEY = "lattice.appearance.v3";
 
+export function resolveAppLocale(
+  preference: InterfaceLanguage,
+  systemLanguages?: readonly string[],
+): AppLocale {
+  if (preference !== "system") return preference;
+  const languages = systemLanguages ?? (typeof navigator === "undefined"
+    ? []
+    : navigator.languages.length > 0
+      ? navigator.languages
+      : [navigator.language]);
+  return languages.some((language) => {
+    const normalized = language.toLowerCase();
+    return normalized === "zh" || normalized.startsWith("zh-");
+  })
+    ? "zh-CN"
+    : "en";
+}
+
 export function loadAppearance(): AppearanceSettings {
   const defaults: AppearanceSettings = {
+    interfaceLanguage: "system",
     uiFont: DEFAULT_UI_FONT,
     interfaceScale: 1,
     editorFont: DEFAULT_EDITOR_FONT,
@@ -386,6 +408,9 @@ export function loadAppearance(): AppearanceSettings {
       1.35,
     );
     return {
+      interfaceLanguage: value?.interfaceLanguage === "en" || value?.interfaceLanguage === "zh-CN"
+        ? value.interfaceLanguage
+        : "system",
       // Keep the field in the persisted shape for backwards compatibility, but
       // normalize every old preference to the bundled application UI face.
       uiFont: defaults.uiFont,

@@ -11,6 +11,7 @@ export async function acceptCollabInvitationV2(
 ): Promise<CollabProjectRecordV2 | null> {
   const invitation = parseCollabInvitationV2(raw);
   if (!invitation) return null;
+  const now = options.now ?? Date.now();
   const credentialRef = createCredentialRef();
   await store.put(credentialRef, invitation.guestSecret, invitation.projectInstanceId, invitation.deployment);
   const record: CollabProjectRecordV2 = {
@@ -21,7 +22,8 @@ export async function acceptCollabInvitationV2(
     permission: invitation.permission,
     title: invitation.projectName ?? options.title ?? "Shared project",
     projectRoot: options.projectRoot ?? null,
-    lastUsed: options.now ?? Date.now(),
+    createdAt: now,
+    lastUsed: now,
   };
   rememberCollabProjectV2(record);
   return record;

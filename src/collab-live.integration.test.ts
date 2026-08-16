@@ -56,8 +56,10 @@ const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 function memoryStore() {
   return {
     async load() { return undefined; },
+    async loadCatalog() { return undefined; },
     async persistLocal() { /* no-op */ },
     async persistSnapshot() { /* no-op */ },
+    async persistCatalog() { /* no-op */ },
     async deleteCovered() { return []; },
     async compactAck() { return []; },
     async export() { return undefined; },
@@ -67,6 +69,35 @@ function memoryStore() {
 const live = Boolean(process.env.LATTICE_COLLAB_LIVE);
 
 describe.skipIf(!live)("live collaboration against the local sync server", () => {
+  it("imports a concurrent batch of binary files through the real coordinator and R2 path", async () => {
+    const hostStore = new MemoryCollabCredentialStore();
+    const paths = Array.from({ length: 12 }, (_, index) => `figures/plot-${index}.png`);
+    const imported = await createProjectV2({
+      deployment: DEPLOYMENT,
+      projectName: "Concurrent binary import",
+      source: {
+        async inventory() {
+          return [{ path: "main.tex", kind: "text" as const }, ...paths.map((path) => ({ path, kind: "binary" as const }))];
+        },
+        async read(path) { return path === "main.tex" ? new TextEncoder().encode(MAIN_TEX) : PNG; },
+      },
+      credentialStore: hostStore,
+      onRecord: async () => {},
+    });
+
+    const host = await CollabProjectControllerV2.start({
+      deployment: DEPLOYMENT,
+      projectInstanceId: imported.projectInstanceId,
+      credentialRef: imported.credentialRef,
+      credentialStore: hostStore,
+      permission: "host",
+      displayName: "Ada",
+      store: memoryStore(),
+    });
+    expect(host.fileCount()).toBe(paths.length + 1);
+    host.destroy();
+  }, 60_000);
+
   it("host and guest see one another correctly", async () => {
     const hostStore = new MemoryCollabCredentialStore();
     const guestStore = new MemoryCollabCredentialStore();

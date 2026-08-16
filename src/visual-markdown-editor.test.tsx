@@ -443,7 +443,7 @@ describe("VisualMarkdownEditor", () => {
       <VisualMarkdownEditor
         text="# Hello"
         activePath="presence-heading.md"
-        presenceCursors={[{ name: "Ada", hue: 210, row: 0, column: 4 }]}
+        presenceCursors={[{ name: "Ada", hue: 210, color: "#0E7490", row: 0, column: 4 }]}
         onCaretChange={onCaretChange}
         onSourceCaretChange={onSourceCaretChange}
         onChangeMarkdown={() => true}
@@ -455,6 +455,9 @@ describe("VisualMarkdownEditor", () => {
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
     await waitFor(() => expect(document.querySelector(".visual-overleaf-caret-label")).toHaveTextContent("Ada"));
+    expect(document.querySelector<HTMLElement>(".visual-overleaf-caret-label")).toHaveStyle({
+      backgroundColor: "#0E7490",
+    });
 
     act(() => {
       editor.commands.setTextSelection(3);

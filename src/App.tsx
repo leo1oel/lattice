@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
@@ -81,6 +82,7 @@ import { InfinityLoader } from "./components/ui/activity-icons";
 import { useOverleafComments, type OverleafComments } from "./use-overleaf-comments";
 import type { OverleafCollabTab } from "./overleaf-collab";
 import {
+  type AppLocale,
   type RecentProject,
   type BuildPreferences,
   BUILD_PREFERENCES_KEY,
@@ -103,6 +105,7 @@ import {
   persistLocalSemanticSearchEnabled,
   hasSeenTutorial,
   markTutorialSeen,
+  resolveAppLocale,
 } from "./app-settings";
 import {
   type EditorComment,
@@ -268,7 +271,6 @@ import type {
 import {
   applyProjectPathChanges,
   arxivIdFromTabKey,
-  autoBuildDescription,
   beginWindowDrag,
   chooseAction,
   confirmAction,
@@ -559,11 +561,13 @@ function synaraEmbedUrl(
   authToken: string | null,
   projectRoot: string,
   theme: "light" | "dark",
+  locale: AppLocale,
 ): string {
   return synaraFrameUrl({
     origin,
     workspaceRoot: projectRoot,
     theme,
+    locale,
     surface: "chrome",
     hostOrigin: window.location.origin,
     authToken,
@@ -575,6 +579,7 @@ function synaraSourceControlUrl(
   authToken: string | null,
   projectRoot: string,
   theme: "light" | "dark",
+  locale: AppLocale,
   view: AgentGitWorkspaceView,
 ): string {
   return synaraFrameUrl({
@@ -582,6 +587,7 @@ function synaraSourceControlUrl(
     path: agentGitWorkspacePath(view),
     workspaceRoot: projectRoot,
     theme,
+    locale,
     surface: "drawer",
     hostOrigin: window.location.origin,
     authToken,
@@ -596,6 +602,7 @@ function synaraTurnReviewUrl(
   authToken: string | null,
   projectRoot: string,
   theme: "light" | "dark",
+  locale: AppLocale,
   review: AgentTurnReview,
 ): string {
   const url = new URL(synaraFrameUrl({
@@ -603,6 +610,7 @@ function synaraTurnReviewUrl(
     path: "/review",
     workspaceRoot: projectRoot,
     theme,
+    locale,
     surface: "drawer",
     hostOrigin: window.location.origin,
     authToken,
@@ -678,6 +686,7 @@ function recordNavigationTiming(
 }
 
 function App() {
+  const { t } = useLingui();
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
   const workspaceIndex = useMemo(
     () => new MarkdownWorkspaceIndex((path) => invoke<string>("read_project_file", { path })),
@@ -2145,6 +2154,7 @@ function App() {
     if (project?.root && activeFile) persistLastFile(project.root, activeFile);
   }, [project?.root, activeFile]);
   const { theme, setTheme, appearance, setAppearance } = useAppearance();
+  const appLocale = resolveAppLocale(appearance.interfaceLanguage);
   useEffect(() => {
     configureInterfaceSounds(appearance.interfaceSounds);
   }, [appearance.interfaceSounds]);
@@ -3099,7 +3109,7 @@ function App() {
             },
             onPrepareProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(`Preparing project files… ${completed}/${total}`); },
             onProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(`Uploading project files… ${completed}/${total}`); },
-            onRecord: async (created) => { assertCurrentStart(); rememberCollabProjectV2({ version: 2, projectInstanceId: created.projectInstanceId, host: created.deployment, credentialRef: created.credentialRef, permission: "host", title: collabProjectName.trim(), projectRoot: project.root, lastUsed: Date.now() }); },
+            onRecord: async (created) => { const now = Date.now(); assertCurrentStart(); rememberCollabProjectV2({ version: 2, projectInstanceId: created.projectInstanceId, host: created.deployment, credentialRef: created.credentialRef, permission: "host", title: collabProjectName.trim(), projectRoot: project.root, createdAt: now, lastUsed: now }); },
           });
           assertCurrentStart();
           setCollabStatusDetail("Connecting to the live session…");
@@ -5521,13 +5531,14 @@ function App() {
       void (async () => {
         setBusyLabel("Opening a v2 shared workspace…");
         let controller: CollabProjectControllerV2 | null = null;
+        const priorRoot = project?.root ?? null;
+        let openedJoinWorkspace = false;
         try {
-          const priorRoot = project?.root ?? null;
-          preCollabProjectRootRef.current = priorRoot;
-          rememberPreCollabProjectRoot(priorRoot);
           saveCollabDisplayName(collabName.trim());
           if (project && (source !== savedSource || (secondaryFile && secondarySource !== secondarySavedSource)) && !(await save())) return;
           if (!await startProjectTransition()) return;
+          preCollabProjectRootRef.current = priorRoot;
+          rememberPreCollabProjectRoot(priorRoot);
           const shortRoom = v2Invite.projectInstanceId.slice(-12);
           const store = collabCredentialStore();
           let record = await acceptCollabInvitationV2(v2Raw, store, { projectRoot: null, title: `Shared project ${shortRoom.slice(-6)}` });
@@ -5535,35 +5546,13 @@ function App() {
           const credentialRef = record.credentialRef;
           const catalog = await new CollabControlV2Client(v2Invite.deployment, v2Invite.projectInstanceId, v2Invite.guestSecret).catalog();
           const roomName = catalog.name ?? v2Invite.projectName ?? record.title;
-          const snapshot = await invoke<ProjectSnapshot>("create_collab_join_workspace", { room: shortRoom.slice(-6), projectName: roomName });
+          const workspace = await invoke<ProjectSnapshot>("create_collab_join_workspace", { room: shortRoom.slice(-6), projectName: roomName });
+          // Joining is an in-place project transition. Bind the backend window
+          // before exposing the new root to editor and collaboration effects.
+          const snapshot = await invoke<ProjectSnapshot>("open_project", { path: workspace.root });
+          openedJoinWorkspace = true;
           record = { ...record, projectRoot: snapshot.root, title: roomName, lastUsed: Date.now() };
           rememberCollabProjectV2(record);
-          // A share is a project like any other, so it gets a window of its
-          // own rather than displacing whatever this window was working on.
-          // The new window connects to the room itself: only it can hold the
-          // controller, the workspace lease and the editor binding that
-          // joining produces. Everything it needs is already in the record it
-          // is pointed at.
-          if (project?.root) {
-            const opened = await invoke<{ focusedExisting: boolean }>("open_project_window", {
-              path: snapshot.root,
-              pending: JSON.stringify({
-                kind: "join-collab-v2",
-                host: record.host,
-                projectInstanceId: record.projectInstanceId,
-              } satisfies PendingWindowAction),
-            });
-            if (opened.focusedExisting) {
-              // The workspace was already open elsewhere and that window was
-              // raised. Only that window can join — its own controller and
-              // editor binding are what a join produces — so say so rather
-              // than joining here, which is the one place this must not land.
-              setNotice("That shared workspace is already open in another window — rejoin it there");
-            }
-            setCollabInvite("");
-            setCollabRoom("");
-            return;
-          }
           await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
           const workspaceGeneration = collabWorkspaceGenerationRef.current + 1;
           collabWorkspaceGenerationRef.current = workspaceGeneration;
@@ -5594,9 +5583,20 @@ function App() {
             if (collabV2ControllerRef.current === controller) await clearCollabLocalState().catch(() => undefined);
             else controller.destroy();
           }
+          let restoreError: unknown;
+          if (openedJoinWorkspace && priorRoot) {
+            try {
+              const previous = await invoke<ProjectSnapshot>("open_project", { path: priorRoot });
+              await enterProject(previous, { skipCollabLifecycle: true });
+            } catch (restoreReason) {
+              restoreError = restoreReason;
+            }
+          }
+          preCollabProjectRootRef.current = null;
+          clearPreCollabProjectRoot();
           cancelProjectTransition();
           setCollabStatus("error");
-          setError(toMessage(reason));
+          setError(toMessage(restoreError === undefined ? reason : restoreError));
         } finally {
           setBusyLabel(null);
         }
@@ -5604,7 +5604,7 @@ function App() {
       return;
     }
     setError("That invite is not a v2 collaboration invite — ask the host for a fresh one from Copy invite.");
-  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabHost, collabInvite, collabName, collabRoom, enterProject, handleV2Catalog, bindJoinedDocument, loadFile, mapV2Status, project, refreshProject, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
+  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabInvite, collabName, collabRoom, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, project, refreshProject, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
 
   /// Startup reads this rather than depending on `rejoinCollabProjectV2`,
   /// whose identity churns; the boot effect must run exactly once.
@@ -5669,21 +5669,19 @@ function App() {
 
   const forgetRecentProjectV2 = useCallback((record: CollabProjectRecordV2) => {
     void (async () => {
-      // Forgetting a room you host is not the same as ending it: the server
-      // keeps it live for anyone holding the invite, and dropping the host
-      // credential is exactly what makes it unclosable afterwards. Say that
-      // before doing it, and point at the action that does end the room.
-      if (record.permission === "host" && !await confirmAction(
-        `Remove “${record.title}” from Your shared rooms on this Mac?\n\n`
-        + "The room keeps running — anyone holding the invite can still join it until the sync server expires it, "
-        + "and this Mac will no longer be able to close it.\n\n"
-        + "Use “Close for everyone” instead to end it now.",
-      )) return;
+      // Host rows deliberately have no local-only removal: discarding the host
+      // credential would leave a live room that this device can no longer end.
+      if (record.permission === "host") return;
+      if (record.credentialRef) {
+        try {
+          await collabCredentialStore().delete(record.credentialRef, record.projectInstanceId, record.host);
+        } catch (reason) {
+          setError(toMessage(reason));
+          return;
+        }
+      }
       forgetCollabProjectV2(record.host, record.projectInstanceId);
       refreshRecentRooms();
-      if (!record.credentialRef) return;
-      if (!await confirmAction("Also remove this collaboration credential from Keychain?")) return;
-      await collabCredentialStore().delete(record.credentialRef, record.projectInstanceId, record.host).catch(reason => setError(toMessage(reason)));
     })();
   }, [refreshRecentRooms]);
 
@@ -5744,28 +5742,8 @@ function App() {
         setNotice(`Closed “${record.title}” for everyone`);
       } catch (reason) {
         const detail = toMessage(reason);
-        const hostKeyMissing = /keychain|credential is unavailable|credential from the system/i.test(detail);
         if (!remoteClosed) {
-          // Close is the only exit a host row has, so a failure here used to
-          // pin the entry to the list permanently — a room the server had
-          // already reclaimed could never be cleared. Every failure now offers
-          // the local removal; only the explanation differs.
-          const dropLocal = await confirmAction(
-            (hostKeyMissing
-              // Not asking for a password — the saved room host token is gone/unreadable.
-              ? `Lattice can’t find the host key for “${record.title}” in the system keychain, so it can’t tell the sync server to close the room.\n\n`
-                + "That key is the room token saved when you started sharing — not your login password.\n\n"
-              : `Lattice could not tell the sync server to close “${record.title}”: ${detail}\n\n`)
-            + "Remove it from Your shared rooms on this Mac anyway? Anyone who already has the invite may still be able to join until the server expires the room.",
-          );
-          if (dropLocal) {
-            forgetCollabProjectV2(record.host, record.projectInstanceId);
-            if (record.credentialRef) {
-              void store.delete(record.credentialRef, record.projectInstanceId, record.host).catch(() => undefined);
-            }
-            refreshRecentRooms();
-            setNotice(`Removed “${record.title}” from this Mac`);
-          }
+          setError(`Could not close the room: ${detail}`);
           return;
         }
         setError(remoteClosed
@@ -9089,7 +9067,7 @@ function App() {
           <div className="titlebar-navigator">
             <div className="traffic-space" />
             <div className="titlebar-sidebar-toggle">
-              <Tip label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}>
+              <Tip label={sidebarOpen ? t`Hide sidebar` : t`Show sidebar`}>
                 <button className="icon-button" onClick={() => setSidebarOpen((value) => !value)}>
                   <span key={sidebarOpen ? "open" : "closed"} className="toggle-icon">
                     {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
@@ -9103,7 +9081,7 @@ function App() {
               <DropdownMenuTrigger asChild>
                 <button
                   className="project-title"
-                  aria-label="Switch project"
+                  aria-label={t`Switch project`}
                   disabled={building || importing}
                 >
                   <span>{project.manifest.name}</span>
@@ -9195,14 +9173,16 @@ function App() {
             collabLive={collabStatus === "synced" || collabStatus === "connecting"}
             collabPeers={collabPeers}
             collabPresence={collabPeerList.length > 0 ? (
-              <AvatarGroup className="collab-peer-avatars" ariaLabel="People in this session">
+              <AvatarGroup className="collab-peer-avatars" ariaLabel={t`People in this session`}>
                 {collabPeerList.slice(0, 5).map((peer) => (
                   <button
                     key={peer.clientId}
                     type="button"
                     className="collab-peer-avatar"
                     style={{ background: peer.color }}
-                    title={peer.path ? `${peer.name} · ${peer.path} — click to follow` : peer.name}
+                    title={peer.path
+                      ? t({ message: `${peer.name} · ${peer.path} — click to follow` })
+                      : peer.name}
                     onClick={() => void followCollabPeer(peer)}
                   >
                     {peerInitials(peer.name)}
@@ -9261,20 +9241,23 @@ function App() {
           />
           <div className="title-actions">
             {building ? (
-              <Tip label="Stop the current LaTeX build">
+              <Tip label={t`Stop the current LaTeX build`}>
                 <button
                   className="build-button stop"
                   onClick={() => void abortBuild()}
                   aria-live="polite"
                 >
                   <Square size={13} fill="currentColor" />
-                  Stop
+                  {t`Stop`}
                 </button>
               </Tip>
             ) : (
-              <Tip label={`${autoBuildDescription(buildPreferences.autoBuildMode)}. Shift-click for clean rebuild.`}>
+              <Tip label={buildPreferences.autoBuildMode === "automatic"
+                ? t`Build automatically · Command-S builds now. Shift-click for clean rebuild.`
+                : t`Build only when requested · Command-S builds now. Shift-click for clean rebuild.`}
+              >
                 <button
-                  aria-label="Build"
+                  aria-label={t`Build`}
                   data-tour="build"
                   className={`build-button ${build?.success ? "success" : ""}`}
                   onClick={(event) => {
@@ -9285,7 +9268,7 @@ function App() {
                   aria-live="polite"
                 >
                   {build?.success ? <Check size={15} /> : <Play size={15} />}
-                  {build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : "Build"}
+                  {build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : t`Build`}
                 </button>
               </Tip>
             )}
@@ -9322,36 +9305,36 @@ function App() {
                 <SlidingTabs
                   value={sidebarMode}
                   onChange={(value) => chooseSidebarMode(value as "project" | "papers" | "agent")}
-                  ariaLabel="Sidebar mode"
+                  ariaLabel={t`Sidebar mode`}
                   className="sidebar-mode-tabs"
                   items={[
-                    { value: "project", title: "Project", label: <><FolderTree size={15} /><span>Project</span></> },
-                    { value: "papers", title: "Papers", dataTour: "papers-tab", label: <><Library size={15} /><span>Papers</span></> },
-                    { value: "agent", title: "Agent", dataTour: "agent-tab", label: <><Bot size={15} /><span>Agent</span></> },
+                    { value: "project", title: t`Project`, label: <><FolderTree size={15} /><span>{t`Project`}</span></> },
+                    { value: "papers", title: t`Papers`, dataTour: "papers-tab", label: <><Library size={15} /><span>{t`Papers`}</span></> },
+                    { value: "agent", title: t`Agent`, dataTour: "agent-tab", label: <><Bot size={15} /><span>{t`Agent`}</span></> },
                   ]}
                 />
                 <div ref={sidebarModeActionsRef} className="sidebar-mode-actions">
                   {sidebarMode === "project" && (
                     <>
-                      <Tip label="New spreadsheet">
+                      <Tip label={t`New spreadsheet`}>
                         <button
-                          aria-label="New spreadsheet"
+                          aria-label={t`New spreadsheet`}
                           onClick={() => setSpreadsheetCreateRequest((request) => request + 1)}
                         >
                           <Table2 size={13} />
                         </button>
                       </Tip>
-                      <Tip label="New board">
+                      <Tip label={t`New board`}>
                         <button
-                          aria-label="New board"
+                          aria-label={t`New board`}
                           onClick={() => setBoardCreateRequest((request) => request + 1)}
                         >
                           <Shapes size={13} />
                         </button>
                       </Tip>
-                      <Tip label="Find in project">
+                      <Tip label={t`Find in project`}>
                         <button
-                          aria-label="Find in project"
+                          aria-label={t`Find in project`}
                           onClick={() => {
                             setProjectSearchOpen(false);
                             setProjectFindError(null);
@@ -9366,12 +9349,12 @@ function App() {
                   )}
                   {sidebarMode === "papers" && (
                     <>
-                      <Tip label="Discover literature">
-                        <button aria-label="Discover literature" onClick={() => setLiteratureOpen(true)}>
+                      <Tip label={t`Discover literature`}>
+                        <button aria-label={t`Discover literature`} onClick={() => setLiteratureOpen(true)}>
                           <BookOpen size={14} />
                         </button>
                       </Tip>
-                      <Tip label="Add bibliography entry">
+                      <Tip label={t`Add bibliography entry`}>
                         <button onClick={() => openBibEntryDialog()}><BookMarked size={14} /></button>
                       </Tip>
                     </>
@@ -9459,8 +9442,9 @@ function App() {
                         synaraRuntime.authToken,
                         project.root,
                         theme,
+                        appLocale,
                       )}
-                      title="Agent"
+                      title={t`Agent`}
                       allow="clipboard-read; clipboard-write; microphone"
                       sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
                     />
@@ -9476,7 +9460,7 @@ function App() {
               </div>
             </section>
             <PanelResizer
-              label="Resize workspace sidebar"
+              label={t`Resize workspace sidebar`}
               value={sidebarWidth}
               onPointerDown={beginSidebarResize}
               onNudge={nudgeSidebar}
@@ -9489,11 +9473,11 @@ function App() {
           {primaryOpening && (
             <div className="primary-opening-overlay" role="status" aria-live="polite">
               <InfinityLoader size={16} />
-              <span>Opening {primaryOpening.label}…</span>
+              <span>{t({ message: `Opening ${primaryOpening.label}…` })}</span>
             </div>
           )}
           <span className="canvas-tour-card-anchor" data-tour="canvas-tour-card-anchor" aria-hidden="true" />
-          <Suspense fallback={<div className="document-canvas-loading" aria-label="Preparing editor" />}>
+          <Suspense fallback={<div className="document-canvas-loading" aria-label={t`Preparing editor`} />}>
           <DocumentCanvas
             mode={canvasMode}
             dualPreviewPanes={dualPreviewPanes}
@@ -9861,21 +9845,21 @@ function App() {
                 setAgentTurnReview(null);
                 setGitWorkspaceView(value as AgentGitWorkspaceView);
               }}
-              ariaLabel="Git workspace"
+              ariaLabel={t`Git workspace`}
               variant="none"
               className="agent-git-workspace-tabs drawer-view-tabs"
               tabClassName="drawer-view-tab"
               items={[
-                ...(agentTurnReview ? [{ value: "agent-turn", label: "Agent turn" }] : []),
-                { value: "changes", label: "Changes" },
-                { value: "pull-requests", label: "Pull requests" },
+                ...(agentTurnReview ? [{ value: "agent-turn", label: t`Agent turn` }] : []),
+                { value: "changes", label: t`Changes` },
+                { value: "pull-requests", label: t`Pull requests` },
               ]}
             />
             <button
               type="button"
               className="agent-git-workspace-close"
-              aria-label="Close Git workspace"
-              title="Close"
+              aria-label={t`Close Git workspace`}
+              title={t`Close`}
               onClick={() => setGitOpen(false)}
             >
               <X size={14} />
@@ -9891,6 +9875,7 @@ function App() {
                     synaraRuntime.authToken,
                     project.root,
                     theme,
+                    appLocale,
                     agentTurnReview,
                   )
                   : synaraSourceControlUrl(
@@ -9898,11 +9883,12 @@ function App() {
                     synaraRuntime.authToken,
                     project.root,
                     theme,
+                    appLocale,
                     gitWorkspaceView,
                   )}
                 title={agentTurnReview
-                  ? "Agent turn review"
-                  : gitWorkspaceView === "changes" ? "Changes" : "Pull requests"}
+                  ? t`Agent turn review`
+                  : gitWorkspaceView === "changes" ? t`Changes` : t`Pull requests`}
                 allow="clipboard-read; clipboard-write"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
               />
@@ -10079,8 +10065,8 @@ function App() {
       />
       <SearchPickerDialog
         open={goToSymbolOpen}
-        title="Go to symbol"
-        placeholder="Go to section or label…"
+        title={t`Go to symbol`}
+        placeholder={t`Go to section or label…`}
         items={goToSymbolItems}
         onClose={() => setGoToSymbolOpen(false)}
         onSelect={(item) => {
@@ -10096,8 +10082,8 @@ function App() {
       />
       <SearchPickerDialog
         open={refCitePicker === "cite"}
-        title="Insert citation"
-        placeholder="Insert \\cite{…}"
+        title={t`Insert citation`}
+        placeholder={t({ message: "Insert \\cite{…}" })}
         items={citePickerItems}
         onClose={() => setRefCitePicker(null)}
         onSelect={(item) => {
@@ -10108,8 +10094,8 @@ function App() {
       />
       <SearchPickerDialog
         open={refCitePicker === "ref"}
-        title="Insert reference"
-        placeholder="Insert \\ref{…}"
+        title={t`Insert reference`}
+        placeholder={t({ message: "Insert \\ref{…}" })}
         items={refPickerItems}
         onClose={() => setRefCitePicker(null)}
         onSelect={(item) => {
@@ -10303,49 +10289,56 @@ function App() {
       )}
       <SearchPickerDialog
         open={commandPaletteOpen}
-        title="Command palette"
-        placeholder="Run a command…"
+        title={t`Command palette`}
+        placeholder={t`Run a command…`}
         items={[
-          { id: "build", label: "Build project", detail: "Compile LaTeX", group: "Build" },
-          { id: "rebuild", label: "Clean rebuild", detail: "latexmk -c then -g", group: "Build" },
-          { id: "clean", label: "Clean aux files", group: "Build" },
-          { id: "stop-build", label: "Stop build", group: "Build" },
-          { id: "sync-pdf", label: "Jump to PDF", detail: "⌘⇧J", group: "Navigate" },
-          { id: "quick-open", label: "Quick open file", detail: "⌘P", group: "Navigate" },
-          { id: "goto-line", label: "Go to line", detail: "⌘G", group: "Navigate" },
-          { id: "goto-symbol", label: "Go to symbol", detail: "⌘⇧O", group: "Navigate" },
+          { id: "build", label: t`Build project`, detail: t`Compile LaTeX`, group: t`Build` },
+          { id: "rebuild", label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build` },
+          { id: "clean", label: t`Clean aux files`, group: t`Build` },
+          { id: "stop-build", label: t`Stop build`, group: t`Build` },
+          { id: "sync-pdf", label: t`Jump to PDF`, detail: "⌘⇧J", group: t`Navigate` },
+          { id: "quick-open", label: t`Quick open file`, detail: "⌘P", group: t`Navigate` },
+          { id: "goto-line", label: t`Go to line`, detail: "⌘G", group: t`Navigate` },
+          { id: "goto-symbol", label: t`Go to symbol`, detail: "⌘⇧O", group: t`Navigate` },
           ...(!activePaper && !activeAsset && canvasMode === "source"
-            ? [{ id: "view-dual", label: "Dual source view", detail: "Two files side by side", group: "View" }]
+            ? [{ id: "view-dual", label: t`Dual source view`, detail: t`Two files side by side`, group: t`View` }]
             : []),
-          { id: "view-split", label: "Source + PDF", detail: "split", group: "View" },
+          { id: "view-split", label: t`Source + PDF`, detail: t`split`, group: t`View` },
           ...(canvasMode === "dual" && secondaryFile
-            ? [{ id: "swap-panes", label: "Swap editor panes", detail: `${activeFile} ↔ ${secondaryFile}`, group: "View" }]
+            ? [{ id: "swap-panes", label: t`Swap editor panes`, detail: `${activeFile} ↔ ${secondaryFile}`, group: t`View` }]
             : []),
           ...(canInsert
-            ? [{ id: "insert", label: "Insert snippet", detail: "⌘⇧I", group: "Edit" }]
+            ? [{ id: "insert", label: t`Insert snippet`, detail: "⌘⇧I", group: t`Edit` }]
             : []),
           {
             id: "collab",
-            label: collabSession ? "Live sharing…" : "Start / join live sharing",
-            detail: collabSession ? `${collabPeers} connected · ${collabSession.room}` : "Share invite with a collaborator",
-            group: "Edit",
+            label: collabSession ? t`Live sharing…` : t`Start / join live sharing`,
+            detail: collabSession
+              ? t({ message: `${collabPeers} connected · ${collabSession.room}` })
+              : t`Share invite with a collaborator`,
+            group: t`Edit`,
           },
-          { id: "table", label: "Insert table", detail: "Grid generator", group: "Edit" },
-          { id: "cite", label: "Insert citation", detail: "⌘⇧K", group: "Edit" },
-          { id: "ref", label: "Insert reference", detail: "⌘⇧L", group: "Edit" },
-          { id: "bib", label: "Add bibliography entry", group: "Edit" },
-          { id: "discover", label: "Discover literature", detail: "OpenAlex search", group: "Research" },
-          { id: "find", label: "Find in project", detail: "⌘⇧F · source files and papers", group: "Edit" },
-          { id: "replace", label: "Replace in project", detail: "⌘⇧H · all .tex files", group: "Edit" },
-          { id: "todos", label: "Manuscript TODOs", detail: `${todoHits.length || "No"} markers`, group: "Edit" },
-          { id: "checklist", label: "Submission checklist", detail: "Words / pages / TODOs", group: "Edit" },
-          { id: "paste-image", label: "Paste clipboard image as figure", group: "Edit" },
-          { id: "format", label: "Format document", detail: "latexindent", group: "Edit" },
-          { id: "history", label: "Open project history", group: "Project" },
-          { id: "export-zip", label: "Export project ZIP", detail: "Overleaf / arXiv source pack", group: "Project" },
-          { id: "tutorial", label: "Open guided tutorial", detail: "Learn Lattice with the Understanding Attention sample project", group: "Project" },
-          { id: "doctor", label: "Run TeX doctor", group: "Project" },
-          { id: "settings", label: "Open settings", group: "Project" },
+          { id: "table", label: t`Insert table`, detail: t`Grid generator`, group: t`Edit` },
+          { id: "cite", label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit` },
+          { id: "ref", label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit` },
+          { id: "bib", label: t`Add bibliography entry`, group: t`Edit` },
+          { id: "discover", label: t`Discover literature`, detail: t`OpenAlex search`, group: t`Research` },
+          { id: "find", label: t`Find in project`, detail: t`⌘⇧F · source files and papers`, group: t`Edit` },
+          { id: "replace", label: t`Replace in project`, detail: t`⌘⇧H · all .tex files`, group: t`Edit` },
+          {
+            id: "todos",
+            label: t`Manuscript TODOs`,
+            detail: t({ message: `${todoHits.length || t`No`} markers` }),
+            group: t`Edit`,
+          },
+          { id: "checklist", label: t`Submission checklist`, detail: t`Words / pages / TODOs`, group: t`Edit` },
+          { id: "paste-image", label: t`Paste clipboard image as figure`, group: t`Edit` },
+          { id: "format", label: t`Format document`, detail: "latexindent", group: t`Edit` },
+          { id: "history", label: t`Open project history`, group: t`Project` },
+          { id: "export-zip", label: t`Export project ZIP`, detail: t`Overleaf / arXiv source pack`, group: t`Project` },
+          { id: "tutorial", label: t`Open guided tutorial`, detail: t`Learn Lattice with the Understanding Attention sample project`, group: t`Project` },
+          { id: "doctor", label: t`Run TeX doctor`, group: t`Project` },
+          { id: "settings", label: t`Open settings`, group: t`Project` },
         ]}
         onClose={() => setCommandPaletteOpen(false)}
         onSelect={(item) => {

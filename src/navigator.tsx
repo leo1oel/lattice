@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -70,34 +71,36 @@ function filterPapers(papers: readonly PaperSummary[], query: string): PaperSumm
   });
 }
 
-function citationHealthLabel(paper: PaperSummary): string | null {
+type CitationHealthLabels = Record<"retracted" | "concern" | "corrected" | "replaced" | "retractionWatch" | "publisher" | "cached" | "crossrefType" | "unavailable" | "reportsUpdate" | "noUpdate" | "checked", string>;
+
+function citationHealthLabel(paper: PaperSummary, labels: CitationHealthLabels): string | null {
   const health = paper.citationHealth;
   if (!health || health.kind === "unknown" || health.kind === "unavailable") return null;
   const kind = {
-    retracted: "Retracted",
-    expressionOfConcern: "Expression of concern",
-    corrected: "Correction/update",
-    replaced: "Replacement/new version",
+    retracted: labels.retracted,
+    expressionOfConcern: labels.concern,
+    corrected: labels.corrected,
+    replaced: labels.replaced,
   }[health.kind];
   const source = health.source === "retraction-watch"
-    ? "Retraction Watch"
+    ? labels.retractionWatch
     : health.source === "publisher"
-      ? "Publisher"
+      ? labels.publisher
       : health.source;
-  return [kind, source, health.date, health.stale ? "cached" : null].filter(Boolean).join(" · ");
+  return [kind, source, health.date, health.stale ? labels.cached : null].filter(Boolean).join(" · ");
 }
 
-function citationHealthTitle(paper: PaperSummary): string | undefined {
+function citationHealthTitle(paper: PaperSummary, labels: CitationHealthLabels): string | undefined {
   const health = paper.citationHealth;
   if (!health) return undefined;
-  const warning = citationHealthLabel(paper);
+  const warning = citationHealthLabel(paper, labels);
   if (warning) {
     const updateType = health.updateType?.replaceAll("_", " ");
-    return [warning, updateType && `Crossref type: ${updateType}`].filter(Boolean).join(". ");
+    return [warning, updateType && `${labels.crossrefType}: ${updateType}`].filter(Boolean).join(". ");
   }
-  if (health.kind === "unavailable") return "Crossref citation-health metadata is currently unavailable";
-  if (health.updateType) return `Crossref reports update type: ${health.updateType.replaceAll("_", " ")}`;
-  return `No Crossref update metadata found (checked ${health.checkedAt.slice(0, 10)})`;
+  if (health.kind === "unavailable") return labels.unavailable;
+  if (health.updateType) return `${labels.reportsUpdate}: ${health.updateType.replaceAll("_", " ")}`;
+  return `${labels.noUpdate} (${labels.checked} ${health.checkedAt.slice(0, 10)})`;
 }
 
 type PaperLibrarySearchHit = {
@@ -725,6 +728,7 @@ function updatePointerDragPreview(
     if (!preview || !point) return;
     const left = point.x - session.previewOffset.x;
     const top = point.y - session.previewOffset.y;
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS transform syntax, not UI copy.
     preview.style.transform = `translate3d(${left}px, ${top}px, 0) scale(1)`;
     preview.style.opacity = "0.76";
   });
@@ -751,6 +755,7 @@ function finishPointerDragPreview(session: PointerTreeDragSession) {
 }
 
 function ProjectFileTree(props: ProjectFileTreeProps) {
+  const { t } = useLingui();
   const tree = useMemo(() => projectTreeEntries(props.files), [props.files]);
   const gitStatus = useMemo(() => toPierreGitStatus(props.gitStatus), [props.gitStatus]);
   const expansionStorageKey = `lattice:expanded-directories:${props.projectKey}`;
@@ -1332,22 +1337,22 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
         }}
       >
         <button role="menuitem" onClick={() => closeThen(context, () => beginInlineCreate(targetDirectory, "file"))}>
-          <FilePlus size={14} />New file
+          <FilePlus size={14} />{t`New file`}
         </button>
         <button role="menuitem" onClick={() => closeThen(context, () => beginInlineCreate(targetDirectory, "folder"))}>
-          <FolderPlus size={14} />New folder
+          <FolderPlus size={14} />{t`New folder`}
         </button>
         <button role="menuitem" onClick={() => closeThen(context, () => model.startRenaming(item.path))}>
-          <Pencil size={14} />Rename
+          <Pencil size={14} />{t`Rename`}
         </button>
         <button
           role="menuitem"
           onClick={() => closeThen(context, () => void writeText(absoluteProjectPath(props.projectKey, path)))}
         >
-          <Copy size={14} />Copy path
+          <Copy size={14} />{t`Copy path`}
         </button>
         <button role="menuitem" onClick={() => closeThen(context, () => props.onReveal(path))}>
-          <FolderOpen size={14} />Show in Finder
+          <FolderOpen size={14} />{t`Show in Finder`}
         </button>
         {item.kind === "directory" && (
           <button
@@ -1355,7 +1360,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
             disabled={props.assetImporting}
             onClick={() => closeThen(context, () => props.onImportAssets(path))}
           >
-            <ImagePlus size={14} />Import images here
+            <ImagePlus size={14} />{t`Import images here`}
           </button>
         )}
         {!protectedEntry && (
@@ -1367,7 +1372,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
               if (!clearPendingCreation(path)) props.onDeleteEntry(path);
             })}
           >
-            {pendingCreation ? "Cancel creation" : "Delete"}
+            {pendingCreation ? t`Cancel creation` : t`Delete`}
           </DestructiveButton>
         )}
       </div>,
@@ -1378,7 +1383,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div className="project-file-tree-surface" aria-label="Project files">
+        <div className="project-file-tree-surface" aria-label={t`Project files`}>
           <FileTree
             className="lattice-file-tree"
             model={model}
@@ -1427,10 +1432,10 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
       </ContextMenuTrigger>
       <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
         <ContextMenuItem onSelect={() => afterMenuClose(() => beginInlineCreate("", "file"))}>
-          <FilePlus size={14} />New file
+          <FilePlus size={14} />{t`New file`}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => afterMenuClose(() => beginInlineCreate("", "folder"))}>
-          <FolderPlus size={14} />New folder
+          <FolderPlus size={14} />{t`New folder`}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -1478,6 +1483,7 @@ export function Navigator(props: {
   /** Human-readable pipeline stage while an import or fetch is running. */
   importStage?: string | null;
 }) {
+  const { t } = useLingui();
   const paperImportRef = useRef<HTMLInputElement | null>(null);
   const trimmedPaperQuery = props.importInput.trim();
   const [paperTextSearch, setPaperTextSearch] = useState<{
@@ -1540,7 +1546,7 @@ export function Navigator(props: {
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
-          <ContextMenuItem onSelect={() => props.onReveal(path)}><FolderOpen size={14} />Show in Finder</ContextMenuItem>
+          <ContextMenuItem onSelect={() => props.onReveal(path)}><FolderOpen size={14} />{t`Show in Finder`}</ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
     );
@@ -1580,10 +1586,10 @@ export function Navigator(props: {
       {props.mode === "papers" && <div className="navigator-section papers-section">
         <SearchField
           ref={paperImportRef}
-          aria-label="Search or import papers"
+          aria-label={t`Search or import papers`}
           containerClassName="import-box"
           controlSize="compact"
-          placeholder="Search or add by title, arXiv ID, DOI, or URL"
+          placeholder={t`Search or add by title, arXiv ID, DOI, or URL`}
           value={props.importInput}
           onChange={(event) => props.setImportInput(event.target.value)}
           onClear={() => props.setImportInput("")}
@@ -1595,7 +1601,7 @@ export function Navigator(props: {
           }}
           showIcon={false}
           trailing={(
-            <button onClick={props.onImport} disabled={props.importing || !props.importInput.trim()} title="Import paper">
+            <button onClick={props.onImport} disabled={props.importing || !props.importInput.trim()} title={t`Import paper`}>
               {props.importing ? <InfinityLoader size={14} /> : <Plus size={14} />}
             </button>
           )}
@@ -1610,13 +1616,19 @@ export function Navigator(props: {
           className="paper-list"
           orientation="both"
           contentClassName="paper-list-content"
-          viewportProps={{ role: "list", "aria-label": "Papers" }}
+          viewportProps={{ role: "list", "aria-label": t`Papers` }}
         >
           {filteredPapers.map((paper) => {
             const fetchState = props.paperFetchStates[paperKey(paper)];
             const locallyReadable = paper.hasFullText || paper.hasBlog;
-            const healthLabel = citationHealthLabel(paper);
-            const healthTitle = citationHealthTitle(paper);
+            const healthLabels: CitationHealthLabels = {
+              retracted: t`Retracted`, concern: t`Expression of concern`, corrected: t`Correction/update`,
+              replaced: t`Replacement/new version`, retractionWatch: t`Retraction Watch`, publisher: t`Publisher`,
+              cached: t`cached`, crossrefType: t`Crossref type`, unavailable: t`Crossref citation-health metadata is currently unavailable`,
+              reportsUpdate: t`Crossref reports update type`, noUpdate: t`No Crossref update metadata found`, checked: t`checked`,
+            };
+            const healthLabel = citationHealthLabel(paper, healthLabels);
+            const healthTitle = citationHealthTitle(paper, healthLabels);
             const row = (
               <div
                 className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}
@@ -1627,10 +1639,10 @@ export function Navigator(props: {
                 title={locallyReadable
                   ? paper.title
                   : paper.arxivId
-                    ? `Download arXiv ${paper.arxivId}`
+                    ? t({ message: `Download arXiv ${{ id: paper.arxivId }}` })
                     : paper.url
-                      ? `Download ${paper.url}`
-                      : `${paper.title} — no local reading available`}
+                      ? t({ message: `Download ${{ url: paper.url }}` })
+                      : t({ message: `${{ title: paper.title }} — no local reading available` })}
                 className="paper-open"
                 // Knowing the preprint is as good as having it: clicking
                 // fetches. A cited webpage is fetchable the same way.
@@ -1664,19 +1676,19 @@ export function Navigator(props: {
                 {healthLabel && paper.citationHealth?.link && (
                   <button
                     className="row-citation-health"
-                    title={`${healthTitle}. Open notice`}
-                    aria-label={`${healthLabel}. Open notice`}
+                    title={t({ message: `${{ notice: healthTitle }}. Open notice` })}
+                    aria-label={t({ message: `${{ notice: healthLabel }}. Open notice` })}
                     onClick={() => void openUrl(paper.citationHealth!.link!).catch(() => undefined)}
                   >
                     <TriangleAlert size={12} />
                   </button>
                 )}
                 {paper.citationKey && (
-                  <button className="row-edit-bib" title="Edit bibliography entry" onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
+                  <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
                 )}
                 <DestructiveButton
                   className="row-delete"
-                  title={`Remove ${paper.title}`}
+                  title={t({ message: `Remove ${{ title: paper.title }}` })}
                   iconSize={12}
                   onClick={() => props.onDeletePaper(paper)}
                 />
@@ -1696,21 +1708,25 @@ export function Navigator(props: {
           })}
           {!props.papers.length && (
             <div className="papers-empty-state">
-              <strong>Add your first paper</strong>
-              <p>Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence.</p>
+              <strong>{t`Add your first paper`}</strong>
+              <p>{t`Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence.`}</p>
             </div>
           )}
           {!!props.papers.length && !filteredPapers.length && (
             <div className="papers-empty-state">
-              <strong>No matching papers</strong>
-              <p>Use the + button to import this query if it isn't in your library yet.</p>
+              <strong>{t`No matching papers`}</strong>
+              <p>{t`Use the + button to import this query if it isn't in your library yet.`}</p>
             </div>
           )}
           {!!props.papers.length && (
             <p className="paper-list-end">
               {filteredPapers.length !== props.papers.length
-                ? `${filteredPapers.length} of ${props.papers.length}`
-                : props.papers.length} paper{props.papers.length === 1 ? "" : "s"}
+                ? filteredPapers.length === 1
+                  ? t({ message: `1 of ${{ total: props.papers.length }} papers` })
+                  : t({ message: `${{ filtered: filteredPapers.length }} of ${{ total: props.papers.length }} papers` })
+                : props.papers.length === 1
+                  ? t`1 paper`
+                  : t({ message: `${{ count: props.papers.length }} papers` })}
             </p>
           )}
         </ScrollArea>

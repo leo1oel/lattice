@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLingui } from "@lingui/react";
 import { invoke } from "@tauri-apps/api/core";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import type { Awareness } from "y-protocols/awareness";
@@ -24,6 +25,7 @@ import {
   type FWorkbook,
 } from "@univerjs/preset-sheets-core";
 import enUS from "@univerjs/preset-sheets-core/locales/en-US";
+import zhCN from "@univerjs/preset-sheets-core/locales/zh-CN";
 import "@univerjs/preset-sheets-core/lib/index.css";
 import { IRenderManagerService, SHEET_VIEWPORT_KEY, type IScrollBarProps } from "@univerjs/engine-render";
 import {
@@ -471,11 +473,16 @@ function applyFormulaBarAppearance(
 function createSpreadsheetUniver(
   container: HTMLElement,
   appearance: SpreadsheetAppearance,
+  locale: "en" | "zh-CN",
   onExportExcel: () => void,
 ): { univer: Univer; univerAPI: FUniver; baseTheme: UniverTheme } {
+  const univerLocale = locale === "zh-CN" ? LocaleType.ZH_CN : LocaleType.EN_US;
   const univer = new Univer({
-    locale: LocaleType.EN_US,
-    locales: { [LocaleType.EN_US]: enUS },
+    locale: univerLocale,
+    locales: {
+      [LocaleType.EN_US]: enUS,
+      [LocaleType.ZH_CN]: zhCN,
+    },
     logLevel: LogLevel.WARN,
   });
   const baseTheme = univer.__getInjector().get(ThemeService).getCurrentTheme();
@@ -641,7 +648,9 @@ function SpreadsheetPresencePopup({ popup }: PresencePopupProps) {
   const color = popup.extraProps?.color ?? "#6366f1";
   const name = popup.extraProps?.name ?? "Collaborator";
   return (
-    <div className="spreadsheet-remote-presence" style={{ color }}>
+    // Univer's "top-left" direction places the popup immediately above its
+    // range. Shift it by its own height so the pointer begins inside the cell.
+    <div className="spreadsheet-remote-presence" style={{ color, transform: "translateY(100%)" }}>
       <svg viewBox="0 0 18 22" aria-hidden="true">
         <path d="M2 1 16 13l-7 .5-4 6.5z" fill="currentColor" stroke="white" strokeWidth="1.5" />
       </svg>
@@ -836,6 +845,8 @@ function SpreadsheetEditorSurface({
   doc,
   localDoc,
 }: SpreadsheetEditorSurfaceProps) {
+  const { i18n } = useLingui();
+  const interfaceLocale = i18n.locale === "zh-CN" ? "zh-CN" : "en";
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<FUniver | null>(null);
   const workbookRef = useRef<FWorkbook | null>(null);
@@ -917,6 +928,7 @@ function SpreadsheetEditorSurface({
     const { univer, univerAPI, baseTheme } = createSpreadsheetUniver(
       containerRef.current,
       currentAppearance,
+      interfaceLocale,
       () => exportExcelRef.current(),
     );
     const renderManager = univer.__getInjector().get(IRenderManagerService);
@@ -1098,7 +1110,7 @@ function SpreadsheetEditorSurface({
       workbookRef.current = null;
       univer.dispose();
     };
-  }, [collab?.awareness, collab?.user, doc, path, setWorkbookPermission]);
+  }, [collab?.awareness, collab?.user, doc, interfaceLocale, path, setWorkbookPermission]);
 
   useLayoutEffect(() => {
     return registerAgentSpreadsheetDocument(path, {

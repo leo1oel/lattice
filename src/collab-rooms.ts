@@ -14,6 +14,8 @@ export type CollabProjectRecordV2 = {
   permission: "host" | "write" | "read";
   title: string;
   projectRoot: string | null;
+  /** When this device first created or joined the room. Stable across rejoins. */
+  createdAt?: number;
   lastUsed: number;
 };
 
@@ -29,14 +31,18 @@ export function loadCollabProjectsV2(): CollabProjectRecordV2[] {
         && typeof record.host === "string"
         && (record.credentialRef === undefined || typeof record.credentialRef === "string")
         && (record.permission === "host" || record.permission === "write" || record.permission === "read");
-    }).map((record) => ({
-      ...record,
-      title: typeof record.title === "string" && record.title.trim()
-        ? record.title.trim()
-        : `Shared project ${record.projectInstanceId.slice(-6)}`,
-      projectRoot: typeof record.projectRoot === "string" ? record.projectRoot : null,
-      lastUsed: typeof record.lastUsed === "number" ? record.lastUsed : 0,
-    }));
+    }).map((record) => {
+      const lastUsed = typeof record.lastUsed === "number" ? record.lastUsed : 0;
+      return {
+        ...record,
+        title: typeof record.title === "string" && record.title.trim()
+          ? record.title.trim()
+          : `Shared project ${record.projectInstanceId.slice(-6)}`,
+        projectRoot: typeof record.projectRoot === "string" ? record.projectRoot : null,
+        createdAt: typeof record.createdAt === "number" ? record.createdAt : lastUsed,
+        lastUsed,
+      };
+    }).sort((left, right) => (right.createdAt ?? 0) - (left.createdAt ?? 0));
   } catch { return []; }
 }
 
@@ -47,11 +53,12 @@ export function rememberCollabProjectV2(record: CollabProjectRecordV2): void {
   // Joining a room you host must not downgrade your own entry. The host
   // credential recorded here is the only way to close the room for everyone;
   // overwriting it with a guest credential would leave the room running with
-  // no UI able to shut it down. Keep the host identity, take the fresh
-  // timestamp so the row still sorts as recently used.
+  // no UI able to shut it down. Creation order stays stable across both
+  // rejoins and guest-invite refreshes; only lastUsed moves.
+  const createdAt = previous?.createdAt ?? record.createdAt ?? record.lastUsed;
   const next = previous?.permission === "host" && record.permission !== "host"
     ? { ...previous, lastUsed: record.lastUsed }
-    : record;
+    : { ...record, createdAt };
   try { localStorage.setItem(PROJECTS_V2_KEY, JSON.stringify([next, ...rest].slice(0, 24))); } catch { /* convenience only */ }
 }
 

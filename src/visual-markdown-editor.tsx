@@ -78,7 +78,7 @@ import { Button } from "@ok-app/components/ui/button";
 import { detectClipboardPrefillUrl } from "@ok-app/editor/clipboard/lone-url";
 import { ImageSrcFidelity } from "./open-knowledge-core/extensions/image-src-fidelity";
 import { ProjectImageHostProvider, useProjectImageSrc } from "./project-image-host";
-import type { PresenceCursor } from "./overleaf-cursors";
+import { presenceCursorColor, type PresenceCursor } from "./overleaf-cursors";
 import { resolveCommentAnchor, type EditorComment } from "./editor-comment-data";
 import { peerColorForKey } from "./collab-colors";
 import { notifyError, notifyInfo } from "./app-notify";
@@ -981,19 +981,19 @@ function sourceOffsetForProseMirrorPosition(
 }
 
 class VisualPresenceCaret {
-  constructor(readonly name: string, readonly hue: number) {}
+  constructor(readonly name: string, readonly color: string) {}
 
   toDOM(): HTMLElement {
     const caret = document.createElement("span");
     caret.className = "visual-overleaf-caret";
     caret.setAttribute("aria-hidden", "true");
-    caret.style.borderColor = `hsl(${this.hue}, 70%, 50%)`;
+    caret.style.borderColor = this.color;
     const dot = document.createElement("span");
     dot.className = "visual-overleaf-caret-dot";
-    dot.style.backgroundColor = `hsl(${this.hue}, 70%, 50%)`;
+    dot.style.backgroundColor = this.color;
     const label = document.createElement("span");
     label.className = "visual-overleaf-caret-label";
-    label.style.backgroundColor = `hsl(${this.hue}, 70%, 50%)`;
+    label.style.backgroundColor = this.color;
     label.textContent = this.name || "Anonymous";
     caret.append(dot, label);
     return caret;
@@ -1021,14 +1021,14 @@ function visualPresenceDecorations(
     );
     return position === null ? [] : [Decoration.widget(
       position,
-      () => new VisualPresenceCaret(cursor.name, cursor.hue).toDOM(),
+      () => new VisualPresenceCaret(cursor.name, presenceCursorColor(cursor)).toDOM(),
       // A coordinate-bearing key prevents ProseMirror from reusing the old
       // widget DOM for the same collaborator after their caret moves. Keep
       // the default selection handling: ignoring DOM selections inside the
       // widget makes WebKit unable to place a local caret in the same cell.
       {
         side: 1,
-        key: `${cursor.name}:${cursor.hue}:${cursor.row}:${cursor.column}`,
+        key: `${cursor.name}:${presenceCursorColor(cursor)}:${cursor.row}:${cursor.column}`,
         // ProseMirror normally turns widget roots into contenteditable=false
         // islands. WebKit then treats the containing table cell as unclickable
         // when this zero-width widget is its caret hit target. This widget is
