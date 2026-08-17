@@ -59,8 +59,9 @@ eviction of unpinned clean clients; pin names: `main`, `secondary`, `chat`).
   is intentionally off (a panic must not kill the app with unsaved edits).
 - `scripts/prepare-synara-sidecar.mjs` prunes the sidecar aggressively. If the
   runtime gains new imports, check the unreachable-packages list there;
-  top-level `ajv`, `ajv-formats`, `zod` must stay (undeclared runtime requires
-  of the agent SDKs).
+  top-level `ajv`, `ajv-formats`, and the runtime JavaScript in `zod` must stay
+  (undeclared runtime requires of the agent SDKs). The Claude SDK platform
+  executable must remain a small PATH launcher: sessions use the user's CLI.
 
 ## Design-system contract (enforced by tests)
 

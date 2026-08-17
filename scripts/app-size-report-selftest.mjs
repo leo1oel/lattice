@@ -24,6 +24,7 @@ assert.equal(report.eagerCssBytes, 3);
 assert.equal(report.distBytes, 8 + 7 + Buffer.byteLength(await (await import("node:fs/promises")).readFile(path.join(workspace, "dist/index.html"))));
 assert.equal(report.synaraRuntimeBytes, null);
 assert.equal(report.bundledNodeBytes, null);
+assert.equal(report.synaraTarget, null);
 assert.deepEqual(report.claudeAgentSdkExecutables, []);
 
 const runtime = path.join(workspace, "src-tauri/synara-runtime");
@@ -34,6 +35,8 @@ await writeFile(path.join(runtime, "bin/node"), "node");
 await writeFile(path.join(runtime, "server/dist/server.js"), "server");
 await writeFile(path.join(runtime, "server/node_modules/pkg"), "mod");
 await writeFile(path.join(runtime, "server/node_modules/@anthropic-ai/claude-agent-sdk-test/claude"), "claude");
+const runtimeManifest = '{"target":"aarch64-apple-darwin"}';
+await writeFile(path.join(runtime, "manifest.json"), runtimeManifest);
 await symlink(path.join(runtime, "bin/node"), path.join(runtime, "node-again"));
 const outside = path.join(workspace, "outside");
 await writeFile(outside, "do not count");
@@ -43,7 +46,12 @@ report = await createAppSizeReport(workspace);
 assert.equal(report.bundledNodeBytes, 4);
 assert.equal(report.synaraServerDistBytes, 6);
 assert.equal(report.runtimeNodeModulesBytes, 9);
-assert.equal(report.synaraRuntimeBytes, 19, "deduplicates internal symlinks and rejects external ones");
+assert.equal(report.synaraTarget, "aarch64-apple-darwin");
+assert.equal(
+  report.synaraRuntimeBytes,
+  19 + Buffer.byteLength(runtimeManifest),
+  "deduplicates internal symlinks and rejects external ones",
+);
 assert.deepEqual(report.claudeAgentSdkExecutables, [{
   path: "server/node_modules/@anthropic-ai/claude-agent-sdk-test/claude",
   bytes: 6,
@@ -73,5 +81,23 @@ await assert.rejects(checkAppSizeBudgets(workspace), /rolldown-runtime.*budget/)
 await writeFile(path.join(workspace, "dist/assets/rolldown-runtime-hash.js"), "runtime");
 await writeFile(path.join(workspace, "dist/assets/app-hash.js"), Buffer.alloc(1_500_000));
 await assert.rejects(checkAppSizeBudgets(workspace), /Eager JavaScript.*budget/);
+await writeFile(path.join(workspace, "dist/assets/app-hash.js"), "app");
+await writeFile(
+  path.join(runtime, "server/node_modules/@anthropic-ai/claude-agent-sdk-test/claude"),
+  Buffer.alloc(4_097),
+);
+report = await createAppSizeReport(workspace);
+await assert.rejects(
+  checkAppSizeBudgets(workspace, report),
+  /Bundled Claude executable.*PATH launcher budget/,
+);
+await assert.rejects(
+  checkAppSizeBudgets(workspace, {
+    ...report,
+    synaraRuntimeBytes: 250 * 1024 * 1024 + 1,
+    claudeAgentSdkExecutables: [],
+  }),
+  /macOS Synara runtime.*budget/,
+);
 
 console.log("app-size-report self-test passed");

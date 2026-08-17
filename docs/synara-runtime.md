@@ -160,10 +160,13 @@ branch, upstream repository, Node version, and exact Synara revision.
 - The preparation script builds the production web/server artifacts, downloads the official
   target-specific Node binary, verifies its SHA-256 digest, installs production dependencies, and
   stages the result under `src-tauri/synara-runtime`.
+- Claude sessions use the external `claude` executable selected in Provider settings (or found on
+  the login-shell PATH). The SDK's otherwise bundled platform executable is replaced by a tiny PATH
+  launcher so account probing follows the same installation without shipping a redundant copy.
 - Tauri includes that directory through `bundle.resources`.
 
 Run `pnpm size:report` after preparing the runtime and building the frontend to record exact file-byte totals for the web bundle, eager assets, Node binary, server distribution, runtime dependencies, and provider executables.
-The current macOS full-provider runtime is about 479 MiB before installer compression.
+The current macOS full-provider runtime is about 226 MiB before installer compression.
 Treat runtime size as a release metric; provider-specific lazy packaging is the next place to optimize if installer size becomes a constraint.
 
 ## Syncing upstream

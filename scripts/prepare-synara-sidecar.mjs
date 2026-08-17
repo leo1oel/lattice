@@ -335,6 +335,34 @@ function runtimePlatformDirectory(target) {
 }
 
 /**
+ * The Claude adapter and its health check both execute the user's `claude`
+ * command (or the path selected in Provider settings). The Agent SDK still
+ * installs its own 200+ MB optional CLI because one account-metadata fallback
+ * lets the SDK resolve its default executable. Preserve that fallback with a
+ * PATH launcher rather than shipping a second Claude installation that turns
+ * never use.
+ */
+function replaceUnusedClaudeBinary(stageRoot, target) {
+  if (target === "x86_64-pc-windows-msvc") return 0;
+  const platformDirectory = runtimePlatformDirectory(target);
+  if (!platformDirectory) return 0;
+  const executable = join(
+    stageRoot,
+    "server/node_modules/@anthropic-ai",
+    `claude-agent-sdk-${platformDirectory}`,
+    "claude",
+  );
+  if (!existsSync(executable)) {
+    throw new Error(`The Claude Agent SDK platform executable is missing at ${executable}.`);
+  }
+  const originalBytes = statSync(executable).size;
+  const launcher = "#!/bin/sh\nexec claude \"$@\"\n";
+  writeFileSync(executable, launcher);
+  chmodSync(executable, 0o755);
+  return Math.max(0, originalBytes - Buffer.byteLength(launcher));
+}
+
+/**
  * npm packages often publish source maps, Windows debug symbols, and native
  * binaries for every supported platform. They are useful to package authors,
  * but never loaded by the staged production runtime and previously inflated
@@ -361,6 +389,15 @@ function pruneServerRuntime(stageRoot, target) {
     "node_modules/@earendil-works/pi-coding-agent/examples",
     "node_modules/@earendil-works/pi-coding-agent/node_modules/@types",
     "node_modules/@anthropic-ai/sdk/src",
+    // These packages publish their TypeScript sources beside runtime JS. Node's
+    // default import/require conditions resolve dist, esm, or package-root JS;
+    // the source trees are used only by editors and source-aware bundlers.
+    "node_modules/effect/src",
+    "node_modules/zod/src",
+    "node_modules/@earendil-works/pi-coding-agent/node_modules/@mistralai/mistralai/src",
+    "node_modules/@earendil-works/pi-coding-agent/node_modules/openai/src",
+    "node_modules/@earendil-works/pi-coding-agent/node_modules/undici/docs",
+    "node_modules/@earendil-works/pi-coding-agent/node_modules/zod/src",
     // ConPTY is Windows-only; keep it when staging a Windows runtime.
     ...(target === "x86_64-pc-windows-msvc" ? [] : ["node_modules/node-pty/third_party"]),
   ];
@@ -703,7 +740,8 @@ try {
   if (!deviceHelperTreeMatches(sourceDeviceHelperRoot, stagedDeviceHelperRoot, target)) {
     throw new Error("The staged Synara runtime is missing part of the iOS device helper source tree.");
   }
-  const prunedBytes = pruneServerRuntime(stageRoot, target);
+  const prunedBytes =
+    replaceUnusedClaudeBinary(stageRoot, target) + pruneServerRuntime(stageRoot, target);
   signMacRuntime(stageRoot, target);
   writeFileSync(
     join(stageRoot, "manifest.json"),

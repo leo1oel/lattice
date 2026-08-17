@@ -116,6 +116,16 @@ async function optionalTotal(target) {
   return total(await fileInventory(target));
 }
 
+async function optionalRuntimeTarget(runtime) {
+  try {
+    const manifest = JSON.parse(await readFile(path.join(runtime, "manifest.json"), "utf8"));
+    return typeof manifest.target === "string" ? manifest.target : null;
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 export async function createAppSizeReport(workspace = process.cwd()) {
   const dist = path.resolve(workspace, "dist");
   let html;
@@ -140,22 +150,25 @@ export async function createAppSizeReport(workspace = process.cwd()) {
     bundledNodeBytes: await optionalTotal(path.join(runtime, "bin/node")),
     synaraServerDistBytes: await optionalTotal(path.join(runtime, "server/dist")),
     runtimeNodeModulesBytes: await optionalTotal(path.join(runtime, "server/node_modules")),
+    synaraTarget: await optionalRuntimeTarget(runtime),
     claudeAgentSdkExecutables: sdkExecutables,
   };
 }
 
 const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
+const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
+const MACOS_SYNARA_RUNTIME_BUDGET_BYTES = 250 * 1024 * 1024;
 
 export async function checkAppSizeBudgets(
   workspace = process.cwd(),
   report = null,
 ) {
+  const measuredReport = report ?? await createAppSizeReport(workspace);
   const dist = path.resolve(workspace, "dist");
   const html = await readFile(path.join(dist, "index.html"), "utf8");
   const eager = eagerAssetUrls(html);
-  const eagerJsBytes = report?.eagerJsBytes
-    ?? await localAssetBytes(dist, eager.js, "JavaScript");
+  const eagerJsBytes = measuredReport.eagerJsBytes;
   const chunkUrls = new Map();
   for (const url of eager.js) {
     const pathname = localAssetPathname(url);
@@ -195,11 +208,31 @@ export async function checkAppSizeBudgets(
       `Eager JavaScript is ${eagerJsBytes} bytes; budget is ${EAGER_JS_BUDGET_BYTES}`,
     );
   }
+  for (const executable of measuredReport.claudeAgentSdkExecutables) {
+    // Unix SDK packages can use the shell launcher staged by the preparation
+    // script. Windows needs a native .exe launcher and is not optimized yet.
+    if (executable.path.includes("-win32-") || executable.bytes <= CLAUDE_PATH_LAUNCHER_BUDGET_BYTES) {
+      continue;
+    }
+    throw new Error(
+      `Bundled Claude executable is ${executable.bytes} bytes; PATH launcher budget is ${CLAUDE_PATH_LAUNCHER_BUDGET_BYTES}`,
+    );
+  }
+  if (
+    measuredReport.synaraTarget?.endsWith("-apple-darwin")
+    && measuredReport.synaraRuntimeBytes > MACOS_SYNARA_RUNTIME_BUDGET_BYTES
+  ) {
+    throw new Error(
+      `macOS Synara runtime is ${measuredReport.synaraRuntimeBytes} bytes; budget is ${MACOS_SYNARA_RUNTIME_BUDGET_BYTES}`,
+    );
+  }
   return {
     eagerJsBytes,
     eagerJsBudgetBytes: EAGER_JS_BUDGET_BYTES,
     rolldownRuntimeBytes: runtimeBytes,
     rolldownRuntimeBudgetBytes: ROLLDOWN_RUNTIME_BUDGET_BYTES,
+    claudePathLauncherBudgetBytes: CLAUDE_PATH_LAUNCHER_BUDGET_BYTES,
+    macosSynaraRuntimeBudgetBytes: MACOS_SYNARA_RUNTIME_BUDGET_BYTES,
   };
 }
 
