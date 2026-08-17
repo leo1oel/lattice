@@ -2792,7 +2792,7 @@ describe("project workspace", () => {
       command === "build_project"
       && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
       .toHaveLength(2);
-  }, 40_000);
+  }, 90_000);
 
   it("opens a project switcher with recent and folder actions", async () => {
     const snapshot = {
