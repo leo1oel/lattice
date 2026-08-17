@@ -990,6 +990,10 @@ msgstr "Connecting live editing…"
 msgid "Connecting to Overleaf's live channel…"
 msgstr "Connecting to Overleaf's live channel…"
 
+#: src/App.tsx
+msgid "Connecting to the live session…"
+msgstr "Connecting to the live session…"
+
 #: src/collab-dialog.tsx
 msgid "Connecting…"
 msgstr "Connecting…"
@@ -1103,6 +1107,10 @@ msgstr "created"
 #: src/project-dialogs.tsx
 msgid "Creates a {0} preprint template with bibliography and project brief."
 msgstr "Creates a {0} preprint template with bibliography and project brief."
+
+#: src/App.tsx
+msgid "Creating an invite…"
+msgstr "Creating an invite…"
 
 #: src/insert-snippets.ts
 msgid "Cross-reference label"
@@ -1636,6 +1644,7 @@ msgstr "Find in project"
 msgid "Finish"
 msgstr "Finish"
 
+#: src/App.tsx
 #: src/tex-setup-wizard.tsx
 msgid "Finishing setup…"
 msgstr "Finishing setup…"
@@ -2897,6 +2906,10 @@ msgstr "OpenAlex search"
 msgid "Opening {0}…"
 msgstr "Opening {0}…"
 
+#: src/App.tsx
+msgid "Opening the shared document…"
+msgstr "Opening the shared document…"
+
 #: src/insert-palette.tsx
 msgid "Operators"
 msgstr "Operators"
@@ -3089,6 +3102,11 @@ msgstr "Precedes"
 msgid "Precedes or equal"
 msgstr "Precedes or equal"
 
+#. placeholder {0}: inventory.length
+#: src/App.tsx
+msgid "Preparing {0} project files…"
+msgstr "Preparing {0} project files…"
+
 #: src/document-canvas.tsx
 msgid "Preparing board editor"
 msgstr "Preparing board editor"
@@ -3112,6 +3130,10 @@ msgstr "Preparing PDF preview…"
 #: src/document-canvas.tsx
 msgid "Preparing preview…"
 msgstr "Preparing preview…"
+
+#: src/App.tsx
+msgid "Preparing project files… {completed}/{total}"
+msgstr "Preparing project files… {completed}/{total}"
 
 #: src/document-canvas.tsx
 msgid "Preparing spreadsheet editor"
@@ -3730,6 +3752,10 @@ msgstr "Saved version"
 #: src/bib-entry-dialog.tsx
 msgid "Saving…"
 msgstr "Saving…"
+
+#: src/App.tsx
+msgid "Scanning project files…"
+msgstr "Scanning project files…"
 
 #: src/insert-snippets.ts
 msgid "Script l"
@@ -4471,6 +4497,10 @@ msgstr "Updates the bibliography entry and every \\cite occurrence across the pr
 #: src/pdf-viewer.tsx
 msgid "Updating…"
 msgstr "Updating…"
+
+#: src/App.tsx
+msgid "Uploading project files… {completed}/{total}"
+msgstr "Uploading project files… {completed}/{total}"
 
 #: src/insert-snippets.ts
 msgid "Upright text in math"

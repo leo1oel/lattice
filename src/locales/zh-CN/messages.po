@@ -990,6 +990,10 @@ msgstr "正在连接实时编辑…"
 msgid "Connecting to Overleaf's live channel…"
 msgstr "正在连接 Overleaf 实时通道…"
 
+#: src/App.tsx
+msgid "Connecting to the live session…"
+msgstr "正在连接实时协作会话…"
+
 #: src/collab-dialog.tsx
 msgid "Connecting…"
 msgstr "正在连接…"
@@ -1103,6 +1107,10 @@ msgstr "已创建"
 #: src/project-dialogs.tsx
 msgid "Creates a {0} preprint template with bibliography and project brief."
 msgstr "创建包含参考文献和项目简介的 {0} 预印本模板。"
+
+#: src/App.tsx
+msgid "Creating an invite…"
+msgstr "正在创建邀请…"
 
 #: src/insert-snippets.ts
 msgid "Cross-reference label"
@@ -1636,6 +1644,7 @@ msgstr "在项目中查找"
 msgid "Finish"
 msgstr "完成"
 
+#: src/App.tsx
 #: src/tex-setup-wizard.tsx
 msgid "Finishing setup…"
 msgstr "正在完成设置…"
@@ -2897,6 +2906,10 @@ msgstr "OpenAlex 搜索"
 msgid "Opening {0}…"
 msgstr "正在打开{0}…"
 
+#: src/App.tsx
+msgid "Opening the shared document…"
+msgstr "正在打开共享文档…"
+
 #: src/insert-palette.tsx
 msgid "Operators"
 msgstr "运算符"
@@ -3089,6 +3102,11 @@ msgstr "先于"
 msgid "Precedes or equal"
 msgstr "先于或等于"
 
+#. placeholder {0}: inventory.length
+#: src/App.tsx
+msgid "Preparing {0} project files…"
+msgstr "正在准备 {0} 个项目文件…"
+
 #: src/document-canvas.tsx
 msgid "Preparing board editor"
 msgstr "正在准备白板编辑器"
@@ -3112,6 +3130,10 @@ msgstr "正在准备 PDF 预览…"
 #: src/document-canvas.tsx
 msgid "Preparing preview…"
 msgstr "正在准备预览…"
+
+#: src/App.tsx
+msgid "Preparing project files… {completed}/{total}"
+msgstr "正在准备项目文件… {completed}/{total}"
 
 #: src/document-canvas.tsx
 msgid "Preparing spreadsheet editor"
@@ -3728,6 +3750,10 @@ msgstr "已保存的版本"
 #: src/bib-entry-dialog.tsx
 msgid "Saving…"
 msgstr "正在保存…"
+
+#: src/App.tsx
+msgid "Scanning project files…"
+msgstr "正在扫描项目文件…"
 
 #: src/insert-snippets.ts
 msgid "Script l"
@@ -4467,6 +4493,10 @@ msgstr "更新参考文献条目以及整个项目中的每个 \\cite。"
 #: src/pdf-viewer.tsx
 msgid "Updating…"
 msgstr "正在更新…"
+
+#: src/App.tsx
+msgid "Uploading project files… {completed}/{total}"
+msgstr "正在上传项目文件… {completed}/{total}"
 
 #: src/insert-snippets.ts
 msgid "Upright text in math"

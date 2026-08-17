@@ -3286,7 +3286,7 @@ function App() {
           if (collabStartGenerationRef.current !== startGeneration) throw new Error("Share start was canceled");
         };
         setCollabStatus("connecting");
-        setCollabStatusDetail("Scanning project files…");
+        setCollabStatusDetail(t`Scanning project files…`);
         try {
           const resolved = resolveCollabHost(collabHost);
           saveCollabHost(resolved);
@@ -3306,7 +3306,7 @@ function App() {
           const inventory = nativeInventory.files.map(item => ({ path: item.path, kind: item.contentKind }));
           const kinds = new Map(inventory.map((item) => [item.path, item.kind]));
           const store = collabCredentialStore();
-          setCollabStatusDetail(`Preparing ${inventory.length} project files…`);
+          setCollabStatusDetail(t`Preparing ${inventory.length} project files…`);
           const record = await createProjectV2({
             deployment,
             projectName: collabProjectName.trim(),
@@ -3319,20 +3319,20 @@ function App() {
                 return Uint8Array.from(atob(asset.base64), (character) => character.charCodeAt(0));
               },
             },
-            onPrepareProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(`Preparing project files… ${completed}/${total}`); },
-            onProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(`Uploading project files… ${completed}/${total}`); },
+            onPrepareProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(t`Preparing project files… ${completed}/${total}`); },
+            onProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(t`Uploading project files… ${completed}/${total}`); },
             onRecord: async (created) => { const now = Date.now(); assertCurrentStart(); rememberCollabProjectV2({ version: 2, projectInstanceId: created.projectInstanceId, host: created.deployment, credentialRef: created.credentialRef, permission: "host", title: collabProjectName.trim(), projectRoot: project.root, createdAt: now, lastUsed: now }); },
           });
           assertCurrentStart();
-          setCollabStatusDetail("Connecting to the live session…");
+          setCollabStatusDetail(t`Connecting to the live session…`);
           controller = await CollabProjectControllerV2.start({ deployment, projectInstanceId: record.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: "host", onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
           assertCurrentStart();
           const path = controller.hasTextPath(activeFile || "") ? activeFile : controller.catalogTextPaths()[0];
           if (!path) throw new Error("The shared project has no text files");
-          setCollabStatusDetail("Opening the shared document…");
+          setCollabStatusDetail(t`Opening the shared document…`);
           await controller.openPath(path);
           assertCurrentStart();
-          setCollabStatusDetail("Creating an invite…");
+          setCollabStatusDetail(t`Creating an invite…`);
           const invitation = await controller.createInvitation("write");
           assertCurrentStart();
           collabV2InvitationRef.current = invitation;
@@ -3353,7 +3353,7 @@ function App() {
           setCollabSession(controller);
           setCollabFileCount(controller.fileCount());
           setCollabReady(true);
-          setCollabStatusDetail("Finishing setup…");
+          setCollabStatusDetail(t`Finishing setup…`);
           await loadFile(path);
           assertCurrentStart();
           const inviteCopied = await writeText(invitation).then(() => true, () => false);
@@ -3380,7 +3380,7 @@ function App() {
           if (collabStartGenerationRef.current === startGeneration) collabStartingRef.current = false;
         }
       })();
-  }, [handleV2PermanentError, activeFile, clearCollabLocalState, collabHost, collabName, collabProjectName, handleV2Catalog, loadFile, mapV2Status, project, v2WorkspaceCallbacks]);
+  }, [handleV2PermanentError, activeFile, clearCollabLocalState, collabHost, collabName, collabProjectName, handleV2Catalog, loadFile, mapV2Status, project, t, v2WorkspaceCallbacks]);
 
   const copyCollabInvite = useCallback(async () => {
     // Minting the invitation is a network round trip; when it fails (offline,

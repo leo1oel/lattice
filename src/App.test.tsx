@@ -16,6 +16,7 @@ import { persistWorkspaceLayout } from "./app-settings";
 import { mapCollabProjectStatusV2 } from "./collab-status";
 import { formatCollabInvitationV2 } from "./collab-invitation-v2";
 import { loadTextLanguageExtensions } from "./editor-languages";
+import { activateAppLocale } from "./i18n";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 import { usePanelLayout } from "./use-panel-layout";
 import { parseVisualMarkdown } from "./visual-markdown-schema";
@@ -6904,6 +6905,45 @@ describe("project workspace", () => {
       path: sharedSnapshot.root,
     }));
     expect(invoke).not.toHaveBeenCalledWith("open_project_window", expect.anything());
+  });
+
+  it("shows share-start progress in the selected interface language", async () => {
+    await activateAppLocale("zh-CN");
+    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    localStorage.setItem("lattice.collab.name", "Ada");
+    const snapshot = {
+      root: "/tmp/notes",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "notes-id",
+        name: "Notes",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
+    };
+    const inventoryFailure: { reject: ((reason: Error) => void) | null } = { reject: null };
+    const inventory = new Promise<never>((_resolve, reject) => {
+      inventoryFailure.reject = reject;
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "# Private draft";
+      if (command === "harper_lint") return [];
+      if (command === "collab_project_inventory_v2") return inventory;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
+    fireEvent.click(document.querySelector<HTMLElement>('[data-tour="collaboration"]')!);
+    fireEvent.click(await screen.findByRole("button", { name: "开始共享" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("正在扫描项目文件…");
+    await act(async () => inventoryFailure.reject?.(new Error("stop after localized status")));
+    expect(await screen.findByRole("status")).toHaveTextContent("导入失败——请重新点击“开始共享”");
   });
 
   it("gives a newly created project its own window when one is already open", async () => {
