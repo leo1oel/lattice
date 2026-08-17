@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
+import { useLingui } from "@lingui/react/macro";
 import {
   EditorContent,
   NodeViewWrapper,
@@ -71,6 +72,7 @@ import { TableCellHandles } from "@ok-app/editor/table-controls/TableCellHandles
 import { BubbleMenuBar } from "@ok-app/editor/bubble-menu/BubbleMenuBar";
 import { VisualCommentProvider } from "@ok-app/comments/CommentBubbleButton";
 import { ViewInSourceProvider } from "@ok-app/editor/bubble-menu/ViewInSourceBubbleButton";
+import { serializeWysiwygSelection } from "@ok-app/editor/edit-with-ai-selection";
 import { EmojiInsertPopover } from "@ok-app/editor/components/EmojiInsertPopover";
 import { MirrorHostProvider } from "@ok-app/editor/components/Mirror-host";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -79,7 +81,11 @@ import { detectClipboardPrefillUrl } from "@ok-app/editor/clipboard/lone-url";
 import { ImageSrcFidelity } from "./open-knowledge-core/extensions/image-src-fidelity";
 import { ProjectImageHostProvider, useProjectImageSrc } from "./project-image-host";
 import { presenceCursorColor, type PresenceCursor } from "./overleaf-cursors";
-import { resolveCommentAnchor, type EditorComment } from "./editor-comment-data";
+import {
+  editorCommentAuthorDisplayName,
+  resolveCommentAnchor,
+  type EditorComment,
+} from "./editor-comment-data";
 import { peerColorForKey } from "./collab-colors";
 import { notifyError, notifyInfo } from "./app-notify";
 import { addAppLog, dismissAppToastByDedupeKey } from "./app-log-store";
@@ -1134,6 +1140,7 @@ type VisualCommentsMeta = {
   sourcePath: string;
   comments: EditorComment[];
   activeId: string | null;
+  labelForAuthor: (authorName: string) => string;
 };
 const visualCommentsKey = new PluginKey<VisualCommentsMeta & { decorations: DecorationSet }>(
   "visualEditorComments",
@@ -1156,6 +1163,7 @@ function visualCommentDecorations(
   sourcePath: string,
   comments: EditorComment[],
   activeId: string | null,
+  labelForAuthor: (authorName: string) => string,
 ): DecorationSet {
   return DecorationSet.create(doc, comments.flatMap((comment) => {
     if (comment.resolved) return [];
@@ -1173,7 +1181,7 @@ function visualCommentDecorations(
       "data-visual-comment-id": comment.id,
       role: "button",
       tabindex: "0",
-      "aria-label": `Comment by ${comment.authorName || "Anonymous"}`,
+      "aria-label": labelForAuthor(comment.authorName),
       style: `--visual-comment-tint: ${colors.colorLight}; --visual-comment-color: ${colors.color}`,
     })];
   }));
@@ -1190,6 +1198,7 @@ const VisualEditorComments = Extension.create({
           sourcePath: "",
           comments: [],
           activeId: null,
+          labelForAuthor: () => "",
           decorations: DecorationSet.empty,
         }),
         apply: (transaction, current, _oldState, newState) => {
@@ -1203,6 +1212,7 @@ const VisualEditorComments = Extension.create({
                   meta.sourcePath,
                   meta.comments,
                   meta.activeId,
+                  meta.labelForAuthor,
                 ),
               }
             : {
@@ -1402,6 +1412,7 @@ type VisualMarkdownEditorProps = {
   presenceCursors?: PresenceCursor[];
   onCaretChange?: (row: number, column: number) => void;
   onSourceCaretChange?: (sourceOffset: number) => void;
+  onSelectionMarkdown?: (value: string) => void;
   overleafChanges?: TrackedChange[];
   /** Comments anchored in this file, painted as highlights over the prose. */
   editorComments?: EditorComment[];
@@ -2308,6 +2319,7 @@ function CompleteVisualMarkdownEditor({
   presenceCursors = [],
   onCaretChange,
   onSourceCaretChange,
+  onSelectionMarkdown,
   overleafChanges = [],
   editorComments = EMPTY_EDITOR_COMMENTS,
   activeEditorCommentId = null,
@@ -2318,6 +2330,8 @@ function CompleteVisualMarkdownEditor({
   initialHandoff,
   onConsumeInitialHandoff,
 }: VisualMarkdownEditorProps): JSX.Element {
+  const { i18n, t } = useLingui();
+  const anonymousAuthor = t`Anonymous`;
   const headingItems = useMemo(() => documentHeadingItems(
     cachedVisualDocument(activePath, text).content,
     { hideGeneratedContents: optimizeForReading },
@@ -2365,6 +2379,7 @@ function CompleteVisualMarkdownEditor({
   const redoRef = useRef(onRedo);
   const caretChangeRef = useRef(onCaretChange);
   const sourceCaretChangeRef = useRef(onSourceCaretChange);
+  const selectionMarkdownRef = useRef(onSelectionMarkdown);
   const presenceCursorsRef = useRef(presenceCursors);
   const overleafChangesRef = useRef(overleafChanges);
   const commentsWereActive = useRef(false);
@@ -2450,7 +2465,8 @@ function CompleteVisualMarkdownEditor({
   useEffect(() => {
     caretChangeRef.current = onCaretChange;
     sourceCaretChangeRef.current = onSourceCaretChange;
-  }, [onCaretChange, onSourceCaretChange]);
+    selectionMarkdownRef.current = onSelectionMarkdown;
+  }, [onCaretChange, onSelectionMarkdown, onSourceCaretChange]);
   useEffect(() => {
     presenceCursorsRef.current = presenceCursors;
   }, [presenceCursors]);
@@ -3042,6 +3058,10 @@ function CompleteVisualMarkdownEditor({
       }
     },
     onSelectionUpdate: ({ editor: currentEditor }) => {
+      const selection = currentEditor.state.selection;
+      selectionMarkdownRef.current?.(
+        selection.empty ? "" : serializeWysiwygSelection(currentEditor),
+      );
       scheduleVisualCaretReport(currentEditor);
     },
     onFocus: ({ editor: currentEditor }) => {
@@ -3448,8 +3468,12 @@ function CompleteVisualMarkdownEditor({
       sourcePath: activePath,
       comments: editorComments,
       activeId: activeEditorCommentId,
+      labelForAuthor: (authorName) => {
+        const author = editorCommentAuthorDisplayName(authorName, anonymousAuthor);
+        return t({ message: `Comment by ${author}` });
+      },
     } satisfies VisualCommentsMeta));
-  }, [activeEditorCommentId, activePath, editor, editorComments, editorViewMounted, text]);
+  }, [activeEditorCommentId, activePath, anonymousAuthor, editor, editorComments, editorViewMounted, i18n.locale, t, text]);
 
   useEffect(() => {
     if (!editor || !editorViewMounted || !synchronizeSourceScroll) return;
@@ -3624,7 +3648,7 @@ function CompleteVisualMarkdownEditor({
     if (!range) {
       setCommentComposer((current) => current ? {
         ...current,
-        error: "The selected text changed. Select it again before commenting.",
+        error: t`The selected text changed. Select it again before commenting.`,
       } : current);
       return;
     }
@@ -3640,7 +3664,16 @@ function CompleteVisualMarkdownEditor({
       className={`visual-markdown-editor${optimizeForReading ? " optimize-for-reading" : ""}${documentPending ? " is-document-pending" : ""}`}
       data-active-path={activePath}
       aria-busy={documentPending}
-      aria-label="Visual Markdown editor"
+      aria-label={t`Visual Markdown editor`}
+      onPointerDownCapture={(event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement) || !target.closest(".ok-drag-grip")) return;
+        const selection = editor.state.selection;
+        if (selection.empty) return;
+        // Re-selecting the same block does not emit a ProseMirror selection
+        // update, so publish it again after the host surface clears its context.
+        selectionMarkdownRef.current?.(serializeWysiwygSelection(editor));
+      }}
       onClickCapture={(event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
@@ -3680,15 +3713,15 @@ function CompleteVisualMarkdownEditor({
         <div
           className="visual-comment-composer"
           role="dialog"
-          aria-label="Add comment"
+          aria-label={t`Add comment`}
           style={{ left: commentComposer.left, top: commentComposer.top }}
         >
           <p className="editor-comment-quote">{commentComposer.quote}</p>
           <textarea
             autoFocus
             rows={3}
-            aria-label="Comment"
-            placeholder="Leave a comment for collaborators…"
+            aria-label={t`Comment`}
+            placeholder={t`Leave a comment for collaborators…`}
             value={commentComposer.body}
             onChange={(event) => setCommentComposer((current) => (
               current ? { ...current, body: event.target.value } : current
@@ -3709,13 +3742,13 @@ function CompleteVisualMarkdownEditor({
             <button type="button" onClick={() => {
               setCommentComposer(null);
               editor.commands.focus();
-            }}>Cancel</button>
+            }}>{t`Cancel`}</button>
             <button
               type="button"
               className="primary"
               disabled={!commentComposer.body.trim()}
               onClick={submitVisualComment}
-            >Add comment</button>
+            >{t`Add comment`}</button>
           </div>
         </div>
       )}

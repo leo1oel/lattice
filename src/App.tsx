@@ -133,6 +133,7 @@ import {
   resolvePreCollabProjectRoot,
 } from "./collab-return";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "./pdf-bytes";
+import { rewriteMovedDocumentAssetPaths } from "./figure-insertion";
 import {
   loadCollabDisplayName,
   loadCollabHost,
@@ -314,7 +315,9 @@ import {
   buildAgentHostContext,
   LATTICE_HOST_CONTEXT_REQUEST,
   LATTICE_HOST_CONTEXT_SELECTION_CLEAR,
+  selectedMarkdownImageProjectPath,
   type AgentHostContextSnapshot,
+  type AgentHostSelectionImage,
   type AgentHostSurface,
 } from "./agent-host-context";
 import {
@@ -1804,16 +1807,19 @@ function App() {
   const activateAgentHostSurface = useCallback((surface: AgentHostSurface) => {
     setAgentActiveSurface(surface);
     const previousSource = selectionSourceRef.current;
+    // Pointer and focus capture both run while a block grip focuses the
+    // visual editor. Re-activating the surface that already owns the
+    // selection must not clear the context that the grip just published.
+    if (previousSource === surface) return;
     if (!previousSource) {
       if (dismissedSelectionRef.current?.source === surface) {
         dismissedSelectionRef.current = null;
       }
       return;
     }
-    dismissedSelectionRef.current =
-      previousSource !== surface && selection
-        ? { source: previousSource, text: selection }
-        : null;
+    dismissedSelectionRef.current = selection
+      ? { source: previousSource, text: selection }
+      : null;
     selectionSourceRef.current = null;
     setSelection("");
     setSelectionSource(null);
@@ -1844,6 +1850,91 @@ function App() {
     setSelection(value);
     setSelectionSource(source);
   }, []);
+  const selectionImageSourcePath = useMemo(() => {
+    const documentPath = selectionSource === "paper"
+      ? activePaperPath
+      : selectionSource === "editor"
+        ? editorPosition?.path || activeFile
+        : null;
+    return documentPath
+      ? selectedMarkdownImageProjectPath(selection, documentPath)
+      : null;
+  }, [activeFile, activePaperPath, editorPosition?.path, selection, selectionSource]);
+  const selectionImageEnabled = Boolean(
+    selectionImageSourcePath
+    && selectionSource
+    && project?.root
+    && synaraOrigin
+    && synaraFrameMounted
+    && sidebarOpen
+    && sidebarMode === "agent",
+  );
+  const directAgentSelectionImage = useMemo<(
+    AgentHostSelectionImage & { source: AgentHostSurface }
+  ) | null>(() => {
+    if (!selectionImageEnabled || !selectionImageSourcePath || !selectionSource) return null;
+    const mimeType = /\.png$/i.test(selectionImageSourcePath)
+      ? "image/png"
+      : /\.jpe?g$/i.test(selectionImageSourcePath)
+        ? "image/jpeg"
+        : null;
+    return mimeType
+      ? {
+          source: selectionSource,
+          sourcePath: selectionImageSourcePath,
+          agentReadablePath: selectionImageSourcePath,
+          mimeType,
+        }
+      : null;
+  }, [selectionImageEnabled, selectionImageSourcePath, selectionSource]);
+  const [preparedAgentSelectionImage, setPreparedAgentSelectionImage] = useState<(
+    AgentHostSelectionImage & { source: AgentHostSurface; projectRoot: string }
+  ) | null>(null);
+  const matchingPreparedAgentSelectionImage = preparedAgentSelectionImage
+    && preparedAgentSelectionImage.projectRoot === project?.root
+    && preparedAgentSelectionImage.source === selectionSource
+    && preparedAgentSelectionImage.sourcePath === selectionImageSourcePath
+    ? preparedAgentSelectionImage
+    : null;
+  const agentSelectionImage = directAgentSelectionImage ?? (
+    selectionImageEnabled ? matchingPreparedAgentSelectionImage : null
+  );
+  useEffect(() => {
+    if (
+      !selectionImageEnabled
+      || !selectionImageSourcePath
+      || !selectionSource
+      || !project?.root
+      || !/\.webp$/i.test(selectionImageSourcePath)
+    ) {
+      return;
+    }
+
+    const source = selectionSource;
+    const projectRoot = project.root;
+    let disposed = false;
+    void invoke<string>("prepare_latex_figure", {
+      path: selectionImageSourcePath,
+      projectRoot,
+    }).then((agentReadablePath) => {
+      if (disposed || !agentReadablePath) return;
+      setPreparedAgentSelectionImage({
+        source,
+        projectRoot,
+        sourcePath: selectionImageSourcePath,
+        agentReadablePath,
+        mimeType: "image/png",
+      });
+    }).catch(() => undefined);
+    return () => {
+      disposed = true;
+    };
+  }, [
+    project?.root,
+    selectionImageEnabled,
+    selectionImageSourcePath,
+    selectionSource,
+  ]);
   const agentHostContext = useMemo<AgentHostContextSnapshot | null>(
     () => project
       ? buildAgentHostContext({
@@ -1858,12 +1949,14 @@ function App() {
           pdfPageCount,
           selection,
           selectionSource,
+          selectionImage: agentSelectionImage,
           activeSurface: agentActiveSurface,
         })
       : null,
     [
       activeFile,
       agentActiveSurface,
+      agentSelectionImage,
       activePaper,
       canvasMode,
       editorPosition,
@@ -6606,6 +6699,16 @@ function App() {
     const currentDualPreview = dualPanePreview?.projectRoot === projectRoot ? dualPanePreview : null;
     const previewPaths = new Set<string>([
       ...(canvasMode === "pdf" && activeFileRef.current ? [activeFileRef.current] : []),
+      // Split's right side is a generated preview with no file identity. When
+      // the left side is replaced, the displaced source becomes that right
+      // pane and must carry the preview state into the normalized dual layout.
+      ...(canvasMode === "split"
+        && zone === "left"
+        && !activeAssetRef.current
+        && activeFileRef.current
+        && isPreviewableSourceFilePath(activeFileRef.current)
+        ? [activeFileRef.current]
+        : []),
       ...(currentDualPreview
         ? [currentDualPreview.primaryPath, currentDualPreview.secondaryPath].filter(Boolean) as string[]
         : []),
@@ -8057,10 +8160,29 @@ function App() {
         : (path.split("/").at(-1) ?? path),
     }));
     const completedChanges: ProjectPathChange[] = [];
+    const originalPrimaryPath = activeFileRef.current;
+    const originalSecondaryPath = secondaryFileRef.current;
+    let optimisticChangesApplied = false;
 
     projectTreeMutationCountRef.current += 1;
     try {
+      if (plannedChanges.some((change) => (
+        /\.(?:tex|md)$/i.test(change.previousPath)
+        && (
+          change.previousPath === originalPrimaryPath
+          || change.previousPath === originalSecondaryPath
+        )
+      ))) {
+        if (visualMarkdownFlushRef.current?.() === false) {
+          throw new Error(t`Try again`);
+        }
+        if (!(await save())) {
+          // save() already reports the path and underlying write failure.
+          throw new Error(t`Try again`);
+        }
+      }
       applyProjectEntryPathChanges(plannedChanges);
+      optimisticChangesApplied = true;
       for (const planned of plannedChanges) {
         const v2 = collabV2ControllerRef.current;
         const movedPath = activeCollabVersion === 2 && v2
@@ -8081,19 +8203,63 @@ function App() {
             nextPath: movedPath,
           }]);
         }
+        if (/\.(?:tex|md)$/i.test(planned.previousPath)) {
+          let content: string;
+          if (activeCollabVersion === 2 && v2?.hasTextPath(movedPath)) {
+            const ytext = await v2.openPath(movedPath, "secondary", { sideload: true });
+            content = ytext.toString();
+          } else if (planned.previousPath === originalPrimaryPath) {
+            content = sourceRef.current;
+          } else if (planned.previousPath === originalSecondaryPath) {
+            content = secondarySourceRef.current;
+          } else {
+            content = await invoke<string>("read_project_file", {
+              path: movedPath,
+              projectRoot: project?.root,
+            });
+          }
+          const rewritten = rewriteMovedDocumentAssetPaths(
+            content,
+            planned.previousPath,
+            movedPath,
+            projectAssetPaths,
+          );
+          if (rewritten !== content) {
+            if (planned.previousPath === originalPrimaryPath) setPrimarySource(rewritten);
+            if (planned.previousPath === originalSecondaryPath) setSecondarySourceLive(rewritten);
+            const published = await publishTextToCollabV2(movedPath, rewritten);
+            if (!published) {
+              await invoke("write_project_file", {
+                path: movedPath,
+                content: rewritten,
+                projectRoot: project?.root,
+              });
+            }
+            if (planned.previousPath === originalPrimaryPath && sourceRef.current === rewritten) {
+              savedSourceRef.current = rewritten;
+              setSavedSource(rewritten);
+            }
+            if (planned.previousPath === originalSecondaryPath && secondarySourceRef.current === rewritten) {
+              secondarySavedRef.current = rewritten;
+              setSecondarySavedSource(rewritten);
+            }
+          }
+        }
       }
       if (activeFileRef.current) void markDiskMtime(activeFileRef.current);
       setError(null);
       return completedChanges.map((change) => change.nextPath);
     } catch (reason) {
       const completedPaths = new Set(completedChanges.map((change) => change.previousPath));
-      const rollbackChanges = plannedChanges
-        .filter((change) => !completedPaths.has(change.previousPath))
-        .reverse()
-        .map((change) => ({
-          previousPath: change.nextPath,
-          nextPath: change.previousPath,
-        }));
+      const rollbackChanges = optimisticChangesApplied
+        ? plannedChanges
+          .filter((change) => !completedPaths.has(change.previousPath))
+          .reverse()
+          .map((change) => ({
+            previousPath: change.nextPath,
+            nextPath: change.previousPath,
+          }))
+        : [];
       applyProjectEntryPathChanges(rollbackChanges);
       setError(toMessage(reason));
       await reconcileProjectTree().catch(() => undefined);
@@ -8109,7 +8275,13 @@ function App() {
     applyProjectEntryPathChanges,
     markDiskMtime,
     project?.root,
+    projectAssetPaths,
+    publishTextToCollabV2,
     reconcileProjectTree,
+    save,
+    setPrimarySource,
+    setSecondarySourceLive,
+    t,
   ]);
 
   const submitRename = useCallback(async (name: string) => {
@@ -10276,7 +10448,7 @@ function App() {
           onDelete={(id) => {
             void (async () => {
               if (!await confirmAction(
-                "Delete this comment? Its replies will be removed too. This cannot be undone.",
+                t`Delete this comment? Its replies will be removed too. This cannot be undone.`,
               )) {
                 return;
               }

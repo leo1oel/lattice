@@ -103,6 +103,10 @@ describe("VisualMarkdownEditor", () => {
     expect(blockControlCrossAxisOffset(24, 24)).toBe(2);
   });
 
+  it("aligns image block controls to the visible image instead of its outer node view", () => {
+    expect(blockControlCrossAxisOffset(260, 28, "jsxComponent", 16)).toBe(16);
+  });
+
   it("centers block controls on a divider line", () => {
     expect(blockControlCrossAxisOffset(1, 28, "thematicBreak")).toBe(-9.5);
   });
@@ -2152,6 +2156,35 @@ describe("VisualMarkdownEditor", () => {
     expect(document.querySelector(".ok-add-block-btn")).toHaveAttribute("aria-label", "Add block below");
     expect(document.querySelector(".ok-drag-grip")).toHaveAttribute("aria-label", "Select block");
     expect(document.querySelector(".ok-block-controls")).toHaveAttribute("draggable", "true");
+  });
+
+  it("reports a selected visual block as Markdown context", async () => {
+    const onSelectionMarkdown = vi.fn();
+    render(
+      <VisualMarkdownEditor
+        text={"## Selected context\n\nUnselected paragraph"}
+        activePath="notes.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+        onSelectionMarkdown={onSelectionMarkdown}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => {
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)),
+      );
+    });
+
+    await waitFor(() => expect(onSelectionMarkdown).toHaveBeenCalledWith("## Selected context"));
+
+    onSelectionMarkdown.mockClear();
+    const grip = document.querySelector<HTMLElement>(".ok-drag-grip");
+    expect(grip).not.toBeNull();
+    fireEvent.pointerDown(grip!);
+    expect(onSelectionMarkdown).toHaveBeenCalledWith("## Selected context");
   });
 
   it("reveals add and drag controls when an editable document block is hovered", async () => {
@@ -4889,6 +4922,7 @@ describe("VisualMarkdownEditor", () => {
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
     editor.commands.setNodeSelection(0);
+    await waitFor(() => expect(component).toHaveAttribute("data-selected", "true"));
     for (const bubbleMenu of screen.queryAllByTestId("bubble-menu-bar")) {
       expect(within(bubbleMenu).queryByRole("button", { name: "Align right" })).toBeNull();
     }

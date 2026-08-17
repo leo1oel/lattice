@@ -15,6 +15,7 @@ export const TUTORIAL_STEPS = {
   importVit: 13,
   paperBlog: 14,
   paperFullText: 15,
-  openAgent: 16,
-  agent: 17,
+  paperActions: 16,
+  openAgent: 17,
+  agent: 18,
 } as const;

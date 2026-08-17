@@ -265,9 +265,46 @@ describe("editor comments", () => {
 
   it("formats comment timestamps relative to now", () => {
     const now = Date.parse("2026-01-01T12:00:00.000Z");
-    expect(formatCommentTimestamp("2026-01-01T11:57:00.000Z", now)).toBe("3 min ago");
-    expect(formatCommentTimestamp("2026-01-01T11:59:59.000Z", now)).toBe("just now");
+    expect(formatCommentTimestamp("2026-01-01T11:57:00.000Z", now)).toBe("3 minutes ago");
+    expect(formatCommentTimestamp("2026-01-01T11:59:59.000Z", now)).toBe("now");
+    expect(formatCommentTimestamp("2026-01-01T11:57:00.000Z", now, "zh-CN")).toBe("3分钟前");
     expect(formatCommentTimestamp("not-a-date", now)).toBe("not-a-date");
+  });
+
+  it("uses localized labels in comment tooltips", () => {
+    const baseComment = createEditorComment({
+      path: "main.tex",
+      source: "alpha beta gamma",
+      from: 6,
+      to: 10,
+      body: "comment",
+      authorId: "author-a",
+      authorName: "Ada",
+    })!;
+    const comment = { ...baseComment, authorName: "Anonymous", body: "" };
+    const dom = buildCommentTooltipDom(
+      [comment],
+      {
+        currentAuthorId: "author-a",
+        onResolve: () => undefined,
+        onReply: () => undefined,
+      },
+      Date.parse("2026-01-01T12:00:00.000Z"),
+      {
+        locale: "zh-CN",
+        anonymous: "匿名",
+        noCommentText: "（无评论内容）",
+        reopen: "重新打开",
+        resolve: "解决评论",
+        reply: "回复",
+      },
+    );
+
+    expect(dom.textContent).toContain("匿名");
+    expect(dom.textContent).toContain("（无评论内容）");
+    expect(
+      Array.from(dom.querySelectorAll<HTMLButtonElement>("button"), (button) => button.textContent),
+    ).toEqual(["解决评论", "回复"]);
   });
 
   it("shows a comment tooltip on hover via the extension", () => {

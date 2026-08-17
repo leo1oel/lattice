@@ -1246,6 +1246,7 @@
   display: inline-block;
   max-width: 100%;
   overflow: hidden;
+  line-height: 0;
   vertical-align: top;
 }
 
@@ -1869,17 +1870,9 @@
  * (set inline by the DIY Callout renderer) so the halo matches the
  * callout's chroma; the fallback to var(--ring) covers unregistered /
  * wildcard paths. Other substrates fall through to the wildpath defaults. */
-.ProseMirror .jsx-component-wrapper[data-component-type="img"] {
+.ProseMirror .jsx-component-wrapper[data-component-type="img"],
+.ProseMirror .jsx-component-wrapper[data-component-type="commonmarkimage"] {
   --selection-halo-radius: calc(0.625rem + 2px);
-}
-
-/* Images use the same hover resize affordance as HTML/Mermaid previews. Avoid
-   stacking the generic selected-component halo behind those side handles —
-   that extra full-width frame made the image controls read as a different,
-   heavier resize treatment. */
-.ProseMirror .jsx-component-wrapper[data-component-type="img"][data-selected="true"]::after,
-.ProseMirror .jsx-component-wrapper[data-component-type="commonmarkimage"][data-selected="true"]::after {
-  --selection-halo-opacity: 0;
 }
 
 .ProseMirror .jsx-component-wrapper[data-component-type="video"] {

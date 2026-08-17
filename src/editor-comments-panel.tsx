@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Check, MessageSquareText, Reply, RotateCcw } from "lucide-react";
 import { EmptyState } from "./components/ui/empty-state";
 import { DestructiveButton } from "./components/ui/destructive-button";
 import { PanelHeader } from "./components/ui/panel-header";
 import { SearchField } from "./components/ui/search-field";
 import { Textarea } from "./components/ui/textarea";
-import { formatCommentTimestamp, type EditorComment } from "./editor-comments";
+import {
+  editorCommentAuthorDisplayName,
+  formatCommentTimestamp,
+  type EditorComment,
+} from "./editor-comments";
 import { ResizableDrawer } from "./resizable-drawer";
 
 export function EditorCommentsPanel(props: {
@@ -27,6 +32,8 @@ export function EditorCommentsPanel(props: {
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
   const focusRef = useRef<HTMLElement | null>(null);
+  const { i18n, t } = useLingui();
+  const anonymousAuthor = t`Anonymous`;
 
   // When opened from the editor's hover "Reply…", jump to that comment and
   // open its reply box straight away.
@@ -48,7 +55,9 @@ export function EditorCommentsPanel(props: {
           comment.body.toLocaleLowerCase().includes(query)
           || comment.quote.toLocaleLowerCase().includes(query)
           || comment.path.toLocaleLowerCase().includes(query)
-          || comment.authorName.toLocaleLowerCase().includes(query)
+          || editorCommentAuthorDisplayName(comment.authorName, anonymousAuthor)
+            .toLocaleLowerCase()
+            .includes(query)
         );
       })
       .sort((a, b) => {
@@ -56,32 +65,32 @@ export function EditorCommentsPanel(props: {
         if (b.path === props.activePath && a.path !== props.activePath) return 1;
         return b.updatedAt.localeCompare(a.updatedAt);
       });
-  }, [filter, props.activePath, props.comments, showResolved]);
+  }, [anonymousAuthor, filter, props.activePath, props.comments, showResolved]);
 
   return (
     <ResizableDrawer className="editor-comments-drawer" onClose={props.onClose}>
         <PanelHeader
           className="drawer-header"
           icon={<MessageSquareText size={16} />}
-          title="Editor comments"
+          title={t`Editor comments`}
           onClose={props.onClose}
         />
         <div className="pdf-marks-toolbar">
           <SearchField
-            aria-label="Filter editor comments"
-            placeholder="Filter comments…"
+            aria-label={t`Filter editor comments`}
+            placeholder={t`Filter comments…`}
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
             onClear={() => setFilter("")}
           />
-          <div className="pdf-marks-kind-filter" role="group" aria-label="Comment visibility">
+          <div className="pdf-marks-kind-filter" role="group" aria-label={t`Comment visibility`}>
             <button
               type="button"
               className={`ui-compact-selectable${!showResolved ? " active" : ""}`}
               aria-pressed={!showResolved}
               onClick={() => setShowResolved(false)}
             >
-              Open
+              {t`Open comments`}
             </button>
             <button
               type="button"
@@ -89,7 +98,7 @@ export function EditorCommentsPanel(props: {
               aria-pressed={showResolved}
               onClick={() => setShowResolved(true)}
             >
-              Include resolved
+              {t`Include resolved`}
             </button>
           </div>
         </div>
@@ -98,12 +107,16 @@ export function EditorCommentsPanel(props: {
             <EmptyState
               align="start"
               density="compact"
-              description="No comments yet. Select text in the editor and click Comment."
+              description={t`No comments yet. Select text in the editor and click Comment.`}
             />
           )}
           {visible.map((comment) => {
             const isAuthor = comment.authorId === props.currentAuthorId;
             const focused = comment.id === props.focusCommentId;
+            const displayedCommentAuthor = editorCommentAuthorDisplayName(
+              comment.authorName,
+              anonymousAuthor,
+            );
             return (
               <article
                 className={`pdf-mark-item${comment.resolved ? " resolved" : ""}${focused ? " focused" : ""}`}
@@ -113,11 +126,11 @@ export function EditorCommentsPanel(props: {
                 <button type="button" className="pdf-mark-body" onClick={() => props.onOpen(comment)}>
                   <div className="pdf-mark-meta">
                     <MessageSquareText size={12} />
-                    <span>{comment.authorName}</span>
+                    <span>{displayedCommentAuthor}</span>
                     <span>{comment.path}</span>
-                    {comment.resolved && <span>Resolved</span>}
+                    {comment.resolved && <span>{t`Resolved`}</span>}
                   </div>
-                  <strong>{comment.quote.trim() || "(empty span)"}</strong>
+                  <strong>{comment.quote.trim() || t`(empty span)`}</strong>
                   <p>{comment.body}</p>
                 </button>
 
@@ -126,8 +139,8 @@ export function EditorCommentsPanel(props: {
                     {comment.replies.map((reply) => (
                       <div className="editor-comment-reply" key={reply.id}>
                         <div className="editor-comment-reply-meta">
-                          <span>{reply.authorName}</span>
-                          <span>{formatCommentTimestamp(reply.createdAt)}</span>
+                          <span>{editorCommentAuthorDisplayName(reply.authorName, anonymousAuthor)}</span>
+                          <span>{formatCommentTimestamp(reply.createdAt, Date.now(), i18n.locale)}</span>
                         </div>
                         <p>{reply.body}</p>
                       </div>
@@ -141,7 +154,7 @@ export function EditorCommentsPanel(props: {
                       value={draft}
                       rows={3}
                       onChange={(event) => setDraft(event.target.value)}
-                      placeholder="Update comment…"
+                      placeholder={t`Update comment…`}
                     />
                     <div className="pdf-mark-actions">
                       <button
@@ -151,9 +164,9 @@ export function EditorCommentsPanel(props: {
                           setEditingId(null);
                         }}
                       >
-                        Save
+                        {t`Save`}
                       </button>
-                      <button type="button" onClick={() => setEditingId(null)}>Cancel</button>
+                      <button type="button" onClick={() => setEditingId(null)}>{t`Cancel`}</button>
                     </div>
                   </div>
                 ) : replyingId === comment.id ? (
@@ -165,7 +178,7 @@ export function EditorCommentsPanel(props: {
                       rows={3}
                       autoFocus
                       onChange={(event) => setReplyDraft(event.target.value)}
-                      placeholder={`Reply to ${comment.authorName}`}
+                      placeholder={t({ message: `Reply to ${displayedCommentAuthor}` })}
                       onKeyDown={(event) => {
                         if (event.key === "Escape") {
                           setReplyingId(null);
@@ -184,7 +197,7 @@ export function EditorCommentsPanel(props: {
                           setReplyDraft("");
                         }}
                       >
-                        Reply
+                        {t`Reply`}
                       </button>
                       <button
                         type="button"
@@ -193,7 +206,7 @@ export function EditorCommentsPanel(props: {
                           setReplyDraft("");
                         }}
                       >
-                        Cancel
+                        {t`Cancel`}
                       </button>
                     </div>
                   </div>
@@ -201,11 +214,11 @@ export function EditorCommentsPanel(props: {
                   <div className="pdf-mark-actions editor-comment-actions">
                     <button
                       type="button"
-                      title={comment.resolved ? "Reopen" : "Resolve"}
+                      title={comment.resolved ? t`Reopen comment` : t`Resolve comment`}
                       onClick={() => props.onToggleResolved(comment)}
                     >
                       {comment.resolved ? <RotateCcw size={13} /> : <Check size={13} />}
-                      <span>{comment.resolved ? "Reopen" : "Resolve"}</span>
+                      <span>{comment.resolved ? t`Reopen` : t`Resolve comment`}</span>
                     </button>
                     <button
                       type="button"
@@ -215,7 +228,7 @@ export function EditorCommentsPanel(props: {
                       }}
                     >
                       <Reply size={13} />
-                      <span>Reply</span>
+                      <span>{t`Reply`}</span>
                     </button>
                     {isAuthor && (
                       <button
@@ -225,7 +238,7 @@ export function EditorCommentsPanel(props: {
                           setDraft(comment.body);
                         }}
                       >
-                        <span>Edit</span>
+                        <span>{t`Edit`}</span>
                       </button>
                     )}
                     {isAuthor && (
@@ -234,7 +247,7 @@ export function EditorCommentsPanel(props: {
                         iconSize={13}
                         onClick={() => props.onDelete(comment.id)}
                       >
-                        <span>Delete</span>
+                        <span>{t`Delete`}</span>
                       </DestructiveButton>
                     )}
                   </div>

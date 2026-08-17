@@ -82,6 +82,7 @@ import {
   resolveCommentRange,
   setEditorCommentsEffect,
   type EditorComment,
+  type EditorCommentLocalization,
 } from "./editor-comments";
 import {
   clamp,
@@ -621,6 +622,7 @@ function SecondaryMarkdownPreview(props: {
   onLoadAsset: (path: string) => Promise<string | null>;
   editable: boolean;
   onCaretChange: (row: number, column: number) => void;
+  onSelectionMarkdown: (value: string) => void;
 }) {
   const sourceRef = useRef(props.source);
   const onChangeRef = useRef(props.onChange);
@@ -708,6 +710,7 @@ function SecondaryMarkdownPreview(props: {
           onLoadAsset={props.onLoadAsset}
           editable={props.editable}
           onCaretChange={(row, column) => props.onCaretChange(row + lineOffset, column)}
+          onSelectionMarkdown={props.onSelectionMarkdown}
         />
       </Suspense>
     </ScrollArea>
@@ -1128,7 +1131,23 @@ export function DocumentCanvas(props: {
     getFileViewState,
     onFileViewState,
   } = props;
-  const { t } = useLingui();
+  const { i18n, t } = useLingui();
+  const editorCommentLocalizationRef = useRef<EditorCommentLocalization>({
+    locale: i18n.locale,
+    anonymous: t`Anonymous`,
+    noCommentText: t`(no comment text)`,
+    reopen: t`Reopen`,
+    resolve: t`Resolve comment`,
+    reply: t`Reply`,
+  });
+  editorCommentLocalizationRef.current = {
+    locale: i18n.locale,
+    anonymous: t`Anonymous`,
+    noCommentText: t`(no comment text)`,
+    reopen: t`Reopen`,
+    resolve: t`Resolve comment`,
+    reply: t`Reply`,
+  };
   const primaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
   const secondaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
   const registerPrimaryVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
@@ -2072,6 +2091,7 @@ export function DocumentCanvas(props: {
       }),
       editorCommentsExtension(activeFile, {
         getComments: () => commentsForActiveFileRef.current,
+        getLocalization: () => editorCommentLocalizationRef.current,
         currentAuthorId: commentAuthorId,
         onResolve: (id) => resolveEditorCommentRef.current(id),
         onReply: (comment) => replyEditorCommentRef.current(comment.id),
@@ -3248,6 +3268,7 @@ export function DocumentCanvas(props: {
               publishCollabCursorV2(collabSession, markdownPreviewStart + sourceOffset);
             }
           }}
+          onSelectionMarkdown={(value) => setSelectionRef.current(value)}
         />
       </Suspense>
     </ScrollArea>
@@ -3262,7 +3283,7 @@ export function DocumentCanvas(props: {
     ? t`Open PDF in browser`
     : t`Open article in browser`;
   const paperActions = props.activePaper && !paperPdfActive ? (
-    <div className="paper-local-actions" aria-label={t`Paper actions`}>
+    <div className="paper-local-actions" aria-label={t`Paper actions`} data-tour="paper-actions">
       {activePaperArxivId ? (
         <button
           type="button"
@@ -3826,6 +3847,7 @@ export function DocumentCanvas(props: {
         onImportAsset={props.onImportAsset}
         onLoadAsset={props.onLoadReferenceImage}
         editable={props.editorEditable}
+        onSelectionMarkdown={(value) => setSelectionRef.current(value)}
         onCaretChange={(row, column) => {
           const line = row + 1;
           setStatusPosition({ line, column });

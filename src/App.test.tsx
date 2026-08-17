@@ -6,6 +6,7 @@ import { syntaxTree } from "@codemirror/language";
 import { EditorState, StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import type { Editor as TiptapEditor } from "@tiptap/react";
+import { NodeSelection } from "@tiptap/pm/state";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1431,6 +1432,89 @@ describe("project workspace", () => {
     expect(document.querySelector(".dual-canvas")).not.toBeNull();
     expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
       .toHaveTextContent("# Notes");
+  });
+
+  it("keeps a Markdown preview on the right when a board is dropped on the left", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
+        { name: "sketch.tldr", path: "sketch.tldr", kind: "board", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["notes.md"],
+      activeFile: "notes.md",
+      activeTab: "notes.md",
+      secondaryFile: null,
+      focusedPane: "primary",
+      canvasMode: "split",
+      documentMode: "split",
+      paperView: "blog",
+      tabRecency: ["notes.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        return (args as { path: string }).path === "sketch.tldr"
+          ? "{\"tldrawFileFormatVersion\":1,\"records\":[]}"
+          : "# Notes";
+      }
+      if (command === "harper_lint") return [];
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByRole("separator", { name: "Resize editor and Markdown preview" });
+    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    const board = await findProjectTreeItem("sketch.tldr");
+    fireEvent.pointerDown(board, {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 45,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(window, {
+      clientX: 250,
+      clientY: 300,
+      pointerId: 45,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerUp(window, {
+      clientX: 250,
+      clientY: 300,
+      pointerId: 45,
+      pointerType: "mouse",
+    });
+
+    const boardCanvas = await screen.findByTestId("board-editor-mock");
+    expect(boardCanvas.closest("[data-editor-pane='primary']")).not.toBeNull();
+    expect(document.querySelector(
+      ".dual-pane-preview[data-editor-pane='secondary'] .secondary-markdown-preview",
+    )).not.toBeNull();
+    expect(document.querySelector(".source-editor[data-editor-pane='secondary']")).toBeNull();
   });
 
   it("keeps the current editor when an active-tab split loses a race with a late edit", async () => {
@@ -3939,7 +4023,9 @@ describe("project workspace", () => {
     renderApp();
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByTitle("Attention Is All You Need"));
-    fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
+    const viewOriginalPdf = await screen.findByRole("button", { name: "View original PDF" });
+    expect(viewOriginalPdf.closest('[data-tour="paper-actions"]')).not.toBeNull();
+    fireEvent.click(viewOriginalPdf);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_cached_paper_pdf", {
       arxivId: "1706.03762v7",
@@ -3981,6 +4067,198 @@ describe("project workspace", () => {
     });
     expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "read_cached_paper_pdf"))
       .toHaveLength(2);
+  });
+
+  it("publishes a visually selected Markdown block as Agent context", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["notes.md"],
+      activeFile: "notes.md",
+      activeTab: "notes.md",
+      secondaryFile: null,
+      focusedPane: "primary",
+      canvasMode: "pdf",
+      documentMode: "pdf",
+      paperView: "blog",
+      tabRecency: ["notes.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "## Selected context\n\nUnselected paragraph";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await switchSidebarMode("Agent");
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "synara:embed-ready" },
+      }));
+    });
+    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
+    act(() => {
+      editor.view.focus();
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)),
+      );
+    });
+
+    await waitFor(() => expect(postMessage.mock.calls.some(([message]) => {
+      const context = message as { type?: string; editor?: { selection?: string } };
+      return context.type === "lattice:host-context"
+        && context.editor?.selection === "## Selected context";
+    })).toBe(true));
+
+    const grip = document.querySelector<HTMLElement>(".ok-drag-grip");
+    expect(grip).not.toBeNull();
+    fireEvent.pointerDown(grip!, { button: 0, pointerId: 7, pointerType: "mouse" });
+    fireEvent.pointerUp(grip!, { button: 0, pointerId: 7, pointerType: "mouse" });
+    fireEvent.click(grip!);
+    expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+
+    // The grip focuses the same visual-editor surface after selecting the
+    // block. That focus must not clear the context it just published.
+    fireEvent.focus(surface);
+
+    const contextCount = postMessage.mock.calls.filter(([message]) => (
+      (message as { type?: string }).type === "lattice:host-context"
+    )).length;
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "lattice:request-host-context" },
+      }));
+    });
+    await waitFor(() => expect(postMessage.mock.calls.filter(([message]) => (
+      (message as { type?: string }).type === "lattice:host-context"
+    ))).toHaveLength(contextCount + 1));
+    const latestContext = postMessage.mock.calls
+      .map(([message]) => message as { type?: string; editor?: { selection?: string } })
+      .filter((message) => message.type === "lattice:host-context")
+      .at(-1);
+    expect(latestContext?.editor?.selection).toBe("## Selected context");
+  });
+
+  it("gives the Agent a PNG path for a selected WebP Markdown image", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
+        {
+          name: "figures",
+          path: "figures",
+          kind: "directory",
+          children: [{
+            name: "figure.webp",
+            path: "figures/figure.webp",
+            kind: "figure",
+            children: [],
+          }],
+        },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["notes.md"],
+      activeFile: "notes.md",
+      activeTab: "notes.md",
+      secondaryFile: null,
+      focusedPane: "primary",
+      canvasMode: "pdf",
+      documentMode: "pdf",
+      paperView: "blog",
+      tabRecency: ["notes.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "![Figure](figures/figure.webp)";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "read_project_asset") {
+        return {
+          path: "figures/figure.webp",
+          mimeType: "image/webp",
+          base64: btoa("webp-bytes"),
+        };
+      }
+      if (command === "prepare_latex_figure") return "figures/figure-converted.png";
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await switchSidebarMode("Agent");
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "synara:embed-ready" },
+      }));
+    });
+    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
+    act(() => {
+      editor.view.focus();
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)),
+      );
+    });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("prepare_latex_figure", {
+      path: "figures/figure.webp",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    await waitFor(() => expect(postMessage.mock.calls.some(([message]) => {
+      const context = message as {
+        type?: string;
+        editor?: {
+          selection?: string;
+          selectionImage?: {
+            sourcePath?: string;
+            agentReadablePath?: string;
+            mimeType?: string;
+          };
+        };
+      };
+      return context.type === "lattice:host-context"
+        && context.editor?.selection === "![Figure](figures/figure.webp)"
+        && context.editor.selectionImage?.sourcePath === "figures/figure.webp"
+        && context.editor.selectionImage.agentReadablePath === "figures/figure-converted.png"
+        && context.editor.selectionImage.mimeType === "image/png";
+    })).toBe(true));
   });
 
   it("publishes the current visual document before opening a Paper", async () => {
@@ -4640,6 +4918,82 @@ describe("project workspace", () => {
         || command === "list_unused_symbols"
         || command === "list_history",
     )).toHaveLength(backgroundCallsBeforeMove);
+  });
+
+  it("rebases image paths when an open Markdown file is moved into a folder", async () => {
+    localStorage.setItem(
+      "lattice:expanded-directories:/tmp/lattice-paper",
+      JSON.stringify(["figures"]),
+    );
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
+        {
+          name: "figures",
+          path: "figures",
+          kind: "directory",
+          children: [{
+            name: "plot.png",
+            path: "figures/plot.png",
+            kind: "figure",
+            children: [],
+          }],
+        },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") {
+        return '# Notes\n\n<img src="figures/plot.png" alt="Plot" width={223} />\n';
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "move_project_entry") return "figures/notes.md";
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByRole("textbox", { name: "Markdown document editor" });
+    const source = await findProjectTreeItem("notes.md");
+    const target = await findProjectTreeItem("figures/plot.png");
+    fireEvent.pointerDown(source, {
+      button: 0,
+      clientX: 1,
+      clientY: 1,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(target, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerUp(target, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("move_project_entry", {
+      path: "notes.md",
+      targetDirectory: "figures",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
+      path: "figures/notes.md",
+      content: '# Notes\n\n<img src="plot.png" alt="Plot" width={223} />\n',
+      projectRoot: "/tmp/lattice-paper",
+    }));
   });
 
   it("treats a same-directory drop as a no-op", async () => {

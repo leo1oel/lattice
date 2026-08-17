@@ -130,6 +130,14 @@ export function loadEditorCommentAuthorId(): string {
   }
 }
 
+export function editorCommentAuthorDisplayName(
+  authorName: string,
+  anonymousLabel: string,
+): string {
+  const trimmed = authorName.trim();
+  return !trimmed || trimmed === "Anonymous" ? anonymousLabel : trimmed;
+}
+
 export function createEditorComment(options: {
   path: string;
   source: string;

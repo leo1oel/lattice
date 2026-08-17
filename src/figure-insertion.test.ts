@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { latexFigureInsertion, markdownAssetInsertion } from "./figure-insertion";
+import {
+  latexFigureInsertion,
+  markdownAssetInsertion,
+  rewriteMovedDocumentAssetPaths,
+} from "./figure-insertion";
 
 describe("LaTeX figure insertion", () => {
   it("creates editable figure blocks with stable labels", () => {
@@ -38,5 +42,91 @@ describe("Markdown asset insertion", () => {
   it("uses a regular link for PDF files", () => {
     const edit = markdownAssetInsertion("", 0, ["figures/result.pdf"], "notes/method.md");
     expect(edit.text).toBe("[result.pdf](<../figures/result.pdf>)\n");
+  });
+});
+
+describe("moved document image paths", () => {
+  const assets = new Set([
+    "figures/plot.png",
+    "figures/Native UMM.svg",
+    "figures/My Plot.png",
+    "figures/scaled-dot-product-attention.png",
+    "chapters/local.png",
+  ]);
+
+  it("rebases Markdown image destinations while preserving titles and external URLs", () => {
+    const source = [
+      "![Plot](figures/plot.png)",
+      '![Native](<figures/Native UMM.svg> "Overview")',
+      "![Remote](https://example.com/plot.png)",
+      "![Encoded](figures/My%20Plot.png)",
+      '<img src="figures/scaled-dot-product-attention.png" alt="Attention" width={223} />',
+      "[Download](figures/plot.png)",
+      "```md",
+      "![Example](figures/plot.png)",
+      "```",
+      "<!-- ![Commented](figures/plot.png) -->",
+    ].join("\n");
+
+    expect(rewriteMovedDocumentAssetPaths(
+      source,
+      "notes.md",
+      "chapters/notes.md",
+      assets,
+    )).toBe([
+      "![Plot](../figures/plot.png)",
+      '![Native](<../figures/Native UMM.svg> "Overview")',
+      "![Remote](https://example.com/plot.png)",
+      "![Encoded](../figures/My%20Plot.png)",
+      '<img src="../figures/scaled-dot-product-attention.png" alt="Attention" width={223} />',
+      "[Download](figures/plot.png)",
+      "```md",
+      "![Example](figures/plot.png)",
+      "```",
+      "<!-- ![Commented](figures/plot.png) -->",
+    ].join("\n"));
+  });
+
+  it("rebases Markdown images when moving back to the project root", () => {
+    expect(rewriteMovedDocumentAssetPaths(
+      "![Plot](../figures/plot.png)",
+      "chapters/notes.md",
+      "notes.md",
+      assets,
+    )).toBe("![Plot](figures/plot.png)");
+  });
+
+  it("keeps project-root LaTeX paths stable and rebases document-relative paths", () => {
+    const source = [
+      "\\includegraphics{figures/plot.png}",
+      "\\includegraphics[width=\\linewidth]{\\detokenize{../figures/Native UMM.svg}}",
+      "% \\includegraphics{../figures/plot.png}",
+    ].join("\n");
+
+    expect(rewriteMovedDocumentAssetPaths(
+      source,
+      "chapters/method.tex",
+      "chapters/archive/method.tex",
+      assets,
+    )).toBe([
+      "\\includegraphics{figures/plot.png}",
+      "\\includegraphics[width=\\linewidth]{\\detokenize{../../figures/Native UMM.svg}}",
+      "% \\includegraphics{../figures/plot.png}",
+    ].join("\n"));
+  });
+
+  it("leaves missing paths and non-document files unchanged", () => {
+    expect(rewriteMovedDocumentAssetPaths(
+      "![Missing](missing.png)",
+      "notes.md",
+      "chapters/notes.md",
+      assets,
+    )).toBe("![Missing](missing.png)");
+    expect(rewriteMovedDocumentAssetPaths(
+      "![Plot](figures/plot.png)",
+      "notes.txt",
+      "chapters/notes.txt",
+      assets,
+    )).toBe("![Plot](figures/plot.png)");
   });
 });

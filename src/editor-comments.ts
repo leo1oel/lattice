@@ -1,10 +1,15 @@
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, hoverTooltip, type DecorationSet } from "@codemirror/view";
 import { peerColorForKey } from "./collab-colors";
-import { resolveCommentRange, type EditorComment } from "./editor-comment-data";
+import {
+  editorCommentAuthorDisplayName,
+  resolveCommentRange,
+  type EditorComment,
+} from "./editor-comment-data";
 export {
   createEditorComment,
   createEditorCommentReply,
+  editorCommentAuthorDisplayName,
   EDITOR_COMMENTS_PATH,
   emptyEditorCommentsFile,
   loadEditorCommentAuthorId,
@@ -89,19 +94,42 @@ export function commentsAtPosition(
 }
 
 /** Short "3 min ago" style label; falls back to the raw date on parse failure. */
-export function formatCommentTimestamp(iso: string, now = Date.now()): string {
+export function formatCommentTimestamp(
+  iso: string,
+  now = Date.now(),
+  locale = "en",
+): string {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return iso;
   const seconds = Math.round((now - then) / 1000);
-  if (seconds < 45) return "just now";
+  const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (seconds < 45) return relative.format(0, "second");
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return relative.format(-minutes, "minute");
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hr ago`;
+  if (hours < 24) return relative.format(-hours, "hour");
   const days = Math.round(hours / 24);
-  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
-  return new Date(then).toLocaleDateString();
+  if (days < 7) return relative.format(-days, "day");
+  return new Date(then).toLocaleDateString(locale);
 }
+
+export type EditorCommentLocalization = {
+  locale: string;
+  anonymous: string;
+  noCommentText: string;
+  reopen: string;
+  resolve: string;
+  reply: string;
+};
+
+const DEFAULT_COMMENT_LOCALIZATION: EditorCommentLocalization = {
+  locale: "en",
+  anonymous: "Anonymous",
+  noCommentText: "(no comment text)",
+  reopen: "Reopen",
+  resolve: "Resolve",
+  reply: "Reply",
+};
 
 export type CommentTooltipActions = {
   /** Local author id, so we can tell "your comment" from a collaborator's. */
@@ -113,7 +141,15 @@ export type CommentTooltipActions = {
 /** One author/time/body row, reused for the comment head and each reply. */
 function appendCommentLine(
   parent: HTMLElement,
-  opts: { authorId: string; authorName: string; when: string; body: string; className: string; now: number },
+  opts: {
+    authorId: string;
+    authorName: string;
+    when: string;
+    body: string;
+    className: string;
+    now: number;
+    localization: EditorCommentLocalization;
+  },
 ): void {
   const colors = peerColorForKey(opts.authorId || opts.authorName);
   const line = document.createElement("div");
@@ -126,15 +162,18 @@ function appendCommentLine(
   dot.style.backgroundColor = colors.color;
   const author = document.createElement("span");
   author.className = "cm-editor-comment-tooltip-author";
-  author.textContent = opts.authorName || "Anonymous";
+  author.textContent = editorCommentAuthorDisplayName(
+    opts.authorName,
+    opts.localization.anonymous,
+  );
   const when = document.createElement("span");
   when.className = "cm-editor-comment-tooltip-time";
-  when.textContent = formatCommentTimestamp(opts.when, opts.now);
+  when.textContent = formatCommentTimestamp(opts.when, opts.now, opts.localization.locale);
   head.append(dot, author, when);
 
   const body = document.createElement("div");
   body.className = "cm-editor-comment-tooltip-body";
-  body.textContent = opts.body || "(no comment text)";
+  body.textContent = opts.body || opts.localization.noCommentText;
 
   line.append(head, body);
   parent.appendChild(line);
@@ -145,6 +184,7 @@ export function buildCommentTooltipDom(
   comments: EditorComment[],
   actions?: CommentTooltipActions,
   now = Date.now(),
+  localization = DEFAULT_COMMENT_LOCALIZATION,
 ): HTMLElement {
   const dom = document.createElement("div");
   dom.className = "cm-editor-comment-tooltip";
@@ -159,6 +199,7 @@ export function buildCommentTooltipDom(
       body: comment.body,
       className: "cm-editor-comment-tooltip-main",
       now,
+      localization,
     });
 
     for (const reply of comment.replies ?? []) {
@@ -169,6 +210,7 @@ export function buildCommentTooltipDom(
         body: reply.body,
         className: "cm-editor-comment-tooltip-reply",
         now,
+        localization,
       });
     }
 
@@ -178,11 +220,11 @@ export function buildCommentTooltipDom(
 
       const resolveBtn = document.createElement("button");
       resolveBtn.type = "button";
-      resolveBtn.textContent = comment.resolved ? "Reopen" : "Resolve";
+      resolveBtn.textContent = comment.resolved ? localization.reopen : localization.resolve;
       const replyBtn = document.createElement("button");
       replyBtn.type = "button";
       // Matches the drawer's own Reply button; the ellipsis promised a menu.
-      replyBtn.textContent = "Reply";
+      replyBtn.textContent = localization.reply;
 
       // Keep the hover tooltip alive: a mousedown outside the range would
       // otherwise dismiss it before the click lands.
@@ -219,6 +261,7 @@ export type EditorCommentsExtensionOptions = {
   currentAuthorId?: string;
   onResolve?: (id: string) => void;
   onReply?: (comment: EditorComment) => void;
+  getLocalization?: () => EditorCommentLocalization;
 };
 
 export function editorCommentsExtension(
@@ -308,7 +351,12 @@ export function editorCommentsExtension(
       // gap between the card and the text.
       arrow: true,
       create: () => ({
-        dom: buildCommentTooltipDom(hits, tooltipActions),
+        dom: buildCommentTooltipDom(
+          hits,
+          tooltipActions,
+          Date.now(),
+          options.getLocalization?.() ?? DEFAULT_COMMENT_LOCALIZATION,
+        ),
         // Let a long comment grow; otherwise CodeMirror clamps the height to
         // the space above the line and the body becomes a scroll box.
         resize: false,

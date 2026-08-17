@@ -10,7 +10,6 @@ import { I18nProvider } from "@lingui/react";
 import "@fontsource-variable/inter";
 import "./assets/fonts/ioskeley-mono/ioskeley-mono.css";
 import "@fontsource/instrument-serif/400.css";
-import { InterfaceKit } from "interface-kit/react";
 import App from "./App";
 import { UpdaterProvider, UpdateBanner } from "./app-updater";
 import "./app-updater.css";
@@ -43,7 +42,6 @@ async function startApp() {
           </ConfirmActionProvider>
         </UpdaterProvider>
       </RootErrorBoundary>
-      {import.meta.env.DEV && <InterfaceKit />}
     </I18nProvider>,
   );
 }

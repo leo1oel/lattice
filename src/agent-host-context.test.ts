@@ -1,5 +1,36 @@
-import { describe, expect, it } from "vitest";
-import { buildAgentHostContext, LATTICE_HOST_CONTEXT } from "./agent-host-context";
+import { describe, expect, it, vi } from "vitest";
+import {
+  buildAgentHostContext,
+  LATTICE_HOST_CONTEXT,
+  selectedMarkdownImageProjectPath,
+} from "./agent-host-context";
+
+describe("selected Markdown image context", () => {
+  it("resolves Markdown and HTML image blocks relative to their document", () => {
+    expect(selectedMarkdownImageProjectPath(
+      "![Figure](paper_assets/figure-001.webp)",
+      ".research/papers/2010.11929/paper.md",
+    )).toBe(".research/papers/2010.11929/paper_assets/figure-001.webp");
+    expect(selectedMarkdownImageProjectPath(
+      '<img src="../figures/My%20Plot.png" alt="Plot" width={223} />',
+      "notes/method.md",
+    )).toBe("figures/My Plot.png");
+  });
+
+  it("ignores prose, remote images, and paths outside the project", () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(selectedMarkdownImageProjectPath("A paragraph", "notes.md")).toBeNull();
+    expect(selectedMarkdownImageProjectPath(
+      "![Remote](https://example.com/figure.png)",
+      "notes.md",
+    )).toBeNull();
+    expect(selectedMarkdownImageProjectPath(
+      "![Outside](../../figure.png)",
+      "notes/method.md",
+    )).toBeNull();
+    warning.mockRestore();
+  });
+});
 
 describe("agent host context", () => {
   it("shares bounded editor and PDF location metadata", () => {
@@ -53,6 +84,12 @@ describe("agent host context", () => {
       pdfPageCount: null,
       selection: "scaled dot-product attention",
       selectionSource: "paper",
+      selectionImage: {
+        source: "paper",
+        sourcePath: ".research/papers/1706.03762/paper_assets/figure-001.webp",
+        agentReadablePath: ".research/papers/1706.03762/paper_assets/figure-001-converted.png",
+        mimeType: "image/png",
+      },
       activeSurface: "paper",
     }).paper).toEqual({
       title: "Attention Is All You Need",
@@ -61,6 +98,11 @@ describe("agent host context", () => {
       path: ".research/papers/1706.03762/paper.md",
       view: "fulltext",
       selection: "scaled dot-product attention",
+      selectionImage: {
+        sourcePath: ".research/papers/1706.03762/paper_assets/figure-001.webp",
+        agentReadablePath: ".research/papers/1706.03762/paper_assets/figure-001-converted.png",
+        mimeType: "image/png",
+      },
     });
   });
 

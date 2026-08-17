@@ -26,7 +26,11 @@ export function blockControlCrossAxisOffset(
   referenceHeight: number,
   lineHeight: number,
   nodeType?: string,
+  visualTopOffset?: number,
 ): number {
+  if (visualTopOffset != null && Number.isFinite(visualTopOffset)) {
+    return Math.max(0, visualTopOffset);
+  }
   if (nodeType === "thematicBreak") return (referenceHeight - HANDLE_HEIGHT) / 2;
   const firstLineHeight = Number.isFinite(lineHeight) && lineHeight > 0
     ? Math.min(referenceHeight, lineHeight)
@@ -75,6 +79,22 @@ function blockLabel(node: ProseMirrorNode | null): string {
     thematicBreak: "divider",
   };
   return `Select ${labels[node.type.name] ?? "block"}`;
+}
+
+function imageVisualTopOffset(
+  editor: Editor,
+  node: ProseMirrorNode | null,
+  position: number,
+): number | undefined {
+  if (node?.type.name !== "jsxComponent" || position < 0) return undefined;
+  const componentName = String(node.attrs.componentName ?? "");
+  if (!["img", "CommonMarkImage", "WikiEmbedImage"].includes(componentName)) return undefined;
+  const reference = editor.view.nodeDOM(position);
+  if (!(reference instanceof HTMLElement)) return undefined;
+  const image = reference.querySelector<HTMLElement>(".ok-image-resizable");
+  if (!image) return undefined;
+  const offset = image.getBoundingClientRect().top - reference.getBoundingClientRect().top;
+  return Number.isFinite(offset) ? offset : undefined;
 }
 
 function createBlockControls() {
@@ -445,12 +465,18 @@ export const VisualBlockControls = Extension.create({
               const lineHeight = elements.reference instanceof Element
                 ? Number.parseFloat(getComputedStyle(elements.reference).lineHeight)
                 : Number.NaN;
+              const visualTopOffset = imageVisualTopOffset(
+                editor,
+                currentNode,
+                currentNodePosition,
+              );
               return {
                 mainAxis: 10,
                 crossAxis: blockControlCrossAxisOffset(
                   rects.reference.height,
                   lineHeight,
                   currentNode?.type.name,
+                  visualTopOffset,
                 ),
               };
             }),

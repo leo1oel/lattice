@@ -47,6 +47,14 @@ msgstr "“{0}”中已经有文件，并且没有关联到 Overleaf。\n"
 msgid "“{0}” stays linked"
 msgstr "“{0}”仍保持关联"
 
+#: src/editor-comments-panel.tsx
+msgid "(empty span)"
+msgstr "（空选区）"
+
+#: src/document-canvas.tsx
+msgid "(no comment text)"
+msgstr "（无评论内容）"
+
 #: src/collab-dialog.tsx
 msgid "(you)"
 msgstr "（你）"
@@ -227,6 +235,7 @@ msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "添加参考文献条目并缓存该 arXiv 论文"
 
 #: src/document-canvas.tsx
+#: src/visual-markdown-editor.tsx
 msgid "Add comment"
 msgstr "添加评论"
 
@@ -248,6 +257,10 @@ msgstr "已添加"
 #: src/settings-dialog.tsx
 msgid "Agent"
 msgstr "智能助手"
+
+#: src/onboarding-tour.tsx
+msgid "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools."
+msgstr "Agent 可以读取你的稿件、笔记、论文和电子表格。你可以让它起草文本、对照来源核查论断，或更新示例电子表格。Skills 和 MCP 服务器还能扩展更多工具。"
 
 #. placeholder {0}: item.threadTitle
 #: src/history-drawer.tsx
@@ -328,12 +341,8 @@ msgid "Ampersand"
 msgstr "与号"
 
 #: src/onboarding-tour.tsx
-msgid "An agent that has already read your project"
-msgstr "一个已经读过你项目的 Agent"
-
-#: src/onboarding-tour.tsx
-msgid "An infinite canvas for diagrams, arrows, and freehand notes. This one maps how attention flows, and every shape on it is editable."
-msgstr "用无限画布绘制图表、箭头和手写笔记。这个画板展示了注意力如何流动，其中每个形状都可以编辑。"
+msgid "An agent that works across your project"
+msgstr "可处理整个项目的 Agent"
 
 #: src/onboarding-tour.tsx
 msgid "Analyze results in a live spreadsheet"
@@ -342,6 +351,12 @@ msgstr "在实时电子表格中分析结果"
 #: src/insert-snippets.ts
 msgid "Angle"
 msgstr "角"
+
+#: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
+#: src/visual-markdown-editor.tsx
+msgid "Anonymous"
+msgstr "匿名"
 
 #: src/settings-dialog.tsx
 msgid "App updates"
@@ -507,8 +522,8 @@ msgid "Blog"
 msgstr "概览"
 
 #: src/onboarding-tour.tsx
-msgid "Blog view is a generated, illustrated walkthrough of the paper — enough to tell whether it deserves a full read."
-msgstr "博客视图是自动生成、配有插图的论文导读，足以帮助你判断是否值得阅读全文。"
+msgid "Blog view gives you an illustrated overview before you read the full paper."
+msgstr "博客视图提供带插图的论文概览，帮助你在阅读全文前快速了解内容。"
 
 #: src/insert-snippets.ts
 msgid "Bmatrix"
@@ -559,6 +574,10 @@ msgstr "短音符示例"
 msgid "Bring back {0}"
 msgstr "恢复 {0}"
 
+#: src/onboarding-tour.tsx
+msgid "Browse your bibliography"
+msgstr "浏览参考文献"
+
 #: src/App.tsx
 msgid "Build"
 msgstr "构建"
@@ -603,11 +622,13 @@ msgstr "花体"
 #: src/collab-dialog.tsx
 #: src/confirm-action-dialog.tsx
 #: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
 #: src/overleaf-connect.tsx
 #: src/overleaf-history.tsx
 #: src/project-dialogs.tsx
 #: src/spreadsheet-editor.tsx
 #: src/versions-timeline.tsx
+#: src/visual-markdown-editor.tsx
 msgid "Cancel"
 msgstr "取消"
 
@@ -825,10 +846,6 @@ msgid "Click Agent"
 msgstr "点击 Agent"
 
 #: src/onboarding-tour.tsx
-msgid "Click into the formatted side and type — no Markdown syntax needed. Press / on an empty line to drop in headings, tables, math, or images."
-msgstr "点击格式化视图并直接输入，无需 Markdown 语法。在空行中按 / 可插入标题、表格、数学公式或图片。"
-
-#: src/onboarding-tour.tsx
 msgid "Click Paper to read the full text"
 msgstr "点击“论文”阅读全文"
 
@@ -892,6 +909,10 @@ msgstr "协作失败"
 msgid "Collaboration is read-only"
 msgstr "协作为只读"
 
+#: src/onboarding-tour.tsx
+msgid "Collaboration, Overleaf, and history"
+msgstr "协作、Overleaf 与版本历史"
+
 #: src/settings-dialog.tsx
 msgid "Color theme"
 msgstr "颜色主题"
@@ -903,6 +924,18 @@ msgstr "命令面板"
 #: src/document-canvas.tsx
 msgid "comment"
 msgstr "评论"
+
+#: src/visual-markdown-editor.tsx
+msgid "Comment"
+msgstr "评论"
+
+#: src/visual-markdown-editor.tsx
+msgid "Comment by {author}"
+msgstr "{author} 的评论"
+
+#: src/editor-comments-panel.tsx
+msgid "Comment visibility"
+msgstr "评论显示范围"
 
 #: src/document-canvas.tsx
 msgid "Comments"
@@ -1120,6 +1153,7 @@ msgid "Degree"
 msgstr "度"
 
 #: src/confirm-action-dialog.tsx
+#: src/editor-comments-panel.tsx
 #: src/navigator.tsx
 #: src/spreadsheet-editor.tsx
 msgid "Delete"
@@ -1128,6 +1162,10 @@ msgstr "删除"
 #: src/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
 msgstr "同时在 Overleaf 上删除"
+
+#: src/App.tsx
+msgid "Delete this comment? Its replies will be removed too. This cannot be undone."
+msgstr "要删除这条评论吗？它的回复也会一并删除，且无法撤销。"
 
 #: src/history-drawer.tsx
 msgid "Delete this history entry"
@@ -1305,8 +1343,13 @@ msgstr "双源码视图"
 msgid "e.g. Lattice"
 msgstr "例如 Lattice"
 
+#: src/onboarding-tour.tsx
+msgid "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full."
+msgstr ".bib 中的每个条目都会显示在这里。含 arXiv ID 的条目可以下载全文。"
+
 #: src/App.tsx
 #: src/canvas-toolbar.tsx
+#: src/editor-comments-panel.tsx
 msgid "Edit"
 msgstr "编辑"
 
@@ -1327,17 +1370,21 @@ msgstr "编辑参考文献条目"
 msgid "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
 msgstr "直接编辑单元格和公式。在共享项目中，合作者的选区和指针会实时显示。"
 
-#: src/onboarding-tour.tsx
-msgid "Edit for the source, Split for both, Preview for the finished result. Switch at any time."
-msgstr "“编辑”显示源文件，“拆分”同时显示两者，“预览”显示最终结果。你可以随时切换。"
-
 #: src/canvas-toolbar.tsx
 msgid "Edit HTML"
 msgstr "编辑 HTML"
 
+#: src/onboarding-tour.tsx
+msgid "Edit main.tex on the left. The PDF on the right updates automatically."
+msgstr "在左侧编辑 main.tex，右侧 PDF 会自动更新。"
+
 #: src/canvas-toolbar.tsx
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
+
+#: src/onboarding-tour.tsx
+msgid "Edit notes.md on the left and see the formatted result update live on the right."
+msgstr "在左侧编辑 notes.md，右侧会实时更新排版结果。"
 
 #: src/canvas-toolbar.tsx
 msgid "Edit source"
@@ -1367,6 +1414,7 @@ msgstr "编辑器与构建"
 
 #: src/canvas-toolbar.tsx
 #: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
 msgid "Editor comments"
 msgstr "编辑器评论"
 
@@ -1493,10 +1541,6 @@ msgid "Eta"
 msgstr "伊塔"
 
 #: src/onboarding-tour.tsx
-msgid "Every entry from the bibliography shows up here. Anything with an arXiv ID can be downloaded in full with one click."
-msgstr "参考文献库中的每个条目都会显示在这里。含 arXiv ID 的条目可以一键下载全文。"
-
-#: src/onboarding-tour.tsx
 msgid "Everything for the paper lives in one folder"
 msgstr "论文所需的一切都在一个文件夹中"
 
@@ -1555,6 +1599,14 @@ msgstr "本次更改涉及的文件"
 #: src/insert-snippets.ts
 msgid "Filled square"
 msgstr "实心方块"
+
+#: src/editor-comments-panel.tsx
+msgid "Filter comments…"
+msgstr "筛选评论…"
+
+#: src/editor-comments-panel.tsx
+msgid "Filter editor comments"
+msgstr "筛选编辑器评论"
 
 #: src/history-drawer.tsx
 msgid "Filter project changes"
@@ -1633,8 +1685,8 @@ msgid "Formulas"
 msgstr "公式"
 
 #: src/onboarding-tour.tsx
-msgid "Formulas, Excel export, and Agent edits"
-msgstr "公式、Excel 导出和 Agent 编辑"
+msgid "Formulas and Excel export"
+msgstr "公式与 Excel 导出"
 
 #: src/insert-snippets.ts
 msgid "Fraction"
@@ -1782,8 +1834,8 @@ msgid "host"
 msgstr "主持人"
 
 #: src/onboarding-tour.tsx
-msgid "HTML files render live right here — handy for demos and figures you want to poke at instead of only look at."
-msgstr "HTML 文件会直接在这里实时渲染，非常适合制作可交互的演示和图表。"
+msgid "HTML files render live here, so you can build interactive demos and figures."
+msgstr "HTML 文件会在这里实时渲染，可用于制作交互式演示和图表。"
 
 #: src/document-canvas.tsx
 msgid "HTML preview for {path}"
@@ -1865,6 +1917,10 @@ msgstr "引入文件"
 #: src/insert-snippets.ts
 msgid "Include graphics"
 msgstr "插入图片"
+
+#: src/editor-comments-panel.tsx
+msgid "Include resolved"
+msgstr "包括已解决"
 
 #: src/bib-entry-dialog.tsx
 msgid "Increment year"
@@ -2045,10 +2101,6 @@ msgstr "邀请链接"
 msgid "Iota"
 msgstr "约塔"
 
-#: src/onboarding-tour.tsx
-msgid "It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools."
-msgstr "它可以读取你的稿件、笔记、已下载论文和电子表格。你可以让它起草章节、对照来源核查论断，或读取并更新 attention-results.lattice-sheet 中的单元格区域。Skills 和 MCP 服务器还能扩展更多工具。"
-
 #: src/insert-snippets.ts
 msgid "Itemize"
 msgstr "无序列表"
@@ -2139,10 +2191,6 @@ msgstr "最后更新时间未知"
 msgid "Last, First and Last, First"
 msgstr "姓, 名 and 姓, 名"
 
-#: src/onboarding-tour.tsx
-msgid "LaTeX, notes, figures, boards, and the papers you cite. Click any file in the tree to open it here."
-msgstr "LaTeX、笔记、图片、画板和引用的论文都在这里。点击文件树中的任意文件即可在此打开。"
-
 #: src/App.tsx
 msgid "latexmk -c then -g"
 msgstr "先运行 latexmk -c，再运行 -g"
@@ -2160,8 +2208,8 @@ msgid "Lattice closes the least recently used tab past this count."
 msgstr "超过此数量后，Lattice 会关闭最久未使用的标签页。"
 
 #: src/onboarding-tour.tsx
-msgid "Lattice fetches the full text, the figures, and the metadata, then keeps them attached to the citation."
-msgstr "Lattice 会获取全文、图片和元数据，并将它们附加到引文中。"
+msgid "Lattice downloads the full text, figures, and metadata and keeps them with the citation."
+msgstr "Lattice 会下载全文、图片和元数据，并将它们与引用条目保存在一起。"
 
 #: src/tex-setup-wizard.tsx
 msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute."
@@ -2176,12 +2224,9 @@ msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "通过 Understanding Attention 示例项目学习 Lattice"
 
 #: src/document-canvas.tsx
+#: src/visual-markdown-editor.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "给协作者留言…"
-
-#: src/onboarding-tour.tsx
-msgid "Leave comments on a draft, share the project live with a co-author, sync a linked Overleaf project, commit to Git, or open the full version history — one button each, no terminal."
-msgstr "评论草稿、与合作者实时共享项目、同步关联的 Overleaf 项目、提交到 Git 或打开完整版本历史——每项操作各有一个按钮，无需终端。"
 
 #: src/collab-dialog.tsx
 msgid "Leave share"
@@ -2288,6 +2333,10 @@ msgstr "实时协作"
 msgid "Live collaboration · just you"
 msgstr "实时协作 · 仅你一人"
 
+#: src/onboarding-tour.tsx
+msgid "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions."
+msgstr "“实时协作”用于共享项目，让合作者共同编辑和评论。Overleaf 按钮用于打开或同步 Overleaf 项目。“Git”和“历史”用于提交和查看版本。"
+
 #: src/collab-dialog.tsx
 msgid "Live collaboration view"
 msgstr "实时协作视图"
@@ -2379,6 +2428,10 @@ msgstr "日志"
 #: src/insert-snippets.ts
 msgid "Long equation broken across lines"
 msgstr "跨行断开的长公式"
+
+#: src/onboarding-tour.tsx
+msgid "Manage cited papers"
+msgstr "管理引用的论文"
 
 #: src/overleaf-connect.tsx
 msgid "Manual"
@@ -2578,6 +2631,10 @@ msgstr "尚未记录任何更改。"
 msgid "No changes since the last version."
 msgstr "自上个版本以来没有任何更改。"
 
+#: src/editor-comments-panel.tsx
+msgid "No comments yet. Select text in the editor and click Comment."
+msgstr "还没有评论。在编辑器中选择文本，然后点击“评论”。"
+
 #: src/navigator.tsx
 msgid "No Crossref update metadata found"
 msgstr "未找到 Crossref 更新元数据"
@@ -2649,10 +2706,6 @@ msgstr "不属于"
 #: src/insert-snippets.ts
 msgid "Not equal"
 msgstr "不等于"
-
-#: src/onboarding-tour.tsx
-msgid "Not every file has to be LaTeX. notes.md gets the same live preview — source on the left, formatted on the right."
-msgstr "并非所有文件都必须使用 LaTeX。notes.md 同样提供实时预览——左侧是源文件，右侧是格式化结果。"
 
 #: src/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -2750,6 +2803,10 @@ msgstr "打开另一个 Overleaf 项目"
 msgid "Open article in browser"
 msgstr "在浏览器中打开文章"
 
+#: src/editor-comments-panel.tsx
+msgid "Open comments"
+msgstr "打开评论"
+
 #: src/project-dialogs.tsx
 msgid "Open folder"
 msgstr "打开文件夹"
@@ -2791,6 +2848,10 @@ msgstr "在右侧打开"
 msgid "Open or drag a file here."
 msgstr "在此打开或拖入文件。"
 
+#: src/onboarding-tour.tsx
+msgid "Open Papers to see the sources cited by this manuscript."
+msgstr "打开“论文”，查看这份稿件引用的来源。"
+
 #: src/document-canvas.tsx
 msgid "Open PDF in browser"
 msgstr "在浏览器中打开 PDF"
@@ -2804,8 +2865,8 @@ msgid "Open settings"
 msgstr "打开设置"
 
 #: src/onboarding-tour.tsx
-msgid "Open the Agent tab. Codex, Claude, and other providers all plug in here."
-msgstr "打开 Agent 标签页。Codex、Claude 和其他提供商都可以接入这里。"
+msgid "Open the Agent tab to use Codex, Claude, or another provider."
+msgstr "打开 Agent 标签页，即可使用 Codex、Claude 或其他提供商。"
 
 #: src/canvas-toolbar.tsx
 msgid "Open the full paper Markdown"
@@ -2818,6 +2879,10 @@ msgstr "请先打开已关联的 Overleaf 项目，再更改它的同步设置�
 #: src/canvas-toolbar.tsx
 msgid "Open the paper overview"
 msgstr "打开论文概览"
+
+#: src/onboarding-tour.tsx
+msgid "Open the PDF in Lattice or your browser"
+msgstr "在 Lattice 或浏览器中打开 PDF"
 
 #: src/history-drawer.tsx
 msgid "Open this Agent task before restoring its files"
@@ -2886,8 +2951,8 @@ msgid "Paper content"
 msgstr "论文内容"
 
 #: src/onboarding-tour.tsx
-msgid "Paper view keeps the complete text, sections, equations, and figures as structured Markdown — searchable, quotable, and next to your draft."
-msgstr "论文视图以结构化 Markdown 保留完整文本、章节、公式和图片，支持搜索和引用，并与草稿并排显示。"
+msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft."
+msgstr "论文视图以可搜索的 Markdown 显示完整文本、章节、公式和图片，并与草稿并排呈现。"
 
 #: src/App.tsx
 #: src/document-canvas.tsx
@@ -3064,6 +3129,10 @@ msgstr "预览"
 msgid "Preview HTML"
 msgstr "预览 HTML"
 
+#: src/onboarding-tour.tsx
+msgid "Preview interactive HTML"
+msgstr "预览交互式 HTML"
+
 #: src/canvas-toolbar.tsx
 msgid "Preview Markdown"
 msgstr "预览 Markdown"
@@ -3182,6 +3251,10 @@ msgstr "引文"
 #: src/insert-snippets.ts
 msgid "Radical"
 msgstr "根号"
+
+#: src/onboarding-tour.tsx
+msgid "Read the full paper here"
+msgstr "在此阅读全文"
 
 #. placeholder {0}: status.indexedFiles
 #. placeholder {1}: status.indexedChunks
@@ -3331,6 +3404,15 @@ msgstr "正在渲染更改…"
 msgid "Rendering PDF…"
 msgstr "正在渲染 PDF…"
 
+#: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
+msgid "Reopen"
+msgstr "重新打开"
+
+#: src/editor-comments-panel.tsx
+msgid "Reopen comment"
+msgstr "重新打开评论"
+
 #: src/App.tsx
 msgid "Replace in project"
 msgstr "在项目中替换"
@@ -3338,6 +3420,15 @@ msgstr "在项目中替换"
 #: src/navigator.tsx
 msgid "Replacement/new version"
 msgstr "替代版本/新版本"
+
+#: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
+msgid "Reply"
+msgstr "回复"
+
+#: src/editor-comments-panel.tsx
+msgid "Reply to {displayedCommentAuthor}"
+msgstr "回复 {displayedCommentAuthor}"
 
 #: src/tex-setup-wizard.tsx
 msgid "Required paper tools installed"
@@ -3387,6 +3478,11 @@ msgstr "调整工作区侧边栏大小"
 msgid "Resolve"
 msgstr "解析"
 
+#: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
+msgid "Resolve comment"
+msgstr "解决评论"
+
 #: src/bib-entry-dialog.tsx
 msgid "Resolve from DOI / arXiv / title"
 msgstr "从 DOI / arXiv / 标题解析"
@@ -3394,6 +3490,10 @@ msgstr "从 DOI / arXiv / 标题解析"
 #: src/literature-discovery-panel.tsx
 msgid "Resolve into bibliography entry"
 msgstr "解析为参考文献条目"
+
+#: src/editor-comments-panel.tsx
+msgid "Resolved"
+msgstr "已解决"
 
 #: src/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -3569,10 +3669,6 @@ msgstr "带次数的根号"
 msgid "Run a command…"
 msgstr "运行命令…"
 
-#: src/onboarding-tour.tsx
-msgid "Run interactive explanations"
-msgstr "运行交互式讲解"
-
 #: src/App.tsx
 #: src/settings-dialog.tsx
 msgid "Run TeX doctor"
@@ -3591,6 +3687,7 @@ msgid "Runs on-device; no text leaves this Mac."
 msgstr "在本机运行，文本不外传。"
 
 #: src/collab-dialog.tsx
+#: src/editor-comments-panel.tsx
 #: src/overleaf-history.tsx
 #: src/versions-timeline.tsx
 msgid "Save"
@@ -3702,6 +3799,10 @@ msgstr "节标记"
 msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "选区 {words} 词 · {chars} 字符 · {lines} 行"
 
+#: src/onboarding-tour.tsx
+msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser."
+msgstr "点击“PDF”可在 Lattice 中阅读论文原版 PDF；点击旁边的外链按钮，可在浏览器中打开同一份 PDF。"
+
 #: src/collab-dialog.tsx
 msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
 msgstr "发送上方邀请。对方依次打开“实时协作”→“加入”→粘贴→“加入共享”。Lattice 会在其 Documents/Lattice Shares 下打开一个新文件夹。"
@@ -3742,10 +3843,6 @@ msgstr "共享模式"
 #: src/collab-dialog.tsx
 msgid "Sharing"
 msgstr "正在共享"
-
-#: src/onboarding-tour.tsx
-msgid "Sharing and history live in this row"
-msgstr "共享和历史记录都在这一行"
 
 #: src/insert-snippets.ts
 msgid "Sharp"
@@ -4030,10 +4127,6 @@ msgstr "交换编辑器窗格"
 msgid "Switch project"
 msgstr "切换项目"
 
-#: src/onboarding-tour.tsx
-msgid "Switch to Papers to see what this manuscript cites."
-msgstr "切换到“论文”查看此稿件引用的来源。"
-
 #: src/insert-palette.tsx
 msgid "Symbols"
 msgstr "符号"
@@ -4120,6 +4213,7 @@ msgid "The required tools"
 msgstr "所需工具"
 
 #: src/document-canvas.tsx
+#: src/visual-markdown-editor.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "所选文本已更改。请重新选择后再评论。"
 
@@ -4134,10 +4228,6 @@ msgstr "该工作表及其所有内容都将被删除。"
 #: src/settings-dialog.tsx
 msgid "Theme"
 msgstr "主题"
-
-#: src/onboarding-tour.tsx
-msgid "Then read the real thing, right here"
-msgstr "然后就在这里阅读原文"
 
 #: src/insert-snippets.ts
 msgid "Theorem"
@@ -4170,6 +4260,10 @@ msgstr "三级标题"
 #: src/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "此操作无法撤销。"
+
+#: src/onboarding-tour.tsx
+msgid "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it."
+msgstr "这个文件夹包含稿件、笔记、图片、画板和引用的论文。点击文件即可打开。"
 
 #: src/document-canvas.tsx
 msgid "This format cannot be rendered in the preview."
@@ -4268,6 +4362,7 @@ msgstr "左三角形"
 msgid "Triangle right"
 msgstr "右三角形"
 
+#: src/App.tsx
 #: src/overleaf-connect.tsx
 #: src/versions-timeline.tsx
 msgid "Try again"
@@ -4291,8 +4386,8 @@ msgid "Type"
 msgstr "类型"
 
 #: src/onboarding-tour.tsx
-msgid "Type in main.tex on the left. Lattice saves, compiles, and refreshes the PDF on the right on its own — there is no build button to hunt for."
-msgstr "在左侧的 main.tex 中输入。Lattice 会自动保存、编译并刷新右侧 PDF，无需寻找构建按钮。"
+msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images."
+msgstr "无需 Markdown 语法，直接在格式化视图中输入。在空行中按 / 可插入标题、表格、公式或图片。"
 
 #: src/pdf-viewer.tsx
 #: src/settings-dialog.tsx
@@ -4352,6 +4447,10 @@ msgstr "上下箭头"
 msgid "Up-down double arrow"
 msgstr "上下双线箭头"
 
+#: src/editor-comments-panel.tsx
+msgid "Update comment…"
+msgstr "更新评论…"
+
 #. placeholder {0}: relativeTime(project.lastUpdated)
 #: src/overleaf-connect.tsx
 msgid "updated {0}"
@@ -4378,8 +4477,12 @@ msgid "Upsilon"
 msgstr "宇普西龙"
 
 #: src/onboarding-tour.tsx
-msgid "Use Formulas, export as .xlsx, or ask Agent to read and update ranges, formulas, and formatting."
-msgstr "使用“公式”、导出为 .xlsx，或让 Agent 读取和更新区域、公式及格式。"
+msgid "Use Edit for the source, Split for both, and Preview for the finished result."
+msgstr "“编辑”显示源文件，“拆分”同时显示源文件和预览，“预览”显示最终结果。"
+
+#: src/onboarding-tour.tsx
+msgid "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file."
+msgstr "使用工具栏中的“公式”，或将电子表格导出为 .xlsx 文件。"
 
 #: src/navigator.tsx
 msgid "Use the + button to import this query if it isn't in your library yet."
@@ -4388,6 +4491,10 @@ msgstr "如果资料库中尚无此内容，请使用 + 按钮导入当前查询
 #: src/settings-dialog.tsx
 msgid "Use the Build button or Command-S. Source changes are still saved automatically."
 msgstr "使用“构建”按钮或 Command-S。源码更改仍会自动保存。"
+
+#: src/onboarding-tour.tsx
+msgid "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable."
+msgstr "在无限画布中绘制图表、箭头和手写笔记。每个形状都可以编辑。"
 
 #: src/insert-snippets.ts
 msgid "Variant epsilon"
@@ -4487,6 +4594,10 @@ msgstr "Vim 和 Emacs 的模式键位仅在编辑器内生效。"
 msgid "Vim mode"
 msgstr "Vim 模式"
 
+#: src/visual-markdown-editor.tsx
+msgid "Visual Markdown editor"
+msgstr "可视化 Markdown 编辑器"
+
 #: src/insert-snippets.ts
 msgid "Vmatrix"
 msgstr "行列式矩阵"
@@ -4508,8 +4619,8 @@ msgid "Warning"
 msgstr "警告"
 
 #: src/onboarding-tour.tsx
-msgid "We opened a real project for you — the “Attention Is All You Need” paper — so you can try each feature on real files as we go. Skip whenever you like."
-msgstr "我们为你打开了一个真实项目——“Attention Is All You Need”论文——你可以跟随教程在真实文件上体验各项功能。随时可以跳过。"
+msgid "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time."
+msgstr "我们已打开“Attention Is All You Need”示例项目，你可以直接在真实文件中体验各项功能，也可以随时跳过教程。"
 
 #: src/insert-snippets.ts
 msgid "Weierstrass p"
@@ -4589,10 +4700,6 @@ msgid "You’re on the latest version"
 msgstr "当前已是最新版本"
 
 #: src/onboarding-tour.tsx
-msgid "Your .bib file, as a readable library"
-msgstr "将 .bib 文件作为易读的文献库"
-
-#: src/onboarding-tour.tsx
 msgid "Your LaTeX and your PDF, side by side"
 msgstr "LaTeX 和 PDF 并排显示"
 
@@ -4607,10 +4714,6 @@ msgstr "你的 Overleaf 账户"
 #: src/overleaf-connect.tsx
 msgid "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
 msgstr "你还没有连接 Overleaf 账户。连接一次之后，你 Overleaf 账户下的所有项目都会显示在这里，随时可以在 Lattice 中打开。"
-
-#: src/onboarding-tour.tsx
-msgid "Your sources live in the project too"
-msgstr "你的来源也保存在项目中"
 
 #: src/insert-snippets.ts
 msgid "Zeta"

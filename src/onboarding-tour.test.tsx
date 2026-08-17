@@ -34,12 +34,12 @@ vi.mock("react-joyride", () => ({
 
 import { OnboardingTour } from "./onboarding-tour";
 
-describe("onboarding spreadsheet tour", () => {
+describe("onboarding tour", () => {
   beforeEach(() => {
     joyride.props = null;
   });
 
-  it("introduces spreadsheet editing, collaboration, formulas, export, and Agent tools", () => {
+  it("keeps spreadsheet ribbon features separate from Agent capabilities", () => {
     render(
       <OnboardingTour
         active
@@ -64,8 +64,50 @@ describe("onboarding spreadsheet tour", () => {
       id: "spreadsheet-tools",
       target: '[data-u-comp="ribbon-toolbar"]',
     });
-    expect(tools.content).toContain("export as .xlsx");
-    expect(tools.content).toContain("read and update ranges, formulas, and formatting");
+    expect(tools.content).toContain("Formulas in the toolbar");
+    expect(tools.content).toContain("export the spreadsheet as an .xlsx file");
+    expect(tools.content).not.toContain("Agent");
+
+    const agent = joyride.props!.steps[TUTORIAL_STEPS.agent];
+    expect(agent.content).toContain("update the sample spreadsheet");
+  });
+
+  it("explains collaboration, Overleaf sync, and the paper PDF actions at their controls", () => {
+    const onStepIndexChange = vi.fn();
+    render(
+      <OnboardingTour
+        active
+        stepIndex={TUTORIAL_STEPS.workspaceActions}
+        onStepIndexChange={onStepIndexChange}
+        onSkip={vi.fn()}
+        onComplete={vi.fn()}
+        onSelectTutorialFile={vi.fn()}
+      />,
+    );
+
+    const workspace = joyride.props!.steps[TUTORIAL_STEPS.workspaceActions];
+    expect(workspace).toMatchObject({
+      id: "workspace-actions",
+      target: '[data-tour="workspace-actions"]',
+    });
+    expect(workspace.content).toContain("Live collaboration");
+    expect(workspace.content).toContain("Overleaf opens or syncs");
+
+    const paperActions = joyride.props!.steps[TUTORIAL_STEPS.paperActions];
+    expect(paperActions).toMatchObject({
+      id: "paper-actions",
+      target: '[data-tour="paper-actions"]',
+    });
+    expect(paperActions.content).toContain("original PDF in Lattice");
+    expect(paperActions.content).toContain("external-link button");
+
+    act(() => joyride.props!.onEvent({
+      status: "running",
+      action: "next",
+      type: "step:after",
+      index: TUTORIAL_STEPS.paperFullText,
+    }));
+    expect(onStepIndexChange).toHaveBeenCalledWith(TUTORIAL_STEPS.paperActions);
   });
 
   it("opens the sample sheet after the board and returns to the manuscript afterward", () => {

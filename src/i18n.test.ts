@@ -12,5 +12,7 @@ describe("application localization", () => {
     expect(i18n._(msg`Providers`)).toBe("模型");
     expect(i18n._(msg`Skills`)).toBe("Skills");
     expect(i18n._(msg`Starting Agent`)).toBe("正在启动智能助手");
+    expect(i18n._(msg`Editor comments`)).toBe("编辑器评论");
+    expect(i18n._(msg`Include resolved`)).toBe("包括已解决");
   });
 });

@@ -47,6 +47,14 @@ msgstr "“{0}” already has files in it and isn’t linked to Overleaf.\n"
 msgid "“{0}” stays linked"
 msgstr "“{0}” stays linked"
 
+#: src/editor-comments-panel.tsx
+msgid "(empty span)"
+msgstr "(empty span)"
+
+#: src/document-canvas.tsx
+msgid "(no comment text)"
+msgstr "(no comment text)"
+
 #: src/collab-dialog.tsx
 msgid "(you)"
 msgstr "(you)"
@@ -227,6 +235,7 @@ msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "Add bibliography entry and cache the arXiv paper"
 
 #: src/document-canvas.tsx
+#: src/visual-markdown-editor.tsx
 msgid "Add comment"
 msgstr "Add comment"
 
@@ -248,6 +257,10 @@ msgstr "added"
 #: src/settings-dialog.tsx
 msgid "Agent"
 msgstr "Agent"
+
+#: src/onboarding-tour.tsx
+msgid "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools."
+msgstr "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools."
 
 #. placeholder {0}: item.threadTitle
 #: src/history-drawer.tsx
@@ -328,12 +341,8 @@ msgid "Ampersand"
 msgstr "Ampersand"
 
 #: src/onboarding-tour.tsx
-msgid "An agent that has already read your project"
-msgstr "An agent that has already read your project"
-
-#: src/onboarding-tour.tsx
-msgid "An infinite canvas for diagrams, arrows, and freehand notes. This one maps how attention flows, and every shape on it is editable."
-msgstr "An infinite canvas for diagrams, arrows, and freehand notes. This one maps how attention flows, and every shape on it is editable."
+msgid "An agent that works across your project"
+msgstr "An agent that works across your project"
 
 #: src/onboarding-tour.tsx
 msgid "Analyze results in a live spreadsheet"
@@ -342,6 +351,12 @@ msgstr "Analyze results in a live spreadsheet"
 #: src/insert-snippets.ts
 msgid "Angle"
 msgstr "Angle"
+
+#: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
+#: src/visual-markdown-editor.tsx
+msgid "Anonymous"
+msgstr "Anonymous"
 
 #: src/settings-dialog.tsx
 msgid "App updates"
@@ -507,8 +522,8 @@ msgid "Blog"
 msgstr "Blog"
 
 #: src/onboarding-tour.tsx
-msgid "Blog view is a generated, illustrated walkthrough of the paper — enough to tell whether it deserves a full read."
-msgstr "Blog view is a generated, illustrated walkthrough of the paper — enough to tell whether it deserves a full read."
+msgid "Blog view gives you an illustrated overview before you read the full paper."
+msgstr "Blog view gives you an illustrated overview before you read the full paper."
 
 #: src/insert-snippets.ts
 msgid "Bmatrix"
@@ -559,6 +574,10 @@ msgstr "Breve accent example"
 msgid "Bring back {0}"
 msgstr "Bring back {0}"
 
+#: src/onboarding-tour.tsx
+msgid "Browse your bibliography"
+msgstr "Browse your bibliography"
+
 #: src/App.tsx
 msgid "Build"
 msgstr "Build"
@@ -603,11 +622,13 @@ msgstr "Calligraphic"
 #: src/collab-dialog.tsx
 #: src/confirm-action-dialog.tsx
 #: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
 #: src/overleaf-connect.tsx
 #: src/overleaf-history.tsx
 #: src/project-dialogs.tsx
 #: src/spreadsheet-editor.tsx
 #: src/versions-timeline.tsx
+#: src/visual-markdown-editor.tsx
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -825,10 +846,6 @@ msgid "Click Agent"
 msgstr "Click Agent"
 
 #: src/onboarding-tour.tsx
-msgid "Click into the formatted side and type — no Markdown syntax needed. Press / on an empty line to drop in headings, tables, math, or images."
-msgstr "Click into the formatted side and type — no Markdown syntax needed. Press / on an empty line to drop in headings, tables, math, or images."
-
-#: src/onboarding-tour.tsx
 msgid "Click Paper to read the full text"
 msgstr "Click Paper to read the full text"
 
@@ -892,6 +909,10 @@ msgstr "Collaboration failed"
 msgid "Collaboration is read-only"
 msgstr "Collaboration is read-only"
 
+#: src/onboarding-tour.tsx
+msgid "Collaboration, Overleaf, and history"
+msgstr "Collaboration, Overleaf, and history"
+
 #: src/settings-dialog.tsx
 msgid "Color theme"
 msgstr "Color theme"
@@ -903,6 +924,18 @@ msgstr "Command palette"
 #: src/document-canvas.tsx
 msgid "comment"
 msgstr "comment"
+
+#: src/visual-markdown-editor.tsx
+msgid "Comment"
+msgstr "Comment"
+
+#: src/visual-markdown-editor.tsx
+msgid "Comment by {author}"
+msgstr "Comment by {author}"
+
+#: src/editor-comments-panel.tsx
+msgid "Comment visibility"
+msgstr "Comment visibility"
 
 #: src/document-canvas.tsx
 msgid "Comments"
@@ -1120,6 +1153,7 @@ msgid "Degree"
 msgstr "Degree"
 
 #: src/confirm-action-dialog.tsx
+#: src/editor-comments-panel.tsx
 #: src/navigator.tsx
 #: src/spreadsheet-editor.tsx
 msgid "Delete"
@@ -1128,6 +1162,10 @@ msgstr "Delete"
 #: src/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
 msgstr "Delete on Overleaf too"
+
+#: src/App.tsx
+msgid "Delete this comment? Its replies will be removed too. This cannot be undone."
+msgstr "Delete this comment? Its replies will be removed too. This cannot be undone."
 
 #: src/history-drawer.tsx
 msgid "Delete this history entry"
@@ -1305,8 +1343,13 @@ msgstr "Dual source view"
 msgid "e.g. Lattice"
 msgstr "e.g. Lattice"
 
+#: src/onboarding-tour.tsx
+msgid "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full."
+msgstr "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full."
+
 #: src/App.tsx
 #: src/canvas-toolbar.tsx
+#: src/editor-comments-panel.tsx
 msgid "Edit"
 msgstr "Edit"
 
@@ -1327,17 +1370,21 @@ msgstr "Edit bibliography entry"
 msgid "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
 msgstr "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
 
-#: src/onboarding-tour.tsx
-msgid "Edit for the source, Split for both, Preview for the finished result. Switch at any time."
-msgstr "Edit for the source, Split for both, Preview for the finished result. Switch at any time."
-
 #: src/canvas-toolbar.tsx
 msgid "Edit HTML"
 msgstr "Edit HTML"
 
+#: src/onboarding-tour.tsx
+msgid "Edit main.tex on the left. The PDF on the right updates automatically."
+msgstr "Edit main.tex on the left. The PDF on the right updates automatically."
+
 #: src/canvas-toolbar.tsx
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
+
+#: src/onboarding-tour.tsx
+msgid "Edit notes.md on the left and see the formatted result update live on the right."
+msgstr "Edit notes.md on the left and see the formatted result update live on the right."
 
 #: src/canvas-toolbar.tsx
 msgid "Edit source"
@@ -1367,6 +1414,7 @@ msgstr "Editor & builds"
 
 #: src/canvas-toolbar.tsx
 #: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
 msgid "Editor comments"
 msgstr "Editor comments"
 
@@ -1493,10 +1541,6 @@ msgid "Eta"
 msgstr "Eta"
 
 #: src/onboarding-tour.tsx
-msgid "Every entry from the bibliography shows up here. Anything with an arXiv ID can be downloaded in full with one click."
-msgstr "Every entry from the bibliography shows up here. Anything with an arXiv ID can be downloaded in full with one click."
-
-#: src/onboarding-tour.tsx
 msgid "Everything for the paper lives in one folder"
 msgstr "Everything for the paper lives in one folder"
 
@@ -1555,6 +1599,14 @@ msgstr "Files in this change"
 #: src/insert-snippets.ts
 msgid "Filled square"
 msgstr "Filled square"
+
+#: src/editor-comments-panel.tsx
+msgid "Filter comments…"
+msgstr "Filter comments…"
+
+#: src/editor-comments-panel.tsx
+msgid "Filter editor comments"
+msgstr "Filter editor comments"
 
 #: src/history-drawer.tsx
 msgid "Filter project changes"
@@ -1633,8 +1685,8 @@ msgid "Formulas"
 msgstr "Formulas"
 
 #: src/onboarding-tour.tsx
-msgid "Formulas, Excel export, and Agent edits"
-msgstr "Formulas, Excel export, and Agent edits"
+msgid "Formulas and Excel export"
+msgstr "Formulas and Excel export"
 
 #: src/insert-snippets.ts
 msgid "Fraction"
@@ -1782,8 +1834,8 @@ msgid "host"
 msgstr "host"
 
 #: src/onboarding-tour.tsx
-msgid "HTML files render live right here — handy for demos and figures you want to poke at instead of only look at."
-msgstr "HTML files render live right here — handy for demos and figures you want to poke at instead of only look at."
+msgid "HTML files render live here, so you can build interactive demos and figures."
+msgstr "HTML files render live here, so you can build interactive demos and figures."
 
 #: src/document-canvas.tsx
 msgid "HTML preview for {path}"
@@ -1865,6 +1917,10 @@ msgstr "Include file"
 #: src/insert-snippets.ts
 msgid "Include graphics"
 msgstr "Include graphics"
+
+#: src/editor-comments-panel.tsx
+msgid "Include resolved"
+msgstr "Include resolved"
 
 #: src/bib-entry-dialog.tsx
 msgid "Increment year"
@@ -2045,10 +2101,6 @@ msgstr "Invite link"
 msgid "Iota"
 msgstr "Iota"
 
-#: src/onboarding-tour.tsx
-msgid "It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools."
-msgstr "It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools."
-
 #: src/insert-snippets.ts
 msgid "Itemize"
 msgstr "Itemize"
@@ -2139,10 +2191,6 @@ msgstr "last update unknown"
 msgid "Last, First and Last, First"
 msgstr "Last, First and Last, First"
 
-#: src/onboarding-tour.tsx
-msgid "LaTeX, notes, figures, boards, and the papers you cite. Click any file in the tree to open it here."
-msgstr "LaTeX, notes, figures, boards, and the papers you cite. Click any file in the tree to open it here."
-
 #: src/App.tsx
 msgid "latexmk -c then -g"
 msgstr "latexmk -c then -g"
@@ -2160,8 +2208,8 @@ msgid "Lattice closes the least recently used tab past this count."
 msgstr "Lattice closes the least recently used tab past this count."
 
 #: src/onboarding-tour.tsx
-msgid "Lattice fetches the full text, the figures, and the metadata, then keeps them attached to the citation."
-msgstr "Lattice fetches the full text, the figures, and the metadata, then keeps them attached to the citation."
+msgid "Lattice downloads the full text, figures, and metadata and keeps them with the citation."
+msgstr "Lattice downloads the full text, figures, and metadata and keeps them with the citation."
 
 #: src/tex-setup-wizard.tsx
 msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute."
@@ -2176,12 +2224,9 @@ msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "Learn Lattice with the Understanding Attention sample project"
 
 #: src/document-canvas.tsx
+#: src/visual-markdown-editor.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "Leave a comment for collaborators…"
-
-#: src/onboarding-tour.tsx
-msgid "Leave comments on a draft, share the project live with a co-author, sync a linked Overleaf project, commit to Git, or open the full version history — one button each, no terminal."
-msgstr "Leave comments on a draft, share the project live with a co-author, sync a linked Overleaf project, commit to Git, or open the full version history — one button each, no terminal."
 
 #: src/collab-dialog.tsx
 msgid "Leave share"
@@ -2288,6 +2333,10 @@ msgstr "Live collaboration"
 msgid "Live collaboration · just you"
 msgstr "Live collaboration · just you"
 
+#: src/onboarding-tour.tsx
+msgid "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions."
+msgstr "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions."
+
 #: src/collab-dialog.tsx
 msgid "Live collaboration view"
 msgstr "Live collaboration view"
@@ -2379,6 +2428,10 @@ msgstr "Logs"
 #: src/insert-snippets.ts
 msgid "Long equation broken across lines"
 msgstr "Long equation broken across lines"
+
+#: src/onboarding-tour.tsx
+msgid "Manage cited papers"
+msgstr "Manage cited papers"
 
 #: src/overleaf-connect.tsx
 msgid "Manual"
@@ -2578,6 +2631,10 @@ msgstr "No changes recorded yet."
 msgid "No changes since the last version."
 msgstr "No changes since the last version."
 
+#: src/editor-comments-panel.tsx
+msgid "No comments yet. Select text in the editor and click Comment."
+msgstr "No comments yet. Select text in the editor and click Comment."
+
 #: src/navigator.tsx
 msgid "No Crossref update metadata found"
 msgstr "No Crossref update metadata found"
@@ -2649,10 +2706,6 @@ msgstr "Not an element of"
 #: src/insert-snippets.ts
 msgid "Not equal"
 msgstr "Not equal"
-
-#: src/onboarding-tour.tsx
-msgid "Not every file has to be LaTeX. notes.md gets the same live preview — source on the left, formatted on the right."
-msgstr "Not every file has to be LaTeX. notes.md gets the same live preview — source on the left, formatted on the right."
 
 #: src/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -2750,6 +2803,10 @@ msgstr "Open another Overleaf project"
 msgid "Open article in browser"
 msgstr "Open article in browser"
 
+#: src/editor-comments-panel.tsx
+msgid "Open comments"
+msgstr "Open comments"
+
 #: src/project-dialogs.tsx
 msgid "Open folder"
 msgstr "Open folder"
@@ -2791,6 +2848,10 @@ msgstr "Open on right"
 msgid "Open or drag a file here."
 msgstr "Open or drag a file here."
 
+#: src/onboarding-tour.tsx
+msgid "Open Papers to see the sources cited by this manuscript."
+msgstr "Open Papers to see the sources cited by this manuscript."
+
 #: src/document-canvas.tsx
 msgid "Open PDF in browser"
 msgstr "Open PDF in browser"
@@ -2804,8 +2865,8 @@ msgid "Open settings"
 msgstr "Open settings"
 
 #: src/onboarding-tour.tsx
-msgid "Open the Agent tab. Codex, Claude, and other providers all plug in here."
-msgstr "Open the Agent tab. Codex, Claude, and other providers all plug in here."
+msgid "Open the Agent tab to use Codex, Claude, or another provider."
+msgstr "Open the Agent tab to use Codex, Claude, or another provider."
 
 #: src/canvas-toolbar.tsx
 msgid "Open the full paper Markdown"
@@ -2818,6 +2879,10 @@ msgstr "Open the linked Overleaf project before changing its sync setting."
 #: src/canvas-toolbar.tsx
 msgid "Open the paper overview"
 msgstr "Open the paper overview"
+
+#: src/onboarding-tour.tsx
+msgid "Open the PDF in Lattice or your browser"
+msgstr "Open the PDF in Lattice or your browser"
 
 #: src/history-drawer.tsx
 msgid "Open this Agent task before restoring its files"
@@ -2886,8 +2951,8 @@ msgid "Paper content"
 msgstr "Paper content"
 
 #: src/onboarding-tour.tsx
-msgid "Paper view keeps the complete text, sections, equations, and figures as structured Markdown — searchable, quotable, and next to your draft."
-msgstr "Paper view keeps the complete text, sections, equations, and figures as structured Markdown — searchable, quotable, and next to your draft."
+msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft."
+msgstr "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft."
 
 #: src/App.tsx
 #: src/document-canvas.tsx
@@ -3064,6 +3129,10 @@ msgstr "Preview"
 msgid "Preview HTML"
 msgstr "Preview HTML"
 
+#: src/onboarding-tour.tsx
+msgid "Preview interactive HTML"
+msgstr "Preview interactive HTML"
+
 #: src/canvas-toolbar.tsx
 msgid "Preview Markdown"
 msgstr "Preview Markdown"
@@ -3182,6 +3251,10 @@ msgstr "Quote"
 #: src/insert-snippets.ts
 msgid "Radical"
 msgstr "Radical"
+
+#: src/onboarding-tour.tsx
+msgid "Read the full paper here"
+msgstr "Read the full paper here"
 
 #. placeholder {0}: status.indexedFiles
 #. placeholder {1}: status.indexedChunks
@@ -3333,6 +3406,15 @@ msgstr "Rendering changes…"
 msgid "Rendering PDF…"
 msgstr "Rendering PDF…"
 
+#: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
+msgid "Reopen"
+msgstr "Reopen"
+
+#: src/editor-comments-panel.tsx
+msgid "Reopen comment"
+msgstr "Reopen comment"
+
 #: src/App.tsx
 msgid "Replace in project"
 msgstr "Replace in project"
@@ -3340,6 +3422,15 @@ msgstr "Replace in project"
 #: src/navigator.tsx
 msgid "Replacement/new version"
 msgstr "Replacement/new version"
+
+#: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
+msgid "Reply"
+msgstr "Reply"
+
+#: src/editor-comments-panel.tsx
+msgid "Reply to {displayedCommentAuthor}"
+msgstr "Reply to {displayedCommentAuthor}"
 
 #: src/tex-setup-wizard.tsx
 msgid "Required paper tools installed"
@@ -3389,6 +3480,11 @@ msgstr "Resize workspace sidebar"
 msgid "Resolve"
 msgstr "Resolve"
 
+#: src/document-canvas.tsx
+#: src/editor-comments-panel.tsx
+msgid "Resolve comment"
+msgstr "Resolve comment"
+
 #: src/bib-entry-dialog.tsx
 msgid "Resolve from DOI / arXiv / title"
 msgstr "Resolve from DOI / arXiv / title"
@@ -3396,6 +3492,10 @@ msgstr "Resolve from DOI / arXiv / title"
 #: src/literature-discovery-panel.tsx
 msgid "Resolve into bibliography entry"
 msgstr "Resolve into bibliography entry"
+
+#: src/editor-comments-panel.tsx
+msgid "Resolved"
+msgstr "Resolved"
 
 #: src/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -3571,10 +3671,6 @@ msgstr "Root with index"
 msgid "Run a command…"
 msgstr "Run a command…"
 
-#: src/onboarding-tour.tsx
-msgid "Run interactive explanations"
-msgstr "Run interactive explanations"
-
 #: src/App.tsx
 #: src/settings-dialog.tsx
 msgid "Run TeX doctor"
@@ -3593,6 +3689,7 @@ msgid "Runs on-device; no text leaves this Mac."
 msgstr "Runs on-device; no text leaves this Mac."
 
 #: src/collab-dialog.tsx
+#: src/editor-comments-panel.tsx
 #: src/overleaf-history.tsx
 #: src/versions-timeline.tsx
 msgid "Save"
@@ -3704,6 +3801,10 @@ msgstr "Section sign"
 msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "Sel {words} words · {chars} chars · {lines} lines"
 
+#: src/onboarding-tour.tsx
+msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser."
+msgstr "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser."
+
 #: src/collab-dialog.tsx
 msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
 msgstr "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
@@ -3744,10 +3845,6 @@ msgstr "Share mode"
 #: src/collab-dialog.tsx
 msgid "Sharing"
 msgstr "Sharing"
-
-#: src/onboarding-tour.tsx
-msgid "Sharing and history live in this row"
-msgstr "Sharing and history live in this row"
 
 #: src/insert-snippets.ts
 msgid "Sharp"
@@ -4034,10 +4131,6 @@ msgstr "Swap editor panes"
 msgid "Switch project"
 msgstr "Switch project"
 
-#: src/onboarding-tour.tsx
-msgid "Switch to Papers to see what this manuscript cites."
-msgstr "Switch to Papers to see what this manuscript cites."
-
 #: src/insert-palette.tsx
 msgid "Symbols"
 msgstr "Symbols"
@@ -4124,6 +4217,7 @@ msgid "The required tools"
 msgstr "The required tools"
 
 #: src/document-canvas.tsx
+#: src/visual-markdown-editor.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "The selected text changed. Select it again before commenting."
 
@@ -4138,10 +4232,6 @@ msgstr "The worksheet and all of its contents will be removed."
 #: src/settings-dialog.tsx
 msgid "Theme"
 msgstr "Theme"
-
-#: src/onboarding-tour.tsx
-msgid "Then read the real thing, right here"
-msgstr "Then read the real thing, right here"
 
 #: src/insert-snippets.ts
 msgid "Theorem"
@@ -4174,6 +4264,10 @@ msgstr "Third-level heading"
 #: src/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
+
+#: src/onboarding-tour.tsx
+msgid "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it."
+msgstr "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it."
 
 #: src/document-canvas.tsx
 msgid "This format cannot be rendered in the preview."
@@ -4272,6 +4366,7 @@ msgstr "Triangle left"
 msgid "Triangle right"
 msgstr "Triangle right"
 
+#: src/App.tsx
 #: src/overleaf-connect.tsx
 #: src/versions-timeline.tsx
 msgid "Try again"
@@ -4295,8 +4390,8 @@ msgid "Type"
 msgstr "Type"
 
 #: src/onboarding-tour.tsx
-msgid "Type in main.tex on the left. Lattice saves, compiles, and refreshes the PDF on the right on its own — there is no build button to hunt for."
-msgstr "Type in main.tex on the left. Lattice saves, compiles, and refreshes the PDF on the right on its own — there is no build button to hunt for."
+msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images."
+msgstr "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images."
 
 #: src/pdf-viewer.tsx
 #: src/settings-dialog.tsx
@@ -4356,6 +4451,10 @@ msgstr "Up-down arrow"
 msgid "Up-down double arrow"
 msgstr "Up-down double arrow"
 
+#: src/editor-comments-panel.tsx
+msgid "Update comment…"
+msgstr "Update comment…"
+
 #. placeholder {0}: relativeTime(project.lastUpdated)
 #: src/overleaf-connect.tsx
 msgid "updated {0}"
@@ -4382,8 +4481,12 @@ msgid "Upsilon"
 msgstr "Upsilon"
 
 #: src/onboarding-tour.tsx
-msgid "Use Formulas, export as .xlsx, or ask Agent to read and update ranges, formulas, and formatting."
-msgstr "Use Formulas, export as .xlsx, or ask Agent to read and update ranges, formulas, and formatting."
+msgid "Use Edit for the source, Split for both, and Preview for the finished result."
+msgstr "Use Edit for the source, Split for both, and Preview for the finished result."
+
+#: src/onboarding-tour.tsx
+msgid "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file."
+msgstr "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file."
 
 #: src/navigator.tsx
 msgid "Use the + button to import this query if it isn't in your library yet."
@@ -4392,6 +4495,10 @@ msgstr "Use the + button to import this query if it isn't in your library yet."
 #: src/settings-dialog.tsx
 msgid "Use the Build button or Command-S. Source changes are still saved automatically."
 msgstr "Use the Build button or Command-S. Source changes are still saved automatically."
+
+#: src/onboarding-tour.tsx
+msgid "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable."
+msgstr "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable."
 
 #: src/insert-snippets.ts
 msgid "Variant epsilon"
@@ -4491,6 +4598,10 @@ msgstr "Vim and Emacs keep their modal bindings inside the editor only."
 msgid "Vim mode"
 msgstr "Vim mode"
 
+#: src/visual-markdown-editor.tsx
+msgid "Visual Markdown editor"
+msgstr "Visual Markdown editor"
+
 #: src/insert-snippets.ts
 msgid "Vmatrix"
 msgstr "Vmatrix"
@@ -4512,8 +4623,8 @@ msgid "Warning"
 msgstr "Warning"
 
 #: src/onboarding-tour.tsx
-msgid "We opened a real project for you — the “Attention Is All You Need” paper — so you can try each feature on real files as we go. Skip whenever you like."
-msgstr "We opened a real project for you — the “Attention Is All You Need” paper — so you can try each feature on real files as we go. Skip whenever you like."
+msgid "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time."
+msgstr "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time."
 
 #: src/insert-snippets.ts
 msgid "Weierstrass p"
@@ -4593,10 +4704,6 @@ msgid "You’re on the latest version"
 msgstr "You’re on the latest version"
 
 #: src/onboarding-tour.tsx
-msgid "Your .bib file, as a readable library"
-msgstr "Your .bib file, as a readable library"
-
-#: src/onboarding-tour.tsx
 msgid "Your LaTeX and your PDF, side by side"
 msgstr "Your LaTeX and your PDF, side by side"
 
@@ -4611,10 +4718,6 @@ msgstr "your Overleaf account"
 #: src/overleaf-connect.tsx
 msgid "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
 msgstr "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
-
-#: src/onboarding-tour.tsx
-msgid "Your sources live in the project too"
-msgstr "Your sources live in the project too"
 
 #: src/insert-snippets.ts
 msgid "Zeta"
