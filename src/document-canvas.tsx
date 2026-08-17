@@ -1140,14 +1140,16 @@ export function DocumentCanvas(props: {
     resolve: t`Resolve comment`,
     reply: t`Reply`,
   });
-  editorCommentLocalizationRef.current = {
-    locale: i18n.locale,
-    anonymous: t`Anonymous`,
-    noCommentText: t`(no comment text)`,
-    reopen: t`Reopen`,
-    resolve: t`Resolve comment`,
-    reply: t`Reply`,
-  };
+  useEffect(() => {
+    editorCommentLocalizationRef.current = {
+      locale: i18n.locale,
+      anonymous: t`Anonymous`,
+      noCommentText: t`(no comment text)`,
+      reopen: t`Reopen`,
+      resolve: t`Resolve comment`,
+      reply: t`Reply`,
+    };
+  }, [i18n.locale, t]);
   const primaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
   const secondaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
   const registerPrimaryVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
