@@ -1,5 +1,5 @@
 import * as React from "react"
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
@@ -108,6 +108,32 @@ function SelectLabel({
   )
 }
 
+/**
+ * The selected-item mark, drawn here rather than taken from the icon set: at
+ * 14px a checkmark is three or four pixels of angle, so the arms, their ratio
+ * and the weight are set by hand. The short arm lands just past a third of the
+ * long one and both are cut at a round cap. The weight matches the 1.5 stroke
+ * the menu gives every other icon, so the mark reads as part of the same set.
+ */
+function SelectItemCheck() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 14 14"
+      fill="none"
+      className="size-3.5 text-primary"
+    >
+      <path
+        d="M2.9 7.55 5.6 10.25 11.1 3.9"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+      />
+    </svg>
+  )
+}
+
 function SelectItem({
   className,
   children,
@@ -118,17 +144,19 @@ function SelectItem({
       data-slot="select-item"
       className={cn(
         menuItemClassName,
-        "w-full pr-2.5 pl-7 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        // The label starts at the item's own inset like every other menu row;
+        // the gutter that reserves room for the mark sits on the trailing edge.
+        "w-full pr-7 pl-2.5 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
       )}
       {...props}
     >
       <span
         data-slot="select-item-indicator"
-        className="pointer-events-none absolute top-1/2 left-1.5 flex w-4 -translate-y-1/2 items-center justify-center text-[length:var(--type-body-size)] leading-none text-primary"
+        className="pointer-events-none absolute top-1/2 right-1.5 flex w-4 -translate-y-1/2 items-center justify-center text-[length:var(--type-body-size)] leading-none text-primary"
       >
         <SelectPrimitive.ItemIndicator>
-          <CheckIcon aria-hidden="true" className="size-3.5" />
+          <SelectItemCheck />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>

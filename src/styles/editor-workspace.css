@@ -8,6 +8,11 @@
 .pdf-column { position: relative; display: flex; flex-direction: column; }
 .pdf-column > .compile-diagnostics { flex: none; }
 .pdf-column > .pdf-preview { flex: 1 1 0; width: 100%; min-height: 0; }
+/* Shell + placeholder live in the eager sheet, not pdf-viewer.css: the lazy PDF
+   chunk's Suspense fallback (PdfPreviewLoading) paints before that chunk's CSS
+   arrives, and unstyled it dropped the icon and label into the top-left corner. */
+.pdf-preview { position: relative; padding: 0; display: flex; flex-direction: column; background: var(--pdf-bg); }
+.pdf-placeholder { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: var(--space-4); color: var(--text-tertiary); font-size: var(--type-caption-size); }
 .source-workspace { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); width: 100%; max-width: 100%; height: 100%; background: var(--editor-bg); }
 .source-workspace > .document-outline,
 .source-workspace > .document-outline-rail { grid-column: 1; grid-row: 1; min-width: 0; min-height: 0; }
@@ -802,6 +807,8 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .markdown-preview { height: 100%; background: var(--editor-bg); color: var(--text-primary); }
 .markdown-preview-content { min-width: 100%; min-height: 100%; padding: var(--space-16) max(var(--space-12), calc((100% - 760px) / 2)); }
 .markdown-preview-content > .chat-markdown { max-width: 760px; margin: 0 auto; }
+.markdown-preview-content:has(> .markdown-preview-loading) { display: grid; place-items: center; }
+.markdown-preview-loading { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); }
 /* The vendored .tiptap-editor grid owns content centering (1024px content
    column + 4rem margin columns), so the visual editor spans the full pane
    and the preview-content 760px inline padding is dropped for it. */
@@ -1603,6 +1610,311 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .spreadsheet-univer-host button,
 .spreadsheet-univer-host input,
 .spreadsheet-univer-host textarea { font-family: inherit; }
+/* Univer owns the spreadsheet sidebars, so they cannot use Lattice's React
+   CloseButton or ScrollArea directly. Match those primitives at this host seam
+   for every sheet sidebar rather than special-casing the shortcut panel. */
+.spreadsheet-univer-host [data-u-comp="sidebar"] > section > header > button[aria-label="Close sidebar"] {
+  width: var(--control-size-icon);
+  height: var(--control-size-icon);
+  margin: 0;
+  padding: 0;
+  flex: none;
+  border: 0;
+  border-radius: var(--radius-icon);
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  display: inline-grid;
+  place-items: center;
+  line-height: 0;
+  cursor: default;
+  box-shadow: none !important;
+  transition: color var(--duration-quick) var(--ease-default),
+    background-color var(--duration-quick) var(--ease-default);
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] > section > header > button[aria-label="Close sidebar"]:hover {
+  background: var(--control-hover-surface) !important;
+  color: var(--text-primary) !important;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] > section > header > button[aria-label="Close sidebar"]:active {
+  background: var(--control-pressed-surface) !important;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] > section > header > button[aria-label="Close sidebar"]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] > section > header > button[aria-label="Close sidebar"] > svg {
+  display: none;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] > section > header > button[aria-label="Close sidebar"]::before {
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  content: "";
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M18 6 6 18M6 6l12 12' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M18 6 6 18M6 6l12 12' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.spreadsheet-univer-host [data-u-comp="sidebar"] > section {
+  -ms-overflow-style: none;
+  scrollbar-width: none !important;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] > section::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+/* Univer's right-sidebar layer is z-index 100. Keep the replacement scrollbar
+   one layer above it; the spreadsheet root isolates this local stack from the
+   rest of the app. */
+.spreadsheet-editor-root > .external-scrollbar,
+.spreadsheet-functions-scrollbar-surface {
+  z-index: var(--z-spreadsheet-scrollbar);
+}
+.spreadsheet-editor-root:not(:has(.spreadsheet-univer-host [data-u-comp="sidebar"][aria-expanded="true"])) > .external-scrollbar {
+  display: none;
+}
+/* Univer renders shortcut modifiers as text inside <kbd>. One step up the
+   Lattice type scale keeps ⌘, ⇧, and the other key glyphs legible without
+   enlarging the surrounding 24px keycap. */
+.spreadsheet-univer-host [data-u-comp="sidebar"] kbd {
+  font-family: var(--ui-font);
+  font-size: var(--type-body-size);
+  font-weight: var(--weight-medium);
+}
+/* Univer's function picker owns a second scroll viewport inside the sidebar.
+   Keep its track aligned with the picker's inset while ExternalScrollbar draws
+   the same 4px-to-6px overlay used by the rest of Lattice. */
+.spreadsheet-functions-scrollbar-surface {
+  position: absolute;
+  inset: 0 var(--space-8) 0 0;
+  pointer-events: none;
+}
+.spreadsheet-univer-host [data-u-comp="sheets-formula-functions-panel"] ul.univer-overflow-y-auto {
+  -ms-overflow-style: none;
+  scrollbar-width: none !important;
+}
+.spreadsheet-univer-host [data-u-comp="sheets-formula-functions-panel"] ul.univer-overflow-y-auto::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Sidebar form controls come from Univer, but their geometry and states should
+   read as the same controls used by Lattice settings. This covers Number
+   Formats as well as the category selector in All Functions. */
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="select"] {
+  width: 100%;
+  min-width: 0;
+  height: var(--control-height-default);
+  border: var(--form-control-border-width) solid var(--form-control-border-color) !important;
+  border-radius: var(--form-control-select-radius) !important;
+  outline: none !important;
+  padding-inline: var(--field-control-padding-inline);
+  background: var(--form-control-background) !important;
+  color: var(--text-primary) !important;
+  font: var(--type-body-weight) var(--type-label-size)/var(--type-label-line-height) var(--ui-font);
+  text-align: start;
+  box-shadow: none !important;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="select"]:hover,
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="select"][data-state="open"] {
+  border-color: var(--field-control-interactive-border-color) !important;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="select"] > div {
+  color: var(--text-primary) !important;
+  text-align: start;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"] {
+  height: var(--control-height-default);
+  margin: 0;
+  padding-inline: var(--space-6);
+  border: 1px solid var(--border-strong) !important;
+  border-radius: var(--radius-control) !important;
+  outline: none;
+  background: var(--surface-panel-raised) !important;
+  color: var(--text-primary) !important;
+  font: var(--type-label-weight) var(--type-label-size)/var(--type-label-line-height) var(--ui-font);
+  box-shadow: none !important;
+  transition: color var(--duration-quick) var(--ease-default),
+    border-color var(--duration-quick) var(--ease-default),
+    background-color var(--duration-quick) var(--ease-default),
+    opacity var(--duration-quick) var(--ease-default),
+    scale var(--duration-quick) var(--ease-default);
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"]:not(.univer-bg-primary-600):hover:not(:disabled) {
+  background: var(--control-hover-surface) !important;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"].univer-bg-primary-600 {
+  border-color: transparent !important;
+  background: var(--text-primary) !important;
+  color: var(--surface-app) !important;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"].univer-bg-primary-600:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-primary) 88%, var(--surface-app)) !important;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"].univer-bg-primary-600:active:not(:disabled) {
+  scale: .96;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"]:disabled {
+  opacity: var(--control-disabled-opacity);
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] div:has(> [data-u-comp="button"] + [data-u-comp="button"]) {
+  gap: var(--space-4);
+}
+
+/* SelectList is used for the visible choices inside Number Formats. Preserve
+   the label's leading edge and move its selected mark to the trailing gutter,
+   matching Lattice's SelectItem contract. */
+.spreadsheet-univer-host [data-u-comp="sidebar"] ul.univer-grid.univer-list-none > li > a {
+  padding-inline: var(--space-5) calc(var(--space-8) + var(--space-5)) !important;
+  text-align: start;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] ul.univer-grid.univer-list-none > li > a > svg.univer-absolute {
+  display: none;
+}
+.spreadsheet-univer-host [data-u-comp="sidebar"] ul.univer-grid.univer-list-none > li > a:has(> svg.univer-absolute)::after {
+  position: absolute;
+  top: 50%;
+  right: var(--gap-inline);
+  width: 14px;
+  height: 14px;
+  background: var(--control-active);
+  content: "";
+  transform: translateY(-50%);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Univer portals dropdowns to an anonymous body child, outside the sheet host.
+   Its data slots and prefixed utility classes provide the stable ownership
+   seam. Match Lattice's settings menu surface and trailing selection mark. */
+body [data-slot="dropdown-menu-content"].univer-text-sm,
+body [data-slot="popover-content"].univer-outline-hidden {
+  --spreadsheet-menu-radius: calc(var(--radius-icon) + var(--gap-inline-tight));
+  --spreadsheet-menu-inset: var(--gap-inline-tight);
+  --spreadsheet-menu-item-radius: calc(var(--spreadsheet-menu-radius) - var(--spreadsheet-menu-inset));
+  @apply smooth-shadow-lg;
+  border: 0 !important;
+  border-radius: var(--spreadsheet-menu-radius) !important;
+  background: var(--surface-panel-raised) !important;
+  color: var(--text-primary) !important;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm {
+  padding: var(--spreadsheet-menu-inset) !important;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm :is(
+  [data-slot="dropdown-menu-item"],
+  [data-slot="dropdown-menu-radio-item"],
+  [data-slot="dropdown-menu-checkbox-item"]
+) {
+  width: 100%;
+  min-height: var(--control-height-default);
+  justify-content: flex-start;
+  gap: var(--gap-inline-tight);
+  border-radius: var(--spreadsheet-menu-item-radius);
+  padding: 0 var(--space-3) !important;
+  color: var(--text-primary) !important;
+  font: var(--type-body-weight) var(--type-body-size)/var(--type-body-line-height) var(--ui-font);
+  text-align: start;
+  transition: color var(--duration-quick) var(--ease-out),
+    background-color var(--duration-quick) var(--ease-out);
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm :is(
+  [data-slot="dropdown-menu-item"],
+  [data-slot="dropdown-menu-radio-item"],
+  [data-slot="dropdown-menu-checkbox-item"]
+):focus {
+  background: var(--control-active-soft) !important;
+  color: var(--control-active) !important;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm :is(
+  [data-slot="dropdown-menu-radio-item"],
+  [data-slot="dropdown-menu-checkbox-item"]
+) {
+  padding-right: calc(var(--space-8) + var(--space-6)) !important;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] > .univer-relative.univer-flex {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  padding: 0 !important;
+  text-align: start;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] > .univer-relative.univer-flex.univer-pl-6 {
+  padding-left: 0 !important;
+  padding-right: calc(var(--space-8) + var(--space-3)) !important;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] > .univer-relative.univer-flex > svg.univer-absolute {
+  display: none;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] > .univer-relative.univer-flex:has(> svg.univer-absolute)::after {
+  position: absolute;
+  top: 50% !important;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  background: var(--control-active);
+  content: "";
+  transform: translateY(-50%);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* Univer's Select hides its own radio indicator, so recreate the exact 14px,
+   1.5-stroke check used by Lattice SelectItem in the same trailing gutter. */
+body [data-slot="dropdown-menu-content"].univer-text-sm :is(
+  [data-slot="dropdown-menu-radio-item"],
+  [data-slot="dropdown-menu-checkbox-item"]
+) > span.univer-absolute {
+  display: none;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm :is(
+  [data-slot="dropdown-menu-radio-item"],
+  [data-slot="dropdown-menu-checkbox-item"]
+)[data-state="checked"]::after {
+  position: absolute;
+  top: 50%;
+  right: var(--gap-inline);
+  width: 14px;
+  height: 14px;
+  background: var(--control-active);
+  content: "";
+  transform: translateY(-50%);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* Font Family is a complete list nested inside one non-selectable Radix item.
+   Make the wrapper inert and give each actual font row the menu hover state;
+   otherwise the wrapper turns gray and the nested button repaints it white. */
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"]:has(ul.univer-list-none) {
+  min-height: 0;
+  padding: 0 !important;
+  background: transparent !important;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"]:has(ul.univer-list-none) > .univer-relative.univer-flex {
+  padding: 0 !important;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] ul.univer-list-none {
+  width: 100%;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] ul.univer-list-none button {
+  width: 100%;
+  height: var(--control-height-default);
+  padding: 0 var(--space-3) !important;
+  border-radius: var(--spreadsheet-menu-item-radius) !important;
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  text-align: start;
+  transition: color var(--duration-quick) var(--ease-out),
+    background-color var(--duration-quick) var(--ease-out);
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] ul.univer-list-none button:is(:hover, :focus-visible) {
+  background: var(--control-active-soft) !important;
+  color: var(--control-active) !important;
+}
 /* Give the compact ribbon and the canvas row/column headers the same slightly
    deeper neutral, while leaving the worksheet and formula input near-white. */
 .spreadsheet-univer-host [data-u-comp="ribbon-header-menu"] + div:has(> [data-u-comp="ribbon-toolbar"]) {

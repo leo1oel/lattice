@@ -271,7 +271,7 @@ export function ProjectMenu(props: {
     .slice(0, MAX_RECENT_PROJECT_ITEMS);
   const busy = Boolean(props.busyLabel);
   return (
-    <DropdownMenuContent align="start" sideOffset={6} className="w-52">
+    <DropdownMenuContent align="center" sideOffset={6} className="w-52">
       <DropdownMenuLabel>{t`Recent projects`}</DropdownMenuLabel>
       {alternatives.map((item) => (
         <DropdownMenuItem key={item.path} title={item.path} disabled={busy} onSelect={() => props.onRecent(item.path)}>

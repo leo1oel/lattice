@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EditorTabs, editorDropPreviewAt } from "./editor-tabs";
+import { activateAppLocale } from "./i18n";
+import { EditorDropPreviewPortal, EditorTabs, editorDropPreviewAt } from "./editor-tabs";
 
 afterEach(() => {
   cleanup();
@@ -208,6 +209,30 @@ describe("EditorTabs", () => {
     fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
     expect(onDropTab).toHaveBeenCalledWith("sections/intro.tex", "right");
     expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
+  });
+
+  it("localizes every split drop target", async () => {
+    await activateAppLocale("zh-CN");
+    const preview = {
+      path: "main.tex",
+      left: 0,
+      top: 0,
+      width: 900,
+      height: 600,
+      dividerLeft: null,
+      dividerRight: null,
+    };
+    render(
+      <>
+        <EditorDropPreviewPortal preview={{ ...preview, zone: "left" }} />
+        <EditorDropPreviewPortal preview={{ ...preview, zone: "center" }} />
+        <EditorDropPreviewPortal preview={{ ...preview, zone: "right" }} />
+      </>,
+    );
+
+    expect(screen.getByText("在左侧打开")).toBeInTheDocument();
+    expect(screen.getByText("在此打开")).toBeInTheDocument();
+    expect(screen.getByText("在右侧打开")).toBeInTheDocument();
   });
 
   it("uses the live split divider for full-bleed left and right targets", () => {

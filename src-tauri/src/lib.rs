@@ -843,7 +843,7 @@ async fn open_project_window(
     let builder = tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::default())
         .title("Lattice")
         .inner_size(1440.0, 900.0)
-        .min_inner_size(1302.0, 680.0)
+        .min_inner_size(1222.0, 680.0)
         .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF));
     #[cfg(target_os = "macos")]
     let builder = builder

@@ -33,8 +33,10 @@ import { changedFiles, isBinaryDiff, textFromDiffChunks } from "./overleaf-histo
 import type {
   OverleafDiffChunk,
   OverleafFileEntry,
+  OverleafFileOperation,
   OverleafUpdate,
 } from "./overleaf-history-types";
+import { useLingui } from "@lingui/react/macro";
 import { confirmAction } from "./app-utils";
 import { peerColorForName } from "./collab-colors";
 import { DestructiveButton } from "./components/ui/destructive-button";
@@ -68,9 +70,9 @@ function dayKey(ms: number): string {
   return new Date(ms).toDateString();
 }
 
-function dayLabel(key: string): string {
-  if (key === new Date().toDateString()) return "Today";
-  if (key === new Date(Date.now() - 86_400_000).toDateString()) return "Yesterday";
+function dayLabel(key: string, prose: { today: string; yesterday: string }): string {
+  if (key === new Date().toDateString()) return prose.today;
+  if (key === new Date(Date.now() - 86_400_000).toDateString()) return prose.yesterday;
   return key;
 }
 
@@ -79,15 +81,8 @@ function dayLabel(key: string): string {
  * Dropbox sync, the git bridge, a restore — is worth naming, so a change that
  * did not come from someone typing in the browser doesn't read as if it did.
  */
-function originLabel(origin: string | null): string | null {
+function originLabel(origin: string | null, known: Record<string, string>): string | null {
   if (!origin || origin === "web" || origin === "editor") return null;
-  const known: Record<string, string> = {
-    upload: "file upload",
-    dropbox: "Dropbox",
-    "git-bridge": "git bridge",
-    "file-restore": "file restore",
-    "project-restore": "project restore",
-  };
   return known[origin] ?? origin;
 }
 
@@ -112,6 +107,23 @@ export function OverleafHistoryPanel(props: {
    */
   onRestored?: () => void;
 }) {
+  const { t } = useLingui();
+  // Overleaf's own origin codes, translated here so the two helpers above stay
+  // pure functions the day grouping can call outside a component.
+  const originNames: Record<string, string> = {
+    upload: t`file upload`,
+    dropbox: "Dropbox",
+    "git-bridge": t`git bridge`,
+    "file-restore": t`file restore`,
+    "project-restore": t`project restore`,
+  };
+  const dayProse = { today: t`Today`, yesterday: t`Yesterday` };
+  const fileOpLabel: Record<OverleafFileOperation, string> = {
+    added: t`added`,
+    removed: t`removed`,
+    renamed: t`renamed`,
+    edited: t`edited`,
+  };
   const history = useOverleafHistory(props.projectRoot);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [files, setFiles] = useState<OverleafFileEntry[] | null>(null);
@@ -224,30 +236,28 @@ export function OverleafHistoryPanel(props: {
   return (
     <div className="overleaf-history-panel">
       <p className="drawer-copy">
-        Overleaf's own record of this project, including everything collaborators changed in the
-        browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward
-        to bring the result into this app.
+        {t`Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app.`}
       </p>
 
       {history.error && <InlineMessage level="error" className="overleaf-history-inline">{history.error}</InlineMessage>}
 
       {history.loading && !history.updates.length && (
-        <p className="overleaf-history-loading"><InfinityLoader size={13} /> Loading Overleaf's history…</p>
+        <p className="overleaf-history-loading"><InfinityLoader size={13} /> {t`Loading Overleaf's history…`}</p>
       )}
       {!history.loading && !history.updates.length && !history.error && (
-        <p className="overleaf-history-empty">No history yet.</p>
+        <p className="overleaf-history-empty">{t`No history yet.`}</p>
       )}
 
       <div className="overleaf-history-list">
         {grouped.map(([key, dayUpdates]) => (
           <div className="overleaf-history-day" key={key}>
-            <h3 className="overleaf-history-day-label">{dayLabel(key)}</h3>
+            <h3 className="overleaf-history-day-label">{dayLabel(key, dayProse)}</h3>
             {dayUpdates.map((update) => {
               const expandedHere = expanded === update.toVersion;
-              const primaryAuthor = update.authors[0] ?? "Unknown";
+              const primaryAuthor = update.authors[0] ?? t`Unknown`;
               const color = peerColorForName(primaryAuthor);
               const extraAuthors = update.authors.length > 1 ? ` +${update.authors.length - 1}` : "";
-              const origin = originLabel(update.origin);
+              const origin = originLabel(update.origin, originNames);
               return (
                 <div className={`overleaf-history-entry ${expandedHere ? "expanded" : ""}`} key={update.toVersion}>
                   <button
@@ -267,7 +277,9 @@ export function OverleafHistoryPanel(props: {
                         {clockTime(update.endTs)}
                       </span>
                       <span className="overleaf-history-count">
-                        {update.paths.length} file{update.paths.length === 1 ? "" : "s"}
+                        {update.paths.length === 1
+                          ? t`${update.paths.length} file`
+                          : t`${update.paths.length} files`}
                       </span>
                     </span>
                     {(origin || update.labels.length > 0) && (
@@ -296,16 +308,16 @@ export function OverleafHistoryPanel(props: {
                                 <DestructiveButton
                                   type="button"
                                   data-hit-area
-                                  title={`Remove the "${label.comment}" label`}
+                                  title={t`Remove the "${label.comment}" label`}
                                   disabled={history.busy}
                                   iconSize={10}
                                   onClick={async () => {
                                     if (!await confirmAction(
-                                      `Remove the “${label.comment}” label from this Overleaf version?`,
+                                      t`Remove the “${label.comment}” label from this Overleaf version?`,
                                     )) {
                                       return;
                                     }
-                                    void run("Label removed.", () => history.deleteLabel(label.id));
+                                    void run(t`Label removed.`, () => history.deleteLabel(label.id));
                                   }}
                                 />
                               </span>
@@ -319,7 +331,7 @@ export function OverleafHistoryPanel(props: {
                               event.preventDefault();
                               const comment = labelDraft.trim();
                               if (!comment) return;
-                              void run("Version named.", () => history.addLabel(update.toVersion, comment))
+                              void run(t`Version named.`, () => history.addLabel(update.toVersion, comment))
                                 .then(() => {
                                   setLabelDraftFor(null);
                                   setLabelDraft("");
@@ -330,11 +342,11 @@ export function OverleafHistoryPanel(props: {
                               controlSize="compact"
                               autoFocus
                               value={labelDraft}
-                              placeholder="Name this version…"
-                              aria-label="Version label"
+                              placeholder={t`Name this version…`}
+                              aria-label={t`Version label`}
                               onChange={(event) => setLabelDraft(event.target.value)}
                             />
-                            <button type="submit" disabled={!labelDraft.trim() || history.busy}>Save</button>
+                            <button type="submit" disabled={!labelDraft.trim() || history.busy}>{t`Save`}</button>
                             <button
                               type="button"
                               onClick={() => {
@@ -342,7 +354,7 @@ export function OverleafHistoryPanel(props: {
                                 setLabelDraft("");
                               }}
                             >
-                              Cancel
+                              {t`Cancel`}
                             </button>
                           </form>
                         ) : (
@@ -354,17 +366,17 @@ export function OverleafHistoryPanel(props: {
                               setLabelDraft("");
                             }}
                           >
-                            <Tag size={11} aria-hidden /> Name this version
+                            <Tag size={11} aria-hidden /> {t`Name this version`}
                           </button>
                         )}
                       </div>
 
                       {filesLoading && (
-                        <p className="git-empty"><InfinityLoader size={12} /> Loading files…</p>
+                        <p className="git-empty"><InfinityLoader size={12} /> {t`Loading files…`}</p>
                       )}
                       {filesError && <InlineMessage level="error" className="overleaf-history-inline">{filesError}</InlineMessage>}
                       {files && !files.length && !filesLoading && (
-                        <p className="overleaf-history-note">No file changes recorded for this update.</p>
+                        <p className="overleaf-history-note">{t`No file changes recorded for this update.`}</p>
                       )}
                       {files && files.length > 0 && (
                         <div className="overleaf-history-files">
@@ -378,7 +390,7 @@ export function OverleafHistoryPanel(props: {
                                 <button
                                   type="button"
                                   className={`overleaf-history-file ${active ? "active" : ""}`}
-                                  title={`${file.operation}: ${file.pathname}`}
+                                  title={`${fileOpLabel[file.operation ?? "edited"]}: ${file.pathname}`}
                                   onClick={() => openDiff(update, file.newPathname ?? file.pathname)}
                                 >
                                   <FileOpIcon op={file.operation} />
@@ -388,29 +400,29 @@ export function OverleafHistoryPanel(props: {
                                   <button
                                     type="button"
                                     className="overleaf-history-restore-file"
-                                    title={`Bring back ${file.pathname}`}
+                                    title={t`Bring back ${file.pathname}`}
                                     disabled={history.busy}
                                     onClick={() => void run(
-                                      `Restored ${file.pathname}.`,
+                                      t`Restored ${file.pathname}.`,
                                       () => history.restoreDeletedFile(file.deletedAtV!, file.pathname)
                                         .then(() => props.onRestored?.()),
                                     )}
                                   >
-                                    <RotateCcw size={10} /> Restore
+                                    <RotateCcw size={10} /> {t`Restore`}
                                   </button>
                                 ) : (
                                   <button
                                     type="button"
                                     className="overleaf-history-restore-file"
-                                    title={`Restore ${file.pathname} to this version`}
+                                    title={t`Restore ${file.pathname} to this version`}
                                     disabled={history.busy}
                                     onClick={() => void run(
-                                      `Restored ${file.pathname}.`,
+                                      t`Restored ${file.pathname}.`,
                                       () => history.revertFile(update.toVersion, file.pathname)
                                         .then(() => props.onRestored?.()),
                                     )}
                                   >
-                                    <RotateCcw size={10} /> Restore this file
+                                    <RotateCcw size={10} /> {t`Restore this file`}
                                   </button>
                                 )}
                               </div>
@@ -422,16 +434,16 @@ export function OverleafHistoryPanel(props: {
                       {activePath && (
                         <>
                           {diffLoading && !diffChunks && !diffBinary && (
-                            <p className="history-diff-loading"><InfinityLoader size={12} /> Loading diff…</p>
+                            <p className="history-diff-loading"><InfinityLoader size={12} /> {t`Loading diff…`}</p>
                           )}
                           {diffError && <p className="history-diff-error" role="alert">{diffError}</p>}
                           {diffBinary && (
                             <div className="history-diff">
                               <div className="history-diff-meta">
                                 <strong>{activePath}</strong>
-                                <span>binary</span>
+                                <span>{t`binary`}</span>
                               </div>
-                              <p className="overleaf-history-binary">Binary file changed.</p>
+                              <p className="overleaf-history-binary">{t`Binary file changed.`}</p>
                             </div>
                           )}
                           {diffChunks && (
@@ -454,17 +466,15 @@ export function OverleafHistoryPanel(props: {
                         className="overleaf-history-restore-project"
                         disabled={history.busy}
                         onClick={async () => {
-                          const warning = "Restore the whole project to this version? "
-                            + "Files added since will be deleted, and everything else will be rewound "
-                            + "to match. The only way back from here is another restore.";
+                          const warning = t`Restore the whole project to this version? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore.`;
                           if (!await confirmAction(warning)) return;
                           void run(
-                            "Project restored.",
+                            t`Project restored.`,
                             () => history.revertProject(update.toVersion).then(() => props.onRestored?.()),
                           );
                         }}
                       >
-                        <RotateCcw size={12} /> Restore whole project to this version
+                        <RotateCcw size={12} /> {t`Restore whole project to this version`}
                       </button>
                     </div>
                   )}
@@ -482,7 +492,7 @@ export function OverleafHistoryPanel(props: {
           disabled={history.loadingMore}
           onClick={() => void history.loadMore()}
         >
-          {history.loadingMore && <InfinityLoader size={12} />} Load more
+          {history.loadingMore && <InfinityLoader size={12} />} {t`Load more`}
         </button>
       )}
     </div>

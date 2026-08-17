@@ -5,10 +5,6 @@
   .split-canvas .pdf-preview { display: none; }
 }
 
-@container (max-width: 900px) {
-  .editor-status-bar .status-hint { display: none; }
-}
-
 @media (max-width: 680px) {
   .settings-body { grid-template-columns: var(--settings-nav-width-compact) minmax(0, 1fr); }
   .settings-nav button {
@@ -69,8 +65,8 @@
 .app-toast-action:hover { background: var(--border-subtle); }
 .app-toast > button { width: 24px; height: 24px; display: grid; place-items: center; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); }
 .app-toast > button:hover { background: var(--border-subtle); color: var(--text-primary); }
-.app-log-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin: 0 0 14px; }
-.app-log-location { margin: -6px 0 14px; color: var(--text-secondary); font: var(--type-nano-size)/1.4 var(--editor-font); overflow-wrap: anywhere; }
+.app-log-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin: var(--space-6) 0 var(--space-8); }
+.app-log-level-filter { width: var(--settings-control-width); margin-inline-start: auto; }
 /* Logs tab: pin the settings scroll chain to the viewport so the settings
    page itself never scrolls — the log panel takes the remaining height and
    scrolls internally with the app's own ScrollArea scrollbar. */
@@ -79,6 +75,7 @@
 .app-logs-settings { height: 100%; display: flex; flex-direction: column; }
 .app-logs-settings .ui-settings-group { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .app-log-scroll { flex: 1; min-height: 140px; border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface-app); }
+.app-log-scroll [data-slot="scroll-area-viewport"] { overscroll-behavior-y: contain; }
 .app-log-text { margin: 0; padding: var(--space-5); color: var(--text-primary); font: var(--type-micro-size)/1.5 var(--editor-font); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 
 /* Holds the two icons of a MorphIcon on top of each other, so the swap does

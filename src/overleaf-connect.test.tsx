@@ -81,22 +81,34 @@ afterEach(() => {
 });
 
 describe("Overleaf settings section", () => {
-  it("presents sync mode and deletion behavior as separate option groups", async () => {
+  it("presents sync mode and deletion behavior as dropdowns", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "overleaf_status") return connected;
       throw new Error(`Unexpected command: ${command}`);
     });
-    render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
+    const onSyncModeChange = vi.fn();
+    const onRemoteDeleteChange = vi.fn();
+    const { rerender } = render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={onSyncModeChange} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={onRemoteDeleteChange} onLinkChanged={() => {}} />);
 
-    const syncMode = screen.getByRole("group", { name: "Sync mode" });
-    const deletionBehavior = screen.getByRole("group", { name: "When you delete a file here" });
+    const syncMode = screen.getByRole("combobox", { name: "Sync mode" });
+    const deletionBehavior = screen.getByRole("combobox", { name: "When you delete a file here" });
 
-    expect(within(syncMode).getAllByRole("radio")).toHaveLength(2);
-    expect(syncMode.querySelectorAll(".ui-radio-dot")).toHaveLength(2);
-    expect(within(syncMode).getByRole("radio", { name: /Live sync/ })).toBeChecked();
-    expect(within(deletionBehavior).getAllByRole("radio")).toHaveLength(3);
-    expect(deletionBehavior.querySelectorAll(".ui-radio-dot")).toHaveLength(3);
-    expect(within(deletionBehavior).getByRole("radio", { name: /Ask before deleting/ })).toBeChecked();
+    expect(syncMode).toHaveTextContent("Live sync");
+    expect(syncMode.closest("[data-slot='settings-row']")?.querySelector(".ui-settings-row-description"))
+      .toHaveTextContent("Edits sync live with Overleaf.");
+    fireEvent.pointerDown(syncMode, { button: 0, ctrlKey: false, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("option", { name: "Manual" }));
+    expect(onSyncModeChange).toHaveBeenCalledWith("manual");
+    rerender(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="manual" onSyncModeChange={onSyncModeChange} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={onRemoteDeleteChange} onLinkChanged={() => {}} />);
+    expect(screen.getByRole("combobox", { name: "Sync mode" }).closest("[data-slot='settings-row']")
+      ?.querySelector(".ui-settings-row-description"))
+      .toHaveTextContent("Sync only when you click the sync button.");
+    expect(deletionBehavior).toHaveTextContent("Ask before deleting");
+    fireEvent.pointerDown(deletionBehavior, { button: 0, ctrlKey: false, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("option", { name: "Delete on Overleaf too" }));
+    expect(onRemoteDeleteChange).toHaveBeenCalledWith("always");
+    expect(screen.queryByText("Open a linked project to start editing live.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Advanced connection settings")).not.toBeInTheDocument();
     expect(await screen.findByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
   });
 
@@ -108,7 +120,7 @@ describe("Overleaf settings section", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
     render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
-    expect(await screen.findByText(/Connect your Overleaf account to open and sync/)).toBeInTheDocument();
+    expect(await screen.findByText(/Open and sync Overleaf projects in Lattice/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: /Connect to Overleaf/ }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_begin_login"));
     expect(await screen.findByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
@@ -187,29 +199,7 @@ describe("Overleaf settings section", () => {
     expect(screen.getByText(/Sign-in was cancelled/)).toBeInTheDocument();
   });
 
-  it("stores a manual session cookie for a self-hosted server", async () => {
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "overleaf_status") return disconnected;
-      if (command === "overleaf_store_cookie") return { ...connected, host: "https://overleaf.example.edu" };
-      throw new Error(`Unexpected command: ${command}`);
-    });
-    render(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="live" onSyncModeChange={() => {}} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={() => {}} onLinkChanged={() => {}} />);
-    await screen.findByRole("button", { name: /Connect to Overleaf/ });
-    fireEvent.change(screen.getByLabelText("Server address"), {
-      target: { value: "https://overleaf.example.edu" },
-    });
-    fireEvent.change(screen.getByLabelText("Session cookie"), {
-      target: { value: "overleaf_session2=abc" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_store_cookie", {
-      host: "https://overleaf.example.edu",
-      cookie: "overleaf_session2=abc",
-    }));
-    expect(await screen.findByText(/Connected as leo@uw\.edu/)).toBeInTheDocument();
-  });
-
-  it("says why live editing is unavailable instead of failing silently", async () => {
+  it("shows concise live-editing status without expanding the settings row", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "overleaf_status") return connected;
       throw new Error(`Unexpected command: ${command}`);
@@ -226,9 +216,8 @@ describe("Overleaf settings section", () => {
         onLinkChanged={() => {}}
       />,
     );
-    expect(
-      await screen.findByText(/Live editing could not start: the websocket was refused/),
-    ).toBeInTheDocument();
+    const unavailable = await screen.findByText("Live editing is unavailable; regular syncing continues.");
+    expect(unavailable).toHaveAttribute("title", "the websocket was refused");
     rerender(
       <OverleafSettingsSection
         projectRoot="/tmp/project"
@@ -241,7 +230,7 @@ describe("Overleaf settings section", () => {
         onLinkChanged={() => {}}
       />,
     );
-    expect(screen.getByText(/Connected to Overleaf's editing channel/)).toBeInTheDocument();
+    expect(screen.getByText("Live editing is connected.")).toBeInTheDocument();
   });
 
   it("surfaces disconnect and lets the user reconnect", async () => {
@@ -345,7 +334,7 @@ describe("Overleaf picker dialog", () => {
   it("lists projects with owner and update time, and filters by search", async () => {
     mockConnectedPicker();
     render(
-      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} onOpenSettings={vi.fn()} />,
+      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} />,
     );
     const drawer = screen.getByLabelText("Open from Overleaf");
     expect(drawer).toHaveClass("resizable-drawer");
@@ -368,7 +357,7 @@ describe("Overleaf picker dialog", () => {
   it("hides archived projects until the checkbox is ticked", async () => {
     mockConnectedPicker();
     render(
-      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} onOpenSettings={vi.fn()} />,
+      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} />,
     );
     await screen.findByText("Attention Paper");
     expect(screen.queryByText("Old Notes")).not.toBeInTheDocument();
@@ -388,7 +377,6 @@ describe("Overleaf picker dialog", () => {
         onClose={onClose}
         onBeforeClone={onBeforeClone}
         onCloned={onCloned}
-        onOpenSettings={vi.fn()}
       />,
     );
     fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
@@ -419,7 +407,6 @@ describe("Overleaf picker dialog", () => {
         onClose={vi.fn()}
         onBeforeClone={onBeforeClone}
         onCloned={onCloned}
-        onOpenSettings={vi.fn()}
       />,
     );
     fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
@@ -452,7 +439,7 @@ describe("Overleaf picker dialog", () => {
       throw new Error(`Unexpected command: ${command} ${JSON.stringify(args)}`);
     });
     render(
-      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} onOpenSettings={vi.fn()} />,
+      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} />,
     );
     fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
@@ -478,7 +465,7 @@ describe("Overleaf picker dialog", () => {
     const confirmSpy = vi.mocked(confirm).mockResolvedValue(true);
     const onCloned = vi.fn();
     render(
-      <OverleafPickerDialog open onClose={vi.fn()} onCloned={onCloned} onOpenSettings={vi.fn()} />,
+      <OverleafPickerDialog open onClose={vi.fn()} onCloned={onCloned} />,
     );
     fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
@@ -506,7 +493,7 @@ describe("Overleaf picker dialog", () => {
     });
     const confirmSpy = vi.mocked(confirm).mockResolvedValue(false);
     render(
-      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} onOpenSettings={vi.fn()} />,
+      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} />,
     );
     fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
@@ -533,7 +520,7 @@ describe("Overleaf picker dialog", () => {
     const onClose = vi.fn();
     const onCloned = vi.fn();
     render(
-      <OverleafPickerDialog open onClose={onClose} onCloned={onCloned} onOpenSettings={vi.fn()} />,
+      <OverleafPickerDialog open onClose={onClose} onCloned={onCloned} />,
     );
     fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
@@ -560,7 +547,6 @@ describe("Overleaf picker dialog", () => {
           onBeforeClone={onBeforeClone}
           onCloneCancelled={onCloneCancelled}
           onCloned={vi.fn()}
-          onOpenSettings={vi.fn()}
         />
         <AppToastStack />
       </>,
@@ -584,26 +570,23 @@ describe("Overleaf picker dialog", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
     render(
-      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} onOpenSettings={vi.fn()} />,
+      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} />,
     );
     expect(await screen.findByText(/isn’t connected yet/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Connect to Overleaf/ }));
     expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
   });
 
-  it("routes the advanced link to settings and closes the picker", async () => {
+  it("keeps the disconnected state focused on standard sign-in", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "overleaf_status") return disconnected;
       throw new Error(`Unexpected command: ${command}`);
     });
-    const onOpenSettings = vi.fn();
-    const onClose = vi.fn();
     render(
-      <OverleafPickerDialog open onClose={onClose} onCloned={vi.fn()} onOpenSettings={onOpenSettings} />,
+      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} />,
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Advanced options" }));
-    expect(onOpenSettings).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
+    expect(await screen.findByRole("button", { name: "Connect to Overleaf" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Advanced options" })).not.toBeInTheDocument();
   });
 
   it("closes on Escape only while no download is in flight", async () => {
@@ -618,7 +601,7 @@ describe("Overleaf picker dialog", () => {
     });
     const onClose = vi.fn();
     render(
-      <OverleafPickerDialog open onClose={onClose} onCloned={vi.fn()} onOpenSettings={vi.fn()} />,
+      <OverleafPickerDialog open onClose={onClose} onCloned={vi.fn()} />,
     );
     fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));

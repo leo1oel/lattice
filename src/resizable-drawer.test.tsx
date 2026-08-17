@@ -2,6 +2,16 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ResizableDrawer } from "./resizable-drawer";
 
+const windowApi = vi.hoisted(() => ({
+  startDragging: vi.fn(),
+  isFullscreen: vi.fn(async () => false),
+  setFullscreen: vi.fn(async () => undefined),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => windowApi,
+}));
+
 describe("ResizableDrawer", () => {
   afterEach(cleanup);
 
@@ -70,5 +80,28 @@ describe("ResizableDrawer", () => {
     );
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("drags the window from the titlebar strip instead of dismissing", async () => {
+    vi.useFakeTimers();
+    try {
+      const onClose = vi.fn();
+      const { container } = render(
+        <ResizableDrawer onClose={onClose}>content</ResizableDrawer>,
+      );
+      const strip = container.querySelector<HTMLElement>(".drawer-window-drag-strip")!;
+
+      expect(strip.style.right).toBe("400px");
+      fireEvent.mouseDown(strip, { button: 0, buttons: 1 });
+      await vi.runAllTimersAsync();
+      expect(windowApi.startDragging).toHaveBeenCalledOnce();
+      expect(onClose).not.toHaveBeenCalled();
+
+      fireEvent.mouseDown(container.querySelector(".drawer-backdrop")!, { button: 0, buttons: 1 });
+      expect(onClose).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+      windowApi.startDragging.mockClear();
+    }
   });
 });

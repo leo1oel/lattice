@@ -3,6 +3,7 @@ import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Clock3, History, RotateCcw } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { EmptyState } from "./components/ui/empty-state";
 import { DestructiveButton } from "./components/ui/destructive-button";
 import { InfinityLoader } from "./components/ui/activity-icons";
@@ -88,6 +89,14 @@ export function HistoryDrawer(props: {
   /** After a restore on Overleaf's side, which leaves the local files untouched. */
   onOverleafRestored?: () => void;
 }) {
+  const { t } = useLingui();
+  // `changeKind` returns the discriminant the CSS and tests key on, so the
+  // display name is resolved here instead of at the source.
+  const changeKindLabel: Record<ReturnType<typeof changeKind>, string> = {
+    created: t`created`,
+    deleted: t`deleted`,
+    edited: t`edited`,
+  };
   // A project that was linked last time may not be now, and the remembered tab
   // would otherwise land on an Overleaf panel with nothing behind it.
   const [tab, setTab] = useState<HistoryTab>(
@@ -230,25 +239,25 @@ export function HistoryDrawer(props: {
         <PanelHeader
           className="drawer-header"
           icon={<History size={16} />}
-          title="Project history"
+          title={t`Project history`}
           onClose={props.onClose}
         />
         <ScrollArea
           className="project-history-scroll"
           fadeEdges={false}
           viewportClassName="project-history-scroll-viewport"
-          viewportProps={{ "aria-label": "Project history content" }}
+          viewportProps={{ "aria-label": t`Project history content` }}
         >
         <SlidingTabs
           value={tab}
           onChange={(next) => selectTab(next as HistoryTab)}
-          ariaLabel="History views"
+          ariaLabel={t`History views`}
           variant="none"
           className="versions-tabs drawer-view-tabs"
           tabClassName="drawer-view-tab"
           items={[
-            { value: "changes", label: "Changes" },
-            { value: "versions", label: "Versions" },
+            { value: "changes", label: t`Changes` },
+            { value: "versions", label: t`Versions` },
             ...(props.overleafLinked ? [{ value: "overleaf", label: "Overleaf" }] : []),
           ]}
         />
@@ -275,12 +284,12 @@ export function HistoryDrawer(props: {
         )}
         {tab === "changes" && (
           <>
-            <div className="history-filters" role="group" aria-label="Filter project changes">
+            <div className="history-filters" role="group" aria-label={t`Filter project changes`}>
               {([
-                ["all", "All"],
-                ["user", "You"],
-                ["agent", "Agent"],
-                ["citation", "Citations"],
+                ["all", t`All`],
+                ["user", t`You`],
+                ["agent", t`Agent`],
+                ["citation", t`Citations`],
               ] as const).map(([value, label]) => (
                 <button
                   type="button"
@@ -297,17 +306,17 @@ export function HistoryDrawer(props: {
               {visibleHistory.map((item) => {
                 const expanded = expandedId === item.id;
                 const actor = item.actor === "agent"
-                  ? "Agent"
+                  ? t`Agent`
                   : item.actor === "citation"
-                    ? "Citation tool"
+                    ? t`Citation tool`
                     : item.actor === "system"
                       ? "Lattice"
-                      : "You";
+                      : t`You`;
                 const restoreTitle = item.restoreAvailable === false
-                  ? item.restoreUnavailableReason || "Open this Agent task before restoring its files"
+                  ? item.restoreUnavailableReason || t`Open this Agent task before restoring its files`
                   : item.kind === "agent-checkpoint"
-                    ? "Undo this Agent turn's file changes"
-                    : "Restore the state before this change";
+                    ? t`Undo this Agent turn's file changes`
+                    : t`Restore the state before this change`;
                 return (
                   <div className={`history-item ${expanded ? "expanded" : ""}`} key={item.id}>
                     <div className="history-body">
@@ -326,11 +335,11 @@ export function HistoryDrawer(props: {
                       </button>
                       {expanded && (
                         <div className="history-entry-preview">
-                          {loadingId === item.id && <p className="history-diff-loading"><InfinityLoader size={12} /> Loading diff…</p>}
+                          {loadingId === item.id && <p className="history-diff-loading"><InfinityLoader size={12} /> {t`Loading diff…`}</p>}
                           {error && expandedId === item.id && <p className="history-diff-error" role="alert">{error}</p>}
                           {item.kind === "agent-checkpoint" && (
                             <div className="history-checkpoint-summary">
-                              {item.threadTitle && <strong>Agent task: {item.threadTitle}</strong>}
+                              {item.threadTitle && <strong>{t`Agent task: ${item.threadTitle}`}</strong>}
                               {item.fileSummaries?.map((file) => (
                                 <div key={file.path}>
                                   <span>{file.path}</span>
@@ -347,7 +356,7 @@ export function HistoryDrawer(props: {
                           {entry && entry.id === item.id && (
                             <>
                               {entry.changes.length > 1 && (
-                                <div className="history-file-tabs" role="group" aria-label="Files in this change">
+                                <div className="history-file-tabs" role="group" aria-label={t`Files in this change`}>
                                   {entry.changes.map((change, index) => (
                                     <button
                                       key={`${change.path}:${index}`}
@@ -385,10 +394,10 @@ export function HistoryDrawer(props: {
                                 <div className="history-code-view-shell">
                                   {resources.error ? (
                                     <p className="history-diff-error" role="alert">
-                                      Could not render these changes: {resources.error.message}
+                                      {t`Could not render these changes: ${resources.error.message}`}
                                     </p>
                                   ) : !resources.ready ? (
-                                    <p className="history-diff-loading"><InfinityLoader size={12} /> Rendering changes…</p>
+                                    <p className="history-diff-loading"><InfinityLoader size={12} /> {t`Rendering changes…`}</p>
                                   ) : (
                                     <CodeView
                                       ref={codeViewRef}
@@ -405,14 +414,14 @@ export function HistoryDrawer(props: {
                                             className="history-code-view-metadata"
                                           >
                                             <span className="history-code-view-kind">
-                                              {changeKind(change.before, change.after)}
+                                              {changeKindLabel[changeKind(change.before, change.after)]}
                                             </span>
                                             {props.onRevertFile && (
                                               <button
                                                 type="button"
                                                 className="history-code-view-restore"
-                                                title={`Restore only ${change.path}`}
-                                                aria-label={`Restore only ${change.path}`}
+                                                title={t`Restore only ${change.path}`}
+                                                aria-label={t`Restore only ${change.path}`}
                                                 onClick={(event) => {
                                                   event.stopPropagation();
                                                   props.onRevertFile?.(item.id, change.path);
@@ -432,10 +441,10 @@ export function HistoryDrawer(props: {
                                 <button
                                   type="button"
                                   className="history-restore-file"
-                                  title={`Restore only ${activeChange.path}`}
+                                  title={t`Restore only ${activeChange.path}`}
                                   onClick={() => props.onRevertFile?.(item.id, activeChange.path)}
                                 >
-                                  <RotateCcw size={12} /> Restore this file
+                                  <RotateCcw size={12} /> {t`Restore this file`}
                                 </button>
                               )}
                             </>
@@ -455,7 +464,7 @@ export function HistoryDrawer(props: {
                       {item.kind !== "agent-checkpoint" && (
                         <DestructiveButton
                           className="history-delete"
-                          title="Delete this history entry"
+                          title={t`Delete this history entry`}
                           iconSize={13}
                           onClick={() => props.onDelete(item.id)}
                         />
@@ -465,7 +474,7 @@ export function HistoryDrawer(props: {
                 );
               })}
               {!visibleHistory.length && (
-                <EmptyState description={props.history.length ? "No changes match this filter." : "No changes recorded yet."} />
+                <EmptyState description={props.history.length ? t`No changes match this filter.` : t`No changes recorded yet.`} />
               )}
             </div>
           </>

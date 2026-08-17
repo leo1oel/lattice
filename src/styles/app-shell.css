@@ -64,6 +64,11 @@ input[type="search"]:focus-visible {
 .titlebar-sidebar.collapsed { width: auto; }
 .titlebar-sidebar.collapsed .project-switcher { flex: none; }
 .titlebar-sidebar.collapsed .titlebar-drag-area { display: none; }
+/* Collapsed, the section is sized by its content, so the title's cap must be a
+   definite length: a percentage cap is ignored while the parent measures its
+   max-content width, which sizes the section to the *untruncated* project name
+   and pushes the tab strip right by the elided remainder. */
+.titlebar-sidebar.collapsed .project-title { max-width: var(--titlebar-project-title-max-width); }
 /* Hide Sidebar is positioned at --titlebar-toggle-center (midpoint between the
    measured green traffic-light right edge and the project label text), relative
    to the titlebar so Tip wrappers cannot skew the math. */
@@ -96,7 +101,7 @@ input[type="search"]:focus-visible {
 .app-shell, .titlebar { transition: background-color var(--duration-slow) var(--ease-default), color var(--duration-slow) var(--ease-default); }
 .toggle-icon { display: grid; place-items: center; animation: icon-swap var(--duration-base) var(--ease-emphasized); }
 .project-switcher { min-width: 0; height: 100%; flex: 1; position: relative; display: flex; align-items: center; overflow: hidden; }
-.project-title { max-width: min(260px, 100%); height: var(--titlebar-action-size); min-width: 0; flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-chrome); display: flex; align-items: center; gap: var(--gap-inline); font-size: var(--type-title-size); font-weight: var(--weight-semibold); text-align: left; }
+.project-title { max-width: min(var(--titlebar-project-title-max-width), 100%); height: var(--titlebar-action-size); min-width: 0; flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-chrome); display: flex; align-items: center; gap: var(--gap-inline); font-size: var(--type-title-size); font-weight: var(--weight-semibold); text-align: left; }
 .project-title:hover, .project-title:focus-visible, .project-title[aria-expanded="true"] { background: var(--chrome-hover-surface); }
 .project-title:disabled { opacity: 1; cursor: default; }
 .project-title > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -207,6 +212,9 @@ input[type="search"]:focus-visible {
 /* While a tab is being dragged, the whole strip shows the grab cursor and stops
    selecting text under the pointer. */
 body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user-select: none; }
+/* Embedded documents own their pointer stream. Let the parent canvas receive
+   the rest of a tab/tree drag so HTML previews remain valid split drop targets. */
+body:is(.reordering-tabs, .dragging-project-item) iframe { pointer-events: none; }
 .editor-tab-split-drop-preview { position: fixed; z-index: var(--z-editor-overlay); overflow: hidden; pointer-events: none; }
 .editor-tab-split-drop-target { position: absolute; top: 0; left: 0; overflow: hidden; border: 1px solid var(--control-active-border-strong); background: oklch(0 0 0 / 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-app) 20%, transparent); will-change: transform, width, height; }
 .editor-tab-split-drop-label { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; }
@@ -223,9 +231,18 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 .editor-tab:hover .editor-tab-close, .editor-tab:focus-within .editor-tab-close, .editor-tab-close:focus-visible { opacity: 1; pointer-events: auto; }
 .editor-tab-close:hover { color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 9%, var(--tab-surface)); }
 .editor-status-bar .status-vim-mode { min-width: max-content; flex: none; color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
-@container (max-width: 720px) { .editor-status-bar .status-body-words { display: none; } }
-@container (max-width: 560px) { .editor-status-bar .status-hint { display: none; } }
-@container (max-width: 460px) { .editor-status-bar .status-todos { display: none; } }
+/* Every step below is the measured width of the items that stay, plus their
+   gaps, plus ~115px so the breadcrumb keeps one truncated crumb instead of
+   collapsing to nothing: it is the only item that shrinks rather than
+   disappears, so it absorbs the slack between steps. Keep them here as one
+   ladder — a second copy elsewhere in the cascade silently wins and strands the
+   step you are reading. The narrowest single editor pane leaves the bar 376px
+   (SPLIT_SOURCE_MIN_WIDTH less its padding), so both counters survive it; only
+   the columns layout, whose editor tracks bottom out near 160px, goes lower. */
+@container (max-width: 730px) { .editor-status-bar .status-hint { display: none; } }
+@container (max-width: 570px) { .editor-status-bar .status-body-words { display: none; } }
+@container (max-width: 360px) { .editor-status-bar .status-manuscript-todos { display: none; } }
+@container (max-width: 300px) { .editor-status-bar .status-comments { display: none; } }
 .table-generator, .project-replace, .bib-entry-dialog { width: min(480px, 100%); display: flex; flex-direction: column; gap: var(--space-6); }
 .bib-entry-dialog > .drawer-copy { margin: 0; }
 .bib-entry-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
@@ -258,15 +275,18 @@ body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user
 .cite-command-menu button { height: 26px; border: 0; border-radius: var(--nested-radius); background: transparent; color: var(--text-primary); padding: 0 var(--space-4); text-align: left; font: var(--type-caption-size)/1 var(--editor-font); }
 .cite-command-menu button:hover { background: var(--control-active-soft); color: var(--control-active); }
 .section-heading-actions { display: inline-flex; align-items: center; gap: var(--space-3); }
-.doctor-status { margin: 0 0 var(--space-6); padding: var(--space-4) var(--space-5); border-radius: var(--radius-control); font-size: var(--type-label-size); font-weight: 600; }
-.doctor-status.ok { background: color-mix(in srgb, #2f9e6b 14%, var(--surface-app)); color: #1f7a52; }
+.doctor-status { margin: var(--space-6) 0 var(--space-6); padding: var(--space-4) var(--space-5); border-radius: var(--radius-control); font-size: var(--type-label-size); font-weight: 600; }
+.doctor-status.ok { background: color-mix(in srgb, var(--status-success) 14%, var(--surface-app)); color: var(--status-success); }
 .doctor-status.bad { background: color-mix(in srgb, var(--status-danger) 12%, var(--surface-app)); color: var(--status-danger); }
-.doctor-checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
-.doctor-checklist li { display: grid; gap: var(--space-1); padding: var(--space-4) 0; border: 0; border-radius: 0; background: transparent; }
-.doctor-checklist li strong { font-size: var(--type-caption-size); color: var(--text-primary); }
-.doctor-checklist li span { font-size: var(--type-caption-size); color: var(--text-secondary); line-height: 1.4; }
-.doctor-checklist li.ok strong::before { content: "✓ "; color: #1f7a52; }
-.doctor-checklist li.bad strong::before { content: "✗ "; color: var(--status-danger); }
+.doctor-checklist { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--settings-row-control-min-width), 1fr)); gap: var(--space-3); }
+.doctor-checklist li { min-width: 0; min-height: var(--control-height-default); padding: var(--space-3) var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-app); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--space-3); }
+.doctor-checklist li.bad { grid-column: 1 / -1; border-color: color-mix(in srgb, var(--status-danger) 22%, var(--border-subtle)); background: color-mix(in srgb, var(--status-danger) 5%, var(--surface-app)); }
+.doctor-checklist li > svg { width: 15px; height: 15px; color: var(--status-success); }
+.doctor-checklist li.bad > svg { color: var(--status-danger); }
+.doctor-checklist li strong { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--type-caption-size); text-overflow: ellipsis; white-space: nowrap; }
+.doctor-checklist .doctor-check-detail { grid-column: 2; margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.4; overflow-wrap: anywhere; }
+.doctor-checklist .doctor-check-result { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.doctor-checklist + .settings-api-actions { margin-top: var(--space-8); }
 .table-generator-form, .project-replace label { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
 .project-replace label { grid-template-columns: 1fr; }
 .project-replace-options { display: flex; flex-wrap: wrap; gap: var(--space-6); }

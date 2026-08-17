@@ -7,6 +7,7 @@ import {
   Quote,
   Search,
 } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { baseArxivId } from "./arxiv-id";
 import { CheckboxField } from "./components/ui/checkbox-field";
 import { InlineMessage } from "./components/ui/inline-message";
@@ -56,16 +57,21 @@ function hitKey(work: LiteratureHit): string {
   return `${work.source}:${work.arxivId ?? work.doi ?? work.title}`;
 }
 
-function hitMeta(work: LiteratureHit): string {
+/**
+ * The byline under a result. The two prose fragments are passed in rather than
+ * translated here: this runs per row, outside any component, so it has no
+ * access to the active catalog of its own.
+ */
+function hitMeta(work: LiteratureHit, prose: { etAl: string; cites: string }): string {
   if (work.source === "alphaxiv") {
     return [work.year ? String(work.year) : null, work.votes != null ? `▲ ${work.votes}` : null]
       .filter(Boolean)
       .join(" · ");
   }
   return [
-    work.authors.slice(0, 3).join(", ") + (work.authors.length > 3 ? " et al." : ""),
+    work.authors.slice(0, 3).join(", ") + (work.authors.length > 3 ? prose.etAl : ""),
     work.year ? String(work.year) : null,
-    work.citedByCount != null ? `${work.citedByCount} cites` : null,
+    work.citedByCount != null ? prose.cites : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -78,6 +84,7 @@ export function LiteratureDiscoveryPanel(props: {
   /** Versionless arXiv ids already in the library, shown as done. */
   importedIds: Set<string>;
 }) {
+  const { t } = useLingui();
   const [query, setQuery] = useState("");
   const [precise, setPrecise] = useState(true);
   const [results, setResults] = useState<LiteratureHit[]>([]);
@@ -135,7 +142,7 @@ export function LiteratureDiscoveryPanel(props: {
       setResults(hits);
       setVisible(INITIAL_VISIBLE);
       setHasMore(page.hasMore);
-      if (!hits.length) setNotice("No hits. Try broader terms or turn off precise mode.");
+      if (!hits.length) setNotice(t`No hits. Try broader terms or turn off precise mode.`);
     } catch (reason) {
       setResults([]);
       setHasMore(false);
@@ -193,7 +200,7 @@ export function LiteratureDiscoveryPanel(props: {
         <PanelHeader
           className="drawer-header"
           icon={<Search size={16} />}
-          title="Discover literature"
+          title={t`Discover literature`}
           onClose={props.onClose}
         />
         <form
@@ -204,8 +211,8 @@ export function LiteratureDiscoveryPanel(props: {
           }}
         >
           <SearchField
-            aria-label="Search literature"
-            placeholder="Attention Is All You Need, diffusion, …"
+            aria-label={t`Search literature`}
+            placeholder={t`Attention Is All You Need, diffusion, …`}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onClear={() => setQuery("")}
@@ -215,12 +222,12 @@ export function LiteratureDiscoveryPanel(props: {
           <CheckboxField
             className="literature-precise"
             checked={precise}
-            label="Title/abstract only"
+            label={t`Title/abstract only`}
             onChange={(event) => setPrecise(event.target.checked)}
           />
           <button type="submit" disabled={loading || !query.trim()}>
             {loading ? <InfinityLoader size={14} /> : <Search size={14} />}
-            Search
+            {t`Search`}
           </button>
         </form>
         {error ? <InlineMessage level="error">{error}</InlineMessage> : null}
@@ -235,7 +242,10 @@ export function LiteratureDiscoveryPanel(props: {
                   {work.source === "alphaxiv" ? "alphaXiv" : "OpenAlex"}
                 </span>
                 <strong>{work.title}</strong>
-                <p>{hitMeta(work)}</p>
+                <p>{hitMeta(work, {
+                  etAl: t` et al.`,
+                  cites: t`${work.citedByCount} cites`,
+                })}</p>
                 {work.snippet ? <p className="lit-snippet">{work.snippet}</p> : null}
                 <div className="literature-result-ids">
                   {work.arxivId ? <em>arXiv:{work.arxivId}</em> : null}
@@ -245,20 +255,20 @@ export function LiteratureDiscoveryPanel(props: {
               <div className="literature-result-actions">
                 {work.arxivId ? (
                   isImported(work.arxivId) ? (
-                    <span className="lit-imported" title="Already in Papers">
-                      <Check size={13} /> Imported
+                    <span className="lit-imported" title={t`Already in Papers`}>
+                      <Check size={13} /> {t`Imported`}
                     </span>
                   ) : (
                     <button
                       type="button"
                       disabled={busyId === key}
-                      title="Add bibliography entry and cache the arXiv paper"
+                      title={t`Add bibliography entry and cache the arXiv paper`}
                       onClick={() => {
                         setBusyId(key);
                         setError("");
                         Promise.resolve(props.onImportArxiv(work.arxivId!))
                           .then(() => {
-                            notifySuccess(LITERATURE_SOURCE, `Imported arXiv:${work.arxivId}`);
+                            notifySuccess(LITERATURE_SOURCE, t`Imported arXiv:${work.arxivId}`);
                             setJustImported((current) => new Set(current).add(baseArxivId(work.arxivId!)));
                           })
                           .catch((reason) => setError(message(reason)))
@@ -266,23 +276,23 @@ export function LiteratureDiscoveryPanel(props: {
                       }}
                     >
                       {busyId === key ? <InfinityLoader size={13} /> : <BookOpen size={13} />}
-                      Add
+                      {t`Add`}
                     </button>
                   )
                 ) : null}
                 <button
                   type="button"
-                  title="Resolve into bibliography entry"
+                  title={t`Resolve into bibliography entry`}
                   onClick={() => props.onAddBib(work.doi || work.title)}
                 >
-                  <Quote size={13} /> Bib
+                  <Quote size={13} /> {t`Bib`}
                 </button>
                 {work.landingUrl || work.doi ? (
                   <a
                     href={work.landingUrl || `https://doi.org/${work.doi}`}
                     target="_blank"
                     rel="noreferrer"
-                    title="Open landing page"
+                    title={t`Open landing page`}
                   >
                     <ExternalLink size={13} />
                   </a>
@@ -299,11 +309,11 @@ export function LiteratureDiscoveryPanel(props: {
               onClick={() => void loadMore()}
             >
               {loadingMore ? <InfinityLoader size={13} /> : null}
-              {loadingMore ? "Loading…" : "Load more"}
+              {loadingMore ? t`Loading…` : t`Load more`}
             </button>
           )}
           {!loading && !results.length && !error && !notice && (
-            <EmptyState description="Search alphaXiv and OpenAlex to find related work before importing evidence." />
+            <EmptyState description={t`Search alphaXiv and OpenAlex to find related work before importing evidence.`} />
           )}
         </div>
     </ResizableDrawer>

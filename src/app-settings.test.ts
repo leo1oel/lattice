@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   APPEARANCE_KEY,
+  FILE_VIEW_STATES_KEY,
   RECENT_PROJECTS_KEY,
   LOCAL_SEMANTIC_SEARCH_KEY,
   TUTORIAL_SEEN_KEY,
@@ -9,10 +10,12 @@ import {
   forgetRecentProject,
   hasSeenTutorial,
   loadAppearance,
+  loadFileViewStates,
   loadLocalSemanticSearchEnabled,
   loadRecentProjects,
   loadWorkspaceLayout,
   markTutorialSeen,
+  persistFileViewStates,
   persistLocalSemanticSearchEnabled,
   persistWorkspaceLayout,
   rememberRecentProject,
@@ -60,6 +63,21 @@ describe("interface language persistence", () => {
   it("returns to following the system for unsupported stored locales", () => {
     localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: "fr" }));
     expect(loadAppearance().interfaceLanguage).toBe("system");
+  });
+});
+
+describe("prose spellcheck default", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("is on for fresh installs and for settings saved before the toggle existed", () => {
+    expect(loadAppearance().editorSpellcheck).toBe(true);
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ editorFontSize: 16 }));
+    expect(loadAppearance().editorSpellcheck).toBe(true);
+  });
+
+  it("respects an explicit opt-out", () => {
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ editorSpellcheck: false }));
+    expect(loadAppearance().editorSpellcheck).toBe(false);
   });
 });
 
@@ -125,6 +143,114 @@ describe("workspace layout persistence", () => {
     localStorage.setItem(WORKSPACE_LAYOUT_KEY, "not-json");
     expect(loadWorkspaceLayout("/papers/alpha")).toBeNull();
     expect(() => persistWorkspaceLayout("/papers/alpha", layout)).not.toThrow();
+  });
+});
+
+describe("local file view state persistence", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("round-trips each file's local view without mixing projects", () => {
+    persistFileViewStates("/papers/alpha", {
+      "main.tex": { text: { cursor: 42, scrollTop: 320 } },
+      "data.lattice-sheet": {
+        spreadsheet: {
+          activeSheetId: "sheet-2",
+          activeRange: "B4:D8",
+          activeCell: "B4",
+          sheets: {
+            "sheet-1": { zoomRatio: 1, scrollTop: 0, scrollLeft: 0 },
+            "sheet-2": { zoomRatio: 1.4, scrollTop: 240, scrollLeft: 80 },
+          },
+        },
+      },
+      "figures/model.png": {
+        image: { scale: 1.6, scrollTop: 120, scrollLeft: 45 },
+      },
+      "paper.pdf": {
+        pdf: { page: 7, scale: 1.25, fitMode: "width", scrollTop: 720, scrollLeft: 12 },
+      },
+      "sketch.tldr": {
+        board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } },
+      },
+      "report.html": {
+        html: { scrollTop: 840, scrollRange: 3200 },
+      },
+      "notes.md": {
+        visualMarkdown: { scrollTop: 460, scrollRange: 1800 },
+      },
+    });
+
+    expect(loadFileViewStates("/papers/alpha")).toEqual({
+      "main.tex": { text: { cursor: 42, scrollTop: 320 } },
+      "data.lattice-sheet": {
+        spreadsheet: {
+          activeSheetId: "sheet-2",
+          activeRange: "B4:D8",
+          activeCell: "B4",
+          sheets: {
+            "sheet-1": { zoomRatio: 1, scrollTop: 0, scrollLeft: 0 },
+            "sheet-2": { zoomRatio: 1.4, scrollTop: 240, scrollLeft: 80 },
+          },
+        },
+      },
+      "figures/model.png": {
+        image: { scale: 1.6, scrollTop: 120, scrollLeft: 45 },
+      },
+      "paper.pdf": {
+        pdf: { page: 7, scale: 1.25, fitMode: "width", scrollTop: 720, scrollLeft: 12 },
+      },
+      "sketch.tldr": {
+        board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } },
+      },
+      "report.html": {
+        html: { scrollTop: 840, scrollRange: 3200 },
+      },
+      "notes.md": {
+        visualMarkdown: { scrollTop: 460, scrollRange: 1800 },
+      },
+    });
+    expect(loadFileViewStates("/papers/beta")).toEqual({});
+  });
+
+  it("drops corrupt entries while retaining valid sibling state", () => {
+    localStorage.setItem(FILE_VIEW_STATES_KEY, JSON.stringify({
+      "/papers/alpha": {
+        "main.tex": {
+          text: { cursor: 12, scrollTop: 50 },
+          pdf: { page: "two", scale: 1, fitMode: "width", scrollTop: 0, scrollLeft: 0 },
+        },
+        "broken.tex": { text: { cursor: -1, scrollTop: "top" } },
+      },
+    }));
+
+    expect(loadFileViewStates("/papers/alpha")).toEqual({
+      "main.tex": { text: { cursor: 12, scrollTop: 50 } },
+    });
+  });
+
+  it("bounds local view history by recent files and projects", () => {
+    persistFileViewStates("/papers/large", Object.fromEntries(
+      Array.from({ length: 205 }, (_, index) => [
+        `file-${index}.tex`,
+        { text: { cursor: index, scrollTop: index } },
+      ]),
+    ));
+    const files = loadFileViewStates("/papers/large");
+    expect(Object.keys(files)).toHaveLength(200);
+    expect(files["file-4.tex"]).toBeUndefined();
+    expect(files["file-5.tex"]).toBeDefined();
+
+    for (let index = 0; index < 60; index += 1) {
+      persistFileViewStates(`/papers/project-${index}`, {
+        "main.tex": { text: { cursor: index, scrollTop: 0 } },
+      });
+    }
+    const projects = JSON.parse(
+      localStorage.getItem(FILE_VIEW_STATES_KEY) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(Object.keys(projects)).toHaveLength(60);
+    expect(projects["/papers/large"]).toBeUndefined();
+    expect(projects["/papers/project-59"]).toBeDefined();
   });
 });
 

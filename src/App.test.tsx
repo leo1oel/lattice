@@ -14,7 +14,7 @@ import { clearAppLogs, formatAppLogs } from "./app-log-store";
 import { persistWorkspaceLayout } from "./app-settings";
 import { mapCollabProjectStatusV2 } from "./collab-status";
 import { formatCollabInvitationV2 } from "./collab-invitation-v2";
-import { loadTextLanguageExtensions } from "./document-canvas";
+import { loadTextLanguageExtensions } from "./editor-languages";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 import { usePanelLayout } from "./use-panel-layout";
 import { parseVisualMarkdown } from "./visual-markdown-schema";
@@ -517,7 +517,7 @@ describe("welcome screen", () => {
     expect(screen.queryByLabelText(/latex editor font/i)).not.toBeInTheDocument();
     await chooseOption("Color theme", "Dark");
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
-    expect(localStorage.getItem("lattice.theme.v1")).toBe("dark");
+    expect(localStorage.getItem("lattice.theme-preference.v1")).toBe("dark");
     expect(screen.queryByLabelText("Interface font")).not.toBeInTheDocument();
     await waitFor(() => {
       expect(document.documentElement.style.getPropertyValue("--ui-font")).toBe(
@@ -539,6 +539,106 @@ describe("welcome screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Providers" }));
     expect(screen.getByText("Open a project to manage Agent settings.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
+  });
+
+  it("keeps successful TeX checks compact while retaining failure details", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "initial_project") return null;
+      if (command === "run_doctor") {
+        return {
+          ok: true,
+          summary: "ready",
+          checks: [
+            {
+              name: "latexmk",
+              detail: "LaTeX build driver: /Library/TeX/texbin/latexmk",
+              ok: true,
+            },
+            {
+              name: "texlab",
+              detail: "TexLab language server: not found on PATH",
+              ok: false,
+            },
+          ],
+        };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: "TeX doctor" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run TeX doctor" }));
+
+    const checklist = await waitFor(() => {
+      const list = document.querySelector<HTMLElement>(".doctor-checklist");
+      expect(list).not.toBeNull();
+      return list!;
+    });
+    const latexmk = within(checklist).getByText("latexmk").closest("li");
+    const texlab = within(checklist).getByText("texlab").closest("li");
+    expect(latexmk).toHaveClass("ok");
+    expect(latexmk).not.toHaveTextContent("LaTeX build driver");
+    expect(texlab).toHaveClass("bad");
+    expect(texlab).toHaveTextContent("not found on PATH");
+  });
+
+  it("uses the doctor button for progress and hides setup actions when tools are ready", async () => {
+    const readyReport = {
+      ok: true,
+      summary: "ready",
+      checks: [
+        { name: "latexmk", detail: "ok", ok: true },
+        { name: "pdflatex", detail: "ok", ok: true },
+        { name: "synctex", detail: "ok", ok: true },
+        { name: "bibtex", detail: "ok", ok: true },
+        { name: "conference-fonts", detail: "ok", ok: true },
+        { name: "uv", detail: "ok", ok: true },
+        { name: "uvx", detail: "ok", ok: true },
+      ],
+    };
+    let finishDoctor!: (report: typeof readyReport) => void;
+    const doctor = new Promise<typeof readyReport>((resolve) => {
+      finishDoctor = resolve;
+    });
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "initial_project") return null;
+      if (command === "run_doctor") return doctor;
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: "TeX doctor" }));
+
+    const runButton = screen.getByRole("button", { name: "Run TeX doctor" });
+    await waitFor(() => expect(runButton).toBeDisabled());
+    expect(screen.queryByText("Checking local tools…")).not.toBeInTheDocument();
+
+    await act(async () => finishDoctor(readyReport));
+    await waitFor(() => expect(document.querySelector(".doctor-status"))
+      .toHaveTextContent("Ready to compile"));
+    expect(screen.queryByRole("button", { name: "Install required tools" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copy summary" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Install LaTeX tools" }))
+      .not.toBeInTheDocument();
+  });
+
+  it("resets the settings page scroll position when leaving Logs", async () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Logs" }));
+
+    const settingsViewport = document.querySelector<HTMLDivElement>(
+      ".settings-content [data-slot='scroll-area-viewport']",
+    );
+    expect(settingsViewport).not.toBeNull();
+    settingsViewport!.scrollTop = 400;
+
+    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+    await waitFor(() => expect(settingsViewport).toHaveProperty("scrollTop", 0));
   });
 
   it("switches the app chrome and settings to Simplified Chinese and persists the choice", async () => {
@@ -581,14 +681,14 @@ describe("welcome screen", () => {
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
   });
 
-  it("persists the opt-in editor spellcheck setting", async () => {
+  it("persists the editor spellcheck setting when it is turned off", async () => {
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
     const spellcheck = screen.getByLabelText("Check spelling in prose");
-    expect(spellcheck).not.toBeChecked();
+    expect(spellcheck).toBeChecked();
     fireEvent.click(spellcheck);
-    await waitFor(() => expect(localStorage.getItem("lattice.appearance.v5")).toContain('"editorSpellcheck":true'));
+    await waitFor(() => expect(localStorage.getItem("lattice.appearance.v5")).toContain('"editorSpellcheck":false'));
   });
 
   it("lets the user mute the small set of interface sounds", async () => {
@@ -715,6 +815,49 @@ describe("project workspace", () => {
       .toBeInTheDocument();
   });
 
+  it("opens the most recently used other file before a stale secondary or a TeX fallback", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "old.tex", name: "Old paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "old.tex", path: "old.tex", kind: "tex", children: [] },
+        { name: "recent.md", path: "recent.md", kind: "markdown", children: [] },
+        { name: "current.bib", path: "current.bib", kind: "bib", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["old.tex", "recent.md", "current.bib"],
+      activeFile: "current.bib",
+      activeTab: "current.bib",
+      secondaryFile: "old.tex",
+      focusedPane: "primary",
+      canvasMode: "source",
+      documentMode: "source",
+      paperView: "blog",
+      tabRecency: ["current.bib", "recent.md", "old.tex"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    fireEvent.click(await screen.findByRole("button", { name: "Split editor right" }));
+
+    await waitFor(() => expect(document.querySelector(
+      ".source-editor[data-editor-pane='secondary'] .cm-content",
+    )).toHaveTextContent("content:recent.md"));
+  });
+
   it("uses document modes for previewable files and accepts a tab on the canvas edge", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -745,14 +888,14 @@ describe("project workspace", () => {
     expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
 
     fireEvent.click(documentView().getByRole("tab", { name: "Preview" }));
-    expect(screen.queryByRole("button", { name: "Open source beside preview" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Split editor right" })).toBeInTheDocument();
     fireEvent.click(documentView().getByRole("tab", { name: "Split" }));
     expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
       .toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Open source beside preview" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
 
     fireEvent.click(documentView().getByRole("tab", { name: "Edit" }));
-    expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Split editor right" })).toBeInTheDocument();
     fireEvent.click(await findProjectTreeItem("intro.tex"));
     await waitFor(() => expect(screen.getByRole("tab", { name: /intro\.tex/ }))
       .toHaveAttribute("aria-selected", "true"));
@@ -895,6 +1038,9 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Preview" }));
     await waitFor(() => expect(document.querySelector(".dual-pane-preview .pdf-column"))
       .toBeInTheDocument());
+    expect(within(document.querySelector(
+      ".dual-pane-preview[data-editor-pane='secondary']",
+    ) as HTMLElement).getByLabelText("Show document outline")).toBeInTheDocument();
     expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
       .toHaveTextContent("@article{lattice");
     expect(document.querySelector(".source-editor[data-editor-pane='secondary']"))
@@ -931,6 +1077,135 @@ describe("project workspace", () => {
         .toHaveTextContent("\\documentclass{article}");
     });
     expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("splits a TeX preview without replacing it with the source editor", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    fireEvent.click(await findProjectTreeItem("notes.md"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /notes\.md/ }))
+      .toHaveAttribute("aria-selected", "true"));
+    fireEvent.click(await findProjectTreeItem("main.tex"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /main\.tex/ }))
+      .toHaveAttribute("aria-selected", "true"));
+    const documentView = await screen.findByRole("tablist", { name: "Document view" });
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Split editor right" }));
+
+    await waitFor(() => expect(document.querySelector(".dual-pane-preview[data-editor-pane='primary'] .pdf-column"))
+      .toBeInTheDocument());
+    await waitFor(() => expect(document.querySelector(
+      ".source-editor[data-editor-pane='secondary'] .cm-content",
+    )).toHaveTextContent("content:notes.md"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Close split" }));
+    await waitFor(() => expect(document.querySelector(".dual-canvas")).toBeNull());
+    expect(document.querySelector(".pdf-column")).toBeInTheDocument();
+    expect(document.querySelector(".source-editor")).toBeNull();
+    expect(within(documentView).getByRole("tab", { name: "Preview" }))
+      .toHaveAttribute("aria-selected", "true");
+  });
+
+  it("does not forward-sync a stale TeX cursor when the visible split peer is a spreadsheet", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        {
+          name: "results.lattice-sheet",
+          path: "results.lattice-sheet",
+          kind: "spreadsheet",
+          children: [],
+        },
+      ],
+    };
+    const NativeURL = globalThis.URL;
+    class TestURL extends NativeURL {
+      static createObjectURL = vi.fn(() => "blob:lattice-pdf");
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.mocked(getDocument).mockReturnValue({
+      promise: new Promise(() => undefined),
+      destroy: vi.fn(),
+    } as never);
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        return (args as { path: string }).path === "main.tex"
+          ? "\\documentclass{article}"
+          : "{}";
+      }
+      if (command === "read_compiled_pdf") {
+        return new TextEncoder().encode("%PDF-1.4").buffer;
+      }
+      if (command === "build_project") {
+        return {
+          success: true,
+          hasPdf: true,
+          log: "",
+          durationMs: 1,
+          diagnostics: [],
+          rootDocument: "main.tex",
+        };
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "synctex_view") {
+        return { page: 1, x: 72, y: 96, width: 120, height: 14 };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByRole("button", { name: /Reveal cursor in PDF/i });
+    fireEvent.click(await findProjectTreeItem("results.lattice-sheet"));
+    expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
+    fireEvent.click(await findProjectTreeItem("main.tex"));
+    const documentView = await screen.findByRole("tablist", { name: "Document view" });
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Split editor right" }));
+
+    expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
+    const revealCursor = await screen.findByRole("button", { name: /Reveal cursor in PDF/i });
+    await waitFor(() => expect(revealCursor).toBeDisabled());
+    const syncCallsBeforeClick = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "synctex_view").length;
+    fireEvent.click(revealCursor);
+
+    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "synctex_view"))
+      .toHaveLength(syncCallsBeforeClick);
+    expect(document.querySelector(".dual-canvas")).toBeInTheDocument();
+    expect(document.querySelector(".dual-pane-preview .pdf-column")).toBeInTheDocument();
+    expect(screen.getByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
   });
 
   it("previews each Markdown pane independently and allows both previews", async () => {
@@ -1057,6 +1332,57 @@ describe("project workspace", () => {
     expect(screen.getByRole("tab", { name: /right\.md/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: /left\.md/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close split" })).toBeNull();
+  });
+
+  it.each([
+    ["left.md", "right.md"],
+    ["right.md", "left.md"],
+  ])("collapses a split after closing %s and promotes %s", async (closingPath, survivingPath) => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "left.md", name: "Left", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "left.md", path: "left.md", kind: "markdown", children: [] },
+        { name: "right.md", path: "right.md", kind: "markdown", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["left.md", "right.md"],
+      activeFile: "left.md",
+      activeTab: "right.md",
+      secondaryFile: "right.md",
+      focusedPane: "secondary",
+      canvasMode: "dual",
+      documentMode: "dual",
+      paperView: "blog",
+      tabRecency: ["right.md", "left.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `# ${(args as { path: string }).path}`;
+      if (command === "write_project_file") return undefined;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2));
+    fireEvent.click(screen.getByRole("button", { name: `Close ${closingPath}` }));
+
+    await waitFor(() => expect(document.querySelector(".dual-canvas")).toBeNull());
+    expect(document.querySelector(".source-editor .cm-content"))
+      .toHaveTextContent(`# ${survivingPath}`);
+    expect(screen.queryByRole("tab", { name: new RegExp(closingPath.replace(".", "\\.")) }))
+      .toBeNull();
+    expect(screen.getByRole("tab", { name: new RegExp(survivingPath.replace(".", "\\.")) }))
+      .toHaveAttribute("aria-selected", "true");
   });
 
   it("renders a board canvas rather than its JSON in the secondary split pane", async () => {
@@ -1698,14 +2024,17 @@ describe("project workspace", () => {
         primaryBibliography: "references.bib",
         trusted: false,
       },
-      files: [{ name: "report.html", path: "report.html", kind: "html", children: [] }],
+      files: [
+        { name: "report.html", path: "report.html", kind: "html", children: [] },
+        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
+      ],
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") {
         return (args as { path: string }).path === "report.html"
           ? "<!doctype html><html><head><base href='https://example.com/'><style>h1{color:tomato}</style></head><body><h1 id='results'>Results</h1><button onclick='this.textContent=&quot;Done&quot;'>Run</button><a href='./details.html'>Details</a><a href='#results'>Jump</a><script>window.previewReady=true</script></body></html>"
-          : "\\documentclass{article}";
+          : "# Notes";
       }
       if (command === "write_project_file") return undefined;
       if (command === "list_papers" || command === "list_history") return [];
@@ -1786,6 +2115,49 @@ describe("project workspace", () => {
       { type: "lattice:html-preview-set-scroll-top", scrollTop: 420 },
       "*",
     );
+
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fireEvent.pointerDown(await findProjectTreeItem("notes.md"), {
+      button: 0,
+      pointerId: 73,
+      pointerType: "mouse",
+      clientX: 20,
+      clientY: 20,
+    });
+    fireEvent.pointerMove(window, {
+      pointerId: 73,
+      pointerType: "mouse",
+      clientX: 850,
+      clientY: 300,
+    });
+    expect(document.body).toHaveClass("dragging-project-item");
+    expect(document.querySelector(".editor-tab-split-drop-preview"))
+      .toHaveAttribute("data-drop-zone", "right");
+    fireEvent.pointerUp(window, {
+      pointerId: 73,
+      pointerType: "mouse",
+      clientX: 850,
+      clientY: 300,
+    });
+
+    await waitFor(() => expect(document.querySelector(
+      ".source-editor[data-editor-pane='secondary'] .cm-content",
+    )).toHaveTextContent("# Notes"));
+    expect(document.querySelector(".dual-pane-preview[data-editor-pane='primary'] .html-preview-frame"))
+      .toBeInTheDocument();
+    expect(document.body).not.toHaveClass("dragging-project-item");
   });
 
   it("adds and removes project dictionary terms from Editor settings", async () => {
@@ -2334,7 +2706,9 @@ describe("project workspace", () => {
     fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
 
     expect(await screen.findByText("Recent projects")).toBeInTheDocument();
-    expect(document.querySelector('[data-slot="dropdown-menu-content"]')).toHaveClass("w-52");
+    const projectMenu = document.querySelector('[data-slot="dropdown-menu-content"]');
+    expect(projectMenu).toHaveClass("w-52");
+    expect(projectMenu).toHaveAttribute("data-align", "center");
     expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Light" })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Settings" })).toBeInTheDocument();
@@ -2484,10 +2858,10 @@ describe("project workspace", () => {
     const splitDivider = screen.getByRole("separator", { name: "Resize editor and PDF preview" });
     expect(splitDivider.closest(".split-canvas")).toHaveAttribute(
       "data-minimum-workspace-width",
-      "981",
+      "901",
     );
     await waitFor(() => expect(windowApi.setMinSize).toHaveBeenCalledWith(
-      expect.objectContaining({ width: 1302, height: 680 }),
+      expect.objectContaining({ width: 1222, height: 680 }),
     ));
     expect(splitDivider).toHaveAttribute("aria-valuenow", "46");
     fireEvent.keyDown(splitDivider, { key: "ArrowRight" });
@@ -4011,6 +4385,11 @@ describe("project workspace", () => {
   });
 
   it("renames project items but keeps bibliography titles authoritative for papers", async () => {
+    localStorage.setItem("lattice.file-view-states.v1", JSON.stringify({
+      "/tmp/lattice-paper": {
+        "main.tex": { text: { cursor: 12, scrollTop: 80 } },
+      },
+    }));
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -4050,6 +4429,13 @@ describe("project workspace", () => {
     expect(await screen.findByRole("tab", { name: /paper\.tex/ })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument();
     expect(await findProjectTreeItem("paper.tex")).toBeInTheDocument();
+    await waitFor(() => {
+      const states = JSON.parse(
+        localStorage.getItem("lattice.file-view-states.v1") ?? "{}",
+      ) as Record<string, Record<string, unknown>>;
+      expect(states["/tmp/lattice-paper"]?.["main.tex"]).toBeUndefined();
+      expect(states["/tmp/lattice-paper"]?.["paper.tex"]).toBeDefined();
+    });
 
     await switchSidebarMode("Papers");
     fireEvent.contextMenu(screen.getByTitle("Attention Is All You Need"));
@@ -5426,8 +5812,7 @@ describe("project workspace", () => {
       disableFontFace: true,
       useSystemFonts: false,
     }));
-    expect(screen.getByLabelText("Search PDF").closest(".pdf-find-controls"))
-      .toHaveClass("without-outline");
+    expect(screen.queryByLabelText("Show document outline")).toBeNull();
     expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
     expect(await screen.findByRole("separator", { name: "Resize dual source panes" }))
@@ -5515,6 +5900,7 @@ describe("project workspace", () => {
     vi.stubGlobal("URL", TestURL);
     vi.mocked(save).mockResolvedValue("/tmp/exported-paper.pdf");
     let forwardSyncFailure: string | null = null;
+    let reverseSyncTarget: { path: string; line: number } = { path: "main.tex", line: 1 };
     let delayForwardSync = false;
     let resolveForwardSync!: (target: { page: number; x: number; y: number; width: number; height: number }) => void;
     vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -5532,7 +5918,7 @@ describe("project workspace", () => {
         return new TextEncoder().encode("%PDF-1.4").buffer;
       }
       if (command === "save_compiled_pdf") return "/tmp/exported-paper.pdf";
-      if (command === "synctex_edit") return { path: "main.tex", line: 1 };
+      if (command === "synctex_edit") return reverseSyncTarget;
       if (command === "synctex_view") {
         const syncArgs = args as Record<string, unknown> | undefined;
         if (delayForwardSync && syncArgs?.path === "main.tex") {
@@ -5714,6 +6100,116 @@ describe("project workspace", () => {
       x: 91.667,
       y: 183.333,
     }));
+    // A citation resolves into the bibliography, which has no preview of its
+    // own. The jump must not close the PDF it was made from.
+    reverseSyncTarget = { path: "references.bib", line: 4 };
+    fireEvent.doubleClick(screen.getByLabelText("PDF page 1"), { clientX: 110, clientY: 220 });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
+      path: "references.bib",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    // Still the same viewer instance, at the page the jump was made from: the
+    // preview column follows the project's build, not the file in the editor.
+    expect(screen.getByLabelText("PDF page 1")).toBeInTheDocument();
+    expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(1);
+  });
+
+  it("jumps out of a dual-pane preview into the pane that still holds an editor", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "chapter.tex", path: "chapter.tex", kind: "tex", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["main.tex", "chapter.tex"],
+      activeFile: "main.tex",
+      activeTab: "main.tex",
+      secondaryFile: "chapter.tex",
+      focusedPane: "primary",
+      canvasMode: "source",
+      documentMode: "source",
+      paperView: "blog",
+      tabRecency: ["chapter.tex", "main.tex"],
+    });
+    const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
+    const pdf = {
+      numPages: 1,
+      getPage: vi.fn(async () => ({
+        getViewport: () => ({
+          width: 600,
+          height: 800,
+          convertToViewportPoint: (x: number, y: number) => [x, y],
+        }),
+        render: vi.fn(() => renderTask),
+        streamTextContent: () => new ReadableStream(),
+        getTextContent: async () => ({ items: [] }),
+        getAnnotations: async () => [],
+        cleanup: vi.fn(),
+      })),
+      getDestination: vi.fn(),
+      getPageIndex: vi.fn(),
+    };
+    vi.mocked(getDocument).mockReturnValue({
+      promise: Promise.resolve(pdf),
+      destroy: vi.fn(),
+    } as never);
+    const NativeURL = globalThis.URL;
+    class TestURL extends NativeURL {
+      static createObjectURL = vi.fn(() => "blob:lattice-dual-pdf");
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") return {
+        success: true,
+        hasPdf: true,
+        log: "",
+        durationMs: 1,
+        diagnostics: [],
+        rootDocument: "main.tex",
+      };
+      if (command === "read_compiled_pdf") {
+        return new TextEncoder().encode("%PDF-1.4").buffer;
+      }
+      if (command === "synctex_edit") return { path: "chapter.tex", line: 2 };
+      if (command === "synctex_view") return { page: 1, x: 72, y: 96, width: 120, height: 14 };
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    // Two editors side by side, then turn one of them into the PDF preview.
+    fireEvent.click(await screen.findByRole("button", { name: "Split editor right" }));
+    await waitFor(() => expect(document.querySelector(
+      ".source-editor[data-editor-pane='secondary'] .cm-content",
+    )).toHaveTextContent("content:chapter.tex"));
+    fireEvent.click(within(await screen.findByRole("tablist", { name: "Document view" }))
+      .getByRole("tab", { name: "Preview" }));
+    const pdfPage = await screen.findByLabelText("PDF page 1");
+    expect(document.querySelector(".dual-pane-preview .pdf-column")).toBeInTheDocument();
+
+    fireEvent.doubleClick(pdfPage, { clientX: 110, clientY: 220 });
+    // The double-click is live here: the other pane is an editor to land in.
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "synctex_edit",
+      expect.objectContaining({ page: 1 }),
+    ));
+    // And the layout the reader arranged survives the jump.
+    expect(document.querySelector(".dual-canvas")).toBeInTheDocument();
+    expect(document.querySelector(".dual-pane-preview .pdf-column")).toBeInTheDocument();
+    expect(document.querySelector(".source-editor")).toBeInTheDocument();
   });
 
   it("lists compile diagnostics and jumps to the reported source line", async () => {
@@ -6177,7 +6673,12 @@ describe("project workspace", () => {
       expect(view?.state.doc.toString()).toBe("# Private draft");
       return view!;
     });
-    initialEditor.dispatch({ changes: { from: initialEditor.state.doc.length, insert: "\nLocal only." } });
+    const insertedText = "\nLocal only.";
+    const savedCursor = initialEditor.state.doc.length + insertedText.length;
+    initialEditor.dispatch({
+      changes: { from: initialEditor.state.doc.length, insert: insertedText },
+      selection: { anchor: savedCursor },
+    });
 
     // Driven through the tutorial, which is one of the flows that still
     // replaces the project in this window. Choosing a project — from the
@@ -6204,6 +6705,14 @@ describe("project workspace", () => {
         projectRoot: "/tmp/notes",
       }],
     ]);
+    const storedViews = JSON.parse(
+      localStorage.getItem("lattice.file-view-states.v1") ?? "{}",
+    ) as Record<string, Record<string, { text?: { cursor: number; scrollTop: number } }>>;
+    expect(storedViews["/tmp/notes"]?.["draft.md"]?.text).toEqual({
+      cursor: savedCursor,
+      scrollTop: 0,
+    });
+    expect(storedViews["/tmp/overleaf-paper"]?.["draft.md"]).toBeUndefined();
 
     releaseIncomingPapers([]);
     await waitFor(() => {
@@ -6721,11 +7230,14 @@ describe("project workspace", () => {
     expect(palette).toHaveClass("resizable-drawer");
     expect(within(palette).getByRole("separator", { name: "Resize right panel" })).toBeInTheDocument();
     expect(within(palette).getByRole("button", { name: /Alpha/i })).toBeInTheDocument();
-    fireEvent.click(within(palette).getByRole("tab", { name: "Greek" }));
+    fireEvent.click(within(palette).getByRole("tab", { name: "Symbols" }));
     expect(palette.querySelector(".sliding-tab-underline")).not.toBeInTheDocument();
-    expect(within(palette).getByRole("tab", { name: "Greek" })).toHaveAttribute("aria-selected", "true");
+    expect(within(palette).getByRole("tab", { name: "Symbols" })).toHaveAttribute("aria-selected", "true");
     expect(within(palette).getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "false");
+    // The eight symbol groups share one tab and stay as headed sections inside it.
+    expect(within(palette).getByRole("heading", { name: /Greek/ })).toBeInTheDocument();
     expect(within(palette).getByRole("button", { name: /Capital omega/i })).toBeInTheDocument();
+    expect(within(palette).queryByRole("button", { name: /Bulleted list/i })).not.toBeInTheDocument();
 
     const documentView = screen.getByRole("tablist", { name: "Document view" });
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
@@ -6742,6 +7254,11 @@ describe("project workspace", () => {
   });
 
   it("creates and deletes project entries and imported papers", async () => {
+    localStorage.setItem("lattice.file-view-states.v1", JSON.stringify({
+      "/tmp/lattice-paper": {
+        "notes.tex": { text: { cursor: 8, scrollTop: 40 } },
+      },
+    }));
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -6826,12 +7343,21 @@ describe("project workspace", () => {
     fireEvent.contextMenu(await findProjectTreeItem("main.tex"));
     expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
 
+    fireEvent.click(await findProjectTreeItem("notes.tex"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /notes\.tex/ }))
+      .toHaveAttribute("aria-selected", "true"));
     fireEvent.contextMenu(await findProjectTreeItem("notes.tex"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_project_entry", {
       path: "notes.tex",
       projectRoot: "/tmp/lattice-paper",
     }));
+    await waitFor(() => {
+      const states = JSON.parse(
+        localStorage.getItem("lattice.file-view-states.v1") ?? "{}",
+      ) as Record<string, Record<string, unknown>>;
+      expect(states["/tmp/lattice-paper"]?.["notes.tex"]).toBeUndefined();
+    });
     await switchSidebarMode("Papers");
     fireEvent.click(screen.getByTitle("Remove Attention Is All You Need"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("remove_reference", {

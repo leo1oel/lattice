@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   applySynaraSettingsHeight,
-  isSettingsViewportNearBottom,
   normalizeSynaraSettingsHeight,
   scrollSynaraSettingsViewportBy,
 } from "./synara-settings-layout";
@@ -13,23 +12,6 @@ describe("Synara settings layout", () => {
     expect(normalizeSynaraSettingsHeight(812.2)).toBe(813);
     expect(normalizeSynaraSettingsHeight(8_000)).toBe(8_000);
     expect(normalizeSynaraSettingsHeight(100_000)).toBe(64_000);
-  });
-
-  it("recognizes a viewport already pinned to the bottom", () => {
-    expect(
-      isSettingsViewportNearBottom({
-        clientHeight: 470,
-        scrollHeight: 1_200,
-        scrollTop: 710,
-      }),
-    ).toBe(true);
-    expect(
-      isSettingsViewportNearBottom({
-        clientHeight: 470,
-        scrollHeight: 1_200,
-        scrollTop: 600,
-      }),
-    ).toBe(false);
   });
 
   it("applies a reported height synchronously before the next wheel event", () => {

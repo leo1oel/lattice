@@ -59,7 +59,7 @@ export function PanelHeader({
           {onClose && (
             <CloseButton
               label={resolvedCloseLabel}
-              tooltip={closeTooltip ?? resolvedCloseLabel}
+              tooltip={closeTooltip ?? false}
               disabled={closeDisabled}
               onClick={onClose}
             />

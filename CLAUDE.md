@@ -8,13 +8,14 @@ React 19 / TypeScript / Vite 7 frontend, with a bundled AI-agent sidecar
 
 ```bash
 pnpm tauri dev                  # run the desktop app (needs ../synara-poc checkout, see README)
-pnpm check                      # THE gate: lint + vitest + web build + cargo test + clippy -D warnings
+pnpm check                      # THE gate: i18n + lint + vitest + web build + rustfmt + cargo test + clippy
 pnpm vitest run <file>          # one test file
-cargo fmt --manifest-path src-tauri/Cargo.toml --all   # CI checks fmt; pnpm check does NOT — run it before pushing
 node scripts/bump-version.mjs patch   # release: bump, commit, tag vX.Y.Z, push tag → CI publishes
 ```
 
-Lint enforces `--max-warnings 139` as a debt cap: lower it when you remove
+`pnpm check` is `mise run check`: the same stages as CI, in parallel, skipping
+any whose declared `sources` have not changed. Needs [mise](https://mise.jdx.dev).
+Lint enforces `--max-warnings 128` as a debt cap: lower it when you remove
 warnings; never raise it.
 
 ## Layout

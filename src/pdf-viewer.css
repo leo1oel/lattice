@@ -1,16 +1,21 @@
-.pdf-preview { position: relative; padding: 0; display: flex; flex-direction: column; background: var(--pdf-bg); }
-.pdf-toolbar { min-height: var(--toolbar-height); flex: none; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--border-subtle); background: var(--editor-bg); contain: layout paint; display: grid; grid-template-columns: 94px minmax(186px, 1fr) auto; gap: var(--space-2); align-items: center; }
-.pdf-toolbar-with-context { grid-template-columns: auto minmax(186px, 1fr) auto; }
+/* The middle track stays usable while all three groups fit on one row. Once
+   they do not, the container query gives search a full row instead of reducing
+   it to an icon-width sliver or clipping the controls at the trailing edge. */
+.pdf-preview { container: pdf-preview / inline-size; }
+.pdf-toolbar { min-height: var(--toolbar-height); flex: none; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--border-subtle); background: var(--editor-bg); contain: layout paint; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; }
 .pdf-toolbar button { width: var(--toolbar-icon-width); height: var(--toolbar-icon-height); border-radius: var(--toolbar-icon-radius); padding: 0; background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
 .pdf-toolbar button:hover:not(:disabled) { background: var(--toolbar-hover-surface); color: var(--text-primary); }
-.pdf-find-controls { min-width: 0; display: grid; grid-template-columns: 24px minmax(160px, 1fr); align-items: center; gap: var(--space-2); }
-.pdf-find-controls.without-outline { grid-template-columns: minmax(160px, 1fr); }
-.pdf-find-controls .pdf-search { width: auto; min-width: 160px; }
+.pdf-find-controls { min-width: 0; grid-column: 2; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: var(--space-2); }
+/* `outline` can be a React component that ultimately renders null. Base the
+   extra track on the actual button in the DOM, not the truthiness of that
+   ReactNode, or the search lands in the 24px outline track by itself. */
+.pdf-find-controls:has(.pdf-outline-trigger) { grid-template-columns: 24px minmax(0, 1fr); }
+.pdf-find-controls .pdf-search { width: 100%; min-width: 0; }
 .pdf-outline-trigger { justify-self: center; }
 .pdf-page-controls, .pdf-zoom-controls { display: flex; align-items: center; color: var(--text-secondary); font-size: var(--type-micro-size); }
-.pdf-navigation-controls { min-width: 0; justify-self: start; display: flex; align-items: center; gap: var(--space-3); }
+.pdf-navigation-controls { grid-column: 1; justify-self: start; display: flex; align-items: center; gap: var(--space-3); }
 .pdf-page-controls { justify-self: start; display: grid; grid-template-columns: 24px 44px 24px; gap: var(--gap-hairline); }
-.pdf-zoom-controls { width: auto; justify-self: end; gap: var(--space-2); }
+.pdf-zoom-controls { width: auto; grid-column: 3; justify-self: end; gap: var(--space-2); }
 .pdf-page-value { position: relative; width: 44px; min-width: 44px; height: 25px; border-radius: var(--radius-compact); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .pdf-page-value:focus-within { background: var(--field-control-background); box-shadow: inset 0 0 0 var(--field-control-border-width) var(--field-control-interactive-border-color); }
 .pdf-page-value input { position: absolute; inset: 0; width: 100%; min-width: 0; border: 0; outline: 0; padding: 0; opacity: 0; background: transparent; color: inherit; font: inherit; text-align: right; font-variant-numeric: inherit; cursor: text; overflow-x: hidden; }
@@ -59,6 +64,15 @@
 .pdf-loading { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); height: 28px; padding: 0 var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 5; }
 .pdf-loading-quiet { opacity: 0.85; }
 .pdf-toolbar-empty > :first-child, .pdf-toolbar-empty > :last-child { min-width: 74px; }
+@container pdf-preview (max-width: 560px) {
+  .pdf-toolbar { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .pdf-find-controls { grid-row: 2; grid-column: 1 / -1; }
+}
+@container pdf-preview (max-width: 360px) {
+  .pdf-toolbar { grid-template-columns: minmax(0, 1fr); padding-inline: var(--space-2); }
+  .pdf-navigation-controls { grid-row: 1; grid-column: 1; justify-self: center; }
+  .pdf-zoom-controls { grid-row: 2; grid-column: 1; justify-self: center; gap: var(--space-1); }
+  .pdf-find-controls { grid-row: 3; grid-column: 1; }
+}
 @keyframes pdf-page-loading { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @keyframes synctex-highlight { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
-.pdf-placeholder { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: var(--space-4); color: var(--text-tertiary); font-size: var(--type-caption-size); }

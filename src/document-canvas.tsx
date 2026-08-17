@@ -13,18 +13,11 @@ import {
 import { useLingui } from "@lingui/react/macro";
 import { CodeMirrorHost as CodeMirror } from "./codemirror-host";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
-import {
-  LanguageDescription,
-  LanguageSupport,
-  StreamLanguage,
-  type StreamParser,
-} from "@codemirror/language";
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { bibtex } from "codemirror-lang-bib";
 import { latex } from "codemirror-lang-latex";
 import {
   hueFromColorHex,
@@ -111,13 +104,18 @@ import { InsertPalette } from "./insert-palette";
 import type { InsertSnippet } from "./insert-snippets";
 import { expandSnippetPlaceholders, nextSnippetStop, previousSnippetStop } from "./snippet-placeholders";
 import { MathPreview } from "./math-preview";
+import { InfinityLoader } from "./components/ui/activity-icons";
 import { TableGeneratorDialog } from "./table-generator-dialog";
 import type { PdfSyncTarget } from "./pdf-viewer";
 import { pdfBase64ToBytes, pdfBytesToObjectUrl, utf8ToBase64 } from "./pdf-bytes";
+import { SPLIT_PDF_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH } from "./window-layout";
 import { notifyError } from "./app-notify";
 import type {
   WordCount,
   EditorViewState,
+  FileViewState,
+  ImageFileViewState,
+  ScrollFileViewState,
   AssetPreview,
   FigureDropRequest,
   EditorNavigation,
@@ -131,6 +129,7 @@ import type {
 import {
   isHarperProseFilePath,
   isHtmlFilePath,
+  isPreviewableSourceFilePath,
   markdownFrontmatterEnd,
   PROJECT_FIGURE_DRAG_TYPE,
 } from "./app-utils";
@@ -143,17 +142,19 @@ import type { CollabPeer, EditorCollabSession } from "./collab-session";
 import { peerCaretOffsetsV2, publishCollabCursorV2 } from "./collab-session";
 import { collabEditorExtensions } from "./collab-editor";
 import { isSpreadsheetPath } from "./spreadsheet-types";
-
-const loadPdfPreviewModule = () => import("./pdf-viewer");
-let visualMarkdownEditorWarmed = false;
-
-const loadVisualMarkdownEditorModule = () => import("./visual-markdown-editor").then((module) => {
-  // Chunk prewarm finished — skip DeferredVisualMarkdownEditor's one-frame blank.
-  visualMarkdownEditorWarmed = true;
-  return module;
-});
-const loadBoardEditorModule = () => import("./board-editor");
-const loadSpreadsheetEditorModule = () => import("./spreadsheet-editor");
+import {
+  EMPTY_EXTENSIONS,
+  immediateTextLanguageExtensions,
+  loadTextLanguageExtensions,
+} from "./editor-languages";
+import {
+  isVisualMarkdownEditorWarmed,
+  markVisualMarkdownEditorWarmed,
+  loadBoardEditorModule,
+  loadPdfPreviewModule,
+  loadSpreadsheetEditorModule,
+  loadVisualMarkdownEditorModule,
+} from "./canvas-lazy-modules";
 
 const PdfPreview = lazy(() => loadPdfPreviewModule().then((module) => ({
   default: module.PdfPreview,
@@ -170,14 +171,14 @@ const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module)
 
 function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
   const { t } = useLingui();
-  const [ready, setReady] = useState(visualMarkdownEditorWarmed);
+  const [ready, setReady] = useState(isVisualMarkdownEditorWarmed);
   useEffect(() => {
     if (ready) return;
     const frame = window.requestAnimationFrame(() => setReady(true));
     return () => window.cancelAnimationFrame(frame);
   }, [ready]);
   useEffect(() => {
-    if (ready) visualMarkdownEditorWarmed = true;
+    if (ready) markVisualMarkdownEditorWarmed();
   }, [ready]);
   if (!ready) {
     return <div className="visual-markdown-preparing" aria-busy="true" aria-label={t`Preparing Markdown editor`} />;
@@ -195,7 +196,17 @@ const HTML_PREVIEW_SCROLLBAR_STYLES = `
   html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; width: 0; height: 0; }
 }`;
 
-function HtmlPreview({ path, source }: { path: string; source: string }) {
+function HtmlPreview({
+  path,
+  source,
+  initialViewState,
+  onViewState,
+}: {
+  path: string;
+  source: string;
+  initialViewState?: ScrollFileViewState;
+  onViewState?: (state: ScrollFileViewState) => void;
+}) {
   const { t } = useLingui();
   const [previewSource, setPreviewSource] = useState(source);
   const [scrollMetrics, setScrollMetrics] = useState({
@@ -203,14 +214,18 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
     scrollHeight: 0,
     scrollTop: 0,
   });
+  const scrollMetricsRef = useRef(scrollMetrics);
   const [scrollbarHovering, setScrollbarHovering] = useState(false);
   const [scrolling, setScrolling] = useState(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const scrollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onViewStateRef = useRef(onViewState);
+  const [initialScrollTop] = useState(initialViewState?.scrollTop ?? 0);
   // Republishing srcDoc reloads the frame, which drops the reader back to the
   // top of the document. Editing an HTML file therefore threw away the reading
   // position every time typing paused. Carry it across the reload.
-  const restoreScrollTopRef = useRef(0);
+  const restoreScrollTopRef = useRef(initialScrollTop);
+  const awaitingInitialRestoreRef = useRef(initialScrollTop > 0);
   const dragRef = useRef<{
     pointerId: number;
     scrollPerPixel: number;
@@ -222,6 +237,13 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
     () => calculateVerticalScrollGeometry(scrollMetrics),
     [scrollMetrics],
   );
+
+  useLayoutEffect(() => {
+    scrollMetricsRef.current = scrollMetrics;
+  }, [scrollMetrics]);
+  useLayoutEffect(() => {
+    onViewStateRef.current = onViewState;
+  }, [onViewState]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setPreviewSource(source), 180);
@@ -249,7 +271,16 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
         });
         // A reloaded frame reports 0 before the restore lands; keep the last
         // real position so the restore has something to aim at.
-        if (data.scrollTop > 0) restoreScrollTopRef.current = data.scrollTop;
+        if (data.scrollTop > 0 || data.scrollHeight <= data.clientHeight) {
+          awaitingInitialRestoreRef.current = false;
+        }
+        if (!awaitingInitialRestoreRef.current) {
+          restoreScrollTopRef.current = data.scrollTop;
+          onViewStateRef.current?.({
+            scrollTop: data.scrollTop,
+            scrollRange: Math.max(0, data.scrollHeight - data.clientHeight),
+          });
+        }
         setScrolling(true);
         if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
         scrollingTimerRef.current = setTimeout(() => {
@@ -272,6 +303,11 @@ function HtmlPreview({ path, source }: { path: string; source: string }) {
     return () => {
       window.removeEventListener("message", handleMessage);
       if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
+      const metrics = scrollMetricsRef.current;
+      onViewStateRef.current?.({
+        scrollTop: restoreScrollTopRef.current,
+        scrollRange: Math.max(0, metrics.scrollHeight - metrics.clientHeight),
+      });
     };
   }, []);
 
@@ -442,6 +478,16 @@ function PdfPreviewLoading() {
   );
 }
 
+function MarkdownPreviewLoading() {
+  const { t } = useLingui();
+  return (
+    <div className="markdown-preview-loading" role="status" aria-live="polite">
+      <InfinityLoader size={20} />
+      <span>{t`Preparing preview…`}</span>
+    </div>
+  );
+}
+
 type PaperPdfView =
   | { arxivId: string; status: "loading"; initialPage: number }
   | {
@@ -493,9 +539,6 @@ function HtmlPreviewLoading() {
     </div>
   );
 }
-
-const SPLIT_SOURCE_MIN_WIDTH = 480;
-const SPLIT_PDF_MIN_WIDTH = 500;
 
 /**
  * Trailing edge of the source → preview handoff.
@@ -579,7 +622,6 @@ function SecondaryMarkdownPreview(props: {
   editable: boolean;
   onCaretChange: (row: number, column: number) => void;
 }) {
-  const { t } = useLingui();
   const sourceRef = useRef(props.source);
   const onChangeRef = useRef(props.onChange);
   const [visualEchoSource, setVisualEchoSource] = useState<string | null>(null);
@@ -647,7 +689,7 @@ function SecondaryMarkdownPreview(props: {
       viewportClassName="editor-doc-scroll"
       viewportProps={{ "data-testid": "editor-scroll-container" }}
     >
-      <Suspense fallback={<div className="chat-markdown">{t`Preparing preview…`}</div>}>
+      <Suspense fallback={<MarkdownPreviewLoading />}>
         <DeferredVisualMarkdownEditor
           text={settledText}
           activePath={props.path}
@@ -672,7 +714,7 @@ function SecondaryMarkdownPreview(props: {
   );
 }
 
-export function interpolateScrollAnchors(
+function interpolateScrollAnchors(
   value: number,
   pairs: Array<{ from: number; to: number }>,
   fromMin: number,
@@ -814,155 +856,6 @@ function isLatexSourcePath(path: string): boolean {
   return /\.(?:tex|sty|cls)$/i.test(path);
 }
 
-const EMPTY_EXTENSIONS: Extension[] = [];
-const BIBTEX_EXTENSIONS: Extension[] = [bibtex({
-  enableLinting: false,
-  enableTooltips: true,
-  enableAutocomplete: true,
-  autoCloseBrackets: true,
-})];
-interface GitignoreParserState {
-  atLineStart: boolean;
-}
-const gitignoreParser: StreamParser<GitignoreParserState> = {
-  startState: () => ({ atLineStart: true }),
-  token(stream, state) {
-    if (stream.sol()) state.atLineStart = true;
-    if (stream.eatSpace()) return null;
-    if (state.atLineStart && stream.peek() === "#") {
-      stream.skipToEnd();
-      return "comment";
-    }
-    if (state.atLineStart && stream.peek() === "!") {
-      state.atLineStart = false;
-      stream.next();
-      return "operator";
-    }
-    state.atLineStart = false;
-    if (stream.peek() === "\\") {
-      stream.next();
-      stream.next();
-      return "escape";
-    }
-    if (stream.match(/^[*?]+/)) return "regexp";
-    if (stream.peek() === "[") {
-      stream.next();
-      stream.skipTo("]");
-      stream.next();
-      return "regexp";
-    }
-    if (stream.peek() === "/") {
-      stream.next();
-      return "operator";
-    }
-    stream.eatWhile((character) => !"\\*?[/".includes(character));
-    return "string";
-  },
-  languageData: { commentTokens: { line: "#" } },
-};
-const GITIGNORE_EXTENSIONS: Extension[] = [
-  new LanguageSupport(StreamLanguage.define(gitignoreParser)),
-];
-let markdownExtensionsPromise: Promise<Extension[]> | null = null;
-let htmlExtensionsPromise: Promise<Extension[]> | null = null;
-
-function loadMarkdownExtensions(): Promise<Extension[]> {
-  markdownExtensionsPromise ??= Promise.all([
-    import("@codemirror/lang-markdown"),
-    import("@codemirror/language-data"),
-  ]).then(([{ markdown }, { languages }]) => [markdown({ codeLanguages: languages })]);
-  return markdownExtensionsPromise;
-}
-
-function loadHtmlExtensions(): Promise<Extension[]> {
-  htmlExtensionsPromise ??= import("@codemirror/lang-html")
-    .then(({ html }) => [html()]);
-  return htmlExtensionsPromise;
-}
-
-/**
- * Languages already resolved this session, keyed by file extension.
- *
- * Without this, opening a file whose language loads asynchronously mounts the
- * editor with no language and reconfigures it a moment later, so the document
- * is parsed twice on every visit — expensive for Markdown, whose parser is
- * configured with the whole nested code-language table.
- */
-const resolvedLanguageExtensions = new Map<string, Extension[]>();
-
-function languageCacheKey(path: string): string {
-  const filename = path.slice(path.lastIndexOf("/") + 1).toLocaleLowerCase();
-  const dot = filename.lastIndexOf(".");
-  return dot > 0 ? filename.slice(dot) : filename;
-}
-
-function immediateTextLanguageExtensions(path: string): Extension[] {
-  if (/\.bib$/i.test(path)) return BIBTEX_EXTENSIONS;
-  if (/(?:^|\/)\.gitignore$/i.test(path)) return GITIGNORE_EXTENSIONS;
-  return resolvedLanguageExtensions.get(languageCacheKey(path)) ?? EMPTY_EXTENSIONS;
-}
-
-/** Load the CodeMirror language associated with a project filename. */
-export async function loadTextLanguageExtensions(path: string): Promise<Extension[]> {
-  const immediate = immediateTextLanguageExtensions(path);
-  if (immediate.length > 0) return immediate;
-  const remember = (extensions: Extension[]) => {
-    // Empty means "no language matched"; caching that would be harmless but
-    // pointless, and it keeps `immediate.length > 0` meaning "already known".
-    if (extensions.length > 0) resolvedLanguageExtensions.set(languageCacheKey(path), extensions);
-    return extensions;
-  };
-  if (/\.md$/i.test(path)) return loadMarkdownExtensions().then(remember);
-  if (isHtmlFilePath(path)) return loadHtmlExtensions().then(remember);
-
-  const { languages } = await import("@codemirror/language-data");
-  const filename = path.slice(path.lastIndexOf("/") + 1);
-  const description = LanguageDescription.matchFilename(languages, filename)
-    ?? LanguageDescription.matchFilename(languages, filename.toLowerCase());
-  return description ? remember([await description.load()]) : EMPTY_EXTENSIONS;
-}
-
-/** Download project-relevant editor and preview chunks without mounting UI. */
-// eslint-disable-next-line react-refresh/only-export-components -- App lazy-loads this alongside the canvas chunk.
-export async function prewarmProjectPreviewModules(paths: readonly string[]): Promise<void> {
-  const normalized = paths.map((path) => path.toLocaleLowerCase());
-  const representativeLanguages = new Map<string, string>();
-  for (const path of paths) {
-    const filename = path.slice(path.lastIndexOf("/") + 1);
-    if (filename !== ".gitignore" && !/\.(?:tex|bib|mdx?|txt|html?|sty|cls|bst)$/i.test(filename)) continue;
-    const extension = filename.includes(".") ? filename.slice(filename.lastIndexOf(".")) : filename;
-    if (!representativeLanguages.has(extension)) representativeLanguages.set(extension, path);
-  }
-  const work: Promise<unknown>[] = [...representativeLanguages.values()].map(loadTextLanguageExtensions);
-  if (normalized.some((path) => path.endsWith(".md") || path.endsWith(".mdx"))) {
-    work.push(loadVisualMarkdownEditorModule());
-  }
-  if (normalized.some((path) => path.endsWith(".tex") || path.endsWith(".pdf"))) {
-    work.push(loadPdfPreviewModule());
-  }
-  if (normalized.some((path) => path.endsWith(".tldr"))) {
-    work.push(Promise.all([
-      loadBoardEditorModule(),
-      import("./board-yjs-bridge"),
-    ]).then(([, board]) => {
-      // Initialize tldraw's schema/store machinery without mounting a canvas
-      // or attaching a writable collaboration bridge.
-      board.createBoardStore("");
-    }));
-  }
-  if (normalized.some(isSpreadsheetPath)) {
-    work.push(loadSpreadsheetEditorModule());
-  }
-  await Promise.allSettled(work);
-}
-
-/** Parse one Markdown document into the visual editor's bounded warm cache. */
-// eslint-disable-next-line react-refresh/only-export-components -- App lazy-loads this alongside the canvas chunk.
-export async function prewarmMarkdownPreviewDocument(path: string, source: string): Promise<void> {
-  const module = await loadVisualMarkdownEditorModule();
-  module.prewarmVisualMarkdownDocument(path, source);
-}
-
 function useTextLanguageExtensions(path: string): Extension[] {
   const [loaded, setLoaded] = useState<{ path: string; extensions: Extension[] }>(() => ({
     path,
@@ -1051,6 +944,8 @@ function useOptionalKeymapExtensions(
 export function DocumentCanvas(props: {
   mode: CanvasMode;
   dualPreviewPanes?: { primary: boolean; secondary: boolean };
+  /** Whether some pane still holds an editor a PDF double-click can jump into. */
+  canRevealPdfSource?: boolean;
   workspaceIndex?: MarkdownWorkspaceIndex | null;
   source: string;
   markdownPreviewSource?: string;
@@ -1098,6 +993,8 @@ export function DocumentCanvas(props: {
   onEditorNavigationHandled: (id: string) => void;
   onEditorPosition: (position: EditorPosition) => void;
   onViewState: (path: string, state: EditorViewState) => void;
+  getFileViewState?: (path: string) => FileViewState | undefined;
+  onFileViewState?: (path: string, update: Partial<FileViewState>) => void;
   viewRestore: { path: string; cursor: number; scrollTop: number; id: string } | null;
   onViewRestoreHandled: (id: string) => void;
   onGotoDefinition: (target: DefinitionTarget) => void;
@@ -1228,6 +1125,8 @@ export function DocumentCanvas(props: {
     onOpenEditorComments,
     commentFocusRequest,
     onCommentFocusHandled,
+    getFileViewState,
+    onFileViewState,
   } = props;
   const { t } = useLingui();
   const primaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
@@ -1403,6 +1302,7 @@ export function DocumentCanvas(props: {
   const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<EditorView | null>(null);
   const [markdownPreviewViewport, setMarkdownPreviewViewport] = useState<HTMLDivElement | null>(null);
   const markdownPreviewViewportRef = useRef<HTMLDivElement | null>(null);
+  const markdownPreviewPersistenceCleanupRef = useRef<(() => void) | null>(null);
   const markdownScrollSyncSuppressedRef = useRef(false);
   const markdownModeViewportHandoffRef = useRef<MarkdownModeViewportHandoff | null>(null);
   const markdownModeViewportRestoreGenerationRef = useRef(0);
@@ -1447,6 +1347,22 @@ export function DocumentCanvas(props: {
     error: string | null;
   } | null>(null);
   const commentComposerViewRef = useRef<EditorView | null>(null);
+  // Identity of the preview column. It renders the project's compiled PDF, not
+  // a preview of whatever the editor holds, so a file with no preview of its
+  // own — a .bib reached by double-clicking a citation, a .sty reached from a
+  // macro — must not remount the viewer under a new key and restore that file's
+  // empty page and zoom. It keeps the last file that does own a preview; a
+  // previewable file is its own identity, so this only ever lags for files that
+  // would have thrown the reader's place away.
+  const [previewIdentity, setPreviewIdentity] = useState(activeFile);
+  useEffect(() => {
+    const owner = isPreviewableSourceFilePath(activeFile)
+      ? activeFile
+      : secondaryFile && isPreviewableSourceFilePath(secondaryFile)
+        ? secondaryFile
+        : null;
+    if (owner) setPreviewIdentity(owner);
+  }, [activeFile, secondaryFile]);
 
   const captureMarkdownModeViewport = useCallback(() => {
     const markdownMode = props.mode === "source" || props.mode === "split" || props.mode === "pdf";
@@ -2347,6 +2263,13 @@ export function DocumentCanvas(props: {
     if (!view && !preview) return;
     let frame: number | null = null;
     let observer: MutationObserver | null = null;
+    // codemirror-host holds an external value back while someone is typing, so
+    // the view can still carry the previous file's text when a jump arrives.
+    // Resolving the line against that document scrolls somewhere meaningless
+    // and consumes the request, which is one of the ways a SyncTeX jump lands
+    // in the wrong place. Wait for the text to catch up — but not forever: a
+    // best-effort jump is better than a request nobody answers.
+    const staleDocumentDeadline = performance.now() + 600;
     const navigate = () => {
       frame = null;
       const currentView = editorVisible
@@ -2355,6 +2278,14 @@ export function DocumentCanvas(props: {
           : primaryViewRef.current ?? editorViewRef.current
         : null;
       if (currentView) {
+        const currentSource = request.path === secondaryFile ? secondarySource : editorSource;
+        if (
+          currentView.state.doc.toString() !== currentSource
+          && performance.now() < staleDocumentDeadline
+        ) {
+          frame = window.requestAnimationFrame(navigate);
+          return;
+        }
         const lineNumber = clamp(request.line, 1, currentView.state.doc.lines);
         const line = currentView.state.doc.line(lineNumber);
         // Center the target line so a jump lands in the middle of the viewport,
@@ -2648,9 +2579,49 @@ export function DocumentCanvas(props: {
   }, []);
 
   const attachMarkdownPreviewViewport = useCallback((viewport: HTMLDivElement | null) => {
+    markdownPreviewPersistenceCleanupRef.current?.();
+    markdownPreviewPersistenceCleanupRef.current = null;
     markdownPreviewViewportRef.current = viewport;
     setMarkdownPreviewViewport(viewport);
-  }, []);
+    if (!viewport) return;
+    const path = activeFile;
+    const saved = getFileViewState?.(path)?.visualMarkdown;
+    let restoring = Boolean(saved);
+    let restoreFrame: number | null = null;
+    const report = () => {
+      if (restoring) return;
+      onFileViewState?.(path, {
+        visualMarkdown: {
+          scrollTop: viewport.scrollTop,
+          scrollRange: Math.max(0, viewport.scrollHeight - viewport.clientHeight),
+        },
+      });
+    };
+    viewport.addEventListener("scroll", report, { passive: true });
+    if (saved) {
+      let attempts = 0;
+      const restore = () => {
+        restoreFrame = null;
+        attempts += 1;
+        const ready = restoreViewport(viewport, {
+          scrollTop: saved.scrollTop,
+          scrollRange: saved.scrollRange ?? 0,
+        });
+        if (!ready && attempts < 30) {
+          restoreFrame = window.requestAnimationFrame(restore);
+          return;
+        }
+        restoring = false;
+      };
+      restoreFrame = window.requestAnimationFrame(restore);
+    }
+    markdownPreviewPersistenceCleanupRef.current = () => {
+      if (restoreFrame !== null) window.cancelAnimationFrame(restoreFrame);
+      restoring = false;
+      report();
+      viewport.removeEventListener("scroll", report);
+    };
+  }, [activeFile, getFileViewState, onFileViewState]);
 
   const undoVisualMarkdown = useCallback(() => {
     const storedView = primaryViewRef.current;
@@ -3164,7 +3135,14 @@ export function DocumentCanvas(props: {
   ]);
 
   if (props.mode === "asset" && props.activeAsset) {
-    return <ProjectAssetPreview key={props.activeAsset.path} asset={props.activeAsset} />;
+    return (
+      <ProjectAssetPreview
+        key={props.activeAsset.path}
+        asset={props.activeAsset}
+        viewState={props.getFileViewState?.(props.activeAsset.path)}
+        onViewState={(update) => props.onFileViewState?.(props.activeAsset!.path, update)}
+      />
+    );
   }
   const paperFullTextHeader = props.activePaper
     && activeFile.replace(/\\/g, "/").toLocaleLowerCase().endsWith("/paper.md") ? (
@@ -3217,7 +3195,7 @@ export function DocumentCanvas(props: {
     >
       {paperFullTextHeader}
       <Suspense fallback={props.activePaper ? null : (
-        <div className="chat-markdown">{t`Preparing preview…`}</div>
+        <MarkdownPreviewLoading />
       )}>
         <DeferredVisualMarkdownEditor
           text={settledPreviewText}
@@ -3328,6 +3306,8 @@ export function DocumentCanvas(props: {
             timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
             onTextSelect={props.onPaperTextSelect}
             onPageChange={rememberPaperPdfPage}
+            initialViewState={props.getFileViewState?.(activeFile)?.pdf}
+            onViewState={(pdf) => props.onFileViewState?.(activeFile, { pdf })}
             onDocumentData={paperPdfView.objectUrl ? undefined : cacheActivePaperPdf}
             toolbarStart={(
               <Tip label={t({ message: `Back to ${{ view: paperReturnLabel }}` })}>
@@ -3501,7 +3481,7 @@ export function DocumentCanvas(props: {
           </span>
           <button
             type="button"
-            className={`status-todos${commentsForActiveFile.some((comment) => !comment.resolved) ? " has-todos" : ""}`}
+            className={`status-todos status-comments${commentsForActiveFile.some((comment) => !comment.resolved) ? " has-todos" : ""}`}
             title={t`Editor comments`}
             onClick={onOpenEditorComments}
           >
@@ -3512,7 +3492,7 @@ export function DocumentCanvas(props: {
           </button>
           <button
             type="button"
-            className={`status-todos${props.todoCount ? " has-todos" : ""}`}
+            className={`status-todos status-manuscript-todos${props.todoCount ? " has-todos" : ""}`}
             title={t`Manuscript TODOs`}
             onClick={props.onOpenTodos}
           >
@@ -3560,7 +3540,11 @@ export function DocumentCanvas(props: {
       )}
     </div>
   );
-  const pdfPreview = (
+  const projectPdfPreview = (requestedPath: string) => {
+    const previewPath = isPreviewableSourceFilePath(requestedPath)
+      ? requestedPath
+      : previewIdentity;
+    return (
     <div
       className="pdf-column"
       data-tour="document-preview"
@@ -3570,6 +3554,7 @@ export function DocumentCanvas(props: {
       {props.pdfTop}
       <Suspense fallback={<PdfPreviewLoading />}>
         <PdfPreview
+          key={`project-pdf:${previewPath}`}
           url={props.pdfUrl}
           pdfBase64={props.pdfBase64}
           pdfBytes={props.pdfBytes}
@@ -3577,20 +3562,24 @@ export function DocumentCanvas(props: {
           canForwardSync={props.canForwardSync}
           locatingPdf={props.locatingPdf}
           onForwardSync={props.onForwardSync}
-          // Reverse-jump to source only when the editor is visible (split/dual/
-          // columns). In PDF-only view there's nothing to jump to, so clicks stay
-          // inert and the synctex cursor is off.
-          onSource={props.mode === "pdf" || props.dualPreviewPanes?.primary || props.dualPreviewPanes?.secondary
+          // Reverse-jump to source needs an editor to land in. PDF-only view has
+          // none, and neither does a dual layout whose panes are both previews
+          // (or whose only other pane is an asset); those clicks stay inert and
+          // the synctex cursor is off. With one pane still holding an editor the
+          // jump goes there — App picks the pane, since it owns that state.
+          onSource={props.mode === "pdf" || !props.canRevealPdfSource
             ? undefined
             : props.onPdfSource}
           onTextSelect={props.onPdfTextSelect}
           onNumPages={props.onPdfPageCount}
           onPageChange={props.onPdfPageChange}
+          initialViewState={props.getFileViewState?.(previewPath)?.pdf}
+          onViewState={(pdf) => props.onFileViewState?.(previewPath, { pdf })}
           outline={(
             <DocumentOutline
               nodes={outlineNodes}
               activeId={activeOutlineId}
-              available={showTexChrome}
+              available={previewPath.toLocaleLowerCase().endsWith(".tex")}
               open={outlineOpen}
               onSelect={onOutlineNavigate}
               onClose={() => onOutlineOpenChange(false)}
@@ -3600,14 +3589,28 @@ export function DocumentCanvas(props: {
         />
       </Suspense>
     </div>
-  );
+    );
+  };
   const preview = props.activeAsset ? (
-    <ProjectAssetPreview key={props.activeAsset.path} asset={props.activeAsset} />
+    <ProjectAssetPreview
+      key={props.activeAsset.path}
+      asset={props.activeAsset}
+      viewState={props.getFileViewState?.(props.activeAsset.path)}
+      onViewState={(update) => props.onFileViewState?.(props.activeAsset!.path, update)}
+    />
   ) : markdownDocument ? paperPreview : htmlDocument ? (
     props.interactivePreviewsEnabled
-      ? <HtmlPreview key={activeFile} path={activeFile} source={props.source} />
+      ? (
+        <HtmlPreview
+          key={activeFile}
+          path={activeFile}
+          source={props.source}
+          initialViewState={props.getFileViewState?.(activeFile)?.html}
+          onViewState={(html) => props.onFileViewState?.(activeFile, { html })}
+        />
+      )
       : <HtmlPreviewLoading />
-  ) : pdfPreview;
+  ) : projectPdfPreview(activeFile);
   const boardCollabForPath = (path: string) => {
     const session = props.collabSession;
     if (!props.collabReady || !session?.boardPresenceUser) return null;
@@ -3663,6 +3666,8 @@ export function DocumentCanvas(props: {
           source={props.source}
           onChange={(next) => setSourceRef.current(next)}
           collab={boardCollabForPath(activeFile)}
+            initialViewState={props.getFileViewState?.(activeFile)?.board}
+            onViewState={(board) => props.onFileViewState?.(activeFile, { board })}
           onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
         />
       </Suspense>
@@ -3678,6 +3683,8 @@ export function DocumentCanvas(props: {
           onChange={(next) => setSourceRef.current(next)}
           onPersist={props.onSave}
           collab={spreadsheetCollabForPath(activeFile)}
+            initialViewState={props.getFileViewState?.(activeFile)?.spreadsheet}
+            onViewState={(spreadsheet) => props.onFileViewState?.(activeFile, { spreadsheet })}
           onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
         />
       </Suspense>
@@ -3705,7 +3712,12 @@ export function DocumentCanvas(props: {
         onPointerDownCapture={focusSecondaryPane}
         onFocus={focusSecondaryPane}
       >
-        <ProjectAssetPreview asset={props.secondaryAsset} />
+        <ProjectAssetPreview
+          key={props.secondaryAsset.path}
+          asset={props.secondaryAsset}
+          viewState={props.getFileViewState?.(props.secondaryAsset.path)}
+          onViewState={(update) => props.onFileViewState?.(props.secondaryAsset!.path, update)}
+        />
       </div>
     ) : secondaryFile?.toLocaleLowerCase().endsWith(".tldr") ? (
       <div
@@ -3721,6 +3733,8 @@ export function DocumentCanvas(props: {
             source={secondarySource}
             onChange={(next) => setSecondarySourceRef.current(next)}
             collab={boardCollabForPath(secondaryFile)}
+            initialViewState={props.getFileViewState?.(secondaryFile)?.board}
+            onViewState={(board) => props.onFileViewState?.(secondaryFile, { board })}
             onFlushPendingChange={registerSecondaryVisualMarkdownFlush}
             active={focusedPane === "secondary"}
           />
@@ -3742,6 +3756,8 @@ export function DocumentCanvas(props: {
             onChange={(next) => setSecondarySourceRef.current(next)}
             onPersist={props.onSave}
             collab={spreadsheetCollabForPath(secondaryFile)}
+            initialViewState={props.getFileViewState?.(secondaryFile)?.spreadsheet}
+            onViewState={(spreadsheet) => props.onFileViewState?.(secondaryFile, { spreadsheet })}
             onFlushPendingChange={registerSecondaryVisualMarkdownFlush}
             active={focusedPane === "secondary"}
           />
@@ -3818,9 +3834,17 @@ export function DocumentCanvas(props: {
       />
     ) : secondaryFile && isHtmlFilePath(secondaryFile) ? (
       props.interactivePreviewsEnabled
-        ? <HtmlPreview key={secondaryFile} path={secondaryFile} source={secondarySource} />
+        ? (
+          <HtmlPreview
+            key={secondaryFile}
+            path={secondaryFile}
+            source={secondarySource}
+            initialViewState={props.getFileViewState?.(secondaryFile)?.html}
+            onViewState={(html) => props.onFileViewState?.(secondaryFile, { html })}
+          />
+        )
         : <HtmlPreviewLoading />
-    ) : pdfPreview;
+    ) : projectPdfPreview(secondaryFile ?? activeFile);
     const dualSecondaryPreview = (
       <div
         className={`dual-pane-preview dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
@@ -3892,7 +3916,12 @@ export function DocumentCanvas(props: {
           onFocusPane("primary");
         }}
       >
-        <ProjectAssetPreview asset={props.activeAsset} />
+        <ProjectAssetPreview
+          key={props.activeAsset.path}
+          asset={props.activeAsset}
+          viewState={props.getFileViewState?.(props.activeAsset.path)}
+          onViewState={(update) => props.onFileViewState?.(props.activeAsset!.path, update)}
+        />
       </div>
     ) : boardDocument || spreadsheetDocument ? (
       <div
@@ -3917,6 +3946,8 @@ export function DocumentCanvas(props: {
               source={props.source}
               onChange={(next) => setSourceRef.current(next)}
               collab={boardCollabForPath(activeFile)}
+              initialViewState={props.getFileViewState?.(activeFile)?.board}
+              onViewState={(board) => props.onFileViewState?.(activeFile, { board })}
               onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
               active={focusedPane === "primary"}
             />
@@ -3928,6 +3959,8 @@ export function DocumentCanvas(props: {
               onChange={(next) => setSourceRef.current(next)}
               onPersist={props.onSave}
               collab={spreadsheetCollabForPath(activeFile)}
+              initialViewState={props.getFileViewState?.(activeFile)?.spreadsheet}
+              onViewState={(spreadsheet) => props.onFileViewState?.(activeFile, { spreadsheet })}
               onFlushPendingChange={registerPrimaryVisualMarkdownFlush}
               active={focusedPane === "primary"}
             />
@@ -4222,10 +4255,21 @@ function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
   );
 }
 
-function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
+function ProjectAssetPreview({
+  asset,
+  viewState,
+  onViewState,
+}: {
+  asset: AssetPreview;
+  viewState?: FileViewState;
+  onViewState?: (update: Partial<FileViewState>) => void;
+}) {
   const { t } = useLingui();
   const url = `data:${asset.mimeType};base64,${asset.base64}`;
-  const [scale, setScale] = useState(1);
+  const [initialImageViewState] = useState(viewState?.image);
+  const [scale, setScale] = useState(initialImageViewState?.scale ?? 1);
+  const scaleRef = useRef(scale);
+  const onViewStateRef = useRef(onViewState);
   const [zoomDraft, setZoomDraft] = useState("100");
   const [zoomEditing, setZoomEditing] = useState(false);
   const imageMinScale = 0.3;
@@ -4244,6 +4288,48 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
   };
   const zoomLabelRef = useRef<HTMLLabelElement | null>(null);
   const stageViewportRef = useRef<HTMLDivElement | null>(null);
+  const imageViewRestoredRef = useRef(false);
+  useLayoutEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
+  useLayoutEffect(() => {
+    onViewStateRef.current = onViewState;
+  }, [onViewState]);
+  useLayoutEffect(() => {
+    if (asset.mimeType === "application/pdf") return;
+    const viewport = stageViewportRef.current;
+    if (!viewport) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (initialImageViewState) {
+        viewport.scrollTop = initialImageViewState.scrollTop;
+        viewport.scrollLeft = initialImageViewState.scrollLeft ?? 0;
+      }
+      imageViewRestoredRef.current = true;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [asset.mimeType, initialImageViewState]);
+  useEffect(() => {
+    if (!imageViewRestoredRef.current || asset.mimeType === "application/pdf") return;
+    const viewport = stageViewportRef.current;
+    onViewStateRef.current?.({
+      image: {
+        scale,
+        scrollTop: viewport?.scrollTop ?? 0,
+        scrollLeft: viewport?.scrollLeft ?? 0,
+      },
+    });
+  }, [asset.mimeType, scale]);
+  useEffect(() => () => {
+    const viewport = stageViewportRef.current;
+    if (!imageViewRestoredRef.current || asset.mimeType === "application/pdf") return;
+    onViewStateRef.current?.({
+      image: {
+        scale: scaleRef.current,
+        scrollTop: viewport?.scrollTop ?? 0,
+        scrollLeft: viewport?.scrollLeft ?? 0,
+      },
+    });
+  }, [asset.mimeType]);
   useNonPassiveWheel(zoomLabelRef, (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -4265,6 +4351,8 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
           pdfBase64={asset.base64}
           pdfBytes={pdfBytes.buffer}
           fileName={asset.path.split("/").pop() ?? "figure.pdf"}
+          initialViewState={viewState?.pdf}
+          onViewState={(pdf) => onViewStateRef.current?.({ pdf })}
         />
       </Suspense>
     );
@@ -4326,6 +4414,19 @@ function ProjectAssetPreview({ asset }: { asset: AssetPreview }) {
         orientation="both"
         contentClassName="asset-preview-stage-content"
         viewportRef={stageViewportRef}
+        viewportProps={{
+          onScroll: (event) => {
+            if (!imageViewRestoredRef.current) return;
+            const viewport = event.currentTarget;
+            onViewStateRef.current?.({
+              image: {
+                scale: scaleRef.current,
+                scrollTop: viewport.scrollTop,
+                scrollLeft: viewport.scrollLeft,
+              } satisfies ImageFileViewState,
+            });
+          },
+        }}
       >
         {asset.mimeType.startsWith("image/")
           ? <img src={url} alt={t({ message: `Preview of ${{ path: asset.path }}` })} style={{ zoom: scale }} />

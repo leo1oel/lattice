@@ -65,6 +65,7 @@ import {
 } from "./pdf-viewer-utils";
 import "./pdf-viewer.css";
 import { logAction, notifyError } from "./app-notify";
+import type { PdfFileViewState } from "./app-types";
 import { useNonPassiveWheel } from "./use-non-passive-wheel";
 
 /** Notification source label for the PDF preview. */
@@ -711,6 +712,8 @@ export function PdfPreview({
   onPageChange,
   onDocumentData,
   initialPage = 1,
+  initialViewState,
+  onViewState,
   showSave = true,
   saveLabel,
   timeoutMessage,
@@ -733,6 +736,8 @@ export function PdfPreview({
   /** Complete bytes assembled by PDF.js after a URL load, suitable for caching. */
   onDocumentData?: (bytes: ArrayBuffer) => void;
   initialPage?: number;
+  initialViewState?: PdfFileViewState;
+  onViewState?: (state: PdfFileViewState) => void;
   showSave?: boolean;
   saveLabel?: string;
   timeoutMessage?: string;
@@ -748,16 +753,24 @@ export function PdfPreview({
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const pagesRef = useRef<HTMLDivElement | null>(null);
   const onTextSelectRef = useRef(onTextSelect);
-  onTextSelectRef.current = onTextSelect;
   const onNumPagesRef = useRef(onNumPages);
-  onNumPagesRef.current = onNumPages;
   const onPageChangeRef = useRef(onPageChange);
-  onPageChangeRef.current = onPageChange;
   const onDocumentDataRef = useRef(onDocumentData);
-  onDocumentDataRef.current = onDocumentData;
+  const onViewStateRef = useRef(onViewState);
+  const [initialViewStateSnapshot] = useState(initialViewState);
+  useLayoutEffect(() => {
+    onTextSelectRef.current = onTextSelect;
+    onNumPagesRef.current = onNumPages;
+    onPageChangeRef.current = onPageChange;
+    onDocumentDataRef.current = onDocumentData;
+    onViewStateRef.current = onViewState;
+  }, [onDocumentData, onNumPages, onPageChange, onTextSelect, onViewState]);
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [documentGeneration, setDocumentGeneration] = useState(0);
-  const [pageNumber, setPageNumber] = useState(() => Math.max(1, Math.floor(initialPage)));
+  const [pageNumber, setPageNumber] = useState(() => Math.max(
+    1,
+    Math.floor(initialViewStateSnapshot?.page ?? initialPage),
+  ));
   const pageNumberRef = useRef(pageNumber);
   useEffect(() => {
     pageNumberRef.current = pageNumber;
@@ -766,7 +779,15 @@ export function PdfPreview({
   const [pageEditing, setPageEditing] = useState(false);
   const [pageDraft, setPageDraft] = useState("");
   const cancelPageEditRef = useRef(false);
-  const [initialViewPreference] = useState(loadPdfViewPreference);
+  const [initialViewPreference] = useState(() => {
+    const saved = initialViewStateSnapshot;
+    return saved
+      ? {
+          fitMode: saved.fitMode,
+          scale: clamp(saved.scale, PDF_MIN_SCALE, PDF_MAX_SCALE),
+        }
+      : loadPdfViewPreference();
+  });
   const [scale, setScale] = useState(initialViewPreference.scale);
   const [fitMode, setFitMode] = useState<"width" | "height" | null>(initialViewPreference.fitMode);
   const [pageSize, setPageSize] = useState<PdfPageSize | null>(null);
@@ -806,14 +827,39 @@ export function PdfPreview({
   const [zoomEditing, setZoomEditing] = useState(false);
   const [zoomDraft, setZoomDraft] = useState("");
   const scaleRef = useRef(scale);
-  scaleRef.current = scale;
+  const fitModeRef = useRef(fitMode);
+  const viewStateFrameRef = useRef<number | null>(null);
+  const viewStateReadyRef = useRef(!initialViewStateSnapshot);
+  useLayoutEffect(() => {
+    scaleRef.current = scale;
+    fitModeRef.current = fitMode;
+  }, [fitMode, scale]);
+  const reportViewState = useCallback(() => {
+    viewStateFrameRef.current = null;
+    if (!viewStateReadyRef.current) return;
+    const area = scrollAreaRef.current;
+    onViewStateRef.current?.({
+      page: pageNumberRef.current,
+      scale: scaleRef.current,
+      fitMode: fitModeRef.current,
+      scrollTop: area?.scrollTop ?? 0,
+      scrollLeft: area?.scrollLeft ?? 0,
+    });
+  }, []);
+  const scheduleViewState = useCallback(() => {
+    if (viewStateFrameRef.current === null) {
+      viewStateFrameRef.current = window.requestAnimationFrame(reportViewState);
+    }
+  }, [reportViewState]);
+  useEffect(() => scheduleViewState(), [pageNumber, scheduleViewState]);
   useEffect(() => {
     try {
       localStorage.setItem(PDF_VIEW_PREFERENCE_KEY, JSON.stringify({ fitMode, scale }));
     } catch {
       // The current viewer still works when preference storage is unavailable.
     }
-  }, [fitMode, scale]);
+    scheduleViewState();
+  }, [fitMode, scale, scheduleViewState]);
   const updateManualScale = useCallback((update: (current: number) => number) => {
     setFitMode(null);
     setScale(update);
@@ -1388,6 +1434,7 @@ export function PdfPreview({
     }
   }, [pageContentTop]);
   const updateCurrentPage = useCallback(() => {
+    scheduleViewState();
     if (!pdfScrollingRef.current) {
       pdfScrollingRef.current = true;
       setPdfScrolling(true);
@@ -1402,7 +1449,7 @@ export function PdfPreview({
     }, PDF_SCROLL_REFINE_SETTLE_MS);
     if (currentPageFrameRef.current !== null) return;
     currentPageFrameRef.current = window.requestAnimationFrame(findCurrentPage);
-  }, [findCurrentPage]);
+  }, [findCurrentPage, scheduleViewState]);
   useEffect(() => () => {
     if (scrollIdleTimerRef.current !== null) {
       window.clearTimeout(scrollIdleTimerRef.current);
@@ -1412,7 +1459,12 @@ export function PdfPreview({
       window.cancelAnimationFrame(currentPageFrameRef.current);
       currentPageFrameRef.current = null;
     }
-  }, []);
+    if (viewStateFrameRef.current !== null) {
+      window.cancelAnimationFrame(viewStateFrameRef.current);
+      viewStateFrameRef.current = null;
+    }
+    reportViewState();
+  }, [reportViewState]);
 
   const scrollToPage = useCallback((nextPage: number, behavior: ScrollBehavior = "smooth") => {
     const scrollArea = scrollAreaRef.current;
@@ -1434,11 +1486,27 @@ export function PdfPreview({
   }, [pageContentTop]);
 
   useEffect(() => {
-    if (!documentProxy || initialPage <= 1) return;
-    const target = clamp(Math.floor(initialPage), 1, documentProxy.numPages);
+    const requestedPage = initialViewStateSnapshot?.page ?? initialPage;
+    if (!documentProxy || requestedPage <= 1) return;
+    const target = clamp(Math.floor(requestedPage), 1, documentProxy.numPages);
     const frame = window.requestAnimationFrame(() => scrollToPage(target, "auto"));
     return () => window.cancelAnimationFrame(frame);
-  }, [documentProxy, initialPage, scrollToPage]);
+  }, [documentProxy, initialPage, initialViewStateSnapshot, scrollToPage]);
+
+  const initialScrollRestoredRef = useRef(false);
+  useEffect(() => {
+    const saved = initialViewStateSnapshot;
+    const area = scrollAreaRef.current;
+    if (!saved || !documentProxy || !area || initialScrollRestoredRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      area.scrollTop = saved.scrollTop;
+      area.scrollLeft = saved.scrollLeft;
+      initialScrollRestoredRef.current = true;
+      viewStateReadyRef.current = true;
+      updateCurrentPage();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [documentProxy, initialViewStateSnapshot, updateCurrentPage]);
 
   const commitPageDraft = () => {
     if (cancelPageEditRef.current) {
@@ -1495,7 +1563,7 @@ export function PdfPreview({
       <div className="pdf-preview">
         <div className="pdf-toolbar pdf-toolbar-empty">
           <div className="pdf-page-controls" />
-          <div className={`pdf-find-controls${outline ? "" : " without-outline"}`}>
+          <div className="pdf-find-controls">
             {outline}
             <SearchField
               aria-label={t`Search PDF`}
@@ -1503,6 +1571,7 @@ export function PdfPreview({
               controlSize="compact"
               placeholder={t`Find in PDF`}
               disabled
+              value=""
             />
           </div>
           <div className="pdf-zoom-controls" />
@@ -1529,7 +1598,7 @@ export function PdfPreview({
 
   return (
     <div className="pdf-preview">
-      <div className={`pdf-toolbar${toolbarStart || toolbarEnd ? " pdf-toolbar-with-context" : ""}`}>
+      <div className="pdf-toolbar">
         <div className="pdf-navigation-controls">
           {toolbarStart}
           <div className="pdf-page-controls">
@@ -1570,7 +1639,7 @@ export function PdfPreview({
             </Tip>
           </div>
         </div>
-        <div className={`pdf-find-controls${outline ? "" : " without-outline"}`}>
+        <div className="pdf-find-controls">
           {outline}
           <SearchField
             aria-label={t`Search PDF`}

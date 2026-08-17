@@ -320,10 +320,24 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 }
 .insert-palette-search { margin-bottom: var(--drawer-section-gap); }
 .insert-palette-tabs { flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--drawer-section-gap); }
-.insert-palette-groups { display: grid; gap: var(--space-8); }
+.insert-palette-groups { display: grid; gap: var(--space-8); min-width: 0; }
+/* The catalog is ~300 tiles tall. Skipping offscreen sections keeps a scroll
+   gesture at frame rate. The height hint is a guess, so a miss only costs a
+   scrollbar jump; the inline size must stay 0 or shrinking the drawer keeps
+   the last two-column width and `.insert-palette { overflow: hidden }` clips
+   the second track instead of wrapping to one. */
+.insert-palette-groups > section {
+  content-visibility: auto;
+  contain-intrinsic-inline-size: 0px;
+  contain-intrinsic-block-size: auto 320px;
+  min-width: 0;
+  max-width: 100%;
+}
 .insert-palette-groups h3 { margin: 0 0 var(--space-4); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; display: flex; align-items: center; gap: var(--space-3); }
 .insert-palette-groups h3 small { color: var(--text-tertiary); font-size: var(--type-nano-size); font-weight: 600; letter-spacing: 0; text-transform: none; }
-.insert-palette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)); gap: var(--space-3); }
+/* `min(188px, 100%)` lets auto-fill drop to a single track that can shrink
+   with the drawer. A raw 188px minimum overflowed and got clipped. */
+.insert-palette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(188px, 100%), 1fr)); gap: var(--space-3); min-width: 0; }
 .insert-snippet-button { min-height: 72px; border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); padding: var(--space-4); background: var(--surface-app); color: var(--text-primary); text-align: left; display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: var(--space-4); align-items: center; }
 .insert-snippet-button:hover { border-color: var(--control-active-border); background: var(--control-active-soft); }
 .insert-snippet-preview { width: 54px; height: 54px; border-radius: var(--radius-chrome); border: 1px solid var(--border-subtle); background: var(--surface-panel-raised); display: grid; place-items: center; overflow: hidden; color: var(--text-primary); }
@@ -336,6 +350,22 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .insert-snippet-copy strong { font-size: var(--type-caption-size); font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .insert-snippet-copy span { color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .insert-snippet-copy code { color: var(--text-tertiary); font-family: var(--editor-font); font-size: var(--type-nano-size); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Symbols carry their whole meaning in the glyph, so they get a picker grid
+   instead of a description card: the name and the command live in the tooltip
+   and in the filter index. */
+.insert-symbol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(38px, 100%), 1fr)); gap: var(--space-2); min-width: 0; }
+.insert-symbol-chip {
+  height: 38px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-chrome);
+  background: var(--surface-app);
+  color: var(--text-primary);
+  display: grid;
+  place-items: center;
+  font-size: var(--insert-glyph-size);
+  line-height: 1;
+}
+.insert-symbol-chip:hover { border-color: var(--control-active-border); background: var(--control-active-soft); color: var(--control-active); }
 
 .welcome-screen { width: 100%; height: 100%; background: var(--surface-app); position: relative; overflow: hidden; }
 .welcome-titlebar { position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: 48px; display: flex; justify-content: flex-end; align-items: center; padding: 0 14px; }
@@ -651,7 +681,12 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .settings-body { height: calc(100% - var(--settings-header-height)); display: grid; grid-template-columns: var(--settings-nav-width) minmax(0, 1fr); }
 .settings-nav { padding: var(--settings-nav-padding-block) var(--settings-nav-padding-inline); border-right: 1px solid var(--border-subtle); background: var(--surface-chrome); overflow-y: auto; }
 .settings-nav-group + .settings-nav-group { margin-top: var(--settings-nav-group-gap); }
-.settings-nav-group-label { padding: 0 var(--space-5); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 600; line-height: 20px; }
+/* The margin equalizes optical rhythm, not box gaps: nav buttons are 30px tall
+   around a ~14px line box, so adjacent item labels sit ~16px apart, while the
+   group label's own 20px line box leaves only ~4px under its text. The extra
+   4px puts the label the same distance from the first item as the items are
+   from each other. */
+.settings-nav-group-label { padding: 0 var(--space-5); margin-bottom: var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 600; line-height: 20px; }
 .settings-nav button { width: 100%; height: var(--control-height-default); padding: 0 var(--space-5); border-radius: var(--radius-control); background: transparent; color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-4); font-size: var(--type-caption-size); text-align: left; }
 .settings-nav button > .animated-product-icon { width: 15px; flex: none; }
 .settings-nav .animated-product-icon--sparkle { transform: translateY(-1px); }

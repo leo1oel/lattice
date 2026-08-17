@@ -14,6 +14,7 @@ describe("PanelHeader", () => {
     );
 
     expect(screen.getByText("Settings")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Close Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close Settings" }))
+      .not.toHaveAttribute("data-state");
   });
 });

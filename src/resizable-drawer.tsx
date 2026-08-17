@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { beginWindowDrag, toggleWindowFullscreen } from "./app-utils";
 import "./components/ui/scroll-area.css";
 
 const MIN_DRAWER_WIDTH = 320;
@@ -100,6 +101,21 @@ export function ResizableDrawer(props: {
       }}
     >
       {resizing && <div className="drawer-resize-shield" aria-hidden="true" />}
+      {/* The backdrop sits above the titlebar, so the window-drag strip has to
+          be re-declared here: without it a press near the top of the window
+          reads as an outside click and dismisses the drawer instead of moving
+          the window. Stops short of the drawer so its own header keeps the
+          pointer. */}
+      <div
+        className="drawer-window-drag-strip"
+        aria-hidden="true"
+        style={{ right: width }}
+        onMouseDown={(event) => {
+          event.stopPropagation();
+          beginWindowDrag(event);
+        }}
+        onDoubleClick={toggleWindowFullscreen}
+      />
       <aside
         className={`history-drawer resizable-drawer native-hover-scrollbar ${props.className ?? ""}`.trim()}
         style={{ width }}

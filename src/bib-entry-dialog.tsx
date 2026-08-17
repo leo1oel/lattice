@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { BookMarked, ChevronDown, ChevronUp } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { Button } from "./components/ui/button";
 import { CheckboxField } from "./components/ui/checkbox-field";
 import { Input } from "./components/ui/input";
@@ -60,6 +61,7 @@ export function BibEntryDialog(props: {
   onSave: (draft: BibEntryDraft, insertCite: boolean) => void;
   onResolve?: (query: string) => Promise<ResolvedCitationDraft | null>;
 }) {
+  const { t } = useLingui();
   const editing = props.mode === "edit";
   const seed = props.initialDraft;
   const [type, setType] = useState<BibEntryType>(() => inferType(seed));
@@ -136,7 +138,15 @@ export function BibEntryDialog(props: {
     setDoi(resolved.doi);
   };
 
-  const heading = editing ? "Edit bibliography entry" : "Add bibliography entry";
+  const heading = editing ? t`Edit bibliography entry` : t`Add bibliography entry`;
+  // `BIB_ENTRY_TYPES` is BibTeX data whose `value` is the wire format; only the
+  // menu label is prose, so it is translated here rather than in the catalog.
+  const entryTypeLabel: Record<BibEntryType, string> = {
+    article: t`Article`,
+    inproceedings: t`In proceedings`,
+    book: t`Book`,
+    misc: t`Misc`,
+  };
 
   return (
     <ResizableDrawer
@@ -152,20 +162,20 @@ export function BibEntryDialog(props: {
         />
         {editing && (
           <p className="drawer-copy">
-            Pick a venue to set its canonical name and entry type, or edit any field by hand.
+            {t`Pick a venue to set its canonical name and entry type, or edit any field by hand.`}
           </p>
         )}
         <div className="bib-entry-form">
         {!editing && props.onResolve && (
           <label className="bib-resolve-field">
-            Resolve from DOI / arXiv / title
+            {t`Resolve from DOI / arXiv / title`}
             <div className="bib-resolve-row">
               <SearchField
-                aria-label="Citation resolve query"
+                aria-label={t`Citation resolve query`}
                 value={resolveQuery}
                 onChange={(event) => setResolveQuery(event.target.value)}
                 onClear={() => setResolveQuery("")}
-                placeholder="10.1038/… or arXiv:1706.03762 or paper title"
+                placeholder={t`10.1038/… or arXiv:1706.03762 or paper title`}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && resolveQuery.trim() && !props.resolving && !props.busy) {
                     event.preventDefault();
@@ -184,26 +194,26 @@ export function BibEntryDialog(props: {
                   });
                 }}
               >
-                {props.resolving ? "Resolving…" : "Resolve"}
+                {props.resolving ? t`Resolving…` : t`Resolve`}
               </Button>
             </div>
           </label>
         )}
           <label>
-            Type
+            {t`Type`}
             <Select value={type} onValueChange={(value) => setType(value as BibEntryType)}>
-              <SelectTrigger aria-label="Entry type"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={t`Entry type`}><SelectValue /></SelectTrigger>
               <SelectContent position="popper" align="start">
                 {BIB_ENTRY_TYPES.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  <SelectItem key={item.value} value={item.value}>{entryTypeLabel[item.value]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </label>
           <label>
-            Citation key
+            {t`Citation key`}
             <Input
-              aria-label="Citation key"
+              aria-label={t`Citation key`}
               value={key}
               readOnly={editing}
               onChange={(event) => setKey(event.target.value)}
@@ -211,31 +221,31 @@ export function BibEntryDialog(props: {
             />
           </label>
           <label>
-            Title
-            <Input aria-label="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
+            {t`Title`}
+            <Input aria-label={t`Title`} value={title} onChange={(event) => setTitle(event.target.value)} />
           </label>
           <label>
-            Author
-            <Input aria-label="Author" value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="Last, First and Last, First" />
+            {t`Author`}
+            <Input aria-label={t`Author`} value={author} onChange={(event) => setAuthor(event.target.value)} placeholder={t`Last, First and Last, First`} />
           </label>
           <label>
-            Year
+            {t`Year`}
             <div className="year-stepper">
-              <Input aria-label="Year" value={year} onChange={(event) => setYear(event.target.value)} inputMode="numeric" />
+              <Input aria-label={t`Year`} value={year} onChange={(event) => setYear(event.target.value)} inputMode="numeric" />
               <div className="year-stepper-buttons">
-                <button type="button" aria-label="Increment year" onClick={() => stepYear(1)}><ChevronUp size={12} /></button>
-                <button type="button" aria-label="Decrement year" onClick={() => stepYear(-1)}><ChevronDown size={12} /></button>
+                <button type="button" aria-label={t`Increment year`} onClick={() => stepYear(1)}><ChevronUp size={12} /></button>
+                <button type="button" aria-label={t`Decrement year`} onClick={() => stepYear(-1)}><ChevronDown size={12} /></button>
               </div>
             </div>
           </label>
           {type !== "book" && (
             <label>
-              Venue
+              {t`Venue`}
               <div className="venue-combobox">
                 <SearchField
-                  aria-label="Venue"
+                  aria-label={t`Venue`}
                   value={venue}
-                  placeholder="NeurIPS, CVPR, Nature, …"
+                  placeholder={t`NeurIPS, CVPR, Nature, …`}
                   onChange={(event) => { setVenueText(event.target.value); setVenueOpen(true); }}
                   onClear={() => { setVenueText(""); setVenueOpen(true); }}
                   onFocus={() => setVenueOpen(true)}
@@ -252,7 +262,7 @@ export function BibEntryDialog(props: {
                         onMouseDown={(event) => { event.preventDefault(); chooseVenue(item); }}
                       >
                         <span>{item.name}</span>
-                        <em>{item.entryType === "article" ? "journal" : "conference"}</em>
+                        <em>{item.entryType === "article" ? t`journal` : t`conference`}</em>
                       </button>
                     ))}
                   </div>
@@ -262,7 +272,7 @@ export function BibEntryDialog(props: {
           )}
           {type === "book" && (
             <label>
-              Publisher
+              {t`Publisher`}
               <Input value={publisher} onChange={(event) => setPublisher(event.target.value)} />
             </label>
           )}
@@ -277,21 +287,21 @@ export function BibEntryDialog(props: {
           {!editing && (
             <CheckboxField
               checked={insertCite}
-              label="Insert cite at cursor after saving"
+              label={t`Insert cite at cursor after saving`}
               onChange={(event) => setInsertCite(event.target.checked)}
             />
           )}
         </div>
-        <pre className="bib-entry-preview" aria-label="BibTeX preview">{formatBibEntry(draft)}</pre>
+        <pre className="bib-entry-preview" aria-label={t`BibTeX preview`}>{formatBibEntry(draft)}</pre>
         {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
         <div className="table-generator-actions">
-          <Button variant="ghost" onClick={props.onClose}>Cancel</Button>
+          <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>
           <Button
             variant="primary"
             disabled={props.busy || props.resolving || !title.trim() || !author.trim() || !year.trim()}
             onClick={() => props.onSave(draft, insertCite)}
           >
-            {props.busy ? "Saving…" : editing ? "Save changes" : "Save entry"}
+            {props.busy ? t`Saving…` : editing ? t`Save changes` : t`Save entry`}
           </Button>
         </div>
     </ResizableDrawer>

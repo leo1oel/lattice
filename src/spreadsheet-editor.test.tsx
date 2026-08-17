@@ -118,22 +118,27 @@ function mockRange(notation: string): MockRange {
 
 function makeWorkbook(data: SpreadsheetWorkbookData): MockWorkbook {
   const snapshot = clone(data);
-  const activeRange = mockRange("B2:C3");
-  const activeCell = mockRange("B2");
-  const sheet: MockSheet = {
-    getSheetId: () => snapshot.sheetOrder[0],
-    getActiveRange: () => activeRange,
-    getActiveCell: () => activeCell,
-    getRange: (rowOrNotation, column) => mockRange(
-      typeof rowOrNotation === "string" ? rowOrNotation : `${rowOrNotation}:${String(column)}`,
-    ),
-    getMaxRows: () => snapshot.sheets[snapshot.sheetOrder[0]].rowCount,
-    getMaxColumns: () => snapshot.sheets[snapshot.sheetOrder[0]].columnCount,
-    highlightRanges: vi.fn(() => ({ dispose: vi.fn() })),
-    setDefaultStyle: vi.fn((style: Record<string, unknown>) => {
-      snapshot.sheets[snapshot.sheetOrder[0]].defaultStyle = clone(style);
-    }),
-  };
+  const sheets = new Map(snapshot.sheetOrder.map((sheetId) => {
+    const activeRange = mockRange("B2:C3");
+    const activeCell = mockRange("B2");
+    const sheet: MockSheet = {
+      getSheetId: () => sheetId,
+      getActiveRange: () => activeRange,
+      getActiveCell: () => activeCell,
+      getRange: (rowOrNotation, column) => mockRange(
+        typeof rowOrNotation === "string" ? rowOrNotation : `${rowOrNotation}:${String(column)}`,
+      ),
+      getMaxRows: () => snapshot.sheets[sheetId].rowCount,
+      getMaxColumns: () => snapshot.sheets[sheetId].columnCount,
+      highlightRanges: vi.fn(() => ({ dispose: vi.fn() })),
+      setDefaultStyle: vi.fn((style: Record<string, unknown>) => {
+        snapshot.sheets[sheetId].defaultStyle = clone(style);
+      }),
+    };
+    return [sheetId, sheet] as const;
+  }));
+  const sheet = sheets.get(snapshot.sheetOrder[0])!;
+  let activeSheet = sheet;
   const permission = { setEditable: vi.fn(async () => undefined), setReadOnly: vi.fn(async () => undefined) };
   const workbook: MockWorkbook = {
     data: snapshot,
@@ -142,9 +147,12 @@ function makeWorkbook(data: SpreadsheetWorkbookData): MockWorkbook {
     getId: () => snapshot.id,
     save: () => clone(snapshot),
     getWorkbookPermission: () => permission,
-    getActiveSheet: () => sheet,
-    getSheetBySheetId: (id) => id === sheet.getSheetId() ? sheet : null,
-    setActiveSheet: vi.fn(() => sheet),
+    getActiveSheet: () => activeSheet,
+    getSheetBySheetId: (id) => sheets.get(id) ?? null,
+    setActiveSheet: vi.fn((next: MockSheet) => {
+      activeSheet = next;
+      return next;
+    }),
   };
   univerMock.workbooks.push(workbook);
   return workbook;
@@ -255,6 +263,7 @@ vi.mock("@univerjs/preset-sheets-core/locales/zh-CN", () => ({ default: {} }));
 
 import { SpreadsheetEditor } from "./spreadsheet-editor";
 import { ConfirmActionProvider } from "./confirm-action-dialog";
+import { activateAppLocale } from "./i18n";
 import {
   executeAgentSpreadsheetToolRequest,
   SYNARA_SPREADSHEET_TOOL_REQUEST,
@@ -303,6 +312,96 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     view.unmount();
   });
 
+  it("restores and reports per-user sheet navigation without changing the file", () => {
+    const file = createDefaultSpreadsheet("Views");
+    const firstSheetId = file.workbook.sheetOrder[0];
+    const secondSheetId = "sheet-local-view";
+    file.workbook.sheetOrder.push(secondSheetId);
+    file.workbook.sheets[secondSheetId] = {
+      ...clone(file.workbook.sheets[firstSheetId]),
+      id: secondSheetId,
+      name: "Analysis",
+      cellData: {},
+    };
+    const onViewState = vi.fn();
+    const view = render(
+      <SpreadsheetEditor
+        path="views.lattice-sheet"
+        source={serializeSpreadsheetFile(file.workbook)}
+        onChange={vi.fn()}
+        onPersist={async () => true}
+        initialViewState={{
+          activeSheetId: secondSheetId,
+          activeRange: "D5:F8",
+          activeCell: "D5",
+          sheets: {
+            [firstSheetId]: { zoomRatio: 1.1, scrollTop: 20, scrollLeft: 10 },
+            [secondSheetId]: { zoomRatio: 1.5, scrollTop: 240, scrollLeft: 80 },
+          },
+        }}
+        onViewState={onViewState}
+      />,
+    );
+
+    const workbook = univerMock.workbooks[0];
+    expect(workbook.data.sheets[firstSheetId]).toMatchObject({
+      zoomRatio: 1.1,
+      scrollTop: 20,
+      scrollLeft: 10,
+    });
+    expect(workbook.data.sheets[secondSheetId]).toMatchObject({
+      zoomRatio: 1.5,
+      scrollTop: 240,
+      scrollLeft: 80,
+    });
+    const secondSheet = workbook.getSheetBySheetId(secondSheetId);
+    expect(workbook.setActiveSheet).toHaveBeenCalledWith(secondSheet);
+    view.unmount();
+    expect(onViewState).toHaveBeenLastCalledWith(expect.objectContaining({
+      activeSheetId: secondSheetId,
+      sheets: expect.objectContaining({
+        [secondSheetId]: { zoomRatio: 1.5, scrollTop: 240, scrollLeft: 80 },
+      }),
+    }));
+  });
+
+  it("attaches a Lattice scrollbar to the All Functions list while it is open", async () => {
+    const file = createDefaultSpreadsheet("Functions");
+    const view = render(
+      <SpreadsheetEditor
+        path="functions.lattice-sheet"
+        source={serializeSpreadsheetFile(file.workbook)}
+        onChange={vi.fn()}
+        onPersist={async () => true}
+      />,
+    );
+    const host = view.container.querySelector<HTMLElement>(".spreadsheet-univer-host");
+    const panel = document.createElement("div");
+    panel.dataset.uComp = "sheets-formula-functions-panel";
+    panel.innerHTML = '<div><ul class="univer-overflow-y-auto"></ul></div>';
+    const list = panel.querySelector<HTMLElement>("ul");
+
+    expect(host).not.toBeNull();
+    expect(list).not.toBeNull();
+    act(() => host?.append(panel));
+    const nestedScrollbar = await waitFor(() => {
+      const scrollbar = view.container.querySelector<HTMLElement>(
+        ".spreadsheet-functions-scrollbar-surface .external-scrollbar",
+      );
+      expect(scrollbar).not.toBeNull();
+      return scrollbar;
+    });
+    fireEvent.pointerEnter(list as HTMLElement);
+    expect(nestedScrollbar).toHaveAttribute("data-hovering");
+
+    act(() => panel.remove());
+    await waitFor(() => {
+      expect(view.container.querySelector(".spreadsheet-functions-scrollbar-surface"))
+        .not.toBeInTheDocument();
+    });
+    view.unmount();
+  });
+
   it("reconciles local Univer commands into the native file", async () => {
     const file = createDefaultSpreadsheet("Local");
     const onChange = vi.fn();
@@ -338,6 +437,7 @@ describe("SpreadsheetEditor collaboration bridge", () => {
   });
 
   it("exports the current workbook as a binary Excel file", async () => {
+    await activateAppLocale("zh-CN");
     tauriMock.save.mockResolvedValue("/tmp/results.xlsx");
     tauriMock.invoke.mockResolvedValue("/tmp/results.xlsx");
     const file = createDefaultSpreadsheet("Results");
@@ -363,12 +463,15 @@ describe("SpreadsheetEditor collaboration bridge", () => {
         },
       },
     });
-    const toolbarSchema = univerMock.menuSchemas[0]["ribbon.start.layout"] as Record<string, {
+    const toolbarSchema = univerMock.menuSchemas[0]["ribbon.start.layout"] as Record<string, unknown>;
+    const formulasSchema = toolbarSchema["lattice.spreadsheet.formulas"] as {
       menuItemFactory: () => unknown;
-    }>;
-    expect(toolbarSchema["lattice.spreadsheet.formulas"].menuItemFactory()).toMatchObject({
+      "lattice.spreadsheet.formulas.all": { menuItemFactory: () => unknown };
+    };
+    expect(formulasSchema.menuItemFactory()).toMatchObject({
       commandId: "formula-ui.operation.insert-function",
-      title: "Formulas",
+      title: "公式",
+      tooltip: "插入公式",
       icon: "FunctionIcon",
       type: 1,
       selections: [
@@ -381,16 +484,26 @@ describe("SpreadsheetEditor collaboration bridge", () => {
         { label: { name: "MIN" }, value: "MIN" },
       ],
     });
+    expect(formulasSchema["lattice.spreadsheet.formulas.all"].menuItemFactory()).toMatchObject({
+      title: "所有函数…",
+      type: 0,
+    });
     expect(exportMenu).toMatchObject({
-      item: { title: "Export Excel", tooltip: "Export Excel", icon: "ExportIcon" },
-      path: "ribbon.start.layout",
+      item: {
+        title: "导出 Excel",
+        tooltip: "导出 Excel",
+        icon: "ExportIcon",
+        order: Number.MAX_SAFE_INTEGER,
+      },
+      path: "ribbon.start.others",
     });
     act(() => exportMenu?.item.action());
 
     await waitFor(() => expect(tauriMock.invoke).toHaveBeenCalled());
     expect(tauriMock.save).toHaveBeenCalledWith(expect.objectContaining({
+      title: "导出 Excel 工作簿",
       defaultPath: "results.xlsx",
-      filters: [{ name: "Excel workbook", extensions: ["xlsx"] }],
+      filters: [{ name: "Excel 工作簿", extensions: ["xlsx"] }],
     }));
     expect(tauriMock.invoke).toHaveBeenCalledWith(
       "save_xlsx",
@@ -525,6 +638,43 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await expect(confirmation).resolves.toBe(true);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    view.unmount();
+  });
+
+  it("localizes the worksheet deletion dialog to the interface language", async () => {
+    await activateAppLocale("zh-CN");
+    const file = createDefaultSpreadsheet("删除弹窗");
+    const view = render(
+      <ConfirmActionProvider>
+        <SpreadsheetEditor
+          path="delete-dialog-zh.lattice-sheet"
+          source={serializeSpreadsheetFile(file.workbook)}
+          onChange={vi.fn()}
+          onPersist={async () => true}
+        />
+      </ConfirmActionProvider>,
+    );
+    const uiRegistration = univerMock.registeredPlugins.find(({ plugin }) => plugin === univerMock.uiPlugin);
+    const override = (uiRegistration?.options as {
+      override: Array<[unknown, { useValue: { confirm(params: unknown): Promise<boolean> } }]>;
+    }).override[0][1].useValue;
+
+    let confirmation: Promise<boolean> | undefined;
+    act(() => {
+      confirmation = override.confirm({
+        id: "sheet.confirm.remove-sheet",
+        title: { title: "删除工作表" },
+        children: { title: "确认删除此工作表，删除后将不可找回，确定要删除吗？" },
+        confirmText: "确认",
+        cancelText: "取消",
+      });
+    });
+
+    const dialog = await screen.findByRole("dialog", { name: "要删除工作表吗？" });
+    expect(dialog).toHaveAccessibleDescription("该工作表及其所有内容都将被删除，且无法恢复。");
+    expect(screen.getByRole("button", { name: "取消" })).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: "删除" }));
+    await expect(confirmation).resolves.toBe(true);
     view.unmount();
   });
 

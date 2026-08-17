@@ -1,4 +1,5 @@
 import { CircleAlert } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import type { SynaraRuntimeInfo } from "./synara-runtime";
 import { InfinityLoader, ReloadButton } from "./components/ui/activity-icons";
 
@@ -7,6 +8,7 @@ export function SynaraLoadingSurface(props: {
   preparingWorkspace?: boolean;
   onRetry: () => void;
 }) {
+  const { t } = useLingui();
   const failed = props.runtime.state === "stopped";
   return (
     <div className="synara-loading-surface" role={failed ? "alert" : "status"} aria-live="polite">
@@ -16,22 +18,22 @@ export function SynaraLoadingSurface(props: {
       <div className="synara-loading-copy">
         <strong>
           {failed
-            ? "Agent unavailable"
+            ? t`Agent unavailable`
             : props.preparingWorkspace
-              ? "Preparing this workspace"
-              : "Starting Agent"}
+              ? t`Preparing this workspace`
+              : t`Starting Agent`}
         </strong>
         <span>
           {failed
-            ? props.runtime.message || "The bundled Agent service could not start."
+            ? props.runtime.message || t`The bundled Agent service could not start.`
             : props.preparingWorkspace
-              ? "Restoring the conversation surface…"
-              : "Warming the local service…"}
+              ? t`Restoring the conversation surface…`
+              : t`Warming the local service…`}
         </span>
       </div>
       {failed && (
         <ReloadButton size="compact" onClick={props.onRetry}>
-          Retry
+          {t`Retry`}
         </ReloadButton>
       )}
     </div>

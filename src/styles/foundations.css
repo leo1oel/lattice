@@ -258,6 +258,7 @@
   --titlebar-traffic-space-width: 70px;
   --titlebar-toggle-center: calc((var(--titlebar-traffic-space-width) + var(--titlebar-navigator-width)) / 2);
   --titlebar-action-size: var(--control-size-icon-large);
+  --titlebar-project-title-max-width: 260px;
 
   /* Editor tab strip contract. The strip has two variants that share every
      state role: the standalone strip below a toolbar, and the compact chrome
@@ -362,6 +363,10 @@
   --z-selection-toolbar: 80;
   --z-tooltip: 81;
   --z-banner: 90;
+  /* Local to the spreadsheet's isolated stack, but on the ladder anyway: it has
+     to clear Univer's own right-sidebar layer at 100, and a three-digit number
+     left in a component stylesheet reads like an app-level claim. */
+  --z-spreadsheet-scrollbar: 101;
   --z-drag-ghost: 120;
   --z-tour-spotlight: 1499;
   --z-tour-suggestion: 1650;
@@ -431,4 +436,61 @@
   --tone-border: color-mix(in srgb, currentColor 14%, transparent);
   --tone-border-emphasis: color-mix(in srgb, currentColor 28%, transparent);
   --tone-chip-border: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+/* Settings is read, not scanned: the dialog is a page of prose and controls, so
+   it runs one step up the type scale that the surrounding chrome uses.
+   The base roles carry literal values because a chain of `var()` inside one
+   block would collapse onto whichever role is redeclared last; every alias that
+   :root derives from a base role is restated here, since a declaration in
+   :root resolves against :root's own values and would otherwise inherit the
+   chrome size unchanged.
+
+   The Providers/MCP/Skills pages live in the Synara iframe and keep their own
+   copy of these roles, so they are not affected by this scope. The select
+   popup is portalled out of the dialog, so it carries the same scope or its
+   items would fall back to the chrome size its trigger no longer uses. */
+.settings-modal,
+[data-slot="select-content"][data-settings-control="true"] {
+  --type-nano-size: 10px;
+  --type-micro-size: 11px;
+  --type-micro-line-height: 16px;
+  --type-caption-size: 12px;
+  --type-caption-line-height: 18px;
+  --type-label-size: 13px;
+  --type-label-line-height: 18px;
+  --type-body-size: 14px;
+  --type-body-line-height: 22px;
+  --type-reading-size: 15px;
+  --type-reading-line-height: 24px;
+  --type-title-compact-size: 14px;
+  --type-title-compact-line-height: 18px;
+  --type-title-size: 16px;
+  --type-title-line-height: 20px;
+  --type-title-large-size: 18px;
+  --type-title-large-line-height: 22px;
+  --type-heading-size: 20px;
+  --type-heading-line-height: 24px;
+  --type-display-size: 26px;
+
+  --type-tree-size: var(--type-caption-size);
+  --type-tree-line-height: var(--type-caption-line-height);
+  --type-project-tree-size: var(--type-body-size);
+  --type-project-tree-line-height: var(--type-label-line-height);
+  --type-diff-code-size: var(--type-caption-size);
+  --type-diff-code-line-height: 20px;
+  --type-diff-meta-size: var(--type-micro-size);
+  --type-diff-meta-line-height: var(--type-micro-line-height);
+
+  --font-ui-xs: var(--type-micro-size);
+  --font-ui-sm: var(--type-caption-size);
+  --font-ui-base: var(--type-label-size);
+  --font-ui-body: var(--type-body-size);
+  --font-ui-title: var(--type-title-size);
+  --font-ui-heading: var(--type-heading-size);
+
+  --settings-group-title-size: 14px;
+  --settings-group-title-line-height: 20px;
+  --settings-control-font-size: var(--type-label-size);
+  --settings-control-line-height: var(--type-label-line-height);
 }

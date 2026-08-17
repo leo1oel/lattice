@@ -17,6 +17,8 @@ const surfacesCss = String(readFileSync("src/styles/surfaces.css", "utf8"))
 const indexCss = String(readFileSync("src/index.css", "utf8"))
 const projectDialogs = String(readFileSync("src/project-dialogs.tsx", "utf8"))
 const menuSurface = String(readFileSync("src/components/ui/menu-surface.ts", "utf8"))
+const spreadsheetEditor = String(readFileSync("src/spreadsheet-editor.tsx", "utf8"))
+const scrollAreaCss = String(readFileSync("src/components/ui/scroll-area.css", "utf8"))
 
 describe("shared surface contracts", () => {
   it("is owned by App.css instead of being restated per feature", () => {
@@ -72,6 +74,15 @@ describe("shared surface contracts", () => {
     )
     expect(appCss).toMatch(
       /\.literature-search \{[^}]*margin:\s*var\(--drawer-content-inset\) 0 var\(--drawer-section-gap\)/,
+    )
+  })
+
+  it("lets the insert palette wrap to one column instead of clipping the second", () => {
+    expect(appCss).toMatch(
+      /\.insert-palette-grid \{[^}]*minmax\(min\(188px, 100%\), 1fr\)/,
+    )
+    expect(appCss).toMatch(
+      /\.insert-palette-groups > section \{[^}]*contain-intrinsic-inline-size:\s*0px;[^}]*min-width:\s*0/,
     )
   })
 
@@ -148,6 +159,75 @@ describe("shared surface contracts", () => {
     )
     expect(appCss).toMatch(
       /\[data-u-command="univer\.command\.undo"\],[\s\S]+\[data-u-command="univer\.command\.redo"\][\s\S]+:disabled \{\s*color: color-mix\(in srgb, var\(--text-primary\) 32%, transparent\) !important;/,
+    )
+  })
+
+  it("matches spreadsheet sidebars to Lattice close and scrollbar chrome", () => {
+    expect(appCss).toMatch(
+      /\[data-u-comp="sidebar"\][^}]+button\[aria-label="Close sidebar"\] \{[^}]*width: var\(--control-size-icon\);[^}]*height: var\(--control-size-icon\);[^}]*border-radius: var\(--radius-icon\);/,
+    )
+    expect(appCss).toMatch(
+      /button\[aria-label="Close sidebar"\]::before \{[^}]*width: 16px;[^}]*height: 16px;[^}]*mask: url\("data:image\/svg\+xml/,
+    )
+    expect(spreadsheetEditor).toContain("<ExternalScrollbar getViewport={getSidebarScrollViewport} />")
+    expect(scrollAreaCss).toMatch(
+      /\.lattice-scrollbar\[data-orientation="vertical"\] \.lattice-scrollbar-thumb \{[^}]*width: 4px;/,
+    )
+    expect(scrollAreaCss).toMatch(
+      /\.lattice-scrollbar\[data-orientation="vertical"\]:hover \.lattice-scrollbar-thumb \{[^}]*width: 6px;/,
+    )
+    expect(appCss).toMatch(
+      /\[data-u-comp="sidebar"\] > section \{[^}]*scrollbar-width: none !important;/,
+    )
+    expect(appCss).toMatch(
+      /\.spreadsheet-editor-root > \.external-scrollbar,[^}]+\.spreadsheet-functions-scrollbar-surface \{[^}]*z-index: var\(--z-spreadsheet-scrollbar\);/,
+    )
+    expect(appCss).toMatch(
+      /\[data-u-comp="sidebar"\] kbd \{[^}]*font-size: var\(--type-body-size\);/,
+    )
+    expect(spreadsheetEditor).toContain("functionsPanelOpen && (")
+    expect(spreadsheetEditor).toContain("<ExternalScrollbar getViewport={getFunctionsScrollViewport} />")
+    expect(appCss).toMatch(
+      /\[data-u-comp="sheets-formula-functions-panel"\] ul\.univer-overflow-y-auto \{[^}]*scrollbar-width: none !important;/,
+    )
+  })
+
+  it("matches spreadsheet selectors and sidebar actions to Lattice controls", () => {
+    expect(appCss).toMatch(
+      /\[data-u-comp="sidebar"\] \[data-u-comp="select"\] \{[^}]*height: var\(--control-height-default\);[^}]*border-radius: var\(--form-control-select-radius\) !important;/,
+    )
+    expect(appCss).toMatch(
+      /\[data-u-comp="sidebar"\] \[data-u-comp="button"\] \{[^}]*height: var\(--control-height-default\);[^}]*border-radius: var\(--radius-control\) !important;/,
+    )
+    expect(appCss).toMatch(
+      /\[data-u-comp="button"\]\.univer-bg-primary-600 \{[^}]*background: var\(--text-primary\) !important;[^}]*color: var\(--surface-app\) !important;/,
+    )
+    expect(appCss).toMatch(
+      /div:has\(> \[data-u-comp="button"\] \+ \[data-u-comp="button"\]\) \{[^}]*gap: var\(--space-4\);/,
+    )
+  })
+
+  it("keeps spreadsheet menu labels left and selection marks right", () => {
+    expect(appCss).toMatch(
+      /\[data-slot="dropdown-menu-content"\]\.univer-text-sm[^}]+\{[^}]*border-radius: var\(--spreadsheet-menu-radius\) !important;[^}]*background: var\(--surface-panel-raised\) !important;/,
+    )
+    expect(appCss).toMatch(
+      /\[data-slot="dropdown-menu-radio-item"\][\s\S]+\[data-slot="dropdown-menu-checkbox-item"\][\s\S]+\)\[data-state="checked"\]::after \{[^}]*top: 50%;[^}]*right: var\(--gap-inline\);[^}]*background: var\(--control-active\);[^}]*mask: url\("data:image\/svg\+xml/,
+    )
+    expect(appCss).toMatch(
+      /\.univer-relative\.univer-flex:has\(> svg\.univer-absolute\)::after \{[^}]*right: 0;[^}]*background: var\(--control-active\);[^}]*mask: url\("data:image\/svg\+xml/,
+    )
+    expect(appCss).toMatch(
+      /\.univer-relative\.univer-flex\.univer-pl-6 \{[^}]*padding-left: 0 !important;/,
+    )
+    expect(appCss).toMatch(
+      /\[data-slot="dropdown-menu-checkbox-item"\][\s\S]+\) \{[^}]*padding: 0 var\(--space-3\) !important;/,
+    )
+    expect(appCss).toMatch(
+      /ul\.univer-list-none button \{[^}]*padding: 0 var\(--space-3\) !important;/,
+    )
+    expect(appCss).toMatch(
+      /\[data-slot="dropdown-menu-item"\]:has\(ul\.univer-list-none\)[\s\S]+ul\.univer-list-none button:is\(:hover, :focus-visible\) \{[^}]*background: var\(--control-active-soft\) !important;/,
     )
   })
 

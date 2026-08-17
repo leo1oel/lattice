@@ -85,16 +85,29 @@ function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-function sourceFingerprint(head, dirtyStatus) {
+/**
+ * Fingerprint the Synara checkout, optionally ignoring some paths.
+ *
+ * `excluded` narrows the fingerprint to a subset of the tree so one workspace's
+ * edits do not invalidate another's build (see webFingerprint below).
+ */
+function sourceFingerprint(head, excluded = []) {
+  const pathspec = excluded.length > 0
+    ? ["--", ".", ...excluded.map((path) => `:(exclude)${path}`)]
+    : [];
+  // Scoped to the same pathspec as the diff below: a status line from an
+  // excluded path must not perturb the fingerprint.
+  const dirtyStatus = git(["status", "--short", ...pathspec]);
   const hash = createHash("sha256").update(head).update("\0").update(dirtyStatus);
+  for (const path of excluded) hash.update("\0!").update(path);
   if (dirtyStatus) {
     hash.update(
-      run("git", ["diff", "--binary", "HEAD"], {
+      run("git", ["diff", "--binary", "HEAD", ...pathspec], {
         cwd: sourceRoot,
         stdio: ["ignore", "pipe", "pipe"],
       }),
     );
-    const untracked = git(["ls-files", "--others", "--exclude-standard"])
+    const untracked = git(["ls-files", "--others", "--exclude-standard", ...pathspec])
       .split("\n")
       .map((value) => value.trim())
       .filter(Boolean)
@@ -539,7 +552,7 @@ if (!allowDirty && head !== runtimeConfig.revision) {
   );
 }
 
-const fingerprint = sourceFingerprint(head, dirtyStatus);
+const fingerprint = sourceFingerprint(head);
 const buildKey = createHash("sha256")
   .update(JSON.stringify(runtimeConfig))
   .update(target)
@@ -611,8 +624,46 @@ function buildWorkspace(workspaceDirectory) {
   });
 }
 
+/**
+ * Reuse the previous `apps/web` build when nothing outside `apps/server` moved.
+ *
+ * The web build is the slow half (a full Vite production build) and the server
+ * build copies `apps/web/dist` into `dist/client` on every run, so a hit here
+ * still stages the client. The fingerprint deliberately covers the whole
+ * checkout minus `apps/server`: root configs, the lockfile, and shared
+ * workspace packages all feed the web bundle. The reverse skip is not safe —
+ * the server bundles the web output, so it rebuilds whenever anything does.
+ */
+const webBuildCachePath = join(cacheRoot, "web-build.json");
+const webFingerprint = sourceFingerprint(head, ["apps/server"]);
+const webArtifact = join(sourceRoot, "apps/web/dist/index.html");
+const webBuildKey = createHash("sha256")
+  .update(webFingerprint)
+  .update("\0")
+  .update(JSON.stringify(runtimeConfig))
+  .digest("hex");
+
+function cachedWebBuildKey() {
+  if (!existsSync(webBuildCachePath) || !existsSync(webArtifact)) return null;
+  try {
+    return JSON.parse(readFileSync(webBuildCachePath, "utf8")).webBuildKey ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const buildStartedAt = Date.now();
-buildWorkspace("apps/web");
+if (cachedWebBuildKey() === webBuildKey) {
+  console.log("Reusing the existing Synara web build (no change outside apps/server).");
+} else {
+  mkdirSync(cacheRoot, { recursive: true });
+  rmSync(webBuildCachePath, { force: true });
+  buildWorkspace("apps/web");
+  if (!existsSync(webArtifact)) {
+    throw new Error("The Synara web build did not produce apps/web/dist/index.html.");
+  }
+  writeFileSync(webBuildCachePath, `${JSON.stringify({ webBuildKey }, null, 2)}\n`);
+}
 buildWorkspace("apps/server");
 
 // Device input, accessibility, and video use a native helper compiled against

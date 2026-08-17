@@ -11,8 +11,18 @@
  */
 
 import { DEFAULT_UI_FONT, DEFAULT_EDITOR_FONT, EDITOR_FONT_OPTIONS, resolveFontValue } from "./available-fonts";
+import type {
+  BoardFileViewState,
+  FileViewState,
+  ImageFileViewState,
+  PdfFileViewState,
+  ScrollFileViewState,
+  SpreadsheetFileViewState,
+} from "./app-types";
 
 export type Theme = "light" | "dark";
+/** What the user picked; `system` tracks the OS appearance as it changes. */
+export type ThemePreference = "system" | Theme;
 export type AppLocale = "en" | "zh-CN";
 export type InterfaceLanguage = "system" | AppLocale;
 export type RecentProject = { name: string; path: string };
@@ -22,6 +32,7 @@ export type PaperReadingWidth = "comfortable" | "wide";
 
 export const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 export const THEME_KEY = "lattice.theme.v1";
+export const THEME_PREFERENCE_KEY = "lattice.theme-preference.v1";
 export const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 export const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 export const COLUMNS_PDF_RATIO_KEY = "lattice.columns-pdf-ratio.v1";
@@ -32,6 +43,9 @@ export const LAST_FILE_MAX = 60;
 export const PAPER_READING_WIDTH_KEY = "lattice.paper-reading-width";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 export const WORKSPACE_LAYOUT_MAX = 60;
+export const FILE_VIEW_STATES_KEY = "lattice.file-view-states.v1";
+export const FILE_VIEW_STATE_PROJECT_MAX = 60;
+export const FILE_VIEW_STATE_FILE_MAX = 200;
 export const TUTORIAL_SEEN_KEY = "lattice.tutorial-seen.v1";
 export const LOCAL_SEMANTIC_SEARCH_KEY = "lattice.local-semantic-search.v1";
 
@@ -215,14 +229,28 @@ export function persistLocalSemanticSearchEnabled(enabled: boolean): void {
   }
 }
 
-export function loadTheme(): Theme {
+export const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
+
+export function systemTheme(): Theme {
+  return window.matchMedia(SYSTEM_DARK_QUERY).matches ? "dark" : "light";
+}
+
+/**
+ * Fresh installs follow the OS appearance. Builds before the `system` option
+ * existed persisted a resolved light/dark value on every launch, so that older
+ * key is migrated as an explicit choice rather than dropped — flipping those
+ * users to `system` could change the appearance they have been looking at.
+ */
+export function loadThemePreference(): ThemePreference {
   try {
-    const stored = localStorage.getItem(THEME_KEY);
-    if (stored === "light" || stored === "dark") return stored;
+    const stored = localStorage.getItem(THEME_PREFERENCE_KEY);
+    if (stored === "system" || stored === "light" || stored === "dark") return stored;
+    const legacy = localStorage.getItem(THEME_KEY);
+    if (legacy === "light" || legacy === "dark") return legacy;
   } catch {
     // Fall through to the system preference when storage is unavailable.
   }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "system";
 }
 
 export function loadBuildPreferences(): BuildPreferences {
@@ -329,6 +357,143 @@ export function persistWorkspaceLayout(root: string, layout: WorkspaceLayout) {
   }
 }
 
+function settingsRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeScrollFileViewState(value: unknown): ScrollFileViewState | null {
+  const candidate = settingsRecord(value);
+  const scrollTop = finiteNumber(candidate?.scrollTop);
+  if (scrollTop === null || scrollTop < 0) return null;
+  const scrollLeft = finiteNumber(candidate?.scrollLeft);
+  const scrollRange = finiteNumber(candidate?.scrollRange);
+  return {
+    scrollTop,
+    ...(scrollLeft !== null && scrollLeft >= 0 ? { scrollLeft } : {}),
+    ...(scrollRange !== null && scrollRange >= 0 ? { scrollRange } : {}),
+  };
+}
+
+function normalizeSpreadsheetFileViewState(value: unknown): SpreadsheetFileViewState | null {
+  const candidate = settingsRecord(value);
+  if (!candidate || typeof candidate.activeSheetId !== "string" || !candidate.activeSheetId) return null;
+  const rawSheets = settingsRecord(candidate.sheets);
+  if (!rawSheets) return null;
+  const sheets = Object.fromEntries(Object.entries(rawSheets).flatMap(([sheetId, rawSheet]) => {
+    const sheet = settingsRecord(rawSheet);
+    const zoomRatio = finiteNumber(sheet?.zoomRatio);
+    const scrollTop = finiteNumber(sheet?.scrollTop);
+    const scrollLeft = finiteNumber(sheet?.scrollLeft);
+    return sheetId && zoomRatio !== null && zoomRatio > 0
+      && scrollTop !== null && scrollTop >= 0
+      && scrollLeft !== null && scrollLeft >= 0
+      ? [[sheetId, { zoomRatio, scrollTop, scrollLeft }]]
+      : [];
+  }).slice(-100));
+  return {
+    activeSheetId: candidate.activeSheetId,
+    ...(typeof candidate.activeRange === "string" ? { activeRange: candidate.activeRange } : {}),
+    ...(typeof candidate.activeCell === "string" ? { activeCell: candidate.activeCell } : {}),
+    sheets,
+  };
+}
+
+function normalizePdfFileViewState(value: unknown): PdfFileViewState | null {
+  const candidate = settingsRecord(value);
+  const page = finiteNumber(candidate?.page);
+  const scale = finiteNumber(candidate?.scale);
+  const scrollTop = finiteNumber(candidate?.scrollTop);
+  const scrollLeft = finiteNumber(candidate?.scrollLeft);
+  const fitMode = candidate?.fitMode === "width" || candidate?.fitMode === "height" || candidate?.fitMode === null
+    ? candidate.fitMode
+    : undefined;
+  if (page === null || page < 1 || scale === null || scale <= 0 || fitMode === undefined
+    || scrollTop === null || scrollTop < 0 || scrollLeft === null || scrollLeft < 0) return null;
+  return { page: Math.floor(page), scale, fitMode, scrollTop, scrollLeft };
+}
+
+function normalizeBoardFileViewState(value: unknown): BoardFileViewState | null {
+  const candidate = settingsRecord(value);
+  const camera = settingsRecord(candidate?.camera);
+  const x = finiteNumber(camera?.x);
+  const y = finiteNumber(camera?.y);
+  const z = finiteNumber(camera?.z);
+  if (!candidate || typeof candidate.pageId !== "string" || !candidate.pageId
+    || x === null || y === null || z === null || z <= 0) return null;
+  return { pageId: candidate.pageId, camera: { x, y, z } };
+}
+
+function normalizeImageFileViewState(value: unknown): ImageFileViewState | null {
+  const scroll = normalizeScrollFileViewState(value);
+  const scale = finiteNumber(settingsRecord(value)?.scale);
+  return scroll && scale !== null && scale > 0 ? { ...scroll, scale } : null;
+}
+
+function normalizeFileViewState(value: unknown): FileViewState | null {
+  const candidate = settingsRecord(value);
+  if (!candidate) return null;
+  const text = settingsRecord(candidate.text);
+  const cursor = finiteNumber(text?.cursor);
+  const textScrollTop = finiteNumber(text?.scrollTop);
+  const spreadsheet = normalizeSpreadsheetFileViewState(candidate.spreadsheet);
+  const pdf = normalizePdfFileViewState(candidate.pdf);
+  const board = normalizeBoardFileViewState(candidate.board);
+  const image = normalizeImageFileViewState(candidate.image);
+  const html = normalizeScrollFileViewState(candidate.html);
+  const visualMarkdown = normalizeScrollFileViewState(candidate.visualMarkdown);
+  const normalized: FileViewState = {
+    ...(cursor !== null && cursor >= 0 && textScrollTop !== null && textScrollTop >= 0
+      ? { text: { cursor: Math.floor(cursor), scrollTop: textScrollTop } }
+      : {}),
+    ...(spreadsheet ? { spreadsheet } : {}),
+    ...(pdf ? { pdf } : {}),
+    ...(board ? { board } : {}),
+    ...(image ? { image } : {}),
+    ...(html ? { html } : {}),
+    ...(visualMarkdown ? { visualMarkdown } : {}),
+  };
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
+/** Local, per-user view state for files in one project. */
+export function loadFileViewStates(root: string): Record<string, FileViewState> {
+  if (!root) return {};
+  try {
+    const stored = settingsRecord(JSON.parse(localStorage.getItem(FILE_VIEW_STATES_KEY) ?? "{}"));
+    const projectStates = settingsRecord(stored?.[root]);
+    if (!projectStates) return {};
+    return Object.fromEntries(Object.entries(projectStates).flatMap(([path, state]) => {
+      const normalized = normalizeFileViewState(state);
+      return path && normalized ? [[path, normalized]] : [];
+    }).slice(-FILE_VIEW_STATE_FILE_MAX));
+  } catch {
+    return {};
+  }
+}
+
+export function persistFileViewStates(root: string, states: Record<string, FileViewState>): void {
+  if (!root) return;
+  try {
+    const stored = settingsRecord(JSON.parse(localStorage.getItem(FILE_VIEW_STATES_KEY) ?? "{}")) ?? {};
+    const normalizedStates = Object.fromEntries(Object.entries(states).flatMap(([path, state]) => {
+      const normalized = normalizeFileViewState(state);
+      return path && normalized ? [[path, normalized]] : [];
+    }).slice(-FILE_VIEW_STATE_FILE_MAX));
+    delete stored[root];
+    const projects = [...Object.entries(stored), [root, normalizedStates] as [string, typeof normalizedStates]]
+      .slice(-FILE_VIEW_STATE_PROJECT_MAX);
+    localStorage.setItem(FILE_VIEW_STATES_KEY, JSON.stringify(Object.fromEntries(projects)));
+  } catch {
+    // View restoration is a convenience; editing remains available without storage.
+  }
+}
+
 export function loadSidebarOpen(): boolean {
   try {
     return localStorage.getItem(SIDEBAR_OPEN_KEY) !== "0";
@@ -393,7 +558,7 @@ export function loadAppearance(): AppearanceSettings {
     editorFont: DEFAULT_EDITOR_FONT,
     editorFontSize: 14,
     editorKeymap: "default",
-    editorSpellcheck: false,
+    editorSpellcheck: true,
     interfaceSounds: true,
     maxOpenTabs: 5,
   };
@@ -430,7 +595,11 @@ export function loadAppearance(): AppearanceSettings {
         : value?.editorKeymap === "emacs"
           ? "emacs"
           : "default",
-      editorSpellcheck: value?.editorSpellcheck === true,
+      // Absent means "never chose", which now inherits the on-by-default
+      // behavior; only an explicit false keeps Harper quiet. Harper reports
+      // lints on Latin-letter spans only (see harper-spellcheck.ts), so
+      // non-English prose sees nothing from it.
+      editorSpellcheck: value?.editorSpellcheck !== false,
       interfaceSounds: value?.interfaceSounds !== false,
       maxOpenTabs: clamp(Math.round(Number(value?.maxOpenTabs) || defaults.maxOpenTabs), 1, MAX_OPEN_TABS),
     };

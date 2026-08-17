@@ -6,7 +6,7 @@
 /* ---- Settings section ---------------------------------------------------- */
 
 .overleaf-status-row {
-  margin-top: 18px;
+  margin-top: var(--space-6);
   padding: var(--space-6);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
@@ -32,7 +32,7 @@
 .overleaf-status-text small { display: block; margin-top: var(--space-1); color: var(--text-tertiary); font-size: var(--type-nano-size); }
 .overleaf-status-row .ui-button { flex: none; }
 
-.overleaf-connect-row { margin-top: 18px; }
+.overleaf-connect-row { margin-top: var(--space-6); }
 .overleaf-connect-row .ui-button { width: fit-content; }
 
 .overleaf-hint { margin: var(--space-5) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.5; }
@@ -41,7 +41,7 @@
 .overleaf-retry-row { margin-top: var(--space-6); display: flex; }
 
 .overleaf-waiting {
-  margin-top: 18px;
+  margin-top: var(--space-6);
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -50,13 +50,6 @@
 }
 .overleaf-waiting svg { flex: none; color: var(--control-active); }
 .overleaf-waiting .ui-button { flex: none; }
-
-.overleaf-advanced { margin-top: 28px; padding-top: var(--space-10); border-top: 1px solid var(--border-subtle); }
-.overleaf-advanced summary { cursor: pointer; color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: 600; }
-.overleaf-advanced summary:hover { color: var(--text-primary); }
-/* A cookie is one long line, not a system prompt: keep the field compact. */
-.overleaf-advanced .ui-textarea { min-height: 74px; }
-.overleaf-advanced-actions { margin-top: var(--space-8); display: flex; justify-content: flex-end; }
 
 /* ---- Picker dialog -------------------------------------------------------- */
 
@@ -71,13 +64,6 @@
 .overleaf-picker-modal > p { margin: 0 0 var(--drawer-section-gap); }
 .overleaf-picker-modal .overleaf-waiting,
 .overleaf-picker-modal .overleaf-connect-row { margin-top: var(--space-2); }
-.overleaf-advanced-link {
-  margin-top: var(--space-8);
-  padding: 0;
-  align-self: flex-start;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
 
 .overleaf-picker-controls { display: flex; align-items: center; gap: var(--space-6); }
 .overleaf-search { flex: 1 1 auto; }
@@ -149,58 +135,13 @@
 .overleaf-progress svg { flex: none; color: var(--control-active); }
 .overleaf-empty { margin: 18px 0 var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.55; }
 
-.overleaf-preference-group {
-  min-inline-size: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-.overleaf-preference-group + .overleaf-preference-group { margin-top: var(--space-12); }
-.overleaf-preference-group legend {
-  margin: 0 0 var(--space-3);
-  padding: 0;
-  color: var(--text-primary);
-  font-size: var(--type-label-size);
-  font-weight: var(--weight-semibold);
-}
-.overleaf-mode { display: flex; flex-direction: column; gap: var(--space-3); }
-.overleaf-mode-option {
-  position: relative;
-  display: flex;
-  gap: var(--space-5);
-  align-items: flex-start;
-  padding: var(--space-4) 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  cursor: pointer;
-}
-.overleaf-mode-option:hover { background: transparent; }
-.overleaf-mode-option:has(input:checked) { background: transparent; }
-.overleaf-mode-option input {
-  position: absolute;
-  top: var(--space-5);
-  inset-inline-start: 0;
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-.overleaf-mode-option > .ui-radio-dot { margin-top: var(--space-1); }
-.overleaf-mode-option > span:not(.ui-radio-dot) { display: flex; flex-direction: column; gap: var(--gap-tight); min-width: 0; }
-.overleaf-mode-option > .ui-radio-dot { display: block; }
-.overleaf-mode-option strong { font-size: var(--type-label-size); font-weight: 600; color: var(--text-primary); }
-.overleaf-mode-option small { font-size: var(--type-micro-size); line-height: 1.5; color: var(--text-secondary); }
-
 /* Whether the live editing channel actually came up. Without this the only
    sign of failure is a dot that never appears. */
 .overleaf-channel {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
-  font-size: var(--type-micro-size);
+  gap: var(--space-2);
+  vertical-align: middle;
 }
 .overleaf-channel::before {
   content: "";
@@ -212,7 +153,6 @@
 }
 .overleaf-channel-live { color: var(--status-success); }
 .overleaf-channel-connecting { color: var(--text-secondary); }
-.overleaf-channel-off { color: var(--text-secondary); }
 .overleaf-channel-error { color: var(--status-danger); }
 
 /* Steady dot on the toolbar while the live channel is online or a sync is in

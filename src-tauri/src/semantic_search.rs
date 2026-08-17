@@ -5,7 +5,13 @@
 //! download, and no model file in the application bundle. Source text is read
 //! in the background, split into stable prose blocks, embedded on-device, and
 //! discarded. The persistent cache contains only a model version, normalized
-//! text SHA-256, and normalized vector.
+//! text SHA-256, quantized vector, and a last-used stamp used for eviction.
+//!
+//! Vectors are stored as int8 (the provider's vectors are unit-normalized, so
+//! `round(component * 127)` loses far less than the ranking needs) in both the
+//! in-memory index and the cache. The cache is bounded: every successful build
+//! drops rows from other model versions and evicts least-recently-used rows
+//! beyond `MAX_CACHE_ROWS`, so no manual cleanup is ever required.
 
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -17,12 +23,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use walkdir::{DirEntry, WalkDir};
 
-const CACHE_SCHEMA_VERSION: u32 = 1;
+const CACHE_SCHEMA_VERSION: u32 = 2;
 const MAX_SOURCE_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_BLOCK_CHARS: usize = 1_200;
 const MAX_SNIPPET_CHARS: usize = 220;
 const MAX_SEMANTIC_CANDIDATES: usize = 24;
 const MAX_EMBEDDING_DIMENSION: usize = 16_384;
+/// Upper bound on retained cached vectors across every project. At the system
+/// model's vector size this is roughly 70 MB of quantized rows; rewriting prose
+/// can only recycle this budget, never grow it without bound.
+const MAX_CACHE_ROWS: usize = 100_000;
+/// int8 range used to quantize unit-normalized components.
+const QUANTIZATION_SCALE: f32 = 127.0;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -297,7 +309,7 @@ pub fn search(search: &SemanticSearch, query: &str) -> SemanticSearchResponse {
 
     let mut best_by_path: HashMap<&str, (f32, &IndexedChunk)> = HashMap::new();
     for chunk in &index.chunks {
-        let score = dot(&query_vector, &chunk.vector);
+        let score = quantized_score(&query_vector, &chunk.vector);
         if !score.is_finite() || score < 0.0 {
             continue;
         }
@@ -309,13 +321,13 @@ pub fn search(search: &SemanticSearch, query: &str) -> SemanticSearchResponse {
     let mut candidates = best_by_path
         .into_values()
         .map(|(score, chunk)| SemanticSearchCandidate {
-            path: chunk.path.clone(),
-            title: chunk.title.clone(),
+            path: chunk.path.to_string(),
+            title: chunk.title.to_string(),
             snippet: chunk.snippet.clone(),
             line: chunk.line,
             score,
-            kind: chunk.kind.clone(),
-            file_kind: chunk.file_kind.clone(),
+            kind: chunk.kind.to_string(),
+            file_kind: chunk.file_kind.to_string(),
         })
         .collect::<Vec<_>>();
     candidates.sort_by(|left, right| {
@@ -364,15 +376,17 @@ struct SemanticIndex {
     chunks: Vec<IndexedChunk>,
 }
 
+/// Per-document fields are shared across that document's chunks: a long chapter
+/// otherwise pays for one copy of its path and title per prose block.
 #[derive(Debug)]
 struct IndexedChunk {
-    path: String,
-    title: String,
+    path: Arc<str>,
+    title: Arc<str>,
     snippet: String,
     line: u32,
-    kind: String,
-    file_kind: String,
-    vector: Vec<f32>,
+    kind: Arc<str>,
+    file_kind: Arc<str>,
+    vector: Arc<[i8]>,
 }
 
 #[derive(Debug)]
@@ -546,11 +560,15 @@ fn build_index(
     }
 
     let mut cache = EmbeddingCache::open(cache_path)?;
-    let mut vectors_by_hash: HashMap<String, Vec<f32>> = HashMap::new();
+    let mut vectors_by_hash: HashMap<String, Arc<[i8]>> = HashMap::new();
     let mut indexed = Vec::with_capacity(total_chunks);
     let mut cached_chunks = 0;
     let mut dimension = None;
     for document in documents {
+        let path: Arc<str> = Arc::from(document.path.as_str());
+        let title: Arc<str> = Arc::from(document.title.as_str());
+        let kind: Arc<str> = Arc::from(document.kind.as_str());
+        let file_kind: Arc<str> = Arc::from(document.file_kind.as_str());
         for chunk in document.chunks {
             if cancel.load(Ordering::Acquire) {
                 return Err(BuildFailure::Cancelled);
@@ -562,14 +580,15 @@ fn build_index(
             let hash = normalized_text_hash(&normalized);
             let vector = if let Some(vector) = vectors_by_hash.get(&hash) {
                 cached_chunks += 1;
-                vector.clone()
+                Arc::clone(vector)
             } else if let Some(vector) = cache.get(provider.model_version(), &hash)? {
                 cached_chunks += 1;
-                vectors_by_hash.insert(hash.clone(), vector.clone());
+                let vector: Arc<[i8]> = Arc::from(vector);
+                vectors_by_hash.insert(hash.clone(), Arc::clone(&vector));
                 vector
             } else {
                 let vector = match provider.embed(&normalized).and_then(normalize_vector) {
-                    Ok(vector) => vector,
+                    Ok(vector) => quantize_vector(&vector),
                     // A prose block with no usable language signal should not
                     // make the entire project unavailable. Query failures are
                     // handled separately and always fall back to lexical.
@@ -579,7 +598,8 @@ fn build_index(
                     }
                 };
                 cache.put(provider.model_version(), &hash, &vector)?;
-                vectors_by_hash.insert(hash.clone(), vector.clone());
+                let vector: Arc<[i8]> = Arc::from(vector);
+                vectors_by_hash.insert(hash.clone(), Arc::clone(&vector));
                 vector
             };
             if vector.is_empty() {
@@ -595,12 +615,12 @@ fn build_index(
                 dimension = Some(vector.len());
             }
             indexed.push(IndexedChunk {
-                path: document.path.clone(),
-                title: document.title.clone(),
+                path: Arc::clone(&path),
+                title: Arc::clone(&title),
                 snippet: snippet(&normalized),
                 line: chunk.line,
-                kind: document.kind.clone(),
-                file_kind: document.file_kind.clone(),
+                kind: Arc::clone(&kind),
+                file_kind: Arc::clone(&file_kind),
                 vector,
             });
         }
@@ -610,13 +630,20 @@ fn build_index(
             "Apple's English sentence model could not embed this project's prose.".to_string(),
         ));
     }
+    // Cache maintenance keeps the shared on-disk cache bounded, but it is not
+    // part of the answer: a failed prune must never discard a usable index.
+    if !cancel.load(Ordering::Acquire) {
+        let live = vectors_by_hash.keys().cloned().collect::<Vec<_>>();
+        let _ = cache.touch(provider.model_version(), &live);
+        let _ = cache.prune(provider.model_version(), live.len().max(MAX_CACHE_ROWS));
+    }
     Ok(BuildOutput {
         index: SemanticIndex {
             model_version: provider.model_version().to_string(),
             dimension: dimension.unwrap_or(0),
             indexed_files: indexed
                 .iter()
-                .map(|chunk| chunk.path.as_str())
+                .map(|chunk| &*chunk.path)
                 .collect::<std::collections::HashSet<_>>()
                 .len(),
             chunks: indexed,
@@ -642,21 +669,38 @@ impl EmbeddingCache {
             .busy_timeout(std::time::Duration::from_secs(5))
             .map_err(cache_error)?;
         connection
+            .execute_batch("PRAGMA journal_mode = WAL;")
+            .map_err(cache_error)?;
+        // Eviction only returns pages to the freelist. Incremental auto-vacuum
+        // is what hands them back to the filesystem, and switching an existing
+        // database into that mode requires one full VACUUM.
+        let auto_vacuum = connection
+            .query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0))
+            .map_err(cache_error)?;
+        if auto_vacuum != 2 {
+            connection
+                .execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")
+                .map_err(cache_error)?;
+        }
+        connection
             .execute_batch(&format!(
-                "PRAGMA journal_mode = WAL;
+                "DROP TABLE IF EXISTS embeddings_v1;
                  CREATE TABLE IF NOT EXISTS embeddings_v{CACHE_SCHEMA_VERSION} (
                    model_version TEXT NOT NULL,
                    normalized_text_hash TEXT NOT NULL,
                    dimension INTEGER NOT NULL,
                    vector BLOB NOT NULL,
+                   last_used_ts INTEGER NOT NULL,
                    PRIMARY KEY (model_version, normalized_text_hash)
-                 );"
+                 );
+                 CREATE INDEX IF NOT EXISTS embeddings_v{CACHE_SCHEMA_VERSION}_last_used
+                   ON embeddings_v{CACHE_SCHEMA_VERSION} (last_used_ts);"
             ))
             .map_err(cache_error)?;
         Ok(Self { connection })
     }
 
-    fn get(&self, model_version: &str, hash: &str) -> Result<Option<Vec<f32>>, BuildFailure> {
+    fn get(&self, model_version: &str, hash: &str) -> Result<Option<Vec<i8>>, BuildFailure> {
         let mut statement = self
             .connection
             .prepare(&format!(
@@ -675,41 +719,115 @@ impl EmbeddingCache {
         let Ok(dimension) = usize::try_from(dimension) else {
             return Ok(None);
         };
-        let expected_bytes = dimension.checked_mul(std::mem::size_of::<f32>());
+        let expected_bytes = dimension.checked_mul(std::mem::size_of::<i8>());
         if dimension == 0
             || dimension > MAX_EMBEDDING_DIMENSION
             || expected_bytes != Some(bytes.len())
         {
             return Ok(None);
         }
-        let vector = bytes
-            .chunks_exact(4)
-            .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
-            .collect::<Vec<_>>();
-        if vector.iter().all(|value| value.is_finite()) {
-            Ok(Some(vector))
-        } else {
-            Ok(None)
-        }
+        Ok(Some(
+            bytes.into_iter().map(|byte| byte as i8).collect::<Vec<_>>(),
+        ))
     }
 
-    fn put(&mut self, model_version: &str, hash: &str, vector: &[f32]) -> Result<(), BuildFailure> {
-        let bytes = vector
-            .iter()
-            .flat_map(|value| value.to_le_bytes())
-            .collect::<Vec<_>>();
+    fn put(&mut self, model_version: &str, hash: &str, vector: &[i8]) -> Result<(), BuildFailure> {
+        let bytes = vector.iter().map(|value| *value as u8).collect::<Vec<u8>>();
         self.connection
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO embeddings_v{CACHE_SCHEMA_VERSION}
-                     (model_version, normalized_text_hash, dimension, vector)
-                     VALUES (?1, ?2, ?3, ?4)"
+                     (model_version, normalized_text_hash, dimension, vector, last_used_ts)
+                     VALUES (?1, ?2, ?3, ?4, ?5)"
                 ),
-                params![model_version, hash, vector.len() as i64, bytes],
+                params![
+                    model_version,
+                    hash,
+                    vector.len() as i64,
+                    bytes,
+                    now_seconds()
+                ],
             )
             .map_err(cache_error)?;
         Ok(())
     }
+
+    /// Marks this build's live set as most recently used in one transaction, so
+    /// eviction never reclaims vectors the current project still needs.
+    fn touch(&mut self, model_version: &str, hashes: &[String]) -> Result<(), BuildFailure> {
+        if hashes.is_empty() {
+            return Ok(());
+        }
+        let stamp = now_seconds();
+        let transaction = self.connection.transaction().map_err(cache_error)?;
+        {
+            let mut statement = transaction
+                .prepare(&format!(
+                    "UPDATE embeddings_v{CACHE_SCHEMA_VERSION} SET last_used_ts = ?1
+                     WHERE model_version = ?2 AND normalized_text_hash = ?3"
+                ))
+                .map_err(cache_error)?;
+            for hash in hashes {
+                statement
+                    .execute(params![stamp, model_version, hash])
+                    .map_err(cache_error)?;
+            }
+        }
+        transaction.commit().map_err(cache_error)
+    }
+
+    /// Bounds the cache without a time policy: rows belonging to any other model
+    /// version are dead weight (a system model revision invalidates them all),
+    /// and anything past `keep_rows` is evicted least-recently-used first.
+    fn prune(&mut self, model_version: &str, keep_rows: usize) -> Result<(), BuildFailure> {
+        let stale = self
+            .connection
+            .execute(
+                &format!(
+                    "DELETE FROM embeddings_v{CACHE_SCHEMA_VERSION} WHERE model_version <> ?1"
+                ),
+                params![model_version],
+            )
+            .map_err(cache_error)?;
+        let rows = self
+            .connection
+            .query_row(
+                &format!("SELECT COUNT(*) FROM embeddings_v{CACHE_SCHEMA_VERSION}"),
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(cache_error)?;
+        let excess = usize::try_from(rows)
+            .unwrap_or(usize::MAX)
+            .saturating_sub(keep_rows);
+        let evicted = if excess > 0 {
+            self.connection
+                .execute(
+                    &format!(
+                        "DELETE FROM embeddings_v{CACHE_SCHEMA_VERSION} WHERE rowid IN (
+                           SELECT rowid FROM embeddings_v{CACHE_SCHEMA_VERSION}
+                           ORDER BY last_used_ts ASC, rowid ASC LIMIT ?1
+                         )"
+                    ),
+                    params![excess as i64],
+                )
+                .map_err(cache_error)?
+        } else {
+            0
+        };
+        if stale + evicted > 0 {
+            self.connection
+                .execute_batch("PRAGMA incremental_vacuum;")
+                .map_err(cache_error)?;
+        }
+        Ok(())
+    }
+}
+
+fn now_seconds() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs() as i64)
 }
 
 fn cache_error(error: rusqlite::Error) -> BuildFailure {
@@ -1130,11 +1248,27 @@ fn normalize_vector(mut vector: Vec<f32>) -> Result<Vec<f32>, ProviderFailure> {
     Ok(vector)
 }
 
-fn dot(left: &[f32], right: &[f32]) -> f32 {
-    left.iter()
-        .zip(right)
-        .map(|(left, right)| left * right)
-        .sum()
+/// Unit-normalized components live in [-1, 1], so a symmetric int8 scale keeps
+/// the full dynamic range at a quarter of the memory and disk of f32.
+fn quantize_vector(vector: &[f32]) -> Vec<i8> {
+    vector
+        .iter()
+        .map(|value| {
+            let scaled = (value * QUANTIZATION_SCALE).round();
+            scaled.clamp(-QUANTIZATION_SCALE, QUANTIZATION_SCALE) as i8
+        })
+        .collect()
+}
+
+/// The query stays in f32: only the stored side is quantized, which halves the
+/// quantization error compared with comparing two quantized vectors.
+fn quantized_score(query: &[f32], stored: &[i8]) -> f32 {
+    query
+        .iter()
+        .zip(stored)
+        .map(|(query, stored)| query * f32::from(*stored))
+        .sum::<f32>()
+        / QUANTIZATION_SCALE
 }
 
 fn snippet(text: &str) -> String {
@@ -1289,7 +1423,7 @@ mod tests {
         build_index(&root, &cache, &AtomicBool::new(false), &provider, |_, _| {}).unwrap();
         let connection = Connection::open(&cache).unwrap();
         let columns = connection
-            .prepare("PRAGMA table_info(embeddings_v1)")
+            .prepare("PRAGMA table_info(embeddings_v2)")
             .unwrap()
             .query_map([], |row| row.get::<_, String>(1))
             .unwrap()
@@ -1301,7 +1435,8 @@ mod tests {
                 "model_version",
                 "normalized_text_hash",
                 "dimension",
-                "vector"
+                "vector",
+                "last_used_ts"
             ]
         );
         drop(connection);
@@ -1373,14 +1508,129 @@ mod tests {
         cache
             .connection
             .execute(
-                "INSERT INTO embeddings_v1
-                 (model_version, normalized_text_hash, dimension, vector)
-                 VALUES (?1, ?2, ?3, ?4)",
-                params!["test-v1", "hash", i64::MAX, vec![0_u8; 4]],
+                "INSERT INTO embeddings_v2
+                 (model_version, normalized_text_hash, dimension, vector, last_used_ts)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params!["test-v1", "hash", i64::MAX, vec![0_u8; 4], 0_i64],
             )
             .unwrap();
 
         assert!(cache.get("test-v1", "hash").unwrap().is_none());
+        drop(cache);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn quantized_scores_track_float_cosine_closely() {
+        let left = normalize_vector((0..64).map(|index| (index as f32).sin()).collect()).unwrap();
+        let right =
+            normalize_vector((0..64).map(|index| (index as f32 * 0.7).cos()).collect()).unwrap();
+        let exact = left
+            .iter()
+            .zip(&right)
+            .map(|(left, right)| left * right)
+            .sum::<f32>();
+        let approximate = quantized_score(&left, &quantize_vector(&right));
+        assert!(
+            (exact - approximate).abs() < 0.01,
+            "quantized {approximate} drifted from exact {exact}"
+        );
+        // A vector still scores highest against itself, which is what ranking needs.
+        assert!(quantized_score(&left, &quantize_vector(&left)) > approximate);
+    }
+
+    #[test]
+    fn eviction_keeps_the_cache_bounded_and_drops_stale_model_versions() {
+        let root = temp_dir("prune");
+        let cache_path = root.join("cache.sqlite3");
+        let mut cache = EmbeddingCache::open(&cache_path).unwrap();
+        for (index, hash) in ["oldest", "middle", "newest"].iter().enumerate() {
+            cache.put("model-a", hash, &[1, 2, 3, 4]).unwrap();
+            cache
+                .connection
+                .execute(
+                    "UPDATE embeddings_v2 SET last_used_ts = ?1 WHERE normalized_text_hash = ?2",
+                    params![index as i64, hash],
+                )
+                .unwrap();
+        }
+        cache.put("model-b", "other-model", &[1, 2, 3, 4]).unwrap();
+
+        cache.prune("model-a", 2).unwrap();
+
+        let remaining = cache
+            .connection
+            .prepare("SELECT normalized_text_hash FROM embeddings_v2 ORDER BY last_used_ts")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap();
+        assert_eq!(remaining, ["middle", "newest"]);
+        drop(cache);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_build_never_evicts_the_vectors_it_just_used() {
+        let root = temp_dir("prune-live");
+        let cache = root.join("cache.sqlite3");
+        write(
+            &root.join("notes.md"),
+            "# Topic\n\nOne paragraph.\n\n## Next\n\nAnother paragraph.\n",
+        );
+        let calls = Arc::new(AtomicUsize::new(0));
+        let provider = FakeProvider {
+            version: "prune-live".to_string(),
+            calls: Arc::clone(&calls),
+        };
+        let cancel = AtomicBool::new(false);
+        let first = build_index(&root, &cache, &cancel, &provider, |_, _| {}).unwrap();
+        let embedded = calls.load(Ordering::Relaxed);
+        assert_eq!(first.index.chunks.len(), 4);
+
+        // The live set is far below MAX_CACHE_ROWS, so a rebuild must stay fully
+        // cached rather than re-embedding evicted prose.
+        let second = build_index(&root, &cache, &cancel, &provider, |_, _| {}).unwrap();
+        assert_eq!(calls.load(Ordering::Relaxed), embedded);
+        assert_eq!(second.cached_chunks, 4);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_unbounded_v1_cache_is_discarded_on_upgrade() {
+        let root = temp_dir("legacy");
+        let cache_path = root.join("cache.sqlite3");
+        let legacy = Connection::open(&cache_path).unwrap();
+        legacy
+            .execute_batch(
+                "CREATE TABLE embeddings_v1 (
+                   model_version TEXT NOT NULL,
+                   normalized_text_hash TEXT NOT NULL,
+                   dimension INTEGER NOT NULL,
+                   vector BLOB NOT NULL,
+                   PRIMARY KEY (model_version, normalized_text_hash)
+                 );
+                 INSERT INTO embeddings_v1 VALUES ('old', 'hash', 1, x'00');",
+            )
+            .unwrap();
+        drop(legacy);
+
+        let cache = EmbeddingCache::open(&cache_path).unwrap();
+        let legacy_tables = cache
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'embeddings_v1'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap();
+        assert_eq!(legacy_tables, 0);
+        let auto_vacuum = cache
+            .connection
+            .query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0))
+            .unwrap();
+        assert_eq!(auto_vacuum, 2);
         drop(cache);
         fs::remove_dir_all(root).unwrap();
     }

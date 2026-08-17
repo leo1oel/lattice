@@ -1,4 +1,5 @@
 import { ListTree } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import { Tip } from "./components/icon-tip";
 import type { OutlineNode } from "./latex-outline";
@@ -12,6 +13,7 @@ function OutlineBranch({
   activeId: string | null;
   onSelect: (path: string, line: number) => void;
 }) {
+  const { t } = useLingui();
   return (
     <ul className="document-outline-list">
       {nodes.map((node) => (
@@ -20,7 +22,7 @@ function OutlineBranch({
             type="button"
             className={node.id === activeId ? "active" : ""}
             onClick={() => onSelect(node.path || "", node.line)}
-            title={node.path ? `${node.path}:${node.line}` : `Go to line ${node.line}`}
+            title={node.path ? `${node.path}:${node.line}` : t`Go to line ${node.line}`}
           >
             <span>{node.title}</span>
           </button>
@@ -42,21 +44,22 @@ export function DocumentOutline(props: {
   onOpen: () => void;
   available: boolean;
 }) {
+  const { t } = useLingui();
   if (!props.available) return null;
   return (
     <Popover open={props.open} onOpenChange={(open) => open ? props.onOpen() : props.onClose()}>
-      <Tip label="Show outline">
+      <Tip label={t`Show outline`}>
         <PopoverTrigger asChild>
-          <button type="button" className="pdf-outline-trigger" aria-label="Show document outline" title="Show outline">
+          <button type="button" className="pdf-outline-trigger" aria-label={t`Show document outline`} title={t`Show outline`}>
             <ListTree size={14} />
           </button>
         </PopoverTrigger>
       </Tip>
-      <PopoverContent align="start" sideOffset={7} className="document-outline-popover" aria-label="Document outline">
-        <div className="document-outline-header"><ListTree size={13} /><span>Outline</span></div>
+      <PopoverContent align="start" sideOffset={7} className="document-outline-popover" aria-label={t`Document outline`}>
+        <div className="document-outline-header"><ListTree size={13} /><span>{t`Outline`}</span></div>
         {props.nodes.length
           ? <OutlineBranch nodes={props.nodes} activeId={props.activeId ?? null} onSelect={props.onSelect} />
-          : <p className="document-outline-empty">No sections yet. Add a {"\\section{…}"} to start the outline.</p>}
+          : <p className="document-outline-empty">{t`No sections yet. Add a \\section{…} to start the outline.`}</p>}
       </PopoverContent>
     </Popover>
   );

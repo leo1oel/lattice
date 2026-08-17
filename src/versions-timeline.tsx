@@ -16,6 +16,7 @@ import {
   Save,
   X,
 } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import type { GitFileDiff, GitLogEntry, GitLogFileKind, GitStatus } from "./app-types";
 import { peerColorForName } from "./collab-colors";
 import { confirmAction, relativeTime } from "./app-utils";
@@ -48,16 +49,18 @@ export function HistoryDiff(props: {
   onOpenLine?: (path: string, line: number) => void;
   headerAction?: ReactNode;
 }) {
+  const { t } = useLingui();
   const kind = changeKind(props.change.before, props.change.after);
+  const kindLabel = { created: t`created`, deleted: t`deleted`, edited: t`edited` }[kind];
 
   return (
     <div className="history-diff">
       <div className="history-diff-meta">
         <strong>{props.change.path}</strong>
-        <span>{kind}</span>
+        <span>{kindLabel}</span>
         {props.headerAction}
       </div>
-      <div className="lattice-file-diff-body" aria-label={`Diff for ${props.change.path}`}>
+      <div className="lattice-file-diff-body" aria-label={t`Diff for ${props.change.path}`}>
         <FileDiffView change={props.change} onOpenLine={props.onOpenLine} />
       </div>
     </div>
@@ -79,6 +82,15 @@ export function VersionsTimeline(props: {
   /** Called when the git backend itself is unreachable (`git_status` rejects). */
   onGitUnreachable?: () => void;
 }) {
+  const { t } = useLingui();
+  // Git's own file-status words, shown on each row's tooltip. The kind itself
+  // stays the discriminant `FileKindIcon` and the CSS switch on.
+  const fileKindLabel: Record<GitLogFileKind, string> = {
+    added: t`added`,
+    deleted: t`deleted`,
+    renamed: t`renamed`,
+    modified: t`modified`,
+  };
   const [phase, setPhase] = useState<Phase>("loading");
   const [entries, setEntries] = useState<GitLogEntry[]>([]);
   const [error, setError] = useState("");
@@ -134,11 +146,11 @@ export function VersionsTimeline(props: {
 
   const enableTracking = async () => {
     setBusy(true);
-    const trace = logAction(VERSIONS_SOURCE, "Start tracking versions");
+    const trace = logAction(VERSIONS_SOURCE, t`Start tracking versions`);
     try {
       await invoke<GitStatus>("git_init");
       await load();
-      trace.ok("Now tracking versions of this project.");
+      trace.ok(t`Now tracking versions of this project.`);
     } catch (reason) {
       trace.fail(reason);
     } finally {
@@ -149,15 +161,15 @@ export function VersionsTimeline(props: {
   const submitSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setBusy(true);
-    const trace = logAction(VERSIONS_SOURCE, "Save version", saveLabel.trim() || undefined);
+    const trace = logAction(VERSIONS_SOURCE, t`Save version`, saveLabel.trim() || undefined);
     try {
       const hash = await invoke<string | null>("git_auto_commit", {
-        message: saveLabel.trim() || "Saved version",
+        message: saveLabel.trim() || t`Saved version`,
         author: null,
       });
       setSaveOpen(false);
       setSaveLabel("");
-      trace.ok(hash ? "Version saved." : "No changes since the last version.");
+      trace.ok(hash ? t`Version saved.` : t`No changes since the last version.`);
       if (hash) callbacksRef.current.onVersionsChanged?.();
       await load();
     } catch (reason) {
@@ -196,12 +208,12 @@ export function VersionsTimeline(props: {
   };
 
   const restoreFile = async (hash: string, path: string) => {
-    if (!await confirmAction(`Restore ${path} to this version? Your current file will be overwritten.`)) return;
+    if (!await confirmAction(t`Restore ${path} to this version? Your current file will be overwritten.`)) return;
     setBusy(true);
-    const trace = logAction(VERSIONS_SOURCE, "Restore file", `${path} @ ${hash}`);
+    const trace = logAction(VERSIONS_SOURCE, t`Restore file`, `${path} @ ${hash}`);
     try {
       await invoke("git_restore_file", { rev: hash, path });
-      trace.ok(`Restored ${path}.`);
+      trace.ok(t`Restored ${path}.`);
       callbacksRef.current.onVersionsChanged?.();
       await load();
     } catch (reason) {
@@ -212,15 +224,13 @@ export function VersionsTimeline(props: {
   };
 
   const restoreProject = async (hash: string) => {
-    const warning = "Restore the project to this version? "
-      + "All current files will be rewound to that point — nothing is lost, "
-      + "and the restore itself is saved as a new version.";
+    const warning = t`Restore the project to this version? All current files will be rewound to that point — nothing is lost, and the restore itself is saved as a new version.`;
     if (!await confirmAction(warning)) return;
     setBusy(true);
-    const trace = logAction(VERSIONS_SOURCE, "Restore project", hash);
+    const trace = logAction(VERSIONS_SOURCE, t`Restore project`, hash);
     try {
       await invoke<string>("git_restore_project", { rev: hash });
-      trace.ok("Project restored.");
+      trace.ok(t`Project restored.`);
       callbacksRef.current.onVersionsChanged?.();
       await load();
     } catch (reason) {
@@ -231,26 +241,26 @@ export function VersionsTimeline(props: {
   };
 
   if (phase === "loading") {
-    return <p className="versions-loading"><InfinityLoader size={13} /> Loading versions…</p>;
+    return <p className="versions-loading"><InfinityLoader size={13} /> {t`Loading versions…`}</p>;
   }
   if (phase === "unavailable") {
     return (
       <p className="versions-note">
-        Version history needs Git, which isn&apos;t available on this Mac.
+        {t`Version history needs Git, which isn’t available on this Mac.`}
       </p>
     );
   }
   if (phase === "error") {
     return (
       <div className="versions-empty">
-        <InlineMessage level="error" className="versions-inline">Version history is unavailable: {error}</InlineMessage>
+        <InlineMessage level="error" className="versions-inline">{t`Version history is unavailable: ${error}`}</InlineMessage>
         <ReloadButton
           className="versions-save"
           busy={refreshing}
           disabled={refreshing}
           onClick={() => void load()}
         >
-          Try again
+          {t`Try again`}
         </ReloadButton>
       </div>
     );
@@ -258,7 +268,7 @@ export function VersionsTimeline(props: {
   if (phase === "no-repo") {
     return (
       <div className="versions-empty">
-        <p>Track versions of this project to see who changed what and roll back safely.</p>
+        <p>{t`Track versions of this project to see who changed what and roll back safely.`}</p>
         {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
         <button
           type="button"
@@ -266,7 +276,7 @@ export function VersionsTimeline(props: {
           disabled={busy}
           onClick={() => void enableTracking()}
         >
-          <GitBranch size={13} /> Enable version tracking
+          <GitBranch size={13} /> {t`Enable version tracking`}
         </button>
       </div>
     );
@@ -274,16 +284,16 @@ export function VersionsTimeline(props: {
 
   const renderDiff = (target: { hash: string; path: string }) => {
     if (diffError) return <InlineMessage level="error">{diffError}</InlineMessage>;
-    if (!diff) return <p className="history-diff-loading"><InfinityLoader size={12} /> Loading diff…</p>;
+    if (!diff) return <p className="history-diff-loading"><InfinityLoader size={12} /> {t`Loading diff…`}</p>;
     const restoreButton = (
       <button
         type="button"
         className="versions-restore-file"
         disabled={busy}
-        title={`Restore ${target.path} to this version`}
+        title={t`Restore ${target.path} to this version`}
         onClick={() => void restoreFile(target.hash, target.path)}
       >
-        <RotateCcw size={10} /> Restore this file
+        <RotateCcw size={10} /> {t`Restore this file`}
       </button>
     );
     if (diff.binary) {
@@ -291,10 +301,10 @@ export function VersionsTimeline(props: {
         <div className="history-diff">
           <div className="history-diff-meta">
             <strong>{target.path}</strong>
-            <span>binary</span>
+            <span>{t`binary`}</span>
             {restoreButton}
           </div>
-          <p className="versions-binary">Binary file changed.</p>
+          <p className="versions-binary">{t`Binary file changed.`}</p>
         </div>
       );
     }
@@ -316,18 +326,18 @@ export function VersionsTimeline(props: {
               className="versions-save-input"
               controlSize="compact"
               autoFocus
-              placeholder="Label this version (optional)"
-              aria-label="Version label"
+              placeholder={t`Label this version (optional)`}
+              aria-label={t`Version label`}
               value={saveLabel}
               onChange={(event) => setSaveLabel(event.target.value)}
             />
             <button type="submit" className="versions-save" disabled={busy}>
-              <Save size={12} /> Save
+              <Save size={12} /> {t`Save`}
             </button>
             <button
               type="button"
               className="versions-refresh"
-              title="Cancel"
+              title={t`Cancel`}
               onClick={() => {
                 setSaveOpen(false);
                 setSaveLabel("");
@@ -344,12 +354,12 @@ export function VersionsTimeline(props: {
               disabled={busy}
               onClick={() => setSaveOpen(true)}
             >
-              <Save size={12} /> Save version
+              <Save size={12} /> {t`Save version`}
             </button>
             <ReloadIconButton
               className="versions-refresh"
-              label="Refresh versions"
-              tooltip="Refresh versions"
+              label={t`Refresh versions`}
+              tooltip={t`Refresh versions`}
               busy={refreshing}
               disabled={refreshing || busy}
               onClick={() => void load()}
@@ -361,14 +371,17 @@ export function VersionsTimeline(props: {
       {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
       {!entries.length && (
         <p className="versions-note">
-          No versions yet. Versions are saved automatically as you work, or press Save version.
+          {t`No versions yet. Versions are saved automatically as you work, or press Save version.`}
         </p>
       )}
       <div className="versions-list">
         {entries.map((entry) => {
           const expanded = expandedHash === entry.hash;
-          const color = peerColorForName(entry.authorName || "Unknown");
-          const fileCount = `${entry.files.length} file${entry.files.length === 1 ? "" : "s"}`;
+          const authorName = entry.authorName || t`Unknown`;
+          const color = peerColorForName(authorName);
+          const fileCount = entry.files.length === 1
+            ? t`${entry.files.length} file`
+            : t`${entry.files.length} files`;
           return (
             <div className={`versions-entry ${expanded ? "expanded" : ""}`} key={entry.hash}>
               <button
@@ -382,7 +395,7 @@ export function VersionsTimeline(props: {
                     className="versions-author"
                     style={{ background: color.colorLight, color: color.color }}
                   >
-                    {entry.authorName || "Unknown"}
+                    {authorName}
                   </span>
                   <span className="versions-time" title={new Date(entry.timestamp).toLocaleString()}>
                     {relativeTime(entry.timestamp)}
@@ -401,7 +414,7 @@ export function VersionsTimeline(props: {
                           key={file.path}
                           type="button"
                           className={`versions-file ${active ? "active" : ""}`}
-                          title={`${file.kind}: ${file.path}`}
+                          title={`${fileKindLabel[file.kind]}: ${file.path}`}
                           onClick={() => void openFileDiff(entry.hash, file.path)}
                         >
                           <FileKindIcon kind={file.kind} />
@@ -417,7 +430,7 @@ export function VersionsTimeline(props: {
                     disabled={busy}
                     onClick={() => void restoreProject(entry.hash)}
                   >
-                    <RotateCcw size={12} /> Restore project to this version
+                    <RotateCcw size={12} /> {t`Restore project to this version`}
                   </button>
                 </div>
               )}

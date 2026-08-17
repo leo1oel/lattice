@@ -55,6 +55,56 @@ export type EditorViewState = {
   scrollTop: number;
 };
 
+export type SpreadsheetSheetViewState = {
+  zoomRatio: number;
+  scrollTop: number;
+  scrollLeft: number;
+};
+
+export type SpreadsheetFileViewState = {
+  activeSheetId: string;
+  activeRange?: string;
+  activeCell?: string;
+  sheets: Record<string, SpreadsheetSheetViewState>;
+};
+
+export type PdfFileViewState = {
+  page: number;
+  scale: number;
+  fitMode: "width" | "height" | null;
+  scrollTop: number;
+  scrollLeft: number;
+};
+
+export type BoardFileViewState = {
+  pageId: string;
+  camera: { x: number; y: number; z: number };
+};
+
+export type ScrollFileViewState = {
+  scrollTop: number;
+  scrollLeft?: number;
+  scrollRange?: number;
+};
+
+export type ImageFileViewState = ScrollFileViewState & {
+  scale: number;
+};
+
+/**
+ * Per-user view state only. These values are stored in Lattice's local app
+ * settings and must never be serialized into project files or shared Y.Docs.
+ */
+export type FileViewState = {
+  text?: EditorViewState;
+  spreadsheet?: SpreadsheetFileViewState;
+  pdf?: PdfFileViewState;
+  board?: BoardFileViewState;
+  image?: ImageFileViewState;
+  html?: ScrollFileViewState;
+  visualMarkdown?: ScrollFileViewState;
+};
+
 export type NavigationEntry = {
   path: string;
   line: number;

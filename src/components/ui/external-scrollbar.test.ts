@@ -1,5 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { ExternalScrollbar } from "./external-scrollbar";
 import { calculateVerticalScrollGeometry } from "./external-scrollbar-geometry";
+
+afterEach(cleanup);
+
+describe("ExternalScrollbar", () => {
+  it("reveals when the pointer enters its scroll viewport", () => {
+    const viewport = document.createElement("div");
+    const view = render(createElement(
+      "div",
+      null,
+      createElement(ExternalScrollbar, { getViewport: () => viewport }),
+    ));
+    const scrollbar = view.container.querySelector(".external-scrollbar");
+
+    expect(scrollbar).not.toHaveAttribute("data-hovering");
+    fireEvent.pointerEnter(viewport);
+    expect(scrollbar).toHaveAttribute("data-hovering");
+    fireEvent.pointerLeave(viewport);
+    expect(scrollbar).not.toHaveAttribute("data-hovering");
+  });
+});
 
 describe("calculateVerticalScrollGeometry", () => {
   it("maps viewport scroll position onto the inset thumb track", () => {

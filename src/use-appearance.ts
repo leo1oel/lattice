@@ -4,18 +4,23 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   type AppearanceSettings,
   type Theme,
+  type ThemePreference,
   APPEARANCE_KEY,
-  THEME_KEY,
+  SYSTEM_DARK_QUERY,
+  THEME_PREFERENCE_KEY,
   loadAppearance,
-  loadTheme,
+  loadThemePreference,
   resolveAppLocale,
+  systemTheme,
 } from "./app-settings";
 import { activateAppLocale, i18n } from "./i18n";
 import { FIXED_UI_FONT } from "./available-fonts";
 
 export type Appearance = {
+  /** The resolved light/dark value everything else renders against. */
   theme: Theme;
-  setTheme: Dispatch<SetStateAction<Theme>>;
+  themePreference: ThemePreference;
+  setThemePreference: Dispatch<SetStateAction<ThemePreference>>;
   appearance: AppearanceSettings;
   setAppearance: Dispatch<SetStateAction<AppearanceSettings>>;
 };
@@ -26,20 +31,33 @@ export type Appearance = {
  * only reads the returned values, so this stays free of project/agent state.
  */
 export function useAppearance(): Appearance {
-  const [theme, setTheme] = useState<Theme>(loadTheme);
+  const [themePreference, setThemePreference] = useState<ThemePreference>(loadThemePreference);
+  const [osTheme, setOsTheme] = useState<Theme>(systemTheme);
   const [appearance, setAppearance] = useState<AppearanceSettings>(loadAppearance);
   const appLocale = resolveAppLocale(appearance.interfaceLanguage);
+  const theme = themePreference === "system" ? osTheme : themePreference;
+
+  useEffect(() => {
+    const media = window.matchMedia(SYSTEM_DARK_QUERY);
+    const update = () => setOsTheme(media.matches ? "dark" : "light");
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(THEME_PREFERENCE_KEY, themePreference);
+    } catch {
+      // Theme changes still apply for the current session without storage.
+    }
+  }, [themePreference]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     void invoke("set_window_background", { dark: theme === "dark" }).catch(() => {
       // Browser-based tests and previews do not expose a native window.
     });
-    try {
-      localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      // Theme changes still apply for the current session without storage.
-    }
   }, [theme]);
 
   useEffect(() => {
@@ -68,5 +86,5 @@ export function useAppearance(): Appearance {
       });
   }, [appearance.interfaceScale]);
 
-  return { theme, setTheme, appearance, setAppearance };
+  return { theme, themePreference, setThemePreference, appearance, setAppearance };
 }

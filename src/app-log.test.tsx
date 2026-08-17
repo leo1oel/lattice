@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addAppLog,
@@ -7,7 +8,9 @@ import {
   formatAppLogs,
   updateAppLog,
 } from "./app-log-store";
-import { AppToastStack } from "./app-log";
+import { AppLogsSettings, AppToastStack } from "./app-log";
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 describe("AppToastStack", () => {
   beforeEach(() => {
@@ -15,6 +18,11 @@ describe("AppToastStack", () => {
     // does not set, so each test unmounts the previous tree itself.
     cleanup();
     clearAppLogs();
+    vi.mocked(invoke).mockReset().mockImplementation(async (command) => {
+      if (command === "get_app_log_dir") return "/tmp/lattice-logs";
+      if (command === "open_app_log_dir") return undefined;
+      throw new Error(`Unexpected command: ${command}`);
+    });
   });
 
   it("updates a bridged notification in place and keeps its actions", () => {
@@ -112,5 +120,57 @@ describe("AppToastStack", () => {
     });
 
     expect(screen.getAllByRole("status")).toHaveLength(1);
+  });
+
+  it("keeps the level filter on the right without showing the log directory", async () => {
+    act(() => {
+      addAppLog({ level: "info", source: "Build", title: "Built", toast: false });
+    });
+    render(<AppLogsSettings />);
+
+    const actions = document.querySelector(".app-log-actions");
+    const filter = screen.getByRole("combobox", { name: "Log level filter" });
+    expect(actions?.lastElementChild).toBe(filter);
+    expect(filter).toHaveClass("app-log-level-filter");
+    expect(screen.queryByText("/tmp/lattice-logs")).not.toBeInTheDocument();
+    expect(screen.getByText("Shows 300 recent entries; disk logs rotate."))
+      .toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Open log folder" })).toBeEnabled());
+  });
+
+  it("opens at the newest entry without interrupting someone reading older logs", () => {
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
+    let scrollHeight = 600;
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get() {
+        return this instanceof HTMLElement && this.matches("[data-slot='scroll-area-viewport']")
+          ? scrollHeight
+          : 0;
+      },
+    });
+    try {
+      act(() => {
+        addAppLog({ level: "info", source: "Build", title: "Built", toast: false });
+      });
+      render(<AppLogsSettings />);
+
+      const viewport = document.querySelector(".app-log-scroll [data-slot='scroll-area-viewport']") as HTMLDivElement;
+      expect(viewport.scrollTop).toBe(600);
+
+      Object.defineProperty(viewport, "clientHeight", { configurable: true, value: 200 });
+      viewport.scrollTop = 100;
+      scrollHeight = 700;
+      act(() => {
+        addAppLog({ level: "info", source: "Build", title: "Built again", toast: false });
+      });
+      expect(viewport.scrollTop).toBe(100);
+    } finally {
+      if (originalScrollHeight) {
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", originalScrollHeight);
+      } else {
+        delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
+      }
+    }
   });
 });

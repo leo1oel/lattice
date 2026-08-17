@@ -1240,14 +1240,14 @@ export function selectionVisibilityExtension(): Extension {
   ];
 }
 
-/** Editing behavior shared by LaTeX, Markdown, BibTeX, and plain-text files. */
 /**
  * Above this size, Harper lints only the visible ranges (plus margin) instead
- * of the whole document. Whole-doc linting is a main-thread WASM pass over
- * every character on a 350 ms typing cadence — the worker escape hatch is
- * unavailable in WKWebView (see harper-spellcheck.ts) — so a 2 MB document
- * would otherwise stall typing. Typora-style guardrail: degrade the feature
- * by size rather than pay for it everywhere.
+ * of the whole document. Linting itself runs in the backend now
+ * (`harper_lint`, see harper-spellcheck.ts), but every pass still masks the
+ * whole source here, ships it across IPC, and reparses it on a 350 ms typing
+ * cadence, so a 2 MB document is paid for on each keystroke burst.
+ * Typora-style guardrail: degrade the feature by size rather than pay for it
+ * everywhere.
  */
 export const HARPER_WINDOW_THRESHOLD = 120_000;
 const HARPER_WINDOW_MARGIN = 2_000;
@@ -1274,6 +1274,7 @@ export function harperLintWindow(view: EditorView): { from: number; to: number }
   return { from, to };
 }
 
+/** Editing behavior shared by LaTeX, Markdown, BibTeX, and plain-text files. */
 export function textEditorExtensions(
   spellcheck = false,
   liveRef?: { current: LatexEditorLiveData },

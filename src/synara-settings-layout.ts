@@ -5,21 +5,11 @@ export const MIN_SYNARA_SETTINGS_HEIGHT = 470;
  * models, picker, and CLI sections are rendered together.
  */
 export const MAX_SYNARA_SETTINGS_HEIGHT = 64_000;
-export const SETTINGS_BOTTOM_PIN_TOLERANCE = 24;
 
 export function normalizeSynaraSettingsHeight(height: number): number {
   return Math.min(
     MAX_SYNARA_SETTINGS_HEIGHT,
     Math.max(MIN_SYNARA_SETTINGS_HEIGHT, Math.ceil(height)),
-  );
-}
-
-export function isSettingsViewportNearBottom(
-  viewport: Pick<HTMLElement, "clientHeight" | "scrollHeight" | "scrollTop">,
-  tolerance = SETTINGS_BOTTOM_PIN_TOLERANCE,
-): boolean {
-  return (
-    viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop <= tolerance
   );
 }
 

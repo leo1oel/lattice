@@ -13,2219 +13,4619 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/collab-dialog.tsx:465
+#: src/collab-dialog.tsx
 msgid " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. "
 msgstr "（或切换项目）只会断开你的连接——房间会继续运行，你可以从“你共享的房间”重新加入。"
 
-#: src/collab-dialog.tsx:465
+#: src/collab-dialog.tsx
 msgid " ends it for everyone."
 msgstr " 会为所有人结束共享。"
 
-#: src/collab-dialog.tsx:475
+#: src/literature-discovery-panel.tsx
+msgid " et al."
+msgstr " 等"
+
+#: src/collab-dialog.tsx
 msgid " if Build fails on a blank machine."
 msgstr " 如果在新 Mac 上构建失败，请安装。"
 
-#: src/collab-dialog.tsx:426
+#. placeholder {0}: target.folder
+#: src/overleaf-connect.tsx
+msgid "“{0}” already has files in it and isn’t linked to Overleaf.\n"
+"\n"
+"OK — link that folder to this Overleaf project. Files that differ are kept both ways: Overleaf’s version takes the filename and yours is saved beside it as “name (local conflict …)”. Nothing is overwritten or thrown away.\n"
+"\n"
+"Cancel — download a separate copy into a new folder and leave that one alone."
+msgstr "“{0}”中已经有文件，并且没有关联到 Overleaf。\n"
+"\n"
+"确定——把该文件夹关联到这个 Overleaf 项目。有差异的文件会双向保留：Overleaf 上的版本沿用原文件名，你本地的版本会以“名称（本地冲突 …）”保存在旁边。不会覆盖或丢弃任何内容。\n"
+"\n"
+"取消——下载一份独立副本到新文件夹，原文件夹保持不动。"
+
+#. placeholder {0}: link.projectName
+#: src/overleaf-connect.tsx
+msgid "“{0}” stays linked"
+msgstr "“{0}”仍保持关联"
+
+#: src/collab-dialog.tsx
 msgid "(you)"
 msgstr "（你）"
 
 #. placeholder {0}: peer.name
 #. placeholder {1}: peer.path
-#: src/App.tsx:9184
+#: src/App.tsx
 msgid "{0} · {1} — click to follow"
 msgstr "{0} · {1} — 点击跟随"
 
+#. placeholder {0}: work.citedByCount
+#: src/literature-discovery-panel.tsx
+msgid "{0} cites"
+msgstr "被引 {0} 次"
+
+#. placeholder {0}: entry.files.length
+#. placeholder {0}: update.paths.length
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "{0} file"
+msgstr "{0} 个文件"
+
+#. placeholder {0}: entry.files.length
 #. placeholder {0}: props.fileCount
-#: src/collab-dialog.tsx:135
+#. placeholder {0}: update.paths.length
+#: src/collab-dialog.tsx
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
 msgid "{0} files"
 msgstr "{0} 个文件"
 
 #. placeholder {0}: todoHits.length || t`No`
-#: src/App.tsx:10331
+#: src/App.tsx
 msgid "{0} markers"
 msgstr "{0} 个标记"
 
 #. placeholder {0}: props.peerCount
-#: src/collab-dialog.tsx:133
+#: src/collab-dialog.tsx
 msgid "{0} others"
 msgstr "其他 {0} 人"
 
 #. placeholder {0}: collabSession.room
-#: src/App.tsx:10317
+#: src/App.tsx
 msgid "{collabPeers} connected · {0}"
 msgstr "{collabPeers} 人已连接 · {0}"
 
-#: src/document-canvas.tsx:3510
+#: src/document-canvas.tsx
 msgid "{count} comments"
 msgstr "{count} 条评论"
 
-#: src/navigator.tsx:1729
+#: src/navigator.tsx
 msgid "{count} papers"
 msgstr "{count} 篇论文"
 
-#: src/document-canvas.tsx:3520
+#: src/document-canvas.tsx
 msgid "{count} TODO"
 msgstr "{count} 项待办"
 
-#: src/settings-dialog.tsx:435
+#: src/settings-dialog.tsx
 msgid "{detail} Find in project will stay lexical."
 msgstr "{detail}“在项目中查找”将继续使用关键词匹配。"
 
-#: src/navigator.tsx:1726
+#: src/navigator.tsx
 msgid "{filtered} of {total} papers"
 msgstr "显示 {filtered} / {total} 篇论文"
 
-#: src/tex-setup-wizard.tsx:95
+#: src/tex-setup-wizard.tsx
 msgid "{installedProduct} finished installing, but Lattice could not run the final verification."
 msgstr "{installedProduct} 安装完成，但 Lattice 无法运行最终验证。"
 
 #. placeholder {0}: issues.join("\n")
-#: src/tex-setup-wizard.tsx:113
+#: src/tex-setup-wizard.tsx
 msgid "{installedProduct} finished installing, but Lattice could not verify:\n"
 "{0}"
 msgstr "{installedProduct} 安装完成，但 Lattice 无法验证：\n"
 "{0}"
 
-#: src/navigator.tsx:1679
-#: src/navigator.tsx:1680
+#: src/navigator.tsx
 msgid "{notice}. Open notice"
 msgstr "{notice}。打开通知"
 
-#: src/collab-dialog.tsx:399
+#: src/collab-dialog.tsx
 msgid "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
 msgstr "{roleLabel} · 所有项目文件 · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
 
-#: src/navigator.tsx:1645
+#: src/navigator.tsx
 msgid "{title} — no local reading available"
 msgstr "{title} — 暂无本地可读内容"
 
-#: src/document-canvas.tsx:3352
+#: src/document-canvas.tsx
 msgid "{title} paper reader"
 msgstr "{title} 论文阅读器"
 
-#: src/document-canvas.tsx:3532
+#: src/document-canvas.tsx
 msgid "{words} words · {chars} chars"
 msgstr "{words} 词 · {chars} 字符"
 
-#: src/App.tsx:10326
+#: src/App.tsx
 msgid "⌘⇧F · source files and papers"
 msgstr "⌘⇧F · 源文件和论文"
 
-#: src/App.tsx:10327
+#: src/App.tsx
 msgid "⌘⇧H · all .tex files"
 msgstr "⌘⇧H · 所有 .tex 文件"
 
-#: src/collab-dialog.tsx:135
+#: src/collab-dialog.tsx
 msgid "1 file"
 msgstr "1 个文件"
 
-#: src/navigator.tsx:1725
+#: src/navigator.tsx
 msgid "1 of {total} papers"
 msgstr "共 {total} 篇论文，显示 1 篇"
 
-#: src/collab-dialog.tsx:132
+#: src/collab-dialog.tsx
 msgid "1 other"
 msgstr "另外 1 人"
 
-#: src/navigator.tsx:1728
+#: src/navigator.tsx
 msgid "1 paper"
 msgstr "1 篇论文"
 
-#: src/project-dialogs.tsx:62
+#: src/bib-entry-dialog.tsx
+msgid "10.1038/… or arXiv:1706.03762 or paper title"
+msgstr "10.1038/…、arXiv:1706.03762 或论文标题"
+
+#: src/project-dialogs.tsx
 msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected."
 msgstr "一个本地优先的 LaTeX 工作空间，让写作助手、资料来源、手稿和渲染后的论文保持关联。"
 
-#: src/collab-dialog.tsx:238
+#: src/insert-snippets.ts
+msgid "a over b"
+msgstr "分子 a，分母 b"
+
+#: src/overleaf-connect.tsx
+msgid "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you."
+msgstr "将打开一个安全的 Overleaf 登录窗口。Lattice 不会看到你的密码——它只保存 Overleaf 为你创建的会话。"
+
+#: src/overleaf-connect.tsx
+msgid "A sync that finds a file missing here offers to remove it from Overleaf too."
+msgstr "同步时若发现本地缺少某个文件，会询问是否同时从 Overleaf 删除。"
+
+#: src/insert-snippets.ts
+msgid "Abstract"
+msgstr "摘要"
+
+#: src/insert-snippets.ts
+msgid "Abstract environment"
+msgstr "摘要环境"
+
+#: src/insert-palette.tsx
+msgid "Accents"
+msgstr "重音符"
+
+#: src/app-log.tsx
+msgid "Activity log"
+msgstr "活动日志"
+
+#: src/insert-snippets.ts
+msgid "Acute accent example"
+msgstr "锐音符示例"
+
+#: src/collab-dialog.tsx
 msgid "Ada"
 msgstr "Ada"
 
-#: src/settings-dialog.tsx:686
+#: src/literature-discovery-panel.tsx
+#: src/settings-dialog.tsx
 msgid "Add"
 msgstr "添加"
 
-#: src/App.tsx:9357
-#: src/App.tsx:10324
+#: src/App.tsx
+#: src/bib-entry-dialog.tsx
 msgid "Add bibliography entry"
 msgstr "添加参考文献条目"
 
-#: src/document-canvas.tsx:3431
-#: src/document-canvas.tsx:3463
+#: src/literature-discovery-panel.tsx
+msgid "Add bibliography entry and cache the arXiv paper"
+msgstr "添加参考文献条目并缓存该 arXiv 论文"
+
+#: src/document-canvas.tsx
 msgid "Add comment"
 msgstr "添加评论"
 
-#: src/settings-dialog.tsx:679
+#: src/settings-dialog.tsx
 msgid "Add project term"
 msgstr "添加项目术语"
 
-#: src/navigator.tsx:1711
+#: src/navigator.tsx
 msgid "Add your first paper"
 msgstr "添加第一篇论文"
 
-#: src/App.tsx:9313
-#: src/App.tsx:9313
-#: src/App.tsx:9447
-#: src/settings-dialog.tsx:143
-#: src/settings-dialog.tsx:445
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "added"
+msgstr "已添加"
+
+#: src/App.tsx
+#: src/history-drawer.tsx
+#: src/settings-dialog.tsx
 msgid "Agent"
 msgstr "智能助手"
 
-#: src/App.tsx:9853
+#. placeholder {0}: item.threadTitle
+#: src/history-drawer.tsx
+msgid "Agent task: {0}"
+msgstr "智能助手任务：{0}"
+
+#: src/App.tsx
 msgid "Agent turn"
 msgstr "助手轮次"
 
-#: src/App.tsx:9890
+#: src/App.tsx
 msgid "Agent turn review"
 msgstr "助手轮次审查"
 
-#: src/settings-dialog.tsx:759
+#: src/synara-loading-surface.tsx
+msgid "Agent unavailable"
+msgstr "智能助手不可用"
+
+#: src/insert-snippets.ts
+msgid "Aleph"
+msgstr "阿列夫"
+
+#: src/insert-snippets.ts
+msgid "Algorithm"
+msgstr "算法"
+
+#: src/insert-snippets.ts
+msgid "Algorithm block (requires algorithm and algpseudocode)"
+msgstr "算法块（需要 algorithm 与 algpseudocode）"
+
+#: src/insert-snippets.ts
+msgid "Align"
+msgstr "对齐公式"
+
+#: src/insert-snippets.ts
+msgid "Align*"
+msgstr "对齐公式*"
+
+#: src/history-drawer.tsx
+#: src/insert-palette.tsx
+msgid "All"
+msgstr "全部"
+
+#: src/spreadsheet-editor.tsx
+msgid "All Functions…"
+msgstr "所有函数…"
+
+#: src/app-log.tsx
+msgid "All levels"
+msgstr "所有级别"
+
+#: src/overleaf-connect.tsx
+msgid "All of your projects are archived or trashed. Tick “Show archived” to see them."
+msgstr "你的所有项目都已归档或移入回收站。勾选“显示已归档”即可看到它们。"
+
+#: src/settings-dialog.tsx
 msgid "Allow external commands"
 msgstr "允许外部命令"
 
-#: src/tex-setup-wizard.tsx:49
+#: src/tex-setup-wizard.tsx
 msgid "Almost done."
 msgstr "即将完成。"
 
-#: src/onboarding-tour.tsx:536
+#: src/insert-snippets.ts
+msgid "Alpha"
+msgstr "阿尔法"
+
+#: src/literature-discovery-panel.tsx
+msgid "Already in Papers"
+msgstr "已在论文库中"
+
+#: src/insert-snippets.ts
+msgid "Amalgamation"
+msgstr "合并运算"
+
+#: src/insert-snippets.ts
+msgid "Ampersand"
+msgstr "与号"
+
+#: src/onboarding-tour.tsx
 msgid "An agent that has already read your project"
 msgstr "一个已经读过你项目的 Agent"
 
-#: src/onboarding-tour.tsx:442
+#: src/onboarding-tour.tsx
 msgid "An infinite canvas for diagrams, arrows, and freehand notes. This one maps how attention flows, and every shape on it is editable."
 msgstr "用无限画布绘制图表、箭头和手写笔记。这个画板展示了注意力如何流动，其中每个形状都可以编辑。"
 
-#: src/onboarding-tour.tsx:451
+#: src/onboarding-tour.tsx
 msgid "Analyze results in a live spreadsheet"
 msgstr "在实时电子表格中分析结果"
 
-#: src/settings-dialog.tsx:767
+#: src/insert-snippets.ts
+msgid "Angle"
+msgstr "角"
+
+#: src/settings-dialog.tsx
 msgid "App updates"
 msgstr "应用更新"
 
-#: src/settings-dialog.tsx:138
-#: src/settings-dialog.tsx:546
+#: src/settings-dialog.tsx
 msgid "Appearance"
 msgstr "外观"
 
-#: src/settings-dialog.tsx:417
-msgid "Apple’s built-in English sentence model runs on-device; source text never leaves this Mac and no model is downloaded."
-msgstr "Apple 内置的英文句子模型在设备上运行；源文本不会离开这台 Mac，也无需下载模型。"
-
-#: src/settings-dialog.tsx:588
+#: src/settings-dialog.tsx
 msgid "Applies to the LaTeX source editor only."
 msgstr "仅应用于 LaTeX 源码编辑器。"
 
-#: src/tex-setup-wizard.tsx:45
+#: src/tex-setup-wizard.tsx
 msgid "Approve the macOS prompt to continue."
 msgstr "批准 macOS 提示以继续。"
 
-#: src/collab-dialog.tsx:255
+#: src/insert-snippets.ts
+msgid "Approximately equal"
+msgstr "约等于"
+
+#: src/overleaf-connect.tsx
+msgid "Archived"
+msgstr "已归档"
+
+#: src/insert-palette.tsx
+msgid "Arrows"
+msgstr "箭头"
+
+#: src/bib-entry-dialog.tsx
+msgid "Article"
+msgstr "期刊论文"
+
+#: src/overleaf-connect.tsx
+msgid "Ask before deleting"
+msgstr "删除前询问"
+
+#: src/insert-snippets.ts
+msgid "Asterisk operator"
+msgstr "星号运算符"
+
+#: src/literature-discovery-panel.tsx
+msgid "Attention Is All You Need, diffusion, …"
+msgstr "Attention Is All You Need、diffusion…"
+
+#: src/collab-dialog.tsx
 msgid "Attention paper"
 msgstr "注意力论文"
 
-#: src/settings-dialog.tsx:724
+#: src/bib-entry-dialog.tsx
+msgid "Author"
+msgstr "作者"
+
+#: src/settings-dialog.tsx
 msgid "Automatic"
 msgstr "自动"
 
-#: src/settings-dialog.tsx:715
-#: src/settings-dialog.tsx:721
+#: src/settings-dialog.tsx
 msgid "Automatic build"
 msgstr "自动构建"
 
-#: src/settings-dialog.tsx:769
-#: src/settings-dialog.tsx:773
+#: src/settings-dialog.tsx
 msgid "Automatic updates"
 msgstr "自动更新"
 
-#: src/settings-dialog.tsx:729
+#: src/settings-dialog.tsx
 msgid "Auxiliary files"
 msgstr "辅助文件"
 
-#: src/onboarding-tour.tsx:154
-#: src/onboarding-tour.tsx:636
+#: src/onboarding-tour.tsx
 msgid "Back"
 msgstr "返回"
 
-#: src/document-canvas.tsx:3333
+#: src/insert-snippets.ts
+msgid "Back prime"
+msgstr "反撇号"
+
+#: src/document-canvas.tsx
 msgid "Back to {view}"
 msgstr "返回{view}"
 
-#: src/tex-setup-wizard.tsx:143
+#: src/insert-snippets.ts
+msgid "Bar accent"
+msgstr "横线记号"
+
+#: src/insert-snippets.ts
+msgid "Bar accent example"
+msgstr "横线符示例"
+
+#: src/insert-snippets.ts
+msgid "Bar over an expression"
+msgstr "表达式上方加横线"
+
+#: src/tex-setup-wizard.tsx
 msgid "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes."
 msgstr "BasicTeX 和 Lattice 所需的论文工具安装后约占用 {TEX_INSTALL_SIZE_HINT}。初始设置最多可能需要 15 分钟。"
 
-#: src/tex-setup-wizard.tsx:154
+#: src/tex-setup-wizard.tsx
 msgid "BasicTeX installation progress"
 msgstr "BasicTeX 安装进度"
 
-#: src/tex-setup-wizard.tsx:118
+#: src/tex-setup-wizard.tsx
 msgid "BasicTeX installed"
 msgstr "BasicTeX 已安装"
 
-#: src/canvas-toolbar.tsx:174
-#: src/document-canvas.tsx:3282
+#: src/insert-snippets.ts
+msgid "Beta"
+msgstr "贝塔"
+
+#: src/insert-snippets.ts
+msgid "Beth"
+msgstr "贝特"
+
+#: src/literature-discovery-panel.tsx
+msgid "Bib"
+msgstr "文献"
+
+#: src/insert-snippets.ts
+msgid "Bibliographic citation (requires natbib or compatible package)"
+msgstr "文献引用（需要 natbib 或兼容宏包）"
+
+#: src/bib-entry-dialog.tsx
+msgid "BibTeX preview"
+msgstr "BibTeX 预览"
+
+#: src/insert-snippets.ts
+msgid "Big triangle down"
+msgstr "大三角形（向下）"
+
+#: src/insert-snippets.ts
+msgid "Big triangle up"
+msgstr "大三角形（向上）"
+
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "binary"
+msgstr "二进制"
+
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "Binary file changed."
+msgstr "二进制文件已更改。"
+
+#: src/insert-snippets.ts
+msgid "Binomial"
+msgstr "二项式"
+
+#: src/insert-snippets.ts
+msgid "Binomial coefficient"
+msgstr "二项式系数"
+
+#: src/insert-snippets.ts
+msgid "Blackboard bold"
+msgstr "黑板粗体"
+
+#: src/insert-snippets.ts
+msgid "Block quotation"
+msgstr "独立成段的引文"
+
+#: src/canvas-toolbar.tsx
+#: src/document-canvas.tsx
 msgid "Blog"
 msgstr "概览"
 
-#: src/onboarding-tour.tsx:506
+#: src/onboarding-tour.tsx
 msgid "Blog view is a generated, illustrated walkthrough of the paper — enough to tell whether it deserves a full read."
 msgstr "博客视图是自动生成、配有插图的论文导读，足以帮助你判断是否值得阅读全文。"
 
-#: src/document-canvas.tsx:3531
+#: src/insert-snippets.ts
+msgid "Bmatrix"
+msgstr "方括号矩阵"
+
+#: src/document-canvas.tsx
 msgid "Body {body} · raw {raw} · {chars} chars"
 msgstr "正文 {body} · 原始 {raw} · {chars} 字符"
 
-#: src/document-canvas.tsx:3526
+#: src/document-canvas.tsx
 msgid "Body word count unavailable"
 msgstr "正文词数不可用"
 
-#: src/document-canvas.tsx:3525
+#: src/document-canvas.tsx
 msgid "Body words ({source}): text {text}, headers {headers}, captions {captions}"
 msgstr "正文词数（{source}）：文本 {text}，标题 {headers}，图注 {captions}"
 
-#: src/App.tsx:9260
-#: src/App.tsx:9271
-#: src/App.tsx:10295
-#: src/App.tsx:10296
-#: src/App.tsx:10297
-#: src/App.tsx:10298
+#: src/insert-snippets.ts
+msgid "Bold"
+msgstr "粗体"
+
+#: src/insert-snippets.ts
+msgid "Bold text command"
+msgstr "粗体文字命令"
+
+#: src/bib-entry-dialog.tsx
+msgid "Book"
+msgstr "书籍"
+
+#: src/insert-snippets.ts
+msgid "Bottom / false"
+msgstr "底元 / 假"
+
+#: src/insert-snippets.ts
+msgid "Brace-delimited matrix"
+msgstr "用花括号包裹的矩阵"
+
+#: src/insert-snippets.ts
+msgid "Bracketed matrix"
+msgstr "带方括号的矩阵"
+
+#: src/insert-snippets.ts
+msgid "Breve accent example"
+msgstr "短音符示例"
+
+#. placeholder {0}: file.pathname
+#: src/overleaf-history.tsx
+msgid "Bring back {0}"
+msgstr "恢复 {0}"
+
+#: src/App.tsx
 msgid "Build"
 msgstr "构建"
 
-#: src/App.tsx:9256
+#: src/App.tsx
 msgid "Build automatically · Command-S builds now. Shift-click for clean rebuild."
 msgstr "自动构建 · Command-S 立即构建。按住 Shift 点击可执行全新重建。"
 
-#: src/App.tsx:9257
+#: src/App.tsx
 msgid "Build only when requested · Command-S builds now. Shift-click for clean rebuild."
 msgstr "仅在请求时构建 · Command-S 立即构建。按住 Shift 点击可执行全新重建。"
 
-#: src/App.tsx:10295
+#: src/App.tsx
 msgid "Build project"
 msgstr "构建项目"
 
-#: src/pdf-viewer.tsx:1510
+#: src/pdf-viewer.tsx
 msgid "Build the project to preview the paper."
 msgstr "构建项目以预览论文。"
 
-#: src/settings-dialog.tsx:713
+#: src/settings-dialog.tsx
 msgid "Builds"
 msgstr "构建"
 
-#: src/navigator.tsx:1627
+#: src/insert-snippets.ts
+msgid "Bullet"
+msgstr "实心圆点"
+
+#: src/insert-snippets.ts
+msgid "Bulleted list"
+msgstr "带项目符号的列表"
+
+#: src/navigator.tsx
 msgid "cached"
 msgstr "缓存"
 
-#: src/collab-dialog.tsx:308
-#: src/collab-dialog.tsx:495
-#: src/document-canvas.tsx:3456
-#: src/project-dialogs.tsx:171
-#: src/project-dialogs.tsx:236
+#: src/insert-snippets.ts
+msgid "Calligraphic"
+msgstr "花体"
+
+#: src/bib-entry-dialog.tsx
+#: src/collab-dialog.tsx
+#: src/confirm-action-dialog.tsx
+#: src/document-canvas.tsx
+#: src/overleaf-connect.tsx
+#: src/overleaf-history.tsx
+#: src/project-dialogs.tsx
+#: src/spreadsheet-editor.tsx
+#: src/versions-timeline.tsx
 msgid "Cancel"
 msgstr "取消"
 
-#: src/navigator.tsx:1375
+#: src/navigator.tsx
 msgid "Cancel creation"
 msgstr "取消创建"
 
-#: src/App.tsx:9854
-#: src/App.tsx:9891
+#: src/insert-snippets.ts
+msgid "Capital delta"
+msgstr "大写德尔塔"
+
+#: src/insert-snippets.ts
+msgid "Capital gamma"
+msgstr "大写伽马"
+
+#: src/insert-snippets.ts
+msgid "Capital lambda"
+msgstr "大写兰姆达"
+
+#: src/insert-snippets.ts
+msgid "Capital omega"
+msgstr "大写欧米伽"
+
+#: src/insert-snippets.ts
+msgid "Capital phi"
+msgstr "大写斐"
+
+#: src/insert-snippets.ts
+msgid "Capital pi"
+msgstr "大写派"
+
+#: src/insert-snippets.ts
+msgid "Capital psi"
+msgstr "大写普西"
+
+#: src/insert-snippets.ts
+msgid "Capital sigma"
+msgstr "大写西格马"
+
+#: src/insert-snippets.ts
+msgid "Capital theta"
+msgstr "大写西塔"
+
+#: src/insert-snippets.ts
+msgid "Capital upsilon"
+msgstr "大写宇普西龙"
+
+#: src/insert-snippets.ts
+msgid "Capital xi"
+msgstr "大写克西"
+
+#: src/insert-snippets.ts
+msgid "Cases"
+msgstr "分段函数"
+
+#: src/insert-snippets.ts
+msgid "Center"
+msgstr "居中"
+
+#: src/insert-snippets.ts
+msgid "Centered block"
+msgstr "居中块"
+
+#: src/insert-snippets.ts
+msgid "Centered display equation"
+msgstr "居中的行间公式"
+
+#: src/insert-snippets.ts
+msgid "Centered dot"
+msgstr "居中点乘"
+
+#: src/insert-snippets.ts
+msgid "Centered multi-line equations"
+msgstr "居中的多行公式"
+
+#: src/App.tsx
+#: src/history-drawer.tsx
 msgid "Changes"
 msgstr "更改"
 
-#: src/collab-dialog.tsx:379
+#: src/collab-dialog.tsx
 msgid "chat"
 msgstr "聊天"
 
-#: src/settings-dialog.tsx:787
+#: src/insert-snippets.ts
+msgid "Check accent example"
+msgstr "抑扬符示例"
+
+#: src/settings-dialog.tsx
 msgid "Check for updates"
 msgstr "检查更新"
 
-#: src/settings-dialog.tsx:660
+#: src/settings-dialog.tsx
 msgid "Check spelling in prose"
 msgstr "检查正文拼写"
 
-#: src/settings-dialog.tsx:413
+#: src/settings-dialog.tsx
 msgid "Check your connection and try again."
 msgstr "请检查网络连接后重试。"
 
-#: src/navigator.tsx:1628
+#: src/navigator.tsx
 msgid "checked"
 msgstr "检查于"
 
-#: src/settings-dialog.tsx:863
-msgid "Checking local tools…"
-msgstr "正在检查本地工具…"
+#: src/overleaf-connect.tsx
+msgid "Checking the connection to {linkedHost}…"
+msgstr "正在检查与 {linkedHost} 的连接…"
 
-#: src/settings-dialog.tsx:787
+#: src/overleaf-connect.tsx
+msgid "Checking your Overleaf connection…"
+msgstr "正在检查你的 Overleaf 连接…"
+
+#: src/settings-dialog.tsx
 msgid "Checking…"
 msgstr "正在检查…"
 
-#: src/settings-dialog.tsx:661
+#: src/settings-dialog.tsx
 msgid "Checks English spelling and grammar as you type with Harper."
 msgstr "使用 Harper 在输入时检查英文拼写和语法。"
 
-#: src/settings-dialog.tsx:810
-msgid "Checks local LaTeX tools, SyncTeX, bibliography processors, editor helpers, and conference fonts."
-msgstr "检查本地 LaTeX 工具、SyncTeX、参考文献处理器、编辑器辅助工具和会议字体。"
+#: src/settings-dialog.tsx
+msgid "Checks the tools Lattice needs to compile LaTeX."
+msgstr "检查 Lattice 编译 LaTeX 所需的工具。"
 
-#: src/project-dialogs.tsx:172
+#: src/insert-snippets.ts
+msgid "Chi"
+msgstr "希"
+
+#: src/project-dialogs.tsx
 msgid "Choose location"
 msgstr "选择位置"
 
-#: src/settings-dialog.tsx:552
+#: src/settings-dialog.tsx
 msgid "Choose the language used for menus, settings, and help text."
 msgstr "选择菜单、设置和帮助文字所使用的语言。"
 
-#: src/settings-dialog.tsx:573
+#: src/settings-dialog.tsx
 msgid "Choose the theme for Lattice on this device."
 msgstr "选择这台设备上 Lattice 使用的主题。"
 
-#: src/settings-dialog.tsx:737
+#: src/App.tsx
+msgid "Choose where to extract the project"
+msgstr "选择项目解压到的位置"
+
+#: src/insert-snippets.ts
+msgid "Circled dot"
+msgstr "圈点"
+
+#: src/insert-snippets.ts
+msgid "Circled minus"
+msgstr "圈减"
+
+#: src/insert-snippets.ts
+msgid "Circled plus"
+msgstr "圈加"
+
+#: src/insert-snippets.ts
+msgid "Circled slash"
+msgstr "圈斜线"
+
+#: src/insert-snippets.ts
+msgid "Circled times / tensor"
+msgstr "圈乘 / 张量积"
+
+#: src/insert-snippets.ts
+msgid "Citation"
+msgstr "引用文献"
+
+#: src/bib-entry-dialog.tsx
+msgid "Citation key"
+msgstr "引用键"
+
+#: src/bib-entry-dialog.tsx
+msgid "Citation resolve query"
+msgstr "引文解析查询"
+
+#: src/history-drawer.tsx
+msgid "Citation tool"
+msgstr "引文工具"
+
+#: src/history-drawer.tsx
+msgid "Citations"
+msgstr "引文"
+
+#: src/settings-dialog.tsx
 msgid "Clean"
 msgstr "清理"
 
-#: src/App.tsx:10297
+#: src/App.tsx
 msgid "Clean aux files"
 msgstr "清理辅助文件"
 
-#: src/App.tsx:10296
+#: src/App.tsx
 msgid "Clean rebuild"
 msgstr "全新重建"
 
-#: src/settings-dialog.tsx:737
+#: src/settings-dialog.tsx
 msgid "Cleaning…"
 msgstr "正在清理…"
 
-#: src/pdf-viewer.tsx:1597
+#: src/app-log.tsx
+msgid "Clear"
+msgstr "清空"
+
+#: src/pdf-viewer.tsx
 msgid "Clear PDF search"
 msgstr "清除 PDF 搜索"
 
-#: src/onboarding-tour.tsx:497
+#: src/onboarding-tour.tsx
 msgid "Click “An Image is Worth 16×16 Words”"
 msgstr "点击“An Image is Worth 16×16 Words”"
 
-#: src/onboarding-tour.tsx:528
+#: src/onboarding-tour.tsx
 msgid "Click Agent"
 msgstr "点击 Agent"
 
-#: src/onboarding-tour.tsx:421
+#: src/onboarding-tour.tsx
 msgid "Click into the formatted side and type — no Markdown syntax needed. Press / on an empty line to drop in headings, tables, math, or images."
 msgstr "点击格式化视图并直接输入，无需 Markdown 语法。在空行中按 / 可插入标题、表格、数学公式或图片。"
 
-#: src/onboarding-tour.tsx:507
+#: src/onboarding-tour.tsx
 msgid "Click Paper to read the full text"
 msgstr "点击“论文”阅读全文"
 
-#: src/onboarding-tour.tsx:479
+#: src/onboarding-tour.tsx
 msgid "Click Papers"
 msgstr "点击“论文”"
 
-#: src/canvas-toolbar.tsx:262
+#: src/canvas-toolbar.tsx
 msgid "click to sync"
 msgstr "点按以同步"
 
-#: src/App.tsx:9862
-msgid "Close"
-msgstr "关闭"
-
-#: src/collab-dialog.tsx:334
+#: src/collab-dialog.tsx
 msgid "Close for everyone"
 msgstr "为所有人关闭"
 
-#: src/App.tsx:9861
+#: src/App.tsx
 msgid "Close Git workspace"
 msgstr "关闭 Git 工作区"
 
-#: src/settings-dialog.tsx:461
+#: src/insert-palette.tsx
+msgid "Close insert palette"
+msgstr "关闭插入面板"
+
+#: src/settings-dialog.tsx
 msgid "Close settings"
 msgstr "关闭设置"
 
-#: src/canvas-toolbar.tsx:203
+#: src/canvas-toolbar.tsx
 msgid "Close split"
 msgstr "关闭分栏"
 
-#: src/collab-dialog.tsx:237
+#: src/insert-snippets.ts
+msgid "Closed-path integral"
+msgstr "闭路积分"
+
+#: src/insert-snippets.ts
+msgid "Club suit"
+msgstr "梅花"
+
+#: src/insert-snippets.ts
+msgid "Code listing"
+msgstr "代码清单"
+
+#: src/collab-dialog.tsx
 msgid "Collab display name"
 msgstr "协作显示名称"
 
-#: src/collab-dialog.tsx:356
+#: src/collab-dialog.tsx
 msgid "Collab invite"
 msgstr "协作邀请"
 
-#: src/collab-dialog.tsx:254
+#: src/collab-dialog.tsx
 msgid "Collab room name"
 msgstr "协作房间名称"
 
-#: src/settings-dialog.tsx:572
-#: src/settings-dialog.tsx:576
+#: src/collab-status.ts
+msgid "Collaboration failed"
+msgstr "协作失败"
+
+#: src/collab-status.ts
+msgid "Collaboration is read-only"
+msgstr "协作为只读"
+
+#: src/settings-dialog.tsx
 msgid "Color theme"
 msgstr "颜色主题"
 
-#: src/App.tsx:10292
+#: src/App.tsx
 msgid "Command palette"
 msgstr "命令面板"
 
-#: src/document-canvas.tsx:3500
+#: src/document-canvas.tsx
 msgid "comment"
 msgstr "评论"
 
-#: src/document-canvas.tsx:3511
+#: src/document-canvas.tsx
 msgid "Comments"
 msgstr "评论"
 
-#: src/settings-dialog.tsx:743
-#: src/settings-dialog.tsx:750
+#: src/settings-dialog.tsx
 msgid "Compile engine"
 msgstr "编译引擎"
 
-#: src/App.tsx:10295
+#: src/App.tsx
 msgid "Compile LaTeX"
 msgstr "编译 LaTeX"
 
-#: src/collab-dialog.tsx:471
+#: src/collab-dialog.tsx
 msgid "Compile/PDF stays on each Mac. "
 msgstr "编译/PDF 处理在每台 Mac 上独立进行。"
 
-#: src/tex-setup-wizard.tsx:109
+#: src/insert-snippets.ts
+msgid "Composition / ring"
+msgstr "复合 / 环运算"
+
+#: src/bib-entry-dialog.tsx
+msgid "conference"
+msgstr "会议"
+
+#: src/tex-setup-wizard.tsx
 msgid "Conference font verification is missing."
 msgstr "缺少会议字体验证。"
 
-#: src/canvas-toolbar.tsx:261
+#: src/insert-snippets.ts
+msgid "Congruent"
+msgstr "全等"
+
+#: src/overleaf-connect.tsx
+msgid "Connect to Overleaf"
+msgstr "连接 Overleaf"
+
+#. placeholder {0}: status.email ?? status.name ?? fallbackAccountName
+#: src/overleaf-connect.tsx
+msgid "Connected as {0}"
+msgstr "已登录为 {0}"
+
+#: src/canvas-toolbar.tsx
 msgid "Connected live · click to sync everything"
 msgstr "已实时连接 · 点按以同步全部内容"
 
-#: src/canvas-toolbar.tsx:257
+#: src/overleaf-connect.tsx
+msgid "Connecting live editing…"
+msgstr "正在连接实时编辑…"
+
+#: src/canvas-toolbar.tsx
 msgid "Connecting to Overleaf's live channel…"
 msgstr "正在连接 Overleaf 实时通道…"
 
-#: src/collab-dialog.tsx:400
-#: src/collab-dialog.tsx:484
+#: src/collab-dialog.tsx
 msgid "Connecting…"
 msgstr "正在连接…"
 
-#: src/collab-dialog.tsx:488
+#: src/overleaf-connect.tsx
+msgid "Connection"
+msgstr "连接"
+
+#: src/collab-dialog.tsx
 msgid "Connection failed"
 msgstr "连接失败"
 
-#: src/onboarding-tour.tsx:159
-#: src/onboarding-tour.tsx:636
+#: src/overleaf-connect.tsx
+msgid "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above."
+msgstr "无法获取连接状态。此项目仍关联到 {linkedHost}；请在上方重新检查连接。"
+
+#: src/insert-snippets.ts
+msgid "Contains as member"
+msgstr "包含元素"
+
+#: src/confirm-action-dialog.tsx
+#: src/onboarding-tour.tsx
+#: src/spreadsheet-editor.tsx
 msgid "Continue"
 msgstr "继续"
 
-#: src/collab-dialog.tsx:410
+#: src/confirm-action-dialog.tsx
+#: src/spreadsheet-editor.tsx
+msgid "Continue?"
+msgstr "要继续吗？"
+
+#: src/insert-snippets.ts
+msgid "Contour integral"
+msgstr "环路积分"
+
+#: src/collab-dialog.tsx
 msgid "Copied"
 msgstr "已复制"
 
-#: src/collab-dialog.tsx:410
+#: src/app-log.tsx
+msgid "Copy"
+msgstr "复制"
+
+#: src/app-log.tsx
+msgid "Copy all"
+msgstr "全部复制"
+
+#: src/collab-dialog.tsx
 msgid "Copy invite"
 msgstr "复制邀请"
 
-#: src/navigator.tsx:1352
+#: src/app-log.tsx
+msgid "Copy notification command"
+msgstr "复制通知中的命令"
+
+#: src/navigator.tsx
 msgid "Copy path"
 msgstr "复制路径"
 
-#: src/settings-dialog.tsx:838
-#: src/settings-dialog.tsx:839
-msgid "Copy summary"
-msgstr "复制摘要"
+#: src/insert-snippets.ts
+msgid "Copyright"
+msgstr "版权符号"
 
-#: src/navigator.tsx:1625
+#: src/navigator.tsx
 msgid "Correction/update"
 msgstr "更正/更新"
 
-#: src/pdf-viewer.tsx:1483
+#: src/overleaf-connect.tsx
+msgid "Could not change Overleaf sync"
+msgstr "无法更改 Overleaf 同步设置"
+
+#: src/overleaf-connect.tsx
+msgid "Could not disconnect from Overleaf"
+msgstr "无法断开与 Overleaf 的连接"
+
+#: src/pdf-viewer.tsx
 msgid "Could not open PDF link"
 msgstr "无法打开 PDF 链接"
 
-#: src/document-canvas.tsx:1347
+#: src/document-canvas.tsx
 msgid "Could not open the article in your browser"
 msgstr "无法在浏览器中打开文章"
 
-#: src/pdf-viewer.tsx:694
+#: src/overleaf-connect.tsx
+msgid "Could not open the Overleaf project"
+msgstr "无法打开该 Overleaf 项目"
+
+#: src/pdf-viewer.tsx
 msgid "Could not render page {pageNumber}. {pageError}"
 msgstr "无法渲染第 {pageNumber} 页。{pageError}"
 
-#: src/settings-dialog.tsx:406
+#. placeholder {0}: resources.error.message
+#: src/history-drawer.tsx
+msgid "Could not render these changes: {0}"
+msgstr "无法渲染这些更改：{0}"
+
+#: src/settings-dialog.tsx
 msgid "Couldn’t check for updates"
 msgstr "无法检查更新"
 
-#: src/project-dialogs.tsx:138
-#: src/project-dialogs.tsx:141
+#: src/project-dialogs.tsx
 msgid "Create a research project"
 msgstr "创建研究项目"
 
+#: src/history-drawer.tsx
+#: src/versions-timeline.tsx
+msgid "created"
+msgstr "已创建"
+
 #. placeholder {0}: venue.label
-#: src/project-dialogs.tsx:143
+#: src/project-dialogs.tsx
 msgid "Creates a {0} preprint template with bibliography and project brief."
 msgstr "创建包含参考文献和项目简介的 {0} 预印本模板。"
 
-#: src/navigator.tsx:1627
+#: src/insert-snippets.ts
+msgid "Cross-reference label"
+msgstr "交叉引用标签"
+
+#: src/navigator.tsx
 msgid "Crossref citation-health metadata is currently unavailable"
 msgstr "Crossref 引用状态元数据当前不可用"
 
-#: src/navigator.tsx:1628
+#: src/navigator.tsx
 msgid "Crossref reports update type"
 msgstr "Crossref 报告的更新类型"
 
-#: src/navigator.tsx:1627
+#: src/navigator.tsx
 msgid "Crossref type"
 msgstr "Crossref 类型"
 
-#: src/settings-dialog.tsx:579
+#: src/insert-snippets.ts
+msgid "Curly matrix"
+msgstr "花括号矩阵"
+
+#: src/insert-snippets.ts
+msgid "Dagger"
+msgstr "剑号"
+
+#: src/insert-snippets.ts
+msgid "Dagger text symbol"
+msgstr "剑号（文本符号）"
+
+#: src/insert-snippets.ts
+msgid "Daleth"
+msgstr "达列特"
+
+#: src/settings-dialog.tsx
 msgid "Dark"
 msgstr "深色"
 
-#: src/settings-dialog.tsx:633
+#: src/bib-entry-dialog.tsx
+msgid "Decrement year"
+msgstr "年份减一"
+
+#: src/settings-dialog.tsx
 msgid "Default"
 msgstr "默认"
 
-#: src/navigator.tsx:1375
+#: src/insert-snippets.ts
+msgid "Degree"
+msgstr "度"
+
+#: src/confirm-action-dialog.tsx
+#: src/navigator.tsx
+#: src/spreadsheet-editor.tsx
 msgid "Delete"
 msgstr "删除"
 
-#: src/settings-dialog.tsx:157
+#: src/overleaf-connect.tsx
+msgid "Delete on Overleaf too"
+msgstr "同时在 Overleaf 上删除"
+
+#: src/history-drawer.tsx
+msgid "Delete this history entry"
+msgstr "删除这条历史记录"
+
+#: src/confirm-action-dialog.tsx
+msgid "Delete this item?"
+msgstr "要删除这一项吗？"
+
+#: src/spreadsheet-editor.tsx
+msgid "Delete worksheet?"
+msgstr "要删除工作表吗？"
+
+#: src/history-drawer.tsx
+#: src/versions-timeline.tsx
+msgid "deleted"
+msgstr "已删除"
+
+#: src/insert-palette.tsx
+msgid "Delimiters"
+msgstr "定界符"
+
+#: src/insert-snippets.ts
+msgid "Delta"
+msgstr "德尔塔"
+
+#: src/insert-snippets.ts
+msgid "Description"
+msgstr "描述列表"
+
+#: src/insert-snippets.ts
+msgid "Determinant-style matrix"
+msgstr "行列式样式的矩阵"
+
+#: src/settings-dialog.tsx
 msgid "Diagnostics"
 msgstr "诊断"
 
-#: src/App.tsx:9352
-#: src/App.tsx:9353
-#: src/App.tsx:10325
+#: src/insert-snippets.ts
+msgid "Diamond operator"
+msgstr "菱形运算符"
+
+#: src/insert-snippets.ts
+msgid "Diamond suit"
+msgstr "方块"
+
+#. placeholder {0}: props.change.path
+#: src/versions-timeline.tsx
+msgid "Diff for {0}"
+msgstr "{0} 的差异"
+
+#: src/App.tsx
+#: src/literature-discovery-panel.tsx
 msgid "Discover literature"
 msgstr "发现文献"
 
-#: src/settings-dialog.tsx:584
+#: src/app-log.tsx
+msgid "Dismiss notification"
+msgstr "关闭通知"
+
+#: src/settings-dialog.tsx
 msgid "Display"
 msgstr "显示"
 
-#: src/canvas-toolbar.tsx:138
+#: src/insert-snippets.ts
+msgid "Display fraction"
+msgstr "大号分式"
+
+#: src/insert-snippets.ts
+msgid "Display math"
+msgstr "行间公式"
+
+#: src/insert-snippets.ts
+msgid "Divides / conditioned on"
+msgstr "整除 / 条件于"
+
+#: src/insert-snippets.ts
+msgid "Division"
+msgstr "除号"
+
+#: src/document-outline.tsx
+msgid "Document outline"
+msgstr "文档大纲"
+
+#: src/canvas-toolbar.tsx
 msgid "Document view"
 msgstr "文稿视图"
 
-#: src/navigator.tsx:1644
+#: src/insert-snippets.ts
+msgid "Does not exist"
+msgstr "不存在"
+
+#: src/insert-snippets.ts
+msgid "Dot accent"
+msgstr "点记号"
+
+#: src/insert-snippets.ts
+msgid "Dot accent example"
+msgstr "点符示例"
+
+#: src/insert-snippets.ts
+msgid "Dotless i"
+msgstr "无点 i"
+
+#: src/insert-snippets.ts
+msgid "Dotless j"
+msgstr "无点 j"
+
+#: src/insert-snippets.ts
+msgid "Double dagger"
+msgstr "双剑号"
+
+#: src/insert-snippets.ts
+msgid "Double dagger text symbol"
+msgstr "双剑号（文本符号）"
+
+#: src/insert-snippets.ts
+msgid "Double integral"
+msgstr "二重积分"
+
+#: src/insert-snippets.ts
+msgid "Double-dot accent example"
+msgstr "双点符示例"
+
+#: src/insert-snippets.ts
+msgid "Down arrow"
+msgstr "下箭头"
+
+#: src/insert-snippets.ts
+msgid "Down double arrow"
+msgstr "下双线箭头"
+
+#: src/navigator.tsx
 msgid "Download {url}"
 msgstr "下载 {url}"
 
-#: src/navigator.tsx:1642
+#: src/navigator.tsx
 msgid "Download arXiv {id}"
 msgstr "下载 arXiv {id}"
 
-#: src/document-canvas.tsx:3327
+#: src/document-canvas.tsx
 msgid "Download PDF"
 msgstr "下载 PDF"
 
-#: src/tex-setup-wizard.tsx:44
+#: src/tex-setup-wizard.tsx
 msgid "Download time depends on your connection."
 msgstr "下载时间取决于你的网络连接。"
 
-#: src/tex-setup-wizard.tsx:34
+#. placeholder {0}: cloning.name
+#: src/overleaf-connect.tsx
+msgid "Downloading {0} from Overleaf… this can take a minute for large projects."
+msgstr "正在从 Overleaf 下载 {0}…大项目可能需要一分钟左右。"
+
+#: src/tex-setup-wizard.tsx
 msgid "Downloading BasicTeX…"
 msgstr "正在下载 BasicTeX…"
 
-#: src/settings-dialog.tsx:402
+#: src/paper-import-progress.ts
+msgid "Downloading full text and figures…"
+msgstr "正在下载全文和图片…"
+
+#: src/settings-dialog.tsx
 msgid "Downloading update…"
 msgstr "正在下载更新…"
 
-#: src/document-canvas.tsx:4277
+#: src/document-canvas.tsx
 msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it."
 msgstr "将项目文件拖到此处打开，或将此文件拖入 TeX 或 Markdown 编辑器以插入。"
 
-#: src/App.tsx:10304
+#: src/App.tsx
 msgid "Dual source view"
 msgstr "双源码视图"
 
-#: src/settings-dialog.tsx:680
+#: src/settings-dialog.tsx
 msgid "e.g. Lattice"
 msgstr "例如 Lattice"
 
-#: src/App.tsx:10311
-#: src/App.tsx:10319
-#: src/App.tsx:10321
-#: src/App.tsx:10322
-#: src/App.tsx:10323
-#: src/App.tsx:10324
-#: src/App.tsx:10326
-#: src/App.tsx:10327
-#: src/App.tsx:10332
-#: src/App.tsx:10334
-#: src/App.tsx:10335
-#: src/App.tsx:10336
-#: src/canvas-toolbar.tsx:143
+#: src/App.tsx
+#: src/canvas-toolbar.tsx
 msgid "Edit"
 msgstr "编辑"
 
-#: src/canvas-toolbar.tsx:152
+#: src/canvas-toolbar.tsx
 msgid "Edit and preview HTML"
 msgstr "编辑并预览 HTML"
 
-#: src/canvas-toolbar.tsx:150
+#: src/canvas-toolbar.tsx
 msgid "Edit and preview Markdown"
 msgstr "编辑并预览 Markdown"
 
-#: src/navigator.tsx:1687
+#: src/bib-entry-dialog.tsx
+#: src/navigator.tsx
 msgid "Edit bibliography entry"
 msgstr "编辑参考文献条目"
 
-#: src/onboarding-tour.tsx:452
+#: src/onboarding-tour.tsx
 msgid "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
 msgstr "直接编辑单元格和公式。在共享项目中，合作者的选区和指针会实时显示。"
 
-#: src/onboarding-tour.tsx:401
+#: src/onboarding-tour.tsx
 msgid "Edit for the source, Split for both, Preview for the finished result. Switch at any time."
 msgstr "“编辑”显示源文件，“拆分”同时显示两者，“预览”显示最终结果。你可以随时切换。"
 
-#: src/canvas-toolbar.tsx:144
+#: src/canvas-toolbar.tsx
 msgid "Edit HTML"
 msgstr "编辑 HTML"
 
-#: src/canvas-toolbar.tsx:144
+#: src/canvas-toolbar.tsx
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
 
-#: src/canvas-toolbar.tsx:144
+#: src/canvas-toolbar.tsx
 msgid "Edit source"
 msgstr "编辑源文件"
 
-#: src/canvas-toolbar.tsx:153
+#: src/canvas-toolbar.tsx
 msgid "Edit source and preview PDF"
 msgstr "编辑源文件并预览 PDF"
 
-#: src/settings-dialog.tsx:615
+#: src/history-drawer.tsx
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "edited"
+msgstr "已编辑"
+
+#: src/settings-dialog.tsx
 msgid "Editing"
 msgstr "编辑"
 
-#: src/canvas-toolbar.tsx:255
+#: src/canvas-toolbar.tsx
 msgid "Editing live with Overleaf · click to sync everything else"
 msgstr "正在与 Overleaf 实时编辑 · 点按以同步其他内容"
 
-#: src/settings-dialog.tsx:139
-#: src/settings-dialog.tsx:612
+#: src/settings-dialog.tsx
 msgid "Editor & builds"
 msgstr "编辑器与构建"
 
-#: src/canvas-toolbar.tsx:216
-#: src/document-canvas.tsx:3505
+#: src/canvas-toolbar.tsx
+#: src/document-canvas.tsx
 msgid "Editor comments"
 msgstr "编辑器评论"
 
-#: src/settings-dialog.tsx:587
+#: src/settings-dialog.tsx
 msgid "Editor font size"
 msgstr "编辑器字号"
 
-#: src/settings-dialog.tsx:617
-#: src/settings-dialog.tsx:631
+#: src/settings-dialog.tsx
 msgid "Editor keymap"
 msgstr "编辑器键位"
 
-#: src/document-canvas.tsx:3497
+#: src/document-canvas.tsx
 msgid "Editor shortcuts"
 msgstr "编辑器快捷键"
 
-#: src/document-canvas.tsx:3472
+#: src/document-canvas.tsx
 msgid "Editor status"
 msgstr "编辑器状态"
 
-#: src/document-canvas.tsx:3790
+#: src/overleaf-connect.tsx
+msgid "Edits sync live with Overleaf."
+msgstr "编辑内容会与 Overleaf 实时同步。"
+
+#: src/insert-snippets.ts
+msgid "Element of"
+msgstr "属于"
+
+#: src/insert-snippets.ts
+msgid "Emphasis"
+msgstr "强调"
+
+#: src/insert-snippets.ts
+msgid "Emphasized text command"
+msgstr "强调文字命令"
+
+#: src/document-canvas.tsx
 msgid "Empty secondary editor"
 msgstr "空白副编辑器"
 
+#: src/insert-snippets.ts
+msgid "Empty set"
+msgstr "空集"
+
+#: src/insert-snippets.ts
+msgid "Empty set (variant)"
+msgstr "空集（变体）"
+
+#: src/versions-timeline.tsx
+msgid "Enable version tracking"
+msgstr "启用版本追踪"
+
 #. placeholder {0}: record.title
-#: src/collab-dialog.tsx:331
+#: src/collab-dialog.tsx
 msgid "End “{0}” for everyone and remove it from this Mac"
 msgstr "为所有人结束“{0}”并将其从这台 Mac 移除"
 
-#: src/settings-dialog.tsx:564
+#: src/settings-dialog.tsx
 msgid "English"
 msgstr "英文"
 
-#: src/pdf-viewer.tsx:1539
+#: src/pdf-viewer.tsx
 msgid "Enter a page number"
 msgstr "输入页码"
 
-#: src/document-canvas.tsx:4292
-#: src/pdf-viewer.tsx:1611
+#: src/document-canvas.tsx
+#: src/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
 msgstr "输入缩放百分比或滚动缩放"
 
-#: src/collab-dialog.tsx:245
+#: src/collab-dialog.tsx
 msgid "Enter your name so others can see who is editing."
 msgstr "输入你的姓名，让其他人知道谁正在编辑。"
 
-#: src/document-canvas.tsx:3525
+#: src/bib-entry-dialog.tsx
+msgid "Entry type"
+msgstr "条目类型"
+
+#: src/insert-snippets.ts
+msgid "Enumerate"
+msgstr "有序列表"
+
+#: src/insert-palette.tsx
+msgid "Environment"
+msgstr "环境"
+
+#: src/insert-snippets.ts
+msgid "Epsilon"
+msgstr "艾普西龙"
+
+#: src/insert-snippets.ts
+msgid "Equation"
+msgstr "公式"
+
+#: src/insert-snippets.ts
+msgid "Equation reference"
+msgstr "公式引用"
+
+#: src/insert-snippets.ts
+msgid "Equation*"
+msgstr "公式*"
+
+#: src/insert-snippets.ts
+msgid "Equilibrium arrows"
+msgstr "可逆箭头"
+
+#: src/insert-snippets.ts
+msgid "Equivalent / congruent"
+msgstr "恒等 / 同余"
+
+#: src/app-log.tsx
+msgid "Error"
+msgstr "错误"
+
+#: src/document-canvas.tsx
 msgid "estimate"
 msgstr "估算"
 
-#: src/onboarding-tour.tsx:488
+#: src/insert-snippets.ts
+msgid "Estimator / unit vector mark"
+msgstr "估计量 / 单位向量记号"
+
+#: src/insert-snippets.ts
+msgid "Eta"
+msgstr "伊塔"
+
+#: src/onboarding-tour.tsx
 msgid "Every entry from the bibliography shows up here. Anything with an arXiv ID can be downloaded in full with one click."
 msgstr "参考文献库中的每个条目都会显示在这里。含 arXiv ID 的条目可以一键下载全文。"
 
-#: src/onboarding-tour.tsx:392
+#: src/onboarding-tour.tsx
 msgid "Everything for the paper lives in one folder"
 msgstr "论文所需的一切都在一个文件夹中"
 
-#: src/App.tsx:10338
+#: src/spreadsheet-editor.tsx
+msgid "Excel workbook"
+msgstr "Excel 工作簿"
+
+#: src/spreadsheet-editor.tsx
+msgid "Export Excel"
+msgstr "导出 Excel"
+
+#: src/spreadsheet-editor.tsx
+msgid "Export Excel workbook"
+msgstr "导出 Excel 工作簿"
+
+#: src/App.tsx
 msgid "Export project ZIP"
 msgstr "导出项目 ZIP"
 
-#: src/project-dialogs.tsx:295
+#: src/project-dialogs.tsx
 msgid "Export ZIP"
 msgstr "导出 ZIP"
 
-#: src/navigator.tsx:1625
+#: src/navigator.tsx
 msgid "Expression of concern"
 msgstr "关注声明"
 
-#: src/settings-dialog.tsx:596
+#: src/settings-dialog.tsx
 msgid "Feedback"
 msgstr "反馈"
 
-#: src/document-canvas.tsx:3500
+#: src/paper-import-progress.ts
+msgid "Fetching the paper overview…"
+msgstr "正在获取论文概览…"
+
+#: src/insert-snippets.ts
+msgid "Figure"
+msgstr "图"
+
+#: src/App.tsx
+msgid "Figures"
+msgstr "图片"
+
+#: src/overleaf-history.tsx
+msgid "file restore"
+msgstr "文件恢复"
+
+#: src/overleaf-history.tsx
+msgid "file upload"
+msgstr "文件上传"
+
+#: src/history-drawer.tsx
+msgid "Files in this change"
+msgstr "本次更改涉及的文件"
+
+#: src/insert-snippets.ts
+msgid "Filled square"
+msgstr "实心方块"
+
+#: src/history-drawer.tsx
+msgid "Filter project changes"
+msgstr "筛选项目更改"
+
+#: src/insert-palette.tsx
+msgid "Filter snippets"
+msgstr "筛选代码片段"
+
+#: src/insert-snippets.ts
+msgid "Final sigma"
+msgstr "词尾西格马"
+
+#: src/document-canvas.tsx
 msgid "find"
 msgstr "查找"
 
-#: src/pdf-viewer.tsx:1504
-#: src/pdf-viewer.tsx:1581
+#: src/pdf-viewer.tsx
 msgid "Find in PDF"
 msgstr "在 PDF 中查找"
 
-#: src/App.tsx:9335
-#: src/App.tsx:9337
-#: src/App.tsx:10326
+#: src/App.tsx
 msgid "Find in project"
 msgstr "在项目中查找"
 
-#: src/onboarding-tour.tsx:159
-#: src/onboarding-tour.tsx:636
+#: src/onboarding-tour.tsx
 msgid "Finish"
 msgstr "完成"
 
-#: src/tex-setup-wizard.tsx:40
+#: src/tex-setup-wizard.tsx
 msgid "Finishing setup…"
 msgstr "正在完成设置…"
 
-#: src/pdf-viewer.tsx:1655
+#: src/pdf-viewer.tsx
 msgid "Fit page to height"
 msgstr "适合页面高度"
 
-#: src/pdf-viewer.tsx:1652
+#: src/pdf-viewer.tsx
 msgid "Fit page to width"
 msgstr "适合页面宽度"
 
-#: src/settings-dialog.tsx:563
+#: src/insert-snippets.ts
+msgid "Flat"
+msgstr "降号"
+
+#: src/insert-snippets.ts
+msgid "Floating figure with image, caption, and label (requires graphicx)"
+msgstr "浮动图，含图片、题注与标签（需要 graphicx）"
+
+#: src/insert-snippets.ts
+msgid "Floating table with ruled rows (requires booktabs)"
+msgstr "浮动表格，三线表样式（需要 booktabs）"
+
+#: src/settings-dialog.tsx
 msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
 
-#: src/App.tsx:10336
+#: src/insert-snippets.ts
+msgid "Footnote"
+msgstr "脚注"
+
+#: src/insert-snippets.ts
+msgid "Footnote at the cursor"
+msgstr "在光标处插入脚注"
+
+#: src/insert-snippets.ts
+msgid "For all"
+msgstr "任意"
+
+#: src/App.tsx
 msgid "Format document"
 msgstr "格式化文档"
 
-#: src/onboarding-tour.tsx:460
+#: src/spreadsheet-editor.tsx
+msgid "Formulas"
+msgstr "公式"
+
+#: src/onboarding-tour.tsx
 msgid "Formulas, Excel export, and Agent edits"
 msgstr "公式、Excel 导出和 Agent 编辑"
 
-#: src/settings-dialog.tsx:136
+#: src/insert-snippets.ts
+msgid "Fraction"
+msgstr "分式"
+
+#: src/insert-snippets.ts
+msgid "Frown relation"
+msgstr "下弧关系"
+
+#: src/insert-snippets.ts
+msgid "Gamma"
+msgstr "伽马"
+
+#: src/insert-snippets.ts
+msgid "Gather"
+msgstr "居中公式组"
+
+#: src/insert-snippets.ts
+msgid "Gather*"
+msgstr "居中公式组*"
+
+#: src/settings-dialog.tsx
 msgid "General"
 msgstr "通用"
 
-#: src/onboarding-tour.tsx:505
+#: src/onboarding-tour.tsx
 msgid "Get the gist before you dive in"
 msgstr "深入阅读前先了解要点"
 
-#: src/canvas-toolbar.tsx:343
+#: src/insert-snippets.ts
+msgid "Gets (short left arrow)"
+msgstr "gets（短左箭头）"
+
+#: src/insert-snippets.ts
+msgid "Gimel"
+msgstr "吉梅尔"
+
+#: src/overleaf-history.tsx
+msgid "git bridge"
+msgstr "git 桥接"
+
+#: src/canvas-toolbar.tsx
 msgid "Git status and commit"
 msgstr "Git 状态与提交"
 
-#: src/App.tsx:9848
+#: src/App.tsx
 msgid "Git workspace"
 msgstr "Git 工作区"
 
-#: src/canvas-toolbar.tsx:183
+#: src/canvas-toolbar.tsx
 msgid "Go back (⌘[)"
 msgstr "后退 (⌘[)"
 
-#: src/canvas-toolbar.tsx:188
+#: src/canvas-toolbar.tsx
 msgid "Go forward (⌘])"
 msgstr "前进 (⌘])"
 
-#: src/document-canvas.tsx:3488
+#: src/document-canvas.tsx
 msgid "Go to {title}"
 msgstr "前往 {title}"
 
-#: src/App.tsx:10301
+#: src/App.tsx
 msgid "Go to line"
 msgstr "跳转到行"
 
-#: src/document-canvas.tsx:3473
+#: src/document-canvas.tsx
 msgid "Go to line (⌘G)"
 msgstr "前往行 (⌘G)"
 
-#: src/pdf-viewer.tsx:223
+#. placeholder {0}: node.line
+#: src/document-outline.tsx
+msgid "Go to line {0}"
+msgstr "跳转到第 {0} 行"
+
+#: src/pdf-viewer.tsx
 msgid "Go to linked PDF location"
 msgstr "前往 PDF 中的链接位置"
 
-#: src/App.tsx:10069
+#: src/App.tsx
 msgid "Go to section or label…"
 msgstr "跳转到章节或标签…"
 
-#: src/App.tsx:10068
-#: src/App.tsx:10302
+#: src/App.tsx
 msgid "Go to symbol"
 msgstr "跳转到符号"
 
-#: src/App.tsx:10321
+#: src/insert-snippets.ts
+msgid "Grave accent example"
+msgstr "抑音符示例"
+
+#: src/insert-snippets.ts
+msgid "Greater than or equal"
+msgstr "大于或等于"
+
+#: src/insert-palette.tsx
+msgid "Greek"
+msgstr "希腊字母"
+
+#: src/App.tsx
 msgid "Grid generator"
 msgstr "网格生成器"
 
-#: src/project-dialogs.tsx:84
-#: src/project-dialogs.tsx:298
+#: src/insert-snippets.ts
+msgid "Grouped numbered equations"
+msgstr "成组编号的公式"
+
+#: src/project-dialogs.tsx
 msgid "Guided tutorial"
 msgstr "引导式教程"
 
-#: src/App.tsx:9070
+#: src/insert-snippets.ts
+msgid "H-bar / reduced Planck"
+msgstr "h-bar / 约化普朗克常数"
+
+#: src/insert-snippets.ts
+msgid "Hat accent"
+msgstr "帽号记号"
+
+#: src/insert-snippets.ts
+msgid "Hat accent example"
+msgstr "帽号示例"
+
+#: src/insert-snippets.ts
+msgid "Heart suit"
+msgstr "红桃"
+
+#: src/App.tsx
 msgid "Hide sidebar"
 msgstr "隐藏侧边栏"
 
-#: src/collab-dialog.tsx:313
-#: src/collab-dialog.tsx:427
-#: src/collab-dialog.tsx:434
+#: src/history-drawer.tsx
+msgid "History views"
+msgstr "历史视图"
+
+#: src/insert-snippets.ts
+msgid "Hook left arrow"
+msgstr "带钩左箭头"
+
+#: src/insert-snippets.ts
+msgid "Hook right arrow"
+msgstr "带钩右箭头"
+
+#: src/collab-dialog.tsx
 msgid "host"
 msgstr "主持人"
 
-#: src/onboarding-tour.tsx:432
+#: src/onboarding-tour.tsx
 msgid "HTML files render live right here — handy for demos and figures you want to poke at instead of only look at."
 msgstr "HTML 文件会直接在这里实时渲染，非常适合制作可交互的演示和图表。"
 
-#: src/document-canvas.tsx:336
+#: src/document-canvas.tsx
 msgid "HTML preview for {path}"
 msgstr "{path} 的 HTML 预览"
 
-#: src/document-canvas.tsx:4295
+#: src/insert-snippets.ts
+msgid "If and only if"
+msgstr "当且仅当"
+
+#: src/document-canvas.tsx
 msgid "Image zoom percentage"
 msgstr "图像缩放百分比"
 
-#: src/navigator.tsx:1363
+#: src/insert-snippets.ts
+msgid "Imaginary part"
+msgstr "虚部"
+
+#: src/insert-snippets.ts
+msgid "Implies"
+msgstr "蕴含"
+
+#: src/App.tsx
+msgid "Import failed — retry Start sharing"
+msgstr "导入失败——请重新点击“开始共享”"
+
+#: src/App.tsx
+msgid "Import figures"
+msgstr "导入图片"
+
+#: src/navigator.tsx
 msgid "Import images here"
 msgstr "将图像导入此处"
 
-#: src/navigator.tsx:1604
+#: src/App.tsx
+msgid "Import Overleaf ZIP"
+msgstr "导入 Overleaf ZIP"
+
+#: src/navigator.tsx
 msgid "Import paper"
 msgstr "导入论文"
 
-#: src/project-dialogs.tsx:94
+#: src/project-dialogs.tsx
 msgid "Import ZIP"
 msgstr "导入 ZIP"
 
-#: src/collab-dialog.tsx:422
+#: src/literature-discovery-panel.tsx
+msgid "Imported"
+msgstr "已导入"
+
+#. placeholder {0}: work.arxivId
+#: src/literature-discovery-panel.tsx
+msgid "Imported arXiv:{0}"
+msgstr "已导入 arXiv:{0}"
+
+#: src/collab-status.ts
+msgid "Importing all project files…"
+msgstr "正在导入项目全部文件…"
+
+#: src/App.tsx
+msgid "Importing ZIP…"
+msgstr "正在导入 ZIP…"
+
+#: src/bib-entry-dialog.tsx
+msgid "In proceedings"
+msgstr "会议论文"
+
+#: src/collab-dialog.tsx
 msgid "In this room"
 msgstr "此房间中的成员"
 
-#. placeholder {0}: status.totalChunks
-#: src/settings-dialog.tsx:425
-msgid "Indexing {0} prose blocks in the background. {semanticSearchPrivacy}"
-msgstr "正在后台索引 {0} 个正文块。{semanticSearchPrivacy}"
+#: src/insert-snippets.ts
+msgid "Include another TeX file"
+msgstr "引入另一个 TeX 文件"
 
-#: src/pdf-viewer.tsx:1590
+#: src/insert-snippets.ts
+msgid "Include file"
+msgstr "引入文件"
+
+#: src/insert-snippets.ts
+msgid "Include graphics"
+msgstr "插入图片"
+
+#: src/bib-entry-dialog.tsx
+msgid "Increment year"
+msgstr "年份加一"
+
+#. placeholder {0}: status.totalChunks
+#: src/settings-dialog.tsx
+msgid "Indexing {0} prose blocks. {semanticSearchPrivacy}"
+msgstr "正在索引 {0} 个正文块。{semanticSearchPrivacy}"
+
+#: src/pdf-viewer.tsx
 msgid "Indexing…"
 msgstr "正在建立索引…"
 
-#: src/document-canvas.tsx:3500
+#: src/insert-snippets.ts
+msgid "Infinity"
+msgstr "无穷"
+
+#: src/app-log.tsx
+msgid "Info"
+msgstr "信息"
+
+#: src/insert-snippets.ts
+msgid "Inline another TeX file"
+msgstr "就地嵌入另一个 TeX 文件"
+
+#: src/insert-snippets.ts
+msgid "Inline math"
+msgstr "行内公式"
+
+#: src/insert-snippets.ts
+msgid "Input file"
+msgstr "输入文件"
+
+#: src/document-canvas.tsx
 msgid "insert"
 msgstr "插入"
 
-#: src/App.tsx:10086
+#: src/insert-palette.tsx
+msgid "Insert"
+msgstr "插入"
+
+#: src/App.tsx
 msgid "Insert \\cite{…}"
 msgstr "插入 \\cite{…}"
 
-#: src/App.tsx:10098
+#: src/App.tsx
 msgid "Insert \\ref{…}"
 msgstr "插入 \\ref{…}"
 
-#: src/document-canvas.tsx:3424
+#: src/spreadsheet-editor.tsx
+msgid "Insert a formula"
+msgstr "插入公式"
+
+#: src/document-canvas.tsx
 msgid "Insert above line {line}"
 msgstr "在第 {line} 行上方插入"
 
-#: src/App.tsx:10085
-#: src/App.tsx:10322
+#: src/insert-snippets.ts
+msgid "Insert an image path (requires graphicx)"
+msgstr "插入图片路径（需要 graphicx）"
+
+#: src/insert-palette.tsx
+msgid "Insert categories"
+msgstr "插入类别"
+
+#: src/App.tsx
 msgid "Insert citation"
 msgstr "插入引用"
 
-#: src/App.tsx:10097
-#: src/App.tsx:10323
+#: src/bib-entry-dialog.tsx
+msgid "Insert cite at cursor after saving"
+msgstr "保存后在光标处插入引用"
+
+#: src/insert-palette.tsx
+msgid "Insert LaTeX snippets"
+msgstr "插入 LaTeX 片段"
+
+#: src/App.tsx
 msgid "Insert reference"
 msgstr "插入交叉引用"
 
-#: src/App.tsx:10311
+#: src/App.tsx
 msgid "Insert snippet"
 msgstr "插入片段"
 
-#: src/canvas-toolbar.tsx:211
+#: src/canvas-toolbar.tsx
 msgid "Insert snippet or symbol (⌘⇧I)"
 msgstr "插入片段或符号 (⌘⇧I)"
 
-#: src/App.tsx:10321
+#: src/App.tsx
 msgid "Insert table"
 msgstr "插入表格"
 
-#: src/settings-dialog.tsx:776
+#: src/settings-dialog.tsx
 msgid "Install automatically"
 msgstr "自动安装"
 
-#: src/tex-setup-wizard.tsx:181
+#: src/tex-setup-wizard.tsx
 msgid "Install Basic TeX"
 msgstr "安装 Basic TeX"
 
-#: src/tex-setup-wizard.tsx:81
+#: src/tex-setup-wizard.tsx
 msgid "Install BasicTeX"
 msgstr "安装 BasicTeX"
 
-#: src/tex-setup-wizard.tsx:136
+#: src/tex-setup-wizard.tsx
 msgid "Install LaTeX to compile"
 msgstr "安装 LaTeX 以进行编译"
 
-#: src/collab-dialog.tsx:473
-#: src/tex-setup-wizard.tsx:131
+#: src/collab-dialog.tsx
+#: src/tex-setup-wizard.tsx
 msgid "Install LaTeX tools"
 msgstr "安装 LaTeX 工具"
 
-#: src/project-dialogs.tsx:101
+#: src/project-dialogs.tsx
 msgid "Install LaTeX tools (needed to compile PDFs)"
 msgstr "安装 LaTeX 工具（编译 PDF 时需要）"
 
-#: src/tex-setup-wizard.tsx:81
-#: src/tex-setup-wizard.tsx:136
+#: src/tex-setup-wizard.tsx
 msgid "Install required paper tools"
 msgstr "安装所需的论文工具"
 
-#: src/settings-dialog.tsx:836
-#: src/settings-dialog.tsx:853
-#: src/tex-setup-wizard.tsx:181
+#: src/settings-dialog.tsx
+#: src/tex-setup-wizard.tsx
 msgid "Install required tools"
 msgstr "安装所需工具"
 
-#: src/tex-setup-wizard.tsx:36
+#: src/tex-setup-wizard.tsx
 msgid "Installing BasicTeX…"
 msgstr "正在安装 BasicTeX…"
 
-#: src/tex-setup-wizard.tsx:37
+#: src/tex-setup-wizard.tsx
 msgid "Installing LaTeX packages…"
 msgstr "正在安装 LaTeX 软件包…"
 
-#: src/tex-setup-wizard.tsx:38
+#: src/tex-setup-wizard.tsx
 msgid "Installing required tools…"
 msgstr "正在安装所需工具…"
 
-#: src/settings-dialog.tsx:404
+#: src/settings-dialog.tsx
 msgid "Installing update…"
 msgstr "正在安装更新…"
 
-#: src/tex-setup-wizard.tsx:48
+#: src/tex-setup-wizard.tsx
 msgid "Installing uv for paper imports and bibliography tools."
 msgstr "正在安装用于导入论文和管理参考文献的 uv。"
 
-#: src/settings-dialog.tsx:151
+#: src/insert-snippets.ts
+msgid "Integral"
+msgstr "积分"
+
+#: src/insert-snippets.ts
+msgid "Integral with limits"
+msgstr "带上下限的积分"
+
+#: src/settings-dialog.tsx
 msgid "Integrations"
 msgstr "集成"
 
-#: src/settings-dialog.tsx:551
-#: src/settings-dialog.tsx:561
+#: src/settings-dialog.tsx
 msgid "Interface language"
 msgstr "界面语言"
 
-#: src/settings-dialog.tsx:598
+#: src/settings-dialog.tsx
 msgid "Interface sounds"
 msgstr "界面音效"
 
-#: src/collab-dialog.tsx:354
+#: src/insert-snippets.ts
+msgid "Intersection"
+msgstr "交集"
+
+#: src/collab-dialog.tsx
 msgid "Invite link"
 msgstr "邀请链接"
 
-#: src/onboarding-tour.tsx:537
-msgid "It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools."
-msgstr "它可以读取你的稿件、笔记、已下载论文和电子表格。你可以让它起草章节、对照来源核查论断，或读取并更新 attention-results.lattice-sheet 中的单元格区域。技能和 MCP 服务器还能扩展更多工具。"
+#: src/insert-snippets.ts
+msgid "Iota"
+msgstr "约塔"
 
-#: src/collab-dialog.tsx:227
+#: src/onboarding-tour.tsx
+msgid "It sees your manuscript, notes, downloaded papers, and spreadsheets. Ask it to draft a section, check a claim against a source, or read and update a cell range in attention-results.lattice-sheet. Skills and MCP servers add more tools."
+msgstr "它可以读取你的稿件、笔记、已下载论文和电子表格。你可以让它起草章节、对照来源核查论断，或读取并更新 attention-results.lattice-sheet 中的单元格区域。Skills 和 MCP 服务器还能扩展更多工具。"
+
+#: src/insert-snippets.ts
+msgid "Itemize"
+msgstr "无序列表"
+
+#: src/collab-dialog.tsx
 msgid "Join"
 msgstr "加入"
 
-#: src/collab-dialog.tsx:534
-#: src/project-dialogs.tsx:97
+#: src/collab-dialog.tsx
+#: src/project-dialogs.tsx
 msgid "Join share"
 msgstr "加入共享"
 
-#: src/collab-dialog.tsx:313
+#: src/collab-dialog.tsx
 msgid "joined"
 msgstr "已加入"
 
-#: src/collab-dialog.tsx:134
+#: src/collab-dialog.tsx
 msgid "Joined"
 msgstr "已加入"
 
-#: src/App.tsx:10299
+#: src/bib-entry-dialog.tsx
+msgid "journal"
+msgstr "期刊"
+
+#: src/App.tsx
 msgid "Jump to PDF"
 msgstr "跳转到 PDF"
 
-#: src/collab-dialog.tsx:130
+#: src/collab-dialog.tsx
 msgid "just you"
 msgstr "只有你"
 
-#: src/settings-dialog.tsx:549
+#: src/insert-snippets.ts
+msgid "Kappa"
+msgstr "卡帕"
+
+#: src/overleaf-connect.tsx
+msgid "Keep it on Overleaf"
+msgstr "在 Overleaf 上保留"
+
+#: src/overleaf-connect.tsx
+msgid "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake."
+msgstr "保持两边完全一致。如果删错了，Overleaf 自己的历史记录中仍保留该文件。"
+
+#: src/insert-snippets.ts
+msgid "Label"
+msgstr "标签"
+
+#: src/overleaf-history.tsx
+msgid "Label removed."
+msgstr "已移除标签。"
+
+#: src/versions-timeline.tsx
+msgid "Label this version (optional)"
+msgstr "为这个版本加标签（可选）"
+
+#: src/insert-snippets.ts
+msgid "Labeled description list"
+msgstr "带条目标题的描述列表"
+
+#: src/insert-snippets.ts
+msgid "Lambda"
+msgstr "兰姆达"
+
+#: src/settings-dialog.tsx
 msgid "Language"
 msgstr "语言"
 
-#: src/onboarding-tour.tsx:526
+#: src/insert-snippets.ts
+msgid "Larger fraction"
+msgstr "更大的分式"
+
+#: src/onboarding-tour.tsx
 msgid "Last stop: your writing agent"
 msgstr "最后一站：你的写作 Agent"
 
-#: src/onboarding-tour.tsx:393
+#. placeholder {0}: relativeTime(link.lastSync)
+#: src/overleaf-connect.tsx
+msgid "Last synced {0}"
+msgstr "上次同步于 {0}"
+
+#: src/overleaf-connect.tsx
+msgid "last update unknown"
+msgstr "最后更新时间未知"
+
+#: src/bib-entry-dialog.tsx
+msgid "Last, First and Last, First"
+msgstr "姓, 名 and 姓, 名"
+
+#: src/onboarding-tour.tsx
 msgid "LaTeX, notes, figures, boards, and the papers you cite. Click any file in the tree to open it here."
 msgstr "LaTeX、笔记、图片、画板和引用的论文都在这里。点击文件树中的任意文件即可在此打开。"
 
-#: src/App.tsx:10296
+#: src/App.tsx
 msgid "latexmk -c then -g"
 msgstr "先运行 latexmk -c，再运行 -g"
 
-#: src/settings-dialog.tsx:415
+#: src/settings-dialog.tsx
 msgid "Lattice checks in the background and installs updates on its own."
 msgstr "Lattice 会在后台检查并自动安装更新。"
 
-#: src/settings-dialog.tsx:416
+#: src/settings-dialog.tsx
 msgid "Lattice checks in the background; you decide when to install."
 msgstr "Lattice 会在后台检查更新，由你决定何时安装。"
 
-#: src/settings-dialog.tsx:642
+#: src/settings-dialog.tsx
 msgid "Lattice closes the least recently used tab past this count."
 msgstr "超过此数量后，Lattice 会关闭最久未使用的标签页。"
 
-#: src/onboarding-tour.tsx:496
+#: src/onboarding-tour.tsx
 msgid "Lattice fetches the full text, the figures, and the metadata, then keeps them attached to the citation."
 msgstr "Lattice 会获取全文、图片和元数据，并将它们附加到引文中。"
 
-#: src/tex-setup-wizard.tsx:139
+#: src/tex-setup-wizard.tsx
 msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute."
 msgstr "Lattice 需要 uv 来添加论文和管理参考文献。经验证的下载约为 45 MB，通常不到一分钟即可安装。"
 
-#: src/settings-dialog.tsx:717
+#: src/settings-dialog.tsx
 msgid "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds."
 msgstr "离开编辑器或停止输入 1.2 秒后，Lattice 会保存并构建。"
 
-#: src/App.tsx:10339
+#: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "通过 Understanding Attention 示例项目学习 Lattice"
 
-#: src/document-canvas.tsx:3438
+#: src/document-canvas.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "给协作者留言…"
 
-#: src/onboarding-tour.tsx:470
+#: src/onboarding-tour.tsx
 msgid "Leave comments on a draft, share the project live with a co-author, sync a linked Overleaf project, commit to Git, or open the full version history — one button each, no terminal."
 msgstr "评论草稿、与合作者实时共享项目、同步关联的 Overleaf 项目、提交到 Git 或打开完整版本历史——每项操作各有一个按钮，无需终端。"
 
-#: src/collab-dialog.tsx:465
-#: src/collab-dialog.tsx:510
+#: src/collab-dialog.tsx
 msgid "Leave share"
 msgstr "离开共享"
 
-#: src/onboarding-tour.tsx:495
+#: src/insert-snippets.ts
+msgid "Left angle bracket"
+msgstr "左尖括号"
+
+#: src/insert-snippets.ts
+msgid "Left arrow"
+msgstr "左箭头"
+
+#: src/insert-snippets.ts
+msgid "Left brace"
+msgstr "左花括号"
+
+#: src/insert-snippets.ts
+msgid "Left ceiling"
+msgstr "左上取整符"
+
+#: src/insert-snippets.ts
+msgid "Left double arrow"
+msgstr "左双线箭头"
+
+#: src/insert-snippets.ts
+msgid "Left double vertical bar"
+msgstr "左双竖线"
+
+#: src/insert-snippets.ts
+msgid "Left floor"
+msgstr "左下取整符"
+
+#: src/insert-snippets.ts
+msgid "Left harpoon up"
+msgstr "左上鱼叉箭头"
+
+#: src/insert-snippets.ts
+msgid "Left normal subgroup"
+msgstr "左正规子群"
+
+#: src/insert-snippets.ts
+msgid "Left normal subgroup eq"
+msgstr "左正规子群（含等号）"
+
+#: src/insert-snippets.ts
+msgid "Left vertical bar"
+msgstr "左竖线"
+
+#: src/insert-snippets.ts
+msgid "Left-right arrow"
+msgstr "左右箭头"
+
+#: src/insert-snippets.ts
+msgid "Left-right double arrow / iff"
+msgstr "左右双线箭头 / 当且仅当"
+
+#: src/insert-snippets.ts
+msgid "Less than or equal"
+msgstr "小于或等于"
+
+#: src/onboarding-tour.tsx
 msgid "Let's download one of them"
 msgstr "来下载其中一篇"
 
-#: src/settings-dialog.tsx:760
+#: src/settings-dialog.tsx
 msgid "Lets trusted projects run external tools during builds."
 msgstr "允许受信任的项目在构建时运行外部工具。"
 
-#: src/settings-dialog.tsx:578
+#: src/settings-dialog.tsx
 msgid "Light"
 msgstr "浅色"
 
-#: src/canvas-toolbar.tsx:229
+#: src/insert-snippets.ts
+msgid "Limit"
+msgstr "极限"
+
+#: src/insert-snippets.ts
+msgid "Limit expression"
+msgstr "极限表达式"
+
+#: src/insert-snippets.ts
+msgid "Line under an expression"
+msgstr "表达式下方加横线"
+
+#: src/insert-snippets.ts
+msgid "Literal code / text block"
+msgstr "原样代码 / 文本块"
+
+#: src/canvas-toolbar.tsx
 msgid "Live · {count} other"
 msgstr "实时 · 另有 {count} 人"
 
-#: src/canvas-toolbar.tsx:230
+#: src/canvas-toolbar.tsx
 msgid "Live · {count} others"
 msgstr "实时 · 另有 {count} 人"
 
-#: src/canvas-toolbar.tsx:232
-#: src/collab-dialog.tsx:207
-#: src/collab-dialog.tsx:213
+#: src/canvas-toolbar.tsx
+#: src/collab-dialog.tsx
 msgid "Live collaboration"
 msgstr "实时协作"
 
-#: src/canvas-toolbar.tsx:231
+#: src/canvas-toolbar.tsx
 msgid "Live collaboration · just you"
 msgstr "实时协作 · 仅你一人"
 
-#: src/collab-dialog.tsx:373
+#: src/collab-dialog.tsx
 msgid "Live collaboration view"
 msgstr "实时协作视图"
 
-#: src/canvas-toolbar.tsx:260
+#: src/overleaf-connect.tsx
+msgid "Live editing is connected."
+msgstr "实时编辑已连接。"
+
+#: src/overleaf-connect.tsx
+msgid "Live editing is unavailable; regular syncing continues."
+msgstr "实时编辑不可用；常规同步仍会继续。"
+
+#: src/canvas-toolbar.tsx
 msgid "Live editing unavailable · syncing instead"
 msgstr "实时编辑不可用 · 改为同步"
 
-#: src/canvas-toolbar.tsx:259
+#: src/canvas-toolbar.tsx
 msgid "Live editing unavailable ({detail}) · syncing instead"
 msgstr "实时编辑不可用（{detail}）· 将改用同步"
 
-#: src/App.tsx:10315
+#: src/App.tsx
 msgid "Live sharing…"
 msgstr "实时共享…"
 
-#: src/document-canvas.tsx:3474
+#: src/overleaf-connect.tsx
+msgid "Live sync"
+msgstr "实时同步"
+
+#: src/document-canvas.tsx
 msgid "Ln {line}, Col {column}"
 msgstr "第 {line} 行，第 {column} 列"
 
-#: src/settings-dialog.tsx:524
+#: src/literature-discovery-panel.tsx
+#: src/overleaf-history.tsx
+msgid "Load more"
+msgstr "加载更多"
+
+#: src/history-drawer.tsx
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "Loading diff…"
+msgstr "正在加载差异…"
+
+#: src/overleaf-history.tsx
+msgid "Loading files…"
+msgstr "正在加载文件…"
+
+#: src/overleaf-history.tsx
+msgid "Loading Overleaf's history…"
+msgstr "正在加载 Overleaf 的历史记录…"
+
+#: src/settings-dialog.tsx
 msgid "Loading settings…"
 msgstr "正在加载设置…"
 
-#: src/settings-dialog.tsx:652
+#: src/versions-timeline.tsx
+msgid "Loading versions…"
+msgstr "正在加载版本…"
+
+#: src/overleaf-connect.tsx
+msgid "Loading your Overleaf projects…"
+msgstr "正在加载你的 Overleaf 项目…"
+
+#: src/literature-discovery-panel.tsx
+msgid "Loading…"
+msgstr "正在加载…"
+
+#: src/settings-dialog.tsx
 msgid "Local semantic search"
 msgstr "本地语义搜索"
 
-#: src/settings-dialog.tsx:160
+#: src/app-log.tsx
+msgid "Log level filter"
+msgstr "日志级别筛选"
+
+#: src/insert-snippets.ts
+msgid "Logical and"
+msgstr "逻辑与"
+
+#: src/insert-snippets.ts
+msgid "Logical or"
+msgstr "逻辑或"
+
+#: src/app-log.tsx
+#: src/settings-dialog.tsx
 msgid "Logs"
 msgstr "日志"
 
-#: src/settings-dialog.tsx:723
+#: src/insert-snippets.ts
+msgid "Long equation broken across lines"
+msgstr "跨行断开的长公式"
+
+#: src/overleaf-connect.tsx
+msgid "Manual"
+msgstr "手动"
+
+#: src/settings-dialog.tsx
 msgid "Manual only"
 msgstr "仅手动"
 
-#: src/App.tsx:10330
-#: src/document-canvas.tsx:3516
+#: src/App.tsx
+#: src/document-canvas.tsx
 msgid "Manuscript TODOs"
 msgstr "手稿待办事项"
 
-#: src/settings-dialog.tsx:641
+#: src/insert-snippets.ts
+msgid "Maps to"
+msgstr "映射到"
+
+#: src/insert-palette.tsx
+msgid "Math"
+msgstr "数学"
+
+#: src/insert-snippets.ts
+msgid "Math inside a sentence"
+msgstr "句子中的数学公式"
+
+#: src/insert-snippets.ts
+msgid "Matrix"
+msgstr "矩阵"
+
+#: src/insert-snippets.ts
+msgid "Max"
+msgstr "最大值"
+
+#: src/settings-dialog.tsx
 msgid "Max open tabs"
 msgstr "最多打开的标签页"
 
-#: src/settings-dialog.tsx:146
-#: src/settings-dialog.tsx:444
+#: src/insert-snippets.ts
+msgid "Maximum operator"
+msgstr "最大值运算符"
+
+#: src/settings-dialog.tsx
 msgid "MCP"
 msgstr "MCP"
 
-#: src/settings-dialog.tsx:824
+#: src/insert-snippets.ts
+msgid "Mean / conjugate mark"
+msgstr "均值 / 共轭记号"
+
+#: src/insert-snippets.ts
+msgid "Min"
+msgstr "最小值"
+
+#: src/insert-snippets.ts
+msgid "Minimum operator"
+msgstr "最小值运算符"
+
+#: src/insert-snippets.ts
+msgid "Minipage"
+msgstr "小页"
+
+#: src/insert-snippets.ts
+msgid "Minus-plus"
+msgstr "负正号"
+
+#: src/bib-entry-dialog.tsx
+msgid "Misc"
+msgstr "其他"
+
+#: src/settings-dialog.tsx
 msgid "Missing required tools"
 msgstr "缺少所需工具"
 
 #. placeholder {0}: missingTools.join(", ")
-#: src/tex-setup-wizard.tsx:107
+#: src/tex-setup-wizard.tsx
 msgid "Missing tools: {0}"
 msgstr "缺少工具：{0}"
 
-#: src/project-dialogs.tsx:222
+#: src/insert-snippets.ts
+msgid "Models / entails"
+msgstr "满足 / 蕴涵"
+
+#: src/versions-timeline.tsx
+msgid "modified"
+msgstr "已修改"
+
+#: src/insert-snippets.ts
+msgid "Mu"
+msgstr "缪"
+
+#: src/insert-snippets.ts
+msgid "Multi-line aligned equations"
+msgstr "多行对齐的公式"
+
+#: src/insert-snippets.ts
+msgid "Multiset union"
+msgstr "多重集并"
+
+#: src/insert-snippets.ts
+msgid "Multline"
+msgstr "多行长公式"
+
+#: src/insert-snippets.ts
+msgid "Nabla / del"
+msgstr "纳布拉 / 梯度算子"
+
+#: src/project-dialogs.tsx
 msgid "Name"
 msgstr "名称"
 
-#: src/App.tsx:10299
-#: src/App.tsx:10300
-#: src/App.tsx:10301
-#: src/App.tsx:10302
+#: src/overleaf-history.tsx
+msgid "Name this version"
+msgstr "为这个版本命名"
+
+#: src/overleaf-history.tsx
+msgid "Name this version…"
+msgstr "为这个版本命名…"
+
+#: src/insert-snippets.ts
+msgid "Natural"
+msgstr "还原号"
+
+#: src/insert-snippets.ts
+msgid "Natural join / bowtie"
+msgstr "自然连接 / 蝶形"
+
+#: src/App.tsx
 msgid "Navigate"
 msgstr "导航"
 
-#: src/App.tsx:9327
-#: src/App.tsx:9329
+#: src/insert-snippets.ts
+msgid "Negation / not"
+msgstr "否定 / 非"
+
+#: src/bib-entry-dialog.tsx
+msgid "NeurIPS, CVPR, Nature, …"
+msgstr "NeurIPS、CVPR、Nature…"
+
+#: src/App.tsx
 msgid "New board"
 msgstr "新建白板"
 
-#: src/canvas-toolbar.tsx:253
+#: src/canvas-toolbar.tsx
 msgid "New changes on Overleaf — click to bring them in"
 msgstr "Overleaf 上有新更改 — 点按以拉取"
 
-#: src/navigator.tsx:1340
-#: src/navigator.tsx:1435
+#: src/navigator.tsx
 msgid "New file"
 msgstr "新建文件"
 
-#: src/navigator.tsx:1343
-#: src/navigator.tsx:1438
+#: src/navigator.tsx
 msgid "New folder"
 msgstr "新建文件夹"
 
-#: src/project-dialogs.tsx:226
+#: src/project-dialogs.tsx
 msgid "New name"
 msgstr "新名称"
 
-#: src/project-dialogs.tsx:70
-#: src/project-dialogs.tsx:289
+#: src/project-dialogs.tsx
 msgid "New project"
 msgstr "新建项目"
 
-#: src/App.tsx:9319
-#: src/App.tsx:9321
+#: src/App.tsx
 msgid "New spreadsheet"
 msgstr "新建电子表格"
 
-#: src/settings-dialog.tsx:410
+#: src/settings-dialog.tsx
 msgid "New versions install automatically"
 msgstr "新版本会自动安装"
 
-#: src/document-canvas.tsx:3499
+#: src/document-canvas.tsx
 msgid "next"
 msgstr "下一个"
 
-#: src/pdf-viewer.tsx:1568
+#: src/pdf-viewer.tsx
 msgid "Next page"
 msgstr "下一页"
 
-#: src/pdf-viewer.tsx:1594
+#: src/pdf-viewer.tsx
 msgid "Next search result"
 msgstr "下一个搜索结果"
 
-#: src/App.tsx:10331
+#: src/App.tsx
 msgid "No"
 msgstr "无"
 
-#: src/navigator.tsx:1628
+#: src/history-drawer.tsx
+msgid "No changes match this filter."
+msgstr "没有符合此筛选条件的更改。"
+
+#: src/history-drawer.tsx
+msgid "No changes recorded yet."
+msgstr "尚未记录任何更改。"
+
+#: src/versions-timeline.tsx
+msgid "No changes since the last version."
+msgstr "自上个版本以来没有任何更改。"
+
+#: src/navigator.tsx
 msgid "No Crossref update metadata found"
 msgstr "未找到 Crossref 更新元数据"
 
-#: src/navigator.tsx:1717
+#: src/overleaf-history.tsx
+msgid "No file changes recorded for this update."
+msgstr "这次更新没有记录任何文件更改。"
+
+#: src/overleaf-history.tsx
+msgid "No history yet."
+msgstr "暂无历史记录。"
+
+#: src/literature-discovery-panel.tsx
+msgid "No hits. Try broader terms or turn off precise mode."
+msgstr "没有结果。试试更宽泛的关键词，或关闭精确模式。"
+
+#: src/app-log.tsx
+msgid "No logs at this level."
+msgstr "此级别没有日志。"
+
+#: src/app-log.tsx
+msgid "No logs yet."
+msgstr "暂无日志。"
+
+#: src/navigator.tsx
 msgid "No matching papers"
 msgstr "没有匹配的论文"
 
-#: src/project-dialogs.tsx:283
+#: src/insert-palette.tsx
+msgid "No matching snippets. Try fraction, implies, align*, or eqref."
+msgstr "没有匹配的片段。试试 fraction、implies、align* 或 eqref。"
+
+#: src/project-dialogs.tsx
 msgid "No other recent projects yet."
 msgstr "尚无其他最近使用的项目。"
 
-#: src/settings-dialog.tsx:708
+#: src/settings-dialog.tsx
 msgid "No project terms added."
 msgstr "尚未添加项目术语。"
 
-#: src/onboarding-tour.tsx:411
+#: src/overleaf-connect.tsx
+msgid "No projects in this account yet. Create one on Overleaf and it will appear here."
+msgstr "此账户下还没有项目。在 Overleaf 上创建一个，它就会出现在这里。"
+
+#: src/overleaf-connect.tsx
+msgid "No projects match your search."
+msgstr "没有项目符合你的搜索条件。"
+
+#: src/document-outline.tsx
+msgid "No sections yet. Add a \\section{…} to start the outline."
+msgstr "还没有章节。添加一个 \\section{…} 即可开始生成大纲。"
+
+#: src/versions-timeline.tsx
+msgid "No versions yet. Versions are saved automatically as you work, or press Save version."
+msgstr "暂无版本。版本会在你工作时自动保存，你也可以点击“保存版本”。"
+
+#: src/insert-snippets.ts
+msgid "North-east arrow"
+msgstr "右上箭头"
+
+#: src/insert-snippets.ts
+msgid "North-west arrow"
+msgstr "左上箭头"
+
+#: src/insert-snippets.ts
+msgid "Not an element of"
+msgstr "不属于"
+
+#: src/insert-snippets.ts
+msgid "Not equal"
+msgstr "不等于"
+
+#: src/onboarding-tour.tsx
 msgid "Not every file has to be LaTeX. notes.md gets the same live preview — source on the left, formatted on the right."
 msgstr "并非所有文件都必须使用 LaTeX。notes.md 同样提供实时预览——左侧是源文件，右侧是格式化结果。"
 
-#: src/onboarding-tour.tsx:410
+#: src/overleaf-connect.tsx
+msgid "Not synced yet"
+msgstr "尚未同步"
+
+#: src/onboarding-tour.tsx
 msgid "Notes and drafts in Markdown"
 msgstr "Markdown 笔记和草稿"
 
-#: src/settings-dialog.tsx:775
+#: src/overleaf-connect.tsx
+msgid "Nothing is ever removed from the shared project from here. The two sides stay different."
+msgstr "永远不会从这里删除共享项目中的任何内容。两边会保持不同。"
+
+#: src/overleaf-connect.tsx
+msgid "Nothing is sent or fetched until you resume."
+msgstr "在你恢复同步之前不会发送或获取任何内容。"
+
+#: src/settings-dialog.tsx
 msgid "Notify me (manual)"
 msgstr "通知我（手动安装）"
 
-#: src/settings-dialog.tsx:421
-msgid "Off by default. {semanticSearchPrivacy}"
-msgstr "默认关闭。{semanticSearchPrivacy}"
+#: src/versions-timeline.tsx
+msgid "Now tracking versions of this project."
+msgstr "已开始追踪此项目的版本。"
 
-#: src/project-dialogs.tsx:163
+#: src/insert-snippets.ts
+msgid "Nth root"
+msgstr "n 次根"
+
+#: src/insert-snippets.ts
+msgid "Nu"
+msgstr "纽"
+
+#: src/insert-snippets.ts
+msgid "Number sets like R, N"
+msgstr "数集，如 R、N"
+
+#: src/insert-snippets.ts
+msgid "Numbered list"
+msgstr "带编号的列表"
+
+#: src/insert-snippets.ts
+msgid "Numbered single-line equation"
+msgstr "编号的单行公式"
+
+#: src/settings-dialog.tsx
+msgid "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded."
+msgstr "默认关闭。使用 Apple 内置的设备端模型，不下载、不上传。"
+
+#: src/project-dialogs.tsx
 msgid "Official 2026 conference style"
 msgstr "官方 2026 年会议样式"
 
-#: src/project-dialogs.tsx:164
+#: src/project-dialogs.tsx
 msgid "Official 2026 style, preprint option"
 msgstr "官方 2026 年样式，包含预印本选项"
 
-#: src/canvas-toolbar.tsx:265
+#: src/collab-status.ts
+msgid "Offline"
+msgstr "离线"
+
+#: src/insert-snippets.ts
+msgid "Omega"
+msgstr "欧米伽"
+
+#: src/overleaf-connect.tsx
+msgid "Open"
+msgstr "打开"
+
+#: src/canvas-toolbar.tsx
 msgid "Open a project from Overleaf"
 msgstr "从 Overleaf 打开项目"
 
-#: src/settings-dialog.tsx:673
+#: src/settings-dialog.tsx
 msgid "Open a project to add its names, acronyms, and technical terms."
 msgstr "打开项目后，可添加其中的名称、缩写和技术术语。"
 
-#: src/settings-dialog.tsx:533
+#: src/settings-dialog.tsx
 msgid "Open a project to manage Agent settings."
 msgstr "打开项目以管理智能助手设置。"
 
-#: src/project-dialogs.tsx:287
+#: src/overleaf-connect.tsx
+msgid "Open and sync Overleaf projects in Lattice."
+msgstr "在 Lattice 中打开并同步 Overleaf 项目。"
+
+#: src/project-dialogs.tsx
 msgid "Open another folder"
 msgstr "打开其他文件夹"
 
-#: src/canvas-toolbar.tsx:318
+#: src/canvas-toolbar.tsx
 msgid "Open another Overleaf project"
 msgstr "打开另一个 Overleaf 项目"
 
-#: src/document-canvas.tsx:3285
+#: src/document-canvas.tsx
 msgid "Open article in browser"
 msgstr "在浏览器中打开文章"
 
-#: src/project-dialogs.tsx:77
+#: src/project-dialogs.tsx
 msgid "Open folder"
 msgstr "打开文件夹"
 
-#: src/project-dialogs.tsx:90
-#: src/project-dialogs.tsx:292
+#: src/overleaf-connect.tsx
+#: src/project-dialogs.tsx
 msgid "Open from Overleaf"
 msgstr "从 Overleaf 打开"
 
-#: src/App.tsx:10339
+#: src/App.tsx
 msgid "Open guided tutorial"
 msgstr "打开引导式教程"
 
-#: src/canvas-toolbar.tsx:312
+#: src/editor-tabs.tsx
+msgid "Open here"
+msgstr "在此打开"
+
+#: src/canvas-toolbar.tsx
 msgid "Open in Overleaf"
 msgstr "在 Overleaf 中打开"
 
-#: src/document-canvas.tsx:3795
+#: src/literature-discovery-panel.tsx
+msgid "Open landing page"
+msgstr "打开论文主页"
+
+#: src/app-log.tsx
+msgid "Open log folder"
+msgstr "打开日志文件夹"
+
+#: src/editor-tabs.tsx
+msgid "Open on left"
+msgstr "在左侧打开"
+
+#: src/editor-tabs.tsx
+msgid "Open on right"
+msgstr "在右侧打开"
+
+#: src/document-canvas.tsx
 msgid "Open or drag a file here."
 msgstr "在此打开或拖入文件。"
 
-#: src/document-canvas.tsx:3284
+#: src/document-canvas.tsx
 msgid "Open PDF in browser"
 msgstr "在浏览器中打开 PDF"
 
-#: src/App.tsx:10337
+#: src/App.tsx
 msgid "Open project history"
 msgstr "打开项目历史"
 
-#: src/App.tsx:10341
+#: src/App.tsx
 msgid "Open settings"
 msgstr "打开设置"
 
-#: src/onboarding-tour.tsx:527
+#: src/onboarding-tour.tsx
 msgid "Open the Agent tab. Codex, Claude, and other providers all plug in here."
 msgstr "打开 Agent 标签页。Codex、Claude 和其他提供商都可以接入这里。"
 
-#: src/canvas-toolbar.tsx:175
+#: src/canvas-toolbar.tsx
 msgid "Open the full paper Markdown"
 msgstr "打开论文全文 Markdown"
 
-#: src/canvas-toolbar.tsx:174
+#: src/overleaf-connect.tsx
+msgid "Open the linked Overleaf project before changing its sync setting."
+msgstr "请先打开已关联的 Overleaf 项目，再更改它的同步设置。"
+
+#: src/canvas-toolbar.tsx
 msgid "Open the paper overview"
 msgstr "打开论文概览"
 
-#: src/App.tsx:10325
+#: src/history-drawer.tsx
+msgid "Open this Agent task before restoring its files"
+msgstr "请先打开这个智能助手任务，再恢复它涉及的文件"
+
+#: src/App.tsx
 msgid "OpenAlex search"
 msgstr "OpenAlex 搜索"
 
 #. placeholder {0}: primaryOpening.label
-#: src/App.tsx:9476
+#: src/App.tsx
 msgid "Opening {0}…"
 msgstr "正在打开{0}…"
 
-#: src/settings-dialog.tsx:153
+#: src/insert-palette.tsx
+msgid "Operators"
+msgstr "运算符"
+
+#: src/document-outline.tsx
+msgid "Outline"
+msgstr "大纲"
+
+#: src/settings-dialog.tsx
 msgid "Overleaf"
 msgstr "Overleaf"
 
-#: src/App.tsx:10338
+#: src/App.tsx
 msgid "Overleaf / arXiv source pack"
 msgstr "Overleaf / arXiv 源文件包"
 
-#: src/canvas-toolbar.tsx:328
+#: src/canvas-toolbar.tsx
 msgid "Overleaf comments and chat"
 msgstr "Overleaf 评论与聊天"
 
-#: src/canvas-toolbar.tsx:327
+#: src/canvas-toolbar.tsx
 msgid "Overleaf comments and chat · {count} waiting"
 msgstr "Overleaf 评论与聊天 · {count} 条待处理"
 
-#: src/canvas-toolbar.tsx:293
-#: src/canvas-toolbar.tsx:294
+#: src/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf 项目操作"
 
-#: src/canvas-toolbar.tsx:175
-#: src/document-canvas.tsx:3282
+#: src/overleaf-connect.tsx
+msgid "Overleaf projects"
+msgstr "Overleaf 项目"
+
+#: src/overleaf-history.tsx
+msgid "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app."
+msgstr "Overleaf 自己对该项目的记录，包含 Lattice 关闭期间协作者在浏览器中所做的全部更改。在这里恢复会改动 Overleaf 上的副本——之后请同步，把结果带回本应用。"
+
+#: src/insert-snippets.ts
+msgid "Overline"
+msgstr "上划线"
+
+#: src/canvas-toolbar.tsx
+#: src/document-canvas.tsx
 msgid "Paper"
 msgstr "论文"
 
-#: src/document-canvas.tsx:3287
+#: src/document-canvas.tsx
 msgid "Paper actions"
 msgstr "论文操作"
 
-#: src/canvas-toolbar.tsx:171
+#: src/canvas-toolbar.tsx
 msgid "Paper content"
 msgstr "论文内容"
 
-#: src/onboarding-tour.tsx:518
+#: src/onboarding-tour.tsx
 msgid "Paper view keeps the complete text, sections, equations, and figures as structured Markdown — searchable, quotable, and next to your draft."
 msgstr "论文视图以结构化 Markdown 保留完整文本、章节、公式和图片，支持搜索和引用，并与草稿并排显示。"
 
-#: src/App.tsx:9312
-#: src/App.tsx:9312
-#: src/document-canvas.tsx:1347
-#: src/navigator.tsx:1619
+#: src/App.tsx
+#: src/document-canvas.tsx
+#: src/navigator.tsx
 msgid "Papers"
 msgstr "论文"
 
-#: src/navigator.tsx:1712
+#: src/insert-snippets.ts
+msgid "Paragraph"
+msgstr "段落标题"
+
+#: src/insert-snippets.ts
+msgid "Parallel"
+msgstr "平行"
+
+#: src/insert-snippets.ts
+msgid "Parenthesized matrix"
+msgstr "圆括号矩阵"
+
+#: src/insert-snippets.ts
+msgid "Partial derivative"
+msgstr "偏导数"
+
+#: src/navigator.tsx
 msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence."
 msgstr "在上方粘贴 arXiv ID、DOI、URL 或标题，为智能体提供项目证据。"
 
-#: src/App.tsx:10335
+#: src/App.tsx
 msgid "Paste clipboard image as figure"
 msgstr "将剪贴板图像粘贴为插图"
 
-#: src/collab-dialog.tsx:358
+#: src/collab-dialog.tsx
 msgid "Paste the full invite from Copy invite"
 msgstr "粘贴通过“复制邀请”获得的完整邀请"
 
-#: src/document-canvas.tsx:3296
+#: src/overleaf-connect.tsx
+msgid "Pause syncing"
+msgstr "暂停同步"
+
+#: src/overleaf-connect.tsx
+msgid "Pause syncing with Overleaf?\n"
+"\n"
+"Nothing is sent or fetched until you resume, and live editing, chat and collaborators stop. Every file stays where it is on both sides.\n"
+"\n"
+"Resuming picks up where this left off: edits made on either side while it was paused are merged, not overwritten."
+msgstr "要暂停与 Overleaf 的同步吗？\n"
+"\n"
+"在你恢复之前不会发送或获取任何内容，实时编辑、聊天和协作者功能也会停止。两边的文件都保持原样。\n"
+"\n"
+"恢复后会从中断处继续：暂停期间任一侧的编辑都会被合并，而不会被覆盖。"
+
+#: src/document-canvas.tsx
 msgid "PDF"
 msgstr "PDF"
 
-#: src/pdf-viewer.tsx:1520
+#: src/pdf-viewer.tsx
 msgid "PDF document"
 msgstr "PDF 文档"
 
-#: src/pdf-viewer.tsx:194
+#: src/pdf-viewer.tsx
 msgid "PDF links"
 msgstr "PDF 链接"
 
-#: src/pdf-viewer.tsx:672
+#: src/pdf-viewer.tsx
 msgid "PDF page {pageNumber}"
 msgstr "PDF 第 {pageNumber} 页"
 
-#: src/pdf-viewer.tsx:1541
+#: src/pdf-viewer.tsx
 msgid "PDF page number"
 msgstr "PDF 页码"
 
-#: src/pdf-viewer.tsx:747
+#: src/pdf-viewer.tsx
 msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
 msgstr "PDF 预览超时。请再次点击“构建”，或在“预览”中打开 PDF。"
 
-#: src/pdf-viewer.tsx:1614
+#: src/pdf-viewer.tsx
 msgid "PDF zoom percentage"
 msgstr "PDF 缩放百分比"
 
-#: src/App.tsx:9176
+#: src/App.tsx
 msgid "People in this session"
 msgstr "此会话中的成员"
 
-#: src/settings-dialog.tsx:599
+#: src/insert-snippets.ts
+msgid "Percent"
+msgstr "百分号"
+
+#: src/insert-snippets.ts
+msgid "Perpendicular"
+msgstr "垂直"
+
+#: src/insert-snippets.ts
+msgid "Phi"
+msgstr "斐"
+
+#: src/insert-snippets.ts
+msgid "Pi"
+msgstr "派"
+
+#: src/bib-entry-dialog.tsx
+msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand."
+msgstr "选择一个会议或期刊来填入其规范名称和条目类型，也可以手动编辑任意字段。"
+
+#: src/insert-snippets.ts
+msgid "Piecewise definition"
+msgstr "分段定义"
+
+#: src/insert-snippets.ts
+msgid "Pilcrow / paragraph"
+msgstr "段落符号"
+
+#: src/settings-dialog.tsx
 msgid "Plays quiet cues when a requested build or collaboration setup finishes."
 msgstr "请求的构建或协作设置完成时播放轻微提示音。"
 
-#: src/document-canvas.tsx:3660
-#: src/document-canvas.tsx:3718
-#: src/document-canvas.tsx:3913
+#: src/confirm-action-dialog.tsx
+#: src/spreadsheet-editor.tsx
+msgid "Please confirm that you want to continue."
+msgstr "请确认你要继续。"
+
+#: src/insert-snippets.ts
+msgid "Plus-minus"
+msgstr "正负号"
+
+#: src/insert-snippets.ts
+msgid "Pounds sterling"
+msgstr "英镑符号"
+
+#: src/insert-snippets.ts
+msgid "Precedes"
+msgstr "先于"
+
+#: src/insert-snippets.ts
+msgid "Precedes or equal"
+msgstr "先于或等于"
+
+#: src/document-canvas.tsx
 msgid "Preparing board editor"
 msgstr "正在准备白板编辑器"
 
-#: src/App.tsx:9480
+#: src/App.tsx
 msgid "Preparing editor"
 msgstr "正在准备编辑器"
 
-#: src/document-canvas.tsx:491
+#: src/document-canvas.tsx
 msgid "Preparing HTML preview…"
 msgstr "正在准备 HTML 预览…"
 
-#: src/document-canvas.tsx:183
+#: src/document-canvas.tsx
 msgid "Preparing Markdown editor"
 msgstr "正在准备 Markdown 编辑器"
 
-#: src/document-canvas.tsx:439
+#: src/document-canvas.tsx
 msgid "Preparing PDF preview…"
 msgstr "正在准备 PDF 预览…"
 
-#: src/document-canvas.tsx:650
-#: src/document-canvas.tsx:3220
+#: src/document-canvas.tsx
 msgid "Preparing preview…"
 msgstr "正在准备预览…"
 
-#: src/document-canvas.tsx:3673
-#: src/document-canvas.tsx:3737
-#: src/document-canvas.tsx:3913
+#: src/document-canvas.tsx
 msgid "Preparing spreadsheet editor"
 msgstr "正在准备电子表格编辑器"
 
-#: src/canvas-toolbar.tsx:157
+#: src/synara-loading-surface.tsx
+msgid "Preparing this workspace"
+msgstr "正在准备此工作区"
+
+#: src/canvas-toolbar.tsx
 msgid "Preview"
 msgstr "预览"
 
-#: src/canvas-toolbar.tsx:158
+#: src/canvas-toolbar.tsx
 msgid "Preview HTML"
 msgstr "预览 HTML"
 
-#: src/canvas-toolbar.tsx:158
+#: src/canvas-toolbar.tsx
 msgid "Preview Markdown"
 msgstr "预览 Markdown"
 
-#: src/document-canvas.tsx:4331
+#: src/document-canvas.tsx
 msgid "Preview of {path}"
 msgstr "{path} 的预览"
 
-#: src/canvas-toolbar.tsx:158
+#: src/canvas-toolbar.tsx
 msgid "Preview PDF"
 msgstr "预览 PDF"
 
-#: src/document-canvas.tsx:3499
+#: src/document-canvas.tsx
 msgid "previous"
 msgstr "上一个"
 
-#: src/pdf-viewer.tsx:1536
+#: src/pdf-viewer.tsx
 msgid "Previous page"
 msgstr "上一页"
 
-#: src/pdf-viewer.tsx:1591
+#: src/pdf-viewer.tsx
 msgid "Previous search result"
 msgstr "上一个搜索结果"
 
-#: src/App.tsx:9311
-#: src/App.tsx:9311
-#: src/App.tsx:10337
-#: src/App.tsx:10338
-#: src/App.tsx:10339
-#: src/App.tsx:10340
-#: src/App.tsx:10341
+#: src/insert-snippets.ts
+msgid "Prime"
+msgstr "撇号"
+
+#: src/insert-snippets.ts
+msgid "Product"
+msgstr "连乘"
+
+#: src/insert-snippets.ts
+msgid "Product with limits"
+msgstr "带上下限的连乘"
+
+#: src/App.tsx
 msgid "Project"
 msgstr "项目"
 
-#: src/settings-dialog.tsx:670
+#: src/settings-dialog.tsx
 msgid "Project dictionary"
 msgstr "项目词典"
 
-#: src/settings-dialog.tsx:690
+#: src/settings-dialog.tsx
 msgid "Project dictionary terms"
 msgstr "项目词典术语"
 
-#: src/navigator.tsx:1386
+#: src/navigator.tsx
 msgid "Project files"
 msgstr "项目文件"
 
-#: src/canvas-toolbar.tsx:348
+#: src/canvas-toolbar.tsx
+#: src/history-drawer.tsx
 msgid "Project history"
 msgstr "项目历史"
 
-#: src/project-dialogs.tsx:146
+#: src/history-drawer.tsx
+msgid "Project history content"
+msgstr "项目历史内容"
+
+#: src/project-dialogs.tsx
 msgid "Project name"
 msgstr "项目名称"
 
-#: src/settings-dialog.tsx:145
-#: src/settings-dialog.tsx:440
-msgid "Providers"
-msgstr "模型服务商"
+#: src/overleaf-history.tsx
+msgid "project restore"
+msgstr "项目恢复"
 
-#: src/navigator.tsx:1626
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "Project restored."
+msgstr "项目已恢复。"
+
+#: src/insert-snippets.ts
+msgid "Proof"
+msgstr "证明"
+
+#: src/insert-snippets.ts
+msgid "Proof environment (requires amsthm)"
+msgstr "证明环境（需要 amsthm）"
+
+#: src/insert-snippets.ts
+msgid "Proportional to"
+msgstr "正比于"
+
+#: src/insert-snippets.ts
+msgid "Proves / turnstile"
+msgstr "推出 / 断言符"
+
+#: src/settings-dialog.tsx
+msgid "Providers"
+msgstr "模型"
+
+#: src/insert-snippets.ts
+msgid "Psi"
+msgstr "普西"
+
+#: src/bib-entry-dialog.tsx
+#: src/navigator.tsx
 msgid "Publisher"
 msgstr "出版商"
 
-#: src/App.tsx:9855
-#: src/App.tsx:9891
+#: src/App.tsx
 msgid "Pull requests"
 msgstr "拉取请求"
 
-#: src/App.tsx:10300
+#: src/App.tsx
 msgid "Quick open file"
 msgstr "快速打开文件"
 
+#: src/insert-snippets.ts
+msgid "Quote"
+msgstr "引文"
+
+#: src/insert-snippets.ts
+msgid "Radical"
+msgstr "根号"
+
 #. placeholder {0}: status.indexedFiles
 #. placeholder {1}: status.indexedChunks
-#: src/settings-dialog.tsx:431
+#: src/settings-dialog.tsx
 msgid "Ready for {0} files ({1} blocks). {semanticSearchPrivacy}"
 msgstr "已为 {0} 个文件建立索引（{1} 个内容块）。{semanticSearchPrivacy}"
 
 #. placeholder {0}: status.indexedChunks
-#: src/settings-dialog.tsx:430
+#: src/settings-dialog.tsx
 msgid "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
 msgstr "已为 1 个文件建立索引（{0} 个内容块）。{semanticSearchPrivacy}"
 
-#: src/settings-dialog.tsx:824
+#: src/settings-dialog.tsx
 msgid "Ready to compile"
 msgstr "可以编译"
 
-#: src/project-dialogs.tsx:275
+#: src/insert-snippets.ts
+msgid "Real part"
+msgstr "实部"
+
+#: src/project-dialogs.tsx
 msgid "Recent projects"
 msgstr "最近使用的项目"
 
+#: src/insert-snippets.ts
+msgid "Reference"
+msgstr "引用"
+
+#: src/insert-snippets.ts
+msgid "Reference an equation label"
+msgstr "引用公式标签"
+
+#: src/insert-snippets.ts
+msgid "Reference an existing label"
+msgstr "引用已有的标签"
+
+#: src/versions-timeline.tsx
+msgid "Refresh versions"
+msgstr "刷新版本"
+
 #. placeholder {0}: record.title
-#: src/collab-dialog.tsx:312
+#: src/collab-dialog.tsx
 msgid "Rejoin {0}"
 msgstr "重新加入 {0}"
 
-#: src/document-canvas.tsx:292
+#: src/insert-palette.tsx
+msgid "Relations"
+msgstr "关系符"
+
+#: src/document-canvas.tsx
 msgid "Relative project links are unavailable in this preview"
 msgstr "此预览中无法使用项目相对链接"
 
-#: src/collab-dialog.tsx:446
+#: src/collab-dialog.tsx
+#: src/confirm-action-dialog.tsx
 msgid "Remove"
 msgstr "移除"
 
 #. placeholder {0}: record.projectInstanceId
-#: src/collab-dialog.tsx:339
+#: src/collab-dialog.tsx
 msgid "Remove {0} from recent shares"
 msgstr "从最近共享中移除 {0}"
 
 #. placeholder {0}: peer.name
-#: src/collab-dialog.tsx:443
+#: src/collab-dialog.tsx
 msgid "Remove {0} from this share"
 msgstr "从此共享中移除 {0}"
 
 #. placeholder {0}: peer.name
-#: src/collab-dialog.tsx:171
+#: src/collab-dialog.tsx
 msgid "Remove {0}?\n"
 "\n"
 "They will lose access immediately. Anyone who joined with the same invite will also lose access."
 msgstr "移除 {0}？\\n\\n他们将立即失去访问权限。使用同一邀请加入的任何人也会失去访问权限。"
 
-#: src/navigator.tsx:1691
+#: src/navigator.tsx
 msgid "Remove {title}"
 msgstr "移除 {title}"
 
-#: src/settings-dialog.tsx:697
+#: src/settings-dialog.tsx
 msgid "Remove {word} from project dictionary"
 msgstr "从项目词典中移除 {word}"
 
-#: src/settings-dialog.tsx:730
+#. placeholder {0}: label.comment
+#: src/overleaf-history.tsx
+msgid "Remove the \"{0}\" label"
+msgstr "移除“{0}”标签"
+
+#. placeholder {0}: label.comment
+#: src/overleaf-history.tsx
+msgid "Remove the “{0}” label from this Overleaf version?"
+msgstr "要从这个 Overleaf 版本上移除“{0}”标签吗？"
+
+#: src/overleaf-history.tsx
+msgid "removed"
+msgstr "已移除"
+
+#: src/settings-dialog.tsx
 msgid "Removes .aux, .log, and other build leftovers from this project."
 msgstr "移除此项目中的 .aux、.log 和其他构建残留文件。"
 
-#: src/collab-dialog.tsx:446
+#: src/collab-dialog.tsx
 msgid "Removing…"
 msgstr "正在移除…"
 
-#: src/collab-dialog.tsx:326
-#: src/navigator.tsx:1346
-#: src/project-dialogs.tsx:242
+#: src/collab-dialog.tsx
+#: src/navigator.tsx
+#: src/project-dialogs.tsx
 msgid "Rename"
 msgstr "重命名"
 
 #. placeholder {0}: record.title
-#: src/collab-dialog.tsx:295
+#: src/collab-dialog.tsx
 msgid "Rename {0}"
 msgstr "重命名 {0}"
 
-#: src/project-dialogs.tsx:198
+#: src/project-dialogs.tsx
 msgid "Rename citation key"
 msgstr "重命名引用键"
 
-#: src/project-dialogs.tsx:200
+#: src/project-dialogs.tsx
 msgid "Rename environment"
 msgstr "重命名环境"
 
-#: src/project-dialogs.tsx:196
+#: src/project-dialogs.tsx
 msgid "Rename label"
 msgstr "重命名标签"
 
-#: src/project-dialogs.tsx:207
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "renamed"
+msgstr "已重命名"
+
+#: src/project-dialogs.tsx
 msgid "Renames the matching \\begin and \\end pair under the cursor."
 msgstr "重命名光标处匹配的 \\begin 和 \\end。"
 
-#: src/project-dialogs.tsx:242
+#: src/project-dialogs.tsx
 msgid "Renaming…"
 msgstr "正在重命名…"
 
-#: src/pdf-viewer.tsx:1714
+#: src/history-drawer.tsx
+msgid "Rendering changes…"
+msgstr "正在渲染更改…"
+
+#: src/pdf-viewer.tsx
 msgid "Rendering PDF…"
 msgstr "正在渲染 PDF…"
 
-#: src/App.tsx:10327
+#: src/App.tsx
 msgid "Replace in project"
 msgstr "在项目中替换"
 
-#: src/navigator.tsx:1626
+#: src/navigator.tsx
 msgid "Replacement/new version"
 msgstr "替代版本/新版本"
 
-#: src/tex-setup-wizard.tsx:118
+#: src/tex-setup-wizard.tsx
 msgid "Required paper tools installed"
 msgstr "所需的论文工具已安装"
 
-#: src/tex-setup-wizard.tsx:153
+#: src/tex-setup-wizard.tsx
 msgid "Required tools installation progress"
 msgstr "所需工具安装进度"
 
-#: src/App.tsx:10325
+#: src/App.tsx
 msgid "Research"
 msgstr "研究"
 
-#: src/project-dialogs.tsx:60
+#: src/project-dialogs.tsx
 msgid "Research, written with evidence."
 msgstr "以证据书写研究。"
 
-#: src/document-canvas.tsx:3975
+#: src/document-canvas.tsx
 msgid "Resize dual source panes"
 msgstr "调整双源文件窗格大小"
 
-#: src/document-canvas.tsx:4073
+#: src/document-canvas.tsx
 msgid "Resize editor and asset preview"
 msgstr "调整编辑器与资源预览大小"
 
-#: src/document-canvas.tsx:4077
+#: src/document-canvas.tsx
 msgid "Resize editor and HTML preview"
 msgstr "调整编辑器与 HTML 预览大小"
 
-#: src/document-canvas.tsx:4075
+#: src/document-canvas.tsx
 msgid "Resize editor and Markdown preview"
 msgstr "调整编辑器与 Markdown 预览大小"
 
-#: src/document-canvas.tsx:4078
+#: src/document-canvas.tsx
 msgid "Resize editor and PDF preview"
 msgstr "调整编辑器与 PDF 预览大小"
 
-#: src/document-canvas.tsx:3996
+#: src/document-canvas.tsx
 msgid "Resize PDF pane"
 msgstr "调整 PDF 窗格大小"
 
-#: src/App.tsx:9463
+#: src/App.tsx
 msgid "Resize workspace sidebar"
 msgstr "调整工作区侧边栏大小"
 
-#: src/navigator.tsx:1625
+#: src/bib-entry-dialog.tsx
+msgid "Resolve"
+msgstr "解析"
+
+#: src/bib-entry-dialog.tsx
+msgid "Resolve from DOI / arXiv / title"
+msgstr "从 DOI / arXiv / 标题解析"
+
+#: src/literature-discovery-panel.tsx
+msgid "Resolve into bibliography entry"
+msgstr "解析为参考文献条目"
+
+#: src/paper-import-progress.ts
+msgid "Resolving citation metadata…"
+msgstr "正在解析引文元数据…"
+
+#: src/bib-entry-dialog.tsx
+msgid "Resolving…"
+msgstr "正在解析…"
+
+#: src/confirm-action-dialog.tsx
+#: src/overleaf-history.tsx
+msgid "Restore"
+msgstr "恢复"
+
+#. placeholder {0}: file.pathname
+#. placeholder {0}: target.path
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "Restore {0} to this version"
+msgstr "把 {0} 恢复到这个版本"
+
+#: src/versions-timeline.tsx
+msgid "Restore {path} to this version? Your current file will be overwritten."
+msgstr "要把 {path} 恢复到这个版本吗？你当前的文件将被覆盖。"
+
+#: src/versions-timeline.tsx
+msgid "Restore file"
+msgstr "恢复文件"
+
+#. placeholder {0}: activeChange.path
+#. placeholder {0}: change.path
+#: src/history-drawer.tsx
+msgid "Restore only {0}"
+msgstr "仅恢复 {0}"
+
+#: src/versions-timeline.tsx
+msgid "Restore project"
+msgstr "恢复项目"
+
+#: src/versions-timeline.tsx
+msgid "Restore project to this version"
+msgstr "把项目恢复到这个版本"
+
+#: src/versions-timeline.tsx
+msgid "Restore the project to this version? All current files will be rewound to that point — nothing is lost, and the restore itself is saved as a new version."
+msgstr "要把项目恢复到这个版本吗？当前所有文件都会回退到那个时间点——不会丢失任何内容，而且这次恢复本身也会保存为一个新版本。"
+
+#: src/history-drawer.tsx
+msgid "Restore the state before this change"
+msgstr "恢复到这次更改之前的状态"
+
+#: src/overleaf-history.tsx
+msgid "Restore the whole project to this version? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore."
+msgstr "要把整个项目恢复到这个版本吗？之后新增的文件会被删除，其余内容都会回退到相应状态。此后只能再做一次恢复才能回来。"
+
+#: src/history-drawer.tsx
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "Restore this file"
+msgstr "恢复此文件"
+
+#: src/overleaf-history.tsx
+msgid "Restore whole project to this version"
+msgstr "把整个项目恢复到这个版本"
+
+#. placeholder {0}: file.pathname
+#: src/overleaf-history.tsx
+msgid "Restored {0}."
+msgstr "已恢复 {0}。"
+
+#: src/versions-timeline.tsx
+msgid "Restored {path}."
+msgstr "已恢复 {path}。"
+
+#: src/synara-loading-surface.tsx
+msgid "Restoring the conversation surface…"
+msgstr "正在恢复对话界面…"
+
+#: src/overleaf-connect.tsx
+msgid "Resume syncing"
+msgstr "恢复同步"
+
+#: src/navigator.tsx
 msgid "Retracted"
 msgstr "已撤稿"
 
-#: src/navigator.tsx:1626
+#: src/navigator.tsx
 msgid "Retraction Watch"
 msgstr "Retraction Watch"
 
-#: src/pdf-viewer.tsx:1637
+#: src/overleaf-connect.tsx
+#: src/synara-loading-surface.tsx
+msgid "Retry"
+msgstr "重试"
+
+#: src/pdf-viewer.tsx
 msgid "Reveal cursor in PDF (⌘⇧J)"
 msgstr "在 PDF 中显示光标位置 (⌘⇧J)"
 
-#: src/collab-dialog.tsx:251
+#: src/insert-snippets.ts
+msgid "Reverse turnstile"
+msgstr "反向断言符"
+
+#: src/insert-snippets.ts
+msgid "Rho"
+msgstr "柔"
+
+#: src/insert-snippets.ts
+msgid "Right angle bracket"
+msgstr "右尖括号"
+
+#: src/insert-snippets.ts
+msgid "Right arrow"
+msgstr "右箭头"
+
+#: src/insert-snippets.ts
+msgid "Right brace"
+msgstr "右花括号"
+
+#: src/insert-snippets.ts
+msgid "Right ceiling"
+msgstr "右上取整符"
+
+#: src/insert-snippets.ts
+msgid "Right double arrow / implies"
+msgstr "右双线箭头 / 蕴含"
+
+#: src/insert-snippets.ts
+msgid "Right double vertical bar"
+msgstr "右双竖线"
+
+#: src/insert-snippets.ts
+msgid "Right floor"
+msgstr "右下取整符"
+
+#: src/insert-snippets.ts
+msgid "Right harpoon up"
+msgstr "右上鱼叉箭头"
+
+#: src/insert-snippets.ts
+msgid "Right normal subgroup"
+msgstr "右正规子群"
+
+#: src/insert-snippets.ts
+msgid "Right normal subgroup eq"
+msgstr "右正规子群（含等号）"
+
+#: src/insert-snippets.ts
+msgid "Right vertical bar"
+msgstr "右竖线"
+
+#: src/insert-snippets.ts
+msgid "Roman math"
+msgstr "数学正体"
+
+#: src/collab-dialog.tsx
 msgid "Room name"
 msgstr "房间名称"
 
-#: src/collab-dialog.tsx:128
+#: src/collab-dialog.tsx
 msgid "Rooms you host"
 msgstr "你主持的房间"
 
-#: src/collab-dialog.tsx:128
+#: src/collab-dialog.tsx
 msgid "Rooms you joined"
 msgstr "你加入的房间"
 
-#: src/App.tsx:10293
+#: src/insert-snippets.ts
+msgid "Root with index"
+msgstr "带次数的根号"
+
+#: src/App.tsx
 msgid "Run a command…"
 msgstr "运行命令…"
 
-#: src/onboarding-tour.tsx:431
+#: src/onboarding-tour.tsx
 msgid "Run interactive explanations"
 msgstr "运行交互式讲解"
 
-#: src/App.tsx:10340
-#: src/settings-dialog.tsx:813
+#: src/App.tsx
+#: src/settings-dialog.tsx
 msgid "Run TeX doctor"
 msgstr "运行 TeX 诊断"
 
-#: src/settings-dialog.tsx:849
+#: src/settings-dialog.tsx
 msgid "Run the doctor to inspect this Mac’s TeX toolchain."
 msgstr "运行诊断以检查这台 Mac 上的 TeX 工具链。"
 
-#: src/collab-dialog.tsx:307
+#: src/insert-snippets.ts
+msgid "Run-in paragraph heading"
+msgstr "行内段落标题"
+
+#: src/settings-dialog.tsx
+msgid "Runs on-device; no text leaves this Mac."
+msgstr "在本机运行，文本不外传。"
+
+#: src/collab-dialog.tsx
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
 msgid "Save"
 msgstr "保存"
 
-#: src/pdf-viewer.tsx:1519
+#: src/bib-entry-dialog.tsx
+msgid "Save changes"
+msgstr "保存更改"
+
+#: src/pdf-viewer.tsx
 msgid "Save compiled PDF"
 msgstr "保存已编译的 PDF"
 
-#: src/pdf-viewer.tsx:1521
+#: src/bib-entry-dialog.tsx
+msgid "Save entry"
+msgstr "保存条目"
+
+#: src/pdf-viewer.tsx
 msgid "Save PDF"
 msgstr "保存 PDF"
 
-#: src/pdf-viewer.tsx:746
+#: src/pdf-viewer.tsx
 msgid "Save PDF as…"
 msgstr "将 PDF 另存为…"
 
-#: src/pdf-viewer.tsx:1522
+#: src/versions-timeline.tsx
+msgid "Save version"
+msgstr "保存版本"
+
+#: src/pdf-viewer.tsx
 msgid "Saved to {path}"
 msgstr "已保存到 {path}"
 
-#: src/settings-dialog.tsx:650
+#: src/versions-timeline.tsx
+msgid "Saved version"
+msgstr "已保存的版本"
+
+#: src/bib-entry-dialog.tsx
+msgid "Saving…"
+msgstr "正在保存…"
+
+#: src/insert-snippets.ts
+msgid "Script l"
+msgstr "手写体 l"
+
+#: src/insert-snippets.ts
+msgid "Script letters"
+msgstr "手写体字母"
+
+#: src/literature-discovery-panel.tsx
+#: src/settings-dialog.tsx
 msgid "Search"
 msgstr "搜索"
 
-#: src/navigator.tsx:1592
+#: src/literature-discovery-panel.tsx
+msgid "Search alphaXiv and OpenAlex to find related work before importing evidence."
+msgstr "搜索 alphaXiv 和 OpenAlex，先找到相关工作再导入文献。"
+
+#: src/insert-palette.tsx
+msgid "Search by name, meaning, or command (alpha, implies, fraction…)"
+msgstr "按名称、含义或命令搜索（alpha、implies、fraction…）"
+
+#: src/overleaf-connect.tsx
+msgid "Search by project or owner…"
+msgstr "按项目或所有者搜索…"
+
+#: src/literature-discovery-panel.tsx
+msgid "Search literature"
+msgstr "搜索文献"
+
+#: src/navigator.tsx
 msgid "Search or add by title, arXiv ID, DOI, or URL"
 msgstr "按标题、arXiv ID、DOI 或 URL 搜索或添加"
 
-#: src/navigator.tsx:1589
+#: src/navigator.tsx
 msgid "Search or import papers"
 msgstr "搜索或导入论文"
 
-#: src/pdf-viewer.tsx:1501
-#: src/pdf-viewer.tsx:1576
+#: src/overleaf-connect.tsx
+msgid "Search Overleaf projects"
+msgstr "搜索 Overleaf 项目"
+
+#: src/pdf-viewer.tsx
 msgid "Search PDF"
 msgstr "搜索 PDF"
 
 #. placeholder {0}: message(firstFailure.reason)
-#: src/pdf-viewer.tsx:1249
+#: src/pdf-viewer.tsx
 msgid "Search unavailable: {0}"
 msgstr "搜索不可用：{0}"
 
-#: src/pdf-viewer.tsx:1260
+#: src/pdf-viewer.tsx
 msgid "Search unavailable: {detail}"
 msgstr "搜索不可用：{detail}"
 
-#: src/document-canvas.tsx:3529
+#: src/insert-snippets.ts
+msgid "Second-level heading"
+msgstr "二级标题"
+
+#: src/insert-snippets.ts
+msgid "Section"
+msgstr "节"
+
+#: src/insert-snippets.ts
+msgid "Section sign"
+msgstr "节标记"
+
+#: src/document-canvas.tsx
 msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "选区 {words} 词 · {chars} 字符 · {lines} 行"
 
-#: src/collab-dialog.tsx:462
+#: src/collab-dialog.tsx
 msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
 msgstr "发送上方邀请。对方依次打开“实时协作”→“加入”→粘贴→“加入共享”。Lattice 会在其 Documents/Lattice Shares 下打开一个新文件夹。"
 
-#: src/settings-dialog.tsx:613
+#: src/insert-snippets.ts
+msgid "Set minus"
+msgstr "集合差"
+
+#: src/settings-dialog.tsx
 msgid "Set the editor keymap and build behavior."
 msgstr "设置编辑器键位和构建行为。"
 
-#: src/project-dialogs.tsx:54
-#: src/project-dialogs.tsx:300
-#: src/settings-dialog.tsx:448
-#: src/settings-dialog.tsx:460
+#: src/insert-palette.tsx
+msgid "Sets"
+msgstr "集合"
+
+#: src/project-dialogs.tsx
+#: src/settings-dialog.tsx
 msgid "Settings"
 msgstr "设置"
 
-#: src/settings-dialog.tsx:467
+#: src/settings-dialog.tsx
 msgid "Settings sections"
 msgstr "设置分区"
 
-#: src/tex-setup-wizard.tsx:50
+#: src/tex-setup-wizard.tsx
 msgid "Setup is complete."
 msgstr "设置已完成。"
 
-#: src/App.tsx:10318
+#: src/App.tsx
 msgid "Share invite with a collaborator"
 msgstr "与协作者分享邀请"
 
-#: src/collab-dialog.tsx:221
+#: src/collab-dialog.tsx
 msgid "Share mode"
 msgstr "共享模式"
 
-#: src/collab-dialog.tsx:134
+#: src/collab-dialog.tsx
 msgid "Sharing"
 msgstr "正在共享"
 
-#: src/onboarding-tour.tsx:469
+#: src/onboarding-tour.tsx
 msgid "Sharing and history live in this row"
 msgstr "共享和历史记录都在这一行"
 
-#: src/navigator.tsx:1355
-#: src/navigator.tsx:1549
+#: src/insert-snippets.ts
+msgid "Sharp"
+msgstr "升号"
+
+#: src/overleaf-connect.tsx
+msgid "Show archived"
+msgstr "显示已归档"
+
+#: src/document-outline.tsx
+msgid "Show document outline"
+msgstr "显示文档大纲"
+
+#: src/navigator.tsx
 msgid "Show in Finder"
 msgstr "在访达中显示"
 
-#: src/App.tsx:9070
+#: src/document-outline.tsx
+msgid "Show outline"
+msgstr "显示大纲"
+
+#: src/App.tsx
 msgid "Show sidebar"
 msgstr "显示侧边栏"
 
-#: src/App.tsx:9308
+#: src/app-log.tsx
+msgid "Shows 300 recent entries; disk logs rotate."
+msgstr "显示最近 300 条记录；磁盘日志会自动轮换。"
+
+#: src/insert-snippets.ts
+msgid "Side-by-side column block"
+msgstr "并排分栏块"
+
+#: src/App.tsx
 msgid "Sidebar mode"
 msgstr "侧边栏模式"
 
-#: src/settings-dialog.tsx:565
+#: src/insert-snippets.ts
+msgid "Sigma"
+msgstr "西格马"
+
+#: src/overleaf-connect.tsx
+msgid "Sign in to {linkedHost}, then resume syncing when you are ready. Local files stay on this Mac."
+msgstr "请登录 {linkedHost}，准备好后再恢复同步。本地文件会留在这台 Mac 上。"
+
+#: src/overleaf-connect.tsx
+msgid "Sign in to resume syncing and live editing on {linkedHost}. Local files stay on this Mac."
+msgstr "登录后即可在 {linkedHost} 上恢复同步和实时编辑。本地文件会留在这台 Mac 上。"
+
+#: src/overleaf-connect.tsx
+msgid "Sign out"
+msgstr "退出登录"
+
+#: src/overleaf-connect.tsx
+msgid "Sign out of Overleaf?\n"
+"\n"
+"Lattice will no longer be able to list your Overleaf projects, sync linked projects, or use live editing until you sign in again. Files already downloaded to this Mac will not be deleted."
+msgstr "要退出 Overleaf 登录吗？\n"
+"\n"
+"在你再次登录之前，Lattice 将无法列出你的 Overleaf 项目、同步已关联的项目或使用实时编辑。已下载到这台 Mac 上的文件不会被删除。"
+
+#: src/overleaf-connect.tsx
+msgid "Sign-in was cancelled. You can try again whenever you’re ready."
+msgstr "登录已取消。你可以随时重新尝试。"
+
+#: src/insert-snippets.ts
+msgid "Similar or equal"
+msgstr "相似或等于"
+
+#: src/insert-snippets.ts
+msgid "Similar to"
+msgstr "相似"
+
+#: src/settings-dialog.tsx
 msgid "Simplified Chinese"
 msgstr "简体中文"
 
-#: src/settings-dialog.tsx:147
-#: src/settings-dialog.tsx:442
+#: src/settings-dialog.tsx
 msgid "Skills"
-msgstr "技能"
+msgstr "Skills"
 
-#: src/onboarding-tour.tsx:136
-#: src/onboarding-tour.tsx:636
+#: src/onboarding-tour.tsx
 msgid "Skip tutorial"
 msgstr "跳过教程"
 
-#: src/App.tsx:10306
+#: src/insert-snippets.ts
+msgid "Smile relation"
+msgstr "上弧关系"
+
+#: src/App.tsx
 msgid "Source + PDF"
 msgstr "源码 + PDF"
 
-#: src/pdf-viewer.tsx:690
+#: src/pdf-viewer.tsx
 msgid "Source location in PDF"
 msgstr "PDF 中的源位置"
 
-#: src/settings-dialog.tsx:658
+#: src/insert-snippets.ts
+msgid "South-east arrow"
+msgstr "右下箭头"
+
+#: src/insert-snippets.ts
+msgid "South-west arrow"
+msgstr "左下箭头"
+
+#: src/insert-snippets.ts
+msgid "Spade suit"
+msgstr "黑桃"
+
+#: src/settings-dialog.tsx
 msgid "Spelling"
 msgstr "拼写"
 
-#: src/App.tsx:10306
+#: src/App.tsx
 msgid "split"
 msgstr "拆分视图"
 
-#: src/canvas-toolbar.tsx:148
+#: src/canvas-toolbar.tsx
 msgid "Split"
 msgstr "分栏"
 
-#: src/canvas-toolbar.tsx:196
+#: src/canvas-toolbar.tsx
 msgid "Split editor right"
 msgstr "向右分栏编辑器"
 
-#: src/App.tsx:10315
+#: src/insert-snippets.ts
+msgid "Square"
+msgstr "空心方块"
+
+#: src/insert-snippets.ts
+msgid "Square cap"
+msgstr "方交"
+
+#: src/insert-snippets.ts
+msgid "Square cup"
+msgstr "方并"
+
+#: src/insert-snippets.ts
+msgid "Square root"
+msgstr "平方根"
+
+#: src/insert-snippets.ts
+msgid "Square subset"
+msgstr "方形真子集"
+
+#: src/insert-snippets.ts
+msgid "Square subset eq"
+msgstr "方形子集（含等号）"
+
+#: src/insert-snippets.ts
+msgid "Square superset"
+msgstr "方形真超集"
+
+#: src/insert-snippets.ts
+msgid "Square superset eq"
+msgstr "方形超集（含等号）"
+
+#: src/insert-snippets.ts
+msgid "Star operator"
+msgstr "星形运算符"
+
+#: src/App.tsx
 msgid "Start / join live sharing"
 msgstr "开始或加入实时共享"
 
-#: src/collab-dialog.tsx:226
-#: src/collab-dialog.tsx:525
+#: src/collab-dialog.tsx
 msgid "Start sharing"
 msgstr "开始共享"
 
-#: src/settings-dialog.tsx:426
-msgid "Starting the background index. {semanticSearchPrivacy}"
-msgstr "正在启动后台索引。{semanticSearchPrivacy}"
+#: src/versions-timeline.tsx
+msgid "Start tracking versions"
+msgstr "开始追踪版本"
 
-#: src/collab-dialog.tsx:376
+#: src/synara-loading-surface.tsx
+msgid "Starting Agent"
+msgstr "正在启动智能助手"
+
+#: src/settings-dialog.tsx
+msgid "Starting the index. {semanticSearchPrivacy}"
+msgstr "正在启动索引。{semanticSearchPrivacy}"
+
+#: src/collab-dialog.tsx
 msgid "status"
 msgstr "状态"
 
-#: src/App.tsx:9251
+#. placeholder {0}: result.detail
+#: src/overleaf-connect.tsx
+msgid "Still not connected: {0}"
+msgstr "仍未连接：{0}"
+
+#: src/overleaf-connect.tsx
+msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again."
+msgstr "仍在等待。请取消本次尝试，关闭 Overleaf 窗口，然后重新连接。"
+
+#: src/App.tsx
 msgid "Stop"
 msgstr "停止"
 
-#: src/App.tsx:10298
+#: src/App.tsx
 msgid "Stop build"
 msgstr "停止构建"
 
-#: src/collab-dialog.tsx:465
-#: src/collab-dialog.tsx:514
+#: src/collab-dialog.tsx
 msgid "Stop sharing"
 msgstr "停止共享"
 
-#: src/collab-dialog.tsx:161
+#: src/collab-dialog.tsx
 msgid "Stop sharing for everyone?\n"
 "\n"
 "Collaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite."
 msgstr "停止所有人的共享？\\n\\n协作者将断开连接并返回之前的项目。此操作无法撤销——重新打开房间需要发送新邀请。"
 
-#: src/App.tsx:9244
+#: src/App.tsx
 msgid "Stop the current LaTeX build"
 msgstr "停止当前 LaTeX 构建"
 
-#: src/App.tsx:10334
+#: src/insert-palette.tsx
+msgid "Structure"
+msgstr "结构"
+
+#: src/insert-snippets.ts
+msgid "Subequations"
+msgstr "子公式组"
+
+#: src/App.tsx
 msgid "Submission checklist"
 msgstr "投稿检查清单"
 
-#: src/App.tsx:10308
+#: src/insert-snippets.ts
+msgid "Subsection"
+msgstr "小节"
+
+#: src/insert-snippets.ts
+msgid "Subset"
+msgstr "真子集"
+
+#: src/insert-snippets.ts
+msgid "Subset or equal"
+msgstr "子集或等于"
+
+#: src/insert-snippets.ts
+msgid "Subsubsection"
+msgstr "小小节"
+
+#: src/insert-snippets.ts
+msgid "Succeeds"
+msgstr "后于"
+
+#: src/insert-snippets.ts
+msgid "Succeeds or equal"
+msgstr "后于或等于"
+
+#: src/app-log.tsx
+msgid "Success"
+msgstr "成功"
+
+#: src/insert-snippets.ts
+msgid "Sum with limits"
+msgstr "带上下限的求和"
+
+#: src/insert-snippets.ts
+msgid "Summation"
+msgstr "求和"
+
+#: src/insert-snippets.ts
+msgid "Superset"
+msgstr "真超集"
+
+#: src/insert-snippets.ts
+msgid "Superset or equal"
+msgstr "超集或等于"
+
+#: src/insert-snippets.ts
+msgid "Surface / area integral"
+msgstr "曲面 / 面积积分"
+
+#: src/App.tsx
 msgid "Swap editor panes"
 msgstr "交换编辑器窗格"
 
-#: src/App.tsx:9084
+#: src/App.tsx
 msgid "Switch project"
 msgstr "切换项目"
 
-#: src/onboarding-tour.tsx:478
+#: src/onboarding-tour.tsx
 msgid "Switch to Papers to see what this manuscript cites."
 msgstr "切换到“论文”查看此稿件引用的来源。"
 
-#: src/settings-dialog.tsx:515
+#: src/insert-palette.tsx
+msgid "Symbols"
+msgstr "符号"
+
+#: src/settings-dialog.tsx
 msgid "Synara {synaraSettingsLabel} settings"
 msgstr "Synara {synaraSettingsLabel}设置"
 
-#: src/canvas-toolbar.tsx:263
+#: src/overleaf-connect.tsx
+msgid "Sync behavior"
+msgstr "同步行为"
+
+#: src/overleaf-connect.tsx
+msgid "Sync mode"
+msgstr "同步模式"
+
+#: src/overleaf-connect.tsx
+msgid "Sync only when you click the sync button."
+msgstr "仅在点击同步按钮时同步。"
+
+#: src/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "与 Overleaf 同步"
 
-#: src/canvas-toolbar.tsx:251
+#: src/collab-status.ts
+msgid "Syncing changes…"
+msgstr "正在同步更改…"
+
+#. placeholder {0}: link.projectName
+#: src/overleaf-connect.tsx
+msgid "Syncing with “{0}” is paused"
+msgstr "与“{0}”的同步已暂停"
+
+#: src/canvas-toolbar.tsx
 msgid "Syncing with Overleaf…"
 msgstr "正在与 Overleaf 同步…"
 
-#: src/settings-dialog.tsx:672
+#: src/insert-snippets.ts
+msgid "Syntax-highlighted listing (listings)"
+msgstr "语法高亮的代码（listings）"
+
+#: src/insert-snippets.ts
+msgid "Table"
+msgstr "表格"
+
+#: src/insert-snippets.ts
+msgid "Tau"
+msgstr "陶"
+
+#: src/settings-dialog.tsx
 msgid "Terms Harper should accept in this project."
 msgstr "Harper 在此项目中应接受的术语。"
 
-#: src/settings-dialog.tsx:159
-#: src/settings-dialog.tsx:809
+#: src/settings-dialog.tsx
 msgid "TeX doctor"
 msgstr "TeX 诊断"
 
-#: src/settings-dialog.tsx:434
+#: src/insert-snippets.ts
+msgid "Text in math"
+msgstr "公式中的文字"
+
+#: src/synara-loading-surface.tsx
+msgid "The bundled Agent service could not start."
+msgstr "内置智能助手服务无法启动。"
+
+#: src/overleaf-connect.tsx
+msgid "the linked Overleaf host"
+msgstr "已关联的 Overleaf 服务器"
+
+#: src/settings-dialog.tsx
 msgid "The local model is unavailable."
 msgstr "本地模型不可用。"
 
-#: src/document-canvas.tsx:3328
+#: src/document-canvas.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "PDF 加载时间过长。请重试，或在浏览器中打开文章。"
 
-#: src/onboarding-tour.tsx:420
+#: src/onboarding-tour.tsx
 msgid "The preview is editable too"
 msgstr "预览也可以编辑"
 
-#: src/tex-setup-wizard.tsx:91
+#: src/tex-setup-wizard.tsx
 msgid "The required tools"
 msgstr "所需工具"
 
-#: src/document-canvas.tsx:2047
+#: src/document-canvas.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "所选文本已更改。请重新选择后再评论。"
 
-#: src/settings-dialog.tsx:570
+#: src/spreadsheet-editor.tsx
+msgid "The worksheet and all of its contents will be removed and cannot be recovered."
+msgstr "该工作表及其所有内容都将被删除，且无法恢复。"
+
+#: src/spreadsheet-editor.tsx
+msgid "The worksheet and all of its contents will be removed."
+msgstr "该工作表及其所有内容都将被删除。"
+
+#: src/settings-dialog.tsx
 msgid "Theme"
 msgstr "主题"
 
-#: src/onboarding-tour.tsx:517
+#: src/onboarding-tour.tsx
 msgid "Then read the real thing, right here"
 msgstr "然后就在这里阅读原文"
 
-#: src/settings-dialog.tsx:547
+#: src/insert-snippets.ts
+msgid "Theorem"
+msgstr "定理"
+
+#: src/insert-snippets.ts
+msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
+msgstr "定理块（需要 amsthm，并声明 \\newtheorem）"
+
+#: src/insert-snippets.ts
+msgid "There exists"
+msgstr "存在"
+
+#: src/settings-dialog.tsx
 msgid "These preferences apply across every project on this Mac."
 msgstr "这些偏好设置会应用于这台 Mac 上的所有项目。"
 
-#: src/onboarding-tour.tsx:441
+#: src/insert-snippets.ts
+msgid "Theta"
+msgstr "西塔"
+
+#: src/onboarding-tour.tsx
 msgid "Think visually on a board"
 msgstr "在画板上进行可视化思考"
 
-#: src/document-canvas.tsx:4332
+#: src/insert-snippets.ts
+msgid "Third-level heading"
+msgstr "三级标题"
+
+#: src/confirm-action-dialog.tsx
+msgid "This action cannot be undone."
+msgstr "此操作无法撤销。"
+
+#: src/document-canvas.tsx
 msgid "This format cannot be rendered in the preview."
 msgstr "此格式无法在预览中渲染。"
 
-#: src/tex-setup-wizard.tsx:47
+#: src/tex-setup-wizard.tsx
 msgid "This is the longest step and can take up to 15 minutes."
 msgstr "这是耗时最长的一步，最多可能需要 15 分钟。"
 
-#: src/collab-dialog.tsx:461
+#. placeholder {0}: link.projectName
+#: src/overleaf-connect.tsx
+msgid "This project syncs with “{0}”"
+msgstr "此项目与“{0}”同步"
+
+#: src/overleaf-connect.tsx
+msgid "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac."
+msgstr "此项目使用 {linkedHost}。请在上方退出登录，然后连接到该服务器以恢复同步。本地文件会留在这台 Mac 上。"
+
+#: src/collab-dialog.tsx
 msgid "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely."
 msgstr "此会话使用本地同步主机，因此只有你网络中的用户可以加入。若要远程协作，请使用配置了公共同步主机的构建版本。"
 
-#: src/tex-setup-wizard.tsx:46
+#: src/collab-status.ts
+msgid "This shared project is closed"
+msgstr "此共享项目已关闭"
+
+#: src/tex-setup-wizard.tsx
 msgid "This step may take a minute."
 msgstr "此步骤可能需要一分钟。"
 
-#: src/onboarding-tour.tsx:400
+#: src/onboarding-tour.tsx
 msgid "Three ways to look at a document"
 msgstr "查看文档的三种方式"
 
-#: src/document-canvas.tsx:3520
+#: src/insert-snippets.ts
+msgid "Tilde accent example"
+msgstr "波浪符示例"
+
+#: src/insert-snippets.ts
+msgid "Time derivative mark"
+msgstr "时间导数记号"
+
+#: src/insert-snippets.ts
+msgid "Times / cross product"
+msgstr "乘号 / 叉积"
+
+#: src/bib-entry-dialog.tsx
+msgid "Title"
+msgstr "标题"
+
+#: src/literature-discovery-panel.tsx
+msgid "Title/abstract only"
+msgstr "仅标题/摘要"
+
+#: src/insert-snippets.ts
+msgid "To (short right arrow)"
+msgstr "to（短右箭头）"
+
+#: src/overleaf-history.tsx
+msgid "Today"
+msgstr "今天"
+
+#: src/document-canvas.tsx
 msgid "TODOs"
 msgstr "待办"
 
-#: src/settings-dialog.tsx:820
+#: src/settings-dialog.tsx
 msgid "Toolchain status"
 msgstr "工具链状态"
 
-#: src/onboarding-tour.tsx:422
+#: src/insert-snippets.ts
+msgid "Top / true"
+msgstr "顶元 / 真"
+
+#: src/insert-snippets.ts
+msgid "Top-level section heading"
+msgstr "顶级章节标题"
+
+#: src/versions-timeline.tsx
+msgid "Track versions of this project to see who changed what and roll back safely."
+msgstr "追踪此项目的版本，即可看到谁改了什么，并安全地回退。"
+
+#: src/overleaf-connect.tsx
+msgid "Trashed"
+msgstr "已移入回收站"
+
+#: src/insert-snippets.ts
+msgid "Triangle"
+msgstr "三角形"
+
+#: src/insert-snippets.ts
+msgid "Triangle left"
+msgstr "左三角形"
+
+#: src/insert-snippets.ts
+msgid "Triangle right"
+msgstr "右三角形"
+
+#: src/overleaf-connect.tsx
+#: src/versions-timeline.tsx
+msgid "Try again"
+msgstr "重试"
+
+#: src/onboarding-tour.tsx
 msgid "Try typing / in the visual editor"
 msgstr "尝试在可视化编辑器中输入 /"
 
 #. placeholder {0}: index + 1
-#: src/onboarding-tour.tsx:139
+#: src/onboarding-tour.tsx
 msgid "Tutorial progress: step {0} of {size}"
 msgstr "教程进度：第 {0} 步，共 {size} 步"
 
-#: src/App.tsx:10304
+#: src/App.tsx
 msgid "Two files side by side"
 msgstr "并排显示两个文件"
 
-#: src/onboarding-tour.tsx:384
+#: src/bib-entry-dialog.tsx
+msgid "Type"
+msgstr "类型"
+
+#: src/onboarding-tour.tsx
 msgid "Type in main.tex on the left. Lattice saves, compiles, and refreshes the PDF on the right on its own — there is no build button to hunt for."
 msgstr "在左侧的 main.tex 中输入。Lattice 会自动保存、编译并刷新右侧 PDF，无需寻找构建按钮。"
 
-#: src/pdf-viewer.tsx:1590
+#: src/pdf-viewer.tsx
+#: src/settings-dialog.tsx
 msgid "Unavailable"
 msgstr "不可用"
 
-#: src/project-dialogs.tsx:203
+#: src/insert-snippets.ts
+msgid "Underline"
+msgstr "下划线"
+
+#: src/insert-snippets.ts
+msgid "Underscore"
+msgstr "下划线字符"
+
+#: src/history-drawer.tsx
+msgid "Undo this Agent turn's file changes"
+msgstr "撤销这轮智能助手对文件的更改"
+
+#: src/insert-snippets.ts
+msgid "Union"
+msgstr "并集"
+
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "Unknown"
+msgstr "未知"
+
+#: src/overleaf-connect.tsx
+msgid "Unknown owner"
+msgstr "所有者未知"
+
+#: src/insert-snippets.ts
+msgid "Unnumbered aligned equations"
+msgstr "不编号的对齐公式"
+
+#: src/insert-snippets.ts
+msgid "Unnumbered centered equations"
+msgstr "不编号的居中公式"
+
+#: src/insert-snippets.ts
+msgid "Unnumbered single-line equation"
+msgstr "不编号的单行公式"
+
+#: src/insert-snippets.ts
+msgid "Up arrow"
+msgstr "上箭头"
+
+#: src/insert-snippets.ts
+msgid "Up double arrow"
+msgstr "上双线箭头"
+
+#: src/insert-snippets.ts
+msgid "Up-down arrow"
+msgstr "上下箭头"
+
+#: src/insert-snippets.ts
+msgid "Up-down double arrow"
+msgstr "上下双线箭头"
+
+#. placeholder {0}: relativeTime(project.lastUpdated)
+#: src/overleaf-connect.tsx
+msgid "updated {0}"
+msgstr "更新于 {0}"
+
+#: src/project-dialogs.tsx
 msgid "Updates every \\label and \\ref/\\cref occurrence across the project."
 msgstr "更新整个项目中的每个 \\label 和 \\ref/\\cref。"
 
-#: src/project-dialogs.tsx:205
+#: src/project-dialogs.tsx
 msgid "Updates the bibliography entry and every \\cite occurrence across the project."
 msgstr "更新参考文献条目以及整个项目中的每个 \\cite。"
 
-#: src/pdf-viewer.tsx:1715
+#: src/pdf-viewer.tsx
 msgid "Updating…"
 msgstr "正在更新…"
 
-#: src/onboarding-tour.tsx:461
+#: src/insert-snippets.ts
+msgid "Upright text in math"
+msgstr "公式中的正体文字"
+
+#: src/insert-snippets.ts
+msgid "Upsilon"
+msgstr "宇普西龙"
+
+#: src/onboarding-tour.tsx
 msgid "Use Formulas, export as .xlsx, or ask Agent to read and update ranges, formulas, and formatting."
 msgstr "使用“公式”、导出为 .xlsx，或让 Agent 读取和更新区域、公式及格式。"
 
-#: src/navigator.tsx:1718
+#: src/navigator.tsx
 msgid "Use the + button to import this query if it isn't in your library yet."
 msgstr "如果资料库中尚无此内容，请使用 + 按钮导入当前查询。"
 
-#: src/settings-dialog.tsx:718
+#: src/settings-dialog.tsx
 msgid "Use the Build button or Command-S. Source changes are still saved automatically."
 msgstr "使用“构建”按钮或 Command-S。源码更改仍会自动保存。"
 
-#: src/project-dialogs.tsx:149
-#: src/project-dialogs.tsx:150
+#: src/insert-snippets.ts
+msgid "Variant epsilon"
+msgstr "变体艾普西龙"
+
+#: src/insert-snippets.ts
+msgid "Variant phi"
+msgstr "变体斐"
+
+#: src/insert-snippets.ts
+msgid "Variant pi"
+msgstr "变体派"
+
+#: src/insert-snippets.ts
+msgid "Variant rho"
+msgstr "变体柔"
+
+#: src/insert-snippets.ts
+msgid "Variant theta"
+msgstr "变体西塔"
+
+#: src/insert-snippets.ts
+msgid "Vector accent"
+msgstr "向量箭头"
+
+#: src/insert-snippets.ts
+msgid "Vector accent example"
+msgstr "向量箭头示例"
+
+#: src/insert-snippets.ts
+msgid "Vector arrow over a symbol"
+msgstr "在符号上方加向量箭头"
+
+#: src/bib-entry-dialog.tsx
+msgid "Venue"
+msgstr "发表处"
+
+#: src/project-dialogs.tsx
 msgid "Venue template"
 msgstr "会议模板"
 
-#: src/tex-setup-wizard.tsx:39
+#: src/insert-snippets.ts
+msgid "Verbatim"
+msgstr "原样文本"
+
+#: src/tex-setup-wizard.tsx
 msgid "Verifying installation…"
 msgstr "正在验证安装…"
 
-#: src/settings-dialog.tsx:780
+#: src/settings-dialog.tsx
 msgid "Version"
 msgstr "版本"
 
 #. placeholder {0}: updater.version ?? ""
-#: src/settings-dialog.tsx:400
+#: src/settings-dialog.tsx
 msgid "Version {0} is ready to install"
 msgstr "版本 {0} 已可安装"
 
-#: src/App.tsx:10304
-#: src/App.tsx:10306
-#: src/App.tsx:10308
+#: src/versions-timeline.tsx
+msgid "Version history is unavailable: {error}"
+msgstr "版本历史不可用：{error}"
+
+#: src/versions-timeline.tsx
+msgid "Version history needs Git, which isn’t available on this Mac."
+msgstr "版本历史需要 Git，而这台 Mac 上没有可用的 Git。"
+
+#: src/overleaf-history.tsx
+#: src/versions-timeline.tsx
+msgid "Version label"
+msgstr "版本标签"
+
+#: src/overleaf-history.tsx
+msgid "Version named."
+msgstr "已为版本命名。"
+
+#: src/versions-timeline.tsx
+msgid "Version saved."
+msgstr "版本已保存。"
+
+#: src/history-drawer.tsx
+msgid "Versions"
+msgstr "版本"
+
+#: src/App.tsx
 msgid "View"
 msgstr "视图"
 
-#: src/document-canvas.tsx:3292
+#: src/document-canvas.tsx
 msgid "View original PDF"
 msgstr "查看原始 PDF"
 
-#: src/settings-dialog.tsx:618
+#: src/settings-dialog.tsx
 msgid "Vim and Emacs keep their modal bindings inside the editor only."
 msgstr "Vim 和 Emacs 的模式键位仅在编辑器内生效。"
 
-#: src/document-canvas.tsx:3477
+#: src/document-canvas.tsx
 msgid "Vim mode"
 msgstr "Vim 模式"
 
-#: src/tex-setup-wizard.tsx:35
+#: src/insert-snippets.ts
+msgid "Vmatrix"
+msgstr "行列式矩阵"
+
+#: src/tex-setup-wizard.tsx
 msgid "Waiting for administrator approval…"
 msgstr "正在等待管理员批准…"
 
-#: src/onboarding-tour.tsx:376
+#: src/overleaf-connect.tsx
+msgid "Waiting for you to sign in in the Overleaf window…"
+msgstr "正在等待你在 Overleaf 窗口中登录…"
+
+#: src/synara-loading-surface.tsx
+msgid "Warming the local service…"
+msgstr "正在启动本地服务…"
+
+#: src/app-log.tsx
+msgid "Warning"
+msgstr "警告"
+
+#: src/onboarding-tour.tsx
 msgid "We opened a real project for you — the “Attention Is All You Need” paper — so you can try each feature on real files as we go. Skip whenever you like."
 msgstr "我们为你打开了一个真实项目——“Attention Is All You Need”论文——你可以跟随教程在真实文件上体验各项功能。随时可以跳过。"
 
-#: src/onboarding-tour.tsx:375
+#: src/insert-snippets.ts
+msgid "Weierstrass p"
+msgstr "魏尔斯特拉斯 p"
+
+#: src/onboarding-tour.tsx
 msgid "Welcome to Lattice"
 msgstr "欢迎使用 Lattice"
 
-#: src/App.tsx:10334
+#: src/overleaf-connect.tsx
+msgid "When you delete a file here"
+msgstr "当你在这里删除文件时"
+
+#: src/App.tsx
 msgid "Words / pages / TODOs"
 msgstr "字数 / 页数 / 待办事项"
 
-#: src/project-dialogs.tsx:201
+#: src/insert-snippets.ts
+msgid "Words inside math mode"
+msgstr "数学模式中的词语"
+
+#: src/paper-import-progress.ts
+msgid "Working…"
+msgstr "正在处理…"
+
+#: src/project-dialogs.tsx
 msgid "Wrap in environment"
 msgstr "包裹在环境中"
 
-#: src/project-dialogs.tsx:208
+#: src/project-dialogs.tsx
 msgid "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
 msgstr "将当前选区（或空光标）包裹在 \\begin{…}/\\end{…} 中。"
 
-#: src/settings-dialog.tsx:744
+#: src/insert-snippets.ts
+msgid "Wreath product"
+msgstr "圈积"
+
+#: src/settings-dialog.tsx
 msgid "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence."
 msgstr "XeLaTeX 和 LuaLaTeX 支持系统字体。项目中的 latexmkrc 优先级更高。"
 
-#: src/collab-dialog.tsx:426
+#: src/insert-snippets.ts
+msgid "Xi"
+msgstr "克西"
+
+#: src/bib-entry-dialog.tsx
+msgid "Year"
+msgstr "年份"
+
+#: src/overleaf-history.tsx
+msgid "Yesterday"
+msgstr "昨天"
+
+#: src/collab-dialog.tsx
+#: src/history-drawer.tsx
 msgid "You"
 msgstr "你"
 
-#: src/collab-dialog.tsx:455
+#: src/collab-dialog.tsx
 msgid "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing."
 msgstr "你正在共享工作区中。“离开共享”会返回之前的项目；主持人会继续共享。"
 
-#: src/collab-dialog.tsx:465
+#: src/overleaf-connect.tsx
+msgid "You can close this once the download finishes"
+msgstr "下载完成后即可关闭此面板"
+
+#: src/collab-dialog.tsx
 msgid "You started this share. "
 msgstr "你发起了此共享。"
 
-#: src/settings-dialog.tsx:411
+#: src/settings-dialog.tsx
 msgid "You’ll be notified when a new version is ready"
 msgstr "新版本可用时会通知你"
 
-#: src/settings-dialog.tsx:408
+#: src/settings-dialog.tsx
 msgid "You’re on the latest version"
 msgstr "当前已是最新版本"
 
-#: src/onboarding-tour.tsx:487
+#: src/onboarding-tour.tsx
 msgid "Your .bib file, as a readable library"
 msgstr "将 .bib 文件作为易读的文献库"
 
-#: src/onboarding-tour.tsx:383
+#: src/onboarding-tour.tsx
 msgid "Your LaTeX and your PDF, side by side"
 msgstr "LaTeX 和 PDF 并排显示"
 
-#: src/collab-dialog.tsx:234
+#: src/collab-dialog.tsx
 msgid "Your name"
 msgstr "你的姓名"
 
-#: src/onboarding-tour.tsx:477
+#: src/overleaf-connect.tsx
+msgid "your Overleaf account"
+msgstr "你的 Overleaf 账户"
+
+#: src/overleaf-connect.tsx
+msgid "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
+msgstr "你还没有连接 Overleaf 账户。连接一次之后，你 Overleaf 账户下的所有项目都会显示在这里，随时可以在 Lattice 中打开。"
+
+#: src/onboarding-tour.tsx
 msgid "Your sources live in the project too"
 msgstr "你的来源也保存在项目中"
 
-#: src/document-canvas.tsx:4312
-#: src/pdf-viewer.tsx:1631
+#: src/insert-snippets.ts
+msgid "Zeta"
+msgstr "泽塔"
+
+#: src/App.tsx
+msgid "ZIP archive"
+msgstr "ZIP 压缩包"
+
+#: src/document-canvas.tsx
+#: src/pdf-viewer.tsx
 msgid "Zoom in"
 msgstr "放大"
 
-#: src/document-canvas.tsx:4280
-#: src/pdf-viewer.tsx:1605
+#: src/document-canvas.tsx
+#: src/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "缩小"

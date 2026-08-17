@@ -124,7 +124,7 @@ describe("VersionsTimeline", () => {
     });
     render(<VersionsTimeline />);
     expect(
-      await screen.findByText("Version history needs Git, which isn't available on this Mac."),
+      await screen.findByText("Version history needs Git, which isn’t available on this Mac."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Save version/ })).not.toBeInTheDocument();
   });

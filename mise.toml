@@ -1,0 +1,114 @@
+# Task orchestration for the repository gate.
+#
+# `pnpm check` used to run seven stages in series (~6 min) and re-ran every one
+# of them even when a change could not possibly affect them. The stages here are
+# the same commands, still defined once in package.json, but mise runs them in
+# parallel and skips any whose declared `sources` have not changed since the
+# last successful run.
+#
+# Rust stays on rustup: the Tauri targets, and the toolchain the release
+# workflow signs with, are managed there, and a second toolchain manager owning
+# the same `cargo` would only be a way to drift.
+
+[tools]
+node = "26.5.0"
+pnpm = "10.13.1"
+
+# Vitest, tsc, and cargo each saturate several cores on their own, so the four
+# heavy stages are already enough to fill a laptop. Raising this mostly makes
+# every stage slower.
+[settings]
+jobs = 4
+
+[tasks.i18n-check]
+description = "Extract catalogs, fail on drift, compile, and run the coverage guard"
+run = "pnpm i18n:check"
+# The catalogs are both an input and an output of this stage. Compiled `.js`
+# catalogs are generated, so they must not feed the freshness check.
+sources = [
+  "src/**/*.{ts,tsx}",
+  "!src/locales/**/*.js",
+  "lingui.config.ts",
+  "src/locales/**/*.po",
+  "scripts/check-i18n-coverage.mjs",
+  "scripts/i18n-unlocalized-baseline.txt",
+]
+
+[tasks.lint]
+description = "ESLint over src (the warning cap is a debt ratchet — lower it, never raise it)"
+run = "pnpm lint"
+sources = [
+  "src/**",
+  "!src/locales/**/*.js",
+  "eslint.config.js",
+  "tsconfig.json",
+  "package.json",
+  "pnpm-lock.yaml",
+]
+
+[tasks.test]
+description = "Vitest suite"
+run = "pnpm test"
+sources = [
+  "src/**",
+  "!src/locales/**/*.js",
+  "protocol/**",
+  "vitest.config.ts",
+  "tsconfig.json",
+  "package.json",
+  "pnpm-lock.yaml",
+]
+
+[tasks.build]
+description = "Typecheck and produce the production web bundle"
+run = "pnpm build"
+sources = [
+  "src/**",
+  "!src/locales/**/*.js",
+  "protocol/**",
+  "index.html",
+  "icon-lab.html",
+  "vite.config.ts",
+  "tsconfig.json",
+  "tsconfig.node.json",
+  "package.json",
+  "pnpm-lock.yaml",
+  "public/**",
+  # Copied out of pdfjs-dist by vite.config.ts on every build; an input that the
+  # build itself rewrites can never be fresh.
+  "!public/pdfjs/**",
+]
+outputs = ["dist"]
+
+[tasks.cargo-fmt]
+description = "rustfmt check (CI enforces this; it used to be missing from the local gate)"
+run = "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check"
+sources = ["src-tauri/**/*.rs", "!src-tauri/target/**"]
+
+[tasks.cargo-test]
+description = "Rust unit and integration tests"
+run = "cargo test --manifest-path src-tauri/Cargo.toml"
+sources = [
+  "src-tauri/**/*.rs",
+  "!src-tauri/target/**",
+  "src-tauri/Cargo.toml",
+  "src-tauri/Cargo.lock",
+  "src-tauri/tauri.conf.json",
+  "src-tauri/capabilities/**",
+]
+
+[tasks.clippy]
+description = "Clippy with warnings denied"
+run = "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings"
+sources = [
+  "src-tauri/**/*.rs",
+  "!src-tauri/target/**",
+  "src-tauri/Cargo.toml",
+  "src-tauri/Cargo.lock",
+  "src-tauri/tauri.conf.json",
+  "src-tauri/capabilities/**",
+]
+
+[tasks.check]
+description = "THE gate: everything CI runs, in parallel, skipping unchanged stages"
+depends = ["i18n-check", "lint", "test", "build", "cargo-fmt", "cargo-test", "clippy"]

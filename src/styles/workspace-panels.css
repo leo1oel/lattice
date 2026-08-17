@@ -5,6 +5,9 @@
 .project-history-scroll-viewport { padding: 0 var(--drawer-content-inset) var(--drawer-content-inset); }
 .drawer-resizer { position: absolute; z-index: 3; top: 0; bottom: 0; left: 0; height: auto; transform: translateX(-50%); }
 .drawer-resize-shield { position: fixed; z-index: 2; inset: 0; cursor: col-resize; }
+/* Kept under .drawer-resizer (z-index 3) so the drawer edge stays resizable
+   along its full height. `right` is written inline from the drawer width. */
+.drawer-window-drag-strip { position: absolute; z-index: 1; top: 0; left: 0; height: var(--titlebar-height); user-select: none; }
 body.resizing-panels .resizable-drawer { transition: none; }
 .insert-palette { width: min(640px, 100%); display: flex; flex-direction: column; overflow: hidden; }
 .insert-palette-scroll {

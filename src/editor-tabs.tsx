@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, memo } from 
 import { createPortal } from "react-dom";
 import { PanelLeft, PanelRight, Square, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useLingui } from "@lingui/react/macro";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -128,15 +129,16 @@ export function EditorDropPreviewPortal(props: {
   preferredZone?: "left" | "right";
   preferredLabel?: string;
 }) {
+  const { t } = useLingui();
   const reduceMotion = useReducedMotion();
   const preview = props.preview;
   if (!preview) return null;
   const targetGeometry = dropTargetGeometry(preview);
   const targetPresentation = preview.zone === "left"
-    ? { label: "Open on left", icon: PanelLeft }
+    ? { label: t`Open on left`, icon: PanelLeft }
     : preview.zone === "right"
-      ? { label: "Open on right", icon: PanelRight }
-      : { label: "Open here", icon: Square };
+      ? { label: t`Open on right`, icon: PanelRight }
+      : { label: t`Open here`, icon: Square };
   if (preview.zone === props.preferredZone && props.preferredLabel) {
     targetPresentation.label = props.preferredLabel;
   }

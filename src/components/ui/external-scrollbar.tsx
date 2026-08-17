@@ -11,6 +11,7 @@ import {
   EXTERNAL_SCROLLBAR_TRACK_INSET,
   type VerticalScrollGeometry,
 } from "./external-scrollbar-geometry";
+import "./scroll-area.css";
 
 type ExternalScrollbarProps = {
   getViewport: () => HTMLElement | null;
@@ -88,6 +89,8 @@ export function ExternalScrollbar({ getViewport }: ExternalScrollbarProps) {
         setScrolling(false);
       }, SCROLLING_HIDE_DELAY_MS);
     };
+    const markHovering = () => setHovering(true);
+    const clearHovering = () => setHovering(false);
 
     const attach = () => {
       if (cancelled) return;
@@ -99,10 +102,15 @@ export function ExternalScrollbar({ getViewport }: ExternalScrollbarProps) {
 
       viewportRef.current = viewport;
       viewport.addEventListener("scroll", markScrolling, { passive: true });
+      viewport.addEventListener("pointerenter", markHovering);
+      viewport.addEventListener("pointerleave", clearHovering);
       const root = viewport.getRootNode();
       if (typeof ResizeObserver !== "undefined") {
         resizeObserver = new ResizeObserver(scheduleMeasure);
         resizeObserver.observe(viewport);
+        for (const child of viewport.children) {
+          if (child instanceof HTMLElement) resizeObserver.observe(child);
+        }
         const content = viewport.querySelector<HTMLElement>("[data-file-tree-virtualized-list]");
         if (content) resizeObserver.observe(content);
         const surface = trackRef.current?.parentElement;
@@ -133,6 +141,8 @@ export function ExternalScrollbar({ getViewport }: ExternalScrollbarProps) {
         scrollingTimerRef.current = null;
       }
       viewport?.removeEventListener("scroll", markScrolling);
+      viewport?.removeEventListener("pointerenter", markHovering);
+      viewport?.removeEventListener("pointerleave", clearHovering);
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
       viewportRef.current = null;

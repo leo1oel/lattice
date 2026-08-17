@@ -75,11 +75,13 @@ pull request:
 ```bash
 pnpm vitest run src/path/to/file.test.ts
 pnpm check
-cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 ```
 
-`pnpm check` runs linting, frontend tests, the production web build, Rust tests,
-and Clippy with warnings denied. Changes under `collab-server/` should also run:
+`pnpm check` is `mise run check` and needs [mise](https://mise.jdx.dev). It runs
+the same stages as CI (i18n, lint, frontend tests, the production web build,
+rustfmt, Rust tests, and Clippy with warnings denied) in parallel, and skips
+any whose declared `sources` have not changed. Changes under `collab-server/`
+should also run:
 
 ```bash
 pnpm --dir collab-server typecheck

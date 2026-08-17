@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react";
-import { Tldraw, type Editor, type TLStore } from "tldraw";
+import { Tldraw, type Editor, type TLPageId, type TLStore } from "tldraw";
 import "tldraw/tldraw.css";
 import type * as Y from "yjs";
 import type { Awareness } from "y-protocols/awareness";
 import { createTldrawAgentCanvasAdapter } from "./agent-canvas-tldraw-adapter";
 import { registerAgentCanvasAdapter } from "./agent-canvas-tools";
+import type { BoardFileViewState } from "./app-types";
 import {
   attachBoardBridge,
   attachBoardPresence,
@@ -39,6 +40,9 @@ export type BoardEditorProps = {
   onFlushPendingChange?: (flush: (() => boolean) | null) => void;
   /** Only the focused board owns the global Agent canvas tool adapter. */
   active?: boolean;
+  /** Per-user camera state. It never enters the .tldr store or collaboration doc. */
+  initialViewState?: BoardFileViewState;
+  onViewState?: (state: BoardFileViewState) => void;
 };
 
 /**
@@ -66,17 +70,24 @@ export function BoardEditor({
   collab,
   onFlushPendingChange,
   active = true,
+  initialViewState,
+  onViewState,
 }: BoardEditorProps) {
   const { i18n } = useLingui();
   const tldrawLocale = i18n.locale === "zh-CN" ? "zh-cn" : "en";
   const onChangeRef = useRef(onChange);
   const editorRef = useRef<Editor | null>(null);
   const unregisterAgentAdapterRef = useRef<(() => void) | null>(null);
+  const disposeViewStateRef = useRef<(() => void) | null>(null);
+  const onViewStateRef = useRef(onViewState);
   const flushPendingChangeRef = useRef<() => void>(() => {});
   const canWriteRef = useRef(collab?.canWrite !== false);
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+  useLayoutEffect(() => {
+    onViewStateRef.current = onViewState;
+  }, [onViewState]);
   useLayoutEffect(() => {
     canWriteRef.current = collab?.canWrite !== false;
     editorRef.current?.updateInstanceState({ isReadonly: !canWriteRef.current });
@@ -86,6 +97,8 @@ export function BoardEditor({
   }, [tldrawLocale]);
   useLayoutEffect(() => () => {
     canWriteRef.current = false;
+    disposeViewStateRef.current?.();
+    disposeViewStateRef.current = null;
     unregisterAgentAdapterRef.current?.();
     unregisterAgentAdapterRef.current = null;
     editorRef.current = null;
@@ -187,11 +200,36 @@ export function BoardEditor({
           // Keep both aligned with Lattice instead of the browser language.
           editor.user.updateUserPreferences({ locale: tldrawLocale });
           editor.updateInstanceState({ isReadonly: !canWrite });
-          if (editor.getCurrentPageShapes().length > 0) {
+          const restoredPage = initialViewState
+            ? editor.getPage(initialViewState.pageId as TLPageId)
+            : undefined;
+          if (restoredPage && initialViewState) {
+            editor.setCurrentPage(restoredPage);
+            editor.setCamera(initialViewState.camera, { immediate: true });
+          } else if (editor.getCurrentPageShapes().length > 0) {
             window.requestAnimationFrame(() => {
               if (!editor.isDisposed) editor.zoomToFit({ immediate: true });
             });
           }
+          let viewFrame: number | null = null;
+          const reportViewState = () => {
+            viewFrame = null;
+            if (editor.isDisposed) return;
+            const camera = editor.getCamera();
+            onViewStateRef.current?.({
+              pageId: editor.getCurrentPageId(),
+              camera: { x: camera.x, y: camera.y, z: camera.z },
+            });
+          };
+          const unlistenViewState = editor.store.listen(() => {
+            if (viewFrame === null) viewFrame = window.requestAnimationFrame(reportViewState);
+          }, { source: "user", scope: "session" });
+          disposeViewStateRef.current?.();
+          disposeViewStateRef.current = () => {
+            if (viewFrame !== null) window.cancelAnimationFrame(viewFrame);
+            reportViewState();
+            unlistenViewState();
+          };
           unregisterAgentAdapterRef.current?.();
           unregisterAgentAdapterRef.current = active
             ? registerAgentCanvasAdapter(

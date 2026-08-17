@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react";
 import { invoke } from "@tauri-apps/api/core";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -37,6 +39,8 @@ import {
 import { BehaviorSubject } from "rxjs";
 import { logAction } from "./app-notify";
 import { confirmAction } from "./app-utils";
+import type { SpreadsheetFileViewState } from "./app-types";
+import { ExternalScrollbar } from "./components/ui/external-scrollbar";
 import { utf8ToBase64 } from "./pdf-bytes";
 import { registerAgentSpreadsheetDocument } from "./agent-spreadsheet-tools";
 import { a1Range, parseA1Range } from "./spreadsheet-operations";
@@ -61,6 +65,7 @@ const SPREADSHEET_AGENT_PRESENCE_FIELD = "spreadsheetAgentPresence";
 const SPREADSHEET_SOURCE = "Spreadsheet";
 const SPREADSHEET_FORMULAS_MENU_ID = "lattice.spreadsheet.formulas";
 const SPREADSHEET_EXPORT_MENU_ID = "lattice.spreadsheet.export-xlsx";
+const SPREADSHEET_FUNCTIONS_PANEL_SELECTOR = '[data-u-comp="sheets-formula-functions-panel"]';
 const SPREADSHEET_FORMULA_SURFACE_LIGHT = "#FAFAFA";
 const SPREADSHEET_CHROME_SURFACE_LIGHT = "#F4F4F5";
 const SPREADSHEET_CHROME_SURFACE_DARK = "#18181A";
@@ -107,6 +112,28 @@ type SpreadsheetAppearance = {
 };
 
 type UniverTheme = ReturnType<ThemeService["getCurrentTheme"]>;
+type TranslateMessage = (message: MessageDescriptor) => string;
+
+const SPREADSHEET_CONFIRM_MESSAGES = {
+  deleteWorksheetTitle: msg`Delete worksheet?`,
+  deleteWorksheet: msg`The worksheet and all of its contents will be removed.`,
+  deleteWorksheetPermanently: msg`The worksheet and all of its contents will be removed and cannot be recovered.`,
+  continueTitle: msg`Continue?`,
+  continueMessage: msg`Please confirm that you want to continue.`,
+  delete: msg`Delete`,
+  continue: msg`Continue`,
+  cancel: msg`Cancel`,
+};
+const SPREADSHEET_EXPORT_MESSAGES = {
+  menuLabel: msg`Export Excel`,
+  dialogTitle: msg`Export Excel workbook`,
+  fileType: msg`Excel workbook`,
+};
+const SPREADSHEET_FORMULA_MESSAGES = {
+  menuLabel: msg`Formulas`,
+  tooltip: msg`Insert a formula`,
+  allFunctions: msg`All Functions…`,
+};
 
 function confirmLabelText(value: unknown): string | undefined {
   if (typeof value === "string") return value;
@@ -128,6 +155,11 @@ class LatticeSpreadsheetConfirmService implements IConfirmService<IConfirmPartMe
   readonly confirmOptions$ = new BehaviorSubject<IConfirmPartMethodOptions[]>([]);
   private readonly openRequests = new Map<string, symbol>();
 
+  constructor(
+    private readonly translate: TranslateMessage,
+    private readonly locale: "en" | "zh-CN",
+  ) {}
+
   open(params: IConfirmPartMethodOptions): IDisposable {
     const request = Symbol(params.id);
     this.openRequests.set(params.id, request);
@@ -148,17 +180,23 @@ class LatticeSpreadsheetConfirmService implements IConfirmService<IConfirmPartMe
     const title = confirmLabelText(params.title);
     const description = confirmLabelText(params.children);
     const removeSheet = params.id === "sheet.confirm.remove-sheet";
-    const irreversibleSheetRemoval = removeSheet && description?.includes("not be retrieved after deletion");
+    const irreversibleSheetRemoval = removeSheet && (this.locale === "zh-CN"
+      ? description?.includes("删除后将不可找回")
+      : description?.includes("not be retrieved after deletion"));
     const destructive = removeSheet || /\b(delete|remove|discard|overwrite)\b/i.test(`${title ?? ""} ${description ?? ""}`);
     return confirmAction({
-      title: removeSheet ? "Delete worksheet?" : title ?? "Continue?",
+      title: removeSheet
+        ? this.translate(SPREADSHEET_CONFIRM_MESSAGES.deleteWorksheetTitle)
+        : title ?? this.translate(SPREADSHEET_CONFIRM_MESSAGES.continueTitle),
       message: removeSheet
         ? irreversibleSheetRemoval
-          ? "The worksheet and all of its contents will be removed and cannot be recovered."
-          : "The worksheet and all of its contents will be removed."
-        : description ?? "Please confirm that you want to continue.",
-      confirmLabel: removeSheet ? "Delete" : confirmLabelText(params.confirmText) ?? "Continue",
-      cancelLabel: confirmLabelText(params.cancelText) ?? "Cancel",
+          ? this.translate(SPREADSHEET_CONFIRM_MESSAGES.deleteWorksheetPermanently)
+          : this.translate(SPREADSHEET_CONFIRM_MESSAGES.deleteWorksheet)
+        : description ?? this.translate(SPREADSHEET_CONFIRM_MESSAGES.continueMessage),
+      confirmLabel: removeSheet
+        ? this.translate(SPREADSHEET_CONFIRM_MESSAGES.delete)
+        : confirmLabelText(params.confirmText) ?? this.translate(SPREADSHEET_CONFIRM_MESSAGES.continue),
+      cancelLabel: confirmLabelText(params.cancelText) ?? this.translate(SPREADSHEET_CONFIRM_MESSAGES.cancel),
       destructive,
     });
   }
@@ -189,6 +227,8 @@ export type SpreadsheetEditorProps = {
   collab?: SpreadsheetCollabBinding | null;
   onFlushPendingChange?: (flush: (() => boolean) | null) => void;
   active?: boolean;
+  initialViewState?: SpreadsheetFileViewState;
+  onViewState?: (state: SpreadsheetFileViewState) => void;
 };
 
 type SpreadsheetEditorSurfaceProps = SpreadsheetEditorProps & {
@@ -474,6 +514,7 @@ function createSpreadsheetUniver(
   container: HTMLElement,
   appearance: SpreadsheetAppearance,
   locale: "en" | "zh-CN",
+  translate: TranslateMessage,
   onExportExcel: () => void,
 ): { univer: Univer; univerAPI: FUniver; baseTheme: UniverTheme } {
   const univerLocale = locale === "zh-CN" ? LocaleType.ZH_CN : LocaleType.EN_US;
@@ -497,7 +538,10 @@ function createSpreadsheetUniver(
     menu: SPREADSHEET_MENU_CONFIG,
     sheets: { scrollConfig: spreadsheetScrollConfig(appearance) },
   });
-  const confirmService = new LatticeSpreadsheetConfirmService();
+  const confirmService = new LatticeSpreadsheetConfirmService(
+    translate,
+    locale,
+  );
   for (const entry of preset.plugins) {
     const [plugin, options] = Array.isArray(entry)
       ? entry
@@ -518,8 +562,8 @@ function createSpreadsheetUniver(
         menuItemFactory: () => ({
           id: SPREADSHEET_FORMULAS_MENU_ID,
           commandId: "formula-ui.operation.insert-function",
-          title: "Formulas",
-          tooltip: "Insert a formula",
+          title: translate(SPREADSHEET_FORMULA_MESSAGES.menuLabel),
+          tooltip: translate(SPREADSHEET_FORMULA_MESSAGES.tooltip),
           icon: "FunctionIcon",
           type: MenuItemType.SELECTOR,
           selections: COMMON_SPREADSHEET_FORMULAS.map((formula) => ({
@@ -531,7 +575,7 @@ function createSpreadsheetUniver(
           order: 0,
           menuItemFactory: () => ({
             id: "formula-ui.operation.more-functions",
-            title: "All Functions…",
+            title: translate(SPREADSHEET_FORMULA_MESSAGES.allFunctions),
             type: MenuItemType.BUTTON,
           }),
         },
@@ -539,14 +583,15 @@ function createSpreadsheetUniver(
     },
   });
   const univerAPI = FUniver.newAPI(univer);
+  const exportExcelLabel = translate(SPREADSHEET_EXPORT_MESSAGES.menuLabel);
   univerAPI.createMenu({
     id: SPREADSHEET_EXPORT_MENU_ID,
-    title: "Export Excel",
-    tooltip: "Export Excel",
+    title: exportExcelLabel,
+    tooltip: exportExcelLabel,
     icon: "ExportIcon",
     action: onExportExcel,
-    order: -1,
-  }).appendTo("ribbon.start.layout");
+    order: Number.MAX_SAFE_INTEGER,
+  }).appendTo("ribbon.start.others");
   return { univer, univerAPI, baseTheme };
 }
 
@@ -566,28 +611,47 @@ function withSheetViewState(
   return output;
 }
 
+function withStoredSheetViewState(
+  snapshot: SpreadsheetWorkbookData,
+  state: SpreadsheetFileViewState | undefined,
+): SpreadsheetWorkbookData {
+  if (!state) return snapshot;
+  const output = clone(snapshot);
+  for (const [sheetId, view] of Object.entries(state.sheets)) {
+    const sheet = output.sheets[sheetId];
+    if (!sheet) continue;
+    sheet.zoomRatio = view.zoomRatio;
+    sheet.scrollTop = view.scrollTop;
+    sheet.scrollLeft = view.scrollLeft;
+  }
+  return output;
+}
+
 function structureFingerprint(workbook: SpreadsheetWorkbookData): string {
   const copy = clone(workbook);
   for (const sheet of Object.values(copy.sheets)) sheet.cellData = {};
   return JSON.stringify(copy);
 }
 
-type WorkbookViewState = {
-  activeSheetId: string;
-  activeRange?: string;
-  activeCell?: string;
-};
-
-function workbookViewState(workbook: FWorkbook): WorkbookViewState {
+function workbookViewState(workbook: FWorkbook): SpreadsheetFileViewState {
   const activeSheet = workbook.getActiveSheet();
+  const snapshot = asWorkbookData(workbook.save());
   return {
     activeSheetId: activeSheet.getSheetId(),
     activeRange: activeSheet.getActiveRange()?.getA1Notation(),
     activeCell: activeSheet.getActiveCell()?.getA1Notation(),
+    sheets: Object.fromEntries(snapshot.sheetOrder.map((sheetId) => {
+      const sheet = snapshot.sheets[sheetId];
+      return [sheetId, {
+        zoomRatio: sheet.zoomRatio,
+        scrollTop: sheet.scrollTop,
+        scrollLeft: sheet.scrollLeft,
+      }];
+    })),
   };
 }
 
-function restoreWorkbookViewState(workbook: FWorkbook, state: WorkbookViewState): void {
+function restoreWorkbookViewState(workbook: FWorkbook, state: SpreadsheetFileViewState): void {
   const sheet = workbook.getSheetBySheetId(state.activeSheetId);
   if (!sheet) return;
   try {
@@ -842,6 +906,8 @@ function SpreadsheetEditorSurface({
   collab,
   onFlushPendingChange,
   active = true,
+  initialViewState,
+  onViewState,
   doc,
   localDoc,
 }: SpreadsheetEditorSurfaceProps) {
@@ -852,6 +918,8 @@ function SpreadsheetEditorSurface({
   const workbookRef = useRef<FWorkbook | null>(null);
   const onChangeRef = useRef(onChange);
   const onPersistRef = useRef(onPersist);
+  const onViewStateRef = useRef(onViewState);
+  const initialViewStateRef = useRef(initialViewState);
   const canWriteRef = useRef(collab?.canWrite !== false);
   const collabCommitRef = useRef(collab?.commit);
   const exportingRef = useRef(false);
@@ -860,6 +928,19 @@ function SpreadsheetEditorSurface({
   const flushRef = useRef<() => void>(() => {});
   const [remotePresence, setRemotePresence] = useState<RemotePresence[]>([]);
   const [overlayTick, setOverlayTick] = useState(0);
+  const [functionsPanelOpen, setFunctionsPanelOpen] = useState(false);
+  const getSidebarScrollViewport = useCallback(
+    () => containerRef.current?.querySelector<HTMLElement>(
+      '[data-u-comp="sidebar"] > section',
+    ) ?? null,
+    [],
+  );
+  const getFunctionsScrollViewport = useCallback(
+    () => containerRef.current?.querySelector<HTMLElement>(
+      `${SPREADSHEET_FUNCTIONS_PANEL_SELECTOR} ul.univer-overflow-y-auto`,
+    ) ?? null,
+    [],
+  );
   const setWorkbookPermission = useCallback((workbook: FWorkbook, canWrite: boolean) => {
     const host = containerRef.current;
     const generation = ++permissionGenerationRef.current;
@@ -875,6 +956,7 @@ function SpreadsheetEditorSurface({
 
   useLayoutEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useLayoutEffect(() => { onPersistRef.current = onPersist; }, [onPersist]);
+  useLayoutEffect(() => { onViewStateRef.current = onViewState; }, [onViewState]);
   useLayoutEffect(() => { collabCommitRef.current = collab?.commit; }, [collab?.commit]);
   useLayoutEffect(() => {
     exportExcelRef.current = () => {
@@ -886,9 +968,12 @@ function SpreadsheetEditorSurface({
       void (async () => {
         try {
           const destination = await saveDialog({
-            title: "Export Excel workbook",
+            title: i18n._(SPREADSHEET_EXPORT_MESSAGES.dialogTitle),
             defaultPath: fileName,
-            filters: [{ name: "Excel workbook", extensions: ["xlsx"] }],
+            filters: [{
+              name: i18n._(SPREADSHEET_EXPORT_MESSAGES.fileType),
+              extensions: ["xlsx"],
+            }],
           });
           if (!destination) return;
           const snapshot = commandSnapshot(workbook, spreadsheetSnapshotFromDoc(doc));
@@ -906,12 +991,24 @@ function SpreadsheetEditorSurface({
       })();
     };
     return () => { exportExcelRef.current = () => {}; };
-  }, [doc, path]);
+  }, [doc, i18n, path]);
   useLayoutEffect(() => {
     canWriteRef.current = collab?.canWrite !== false;
     const workbook = workbookRef.current;
     if (workbook) setWorkbookPermission(workbook, canWriteRef.current);
   }, [collab?.canWrite, setWorkbookPermission]);
+
+  useEffect(() => {
+    const host = containerRef.current;
+    if (!host) return;
+    const syncFunctionsPanel = () => {
+      setFunctionsPanelOpen(Boolean(host.querySelector(SPREADSHEET_FUNCTIONS_PANEL_SELECTOR)));
+    };
+    const observer = new MutationObserver(syncFunctionsPanel);
+    observer.observe(host, { childList: true, subtree: true });
+    syncFunctionsPanel();
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (collab?.doc || !localDoc) return;
@@ -929,6 +1026,7 @@ function SpreadsheetEditorSurface({
       containerRef.current,
       currentAppearance,
       interfaceLocale,
+      (message) => i18n._(message),
       () => exportExcelRef.current(),
     );
     const renderManager = univer.__getInjector().get(IRenderManagerService);
@@ -952,8 +1050,12 @@ function SpreadsheetEditorSurface({
       apply();
     };
     let workbook = univerAPI.createWorkbook(
-      withSpreadsheetAppearance(initialSnapshot, currentAppearance) as unknown as IWorkbookData,
+      withSpreadsheetAppearance(
+        withStoredSheetViewState(initialSnapshot, initialViewStateRef.current),
+        currentAppearance,
+      ) as unknown as IWorkbookData,
     );
+    if (initialViewStateRef.current) restoreWorkbookViewState(workbook, initialViewStateRef.current);
     scheduleRenderAppearance(workbook.getId());
     const renderCreatedSubscription = renderManager.created$.subscribe((render) => {
       if (render.unitId === workbook.getId() || render.unitId === DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY) {
@@ -967,6 +1069,15 @@ function SpreadsheetEditorSurface({
     let applyingRemote = false;
     let localSyncQueued = false;
     let remoteSyncQueued = false;
+    let viewStateFrame: number | null = null;
+    const reportViewState = () => {
+      viewStateFrame = null;
+      if (disposed) return;
+      onViewStateRef.current?.(workbookViewState(workbook));
+    };
+    const scheduleViewState = () => {
+      if (viewStateFrame === null) viewStateFrame = requestAnimationFrame(reportViewState);
+    };
 
     const replaceWorkbook = (next: SpreadsheetWorkbookData) => {
       applyingRemote = true;
@@ -1069,6 +1180,7 @@ function SpreadsheetEditorSurface({
     doc.on("afterTransaction", onTransaction);
 
     const commandListener = univerAPI.onCommandExecuted(() => {
+      scheduleViewState();
       if (applyingRemote || localSyncQueued || !canWriteRef.current) return;
       localSyncQueued = true;
       queueMicrotask(() => {
@@ -1091,11 +1203,15 @@ function SpreadsheetEditorSurface({
       : undefined;
     const selectionRefresh = univerAPI.addEvent(univerAPI.Event.SelectionChanged, () => {
       setOverlayTick((tick) => tick + 1);
+      scheduleViewState();
     });
     const activeSheetRefresh = univerAPI.addEvent(univerAPI.Event.ActiveSheetChanged, () => {
       setOverlayTick((tick) => tick + 1);
+      scheduleViewState();
     });
     return () => {
+      if (viewStateFrame !== null) cancelAnimationFrame(viewStateFrame);
+      onViewStateRef.current?.(workbookViewState(workbook));
       disposed = true;
       permissionGenerationRef.current += 1;
       disposePresence?.();
@@ -1110,7 +1226,7 @@ function SpreadsheetEditorSurface({
       workbookRef.current = null;
       univer.dispose();
     };
-  }, [collab?.awareness, collab?.user, doc, interfaceLocale, path, setWorkbookPermission]);
+  }, [collab?.awareness, collab?.user, doc, i18n, interfaceLocale, path, setWorkbookPermission]);
 
   useLayoutEffect(() => {
     return registerAgentSpreadsheetDocument(path, {
@@ -1221,6 +1337,12 @@ function SpreadsheetEditorSurface({
   return (
     <div className="spreadsheet-editor-root" data-tour="spreadsheet-workspace">
       <div ref={containerRef} className="spreadsheet-univer-host" />
+      <ExternalScrollbar getViewport={getSidebarScrollViewport} />
+      {functionsPanelOpen && (
+        <div className="spreadsheet-functions-scrollbar-surface">
+          <ExternalScrollbar getViewport={getFunctionsScrollViewport} />
+        </div>
+      )}
     </div>
   );
 }

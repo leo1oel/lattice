@@ -21,7 +21,12 @@ export default defineConfig({
   test: {
     // collab-server has its own vitest config using the Cloudflare Workers
     // pool; its tests cannot run under this runner (`cloudflare:` imports).
-    exclude: ["**/node_modules/**", "collab-server/**"],
+    //
+    // `.tmp/` is the scratch directory for throwaway builds and debug dumps. A
+    // checkout staged in there brings its own test suite, and vitest's default
+    // glob happily collected hundreds of foreign tests that fail under this
+    // config — enough to make `pnpm check` unusable.
+    exclude: ["**/node_modules/**", "collab-server/**", ".tmp/**"],
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
     // Room for the slowest test to finish on a loaded machine rather than a

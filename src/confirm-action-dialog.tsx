@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { CircleAlert, Trash2 } from "lucide-react";
 import {
   registerConfirmActionHandler,
@@ -27,7 +28,16 @@ function firstQuestion(message: string): { title: string | null; description: st
   return { title, description };
 }
 
-function confirmationCopy(options: ConfirmActionOptions): {
+function confirmationCopy(options: ConfirmActionOptions, defaults: {
+  deleteTitle: string;
+  continueTitle: string;
+  deleteLabel: string;
+  removeLabel: string;
+  restoreLabel: string;
+  continueLabel: string;
+  destructiveDescription: string;
+  continueDescription: string;
+}): {
   title: string;
   description: string;
   confirmLabel: string;
@@ -36,28 +46,29 @@ function confirmationCopy(options: ConfirmActionOptions): {
   const split = firstQuestion(options.message.trim());
   const title = options.title
     ?? split.title
-    ?? (/^\s*(delete|remove)\b/i.test(options.message) ? "Delete this item?" : "Continue?");
+    ?? (/^\s*(delete|remove)\b/i.test(options.message) ? defaults.deleteTitle : defaults.continueTitle);
   const destructive = options.destructive
     ?? /\b(delete|remove|discard|overwrite|cannot be undone)\b/i.test(options.message);
   const confirmLabel = options.confirmLabel
     ?? (/^delete\b/i.test(title)
-      ? "Delete"
+      ? defaults.deleteLabel
       : /^remove\b/i.test(title)
-        ? "Remove"
+        ? defaults.removeLabel
         : /^restore\b/i.test(title)
-          ? "Restore"
-          : "Continue");
+          ? defaults.restoreLabel
+          : defaults.continueLabel);
   let description = split.description;
   if (!description && options.message !== title) description = options.message;
   if (!description) {
     description = destructive
-      ? "This action cannot be undone."
-      : "Please confirm that you want to continue.";
+      ? defaults.destructiveDescription
+      : defaults.continueDescription;
   }
   return { title, description, confirmLabel, destructive };
 }
 
 export function ConfirmActionProvider({ children }: { children: ReactNode }) {
+  const { t } = useLingui();
   const descriptionId = useId();
   const [queue, setQueue] = useState<PendingConfirmation[]>([]);
   const current = queue[0] ?? null;
@@ -77,7 +88,16 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
     ));
   }, [current]);
 
-  const copy = current ? confirmationCopy(current.options) : null;
+  const copy = current ? confirmationCopy(current.options, {
+    deleteTitle: t`Delete this item?`,
+    continueTitle: t`Continue?`,
+    deleteLabel: t`Delete`,
+    removeLabel: t`Remove`,
+    restoreLabel: t`Restore`,
+    continueLabel: t`Continue`,
+    destructiveDescription: t`This action cannot be undone.`,
+    continueDescription: t`Please confirm that you want to continue.`,
+  }) : null;
 
   return (
     <>
@@ -101,7 +121,7 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
             <p id={descriptionId}>{copy.description}</p>
             <div className="modal-actions">
               <Button autoFocus variant="ghost" onClick={() => settle("cancel")}>
-                {current.options.cancelLabel ?? "Cancel"}
+                {current.options.cancelLabel ?? t`Cancel`}
               </Button>
               {current.options.alternativeLabel && (
                 current.options.alternativeDestructive ? (

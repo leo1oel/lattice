@@ -1,4 +1,6 @@
 import {
+  CheckCircle2,
+  CircleX,
   Settings,
 } from "lucide-react";
 import {
@@ -12,7 +14,6 @@ import {
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { CopyButton } from "./components/copy-button";
 import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -21,7 +22,6 @@ import {
   ReloadButton,
   ReloadIconButton,
 } from "./components/ui/activity-icons";
-import { buttonClassName } from "./components/ui/button-styles";
 import {
   Select,
   SelectContent,
@@ -38,6 +38,7 @@ import { useUpdater, type UpdateMode } from "./app-updater";
 import {
   MAX_OPEN_TABS,
   type Theme,
+  type ThemePreference,
   type InterfaceLanguage,
   type AutoBuildMode,
   type BuildPreferences,
@@ -67,7 +68,6 @@ import { InlineMessage } from "./components/ui/inline-message";
 import type { LocalSemanticSearchStatus } from "./project-semantic-search";
 import {
   applySynaraSettingsHeight,
-  isSettingsViewportNearBottom,
   normalizeSynaraSettingsHeight,
   scrollSynaraSettingsViewportBy,
 } from "./synara-settings-layout";
@@ -109,7 +109,8 @@ export function SettingsDialog(props: {
   localSemanticSearchStatus: LocalSemanticSearchStatus;
   onLocalSemanticSearchEnabledChange: (enabled: boolean) => void;
   theme: Theme;
-  setTheme: (theme: Theme) => void;
+  themePreference: ThemePreference;
+  setThemePreference: (preference: ThemePreference) => void;
   buildPreferences: BuildPreferences;
   setBuildPreferences: (preferences: BuildPreferences) => void;
   hasProject: boolean;
@@ -124,7 +125,6 @@ export function SettingsDialog(props: {
   doctorNotice: string;
   onRunDoctor: () => void;
   onOpenTexSetup: () => void;
-  onCopyDoctorSummary: () => void;
   onCleanProject: () => void;
   cleaning: boolean;
   building: boolean;
@@ -167,7 +167,6 @@ export function SettingsDialog(props: {
   const settingsViewportRef = useRef<HTMLDivElement>(null);
   const synaraSettingsHeightsRef = useRef<Record<string, number>>({});
   const synaraSettingsFrameHeightRef = useRef(470);
-  const settingsBottomPinFrameRef = useRef<number | null>(null);
   const settingsTopResetFrameRef = useRef<number | null>(null);
   const [synaraSettingsFrameHeight, setSynaraSettingsFrameHeight] = useState(470);
   const [readySynaraSettingsUrl, setReadySynaraSettingsUrl] = useState<string | null>(null);
@@ -237,6 +236,9 @@ export function SettingsDialog(props: {
       active: Boolean(synaraSettingsSection),
     });
     setSynaraSettingsFrameHeight(nextHeight);
+    // Every tab shares this viewport. The nested Logs scroller can chain a
+    // wheel gesture into it at the end of the log, so each tab change must
+    // reset the page viewport without touching the log viewport itself.
     const viewport = settingsViewportRef.current;
     if (viewport) {
       viewport.scrollTop = 0;
@@ -262,14 +264,12 @@ export function SettingsDialog(props: {
     };
   }, [
     postSynaraSettingsSection,
+    props.tab,
     synaraSettingsHeightKey,
     synaraSettingsSection,
   ]);
   useEffect(
     () => () => {
-      if (settingsBottomPinFrameRef.current !== null) {
-        window.cancelAnimationFrame(settingsBottomPinFrameRef.current);
-      }
       if (settingsTopResetFrameRef.current !== null) {
         window.cancelAnimationFrame(settingsTopResetFrameRef.current);
       }
@@ -296,13 +296,6 @@ export function SettingsDialog(props: {
         const heightKey = `${synaraSettingsUrl}#${event.data.section}`;
         synaraSettingsHeightsRef.current[heightKey] = height;
         if (heightKey === synaraSettingsHeightKey) {
-          const previousHeight = synaraSettingsFrameHeightRef.current;
-          const viewport = settingsViewportRef.current;
-          const keepPinnedToBottom = Boolean(
-            viewport &&
-            height > previousHeight &&
-            isSettingsViewportNearBottom(viewport),
-          );
           synaraSettingsFrameHeightRef.current = height;
           // Height and wheel messages from the iframe are ordered, but a React
           // state update is not committed before the following wheel message.
@@ -314,18 +307,6 @@ export function SettingsDialog(props: {
             active: true,
           });
           setSynaraSettingsFrameHeight(height);
-          if (keepPinnedToBottom) {
-            if (settingsBottomPinFrameRef.current !== null) {
-              window.cancelAnimationFrame(settingsBottomPinFrameRef.current);
-            }
-            settingsBottomPinFrameRef.current = window.requestAnimationFrame(() => {
-              settingsBottomPinFrameRef.current = null;
-              const currentViewport = settingsViewportRef.current;
-              if (currentViewport) {
-                currentViewport.scrollTop = currentViewport.scrollHeight;
-              }
-            });
-          }
         }
         return;
       }
@@ -414,16 +395,20 @@ export function SettingsDialog(props: {
     : updater.mode === "auto"
       ? t`Lattice checks in the background and installs updates on its own.`
       : t`Lattice checks in the background; you decide when to install.`;
-  const semanticSearchPrivacy = t`Apple’s built-in English sentence model runs on-device; source text never leaves this Mac and no model is downloaded.`;
+  // The row description has to hold one line at the settings content width, so
+  // the full pitch (Apple's model, nothing downloaded) rides the off state —
+  // where the switch is still being weighed — and every state that also reports
+  // index progress carries the short form of the same promise.
+  const semanticSearchPrivacy = t`Runs on-device; no text leaves this Mac.`;
   const semanticSearchDetail = (() => {
     const status = props.localSemanticSearchStatus;
     if (!props.localSemanticSearchEnabled) {
-      return t`Off by default. ${semanticSearchPrivacy}`;
+      return t`Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded.`;
     }
     if (status.state === "indexing") {
       return status.totalChunks
-        ? t`Indexing ${status.totalChunks} prose blocks in the background. ${semanticSearchPrivacy}`
-        : t`Starting the background index. ${semanticSearchPrivacy}`;
+        ? t`Indexing ${status.totalChunks} prose blocks. ${semanticSearchPrivacy}`
+        : t`Starting the index. ${semanticSearchPrivacy}`;
     }
     if (status.state === "ready") {
       return status.indexedFiles === 1
@@ -572,9 +557,13 @@ export function SettingsDialog(props: {
                     label={t`Color theme`}
                     description={t`Choose the theme for Lattice on this device.`}
                   >
-                    <Select value={props.theme} onValueChange={(value) => props.setTheme(value as Theme)}>
+                    <Select
+                      value={props.themePreference}
+                      onValueChange={(value) => props.setThemePreference(value as ThemePreference)}
+                    >
                       <SelectTrigger size="form" aria-label={t`Color theme`}><SelectValue /></SelectTrigger>
                       <SelectContent data-settings-control="true" position="popper" align="end">
+                        <SelectItem value="system">{t`Follow system (default)`}</SelectItem>
                         <SelectItem value="light">{t`Light`}</SelectItem>
                         <SelectItem value="dark">{t`Dark`}</SelectItem>
                       </SelectContent>
@@ -807,7 +796,7 @@ export function SettingsDialog(props: {
               <div className="settings-section">
                 <SettingsSectionHeader
                   title={t`TeX doctor`}
-                  description={t`Checks local LaTeX tools, SyncTeX, bibliography processors, editor helpers, and conference fonts.`}
+                  description={t`Checks the tools Lattice needs to compile LaTeX.`}
                   actions={(
                     <ReloadIconButton
                       label={t`Run TeX doctor`}
@@ -826,19 +815,24 @@ export function SettingsDialog(props: {
                       <ul className="doctor-checklist">
                         {props.doctorReport.checks.map((check) => (
                           <li key={check.name} className={check.ok ? "ok" : "bad"}>
+                            {check.ok
+                              ? <CheckCircle2 aria-hidden="true" />
+                              : <CircleX aria-hidden="true" />}
                             <strong>{check.name}</strong>
-                            <span>{check.detail}</span>
+                            <span className="doctor-check-result">
+                              {check.ok ? t`Ready to compile` : t`Unavailable`}
+                            </span>
+                            {!check.ok && <span className="doctor-check-detail">{check.detail}</span>}
                           </li>
                         ))}
                       </ul>
-                      <div className="settings-api-actions">
-                        <Button onClick={props.onOpenTexSetup}>
-                          {t`Install required tools`}
-                        </Button>
-                        <CopyButton className={buttonClassName()} onCopy={props.onCopyDoctorSummary} title={t`Copy summary`}>
-                          {t`Copy summary`}
-                        </CopyButton>
-                      </div>
+                      {!props.doctorReport.ok && (
+                        <div className="settings-api-actions">
+                          <Button disabled={props.doctorBusy} onClick={props.onOpenTexSetup}>
+                            {t`Install required tools`}
+                          </Button>
+                        </div>
+                      )}
                     </>
                   )}
                   {!props.doctorReport && !props.doctorBusy && (
@@ -854,14 +848,6 @@ export function SettingsDialog(props: {
                         </Button>
                       </div>
                     </>
-                  )}
-                  {props.doctorBusy && (
-                    <EmptyState
-                      align="start"
-                      density="compact"
-                      icon={<InfinityLoader size={15} />}
-                      description={t`Checking local tools…`}
-                    />
                   )}
                   {props.doctorNotice && <InlineMessage level="error" className="settings-inline">{props.doctorNotice}</InlineMessage>}
                 </SettingsGroup>
