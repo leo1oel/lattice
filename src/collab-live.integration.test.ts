@@ -103,6 +103,7 @@ describe.skipIf(!live)("live collaboration against the local sync server", () =>
     const guestStore = new MemoryCollabCredentialStore();
     let hostPeers: CollabPeer[] = [];
     let guestPeers: CollabPeer[] = [];
+    let guestPermanentError: Error | undefined;
 
     // --- host: import the project and start sharing -----------------------
     let record!: { projectInstanceId: string; credentialRef: string };
@@ -145,6 +146,7 @@ describe.skipIf(!live)("live collaboration against the local sync server", () =>
       store: memoryStore(),
       eventsPollIntervalMs: 400,
       onPeers: (peers) => { guestPeers = peers; },
+      onPermanentError: (error) => { guestPermanentError = error; },
     });
 
     const written: Record<string, string> = {};
@@ -181,6 +183,13 @@ describe.skipIf(!live)("live collaboration against the local sync server", () =>
     guest.setActivePath("main.tex").insert(0, "% guest edit\n");
     await settle(1200);
     expect(host.setActivePath("main.tex").toString()).toContain("% guest edit");
+
+    // Ending the room fences every open text socket. The guest must receive
+    // the permanent reason immediately rather than waiting for catalog polling.
+    await host.close();
+    for (let i = 0; i < 40 && !guestPermanentError; i++) await settle(250);
+    expect(guestPermanentError).toMatchObject({ code: "project_closed" });
+    expect(guest.canWrite).toBe(false);
 
     guest.destroy();
     host.destroy();

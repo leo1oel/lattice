@@ -308,6 +308,8 @@ describe("v2 project presence", () => {
     boardPaths?: string[];
     spreadsheetPaths?: string[];
     presenceTable?: Record<string, unknown>;
+    participantId?: string;
+    permanentErrors?: Error[];
     syncManually?: boolean;
     /** Seed the durable store (e.g. a server-acked snapshot) before the controller starts. */
     primeStore?: (store: import("./collab-text-v2-store").CollabTextDurableStoreV2) => Promise<void>;
@@ -368,18 +370,32 @@ describe("v2 project presence", () => {
       },
       eventsPollIntervalMs: 5,
       displayName: "Ada",
+      participantId: options.participantId,
       onPeers: (peers) => peersCalls.push(peers),
+      onPermanentError: (error) => options.permanentErrors?.push(error),
     });
     return { controller, presenceCalls, peersCalls, awarenesses, store, catalogValue, syncedListeners, disconnectListeners };
   }
 
   it("announces identity and path on awareness, merges cross-file presence, and leaves on destroy", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000001");
+    const participantId = "comment-author-ada";
     const { controller, presenceCalls, peersCalls } = await setupPresenceTest({
+      participantId,
       presenceTable: { "other-instance": { name: "Bo", color: "#123456", path: "notes.md", updatedAt: 1, grantId: "grant-bo" } },
     });
     await controller.openPath("paper.md");
-    const local = controller.provider.awareness.getLocalState() as { user?: { name?: string }; path?: string; instanceId?: string };
+    const local = controller.provider.awareness.getLocalState() as { user?: { name?: string; color?: string }; path?: string; instanceId?: string };
+    const { peerColorForKey } = await import("./collab-colors");
     expect(local.user?.name).toBe("Ada");
+    expect(local.user?.color).toBe(peerColorForKey(participantId).color);
+    expect(controller.boardPresenceUser.color).toBe(local.user?.color);
+    const { commentMarkStyle, createEditorComment } = await import("./editor-comments");
+    const comment = createEditorComment({
+      path: "paper.md", source: "shared draft", from: 0, to: 6,
+      body: "Review this", authorId: participantId, authorName: "Ada",
+    })!;
+    expect(commentMarkStyle(comment)).toContain(`border-bottom: 2px solid ${local.user?.color}`);
     expect(local.path).toBe("paper.md");
     expect(typeof local.instanceId).toBe("string");
     await vi.waitFor(() => expect(peersCalls.flat().some((peer) => peer.name === "Bo" && peer.path === "notes.md" && peer.grantId === "grant-bo")).toBe(true));
@@ -746,8 +762,10 @@ describe("v2 project presence", () => {
   });
 
   it("a permanent close during a cached-first session still drops canWrite", async () => {
+    const permanentErrors: Error[] = [];
     const { controller, disconnectListeners } = await setupPresenceTest({
       syncManually: true,
+      permanentErrors,
       primeStore: (store) => primeAckedSnapshot(store, "cached text"),
     });
     const { TextClientPermanentErrorV2 } = await import("./collab-text-v2");
@@ -755,12 +773,15 @@ describe("v2 project presence", () => {
     const canWrites: boolean[] = [];
     const unsubscribe = controller.subscribeCanWrite((value) => canWrites.push(value));
     expect(canWrites.at(-1)).toBe(true);
-    // The server's write gate closes the socket permanently (4403 maps to
-    // "revoked"); the cached-first client must stop and report read-only.
+    // Closing the project fences its socket immediately (4411 maps to
+    // "project_closed"); the cached-first client must stop and relay why.
     // Wait for the background connection to attach its transport first.
     await vi.waitFor(() => expect(disconnectListeners.length).toBeGreaterThan(0));
-    disconnectListeners.forEach((listener) => listener(new TextClientPermanentErrorV2("revoked")));
+    disconnectListeners.forEach((listener) => listener(new TextClientPermanentErrorV2("project_closed")));
     await vi.waitFor(() => expect(controller.canWrite).toBe(false));
+    expect(permanentErrors).toEqual([
+      expect.objectContaining({ code: "project_closed" }),
+    ]);
     unsubscribe();
     controller.destroy();
   });

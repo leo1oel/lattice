@@ -4218,6 +4218,14 @@ msgstr "公式中的文字"
 msgid "The bundled Agent service could not start."
 msgstr "内置智能助手服务无法启动。"
 
+#: src/App.tsx
+msgid "The host ended this share. Your own project is open again."
+msgstr "主机已结束此次共享，已重新打开你自己的项目。"
+
+#: src/App.tsx
+msgid "The host removed you from this share. Your own project is open again."
+msgstr "主机已将你移出此次共享，已重新打开你自己的项目。"
+
 #: src/overleaf-connect.tsx
 msgid "the linked Overleaf host"
 msgstr "已关联的 Overleaf 服务器"

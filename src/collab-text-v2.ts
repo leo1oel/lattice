@@ -31,6 +31,7 @@ export class CollabTextClientV2 {
   private connectionGeneration = 0; private reconnectAttempt = 0; private reconnectHandle?: unknown; private destroyed = false; private durableSeen = false; private providerSynced = false; private disposing = false;
   private connecting?: Promise<void>;
   private stateListeners = new Set<(state: TextDurabilityStateV2) => void>();
+  private permanentErrorListeners = new Set<(error: TextClientPermanentErrorV2) => void>();
   /** Fired whenever the transport (and thus its Awareness) is replaced or torn down — reconnects make the old awareness a dead object. */
   private transportListeners = new Set<() => void>();
   private syncWaiters = new Set<{ resolve: () => void; reject: (error: Error) => void; timer?: ReturnType<typeof setTimeout> }>();
@@ -52,7 +53,7 @@ export class CollabTextClientV2 {
       const transport = this.factory({ namespace: this.namespace, doc: networkDoc, ticket }); if (generation !== this.connectionGeneration || this.destroyed) { transport.destroy(); networkDoc.destroy(); throw this.destroyed ? new ClientDestroyedErrorV2() : new Error("Connection was superseded"); }
       this.transport = transport; this.unbind = [transport.onCustomMessage((message) => { const checkpoint = Y.encodeStateAsUpdate(this.doc); this.enqueue(() => this.handleCustomMessage(message, checkpoint)); }), transport.onDisconnect((e) => this.onDisconnect(generation, e)), transport.onSynced((synced) => { if (generation === this.connectionGeneration && !this.destroyed) { this.providerSynced = synced; if (synced) { this.reconnectAttempt = 0; this.resolveSyncWaiters(); } this.emitState(); } })];
       for (const entry of this.outbox) Y.applyUpdate(networkDoc, entry.update, SEND_ORIGIN); this.emitTransport(); this.emitState();
-    } catch (cause) { if (generation === this.connectionGeneration && !this.destroyed) { if (cause instanceof TextClientPermanentErrorV2) this.stopped = cause; else this.scheduleReconnect(generation); this.emitState(); } throw cause; }
+    } catch (cause) { if (generation === this.connectionGeneration && !this.destroyed) { if (cause instanceof TextClientPermanentErrorV2) { this.stopped = cause; this.emitPermanentError(cause); } else this.scheduleReconnect(generation); this.emitState(); } throw cause; }
   }
   async settled(): Promise<void> { await this.tail; }
   touch(at = Date.now()): void { this.lastUsed = at; }
@@ -68,9 +69,10 @@ export class CollabTextClientV2 {
   get durabilityState(): TextDurabilityStateV2 { return this.outbox.length ? (this.durableSeen ? "server-durable" : (this.providerSynced ? "transport-synced" : "temporary")) : (this.durableSeen ? "clean" : "temporary"); }
   subscribeTransport(listener: () => void): () => void { this.transportListeners.add(listener); return () => this.transportListeners.delete(listener); }
   subscribeState(listener: (state: TextDurabilityStateV2) => void): () => void { this.stateListeners.add(listener); listener(this.durabilityState); return () => this.stateListeners.delete(listener); }
+  subscribePermanentError(listener: (error: TextClientPermanentErrorV2) => void): () => void { this.permanentErrorListeners.add(listener); if (this.stopped) listener(this.stopped); return () => this.permanentErrorListeners.delete(listener); }
   async exportRecovery() { return this.store.export(this.namespace); }
   async recoverAsNewFile(namespace: TextNamespaceV2): Promise<Uint8Array> { if (namespace.deployment !== this.namespace.deployment || namespace.projectInstanceId !== this.namespace.projectInstanceId || namespace.fileId === this.namespace.fileId || !Number.isSafeInteger(namespace.documentEpoch) || namespace.documentEpoch <= 0) throw new Error("Recovery requires a Coordinator-authorized new file identity"); return Y.encodeStateAsUpdate(this.doc); }
-  destroy(): void { if (this.destroyed) return; this.destroyed = true; ++this.connectionGeneration; this.cancelReconnect(); this.disposeTransport(); for (const waiter of this.syncWaiters) { if (waiter.timer) clearTimeout(waiter.timer); waiter.reject(new ClientDestroyedErrorV2()); } this.syncWaiters.clear(); this.doc.destroy(); this.stateListeners.clear(); this.transportListeners.clear(); }
+  destroy(): void { if (this.destroyed) return; this.destroyed = true; ++this.connectionGeneration; this.cancelReconnect(); this.disposeTransport(); for (const waiter of this.syncWaiters) { if (waiter.timer) clearTimeout(waiter.timer); waiter.reject(new ClientDestroyedErrorV2()); } this.syncWaiters.clear(); this.doc.destroy(); this.stateListeners.clear(); this.permanentErrorListeners.clear(); this.transportListeners.clear(); }
   private enqueue(action: () => Promise<void>): void { this.tail = this.tail.then(action, action); }
   private async persistThenPublish(update: Uint8Array): Promise<void> { const entry = { id: await hash(update), update, createdAt: Date.now() }; await this.store.persistLocal(this.namespace, this.doc, entry); if (!this.outbox.some((x) => x.id === entry.id)) this.outbox.push(entry); if (this.networkDoc) Y.applyUpdate(this.networkDoc, update, SEND_ORIGIN); this.emitState(); }
   private async handleCustomMessage(raw: unknown, checkpoint: Uint8Array): Promise<void> { let value = raw; if (typeof raw === "string") { try { value = JSON.parse(raw); } catch { return; } } if (!isDurableAckV2(value) || !this.validAck(value)) return; const ack = value as DurableAckV2; const vector = safeDecodeBase64Url(ack.stateVector); if (!vector) return;
@@ -79,7 +81,7 @@ export class CollabTextClientV2 {
     this.outbox = await this.store.compactAck(this.namespace, checkpoint, ack, vector); this.revision = ack.contentRevision; this.generation = ack.snapshotGeneration; this.durableSeen = true; this.emitState();
   }
   private validAck(ack: DurableAckV2): boolean { return isDurableAckV2(ack) && ack.projectInstanceId === this.namespace.projectInstanceId && ack.fileId === this.namespace.fileId && ack.documentEpoch === this.namespace.documentEpoch; }
-  private onDisconnect(generation: number, error?: unknown): void { if (generation !== this.connectionGeneration || this.destroyed) return; if (error instanceof TextClientPermanentErrorV2) { this.stopped = error; ++this.connectionGeneration; this.disposeTransport(); this.emitState(); return; }
+  private onDisconnect(generation: number, error?: unknown): void { if (generation !== this.connectionGeneration || this.destroyed) return; if (error instanceof TextClientPermanentErrorV2) { this.stopped = error; ++this.connectionGeneration; this.disposeTransport(); this.emitState(); this.emitPermanentError(error); return; }
     this.disposeTransport(); this.scheduleReconnect(generation); this.emitState();
   }
   private scheduleReconnect(generation: number): void { if (this.reconnectHandle !== undefined) return; const delay = this.reconnectPolicy.delay(this.reconnectAttempt++); this.reconnectHandle = this.reconnectPolicy.schedule(() => { this.reconnectHandle = undefined; if (generation !== this.connectionGeneration || this.destroyed || this.stopped) return; void this.connect().catch(() => undefined); }, delay); }
@@ -87,6 +89,7 @@ export class CollabTextClientV2 {
   private disposeTransport(): void { if (this.disposing) return; this.disposing = true; this.providerSynced = false; for (const off of this.unbind.splice(0)) off(); const transport = this.transport; const networkDoc = this.networkDoc; this.transport = undefined; this.networkDoc = undefined; transport?.clearAwareness(); transport?.destroy(); networkDoc?.destroy(); this.disposing = false; if (transport) this.emitTransport(); }
   private emitTransport(): void { for (const listener of this.transportListeners) listener(); }
   private emitState(): void { for (const listener of this.stateListeners) listener(this.durabilityState); }
+  private emitPermanentError(error: TextClientPermanentErrorV2): void { for (const listener of this.permanentErrorListeners) listener(error); }
   private resolveSyncWaiters(): void { for (const waiter of this.syncWaiters) { if (waiter.timer) clearTimeout(waiter.timer); waiter.resolve(); } this.syncWaiters.clear(); }
 }
 

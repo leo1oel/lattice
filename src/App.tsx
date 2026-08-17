@@ -2988,17 +2988,20 @@ function App() {
     if (code !== "revoked" && code !== "project_closed") return;
     if (collabRoleRef.current === "host") return;
     const controller = collabV2ControllerRef.current;
-    if (controller) {
-      forgetCollabProjectV2(controller.host, controller.room);
-      refreshRecentRooms();
-    }
+    // Every open file has its own socket and they are all fenced together.
+    // The first signal tears the session down; ignore later file signals once
+    // that controller is no longer active so they cannot restore the project
+    // and announce the same closure repeatedly.
+    if (!controller) return;
+    forgetCollabProjectV2(controller.host, controller.room);
+    refreshRecentRooms();
     void leaveGuestShareSession(
       code === "revoked"
-        ? "The host removed you from this share. Your own project is open again."
-        : "The host ended this share. Your own project is open again.",
+        ? t`The host removed you from this share. Your own project is open again.`
+        : t`The host ended this share. Your own project is open again.`,
       true,
     );
-  }, [leaveGuestShareSession, refreshRecentRooms]);
+  }, [leaveGuestShareSession, refreshRecentRooms, t]);
 
   /**
    * The host steps out without ending the room: collaborators keep editing, the
@@ -3062,10 +3065,22 @@ function App() {
     // it, so nobody can rejoin and the entry is only there to be clicked and
     // fail. Drop it the moment the catalog says so, on whichever side sees it.
     if (catalog.lifecycle === "closing" || catalog.lifecycle === "closed") {
-      const deployment = collabV2ControllerRef.current?.host;
+      const activeController = collabV2ControllerRef.current;
+      const deployment = activeController?.host;
       if (deployment) {
         forgetCollabProjectV2(deployment, catalog.projectInstanceId);
         refreshRecentRooms();
+      }
+      // The WebSocket close is the immediate path; the catalog poll is the
+      // fallback for a guest who happened to be offline when the host closed
+      // the room. Either signal must leave the dead shared workspace instead
+      // of only removing its recent-room entry.
+      if (collabRoleRef.current !== "host" && activeController?.room === catalog.projectInstanceId) {
+        void leaveGuestShareSession(
+          t`The host ended this share. Your own project is open again.`,
+          true,
+        );
+        return;
       }
     }
     const livePaths = catalog.files.filter((file) => file.state === "live").map((file) => file.path).sort();
@@ -3079,7 +3094,7 @@ function App() {
       collabV2TreeSignatureRef.current = signature;
       void refreshProject().catch(() => undefined);
     }
-  }, [refreshProject, refreshRecentRooms]);
+  }, [leaveGuestShareSession, refreshProject, refreshRecentRooms, t]);
 
   const handleRemoteCollabDeleteV2 = useCallback(async (
     path: string,
@@ -3325,7 +3340,11 @@ function App() {
           });
           assertCurrentStart();
           setCollabStatusDetail(t`Connecting to the live session…`);
-          controller = await CollabProjectControllerV2.start({ deployment, projectInstanceId: record.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: "host", onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
+          // Permanent socket errors can arrive as soon as the first document
+          // opens, before the session is published below. Classify them using
+          // the session being started rather than the previous session's role.
+          collabRoleRef.current = "host";
+          controller = await CollabProjectControllerV2.start({ deployment, projectInstanceId: record.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: "host", onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
           assertCurrentStart();
           const path = controller.hasTextPath(activeFile || "") ? activeFile : controller.catalogTextPaths()[0];
           if (!path) throw new Error("The shared project has no text files");
@@ -3380,7 +3399,7 @@ function App() {
           if (collabStartGenerationRef.current === startGeneration) collabStartingRef.current = false;
         }
       })();
-  }, [handleV2PermanentError, activeFile, clearCollabLocalState, collabHost, collabName, collabProjectName, handleV2Catalog, loadFile, mapV2Status, project, t, v2WorkspaceCallbacks]);
+  }, [handleV2PermanentError, activeFile, clearCollabLocalState, collabHost, collabName, collabProjectName, editorCommentAuthorId, handleV2Catalog, loadFile, mapV2Status, project, t, v2WorkspaceCallbacks]);
 
   const copyCollabInvite = useCallback(async () => {
     // Minting the invitation is a network round trip; when it fails (offline,
@@ -5729,7 +5748,8 @@ function App() {
           const lease: CollabWorkspaceLease = { projectRoot: snapshot.root, generation: workspaceGeneration, isCurrent: () => collabWorkspaceGenerationRef.current === workspaceGeneration && projectRootRef.current === snapshot.root };
           collabWorkspaceLeaseRef.current = lease;
           setCollabProjectName(record.title);
-          controller = await CollabProjectControllerV2.start({ deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef, credentialStore: store, permission: v2Invite.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
+          collabRoleRef.current = "guest";
+          controller = await CollabProjectControllerV2.start({ deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef, credentialStore: store, permission: v2Invite.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
           collabV2ControllerRef.current = controller;
           collabSessionRef.current = controller;
           const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
@@ -5774,7 +5794,7 @@ function App() {
       return;
     }
     setError("That invite is not a v2 collaboration invite — ask the host for a fresh one from Copy invite.");
-  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabInvite, collabName, collabRoom, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, project, refreshProject, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
+  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabInvite, collabName, collabRoom, editorCommentAuthorId, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, project, refreshProject, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
 
   /// Startup reads this rather than depending on `rejoinCollabProjectV2`,
   /// whose identity churns; the boot effect must run exactly once.
@@ -5802,10 +5822,13 @@ function App() {
         const generation = collabWorkspaceGenerationRef.current + 1; collabWorkspaceGenerationRef.current = generation;
         const lease: CollabWorkspaceLease = { projectRoot: root, generation, isCurrent: () => collabWorkspaceGenerationRef.current === generation && projectRootRef.current === root };
         collabWorkspaceLeaseRef.current = lease;
-        controller = await CollabProjectControllerV2.start({ deployment: record.host, projectInstanceId: record.projectInstanceId, credentialRef, credentialStore: store, permission: record.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
+        collabRoleRef.current = record.permission === "host" ? "host" : "guest";
+        controller = await CollabProjectControllerV2.start({ deployment: record.host, projectInstanceId: record.projectInstanceId, credentialRef, credentialStore: store, permission: record.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
+        collabV2ControllerRef.current = controller;
+        collabSessionRef.current = controller;
         setCollabProjectName(record.title);
         const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
-        await refreshProject(); collabV2ControllerRef.current = controller; collabSessionRef.current = controller;
+        await refreshProject();
         collabRoleRef.current = record.permission === "host" ? "host" : "guest"; setCollabRole(collabRoleRef.current); setActiveCollabVersion(2); setCollabRoom(controller.room); setCollabFileCount(controller.fileCount()); await bindJoinedDocument(controller, materialized.openPath);
         rememberCollabProjectV2({ ...record, projectRoot: root, lastUsed: Date.now() }); refreshRecentRooms(); setCollabStatus("synced");
         playInterfaceSound("collaboration-ready");
@@ -5831,7 +5854,7 @@ function App() {
       }
       finally { setBusyLabel(null); }
     })();
-  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabName, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, project, refreshProject, refreshRecentRooms, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
+  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabName, editorCommentAuthorId, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, project, refreshProject, refreshRecentRooms, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
 
   useEffect(() => {
     pendingJoinRef.current = rejoinCollabProjectV2;
@@ -9986,7 +10009,7 @@ function App() {
             pdfUrl={pdfUrl}
             pdfBase64={null}
             pdfBytes={displayedPdfBytesRef.current}
-            pdfTop={!diagnosticsDismissed && build && (!build.success || build.diagnostics.length > 0) ? (
+            pdfTop={!diagnosticsDismissed && build?.success && build.diagnostics.length > 0 ? (
               <Suspense fallback={null}>
                 <CompileDiagnosticsPanel
                   diagnostics={build.diagnostics}

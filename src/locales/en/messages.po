@@ -4222,6 +4222,14 @@ msgstr "Text in math"
 msgid "The bundled Agent service could not start."
 msgstr "The bundled Agent service could not start."
 
+#: src/App.tsx
+msgid "The host ended this share. Your own project is open again."
+msgstr "The host ended this share. Your own project is open again."
+
+#: src/App.tsx
+msgid "The host removed you from this share. Your own project is open again."
+msgstr "The host removed you from this share. Your own project is open again."
+
 #: src/overleaf-connect.tsx
 msgid "the linked Overleaf host"
 msgstr "the linked Overleaf host"

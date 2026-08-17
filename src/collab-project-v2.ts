@@ -21,6 +21,8 @@ export type CollabProjectV2Options = {
   eventsPollIntervalMs?: number;
   /** Shown to collaborators in presence and cursor labels. */
   displayName?: string;
+  /** Stable person identity shared with comment authorship, used only to choose a consistent color. */
+  participantId?: string;
   /**
    * Our actor's permission. "read" blocks local creates; "host" additionally
    * takes on the catalog duty of marking peer-created (initializing) files
@@ -633,6 +635,7 @@ export class CollabProjectControllerV2 {
           this.emitCanWrite();
         }
       });
+      opened.subscribePermanentError((error) => this.options.onPermanentError?.(error, file.fileId));
       opened.subscribeTransport(() => this.onTransportReplaced(opened));
       return opened;
     })();
@@ -678,7 +681,8 @@ export class CollabProjectControllerV2 {
 
   private presenceIdentity(): { name: string; color: string; colorLight: string } {
     const name = (this.options.displayName ?? "").trim() || "Anonymous";
-    const colors = peerColorForKey(`${name}\0${this.instanceId}`);
+    const colorKey = this.options.participantId?.trim() || `${name}\0${this.instanceId}`;
+    const colors = peerColorForKey(colorKey);
     return { name, color: colors.color, colorLight: colors.colorLight };
   }
 

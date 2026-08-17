@@ -188,7 +188,7 @@ describe("v2 durable text client", () => {
   });
   it("maps permanent and transient WebSocket closes without treating CloseEvent as Error", () => {
     expect(closeEventErrorV2({ code: 1006 })).toBeInstanceOf(Error); expect(closeEventErrorV2({ code: 1006 })).not.toBeInstanceOf(TextClientPermanentErrorV2);
-    expect(closeEventErrorV2({ code: 4403, reason: "revoked" })).toMatchObject({ code: "revoked" }); expect(closeEventErrorV2({ code: 4410 })).toMatchObject({ code: "file_deleted" }); expect(closeEventErrorV2({ code: 1000 })).toBeUndefined();
+    expect(closeEventErrorV2({ code: 4403, reason: "revoked" })).toMatchObject({ code: "revoked" }); expect(closeEventErrorV2({ code: 4410 })).toMatchObject({ code: "file_deleted" }); expect(closeEventErrorV2({ code: 4411 })).toMatchObject({ code: "project_closed" }); expect(closeEventErrorV2({ code: 1000 })).toBeUndefined();
     expect(ticketHttpErrorV2(409)).toMatchObject({ code: "stale_epoch" }); expect(ticketHttpErrorV2(410, "tombstoned")).toMatchObject({ code: "file_deleted" }); expect(ticketHttpErrorV2(503)).not.toBeInstanceOf(TextClientPermanentErrorV2);
   });
   it("ignores malformed vectors and wrong project, file, epoch, duplicate, equal, and out-of-order ACKs", async () => {
@@ -199,6 +199,16 @@ describe("v2 durable text client", () => {
   it("recreates transport with a fresh ticket and stops permanently while retaining export", async () => {
     const x = await setup(); await x.client.connect(); x.client.doc.getText("x").insert(0, "offline"); await x.client.settled(); x.transports[0].disconnected?.(); await vi.waitFor(() => expect(x.tickets).toHaveLength(2));
     x.transports[1].disconnected?.(new TextClientPermanentErrorV2("file_deleted")); await vi.waitFor(() => expect(x.client.isStopped).toBe(true)); expect((await x.client.exportRecovery())?.outbox).toHaveLength(1);
+  });
+  it("notifies subscribers when the server permanently closes the project", async () => {
+    const x = await setup();
+    const errors: TextClientPermanentErrorV2[] = [];
+    const unsubscribe = x.client.subscribePermanentError((error) => errors.push(error));
+    await x.client.connect();
+    x.transports[0].disconnected?.(new TextClientPermanentErrorV2("project_closed"));
+    expect(errors.map((error) => error.code)).toEqual(["project_closed"]);
+    unsubscribe();
+    x.client.destroy();
   });
   it("keeps rename identity stable and evicts only clean LRU with awareness cleanup", async () => {
     const first = await setup(); const replacement = await setup(new IDBFactory()); await first.client.connect(); await replacement.client.connect(); first.transports[0].custom?.(ack(first.client.doc)); replacement.transports[0].custom?.(ack(replacement.client.doc)); await first.client.settled(); await replacement.client.settled(); const pool = new CollabTextProviderPoolV2(1); pool.add(first.client); pool.add(replacement.client); expect(pool.size).toBe(1); expect(first.transports[0].clearAwareness).toHaveBeenCalled(); expect(pool.rename(replacement.client, "renamed.tex")).toBe(replacement.client);
