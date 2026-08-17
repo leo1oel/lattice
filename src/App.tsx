@@ -8174,11 +8174,12 @@ function App() {
         )
       ))) {
         if (visualMarkdownFlushRef.current?.() === false) {
-          throw new Error(t`Try again`);
+          setError(t`Try again`);
+          return [];
         }
         if (!(await save())) {
           // save() already reports the path and underlying write failure.
-          throw new Error(t`Try again`);
+          return [];
         }
       }
       applyProjectEntryPathChanges(plannedChanges);
