@@ -79,7 +79,7 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
 vi.mock("./board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
 vi.mock("./spreadsheet-editor", () => ({ SpreadsheetEditor: () => <div data-testid="spreadsheet-editor-mock" /> }));
 vi.mock("./use-synara-runtime", () => ({
-  useSynaraRuntime: (enabled = true) => {
+  useSynaraRuntime: (enabled: boolean) => {
     synaraHook.enabledCalls.push(enabled);
     return synaraHook;
   },
@@ -536,7 +536,9 @@ describe("welcome screen", () => {
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
     expect(screen.getByText(/leave the editor or stop typing for 1.2 seconds/i)).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v2")).toContain("automatic"));
+    expect(synaraHook.enabledCalls).not.toContain(true);
     fireEvent.click(screen.getByRole("button", { name: "Providers" }));
+    await waitFor(() => expect(synaraHook.enabledCalls).toContain(true));
     expect(screen.getByText("Open a project to manage Agent settings.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
   });
@@ -2276,8 +2278,9 @@ describe("project workspace", () => {
     await screen.findByRole("button", { name: "Switch project" });
     expect(screen.getByRole("tab", { name: "Project" })).toHaveAttribute("aria-selected", "true");
     expect(document.querySelector('iframe[title="Agent"]')).toBeNull();
-    expect(synaraHook.enabledCalls).toContain(true);
+    expect(synaraHook.enabledCalls).not.toContain(true);
     await switchSidebarMode("Agent");
+    await waitFor(() => expect(synaraHook.enabledCalls).toContain(true));
     const frame = await waitFor(() => {
       const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
       expect(element).not.toBeNull();
@@ -2322,6 +2325,36 @@ describe("project workspace", () => {
     const settings = await screen.findByRole("dialog", { name: "Settings" });
     expect(within(settings).getByRole("button", { name: "Providers" }))
       .toHaveAttribute("aria-current", "page");
+  });
+
+  it("starts Synara when source control is requested", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByRole("button", { name: "Switch project" });
+    expect(synaraHook.enabledCalls).not.toContain(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Git status and commit" }));
+
+    await waitFor(() => expect(synaraHook.enabledCalls).toContain(true));
+    expect(document.querySelector('iframe[title="Changes"]')).not.toBeNull();
   });
 
   it("routes agent paper, file, and review requests to their native surfaces", async () => {

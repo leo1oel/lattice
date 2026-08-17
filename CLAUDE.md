@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Lattice — a local-first LaTeX writing app for macOS. Tauri 2 (Rust) shell +
-React 19 / TypeScript / Vite 7 frontend, with a bundled AI-agent sidecar
+React 19 / TypeScript / Vite 8 frontend, with a bundled AI-agent sidecar
 (Synara) and CRDT collaboration (Yjs + Cloudflare Workers).
 
 ## Commands
@@ -53,10 +53,8 @@ eviction of unpinned clean clients; pin names: `main`, `secondary`, `chat`).
 - `vite.config.ts` has `shikiTrimPlugin`: all shiki grammars/themes outside a
   runtime-reachable allowlist are stubbed. If new code can highlight more
   languages at runtime, extend the allowlist there.
-- The eager startup graph is three chunks (`app`, `ui`, `provided-icons`,
-  ~1.2 MB total). Check `dist/index.html` after touching imports near App.tsx;
-  heavy libs (pdfjs, mermaid, katex, harper, codemirror langs, tiptap) must
-  stay behind dynamic imports.
+- The eager startup graph is three application-owned chunks (`app`, `ui`, `provided-icons`) plus Vite 8's tiny `rolldown-runtime` preload, with a 1.35 MiB JavaScript budget enforced by `pnpm build`.
+  Heavy libs (pdfjs, mermaid, katex, harper, codemirror langs, tiptap) must stay behind dynamic imports.
 - `src-tauri/Cargo.toml` has a size-tuned `[profile.release]`; `panic = "abort"`
   is intentionally off (a panic must not kill the app with unsaved edits).
 - `scripts/prepare-synara-sidecar.mjs` prunes the sidecar aggressively. If the

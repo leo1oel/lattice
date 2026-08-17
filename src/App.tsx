@@ -486,6 +486,10 @@ const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
 
 type SynaraPermissionMode = "approval-required" | "auto" | "full-access";
 
+function isSynaraSettingsTab(tab: SettingsTab): boolean {
+  return tab === "agent" || tab === "mcp" || tab === "api";
+}
+
 const SYNARA_PERMISSION_PRESENTATION: Record<
   SynaraPermissionMode,
   { label: string; description: string }
@@ -1683,10 +1687,14 @@ function App() {
       return "project";
     }
   });
+  // One-way by design. A hidden Synara surface may still own a background turn
+  // or PTY, so the first request starts the service for the rest of this app
+  // process; process-idle shutdown needs an explicit lease/task protocol.
+  const [synaraRuntimeRequested, setSynaraRuntimeRequested] = useState(false);
   const {
     runtime: synaraRuntime,
     retry: retrySynaraRuntime,
-  } = useSynaraRuntime();
+  } = useSynaraRuntime(synaraRuntimeRequested);
   const synaraOrigin =
     synaraRuntime.state === "ready" ? synaraRuntime.origin : null;
   const sidebarModeHeaderRef = useRef<HTMLDivElement>(null);
@@ -1957,6 +1965,7 @@ function App() {
   }, [postSynaraMessage]);
   const chooseSidebarMode = (mode: "project" | "papers" | "agent") => {
     if (mode === "agent") {
+      setSynaraRuntimeRequested(true);
       setSynaraFrameMounted(true);
       if (synaraFrameReady) {
         postSynaraMessage({ type: LATTICE_AGENT_PANEL_OPENED });
@@ -2004,6 +2013,7 @@ function App() {
         event.data?.type === SYNARA_OPEN_SETTINGS &&
         event.data.section === "providers"
       ) {
+        setSynaraRuntimeRequested(true);
         setSettingsTab("agent");
         setSettingsOpen(true);
         return;
@@ -8571,6 +8581,7 @@ function App() {
   ]);
 
   const openSettings = useCallback((tab: SettingsTab = "appearance") => {
+    if (isSynaraSettingsTab(tab)) setSynaraRuntimeRequested(true);
     setSettingsTab(tab);
     setSettingsOpen(true);
   }, []);
@@ -8734,6 +8745,7 @@ function App() {
         }}
         tab={settingsTab}
         setTab={(tab) => {
+          if (isSynaraSettingsTab(tab)) setSynaraRuntimeRequested(true);
           setSettingsTab(tab);
           if (tab === "doctor") void runDoctor();
         }}
@@ -9485,6 +9497,7 @@ function App() {
             onHistory={() => setHistoryOpen(true)}
             onGit={() => {
               if (tutorialActive) return;
+              setSynaraRuntimeRequested(true);
               setGitOpen(true);
             }}
             commentCount={allEditorComments.filter((comment) => !comment.resolved).length}

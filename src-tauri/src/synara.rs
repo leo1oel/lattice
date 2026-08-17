@@ -7,7 +7,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
 
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(20);
@@ -373,21 +373,6 @@ pub fn synara_open_skills_folder(app: tauri::AppHandle) -> Result<(), String> {
     app.opener()
         .open_path(skills_dir.to_string_lossy().into_owned(), None::<String>)
         .map_err(|error| error.to_string())
-}
-
-pub fn prewarm(app: tauri::AppHandle) {
-    thread::spawn(move || {
-        thread::sleep(Duration::from_millis(350));
-        let info = match app.state::<SynaraRuntime>().ensure_ready() {
-            Ok(info) => info,
-            Err(message) => SynaraRuntimeInfo::stopped(
-                Some(message),
-                app.state::<SynaraRuntime>().version.clone(),
-                app.state::<SynaraRuntime>().revision.clone(),
-            ),
-        };
-        let _ = app.emit("synara-runtime://status", info);
-    });
 }
 
 fn read_runtime_manifest(path: &Path) -> Option<BundledRuntimeManifest> {

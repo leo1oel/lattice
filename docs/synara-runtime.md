@@ -7,8 +7,8 @@ install Synara, Node.js, Bun, or start a separate service.
 
 - Tauri owns lifecycle only: prepare, start, health-check, report status, and stop.
 - Synara remains an upstream-shaped Node service with its own SQLite and WebSocket layers.
-- One sidecar is prewarmed per Lattice process and listens only on a dynamically selected
-  `127.0.0.1` port.
+- The first Agent, source-control, review, or Agent-settings surface starts one sidecar for the Lattice process on a dynamically selected `127.0.0.1` port.
+- Ordinary writing sessions never launch the bundled Node service; after the first request it remains alive because hidden surfaces may still own background turns or terminals.
 - Tauri explicitly stops the sidecar on `RunEvent::Exit`; the sidecar also watches its launching
   Lattice PID and exits if the host disappears, so a crash cannot leave the SQLite lifecycle lock.
 - Every launch gets a random authentication token. Lattice transfers it in the iframe fragment;
@@ -162,9 +162,9 @@ branch, upstream repository, Node version, and exact Synara revision.
   stages the result under `src-tauri/synara-runtime`.
 - Tauri includes that directory through `bundle.resources`.
 
-The current full-provider runtime is about 733 MB before installer compression. Treat runtime size
-as a release metric; provider-specific lazy packaging is the next place to optimize if installer
-size becomes a constraint.
+Run `pnpm size:report` after preparing the runtime and building the frontend to record exact file-byte totals for the web bundle, eager assets, Node binary, server distribution, runtime dependencies, and provider executables.
+The current macOS full-provider runtime is about 479 MiB before installer compression.
+Treat runtime size as a release metric; provider-specific lazy packaging is the next place to optimize if installer size becomes a constraint.
 
 ## Syncing upstream
 

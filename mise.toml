@@ -74,6 +74,7 @@ sources = [
   "package.json",
   "pnpm-lock.yaml",
   "public/**",
+  "scripts/app-size-report.mjs",
   # Copied out of pdfjs-dist by vite.config.ts on every build; an input that the
   # build itself rewrites can never be fresh.
   "!public/pdfjs/**",

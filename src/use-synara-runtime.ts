@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import {
   EMPTY_SYNARA_RUNTIME,
   normalizeSynaraOrigin,
@@ -39,21 +38,21 @@ function normalizeRuntime(info: SynaraRuntimeInfo): SynaraRuntimeInfo {
   };
 }
 
-export function useSynaraRuntime() {
+/**
+ * Start the bundled service only after a Synara-owned surface is requested.
+ * `enabled` is intentionally a one-way App-level latch: once the service has
+ * started it may own background turns and terminals, so hiding a surface must
+ * not tear it down.
+ */
+export function useSynaraRuntime(enabled: boolean) {
   const [runtime, setRuntime] = useState<SynaraRuntimeInfo>(
     DEVELOPMENT_RUNTIME ?? EMPTY_SYNARA_RUNTIME,
   );
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (DEVELOPMENT_RUNTIME) return;
+    if (DEVELOPMENT_RUNTIME || !enabled) return;
     let disposed = false;
-    const stopListening = listen<SynaraRuntimeInfo>(
-      "synara-runtime://status",
-      ({ payload }) => {
-        if (!disposed) setRuntime(normalizeRuntime(payload));
-      },
-    );
     void invoke<SynaraRuntimeInfo>("synara_ensure_ready")
       .then((info) => {
         if (!disposed) setRuntime(normalizeRuntime(info));
@@ -68,9 +67,8 @@ export function useSynaraRuntime() {
       });
     return () => {
       disposed = true;
-      void stopListening.then((unlisten) => unlisten());
     };
-  }, [attempt]);
+  }, [attempt, enabled]);
 
   const retry = useCallback(() => {
     setRuntime((current) => ({ ...current, state: "starting", message: null }));

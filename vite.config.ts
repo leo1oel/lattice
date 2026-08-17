@@ -2,11 +2,11 @@ import { cpSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
-import react from "@vitejs/plugin-react";
-import { lingui } from "@lingui/vite-plugin";
+import babel from "@rolldown/plugin-babel";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 
-// @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 /**
@@ -18,7 +18,10 @@ const host = process.env.TAURI_DEV_HOST;
  * plugin registers a fixed nine-language set. Everything outside that set is
  * replaced with an inert stub grammar/theme so the chunks shrink to ~100 bytes.
  */
-function shikiTrimPlugin(): Plugin {
+function shikiTrimPlugin(): {
+  plugin: Plugin;
+  isStubbed: (id: string) => boolean;
+} {
   const keepLangs = new Set([
     // Registered for Pierre diff views in src/file-diff-view.tsx.
     "tex",
@@ -117,18 +120,38 @@ function pdfjsAssetsPlugin(): Plugin {
 
 const shikiTrim = shikiTrimPlugin();
 
+const manualChunkName = (id: string) => {
+  // Stubbed shiki grammars/themes are ~100 bytes each; folding them into one
+  // chunk avoids emitting ~450 near-empty asset files.
+  if (shikiTrim.isStubbed(id)) return "shiki-stubs";
+  if (id.includes("node_modules/@lezer")) return "parser";
+  if (id.includes("/node_modules/@codemirror/lang-markdown/") || id.includes("/node_modules/@codemirror/language-data/")) return undefined;
+  if (id.includes("/node_modules/@replit/codemirror-vim/") || id.includes("/node_modules/@replit/codemirror-emacs/")) return undefined;
+  if (id.includes("/node_modules/@codemirror/") || id.includes("/node_modules/@uiw/react-codemirror/") || id.includes("/node_modules/codemirror-lang-latex/")) return "editor";
+  if (id.includes("pdfjs-dist")) return "pdf-reader";
+  if (id.includes("gsap")) return "motion";
+  // Match react/react-dom exactly: the loose prefix also caught react-joyride,
+  // react-medium-image-zoom, etc., forcing them into the eager ui chunk.
+  if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/") || id.includes("/node_modules/scheduler/") || id.includes("node_modules/lucide-react")) return "ui";
+  return undefined;
+};
+
 // https://vite.dev/config/
-export default defineConfig(async () => ({
+export default defineConfig(() => ({
   plugins: [
     // React Compiler auto-memoizes components it can prove safe, and silently
     // skips the rest (e.g. anything the react-hooks lint still flags), so it is
     // safe to enable across the app before every warning is cleaned up.
-    // Lingui macros must expand first so the compiler sees ordinary React.
-    react({ babel: { plugins: [
-      "@lingui/babel-plugin-lingui-macro",
-      ["babel-plugin-react-compiler", { target: "19" }],
-    ] } }),
+    react(),
     lingui(),
+    // Babel applies presets right-to-left: Lingui macros must expand first so
+    // the compiler sees ordinary React rather than macro-generated components.
+    babel({
+      presets: [
+        reactCompilerPreset({ target: "19" }),
+        linguiTransformerBabelPreset(),
+      ],
+    }),
     tailwindcss(),
     pdfjsAssetsPlugin(),
     shikiTrim.plugin,
@@ -148,27 +171,49 @@ export default defineConfig(async () => ({
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       input: {
         app: path.resolve("index.html"),
         "icon-lab": path.resolve("icon-lab.html"),
       },
       output: {
-        manualChunks(id) {
-          // Stubbed shiki grammars/themes are ~100 bytes each; folding them
-          // into one chunk avoids emitting ~450 near-empty asset files.
-          if (shikiTrim.isStubbed(id)) return "shiki-stubs";
-          if (id.includes("node_modules/@lezer")) return "parser";
-          if (id.includes("/node_modules/@codemirror/lang-markdown/") || id.includes("/node_modules/@codemirror/language-data/")) return undefined;
-          if (id.includes("/node_modules/@replit/codemirror-vim/") || id.includes("/node_modules/@replit/codemirror-emacs/")) return undefined;
-          if (id.includes("/node_modules/@codemirror/") || id.includes("/node_modules/@uiw/react-codemirror/") || id.includes("/node_modules/codemirror-lang-latex/")) return "editor";
-          if (id.includes("pdfjs-dist")) return "pdf-reader";
-          if (id.includes("gsap")) return "motion";
-          // Match react/react-dom exactly: the loose prefix also caught
-          // react-joyride, react-medium-image-zoom, etc., forcing them into
-          // the eager ui chunk.
-          if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/") || id.includes("/node_modules/scheduler/") || id.includes("node_modules/lucide-react")) return "ui";
-          return undefined;
+        codeSplitting: {
+          groups: [
+            {
+              name(id, context) {
+                const explicitName = manualChunkName(id);
+                if (explicitName) return explicitName;
+
+                // Rolldown's automatic common chunks are split by every lazy
+                // entry signature. Recover Rollup's coarser startup boundary
+                // while keeping the icon lab and its shared modules separate.
+                const entries = new Set<string>();
+                const pending = [id];
+                const visited = new Set<string>();
+                while (pending.length > 0) {
+                  const moduleId = pending.pop()!;
+                  if (visited.has(moduleId)) continue;
+                  visited.add(moduleId);
+                  const info = context.getModuleInfo(moduleId);
+                  if (!info) continue;
+                  if (info.isEntry) {
+                    entries.add(info.id.includes("icon-lab.html") ? "icon-lab" : "app");
+                  } else {
+                    pending.push(...info.importers);
+                  }
+                }
+                if (entries.size > 1) return "provided-icons";
+                return entries.has("icon-lab") ? "icon-lab" : "app";
+              },
+              tags: ["$initial"],
+              includeDependenciesRecursively: false,
+              priority: 1,
+            },
+            {
+              name: manualChunkName,
+              includeDependenciesRecursively: false,
+            },
+          ],
         },
       },
     },

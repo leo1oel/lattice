@@ -3775,7 +3775,6 @@ pub fn run() {
             log::info!(target: "lattice::app", "Lattice {} starting", app.package_info().version);
             app.manage(AppState::from_environment());
             app.manage(synara::SynaraRuntime::new(app)?);
-            synara::prewarm(app.handle().clone());
             // After an update changed a tool pin, this rebuilds the uvx
             // environment now instead of during the user's first import.
             tauri::async_runtime::spawn_blocking(commands::prewarm_literature_tools);
