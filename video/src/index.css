@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* remocn components set `font-family: var(--font-geist-sans), -apple-system, …`.
+   An undefined custom property makes the whole declaration invalid at
+   computed-value time — the browser falls back to the inherited font (serif),
+   NOT to the rest of the stack. Defining it here is what keeps the type sans. */
+:root {
+  --font-geist-sans:
+    -apple-system, BlinkMacSystemFont, "Helvetica Neue", Inter, sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
