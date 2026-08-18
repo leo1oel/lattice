@@ -7,6 +7,7 @@ import { setError, setNotice } from "./notify";
 import { confirmAction, toMessage } from "../app-utils";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
+import { isPaperLibraryPath } from "../papers/paper-link";
 import {
   clearPreCollabProjectRoot,
   resolvePreCollabProjectRoot,
@@ -480,7 +481,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
    */
   const publishTextToCollabV2 = useCallback(async (path: string, content: string, expectedMutationGeneration = collabPathMutationGeneration(path)): Promise<boolean> => {
     const controller = collabV2ControllerRef.current;
-    if (activeCollabVersion !== 2 || !controller || path.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(path)) return false;
+    if (activeCollabVersion !== 2 || !controller || path.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(path) || isPaperLibraryPath(path)) return false;
     if (!controller.hasTextPath(path)) return false;
     const ytext = await controller.openPath(path, "secondary", { sideload: true });
     // Minimal-span merge, not delete-all + insert-all: a peer's concurrent
@@ -510,7 +511,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
    */
   const shareCreatedFileWithCollabV2 = useCallback(async (path: string, kind: "text" | "binary" | "board" | "spreadsheet") => {
     const controller = collabV2ControllerRef.current;
-    if (activeCollabVersion !== 2 || !controller) return;
+    if (activeCollabVersion !== 2 || !controller || isPaperLibraryPath(path)) return;
     try {
       if (kind === "binary") {
         const asset = await invoke<AssetPreview>("read_project_asset", { path });
@@ -611,7 +612,8 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
           collabRoleRef.current = "host";
           controller = await CollabProjectControllerV2.start({ deployment, projectInstanceId: record.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: "host", onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
           assertCurrentStart();
-          const path = controller.hasTextPath(activeFile || "") ? activeFile : controller.catalogTextPaths()[0];
+          const sharedTextPaths = controller.catalogTextPaths().filter((item) => !isPaperLibraryPath(item));
+          const path = activeFile && sharedTextPaths.includes(activeFile) ? activeFile : sharedTextPaths[0];
           if (!path) throw new Error("The shared project has no text files");
           setCollabStatusDetail(t`Opening the shared document…`);
           await controller.openPath(path);

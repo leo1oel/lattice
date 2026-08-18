@@ -26,6 +26,16 @@ export function paperLinkHref(
 }
 
 /**
+ * Cached paper bundles under `.research/papers/`. These stay local: shares
+ * send the bibliography, and each collaborator fetches full text on demand.
+ * A root-level `paper.md` is an ordinary project file, not a library path.
+ */
+export function isPaperLibraryPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  return normalized === ".research/papers" || normalized.startsWith(".research/papers/");
+}
+
+/**
  * Recognize a resolved project path that points into a paper's cached
  * markdown, so link clicks can route to the Papers reading view instead of a
  * plain editor tab. Papers live under `.research`, which the file tree

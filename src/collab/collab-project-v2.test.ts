@@ -855,6 +855,61 @@ describe("v2 board disk mirroring", () => {
   });
 });
 
+describe("v2 paper library materialization", () => {
+  it("writes shared project files and skips cached paper bundles", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_LATTICE_COLLAB_V2", "true");
+    const { IDBFactory } = await import("fake-indexeddb");
+    const { Awareness } = await import("y-protocols/awareness");
+    const catalogValue = {
+      protocol: 2, projectInstanceId: "proj", lifecycle: "live", catalogRevision: 1,
+      snapshotGeneration: 0, workspaceLeaseGeneration: 0, authorityEpoch: 1,
+      files: [
+        { fileId: "f0", path: "main.tex", kind: "text", state: "live", documentEpoch: 1 },
+        { fileId: "p0", path: ".research/papers/1706.03762/paper.md", kind: "text", state: "live", documentEpoch: 1 },
+      ],
+    };
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const respond = (value: unknown) => new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } });
+      if (url.endsWith("/catalog")) return respond(catalogValue);
+      if (url.includes("/events")) return respond({ catalogRevision: 1, events: [], refetch: false });
+      if (url.endsWith("/tickets")) return respond({ ticket: "ticket" });
+      if (url.endsWith("/presence")) return respond({ protocol: 2, presence: {} });
+      throw new Error(`unexpected fetch: ${url}`);
+    }));
+    const { CollabProjectControllerV2 } = await import("./collab-project-v2");
+    const writes: string[] = [];
+    const controller = await CollabProjectControllerV2.start({
+      deployment: "https://collab.example", projectInstanceId: "proj",
+      credentialRef: "ref", credentialStore: { get: async () => "secret" } as never,
+      store: new (await import("./collab-text-v2-store")).CollabTextDurableStoreV2(new IDBFactory()),
+      transportFactory: ({ doc }) => {
+        const awareness = new Awareness(doc);
+        return {
+          awareness,
+          onCustomMessage: () => () => undefined,
+          onDisconnect: () => () => undefined,
+          onSynced: (listener) => { queueMicrotask(() => listener(true)); return () => undefined; },
+          clearAwareness: () => awareness.setLocalState(null),
+          destroy: () => awareness.destroy(),
+        };
+      },
+      eventsPollIntervalMs: 5,
+      displayName: "Ada",
+    });
+    const materialized = await controller.materializeProject(
+      { projectRoot: "/tmp/proj", isCurrent: () => true },
+      {
+        writeText: async (path) => { writes.push(path); },
+        writeBytes: async () => undefined,
+      },
+    );
+    expect(materialized.openPath).toBe("main.tex");
+    expect(writes).toEqual(["main.tex"]);
+    controller.destroy();
+  });
+});
+
 describe("v2 awareness rebinding after reconnect", () => {
   it("follows the client's new Awareness and re-announces identity after a transport reconnect", async () => {
     vi.resetModules();
@@ -1154,6 +1209,14 @@ describe("v2 mid-share file creation", () => {
   it("rejects a path that is already in the catalog", async () => {
     const { controller, calls } = await setupCreateTest({ permission: "host" });
     await expect(controller.create("paper.md", "text")).rejects.toThrow(/already exists/);
+    expect(calls.create).toBe(0);
+    controller.destroy();
+  });
+
+  it("refuses to share paper library bundles mid-session", async () => {
+    const { controller, calls } = await setupCreateTest({ permission: "host" });
+    await expect(controller.create(".research/papers/1706.03762/paper.md", "text", { seedText: "# Paper\n" }))
+      .rejects.toThrow(/stay local/);
     expect(calls.create).toBe(0);
     controller.destroy();
   });

@@ -12,6 +12,7 @@ import { COLLAB_CHAT_PATH, peerColorForKey, readCollabPeers, type CollabPeer } f
 import { EDITOR_COMMENTS_PATH } from "../editor/comments/editor-comment-data";
 import type { OperationResultV2 } from "../../protocol/collab-v2";
 import { putTextFileV2 } from "./collab-import-v2";
+import { isPaperLibraryPath } from "../papers/paper-link";
 
 export type CollabProjectStatusV2 = "syncing" | "server-received" | "durable" | "offline" | "read-only" | "importing" | "closed" | "error";
 export type CollabProjectV2Options = {
@@ -459,6 +460,7 @@ export class CollabProjectControllerV2 {
 
     for (const { file, previousPath } of plan.renamed) {
       if (this.locallyRenamed.get(file.fileId) === file.path) continue;
+      if (isPaperLibraryPath(file.path) || isPaperLibraryPath(previousPath)) continue;
       const client = this.clients.get(file.fileId);
       if (client) this.pool.rename(client, file.path);
       if (this.activePath === previousPath) { this.activePath = file.path; this.setAwarenessPath(file.path); }
@@ -470,6 +472,7 @@ export class CollabProjectControllerV2 {
 
     for (const file of plan.created) {
       if (this.locallyCreated.has(file.fileId)) continue;
+      if (isPaperLibraryPath(file.path)) continue;
       // A binary with no hash was created mid-share and its upload is still in
       // flight; the staleBinaries pass after its commit pulls the bytes.
       if (file.kind === "binary" && !file.hash) continue;
@@ -499,7 +502,7 @@ export class CollabProjectControllerV2 {
 
     const refreshed = new Set(plan.created.map((file) => file.fileId));
     for (const file of plan.staleBinaries) {
-      if (refreshed.has(file.fileId)) continue;
+      if (refreshed.has(file.fileId) || isPaperLibraryPath(file.path)) continue;
       await this.enqueueFile(file.fileId, async () => {
         this.checkLease(lease);
         const bytes = await this.getBinaryClient().download(file.fileId, file.documentEpoch);
@@ -510,7 +513,7 @@ export class CollabProjectControllerV2 {
 
     for (const { fileId, path } of plan.deleted) {
       this.detachDiskObserver(fileId);
-      if (this.locallyDeleted.has(fileId)) continue;
+      if (this.locallyDeleted.has(fileId) || isPaperLibraryPath(path)) continue;
       // An epoch bump reusing the same path shows up as delete+create; the
       // create already rewrote the content, so deleting would remove the live file.
       if (this.catalogValue.files.some((file) => file.state === "live" && file.path === path)) continue;
@@ -795,6 +798,7 @@ export class CollabProjectControllerV2 {
    */
   async create(path: string, kind: "text" | "binary" | "board" | "spreadsheet", options: { seedText?: string; timeoutMs?: number; adoptExisting?: boolean } = {}): Promise<boolean> {
     this.assertCatalogOnline();
+    if (isPaperLibraryPath(path)) throw new Error("Paper library files stay local; collaborators fetch them on demand");
     if ((this.options.permission ?? "write") === "read") throw new Error("Read-only collaborators cannot create files");
     const lease = this.requireLease();
     // Mirror the server's ensurePathFree: only states that still occupy the
@@ -924,7 +928,7 @@ export class CollabProjectControllerV2 {
   async materializeProject(lease: CollabMaterializeLeaseV2, callbacks: CollabMaterializeCallbacksV2): Promise<CollabMaterializeResultV2> {
     this.assertLiveController();
     this.bindWorkspace(lease, callbacks);
-    const files = this.catalogFiles().filter((file) => file.state === "live");
+    const files = this.catalogFiles().filter((file) => file.state === "live" && !isPaperLibraryPath(file.path));
     const textFiles = files.filter((file) => file.kind !== "binary");
     const openPath = chooseRootTextPath(textFiles);
     const checkLease = () => { if (!lease.isCurrent()) throw new Error("Collaboration workspace lease expired"); };
@@ -1002,7 +1006,7 @@ export class CollabProjectControllerV2 {
   }
   /** Mirror remote edits of a synced text-family file onto the workspace disk. */
   private attachDiskObserver(file: CatalogFileV2, client: CollabTextClientV2, lease: CollabMaterializeLeaseV2, callbacks: CollabMaterializeCallbacksV2): void {
-    if (this.diskObservers.has(file.fileId)) return;
+    if (this.diskObservers.has(file.fileId) || isPaperLibraryPath(file.path)) return;
     const fileId = file.fileId; const documentEpoch = file.documentEpoch;
     // Boards and spreadsheets keep live state in structured Y types, so
     // watching only the content Y.Text would mirror the stale import forever.
@@ -1138,9 +1142,10 @@ export class CollabProjectControllerV2 {
 function randomSecret(): string { const bytes = crypto.getRandomValues(new Uint8Array(32)); return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", ""); }
 async function sha256(value: string): Promise<string> { const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)); return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join(""); }
 function chooseRootTextPath(files: CatalogFileV2[]): string {
-  return files.find((file) => /(^|\/)main\.(md|tex|txt)$/i.test(file.path))?.path
-    ?? files.find((file) => !file.path.includes("/"))?.path
-    ?? files[0]?.path
+  const shared = files.filter((file) => !isPaperLibraryPath(file.path));
+  return shared.find((file) => /(^|\/)main\.(md|tex|txt)$/i.test(file.path))?.path
+    ?? shared.find((file) => !file.path.includes("/"))?.path
+    ?? shared[0]?.path
     ?? "";
 }
 function binaryConflictPath(path: string, conflictId: string): string { const dot = path.lastIndexOf("."); const suffix = `.conflict-${conflictId.slice(0, 8)}`; return dot > path.lastIndexOf("/") ? `${path.slice(0, dot)}${suffix}${path.slice(dot)}` : `${path}${suffix}`; }

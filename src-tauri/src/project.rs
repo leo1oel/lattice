@@ -3854,7 +3854,8 @@ pub fn import_files(
 }
 
 /// Write raw bytes (base64) to a project-relative path for collab sync.
-/// Allows `.research/papers/**` and normal project files; blocks history/sessions/omp.
+/// Allows `.research/project.json`, `.research/brief.md`, and normal project
+/// files. Paper library bundles stay local — peers fetch them on demand.
 pub fn write_bytes(root: &Path, relative: &str, base64_data: &str) -> Result<(), String> {
     let relative = relative.trim().replace('\\', "/");
     if relative.is_empty() || relative.contains("..") {
@@ -3865,6 +3866,7 @@ pub fn write_bytes(root: &Path, relative: &str, base64_data: &str) -> Result<(),
         || relative.starts_with(".research/omp-")
         || relative.starts_with(".research/checkpoints/")
         || relative.starts_with(".research/cache/")
+        || is_paper_library_path(&relative)
     {
         return Err("That path cannot be written by collab sync.".to_string());
     }
@@ -3872,13 +3874,10 @@ pub fn write_bytes(root: &Path, relative: &str, base64_data: &str) -> Result<(),
         return Err("Hidden paths outside .research cannot be written.".to_string());
     }
     if relative.starts_with(".research/")
-        && !relative.starts_with(".research/papers/")
         && relative != ".research/project.json"
         && relative != ".research/brief.md"
     {
-        return Err(
-            "Only papers metadata and project sidecar files can sync under .research.".to_string(),
-        );
+        return Err("Only project sidecar files can sync under .research.".to_string());
     }
     let bytes = STANDARD
         .decode(base64_data.trim())
@@ -5565,6 +5564,12 @@ fn classify_regular_file_cached(
     Ok(kind)
 }
 
+/// Cached literature under `.research/papers/`. Shares send the bibliography
+/// instead; each collaborator downloads full text when they open a paper.
+fn is_paper_library_path(relative: &str) -> bool {
+    relative == ".research/papers" || relative.starts_with(".research/papers/")
+}
+
 fn exclusion_reason(relative: &Path, name: &str, path: &Path) -> Option<&'static str> {
     let normalized = relative.to_string_lossy().replace('\\', "/");
     if normalized == ".git" || normalized.starts_with(".git/") {
@@ -5732,16 +5737,6 @@ pub fn collab_project_inventory_v2(root: &Path) -> Result<CollabProjectInventory
                 return true;
             }
             let relative = entry.path().strip_prefix(&root).unwrap_or(entry.path());
-            let normalized = relative.to_string_lossy().replace('\\', "/");
-            // Paper markdown and its converter-owned assets are portable project
-            // content. Traverse only this public branch of otherwise private
-            // `.research` state so collaborators receive renderable papers.
-            if normalized == ".research" || normalized == ".research/papers" {
-                return true;
-            }
-            if normalized.starts_with(".research/papers/") {
-                return !entry.file_name().to_string_lossy().starts_with(".fetch-");
-            }
             exclusion_reason(relative, &entry.file_name().to_string_lossy(), entry.path()).is_none()
         });
     for entry in walker.filter_map(Result::ok).skip(1) {
@@ -5772,7 +5767,7 @@ pub fn collab_project_inventory_v2(root: &Path) -> Result<CollabProjectInventory
     }
     for (pattern, reason) in [
         (".git/**", "git-internals"),
-        (".research/** (except papers)", "app-private-state"),
+        (".research/**", "app-private-state"),
         ("node_modules/**", "generated-directory"),
         ("target/**", "generated-directory"),
         ("dist/**", "generated-directory"),
@@ -6303,7 +6298,7 @@ mod tests {
     }
 
     #[test]
-    fn collaboration_inventory_includes_paper_bundles_but_not_other_research_state() {
+    fn collaboration_inventory_shares_the_bibliography_but_not_paper_bundles() {
         let root = temp_root("inventory-papers");
         fs::create_dir_all(root.join(".research/papers/2401.00001/paper_assets")).unwrap();
         fs::write(
@@ -6316,6 +6311,7 @@ mod tests {
             b"\x89PNG\r\n\x1a\n",
         )
         .unwrap();
+        fs::write(root.join("references.bib"), b"@article{x, title={X}}\n").unwrap();
         fs::create_dir_all(root.join(".research/history")).unwrap();
         fs::write(root.join(".research/history/private.json"), b"{}").unwrap();
 
@@ -6325,9 +6321,26 @@ mod tests {
             .iter()
             .map(|file| file.path.as_str())
             .collect::<Vec<_>>();
-        assert!(paths.contains(&".research/papers/2401.00001/paper.md"));
-        assert!(paths.contains(&".research/papers/2401.00001/paper_assets/figure.png"));
+        assert!(paths.contains(&"references.bib"));
+        assert!(!paths.iter().any(|path| path.contains(".research/papers")));
         assert!(!paths.iter().any(|path| path.contains("history")));
+        assert!(inventory
+            .excluded
+            .iter()
+            .any(|item| item.path_or_pattern == ".research/**"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn collab_write_bytes_rejects_paper_library_paths() {
+        let root = temp_root("write-bytes-papers");
+        let error = write_bytes(
+            &root,
+            ".research/papers/2401.00001/paper_assets/figure.png",
+            "QQ==",
+        )
+        .unwrap_err();
+        assert!(error.contains("cannot be written by collab sync"));
         fs::remove_dir_all(root).unwrap();
     }
 

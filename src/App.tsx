@@ -4916,25 +4916,15 @@ function App() {
       const snapshot = await refreshProject();
       await refreshHistory();
       if (collabSession && !result.alreadyImported) {
-        // A work with no arXiv id has no text on disk to share — only the
-        // bibliography changed, and sending `.research/papers//paper.md` would
-        // be asking for a file that cannot exist. Only paths already in the
-        // v2 catalog propagate; files created by the import stay local until
-        // the share is restarted.
-        for (const path of [
-          ...(result.arxivId ? [
-            `.research/papers/${result.arxivId}/paper.md`,
-            `.research/papers/${result.arxivId}/blog.md`,
-            `.research/papers/${result.arxivId}/metadata.json`,
-          ] : []),
-          snapshot.manifest.primaryBibliography,
-        ].filter(Boolean) as string[]) {
-          try {
-            const content = await invoke<string>("read_project_file", { path });
-            await publishTextToCollabV2(path, content);
-          } catch {
-            // Optional sidecar / bib may be missing.
-          }
+        // Bibliography is the shared paper catalog. Full-text bundles stay
+        // local — collaborators fetch them when they open a paper.
+        try {
+          const content = await invoke<string>("read_project_file", {
+            path: snapshot.manifest.primaryBibliography,
+          });
+          await publishTextToCollabV2(snapshot.manifest.primaryBibliography, content);
+        } catch {
+          // Optional sidecar / bib may be missing.
         }
       }
       // The citation lands even when the download does not (papers.rs commits
@@ -5127,23 +5117,6 @@ function App() {
       await refreshProject();
       const fetched = (await invoke<PaperSummary[]>("list_papers"))
         .find((item) => item.arxivId === result.arxivId) ?? { ...paper, hasFullText: true };
-      if (collabSession) {
-        // Only paths already in the v2 catalog propagate; the fetched files
-        // themselves are new and stay local until the share is restarted.
-        for (const path of [
-          result.paperPath,
-          result.blogPath,
-          `.research/papers/${result.arxivId}/metadata.json`,
-          ...(fetched.assetPaths ?? []),
-        ].filter(Boolean) as string[]) {
-          try {
-            const content = await invoke<string>("read_project_file", { path });
-            await publishTextToCollabV2(path, content);
-          } catch {
-            // Binary assets and missing sidecars have nothing to publish.
-          }
-        }
-      }
       setPaperFetchStates((current) => ({ ...current, [key]: "success" }));
       if (paperFetchTimers.current[key]) window.clearTimeout(paperFetchTimers.current[key]);
       paperFetchTimers.current[key] = window.setTimeout(() => {
@@ -5174,10 +5147,7 @@ function App() {
       }
       setPaperImportStage(null);
     }
-    // Same reason as importReferenceInput: `collabSession` does not fence
-    // `publishTextToCollabV2`'s identity, so it has to be listed itself or a
-    // fetched paper stays invisible to collaborators for the whole share.
-  }, [changePaperView, collabSession, openPaper, publishTextToCollabV2, refreshProject, tutorialActive, tutorialStep]);
+  }, [changePaperView, openPaper, refreshProject, tutorialActive, tutorialStep]);
 
   useEffect(() => () => {
     Object.values(paperFetchTimers.current).forEach((timer) => window.clearTimeout(timer));

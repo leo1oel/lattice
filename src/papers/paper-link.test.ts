@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { paperLinkHref, paperReadingPath, parsePaperLinkPath } from "./paper-link";
+import { paperLinkHref, paperReadingPath, parsePaperLinkPath, isPaperLibraryPath } from "./paper-link";
 
 describe("paperReadingPath", () => {
   it("prefers the full text and falls back to the overview", () => {
@@ -34,6 +34,17 @@ describe("paperLinkHref", () => {
       expect(parsePaperLinkPath(parts.join("/")))
         .toEqual({ arxivId: "2010.11929", view: "blog" });
     }
+  });
+});
+
+describe("isPaperLibraryPath", () => {
+  it("matches cached paper bundles, not a root-level manuscript", () => {
+    expect(isPaperLibraryPath(".research/papers")).toBe(true);
+    expect(isPaperLibraryPath(".research/papers/1706.03762/paper.md")).toBe(true);
+    expect(isPaperLibraryPath(".research/papers/1706.03762/paper_assets/figure.png")).toBe(true);
+    expect(isPaperLibraryPath("paper.md")).toBe(false);
+    expect(isPaperLibraryPath(".research/editor-comments.json")).toBe(false);
+    expect(isPaperLibraryPath("references.bib")).toBe(false);
   });
 });
 
