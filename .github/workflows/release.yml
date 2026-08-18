@@ -173,7 +173,7 @@ jobs:
           echo "APPLE_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
 
       - name: Build, sign, and publish the release
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=4096
